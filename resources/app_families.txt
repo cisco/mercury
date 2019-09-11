@@ -1,0 +1,140 @@
+Dashlane (MacOS),DashlanePluginMASService,DashlaneAgent,DashlanePluginService,P72E3GC48.com.dashlane.DashlaneAgent
+Git Remote (MacOS),cluster_1,git-remote-https,git-remote-http
+ATOK (WinNT),ATOK31WD.EXE,ATOK31DV.EXE,ATOK31CL.EXE
+OmniGraffle (MacOS),OmniFocus,OmniGraffle,OmniPresence
+VMware (Cross-Platform),VMware Fusion,vmplayer.exe
+Tocaro (Cross-Platform),tocaro.exe,tocaro
+McAfee Security (WinNT),mfeesp.exe,mfeatp.exe
+Avast (WinNT),AvastUI.exe,AVGUI.exe,AVGSvc.exe,AvastSvc.exe
+True Key (Cross-Platform),truekey.exe,True Key
+NortonSecurity (WinNT),NortonSecurity.exe,nortonsecurity.exe
+ATOK (WinNT),ATOK29SY.EXE,ATOK31SY.EXE
+1Password (MacOS),1Password 7,2BUA8C4S2C.com.agilebits.onepassword4-helper,2BUA8C4S2C.com.agilebits.onepassword-osx-helper
+VPN Agent (Cross-Platform),vpnagent.exe,vpnagentd
+iCloud (WinNT),EReporter.exe,ApplePhotoStreams.exe,AppleIEDAV.exe,iCloudServices.exe,AppleChromeDAV.exe,iCloudPhotos.exe,AppleFirefoxHost.exe,iCloudDrive.exe
+Tableau (Cross-Platform),tableau.exe,Tableau,tabreader.exe
+Terraform Provider AWS (MacOS),terraform-provider-aws_v1.29.0_x4,terraform-provider-aws_v1.16.0_x4,terraform-provider-aws_v0.1.4_x4,terraform-provider-aws_v1.25.0_x4,terraform-provider-aws_v1.30.0_x4
+Adobe Reader (WinNT)),readerdc_uk_gi_cra_install.exe,readerdc_jp_xa_crd_install.exe,readerdc_en_xa_cra_install.exe,readerdc_jp_ka_cra_install.exe,readerdc_en_ka_cra_install(1).exe
+BitDefender (Cross-Platform),BDUpdDaemon,BDCoreIssues,analysecrash.exe,updatesrv.exe,ProductAgentService.exe,vsserv.exe,BDLDaemon,vsservppl.exe,bdagentd
+ANSYS SIwave (WinNT),ansysedt.exe,siwave.exe
+Eikon Box (WinNT),EikonBox.exe,EikonBoxNet.exe
+McAfee Site Advisor (WinNT),mcsacore.exe,servicehost.exe
+Node.js (Cross-Platform),nw.exe,nwjs Helper
+Banktivity (MacOS),Banktivity 7,Banktivity 6
+Galaxy Communication (WinNT)),GalaxyCommunication.exe,GalaxyClient.exe,GalaxyUpdater.exe
+HP Active Support (WinNT),ProductConfig.exe,HPSSFUpdater.exe
+Terraform AWS (MacOS),terraform-provider-aws_v1.40.0_x4,terraform,terraform-provider-aws_v1.41.0_x4,terraform-provider-aws_v1.42.0_x4
+cluster_28,HedExHS.exe,HedExMsgManager.exe,HedExLite.exe
+cluster_29,EpicGamesLauncher-Mac-Shipping,EpicGamesLauncher.exe
+cluster_30,BaofengPlatform.exe,synergy-service,Plex Media Server,QyFragment.exe,synergy-service.exe,Plex Media Server.exe
+cluster_31,SnagitEditor.exe,Snagit32.exe
+cluster_32,Lenovo.TVT.CustomerFeedback.Agent.exe,dfsvc.exe,Lenovo.Modern.ImController.PluginHost.Device.exe,LSBUpdater.exe,Lenovo.Modern.ImController.exe,Tvsukernel.exe,Lenovo.Modern.ImController.PluginHost.CompanionApp.exe
+cluster_33,NvBackend.exe,NvTmRep.exe
+cluster_34,WD Discovery.exe,WD Discovery
+cluster_35,YoukuDesktop.exe,YoukuMediaCenter.exe
+cluster_36,updater.exe,upgrade.exe,saUpd.exe,MCUPDA~1.EXE
+cluster_37,AmazonDrive.exe,AmazonPhotos.exe,AmazonPhotosSetup.exe
+cluster_38,PRTG Server.exe,PRTG Probe.exe
+cluster_39,Discord.exe,Discord
+cluster_40,Citrix Receiver Updater,Citrix Workspace Updater
+cluster_41,JavaSetup8u191.exe,jre-8u191-windows-au.exe,jucheck.exe,jusched.exe
+cluster_42,cloud-drive-daemon.exe,cloud-drive-daemon,cloud-drive-ui,cloud-drive-ui.exe
+cluster_43,Box Notes,Box Notes.exe
+cluster_44,DrCleanerPro,DrCleaner
+cluster_45,Communicator,Communicator.exe
+cluster_46,Adobe Reader Updater Helper,Acrobat Update Helper,Acrobat Updater
+cluster_47,TIDAL,TIDAL.exe
+cluster_48,Steam Helper,steamwebhelper.exe
+cluster_49,MindManager.exe,ZAAR.exe
+cluster_50,acwebsecagent,acwebsecagent.exe
+cluster_51,Pluralsight.exe,Docker for windows Installer.exe,Docker for Windows.exe
+cluster_52,cubepdf-checker.exe,UpdateChecker.exe
+cluster_53,baidunetdisk.exe,BaiduNetdisk.exe
+cluster_54,openssl.Darwin.x86_64,bash
+cluster_55,flashplayer30au_ha_install.exe,flashplayer32ppau_ha_install.exe,flashplayer32au_ga_install.exe,flashplayer31ppau_ha_install.exe,flashplayer31au_ha_install.exe
+cluster_56,Paprika Recipe Manager 3,Paprika Recipe Manager
+cluster_57,MacJREInstaller,Java Updater
+cluster_58,OriginWebHelperService.exe,Origin.exe
+cluster_59,Brackets.exe,Brackets
+cluster_60,AtokWdServer,ATOK31,AtokCl
+cluster_61,McAfee Safe Connect.exe,Screenpresso.exe
+cluster_62,Steam.exe,steam_osx
+cluster_63,iTerm2,iTerm
+cluster_64,Synology Chat.exe,Synology Chat
+cluster_65,Amazon Drive,Amazon Photos
+cluster_66,g2mupdate.exe,g2mcomm.exe,G2MUpdate
+cluster_67,Ceip.exe,AuthManSvr.exe
+cluster_68,youtube-dl.exe,videodl.exe
+cluster_69,netsession_win.exe,netsession_mac
+cluster_70,vncserver.exe,VNC-Viewer-6.0.0-Windows-64bit.exe,vncviewer,vncviewer.exe,vncserver
+cluster_71,APSDaemon.exe,iTunes.exe
+cluster_72,serve-d,dub
+cluster_73,PacketTracer7.exe,p4v.exe
+cluster_74,iPass Open Mobile,AT&T Connect,AT&TVoIP
+cluster_75,m_agent,m_agent_service.exe
+cluster_76,RapportMgmtService.exe,RapportService.exe
+cluster_77,The Unarchiver,iMazing Mini
+cluster_78,gramblr,gramblr.exe
+cluster_79,StarLeafc.exe,MEGAsync.exe
+cluster_80,g2ax_comm_expert.exe,g2ax_comm_customer.exe
+cluster_81,vpndownloader,Cisco AnyConnect Secure Mobility Client
+cluster_82,Dashlane.exe,DashlanePlugin.exe
+cluster_83,Peek.exe,Articulate.Presenter.exe
+cluster_84,zoom.us,Zoom.exe
+cluster_85,CaptoHelper,Boom 3D
+cluster_86,robotaskbaricon.exe,RoboForm
+cluster_87,AGSService.exe,AdobeGCClient.exe
+cluster_88,com.apple.photomoments,photoanalysisd
+cluster_89,Notion,Notion.exe
+cluster_90,Qsync Client,iPass
+cluster_91,LineUpdater.exe,LINE,LINE.exe,LINEAPP.exe
+CEPHtmlEngine (Cross-Platform),CEPHtmlEngine.exe,CEPHtmlEngine Helper
+BlueStacks (MacOS),bstservice,NoxVMHandle.exe,BlueStacks,qemu-system-i386.exe
+Adobe Reader (Cross-Platform),RdrCEF,AcroCEF.exe,RdrCEF.exe
+Python (Cross-Platform),node,atom.exe,python.exe,Python,Atom Helper,node.exe
+Python IDE (MacOS),pycharm,studio,idea,webstorm
+Slack (Cross-Platform),slack.exe,Slack.exe,Slack
+Python IDE (WinNT),pycharm64.exe,studio64.exe,webstorm64.exe,idea64.exe
+AnyConnect VPN (WinNT),vpnui.exe,cscan.exe
+PowerBI (WinNT),Microsoft.PowerBI.EnterpriseGateway.exe,PBIDesktop.exe
+Trello (Cross-Platform),Trello.exe,Trello
+Facebook Gameroom (WinNT),FacebookGameroom.exe,Seagate.Dashboard.Uploader.exe
+Google Drive Sync (Cross-Platform),Backup and Sync,googledrivesync.exe
+net.downloadhelper.coapp (Cross-Platform),net.downloadhelper.coapp-win-64.exe,net.downloadhelper.coapp-mac-64
+Garmin Service (WinNT),esu.exe,GarminService.exe
+Microsoft Remote Desktop (MacOS),Microsoft Remote Desktop,Microsoft Remote Desktop Beta
+App Store Daemon (MacOS),adprivacyd,appstoreagent
+Google Earth (Cross-Platform),Google Earth,googleearth.exe
+Deezer (Cross-Platform),Deezer.exe,Deezer
+X1ServiceHost (WinNT),X1ServiceHost.exe,UpgradeService.exe
+Electron (Cross-Platform),Code.exe,Code Helper,Electron
+McAfee Shield (WinNT),amupdate.exe,mcshield.exe
+Battle.Net (MacOS),Agent,Battle.net
+Visual Studio (WinNT),devenv.exe,PerfWatson2.exe,VSIXAutoUpdate.exe,VsHub.exe,Microsoft.VsHub.Server.HttpHost.exe
+Adobe Acrobat (Cross-Platform),Adobe Desktop Service,Creative Cloud,adobe_licutil.exe,Creative Cloud.exe,Adobe Desktop Service.exe,Acrobat.exe,AcroRd32.exe,AdobeARM.exe
+Facebook Apps (WinNT),MenuTab Pro for Facebook,Go for Facebook
+Evernote (WinNT),Autopilot.exe,Evernote.exe
+Viber (Cross-Platform),ViberSandbox.exe,Viber.exe,Viber
+WhatsApp (Cross-Platform),WhatsApp,WhatsApp.exe
+Postman (Cross-Platform),Postman.exe,Postman
+Dropbox (Cross-Platform),Dropbox,Dropbox.exe
+OS Query (Cross-Platform),WerFault.exe,wermgr.exe,McScript_InUse.exe,osqueryd.exe,osqueryd,taskhostw.exe,CompatTelRunner.exe,SpeechRuntime.exe,SpeechModelDownload.exe
+Spotify (Cross-Platform),Spotify,Spotify.exe
+System Software Updater (MacOS),PreproxyService,nbagent,softwareupdated,systemmigrationd
+Box (Cross-Platform),Box,Box.exe,BoxSync.exe,Box Sync,Box Edit,Box Edit.exe,Box Local Com Service.exe,Box.Desktop.UpdateService.exe
+AMP for Endpoints (Cross-Platform),sfc.exe,ampdaemon
+Cisco Webex Teams (Cross-Platform),Teams.exe,Teams
+Skype (Cross-Platform),Skype.exe,Skype,SkypeHost.exe,SkypeApp.exe
+Cisco Collaboration (Cross-Platform),SparkWindows.exe,CiscoCollabHost.exe,Cisco Webex Meetings,CiscoSparkHelper,Cisco Spark,ptoneclk.exe,Webex Teams,spark-windows-media.exe,CiscoSparkLauncher,proximity.exe,WebEx Productivity Tools,ptsrv.exe,Cisco Jabber,CiscoJabber.exe,Meeting Center,atmgr.exe,ptupdate.exe
+Internet Explorer/Edge (WinNT),iexplore.exe,SearchUI.exe,MicrosoftEdgeCP.exe,HxOutlook.exe,ActionUriServer.exe,backgroundTaskHost.exe,BackgroundTransferHost.exe,Microsoft.Msn.News.exe,Maps.exe,Video.UI.exe,Microsoft.Photos.exe,YourPhone.exe,MicrosoftEdge.exe,smartscreen.exe,WinStore.App.exe,explorer.exe,WWAHost.exe
+Safari/OS X Networking (MacOS),Kiwi for Gmail,com.apple.WebKit.Networking,CalendarAgent,CalendarAgent,com.apple.Safari.SearchHelper,com.apple.Safari.SafeBrowsing.Service,Go for Gmail,MailTab for Gmail,NewsBar,Safari,securityuploadd,commerce,rtcreportingd,App Store,mobileactivationd,com.apple.sbd,com.apple.geod,Notes,AOSPushRelay,AppleIDAuthAgent,bird,com.apple.iCloudHelper,com.apple.preferences.icloud.remoteservice,nsurlsessiond,cloudd,cloudphotosd,parsec-fbf,syncdefaultsd,akd,HelpViewer,helpd,touristd,storeassetd,storedownloadd,com.apple.CommerceKit.TransactionService,locationd,keyboardservicesd,gamed,com.apple.preferences.internetaccounts.remoteservice (com.apple.preferences.internetaccounts.remoteservice),Spotlight,passd,walletAvailabilityCheckTool,AddressBookSourceSync
+Microsoft Office (MacOS),Microsoft PowerPoint,Microsoft Outlook,Microsoft Excel,Office365ServiceV2,Microsoft Word,Mail,Microsoft OneNote,Microsoft AU Daemon,Skype for Business,OneDrive,Microsoft AutoUpdate,Microsoft Error Reporting
+Chromium (Cross-Platform),Vivaldi,chrome.exe,Opera,opera.exe,vivaldi.exe,Google Chrome,Charles.exe,Google Chrome Helper,kinza.exe,Brave Browser,brave.exe,Google Chrome Canary
+Firefox (Cross-Platform),waterfox,waterfox.exe,firefox,seamonkey.exe,firefox.exe,thunderbird,thunderbird.exe
+Microsoft Office (WinNT),ONENOTE.EXE,msoia.exe,WINWORD.EXE,wbxcOIEx64.exe,EXCEL.EXE,OUTLOOK.EXE,wbxcOIEx.exe,POWERPNT.EXE,SearchProtocolHost.exe,WINPROJ.EXE,VISIO.EXE,ptOIEx64.exe,WmiPrvSE.exe,SDXHelper.exe,OneDrive.exe,OfficeClickToRun.exe,OfficeC2RClient.exe,Microsoft.Notes.exe,HxTsr.exe,OLicenseHeartbeat.exe,mshta.exe,MSOSYNC.EXE,OsfInstaller.exe,dllhost.exe,onenoteim.exe,FileCoAuth.exe,ccmsetup.exe
+Dictionary (MacOS),LookupViewService,Dictionary
+Windows Shell Environment (WinNT),mintty.exe,notepad++.exe
+Wunderlist (MacOS),WunderlistHelper,Wunderlist
+iMobility (WinNT),iMobilityService.exe,iPlatformHost.exe
+Keybase (Cross-Platform),keybase.exe,kbfsdokan.exe,keybase
+Ginger Client (WinNT),GingerClient.exe,GingerServices.exe

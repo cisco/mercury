@@ -1,0 +1,97 @@
+# Makefile for mercury/test
+#
+#
+# USAGE:
+#
+#   "make comp" to compare test cases
+#   "make clean" to remove test files
+#
+# HOW IT WORKS:
+#
+#    if there is a file ./tests/foo.pcap, then the files ./foo.json
+#    and ./foo.fp will be created by "make comp", and then ./foo.fp
+#    will be compared to ./tests/foo.fp.  If they are not identical,
+#    then an error will be reported
+
+MERCURY = ../src/mercury
+have_jq = @JQ@
+have_valgrind = @VALGRIND@
+
+# all test files go in the ./tests subdirectory
+# 
+vpath %.pcap ./data
+
+# for each test, add a filename with the .comp suffix
+#
+FP_TEST_FILES = $(notdir $(wildcard ./data/*.fp))
+JSON_FILES    = $(FP_TEST_FILES:%.fp=%.json)
+COMP_FILES    = $(FP_TEST_FILES:%.fp=%.comp)
+MCAP_TEST_FILES = $(notdir $(wildcard ./data/*.mcap))
+MCAP_COMP_FILES = $(MCAP_TEST_FILES:%.mcap=%.mcap-comp)
+
+.PHONY: all
+all: comp memcheck
+
+.PHONY: comp
+comp: $(COMP_FILES) $(MCAP_COMP_FILES)
+	@echo "tested all targets"
+
+# implicit rule to make a JSON file from a PCAP file
+#
+%.json: %.pcap
+	$(MERCURY) -r $< -f $@
+
+# implicit rule to make a fingerprint file from a JSON file
+#
+%.fp: %.json
+ifneq ($(have_jq),yes)
+	@echo "jq is missing; cannot create .fp file from .json file"
+	@/bin/false
+else
+	cat $< | jq .fingerprints.tls | grep -v null | tr -d "\"" > $@
+endif
+
+# implicit rule to compare results
+#
+%.comp: %.fp
+	@echo "checking file" $< "against expected output" 
+	diff $< ./data/$< 
+	@echo "passed"  # this output only happens if diff returns 0
+
+# implicit rule to make an MCAP file from a PCAP file
+#
+%.mcap: %.pcap
+	$(MERCURY) -r $< -s -w $@
+
+# implicit rule to compare MCAP results
+#
+%.mcap-comp: %.mcap
+	@echo "checking file" $< "against expected output" 
+	diff $< ./data/$< 
+	@echo "passed" 
+
+# prevent deletion of intermediate files
+#
+#.PRECIOUS: %.fp %.mcap %.json
+
+.PHONY: clean
+clean:
+	rm -rf *.fp *.json *.mcap Makefile~ README.md~ capture/deleteme memcheck.tmp
+	@echo "cleaned all targets"
+
+.PHONY: distclean
+distclean: clean
+	rm -f Makefile
+
+# memory check
+#
+.PHONY: memcheck
+memcheck:
+ifeq ($(have_valgrind),yes)
+	valgrind $(MERCURY) -r data/top-https.pcap -f tmp.json 2> memcheck.tmp
+	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
+else
+	@echo "valgrind unavailable; cannot perform memcheck"
+	@/bin/false
+endif
+# EOF

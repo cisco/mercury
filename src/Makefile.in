@@ -1,0 +1,107 @@
+# makefile for mercury fast fingerprint / packet metadata capture program
+#
+
+SHELL = /bin/sh
+
+srcdir = .
+
+INSTALL = /usr/bin/install -c
+INSTALLDATA = /usr/bin/install -c -m 644
+
+DESTDIR =
+PREFIX = /usr/local
+
+.SUFFIXES:
+.SUFFIXES: .c .o
+
+# set parameters from configure (autoconf)
+#
+have_py3    = @PYTHON3@
+have_pip3   = @PIP3@
+CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) 
+
+CC      = @CXX@
+CFLAGS  = -march=native -mtune=native -O2
+CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
+CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
+CFLAGS += $(OPTFLAGS)
+
+MERC   = mercury.c af_packet_io.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c 
+MERC_H = af_packet_io.h af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h 
+
+ifeq ($(have_py3),yes)
+PYANALYSIS = python_interface.c
+CDEFS     += -Wl,--no-as-needed -ldl -lutil $(shell pkg-config --libs --cflags python3)
+CYTARGETS  = python-inference/tls_fingerprint_min.cpp python-inference/tls_fingerprint_min.h python-inference/tls_fingerprint_min_api.h
+CYPREREQ   = python-inference/tls_fingerprint_min.pyx
+else
+PYANALYSIS = 
+CYTARGETS  = 
+CYPREREQ   =
+endif
+
+mercury: $(MERC) $(MERC_H) libmerc.a Makefile 
+	$(CC) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc 
+	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
+
+# libmerc performs selective packet parsing and fingerprint extraction
+#
+LIBMERC     = extractor.c ept.c packet.c $(PYANALYSIS)
+LIBMERC_H   = eth.h extractor.h ept.h proto_identify.h packet.h
+LIBMERC_OBJ = $(LIBMERC:%.c=%.o)
+
+# implicit rule for building object files
+#
+%.o: %.c
+	$(CC) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
+#	$(CC) $(CFLAGS) -c $<
+
+# rule to build library
+#
+libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) $(LIBMERC_H) Makefile 
+	ar rcs libmerc.a $(LIBMERC_OBJ) 
+
+# rule to build the cython/python analysis engine in python-inference
+#
+$(CYTARGETS): $(CYPREREQ)
+ifeq ($(have_py3),yes)
+	python3 python-inference/setup.py build_ext --inplace
+endif
+
+
+# special targets for mercury
+#
+.PHONY: debug
+debug: $(MERC) $(MERC_H) libmerc.a Makefile
+	$(CC) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
+	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
+
+.PHONY: clean 
+clean:
+	rm -rf mercury gmon.out libmerc.a *.o tls_fingerprint_min.*.so
+	rm -rf build/ $(CYTARGETS)
+	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+
+.PHONY: distclean
+distclean: clean
+	rm -rf Makefile autom4te.cache config.log config.status
+
+.PHONY: install
+install: mercury
+	$(INSTALL) mercury $(DESTDIR)$(PREFIX)/bin/
+
+.PHONY: gprof
+gprof:
+	make clean
+	$(CC) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc 
+
+.PHONY: cppcheck
+cppcheck: $(MERC) $(MERC_H)
+	cppcheck --enable=all --template='{file}:{line}:{severity}:{message}' $(MERC) $(MERC_H)
+
+.PHONY: test
+test: mercury
+	cd ../test && $(MAKE)
+
+# EOF
