@@ -1,0 +1,5 @@
+Linux 4.19.0-5-amd64 #1 SMP Debian 4.19.37-5+deb10u2 (2019-08-08) x86_64
+ext4
+/dev/sdb
+write throughput for /home/mcgrew/network-intelligence/mercury-test/perf : 9.6 MB/s
+read throughput for /home/mcgrew/network-intelligence/mercury-test/perf :  26.2 MB/s
