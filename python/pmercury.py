@@ -20,6 +20,8 @@ from collections import OrderedDict
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from protocols.tls import TLS
+from protocols.tcp import TCP
+
 
 class Fingerprinter:
 
@@ -39,7 +41,7 @@ class Fingerprinter:
 
         # register parsers
         self.app_parsers = [('tls', TLS(database))]
-        self.tcp_parsers = []
+        self.tcp_parsers = [('tcp', TCP())]
         self.ip_parsers  = []
         self.all_parsers = self.app_parsers + self.tcp_parsers + self.ip_parsers
 

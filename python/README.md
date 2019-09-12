@@ -99,6 +99,12 @@ Performing process identification:
   ...
 ```
 
+### Experimental Features
+
+TLS client fingerprint extraction and process identification is relatively mature. The following are additional pmercury features that either have less thought put into their development, undergone less testing, and/or do not have associated fingerprint databases:
+
+* TCP fingerprint extraction - Currently only based on TCP options; no fingerprint database.
+
 
 ## protocols/tls.py
 
