@@ -50,6 +50,7 @@ OPTIONS
    [-l or --lookup]                             # return database entry for a double quoted fingerprint string
    [-n or --num-procs]                          # return the top-n most probable processes
    [-w or --human-readable]                     # return human readable fingerprint string
+   [-e or --experimental]                       # turns on all experimental features
 ```
 
 The input can be either a list of packet capture files or a network interface.
@@ -104,6 +105,9 @@ Performing process identification:
 TLS client fingerprint extraction and process identification is relatively mature. The following are additional pmercury features that either have less thought put into their development, undergone less testing, and/or do not have associated fingerprint databases:
 
 * TCP fingerprint extraction - Currently only based on TCP options; no fingerprint database.
+* TLS Server fingerprint extraction - Currently only based on ServerHello; no fingerprint database.
+
+These features can be turned on by invoking the **-e** option.
 
 
 ## protocols/tls.py
