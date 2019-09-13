@@ -7,7 +7,7 @@ There are four distinct (but related) components:
 * protocols/tls.py - A Python library providing an API for fingerprint generation and inferencing
 * pmercury.py - A wrapper around protocols/tls.py that can process pcaps or listen to a network interface
 * ../src/python-inference/&ast; - A Cython port of protocols/tls.py that can be called from C++14 or higher code
-* resources/fingerprint_db.json.gz - The star of the show; a detailed database associating billions of network and endpoint observations
+* ../resources/fingerprint_db.json.gz - The star of the show; a detailed database associating billions of network and endpoint observations
 
 ## pmercury
 
