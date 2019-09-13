@@ -3,9 +3,12 @@
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
 
+import os
+import sys
 import dpkt
 from binascii import hexlify, unhexlify
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from protocol import Protocol
 
 
