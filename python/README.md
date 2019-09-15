@@ -106,6 +106,7 @@ TLS client fingerprint extraction and process identification is relatively matur
 
 * TCP fingerprint extraction - Currently only based on TCP options; no fingerprint database.
 * TLS Server fingerprint extraction - Currently only based on ServerHello; no fingerprint database.
+* HTTP/1.x Client fingerprint extraction - Currently extracts all headers from the HTTP/1.x request; no fingerprint database.
 
 These features can be turned on by invoking the **-e** option.
 

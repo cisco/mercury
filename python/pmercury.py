@@ -44,9 +44,10 @@ class Fingerprinter:
         self.ip_parsers  = []
         if experimental == True:
             from protocols.tcp import TCP
+            from protocols.http import HTTP
             from protocols.tls_server import TLS_Server
 
-            self.app_parsers.extend([('tls_server', TLS_Server())])
+            self.app_parsers.extend([('tls_server', TLS_Server()), ('http', HTTP())])
             self.tcp_parsers.extend([('tcp', TCP())])
             self.ip_parsers.extend([])
         self.all_parsers = self.app_parsers + self.tcp_parsers + self.ip_parsers
