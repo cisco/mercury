@@ -1019,6 +1019,9 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
 	     * grab Server Name Indication length
 	     */
 	    sni_length = tmp_len + L_ExtensionLength + L_ExtensionType;
+	    if (sni_data + sni_length > p->data_end) {
+		sni_length = p->data_end - sni_data;   /* trim to fit in packet */
+	    }
 	}
 		
 	if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err) {
