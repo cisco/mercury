@@ -1,0 +1,8 @@
+cryptography~=2.7
+Cython~=0.29.13
+dpkt~=1.9.2
+hpack~=3.0.0
+numpy~=1.17.2
+pyasn~=1.6.0b1
+pypcap~=1.2.3
+ujson~=1.35

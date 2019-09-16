@@ -20,12 +20,11 @@ from collections import OrderedDict
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from protocols.tls import TLS
-from protocols.tcp import TCP
 
 
 class Fingerprinter:
 
-    def __init__(self, database, output=None, analyze=False, num_procs=0, human_readable=False):
+    def __init__(self, database, output=None, analyze=False, num_procs=0, human_readable=False, experimental=False):
         if database == '../resources/fingerprint_db.json.gz':
             database = os.path.dirname(os.path.abspath(__file__)) + '/../resources/fingerprint_db.json.gz'
         self.analyze = analyze
@@ -41,8 +40,16 @@ class Fingerprinter:
 
         # register parsers
         self.app_parsers = [('tls', TLS(database))]
-        self.tcp_parsers = [('tcp', TCP())]
+        self.tcp_parsers = []
         self.ip_parsers  = []
+        if experimental == True:
+            from protocols.tcp import TCP
+            from protocols.http import HTTP
+            from protocols.tls_server import TLS_Server
+
+            self.app_parsers.extend([('tls_server', TLS_Server()), ('http', HTTP())])
+            self.tcp_parsers.extend([('tcp', TCP())])
+            self.ip_parsers.extend([])
         self.all_parsers = self.app_parsers + self.tcp_parsers + self.ip_parsers
 
 
@@ -102,7 +109,7 @@ class Fingerprinter:
                             flow['dst_ip']       = socket.inet_ntop(add_fam,ip.dst)
                             flow['src_port']     = tcp_data.sport
                             flow['dst_port']     = tcp_data.dport
-                            flow['protocol']     = 'TCP' # currently only support TCP
+                            flow['protocol']     = ip.p
                             flow['event_start']  = str(datetime.datetime.utcfromtimestamp(ts))
                             if context_ != None:
                                 flow['context'] = OrderedDict({})
@@ -175,6 +182,8 @@ def main():
                       help='return the top-n most probable processes',default=0)
     parser.add_option('-w','--human-readable',action='store_true',dest='human_readable',
                       help='return human readable fingerprint information',default=False)
+    parser.add_option('-e','--experimental',action='store_true',dest='experimental',
+                      help='turns on all experimental features',default=False)
 
     options, args = parser.parse_args()
 
@@ -188,7 +197,7 @@ def main():
         input_files.append(options.capture_interface)
 
     fingerprinter = Fingerprinter(options.fp_db, options.output, options.analyze,
-                                  options.num_procs, options.human_readable)
+                                  options.num_procs, options.human_readable, options.experimental)
 
     if options.lookup != None:
         fingerprinter.lookup_fingerprint_string(options.lookup)
