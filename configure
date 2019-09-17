@@ -4519,6 +4519,22 @@ fi
 fi
 
 if test "x$PIP3" = xyes; then :
+  for ac_header in pcap.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "pcap.h" "ac_cv_header_pcap_h" "$ac_includes_default"
+if test "x$ac_cv_header_pcap_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_PCAP_H 1
+_ACEOF
+
+else
+  as_fn_error $? "pcap.h not found; lipcap-dev seems not to be installed" "$LINENO" 5
+fi
+
+done
+
+fi
+if test "x$PIP3" = xyes; then :
   ac_config_commands="$ac_config_commands pip3"
 
 fi
@@ -5783,7 +5799,7 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
-    "pip3":C) pip3 install dpkt ujson numpy pyasn hpack pypcap ;;
+    "pip3":C) pip3 install cython dpkt ujson numpy pyasn hpack pypcap ;;
 
   esac
 done # for ac_tag
