@@ -42,7 +42,9 @@ AS_IF([test "x$PYTHON3" = xyes],
     [AC_MSG_NOTICE([omitting embedded python3 analysis engine - either python3 was not found, or --disable-python option was invoked])])
 AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PIP3,pip3,yes)])
 AS_IF([test "x$PIP3" = xyes],
-    [AC_CONFIG_COMMANDS([pip3], [pip3 install dpkt ujson numpy pyasn hpack pypcap])])
+    [AC_CHECK_HEADERS([pcap.h], [], [AC_MSG_ERROR([pcap.h not found; lipcap-dev seems not to be installed])])])
+AS_IF([test "x$PIP3" = xyes],
+    [AC_CONFIG_COMMANDS([pip3], [pip3 install cython dpkt ujson numpy pyasn hpack pypcap])])
 AC_CHECK_PROG(JQ,jq,yes)
 AC_CHECK_PROG(WGET,wget,yes)
 AC_CHECK_PROG(VALGRIND,valgrind,yes)
