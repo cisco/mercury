@@ -74,9 +74,23 @@ endif
 #
 #.PRECIOUS: %.fp %.mcap %.json
 
+
+.PHONY: capture
+capture:
+ifeq ($(IFNAME),)
+	@echo "error: IFNAME unspecified (run as 'make capture IFNAME=wlan0', for instance)"
+else
+	$(MERCURY) -c $(IFNAME) -f tmp.json & echo $$! > mercury.PID
+	capture/https-test-driver.sh
+	kill `cat mercury.PID`
+	python json-test.py tmp.json
+	rm mercury.PID tmp.json
+	@echo "passed capture test"
+endif
+
 .PHONY: clean
 clean:
-	rm -rf *.fp *.json *.mcap Makefile~ README.md~ capture/deleteme memcheck.tmp
+	rm -rf *.fp *.json *.mcap Makefile~ README.md~ capture/deleteme memcheck.tmp tmp.json mercury.PID
 	@echo "cleaned all targets"
 
 .PHONY: distclean
