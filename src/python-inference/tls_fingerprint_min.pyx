@@ -85,18 +85,17 @@ cdef tuple process_identification_embed_(const char *fp_str_, const char *server
     cdef str server_name = str(server_name_,'utf-8')
     cdef str dest_addr = str(dest_addr_,'utf-8')
     cdef str domain_
-    cdef str tld__
-    domain_, tld__ = get_tld_info(server_name)
+    domain_, _ = get_tld_info(server_name)
     cdef str asn_ = get_asn_info(dest_addr)
     cdef str port_app_ = port_mapping[dest_port]
 
-    cdef tuple result = identify_embed(fp_str_, asn_, domain_, tld__, port_app_)
+    cdef tuple result = identify_embed(fp_str_, asn_, domain_, port_app_)
 
     return result
 
 
 @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
-def identify_embed(bytes fp_str_, str asn, str domain, str tld_, str port_app):
+def identify_embed(bytes fp_str_, str asn, str domain, str port_app):
     cdef dict fp_
     cdef list procs_
     fp_ = fp_db_detection[fp_str_]
@@ -110,7 +109,6 @@ def identify_embed(bytes fp_str_, str asn, str domain, str tld_, str port_app):
     cdef double prob_process_given_fp
 
     cdef dict p_classes_ip_as
-    cdef dict p_classes_hostname_tlds
     cdef dict p_classes_hostname_domains
     cdef dict p_classes_hostname_alexa
     cdef dict p_classes_port_applications
@@ -138,22 +136,14 @@ def identify_embed(bytes fp_str_, str asn, str domain, str tld_, str port_app):
         prob_process_given_fp = p_count/fp_tc_
 
         p_classes_ip_as = p_['classes_ip_as']
-        p_classes_hostname_tlds = p_['classes_hostname_tlds']
         p_classes_hostname_domains = p_['classes_hostname_domains']
         p_classes_port_applications = p_['classes_port_applications']
 
         score_ = log(prob_process_given_fp)
-        score_ = fmax(score_, base_prior_)*4
+        score_ = fmax(score_, base_prior_)*3
 
         if asn in p_classes_ip_as:
             t0_ = p_classes_ip_as[asn]
-            t_  = log(t0_/p_count)
-            score_ += fmax(t_, prior_)
-        else:
-            score_ += base_prior_
-
-        if tld_ in p_classes_hostname_tlds:
-            t0_ = p_classes_hostname_tlds[tld_]
             t_  = log(t0_/p_count)
             score_ += fmax(t_, prior_)
         else:

@@ -115,7 +115,7 @@ class TLS(Protocol):
         domain, tld = get_tld_info(server_name)
         asn = get_asn_info(dest_addr)
         port_app = get_port_application(dest_port)
-        features = [asn, tld, domain, port_app]
+        features = [asn, domain, port_app]
 
         r_ = []
         [self.compute_score(features, p_, fp_['total_count'], r_) for p_ in fp_['process_info']]
@@ -149,18 +149,16 @@ class TLS(Protocol):
         base_prior_ = -18.42068 # log(1e-8)
         prior_      =  -4.60517 # log(1e-2)
 
-        score_ = max(prob_process_given_fp, base_prior_)*4
+        score_ = max(prob_process_given_fp, base_prior_)*3
         prob_vec = [
             max(prior_, log(p_['classes_ip_as'][features[0]]/p_count))
             if features[0] in p_['classes_ip_as'] else base_prior_,
-            max(prior_, log(p_['classes_hostname_tlds'][features[1]]/p_count))
-            if features[1] in p_['classes_hostname_tlds'] else base_prior_,
-            max(prior_, log(p_['classes_hostname_domains'][features[2]]/p_count))
-            if features[2] in p_['classes_hostname_domains'] else base_prior_,
-            max(prior_, log(p_['classes_port_applications'][features[3]]/p_count))
-            if features[3] in p_['classes_port_applications'] else base_prior_
+            max(prior_, log(p_['classes_hostname_domains'][features[1]]/p_count))
+            if features[1] in p_['classes_hostname_domains'] else base_prior_,
+            max(prior_, log(p_['classes_port_applications'][features[2]]/p_count))
+            if features[2] in p_['classes_port_applications'] else base_prior_
         ]
-        score_ += prob_vec[0] + prob_vec[1] + prob_vec[2] + prob_vec[3]
+        score_ += prob_vec[0] + prob_vec[1] + prob_vec[2]
 
         r_clean_.append({'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']})
 
