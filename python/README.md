@@ -51,6 +51,7 @@ OPTIONS
    [-n or --num-procs]                          # return the top-n most probable processes
    [-w or --human-readable]                     # return human readable fingerprint string
    [-e or --experimental]                       # turns on all experimental features
+   [-s or --sslkeylogfile]                      # filename of sslkeylog output for decryption
 ```
 
 The input can be either a list of packet capture files or a network interface.
@@ -79,13 +80,13 @@ Looking up a fingerprint string in the database:
 Performing process identification:
 
 ```bash
-~/ $: ./pmercury.py -a test/top_100_fingerprints.pcap | jq .
+~/ $: ./pmercury.py -r ../test/data/top_100_fingerprints.pcap -a | jq .
 {
   "src_ip": "10.0.2.15",
   "dst_ip": "172.217.7.228",
   "src_port": 37582,
   "dst_port": 443,
-  "protocol": "TCP",
+  "protocol": 6,
   "server_name": "www.google.com",
   "timestamp": "2019-08-06 13:45:51.157055",
   "fingerprints": {
@@ -105,11 +106,40 @@ Performing process identification:
 TLS client fingerprint extraction and process identification is relatively mature. The following are additional pmercury features that either have less thought put into their development, undergone less testing, and/or do not have associated fingerprint databases:
 
 * TCP fingerprint extraction - Currently only based on TCP options; no fingerprint database.
-* TLS Server fingerprint extraction - Currently only based on ServerHello; no fingerprint database.
-* HTTP/1.x Client fingerprint extraction - Currently extracts all headers from the HTTP/1.x request; no fingerprint database.
-* HTTP/1.x Server fingerprint extraction - Currently extracts all headers from the HTTP/1.x response; no fingerprint database.
+* TLS server fingerprint extraction - Currently only based on ServerHello; no fingerprint database.
+* HTTP/1.x client fingerprint extraction - Currently extracts all headers from the HTTP/1.x request; no fingerprint database.
+* HTTP/1.x server fingerprint extraction - Currently extracts all headers from the HTTP/1.x response; no fingerprint database.
+* TLS decryption and fingerprint extraction - Currently decrypts TLS sessions when supplied a file in [NSS Key Log Format](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format) and extracts the internal HTTP/1.x and HTTP/2 requests and responses.
 
 These features can be turned on by invoking the **-e** option.
+
+To perform decryption with HTTP/2 data extraction:
+
+```bash
+~/ $: ./pmercury.py -r ../test/data/test_decrypt.pcap -s ../test/data/sslkeylogfile.log -w -e
+{
+  "src_ip": "10.0.2.15",
+  "dst_ip": "216.58.194.163",
+  "src_port": 46362,
+  "dst_port": 443,
+  "protocol": 6,
+  "event_start": "2019-09-04 16:03:52.933118",
+  "fingerprints": {
+    "tls_decrypt_h2": "(3a6d6574686f643a20474554)..."
+  },
+  "tls_decrypt_h2": [
+    {":method": "GET"},
+    {":authority": "clientservices.googleapis.com"},
+    {":scheme": "https"},
+    {":path": "/chrome-variations/seed?osname=linux&channel=beta&milestone=76"},
+    {"if-none-match": "314f8267d4516ba24ac54575521acebdbe10d2ec"},
+    {"a-im": "x-bm,gzip"},
+    {"sec-fetch-site": "none"},
+    {"user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.80 Safari/537.36"},
+    {"accept-encoding": "gzip, deflate, br"}
+  ]
+}
+```
 
 
 ## protocols/tls.py
