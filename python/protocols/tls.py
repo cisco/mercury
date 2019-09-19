@@ -41,11 +41,10 @@ class TLS(Protocol):
 
         app_families_file = os.path.dirname(os.path.abspath(__file__)) + '/../../resources/app_families.txt'
         self.app_families = {}
-        with open(app_families_file, 'r') as file_pointer:
-            for line in file_pointer:
-                tokens = line.strip().split(',')
-                for i in range(1, len(tokens)):
-                    self.app_families[tokens[i]] = tokens[0]
+        for line in open(app_families_file, 'r'):
+            tokens = line.strip().split(',')
+            for i in range(1, len(tokens)):
+                self.app_families[tokens[i]] = tokens[0]
 
         self.aligner = SequenceAlignment(f_similarity, 0.0)
 
@@ -57,7 +56,7 @@ class TLS(Protocol):
     def load_database(self, fp_database):
         for line in os.popen('zcat %s' % (fp_database)):
             fp_ = json.loads(line)
-            fp_['str_repr'] = bytes(fp_['str_repr'].replace('()',''),'utf-8')
+            fp_['str_repr'] = bytes(fp_['str_repr'],'utf-8')
 
             for p_ in fp_['process_info']:
                 p_['process'] = bytes(p_['process'],'utf-8')
@@ -81,7 +80,7 @@ class TLS(Protocol):
         approx_str_ = None
 
         # fingerprint approximate matching if necessary
-        fp_str_ = bytes(fp_str_.replace('()',''),'utf-8')
+        fp_str_ = bytes(fp_str_,'utf-8')
         if fp_str_ not in self.fp_db:
             lit_fp = eval_fp_str(fp_str_)
             approx_str_ = self.find_approx_match(lit_fp)
@@ -89,6 +88,10 @@ class TLS(Protocol):
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
                 return None, None, None, []
+            self.fp_db[fp_str_] = self.fp_db[approx_str_]
+            self.fp_db[fp_str_]['approx_str'] = approx_str_
+        if 'approx_str' in self.fp_db[fp_str_]:
+            approx_str_ = self.fp_db[fp_str_]['approx_str']
 
         return 'tls', fp_str_, approx_str_, [{'name':'server_name', 'data':server_name}]
 
@@ -117,8 +120,8 @@ class TLS(Protocol):
         port_app = get_port_application(dest_port)
         features = [asn, domain, port_app]
 
-        r_ = []
-        [self.compute_score(features, p_, fp_['total_count'], r_) for p_ in fp_['process_info']]
+        fp_tc = fp_['total_count']
+        r_ = [self.compute_score(features, p_, fp_tc) for p_ in fp_['process_info']]
         r_ = sorted(r_, key=operator.itemgetter('score'), reverse=True)
 
         if len(r_) == 0 or r_[0]['score'] == 0.0:
@@ -142,25 +145,34 @@ class TLS(Protocol):
         return out_
 
 
-    def compute_score(self, features, p_, fp_tc_, r_clean_):
+    def compute_score(self, features, p_, fp_tc_):
         p_count = p_['count']
         prob_process_given_fp = log(p_count/fp_tc_)
 
         base_prior_ = -18.42068 # log(1e-8)
         prior_      =  -4.60517 # log(1e-2)
 
-        score_ = max(prob_process_given_fp, base_prior_)*3
-        prob_vec = [
-            max(prior_, log(p_['classes_ip_as'][features[0]]/p_count))
-            if features[0] in p_['classes_ip_as'] else base_prior_,
-            max(prior_, log(p_['classes_hostname_domains'][features[1]]/p_count))
-            if features[1] in p_['classes_hostname_domains'] else base_prior_,
-            max(prior_, log(p_['classes_port_applications'][features[2]]/p_count))
-            if features[2] in p_['classes_port_applications'] else base_prior_
-        ]
-        score_ += prob_vec[0] + prob_vec[1] + prob_vec[2]
+        score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
 
-        r_clean_.append({'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']})
+        if features[0] in p_['classes_ip_as']:
+            tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
+            score_ += tmp_ if tmp_ > prior_ else prior_
+        else:
+            score_ += base_prior_
+
+        if features[1] in p_['classes_hostname_domains']:
+            tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
+            score_ += tmp_ if tmp_ > prior_ else prior_
+        else:
+            score_ += base_prior_
+
+        if features[2] in p_['classes_port_applications']:
+            tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
+            score_ += tmp_ if tmp_ > prior_ else prior_
+        else:
+            score_ += base_prior_
+
+        return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
@@ -198,8 +210,8 @@ class TLS(Protocol):
 
     def find_approximate_matches_set(self, tls_params, fp_str=None, source_filter=None, key_filter=None):
         t_scores = []
-        p0_ = tls_params[0]
-        p1_ = tls_params[1]
+        p0_ = set(tls_params[0])
+        p1_ = set(tls_params[1])
         for k in self.fp_db.keys():
             k = k
             if source_filter != None and source_filter not in self.fp_db[k]['source']:
@@ -210,15 +222,15 @@ class TLS(Protocol):
                 lit_fp = eval_fp_str(k)
                 tls_params_ = get_tls_params(lit_fp)
                 self.tls_params_db[k] = tls_params_
-            q0_ = self.tls_params_db[k][0]
-            q1_ = self.tls_params_db[k][1]
-            s0_ = len(list(set(p0_).intersection(set(q0_))))/float(len(list(set(p0_).union(set(q0_)))))
-            s1_ = len(list(set(p1_).intersection(set(q1_))))/max(1.0,float(len(list(set(p1_).union(set(q1_))))))
+            q0_ = set(self.tls_params_db[k][0])
+            q1_ = set(self.tls_params_db[k][1])
+            s0_ = len(p0_.intersection(q0_))/max(1.0,len(p0_.union(q0_)))
+            s1_ = len(p1_.intersection(q1_))/max(1.0,len(p1_.union(q1_)))
             s_ = s0_ + s1_
             t_scores.append((s_, k))
         t_scores.sort()
         t_scores.reverse()
-        return t_scores[0:25]
+        return t_scores[0:10]
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
