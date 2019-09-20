@@ -31,25 +31,60 @@ void fprintf_json_hex_string(FILE *f, const char *key, const uint8_t *data, unsi
     const unsigned char *x = data;
     const unsigned char *end = data + len;
 
-    fprintf(f, "\"%s\":\"", key);
+    fprintf(f, "\"%s\":\"0x", key);
     while (x < end) {
         fprintf(f, "%02x", *x++);
     }
     fprintf(f, "\"");
 }
 
-void fprintf_json_string(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
+void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
 
     fprintf(f, "\"%s\":\"", key);
     while (x < end) {
-	if (*x == '"' || *x == '\\') { // || *x == '/') {
-	    fprintf(f, "\\");
+	if (*x < 0x20) {                   /* escape control characters   */
+	    fprintf(f, "\\u%04x", *x);
+	} else if (*x > 0x7f) {            /* escape non-ASCII characters */
+	    fprintf(f, "\\u%04x", *x);
+	} else {
+	    if (*x == '"' || *x == '\\') { /* escape special characters   */
+		fprintf(f, "\\");
+	    }
+	    fprintf(f, "%c", *x);
 	}
-        fprintf(f, "%c", *x++);
+	x++;
     }
     fprintf(f, "\"");
+}
+
+unsigned int string_is_nonascii(const uint8_t *data, size_t len) {
+    const unsigned char *x = data;
+    const unsigned char *end = data + len;
+
+    uint8_t sum = 0;
+    while (x < end) {
+	sum |= *x;
+	x++;
+    }
+    return sum & 0x80; /* return 0 if no high bits are set */
+}
+
+inline bool string_starts_with_0x(const uint8_t *data, size_t len) {
+    if (len > 2 && data[0] == '0' && data[1] == 'x') {
+	return true;
+    }
+    return false;
+}
+
+void fprintf_json_string(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
+
+    if (string_is_nonascii(data, len) || string_starts_with_0x(data, len)) {
+	fprintf_json_hex_string(f, key, data, len);
+    } else {
+	fprintf_json_string_escaped(f, key, data, len);
+    }
 }
 
 size_t hex_to_raw(const void *output,
