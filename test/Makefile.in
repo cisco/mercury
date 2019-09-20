@@ -90,7 +90,7 @@ endif
 
 .PHONY: clean
 clean:
-	rm -rf *.fp *.json *.mcap Makefile~ README.md~ capture/deleteme memcheck.tmp tmp.json mercury.PID
+	rm -rf *.fp *.json *.mcap Makefile~ README.md~ deleteme capture/deleteme memcheck.tmp tmp.json mercury.PID
 	@echo "cleaned all targets"
 
 .PHONY: distclean
