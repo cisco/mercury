@@ -5,17 +5,17 @@ pmercury provides a Python reference implementation for network fingerprinting a
 There are four distinct (but related) components:
 
 * protocols/tls.py - A Python library providing an API for fingerprint generation and inferencing
-* pmercury.py - A wrapper around protocols/tls.py that can process pcaps or listen to a network interface
+* pmercury - A wrapper around protocols/tls.py that can process pcaps or listen to a network interface
 * ../src/python-inference/&ast; - A Cython port of protocols/tls.py that can be called from C++14 or higher code
 * ../resources/fingerprint_db.json.gz - The star of the show; a detailed database associating billions of network and endpoint observations
 
 ## pmercury
 
-pmercury.py is designed to highlight the functionality of tls.py and to provide a simple interface into the fingerprint database.
+pmercury is designed to highlight the functionality of tls.py and to provide a simple interface into the fingerprint database.
 
 ### Dependencies
 
-pmercury.py requires Python 3.6 along with the following packages:
+pmercury requires Python 3.6 along with the following packages:
 
 ```bash
 pip3 install dpkt
@@ -34,7 +34,7 @@ pip3 can be installed with 'sudo apt install python3-pip’ on debian/ubuntu, or
 ### Usage
 
 ```bash
-./pmercury.py [OPTIONS] [INPUT] [OUTPUT]
+./pmercury [OPTIONS] [INPUT] [OUTPUT]
 
 INPUT
    [-c or --capture] capture_interface          # live packet capture
@@ -58,14 +58,14 @@ The input can be either a list of packet capture files or a network interface.
 
 A default fingerprint database is supplied in the resources directory. Updating the repository is currently the only way to get the latest generated database. If you specify your own database, there may be some problems if the formatting is not as expected. Please raise an issue if this is an important use case for you.
 
-The -a switch tells pmercury.py to perform inferencing on each observed ClientHello packet. The results are comprised of a 4-tuple specifying the name of the process (process) and a score representing the confidence of the algorithm in selecting that process (score).
+The -a switch tells pmercury to perform inferencing on each observed ClientHello packet. The results are comprised of a 4-tuple specifying the name of the process (process) and a score representing the confidence of the algorithm in selecting that process (score).
 
 ### Examples
 
 Looking up a fingerprint string in the database:
 
 ```bash
-~/ $: ./pmercury.py -l "(0301)(c014c01300390035002fc00ac00900380032000a001300050004)((0000)(000a0006000400170018)(000b00020100)(0017)(ff01))" | jq .
+~/ $: ./pmercury -l "(0301)(c014c01300390035002fc00ac00900380032000a001300050004)((0000)(000a0006000400170018)(000b00020100)(0017)(ff01))" | jq .
 {
   "str_repr": "(0301)(c014c01300390035002fc00ac00900380032000a001300050004)((0000)(000a0006000400170018)(000b00020100)(0017)(ff01))",
   "first_seen": "2019-07-22",
@@ -80,7 +80,7 @@ Looking up a fingerprint string in the database:
 Performing process identification:
 
 ```bash
-~/ $: ./pmercury.py -r ../test/data/top_100_fingerprints.pcap -a | jq .
+~/ $: ./pmercury -r ../test/data/top_100_fingerprints.pcap -a | jq .
 {
   "src_ip": "10.0.2.15",
   "dst_ip": "172.217.7.228",
@@ -116,7 +116,7 @@ These features can be turned on by invoking the **-e** option.
 To perform decryption with HTTP/2 data extraction:
 
 ```bash
-~/ $: ./pmercury.py -r ../test/data/test_decrypt.pcap -s ../test/data/sslkeylogfile.log -w -e
+~/ $: ./pmercury -r ../test/data/test_decrypt.pcap -s ../test/data/sslkeylogfile.log -w -e
 {
   "src_ip": "10.0.2.15",
   "dst_ip": "216.58.194.163",
