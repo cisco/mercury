@@ -164,35 +164,6 @@ enum status frame_handler_init_from_config(struct frame_handler *handler,
     return status_ok;
 }
 
-enum status thread_context_init_from_config(struct thread_context *tc,
-					    struct mercury_config *cfg,
-					    int tnum,
-					    char *fileset_id) {
-
-    enum status status;
-
-    status = frame_handler_init_from_config(&tc->handler, cfg, tnum, fileset_id);
-    if (status) {
-	return status;
-    }
-    
-    if (cfg->capture_interface) {
-	/*
-	 * set up input for a network capture 
-	 */
-	printf("buffer fraction: %e\n", cfg->buffer_fraction);
-	status = capture_init(tc, cfg->fanout_group, cfg->buffer_fraction);
-	if (status) {
-	    perror("could not initialize AF_PACKET socket");
-	    return status_err;
-	}
-    } else {
-	return status_err; /* no interface specified */
-    }
-    
-    return status_ok;    
-}
-
 void *packet_processing_thread_func(void *userdata) {
     struct thread_context *tc = (struct thread_context *)userdata;
     enum status status;
@@ -515,7 +486,6 @@ void usage(const char *progname, const char *err_string, enum extended_help exte
 }
 
 int main(int argc, char *argv[]) {
-    enum status status;
     struct mercury_config cfg = mercury_config_init();
     int c;
 
@@ -691,17 +661,20 @@ int main(int argc, char *argv[]) {
     if (cfg.fingerprint_filename && cfg.write_filename) {
 	usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
     }
-
-	/*
-	 * loop_count < 1  ==> not valid
-	 * loop_count > 1  ==> looping (i.e. repeating read file) will be done
-	 * loop_count == 1 ==> default condition
-	 */
-	if (cfg.loop_count < 1) {
-		usage(argv[0], "Invalid loop count, it should be >= 1", extended_help_off);
-	} else if (cfg.loop_count > 1) {
-		printf("Loop count: %d\n", cfg.loop_count);
-	}
+    if (cfg.num_threads != 1 && cfg.fingerprint_filename == NULL && cfg.write_filename == NULL) {
+	usage(argv[0], "multiple threads [t] requested, but neither fingerprint [f] no write [w] specified on command line", extended_help_off);
+    }
+    
+    /*
+     * loop_count < 1  ==> not valid
+     * loop_count > 1  ==> looping (i.e. repeating read file) will be done
+     * loop_count == 1 ==> default condition
+     */
+    if (cfg.loop_count < 1) {
+	usage(argv[0], "Invalid loop count, it should be >= 1", extended_help_off);
+    } else if (cfg.loop_count > 1) {
+	printf("Loop count: %d\n", cfg.loop_count);
+    }
 	
     /*
      * set up signal handlers, so that output is flushed upon close
@@ -710,58 +683,36 @@ int main(int argc, char *argv[]) {
     signal(SIGTERM, sig_close);
 
     /* process packets */
-    if (0) { // was: (num_threads == 1)
-	if (cfg.capture_interface) {
-	    struct thread_context tc;
-	    
-	    status = thread_context_init_from_config(&tc, &cfg, 0, NULL);
-	    if (status) {
-		printf("error: could not initialize thread context\n");
-		exit(255);
-	    }
-	    packet_processing_thread_func(&tc);
-	} else if (cfg.read_filename) {
-	    printf("TBD\n");
-	}
-    } else {
-
+    
 #ifndef USE_FANOUT
 #warning "TPACKET V3 unavailable; compiling for single-threaded use only"
-	printf("error: multithreading not available; the --thread option must be omitted\n");
+    printf("error: multithreading not available; the --thread option must be omitted\n");
 #endif
-
-	int num_cpus = get_nprocs();  // would get_nprocs_conf() be more appropriate?
-	if (cfg.num_threads == -1) {
-	    cfg.num_threads = num_cpus;
-	    printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
-	}
 	
-	if (0 && cfg.num_threads > 1) {
-	    
-	    /*
-	     * create subdirectory into which each thread will write its output
-	     */
-	    char *outdir = cfg.fingerprint_filename ? cfg.fingerprint_filename : cfg.write_filename;
-	    create_subdirectory(outdir, create_subdir_mode_do_not_overwrite);
-	}
-	
-	if (cfg.capture_interface) {
-	    struct ring_limits rl;
-	    
-	    ring_limits_init(&rl, cfg.buffer_fraction);
-
-	    af_packet_bind_and_dispatch(&cfg, &rl);
-	    
-	}
-
-	if (cfg.read_filename) {
-
-	    open_and_dispatch(&cfg);
-	    
-	}
-
+    int num_cpus = get_nprocs();  // would get_nprocs_conf() be more appropriate?
+    if (cfg.num_threads == -1) {
+	cfg.num_threads = num_cpus;
+	printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
     }
+    
+    if (cfg.capture_interface) {
+	struct ring_limits rl;
 
+	if (cfg.verbosity) {
+	    printf("initializing interface %s\n", cfg.capture_interface);
+	}
+	ring_limits_init(&rl, cfg.buffer_fraction);
+	
+	af_packet_bind_and_dispatch(&cfg, &rl);
+	
+    }
+    
+    if (cfg.read_filename) {
+	
+	open_and_dispatch(&cfg);
+	
+    }
+	
     analysis_finalize();
     
     return 0;
