@@ -1,10 +1,4 @@
-include pmercury/resources/app_families.txt
-include pmercury/resources/pyasn.db.gz
-include pmercury/resources/asn_info.db.gz
-include pmercury/resources/fingerprint_db.json.gz
-include pmercury/resources/public_suffix_list.dat.gz
-include pmercury/resources/implementation_date_cs.json.gz
-include pmercury/resources/implementation_date_ext.json.gz
-include LICENSE
+include ../resources/*
+include ../LICENSE
 include README.md
 include requirements.txt
