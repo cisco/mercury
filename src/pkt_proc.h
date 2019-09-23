@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include "pcap_file_io.h"
 #include "json_file_io.h"
-
+#include "extractor.h"      /* for struct packet_filter */
 
 /* Information about each packet on the wire */
 struct packet_info {
@@ -22,6 +22,11 @@ struct packet_info {
   uint32_t len;        /* length this packet (off wire) */
 };
 
+
+struct filter_writer_context {
+    struct pcap_file pcap_file;
+    struct packet_filter pf; 
+};
 
 typedef void (*frame_handler_func)(void *userdata,
 				   struct packet_info *pi,
@@ -39,6 +44,7 @@ typedef void (*frame_handler_func)(void *userdata,
 union frame_handler_context {
     struct pcap_file pcap_file;
     struct json_file json_file;
+    struct filter_writer_context filter_writer;
 };
 struct frame_handler {
     frame_handler_func func;
@@ -75,7 +81,8 @@ enum status frame_handler_write_fingerprints_init(struct frame_handler *handler,
  */
 enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
 						 const char *outfile,
-						 int flags);
+						 int flags,
+						 const char *packet_filter_config_string);
 
 
 /*
