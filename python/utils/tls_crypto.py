@@ -109,7 +109,7 @@ class TLS_CRYPTO:
         digest_type = cipher_params['prf']()
 
         cur_hash = self.hmac(secret, digest_type, b'%s%s%s' % (label, sr, cr))
-        output = ''
+        output = b''
         for i in range(16):
             output += self.hmac(secret, digest_type, b'%s%s%s%s' % (cur_hash, label, sr, cr))
             cur_hash = self.hmac(secret, digest_type, cur_hash)
@@ -189,7 +189,7 @@ class TLS_CRYPTO:
                 if flow_key+self.cur_mode not in self.session_metadata or \
                    'cbc_initial_decrypt' not in self.session_metadata[flow_key+self.cur_mode] or \
                    'cur_iv' not in self.session_metadata[flow_key+self.cur_mode]:
-                    iv = ''
+                    iv = b''
                 else:
                     iv = self.session_metadata[flow_key+self.cur_mode]['cur_iv']
         elif self.session_metadata['version'] in ['TLS 1.1','TLS 1.2']:
@@ -219,7 +219,7 @@ class TLS_CRYPTO:
                 iv = s_iv + explicit_iv
         elif self.session_metadata['version'].startswith('TLS 1.3'):
             cur_flow_key = flow_key + self.cur_mode
-            label_str = ''
+            label_str = b''
             if self.session_metadata['version'] == 'TLS 1.3' or self.session_metadata['version'] == 'TLS 1.3 (draft 20)':
                 label_str = b'tls13 '
             else:
