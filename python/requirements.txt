@@ -1,4 +1,5 @@
 cryptography~=2.7
+Cython~=0.29.13
 dpkt~=1.9.2
 hpack~=3.0.0
 numpy~=1.17.2

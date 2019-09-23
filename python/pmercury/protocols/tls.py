@@ -20,11 +20,13 @@ from math import exp, log
 from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
+from protocol import Protocol
 from utils.tls_utils import *
 from utils.tls_constants import *
+from utils.pmercury_utils import *
 from utils.contextual_info import *
 from utils.sequence_alignment import *
-from protocol import Protocol
 
 MAX_CACHED_RESULTS = 2**24
 
@@ -37,9 +39,12 @@ class TLS(Protocol):
 
         # populate fingerprint databases
         self.fp_db = {}
-        self.load_database(fp_database)
+        if fp_database == 'resources/fingerprint_db.json.gz':
+            fp_database = find_resource_path(fp_database)
+        if fp_database != None:
+            self.load_database(fp_database)
 
-        app_families_file = os.path.dirname(os.path.abspath(__file__)) + '/../../resources/app_families.txt'
+        app_families_file = find_resource_path('resources/app_families.txt')
         self.app_families = {}
         for line in open(app_families_file, 'r'):
             tokens = line.strip().split(',')

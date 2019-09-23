@@ -5,6 +5,7 @@
 
 import os
 import ast
+import sys
 import gzip
 
 import ujson as json
@@ -12,7 +13,9 @@ import ujson as json
 from collections import OrderedDict
 from binascii import hexlify, unhexlify
 
-from utils.tls_constants import *
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from tls_constants import *
+from pmercury_utils import *
 
 grease_ = set(['0a0a','1a1a','2a2a','3a3a','4a4a','5a5a','6a6a','7a7a',
                '8a8a','9a9a','aaaa','baba','caca','dada','eaea','fafa'])
@@ -24,11 +27,11 @@ ext_data_extract_ = set(['0001','0005','0007','0008','0009','000a','000b',
 ext_data_extract_ = ext_data_extract_.union(grease_)
 
 
-imp_date_cs_file = os.path.dirname(__file__) + '/../../resources/implementation_date_cs.json.gz'
+imp_date_cs_file = find_resource_path('resources/implementation_date_cs.json.gz')
 with gzip.open(imp_date_cs_file,'r') as fp:
     imp_date_cs_data = json.loads(fp.read())
 
-imp_date_ext_file = os.path.dirname(__file__) + '/../../resources/implementation_date_ext.json.gz'
+imp_date_ext_file = find_resource_path('resources/implementation_date_ext.json.gz')
 with gzip.open(imp_date_ext_file,'r') as fp:
     imp_date_ext_data = json.loads(fp.read())
 
