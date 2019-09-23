@@ -25,6 +25,11 @@
     #define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
+/*
+ * select_tcp_syn selects TCP SYNs for extraction
+ */
+bool select_tcp_syn = 1;
+
 /* protocol identification, adapted from joy */
 
 
@@ -726,6 +731,10 @@ unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x)
     }
     if (parser_set_data_length(p, tcp_offrsv_get_length(offrsv) - TCP_FIXED_HDR_LEN)) {
 	return 0;
+    }
+
+    if (select_tcp_syn == 0) {
+	return 0; /* packet filter configuration does not want TCP SYN packets */
     }
 
     /* set fingerprint type TCP, since we succeeded in parsing the header up to the options */
@@ -2063,7 +2072,6 @@ unsigned int parser_process_packet(struct parser *p) {
  */
 enum status packet_filter_init(struct packet_filter *pf, const char *config_string) {
     (void)pf;
-    fprintf(stderr, "debug: configuring packet_filter with config_string \"%s\"\n", config_string);
     return proto_ident_config(config_string);
 }
 
@@ -2094,15 +2102,20 @@ enum status proto_ident_config(const char *config_string) {
     }
     if (strncmp("http", config_string, sizeof("http")) == 0) {
 	bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+	select_tcp_syn = 0;
+	return status_ok;
     }
     if (strncmp("tls", config_string, sizeof("tls")) == 0) {
 	bzero(http_client_mask, sizeof(http_client_mask));
 	bzero(http_server_mask, sizeof(http_server_mask));
+	select_tcp_syn = 0;
+	return status_ok;
     }
     if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
 	bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
 	bzero(http_client_mask, sizeof(http_client_mask));
 	bzero(http_server_mask, sizeof(http_server_mask));
+	return status_ok;
     }
     return status_err;
 }

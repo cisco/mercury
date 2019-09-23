@@ -117,7 +117,6 @@ enum status frame_handler_init_from_config(struct frame_handler *handler,
 	     */
 	    status = frame_handler_filter_write_pcap_init(handler, outfile, cfg->flags, cfg->packet_filter_cfg);
 	    if (status) {
-		printf("error: could not open pcap output file %s\n", outfile);
 		return status;
 	    }
 	} else {

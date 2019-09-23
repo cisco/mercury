@@ -35,9 +35,15 @@ enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
      * setup output to fingerprint file or PCAP write file
      */
     handler->func = frame_handler_filter_write_pcap;
-    packet_filter_init(&handler->context.filter_writer.pf, packet_filter_config_string);
-    enum status status = pcap_file_open(&handler->context.filter_writer.pcap_file, outfile, io_direction_writer, flags);
-    
+    enum status status = packet_filter_init(&handler->context.filter_writer.pf, packet_filter_config_string);
+    if (status != status_ok) {
+	printf("error: could not configure packet filter with config string \"%s\"\n", packet_filter_config_string);
+	return status;
+    }
+    status = pcap_file_open(&handler->context.filter_writer.pcap_file, outfile, io_direction_writer, flags);
+    if (status != status_ok) {
+	printf("error: could not open pcap output file %s\n", outfile);
+    }
     return status;
 }
 				      
