@@ -287,7 +287,7 @@ class TLS_Decrypt:
             if str(hexlify(data[offset+1:offset+3]),'utf-8') not in TLS_VERSION:
                 if len(data[offset:]) < 5:
                     self.data_cache[flow_key+self.cur_mode] = [data[offset:],0,True]
-                    return protocol_type, fp_str_, None, None
+                    return None, fp_str_, None, None
                 # keep state to hopefully recover, most likely due to packet fragmentation
                 if flow_key+self.cur_mode not in self.data_cache:
                     self.data_cache[flow_key+self.cur_mode] = [data[offset:],0,True]
