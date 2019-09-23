@@ -9,6 +9,20 @@ There are four distinct (but related) components:
 * ../src/python-inference/&ast; - A Cython port of protocols/tls.py that can be called from C++14 or higher code
 * ../resources/fingerprint_db.json.gz - The star of the show; a detailed database associating billions of network and endpoint observations
 
+## Installation
+
+pmercury depends on libpcap-dev:
+
+```bash
+sudo apt-get install libpcap-dev
+```
+
+To install pmercury with pip:
+
+```bash
+pip3 install pmercury
+```
+
 ## pmercury
 
 pmercury is designed to highlight the functionality of tls.py and to provide a simple interface into the fingerprint database.
