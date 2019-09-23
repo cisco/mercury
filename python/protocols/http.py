@@ -44,11 +44,11 @@ class HTTP(Protocol):
                 break
             fp_str += b'(' + hexlify(h_) + b')'
 
-        return str(fp_str,'utf-8')
+        return fp_str
 
 
     def get_human_readable(self, fp_str_):
-        t_ = [str(unhexlify(x[1:]),'utf-8') for x in fp_str_.split(')')[:-1]]
+        t_ = [str(unhexlify(x[1:]),'utf-8') for x in fp_str_.split(b')')[:-1]]
         fp_h = [{'method':t_[0]},{'uri':t_[1]},{'version':t_[2]}]
         for i in range(3, len(t_)-1):
             field = t_[i].split(': ',1)
