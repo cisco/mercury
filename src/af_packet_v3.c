@@ -69,25 +69,6 @@ void af_packet_stats(int sockfd, struct stats_tracking *statst) {
   }
 }
 
-
-int get_interface_number_by_device_name(int socketfd, const char *interface_name) {
-  struct ifreq ifr;
-  memset(&ifr, 0, sizeof(ifr));
-
-  if (copy_string_into_buffer(ifr.ifr_name, sizeof(ifr.ifr_name), interface_name, sizeof(ifr.ifr_name)) != 0) {
-    printf("error: problem with interface name\n");
-    return -1;
-  }
-  
-  if (ioctl(socketfd, SIOCGIFINDEX, &ifr) == -1) {
-    perror("ioctl interface index error");
-    return -1;
-  }
-
-  return ifr.ifr_ifindex;
-}
-
-
 void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
 				  struct stats_tracking *statst,
 				  struct frame_handler *handler) {
@@ -109,9 +90,6 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
     pi.len = pkt_hdr->tp_snaplen; // Is this right??
 
     uint8_t *eth = (uint8_t *)pkt_hdr + pkt_hdr->tp_mac;
-    //print_packet(&pi, eth);
-    //pc(&pi, eth);
-
     handler->func(&handler->context, &pi, eth);
     
     pkt_hdr = (struct tpacket3_hdr *) ((uint8_t *)pkt_hdr + pkt_hdr->tp_next_offset);
@@ -214,8 +192,8 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
   /*
    * get the number for the interface on which we want to capture packets
    */
-  int interface_number = get_interface_number_by_device_name(sockfd, thread_stor->if_name);
-  if (interface_number == -1) {
+  int interface_number = if_nametoindex(thread_stor->if_name);
+  if (interface_number == 0) {
     fprintf(stderr, "Can't get interface number by interface name (%s) for thread %d\n", thread_stor->if_name, thread_stor->tnum);
     return -1;
   }
@@ -289,7 +267,22 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
     fprintf(stderr, "could not bind interface %s to AF_PACKET socket for thread %d\n", thread_stor->if_name, thread_stor->tnum);
     return -1;
   }
-
+  /*
+   * verify that interface number matches requested interface
+   */
+  char actual_ifname[IF_NAMESIZE];
+  char *retval = if_indextoname(interface_number, actual_ifname);
+  if (retval == NULL) {
+      fprintf(stderr, "%s: could not get interface name\n", strerror(errno));
+      return -1;
+  } else {
+      if (strncmp(actual_ifname, thread_stor->if_name, IF_NAMESIZE) != 0) {
+	  fprintf(stderr, "error: interface name \"%s\" does not match that requested (%s)\n",
+		  actual_ifname, thread_stor->if_name);
+      }
+  }
+  
+  
   /*
    * set up fanout (each thread gets some portion of packets)
    */
