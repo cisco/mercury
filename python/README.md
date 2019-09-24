@@ -59,13 +59,16 @@ OUTPUT
    [-f or --fingerprint] fingerprint_file_name  # write fingerprints to file (stdout is the default)
 
 OPTIONS
-   [-a or --analysis]                           # perform process/malware identification
-   [-h or --help]                               # help text
    [-l or --lookup]                             # return database entry for a double quoted fingerprint string
    [-n or --num-procs]                          # return the top-n most probable processes
-   [-w or --human-readable]                     # return human readable fingerprint string
-   [-e or --experimental]                       # turns on all experimental features
    [-s or --sslkeylogfile]                      # filename of sslkeylog output for decryption
+
+FLAGS
+   [-a or --analysis]                           # perform process identification
+   [-w or --human-readable]                     # return human readable fingerprint string
+   [-g or --group-flows]                        # aggregate packet-based fingerprints to flow-based
+   [-e or --experimental]                       # turns on all experimental features
+   [-h or --help]                               # help text
 ```
 
 The input can be either a list of packet capture files or a network interface.

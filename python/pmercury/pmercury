@@ -24,7 +24,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 class Fingerprinter:
 
     def __init__(self, database, output=None, analyze=False, num_procs=0,
-                 human_readable=False, experimental=False, sslkeylog=None):
+                 human_readable=False, group=False, experimental=False, sslkeylog=None):
+        self.group = group
         self.analyze = analyze
         self.num_procs = num_procs
         self.human_readable = human_readable
@@ -54,6 +55,9 @@ class Fingerprinter:
             if sslkeylog != None:
                 self.ip_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))
         self.all_parsers = self.app_parsers + self.tcp_parsers + self.ip_parsers
+
+        # data
+        self.flow_cache = {}
 
 
     def process(self, input_files):
@@ -144,10 +148,66 @@ class Fingerprinter:
                                             flow['analysis'] = proc_info
                                             break
 
-                            self.write_record(flow)
+                            if self.group:
+                                self.update_flow_cache(flow)
+                            else:
+                                self.write_record(flow)
 
                 if capture_type == 'offline':
                     break
+
+            if self.group:
+                self.write_flows()
+
+
+    def update_flow_cache(self, flow):
+        t_flow_key, t_r_flow_key = self.get_flow_keys(flow)
+        if t_flow_key in self.flow_cache:
+            flow_key = t_flow_key
+        elif t_r_flow_key in self.flow_cache:
+            flow_key = t_r_flow_key
+        else:
+            flow_key = t_flow_key
+            self.init_flow_cache(flow, flow_key)
+
+        # update end time
+        self.flow_cache[flow_key]['event_end'] = flow['event_start']
+
+        # add fingerprint
+        for k in flow['fingerprints']:
+            packet_fp = OrderedDict({})
+            packet_fp['event_start'] = flow['event_start']
+            packet_fp[k] = flow['fingerprints'][k]
+            if 'context' in flow:
+                packet_fp['context'] = flow['context']
+            if k in flow:
+                packet_fp['readable'] = flow[k]
+            self.flow_cache[flow_key]['fingerprints'].append(packet_fp)
+
+
+    def init_flow_cache(self, flow, flow_key):
+        self.flow_cache[flow_key] = {}
+        self.flow_cache[flow_key]['src_ip']       = flow['src_ip']
+        self.flow_cache[flow_key]['dst_ip']       = flow['dst_ip']
+        self.flow_cache[flow_key]['src_port']     = flow['src_port']
+        self.flow_cache[flow_key]['dst_port']     = flow['dst_port']
+        self.flow_cache[flow_key]['protocol']     = flow['protocol']
+        self.flow_cache[flow_key]['event_start']  = flow['event_start']
+        self.flow_cache[flow_key]['event_end']    = flow['event_start']
+        self.flow_cache[flow_key]['fingerprints'] = []
+
+
+    def get_flow_keys(self, flow):
+        src_ip   = flow['src_ip']
+        dst_ip   = flow['dst_ip']
+        src_port = str(flow['src_port'])
+        dst_port = str(flow['dst_port'])
+        protocol = str(flow['protocol'])
+
+        fk   = src_ip + ':' + dst_ip + ':' + src_port + ':' + dst_port + ':' + protocol
+        r_fk = dst_ip + ':' + src_ip + ':' + dst_port + ':' + src_port + ':' + protocol
+
+        return fk, r_fk
 
 
     def lookup_fingerprint_string(self, fp_str):
@@ -162,6 +222,12 @@ class Fingerprinter:
         if flow_repr != None:
             self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
             self.out_file_pointer.flush()
+
+
+    def write_flows(self):
+        for k in list(self.flow_cache.keys()):
+            self.write_record(self.flow_cache[k])
+            del self.flow_cache[k]
 
 
 
@@ -182,12 +248,14 @@ def main():
                       help='lookup fingerprint string <fp_str>',default=None)
     parser.add_option('-a','--analysis',action='store_true',dest='analyze',
                       help='perform process identification',default=False)
-    parser.add_option('-n','--num-procs',action='store',dest='num_procs',type='int',
-                      help='return the top-n most probable processes',default=0)
     parser.add_option('-w','--human-readable',action='store_true',dest='human_readable',
                       help='return human readable fingerprint information',default=False)
     parser.add_option('-e','--experimental',action='store_true',dest='experimental',
                       help='turns on all experimental features',default=False)
+    parser.add_option('-g','--group-flows',action='store_true',dest='group',
+                      help='aggregate packet-based fingerprints to flow-based',default=False)
+    parser.add_option('-n','--num-procs',action='store',dest='num_procs',type='int',
+                      help='return the top-n most probable processes',default=0)
     parser.add_option('-s','--sslkeylogfile',action='store',dest='sslkeylog',
                       help='filename of sslkeylog output for decryption',default=None)
 
@@ -203,7 +271,7 @@ def main():
         input_files.append(options.capture_interface)
 
     fingerprinter = Fingerprinter(options.fp_db, options.output, options.analyze,
-                                  options.num_procs, options.human_readable,
+                                  options.num_procs, options.human_readable, options.group,
                                   options.experimental, options.sslkeylog)
 
     if options.lookup != None:
