@@ -12,11 +12,11 @@ import dpkt
 import pcap
 import time
 import socket
-import datetime
 import optparse
 import ujson as json
-from binascii import hexlify, unhexlify
+from datetime import datetime
 from collections import OrderedDict
+from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 
@@ -25,10 +25,13 @@ class Fingerprinter:
 
     def __init__(self, database, output=None, analyze=False, num_procs=0,
                  human_readable=False, group=False, experimental=False, sslkeylog=None):
-        self.group = group
-        self.analyze = analyze
-        self.num_procs = num_procs
+        self.analyze        = analyze
+        self.num_procs      = num_procs
         self.human_readable = human_readable
+        self.group          = group
+        self.FLOW_TIMEOUT   = 150
+        self.FLOW_UPDATE    = 15
+        self.flow_timer     = None
 
         if output == None:
             self.out_file_pointer = None
@@ -65,6 +68,13 @@ class Fingerprinter:
             print('error: need a pcap/interface')
             return 1
 
+        import signal
+        def signal_handler(signal, frame):
+            if self.group:
+                self.write_flows(active=False)
+            sys.exit(0)
+        signal.signal(signal.SIGINT, signal_handler)
+
         self.data_ = []
         for input_file in input_files:
             if os.path.isfile(input_file):
@@ -81,6 +91,7 @@ class Fingerprinter:
                 capture_type = 'online'
 
             while True:
+                self.flow_timer = time.time()
                 pkts = packets.readpkts()
 
                 for ts, buf in pkts:
@@ -117,7 +128,7 @@ class Fingerprinter:
                             flow['src_port']     = tcp_data.sport
                             flow['dst_port']     = tcp_data.dport
                             flow['protocol']     = ip.p
-                            flow['event_start']  = str(datetime.datetime.utcfromtimestamp(ts))
+                            flow['event_start']  = datetime.utcfromtimestamp(ts)
                             if context_ != None:
                                 flow['context'] = OrderedDict({})
                                 for x_ in context_:
@@ -156,8 +167,12 @@ class Fingerprinter:
                 if capture_type == 'offline':
                     break
 
+                if self.group and time.time()-self.flow_timer > self.FLOW_UPDATE:
+                    self.flow_timer = time.time()
+                    self.write_flows(active=True)
+
             if self.group:
-                self.write_flows()
+                self.write_flows(active=False)
 
 
     def update_flow_cache(self, flow):
@@ -176,7 +191,7 @@ class Fingerprinter:
         # add fingerprint
         for k in flow['fingerprints']:
             packet_fp = OrderedDict({})
-            packet_fp['event_start'] = flow['event_start']
+            packet_fp['event_start'] = str(flow['event_start'])
             packet_fp[k] = flow['fingerprints'][k]
             if 'context' in flow:
                 packet_fp['context'] = flow['context']
@@ -224,8 +239,15 @@ class Fingerprinter:
             self.out_file_pointer.flush()
 
 
-    def write_flows(self):
-        for k in list(self.flow_cache.keys()):
+    def write_flows(self, active=False):
+        curtime = datetime.utcnow()
+        flow_keys = [k for k in self.flow_cache.keys()
+                     if not active or 
+                     ((curtime - self.flow_cache[k]['event_start']).seconds > self.FLOW_TIMEOUT)]
+
+        for k in flow_keys:
+            self.flow_cache[k]['event_start'] = str(self.flow_cache[k]['event_start'])
+            self.flow_cache[k]['event_end'] = str(self.flow_cache[k]['event_end'])
             self.write_record(self.flow_cache[k])
             del self.flow_cache[k]
 
