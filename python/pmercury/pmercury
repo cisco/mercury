@@ -51,10 +51,11 @@ class Fingerprinter:
             from pmercury.protocols.tls_server import TLS_Server
             from pmercury.protocols.http_server import HTTP_Server
             from pmercury.protocols.tls_decrypt import TLS_Decrypt
+            from pmercury.protocols.tls_certificate import TLS_Certificate
 
             self.app_parsers.extend([('tls_server', TLS_Server()), ('http', HTTP()), ('http_server', HTTP_Server())])
             self.tcp_parsers.extend([('tcp', TCP())])
-            self.ip_parsers.extend([])
+            self.ip_parsers.extend([('tls_certificate', TLS_Certificate())])
             if sslkeylog != None:
                 self.ip_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))
         self.all_parsers = self.app_parsers + self.tcp_parsers + self.ip_parsers
@@ -236,7 +237,6 @@ class Fingerprinter:
     def write_record(self, flow_repr):
         if flow_repr != None:
             self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
-            self.out_file_pointer.flush()
 
 
     def write_flows(self, active=False):
