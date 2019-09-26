@@ -20,6 +20,7 @@ from math import exp, log
 from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from utils.tls_utils import *
 from utils.tls_constants import *
 from protocol import Protocol
@@ -35,17 +36,16 @@ class TLS_Server(Protocol):
 
         # TLS ServerHello pattern/RE
         self.pattern = b'\x16\x03[\x00-\x03].{2}\x02.{3}\x03[\x00-\x03]'
-        self.matcher = re.compile(self.pattern)
 
 
     def fingerprint(self, data):
         # check TLS version and record/handshake type
-        if self.matcher.match(data[0:11]) == None:
+        if re.findall(self.pattern, data[0:11], re.DOTALL) == []:
             return None, None, None, None
 
         # bounds checking
-        record_length = int(hexlify(data[3:5]),16)
-        if record_length > len(data[5:]):
+        message_length = int(hexlify(data[6:9]),16)
+        if message_length > len(data[9:]):
             return None, None, None, None
 
         # extract fingerprint string

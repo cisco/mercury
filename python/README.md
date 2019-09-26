@@ -127,6 +127,7 @@ TLS client fingerprint extraction and process identification is relatively matur
 * HTTP/1.x client fingerprint extraction - Currently extracts all headers from the HTTP/1.x request; no fingerprint database.
 * HTTP/1.x server fingerprint extraction - Currently extracts all headers from the HTTP/1.x response; no fingerprint database.
 * TLS decryption and fingerprint extraction - Currently decrypts TLS sessions when supplied a file in [NSS Key Log Format](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format) and extracts the internal HTTP/1.x and HTTP/2 requests and responses.
+* TLS server certificate extraction - Currently extracts metadata from the first certificate; no associated auxiliary data.
 
 These features can be turned on by invoking the **-e** option.
 

@@ -4,6 +4,7 @@ import dpkt
 from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from protocol import Protocol
 
 
