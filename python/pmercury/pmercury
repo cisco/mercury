@@ -114,12 +114,12 @@ class Fingerprinter:
                         add_fam = socket.AF_INET6
 
                     results_ = []
-                    for _,parser_ in self.ip_parsers:
-                        results_.append(parser_.fingerprint(ip))
-                    for _,parser_ in self.tcp_parsers:
-                        results_.append(parser_.fingerprint(tcp_data))
                     for _,parser_ in self.app_parsers:
                         results_.append(parser_.fingerprint(app_data))
+                    for _,parser_ in self.tcp_parsers:
+                        results_.append(parser_.fingerprint(tcp_data))
+                    for _,parser_ in self.ip_parsers:
+                        results_.append(parser_.fingerprint(ip))
 
                     for protocol_type, fp_str_, approx_fp_str_, context_ in results_:
                         if fp_str_ != None:

@@ -34,7 +34,6 @@ class TLS_Decrypt:
 
         # TLS ClientHello pattern/RE
         self.pattern = b'\x16\x03[\x00-\x03].{2}\x01.{3}\x03[\x00-\x03]'
-        self.matcher = re.compile(self.pattern)
 
         self.http2 = HTTP2()
         self.http = HTTP()
@@ -265,9 +264,9 @@ class TLS_Decrypt:
         flow_key, mode = self.get_flow_key(ip)
         self.cur_mode = mode
         cur_flow_key = flow_key + mode
-        if flow_key not in self.session_metadata and self.matcher.match(data[0:11]) == None:
+        if flow_key not in self.session_metadata and re.findall(self.pattern, data[0:11], re.DOTALL) == []:
             return protocol_type, fp_str_, None, None
-        elif self.matcher.match(data[0:11]) != None:
+        elif re.findall(self.pattern, data[0:11], re.DOTALL) != []:
             self.session_metadata[flow_key] = {}
 
         # check TLS version to limit possibility of parsing junk
