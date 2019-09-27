@@ -55,7 +55,6 @@ class TLS(Protocol):
 
         # TLS ClientHello pattern/RE
         self.pattern = b'\x16\x03[\x00-\x03].{2}\x01.{3}\x03[\x00-\x03]'
-        self.matcher = re.compile(self.pattern)
 
 
     def load_database(self, fp_database):
@@ -71,7 +70,7 @@ class TLS(Protocol):
 
     def fingerprint(self, data):
         # check TLS version and record/handshake type
-        if self.matcher.match(data[0:11]) == None:
+        if re.findall(self.pattern, data[0:11], re.DOTALL) == []:
             return None, None, None, []
 
         # bounds checking
