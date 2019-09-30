@@ -1,12 +1,19 @@
 # Makefile for mercury
 #
 
-.PHONY: mercury test
+.PHONY: mercury test install
 mercury:
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo "error: run ./configure before running make (src/Makefile is missing)"
 else
 	cd src && $(MAKE)
+endif
+
+install:
+ifneq ($(wildcard src/Makefile), src/Makefile)
+	@echo "error: run ./configure before running make (src/Makefile is missing)"
+else
+	cd src && $(MAKE) install
 endif
 
 test:
