@@ -9,7 +9,9 @@ INSTALL = /usr/bin/install -c
 INSTALLDATA = /usr/bin/install -c -m 644
 
 DESTDIR =
-PREFIX = /usr/local
+prefix = @prefix@
+exec_prefix=@exec_prefix@
+bindir = @bindir@
 
 .SUFFIXES:
 .SUFFIXES: .c .o
@@ -95,7 +97,8 @@ distclean: clean
 
 .PHONY: install
 install: mercury
-	$(INSTALL) mercury $(DESTDIR)$(PREFIX)/bin/
+	mkdir -p $(DESTDIR)$(bindir)
+	$(INSTALL) mercury $(DESTDIR)$(bindir)
 
 .PHONY: gprof
 gprof:
