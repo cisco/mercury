@@ -80,6 +80,8 @@ class TLS(Protocol):
 
         # extract fingerprint string
         fp_str_, server_name = self.extract_fingerprint(data[5:])
+        if fp_str_ == None:
+            return None, None, None, []
         fp_str_ = str(fp_str_)
         approx_str_ = None
 

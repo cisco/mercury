@@ -50,6 +50,8 @@ class TLS_Server(Protocol):
 
         # extract fingerprint string
         fp_str_ = self.extract_fingerprint(data[5:])
+        if fp_str_ == None:
+            return None, None, None, None
         fp_str_ = str(fp_str_)
         fp_str_ = bytes(fp_str_.replace('()',''),'utf-8')
 
@@ -67,32 +69,32 @@ class TLS_Server(Protocol):
         session_id_length = int(hexlify(data[offset:offset+1]),16)
         offset += 1 + session_id_length
         if len(data[offset:]) == 0:
-            return None, None
+            return None
 
         # parse selected_cipher_suite
         fp_ += data[offset:offset+2]
         offset += 2
         if len(data[offset:]) == 0:
-            return None, None
+            return None
 
         # parse/skip compression method
         compression_methods_length = int(hexlify(data[offset:offset+1]),16)
         offset += 1 + compression_methods_length
         if len(data[offset:]) == 0:
-            return hex_fp_to_structured_representation(hexlify(fp_)), None
+            return hex_fp_to_structured_representation(hexlify(fp_))
 
         # parse/skip extensions length
         ext_total_len = int(hexlify(data[offset:offset+2]),16)
         offset += 2
         if len(data[offset:]) < ext_total_len:
-            return None, None
+            return None
 
         # parse/extract/skip extension type/length/values
         fp_ext_ = b''
         ext_fp_len_ = 0
         while ext_total_len > 0:
             if len(data[offset:]) == 0:
-                return None, None
+                return None
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
             fp_ext_ += tmp_fp_ext
@@ -103,16 +105,20 @@ class TLS_Server(Protocol):
         fp_ += unhexlify(('%04x' % ext_fp_len_))
         fp_ += fp_ext_
 
+        print(fp_)
+
         return hex_fp_to_structured_representation_server(hexlify(fp_))
 
 
     def get_human_readable(self, fp_str_):
         lit_fp = eval_fp_str(fp_str_)
+        print(lit_fp)
+        print(fp_str_)
         fp_h = OrderedDict({})
         fp_h['version'] = get_version_from_str(lit_fp[0][0])
-        fp_h['selected_cipher_suite'] = get_cs_from_str(lit_fp[1][0])
+        fp_h['selected_cipher_suite'] = get_cs_from_str(lit_fp[1][0])[0]
         fp_h['extensions'] = []
         if len(lit_fp) > 2:
-            fp_h['extensions'] = get_ext_from_str(lit_fp[2])
+            fp_h['extensions'] = get_ext_from_str(lit_fp[2], mode='server')
 
         return fp_h

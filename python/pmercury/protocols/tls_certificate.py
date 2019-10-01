@@ -59,6 +59,8 @@ class TLS_Certificate(Protocol):
         sh = False
         if re.findall(self.sh_pattern, data[0:11], re.DOTALL) != []:
             data = data[9+int(hexlify(data[6:9]),16):]
+            if len(data) == 0:
+                return protocol_type, fp_str_, None, None
             sh = True
 
         if sh and data[0] == 11:
