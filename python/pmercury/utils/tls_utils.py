@@ -151,7 +151,7 @@ def get_cs_from_str(cs_str_, convert=True):
     return cs_l_
 
 
-def get_ext_from_str(exts_, convert=True):
+def get_ext_from_str(exts_, convert=True, mode='client'):
     ext_l_ = []
     for ext in exts_:
         if len(ext) == 0:
@@ -162,7 +162,7 @@ def get_ext_from_str(exts_, convert=True):
             ext_type_ = imp_date_ext_data[ext_type_str_kind]['name']
         ext_data_ = ''
         if len(ext[0]) > 4 and convert:
-            ext_data_ = parse_extension_data(ext_type_, ext[0][4:])
+            ext_data_ = parse_extension_data(ext_type_, ext[0][4:], mode)
         elif len(ext[0]) > 4:
             ext_data_ = ext[0][4:]
 
@@ -182,7 +182,7 @@ def get_implementation_date(cs_str_): # @TODO: add extension
     return dates_[-1], dates_[0]
 
 
-def parse_extension_data(ext_type, ext_data_):
+def parse_extension_data(ext_type, ext_data_, mode):
     ext_len = int(ext_data_[0:4],16)
     ext_data = ext_data_[4:]
 
@@ -199,7 +199,10 @@ def parse_extension_data(ext_type, ext_data_):
     elif ext_type == 'psk_key_exchange_modes':
         ext_data = psk_key_exchange_modes(ext_data, ext_len)
     elif ext_type == 'supported_versions':
-        ext_data = supported_versions(ext_data, ext_len)
+        if mode == 'client':
+            ext_data = supported_versions(ext_data, ext_len)
+        else:
+            ext_data = supported_versions_server(ext_data, ext_len)
     elif ext_type == 'supported_groups':
         ext_data = supported_groups(ext_data, ext_len)
 
@@ -288,6 +291,20 @@ def supported_versions(data, length):
         else:
             info['supported_versions'].append('Unknown Version (%s)' % tmp_data)
         offset += 2
+
+    return info
+
+
+def supported_versions_server(data, length):
+    if len(data) < 2:
+        return ''
+    info = OrderedDict({})
+    data = unhexlify(data)
+    tmp_data = str(hexlify(data[:2]), 'utf-8')
+    if tmp_data in TLS_VERSION:
+        return TLS_VERSION[tmp_data]
+    else:
+        return 'Unknown Version (%s)' % tmp_data
 
     return info
 
