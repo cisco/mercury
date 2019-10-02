@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""     
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -198,6 +198,8 @@ class Fingerprinter:
                 packet_fp['context'] = flow['context']
             if k in flow:
                 packet_fp['readable'] = flow[k]
+            if 'analysis' in flow:
+                packet_fp['analysis'] = flow['analysis']
             self.flow_cache[flow_key]['fingerprints'].append(packet_fp)
 
 

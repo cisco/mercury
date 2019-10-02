@@ -36,6 +36,7 @@ class TLS(Protocol):
     def __init__(self, fp_database=None):
         # cached data/results
         self.tls_params_db = {}
+        self.MALWARE_DB = True
 
         # populate fingerprint databases
         self.fp_db = {}
@@ -64,6 +65,8 @@ class TLS(Protocol):
 
             for p_ in fp_['process_info']:
                 p_['process'] = bytes(p_['process'],'utf-8')
+                if 'malware' not in p_:
+                    self.MALWARE_DB = False
 
             self.fp_db[fp_['str_repr']] = fp_
 
@@ -119,7 +122,10 @@ class TLS(Protocol):
     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):
         fp_ = self.get_database_entry(fp_str_, None)
         if fp_ == None:
-            return {'process': 'Unknown', 'score': 0.0}
+            if self.MALWARE_DB:
+                return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
+            else:
+                return {'process': 'Unknown', 'score': 0.0}
 
         domain, tld = get_tld_info(server_name)
         asn = get_asn_info(dest_addr)
@@ -133,14 +139,25 @@ class TLS(Protocol):
         if len(r_) == 0 or r_[0]['score'] == 0.0:
             predict_ = str(fp_['process_info'][0]['process'], 'utf-8')
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
-            return {'process':predict_, 'score':0.0}
+            if self.MALWARE_DB:
+                return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
+            else:
+                return {'process':predict_, 'score':0.0}
+
+        if self.MALWARE_DB and r_[0]['malware'] == False and \
+           r_[0]['process'] == b'Generic DMZ Traffic' and len(r_) > 1 and r_[1]['malware'] == False:
+            r_.pop(0)
 
         process_name = str(r_[0]['process'], 'utf-8')
         process_name = self.app_families[process_name] if process_name in self.app_families else process_name
 
         score_sum_ = sum([x_['score'] for x_ in r_])
-        
-        out_ = {'process':process_name, 'score':r_[0]['score']}
+
+        if self.MALWARE_DB:
+            malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
+            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'], 'p_malware':malware_score_}
+        else:
+            out_ = {'process':process_name, 'score':r_[0]['score']}
         if list_procs > 0:
             r_proc_ = r_[0:list_procs]
             for p_ in r_proc_:
@@ -178,7 +195,10 @@ class TLS(Protocol):
         else:
             score_ += base_prior_
 
-        return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}
+        if self.MALWARE_DB:
+            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
+        else:
+            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)

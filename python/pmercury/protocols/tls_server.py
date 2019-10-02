@@ -105,15 +105,12 @@ class TLS_Server(Protocol):
         fp_ += unhexlify(('%04x' % ext_fp_len_))
         fp_ += fp_ext_
 
-        print(fp_)
-
         return hex_fp_to_structured_representation_server(hexlify(fp_))
 
 
     def get_human_readable(self, fp_str_):
         lit_fp = eval_fp_str(fp_str_)
-        print(lit_fp)
-        print(fp_str_)
+
         fp_h = OrderedDict({})
         fp_h['version'] = get_version_from_str(lit_fp[0][0])
         fp_h['selected_cipher_suite'] = get_cs_from_str(lit_fp[1][0])[0]
