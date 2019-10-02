@@ -183,7 +183,7 @@ void *packet_processing_thread_func(void *userdata) {
 void create_subdirectory(const char *outdir,
 			 enum create_subdir_mode mode) {
     printf("creating output directory %s\n", outdir);
-    if (mkdir(outdir, S_IRUSR | S_IWUSR | S_IXUSR) != 0) {
+    if (mkdir(outdir, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
 	if (errno == EEXIST && mode == create_subdir_mode_overwrite) {
 	    printf("warning: directory %s exists; new data will be written into it\n", outdir);
 	} else {
