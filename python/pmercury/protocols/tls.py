@@ -108,11 +108,14 @@ class TLS(Protocol):
 
     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):
         server_name = None
+        # extract server_name field from context object
         if context_ != None:
             for x_ in context_:
                 if x_['name'] == 'server_name':
                     server_name = x_['data']
                     break
+
+        # perform process identification given the fingerprint string and destination information
         result = self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
 
         return result
@@ -122,20 +125,24 @@ class TLS(Protocol):
     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):
         fp_ = self.get_database_entry(fp_str_, None)
         if fp_ == None:
+            # if malware data is in the database, report malware scores
             if self.MALWARE_DB:
                 return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
             else:
                 return {'process': 'Unknown', 'score': 0.0}
 
+        # find generalized classes for destination information
         domain, tld = get_tld_info(server_name)
         asn = get_asn_info(dest_addr)
         port_app = get_port_application(dest_port)
         features = [asn, domain, port_app]
 
+        # compute and sort scores for each process in the fingerprint
         fp_tc = fp_['total_count']
         r_ = [self.compute_score(features, p_, fp_tc) for p_ in fp_['process_info']]
         r_ = sorted(r_, key=operator.itemgetter('score'), reverse=True)
 
+        # if score == 0 or no match could be found, return default process
         if len(r_) == 0 or r_[0]['score'] == 0.0:
             predict_ = str(fp_['process_info'][0]['process'], 'utf-8')
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
@@ -144,20 +151,24 @@ class TLS(Protocol):
             else:
                 return {'process':predict_, 'score':0.0}
 
+        # in the case of malware, remove pseudo process meant to reduce false positives
         if self.MALWARE_DB and r_[0]['malware'] == False and \
            r_[0]['process'] == b'Generic DMZ Traffic' and len(r_) > 1 and r_[1]['malware'] == False:
             r_.pop(0)
 
+        # get generalized process name if available
         process_name = str(r_[0]['process'], 'utf-8')
         process_name = self.app_families[process_name] if process_name in self.app_families else process_name
 
+        # package the most probable process
         score_sum_ = sum([x_['score'] for x_ in r_])
-
         if self.MALWARE_DB:
             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
             out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'], 'p_malware':malware_score_}
         else:
             out_ = {'process':process_name, 'score':r_[0]['score']}
+
+        # return the top-n most probable processes is list_procs > 0
         if list_procs > 0:
             r_proc_ = r_[0:list_procs]
             for p_ in r_proc_:
