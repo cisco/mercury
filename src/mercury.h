@@ -12,6 +12,7 @@
 
 #include <stdint.h>
 #include <linux/if_packet.h>
+#include <stdbool.h>
 
 #define MAX_FILENAME 256
 
