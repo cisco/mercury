@@ -18,6 +18,7 @@ def test_mercury_json_line(line):
     sp = x['src_port']
     dp = x['dst_port']
     pr = x['protocol']
+    time = x['event_start']
     fingerprints = x['fingerprints']
     if 'tls' in fingerprints:
         tls = x['tls']
