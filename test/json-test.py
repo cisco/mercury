@@ -13,15 +13,15 @@ import sys
 def test_mercury_json_line(line):
     x = json.loads(line)
 
-    sa = x['sa']
-    da = x['da']
-    sp = x['sp']
-    dp = x['dp']
-    pr = x['pr']
+    sa = x['src_ip']
+    da = x['dst_ip']
+    sp = x['src_port']
+    dp = x['dst_port']
+    pr = x['protocol']
     fingerprints = x['fingerprints']
     if 'tls' in fingerprints:
         tls = x['tls']
-        sni = tls['sni']
+        sni = tls['server_name']
     
 def main():
     if len(sys.argv) != 2:

@@ -82,7 +82,7 @@ enum status json_file_init(struct json_file *jf,
 
 void fprintf_timestamp(FILE *f, unsigned int sec, unsigned int usec) {
 
-    fprintf(f, ",\"time_start\":%u.%06u", sec, usec); // not sure why usec has fewer than 6 digits, but appears to work
+    fprintf(f, ",\"event_start\":%u.%06u", sec, usec); // not sure why usec has fewer than 6 digits, but appears to work
 
 }
 
@@ -116,7 +116,7 @@ void json_file_write(struct json_file *jf,
 		if (x.packet_data.length >= SNI_HDR_LEN) {
 		    fprintf(file, ",\"tls\":{");
 		    fprintf_json_string(file,
-					"sni",
+					"server_name",
 					x.packet_data.value  + SNI_HDR_LEN,
 					x.packet_data.length - SNI_HDR_LEN);
 		    fprintf(file, "}");

@@ -114,7 +114,7 @@ void packet_fprintf(FILE *f, uint8_t *packet, size_t length, unsigned int sec, u
 	    uint16_t *src_port = (uint16_t *)tcp;
 	    uint16_t *dst_port = src_port + 1;
 	    const char *format __attribute__((unused))= "%u.%u.%u.%u, %u.%u.%u.%u, %u, %u, %u\n";
-	    const char *json_format = "{\"sa\":\"%u.%u.%u.%u\",\"da\":\"%u.%u.%u.%u\",\"pr\":%u,\"sp\":%u,\"dp\":%u,\"len\":%u,\"t\":%u.%06u}\n";
+	    const char *json_format = "{\"src_ip\":\"%u.%u.%u.%u\",\"dst_ip\":\"%u.%u.%u.%u\",\"protocol\":%u,\"src_port\":%u,\"dst_port\":%u,\"len\":%u,\"t\":%u.%06u}\n";
 	    
 	    fprintf(f, json_format,
 		    src_addr_char[0],
@@ -142,9 +142,9 @@ void packet_fprintf(FILE *f, uint8_t *packet, size_t length, unsigned int sec, u
 	    uint8_t *s = ipv6_hdr->source_address;
 	    uint8_t *d = ipv6_hdr->destination_address;
 	    const char *v6_json_format =
-		"{\"sa\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
-		"\"da\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
-		"\"sp\":%u,\"dp\":%u,\"len\":%u,\"t\":%u.%06u}\n";
+		"{\"src_ip\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
+		"\"dst_ip\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
+		"\"src_port\":%u,\"dst_port\":%u,\"len\":%u,\"t\":%u.%06u}\n";
 	    
 	    fprintf(f, v6_json_format,
 		    s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15],
@@ -178,7 +178,7 @@ void ipv4_packet_fprintf_flow_key(FILE *f, uint8_t *packet) {
     uint16_t *dst_port = src_port + 1;
 
     const char *format __attribute__((unused)) = "\t%u.%u.%u.%u,%u.%u.%u.%u,%u,%u\n";
-    const char *json_format = "\"sa\":\"%u.%u.%u.%u\",\"da\":\"%u.%u.%u.%u\",\"pr\":%u,\"sp\":%u,\"dp\":%u";
+    const char *json_format = "\"src_ip\":\"%u.%u.%u.%u\",\"dst_ip\":\"%u.%u.%u.%u\",\"protocol\":%u,\"src_port\":%u,\"dst_port\":%u";
 
     fprintf(f, json_format,
 	    src_addr_char[0],
@@ -200,9 +200,9 @@ void ipv6_packet_fprintf_flow_key(FILE *f, uint8_t *packet) {
     uint8_t *d = ipv6_hdr->destination_address;
 
     const char *v6_json_format =
-	"\"sa\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
-	"\"da\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
-	"\"pr\":%u,\"sp\":%u,\"dp\":%u";
+	"\"src_ip\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
+	"\"dst_ip\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
+	"\"protocol\":%u,\"src_port\":%u,\"dst_port\":%u";
 
     packet += sizeof(struct ipv6_hdr);
 
