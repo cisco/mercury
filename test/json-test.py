@@ -20,13 +20,13 @@ def test_mercury_json_line(line):
     pr = x['protocol']
     time = x['event_start']
     fingerprints = x['fingerprints']
-    if 'tls' in fingerprints:
+    if 'tls' in fingerprints and '(0000)' in fingerprints['tls']:
         tls = x['tls']
         sni = tls['server_name']
     
 def main():
     if len(sys.argv) != 2:
-        print "usage: " + sys.argv[0] + " <jsonfilename>"
+        print('usage: %s <jsonfilename>' % sys.argv[0])
         return -1 # error
     inputfilename = sys.argv[1]
     
