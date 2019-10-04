@@ -132,9 +132,11 @@ class Fingerprinter:
                             flow['protocol']     = ip.p
                             flow['event_start']  = datetime.utcfromtimestamp(ts)
                             if context_ != None:
-                                flow['context'] = OrderedDict({})
                                 for x_ in context_:
-                                    flow['context'][x_['name']]  = x_['data']
+                                    if x_['data'] != None:
+                                        if protocol_type not in flow:
+                                            flow[protocol_type] = OrderedDict({})
+                                        flow[protocol_type][x_['name']]  = x_['data']
                             flow['fingerprints'] = OrderedDict({})
                             if approx_fp_str_ != None:
                                 flow['fingerprints'][protocol_type] = fp_str_
@@ -147,7 +149,9 @@ class Fingerprinter:
                                         (protocol_type.startswith('tls_decrypt') and parse_type.startswith('tls_decrypt'))):
                                         desc_ = parser_.get_human_readable(fp_str_)
                                         if desc_ != None:
-                                            flow[protocol_type] = desc_
+                                            if 'readable' not in flow:
+                                                flow['readable'] = {}
+                                            flow['readable'][protocol_type] = desc_
                             if self.analyze:
                                 if approx_fp_str_ != None:
                                     fp_str_ = approx_fp_str_
@@ -195,10 +199,13 @@ class Fingerprinter:
             packet_fp = OrderedDict({})
             packet_fp['event_start'] = str(flow['event_start'])
             packet_fp[k] = flow['fingerprints'][k]
-            if 'context' in flow:
-                packet_fp['context'] = flow['context']
             if k in flow:
-                packet_fp['readable'] = flow[k]
+                if k not in self.flow_cache[flow_key]:
+                    self.flow_cache[flow_key][k] = {}
+                for k1 in flow[k]:
+                    self.flow_cache[flow_key][k][k1] = flow[k][k1]
+            if 'readable' in flow and k in flow['readable']:
+                packet_fp['readable'] = flow['readable'][k]
             if 'analysis' in flow:
                 packet_fp['analysis'] = flow['analysis']
             self.flow_cache[flow_key]['fingerprints'].append(packet_fp)

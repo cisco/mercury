@@ -339,7 +339,7 @@ class TLS(Protocol):
         # parse/extract/skip extension type/length/values
         fp_ext_ = b''
         ext_fp_len_ = 0
-        server_name = 'None'
+        server_name = None
         while ext_total_len > 0:
             if len(data[offset:]) == 0:
                 return None, None
