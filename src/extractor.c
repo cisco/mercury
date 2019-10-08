@@ -25,7 +25,13 @@
     #define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
+/*
+ * select_tcp_syn selects TCP SYNs for extraction
+ */
+bool select_tcp_syn = 1;
+
 /* protocol identification, adapted from joy */
+
 
 /*
  * Hex strings for TLS ClientHello (which appear at the start of the
@@ -50,8 +56,7 @@ unsigned char tls_client_hello_value[] = {
 
 struct pi_container https_client = {
     DIR_CLIENT,
-    HTTPS_PORT,
-    0
+    HTTPS_PORT
 };
 
 #define tls_server_hello_mask tls_client_hello_mask
@@ -62,8 +67,7 @@ unsigned char tls_server_hello_value[] = {
 
 struct pi_container https_server = {
     DIR_SERVER,
-    HTTPS_PORT,
-    0
+    HTTPS_PORT
 };
 
 #define tls_server_cert_mask tls_client_hello_mask
@@ -82,8 +86,7 @@ unsigned char http_client_value[] = {
 
 struct pi_container http_client = {
     DIR_CLIENT,
-    HTTP_PORT,
-    0
+    HTTP_PORT
 };
 
 /* http server matching value: HTTP/1 */
@@ -98,8 +101,7 @@ unsigned char http_server_value[] = {
 
 struct pi_container http_server = {
     DIR_SERVER,
-    HTTP_PORT,
-    0
+    HTTP_PORT
 };
 
 unsigned int u32_compare_masked_data_to_value(const void *data,
@@ -145,6 +147,7 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
     }
     return NULL;
 }
+
 
 /* packet data methods */
 
@@ -201,8 +204,6 @@ void parser_init_from_outer_parser(struct parser *p,
 
     extractor_debug("%s: initialized with %td bytes\n", __func__, p->data_end - p->data);
 }
-
-
 
 enum status parser_set_data_length(struct parser *p,
 				   unsigned int data_len) {
@@ -730,6 +731,10 @@ unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x)
     }
     if (parser_set_data_length(p, tcp_offrsv_get_length(offrsv) - TCP_FIXED_HDR_LEN)) {
 	return 0;
+    }
+
+    if (select_tcp_syn == 0) {
+	return 0; /* packet filter configuration does not want TCP SYN packets */
     }
 
     /* set fingerprint type TCP, since we succeeded in parsing the header up to the options */
@@ -1707,38 +1712,7 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
 
 unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x) {
     const struct pi_container *pi;
-    struct pi_container dummy = { 0, 0, 0 };
-#if 0
-    size_t seq, ack, offrsv;
-    const uint8_t *data = x->data;
-
-    /*
-     * uncomment this code to use this function to process data starting at TCP header
-     */
-
-    /* skip over TCP header */
-    if (parser_skip(p, L_src_port + L_dst_port) == status_err) {
-	return 0;
-    }
-    if (parser_read_uint(p, L_tcp_seq, &seq) == status_err) {
-	return 0;
-    }
-    if (parser_skip(p, L_tcp_seq) == status_err) {
-	return 0;
-    }
-    if (parser_read_uint(p, L_tcp_ack, &ack) == status_err) {
-	return 0;
-    }
-    if (parser_skip(p, L_tcp_ack) == status_err) {
-	return 0;
-    }
-    if (parser_read_uint(p, L_tcp_offrsv, &offrsv) == status_err) {
-	return 0;
-    }
-    if (parser_skip_to(p, data + tcp_offrsv_get_length(offrsv)) == status_err) {
-	return 0;
-    }
-#endif /*  0 */
+    struct pi_container dummy = { 0, 0 };
     pi = proto_identify_tcp(p->data, parser_get_data_length(p));
 
     if (pi == NULL) {
@@ -1805,7 +1779,7 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
 #define L_ip_src_addr       4
 #define L_ip_dst_addr       4
 
-unsigned int parser_extractor_process_ipv4(struct parser *p, size_t *transport_protocol) {
+unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol) {
     size_t version_ihl;
     uint8_t *transport_data;
 
@@ -2009,25 +1983,67 @@ unsigned int parser_extractor_process_packet(struct parser *p, struct extractor 
     parser_process_eth(p, &ethertype);
     switch(ethertype) {
     case ETHERTYPE_IP:
-	parser_extractor_process_ipv4(p, &transport_proto);
-	if (transport_proto == 6) {
-	    return parser_extractor_process_tcp(p, x);
-	}
+	parser_process_ipv4(p, &transport_proto);
 	break;
     case ETHERTYPE_IPV6:
 	parser_process_ipv6(p, &transport_proto);
-	if (transport_proto == 6) {
-	    return parser_extractor_process_tcp(p, x);
-	}
 	break;
     default:
 	;
+    }
+    if (transport_proto == 6) {
+	return parser_extractor_process_tcp(p, x);
     }
 
     return 0;
 }
 
-#if 0
+
+
+
+/*
+ * The function extractor_process_tcp processes a TCP packet.  The
+ * extractor MUST have previously been initialized with its data
+ * pointer set to the initial octet of a TCP header.
+ */
+
+unsigned int parser_process_tcp(struct parser *p) {
+    size_t flags, offrsv;
+    const uint8_t *data = p->data;
+    // size_t init_len = parser_get_data_length(p);
+    
+    extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
+
+    if (parser_skip(p, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack) == status_err) {
+	return 0;
+    }
+    if (parser_read_uint(p, L_tcp_offrsv, &offrsv) == status_err) {
+	return 0;
+    }
+    if (parser_skip(p, L_tcp_offrsv) == status_err) {
+	return 0;
+    }
+    if (parser_read_uint(p, L_tcp_flags, &flags) == status_err) {
+	return 0;
+    }
+    if (flags != TCP_SYN) {
+	/*
+	 * skip over TCP options, then process the TCP Data payload 
+	 */
+	if (parser_skip_to(p, data + ((offrsv >> 4) * 4)) == status_err) {
+	    return 0;
+	}
+	unsigned char extractor_buffer[2048];
+	struct extractor x;
+	extractor_init(&x, extractor_buffer, 2048);
+	return parser_extractor_process_tcp_data(p, &x);
+
+    } else if (flags == TCP_SYN) {
+	return 100;
+    }
+    return 0;
+}
+
 unsigned int parser_process_packet(struct parser *p) {
     size_t transport_proto = 0;
     size_t ethertype = 0;
@@ -2035,24 +2051,71 @@ unsigned int parser_process_packet(struct parser *p) {
     parser_process_eth(p, &ethertype);
     switch(ethertype) {
     case ETHERTYPE_IP:
-	parser_extractor_process_ipv4(p, &transport_proto);
-	if (transport_proto == 6) {
-	    return parser_process_tcp(p);
-	}
+	parser_process_ipv4(p, &transport_proto);
 	break;
     case ETHERTYPE_IPV6:
 	parser_process_ipv6(p, &transport_proto);
-	if (transport_proto == 6) {
-	    return parser_process_tcp(p);
-	}
 	break;
     default:
 	;
     }
+    if (transport_proto == 6) {
+	return parser_process_tcp(p);
+    }
 
     return 0;
 }
-#endif
 
 
+/*
+ * struct packet_filter implements a packet metadata filter
+ */
+enum status packet_filter_init(struct packet_filter *pf, const char *config_string) {
+    (void)pf;
+    return proto_ident_config(config_string);
+}
 
+bool packet_filter_apply(struct packet_filter *pf, uint8_t *packet, size_t length) {
+
+    extractor_init(&pf->x, pf->extractor_buffer, 2048);
+    parser_init(&pf->p, (unsigned char *)packet, length);
+    size_t bytes_extracted = parser_extractor_process_packet(&pf->p, &pf->x);
+
+    if (bytes_extracted > 16) {
+	return true;
+    }
+    return false;
+}
+
+
+/*
+ * configuration for protocol identification
+ */
+
+enum status proto_ident_config(const char *config_string) {
+
+    if (config_string == NULL) {
+	return status_ok;
+    }
+    if (strncmp("all", config_string, sizeof("all")) == 0) {
+	return status_ok;
+    }
+    if (strncmp("http", config_string, sizeof("http")) == 0) {
+	bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+	select_tcp_syn = 0;
+	return status_ok;
+    }
+    if (strncmp("tls", config_string, sizeof("tls")) == 0) {
+	bzero(http_client_mask, sizeof(http_client_mask));
+	bzero(http_server_mask, sizeof(http_server_mask));
+	select_tcp_syn = 0;
+	return status_ok;
+    }
+    if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
+	bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+	bzero(http_client_mask, sizeof(http_client_mask));
+	bzero(http_server_mask, sizeof(http_server_mask));
+	return status_ok;
+    }
+    return status_err;
+}

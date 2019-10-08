@@ -56,9 +56,10 @@ struct mercury_config {
     char *user;                     /* username of account used for privilege drop    */
     int loop_count;                 /* loop count for repeat processing of read file  */
     int verbosity;                  /* 0=minimal output; 1=more detailed output       */
+    char *packet_filter_cfg;        /* packet filter configuration string             */
 };
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0 }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0 , NULL}
 
 
 enum create_subdir_mode {

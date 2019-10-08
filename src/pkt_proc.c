@@ -17,34 +17,33 @@ void frame_handler_filter_write_pcap(void *userdata,
 				     uint8_t *eth_hdr) {
 
     union frame_handler_context *fhc = (union frame_handler_context *)userdata;
-    struct parser p;
-    struct extractor x;
-    unsigned char extractor_buffer[2048];
-    size_t bytes_extracted;
     uint8_t *packet = eth_hdr;
     unsigned int length = pi->len;
     
-    extractor_init(&x, extractor_buffer, 2048);
-    parser_init(&p, (unsigned char *)packet, length);
-    bytes_extracted = parser_extractor_process_packet(&p, &x);
-
-    /*
-     * NOTE: 16 is an arbitrary threshold; should probably be raised
-     */
-    if (bytes_extracted > 16) {
-	pcap_file_write_packet_direct(&fhc->pcap_file, eth_hdr, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+    struct packet_filter pf;
+    
+    if (packet_filter_apply(&pf, packet, length)) {
+	pcap_file_write_packet_direct(&fhc->filter_writer.pcap_file, eth_hdr, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
 }
 
 enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
-					   const char *outfile,
-					   int flags) {
+						 const char *outfile,
+						 int flags,
+						 const char *packet_filter_config_string) {
     /*
      * setup output to fingerprint file or PCAP write file
      */
     handler->func = frame_handler_filter_write_pcap;
-    enum status status = pcap_file_open(&handler->context.pcap_file, outfile, io_direction_writer, flags);
-    
+    enum status status = packet_filter_init(&handler->context.filter_writer.pf, packet_filter_config_string);
+    if (status != status_ok) {
+	printf("error: could not configure packet filter with config string \"%s\"\n", packet_filter_config_string);
+	return status;
+    }
+    status = pcap_file_open(&handler->context.filter_writer.pcap_file, outfile, io_direction_writer, flags);
+    if (status != status_ok) {
+	printf("error: could not open pcap output file %s\n", outfile);
+    }
     return status;
 }
 				      
