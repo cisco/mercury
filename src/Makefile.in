@@ -26,6 +26,7 @@ CC      = @CXX@
 CFLAGS  = -march=native -mtune=native -O2
 CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
+CFLAGS += -Wno-pedantic       # suppress warnings about non-ISO C++ (uint128_t, ...)
 CFLAGS += $(OPTFLAGS)
 
 MERC   = mercury.c af_packet_io.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c 

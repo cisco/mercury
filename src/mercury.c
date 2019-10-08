@@ -115,9 +115,8 @@ enum status frame_handler_init_from_config(struct frame_handler *handler,
 	    /*
 	     * write only TLS clientHellos and TCP SYNs to capture file
 	     */
-	    status = frame_handler_filter_write_pcap_init(handler, outfile, cfg->flags);
+	    status = frame_handler_filter_write_pcap_init(handler, outfile, cfg->flags, cfg->packet_filter_cfg);
 	    if (status) {
-		printf("error: could not open pcap output file %s\n", outfile);
 		return status;
 	    }
 	} else {
@@ -503,11 +502,11 @@ int main(int argc, char *argv[]) {
 	    { "user",        required_argument, NULL, 'u' },
 	    { "multiple",    required_argument, NULL, 'm' },
 	    { "help",        no_argument,       NULL, 'h' },
-	    { "select",      no_argument,       NULL, 's' },
+	    { "select",      optional_argument, NULL, 's' },
 	    { "verbose",     no_argument,       NULL, 'v' },
 	    { NULL,          0,                 0,     0  }
 	};
-	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:v", long_opts, &opt_idx);
+	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:s::oham:v", long_opts, &opt_idx);
 	if (c < 0) {
 	    break;
 	}
@@ -566,10 +565,12 @@ int main(int argc, char *argv[]) {
 	    break;
 	case 's':
 	    if (optarg) {
-		usage(argv[0], "error: option s or select does not use an argument", extended_help_off);
-	    } else {
-		cfg.filter = 1;
-	    }
+		if (optarg[0] != '=' || optarg[1] == 0) {
+		    usage(argv[0], "error: option s or select has the form s=\"packet filter config string\"", extended_help_off);
+		}
+		cfg.packet_filter_cfg = optarg+1;
+	    } 
+	    cfg.filter = 1;
 	    break;
 	case 'h':
 	    if (optarg) {
