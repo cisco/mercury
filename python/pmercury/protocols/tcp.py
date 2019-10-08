@@ -65,17 +65,18 @@ class TCP(Protocol):
 
     def fingerprint(self, data):
         if data.flags == 2:
-            options = data.opts
-            fp_str_ = self.extract_fingerprint(options)
+            fp_str_ = self.extract_fingerprint(data)
             return 'tcp', fp_str_, None, None
 
         return None, None, None, None
 
 
-    def extract_fingerprint(self, options):
+    def extract_fingerprint(self, data):
         idx = 0
 
-        fp_str = ''
+        fp_str = '(' + ('%04x' % data.win) + ')'
+
+        options = data.opts
         while idx < len(options):
             opt = b''
             kind = options[idx]
