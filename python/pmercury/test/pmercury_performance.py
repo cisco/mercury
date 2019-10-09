@@ -32,12 +32,8 @@ def performance_test(input_file, output_file, fp_db, analyze, human_readable, ex
     loop_times = []
     for l in range(loops):
         start = time.time()
-        p = pcap.pcap(input_file)#.readpkts()
-        filter_ = 'tcp'
-        p.setfilter(filter_)
-        packets = p.readpkts()
+        packets = pcap.pcap(input_file).readpkts()
         for ts, buf in packets:
-#            fp.process_packet_no_dpkt(ts, buf)
             fp.process_packet_no_dpkt(ts, buf)
 
         loop_time = time.time() - start

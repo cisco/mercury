@@ -5,12 +5,9 @@
 
 import os
 import sys
-import gzip
-import time
 import pyasn
 import pickle
 import functools
-import ujson as json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from pmercury_utils import *
@@ -23,7 +20,7 @@ MAX_CACHED_RESULTS = 2**24
 tlds = set([])
 public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
 for line in os.popen('zcat %s' % (public_suffix_file_raw)):
-    line = str(line.strip())
+    line = line.strip()
     if line.startswith('//') or line == '':
         continue
     if line.startswith('*'):

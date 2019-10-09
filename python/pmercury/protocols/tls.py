@@ -57,10 +57,10 @@ class TLS(Protocol):
     def load_database(self, fp_database):
         for line in os.popen('zcat %s' % (fp_database)):
             fp_ = json.loads(line)
-            fp_['str_repr'] = bytes(fp_['str_repr'],'utf-8')
+            fp_['str_repr'] = fp_['str_repr'].encode()
 
             for p_ in fp_['process_info']:
-                p_['process'] = bytes(p_['process'],'utf-8')
+                p_['process'] = p_['process'].encode()
                 if 'malware' not in p_:
                     self.MALWARE_DB = False
 
@@ -141,7 +141,7 @@ class TLS(Protocol):
 
         # if score == 0 or no match could be found, return default process
         if len(r_) == 0 or r_[0]['score'] == 0.0:
-            predict_ = str(fp_['process_info'][0]['process'], 'utf-8')
+            predict_ = fp_['process_info'][0]['process'].decode()
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
             if self.MALWARE_DB:
                 return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
@@ -154,7 +154,7 @@ class TLS(Protocol):
             r_.pop(0)
 
         # get generalized process name if available
-        process_name = str(r_[0]['process'], 'utf-8')
+        process_name = r_[0]['process'].decode()
         process_name = self.app_families[process_name] if process_name in self.app_families else process_name
 
         # package the most probable process
@@ -279,7 +279,7 @@ class TLS(Protocol):
         fp_['max_implementation_date'] = max_imp
         fp_['min_implementation_date'] = min_imp
         fp_['total_count'] = 1
-        fp_['process_info'] = [{'process': bytes('Unknown','utf-8'), 'sha256':'Unknown', 'count':1, 'malware': 0,
+        fp_['process_info'] = [{'process': b'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,
                                 'classes_ip_as':{},'classes_hostname_tlds':{},'classes_hostname_domains':{},
                                 'classes_port_applications':{},'os_info':{}}]
 
@@ -287,6 +287,8 @@ class TLS(Protocol):
 
 
     def extract_fingerprint(self, data):
+        data_len = len(data)
+
         # extract handshake version
         fp_ = b'(' + hexlify(data[4:6]) + b')'
 
@@ -296,13 +298,13 @@ class TLS(Protocol):
         # parse/skip session_id
         session_id_length = int.from_bytes(data[offset:offset+1], byteorder='big')
         offset += 1 + session_id_length
-        if len(data[offset:]) == 0:
+        if data_len - offset <= 0:
             return None, None
 
         # parse/extract/skip cipher_suites length
         cipher_suites_length = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
-        if len(data[offset:]) == 0:
+        if data_len - offset <= 0:
             return None, None
 
         # parse/extract/skip cipher_suites
@@ -312,19 +314,19 @@ class TLS(Protocol):
             fp_ += hexlify(data[offset+2:offset+cipher_suites_length])
         fp_ += b')'
         offset += cipher_suites_length
-        if len(data[offset:]) == 0:
+        if data_len - offset <= 0:
             return None, None
 
         # parse/skip compression method
         compression_methods_length = int.from_bytes(data[offset:offset+1], byteorder='big')
         offset += 1 + compression_methods_length
-        if len(data[offset:]) == 0:
-            return hex_fp_to_structured_representation(hexlify(fp_)), None
+        if data_len - offset <= 0:
+            return fp_, None
 
         # parse/skip extensions length
         ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
-        if len(data[offset:]) != ext_total_len:
+        if data_len - offset <= 0:
             return None, None
 
         # parse/extract/skip extension type/length/values
@@ -333,7 +335,7 @@ class TLS(Protocol):
         server_name = None
         while ext_total_len > 0:
             fp_ += b'('
-            if len(data[offset:]) == 0:
+            if data_len - offset <= 0:
                 return None, None
 
             # extract server name for process/malware identification

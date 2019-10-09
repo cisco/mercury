@@ -6,7 +6,6 @@
 import os
 import ast
 import sys
-import gzip
 
 import ujson as json
 
@@ -28,103 +27,26 @@ ext_data_extract_ = ext_data_extract_.union(grease_)
 
 
 imp_date_cs_file = find_resource_path('resources/implementation_date_cs.json.gz')
-with gzip.open(imp_date_cs_file,'r') as fp:
-    imp_date_cs_data = json.loads(fp.read())
+for line in os.popen('zcat %s' % (imp_date_cs_file)):
+    imp_date_cs_data = json.loads(line)
+    break
 
 imp_date_ext_file = find_resource_path('resources/implementation_date_ext.json.gz')
-with gzip.open(imp_date_ext_file,'r') as fp:
-    imp_date_ext_data = json.loads(fp.read())
+for line in os.popen('zcat %s' % (imp_date_ext_file)):
+    imp_date_ext_data = json.loads(line)
+    break
+
 
 
 def extract_server_name(data):
     if len(data) < 7:
         return 'None'
-    sni_len = int(hexlify(data[5:7]),16)
-    return str(data[7:7+sni_len],'utf-8')
-
-
-def hex_fp_to_structured_representation(s):
-    xtn_grease_list = [
-        10,        # supported_groups
-        11,        # ec_point_formats
-        13,        # signature_algorithms
-        43         # supported_versions  
-    ]
-    output = ''
-
-    # parse protocol version 
-    output += '(' + str(s[0:4], 'utf-8') + ')'
-
-    # parse ciphersuite offer vector
-    cs_len = s[4:8]
-    output += '('
-    cs_data_len = int(cs_len, 16)*2    
-    cs_vec = s[8:8+cs_data_len]
-    output += str(cs_vec, 'utf-8') + ')'
-
-    if len(s) <= 8+cs_data_len:
-        return output
-
-    # parse client extensions
-    ext_index = 8+cs_data_len
-    ext_len = s[ext_index:ext_index+4]
-    output += '('
-    ext_data_len = int(ext_len, 16)*2 
-    ext_data = s[ext_index+4:ext_index+4+ext_data_len]
-    x_index = 0
-    while x_index + 8 <= len(ext_data):
-        x_type = ext_data[x_index+0:x_index+4]
-        x_len  = ext_data[x_index+4:x_index+8]
-        x_index_next = x_index + int(x_len, 16) * 2 + 8
-        x_data = ext_data[x_index+8:x_index_next]
-        x_index = x_index_next
-        output += '('
-        output += str(x_type, 'utf-8')
-        if str(x_type, 'utf-8') in ext_data_extract_:
-            output += str(x_len, 'utf-8')
-            output += str(x_data, 'utf-8')
-        output += ')'
-    output += ')'
-
-    return output
-
-
-def hex_fp_to_structured_representation_server(s):
-    output = ''
-
-    # parse protocol version 
-    output += '(' + str(s[0:4], 'utf-8') + ')'
-
-    # parse selected cipher suite
-    scs_ = s[4:8]
-    output += '(' + str(s[4:8], 'utf-8') + ')'
-
-    # parse client extensions
-    ext_index = 8
-    ext_len = s[ext_index:ext_index+4]
-    output += '('
-    ext_data_len = int(ext_len, 16)*2 
-    ext_data = s[ext_index+4:ext_index+4+ext_data_len]
-    x_index = 0
-    while x_index + 8 <= len(ext_data):
-        x_type = ext_data[x_index+0:x_index+4]
-        x_len  = ext_data[x_index+4:x_index+8]
-        x_index_next = x_index + int(x_len, 16) * 2 + 8
-        x_data = ext_data[x_index+8:x_index_next]
-        x_index = x_index_next
-        output += '('
-        output += str(x_type, 'utf-8')
-        if str(x_type, 'utf-8') in ext_data_extract_:
-            output += str(x_len, 'utf-8')
-            output += str(x_data, 'utf-8')
-        output += ')'
-    output += ')'
-
-    return output
+    sni_len = int.from_bytes(data[5:7], 'big')
+    return data[7:7+sni_len].decode()
 
 
 def eval_fp_str(fp_str_):
-    fp_str_ = '(' + str(fp_str_, 'utf-8') + ')'
+    fp_str_ = '(' + fp_str_.decode() + ')'
     fp_str_ = fp_str_.replace('(','["').replace(')','"]').replace('][','],[')
     new_str_ = fp_str_.replace('["[','[[').replace(']"]',']]')
     while new_str_ != fp_str_:

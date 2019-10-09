@@ -40,6 +40,9 @@ class Fingerprinter:
             self.out_file_pointer = open(output, 'w')
 
         # register parsers
+#        from pmercury.protocols.tls import TLS
+#        from pmercury.protocols.tls_server import TLS_Server
+#        self.app_parsers = [('tls', TLS(database)), ('tls_server', TLS_Server())]
         from pmercury.protocols.tls import TLS
         self.app_parsers = [('tls', TLS(database))]
         self.tcp_parsers = []
@@ -48,12 +51,11 @@ class Fingerprinter:
             from pmercury.protocols.tcp import TCP
             from pmercury.protocols.ssh import SSH
             from pmercury.protocols.http import HTTP
-            from pmercury.protocols.tls_server import TLS_Server
             from pmercury.protocols.http_server import HTTP_Server
             from pmercury.protocols.tls_decrypt import TLS_Decrypt
             from pmercury.protocols.tls_certificate import TLS_Certificate
 
-            self.app_parsers.extend([('tls_server', TLS_Server()), ('http', HTTP()), ('http_server', HTTP_Server())])
+            self.app_parsers.extend([('http', HTTP()), ('http_server', HTTP_Server())])
             self.tcp_parsers.extend([('tcp', TCP())])
             self.ip_parsers.extend([('tls_certificate', TLS_Certificate()), ('ssh', SSH())])
             if sslkeylog != None:
@@ -80,9 +82,9 @@ class Fingerprinter:
         for input_file in input_files:
             if os.path.isfile(input_file):
                 f = open(input_file,'rb')
-                file_magic = str(hexlify(f.read(4)), 'utf-8')
+                file_magic = hexlify(f.read(4))
                 f.seek(0)
-                if file_magic == '0d0a0a0d' or file_magic == '0a0d0d0a':
+                if file_magic == b'0d0a0a0d' or file_magic == b'0a0d0d0a':
                     packets = dpkt.pcapng.Reader(f)
                 else:
                     packets = dpkt.pcap.Reader(f)
@@ -125,8 +127,13 @@ class Fingerprinter:
         if ip_type == 'ipv4':
             low = ip_data[0] & 0x0F
             header_length = low*4
+            protocol = ip_data[9]
         else:
             header_length = 40
+            protocol = ip_data[6]
+
+        if protocol != 6:
+            return 0
 
         tcp_data = ip_data[header_length:]
         tcp_length = (tcp_data[12] >> 4)*4
@@ -164,7 +171,7 @@ class Fingerprinter:
             flow['dst_ip']       = socket.inet_ntop(add_fam, dst_addr)
             flow['src_port']     = src_port
             flow['dst_port']     = dst_port
-            flow['protocol']     = 6#protocol
+            flow['protocol']     = protocol
             flow['event_start']  = datetime.utcfromtimestamp(ts)
             if context_ != None:
                 for x_ in context_:
@@ -344,7 +351,7 @@ class Fingerprinter:
 
     def lookup_fingerprint_string(self, fp_str):
         for protocol_type, parser_ in self.all_parsers:
-            fp_str_ = bytes(fp_str, 'utf-8')
+            fp_str_ = fp_str.encode()
             if fp_str_ in parser_.fp_db:
                 fp_ = parser_.fp_db[fp_str_]
                 self.write_record(fp_)
