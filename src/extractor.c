@@ -15,6 +15,7 @@
 #include "utils.h"
 #include "proto_identify.h"
 #include "eth.h"
+#include "tcp.h"
 
 /*
  * The extractor_debug macro is useful for debugging (but quite verbose)
@@ -690,7 +691,8 @@ unsigned int uint16_match(uint16_t x,
 
 #define TCP_FIXED_HDR_LEN 20
 
-#define tcp_offrsv_get_length(offrsv) (((offrsv) & 0xf0) >> 2)
+//#define tcp_offrsv_get_length(offrsv) (((offrsv) & 0xf0) >> 2)
+#define tcp_offrsv_get_length(offrsv) (((offrsv) >> 4) * 4)
 
 /*
  * The function extractor_process_tcp processes a TCP packet.  The
@@ -698,11 +700,19 @@ unsigned int uint16_match(uint16_t x,
  * pointer set to the initial octet of a TCP header.
  */
 
+struct tcp_initial_message_filter tcp_init_msg_filter;
+
 unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x) {
     size_t flags, offrsv;
     const uint8_t *data = p->data;
 
     extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
+
+    struct key k(0,0,(uint32_t)0,(uint32_t)0);
+    const struct tcp_header *tcp = (const struct tcp_header *)data;
+    return tcp_init_msg_filter.apply(k, tcp, parser_get_data_length(p));
+    // HACK: FIXME
+    // WARNING: SHOULD NOT RETURN HERE IF -f FLAG IS IN USE
 
     if (parser_skip(p, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack) == status_err) {
 	return 0;
@@ -2002,8 +2012,8 @@ unsigned int parser_extractor_process_packet(struct parser *p, struct extractor 
 
 
 /*
- * The function extractor_process_tcp processes a TCP packet.  The
- * extractor MUST have previously been initialized with its data
+ * The function parser_process_tcp processes a TCP packet.  The
+ * parser MUST have previously been initialized with its data
  * pointer set to the initial octet of a TCP header.
  */
 
