@@ -31,7 +31,7 @@ class TCP(Protocol):
         self.fp_db = {}
         for line in os.popen('zcat %s' % (fp_database)):
             fp_ = json.loads(line)
-            fp_['str_repr'] = bytes(fp_['str_repr'],'utf-8')
+            fp_['str_repr'] = fp_['str_repr'].encode()
 
             self.fp_db[fp_['str_repr']] = fp_
 

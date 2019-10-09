@@ -6,17 +6,8 @@
 """
 
 import os
-import re
 import sys
-import gzip
-import copy
-import time
-import struct
-import operator
-import functools
-import ujson as json
 from sys import path
-from math import exp, log
 from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -35,16 +26,20 @@ class TLS_Server(Protocol):
         self.fp_db = {}
 
         # TLS ServerHello pattern/RE
-        self.pattern = b'\x16\x03[\x00-\x03].{2}\x02.{3}\x03[\x00-\x03]'
+        self.tls_server_hello_mask  = b'\xff\xff\xfc\x00\x00\xff\x00\x00\x00\xff\xfc'
+        self.tls_server_hello_value = b'\x16\x03\x00\x00\x00\x02\x00\x00\x00\x03\x00'
 
 
     def fingerprint(self, data):
+        if len(data) < 32:
+            return None, None, None, []
         # check TLS version and record/handshake type
-        if re.findall(self.pattern, data[0:11], re.DOTALL) == []:
-            return None, None, None, None
+        for i in range(11):
+            if (data[i] & self.tls_server_hello_mask[i]) != self.tls_server_hello_value[i]:
+                return None, None, None, []
 
         # bounds checking
-        message_length = int(hexlify(data[6:9]),16)
+        message_length = int.from_bytes(data[6:9], 'big')
         if message_length > len(data[9:]):
             return None, None, None, None
 
@@ -52,60 +47,58 @@ class TLS_Server(Protocol):
         fp_str_ = self.extract_fingerprint(data[5:])
         if fp_str_ == None:
             return None, None, None, None
-        fp_str_ = str(fp_str_)
-        fp_str_ = bytes(fp_str_.replace('()',''),'utf-8')
 
         return 'tls_server', fp_str_, None, None
 
 
     def extract_fingerprint(self, data):
+        data_len = len(data)
+
         # extract handshake version
-        fp_ = data[4:6]
+        fp_ = b'(' + hexlify(data[4:6]) + b')'
 
         # skip header/server_random
         offset = 38
 
         # parse/skip session_id
-        session_id_length = int(hexlify(data[offset:offset+1]),16)
+        session_id_length = int.from_bytes(data[offset:offset+1], 'big')
         offset += 1 + session_id_length
-        if len(data[offset:]) == 0:
+        if data_len - offset <= 0:
             return None
 
         # parse selected_cipher_suite
-        fp_ += data[offset:offset+2]
+        fp_ += b'(' + hexlify(data[offset:offset+2]) + b')'
         offset += 2
-        if len(data[offset:]) == 0:
+        if data_len - offset <= 0:
             return None
 
         # parse/skip compression method
-        compression_methods_length = int(hexlify(data[offset:offset+1]),16)
+        compression_methods_length = int.from_bytes(data[offset:offset+1], 'big')
         offset += 1 + compression_methods_length
-        if len(data[offset:]) == 0:
-            return hex_fp_to_structured_representation(hexlify(fp_))
+        if data_len - offset <= 0:
+            return fp_
 
         # parse/skip extensions length
-        ext_total_len = int(hexlify(data[offset:offset+2]),16)
+        ext_total_len = int.from_bytes(data[offset:offset+2], 'big')
         offset += 2
-        if len(data[offset:]) < ext_total_len:
+        if data_len - offset <= 0:
             return None
 
         # parse/extract/skip extension type/length/values
-        fp_ext_ = b''
-        ext_fp_len_ = 0
+        fp_ += b'('
         while ext_total_len > 0:
-            if len(data[offset:]) == 0:
+            if data_len - offset <= 0:
                 return None
 
+            fp_ += b'('
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
-            fp_ext_ += tmp_fp_ext
-            ext_fp_len_ += len(tmp_fp_ext)
+            fp_ += tmp_fp_ext
 
             ext_total_len -= 4 + ext_len
+            fp_ += b')'
+        fp_ += b')'
 
-        fp_ += unhexlify(('%04x' % ext_fp_len_))
-        fp_ += fp_ext_
-
-        return hex_fp_to_structured_representation_server(hexlify(fp_))
+        return fp_
 
 
     def get_human_readable(self, fp_str_):
