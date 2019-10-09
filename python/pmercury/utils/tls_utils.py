@@ -17,13 +17,13 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from tls_constants import *
 from pmercury_utils import *
 
-grease_ = set(['0a0a','1a1a','2a2a','3a3a','4a4a','5a5a','6a6a','7a7a',
-               '8a8a','9a9a','aaaa','baba','caca','dada','eaea','fafa'])
+grease_ = set([b'0a0a',b'1a1a',b'2a2a',b'3a3a',b'4a4a',b'5a5a',b'6a6a',b'7a7a',
+               b'8a8a',b'9a9a',b'aaaa',b'baba',b'caca',b'dada',b'eaea',b'fafa'])
 
 
-ext_data_extract_ = set(['0001','0005','0007','0008','0009','000a','000b',
-                         '000d','000f','0010','0011','0013','0014','0018',
-                         '001b','001c','002b','002d','0032','5500'])
+ext_data_extract_ = set([b'0001',b'0005',b'0007',b'0008',b'0009',b'000a',b'000b',
+                         b'000d',b'000f',b'0010',b'0011',b'0013',b'0014',b'0018',
+                         b'001b',b'001c',b'002b',b'002d',b'0032',b'5500'])
 ext_data_extract_ = ext_data_extract_.union(grease_)
 
 
@@ -214,42 +214,38 @@ def parse_extension(data, offset):
     tmp_ext_type = degrease_type_code(data, offset)
     fp_ext_ = tmp_ext_type
     offset += 2
-    ext_len = int(str(hexlify(data[offset:offset+2]), 'utf-8'),16)
-    tmp_ext_len = unhexlify(('%04x' % (ext_len)))
+    ext_len = int.from_bytes(data[offset:offset+2],'big')
     offset += 2
     tmp_ext_value = data[offset:offset+ext_len]
-    if str(hexlify(tmp_ext_type), 'utf-8') in ext_data_extract_:
+    if tmp_ext_type in ext_data_extract_:
         tmp_ext_value = degrease_ext_data(data, offset, tmp_ext_type, ext_len, tmp_ext_value)
-        fp_ext_ += tmp_ext_len
-        fp_ext_ += tmp_ext_value
-    else:
-        fp_ext_ += unhexlify(('%04x' % 0))
+        fp_ext_ += (b'%04x' % ext_len) + hexlify(tmp_ext_value)
     offset += ext_len
 
     return fp_ext_, offset, ext_len
 
 # helper to normalize grease type codes
 def degrease_type_code(data, offset):
-    if str(hexlify(data[offset:offset+2]), 'utf-8') in grease_:
-        return unhexlify('0a0a')
+    if hexlify(data[offset:offset+2]) in grease_:
+        return b'0a0a'
     else:
-        return data[offset:offset+2]
+        return hexlify(data[offset:offset+2])
 
 
 # helper to normalize grease within supported_groups and supported_versions
 def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
-    if str(hexlify(ext_type), 'utf-8') == '000a': # supported_groups
+    if ext_type == b'000a': # supported_groups
         degreased_ext_value = data[offset:offset+2]
         for i in range(2,ext_length,2):
-            if str(hexlify(data[offset+i:offset+i+2]), 'utf-8') in grease_:
+            if hexlify(data[offset+i:offset+i+2]) in grease_:
                 degreased_ext_value += unhexlify('0a0a')
             else:
                 degreased_ext_value += data[offset+i:offset+i+2]
         return degreased_ext_value
-    elif str(hexlify(ext_type), 'utf-8') == '002b': # supported_versions
+    elif ext_type == b'002b': # supported_versions
         degreased_ext_value = data[offset:offset+1]
         for i in range(1,ext_length,2):
-            if str(hexlify(data[offset+i:offset+i+2]), 'utf-8') in grease_:
+            if hexlify(data[offset+i:offset+i+2]) in grease_:
                 degreased_ext_value += unhexlify('0a0a')
             else:
                 degreased_ext_value += data[offset+i:offset+i+2]

@@ -6,12 +6,7 @@
 """
 
 import os
-import re
 import sys
-import gzip
-import copy
-import time
-import struct
 import operator
 import functools
 import ujson as json
@@ -55,7 +50,8 @@ class TLS(Protocol):
         self.aligner = SequenceAlignment(f_similarity, 0.0)
 
         # TLS ClientHello pattern/RE
-        self.pattern = b'\x16\x03[\x00-\x03].{2}\x01.{3}\x03[\x00-\x03]'
+        self.tls_client_hello_mask  = b'\xff\xff\xfc\x00\x00\xff\x00\x00\x00\xff\xfc'
+        self.tls_client_hello_value = b'\x16\x03\x00\x00\x00\x01\x00\x00\x00\x03\x00'
 
 
     def load_database(self, fp_database):
@@ -72,12 +68,15 @@ class TLS(Protocol):
 
 
     def fingerprint(self, data):
-        # check TLS version and record/handshake type
-        if re.findall(self.pattern, data[0:11], re.DOTALL) == []:
+        if len(data) < 32:
             return None, None, None, []
+        # check TLS version and record/handshake type
+        for i in range(11):
+            if (data[i] & self.tls_client_hello_mask[i]) != self.tls_client_hello_value[i]:
+                return None, None, None, []
 
         # bounds checking
-        record_length = int(hexlify(data[3:5]),16)
+        record_length = int.from_bytes(data[3:5], byteorder='big')
         if record_length != len(data[5:]):
             return None, None, None, []
 
@@ -85,11 +84,9 @@ class TLS(Protocol):
         fp_str_, server_name = self.extract_fingerprint(data[5:])
         if fp_str_ == None:
             return None, None, None, []
-        fp_str_ = str(fp_str_)
         approx_str_ = None
 
         # fingerprint approximate matching if necessary
-        fp_str_ = bytes(fp_str_,'utf-8')
         if fp_str_ not in self.fp_db:
             lit_fp = eval_fp_str(fp_str_)
             approx_str_ = self.find_approx_match(lit_fp)
@@ -282,12 +279,6 @@ class TLS(Protocol):
         fp_['max_implementation_date'] = max_imp
         fp_['min_implementation_date'] = min_imp
         fp_['total_count'] = 1
-        fp_['tls_features'] = {}
-        fp_['tls_features']['version'] = get_version_from_str(lit_fp[0][0])
-        fp_['tls_features']['cipher_suites'] = get_cs_from_str(lit_fp[1][0])
-        fp_['tls_features']['extensions'] = []
-        if len(lit_fp) > 2:
-            fp_['tls_features']['extensions'] = get_ext_from_str(lit_fp[2])
         fp_['process_info'] = [{'process': bytes('Unknown','utf-8'), 'sha256':'Unknown', 'count':1, 'malware': 0,
                                 'classes_ip_as':{},'classes_hostname_tlds':{},'classes_hostname_domains':{},
                                 'classes_port_applications':{},'os_info':{}}]
@@ -297,67 +288,67 @@ class TLS(Protocol):
 
     def extract_fingerprint(self, data):
         # extract handshake version
-        fp_ = data[4:6]
+        fp_ = b'(' + hexlify(data[4:6]) + b')'
 
         # skip header/client_random
         offset = 38
 
         # parse/skip session_id
-        session_id_length = int(hexlify(data[offset:offset+1]),16)
+        session_id_length = int.from_bytes(data[offset:offset+1], byteorder='big')
         offset += 1 + session_id_length
         if len(data[offset:]) == 0:
             return None, None
 
         # parse/extract/skip cipher_suites length
-        cipher_suites_length = int(hexlify(data[offset:offset+2]),16)
-        fp_ += data[offset:offset+2]
+        cipher_suites_length = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
         if len(data[offset:]) == 0:
             return None, None
 
         # parse/extract/skip cipher_suites
-        cs_str_ = b''
-        for i in range(0,cipher_suites_length,2):
-            fp_ += degrease_type_code(data, offset+i)
-            cs_str_ += degrease_type_code(data, offset+i)
+        fp_ += b'('
+        fp_ += degrease_type_code(data, offset)
+        if cipher_suites_length > 2:
+            fp_ += hexlify(data[offset+2:offset+cipher_suites_length])
+        fp_ += b')'
         offset += cipher_suites_length
         if len(data[offset:]) == 0:
             return None, None
 
         # parse/skip compression method
-        compression_methods_length = int(hexlify(data[offset:offset+1]),16)
+        compression_methods_length = int.from_bytes(data[offset:offset+1], byteorder='big')
         offset += 1 + compression_methods_length
         if len(data[offset:]) == 0:
             return hex_fp_to_structured_representation(hexlify(fp_)), None
 
         # parse/skip extensions length
-        ext_total_len = int(hexlify(data[offset:offset+2]),16)
+        ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
         if len(data[offset:]) != ext_total_len:
             return None, None
 
         # parse/extract/skip extension type/length/values
-        fp_ext_ = b''
+        fp_ += b'('
         ext_fp_len_ = 0
         server_name = None
         while ext_total_len > 0:
+            fp_ += b'('
             if len(data[offset:]) == 0:
                 return None, None
 
             # extract server name for process/malware identification
-            if int(hexlify(data[offset:offset+2]),16) == 0:
+            if int.from_bytes(data[offset:offset+2], byteorder='big') == 0:
                 server_name = extract_server_name(data[offset+2:])
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
-            fp_ext_ += tmp_fp_ext
+            fp_ += tmp_fp_ext
             ext_fp_len_ += len(tmp_fp_ext)
 
             ext_total_len -= 4 + ext_len
+            fp_ += b')'
+        fp_ += b')'
 
-        fp_ += unhexlify(('%04x' % ext_fp_len_))
-        fp_ += fp_ext_
-
-        return hex_fp_to_structured_representation(hexlify(fp_)), server_name
+        return fp_, server_name
 
 
     def get_human_readable(self, fp_str_):
