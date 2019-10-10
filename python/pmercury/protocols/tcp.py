@@ -7,7 +7,7 @@ import os
 import sys
 import functools
 import ujson as json
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -64,7 +64,7 @@ class TCP(Protocol):
 
 
     def fingerprint(self, data):
-        if data.flags == 2:
+        if data[12] & 15 == 0 and data[13] & 255 == 2:
             fp_str_ = self.extract_fingerprint(data)
             return 'tcp', fp_str_, None, None
 
@@ -72,33 +72,29 @@ class TCP(Protocol):
 
 
     def extract_fingerprint(self, data):
-        idx = 0
+        tcp_length = (data[12] >> 4)*4
 
-        fp_str = '(' + ('%04x' % data.win) + ')'
+        fp_str = b'(' + (b'%04x' % int.from_bytes(data[14:16],'big')) + b')'
 
-        options = data.opts
-        while idx < len(options):
-            opt = b''
-            kind = options[idx]
-            opt += b'%02x' % options[idx]
-            if options[idx] == 1: # NOP
-                fp_str += '(' + str(opt,'utf-8') + ')'
-                idx += 1
+        offset = 20
+        while offset < tcp_length:
+            fp_str += b'('
+            kind   = data[offset]
+            fp_str += b'%02x' % kind
+            if kind == 1: # NOP
+                fp_str += b')'
+                offset += 1
                 continue
 
-            length = options[idx+1]
-            if options[idx] not in self.tcp_options_data:
-                idx += length
-                fp_str += '(' + str(opt,'utf-8') + ')'
+            length = data[offset+1]
+            if length + offset > tcp_length:
+                return None
+            if kind not in self.tcp_options_data:
+                offset += length
+                fp_str += b')'
                 continue
 
-            data = ''
-            if length-2 > 0:
-                opt += b'%02x' % options[idx+1]
-                for i in range(idx+2, idx+2+length-2):
-                    opt += b'%02x' % options[i]
-            idx += length
-
-            fp_str += '(' + str(opt,'utf-8') + ')'
+            fp_str += hexlify(data[offset+1:offset+length]) + b')'
+            offset += length
 
         return fp_str

@@ -4,12 +4,10 @@
 """
 
 import os
-import ast
 import sys
 
 import ujson as json
 
-from collections import OrderedDict
 from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -42,17 +40,18 @@ def extract_server_name(data):
     if len(data) < 7:
         return 'None'
     sni_len = int.from_bytes(data[5:7], 'big')
-    return data[7:7+sni_len].decode()
+    return data[7:7+sni_len].tobytes()
 
 
 def eval_fp_str(fp_str_):
-    fp_str_ = '(' + fp_str_.decode() + ')'
-    fp_str_ = fp_str_.replace('(','["').replace(')','"]').replace('][','],[')
-    new_str_ = fp_str_.replace('["[','[[').replace(']"]',']]')
-    while new_str_ != fp_str_:
-        fp_str_ = new_str_
-        new_str_ = fp_str_.replace('["[','[[').replace(']"]',']]')
-    return ast.literal_eval(fp_str_)
+    fp_str_ = fp_str_.decode()
+    t_ = fp_str_.split(')')
+    version = t_[0][1:]
+    cs      = t_[1][1:]
+    tmp_ext = fp_str_[len(cs)+9:-1]
+    tmp_ext = tmp_ext.split(')')
+    ext     = [e_[1:] for e_ in tmp_ext[:-1]]
+    return [version, cs, ext]
 
 
 def get_version_from_str(version_str_, convert=True):
@@ -78,15 +77,15 @@ def get_ext_from_str(exts_, convert=True, mode='client'):
     for ext in exts_:
         if len(ext) == 0:
             break
-        ext_type_ = ext[0][0:4]
+        ext_type_ = ext[0:4]
         ext_type_str_kind = str(int(ext_type_,16))
         if ext_type_str_kind in imp_date_ext_data and convert:
             ext_type_ = imp_date_ext_data[ext_type_str_kind]['name']
         ext_data_ = ''
-        if len(ext[0]) > 4 and convert:
-            ext_data_ = parse_extension_data(ext_type_, ext[0][4:], mode)
-        elif len(ext[0]) > 4:
-            ext_data_ = ext[0][4:]
+        if len(ext) > 4 and convert:
+            ext_data_ = parse_extension_data(ext_type_, ext[4:], mode)
+        elif len(ext) > 4:
+            ext_data_ = ext[4:]
 
         ext_l_.append({ext_type_: ext_data_})
 
@@ -156,8 +155,9 @@ def degrease_type_code(data, offset):
 
 # helper to normalize grease within supported_groups and supported_versions
 def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
+    degreased_ext_value = b''
     if ext_type == b'000a': # supported_groups
-        degreased_ext_value = data[offset:offset+2]
+        degreased_ext_value += data[offset:offset+2]
         for i in range(2,ext_length,2):
             if hexlify(data[offset+i:offset+i+2]) in grease_:
                 degreased_ext_value += unhexlify('0a0a')
@@ -165,7 +165,7 @@ def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
                 degreased_ext_value += data[offset+i:offset+i+2]
         return degreased_ext_value
     elif ext_type == b'002b': # supported_versions
-        degreased_ext_value = data[offset:offset+1]
+        degreased_ext_value += data[offset:offset+1]
         for i in range(1,ext_length,2):
             if hexlify(data[offset+i:offset+i+2]) in grease_:
                 degreased_ext_value += unhexlify('0a0a')
@@ -179,16 +179,14 @@ def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
 def supported_groups(data, length):
     if len(data) < 2:
         return ''
-    info = OrderedDict({})
-    data = unhexlify(data)
-    ext_len = int(str(hexlify(data[0:2]), 'utf-8'),16)
+    info = {}
+    ext_len = int(data[0:4], 16)
     info['supported_groups_list_length'] = ext_len
     info['supported_groups'] = []
-    offset = 2
-    while offset < length:
-        tmp_data = str(hexlify(data[offset:offset+2]), 'utf-8')
-        info['supported_groups'].append(TLS_SUPPORTED_GROUPS[int(tmp_data,16)])
-        offset += 2
+    offset = 4
+    while offset < length*2:
+        info['supported_groups'].append(TLS_SUPPORTED_GROUPS[int(data[offset:offset+4], 16)])
+        offset += 4
 
     return info
 
@@ -196,19 +194,18 @@ def supported_groups(data, length):
 def supported_versions(data, length):
     if len(data) < 2:
         return ''
-    info = OrderedDict({})
-    data = unhexlify(data)
-    ext_len = int(str(hexlify(data[0:1]), 'utf-8'),16)
+    info = {}
+    ext_len = int(data[0:2], 16)
     info['supported_versions_list_length'] = ext_len
     info['supported_versions'] = []
-    offset = 1
-    while offset < length:
-        tmp_data = str(hexlify(data[offset:offset+2]), 'utf-8')
+    offset = 2
+    while offset < length*2:
+        tmp_data = data[offset:offset+4]
         if tmp_data in TLS_VERSION:
             info['supported_versions'].append(TLS_VERSION[tmp_data])
         else:
             info['supported_versions'].append('Unknown Version (%s)' % tmp_data)
-        offset += 2
+        offset += 4
 
     return info
 
@@ -216,9 +213,8 @@ def supported_versions(data, length):
 def supported_versions_server(data, length):
     if len(data) < 2:
         return ''
-    info = OrderedDict({})
-    data = unhexlify(data)
-    tmp_data = str(hexlify(data[:2]), 'utf-8')
+    info = {}
+    tmp_data = data[:4]
     if tmp_data in TLS_VERSION:
         return TLS_VERSION[tmp_data]
     else:
@@ -230,11 +226,10 @@ def supported_versions_server(data, length):
 def psk_key_exchange_modes(data, length):
     if len(data) < 2:
         return ''
-    info = OrderedDict({})
-    data = unhexlify(data)
-    ext_len = int(str(hexlify(data[0:1]), 'utf-8'),16)
+    info = {}
+    ext_len = int(data[0:2], 16)
     info['psk_key_exchange_modes_length'] = ext_len
-    mode = int(str(hexlify(data[1:2]), 'utf-8'),16)
+    mode = int(data[2:4], 16)
     info['psk_key_exchange_mode'] = TLS_PSK_KEY_EXCHANGE_MODES[mode]
 
     return info
@@ -243,20 +238,19 @@ def psk_key_exchange_modes(data, length):
 def key_share_client(data, length):
     if len(data) < 2:
         return ''
-    info = OrderedDict({})
-    data = unhexlify(data)
-    ext_len = int(str(hexlify(data[0:2]), 'utf-8'),16)
+    info = {}
+    ext_len = int(data[0:4], 16)
     info['key_share_length'] = ext_len
     info['key_share_entries'] = []
-    offset = 2
-    while offset < length:
-        tmp_obj = OrderedDict({})
-        tmp_data = str(hexlify(data[offset:offset+2]), 'utf-8')
+    offset = 4
+    while offset < length*2:
+        tmp_obj = {}
+        tmp_data = data[offset:offset+4]
         tmp_obj['group'] = TLS_SUPPORTED_GROUPS[int(tmp_data,16)]
-        tmp_obj['key_exchange_length'] = int(str(hexlify(data[offset+2:offset+4]), 'utf-8'),16)
-        tmp_obj['key_exchange'] = str(hexlify(data[offset+4:offset+4+tmp_obj['key_exchange_length']]), 'utf-8')
+        tmp_obj['key_exchange_length'] = int(data[offset+4:offset+8], 16)
+        tmp_obj['key_exchange'] = data[offset+8:offset+8+2*tmp_obj['key_exchange_length']]
         info['key_share_entries'].append(tmp_obj)
-        offset += 4 + tmp_obj['key_exchange_length']
+        offset += 8 + 2*tmp_obj['key_exchange_length']
 
     return info
 
@@ -264,16 +258,16 @@ def key_share_client(data, length):
 def ec_point_formats(data, length):
     if len(data) < 2:
         return ''
-    info = OrderedDict({})
-    data = unhexlify(data)
-    ext_len = int(str(hexlify(data[0:1]), 'utf-8'),16)
+    info = {}
+    ext_len = int(data[0:2], 16)
     info['ec_point_formats_length'] = ext_len
     info['ec_point_formats'] = []
     for i in range(ext_len):
-        if str(hexlify(data[i+1:i+2]), 'utf-8') in TLS_EC_POINT_FORMATS:
-            info['ec_point_formats'].append(TLS_EC_POINT_FORMATS[str(hexlify(data[i+1:i+2]), 'utf-8')])
+        tmp_data = data[2*i+2:2*i+4]
+        if tmp_data in TLS_EC_POINT_FORMATS:
+            info['ec_point_formats'].append(TLS_EC_POINT_FORMATS[tmp_data])
         else:
-            info['ec_point_formats'].append(str(hexlify(data[i+1:i+2]), 'utf-8'))
+            info['ec_point_formats'].append(tmp_data)
 
     return info
 
@@ -281,14 +275,12 @@ def ec_point_formats(data, length):
 def status_request(data, length):
     if len(data) < 2:
         return ''
-    info = OrderedDict({})
-    data = unhexlify(data)
-    info['certificate_status_type'] = TLS_CERTIFICATE_STATUS_TYPE[str(hexlify(data[0:1]), 'utf-8')]
-    offset = 1
-    info['responder_id_list_length'] = int(str(hexlify(data[offset:offset+2]), 'utf-8'),16)
-    offset += info['responder_id_list_length'] + 2
-    info['request_extensions_length'] = int(str(hexlify(data[offset:offset+2]), 'utf-8'),16)
-    offset += info['request_extensions_length'] + 2
+    info = {}
+    info['certificate_status_type'] = TLS_CERTIFICATE_STATUS_TYPE[data[0:2]]
+    offset = 2
+    info['responder_id_list_length'] = int(data[offset:offset+4], 16)
+    offset += info['responder_id_list_length']*2 + 4
+    info['request_extensions_length'] = int(data[offset:offset+4], 16)
 
     return info
 
@@ -296,33 +288,31 @@ def status_request(data, length):
 def signature_algorithms(data, length):
     if len(data) < 2:
         return ''
-    info = OrderedDict({})
-    data = unhexlify(data)
-    ext_len = int(str(hexlify(data[0:2]), 'utf-8'),16)
+    info = {}
+    ext_len = int(data[0:4], 16)
     info['signature_hash_algorithms_length'] = ext_len
     info['algorithms'] = []
-    offset = 2
-    while offset < length:
-        tmp_data = str(hexlify(data[offset:offset+2]), 'utf-8')
+    offset = 4
+    while offset < length*2:
+        tmp_data = data[offset:offset+4]
         if tmp_data in TLS_SIGNATURE_HASH_ALGORITHMS:
             info['algorithms'].append(TLS_SIGNATURE_HASH_ALGORITHMS[tmp_data])
         else:
             info['algorithms'].append('unknown(%s)' % tmp_data)
-        offset += 2
+        offset += 4
 
     return info
 
 
 def parse_application_layer_protocol_negotiation(data, length):
-    data = unhexlify(data)
-    alpn_len = int(str(hexlify(data[0:2]), 'utf-8'),16)
-    alpn_offset = 2
+    alpn_len = int(data[0:4], 16)
+    alpn_offset = 4
     alpn_data = []
-    while alpn_offset < length:
-        tmp_alpn_len = int(str(hexlify(data[alpn_offset:alpn_offset+1]), 'utf-8'),16)
-        alpn_offset += 1
-        alpn_data.append(data[alpn_offset:alpn_offset+tmp_alpn_len])
-        alpn_offset += tmp_alpn_len
+    while alpn_offset < length*2:
+        tmp_alpn_len = int(data[alpn_offset:alpn_offset+2], 16)
+        alpn_offset += 2
+        alpn_data.append(unhexlify(data[alpn_offset:alpn_offset+2*tmp_alpn_len]))
+        alpn_offset += tmp_alpn_len*2
 
     return alpn_data
 

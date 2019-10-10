@@ -12,7 +12,7 @@ import functools
 import ujson as json
 from sys import path
 from math import exp, log
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -49,10 +49,6 @@ class TLS(Protocol):
 
         self.aligner = SequenceAlignment(f_similarity, 0.0)
 
-        # TLS ClientHello pattern/RE
-        self.tls_client_hello_mask  = b'\xff\xff\xfc\x00\x00\xff\x00\x00\x00\xff\xfc'
-        self.tls_client_hello_value = b'\x16\x03\x00\x00\x00\x01\x00\x00\x00\x03\x00'
-
 
     def load_database(self, fp_database):
         for line in os.popen('zcat %s' % (fp_database)):
@@ -68,12 +64,13 @@ class TLS(Protocol):
 
 
     def fingerprint(self, data):
-        if len(data) < 32:
+        if (data[0] != 22 or
+            data[1] != 3  or
+            data[2] > 3   or
+            data[5] != 1  or
+            data[9] != 3  or
+            data[10] > 3):
             return None, None, None, []
-        # check TLS version and record/handshake type
-        for i in range(11):
-            if (data[i] & self.tls_client_hello_mask[i]) != self.tls_client_hello_value[i]:
-                return None, None, None, []
 
         # bounds checking
         record_length = int.from_bytes(data[3:5], byteorder='big')
@@ -355,9 +352,9 @@ class TLS(Protocol):
 
     def get_human_readable(self, fp_str_):
         lit_fp = eval_fp_str(fp_str_)
-        fp_h = OrderedDict({})
-        fp_h['version'] = get_version_from_str(lit_fp[0][0])
-        fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1][0])
+        fp_h = {}
+        fp_h['version'] = get_version_from_str(lit_fp[0])
+        fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1])
         fp_h['extensions'] = []
         if len(lit_fp) > 2:
             fp_h['extensions'] = get_ext_from_str(lit_fp[2])
