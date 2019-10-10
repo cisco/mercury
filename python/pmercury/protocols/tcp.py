@@ -24,6 +24,7 @@ class TCP(Protocol):
 
         self.tcp_options_data = set([0,1,2,3])
 
+
     def load_database(self, fp_database):
         if fp_database == None:
             return
@@ -63,38 +64,42 @@ class TCP(Protocol):
         return self.fp_db[fp_str]
 
 
-    def fingerprint(self, data):
-        if data[12] & 15 == 0 and data[13] & 255 == 2:
-            fp_str_ = self.extract_fingerprint(data)
-            return 'tcp', fp_str_, None, None
+    def fingerprint(self, data, offset, data_len):
+        if data[offset+13] != 2:
+            return None, None, None, None
 
-        return None, None, None, None
+        fp_str_ = self.extract_fingerprint(data, offset)
+        return 'tcp', fp_str_, None, None
 
 
-    def extract_fingerprint(self, data):
-        tcp_length = (data[12] >> 4)*4
+    def extract_fingerprint(self, data, offset):
+        tcp_length = (data[offset+12] >> 4)*4
 
-        fp_str = b'(' + (b'%04x' % int.from_bytes(data[14:16],'big')) + b')'
+        fp_str = b'(' + hexlify(data[offset+14:offset+16]) + b')'
 
-        offset = 20
-        while offset < tcp_length:
+        offset += 20
+        cur_ = 20
+        while cur_ < tcp_length:
             fp_str += b'('
             kind   = data[offset]
             fp_str += b'%02x' % kind
             if kind == 1: # NOP
                 fp_str += b')'
                 offset += 1
+                cur_ += 1
                 continue
 
             length = data[offset+1]
-            if length + offset > tcp_length:
+            if cur_ >= tcp_length:
                 return None
             if kind not in self.tcp_options_data:
                 offset += length
+                cur_ += length
                 fp_str += b')'
                 continue
 
             fp_str += hexlify(data[offset+1:offset+length]) + b')'
             offset += length
+            cur_ += length
 
         return fp_str

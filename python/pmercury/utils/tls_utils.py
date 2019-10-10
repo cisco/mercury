@@ -36,11 +36,11 @@ for line in os.popen('zcat %s' % (imp_date_ext_file)):
 
 
 
-def extract_server_name(data):
-    if len(data) < 7:
+def extract_server_name(data, offset, data_len):
+    if data_len - offset < 7:
         return 'None'
-    sni_len = int.from_bytes(data[5:7], 'big')
-    return data[7:7+sni_len].tobytes()
+    sni_len = int.from_bytes(data[offset+5:offset+7], 'big')
+    return data[offset+7:offset+7+sni_len].decode()
 
 
 def eval_fp_str(fp_str_):

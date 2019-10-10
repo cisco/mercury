@@ -63,22 +63,22 @@ class TLS(Protocol):
             self.fp_db[fp_['str_repr']] = fp_
 
 
-    def fingerprint(self, data):
-        if (data[0] != 22 or
-            data[1] != 3  or
-            data[2] > 3   or
-            data[5] != 1  or
-            data[9] != 3  or
-            data[10] > 3):
+    def fingerprint(self, data, offset, data_len):
+        if (data[offset]    != 22 or
+            data[offset+1]  !=  3 or
+            data[offset+2]  >   3 or
+            data[offset+5]  !=  1 or
+            data[offset+9]  !=  3 or
+            data[offset+10] >   3):
             return None, None, None, []
 
         # bounds checking
-        record_length = int.from_bytes(data[3:5], byteorder='big')
-        if record_length != len(data[5:]):
+        record_length = int.from_bytes(data[offset+3:offset+5], byteorder='big')
+        if record_length != data_len-offset-5:
             return None, None, None, []
 
         # extract fingerprint string
-        fp_str_, server_name = self.extract_fingerprint(data[5:])
+        fp_str_, server_name = self.extract_fingerprint(data, offset+5, data_len)
         if fp_str_ == None:
             return None, None, None, []
         approx_str_ = None
@@ -283,25 +283,23 @@ class TLS(Protocol):
         return fp_
 
 
-    def extract_fingerprint(self, data):
-        data_len = len(data)
-
+    def extract_fingerprint(self, data, offset, data_len):
         # extract handshake version
-        fp_ = b'(' + hexlify(data[4:6]) + b')'
+        fp_ = b'(' + hexlify(data[offset+4:offset+6]) + b')'
 
         # skip header/client_random
-        offset = 38
+        offset += 38
 
         # parse/skip session_id
-        session_id_length = int.from_bytes(data[offset:offset+1], byteorder='big')
+        session_id_length = data[offset]
         offset += 1 + session_id_length
-        if data_len - offset <= 0:
+        if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites length
         cipher_suites_length = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
-        if data_len - offset <= 0:
+        if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites
@@ -311,19 +309,19 @@ class TLS(Protocol):
             fp_ += hexlify(data[offset+2:offset+cipher_suites_length])
         fp_ += b')'
         offset += cipher_suites_length
-        if data_len - offset <= 0:
+        if offset >= data_len:
             return None, None
 
         # parse/skip compression method
-        compression_methods_length = int.from_bytes(data[offset:offset+1], byteorder='big')
+        compression_methods_length = data[offset]
         offset += 1 + compression_methods_length
-        if data_len - offset <= 0:
+        if offset >= data_len:
             return fp_, None
 
         # parse/skip extensions length
         ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
-        if data_len - offset <= 0:
+        if offset >= data_len:
             return None, None
 
         # parse/extract/skip extension type/length/values
@@ -332,12 +330,12 @@ class TLS(Protocol):
         server_name = None
         while ext_total_len > 0:
             fp_ += b'('
-            if data_len - offset <= 0:
+            if offset >= data_len:
                 return None, None
 
             # extract server name for process/malware identification
             if int.from_bytes(data[offset:offset+2], byteorder='big') == 0:
-                server_name = extract_server_name(data[offset+2:])
+                server_name = extract_server_name(data, offset+2, data_len)
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
             fp_ += tmp_fp_ext
