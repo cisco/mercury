@@ -9,13 +9,10 @@ import os
 import sys
 import pcap
 import time
-import struct
 import socket
 import optparse
 import ujson as json
-from datetime import datetime
-from collections import OrderedDict
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 
@@ -40,15 +37,13 @@ class Fingerprinter:
             self.out_file_pointer = open(output, 'w')
 
         # register parsers
-#        from pmercury.protocols.tls import TLS
-#        from pmercury.protocols.tls_server import TLS_Server
-#        self.app_parsers = [('tls', TLS(database)), ('tls_server', TLS_Server())]
+        from pmercury.protocols.tcp import TCP
         from pmercury.protocols.tls import TLS
-        self.app_parsers = [('tls', TLS(database))]
-        self.tcp_parsers = []
+        from pmercury.protocols.tls_server import TLS_Server
+        self.app_parsers = [('tls', TLS(database)), ('tls_server', TLS_Server())]
+        self.tcp_parsers = [('tcp', TCP())]
         self.ip_parsers  = []
         if experimental == True:
-            from pmercury.protocols.tcp import TCP
             from pmercury.protocols.ssh import SSH
             from pmercury.protocols.http import HTTP
             from pmercury.protocols.http_server import HTTP_Server
@@ -56,7 +51,6 @@ class Fingerprinter:
             from pmercury.protocols.tls_certificate import TLS_Certificate
 
             self.app_parsers.extend([('http', HTTP()), ('http_server', HTTP_Server())])
-            self.tcp_parsers.extend([('tcp', TCP())])
             self.ip_parsers.extend([('tls_certificate', TLS_Certificate()), ('ssh', SSH())])
             if sslkeylog != None:
                 self.ip_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))
@@ -64,6 +58,9 @@ class Fingerprinter:
 
         # data
         self.flow_cache = {}
+
+        self.ipv4_fmt = '%i.%i.%i.%i'
+        self.ipv6_fmt = '%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x'
 
 
     def process(self, input_files):
@@ -80,211 +77,125 @@ class Fingerprinter:
 
         self.data_ = []
         for input_file in input_files:
-            if os.path.isfile(input_file):
-                f = open(input_file,'rb')
-                file_magic = hexlify(f.read(4))
-                f.seek(0)
-                if file_magic == b'0d0a0a0d' or file_magic == b'0a0d0d0a':
-                    packets = dpkt.pcapng.Reader(f)
-                else:
-                    packets = dpkt.pcap.Reader(f)
-                capture_type = 'offline'
-            else:
-                packets = pcap.pcap(input_file, timeout_ms=1000)
-                capture_type = 'online'
-
+            packet_file = pcap.pcap(input_file, timeout_ms=1000)
+            packets = packet_file.readpkts()
+            self.flow_timer = time.time()
             while True:
-                self.flow_timer = time.time()
-                pkts = packets.readpkts()
-
-                for ts, buf in pkts:
-                    ret = self.process_packet(ts, buf)
-                    if ret == -1:
-                        break
-
-                if capture_type == 'offline':
-                    break
+                for ts, buf in packets:
+                    self.process_packet(ts, memoryview(buf))
 
                 if self.group and time.time()-self.flow_timer > self.FLOW_UPDATE:
                     self.flow_timer = time.time()
                     self.write_flows(active=True)
 
+                if '.pcap' in input_file:
+                    break
+
+                packets = packet_file.readpkts()
+
+
             if self.group:
                 self.write_flows(active=False)
 
 
-    def process_packet_no_dpkt(self, ts, buf):
+    def process_packet(self, ts, buf):
         ip_data = buf[14:]
 
         high = ip_data[0] >> 4
         if high == 4:
             ip_type = 'ipv4'
+            low = ip_data[0] & 0x0F
+            ip_length = low*4
+            protocol = ip_data[9]
         elif high == 6:
             ip_type = 'ipv6'
+            ip_length = 40
+            protocol = ip_data[6]
         else:
             return -1
-
-        if ip_type == 'ipv4':
-            low = ip_data[0] & 0x0F
-            header_length = low*4
-            protocol = ip_data[9]
-        else:
-            header_length = 40
-            protocol = ip_data[6]
 
         if protocol != 6:
             return 0
 
-        tcp_data = ip_data[header_length:]
+
+        tcp_data   = ip_data[ip_length:]
         tcp_length = (tcp_data[12] >> 4)*4
-        app_data = tcp_data[tcp_length:]
-
-        if ip_type == 'ipv4':
-            add_fam = socket.AF_INET
-        else:
-            add_fam = socket.AF_INET6
+        app_data   = tcp_data[tcp_length:]
+        app_length = len(app_data)
 
         results_ = []
-        for _,parser_ in self.app_parsers:
-            results_.append(parser_.fingerprint(app_data))
+        new_data = False
+        if app_length > 32:
+            for _,parser_ in self.app_parsers:
+                r_ = parser_.fingerprint(app_data)
+                if r_[1] != None:
+                    results_.append(r_)
+                    new_data = True
         for _,parser_ in self.tcp_parsers:
-            results_.append(parser_.fingerprint(tcp_data))
+            r_ = parser_.fingerprint(tcp_data)
+            if r_[1] != None:
+                results_.append(r_)
+                new_data = True
         for _,parser_ in self.ip_parsers:
-            results_.append(parser_.fingerprint(ip))
+            r_ = parser_.fingerprint(ip_data)
+            if r_[1] != None:
+                results_.append(r_)
+                new_data = True
 
-        src_port = None
-        for protocol_type, fp_str_, approx_fp_str_, context_ in results_:
-            if fp_str_ == None:
-                continue
-            if src_port == None:
-                src_port = int.from_bytes(tcp_data[0:2], byteorder='big')
-                dst_port = int.from_bytes(tcp_data[2:4], byteorder='big')
-                if ip_type == 'ipv4':
-                    src_addr = ip_data[header_length-8:header_length-4]
-                    dst_addr = ip_data[header_length-4:header_length]
+        if new_data:
+
+            src_port = int.from_bytes(tcp_data[0:2], byteorder='big')
+            dst_port = int.from_bytes(tcp_data[2:4], byteorder='big')
+            if ip_type == 'ipv4':
+                o_ = ip_length-8
+                src_addr = socket.inet_ntop(socket.AF_INET, ip_data[o_:o_+4])
+                o_ = ip_length-4
+                dst_addr = socket.inet_ntop(socket.AF_INET, ip_data[o_:o_+4])
+            else:
+                o_ = ip_length-32
+                src_addr = socket.inet_ntop(socket.AF_INET6, ip_data[o_:o_+16])
+                o_ = ip_length-16
+                dst_addr = socket.inet_ntop(socket.AF_INET6, ip_data[o_:o_+16])
+
+            for protocol_type, fp_str_, approx_fp_str_, context_ in results_:
+                flow = {}
+                flow['src_ip']       = src_addr
+                flow['dst_ip']       = dst_addr
+                flow['src_port']     = src_port
+                flow['dst_port']     = dst_port
+                flow['protocol']     = protocol
+                flow['event_start']  = ts
+                if context_ != None:
+                    for x_ in context_:
+                        if x_['data'] != None:
+                            if protocol_type not in flow:
+                                flow[protocol_type] = {}
+                            flow[protocol_type][x_['name']]  = x_['data']
+                flow['fingerprints'] = {}
+                if approx_fp_str_ != None:
+                    flow['fingerprints'][protocol_type] = fp_str_
+                    flow['fingerprints'][protocol_type+'_approx'] = approx_fp_str_
                 else:
-                    src_addr = ip_data[header_length-32:header_length-16]
-                    dst_addr = ip_data[header_length-16:header_length]
-
-            flow = OrderedDict({})
-            flow['src_ip']       = socket.inet_ntop(add_fam, src_addr)
-            flow['dst_ip']       = socket.inet_ntop(add_fam, dst_addr)
-            flow['src_port']     = src_port
-            flow['dst_port']     = dst_port
-            flow['protocol']     = protocol
-            flow['event_start']  = datetime.utcfromtimestamp(ts)
-            if context_ != None:
-                for x_ in context_:
-                    if x_['data'] != None:
-                        if protocol_type not in flow:
-                            flow[protocol_type] = OrderedDict({})
-                        flow[protocol_type][x_['name']]  = x_['data']
-            flow['fingerprints'] = OrderedDict({})
-            if approx_fp_str_ != None:
-                flow['fingerprints'][protocol_type] = fp_str_
-                flow['fingerprints'][protocol_type+'_approx'] = approx_fp_str_
-            else:
-                flow['fingerprints'][protocol_type] = fp_str_
-            if self.human_readable:
-                for parse_type, parser_ in self.all_parsers:
-                    if ((parse_type == protocol_type) or
-                        (protocol_type.startswith('tls_decrypt') and parse_type.startswith('tls_decrypt'))):
-                        desc_ = parser_.get_human_readable(fp_str_)
-                        if desc_ != None:
-                            if 'readable' not in flow:
-                                flow['readable'] = {}
-                            flow['readable'][protocol_type] = desc_
-            if self.analyze:
-                if approx_fp_str_ != None:
-                    fp_str_ = approx_fp_str_
-                for parse_type, parser_ in self.all_parsers:
-                    if parse_type == protocol_type:
-                        proc_info = parser_.proc_identify(fp_str_, context_, flow['dst_ip'],
-                                                                          flow['dst_port'], self.num_procs)
-                        if proc_info != None:
-                            if 'analysis' not in flow:
-                                flow['analysis'] = OrderedDict({})
-                            flow['analysis'] = proc_info
-                            break
-
-            if self.group:
-                self.update_flow_cache(flow)
-            else:
-                self.write_record(flow)
-
-            return 0
-
-
-    def process_packet(self, ts, buf):
-        try:
-            eth = dpkt.ethernet.Ethernet(buf)
-        except:
-            return -1 # no data error?
-        ip = eth.data
-
-
-        if (type(ip) != dpkt.ip.IP and type(ip) != dpkt.ip6.IP6) or type(ip.data) != dpkt.tcp.TCP:
-            return 0
-
-        tcp_data = ip.data
-        app_data = tcp_data.data
-
-        if type(ip) == dpkt.ip.IP:
-            add_fam = socket.AF_INET
-        else:
-            add_fam = socket.AF_INET6
-
-        results_ = []
-        for _,parser_ in self.app_parsers:
-            results_.append(parser_.fingerprint(app_data))
-        for _,parser_ in self.tcp_parsers:
-            results_.append(parser_.fingerprint(tcp_data))
-        for _,parser_ in self.ip_parsers:
-            results_.append(parser_.fingerprint(ip))
-
-        for protocol_type, fp_str_, approx_fp_str_, context_ in results_:
-            if fp_str_ == None:
-                continue
-            flow = OrderedDict({})
-            flow['src_ip']       = socket.inet_ntop(add_fam,ip.src)
-            flow['dst_ip']       = socket.inet_ntop(add_fam,ip.dst)
-            flow['src_port']     = tcp_data.sport
-            flow['dst_port']     = tcp_data.dport
-            flow['protocol']     = ip.p
-            flow['event_start']  = datetime.utcfromtimestamp(ts)
-            if context_ != None:
-                for x_ in context_:
-                    if x_['data'] != None:
-                        if protocol_type not in flow:
-                            flow[protocol_type] = OrderedDict({})
-                        flow[protocol_type][x_['name']]  = x_['data']
-            flow['fingerprints'] = OrderedDict({})
-            if approx_fp_str_ != None:
-                flow['fingerprints'][protocol_type] = fp_str_
-                flow['fingerprints'][protocol_type+'_approx'] = approx_fp_str_
-            else:
-                flow['fingerprints'][protocol_type] = fp_str_
-            if self.human_readable:
-                for parse_type, parser_ in self.all_parsers:
-                    if ((parse_type == protocol_type) or
-                        (protocol_type.startswith('tls_decrypt') and parse_type.startswith('tls_decrypt'))):
-                        desc_ = parser_.get_human_readable(fp_str_)
-                        if desc_ != None:
-                            if 'readable' not in flow:
-                                flow['readable'] = {}
-                            flow['readable'][protocol_type] = desc_
-            if self.analyze:
-                if approx_fp_str_ != None:
-                    fp_str_ = approx_fp_str_
-                for parse_type, parser_ in self.all_parsers:
-                    if parse_type == protocol_type:
-                        proc_info = parser_.proc_identify(fp_str_, context_, flow['dst_ip'],
-                                                                          flow['dst_port'], self.num_procs)
-                        if proc_info != None:
-                            if 'analysis' not in flow:
-                                flow['analysis'] = OrderedDict({})
-                            flow['analysis'] = proc_info
-                            break
+                    flow['fingerprints'][protocol_type] = fp_str_
+                if self.human_readable:
+                    for parse_type, parser_ in self.all_parsers:
+                        if ((parse_type == protocol_type) or
+                            (protocol_type.startswith('tls_decrypt') and parse_type.startswith('tls_decrypt'))):
+                            desc_ = parser_.get_human_readable(fp_str_)
+                            if desc_ != None:
+                                if 'readable' not in flow:
+                                    flow['readable'] = {}
+                                flow['readable'][protocol_type] = desc_
+                if self.analyze:
+                    if approx_fp_str_ != None:
+                        fp_str_ = approx_fp_str_
+                    for parse_type, parser_ in self.all_parsers:
+                        if parse_type == protocol_type:
+                            proc_info = parser_.proc_identify(fp_str_, context_, flow['dst_ip'],
+                                                              flow['dst_port'], self.num_procs)
+                            if proc_info != None:
+                                flow['analysis'] = proc_info
+                                break
 
             if self.group:
                 self.update_flow_cache(flow)
@@ -309,8 +220,8 @@ class Fingerprinter:
 
         # add fingerprint
         for k in flow['fingerprints']:
-            packet_fp = OrderedDict({})
-            packet_fp['event_start'] = str(flow['event_start'])
+            packet_fp = {}
+            packet_fp['event_start'] = flow['event_start']
             packet_fp[k] = flow['fingerprints'][k]
             if k in flow:
                 if k not in self.flow_cache[flow_key]:
@@ -365,14 +276,14 @@ class Fingerprinter:
 
 
     def write_flows(self, active=False):
-        curtime = datetime.utcnow()
+        curtime = time.time()
         flow_keys = [k for k in self.flow_cache.keys()
                      if not active or 
-                     ((curtime - self.flow_cache[k]['event_start']).seconds > self.FLOW_TIMEOUT)]
+                     ((curtime - self.flow_cache[k]['event_start']) > self.FLOW_TIMEOUT)]
 
         for k in flow_keys:
-            self.flow_cache[k]['event_start'] = str(self.flow_cache[k]['event_start'])
-            self.flow_cache[k]['event_end'] = str(self.flow_cache[k]['event_end'])
+            self.flow_cache[k]['event_start'] = self.flow_cache[k]['event_start']
+            self.flow_cache[k]['event_end'] = self.flow_cache[k]['event_end']
             self.write_record(self.flow_cache[k])
             del self.flow_cache[k]
 
