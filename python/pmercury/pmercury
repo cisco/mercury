@@ -77,12 +77,11 @@ class Fingerprinter:
 
         self.data_ = []
         for input_file in input_files:
-            packet_file = pcap.pcap(input_file, timeout_ms=1000)
-            packets = packet_file.readpkts()
+            p = pcap.pcap(input_file, timeout_ms=1000)
+            p.setfilter('ip proto 6 or ip6 proto 6')
             self.flow_timer = time.time()
             while True:
-                for ts, buf in packets:
-                    self.process_packet(ts, memoryview(buf))
+                p.dispatch(-1, self.process_packet)
 
                 if self.group and time.time()-self.flow_timer > self.FLOW_UPDATE:
                     self.flow_timer = time.time()
@@ -91,71 +90,63 @@ class Fingerprinter:
                 if '.pcap' in input_file:
                     break
 
-                packets = packet_file.readpkts()
-
-
             if self.group:
                 self.write_flows(active=False)
 
 
     def process_packet(self, ts, buf):
-        ip_data = buf[14:]
+        ip_offset = 14
 
-        high = ip_data[0] >> 4
+        high = buf[ip_offset] >> 4
+        protocol = 6 # currently only handling TCP
         if high == 4:
             ip_type = 'ipv4'
-            low = ip_data[0] & 0x0F
-            ip_length = low*4
-            protocol = ip_data[9]
+            ip_length = (buf[ip_offset] & 0x0F)*4
         elif high == 6:
             ip_type = 'ipv6'
             ip_length = 40
-            protocol = ip_data[6]
         else:
             return -1
 
-        if protocol != 6:
-            return 0
-
-
-        tcp_data   = ip_data[ip_length:]
-        tcp_length = (tcp_data[12] >> 4)*4
-        app_data   = tcp_data[tcp_length:]
-        app_length = len(app_data)
+        data_len   = len(buf)
+        tcp_offset = ip_offset+ip_length
+        tcp_length = (buf[tcp_offset+12] >> 4)*4
+        app_offset = tcp_offset+tcp_length
+        app_length = data_len - app_offset
 
         results_ = []
         new_data = False
         if app_length > 32:
             for _,parser_ in self.app_parsers:
-                r_ = parser_.fingerprint(app_data)
+                r_ = parser_.fingerprint(buf, app_offset, data_len)
                 if r_[1] != None:
                     results_.append(r_)
                     new_data = True
         for _,parser_ in self.tcp_parsers:
-            r_ = parser_.fingerprint(tcp_data)
+            r_ = parser_.fingerprint(buf, tcp_offset, data_len)
             if r_[1] != None:
                 results_.append(r_)
                 new_data = True
         for _,parser_ in self.ip_parsers:
-            r_ = parser_.fingerprint(ip_data)
+            r_ = parser_.fingerprint(buf, ip_offset, ip_length)
             if r_[1] != None:
                 results_.append(r_)
                 new_data = True
 
-        if new_data:
 
-            src_port = int.from_bytes(tcp_data[0:2], byteorder='big')
-            dst_port = int.from_bytes(tcp_data[2:4], byteorder='big')
+        if new_data:
+            src_port = int.from_bytes(buf[tcp_offset:tcp_offset+2], byteorder='big')
+            dst_port = int.from_bytes(buf[tcp_offset+2:tcp_offset+4], byteorder='big')
             if ip_type == 'ipv4':
-                o_ = ip_length-8
-                src_addr = socket.inet_ntop(socket.AF_INET, ip_data[o_:o_+4])
-                o_ = ip_length-4
-                dst_addr = socket.inet_ntop(socket.AF_INET, ip_data[o_:o_+4])
+                o_ = ip_offset+ip_length-8
+                src_addr = socket.inet_ntop(socket.AF_INET, buf[o_:o_+4])
+                o_ = ip_offset+ip_length-4
+                dst_addr = socket.inet_ntop(socket.AF_INET, buf[o_:o_+4])
             else:
-                o_ = ip_length-32
-                src_addr = socket.inet_ntop(socket.AF_INET6, ip_data[o_:o_+16])
-                o_ = ip_length-16
-                dst_addr = socket.inet_ntop(socket.AF_INET6, ip_data[o_:o_+16])
+                o_ = ip_offset+ip_length-32
+                src_addr = socket.inet_ntop(socket.AF_INET6, buf[o_:o_+16])
+                o_ = ip_offset+ip_length-16
+                dst_addr = socket.inet_ntop(socket.AF_INET6, buf[o_:o_+16])
 
             for protocol_type, fp_str_, approx_fp_str_, context_ in results_:
                 flow = {}

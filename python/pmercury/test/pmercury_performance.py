@@ -39,9 +39,9 @@ def performance_test(input_file, output_file, fp_db, analyze, human_readable, ex
     loop_times = []
     for l in range(loops):
         start = time.time()
-        packets = pcap.pcap(input_file, timeout_ms=1000).readpkts()
-        for ts, buf in packets:
-            fp.process_packet(ts, memoryview(buf))
+        p = pcap.pcap(input_file, timeout_ms=1000)
+        p.setfilter('ip proto 6 or ip6 proto 6')
+        p.dispatch(-1, fp.process_packet)
 
         loop_time = time.time() - start
         loop_times.append(loop_time)
@@ -49,8 +49,6 @@ def performance_test(input_file, output_file, fp_db, analyze, human_readable, ex
 
     pcap_size = os.path.getsize(input_file)
     print('Bytes Processed:\t%0.2fM' % (pcap_size/1000000.))
-    print('Packets Processed:\t%i' % (len(packets)))
-
 
 
 def main():
