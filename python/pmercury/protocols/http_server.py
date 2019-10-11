@@ -45,13 +45,16 @@ class HTTP_Server(Protocol):
 
     def extract_fingerprint(self, data):
         t_ = data.split(b'\r\n', 1)
-        response = t_[0].split()
-        if len(response) < 3:
+        response = t_[0].split(b' ')
+        if len(response) < 2:
             return None, None
 
         c = []
         for rh in self.headers_data:
-            c.append(b'%s%s%s' % (b'(', hexlify(response[rh]), b')'))
+            try:
+                c.append(b'%s%s%s' % (b'(', hexlify(response[rh]), b')'))
+            except IndexError:
+                c.append(b'()')
 
         if len(t_) == 1:
             fp_str = b''.join(c)
@@ -61,7 +64,8 @@ class HTTP_Server(Protocol):
         context = None
         for h_ in headers:
             if h_ == b'':
-                break
+                c.append(b'()')
+                continue
             t0_ = h_.split(b': ',1)[0]
             c.append(b'%s%s%s' % (b'(', self.clean_header(h_, t0_), b')'))
             if t0_.lower() in self.contextual_data:
