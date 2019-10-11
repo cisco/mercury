@@ -31,7 +31,6 @@ class HTTP_Server(Protocol):
             data[offset+4] != 47 or
             data[offset+5] != 49):
             return None, None, None, None
-
         fp_str_, context = self.extract_fingerprint(data[offset:])
         return 'http_server', fp_str_, None, context
 

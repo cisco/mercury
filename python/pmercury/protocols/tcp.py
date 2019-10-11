@@ -67,7 +67,6 @@ class TCP(Protocol):
     def fingerprint(self, data, offset, data_len):
         if data[offset+13] != 2:
             return None, None, None, None
-
         fp_str_ = self.extract_fingerprint(data, offset, data_len)
         return 'tcp', fp_str_, None, None
 

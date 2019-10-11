@@ -27,7 +27,6 @@ class HTTP(Protocol):
             data[offset+2] != 84 or
             data[offset+3] != 32):
             return None, None, None, None
-
         fp_str_, context = self.extract_fingerprint(data[offset:])
         return 'http', fp_str_, None, context
 
