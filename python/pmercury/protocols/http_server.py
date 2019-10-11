@@ -49,12 +49,17 @@ class HTTP_Server(Protocol):
         response = t_[0].split()
         if len(response) < 3:
             return None, None
-        headers = t_[1].split(b'\r\n')
-        context = None
 
         c = []
         for rh in self.headers_data:
             c.append(b'%s%s%s' % (b'(', hexlify(response[rh]), b')'))
+
+        if len(t_) == 1:
+            fp_str = b''.join(c)
+            return fp_str, None
+
+        headers = t_[1].split(b'\r\n')
+        context = None
         for h_ in headers:
             if h_ == b'':
                 break
