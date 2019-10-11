@@ -34,7 +34,7 @@ class Fingerprinter:
         elif output == sys.stdout:
             self.out_file_pointer = sys.stdout
         else:
-            self.out_file_pointer = open(output, 'w')
+            self.out_file_pointer = open(output, 'w', buffering=4096*256)
 
         # register parsers
         from pmercury.protocols.tcp import TCP
@@ -100,7 +100,7 @@ class Fingerprinter:
         protocol = 6 # currently only handling TCP
         if high == 4:
             ip_type = 'ipv4'
-            ip_length = (buf[ip_offset] & 0x0F)*4
+            ip_length = (buf[ip_offset] & 15)*4
         elif high == 6:
             ip_type = 'ipv6'
             ip_length = 40
@@ -131,7 +131,6 @@ class Fingerprinter:
             if r_[1] != None:
                 results_.append(r_)
                 new_data = True
-
 
         if new_data:
             src_port = int.from_bytes(buf[tcp_offset:tcp_offset+2], byteorder='big')
