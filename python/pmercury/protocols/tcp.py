@@ -75,16 +75,14 @@ class TCP(Protocol):
     def extract_fingerprint(self, data, offset, data_len):
         tcp_length = (data[offset+12] >> 4)*4
 
-        fp_str = b'(' + hexlify(data[offset+14:offset+16]) + b')'
+        c = [b'%s%s%s' % (b'(', hexlify(data[offset+14:offset+16]), b')')]
 
         offset += 20
         cur_ = 20
         while cur_ < tcp_length:
-            fp_str += b'('
             kind   = data[offset]
-            fp_str += b'%02x' % kind
             if kind == 0 or kind == 1: # End of Options / NOP
-                fp_str += b')'
+                c.append(b'%s%02x%s' % (b'(', kind, b')'))
                 offset += 1
                 cur_ += 1
                 continue
@@ -93,13 +91,16 @@ class TCP(Protocol):
             if cur_ >= tcp_length:
                 return None
             if kind not in self.tcp_options_data:
+                c.append(b'%s%02x%s' % (b'(', kind, b')'))
                 offset += length
                 cur_ += length
-                fp_str += b')'
                 continue
 
-            fp_str += hexlify(data[offset+1:offset+length]) + b')'
+            c.append(b'%s%02x%s%s' % (b'(', kind, hexlify(data[offset+1:offset+length]), b')'))
             offset += length
             cur_ += length
 
+        fp_str = b''.join(c)
+
         return fp_str
+
