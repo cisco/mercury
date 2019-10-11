@@ -119,7 +119,7 @@ class Fingerprinter:
         if app_length > 32:
             for _,parser_ in self.app_parsers:
                 r_ = parser_.fingerprint(buf, app_offset, data_len)
-                if r_[0] != None:
+                if r_[1] != None:
                     results_.append(r_)
                     new_data = True
         for _,parser_ in self.tcp_parsers:
