@@ -13,34 +13,57 @@ class HTTP(Protocol):
     def __init__(self, fp_database=None):
         # populate fingerprint databases
         self.fp_db = {}
-        self.methods = set([b'GET',b'HEAD',b'POST',b'PUT',b'DELETE',b'CONNECT',b'OPTIONS',b'TRACE',b'PATCH'])
-        self.versions = set([b'HTTP/1.1',b'HTTP/1.0',b'HTTP/0.9'])
+        self.case_insensitive_static_headers = set([b'upgrade-insecure-requests',b'dnt',b'accept-language',b'connection',
+                                                    b'x-requested-with',b'accept-encoding',b'content-length',b'accept',
+                                                    b'viewport-width',b'intervention',b'dpr',b'cache-control'])
+        self.case_sensitive_static_headers = set([b'content-type',b'origin'])
+        self.headers_data = [0,2]
+        self.contextual_data = {b'user-agent':'user_agent',b'host':'host',b'x-forwarded-for':'x_forwarded_for'}
 
 
-    def fingerprint(self, data):
-        t_ = data.split(b'\r\n', 1)[0].split()
-        if len(t_) == 3 and t_[0] in self.methods and t_[2] in self.versions:
-            fp_str_ = self.extract_fingerprint(data)
-            return 'http', fp_str_, None, None
+    def fingerprint(self, data, offset, data_len):
+        if (data[offset]   != 71 or
+            data[offset+1] != 69 or
+            data[offset+2] != 84 or
+            data[offset+3] != 32):
+            return None, None, None, None
 
-        return None, None, None, None
+        fp_str_, context = self.extract_fingerprint(data[offset:])
+        return 'http', fp_str_, None, context
+
+
+    def clean_header(self, h_, t_):
+        if t_.lower() in self.case_insensitive_static_headers:
+            return hexlify(h_)
+        if t_ in self.case_sensitive_static_headers:
+            return hexlify(h_)
+        return hexlify(t_)
 
 
     def extract_fingerprint(self, data):
         t_ = data.split(b'\r\n', 1)
         request = t_[0].split()
+        if len(request) < 3:
+            return None, None
         headers = t_[1].split(b'\r\n')
-        fp_str = b''
+        context = None
 
-        for r_ in request:
-            fp_str += b'(' + hexlify(r_) + b')'
-
+        c = []
+        for rh in self.headers_data:
+            c.append(b'%s%s%s' % (b'(', hexlify(request[rh]), b')'))
         for h_ in headers:
             if h_ == b'':
                 break
-            fp_str += b'(' + hexlify(h_) + b')'
+            t0_ = h_.split(b': ',1)[0]
+            c.append(b'%s%s%s' % (b'(', self.clean_header(h_, t0_), b')'))
+            if t0_.lower() in self.contextual_data:
+                if context == None:
+                    context = []
+                context.append({'name':self.contextual_data[t0_.lower()], 'data':h_.split(b': ',1)[1]})
 
-        return fp_str
+        fp_str = b''.join(c)
+
+        return fp_str, context
 
 
     def get_human_readable(self, fp_str_):
