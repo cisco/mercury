@@ -35,13 +35,6 @@ class TLS_Server(Protocol):
             data[offset+10] >   3):
             return None, None, None, []
 
-        # bounds checking
-        message_length = int.from_bytes(data[offset+6:offset+9], 'big')
-        if message_length > data_len-offset-9:
-            return None, None, None, None
-#        if message_length > len(data[9:]):
-#            return None, None, None, None
-
         # extract fingerprint string
         fp_str_ = self.extract_fingerprint(data, offset+5, data_len)
         if fp_str_ == None:

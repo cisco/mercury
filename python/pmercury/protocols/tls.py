@@ -72,11 +72,6 @@ class TLS(Protocol):
             data[offset+10] >   3):
             return None, None, None, []
 
-        # bounds checking
-        record_length = int.from_bytes(data[offset+3:offset+5], byteorder='big')
-        if record_length != data_len-offset-5:
-            return None, None, None, []
-
         # extract fingerprint string
         fp_str_, server_name = self.extract_fingerprint(data, offset+5, data_len)
         if fp_str_ == None:
@@ -90,7 +85,7 @@ class TLS(Protocol):
             if approx_str_ == None:
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
-                return None, None, None, []
+                return fp_str_, None, None, []
             self.fp_db[fp_str_] = self.fp_db[approx_str_]
             self.fp_db[fp_str_]['approx_str'] = approx_str_
         if 'approx_str' in self.fp_db[fp_str_]:
@@ -310,7 +305,7 @@ class TLS(Protocol):
         fp_ += b')'
         offset += cipher_suites_length
         if offset >= data_len:
-            return None, None
+            return fp_, None
 
         # parse/skip compression method
         compression_methods_length = data[offset]
@@ -322,17 +317,18 @@ class TLS(Protocol):
         ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
         if offset >= data_len:
-            return None, None
+            return fp_, None
 
         # parse/extract/skip extension type/length/values
         fp_ += b'('
         ext_fp_len_ = 0
         server_name = None
         while ext_total_len > 0:
-            fp_ += b'('
             if offset >= data_len:
-                return None, None
+                fp_ += b')'
+                return fp_, None
 
+            fp_ += b'('
             # extract server name for process/malware identification
             if int.from_bytes(data[offset:offset+2], byteorder='big') == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
