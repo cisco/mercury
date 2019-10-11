@@ -39,18 +39,17 @@ class Fingerprinter:
         # register parsers
         from pmercury.protocols.tcp import TCP
         from pmercury.protocols.tls import TLS
-        from pmercury.protocols.tls_server import TLS_Server
         from pmercury.protocols.http import HTTP
         from pmercury.protocols.http_server import HTTP_Server
-        self.app_parsers = [('tls', TLS(database)), ('tls_server', TLS_Server()),
-                            ('http', HTTP()), ('http_server', HTTP_Server())]
+        self.app_parsers = [('tls', TLS(database)), ('http', HTTP()), ('http_server', HTTP_Server())]
         self.tcp_parsers = [('tcp', TCP())]
         self.ip_parsers  = []
         if experimental == True:
+            from pmercury.protocols.tls_server import TLS_Server
             from pmercury.protocols.ssh import SSH
             from pmercury.protocols.tls_decrypt import TLS_Decrypt
             from pmercury.protocols.tls_certificate import TLS_Certificate
-            self.app_parsers.extend([('http_server', HTTP_Server())])
+            self.app_parsers.extend([('tls_server', TLS_Server())])
             self.ip_parsers.extend([('tls_certificate', TLS_Certificate()), ('ssh', SSH())])
             if sslkeylog != None:
                 self.ip_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))
