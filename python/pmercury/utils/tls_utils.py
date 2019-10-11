@@ -100,7 +100,10 @@ def get_implementation_date(cs_str_): # @TODO: add extension
             dates_.add(imp_date_cs_data[cs_]['date'])
     dates_ = list(dates_)
     dates_.sort()
-    return dates_[-1], dates_[0]
+    if len(dates_) > 0:
+        return dates_[-1], dates_[0]
+    else:
+        return None, None
 
 
 def parse_extension_data(ext_type, ext_data_, mode):
