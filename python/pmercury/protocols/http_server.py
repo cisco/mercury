@@ -10,17 +10,45 @@ from protocol import Protocol
 
 class HTTP_Server(Protocol):
 
-    def __init__(self, fp_database=None):
+    def __init__(self, fp_database=None, config=None):
         # populate fingerprint databases
         self.fp_db = {}
-        self.versions = set([b'HTTP/1.1',b'HTTP/1.0',b'HTTP/0.9'])
-        self.case_insensitive_static_headers = set([b'access-control-allow-headers',b'access-control-allow-methods',
-                                                    b'connection',b'content-encoding',b'pragma',b'referrer-policy',
-                                                    b'server',b'strict-transport-security',b'vary',b'version',b'x-cache',
-                                                    b'x-powered-by',b'x-xss-protection'])
-        self.case_sensitive_static_headers = set([])
-        self.headers_data = [0,1,2]
-        self.contextual_data = {b'via':'via'}
+
+        # configuration
+        self.all_headers = False
+        if config == None or 'http_server' not in config:
+            self.case_insensitive_static_headers = set([b'access-control-allow-headers',b'access-control-allow-methods',
+                                                        b'connection',b'content-encoding',b'pragma',b'referrer-policy',
+                                                        b'server',b'strict-transport-security',b'vary',b'version',b'x-cache',
+                                                        b'x-powered-by',b'x-xss-protection'])
+            self.case_sensitive_static_headers = set([])
+            self.headers_data = [0,1,2]
+            self.contextual_data = {b'via':'via'}
+        else:
+            self.case_insensitive_static_headers = set([])
+            self.case_sensitive_static_headers = set([])
+            self.headers_data = []
+            self.contextual_data = {}
+            if 'case_insensitive_static_headers' in config['http_server']:
+                if config['http_server']['case_insensitive_static_headers'] == ['*']:
+                    self.all_headers = True
+                self.case_insensitive_static_headers = set(config['http_server']['case_insensitive_static_headers'])
+            if 'case_sensitive_static_headers' in config['http_server']:
+                if config['http_server']['case_sensitive_static_headers'] == ['*']:
+                    self.all_headers = True
+                self.case_sensitive_static_headers = set(config['http_server']['case_sensitive_static_headers'])
+            if 'preamble' in config['http_server']:
+                if 'version' in config['http_server']['preamble']:
+                    self.headers_data.append(0)
+                if 'code' in config['http_server']['preamble']:
+                    self.headers_data.append(1)
+                if 'reason' in config['http_server']['preamble']:
+                    self.headers_data.append(2)
+                if '*' in config['http_server']['preamble']:
+                    self.headers_data = [0,1,2]
+            if 'context' in config['http_server']:
+                for c in config['http_server']['context']:
+                    self.contextual_data[c] = c.lower().replace('-','_')
 
 
     def fingerprint(self, data, offset, data_len):
@@ -36,6 +64,8 @@ class HTTP_Server(Protocol):
 
 
     def clean_header(self, h_, t_):
+        if self.all_headers:
+            return hexlify(h_)
         if t_.lower() in self.case_insensitive_static_headers:
             return hexlify(h_)
         if t_ in self.case_sensitive_static_headers:
@@ -45,7 +75,7 @@ class HTTP_Server(Protocol):
 
     def extract_fingerprint(self, data):
         t_ = data.split(b'\r\n', 1)
-        response = t_[0].split(b' ')
+        response = t_[0].split(b' ',2)
         if len(response) < 2:
             return None, None
 
@@ -61,11 +91,12 @@ class HTTP_Server(Protocol):
             return fp_str, None
 
         headers = t_[1].split(b'\r\n')
+        if headers[0] == '':
+            headers = headers[1:]
         context = None
         for h_ in headers:
             if h_ == b'':
-                c.append(b'()')
-                continue
+                break
             t0_ = h_.split(b': ',1)[0]
             c.append(b'%s%s%s' % (b'(', self.clean_header(h_, t0_), b')'))
             if t0_.lower() in self.contextual_data:

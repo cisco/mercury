@@ -10,15 +10,44 @@ from protocol import Protocol
 
 class HTTP(Protocol):
 
-    def __init__(self, fp_database=None):
+    def __init__(self, fp_database=None, config=None):
         # populate fingerprint databases
         self.fp_db = {}
-        self.case_insensitive_static_headers = set([b'upgrade-insecure-requests',b'dnt',b'accept-language',b'connection',
-                                                    b'x-requested-with',b'accept-encoding',b'content-length',b'accept',
-                                                    b'viewport-width',b'intervention',b'dpr',b'cache-control'])
-        self.case_sensitive_static_headers = set([b'content-type',b'origin'])
-        self.headers_data = [0,2]
-        self.contextual_data = {b'user-agent':'user_agent',b'host':'host',b'x-forwarded-for':'x_forwarded_for'}
+
+        # configuration
+        self.all_headers = False
+        if config == None or 'http' not in config:
+            self.case_insensitive_static_headers = set([b'upgrade-insecure-requests',b'dnt',b'accept-language',b'connection',
+                                                        b'x-requested-with',b'accept-encoding',b'content-length',b'accept',
+                                                        b'viewport-width',b'intervention',b'dpr',b'cache-control'])
+            self.case_sensitive_static_headers = set([b'content-type',b'origin'])
+            self.headers_data = [0,2]
+            self.contextual_data = {b'user-agent':'user_agent',b'host':'host',b'x-forwarded-for':'x_forwarded_for'}
+        else:
+            self.case_insensitive_static_headers = set([])
+            self.case_sensitive_static_headers = set([])
+            self.headers_data = []
+            self.contextual_data = {}
+            if 'case_insensitive_static_headers' in config['http']:
+                if config['http']['case_insensitive_static_headers'] == ['*']:
+                    self.all_headers = True
+                self.case_insensitive_static_headers = set(map(lambda x: x.lower().encode(), config['http']['case_insensitive_static_headers']))
+            if 'case_sensitive_static_headers' in config['http']:
+                if config['http']['case_sensitive_static_headers'] == ['*']:
+                    self.all_headers = True
+                self.case_sensitive_static_headers = set(map(lambda x: x.encode(), config['http']['case_sensitive_static_headers']))
+            if 'preamble' in config['http']:
+                if 'method' in config['http']['preamble']:
+                    self.headers_data.append(0)
+                if 'uri' in config['http']['preamble']:
+                    self.headers_data.append(1)
+                if 'version' in config['http']['preamble']:
+                    self.headers_data.append(2)
+                if '*' in config['http']['preamble']:
+                    self.headers_data = [0,1,2]
+            if 'context' in config['http']:
+                for c in config['http']['context']:
+                    self.contextual_data[c] = c.lower().replace('-','_')
 
 
     def fingerprint(self, data, offset, data_len):
@@ -32,6 +61,8 @@ class HTTP(Protocol):
 
 
     def clean_header(self, h_, t_):
+        if self.all_headers:
+            return hexlify(h_)
         if t_.lower() in self.case_insensitive_static_headers:
             return hexlify(h_)
         if t_ in self.case_sensitive_static_headers:
