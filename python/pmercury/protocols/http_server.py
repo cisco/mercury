@@ -115,5 +115,8 @@ class HTTP_Server(Protocol):
         fp_h = [{'version':t_[0]},{'code':t_[1]},{'response':t_[2]}]
         for i in range(3, len(t_)-1):
             field = t_[i].split(': ')
-            fp_h.append({field[0]: field[1]})
+            if len(field) == 2:
+                fp_h.append({field[0]: field[1]})
+            else:
+                fp_h.append({field[0]: ''})
         return fp_h
