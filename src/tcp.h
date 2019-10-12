@@ -25,6 +25,15 @@ struct tcp_header {
     uint16_t urgent_ptr;
 };
 
+/*
+ * modular arithmetic comparisons, for tcp Seq and Ack processing
+ */
+
+#define LT(X, Y)  ((int32_t)((X)-(Y)) <  0)
+#define LEQ(X, Y) ((int32_t)((X)-(Y)) <= 0)
+#define GT(X, Y)  ((int32_t)((X)-(Y)) >  0)
+#define GEQ(X, Y) ((int32_t)((X)-(Y)) >= 0)
+
 enum disposition { talking, listening };
 
 struct tcp_state {
@@ -72,7 +81,13 @@ struct key {
 	addr.ipv6.src = sa;
 	addr.ipv6.dst = da;
     }
-    
+    key() {
+	src_port = 0;
+	dst_port = 0;
+	ip_vers = 0;       // null key can be distinguished by ip_vers field
+	addr.ipv6.src = 0;
+	addr.ipv6.dst = 0;
+    }
     bool operator==(const key &k) const {
 	switch (ip_vers) {
 	case 4:
@@ -118,7 +133,39 @@ namespace std {
   (x & 0x01 ? '1' : '0') 
 
 #define tcp_offrsv_get_header_length(offrsv) ((offrsv >> 4) * 4)
-//#define tcp_offrsv_get_header_length(offrsv) ((offrsv >> 2) & 0x3C)
+
+void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header *tcp, const struct tcp_state *state, size_t length, size_t retval) {
+    size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
+    uint32_t rel_ack = ntohl(tcp->ack) - ntohl(state->init_ack);
+    uint32_t rel_seq = ntohl(tcp->seq) - ntohl(state->init_seq);
+
+    if (k->ip_vers == 4) {
+	uint8_t *s = (uint8_t *)&k->addr.ipv4.src;
+	uint8_t *d = (uint8_t *)&k->addr.ipv4.dst;
+	fprintf(f, "%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\t",
+		s[0], s[1], s[2], s[3], ntohs(tcp->src_port),
+		d[0], d[1], d[2], d[3], ntohs(tcp->dst_port));
+    } else if (k->ip_vers == 6) {
+	uint8_t *s = (uint8_t *)k->addr.ipv6.src;
+	uint8_t *d = (uint8_t *)k->addr.ipv6.dst;
+	fprintf(f,
+		"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ->"	
+		"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\t",
+		s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15],
+		d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+    } 
+    fprintf(f, "flags: " BYTE_BINARY_FORMAT "\t", UINT8_BINARY(tcp->flags));
+    fprintf(f, "seq: %10u\tack: %10u\t", rel_seq, rel_ack);
+    fprintf(f, "len: %5zu\t", data_length);
+    // fprintf(f, "len: %5d\tpkt: %5zu\n", tcp_offrsv_get_length(tcp->offrsv), length);
+    fprintf(f, "msg: %u\t", state->msg_num);
+    fprintf(f, state->disposition == listening ? "listening\t" : "talking  \t" );
+    if (retval != 0) {
+	fprintf(f, "ACCEPT\n");
+    } else {
+	fprintf(f, "\n");
+    }
+}
 
 #define ACCEPT_PACKET 100
 #define DROP_PACKET     0
@@ -141,26 +188,21 @@ struct tcp_initial_message_filter {
     // equal to 1
 	
     size_t apply(struct key &k, const struct tcp_header *tcp, size_t length) {
-	(void)k;
 
 	size_t retval = DROP_PACKET; 
 	
-	struct key kk(tcp->src_port, tcp->dst_port, (uint32_t)0, (uint32_t)0);
+	k.src_port = tcp->src_port;
+	k.dst_port = tcp->dst_port;
 	size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
 	
-	auto it = tcp_flow_table.find(kk);
+	auto it = tcp_flow_table.find(k);
 	if (it == tcp_flow_table.end()) {
-	    
-	    fprintf(stderr, "src: %5u\tdst: %5u\t", ntohs(tcp->src_port), ntohs(tcp->dst_port));
-	    fprintf(stderr, "seq: %10u\tack: %10u\t", ntohl(tcp->seq), ntohl(tcp->ack));
-	    fprintf(stderr, "len: %5zu\t", length - tcp_offrsv_get_header_length(tcp->offrsv));
-	    fprintf(stderr, "flags: " BYTE_BINARY_FORMAT "\t", UINT8_BINARY(tcp->flags));
-	    fprintf(stderr, "hdrlen: %5d\tpkt: %5zu\t", tcp_offrsv_get_header_length(tcp->offrsv), length);
-	    fprintf(stderr, "NEW\n");
 
 	    struct tcp_state state = { tcp->seq, tcp->ack, 0, tcp->seq, tcp->ack, listening };
-	    tcp_flow_table[kk] = state;
+	    tcp_flow_table[k] = state;
 	    retval = ACCEPT_PACKET;
+
+	    fprintf_tcp_hdr_info(stderr, &k, tcp, &state, length, retval);
 
 	} else {
 	    
@@ -170,9 +212,6 @@ struct tcp_initial_message_filter {
 		state.ack = tcp->ack;
 		state.init_ack = tcp->ack;
 	    }
-
-	    uint32_t rel_ack = ntohl(tcp->ack) - ntohl(state.init_ack);
-	    uint32_t rel_seq = ntohl(tcp->seq) - ntohl(state.init_seq);
 
 	    if (data_length > 0) {
 		if (ntohl(tcp->seq) >= ntohl(state.seq)) {
@@ -199,39 +238,14 @@ struct tcp_initial_message_filter {
 	    if (ntohl(tcp->ack) > ntohl(state.ack)) {
 		state.ack = tcp->ack;
 	    }
-	    tcp_flow_table[kk] = state;		
-	    
-	    fprintf(stderr, "src: %5u\tdst: %5u\t", ntohs(tcp->src_port), ntohs(tcp->dst_port));
-	    fprintf(stderr, "seq: %10u\tack: %10u\t", rel_seq, rel_ack);
-	    fprintf(stderr, "len: %5zu\t", data_length);
-	    fprintf(stderr, "flags: " BYTE_BINARY_FORMAT "\t", UINT8_BINARY(tcp->flags));
-	    // fprintf(stderr, "len: %5d\tpkt: %5zu\n", tcp_offrsv_get_length(tcp->offrsv), length);
-	    fprintf(stderr, "msg: %u\t", state.msg_num);
-	    fprintf(stderr, state.disposition == listening ? "listening\t" : "talking  \t" );
-	    if (retval) { fprintf(stderr, "ACCEPT\n"); } else { fprintf(stderr, "\n"); }
+	    tcp_flow_table[k] = state;		
+
+	    fprintf_tcp_hdr_info(stderr, &k, tcp, &state, length, retval);
+
 	}
 	
 	return retval;
     }
 };
-
-//  example use of tcp_init_msg_filter.apply():
-//
-//    struct tcp_initial_message_filter tcp_init_msg_filter;
-//
-//    struct key k(0,0,(uint32_t)0,(uint32_t)0);
-//    const struct tcp_header *tcp = (const struct tcp_header *)data;
-//    tcp_init_msg_filter.apply(k, tcp, init_len);
-
-
-/*
- * modular arithmetic comparisons, for tcp Seq and Ack processing
- */
-
-#define LT(X, Y)  ((int32_t)((X)-(Y)) <  0)
-#define LEQ(X, Y) ((int32_t)((X)-(Y)) <= 0)
-#define GT(X, Y)  ((int32_t)((X)-(Y)) >  0)
-#define GEQ(X, Y) ((int32_t)((X)-(Y)) >= 0)
-
 
 #endif /* MERC_TCP_H */
