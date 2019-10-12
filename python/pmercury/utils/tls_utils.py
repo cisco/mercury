@@ -5,6 +5,7 @@
 
 import os
 import sys
+import ast
 
 import ujson as json
 
@@ -41,6 +42,16 @@ def extract_server_name(data, offset, data_len):
         return 'None'
     sni_len = int.from_bytes(data[offset+5:offset+7], 'big')
     return data[offset+7:offset+7+sni_len].decode()
+
+
+def eval_fp_str_general(fp_str_):
+    fp_str_ = '(' + str(fp_str_, 'utf-8') + ')'
+    fp_str_ = fp_str_.replace('(','["').replace(')','"]').replace('][','],[')
+    new_str_ = fp_str_.replace('["[','[[').replace(']"]',']]')
+    while new_str_ != fp_str_:
+        fp_str_ = new_str_
+        new_str_ = fp_str_.replace('["[','[[').replace(']"]',']]')
+    return ast.literal_eval(fp_str_)
 
 
 def eval_fp_str(fp_str_):

@@ -1,13 +1,6 @@
 import os
-import re
 import sys
-import dpkt
-import json
-import time
-import math
-import struct
 import socket
-from collections import OrderedDict
 from binascii import hexlify, unhexlify
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -25,39 +18,55 @@ class TLS_Certificate(Protocol):
     def __init__(self):
         self.data_cache = {}
 
-        # TLS ServerHello pattern/RE
-        self.sh_pattern = b'\x16\x03[\x00-\x03].{2}\x02.{3}\x03[\x00-\x03]'
 
-        # TLS Certificate pattern/RE
-        self.pattern = b'\x16\x03[\x00-\x03].{2}\x0b'
-
-
-    def get_flow_key(self, ip):
-        tcp_data = ip.data
-
-        if type(ip) == dpkt.ip.IP:
-            add_fam = socket.AF_INET
+    def get_flow_key(self, data, ip_offset, tcp_offset, ip_type, ip_length):
+        src_port = data[tcp_offset:tcp_offset+2]
+        dst_port = data[tcp_offset+2:tcp_offset+4]
+        if ip_type == 'ipv4':
+            o_ = ip_offset+ip_length-8
+            src_addr = data[o_:o_+4]
+            o_ = ip_offset+ip_length-4
+            dst_addr = data[o_:o_+4]
         else:
-            add_fam = socket.AF_INET6
-        src_ip   = socket.inet_ntop(add_fam,ip.src)
-        dst_ip   = socket.inet_ntop(add_fam,ip.dst)
-        src_port = str(tcp_data.sport)
-        dst_port = str(tcp_data.dport)
-        pr       = '6' # currently only support TCP
+            o_ = ip_offset+ip_length-32
+            src_addr = data[o_:o_+16]
+            o_ = ip_offset+ip_length-16
+            dst_addr = data[o_:o_+16]
+        pr = b'\x06' # currently only support TCP
 
-        return src_ip + ':' + dst_ip + ':' + src_port + ':' + dst_port + ':' + pr
+        return b''.join([src_addr,dst_addr,src_port,dst_port,pr])
 
 
-    def fingerprint(self, ip):
+    def proto_identify(self, data, offset):
+        if (data[offset]   == 22 and
+            data[offset+1] ==  3 and
+            data[offset+2] <=  3 and
+            data[offset+5] == 11):
+            return True
+        return False
+
+
+    def proto_identify_sh(self, data, offset):
+        if (data[offset]    == 22 or
+            data[offset+1]  ==  3 or
+            data[offset+2]  <=  3 or
+            data[offset+5]  ==  2 or
+            data[offset+9]  ==  3 or
+            data[offset+10] <=  3):
+            return True
+        return False
+
+
+    def fingerprint(self, data, ip_offset, tcp_offset, app_offset, ip_type, ip_length, data_len):
         protocol_type = 'tls_certificate'
         fp_str_ = None
-        data = ip.data.data
-        if len(data) == 0:
+        if app_offset+32 >= data_len:
             return protocol_type, fp_str_, None, None
-        flow_key = self.get_flow_key(ip)
+        flow_key = self.get_flow_key(data, ip_offset, tcp_offset, ip_type, ip_length)
+        data = data[app_offset:]
 
         sh = False
-        if re.findall(self.sh_pattern, data[0:11], re.DOTALL) != []:
+        if self.proto_identify_sh(data,0):
             data = data[9+int(hexlify(data[6:9]),16):]
             if len(data) == 0:
                 return protocol_type, fp_str_, None, None
@@ -65,10 +74,10 @@ class TLS_Certificate(Protocol):
 
         if sh and data[0] == 11:
             self.data_cache[flow_key] = b''
-        elif re.findall(self.pattern, data[0:6], re.DOTALL) != []:
+        elif self.proto_identify(data,0):
             data = data[5:]
             self.data_cache[flow_key] = b''
-        elif flow_key not in self.data_cache and re.findall(self.pattern, data[0:6], re.DOTALL) == []:
+        elif flow_key not in self.data_cache and self.proto_identify(data,0) == False:
             return protocol_type, fp_str_, None, None
         elif flow_key not in self.data_cache:
             return protocol_type, fp_str_, None, None
@@ -161,20 +170,20 @@ class TLS_Certificate(Protocol):
 
 
     def get_human_readable(self, fp_str_):
-        lit_fp = eval_fp_str(fp_str_)
-        fp_h = OrderedDict({})
+        lit_fp = eval_fp_str_general(fp_str_)
+        fp_h = {}
         fp_h['serial_number'] = lit_fp[0][0]
         fp_h['signature_algorithm'] = unhexlify(lit_fp[1][0])
-        fp_h['issuer'] = OrderedDict({})
+        fp_h['issuer'] = {}
         for issuer in lit_fp[2]:
             fp_h['issuer'][unhexlify(issuer[0][0])] = unhexlify(issuer[1][0])
         fp_h['validity_not_before'] = unhexlify(lit_fp[3][0])
         fp_h['validity_not_after'] = unhexlify(lit_fp[4][0])
-        fp_h['subject'] = OrderedDict({})
+        fp_h['subject'] = {}
         for subject in lit_fp[5]:
             fp_h['subject'][unhexlify(subject[0][0])] = unhexlify(subject[1][0])
 
-        fp_h['public_key'] = OrderedDict({})
+        fp_h['public_key'] = {}
         public_key_type = unhexlify(lit_fp[6][0][0])
         fp_h['public_key']['type'] = public_key_type
         if public_key_type == b'ECPublicKey':
@@ -191,7 +200,7 @@ class TLS_Certificate(Protocol):
             fp_h['public_key']['sub_group_order'] = unhexlify(lit_fp[6][4][0])
             fp_h['public_key']['generator'] = unhexlify(lit_fp[6][5][0])
 
-        fp_h['extensions'] = OrderedDict({})
+        fp_h['extensions'] = {}
         for ext in lit_fp[7]:
             fp_h['extensions'][unhexlify(ext[0][0])] = ''#self.parse_certificate_extension(unhexlify(ext[1][0]), unhexlify(ext[0][0]))
 
@@ -206,7 +215,7 @@ class TLS_Certificate(Protocol):
 
 
     def parse_certificate_extension(self, ext_value, name):
-        ext_obj = OrderedDict({})
+        ext_obj = {}
 
         if name == 'keyUsage':
             ext_obj['digital_signature'] = int(ext_value.digital_signature == True)
@@ -249,12 +258,12 @@ class TLS_Certificate(Protocol):
             if ext_value.authority_cert_issuer != None:
                 ext_obj['authority_cert_issuer'] = []
                 for issuer in ext_value.authority_cert_issuer:
-                    tmp_obj = OrderedDict({})
+                    tmp_obj = {}
                     tmp_obj['type'] = get_name_type(issuer)
                     if tmp_obj['type'] == 'DirectoryName':
                         tmp_obj['value'] = []
                         for n in issuer.value:
-                            tmp_obj2 = OrderedDict({})
+                            tmp_obj2 = {}
                             tmp_obj2['oid'] = n.oid.dotted_string
                             tmp_obj2['name'] = n.oid._name
                             tmp_obj2['value'] = n.value
@@ -271,7 +280,7 @@ class TLS_Certificate(Protocol):
             for nt in name_types:
                 ext_obj['general_names'][name_types[nt]] = []
                 for alt_name in ext_value.get_values_for_type(nt):
-                    tmp_obj = OrderedDict({})
+                    tmp_obj = {}
                     tmp_obj['type'] = name_types[nt]
                     tmp_obj['name'] = alt_name
                     ext_obj['general_names'][name_types[nt]].append(tmp_obj)
@@ -280,14 +289,14 @@ class TLS_Certificate(Protocol):
             for nt in name_types:
                 ext_obj['general_names'][name_types[nt]] = []
                 for alt_name in ext_value.get_values_for_type(nt):
-                    tmp_obj = OrderedDict({})
+                    tmp_obj = {}
                     tmp_obj['type'] = name_types[nt]
                     tmp_obj['name'] = alt_name
                     ext_obj['general_names'][name_types[nt]].append(tmp_obj)
         elif name == 'precertificateSignedCertificateTimestamps':
             ext_obj['signed_certificate_timestamps'] = []
             for sct in ext_value.scts:
-                tmp_obj = OrderedDict({})
+                tmp_obj = {}
                 if sct.version == sct.version.v1:
                     tmp_version = 'v1'
                 elif sct.version == sct.version.v2:
@@ -307,7 +316,7 @@ class TLS_Certificate(Protocol):
         elif name == 'authorityInfoAccess':
             ext_obj['value'] = []
             for desc in ext_value:
-                tmp_obj = OrderedDict({})
+                tmp_obj = {}
                 tmp_obj['access_method'] = {}
                 tmp_obj['access_method']['oid'] = desc.access_method.dotted_string
                 tmp_obj['access_method']['name'] = desc.access_method._name
@@ -316,7 +325,7 @@ class TLS_Certificate(Protocol):
                 if tmp_obj['access_location']['type'] == 'DirectoryName':
                     tmp_obj['access_location']['value'] = []
                     for n in desc.access_location.value:
-                        tmp_obj2 = OrderedDict({})
+                        tmp_obj2 = {}
                         tmp_obj2['oid'] = n.oid.dotted_string
                         tmp_obj2['name'] = n.oid._name
                         tmp_obj2['value'] = n.value
@@ -332,7 +341,7 @@ class TLS_Certificate(Protocol):
             if ext_obj['access_location']['type'] == 'DirectoryName':
                 ext_obj['access_location']['value'] = []
                 for n in ext_value.access_location.value:
-                    tmp_obj2 = OrderedDict({})
+                    tmp_obj2 = {}
                     tmp_obj2['oid'] = n.oid.dotted_string
                     tmp_obj2['name'] = n.oid._name
                     tmp_obj2['value'] = n.value
@@ -345,12 +354,12 @@ class TLS_Certificate(Protocol):
                 if dist_point.full_name != None:
                     ext_obj['distribution_points']['full_names'] = []
                     for n in dist_point.full_name:
-                        tmp_obj = OrderedDict({})
+                        tmp_obj = {}
                         tmp_obj['type'] = get_name_type(n)
                         if tmp_obj['type'] == 'DirectoryName':
                             tmp_obj['value'] = []
                             for n1 in n.value:
-                                tmp_obj2 = OrderedDict({})
+                                tmp_obj2 = {}
                                 tmp_obj2['oid'] = n1.oid.dotted_string
                                 tmp_obj2['name'] = n1.oid._name
                                 tmp_obj2['value'] = n1.value
@@ -361,7 +370,7 @@ class TLS_Certificate(Protocol):
                 elif dist_point.relative_name != None:
                     ext_obj['distribution_points']['relative_name'] = []
                     for n in dist_point.relative_name:
-                        tmp_obj = OrderedDict({})
+                        tmp_obj = {}
                         tmp_obj['type'] = n.oid.dotted_str
                         tmp_obj['name'] = n.oid._name
                         tmp_obj['value'] = n.value
@@ -369,12 +378,12 @@ class TLS_Certificate(Protocol):
                 elif dist_point.crl_issuer != None:
                     ext_obj['distribution_points']['crl_issuer'] = []
                     for n in dist_point.crl_issuer:
-                        tmp_obj = OrderedDict({})
+                        tmp_obj = {}
                         tmp_obj['type'] = get_name_type(n)
                         if tmp_obj['type'] == 'DirectoryName':
                             tmp_obj['value'] = []
                             for n1 in n.value:
-                                tmp_obj2 = OrderedDict({})
+                                tmp_obj2 = {}
                                 tmp_obj2['oid'] = n1.oid.dotted_string
                                 tmp_obj2['name'] = n1.oid._name
                                 tmp_obj2['value'] = n1.value
@@ -391,12 +400,12 @@ class TLS_Certificate(Protocol):
             if dist_point.full_name != None:
                 ext_obj['full_names'] = []
                 for n in dist_point.full_name:
-                    tmp_obj = OrderedDict({})
+                    tmp_obj = {}
                     tmp_obj['type'] = get_name_type(n)
                     if tmp_obj['type'] == 'DirectoryName':
                         tmp_obj['value'] = []
                         for n1 in n.value:
-                            tmp_obj2 = OrderedDict({})
+                            tmp_obj2 = {}
                             tmp_obj2['oid'] = n1.oid.dotted_string
                             tmp_obj2['name'] = n1.oid._name
                             tmp_obj2['value'] = n1.value
@@ -407,7 +416,7 @@ class TLS_Certificate(Protocol):
             elif dist_point.relative_name != None:
                 ext_obj['relative_name'] = []
                 for n in dist_point.relative_name:
-                    tmp_obj = OrderedDict({})
+                    tmp_obj = {}
                     tmp_obj['type'] = n.oid.dotted_str
                     tmp_obj['name'] = n.oid._name
                     tmp_obj['value'] = n.value
@@ -415,12 +424,12 @@ class TLS_Certificate(Protocol):
             elif dist_point.crl_issuer != None:
                 ext_obj['crl_issuer'] = []
                 for n in dist_point.crl_issuer:
-                    tmp_obj = OrderedDict({})
+                    tmp_obj = {}
                     tmp_obj['type'] = get_name_type(n)
                     if tmp_obj['type'] == 'DirectoryName':
                         tmp_obj['value'] = []
                         for n1 in n.value:
-                            tmp_obj2 = OrderedDict({})
+                            tmp_obj2 = {}
                             tmp_obj2['oid'] = n1.oid.dotted_string
                             tmp_obj2['name'] = n1.oid._name
                             tmp_obj2['value'] = n1.value
@@ -458,7 +467,7 @@ class TLS_Certificate(Protocol):
         elif name == 'certificatePolicies':
             ext_obj['policies'] = []
             for policy in ext_value:
-                tmp_obj = OrderedDict({})
+                tmp_obj = {}
                 tmp_obj['oid'] = policy.policy_identifier.dotted_string
                 tmp_obj['name'] = policy.policy_identifier._name
                 if policy.policy_qualifiers != None:

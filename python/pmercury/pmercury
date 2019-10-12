@@ -45,9 +45,9 @@ class Fingerprinter:
         from pmercury.protocols.tls_server import TLS_Server
         from pmercury.protocols.http import HTTP
         from pmercury.protocols.http_server import HTTP_Server
-        self.app_parsers = [('tls', TLS(database, config)), ('tls_server', TLS_Server(None, config)),
+        self.app_parsers = [('tls', TLS(database)), ('tls_server', TLS_Server()),
                             ('http', HTTP(None, config)), ('http_server', HTTP_Server(None, config))]
-        self.tcp_parsers = [('tcp', TCP(None, config))]
+        self.tcp_parsers = [('tcp', TCP())]
         self.flow_parsers  = []
         if experimental == True:
             from pmercury.protocols.ssh import SSH
