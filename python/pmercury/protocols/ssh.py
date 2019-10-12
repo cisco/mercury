@@ -116,7 +116,7 @@ class SSH(Protocol):
     def get_human_readable(self, fp_str_):
         fields = [unhexlify(s_[1:]) for s_ in fp_str_.split(b')')[:-1]]
 
-        fp_h = OrderedDict({})
+        fp_h = {}
         fp_h['protocol']         = fields[0].split(b',')
         fp_h['kex_algos']        = fields[1].split(b',')
         fp_h['s_host_key_algos'] = fields[2].split(b',')
