@@ -47,11 +47,11 @@ class TLS_Certificate(Protocol):
 
 
     def proto_identify_sh(self, data, offset):
-        if (data[offset]    == 22 or
-            data[offset+1]  ==  3 or
-            data[offset+2]  <=  3 or
-            data[offset+5]  ==  2 or
-            data[offset+9]  ==  3 or
+        if (data[offset]    == 22 and
+            data[offset+1]  ==  3 and
+            data[offset+2]  <=  3 and
+            data[offset+5]  ==  2 and
+            data[offset+9]  ==  3 and
             data[offset+10] <=  3):
             return True
         return False

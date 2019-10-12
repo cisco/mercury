@@ -44,7 +44,7 @@ class SSH(Protocol):
     def fingerprint(self, data, ip_offset, tcp_offset, app_offset, ip_type, ip_length, data_len):
         protocol_type = 'ssh'
         fp_str_ = None
-        if app_offset >= data_len:
+        if app_offset+4 >= data_len:
             return protocol_type, fp_str_, None, None
 
         flow_key = self.get_flow_key(data, ip_offset, tcp_offset, ip_type, ip_length)
