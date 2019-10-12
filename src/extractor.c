@@ -277,6 +277,23 @@ enum status parser_read_and_skip_uint(struct parser *p,
     return status_err;
 }
 
+enum status parser_read_and_skip_byte_string(struct parser *p,
+					     unsigned int num_bytes,
+					     uint8_t *output_string) {
+
+    if (p->data + num_bytes <= p->data_end) {
+	const unsigned char *c;
+
+	for (c = p->data; c < p->data + num_bytes; c++) {
+	    *output_string = *c;
+	}
+	p->data += num_bytes;
+	extractor_debug("%s: num_bytes: %u\n", __func__, num_bytes);
+	return status_ok;
+    }
+    return status_err;
+}
+
 enum status parser_extractor_copy(struct parser *p,
 				  struct extractor *x,
 				  unsigned int len) {
@@ -702,17 +719,18 @@ unsigned int uint16_match(uint16_t x,
 
 struct tcp_initial_message_filter tcp_init_msg_filter;
 
-unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x) {
+unsigned int tcp_message_filter_cutoff = 0;
+
+unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x, struct key *k) {
     size_t flags, offrsv;
     const uint8_t *data = p->data;
 
     extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
 
-    struct key k(0,0,(uint32_t)0,(uint32_t)0);
     const struct tcp_header *tcp = (const struct tcp_header *)data;
-    return tcp_init_msg_filter.apply(k, tcp, parser_get_data_length(p));
-    // HACK: FIXME
-    // WARNING: SHOULD NOT RETURN HERE IF -f FLAG IS IN USE
+    if (tcp_message_filter_cutoff) {
+	return tcp_init_msg_filter.apply(*k, tcp, parser_get_data_length(p));
+    }
 
     if (parser_skip(p, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack) == status_err) {
 	return 0;
@@ -1789,7 +1807,7 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
 #define L_ip_src_addr       4
 #define L_ip_dst_addr       4
 
-unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol) {
+unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol, struct key *k) {
     size_t version_ihl;
     uint8_t *transport_data;
 
@@ -1812,13 +1830,26 @@ unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol) {
     if (parser_skip(p, L_ip_version_ihl + L_ip_tos + L_ip_total_length + L_ip_identification + L_ip_flags_frag_off + L_ip_ttl) == status_err) {
 	return 0;
     }
-    if (parser_read_uint(p, L_ip_protocol, transport_protocol) == status_err) {
+    if (parser_read_and_skip_uint(p, L_ip_protocol, transport_protocol) == status_err) {
+	return 0;
+    }
+    if (parser_skip(p, L_ip_hdr_cksum) == status_err) {
+	return 0;
+    }
+    size_t src_addr, dst_addr;
+    if (parser_read_and_skip_uint(p, L_ip_src_addr, &src_addr) == status_err) {
+	return 0;
+    }
+    if (parser_read_and_skip_uint(p, L_ip_dst_addr, &dst_addr) == status_err) {
 	return 0;
     }
     if (parser_skip_to(p, transport_data) == status_err) {
 	return 0;
     }
-
+    k->ip_vers = 4;
+    k->addr.ipv4.src = src_addr;
+    k->addr.ipv4.dst = dst_addr;
+    
     return 0;  /* we don't extract any data, but this is not a failure */
 }
 
@@ -1888,7 +1919,7 @@ unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol) {
 #define L_ipv6_hdr_ext_len           1
 #define L_ipv6_ext_hdr_base          8
 
-unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol) {
+unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol, struct key *k) {
     size_t version_tc_hi;
     size_t payload_length;
     size_t next_header;
@@ -1916,10 +1947,17 @@ unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol) {
     if (parser_read_uint(p, L_ipv6_next_header, &next_header) == status_err) {
 	return 0;
     }
-    if (parser_skip(p, L_ipv6_next_header + L_ipv6_hop_limit + L_ipv6_source_address + L_ipv6_destination_address) == status_err) {
+    if (parser_skip(p, L_ipv6_next_header + L_ipv6_hop_limit) == status_err) {
 	return 0;
     }
-
+    if (parser_read_and_skip_byte_string(p, L_ipv6_source_address, (uint8_t *)&k->addr.ipv6.src) == status_err) {
+	return 0;
+    }
+    if (parser_read_and_skip_byte_string(p, L_ipv6_destination_address, (uint8_t *)&k->addr.ipv6.dst) == status_err) {
+	return 0;
+    }
+    k->ip_vers = 6;
+    
     /* loop over extensions headers until we find an upper layer protocol */
     unsigned int not_done = 1;
     while (not_done) {
@@ -1989,20 +2027,21 @@ unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
 unsigned int parser_extractor_process_packet(struct parser *p, struct extractor *x) {
     size_t transport_proto = 0;
     size_t ethertype = 0;
-
+    struct key k;
+    
     parser_process_eth(p, &ethertype);
     switch(ethertype) {
     case ETHERTYPE_IP:
-	parser_process_ipv4(p, &transport_proto);
+	parser_process_ipv4(p, &transport_proto, &k);
 	break;
     case ETHERTYPE_IPV6:
-	parser_process_ipv6(p, &transport_proto);
+	parser_process_ipv6(p, &transport_proto, &k);
 	break;
     default:
 	;
     }
     if (transport_proto == 6) {
-	return parser_extractor_process_tcp(p, x);
+	return parser_extractor_process_tcp(p, x, &k);
     }
 
     return 0;
@@ -2057,14 +2096,15 @@ unsigned int parser_process_tcp(struct parser *p) {
 unsigned int parser_process_packet(struct parser *p) {
     size_t transport_proto = 0;
     size_t ethertype = 0;
-
+    struct key k;
+    
     parser_process_eth(p, &ethertype);
     switch(ethertype) {
     case ETHERTYPE_IP:
-	parser_process_ipv4(p, &transport_proto);
+	parser_process_ipv4(p, &transport_proto, &k);
 	break;
     case ETHERTYPE_IPV6:
-	parser_process_ipv6(p, &transport_proto);
+	parser_process_ipv6(p, &transport_proto, &k);
 	break;
     default:
 	;
@@ -2119,6 +2159,14 @@ enum status proto_ident_config(const char *config_string) {
 	bzero(http_client_mask, sizeof(http_client_mask));
 	bzero(http_server_mask, sizeof(http_server_mask));
 	select_tcp_syn = 0;
+	return status_ok;
+    }
+    if (strncmp("tcp.message", config_string, sizeof("tcp.message")) == 0) {
+	bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+	bzero(http_client_mask, sizeof(http_client_mask));
+	bzero(http_server_mask, sizeof(http_server_mask));
+	select_tcp_syn = 0;
+	tcp_message_filter_cutoff = 1;
 	return status_ok;
     }
     if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
