@@ -190,12 +190,12 @@ class Fingerprinter:
                                 flow['analysis'] = proc_info
                                 break
 
-            if self.group:
-                self.update_flow_cache(flow)
-            else:
-                self.write_record(flow)
+                if self.group:
+                    self.update_flow_cache(flow)
+                else:
+                    self.write_record(flow)
 
-            return 0
+        return 0
 
 
     def update_flow_cache(self, flow):
