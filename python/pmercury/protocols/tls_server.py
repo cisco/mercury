@@ -21,7 +21,7 @@ MAX_CACHED_RESULTS = 2**24
 
 class TLS_Server(Protocol):
 
-    def __init__(self, fp_database=None):
+    def __init__(self, fp_database=None, config=None):
         # populate fingerprint databases
         self.fp_db = {}
 
