@@ -1,9 +1,6 @@
 import os
-import re
 import sys
-import dpkt
 import socket
-from collections import OrderedDict
 from binascii import hexlify, unhexlify
 
 # SSH helper classes
@@ -13,41 +10,50 @@ from protocol import Protocol
 
 
 class SSH(Protocol):
-    def __init__(self, fp_database=None):
-        # SSH initial packet pattern
-        self.pattern = b'\x53\x53\x48\x2d'
-
+    def __init__(self, fp_database=None, config=None):
         self.session_data = {}
 
 
-    def get_flow_key(self, ip):
-        tcp_data = ip.data
-
-        if type(ip) == dpkt.ip.IP:
-            add_fam = socket.AF_INET
+    def get_flow_key(self, data, ip_offset, tcp_offset, ip_type, ip_length):
+        src_port = data[tcp_offset:tcp_offset+2]
+        dst_port = data[tcp_offset+2:tcp_offset+4]
+        if ip_type == 'ipv4':
+            o_ = ip_offset+ip_length-8
+            src_addr = data[o_:o_+4]
+            o_ = ip_offset+ip_length-4
+            dst_addr = data[o_:o_+4]
         else:
-            add_fam = socket.AF_INET6
-        src_ip   = socket.inet_ntop(add_fam,ip.src)
-        dst_ip   = socket.inet_ntop(add_fam,ip.dst)
-        src_port = str(tcp_data.sport)
-        dst_port = str(tcp_data.dport)
-        pr       = '6' # currently only support TCP
+            o_ = ip_offset+ip_length-32
+            src_addr = data[o_:o_+16]
+            o_ = ip_offset+ip_length-16
+            dst_addr = data[o_:o_+16]
+        pr = b'\x06' # currently only support TCP
 
-        return src_ip + ':' + dst_ip + ':' + src_port + ':' + dst_port + ':' + pr
+        return b''.join([src_addr,dst_addr,src_port,dst_port,pr])
 
 
-    def fingerprint(self, ip):
+    def proto_identify(self, data, offset):
+        if (data[offset]   == 83 and
+            data[offset+1] == 83 and
+            data[offset+2] == 72 and
+            data[offset+3] == 45):
+            return True
+        return False
+
+
+    def fingerprint(self, data, ip_offset, tcp_offset, app_offset, ip_type, ip_length, data_len):
         protocol_type = 'ssh'
         fp_str_ = None
-        data = ip.data.data
-        if len(data) == 0:
+        if app_offset >= data_len:
             return protocol_type, fp_str_, None, None
 
-        flow_key = self.get_flow_key(ip)
+        flow_key = self.get_flow_key(data, ip_offset, tcp_offset, ip_type, ip_length)
 
-        if flow_key not in self.session_data and re.findall(self.pattern, data[0:4]) == []:
+        data = data[app_offset:]
+
+        if flow_key not in self.session_data and self.proto_identify(data,0) == False:
             return protocol_type, fp_str_, None, None
-        elif re.findall(self.pattern, data[0:4]) != []:
+        elif self.proto_identify(data,0):
             self.session_data[flow_key] = {}
             self.session_data[flow_key]['protocol'] = data
             self.session_data[flow_key]['kex'] = b''
