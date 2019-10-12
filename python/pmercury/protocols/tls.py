@@ -28,7 +28,7 @@ MAX_CACHED_RESULTS = 2**24
 
 class TLS(Protocol):
 
-    def __init__(self, fp_database=None):
+    def __init__(self, fp_database=None, config=None):
         # cached data/results
         self.tls_params_db = {}
         self.MALWARE_DB = True
@@ -305,6 +305,7 @@ class TLS(Protocol):
         c.append(b'%s%s%s%s' % (b'(', cs0_, cs1_, b')'))
         offset += cipher_suites_length
         if offset >= data_len:
+            c.append(b'()')
             fp_ = b''.join(c)
             return fp_, None
 
@@ -312,6 +313,7 @@ class TLS(Protocol):
         compression_methods_length = data[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
+            c.append(b'()')
             fp_ = b''.join(c)
             return fp_, None
 
@@ -319,6 +321,7 @@ class TLS(Protocol):
         ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
         if offset >= data_len:
+            c.append(b'()')
             fp_ = b''.join(c)
             return fp_, None
 
