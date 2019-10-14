@@ -12,6 +12,13 @@
 #include "json_file_io.h"
 #include "packet.h"
 
+/*
+ * packet_filter_threshold is a (somewhat arbitrary) threshold used in
+ * the packet metadata filter; it will probably get eliminated soon, 
+ * in favor of extractor::proto_state::state, but for now it remains
+ */
+unsigned int packet_filter_threshold = 8;
+
 void frame_handler_filter_write_pcap(void *userdata,
 				     struct packet_info *pi,
 				     uint8_t *eth_hdr) {
@@ -28,10 +35,7 @@ void frame_handler_filter_write_pcap(void *userdata,
     parser_init(&p, (unsigned char *)packet, length);
     bytes_extracted = parser_extractor_process_packet(&p, &x);
 
-    /*
-     * NOTE: 16 is an arbitrary threshold; should probably be raised
-     */
-    if (bytes_extracted > 16) {
+    if (bytes_extracted > packet_filter_threshold) {
 	pcap_file_write_packet_direct(&fhc->pcap_file, eth_hdr, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
 }

@@ -105,7 +105,7 @@ void json_file_write(struct json_file *jf,
     extractor_init(&x, extractor_buffer, FP_BUF_LEN);
     parser_init(&p, packet, length);
     bytes_extracted = parser_extractor_process_packet(&p, &x);
-    if (bytes_extracted > 16) {
+    if (bytes_extracted > 0) {
 	switch(x.fingerprint_type) {
 	case fingerprint_type_tls:
 	    fprintf(file, "{\"fingerprints\":{");
