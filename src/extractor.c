@@ -1830,6 +1830,11 @@ unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol, s
     if (parser_skip(p, L_ip_version_ihl + L_ip_tos + L_ip_total_length + L_ip_identification + L_ip_flags_frag_off + L_ip_ttl) == status_err) {
 	return 0;
     }
+
+    /*
+     * note: should check ip_total_length field, and trim data from parser if appropriate
+     */
+    
     if (parser_read_and_skip_uint(p, L_ip_protocol, transport_protocol) == status_err) {
 	return 0;
     }
