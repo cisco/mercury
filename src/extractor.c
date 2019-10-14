@@ -1192,7 +1192,7 @@ unsigned int parser_process_tls(struct parser *p) {
  */
 unsigned int parser_extractor_process_tls_server(struct parser *p, struct extractor *x) {
     size_t tmp_len;
-    const char *str = "";
+    const char *str = NULL;
     unsigned int output_len;
     
     extractor_debug("%s: processing packet\n", __func__);
@@ -1261,53 +1261,64 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
     }
 
     /*
-     * parse extensions vector
+     * parse extensions vector if present
      */
-    /*
-     * reserve slot in output for length of extracted extensions
-     */
-    unsigned char *ext_len_slot;
-    str = "Extractor reserver error";
-    if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
-	    goto bail;
+    if (parser_get_data_length(p) > 0) {
+        /*
+         * reserve slot in output for length of extracted extensions
+         */
+        unsigned char *ext_len_slot;
+        str = "Extractor reserver error";
+        if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
+	        goto bail;
+        }
+
+        /*  extensions length */
+        str = "ExtensionsVectorLength error";
+        if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
+	        goto bail;
+        }
+
+        struct parser ext_parser;
+        parser_init_from_outer_parser(&ext_parser, p, tmp_len);
+        while (parser_get_data_length(&ext_parser) > 0)
+        {
+            size_t tmp_type;
+            if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err)
+            {
+                break;
+            }
+            if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err)
+            {
+                break;
+            }
+
+            if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err)
+            {
+                break;
+            }
+
+            if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err)
+            {
+                if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err)
+                {
+                    break;
+                }
+            }
+        }
+
+        /*
+         * write the length of the extracted extensions into the reserved slot
+         */
+        encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
     }
-
-    /*  extensions length */
-    str = "ExtensionsVectorLength error";
-    if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
-	    goto bail;
-    }
-
-    struct parser ext_parser;
-    parser_init_from_outer_parser(&ext_parser, p, tmp_len);
-    while (parser_get_data_length(&ext_parser) > 0) {
-	    size_t tmp_type;
-	    if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
-	        break;
-	    }
-	    if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err) {
-	        break;
-	    }
-
-	    if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
-	        break;
-	    }
-
-	    if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err) {
-	        if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err) {
-		        break;
-	        }
-        } else {
-            if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
-		        break;
-	        }
-	    }
-    }
-
-    /*
-     * write the length of the extracted extensions into the reserved slot
-     */
-    encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
 
     x->proto_state.state = state_done;
 
@@ -1319,8 +1330,9 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
     /*
      * handle possible packet parsing errors
      */
-    printf("%s: Error: %s, TLS serverHello processing did not complete\n", str, __func__);
-    extractor_debug("%s: warning: TLS serverHello processing did not fully complete\n", __func__);
+    if (str != NULL) {
+        extractor_debug("%s: warning: TLS serverHello did not complete: %s\n", __func__, str);
+    }
     return 0;
 
 }
