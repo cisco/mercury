@@ -725,7 +725,13 @@ unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x)
 	return parser_extractor_process_tcp_data(p, x);
 
     }
-    if (parser_skip(p, L_tcp_flags + L_tcp_win + L_tcp_csm + L_tcp_urp) == status_err) {
+    if (parser_skip(p, L_tcp_flags) == status_err) {
+	return 0;
+    }
+    if (parser_extractor_copy(p, x, L_tcp_win) == status_err) {
+	return 0;
+    }
+    if (parser_skip(p, L_tcp_csm + L_tcp_urp) == status_err) {
 	return 0;
     }
     if (parser_set_data_length(p, tcp_offrsv_get_length(offrsv) - TCP_FIXED_HDR_LEN)) {
