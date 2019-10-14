@@ -365,16 +365,23 @@ enum status extractor_strip_last_capture(struct extractor *x) {
     return status_err;
 }
 
+/*
+ * parser_extractor_copy_append_upto_delim(p, x, d) will copy data
+ * from the parser p to the extractor x, until it reaches the
+ * delimiter d or the end of the data in the parser, whichever comes
+ * first
+ */
 enum status parser_extractor_copy_append_upto_delim(struct parser *p,
 						    struct extractor *x,
 						    const unsigned char delim[2]) {
     const unsigned char *data = p->data;
+    const unsigned char *data_end = p->data_end - 1;
     ptrdiff_t len;
 
     /* find delimiter, if present */
     while (1) {
-	if (data >= p->data_end) {
-	    return status_err;
+	if (data >= data_end) {
+	    break;
 	}
 	if (*data == delim[0]) {
 	    data++;
