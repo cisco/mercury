@@ -14,7 +14,7 @@
 
 /*
  * packet_filter_threshold is a (somewhat arbitrary) threshold used in
- * the packet metadata filter; it will probably get eliminated soon, 
+ * the packet metadata filter; it will probably get eliminated soon,
  * in favor of extractor::proto_state::state, but for now it remains
  */
 unsigned int packet_filter_threshold = 8;
