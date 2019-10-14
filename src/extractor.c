@@ -403,6 +403,14 @@ enum status parser_extractor_copy_append_upto_delim(struct parser *p,
     return parser_skip(p, 2);
 }
 
+/*
+ * parser_find_delim(p, d, l) looks for the delimiter d with length l
+ * in the parser p's data buffer, until it reaches the delimiter d or
+ * the end of the data in the parser, whichever comes first.  In the
+ * first case, the function returns the number of bytes to the
+ * delimiter; in the second case, the function returns the number of
+ * bytes to the end of the data buffer.
+ */
 int parser_find_delim(struct parser *p,
 		      const unsigned char *delim,
 		      size_t length) {
@@ -423,7 +431,7 @@ int parser_find_delim(struct parser *p,
     if (pattern == pattern_end) {
 	return data - p->data;
     }
-    return -1;
+    return - (data - p->data);
     
 }
 
@@ -454,6 +462,8 @@ enum status parser_extractor_copy_upto_delim(struct parser *p,
 
     if (delim_index >= 0) {
 	return parser_extractor_copy(p, x, delim_index - length);
+    } else {
+	return parser_extractor_copy(p, x, - delim_index);
     }
     extractor_debug("%s: error\n", __func__);
     return status_err;
@@ -1589,7 +1599,7 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
     if (parser_match(p, ssh_first_packet, sizeof(ssh_first_packet), NULL) == status_ok) {
 
 	/* first packet */
-	if (parser_find_delim(p, sp, sizeof(sp)) != -1) {
+	if (parser_find_delim(p, sp, sizeof(sp)) < 0) {  
 	    /* dir == DIR_SERVER; skip this packet as we are only interested in clients */
 	    // return 0;
 	}
