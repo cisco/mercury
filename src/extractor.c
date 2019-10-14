@@ -285,7 +285,7 @@ enum status parser_read_and_skip_byte_string(struct parser *p,
 	const unsigned char *c;
 
 	for (c = p->data; c < p->data + num_bytes; c++) {
-	    *output_string = *c;
+	    *output_string++ = *c;
 	}
 	p->data += num_bytes;
 	extractor_debug("%s: num_bytes: %u\n", __func__, num_bytes);

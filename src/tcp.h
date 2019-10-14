@@ -49,7 +49,11 @@ struct tcp_state {
 
 typedef unsigned __int128 uint128_t;
 
-#pragma pack (1)
+// class key could use this comparison strategy: 
+//	return memcmp(this, k, sizeof(class key));
+// if the structure is packed
+//
+// #pragma pack (1)
 struct key {
     uint16_t src_port;
     uint16_t dst_port;
@@ -101,8 +105,6 @@ struct key {
     }
 };
 
-// class key could use this comparison strategy: 
-//	return memcmp(this, k, sizeof(class key));
 
 namespace std {
 
@@ -132,12 +134,21 @@ namespace std {
   (x & 0x02 ? '1' : '0'), \
   (x & 0x01 ? '1' : '0') 
 
+#define TCP_FLAGS_FORMAT "%c%c%c "
+#define TCP_FLAGS_PRINT(x) (x & 0x02 ? 'S' : ' '), (x & 0x10 ? 'A' : ' ') , (x & 0x01 ? 'F' : ' ') 
+
+#define TCP_IS_ACK(flags) ((flags) & 0x10)
+#define TCP_IS_PSH(flags) ((flags) & 0x08)
+#define TCP_IS_RST(flags) ((flags) & 0x04)
+#define TCP_IS_SYN(flags) ((flags) & 0x02)
+#define TCP_IS_FIN(flags) ((flags) & 0x01)
+
 #define tcp_offrsv_get_header_length(offrsv) ((offrsv >> 4) * 4)
 
 void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header *tcp, const struct tcp_state *state, size_t length, size_t retval) {
     size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
-    uint32_t rel_ack = ntohl(tcp->ack) - ntohl(state->init_ack);
     uint32_t rel_seq = ntohl(tcp->seq) - ntohl(state->init_seq);
+    uint32_t rel_ack = ntohl(tcp->ack) - ntohl(state->init_ack);
 
     if (k->ip_vers == 4) {
 	uint8_t *s = (uint8_t *)&k->addr.ipv4.src;
@@ -146,20 +157,24 @@ void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header 
 		s[0], s[1], s[2], s[3], ntohs(tcp->src_port),
 		d[0], d[1], d[2], d[3], ntohs(tcp->dst_port));
     } else if (k->ip_vers == 6) {
-	uint8_t *s = (uint8_t *)k->addr.ipv6.src;
-	uint8_t *d = (uint8_t *)k->addr.ipv6.dst;
+	uint8_t *s = (uint8_t *)&k->addr.ipv6.src;
+	uint8_t *d = (uint8_t *)&k->addr.ipv6.dst;
 	fprintf(f,
-		"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ->"	
-		"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\t",
-		s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15],
-		d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+		"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%u -> "	
+		"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%u\t",
+		s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15], ntohs(tcp->src_port),
+		d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15], ntohs(tcp->dst_port));
     } 
-    fprintf(f, "flags: " BYTE_BINARY_FORMAT "\t", UINT8_BINARY(tcp->flags));
-    fprintf(f, "seq: %10u\tack: %10u\t", rel_seq, rel_ack);
-    fprintf(f, "len: %5zu\t", data_length);
+    //    fprintf(f, "flags: " BYTE_BINARY_FORMAT "\t", UINT8_BINARY(tcp->flags));
+    fprintf(f, TCP_FLAGS_FORMAT, TCP_FLAGS_PRINT(tcp->flags));
+    fprintf(f, "seq: %10d ack: %10d ", rel_seq, rel_ack);
+    fprintf(f, "len: %5zu ", data_length);
     // fprintf(f, "len: %5d\tpkt: %5zu\n", tcp_offrsv_get_length(tcp->offrsv), length);
-    fprintf(f, "msg: %u\t", state->msg_num);
-    fprintf(f, state->disposition == listening ? "listening\t" : "talking  \t" );
+    if (state->disposition == talking) {
+	fprintf(f, "talking [%u] ", state->msg_num);
+    } else {
+	fprintf(f, "listening   ");
+    }
     if (retval != 0) {
 	fprintf(f, "ACCEPT\n");
     } else {
@@ -186,9 +201,14 @@ struct tcp_initial_message_filter {
     // message has both the relative Seq and Ack equal to one, and the
     // first packet of the server’s initial message has only the Seq
     // equal to 1
-	
+    //
+    //                  p.seq > s.seq      p.seq == s.seq      p.seq < s.seq
+    // p.ack > s.ack      crosstalk          listening               *
+    // p.ack = s.ack       talking           listening               *
+    // p.ack < s.ack          *                  *                   *
+    
     size_t apply(struct key &k, const struct tcp_header *tcp, size_t length) {
-
+	
 	size_t retval = DROP_PACKET; 
 	
 	k.src_port = tcp->src_port;
@@ -198,7 +218,17 @@ struct tcp_initial_message_filter {
 	auto it = tcp_flow_table.find(k);
 	if (it == tcp_flow_table.end()) {
 
-	    struct tcp_state state = { tcp->seq, tcp->ack, 0, tcp->seq, tcp->ack, listening };
+	    uint32_t tmp_seq = tcp->seq;
+	    if (TCP_IS_SYN(tcp->flags)) {
+		tmp_seq = htonl(ntohl(tcp->seq) + 1); 
+	    }
+	    struct tcp_state state = { tmp_seq,
+				       tcp->ack,
+				       0,         // msg_num
+				       tmp_seq,   // init_seq
+				       tcp->ack,  // init_ack
+				       listening  // disposition
+	    };
 	    tcp_flow_table[k] = state;
 	    retval = ACCEPT_PACKET;
 
@@ -208,22 +238,18 @@ struct tcp_initial_message_filter {
 	    
 	    struct tcp_state state = it->second;
 
+	    // initialize acknowledgement number, if it has not yet been set
 	    if (state.ack == 0) { 
 		state.ack = tcp->ack;
 		state.init_ack = tcp->ack;
 	    }
 
+	    // update disposition and message number if appropriate
 	    if (data_length > 0) {
-		if (ntohl(tcp->seq) >= ntohl(state.seq)) {
-		    if (ntohl(tcp->ack) <= ntohl(state.ack)) {
-			if (state.disposition == listening) { 
-			    state.disposition = talking;
-			    state.msg_num++;
-			}
-		    } else {
-			state.disposition = listening;
-		    }
+		if (ntohl(tcp->ack) > ntohl(state.ack) || state.disposition == listening) {
+		    state.msg_num++;        
 		}
+		state.disposition = talking;
 	    } else {
 		if (ntohl(tcp->ack) > ntohl(state.ack)) {
 		    state.disposition = listening;
@@ -232,6 +258,8 @@ struct tcp_initial_message_filter {
 	    if (state.disposition == talking && state.msg_num < 2) {
 		retval = ACCEPT_PACKET;
 	    }
+
+	    // update state 
 	    if (ntohl(tcp->seq) > ntohl(state.seq)) {
 		state.seq = tcp->seq;
 	    }
@@ -243,9 +271,14 @@ struct tcp_initial_message_filter {
 	    fprintf_tcp_hdr_info(stderr, &k, tcp, &state, length, retval);
 
 	}
+
+	if (TCP_IS_FIN(tcp->flags)) {
+	    tcp_flow_table.erase(it);
+	}
 	
 	return retval;
     }
+
 };
 
 #endif /* MERC_TCP_H */
