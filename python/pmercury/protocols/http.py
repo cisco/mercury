@@ -47,7 +47,7 @@ class HTTP(Protocol):
                     self.headers_data = [0,1,2]
             if 'context' in config['http']:
                 for c in config['http']['context']:
-                    self.contextual_data[c] = c.lower().replace('-','_')
+                    self.contextual_data[c.encode()] = c.lower().replace('-','_')
 
 
     def fingerprint(self, data, offset, data_len):

@@ -119,7 +119,7 @@ class Fingerprinter:
         results_ = []
         new_data = False
 
-        if app_length > 32:
+        if app_length > 16:
             for _,parser_ in self.app_parsers:
                 r_ = parser_.fingerprint(buf, app_offset, data_len)
                 if r_[1] != None:

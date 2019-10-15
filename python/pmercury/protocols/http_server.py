@@ -48,7 +48,7 @@ class HTTP_Server(Protocol):
                     self.headers_data = [0,1,2]
             if 'context' in config['http_server']:
                 for c in config['http_server']['context']:
-                    self.contextual_data[c] = c.lower().replace('-','_')
+                    self.contextual_data[c.encode()] = c.lower().replace('-','_')
 
 
     def fingerprint(self, data, offset, data_len):
@@ -60,6 +60,7 @@ class HTTP_Server(Protocol):
             data[offset+5] != 49):
             return None, None, None, None
         fp_str_, context = self.extract_fingerprint(data[offset:])
+
         return 'http_server', fp_str_, None, context
 
 
