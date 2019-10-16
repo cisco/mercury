@@ -7,7 +7,7 @@ import os
 import sys
 import functools
 import ujson as json
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -17,12 +17,13 @@ MAX_CACHED_RESULTS = 2**24
 
 class TCP(Protocol):
 
-    def __init__(self, fp_database=None):
+    def __init__(self, fp_database=None, config=None):
         # populate fingerprint databases
         self.fp_db = None
         self.load_database(fp_database)
 
         self.tcp_options_data = set([0,1,2,3])
+
 
     def load_database(self, fp_database):
         if fp_database == None:
@@ -31,7 +32,7 @@ class TCP(Protocol):
         self.fp_db = {}
         for line in os.popen('zcat %s' % (fp_database)):
             fp_ = json.loads(line)
-            fp_['str_repr'] = bytes(fp_['str_repr'],'utf-8')
+            fp_['str_repr'] = fp_['str_repr'].encode()
 
             self.fp_db[fp_['str_repr']] = fp_
 
@@ -63,41 +64,42 @@ class TCP(Protocol):
         return self.fp_db[fp_str]
 
 
-    def fingerprint(self, data):
-        if data.flags == 2:
-            options = data.opts
-            fp_str_ = self.extract_fingerprint(options)
-            return 'tcp', fp_str_, None, None
-
-        return None, None, None, None
+    def fingerprint(self, data, offset, data_len):
+        if data[offset+13] != 2:
+            return None, None, None, None
+        fp_str_ = self.extract_fingerprint(data, offset, data_len)
+        return 'tcp', fp_str_, None, None
 
 
-    def extract_fingerprint(self, options):
-        idx = 0
+    def extract_fingerprint(self, data, offset, data_len):
+        tcp_length = (data[offset+12] >> 4)*4
 
-        fp_str = ''
-        while idx < len(options):
-            opt = b''
-            kind = options[idx]
-            opt += b'%02x' % options[idx]
-            if options[idx] == 1: # NOP
-                fp_str += '(' + str(opt,'utf-8') + ')'
-                idx += 1
+        c = [b'%s%s%s' % (b'(', hexlify(data[offset+14:offset+16]), b')')]
+
+        offset += 20
+        cur_ = 20
+        while cur_ < tcp_length:
+            kind   = data[offset]
+            if kind == 0 or kind == 1: # End of Options / NOP
+                c.append(b'%s%02x%s' % (b'(', kind, b')'))
+                offset += 1
+                cur_ += 1
                 continue
 
-            length = options[idx+1]
-            if options[idx] not in self.tcp_options_data:
-                idx += length
-                fp_str += '(' + str(opt,'utf-8') + ')'
+            length = data[offset+1]
+            if cur_ >= tcp_length:
+                return None
+            if kind not in self.tcp_options_data:
+                c.append(b'%s%02x%s' % (b'(', kind, b')'))
+                offset += length
+                cur_ += length
                 continue
 
-            data = ''
-            if length-2 > 0:
-                opt += b'%02x' % options[idx+1]
-                for i in range(idx+2, idx+2+length-2):
-                    opt += b'%02x' % options[i]
-            idx += length
+            c.append(b'%s%02x%s%s' % (b'(', kind, hexlify(data[offset+1:offset+length]), b')'))
+            offset += length
+            cur_ += length
 
-            fp_str += '(' + str(opt,'utf-8') + ')'
+        fp_str = b''.join(c)
 
         return fp_str
+
