@@ -63,36 +63,31 @@ class TLS(Protocol):
             self.fp_db[fp_['str_repr']] = fp_
 
 
-    def fingerprint(self, data, offset, data_len):
-        if (data[offset]    != 22 or
-            data[offset+1]  !=  3 or
-            data[offset+2]  >   3 or
-            data[offset+5]  !=  1 or
-            data[offset+9]  !=  3 or
-            data[offset+10] >   3):
-            return None, None, None, None
+    @staticmethod
+    def proto_identify(data, offset, data_len):
+        if data_len-offset < 16:
+            return False
+        if (data[offset]    == 22 and
+            data[offset+1]  ==  3 and
+            data[offset+2]  <=  3 and
+            data[offset+5]  ==  1 and
+            data[offset+9]  ==  3 and
+            data[offset+10] <=  3):
+            return True
+        return False
 
+
+    @staticmethod
+    def fingerprint(data, offset, data_len):
         # extract fingerprint string
-        fp_str_, server_name = self.extract_fingerprint(data, offset+5, data_len)
+        fp_str_, server_name = TLS.extract_fingerprint(data, offset+5, data_len)
         if fp_str_ == None:
-            return None, None, None, None
-        approx_str_ = None
+            return None, None
+        context = None
+        if server_name != None:
+            context = [{'name':'server_name', 'data':server_name}]
 
-        # fingerprint approximate matching if necessary
-        if fp_str_ not in self.fp_db:
-            lit_fp = eval_fp_str(fp_str_)
-            approx_str_ = self.find_approx_match(lit_fp)
-            if approx_str_ == None:
-                fp_ = self.gen_unknown_fingerprint(fp_str_)
-                self.fp_db[fp_str_] = fp_
-                return 'tls', fp_str_, None, None
-            self.fp_db[fp_str_] = self.fp_db[approx_str_]
-            self.fp_db[fp_str_]['approx_str'] = approx_str_
-        if 'approx_str' in self.fp_db[fp_str_]:
-            approx_str_ = self.fp_db[fp_str_]['approx_str']
-
-        return 'tls', fp_str_, approx_str_, [{'name':'server_name', 'data':server_name}]
-
+        return fp_str_, context
 
 
     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):
@@ -103,6 +98,20 @@ class TLS(Protocol):
                 if x_['name'] == 'server_name':
                     server_name = x_['data']
                     break
+
+        # fingerprint approximate matching if necessary
+        if fp_str_ not in self.fp_db:
+            lit_fp = eval_fp_str(fp_str_)
+            approx_str_ = self.find_approx_match(lit_fp)
+            if approx_str_ == None:
+                fp_ = self.gen_unknown_fingerprint(fp_str_)
+                self.fp_db[fp_str_] = fp_
+                if self.MALWARE_DB:
+                    return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
+                else:
+                    return {'process': 'Unknown', 'score': 0.0}
+            self.fp_db[fp_str_] = self.fp_db[approx_str_]
+            self.fp_db[fp_str_]['approx_str'] = approx_str_
 
         # perform process identification given the fingerprint string and destination information
         result = self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
@@ -213,6 +222,14 @@ class TLS(Protocol):
             return None
 
 
+    @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
+    def get_approx_fingerprint(self, fp_str_):
+        try:
+            return self.fp_db[fp_str_]['approx_str']
+        except KeyError:
+            return None
+
+
     def find_approx_match(self, tls_features, fp_str=None, source_filter=None, key_filter=None):
         target_ = get_sequence(tls_features)
         tls_params_ = get_tls_params(tls_features)
@@ -278,7 +295,8 @@ class TLS(Protocol):
         return fp_
 
 
-    def extract_fingerprint(self, data, offset, data_len):
+    @staticmethod
+    def extract_fingerprint(data, offset, data_len):
         # extract handshake version
         c = [b'%s%s%s' % (b'(', hexlify(data[offset+4:offset+6]), b')')]
 

@@ -15,69 +15,79 @@ class HTTP(Protocol):
         self.fp_db = {}
 
         # configuration
-        self.all_headers = False
+        HTTP.all_headers = False
         if config == None or 'http' not in config:
-            self.case_insensitive_static_headers = set([b'upgrade-insecure-requests',b'dnt',b'accept-language',b'connection',
+            HTTP.case_insensitive_static_headers = set([b'upgrade-insecure-requests',b'dnt',b'accept-language',b'connection',
                                                         b'x-requested-with',b'accept-encoding',b'content-length',b'accept',
                                                         b'viewport-width',b'intervention',b'dpr',b'cache-control'])
-            self.case_sensitive_static_headers = set([b'content-type',b'origin'])
-            self.headers_data = [0,2]
-            self.contextual_data = {b'user-agent':'user_agent',b'host':'host',b'x-forwarded-for':'x_forwarded_for'}
+            HTTP.case_sensitive_static_headers = set([b'content-type',b'origin'])
+            HTTP.headers_data = [0,2]
+            HTTP.contextual_data = {b'user-agent':'user_agent',b'host':'host',b'x-forwarded-for':'x_forwarded_for'}
         else:
-            self.case_insensitive_static_headers = set([])
-            self.case_sensitive_static_headers = set([])
-            self.headers_data = []
-            self.contextual_data = {}
+            HTTP.case_insensitive_static_headers = set([])
+            HTTP.case_sensitive_static_headers = set([])
+            HTTP.headers_data = []
+            HTTP.contextual_data = {}
             if 'case_insensitive_static_headers' in config['http']:
                 if config['http']['case_insensitive_static_headers'] == ['*']:
-                    self.all_headers = True
-                self.case_insensitive_static_headers = set(map(lambda x: x.lower().encode(), config['http']['case_insensitive_static_headers']))
+                    HTTP.all_headers = True
+                HTTP.case_insensitive_static_headers = set(map(lambda x: x.lower().encode(), config['http']['case_insensitive_static_headers']))
             if 'case_sensitive_static_headers' in config['http']:
                 if config['http']['case_sensitive_static_headers'] == ['*']:
-                    self.all_headers = True
-                self.case_sensitive_static_headers = set(map(lambda x: x.encode(), config['http']['case_sensitive_static_headers']))
+                    HTTP.all_headers = True
+                HTTP.case_sensitive_static_headers = set(map(lambda x: x.encode(), config['http']['case_sensitive_static_headers']))
             if 'preamble' in config['http']:
                 if 'method' in config['http']['preamble']:
-                    self.headers_data.append(0)
+                    HTTP.headers_data.append(0)
                 if 'uri' in config['http']['preamble']:
-                    self.headers_data.append(1)
+                    HTTP.headers_data.append(1)
                 if 'version' in config['http']['preamble']:
-                    self.headers_data.append(2)
+                    HTTP.headers_data.append(2)
                 if '*' in config['http']['preamble']:
-                    self.headers_data = [0,1,2]
+                    HTTP.headers_data = [0,1,2]
             if 'context' in config['http']:
                 for c in config['http']['context']:
-                    self.contextual_data[c.encode()] = c.lower().replace('-','_')
+                    HTTP.contextual_data[c.encode()] = c.lower().replace('-','_')
 
 
-    def fingerprint(self, data, offset, data_len):
-        if (data[offset]   != 71 or
-            data[offset+1] != 69 or
-            data[offset+2] != 84 or
-            data[offset+3] != 32):
-            return None, None, None, None
-        fp_str_, context = self.extract_fingerprint(data[offset:])
-        return 'http', fp_str_, None, context
+    @staticmethod
+    def proto_identify(data, offset, data_len):
+        if data_len-offset < 16:
+            return False
+        if (data[offset]   == 71 and
+            data[offset+1] == 69 and
+            data[offset+2] == 84 and
+            data[offset+3] == 32):
+            return True
+        return False
 
 
-    def clean_header(self, h_, t_):
-        if self.all_headers:
+    @staticmethod
+    def fingerprint(data, offset, data_len):
+        fp_str_, context = HTTP.extract_fingerprint(data[offset:])
+        return fp_str_, context
+
+
+    @staticmethod
+    def clean_header(h_, t_):
+        if HTTP.all_headers:
             return hexlify(h_)
-        if t_.lower() in self.case_insensitive_static_headers:
+        if t_.lower() in HTTP.case_insensitive_static_headers:
             return hexlify(h_)
-        if t_ in self.case_sensitive_static_headers:
+        if t_ in HTTP.case_sensitive_static_headers:
             return hexlify(h_)
         return hexlify(t_)
 
 
-    def extract_fingerprint(self, data):
+    @staticmethod
+    def extract_fingerprint(data):
         t_ = data.split(b'\r\n', 1)
         request = t_[0].split()
         if len(request) < 3:
             return None, None
 
         c = []
-        for rh in self.headers_data:
+        for rh in HTTP.headers_data:
             c.append(b'%s%s%s' % (b'(', hexlify(request[rh]), b')'))
 
         if len(t_) == 1:
@@ -90,11 +100,11 @@ class HTTP(Protocol):
             if h_ == b'':
                 break
             t0_ = h_.split(b': ',1)[0]
-            c.append(b'%s%s%s' % (b'(', self.clean_header(h_, t0_), b')'))
-            if t0_.lower() in self.contextual_data:
+            c.append(b'%s%s%s' % (b'(', HTTP.clean_header(h_, t0_), b')'))
+            if t0_.lower() in HTTP.contextual_data:
                 if context == None:
                     context = []
-                context.append({'name':self.contextual_data[t0_.lower()], 'data':h_.split(b': ',1)[1]})
+                context.append({'name':HTTP.contextual_data[t0_.lower()], 'data':h_.split(b': ',1)[1]})
 
         fp_str = b''.join(c)
 

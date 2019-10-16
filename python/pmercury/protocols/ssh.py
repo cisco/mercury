@@ -45,41 +45,41 @@ class SSH(Protocol):
         protocol_type = 'ssh'
         fp_str_ = None
         if app_offset+4 >= data_len:
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
 
         flow_key = self.get_flow_key(data, ip_offset, tcp_offset, ip_type, ip_length)
 
         data = data[app_offset:]
 
         if flow_key not in self.session_data and self.proto_identify(data,0) == False:
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
         elif self.proto_identify(data,0):
             self.session_data[flow_key] = {}
             self.session_data[flow_key]['protocol'] = data
             self.session_data[flow_key]['kex'] = b''
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
 
         data = self.session_data[flow_key]['kex'] + data
         if len(data) >= 4096:
             del self.session_data[flow_key]
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
 
         # check SSH packet length to limit possibility of parsing junk and handle fragmentation
         if int(hexlify(data[0:4]),16) + 4 > len(data):
             self.session_data[flow_key]['kex'] += data
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
 
         # check to make sure message code is key exchange init
         if data[5] != 20:
             del self.session_data[flow_key]
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
 
         # extract fingerprint string
         self.session_data[flow_key]['kex'] = data
         fp_str_ = self.extract_fingerprint(self.session_data[flow_key])
         del self.session_data[flow_key]
 
-        return protocol_type, fp_str_, None, None
+        return protocol_type, fp_str_, None
 
 
     def extract_fingerprint(self, ssh_):
