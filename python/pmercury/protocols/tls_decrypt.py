@@ -170,11 +170,11 @@ class TLS_Decrypt:
         if 'application_layer_protocol' in self.session_metadata[flow_key]:
             if self.session_metadata[flow_key]['application_layer_protocol'].startswith('http/1'):
                 if self.cur_mode == 'client':
-                    _,http_fp,_,_ = self.http.fingerprint(tmp_data, 0, len(tmp_data))
+                    _,http_fp,_ = self.http.fingerprint(tmp_data, 0, len(tmp_data))
                     if http_fp != None:
                         return http_fp
                 else:
-                    _,http_fp,_,_ = self.http_server.fingerprint(tmp_data, 0, len(tmp_data))
+                    _,http_fp,_ = self.http_server.fingerprint(tmp_data, 0, len(tmp_data))
                     if http_fp != None:
                         return http_fp
             elif self.session_metadata[flow_key]['application_layer_protocol'] == 'h2':
@@ -263,12 +263,12 @@ class TLS_Decrypt:
         protocol_type = 'tls_decrypt_'
         fp_str_ = None
         if app_offset+12 >= data_len:
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
         flow_key, mode = self.get_flow_key(data, ip_offset, tcp_offset, ip_type, ip_length)
         self.cur_mode = mode
         cur_flow_key = flow_key + mode
         if flow_key not in self.session_metadata and self.proto_identify_ch(data, app_offset) == False:
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
         elif self.proto_identify_ch(data, app_offset):
             self.session_metadata[flow_key] = {}
 
@@ -281,9 +281,9 @@ class TLS_Decrypt:
                 data = self.data_cache[flow_key+self.cur_mode][0] + data
                 if len(data[5:]) < self.data_cache[flow_key+self.cur_mode][1]:
                     self.data_cache[flow_key+self.cur_mode][0] = data
-                    return protocol_type, fp_str_, None, None
+                    return protocol_type, fp_str_, None
             else:
-                return protocol_type, fp_str_, None, None
+                return protocol_type, fp_str_, None
 
         seen_client_hello = False
         offset = 0
@@ -292,19 +292,19 @@ class TLS_Decrypt:
             if str(hexlify(data[offset+1:offset+3]),'utf-8') not in TLS_VERSION:
                 if len(data[offset:]) < 5:
                     self.data_cache[flow_key+self.cur_mode] = [data[offset:],0,True]
-                    return None, fp_str_, None, None
+                    return None, fp_str_, None
                 # keep state to hopefully recover, most likely due to packet fragmentation
                 if flow_key+self.cur_mode not in self.data_cache:
                     self.data_cache[flow_key+self.cur_mode] = [data[offset:],0,True]
-                    return protocol_type, fp_str_, None, None
+                    return protocol_type, fp_str_, None
                 else:
-                    return protocol_type, fp_str_, None, None
+                    return protocol_type, fp_str_, None
             if len(data[offset:]) < 5:
                 if flow_key+self.cur_mode not in self.data_cache:
                     self.data_cache[flow_key+self.cur_mode] = [data[offset:],0,True]
                 else:
                     self.data_cache[flow_key+self.cur_mode][0] += data[offset:]
-                return protocol_type, fp_str_, None, None
+                return protocol_type, fp_str_, None
     
             record_length = int(hexlify(data[offset+3:offset+5]),16)
             if record_length > len(data[offset+5:]):
@@ -363,14 +363,14 @@ class TLS_Decrypt:
 
 
         if flow_key in self.session_metadata and 'seen_client_hello' in self.session_metadata[flow_key]:
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
         else:
             self.data_cache.pop(flow_key+self.cur_mode,None)
             self.tls_sequence.pop(flow_key+self.cur_mode,None)
             self.tls13_handshake.pop(flow_key+self.cur_mode,None)
             self.session_metadata.pop(flow_key,None)
             self.session_metadata.pop(flow_key+self.cur_mode,None)
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
 
 
     def get_human_readable(self, fp_str_):

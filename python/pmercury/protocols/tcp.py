@@ -64,14 +64,21 @@ class TCP(Protocol):
         return self.fp_db[fp_str]
 
 
-    def fingerprint(self, data, offset, data_len):
+    @staticmethod
+    def proto_identify(data, offset, data_len):
         if data[offset+13] != 2:
-            return None, None, None, None
-        fp_str_ = self.extract_fingerprint(data, offset, data_len)
-        return 'tcp', fp_str_, None, None
+            return False
+        return True
 
 
-    def extract_fingerprint(self, data, offset, data_len):
+    @staticmethod
+    def fingerprint(data, offset, data_len):
+        fp_str_ = TCP.extract_fingerprint(data, offset, data_len)
+        return fp_str_, None
+
+
+    @staticmethod
+    def extract_fingerprint(data, offset, data_len):
         tcp_length = (data[offset+12] >> 4)*4
 
         c = [b'%s%s%s' % (b'(', hexlify(data[offset+14:offset+16]), b')')]
@@ -89,7 +96,7 @@ class TCP(Protocol):
             length = data[offset+1]
             if cur_ >= tcp_length:
                 return None
-            if kind not in self.tcp_options_data:
+            if kind != 2 and kind != 3:
                 c.append(b'%s%02x%s' % (b'(', kind, b')'))
                 offset += length
                 cur_ += length

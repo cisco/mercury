@@ -26,24 +26,32 @@ class TLS_Server(Protocol):
         self.fp_db = {}
 
 
-    def fingerprint(self, data, offset, data_len):
-        if (data[offset]    != 22 or
-            data[offset+1]  !=  3 or
-            data[offset+2]  >   3 or
-            data[offset+5]  !=  2 or
-            data[offset+9]  !=  3 or
-            data[offset+10] >   3):
-            return None, None, None, []
+    @staticmethod
+    def proto_identify(data, offset, data_len):
+        if data_len-offset < 16:
+            return False
+        if (data[offset]    == 22 and
+            data[offset+1]  ==  3 and
+            data[offset+2]  <=  3 and
+            data[offset+5]  ==  2 and
+            data[offset+9]  ==  3 and
+            data[offset+10] <=  3):
+            return True
+        return False
 
+
+    @staticmethod
+    def fingerprint(data, offset, data_len):
         # extract fingerprint string
-        fp_str_ = self.extract_fingerprint(data, offset+5, data_len)
+        fp_str_ = TLS_Server.extract_fingerprint(data, offset+5, data_len)
         if fp_str_ == None:
-            return None, None, None, None
+            return None, None
 
-        return 'tls_server', fp_str_, None, None
+        return fp_str_, None
 
 
-    def extract_fingerprint(self, data, offset, data_len):
+    @staticmethod
+    def extract_fingerprint(data, offset, data_len):
         # extract handshake version
         fp_ = b'(' + hexlify(data[offset+4:offset+6]) + b')'
 

@@ -17,3 +17,6 @@ class Protocol:
 
     def get_human_readable(self, fp_str_):
         return None
+
+    def get_approx_fingerprint(self, fp_str_):
+        return None

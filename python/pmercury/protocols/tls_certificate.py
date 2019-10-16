@@ -61,7 +61,7 @@ class TLS_Certificate(Protocol):
         protocol_type = 'tls_certificate'
         fp_str_ = None
         if app_offset+32 >= data_len:
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
         flow_key = self.get_flow_key(data, ip_offset, tcp_offset, ip_type, ip_length)
         data = data[app_offset:]
 
@@ -69,7 +69,7 @@ class TLS_Certificate(Protocol):
         if self.proto_identify_sh(data,0):
             data = data[9+int(hexlify(data[6:9]),16):]
             if len(data) == 0:
-                return protocol_type, fp_str_, None, None
+                return protocol_type, fp_str_, None
             sh = True
 
         if sh and data[0] == 11:
@@ -78,15 +78,15 @@ class TLS_Certificate(Protocol):
             data = data[5:]
             self.data_cache[flow_key] = b''
         elif flow_key not in self.data_cache and self.proto_identify(data,0) == False:
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
         elif flow_key not in self.data_cache:
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
 
         # keep state to deal with larger packets
         data = self.data_cache[flow_key] + data
         if len(data[7:]) < int(hexlify(data[7:10]),16):
             self.data_cache[flow_key] = data
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
 
         certs = data[7:]
         cert_len = int(hexlify(certs[0:3]),16)
@@ -97,7 +97,7 @@ class TLS_Certificate(Protocol):
             cert = x509.load_der_x509_certificate(cert_data, default_backend())
         except:
             del self.data_cache[flow_key]
-            return protocol_type, fp_str_, None, None
+            return protocol_type, fp_str_, None
 
         # build "fingerprint"
         fp_str_ = b''
@@ -166,7 +166,7 @@ class TLS_Certificate(Protocol):
 
         del self.data_cache[flow_key]
 
-        return protocol_type, fp_str_, None, None
+        return protocol_type, fp_str_, None
 
 
     def get_human_readable(self, fp_str_):
