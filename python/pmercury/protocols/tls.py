@@ -6,18 +6,13 @@
 """
 
 import os
-import re
 import sys
-import gzip
-import copy
-import time
-import struct
 import operator
 import functools
 import ujson as json
 from sys import path
 from math import exp, log
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -33,7 +28,7 @@ MAX_CACHED_RESULTS = 2**24
 
 class TLS(Protocol):
 
-    def __init__(self, fp_database=None):
+    def __init__(self, fp_database=None, config=None):
         # cached data/results
         self.tls_params_db = {}
         self.MALWARE_DB = True
@@ -54,49 +49,43 @@ class TLS(Protocol):
 
         self.aligner = SequenceAlignment(f_similarity, 0.0)
 
-        # TLS ClientHello pattern/RE
-        self.pattern = b'\x16\x03[\x00-\x03].{2}\x01.{3}\x03[\x00-\x03]'
-
 
     def load_database(self, fp_database):
         for line in os.popen('zcat %s' % (fp_database)):
             fp_ = json.loads(line)
-            fp_['str_repr'] = bytes(fp_['str_repr'],'utf-8')
+            fp_['str_repr'] = fp_['str_repr'].encode()
 
             for p_ in fp_['process_info']:
-                p_['process'] = bytes(p_['process'],'utf-8')
+                p_['process'] = p_['process'].encode()
                 if 'malware' not in p_:
                     self.MALWARE_DB = False
 
             self.fp_db[fp_['str_repr']] = fp_
 
 
-    def fingerprint(self, data):
-        # check TLS version and record/handshake type
-        if re.findall(self.pattern, data[0:11], re.DOTALL) == []:
-            return None, None, None, []
-
-        # bounds checking
-        record_length = int(hexlify(data[3:5]),16)
-        if record_length != len(data[5:]):
-            return None, None, None, []
+    def fingerprint(self, data, offset, data_len):
+        if (data[offset]    != 22 or
+            data[offset+1]  !=  3 or
+            data[offset+2]  >   3 or
+            data[offset+5]  !=  1 or
+            data[offset+9]  !=  3 or
+            data[offset+10] >   3):
+            return None, None, None, None
 
         # extract fingerprint string
-        fp_str_, server_name = self.extract_fingerprint(data[5:])
+        fp_str_, server_name = self.extract_fingerprint(data, offset+5, data_len)
         if fp_str_ == None:
-            return None, None, None, []
-        fp_str_ = str(fp_str_)
+            return None, None, None, None
         approx_str_ = None
 
         # fingerprint approximate matching if necessary
-        fp_str_ = bytes(fp_str_,'utf-8')
         if fp_str_ not in self.fp_db:
             lit_fp = eval_fp_str(fp_str_)
             approx_str_ = self.find_approx_match(lit_fp)
             if approx_str_ == None:
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
-                return None, None, None, []
+                return 'tls', fp_str_, None, None
             self.fp_db[fp_str_] = self.fp_db[approx_str_]
             self.fp_db[fp_str_]['approx_str'] = approx_str_
         if 'approx_str' in self.fp_db[fp_str_]:
@@ -144,7 +133,7 @@ class TLS(Protocol):
 
         # if score == 0 or no match could be found, return default process
         if len(r_) == 0 or r_[0]['score'] == 0.0:
-            predict_ = str(fp_['process_info'][0]['process'], 'utf-8')
+            predict_ = fp_['process_info'][0]['process'].decode()
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
             if self.MALWARE_DB:
                 return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
@@ -157,7 +146,7 @@ class TLS(Protocol):
             r_.pop(0)
 
         # get generalized process name if available
-        process_name = str(r_[0]['process'], 'utf-8')
+        process_name = r_[0]['process'].decode()
         process_name = self.app_families[process_name] if process_name in self.app_families else process_name
 
         # package the most probable process
@@ -188,22 +177,22 @@ class TLS(Protocol):
 
         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
 
-        if features[0] in p_['classes_ip_as']:
+        try:
             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
             score_ += tmp_ if tmp_ > prior_ else prior_
-        else:
+        except KeyError:
             score_ += base_prior_
 
-        if features[1] in p_['classes_hostname_domains']:
+        try:
             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
             score_ += tmp_ if tmp_ > prior_ else prior_
-        else:
+        except KeyError:
             score_ += base_prior_
 
-        if features[2] in p_['classes_port_applications']:
+        try:
             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
             score_ += tmp_ if tmp_ > prior_ else prior_
-        else:
+        except KeyError:
             score_ += base_prior_
 
         if self.MALWARE_DB:
@@ -217,11 +206,11 @@ class TLS(Protocol):
         fp_str_ = fp_str
         if approx_fp_str != None:
             fp_str_ = approx_fp_str
-        
-        if fp_str_ not in self.fp_db:
-            return None
 
-        return self.fp_db[fp_str_]
+        try:
+            return self.fp_db[fp_str_]
+        except KeyError:
+            return None
 
 
     def find_approx_match(self, tls_features, fp_str=None, source_filter=None, key_filter=None):
@@ -282,89 +271,89 @@ class TLS(Protocol):
         fp_['max_implementation_date'] = max_imp
         fp_['min_implementation_date'] = min_imp
         fp_['total_count'] = 1
-        fp_['tls_features'] = {}
-        fp_['tls_features']['version'] = get_version_from_str(lit_fp[0][0])
-        fp_['tls_features']['cipher_suites'] = get_cs_from_str(lit_fp[1][0])
-        fp_['tls_features']['extensions'] = []
-        if len(lit_fp) > 2:
-            fp_['tls_features']['extensions'] = get_ext_from_str(lit_fp[2])
-        fp_['process_info'] = [{'process': bytes('Unknown','utf-8'), 'sha256':'Unknown', 'count':1, 'malware': 0,
+        fp_['process_info'] = [{'process': b'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,
                                 'classes_ip_as':{},'classes_hostname_tlds':{},'classes_hostname_domains':{},
                                 'classes_port_applications':{},'os_info':{}}]
 
         return fp_
 
 
-    def extract_fingerprint(self, data):
+    def extract_fingerprint(self, data, offset, data_len):
         # extract handshake version
-        fp_ = data[4:6]
+        c = [b'%s%s%s' % (b'(', hexlify(data[offset+4:offset+6]), b')')]
 
         # skip header/client_random
-        offset = 38
+        offset += 38
 
         # parse/skip session_id
-        session_id_length = int(hexlify(data[offset:offset+1]),16)
+        session_id_length = data[offset]
         offset += 1 + session_id_length
-        if len(data[offset:]) == 0:
+        if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites length
-        cipher_suites_length = int(hexlify(data[offset:offset+2]),16)
-        fp_ += data[offset:offset+2]
+        cipher_suites_length = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
-        if len(data[offset:]) == 0:
+        if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites
-        cs_str_ = b''
-        for i in range(0,cipher_suites_length,2):
-            fp_ += degrease_type_code(data, offset+i)
-            cs_str_ += degrease_type_code(data, offset+i)
+        cs0_ = degrease_type_code(data, offset)
+        cs1_ = b''
+        if cipher_suites_length > 2:
+            cs1_ = hexlify(data[offset+2:offset+cipher_suites_length])
+        c.append(b'%s%s%s%s' % (b'(', cs0_, cs1_, b')'))
         offset += cipher_suites_length
-        if len(data[offset:]) == 0:
-            return None, None
+        if offset >= data_len:
+            c.append(b'()')
+            fp_ = b''.join(c)
+            return fp_, None
 
         # parse/skip compression method
-        compression_methods_length = int(hexlify(data[offset:offset+1]),16)
+        compression_methods_length = data[offset]
         offset += 1 + compression_methods_length
-        if len(data[offset:]) == 0:
-            return hex_fp_to_structured_representation(hexlify(fp_)), None
+        if offset >= data_len:
+            c.append(b'()')
+            fp_ = b''.join(c)
+            return fp_, None
 
         # parse/skip extensions length
-        ext_total_len = int(hexlify(data[offset:offset+2]),16)
+        ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
-        if len(data[offset:]) != ext_total_len:
-            return None, None
+        if offset >= data_len:
+            c.append(b'()')
+            fp_ = b''.join(c)
+            return fp_, None
 
         # parse/extract/skip extension type/length/values
-        fp_ext_ = b''
-        ext_fp_len_ = 0
+        c.append(b'(')
         server_name = None
         while ext_total_len > 0:
-            if len(data[offset:]) == 0:
-                return None, None
+            if offset >= data_len:
+                c.append(b')')
+                fp_ = b''.join(c)
+                return fp_, None
 
             # extract server name for process/malware identification
-            if int(hexlify(data[offset:offset+2]),16) == 0:
-                server_name = extract_server_name(data[offset+2:])
+            if int.from_bytes(data[offset:offset+2], byteorder='big') == 0:
+                server_name = extract_server_name(data, offset+2, data_len)
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
-            fp_ext_ += tmp_fp_ext
-            ext_fp_len_ += len(tmp_fp_ext)
+            c.append(b'%s%s%s' % (b'(', tmp_fp_ext, b')'))
 
             ext_total_len -= 4 + ext_len
+        c.append(b')')
 
-        fp_ += unhexlify(('%04x' % ext_fp_len_))
-        fp_ += fp_ext_
+        fp_ = b''.join(c)
 
-        return hex_fp_to_structured_representation(hexlify(fp_)), server_name
+        return fp_, server_name
 
 
     def get_human_readable(self, fp_str_):
         lit_fp = eval_fp_str(fp_str_)
-        fp_h = OrderedDict({})
-        fp_h['version'] = get_version_from_str(lit_fp[0][0])
-        fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1][0])
+        fp_h = {}
+        fp_h['version'] = get_version_from_str(lit_fp[0])
+        fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1])
         fp_h['extensions'] = []
         if len(lit_fp) > 2:
             fp_h['extensions'] = get_ext_from_str(lit_fp[2])

@@ -365,16 +365,23 @@ enum status extractor_strip_last_capture(struct extractor *x) {
     return status_err;
 }
 
+/*
+ * parser_extractor_copy_append_upto_delim(p, x, d) will copy data
+ * from the parser p to the extractor x, until it reaches the
+ * delimiter d or the end of the data in the parser, whichever comes
+ * first
+ */
 enum status parser_extractor_copy_append_upto_delim(struct parser *p,
 						    struct extractor *x,
 						    const unsigned char delim[2]) {
     const unsigned char *data = p->data;
+    const unsigned char *data_end = p->data_end - 1;
     ptrdiff_t len;
 
     /* find delimiter, if present */
     while (1) {
-	if (data >= p->data_end) {
-	    return status_err;
+	if (data >= data_end) {
+	    break;
 	}
 	if (*data == delim[0]) {
 	    data++;
@@ -396,6 +403,14 @@ enum status parser_extractor_copy_append_upto_delim(struct parser *p,
     return parser_skip(p, 2);
 }
 
+/*
+ * parser_find_delim(p, d, l) looks for the delimiter d with length l
+ * in the parser p's data buffer, until it reaches the delimiter d or
+ * the end of the data in the parser, whichever comes first.  In the
+ * first case, the function returns the number of bytes to the
+ * delimiter; in the second case, the function returns the number of
+ * bytes to the end of the data buffer.
+ */
 int parser_find_delim(struct parser *p,
 		      const unsigned char *delim,
 		      size_t length) {
@@ -416,7 +431,7 @@ int parser_find_delim(struct parser *p,
     if (pattern == pattern_end) {
 	return data - p->data;
     }
-    return -1;
+    return - (data - p->data);
     
 }
 
@@ -447,6 +462,8 @@ enum status parser_extractor_copy_upto_delim(struct parser *p,
 
     if (delim_index >= 0) {
 	return parser_extractor_copy(p, x, delim_index - length);
+    } else {
+	return parser_extractor_copy(p, x, - delim_index);
     }
     extractor_debug("%s: error\n", __func__);
     return status_err;
@@ -469,7 +486,7 @@ size_t extract_fp_from_tls_client_hello(uint8_t *data,
     parser_init(&p, data, data_len);
     bytes_extracted = parser_extractor_process_tls(&p, &x);
 
-    if (bytes_extracted > 16) {
+    if (bytes_extracted > 0) {
 	switch(x.fingerprint_type) {
 	case fingerprint_type_tls:
 	    bytes_in_outbuf = sprintf_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted, outbuf, outbuf_len);
@@ -689,7 +706,7 @@ unsigned int uint16_match(uint16_t x,
 
 #define TCP_FIXED_HDR_LEN 20
 
-#define tcp_offrsv_get_length(offrsv) (((offrsv) & 0xf0) >> 2)
+#define tcp_offrsv_get_length(offrsv) ((offrsv >> 4) * 4)
 
 /*
  * The function extractor_process_tcp processes a TCP packet.  The
@@ -719,13 +736,19 @@ unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x)
 	/*
 	 * process the TCP Data payload 
 	 */
-	if (parser_skip_to(p, data + ((offrsv >> 4) * 4)) == status_err) {
+	if (parser_skip_to(p, data + tcp_offrsv_get_length(offrsv)) == status_err) {
 	    return 0;
 	}
 	return parser_extractor_process_tcp_data(p, x);
 
     }
-    if (parser_skip(p, L_tcp_flags + L_tcp_win + L_tcp_csm + L_tcp_urp) == status_err) {
+    if (parser_skip(p, L_tcp_flags) == status_err) {
+	return 0;
+    }
+    if (parser_extractor_copy(p, x, L_tcp_win) == status_err) {
+	return 0;
+    }
+    if (parser_skip(p, L_tcp_csm + L_tcp_urp) == status_err) {
 	return 0;
     }
     if (parser_set_data_length(p, tcp_offrsv_get_length(offrsv) - TCP_FIXED_HDR_LEN)) {
@@ -1576,7 +1599,7 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
     if (parser_match(p, ssh_first_packet, sizeof(ssh_first_packet), NULL) == status_ok) {
 
 	/* first packet */
-	if (parser_find_delim(p, sp, sizeof(sp)) != -1) {
+	if (parser_find_delim(p, sp, sizeof(sp)) < 0) {  
 	    /* dir == DIR_SERVER; skip this packet as we are only interested in clients */
 	    // return 0;
 	}
