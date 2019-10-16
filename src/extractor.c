@@ -1192,15 +1192,12 @@ unsigned int parser_process_tls(struct parser *p) {
  */
 unsigned int parser_extractor_process_tls_server(struct parser *p, struct extractor *x) {
     size_t tmp_len;
-    const char *str = NULL;
-    unsigned int output_len;
     
     extractor_debug("%s: processing packet\n", __func__);
 
     /*
      * verify that we are looking at a TLS ServerHello
      */
-    str = "No ServerHello";
     if (parser_match(p,
 		     tls_server_hello_value,
 		     L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType,
@@ -1211,7 +1208,6 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
     /*
      * skip over initial fields
      */
-    str = "HandshakeLength error";
     if (parser_skip(p, L_HandshakeLength) == status_err) {
 	    goto bail;
     }
@@ -1222,7 +1218,6 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
     /*
      * copy serverHello.ProtocolVersion
      */
-    str = "ProtocolVersion error";
     if (parser_extractor_copy(p, x, L_ProtocolVersion) == status_err) {
 	    goto bail;
     }
@@ -1230,32 +1225,26 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
     /*
      * skip over Random
      */
-    str = "Skipping Random error";
     if (parser_skip(p, L_Random) == status_err) {
 	    goto bail;
     }
 
     /* skip over SessionID and SessionIDLen */
-    str = "SessionIDLength error";
     if (parser_read_uint(p, L_SessionIDLength, &tmp_len) == status_err) {
 	    goto bail;
     }
-    str = "Skipping SessionIDLength error";
     if (parser_skip(p, tmp_len + L_SessionIDLength) == status_err) {
 	    goto bail;
     }
 
-    str = "Extractor copy error";
     if (parser_extractor_copy(p, x, L_CipherSuite) == status_err) {
 	    goto bail;
     }
     
     /* skip over compression methods */
-    str = "CompressionMethodsLength error";
     if (parser_read_uint(p, L_CompressionMethodsLength, &tmp_len) == status_err) {
 	    goto bail;
     }
-    str = "Skipping CompressionMethodsLength error";
     if (parser_skip(p, tmp_len + L_CompressionMethod) == status_err) {
 	    goto bail;
     }
@@ -1268,13 +1257,11 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
          * reserve slot in output for length of extracted extensions
          */
         unsigned char *ext_len_slot;
-        str = "Extractor reserver error";
         if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
 	        goto bail;
         }
 
         /*  extensions length */
-        str = "ExtensionsVectorLength error";
         if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
 	        goto bail;
         }
@@ -1322,17 +1309,13 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
     x->proto_state.state = state_done;
 
-    output_len = extractor_get_output_length(x);
-
-    return output_len;
+    return extractor_get_output_length(x);
 
  bail:
     /*
      * handle possible packet parsing errors
      */
-    if (str != NULL) {
-        extractor_debug("%s: warning: TLS serverHello did not complete: %s\n", __func__, str);
-    }
+    extractor_debug("%s: warning: TLS serverHello did not complete\n", __func__);
     return 0;
 
 }
