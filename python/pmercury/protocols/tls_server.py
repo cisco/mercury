@@ -42,61 +42,51 @@ class TLS_Server(Protocol):
 
     @staticmethod
     def fingerprint(data, offset, data_len):
-        # extract fingerprint string
-        fp_str_ = TLS_Server.extract_fingerprint(data, offset+5, data_len)
-        if fp_str_ == None:
-            return None, None
+        offset += 5
 
-        return fp_str_, None
-
-
-    @staticmethod
-    def extract_fingerprint(data, offset, data_len):
         # extract handshake version
-        fp_ = b'(' + hexlify(data[offset+4:offset+6]) + b')'
+        fp_ = b'(%02x%02x)' % (data[offset+4],data[offset+5])
 
         # skip header/server_random
         offset += 38
 
         # parse/skip session_id
-        session_id_length = int.from_bytes(data[offset:offset+1], 'big')
+        session_id_length = data[offset]
         offset += 1 + session_id_length
         if offset >= data_len:
-            return None
+            return None, None
 
         # parse selected_cipher_suite
-        fp_ += b'(' + hexlify(data[offset:offset+2]) + b')'
+        fp_ += b'(%02x%02x)' % (data[offset],data[offset+1])
         offset += 2
         if offset >= data_len:
-            return None
+            return fp_+b'()', None
 
         # parse/skip compression method
-        compression_methods_length = int.from_bytes(data[offset:offset+1], 'big')
+        compression_methods_length = data[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
-            return fp_
+            return fp_+b'()', None
 
         # parse/skip extensions length
         ext_total_len = int.from_bytes(data[offset:offset+2], 'big')
         offset += 2
         if offset >= data_len:
-            return None
+            return fp_+b'()', None
 
         # parse/extract/skip extension type/length/values
         fp_ += b'('
         while ext_total_len > 0:
             if offset >= data_len:
-                return None
+                return fp_+b')', None
 
-            fp_ += b'('
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
-            fp_ += tmp_fp_ext
+            fp_ += b'(%s)' % tmp_fp_ext
 
             ext_total_len -= 4 + ext_len
-            fp_ += b')'
         fp_ += b')'
 
-        return fp_
+        return fp_, None
 
 
     def get_human_readable(self, fp_str_):
