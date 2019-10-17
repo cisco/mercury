@@ -165,8 +165,11 @@ void json_file_write(struct json_file *jf,
 	    fprintf(file, "\"complete\":\"%s\",", (x.proto_state.state == state_done) ? "yes" : "no");
 	    break;
 	case fingerprint_type_tls_server:
-	    /* no tls server fingerprint currently defined */
-	    return;
+	    fprintf(file, "{\"fingerprints\":{");
+	    fprintf(file, "\"tls_server\":\"");
+	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+	    fprintf(file, "\"},");
+	    break;
 	default:
 	    /* print nothing */
 	    return; 
