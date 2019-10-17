@@ -872,19 +872,7 @@ void degrease_octet_string(void *data, ssize_t len) {
 #define type_supported_groups   0x000a
 #define type_supported_versions 0x002b
 
-/*
- * The function extractor_process_tls processes a TLS packet.  The
- * extractor MUST have previously been initialized with its data
- * pointer set to the initial octet of the TCP header of the TLS
- * packet.
- */
-unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x) {
-    size_t tmp_len;
-    //struct extractor y;
-    struct parser ext_parser;
-    const uint8_t *sni_data = NULL;
-    size_t sni_length = 0;
-    uint16_t old_static_extension_types[7] __attribute__((unused)) = {
+uint16_t old_static_extension_types[7] __attribute__((unused)) = {
 	5,         /* status_request                         */
 	10,        /* supported_groups                       */
 	11,        /* ec_point_formats                       */
@@ -893,7 +881,8 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
 	43,        /* supported_versions                     */
 	45         /* psk_key_exchange_modes                 */
     };
-    uint16_t static_extension_types[num_static_extension_types] = {
+
+uint16_t static_extension_types[num_static_extension_types] = {
         1,         /* max fragment length                    */
 	5,         /* status_request                         */
 	7,         /* client authz                           */
@@ -929,6 +918,19 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
 	60138,     /* GREASE                                 */
 	64250      /* GREASE                                 */
     };
+
+/*
+ * The function extractor_process_tls processes a TLS packet.  The
+ * extractor MUST have previously been initialized with its data
+ * pointer set to the initial octet of the TCP header of the TLS
+ * packet.
+ */
+unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x) {
+    size_t tmp_len;
+    //struct extractor y;
+    struct parser ext_parser;
+    const uint8_t *sni_data = NULL;
+    size_t sni_length = 0;
 
     extractor_debug("%s: processing packet\n", __func__);
     
@@ -1223,81 +1225,120 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 		     tls_server_hello_value,
 		     L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType,
 		     tls_server_hello_mask) == status_err) {
-	return 0; /* not a serverHello */
+	    goto bail; /* not a serverHello */
     }
 
     /*
      * skip over initial fields
      */
     if (parser_skip(p, L_HandshakeLength) == status_err) {
-	return 0;
+	    goto bail;
     }
 
     /* set fingerprint type */
     x->fingerprint_type = fingerprint_type_tls_server;
     
     /*
-     * copy clientHello.ProtocolVersion
+     * copy serverHello.ProtocolVersion
      */
-    if (parser_skip(p, L_ProtocolVersion) == status_err) {
-	goto bail;
+    if (parser_extractor_copy(p, x, L_ProtocolVersion) == status_err) {
+	    goto bail;
     }
 
     /*
      * skip over Random
      */
     if (parser_skip(p, L_Random) == status_err) {
-	goto bail;
+	    goto bail;
     }
 
     /* skip over SessionID and SessionIDLen */
     if (parser_read_uint(p, L_SessionIDLength, &tmp_len) == status_err) {
-	goto bail;
+	    goto bail;
     }
     if (parser_skip(p, tmp_len + L_SessionIDLength) == status_err) {
-	goto bail;
+	    goto bail;
     }
 
-    /* skip over ciphersuite  */
-    if (parser_skip(p, L_CipherSuite) == status_err) {
-	goto bail;
+    if (parser_extractor_copy(p, x, L_CipherSuite) == status_err) {
+	    goto bail;
     }
     
     /* skip over compression methods */
-    if (parser_skip(p, L_CompressionMethod) == status_err) {
-	goto bail;
+    if (parser_read_uint(p, L_CompressionMethodsLength, &tmp_len) == status_err) {
+	    goto bail;
+    }
+    if (parser_skip(p, tmp_len + L_CompressionMethod) == status_err) {
+	    goto bail;
     }
 
     /*
-     * parse extensions vector
+     * parse extensions vector if present
      */
-    if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
-	return status_err;
-    }
-    struct parser ext_parser;
-    parser_init_from_outer_parser(&ext_parser, p, tmp_len);
-    while (parser_get_data_length(&ext_parser) > 0) {
-	size_t tmp_type;
+    if (parser_get_data_length(p) > 0) {
+        /*
+         * reserve slot in output for length of extracted extensions
+         */
+        unsigned char *ext_len_slot;
+        if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
+	        goto bail;
+        }
 
-	if (parser_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
-	    break;
-	}
-	if (parser_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
-	    break;
-	}
-	
-	if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
-	    break;
-	}
+        /*  extensions length */
+        if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
+	        goto bail;
+        }
+
+        struct parser ext_parser;
+        parser_init_from_outer_parser(&ext_parser, p, tmp_len);
+        while (parser_get_data_length(&ext_parser) > 0)
+        {
+            size_t tmp_type;
+            if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err)
+            {
+                break;
+            }
+            if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err)
+            {
+                break;
+            }
+
+            if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err)
+            {
+                break;
+            }
+
+            if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err)
+            {
+                if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err)
+                {
+                    break;
+                }
+            }
+        }
+
+        /*
+         * write the length of the extracted extensions into the reserved slot
+         */
+        encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
     }
 
-    return 100; // INDICATE SUCCESS (> 16)
+    x->proto_state.state = state_done;
+
+    return extractor_get_output_length(x);
 
  bail:
     /*
      * handle possible packet parsing errors
      */
-    extractor_debug("%s: warning: TLS serverHello processing did not fully complete\n", __func__);
+    extractor_debug("%s: warning: TLS serverHello did not complete\n", __func__);
     return 0;
 
 }
