@@ -67,39 +67,21 @@ class HTTP_Server(Protocol):
 
     @staticmethod
     def fingerprint(data, offset, data_len):
-        fp_str_, context = HTTP_Server.extract_fingerprint(data[offset:])
-
-        return fp_str_, context
-
-
-    @staticmethod
-    def clean_header(h_, t_):
-        if HTTP_Server.all_headers:
-            return hexlify(h_)
-        if t_.lower() in HTTP_Server.case_insensitive_static_headers:
-            return hexlify(h_)
-        if t_ in HTTP_Server.case_sensitive_static_headers:
-            return hexlify(h_)
-        return hexlify(t_)
-
-
-    @staticmethod
-    def extract_fingerprint(data):
+        data = data[offset:]
         t_ = data.split(b'\r\n', 1)
         response = t_[0].split(b' ',2)
         if len(response) < 2:
             return None, None
 
-        c = []
+        fp_ = b''
         for rh in HTTP_Server.headers_data:
             try:
-                c.append(b'%s%s%s' % (b'(', hexlify(response[rh]), b')'))
+                fp_ += b'(%s)' % hexlify(response[rh])
             except IndexError:
-                c.append(b'()')
+                fp_ += b'()'
 
         if len(t_) == 1:
-            fp_str = b''.join(c)
-            return fp_str, None
+            return fp_, None
 
         headers = t_[1].split(b'\r\n')
         if headers[0] == '':
@@ -109,15 +91,24 @@ class HTTP_Server(Protocol):
             if h_ == b'':
                 break
             t0_ = h_.split(b': ',1)[0]
-            c.append(b'%s%s%s' % (b'(', HTTP_Server.clean_header(h_, t0_), b')'))
-            if t0_.lower() in HTTP_Server.contextual_data:
+            t0_lower = t0_.lower()
+
+            if HTTP_Server.all_headers:
+                h_c = hexlify(h_)
+            elif t0_lower in HTTP_Server.case_insensitive_static_headers:
+                h_c = hexlify(h_)
+            elif t0_ in HTTP_Server.case_sensitive_static_headers:
+                h_c = hexlify(h_)
+            else:
+                h_c = hexlify(t0_)
+
+            fp_ += b'(%s)' % h_c
+            if t0_lower in HTTP_Server.contextual_data:
                 if context == None:
                     context = []
                 context.append({'name':HTTP_Server.contextual_data[t0_.lower()], 'data':h_.split(b': ',1)[1]})
 
-        fp_str = b''.join(c)
-
-        return fp_str, context
+        return fp_, context
 
 
 

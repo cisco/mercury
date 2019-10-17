@@ -41,7 +41,8 @@ def extract_server_name(data, offset, data_len):
     if data_len - offset < 7:
         return 'None'
     sni_len = int.from_bytes(data[offset+5:offset+7], 'big')
-    return data[offset+7:offset+7+sni_len].decode()
+    return data[offset+7:offset+7+sni_len]#.decode()
+#    return bytes(data[offset+7:offset+7+sni_len])
 
 
 def eval_fp_str_general(fp_str_):
