@@ -170,11 +170,11 @@ class TLS_Decrypt:
         if 'application_layer_protocol' in self.session_metadata[flow_key]:
             if self.session_metadata[flow_key]['application_layer_protocol'].startswith('http/1'):
                 if self.cur_mode == 'client':
-                    _,http_fp,_ = self.http.fingerprint(tmp_data, 0, len(tmp_data))
+                    http_fp,_ = self.http.fingerprint(tmp_data, 0, len(tmp_data))
                     if http_fp != None:
                         return http_fp
                 else:
-                    _,http_fp,_ = self.http_server.fingerprint(tmp_data, 0, len(tmp_data))
+                    http_fp,_ = self.http_server.fingerprint(tmp_data, 0, len(tmp_data))
                     if http_fp != None:
                         return http_fp
             elif self.session_metadata[flow_key]['application_layer_protocol'] == 'h2':

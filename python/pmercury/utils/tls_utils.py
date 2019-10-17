@@ -18,6 +18,7 @@ from pmercury_utils import *
 grease_ = set([b'0a0a',b'1a1a',b'2a2a',b'3a3a',b'4a4a',b'5a5a',b'6a6a',b'7a7a',
                b'8a8a',b'9a9a',b'aaaa',b'baba',b'caca',b'dada',b'eaea',b'fafa'])
 
+grease_single_int_ = set([10,26,42,58,74,90,106,122,138,154,170,186,202,218,234,250])
 
 ext_data_extract_ = set([b'0001',b'0005',b'0007',b'0008',b'0009',b'000a',b'000b',
                          b'000d',b'000f',b'0010',b'0011',b'0013',b'0014',b'0018',
@@ -41,8 +42,7 @@ def extract_server_name(data, offset, data_len):
     if data_len - offset < 7:
         return 'None'
     sni_len = int.from_bytes(data[offset+5:offset+7], 'big')
-    return data[offset+7:offset+7+sni_len]#.decode()
-#    return bytes(data[offset+7:offset+7+sni_len])
+    return data[offset+7:offset+7+sni_len].decode()
 
 
 def eval_fp_str_general(fp_str_):
@@ -155,14 +155,14 @@ def parse_extension(data, offset):
     tmp_ext_value = data[offset:offset+ext_len]
     if tmp_ext_type in ext_data_extract_:
         tmp_ext_value = degrease_ext_data(data, offset, tmp_ext_type, ext_len, tmp_ext_value)
-        fp_ext_ += (b'%04x' % ext_len) + hexlify(tmp_ext_value)
+        fp_ext_ += b'%04x%s' % (ext_len, hexlify(tmp_ext_value))
     offset += ext_len
 
     return fp_ext_, offset, ext_len
 
 # helper to normalize grease type codes
 def degrease_type_code(data, offset):
-    if hexlify(data[offset:offset+2]) in grease_:
+    if data[offset] in grease_single_int_ and data[offset] == data[offset+1]:
         return b'0a0a'
     else:
         return hexlify(data[offset:offset+2])
@@ -174,16 +174,16 @@ def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
     if ext_type == b'000a': # supported_groups
         degreased_ext_value += data[offset:offset+2]
         for i in range(2,ext_length,2):
-            if hexlify(data[offset+i:offset+i+2]) in grease_:
-                degreased_ext_value += unhexlify('0a0a')
+            if data[offset+i] in grease_single_int_ and data[offset+i] == data[offset+i+1]:
+                degreased_ext_value += b'\x0a\x0a'
             else:
                 degreased_ext_value += data[offset+i:offset+i+2]
         return degreased_ext_value
     elif ext_type == b'002b': # supported_versions
         degreased_ext_value += data[offset:offset+1]
         for i in range(1,ext_length,2):
-            if hexlify(data[offset+i:offset+i+2]) in grease_:
-                degreased_ext_value += unhexlify('0a0a')
+            if data[offset+i] in grease_single_int_ and data[offset+i] == data[offset+i+1]:
+                degreased_ext_value += b'\x0a\x0a'
             else:
                 degreased_ext_value += data[offset+i:offset+i+2]
         return degreased_ext_value
