@@ -4,7 +4,6 @@
 """
 
 import setuptools
-import site
 
 
 def readme():
@@ -32,16 +31,14 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         'cryptography',
-        'dpkt',
         'hpack',
-        'numpy',
         'pyasn',
         'pypcap',
         'ujson',
     ],
     scripts=['pmercury/pmercury'],
-    data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in']),
-                ('pmercury/resources', ['../resources/fingerprint_db.json.gz',
+    data_files=[('/pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in']),
+                ('/pmercury/resources', ['../resources/fingerprint_db.json.gz',
                                          '../resources/app_families.txt',
                                          '../resources/asn_info.db.gz',
                                          '../resources/implementation_date_cs.json.gz',
