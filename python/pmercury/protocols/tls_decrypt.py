@@ -1,3 +1,8 @@
+"""     
+ Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
+ License at https://github.com/cisco/mercury/blob/master/LICENSE
+"""
+
 import os
 import sys
 import socket
@@ -5,16 +10,16 @@ from binascii import hexlify, unhexlify
 
 # application layer protocol parsing imports
 #from http2 import HTTP2
-from protocols.http import HTTP
-from protocols.http_server import HTTP_Server
-from protocols.http2 import HTTP2
+from pmercury.protocols.http import HTTP
+from pmercury.protocols.http_server import HTTP_Server
+from pmercury.protocols.http2 import HTTP2
 
 # TLS helper classes
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
-from utils.tls_utils import *
-from utils.tls_constants import *
-from utils.tls_crypto import TLS_CRYPTO
+from pmercury.utils.tls_utils import *
+from pmercury.utils.tls_constants import *
+from pmercury.utils.tls_crypto import TLS_CRYPTO
 
 
 class TLS_Decrypt:

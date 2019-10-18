@@ -13,6 +13,7 @@ import optparse
 import ujson as json
 from socket import AF_INET, AF_INET6, inet_ntop
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from pmercury.protocols.tcp import TCP
 from pmercury.protocols.tls import TLS
@@ -246,7 +247,7 @@ class Fingerprinter:
                     flow['readable'] = {}
                 flow['readable'][fp_type] = desc_
         if self.analyze:
-            proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_addr, dst_port, self.num_procs)
+            proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
             if proc_info != None:
                 flow['analysis'] = proc_info
 
