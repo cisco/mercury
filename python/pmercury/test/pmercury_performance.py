@@ -39,9 +39,10 @@ def performance_test(input_file, output_file, fp_db, analyze, human_readable, ex
     loop_times = []
     for l in range(loops):
         start = time.time()
-        p = pcap.pcap(input_file, timeout_ms=1000)
-        p.setfilter('ip proto 6 or ip6 proto 6')
-        p.dispatch(-1, fp.process_packet)
+        fp.process_pcap(input_file)
+#        p = pcap.pcap(input_file, timeout_ms=1000)
+#        p.setfilter('ip proto 6 or ip6 proto 6')
+#        p.dispatch(-1, fp.process_packet)
 
         loop_time = time.time() - start
         loop_times.append(loop_time)

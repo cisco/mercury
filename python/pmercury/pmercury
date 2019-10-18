@@ -82,11 +82,12 @@ class Fingerprinter:
             else:
                 self.process_capture(input_file)
 
+        self.out_file_pointer.close()
+
 
     def process_pcap(self, pcap_file):
         p = pcap.pcap(pcap_file)
         p.setfilter('ip proto 6 or ip6 proto 6')
-
         p.dispatch(-1, self.process_packet)
 
         if self.group:
@@ -94,6 +95,43 @@ class Fingerprinter:
 
 
     def process_capture(self, iface):
+        import signal
+        def signal_handler(signal, frame):
+            if self.group:
+                self.write_flows(active=False)
+            self.out_file_pointer.close()
+            sys.exit(0)
+        signal.signal(signal.SIGINT, signal_handler)
+
+        from multiprocessing import Process, Queue
+
+        def capture(q):
+            p = pcap.pcap(iface)
+            p.setfilter('ip proto 6 or ip6 proto 6')
+            self.flow_timer = time.time()
+            while 1:
+                p.dispatch(-1, self.process_packet)
+
+                if self.group and time.time()-self.flow_timer > self.FLOW_UPDATE:
+                    self.flow_timer = time.time()
+                    self.write_flows(active=True)
+
+                q.put(p.stats())
+
+            if self.group:
+                self.write_flows(active=False)
+
+        q = Queue()
+        p = Process(target=capture, args=(q,))
+        p.start()
+        while 1:
+            nrecv, ndrop, nifdrop = q.get()
+            sys.stdout.write("\x1b[f\x1b[Jnrecv:   % 12i\nndrop:   % 12i\nnifdrop: % 12i" % (nrecv, ndrop, nifdrop))
+        p.join()
+#            print('nrecv: % 12i, ndrop: % 12i, nifdrop: % 12i' % (nrecv, ndrop, nifdrop))
+
+
+    def process_capture_old(self, iface):
         import signal
         def signal_handler(signal, frame):
             if self.group:
@@ -111,6 +149,9 @@ class Fingerprinter:
                 self.flow_timer = time.time()
                 self.write_flows(active=True)
 
+            nrecv, ndrop, nifdrop = p.stats()
+#            print('nrecv: % 12i, ndrop: % 12i, nifdrop: % 12i' % (nrecv, ndrop, nifdrop))
+            sys.stdout.write("\x1b[f\x1b[Jnrecv:   % 12i\nndrop:   % 12i\nnifdrop: % 12i" % (nrecv, ndrop, nifdrop))
         if self.group:
             self.write_flows(active=False)
 
