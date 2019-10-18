@@ -14,9 +14,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa, dsa, ec
 # TLS helper classes
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
-from protocol import Protocol
-from utils.tls_utils import *
-from utils.tls_constants import *
+from pmercury.protocols.protocol import Protocol
+from pmercury.utils.tls_utils import *
+from pmercury.utils.tls_constants import *
 
 
 class TLS_Certificate(Protocol):

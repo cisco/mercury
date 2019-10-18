@@ -9,7 +9,8 @@ import socket
 
 # SSH helper classes
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from protocol import Protocol
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
+from pmercury.protocols.protocol import Protocol
 
 
 class SSH(Protocol):

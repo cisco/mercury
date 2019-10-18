@@ -10,7 +10,8 @@ import pickle
 import functools
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from pmercury_utils import *
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
+from pmercury.utils.pmercury_utils import *
 
 
 MAX_CACHED_RESULTS = 2**24

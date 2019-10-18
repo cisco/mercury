@@ -13,12 +13,14 @@ import optparse
 import ujson as json
 from socket import AF_INET, AF_INET6, inet_ntop
 
-from protocols.tcp import TCP
-from protocols.tls import TLS
-from protocols.http import HTTP
-from protocols.tls_server import TLS_Server
-from protocols.http_server import HTTP_Server
-from utils.config_parser import parse_config
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
+from pmercury.protocols.tcp import TCP
+from pmercury.protocols.tls import TLS
+from pmercury.protocols.http import HTTP
+from pmercury.protocols.tls_server import TLS_Server
+from pmercury.protocols.http_server import HTTP_Server
+from pmercury.utils.config_parser import parse_config
 
 
 
@@ -55,9 +57,9 @@ class Fingerprinter:
         self.experimental = False
         if experimental == True:
             self.experimental = True
-            from protocols.ssh import SSH
-            from protocols.tls_decrypt import TLS_Decrypt
-            from protocols.tls_certificate import TLS_Certificate
+            from pmercury.protocols.ssh import SSH
+            from pmercury.protocols.tls_decrypt import TLS_Decrypt
+            from pmercury.protocols.tls_certificate import TLS_Certificate
             self.parsers['tls_certificate'] = TLS_Certificate()
             self.parsers['ssh'] = SSH()
             self.flow_parsers.extend([('tls_certificate', TLS_Certificate()), ('ssh', SSH())])
