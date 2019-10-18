@@ -1,7 +1,5 @@
 import os
 import sys
-import dpkt
-from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -64,51 +62,50 @@ class HTTP(Protocol):
 
     @staticmethod
     def fingerprint(data, offset, data_len):
-        data = data[offset:]
-        t_ = data.split(b'\r\n', 1)
+        t_ = data[offset:].split(b'\x0d\x0a', 1)
         request = t_[0].split()
         if len(request) < 3:
             return None, None
 
-        fp_ = b''
+        fp_ = ''
         for rh in HTTP.headers_data:
-            fp_ += b'(%s)' % hexlify(request[rh])
+            fp_ += '(%s)' % request[rh].hex()
 
         if len(t_) == 1:
             return fp_, None
 
-        headers = t_[1].split(b'\r\n')
+        headers = t_[1].split(b'\x0d\x0a')
         context = None
         for h_ in headers:
             if h_ == b'':
                 break
-            t0_ = h_.split(b': ',1)[0]
+            t0_ = h_.split(b'\x3a\x20',1)[0]
             t0_lower = t0_.lower()
 
 
             if HTTP.all_headers:
-                h_c = hexlify(h_)
-            elif t0_lower in HTTP.case_insensitive_static_headers:
-                h_c = hexlify(h_)
+                h_c = h_.hex()
+            if t0_lower in HTTP.case_insensitive_static_headers:
+                h_c = h_.hex()
             elif t0_ in HTTP.case_sensitive_static_headers:
-                h_c = hexlify(h_)
+                h_c = h_.hex()
             else:
-                h_c = hexlify(t0_)
+                h_c = t0_.hex()
 
-            fp_ += b'(%s)' % h_c
+            fp_ += '(%s)' % h_c
             if t0_lower in HTTP.contextual_data:
                 if context == None:
                     context = []
-                context.append({'name':HTTP.contextual_data[t0_lower], 'data':h_.split(b': ',1)[1]})
+                context.append({'name':HTTP.contextual_data[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1]})
 
         return fp_, context
 
 
     def get_human_readable(self, fp_str_):
-        t_ = [str(unhexlify(x[1:]),'utf-8') for x in fp_str_.split(b')')[:-1]]
+        t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]
         fp_h = [{'method':t_[0]},{'uri':t_[1]},{'version':t_[2]}]
         for i in range(3, len(t_)-1):
-            field = t_[i].split(': ',1)
+            field = t_[i].split(b': ',1)
             if len(field) == 2:
                 fp_h.append({field[0]: field[1]})
             else:

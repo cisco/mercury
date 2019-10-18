@@ -7,7 +7,6 @@ import os
 import sys
 import functools
 import ujson as json
-from binascii import hexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -73,30 +72,28 @@ class TCP(Protocol):
 
     @staticmethod
     def fingerprint(data, offset, data_len):
-        tcp_length = (data[offset+12] >> 4)*4
-
-        fp_ = b'(%02x%02x)' % (data[offset+14],data[offset+15])
+        fp_ = '(%s)' % data[offset+14:offset+16].hex()
 
         offset += 20
         cur_ = 20
-        while cur_ < tcp_length:
+        while cur_ < data_len:
             kind   = data[offset]
             if kind == 0 or kind == 1: # End of Options / NOP
-                fp_ += b'(%02x)' % kind
+                fp_ += '(%02x)' % kind
                 offset += 1
                 cur_ += 1
                 continue
 
             length = data[offset+1]
-            if cur_ >= tcp_length:
+            if cur_ >= data_len:
                 return None
             if kind != 2 and kind != 3:
-                fp_ += b'(%02x)' % kind
+                fp_ += '(%02x)' % kind
                 offset += length
                 cur_ += length
                 continue
 
-            fp_ += b'(%02x%s)' % (kind, hexlify(data[offset+1:offset+length]))
+            fp_ += '(%02x%s)' % (kind, data[offset+1:offset+length].hex())
             offset += length
             cur_ += length
 

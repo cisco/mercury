@@ -166,7 +166,7 @@ class TLS_Certificate(Protocol):
 
         del self.data_cache[flow_key]
 
-        return protocol_type, fp_str_, None
+        return protocol_type, fp_str_.decode(), None
 
 
     def get_human_readable(self, fp_str_):
