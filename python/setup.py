@@ -13,7 +13,7 @@ def readme():
 
 setuptools.setup(
     name='pmercury',
-    version='0.2.0.002',
+    version='0.2.1.002',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -37,8 +37,8 @@ setuptools.setup(
         'ujson',
     ],
     scripts=['pmercury/pmercury'],
-    data_files=[('/pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in']),
-                ('/pmercury/resources', ['../resources/fingerprint_db.json.gz',
+    data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in']),
+                ('pmercury/resources', ['../resources/fingerprint_db.json.gz',
                                          '../resources/app_families.txt',
                                          '../resources/asn_info.db.gz',
                                          '../resources/implementation_date_cs.json.gz',
