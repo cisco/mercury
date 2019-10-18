@@ -150,8 +150,8 @@ void *stats_thread_func(void *statst_arg) {
 
     fprintf(stderr,
 	    "Per second stats: "
-	    "recieved packets %8lu; recieved bytes %10lu; "
-	    "socket packets %8lu; socket drops %8lu; socket freezes %2lu\n",
+	    "recieved packets %8" PRIu64 "; recieved bytes %10" PRIu64 "; "
+	    "socket packets %8" PRIu64 "; socket drops %8" PRIu64 "; socket freezes %2" PRIu64 "\n",
 	    pps, bps, spps, sdps, sfps);
   }
 
@@ -500,7 +500,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   }
 
   if ((uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize < rlp->af_desired_memory) {
-    fprintf(stderr, "Notice: requested memory %lu will be less than desired memory %lu\n",
+    fprintf(stderr, "Notice: requested memory %" PRIu64 " will be less than desired memory %" PRIu64 "\n",
 	    (uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize, rlp->af_desired_memory);
   }
 
@@ -624,11 +624,11 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   free(tstor);
 
   fprintf(stderr, "--\n"
-	  "%lu packets captured\n"
-	  "%lu bytes captured\n"
-	  "%lu packets seen by socket\n"
-	  "%lu packets dropped\n"
-	  "%lu socket queue freezes\n",
+	  "%" PRIu64 " packets captured\n"
+	  "%" PRIu64 " bytes captured\n"
+	  "%" PRIu64  "packets seen by socket\n"
+	  "%" PRIu64 " packets dropped\n"
+	  "%" PRIu64 " socket queue freezes\n",
 	  statst.received_packets, statst.received_bytes, statst.socket_packets, statst.socket_drops, statst.socket_freezes);
 
   return 0;
@@ -643,9 +643,9 @@ void ring_limits_init(struct ring_limits *rl, float frac) {
     }
     
     /* This is the only parameter you should need to change */
-    rl->af_desired_memory = sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;
+    rl->af_desired_memory = (uint64_t) sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;
     //rl->af_desired_memory = 128 * (uint64_t)(1 << 30);  /* 8 GiB */
-    printf("mem: %lu\tfrac: %f\n", rl->af_desired_memory, frac); 
+    printf("mem: %" PRIu64 "\tfrac: %f\n", rl->af_desired_memory, frac); 
 
     /* Don't change any of the following parameters without good reason */
     rl->af_ring_limit     = 0xffffffff;      /* setsockopt() can't allocate more than this so don't even try */
