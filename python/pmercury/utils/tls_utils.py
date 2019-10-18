@@ -10,8 +10,9 @@ import ast
 import ujson as json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from tls_constants import *
-from pmercury_utils import *
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
+from pmercury.utils.tls_constants import *
+from pmercury.utils.pmercury_utils import *
 
 grease_ = set(['0a0a','1a1a','2a2a','3a3a','4a4a','5a5a','6a6a','7a7a',
                '8a8a','9a9a','aaaa','baba','caca','dada','eaea','fafa'])

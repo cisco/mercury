@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -13,14 +11,15 @@ import ujson as json
 from sys import path
 from math import exp, log
 
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
-from protocol import Protocol
-from utils.tls_utils import *
-from utils.tls_constants import *
-from utils.pmercury_utils import *
-from utils.contextual_info import *
-from utils.sequence_alignment import *
+from pmercury.protocols.protocol import Protocol
+from pmercury.utils.tls_utils import *
+from pmercury.utils.tls_constants import *
+from pmercury.utils.pmercury_utils import *
+from pmercury.utils.contextual_info import *
+from pmercury.utils.sequence_alignment import *
 
 MAX_CACHED_RESULTS = 2**24
 

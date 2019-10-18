@@ -4,7 +4,6 @@
 """
 
 import setuptools
-import site
 
 
 def readme():
@@ -14,7 +13,7 @@ def readme():
 
 setuptools.setup(
     name='pmercury',
-    version='0.2.0.002',
+    version='0.2.1.002',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -32,9 +31,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         'cryptography',
-        'dpkt',
         'hpack',
-        'numpy',
         'pyasn',
         'pypcap',
         'ujson',

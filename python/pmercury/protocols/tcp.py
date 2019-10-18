@@ -10,7 +10,7 @@ import ujson as json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
-from protocol import Protocol
+from pmercury.protocols.protocol import Protocol
 
 MAX_CACHED_RESULTS = 2**24
 
