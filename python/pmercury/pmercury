@@ -247,7 +247,7 @@ class Fingerprinter:
                     flow['readable'] = {}
                 flow['readable'][fp_type] = desc_
         if self.analyze:
-            proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_addr, dst_port, self.num_procs)
+            proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
             if proc_info != None:
                 flow['analysis'] = proc_info
 
