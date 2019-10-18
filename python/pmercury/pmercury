@@ -75,6 +75,24 @@ class Fingerprinter:
             print('error: need a pcap/interface')
             return 1
 
+        for input_file in input_files:
+            if '.pcap' in input_file:
+                self.process_pcap(input_file)
+            else:
+                self.process_capture(input_file)
+
+
+    def process_pcap(self, pcap_file):
+        p = pcap.pcap(pcap_file)
+        p.setfilter('ip proto 6 or ip6 proto 6')
+
+        p.dispatch(-1, self.process_packet)
+
+        if self.group:
+            self.write_flows(active=False)
+
+
+    def process_capture(self, iface):
         import signal
         def signal_handler(signal, frame):
             if self.group:
@@ -82,23 +100,18 @@ class Fingerprinter:
             sys.exit(0)
         signal.signal(signal.SIGINT, signal_handler)
 
-        self.data_ = []
-        for input_file in input_files:
-            p = pcap.pcap(input_file)
-            p.setfilter('ip proto 6 or ip6 proto 6')
-            self.flow_timer = time.time()
-            while 1:
-                p.dispatch(-1, self.process_packet)
+        p = pcap.pcap(iface)
+        p.setfilter('ip proto 6 or ip6 proto 6')
+        self.flow_timer = time.time()
+        while 1:
+            p.dispatch(-1, self.process_packet)
 
-                if self.group and time.time()-self.flow_timer > self.FLOW_UPDATE:
-                    self.flow_timer = time.time()
-                    self.write_flows(active=True)
+            if self.group and time.time()-self.flow_timer > self.FLOW_UPDATE:
+                self.flow_timer = time.time()
+                self.write_flows(active=True)
 
-                if '.pcap' in input_file:
-                    break
-
-            if self.group:
-                self.write_flows(active=False)
+        if self.group:
+            self.write_flows(active=False)
 
 
     def process_packet(self, ts, buf):
