@@ -643,7 +643,7 @@ void ring_limits_init(struct ring_limits *rl, float frac) {
     }
     
     /* This is the only parameter you should need to change */
-    rl->af_desired_memory = sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;
+    rl->af_desired_memory = (uint64_t) sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;
     //rl->af_desired_memory = 128 * (uint64_t)(1 << 30);  /* 8 GiB */
     printf("mem: %" PRIu64 "\tfrac: %f\n", rl->af_desired_memory, frac); 
 
