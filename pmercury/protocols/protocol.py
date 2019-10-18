@@ -7,7 +7,7 @@ class Protocol:
 
     # returns fingerprint, approximate fingerprint, contextual data
     def fingerprint(self, data):
-        return None, None, None
+        return None, None
 
     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):
         return None

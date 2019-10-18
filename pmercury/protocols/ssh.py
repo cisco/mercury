@@ -1,11 +1,14 @@
+"""     
+ Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
+ License at https://github.com/cisco/mercury/blob/master/LICENSE
+"""
+
 import os
 import sys
 import socket
-from binascii import hexlify, unhexlify
 
 # SSH helper classes
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from protocol import Protocol
 
 
@@ -65,7 +68,7 @@ class SSH(Protocol):
             return protocol_type, fp_str_, None
 
         # check SSH packet length to limit possibility of parsing junk and handle fragmentation
-        if int(hexlify(data[0:4]),16) + 4 > len(data):
+        if int.from_bytes(data[0:4], byteorder='big') + 4 > len(data):
             self.session_data[flow_key]['kex'] += data
             return protocol_type, fp_str_, None
 

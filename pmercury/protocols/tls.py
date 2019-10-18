@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
