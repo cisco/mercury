@@ -374,7 +374,7 @@ class TLS_Decrypt:
 
 
     def get_human_readable(self, fp_str_):
-        if fp_str_.startswith(b'(3a'):
+        if fp_str_.startswith('(3a'):
             return self.http2.get_human_readable(fp_str_)
         else:
             return self.http.get_human_readable(fp_str_)

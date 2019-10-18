@@ -8,7 +8,6 @@
 import os
 import sys
 from sys import path
-from binascii import hexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -45,7 +44,7 @@ class TLS_Server(Protocol):
         offset += 5
 
         # extract handshake version
-        fp_ = b'(%02x%02x)' % (data[offset+4],data[offset+5])
+        fp_ = '(%s)' % data[offset+4:offset+6].hex()
 
         # skip header/server_random
         offset += 38
@@ -57,34 +56,34 @@ class TLS_Server(Protocol):
             return None, None
 
         # parse selected_cipher_suite
-        fp_ += b'(%02x%02x)' % (data[offset],data[offset+1])
+        fp_ += '(%s)' % data[offset:offset+2].hex()
         offset += 2
         if offset >= data_len:
-            return fp_+b'()', None
+            return fp_+'()', None
 
         # parse/skip compression method
         compression_methods_length = data[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
-            return fp_+b'()', None
+            return fp_+'()', None
 
         # parse/skip extensions length
         ext_total_len = int.from_bytes(data[offset:offset+2], 'big')
         offset += 2
         if offset >= data_len:
-            return fp_+b'()', None
+            return fp_+'()', None
 
         # parse/extract/skip extension type/length/values
-        fp_ += b'('
+        fp_ += '('
         while ext_total_len > 0:
             if offset >= data_len:
-                return fp_+b')', None
+                return fp_+')', None
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
-            fp_ += b'(%s)' % tmp_fp_ext
+            fp_ += '(%s)' % tmp_fp_ext
 
             ext_total_len -= 4 + ext_len
-        fp_ += b')'
+        fp_ += ')'
 
         return fp_, None
 

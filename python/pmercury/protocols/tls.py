@@ -12,7 +12,6 @@ import functools
 import ujson as json
 from sys import path
 from math import exp, log
-from binascii import hexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -53,14 +52,9 @@ class TLS(Protocol):
     def load_database(self, fp_database):
         for line in os.popen('zcat %s' % (fp_database)):
             fp_ = json.loads(line)
-            fp_['str_repr'] = fp_['str_repr'].encode()
-
-            for p_ in fp_['process_info']:
-                p_['process'] = p_['process'].encode()
-                if 'malware' not in p_:
-                    self.MALWARE_DB = False
-
             self.fp_db[fp_['str_repr']] = fp_
+        if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
+            self.MALWARE_DB = False
 
 
     @staticmethod
@@ -82,7 +76,7 @@ class TLS(Protocol):
         offset += 5
 
         # extract handshake version
-        fp_ = b'(%02x%02x)' % (data[offset+4],data[offset+5])
+        c_ = ['(%s)' % data[offset+4:offset+6].hex()]
 
         # skip header/client_random
         offset += 38
@@ -101,48 +95,52 @@ class TLS(Protocol):
 
         # parse/extract/skip cipher_suites
         cs0_ = degrease_type_code(data, offset)
-        cs1_ = b''
+        cs1_ = ''
         if cipher_suites_length > 2:
-            cs1_ = hexlify(data[offset+2:offset+cipher_suites_length])
-        fp_ += b'(%s%s)' % (cs0_, cs1_)
+            cs1_ = data[offset+2:offset+cipher_suites_length].hex()
+        c_.append('(%s%s)' % (cs0_, cs1_))
         offset += cipher_suites_length
         if offset >= data_len:
-            return fp_+b'()', None
+            c_.append('()')
+            return ''.join(c_), None
 
         # parse/skip compression method
         compression_methods_length = data[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
-            return fp_+b'()', None
+            c_.append('()')
+            return ''.join(c_), None
 
         # parse/skip extensions length
         ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
         if offset >= data_len:
-            return fp_+b'()', None
+            c_.append('()')
+            return ''.join(c_), None
 
         # parse/extract/skip extension type/length/values
-        fp_ += b'('
+        c_.append('(')
         server_name = None
         while ext_total_len > 0:
             if offset >= data_len:
-                return fp_+b')', None
+                c_.append(')')
+                return ''.join(c_), None
 
             # extract server name for process/malware identification
             if int.from_bytes(data[offset:offset+2], byteorder='big') == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
-            fp_ += b'(%s)' % tmp_fp_ext
+            c_.append('(%s)' % tmp_fp_ext)
 
             ext_total_len -= 4 + ext_len
-        fp_ += b')'
+        c_.append(')')
 
         context = None
         if server_name != None:
             context = [{'name':'server_name', 'data':server_name}]
 
-        return fp_, context
+        return  ''.join(c_), context
 
 
     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):
@@ -158,6 +156,7 @@ class TLS(Protocol):
         if fp_str_ not in self.fp_db:
             lit_fp = eval_fp_str(fp_str_)
             approx_str_ = self.find_approx_match(lit_fp)
+            print(approx_str_)
             if approx_str_ == None:
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
@@ -197,7 +196,7 @@ class TLS(Protocol):
 
         # if score == 0 or no match could be found, return default process
         if len(r_) == 0 or r_[0]['score'] == 0.0:
-            predict_ = fp_['process_info'][0]['process'].decode()
+            predict_ = fp_['process_info'][0]['process']
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
             if self.MALWARE_DB:
                 return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
@@ -206,11 +205,11 @@ class TLS(Protocol):
 
         # in the case of malware, remove pseudo process meant to reduce false positives
         if self.MALWARE_DB and r_[0]['malware'] == False and \
-           r_[0]['process'] == b'Generic DMZ Traffic' and len(r_) > 1 and r_[1]['malware'] == False:
+           r_[0]['process'] == 'Generic DMZ Traffic' and len(r_) > 1 and r_[1]['malware'] == False:
             r_.pop(0)
 
         # get generalized process name if available
-        process_name = r_[0]['process'].decode()
+        process_name = r_[0]['process']
         process_name = self.app_families[process_name] if process_name in self.app_families else process_name
 
         # package the most probable process
@@ -343,7 +342,7 @@ class TLS(Protocol):
         fp_['max_implementation_date'] = max_imp
         fp_['min_implementation_date'] = min_imp
         fp_['total_count'] = 1
-        fp_['process_info'] = [{'process': b'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,
+        fp_['process_info'] = [{'process': 'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,
                                 'classes_ip_as':{},'classes_hostname_tlds':{},'classes_hostname_domains':{},
                                 'classes_port_applications':{},'os_info':{}}]
 

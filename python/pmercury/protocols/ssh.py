@@ -83,12 +83,12 @@ class SSH(Protocol):
 
 
     def extract_fingerprint(self, ssh_):
-        fp_str_ = b''
+        fp_str_ = ''
 
-        fp_str_ += b'(' + hexlify(ssh_['protocol'][:-2]) + b')'
+        fp_str_ += '(' + ssh_['protocol'][:-2].hex() + ')'
 
         data = ssh_['kex']
-        kex_length = int(hexlify(data[0:4]),16)
+        kex_length = int.from_bytes(data[0:4], byteorder='big')
 
         # skip over message headers and Cookie field
         offset = 22
@@ -105,8 +105,8 @@ class SSH(Protocol):
 
 
     def parse_kex_field(self, data, offset, fp_str_):
-        len_ = int(hexlify(data[offset:offset+4]),16)
-        fp_str_ += b'(' + hexlify(data[offset+4:offset+4+len_]) + b')'
+        len_ = int.from_bytes(data[offset:offset+4], byteorder='big')
+        fp_str_ += '(' + data[offset+4:offset+4+len_].hex() + ')'
         offset += 4 + len_
         if offset > len(data):
             return None, None
@@ -114,7 +114,7 @@ class SSH(Protocol):
 
 
     def get_human_readable(self, fp_str_):
-        fields = [unhexlify(s_[1:]) for s_ in fp_str_.split(b')')[:-1]]
+        fields = [bytes.fromhex(s_[1:]) for s_ in fp_str_.split(')')[:-1]]
 
         fp_h = {}
         fp_h['protocol']         = fields[0].split(b',')

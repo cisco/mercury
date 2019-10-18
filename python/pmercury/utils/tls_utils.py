@@ -9,20 +9,18 @@ import ast
 
 import ujson as json
 
-from binascii import hexlify, unhexlify
-
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from tls_constants import *
 from pmercury_utils import *
 
-grease_ = set([b'0a0a',b'1a1a',b'2a2a',b'3a3a',b'4a4a',b'5a5a',b'6a6a',b'7a7a',
-               b'8a8a',b'9a9a',b'aaaa',b'baba',b'caca',b'dada',b'eaea',b'fafa'])
+grease_ = set(['0a0a','1a1a','2a2a','3a3a','4a4a','5a5a','6a6a','7a7a',
+               '8a8a','9a9a','aaaa','baba','caca','dada','eaea','fafa'])
 
 grease_single_int_ = set([10,26,42,58,74,90,106,122,138,154,170,186,202,218,234,250])
 
-ext_data_extract_ = set([b'0001',b'0005',b'0007',b'0008',b'0009',b'000a',b'000b',
-                         b'000d',b'000f',b'0010',b'0011',b'0013',b'0014',b'0018',
-                         b'001b',b'001c',b'002b',b'002d',b'0032',b'5500'])
+ext_data_extract_ = set(['0001','0005','0007','0008','0009','000a','000b',
+                         '000d','000f','0010','0011','0013','0014','0018',
+                         '001b','001c','002b','002d','0032','5500'])
 ext_data_extract_ = ext_data_extract_.union(grease_)
 
 
@@ -46,7 +44,7 @@ def extract_server_name(data, offset, data_len):
 
 
 def eval_fp_str_general(fp_str_):
-    fp_str_ = '(' + str(fp_str_, 'utf-8') + ')'
+    fp_str_ = '(%s)' % fp_str_
     fp_str_ = fp_str_.replace('(','["').replace(')','"]').replace('][','],[')
     new_str_ = fp_str_.replace('["[','[[').replace(']"]',']]')
     while new_str_ != fp_str_:
@@ -56,7 +54,7 @@ def eval_fp_str_general(fp_str_):
 
 
 def eval_fp_str(fp_str_):
-    fp_str_ = fp_str_.decode()
+    fp_str_ = fp_str_
     t_ = fp_str_.split(')')
     version = t_[0][1:]
     cs      = t_[1][1:]
@@ -155,7 +153,7 @@ def parse_extension(data, offset):
     tmp_ext_value = data[offset:offset+ext_len]
     if tmp_ext_type in ext_data_extract_:
         tmp_ext_value = degrease_ext_data(data, offset, tmp_ext_type, ext_len, tmp_ext_value)
-        fp_ext_ += b'%04x%s' % (ext_len, hexlify(tmp_ext_value))
+        fp_ext_ += '%04x%s' % (ext_len, tmp_ext_value.hex())
     offset += ext_len
 
     return fp_ext_, offset, ext_len
@@ -163,15 +161,15 @@ def parse_extension(data, offset):
 # helper to normalize grease type codes
 def degrease_type_code(data, offset):
     if data[offset] in grease_single_int_ and data[offset] == data[offset+1]:
-        return b'0a0a'
+        return '0a0a'
     else:
-        return hexlify(data[offset:offset+2])
+        return data[offset:offset+2].hex()
 
 
 # helper to normalize grease within supported_groups and supported_versions
 def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
     degreased_ext_value = b''
-    if ext_type == b'000a': # supported_groups
+    if ext_type == '000a': # supported_groups
         degreased_ext_value += data[offset:offset+2]
         for i in range(2,ext_length,2):
             if data[offset+i] in grease_single_int_ and data[offset+i] == data[offset+i+1]:
@@ -326,7 +324,7 @@ def parse_application_layer_protocol_negotiation(data, length):
     while alpn_offset < length*2:
         tmp_alpn_len = int(data[alpn_offset:alpn_offset+2], 16)
         alpn_offset += 2
-        alpn_data.append(unhexlify(data[alpn_offset:alpn_offset+2*tmp_alpn_len]))
+        alpn_data.append(bytes.fromhex(data[alpn_offset:alpn_offset+2*tmp_alpn_len]))
         alpn_offset += tmp_alpn_len*2
 
     return alpn_data

@@ -40,10 +40,10 @@ class HTTP2:
         return http2
 
     def get_human_readable(self, fp_str_):
-        t_ = [str(unhexlify(x[1:]),'utf-8') for x in fp_str_.split(b')')[:-1]]
+        t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]
         fp_h = []
         for i in range(len(t_)):
-            field = t_[i].split(': ',1)
+            field = t_[i].split(b': ',1)
             fp_h.append({field[0]: field[1]})
         return fp_h
 
@@ -132,7 +132,7 @@ class HTTP2:
                 fp_str += b'(' + hexlify(bytes(header,'utf-8')) +\
                           hexlify(b': ') + hexlify(bytes(value,'utf-8')) + b')'
                 msg['headers'].append({header: value})
-            return fp_str
+            return fp_str.decode()
         except:
             msg['status'] = 'failed to parse headers'
             msg['data'] = hexlify(header_data)
