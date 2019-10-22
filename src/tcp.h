@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include "mercury.h"
 
+#pragma pack (1)
 struct tcp_header {
     uint16_t src_port;
     uint16_t dst_port;
@@ -270,10 +271,9 @@ struct tcp_initial_message_filter {
 
 	    fprintf_tcp_hdr_info(stderr, &k, tcp, &state, length, retval);
 
-	}
-
-	if (TCP_IS_FIN(tcp->flags)) {
-	    tcp_flow_table.erase(it);
+	    if (TCP_IS_FIN(tcp->flags)) {
+		tcp_flow_table.erase(it);
+	    }
 	}
 	
 	return retval;
