@@ -136,7 +136,7 @@ namespace std {
   (x & 0x01 ? '1' : '0') 
 
 #define TCP_FLAGS_FORMAT "%c%c%c "
-#define TCP_FLAGS_PRINT(x) (x & 0x02 ? 'S' : ' '), (x & 0x10 ? 'A' : ' ') , (x & 0x01 ? 'F' : ' ') 
+#define TCP_FLAGS_PRINT(x) (x & 0x02 ? 'S' : ' '), (x & 0x10 ? 'A' : ' '), (x & 0x01 ? 'F' : ' '), (x & 0x04 ? 'R' : ' ') 
 
 #define TCP_IS_ACK(flags) ((flags) & 0x10)
 #define TCP_IS_PSH(flags) ((flags) & 0x08)
@@ -223,12 +223,12 @@ struct tcp_initial_message_filter {
 	    if (TCP_IS_SYN(tcp->flags)) {
 		tmp_seq = htonl(ntohl(tcp->seq) + 1); 
 	    }
-	    struct tcp_state state = { tmp_seq,
-				       tcp->ack,
-				       0,         // msg_num
-				       tmp_seq,   // init_seq
-				       tcp->ack,  // init_ack
-				       listening  // disposition
+	    struct tcp_state state = { .seq = tmp_seq,
+				       .ack = tcp->ack,
+				       .msg_num = 0, 
+				       .init_seq = tmp_seq,   
+				       .init_ack = tcp->ack,  
+				       .disposition = listening  
 	    };
 	    tcp_flow_table[k] = state;
 	    retval = ACCEPT_PACKET;
@@ -271,7 +271,7 @@ struct tcp_initial_message_filter {
 
 	    fprintf_tcp_hdr_info(stderr, &k, tcp, &state, length, retval);
 
-	    if (TCP_IS_FIN(tcp->flags)) {
+	    if (TCP_IS_FIN(tcp->flags) || TCP_IS_RST(tcp->flags)) {
 		tcp_flow_table.erase(it);
 	    }
 	}
