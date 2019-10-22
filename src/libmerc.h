@@ -1,7 +1,7 @@
 /*
- * libmerc.h
+ * @file libmerc.h
  * 
- * interface to mercury packet metadata capture and analysis library
+ * @brief interface to mercury packet metadata capture and analysis library
  */
 
 #ifndef LIBMERC_H

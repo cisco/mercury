@@ -1,5 +1,5 @@
 /*
- * ept.h - encoded parse tree for protocol fingerprinting
+ * @file ept.h - encoded parse tree for protocol fingerprinting
  *
  * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include "mercury.h"
 
-/*
+/**
  * Encoded Parse Tree (EPT) 
  * 
  * An Encoded Parse Tree (EPT) is a general and flexible way to
@@ -64,7 +64,7 @@
  */
 
 
-/*
+/**
  * set QUOTED_ASCII to 1 for readable output like "(\"GET\")"; set it
  * to 0 for hex output like "(474554)"
  */
