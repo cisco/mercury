@@ -34,7 +34,6 @@ class Fingerprinter:
         self.group          = group
         self.FLOW_TIMEOUT   = 150
         self.FLOW_UPDATE    = 15
-        self.flow_timer     = None
 
         if output == None:
             self.out_file_pointer = None
@@ -108,12 +107,12 @@ class Fingerprinter:
         def capture(q):
             p = pcap.pcap(iface)
             p.setfilter('ip proto 6 or ip6 proto 6')
-            self.flow_timer = time.time()
+            flow_timer = time.time()
             while 1:
                 p.dispatch(-1, self.process_packet)
 
-                if self.group and time.time()-self.flow_timer > self.FLOW_UPDATE:
-                    self.flow_timer = time.time()
+                if self.group and time.time()-flow_timer > self.FLOW_UPDATE:
+                    flow_timer = time.time()
                     self.write_flows(active=True)
 
                 q.put(p.stats())
@@ -141,12 +140,12 @@ class Fingerprinter:
 
         p = pcap.pcap(iface)
         p.setfilter('ip proto 6 or ip6 proto 6')
-        self.flow_timer = time.time()
+        flow_timer = time.time()
         while 1:
             p.dispatch(-1, self.process_packet)
 
-            if self.group and time.time()-self.flow_timer > self.FLOW_UPDATE:
-                self.flow_timer = time.time()
+            if self.group and time.time()-flow_timer > self.FLOW_UPDATE:
+                flow_timer = time.time()
                 self.write_flows(active=True)
 
             nrecv, ndrop, nifdrop = p.stats()
@@ -157,96 +156,97 @@ class Fingerprinter:
 
 
     def process_packet(self, ts, buf):
-        ip_offset = 14
-
-        high = buf[ip_offset] >> 4
-        protocol = 6 # currently only handling TCP
-        if high == 4:
+        if buf[12] == 0x08 and buf[13] == 0x00: # IPv4
             ip_type = 'ipv4'
-            ip_length = (buf[ip_offset] & 15)*4
-        elif high == 6:
+            ip_length = 20
+            protocol = buf[23]
+        elif buf[12] == 0x86 and buf[13] == 0xdd: # IPv6
             ip_type = 'ipv6'
             ip_length = 40
-        else:
+            protocol = buf[20]
+        else: # currently skip other types
             return -1
 
-        data_len   = len(buf)
-        tcp_offset = ip_offset+ip_length
-        tcp_length = (buf[tcp_offset+12] >> 4)*4
-        app_offset = tcp_offset + tcp_length
+        if protocol == 6:
+            data_len   = len(buf)
+            tcp_offset = 14+ip_length
+            if tcp_offset+20 > data_len:
+                return -1
+            tcp_length = (buf[tcp_offset+12] >> 0x04)*4
+            app_offset = tcp_offset + tcp_length
 
-        fp_str_ = None
-        if buf[tcp_offset+13] == 2:
-            fp_str_, context_ = TCP.fingerprint(buf, tcp_offset, tcp_length)
-            fp_type = 'tcp'
-        elif data_len - app_offset < 16:
-            pass
-        elif (buf[app_offset] == 22 and buf[app_offset+1] == 3 and buf[app_offset+9] == 3):
-            if buf[app_offset+5]  ==  1:
-                fp_str_, context_ = TLS.fingerprint(buf, app_offset, data_len)
-                fp_type = 'tls'
-            if buf[app_offset+5]  ==  2:
-                fp_str_, context_ = TLS_Server.fingerprint(buf, app_offset, data_len)
-                fp_type = 'tls_server'
-        elif buf[app_offset+2] == 84:
-            if (buf[app_offset] == 71 and buf[app_offset+3] == 32):
-                fp_str_, context_ = HTTP.fingerprint(buf, app_offset, data_len)
-                fp_type = 'http'
-            if (buf[app_offset] == 72 and buf[app_offset+5] == 49):
-                fp_str_, context_ = HTTP_Server.fingerprint(buf, app_offset, data_len)
-                fp_type = 'http_server'
-
-
-        if fp_str_ != None:
-            src_port = int.from_bytes(buf[tcp_offset:tcp_offset+2], byteorder='big')
-            dst_port = int.from_bytes(buf[tcp_offset+2:tcp_offset+4], byteorder='big')
-            if ip_type == 'ipv4':
-                o_ = tcp_offset-8
-                src_ip = inet_ntop(AF_INET, buf[o_:o_+4])
-                o_ += 4
-                dst_ip = inet_ntop(AF_INET, buf[o_:o_+4])
-            else:
-                o_ = tcp_offset-32
-                src_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
-                o_ += 16
-                dst_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
-
-            flow = {'src_ip':src_ip,
-                    'dst_ip':dst_ip,
-                    'src_port':src_port,
-                    'dst_port':dst_port,
-                    'protocol':protocol,
-                    'event_start':ts,
-                    'fingerprints':{fp_type: fp_str_}}
-            if context_ != None:
-                if fp_type not in flow:
-                    flow[fp_type] = {}
-                for x_ in context_:
-                    flow[fp_type][x_['name']]  = x_['data']
-            if self.human_readable:
-                desc_ = self.parsers[fp_type].get_human_readable(fp_str_)
-                if desc_ != None:
-                    if 'readable' not in flow:
-                        flow['readable'] = {}
-                    flow['readable'][fp_type] = desc_
-            if self.analyze:
-                proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
-                if proc_info != None:
-                    flow['analysis'] = proc_info
-
-            if self.group:
-                self.update_flow_cache(flow)
-            else:
-                self.write_record(flow)
+            fp_str_ = None
+            if buf[tcp_offset+13] == 2:
+                fp_str_, context_ = TCP.fingerprint(buf, tcp_offset, tcp_length)
+                fp_type = 'tcp'
+            elif data_len - app_offset < 16:
+                pass
+            elif (buf[app_offset] == 22 and buf[app_offset+1] == 3 and buf[app_offset+9] == 3):
+                if buf[app_offset+5]  ==  1:
+                    fp_str_, context_ = TLS.fingerprint(buf, app_offset, data_len)
+                    fp_type = 'tls'
+                elif buf[app_offset+5]  ==  2:
+                    fp_str_, context_ = TLS_Server.fingerprint(buf, app_offset, data_len)
+                    fp_type = 'tls_server'
+            elif buf[app_offset+2] == 84:
+                if (buf[app_offset] == 71 and buf[app_offset+3] == 32):
+                    fp_str_, context_ = HTTP.fingerprint(buf, app_offset, data_len)
+                    fp_type = 'http'
+                elif (buf[app_offset] == 72 and buf[app_offset+5] == 49):
+                    fp_str_, context_ = HTTP_Server.fingerprint(buf, app_offset, data_len)
+                    fp_type = 'http_server'
 
 
-        if self.experimental:
-            for _,fparser_ in self.flow_parsers:
-                ffp_type, ffp_str_, fcontext_ = fparser_.fingerprint(buf, ip_offset, tcp_offset, app_offset,
-                                                                     ip_type, ip_length, data_len)
-                if ffp_str_ != None:
-                    self.process_result(buf, ffp_type, ffp_str_, fcontext_, tcp_offset,
-                                        ip_type, ip_offset, ip_length, protocol, ts)
+            if fp_str_ != None:
+                src_port = int.from_bytes(buf[tcp_offset:tcp_offset+2], byteorder='big')
+                dst_port = int.from_bytes(buf[tcp_offset+2:tcp_offset+4], byteorder='big')
+                if ip_type == 'ipv4':
+                    o_ = tcp_offset-8
+                    src_ip = inet_ntop(AF_INET, buf[o_:o_+4])
+                    o_ += 4
+                    dst_ip = inet_ntop(AF_INET, buf[o_:o_+4])
+                else:
+                    o_ = tcp_offset-32
+                    src_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
+                    o_ += 16
+                    dst_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
+
+                flow = {'src_ip':src_ip,
+                        'dst_ip':dst_ip,
+                        'src_port':src_port,
+                        'dst_port':dst_port,
+                        'protocol':protocol,
+                        'event_start':ts,
+                        'fingerprints':{fp_type: fp_str_}}
+                if context_ != None:
+                    if fp_type not in flow:
+                        flow[fp_type] = {}
+                    for x_ in context_:
+                        flow[fp_type][x_['name']]  = x_['data']
+                if self.human_readable:
+                    desc_ = self.parsers[fp_type].get_human_readable(fp_str_)
+                    if desc_ != None:
+                        if 'readable' not in flow:
+                            flow['readable'] = {}
+                        flow['readable'][fp_type] = desc_
+                if self.analyze:
+                    proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
+                    if proc_info != None:
+                        flow['analysis'] = proc_info
+
+                if self.group:
+                    self.update_flow_cache(flow)
+                else:
+                    self.write_record(flow)
+
+
+            if self.experimental:
+                for _,fparser_ in self.flow_parsers:
+                    ffp_type, ffp_str_, fcontext_ = fparser_.fingerprint(buf, 14, tcp_offset, app_offset,
+                                                                         ip_type, ip_length, data_len)
+                    if ffp_str_ != None:
+                        self.process_result(buf, ffp_type, ffp_str_, fcontext_, tcp_offset,
+                                            ip_type, 14, ip_length, protocol, ts)
 
         return 0
 
