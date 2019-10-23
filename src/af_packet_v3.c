@@ -46,7 +46,7 @@
 int sig_close_flag = 0; /* Watched by the stats tracking thread */
 int sig_close_workers = 0; /* Packet proccessing var */
 
-void sig_close(int signal_arg) {
+static void af_packet_sig_close(int signal_arg) {
   psignal(signal_arg, "\nGracefully shutting down");
 
   sig_close_flag = 1;
@@ -128,6 +128,16 @@ void *stats_thread_func(void *statst_arg) {
   if (err != 0) {
     fprintf(stderr, "%s: error unlocking clean start mutex for stats thread\n", strerror(err));
     exit(255);
+  }
+
+  /**
+   * Catch control-C and other signals and notify other threads to shutdown gracefully
+   */
+  if (signal(SIGINT, af_packet_sig_close) == SIG_ERR) {
+     fprintf(stderr, "   Cannot catch SIGINT\n");     /* Ctl-C causes graceful shutdown */
+  }
+  if (signal(SIGTERM, af_packet_sig_close) == SIG_ERR) {
+      fprintf(stderr, "  Cannot catch SIGTERM\n");
   }
 
   while (sig_close_flag == 0) {
