@@ -20,6 +20,9 @@ from pmercury.protocols.tls import TLS
 from pmercury.protocols.http import HTTP
 from pmercury.protocols.tls_server import TLS_Server
 from pmercury.protocols.http_server import HTTP_Server
+
+from pmercury.protocols.dhcp import DHCP
+
 from pmercury.utils.config_parser import parse_config
 
 
@@ -51,6 +54,8 @@ class Fingerprinter:
         self.parsers['tls_server']  = TLS_Server()
         self.parsers['http']        = HTTP(None, config)
         self.parsers['http_server'] = HTTP_Server(None, config)
+
+        self.parsers['dhcp']        = DHCP(None, config)
 
         self.flow_parsers  = []
         self.experimental = False
@@ -86,7 +91,8 @@ class Fingerprinter:
 
     def process_pcap(self, pcap_file):
         p = pcap.pcap(pcap_file)
-        p.setfilter('ip proto 6 or ip6 proto 6')
+        p.setfilter('ip proto 6 or ip6 proto 6 or ip proto 17 or ip6 proto 17')
+#        p.setfilter('ip proto 6 or ip6 proto 6')
         p.dispatch(-1, self.process_packet)
 
         if self.group:
@@ -139,7 +145,7 @@ class Fingerprinter:
         signal.signal(signal.SIGINT, signal_handler)
 
         p = pcap.pcap(iface)
-        p.setfilter('ip proto 6 or ip6 proto 6')
+        p.setfilter('ip proto 6 or ip6 proto 6 or ip proto 17 or ip6 proto 17')
         flow_timer = time.time()
         while 1:
             p.dispatch(-1, self.process_packet)
@@ -159,17 +165,24 @@ class Fingerprinter:
         if buf[12] == 0x08 and buf[13] == 0x00: # IPv4
             ip_type = 'ipv4'
             ip_length = 20
+            ip_offset = 14
             protocol = buf[23]
         elif buf[12] == 0x86 and buf[13] == 0xdd: # IPv6
             ip_type = 'ipv6'
             ip_length = 40
+            ip_offset = 14
             protocol = buf[20]
+        elif buf[14] == 0x08 and buf[15] == 0x00: # IPv4 (hack for linux cooked capture)
+            ip_type = 'ipv4'
+            ip_length = 20
+            ip_offset = 16
+            protocol = buf[25]
         else: # currently skip other types
             return -1
 
+        data_len = len(buf)
         if protocol == 6:
-            data_len   = len(buf)
-            tcp_offset = 14+ip_length
+            tcp_offset = ip_offset+ip_length
             if tcp_offset+20 > data_len:
                 return -1
             tcp_length = (buf[tcp_offset+12] >> 0x04)*4
@@ -218,7 +231,7 @@ class Fingerprinter:
                         'protocol':protocol,
                         'event_start':ts,
                         'fingerprints':{fp_type: fp_str_}}
-                if context_ != None:
+                if context_ != None and context_ != []:
                     if fp_type not in flow:
                         flow[fp_type] = {}
                     for x_ in context_:
@@ -242,11 +255,69 @@ class Fingerprinter:
 
             if self.experimental:
                 for _,fparser_ in self.flow_parsers:
-                    ffp_type, ffp_str_, fcontext_ = fparser_.fingerprint(buf, 14, tcp_offset, app_offset,
+                    ffp_type, ffp_str_, fcontext_ = fparser_.fingerprint(buf, ip_offset, tcp_offset, app_offset,
                                                                          ip_type, ip_length, data_len)
                     if ffp_str_ != None:
                         self.process_result(buf, ffp_type, ffp_str_, fcontext_, tcp_offset,
-                                            ip_type, 14, ip_length, protocol, ts)
+                                            ip_type, ip_offset, ip_length, protocol, ts)
+
+        elif protocol == 17:
+            udp_offset = ip_offset+ip_length
+            udp_length = 8
+            app_offset = udp_offset + udp_length
+
+            fp_str_ = None
+            if data_len - app_offset < 240:
+                return -1
+            elif (buf[app_offset+236] == 0x63 and 
+                  buf[app_offset+237] == 0x82 and
+                  buf[app_offset+238] == 0x53 and
+                  buf[app_offset+239] == 0x63):
+                fp_str_, context_ = DHCP.fingerprint(buf, app_offset, data_len)
+                fp_type = 'dhcp'
+
+            if fp_str_ != None:
+                src_port = int.from_bytes(buf[udp_offset:udp_offset+2], byteorder='big')
+                dst_port = int.from_bytes(buf[udp_offset+2:udp_offset+4], byteorder='big')
+                if ip_type == 'ipv4':
+                    o_ = udp_offset-8
+                    src_ip = inet_ntop(AF_INET, buf[o_:o_+4])
+                    o_ += 4
+                    dst_ip = inet_ntop(AF_INET, buf[o_:o_+4])
+                else:
+                    o_ = udp_offset-32
+                    src_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
+                    o_ += 16
+                    dst_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
+
+                flow = {'src_ip':src_ip,
+                        'dst_ip':dst_ip,
+                        'src_port':src_port,
+                        'dst_port':dst_port,
+                        'protocol':protocol,
+                        'event_start':ts,
+                        'fingerprints':{fp_type: fp_str_}}
+                if context_ != None and context_ != []:
+                    if fp_type not in flow:
+                        flow[fp_type] = {}
+                    for x_ in context_:
+                        flow[fp_type][x_['name']]  = x_['data']
+                if self.human_readable:
+                    desc_ = self.parsers[fp_type].get_human_readable(fp_str_)
+                    if desc_ != None:
+                        if 'readable' not in flow:
+                            flow['readable'] = {}
+                        flow['readable'][fp_type] = desc_
+                if self.analyze:
+                    proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
+                    if proc_info != None:
+                        flow['analysis'] = proc_info
+
+                if self.group:
+                    self.update_flow_cache(flow)
+                else:
+                    self.write_record(flow)
+
 
         return 0
 
