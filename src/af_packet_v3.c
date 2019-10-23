@@ -51,7 +51,7 @@ int sig_close_workers = 0; /* Packet proccessing var */
 
 double time_elapsed(struct timespec *ts);
 
-void sig_close(int signal_arg) {
+static void af_packet_sig_close(int signal_arg) {
   psignal(signal_arg, "\nGracefully shutting down");
 
   sig_close_flag = 1;
@@ -162,6 +162,16 @@ void *stats_thread_func(void *statst_arg) {
   struct timespec ts;
   double time_d; /* time delta */
   memset(&ts, 0, sizeof(ts));
+  /**
+   * Catch control-C and other signals and notify other threads to shutdown gracefully
+   */
+  if (signal(SIGINT, af_packet_sig_close) == SIG_ERR) {
+     fprintf(stderr, "   Cannot catch SIGINT\n");     /* Ctl-C causes graceful shutdown */
+  }
+  if (signal(SIGTERM, af_packet_sig_close) == SIG_ERR) {
+      fprintf(stderr, "  Cannot catch SIGTERM\n");
+  }
+
   while (sig_close_flag == 0) {
     uint64_t packets_before = statst->received_packets;
     uint64_t bytes_before = statst->received_bytes;
