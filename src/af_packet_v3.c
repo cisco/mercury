@@ -865,6 +865,15 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
     perror("error creating stats thread");
   }
 
+  /**
+   * Block signals now so that all created threads will have signals blocked.
+   */
+  sigset_t signal_set;
+  sigfillset(&signal_set);
+  if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
+      fprintf(stderr, "%s: error by sigprocmask before creating threads\n", strerror(errno));
+  }
+
   for (int thread = 0; thread < num_threads; thread++) {
     pthread_attr_t thread_attributes;
     err = pthread_attr_init(&thread_attributes);
