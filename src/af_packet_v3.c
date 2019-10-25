@@ -43,14 +43,8 @@
  * sig_close_flag and the packet worker threads will watch
  * sig_close_workers.
  */
-int sig_close_flag = 0; /* Watched by the stats tracking thread */
-int sig_close_workers = 0; /* Packet proccessing var */
-
-static void af_packet_sig_close(int signal_arg) {
-  psignal(signal_arg, "\nGracefully shutting down");
-
-  sig_close_flag = 1;
-}
+extern int sig_close_flag; /* Watched by the stats tracking thread, defined in mercury.c */
+static int sig_close_workers = 0; /* Packet proccessing var */
 
 void af_packet_stats(int sockfd, struct stats_tracking *statst) {
   int err;
@@ -131,13 +125,13 @@ void *stats_thread_func(void *statst_arg) {
   }
 
   /**
-   * Catch control-C and other signals and notify other threads to shutdown gracefully
+   * Enable all signals
    */
-  if (signal(SIGINT, af_packet_sig_close) == SIG_ERR) {
-     fprintf(stderr, "   Cannot catch SIGINT\n");     /* Ctl-C causes graceful shutdown */
-  }
-  if (signal(SIGTERM, af_packet_sig_close) == SIG_ERR) {
-      fprintf(stderr, "  Cannot catch SIGTERM\n");
+  sigset_t signal_set;
+  sigfillset(&signal_set);
+  if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL) != 0) {
+      fprintf(stderr, "%s: error by pthread_sigmask unblocking signals for stats thread id = %lu\n", 
+              strerror(errno), pthread_self());
   }
 
   while (sig_close_flag == 0) {
@@ -440,6 +434,17 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
 void *packet_capture_thread_func(void *arg)  {
   struct thread_storage *thread_stor = (struct thread_storage *)arg;
 
+  /**
+   * Block signals
+   */
+  sigset_t signal_set;
+  sigfillset(&signal_set);
+  if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
+      fprintf(stderr, "%s: error by pthread_sigmask blocking signals for thread id = %lu\n", 
+              strerror(errno), pthread_self());
+  }
+
+  /* now process the packets */
   if (af_packet_rx_ring_fanout_capture(thread_stor) < 0) {
     fprintf(stdout, "error: could not perform packet capture\n");
     exit(255);
@@ -587,15 +592,6 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   err = pthread_create(&stats_thread, NULL, stats_thread_func, &statst);
   if (err != 0) {
     perror("error creating stats thread");
-  }
-
-  /**
-   * Block signals now so that all created threads will have signals blocked.
-   */
-  sigset_t signal_set;
-  sigfillset(&signal_set);
-  if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
-      fprintf(stderr, "%s: error by sigprocmask before creating threads\n", strerror(errno));
   }
 
   for (int thread = 0; thread < num_threads; thread++) {
