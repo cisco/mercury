@@ -1827,14 +1827,20 @@ unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol, s
      * tcp/udp headers are 4 * IHL bytes from start of ip headers
      */
     transport_data = (uint8_t *)p->data + (version_ihl << 2);
-    if (parser_skip(p, L_ip_version_ihl + L_ip_tos + L_ip_total_length + L_ip_identification + L_ip_flags_frag_off + L_ip_ttl) == status_err) {
-	return 0;
+    if (parser_skip(p, L_ip_version_ihl + L_ip_tos) == status_err) {
+        return 0;
     }
-
     /*
-     * note: should check ip_total_length field, and trim data from parser if appropriate
+     *  check ip_total_length field, and trim data from parser if appropriate
      */
-    
+    size_t ip_total_length;
+    if (parser_read_and_skip_uint(p, L_ip_total_length, &ip_total_length) == status_err) {
+        return 0;
+    }
+    parser_set_data_length(p, ip_total_length - L_ip_version_ihl + L_ip_tos);
+    if (parser_skip(p, L_ip_total_length + L_ip_identification + L_ip_flags_frag_off + L_ip_ttl) == status_err) {
+        return 0;
+    }
     if (parser_read_and_skip_uint(p, L_ip_protocol, transport_protocol) == status_err) {
 	return 0;
     }
