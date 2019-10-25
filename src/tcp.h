@@ -135,7 +135,7 @@ namespace std {
   (x & 0x02 ? '1' : '0'), \
   (x & 0x01 ? '1' : '0') 
 
-#define TCP_FLAGS_FORMAT "%c%c%c "
+#define TCP_FLAGS_FORMAT "%c%c%c%c "
 #define TCP_FLAGS_PRINT(x) (x & 0x02 ? 'S' : ' '), (x & 0x10 ? 'A' : ' '), (x & 0x01 ? 'F' : ' '), (x & 0x04 ? 'R' : ' ') 
 
 #define TCP_IS_ACK(flags) ((flags) & 0x10)
