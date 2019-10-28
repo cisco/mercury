@@ -17,6 +17,8 @@ ext_modules = [
     Extension("pmercury.protocols.tcp", ["pmercury/protocols/tcp.c"]),
     Extension("pmercury.protocols.tls", ["pmercury/protocols/tls.c"]),
     Extension("pmercury.protocols.tls_server", ["pmercury/protocols/tls_server.c"]),
+    Extension("pmercury.protocols.http", ["pmercury/protocols/http.c"]),
+    Extension("pmercury.protocols.http_server", ["pmercury/protocols/http_server.c"]),
 ]
 
 setuptools.setup(
