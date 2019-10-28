@@ -3,3 +3,8 @@ include ../LICENSE
 include README.md
 include requirements.txt
 include pmercury/utils/packet_proc.c
+include pmercury/utils/tls_utils.c
+include pmercury/protocols/tcp.c
+include pmercury/protocols/tls.c
+include pmercury/protocols/tls_server.c
+

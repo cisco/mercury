@@ -47,6 +47,7 @@ def performance_test(input_file, output_file, fp_db, analyze, human_readable, ex
         loop_time = time.time() - start
         loop_times.append(loop_time)
     print('Average Process Time:\t%0.3fs (+-%0.3fs)' % (numpy.mean(loop_times), numpy.std(loop_times)))
+    fp.close_files()
 
     pcap_size = os.path.getsize(input_file)
     print('Bytes Processed:\t%0.2fM' % (pcap_size/1000000.))

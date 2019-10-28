@@ -1,3 +1,5 @@
+#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
+
 """     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -71,31 +73,28 @@ class TCP(Protocol):
 
 
     @staticmethod
-    def fingerprint(data, offset, data_len):
-        fp_ = '(%s)' % data[offset+14:offset+16].hex()
+    def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):
+        cdef str fp_ = '(%s)' % (buf[offset+14:offset+16].hex())
 
         offset += 20
-        cur_ = 20
+        cdef unsigned int cur_ = 20
+        cdef unsigned int kind
+        cdef unsigned int length
+
         while cur_ < data_len:
-            kind   = data[offset]
+            kind   = buf[offset]
+            length = buf[offset+1]
             if kind == 0 or kind == 1: # End of Options / NOP
                 fp_ += '(%02x)' % kind
                 offset += 1
                 cur_ += 1
-                continue
-
-            length = data[offset+1]
-            if cur_ >= data_len:
-                return None
-            if kind != 2 and kind != 3:
+            elif kind != 2 and kind != 3:
                 fp_ += '(%02x)' % kind
                 offset += length
                 cur_ += length
-                continue
-
-            fp_ += '(%02x%s)' % (kind, data[offset+1:offset+length].hex())
-            offset += length
-            cur_ += length
+            else:
+                fp_ += '(%02x%s)' % (kind, buf[offset+1:offset+length].hex())
+                offset += length
+                cur_ += length
 
         return fp_, None
-

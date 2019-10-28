@@ -1,3 +1,5 @@
+#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
+
 """     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -71,75 +73,71 @@ class TLS(Protocol):
 
 
     @staticmethod
-    def fingerprint(data, offset, data_len):
+    def fingerprint(bytes data, unsigned int offset, unsigned int data_len):
+        cdef unsigned char *buf = data
         offset += 5
 
         # extract handshake version
-        c_ = ['(%s)' % data[offset+4:offset+6].hex()]
+        cdef str fp_ = '(%s)' % data[offset+4:offset+6].hex()
 
         # skip header/client_random
         offset += 38
 
         # parse/skip session_id
-        session_id_length = data[offset]
+        cdef unsigned int session_id_length = buf[offset]
         offset += 1 + session_id_length
         if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites length
-        cipher_suites_length = int.from_bytes(data[offset:offset+2], byteorder='big')
+        cdef unsigned int cipher_suites_length = int.from_bytes(buf[offset:offset+2], byteorder='big')
         offset += 2
         if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites
-        cs0_ = degrease_type_code(data, offset)
-        cs1_ = ''
+        cdef str cs_ = degrease_type_code(data, offset)
         if cipher_suites_length > 2:
-            cs1_ = data[offset+2:offset+cipher_suites_length].hex()
-        c_.append('(%s%s)' % (cs0_, cs1_))
+            cs_ += buf[offset+2:offset+cipher_suites_length].hex()
+        fp_ += '(%s)' % cs_
         offset += cipher_suites_length
         if offset >= data_len:
-            c_.append('()')
-            return ''.join(c_), None
+            return fp_+'()', None
 
         # parse/skip compression method
-        compression_methods_length = data[offset]
+        cdef unsigned int compression_methods_length = buf[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
-            c_.append('()')
-            return ''.join(c_), None
+            return fp_+'()', None
 
         # parse/skip extensions length
-        ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
+        cdef unsigned int ext_total_len = int.from_bytes(buf[offset:offset+2], byteorder='big')
         offset += 2
         if offset >= data_len:
-            c_.append('()')
-            return ''.join(c_), None
+            return fp_+'()', None
 
         # parse/extract/skip extension type/length/values
-        c_.append('(')
+        fp_ += '('
         server_name = None
         while ext_total_len > 0:
             if offset >= data_len:
-                c_.append(')')
-                return ''.join(c_), None
+                return fp_+')', None
 
             # extract server name for process/malware identification
-            if int.from_bytes(data[offset:offset+2], byteorder='big') == 0:
+            if int.from_bytes(buf[offset:offset+2], byteorder='big') == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
-            c_.append('(%s)' % tmp_fp_ext)
+            fp_ += '(%s)' % tmp_fp_ext
 
             ext_total_len -= 4 + ext_len
-        c_.append(')')
+        fp_ += ')'
 
-        context = None
+        cdef list context = None
         if server_name != None:
             context = [{'name':'server_name', 'data':server_name}]
 
-        return  ''.join(c_), context
+        return  fp_, context
 
 
     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):
