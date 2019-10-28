@@ -4,12 +4,14 @@
 """
 
 import setuptools
-
+from distutils.extension import Extension
 
 def readme():
     with open('README.md') as f:
         return f.read()
 
+
+ext_modules = [Extension("pmercury.utils.packet_proc", ["pmercury/utils/packet_proc.c"])]
 
 setuptools.setup(
     name='pmercury',
@@ -46,6 +48,7 @@ setuptools.setup(
                                          '../resources/implementation_date_ext.json.gz',
                                          '../resources/pyasn.db.gz']
     )],
+    ext_modules=ext_modules,
     include_package_data=True,
     zip_safe=False
 )
