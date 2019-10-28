@@ -153,7 +153,6 @@ class TLS(Protocol):
         if fp_str_ not in self.fp_db:
             lit_fp = eval_fp_str(fp_str_)
             approx_str_ = self.find_approx_match(lit_fp)
-            print(approx_str_)
             if approx_str_ == None:
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
