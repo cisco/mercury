@@ -138,8 +138,7 @@ class Fingerprinter:
 
         if fp_str_ != None:
             if context_ != None and context_ != []:
-                if fp_type not in flow:
-                    flow[fp_type] = {}
+                flow[fp_type] = {}
                 for x_ in context_:
                     flow[fp_type][x_['name']]  = x_['data']
 
