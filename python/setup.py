@@ -11,7 +11,13 @@ def readme():
         return f.read()
 
 
-ext_modules = [Extension("pmercury.utils.packet_proc", ["pmercury/utils/packet_proc.c"])]
+ext_modules = [
+    Extension("pmercury.utils.packet_proc", ["pmercury/utils/packet_proc.c"]),
+    Extension("pmercury.utils.tls_utils", ["pmercury/utils/tls_utils.c"]),
+    Extension("pmercury.protocols.tcp", ["pmercury/protocols/tcp.c"]),
+    Extension("pmercury.protocols.tls", ["pmercury/protocols/tls.c"]),
+    Extension("pmercury.protocols.tls_server", ["pmercury/protocols/tls_server.c"]),
+]
 
 setuptools.setup(
     name='pmercury',

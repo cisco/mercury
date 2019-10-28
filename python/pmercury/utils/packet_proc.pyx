@@ -1,4 +1,10 @@
 #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
+#distutils: language=c++
+
+"""     
+ Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
+ License at https://github.com/cisco/mercury/blob/master/LICENSE
+"""
 
 from socket import AF_INET, AF_INET6, inet_ntop, htons
 from cython.operator cimport dereference as deref

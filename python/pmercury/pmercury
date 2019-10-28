@@ -40,6 +40,10 @@ class Fingerprinter:
         self.FLOW_TIMEOUT   = 150
         self.FLOW_UPDATE    = 15
 
+        self.fast_path = True
+        if analyze or human_readable or group or endpoint or experimental:
+            self.fast_path = False
+
         if output == None:
             self.out_file_pointer = None
         else:
@@ -104,7 +108,6 @@ class Fingerprinter:
         if self.endpoint:
             self.endpoint_model.write_all(self.endpoint_file_pointer)
 
-
     def process_capture(self, iface):
         import signal
         def signal_handler(signal, frame):
@@ -132,12 +135,18 @@ class Fingerprinter:
 
     def process_packet(self, ts, buf):
         fp_str_, fp_type, context_, flow = pkt_proc(ts, buf)
+
         if fp_str_ != None:
             if context_ != None and context_ != []:
                 if fp_type not in flow:
                     flow[fp_type] = {}
                 for x_ in context_:
                     flow[fp_type][x_['name']]  = x_['data']
+
+            if self.fast_path:
+                self.write_record(flow)
+                return
+
             if self.human_readable:
                 desc_ = self.parsers[fp_type].get_human_readable(fp_str_)
                 if desc_ != None:
@@ -310,6 +319,7 @@ class Fingerprinter:
     def write_record(self, flow_repr):
         if self.out_file_pointer == None:
             return
+
         if flow_repr != None:
             self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
 
