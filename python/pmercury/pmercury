@@ -25,25 +25,28 @@ from pmercury.protocols.dhcp import DHCP
 
 from pmercury.utils.config_parser import parse_config
 
+from pmercury.utils.packet_proc import *
 
 
 class Fingerprinter:
 
     def __init__(self, database, output=None, analyze=False, num_procs=0,
-                 human_readable=False, group=False, experimental=False, sslkeylog=None):
+                 human_readable=False, group=False, endpoint=False, experimental=False, sslkeylog=None):
         self.analyze        = analyze
         self.num_procs      = num_procs
         self.human_readable = human_readable
         self.group          = group
+        self.endpoint       = endpoint
         self.FLOW_TIMEOUT   = 150
         self.FLOW_UPDATE    = 15
 
         if output == None:
             self.out_file_pointer = None
-        elif output == sys.stdout:
-            self.out_file_pointer = sys.stdout
         else:
             self.out_file_pointer = open(output, 'w', buffering=4096*256)
+
+        if endpoint:
+            self.endpoint_file_pointer = open('endpoint_'+output, 'w', buffering=4096*256)
 
         config = parse_config('../config.txt')
 
@@ -71,6 +74,10 @@ class Fingerprinter:
                 self.parsers['tls_decrypt'] = TLS_Decrypt(sslkeylog)
                 self.flow_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))
 
+        if endpoint == True:
+            from pmercury.utils.endpoint import Endpoint
+            self.endpoint_model = Endpoint()
+
         # data
         self.flow_cache = {}
 
@@ -86,57 +93,19 @@ class Fingerprinter:
             else:
                 self.process_capture(input_file)
 
-        self.out_file_pointer.close()
-
 
     def process_pcap(self, pcap_file):
         p = pcap.pcap(pcap_file)
         p.setfilter('ip proto 6 or ip6 proto 6 or ip proto 17 or ip6 proto 17')
-#        p.setfilter('ip proto 6 or ip6 proto 6')
         p.dispatch(-1, self.process_packet)
 
         if self.group:
             self.write_flows(active=False)
+        if self.endpoint:
+            self.endpoint_model.write_all(self.endpoint_file_pointer)
 
 
     def process_capture(self, iface):
-        import signal
-        def signal_handler(signal, frame):
-            if self.group:
-                self.write_flows(active=False)
-            self.out_file_pointer.close()
-            sys.exit(0)
-        signal.signal(signal.SIGINT, signal_handler)
-
-        from multiprocessing import Process, Queue
-
-        def capture(q):
-            p = pcap.pcap(iface)
-            p.setfilter('ip proto 6 or ip6 proto 6')
-            flow_timer = time.time()
-            while 1:
-                p.dispatch(-1, self.process_packet)
-
-                if self.group and time.time()-flow_timer > self.FLOW_UPDATE:
-                    flow_timer = time.time()
-                    self.write_flows(active=True)
-
-                q.put(p.stats())
-
-            if self.group:
-                self.write_flows(active=False)
-
-        q = Queue()
-        p = Process(target=capture, args=(q,))
-        p.start()
-        while 1:
-            nrecv, ndrop, nifdrop = q.get()
-            sys.stdout.write("\x1b[f\x1b[Jnrecv:   % 12i\nndrop:   % 12i\nnifdrop: % 12i" % (nrecv, ndrop, nifdrop))
-        p.join()
-#            print('nrecv: % 12i, ndrop: % 12i, nifdrop: % 12i' % (nrecv, ndrop, nifdrop))
-
-
-    def process_capture_old(self, iface):
         import signal
         def signal_handler(signal, frame):
             if self.group:
@@ -155,13 +124,44 @@ class Fingerprinter:
                 self.write_flows(active=True)
 
             nrecv, ndrop, nifdrop = p.stats()
-#            print('nrecv: % 12i, ndrop: % 12i, nifdrop: % 12i' % (nrecv, ndrop, nifdrop))
-            sys.stdout.write("\x1b[f\x1b[Jnrecv:   % 12i\nndrop:   % 12i\nnifdrop: % 12i" % (nrecv, ndrop, nifdrop))
+            print('nrecv: % 12i, ndrop: % 12i, nifdrop: % 12i' % (nrecv, ndrop, nifdrop))
+#            sys.stdout.write("\x1b[f\x1b[Jnrecv:   % 12i\nndrop:   % 12i\nnifdrop: % 12i" % (nrecv, ndrop, nifdrop))
         if self.group:
             self.write_flows(active=False)
 
 
     def process_packet(self, ts, buf):
+        fp_str_, fp_type, context_, flow = pkt_proc(ts, buf)
+        if fp_str_ != None:
+            if context_ != None and context_ != []:
+                if fp_type not in flow:
+                    flow[fp_type] = {}
+                for x_ in context_:
+                    flow[fp_type][x_['name']]  = x_['data']
+            if self.human_readable:
+                desc_ = self.parsers[fp_type].get_human_readable(fp_str_)
+                if desc_ != None:
+                    if 'readable' not in flow:
+                        flow['readable'] = {}
+                    flow['readable'][fp_type] = desc_
+            if self.analyze:
+                proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
+                if proc_info != None:
+                    flow['analysis'] = proc_info
+
+            if self.group:
+                self.update_flow_cache(flow)
+            else:
+                self.write_record(flow)
+
+            if self.endpoint:
+                self.endpoint_model.update(flow)
+
+        if self.experimental:
+            self.process_packet_flow(ts, buf)
+
+
+    def process_packet_flow(self, ts, buf):
         if buf[12] == 0x08 and buf[13] == 0x00: # IPv4
             ip_type = 'ipv4'
             ip_length = 20
@@ -188,71 +188,6 @@ class Fingerprinter:
             tcp_length = (buf[tcp_offset+12] >> 0x04)*4
             app_offset = tcp_offset + tcp_length
 
-            fp_str_ = None
-            if buf[tcp_offset+13] == 2:
-                fp_str_, context_ = TCP.fingerprint(buf, tcp_offset, tcp_length)
-                fp_type = 'tcp'
-            elif data_len - app_offset < 16:
-                pass
-            elif (buf[app_offset] == 22 and buf[app_offset+1] == 3 and buf[app_offset+9] == 3):
-                if buf[app_offset+5]  ==  1:
-                    fp_str_, context_ = TLS.fingerprint(buf, app_offset, data_len)
-                    fp_type = 'tls'
-                elif buf[app_offset+5]  ==  2:
-                    fp_str_, context_ = TLS_Server.fingerprint(buf, app_offset, data_len)
-                    fp_type = 'tls_server'
-            elif buf[app_offset+2] == 84:
-                if (buf[app_offset] == 71 and buf[app_offset+3] == 32):
-                    fp_str_, context_ = HTTP.fingerprint(buf, app_offset, data_len)
-                    fp_type = 'http'
-                elif (buf[app_offset] == 72 and buf[app_offset+5] == 49):
-                    fp_str_, context_ = HTTP_Server.fingerprint(buf, app_offset, data_len)
-                    fp_type = 'http_server'
-
-
-            if fp_str_ != None:
-                src_port = int.from_bytes(buf[tcp_offset:tcp_offset+2], byteorder='big')
-                dst_port = int.from_bytes(buf[tcp_offset+2:tcp_offset+4], byteorder='big')
-                if ip_type == 'ipv4':
-                    o_ = tcp_offset-8
-                    src_ip = inet_ntop(AF_INET, buf[o_:o_+4])
-                    o_ += 4
-                    dst_ip = inet_ntop(AF_INET, buf[o_:o_+4])
-                else:
-                    o_ = tcp_offset-32
-                    src_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
-                    o_ += 16
-                    dst_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
-
-                flow = {'src_ip':src_ip,
-                        'dst_ip':dst_ip,
-                        'src_port':src_port,
-                        'dst_port':dst_port,
-                        'protocol':protocol,
-                        'event_start':ts,
-                        'fingerprints':{fp_type: fp_str_}}
-                if context_ != None and context_ != []:
-                    if fp_type not in flow:
-                        flow[fp_type] = {}
-                    for x_ in context_:
-                        flow[fp_type][x_['name']]  = x_['data']
-                if self.human_readable:
-                    desc_ = self.parsers[fp_type].get_human_readable(fp_str_)
-                    if desc_ != None:
-                        if 'readable' not in flow:
-                            flow['readable'] = {}
-                        flow['readable'][fp_type] = desc_
-                if self.analyze:
-                    proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
-                    if proc_info != None:
-                        flow['analysis'] = proc_info
-
-                if self.group:
-                    self.update_flow_cache(flow)
-                else:
-                    self.write_record(flow)
-
-
             if self.experimental:
                 for _,fparser_ in self.flow_parsers:
                     ffp_type, ffp_str_, fcontext_ = fparser_.fingerprint(buf, ip_offset, tcp_offset, app_offset,
@@ -260,66 +195,6 @@ class Fingerprinter:
                     if ffp_str_ != None:
                         self.process_result(buf, ffp_type, ffp_str_, fcontext_, tcp_offset,
                                             ip_type, ip_offset, ip_length, protocol, ts)
-
-        elif protocol == 17:
-            udp_offset = ip_offset+ip_length
-            udp_length = 8
-            app_offset = udp_offset + udp_length
-
-            fp_str_ = None
-            if data_len - app_offset < 240:
-                return -1
-            elif (buf[app_offset+236] == 0x63 and 
-                  buf[app_offset+237] == 0x82 and
-                  buf[app_offset+238] == 0x53 and
-                  buf[app_offset+239] == 0x63):
-                fp_str_, context_ = DHCP.fingerprint(buf, app_offset, data_len)
-                fp_type = 'dhcp'
-
-            if fp_str_ != None:
-                src_port = int.from_bytes(buf[udp_offset:udp_offset+2], byteorder='big')
-                dst_port = int.from_bytes(buf[udp_offset+2:udp_offset+4], byteorder='big')
-                if ip_type == 'ipv4':
-                    o_ = udp_offset-8
-                    src_ip = inet_ntop(AF_INET, buf[o_:o_+4])
-                    o_ += 4
-                    dst_ip = inet_ntop(AF_INET, buf[o_:o_+4])
-                else:
-                    o_ = udp_offset-32
-                    src_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
-                    o_ += 16
-                    dst_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
-
-                flow = {'src_ip':src_ip,
-                        'dst_ip':dst_ip,
-                        'src_port':src_port,
-                        'dst_port':dst_port,
-                        'protocol':protocol,
-                        'event_start':ts,
-                        'fingerprints':{fp_type: fp_str_}}
-                if context_ != None and context_ != []:
-                    if fp_type not in flow:
-                        flow[fp_type] = {}
-                    for x_ in context_:
-                        flow[fp_type][x_['name']]  = x_['data']
-                if self.human_readable:
-                    desc_ = self.parsers[fp_type].get_human_readable(fp_str_)
-                    if desc_ != None:
-                        if 'readable' not in flow:
-                            flow['readable'] = {}
-                        flow['readable'][fp_type] = desc_
-                if self.analyze:
-                    proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
-                    if proc_info != None:
-                        flow['analysis'] = proc_info
-
-                if self.group:
-                    self.update_flow_cache(flow)
-                else:
-                    self.write_record(flow)
-
-
-        return 0
 
 
     def process_result(self, buf, fp_type, fp_str_, context_, tcp_offset, ip_type, ip_offset, ip_length, protocol, ts):
@@ -452,6 +327,12 @@ class Fingerprinter:
             del self.flow_cache[k]
 
 
+    def close_files(self):
+        if self.out_file_pointer != None:
+            self.out_file_pointer.close()
+        if self.endpoint and self.endpoint_file_pointer != None:
+            self.endpoint_file_pointer.close()
+
 
 def main():
     start = time.time()
@@ -465,14 +346,16 @@ def main():
     parser.add_option('-d','--fp_db',action='store',dest='fp_db',
                       help='location of fingerprint database',default='resources/fingerprint_db.json.gz')
     parser.add_option('-f','--fingerprint',action='store',dest='output',
-                      help='write fingerprints to file',default=sys.stdout)
+                      help='write fingerprints to file',default=None)
     parser.add_option('-l','--lookup',action='store',dest='lookup',
                       help='lookup fingerprint string <fp_str>',default=None)
     parser.add_option('-a','--analysis',action='store_true',dest='analyze',
                       help='perform process identification',default=False)
     parser.add_option('-w','--human-readable',action='store_true',dest='human_readable',
                       help='return human readable fingerprint information',default=False)
-    parser.add_option('-e','--experimental',action='store_true',dest='experimental',
+    parser.add_option('-e','--endpoint',action='store_true',dest='endpoint',
+                      help='enable endpoint modeling',default=False)
+    parser.add_option('-x','--experimental',action='store_true',dest='experimental',
                       help='turns on all experimental features',default=False)
     parser.add_option('-g','--group-flows',action='store_true',dest='group',
                       help='aggregate packet-based fingerprints to flow-based',default=False)
@@ -492,9 +375,13 @@ def main():
     if options.capture_interface != None:
         input_files.append(options.capture_interface)
 
-    fingerprinter = Fingerprinter(options.fp_db, options.output, options.analyze,
+    output = options.output
+    if output == None:
+        output = input_files[0].split('/')[-1]+'.json'
+
+    fingerprinter = Fingerprinter(options.fp_db, output, options.analyze,
                                   options.num_procs, options.human_readable, options.group,
-                                  options.experimental, options.sslkeylog)
+                                  options.endpoint, options.experimental, options.sslkeylog)
 
     if options.lookup != None:
         fingerprinter.lookup_fingerprint_string(options.lookup)
