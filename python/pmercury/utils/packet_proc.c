@@ -1706,7 +1706,7 @@ static PyObject *__pyx_pf_8pmercury_5utils_11packet_proc_pkt_proc(CYTHON_UNUSED 
  *         prot_length = (buf[prot_offset+12] >> 0x04)*4
  *         app_offset = prot_offset + prot_length             # <<<<<<<<<<<<<<
  *         if buf[prot_offset+13] == 2:
- *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, prot_length)
+ *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, app_offset)
  */
     __pyx_v_app_offset = (__pyx_v_prot_offset + __pyx_v_prot_length);
 
@@ -1714,7 +1714,7 @@ static PyObject *__pyx_pf_8pmercury_5utils_11packet_proc_pkt_proc(CYTHON_UNUSED 
  *         prot_length = (buf[prot_offset+12] >> 0x04)*4
  *         app_offset = prot_offset + prot_length
  *         if buf[prot_offset+13] == 2:             # <<<<<<<<<<<<<<
- *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, prot_length)
+ *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, app_offset)
  *             fp_type = 'tcp'
  */
     __pyx_t_2 = (((__pyx_v_buf[(__pyx_v_prot_offset + 13)]) == 2) != 0);
@@ -1723,7 +1723,7 @@ static PyObject *__pyx_pf_8pmercury_5utils_11packet_proc_pkt_proc(CYTHON_UNUSED 
       /* "pmercury/utils/packet_proc.pyx":62
  *         app_offset = prot_offset + prot_length
  *         if buf[prot_offset+13] == 2:
- *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, prot_length)             # <<<<<<<<<<<<<<
+ *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, app_offset)             # <<<<<<<<<<<<<<
  *             fp_type = 'tcp'
  *         elif data_len - app_offset < 16:
  */
@@ -1734,7 +1734,7 @@ static PyObject *__pyx_pf_8pmercury_5utils_11packet_proc_pkt_proc(CYTHON_UNUSED 
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_6 = __Pyx_PyInt_From_uint16_t(__pyx_v_prot_offset); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 62, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_8 = __Pyx_PyInt_From_uint16_t(__pyx_v_prot_length); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 62, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyInt_From_uint16_t(__pyx_v_app_offset); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 62, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __pyx_t_9 = NULL;
       __pyx_t_10 = 0;
@@ -1843,7 +1843,7 @@ static PyObject *__pyx_pf_8pmercury_5utils_11packet_proc_pkt_proc(CYTHON_UNUSED 
 
       /* "pmercury/utils/packet_proc.pyx":63
  *         if buf[prot_offset+13] == 2:
- *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, prot_length)
+ *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, app_offset)
  *             fp_type = 'tcp'             # <<<<<<<<<<<<<<
  *         elif data_len - app_offset < 16:
  *             return None
@@ -1855,14 +1855,14 @@ static PyObject *__pyx_pf_8pmercury_5utils_11packet_proc_pkt_proc(CYTHON_UNUSED 
  *         prot_length = (buf[prot_offset+12] >> 0x04)*4
  *         app_offset = prot_offset + prot_length
  *         if buf[prot_offset+13] == 2:             # <<<<<<<<<<<<<<
- *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, prot_length)
+ *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, app_offset)
  *             fp_type = 'tcp'
  */
       goto __pyx_L11;
     }
 
     /* "pmercury/utils/packet_proc.pyx":64
- *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, prot_length)
+ *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, app_offset)
  *             fp_type = 'tcp'
  *         elif data_len - app_offset < 16:             # <<<<<<<<<<<<<<
  *             return None
@@ -1883,7 +1883,7 @@ static PyObject *__pyx_pf_8pmercury_5utils_11packet_proc_pkt_proc(CYTHON_UNUSED 
       goto __pyx_L0;
 
       /* "pmercury/utils/packet_proc.pyx":64
- *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, prot_length)
+ *             fp_str_, context_ = TCP.fingerprint(data, prot_offset, app_offset)
  *             fp_type = 'tcp'
  *         elif data_len - app_offset < 16:             # <<<<<<<<<<<<<<
  *             return None

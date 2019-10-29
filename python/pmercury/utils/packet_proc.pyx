@@ -59,7 +59,7 @@ def pkt_proc(double ts, bytes data):
         prot_length = (buf[prot_offset+12] >> 0x04)*4
         app_offset = prot_offset + prot_length
         if buf[prot_offset+13] == 2:
-            fp_str_, context_ = TCP.fingerprint(data, prot_offset, prot_length)
+            fp_str_, context_ = TCP.fingerprint(data, prot_offset, app_offset)
             fp_type = 'tcp'
         elif data_len - app_offset < 16:
             return None
