@@ -14,6 +14,12 @@ from pmercury.utils.tls_utils import *
 from pmercury.utils.tls_constants import *
 from pmercury.protocols.protocol import Protocol
 
+from cython.operator cimport dereference as deref
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+cdef extern from "arpa/inet.h":
+    uint16_t htons(uint16_t hostshort)
+
+
 MAX_CACHED_RESULTS = 2**24
 
 
@@ -44,7 +50,7 @@ class TLS_Server(Protocol):
         offset += 5
 
         # extract handshake version
-        cdef str fp_ = '(%s)' % buf[offset+4:offset+6].hex()
+        cdef str fp_ = f'({buf[offset+4]:02x}{buf[offset+5]:02x})'
 
         # skip header/server_random
         offset += 38
@@ -56,7 +62,7 @@ class TLS_Server(Protocol):
             return None, None
 
         # parse selected_cipher_suite
-        fp_ += '(%s)' % buf[offset:offset+2].hex()
+        fp_ += f'({buf[offset]:02x}{buf[offset+1]:02x})'
         offset += 2
         if offset >= data_len:
             return fp_+'()', None
@@ -68,7 +74,7 @@ class TLS_Server(Protocol):
             return fp_+'()', None
 
         # parse/skip extensions length
-        cdef unsigned int ext_total_len = int.from_bytes(buf[offset:offset+2], 'big')
+        cdef unsigned int ext_total_len = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
             return fp_+'()', None
