@@ -28,6 +28,11 @@ from pmercury.utils.config_parser import parse_config
 from pmercury.utils.packet_proc import *
 
 
+def noop(ts, buf):
+    fp_str_, fp_type, context_, flow = pkt_proc(ts, buf)
+    if fp_str_ != None:
+        return
+
 class Fingerprinter:
 
     def __init__(self, database, output=None, analyze=False, num_procs=0,
@@ -101,6 +106,7 @@ class Fingerprinter:
     def process_pcap(self, pcap_file):
         p = pcap.pcap(pcap_file)
         p.setfilter('ip proto 6 or ip6 proto 6 or ip proto 17 or ip6 proto 17')
+#        p.dispatch(-1, noop)
         p.dispatch(-1, self.process_packet)
 
         if self.group:
@@ -134,26 +140,26 @@ class Fingerprinter:
 
 
     def process_packet(self, ts, buf):
-        fp_str_, fp_type, context_, flow = pkt_proc(ts, buf)
+        flow = pkt_proc(ts, buf)
 
-        if fp_str_ != None:
-            if context_ != None and context_ != []:
-                flow[fp_type] = {}
-                for x_ in context_:
-                    flow[fp_type][x_['name']]  = x_['data']
-
+        if flow != None:
             if self.fast_path:
                 self.write_record(flow)
                 return
 
+            fp_type = next(iter(flow['fingerprints']))
             if self.human_readable:
-                desc_ = self.parsers[fp_type].get_human_readable(fp_str_)
+                desc_ = self.parsers[fp_type].get_human_readable(flow['fingerprints'][fp_type])
                 if desc_ != None:
                     if 'readable' not in flow:
                         flow['readable'] = {}
                     flow['readable'][fp_type] = desc_
             if self.analyze:
-                proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, flow['dst_ip'], flow['dst_port'], self.num_procs)
+                context = None
+                if fp_type in flow:
+                    context = flow[fp_type]
+                proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context,
+                                                                flow['dst_ip'], flow['dst_port'], self.num_procs)
                 if proc_info != None:
                     flow['analysis'] = proc_info
 

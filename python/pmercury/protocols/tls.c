@@ -3,6 +3,7 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
+        "depends": [],
         "name": "pmercury.protocols.tls",
         "sources": [
             "/home/blake/Cisco/network-intelligence/mercury-transition/python/pmercury/protocols/tls.pyx"
@@ -605,6 +606,7 @@ static CYTHON_INLINE float __PYX_NAN() {
 #define __PYX_HAVE__pmercury__protocols__tls
 #define __PYX_HAVE_API__pmercury__protocols__tls
 /* Early includes */
+#include <math.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -814,9 +816,28 @@ static const char *__pyx_filename;
 
 static const char *__pyx_f[] = {
   "tls.pyx",
+  "stringsource",
 };
 
 /*--- Type declarations ---*/
+struct __pyx_obj_8pmercury_9protocols_3tls_TLS;
+
+/* "pmercury/protocols/tls.pyx":29
+ * 
+ * 
+ * cdef class TLS():             # <<<<<<<<<<<<<<
+ *     cdef dict tls_params_db
+ *     cdef bint MALWARE_DB
+ */
+struct __pyx_obj_8pmercury_9protocols_3tls_TLS {
+  PyObject_HEAD
+  PyObject *tls_params_db;
+  int MALWARE_DB;
+  PyObject *fp_db;
+  PyObject *app_families;
+  PyObject *aligner;
+};
+
 
 /* --- Runtime support code (head) --- */
 /* Refnanny.proto */
@@ -903,15 +924,6 @@ static int __Pyx_ParseOptionalKeywords(PyObject *kwds, PyObject **argnames[],\
 /* RaiseArgTupleInvalid.proto */
 static void __Pyx_RaiseArgtupleInvalid(const char* func_name, int exact,
     Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found);
-
-/* PyObjectSetAttrStr.proto */
-#if CYTHON_USE_TYPE_SLOTS
-#define __Pyx_PyObject_DelAttrStr(o,n) __Pyx_PyObject_SetAttrStr(o, n, NULL)
-static CYTHON_INLINE int __Pyx_PyObject_SetAttrStr(PyObject* obj, PyObject* attr_name, PyObject* value);
-#else
-#define __Pyx_PyObject_DelAttrStr(o,n)   PyObject_DelAttr(o,n)
-#define __Pyx_PyObject_SetAttrStr(o,n,v) PyObject_SetAttr(o,n,v)
-#endif
 
 /* IncludeStringH.proto */
 #include <string.h>
@@ -1046,6 +1058,12 @@ static PyObject *__Pyx_GetItemInt_Generic(PyObject *o, PyObject* j);
 static CYTHON_INLINE PyObject *__Pyx_GetItemInt_Fast(PyObject *o, Py_ssize_t i,
                                                      int is_list, int wraparound, int boundscheck);
 
+/* ArgTypeTest.proto */
+#define __Pyx_ArgTypeTest(obj, type, none_allowed, name, exact)\
+    ((likely((Py_TYPE(obj) == type) | (none_allowed && (obj == Py_None)))) ? 1 :\
+        __Pyx__ArgTypeTest(obj, type, name, exact))
+static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact);
+
 /* DictGetItem.proto */
 #if PY_MAJOR_VERSION >= 3 && !CYTHON_COMPILING_IN_PYPY
 static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key);
@@ -1060,13 +1078,6 @@ static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key);
 /* None.proto */
 static CYTHON_INLINE void __Pyx_RaiseUnboundLocalError(const char *varname);
 
-/* ObjectGetItem.proto */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PyObject *__Pyx_PyObject_GetItem(PyObject *obj, PyObject* key);
-#else
-#define __Pyx_PyObject_GetItem(obj, key)  PyObject_GetItem(obj, key)
-#endif
-
 /* PySequenceContains.proto */
 static CYTHON_INLINE int __Pyx_PySequence_ContainsTF(PyObject* item, PyObject* seq, int eq) {
     int result = PySequence_Contains(seq, item);
@@ -1076,6 +1087,13 @@ static CYTHON_INLINE int __Pyx_PySequence_ContainsTF(PyObject* item, PyObject* s
 /* PyIntCompare.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyInt_EqObjC(PyObject *op1, PyObject *op2, long intval, long inplace);
 
+/* ObjectGetItem.proto */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PyObject *__Pyx_PyObject_GetItem(PyObject *obj, PyObject* key);
+#else
+#define __Pyx_PyObject_GetItem(obj, key)  PyObject_GetItem(obj, key)
+#endif
+
 /* PyIntBinop.proto */
 #if !CYTHON_COMPILING_IN_PYPY
 static PyObject* __Pyx_PyInt_AddObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check);
@@ -1083,12 +1101,6 @@ static PyObject* __Pyx_PyInt_AddObjC(PyObject *op1, PyObject *op2, long intval, 
 #define __Pyx_PyInt_AddObjC(op1, op2, intval, inplace, zerodivision_check)\
     (inplace ? PyNumber_InPlaceAdd(op1, op2) : PyNumber_Add(op1, op2))
 #endif
-
-/* ArgTypeTest.proto */
-#define __Pyx_ArgTypeTest(obj, type, none_allowed, name, exact)\
-    ((likely((Py_TYPE(obj) == type) | (none_allowed && (obj == Py_None)))) ? 1 :\
-        __Pyx__ArgTypeTest(obj, type, name, exact))
-static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact);
 
 /* RaiseTooManyValuesToUnpack.proto */
 static CYTHON_INLINE void __Pyx_RaiseTooManyValuesError(Py_ssize_t expected);
@@ -1109,6 +1121,12 @@ static PyObject* __Pyx_PyInt_AddCObj(PyObject *op1, PyObject *op2, long intval, 
 #define __Pyx_PyInt_AddCObj(op1, op2, intval, inplace, zerodivision_check)\
     (inplace ? PyNumber_InPlaceAdd(op1, op2) : PyNumber_Add(op1, op2))
 #endif
+
+/* PyDictContains.proto */
+static CYTHON_INLINE int __Pyx_PyDict_ContainsTF(PyObject* item, PyObject* dict, int eq) {
+    int result = PyDict_Contains(dict, item);
+    return unlikely(result < 0) ? result : (result == (eq == Py_EQ));
+}
 
 /* ListCompAppend.proto */
 #if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
@@ -1291,92 +1309,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyTuple_GetSlice(PyObject* src, Py_ssize_t 
 #define __Pyx_PyTuple_GetSlice(seq, start, stop)  PySequence_GetSlice(seq, start, stop)
 #endif
 
-/* Import.proto */
-static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level);
-
-/* ImportFrom.proto */
-static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name);
-
-/* append.proto */
-static CYTHON_INLINE int __Pyx_PyObject_Append(PyObject* L, PyObject* x);
-
-/* CalculateMetaclass.proto */
-static PyObject *__Pyx_CalculateMetaclass(PyTypeObject *metaclass, PyObject *bases);
-
-/* FetchCommonType.proto */
-static PyTypeObject* __Pyx_FetchCommonType(PyTypeObject* type);
-
-/* CythonFunction.proto */
-#define __Pyx_CyFunction_USED 1
-#define __Pyx_CYFUNCTION_STATICMETHOD  0x01
-#define __Pyx_CYFUNCTION_CLASSMETHOD   0x02
-#define __Pyx_CYFUNCTION_CCLASS        0x04
-#define __Pyx_CyFunction_GetClosure(f)\
-    (((__pyx_CyFunctionObject *) (f))->func_closure)
-#define __Pyx_CyFunction_GetClassObj(f)\
-    (((__pyx_CyFunctionObject *) (f))->func_classobj)
-#define __Pyx_CyFunction_Defaults(type, f)\
-    ((type *)(((__pyx_CyFunctionObject *) (f))->defaults))
-#define __Pyx_CyFunction_SetDefaultsGetter(f, g)\
-    ((__pyx_CyFunctionObject *) (f))->defaults_getter = (g)
-typedef struct {
-    PyCFunctionObject func;
-#if PY_VERSION_HEX < 0x030500A0
-    PyObject *func_weakreflist;
-#endif
-    PyObject *func_dict;
-    PyObject *func_name;
-    PyObject *func_qualname;
-    PyObject *func_doc;
-    PyObject *func_globals;
-    PyObject *func_code;
-    PyObject *func_closure;
-    PyObject *func_classobj;
-    void *defaults;
-    int defaults_pyobjects;
-    int flags;
-    PyObject *defaults_tuple;
-    PyObject *defaults_kwdict;
-    PyObject *(*defaults_getter)(PyObject *);
-    PyObject *func_annotations;
-} __pyx_CyFunctionObject;
-static PyTypeObject *__pyx_CyFunctionType = 0;
-#define __Pyx_CyFunction_Check(obj)  (__Pyx_TypeCheck(obj, __pyx_CyFunctionType))
-#define __Pyx_CyFunction_NewEx(ml, flags, qualname, self, module, globals, code)\
-    __Pyx_CyFunction_New(__pyx_CyFunctionType, ml, flags, qualname, self, module, globals, code)
-static PyObject *__Pyx_CyFunction_New(PyTypeObject *, PyMethodDef *ml,
-                                      int flags, PyObject* qualname,
-                                      PyObject *self,
-                                      PyObject *module, PyObject *globals,
-                                      PyObject* code);
-static CYTHON_INLINE void *__Pyx_CyFunction_InitDefaults(PyObject *m,
-                                                         size_t size,
-                                                         int pyobjects);
-static CYTHON_INLINE void __Pyx_CyFunction_SetDefaultsTuple(PyObject *m,
-                                                            PyObject *tuple);
-static CYTHON_INLINE void __Pyx_CyFunction_SetDefaultsKwDict(PyObject *m,
-                                                             PyObject *dict);
-static CYTHON_INLINE void __Pyx_CyFunction_SetAnnotationsDict(PyObject *m,
-                                                              PyObject *dict);
-static int __pyx_CyFunction_init(void);
-
-/* SetNameInClass.proto */
-#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030500A1
-#define __Pyx_SetNameInClass(ns, name, value)\
-    (likely(PyDict_CheckExact(ns)) ? _PyDict_SetItem_KnownHash(ns, name, value, ((PyASCIIObject *) name)->hash) : PyObject_SetItem(ns, name, value))
-#elif CYTHON_COMPILING_IN_CPYTHON
-#define __Pyx_SetNameInClass(ns, name, value)\
-    (likely(PyDict_CheckExact(ns)) ? PyDict_SetItem(ns, name, value) : PyObject_SetItem(ns, name, value))
-#else
-#define __Pyx_SetNameInClass(ns, name, value)  PyObject_SetItem(ns, name, value)
-#endif
-
-/* Py3ClassCreate.proto */
-static PyObject *__Pyx_Py3MetaclassPrepare(PyObject *metaclass, PyObject *bases, PyObject *name, PyObject *qualname,
-                                           PyObject *mkw, PyObject *modname, PyObject *doc);
-static PyObject *__Pyx_Py3ClassCreate(PyObject *metaclass, PyObject *name, PyObject *bases, PyObject *dict,
-                                      PyObject *mkw, int calculate_metaclass, int allow_py2_metaclass);
-
 /* PyErrFetchRestore.proto */
 #if CYTHON_FAST_THREAD_STATE
 #define __Pyx_PyErr_Clear() __Pyx_ErrRestore(NULL, NULL, NULL)
@@ -1401,6 +1333,48 @@ static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject 
 #define __Pyx_ErrRestore(type, value, tb)  PyErr_Restore(type, value, tb)
 #define __Pyx_ErrFetch(type, value, tb)  PyErr_Fetch(type, value, tb)
 #endif
+
+/* GetAttr.proto */
+static CYTHON_INLINE PyObject *__Pyx_GetAttr(PyObject *, PyObject *);
+
+/* GetAttr3.proto */
+static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *, PyObject *, PyObject *);
+
+/* Import.proto */
+static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level);
+
+/* ImportFrom.proto */
+static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name);
+
+/* RaiseException.proto */
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause);
+
+/* HasAttr.proto */
+static CYTHON_INLINE int __Pyx_HasAttr(PyObject *, PyObject *);
+
+/* PyObject_GenericGetAttrNoDict.proto */
+#if CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP && PY_VERSION_HEX < 0x03070000
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GenericGetAttrNoDict(PyObject* obj, PyObject* attr_name);
+#else
+#define __Pyx_PyObject_GenericGetAttrNoDict PyObject_GenericGetAttr
+#endif
+
+/* PyObject_GenericGetAttr.proto */
+#if CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP && PY_VERSION_HEX < 0x03070000
+static PyObject* __Pyx_PyObject_GenericGetAttr(PyObject* obj, PyObject* attr_name);
+#else
+#define __Pyx_PyObject_GenericGetAttr PyObject_GenericGetAttr
+#endif
+
+/* SetupReduce.proto */
+static int __Pyx_setup_reduce(PyObject* type_obj);
+
+/* append.proto */
+static CYTHON_INLINE int __Pyx_PyObject_Append(PyObject* L, PyObject* x);
+
+/* GetNameInClass.proto */
+#define __Pyx_GetNameInClass(var, nmspace, name)  (var) = __Pyx__GetNameInClass(nmspace, name)
+static PyObject *__Pyx__GetNameInClass(PyObject *nmspace, PyObject *name);
 
 /* CLineInTraceback.proto */
 #ifdef CYTHON_CLINE_IN_TRACEBACK
@@ -1466,7 +1440,11 @@ static int __Pyx_check_binary_version(void);
 static int __Pyx_InitStrings(__Pyx_StringTabEntry *t);
 
 
+/* Module declarations from 'libc.math' */
+
 /* Module declarations from 'pmercury.protocols.tls' */
+static PyTypeObject *__pyx_ptype_8pmercury_9protocols_3tls_TLS = 0;
+static PyObject *__pyx_f_8pmercury_9protocols_3tls___pyx_unpickle_TLS__set_state(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *, PyObject *); /*proto*/
 #define __Pyx_MODULE_NAME "pmercury.protocols.tls"
 extern int __pyx_module_is_main_pmercury__protocols__tls;
 int __pyx_module_is_main_pmercury__protocols__tls = 0;
@@ -1479,12 +1457,9 @@ static PyObject *__pyx_builtin_sorted;
 static PyObject *__pyx_builtin_sum;
 static PyObject *__pyx_builtin_KeyError;
 static const char __pyx_k_[] = ",";
-static const char __pyx_k_i[] = "i";
-static const char __pyx_k_k[] = "k";
 static const char __pyx_k_p[] = "p_";
 static const char __pyx_k_r[] = "r";
 static const char __pyx_k_s[] = "(%s)";
-static const char __pyx_k_x[] = "x_";
 static const char __pyx_k__3[] = "()";
 static const char __pyx_k__4[] = "(";
 static const char __pyx_k__5[] = ")";
@@ -1493,52 +1468,31 @@ static const char __pyx_k__7[] = "*";
 static const char __pyx_k_cs[] = "cs_";
 static const char __pyx_k_fp[] = "fp_";
 static const char __pyx_k_os[] = "os";
-static const char __pyx_k_p0[] = "p0_";
-static const char __pyx_k_p1[] = "p1_";
-static const char __pyx_k_q0[] = "q0_";
-static const char __pyx_k_q1[] = "q1_";
-static const char __pyx_k_s0[] = "s0_";
-static const char __pyx_k_s1[] = "s1_";
 static const char __pyx_k_TLS[] = "TLS";
-static const char __pyx_k__29[] = "_";
-static const char __pyx_k_asn[] = "asn";
 static const char __pyx_k_big[] = "big";
 static const char __pyx_k_buf[] = "buf";
-static const char __pyx_k_doc[] = "__doc__";
-static const char __pyx_k_exp[] = "exp";
 static const char __pyx_k_hex[] = "hex";
 static const char __pyx_k_key[] = "key";
-static const char __pyx_k_log[] = "log";
-static const char __pyx_k_out[] = "out_";
+static const char __pyx_k_new[] = "__new__";
 static const char __pyx_k_pop[] = "pop";
-static const char __pyx_k_r_2[] = "r_";
-static const char __pyx_k_s_2[] = "s_";
 static const char __pyx_k_sum[] = "sum";
 static const char __pyx_k_sys[] = "sys";
-static const char __pyx_k_tld[] = "tld";
-static const char __pyx_k_tmp[] = "tmp_";
 static const char __pyx_k_data[] = "data";
+static const char __pyx_k_dict[] = "__dict__";
 static const char __pyx_k_file[] = "__file__";
-static const char __pyx_k_fp_h[] = "fp_h";
-static const char __pyx_k_init[] = "__init__";
 static const char __pyx_k_json[] = "json";
 static const char __pyx_k_keys[] = "keys";
-static const char __pyx_k_line[] = "line";
 static const char __pyx_k_main[] = "__main__";
-static const char __pyx_k_math[] = "math";
 static const char __pyx_k_name[] = "name";
 static const char __pyx_k_open[] = "open";
 static const char __pyx_k_path[] = "path";
-static const char __pyx_k_self[] = "self";
-static const char __pyx_k_test[] = "test_";
+static const char __pyx_k_test[] = "__test__";
 static const char __pyx_k_align[] = "align";
 static const char __pyx_k_count[] = "count";
 static const char __pyx_k_error[] = "error";
-static const char __pyx_k_fp_db[] = "fp_db";
 static const char __pyx_k_fp_tc[] = "fp_tc_";
 static const char __pyx_k_loads[] = "loads";
 static const char __pyx_k_popen[] = "popen";
-static const char __pyx_k_prior[] = "prior_";
 static const char __pyx_k_range[] = "range";
 static const char __pyx_k_score[] = "score";
 static const char __pyx_k_split[] = "split";
@@ -1547,40 +1501,27 @@ static const char __pyx_k_ujson[] = "ujson";
 static const char __pyx_k_union[] = "union";
 static const char __pyx_k_append[] = "append";
 static const char __pyx_k_config[] = "config";
-static const char __pyx_k_domain[] = "domain";
 static const char __pyx_k_fp_str[] = "fp_str_";
 static const char __pyx_k_import[] = "__import__";
-static const char __pyx_k_lit_fp[] = "lit_fp";
-static const char __pyx_k_module[] = "__module__";
 static const char __pyx_k_name_2[] = "__name__";
 static const char __pyx_k_offset[] = "offset";
-static const char __pyx_k_r_proc[] = "r_proc_";
-static const char __pyx_k_result[] = "result";
+static const char __pyx_k_pickle[] = "pickle";
+static const char __pyx_k_reduce[] = "__reduce__";
 static const char __pyx_k_sha256[] = "sha256";
 static const char __pyx_k_sorted[] = "sorted";
 static const char __pyx_k_source[] = "source";
-static const char __pyx_k_target[] = "target_";
-static const char __pyx_k_test_2[] = "__test__";
-static const char __pyx_k_tokens[] = "tokens";
+static const char __pyx_k_update[] = "update";
 static const char __pyx_k_zcat_s[] = "zcat %s";
 static const char __pyx_k_Unknown[] = "Unknown";
 static const char __pyx_k_abspath[] = "abspath";
-static const char __pyx_k_aligner[] = "aligner";
 static const char __pyx_k_context[] = "context_";
 static const char __pyx_k_dirname[] = "dirname";
 static const char __pyx_k_ext_len[] = "ext_len";
-static const char __pyx_k_fp_tc_2[] = "fp_tc";
 static const char __pyx_k_malware[] = "malware";
-static const char __pyx_k_max_imp[] = "max_imp";
 static const char __pyx_k_maxsize[] = "maxsize";
-static const char __pyx_k_min_imp[] = "min_imp";
 static const char __pyx_k_os_info[] = "os_info";
-static const char __pyx_k_p_count[] = "p_count";
-static const char __pyx_k_predict[] = "predict_";
-static const char __pyx_k_prepare[] = "__prepare__";
 static const char __pyx_k_process[] = "process";
 static const char __pyx_k_reverse[] = "reverse";
-static const char __pyx_k_score_2[] = "score_";
 static const char __pyx_k_tls_pyx[] = "tls.pyx";
 static const char __pyx_k_version[] = "version";
 static const char __pyx_k_KeyError[] = "KeyError";
@@ -1588,94 +1529,77 @@ static const char __pyx_k_Protocol[] = "Protocol";
 static const char __pyx_k_data_len[] = "data_len";
 static const char __pyx_k_features[] = "features";
 static const char __pyx_k_fp_str_2[] = "fp_str";
+static const char __pyx_k_getstate[] = "__getstate__";
 static const char __pyx_k_identify[] = "identify";
 static const char __pyx_k_operator[] = "operator";
-static const char __pyx_k_port_app[] = "port_app";
-static const char __pyx_k_qualname[] = "__qualname__";
+static const char __pyx_k_pyx_type[] = "__pyx_type";
+static const char __pyx_k_setstate[] = "__setstate__";
 static const char __pyx_k_str_repr[] = "str_repr";
-static const char __pyx_k_t_scores[] = "t_scores";
 static const char __pyx_k_byteorder[] = "byteorder";
 static const char __pyx_k_context_2[] = "context";
 static const char __pyx_k_dest_addr[] = "dest_addr";
 static const char __pyx_k_dest_port[] = "dest_port";
 static const char __pyx_k_functools[] = "functools";
 static const char __pyx_k_lru_cache[] = "lru_cache";
-static const char __pyx_k_metaclass[] = "__metaclass__";
 static const char __pyx_k_p_malware[] = "p_malware";
-static const char __pyx_k_score_sum[] = "score_sum_";
-static const char __pyx_k_t_sim_set[] = "t_sim_set";
-static const char __pyx_k_MALWARE_DB[] = "MALWARE_DB";
-static const char __pyx_k_TLS___init[] = "TLS.__init__";
+static const char __pyx_k_pyx_state[] = "__pyx_state";
+static const char __pyx_k_reduce_ex[] = "__reduce_ex__";
 static const char __pyx_k_approx_str[] = "approx_str";
-static const char __pyx_k_base_prior[] = "base_prior_";
 static const char __pyx_k_extensions[] = "extensions";
 static const char __pyx_k_from_bytes[] = "from_bytes";
 static const char __pyx_k_itemgetter[] = "itemgetter";
 static const char __pyx_k_key_filter[] = "key_filter";
 static const char __pyx_k_list_procs[] = "list_procs";
+static const char __pyx_k_pyx_result[] = "__pyx_result";
 static const char __pyx_k_tls_params[] = "tls_params";
 static const char __pyx_k_tmp_fp_ext[] = "tmp_fp_ext";
-static const char __pyx_k_tmp_lit_fp[] = "tmp_lit_fp";
+static const char __pyx_k_PickleError[] = "PickleError";
 static const char __pyx_k_eval_fp_str[] = "eval_fp_str";
 static const char __pyx_k_fingerprint[] = "fingerprint";
 static const char __pyx_k_fp_database[] = "fp_database";
 static const char __pyx_k_server_name[] = "server_name";
 static const char __pyx_k_total_count[] = "total_count";
-static const char __pyx_k_TLS_identify[] = "TLS.identify";
-static const char __pyx_k_app_families[] = "app_families";
-static const char __pyx_k_approx_str_2[] = "approx_str_";
 static const char __pyx_k_f_similarity[] = "f_similarity";
 static const char __pyx_k_get_asn_info[] = "get_asn_info";
 static const char __pyx_k_get_sequence[] = "get_sequence";
 static const char __pyx_k_get_tld_info[] = "get_tld_info";
 static const char __pyx_k_intersection[] = "intersection";
 static const char __pyx_k_process_info[] = "process_info";
-static const char __pyx_k_process_name[] = "process_name";
+static const char __pyx_k_pyx_checksum[] = "__pyx_checksum";
 static const char __pyx_k_staticmethod[] = "staticmethod";
+static const char __pyx_k_stringsource[] = "stringsource";
 static const char __pyx_k_tls_features[] = "tls_features";
-static const char __pyx_k_tls_params_2[] = "tls_params_";
 static const char __pyx_k_approx_fp_str[] = "approx_fp_str";
 static const char __pyx_k_cipher_suites[] = "cipher_suites";
 static const char __pyx_k_classes_ip_as[] = "classes_ip_as";
 static const char __pyx_k_compute_score[] = "compute_score";
 static const char __pyx_k_ext_total_len[] = "ext_total_len";
 static const char __pyx_k_load_database[] = "load_database";
-static const char __pyx_k_malware_score[] = "malware_score_";
-static const char __pyx_k_proc_identify[] = "proc_identify";
+static const char __pyx_k_reduce_cython[] = "__reduce_cython__";
 static const char __pyx_k_source_filter[] = "source_filter";
-static const char __pyx_k_tls_params_db[] = "tls_params_db";
 static const char __pyx_k_get_tls_params[] = "get_tls_params";
 static const char __pyx_k_proto_identify[] = "proto_identify";
-static const char __pyx_k_TLS_fingerprint[] = "TLS.fingerprint";
 static const char __pyx_k_get_cs_from_str[] = "get_cs_from_str";
 static const char __pyx_k_parse_extension[] = "parse_extension";
+static const char __pyx_k_pyx_PickleError[] = "__pyx_PickleError";
+static const char __pyx_k_setstate_cython[] = "__setstate_cython__";
 static const char __pyx_k_get_ext_from_str[] = "get_ext_from_str";
+static const char __pyx_k_pyx_unpickle_TLS[] = "__pyx_unpickle_TLS";
 static const char __pyx_k_SequenceAlignment[] = "SequenceAlignment";
-static const char __pyx_k_TLS_compute_score[] = "TLS.compute_score";
-static const char __pyx_k_TLS_load_database[] = "TLS.load_database";
-static const char __pyx_k_TLS_proc_identify[] = "TLS.proc_identify";
-static const char __pyx_k_app_families_file[] = "app_families_file";
 static const char __pyx_k_find_approx_match[] = "find_approx_match";
 static const char __pyx_k_session_id_length[] = "session_id_length";
 static const char __pyx_k_MAX_CACHED_RESULTS[] = "MAX_CACHED_RESULTS";
-static const char __pyx_k_TLS_proto_identify[] = "TLS.proto_identify";
-static const char __pyx_k_approx_matches_set[] = "approx_matches_set";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
 static const char __pyx_k_degrease_type_code[] = "degrease_type_code";
 static const char __pyx_k_find_resource_path[] = "find_resource_path";
 static const char __pyx_k_get_database_entry[] = "get_database_entry";
-static const char __pyx_k_get_human_readable[] = "get_human_readable";
 static const char __pyx_k_probable_processes[] = "probable_processes";
 static const char __pyx_k_Generic_DMZ_Traffic[] = "Generic DMZ Traffic";
 static const char __pyx_k_extract_server_name[] = "extract_server_name";
 static const char __pyx_k_cipher_suites_length[] = "cipher_suites_length";
 static const char __pyx_k_get_port_application[] = "get_port_application";
 static const char __pyx_k_get_version_from_str[] = "get_version_from_str";
-static const char __pyx_k_TLS_find_approx_match[] = "TLS.find_approx_match";
 static const char __pyx_k_classes_hostname_tlds[] = "classes_hostname_tlds";
-static const char __pyx_k_prob_process_given_fp[] = "prob_process_given_fp";
-static const char __pyx_k_TLS_get_database_entry[] = "TLS.get_database_entry";
-static const char __pyx_k_TLS_get_human_readable[] = "TLS.get_human_readable";
 static const char __pyx_k_get_approx_fingerprint[] = "get_approx_fingerprint";
 static const char __pyx_k_pmercury_protocols_tls[] = "pmercury.protocols.tls";
 static const char __pyx_k_gen_unknown_fingerprint[] = "gen_unknown_fingerprint";
@@ -1685,43 +1609,28 @@ static const char __pyx_k_min_implementation_date[] = "min_implementation_date";
 static const char __pyx_k_classes_hostname_domains[] = "classes_hostname_domains";
 static const char __pyx_k_pmercury_utils_tls_utils[] = "pmercury.utils.tls_utils";
 static const char __pyx_k_classes_port_applications[] = "classes_port_applications";
-static const char __pyx_k_TLS_get_approx_fingerprint[] = "TLS.get_approx_fingerprint";
 static const char __pyx_k_compression_methods_length[] = "compression_methods_length";
 static const char __pyx_k_resources_app_families_txt[] = "resources/app_families.txt";
-static const char __pyx_k_TLS_gen_unknown_fingerprint[] = "TLS.gen_unknown_fingerprint";
 static const char __pyx_k_pmercury_protocols_protocol[] = "pmercury.protocols.protocol";
 static const char __pyx_k_find_approximate_matches_set[] = "find_approximate_matches_set";
 static const char __pyx_k_pmercury_utils_tls_constants[] = "pmercury.utils.tls_constants";
 static const char __pyx_k_pmercury_utils_pmercury_utils[] = "pmercury.utils.pmercury_utils";
 static const char __pyx_k_Copyright_c_2019_Cisco_Systems[] = "     \n Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.\n License at https://github.com/cisco/mercury/blob/master/LICENSE\n";
 static const char __pyx_k_pmercury_utils_contextual_info[] = "pmercury.utils.contextual_info";
-static const char __pyx_k_TLS_find_approximate_matches_set[] = "TLS.find_approximate_matches_set";
+static const char __pyx_k_Incompatible_checksums_s_vs_0x6c[] = "Incompatible checksums (%s vs 0x6c70063 = (MALWARE_DB, aligner, app_families, fp_db, tls_params_db))";
 static const char __pyx_k_fingerprint_string_parsing_error[] = "fingerprint string parsing error";
 static const char __pyx_k_pmercury_utils_sequence_alignmen[] = "pmercury.utils.sequence_alignment";
 static const char __pyx_k_resources_fingerprint_db_json_gz[] = "resources/fingerprint_db.json.gz";
 static PyObject *__pyx_kp_u_;
 static PyObject *__pyx_kp_u_Generic_DMZ_Traffic;
+static PyObject *__pyx_kp_s_Incompatible_checksums_s_vs_0x6c;
 static PyObject *__pyx_n_s_KeyError;
-static PyObject *__pyx_n_s_MALWARE_DB;
 static PyObject *__pyx_n_s_MAX_CACHED_RESULTS;
+static PyObject *__pyx_n_s_PickleError;
 static PyObject *__pyx_n_s_Protocol;
 static PyObject *__pyx_n_s_SequenceAlignment;
 static PyObject *__pyx_n_s_TLS;
-static PyObject *__pyx_n_s_TLS___init;
-static PyObject *__pyx_n_s_TLS_compute_score;
-static PyObject *__pyx_n_s_TLS_find_approx_match;
-static PyObject *__pyx_n_s_TLS_find_approximate_matches_set;
-static PyObject *__pyx_n_s_TLS_fingerprint;
-static PyObject *__pyx_n_s_TLS_gen_unknown_fingerprint;
-static PyObject *__pyx_n_s_TLS_get_approx_fingerprint;
-static PyObject *__pyx_n_s_TLS_get_database_entry;
-static PyObject *__pyx_n_s_TLS_get_human_readable;
-static PyObject *__pyx_n_s_TLS_identify;
-static PyObject *__pyx_n_s_TLS_load_database;
-static PyObject *__pyx_n_s_TLS_proc_identify;
-static PyObject *__pyx_n_s_TLS_proto_identify;
 static PyObject *__pyx_n_u_Unknown;
-static PyObject *__pyx_n_s__29;
 static PyObject *__pyx_kp_u__3;
 static PyObject *__pyx_kp_u__4;
 static PyObject *__pyx_kp_u__5;
@@ -1729,16 +1638,9 @@ static PyObject *__pyx_kp_u__6;
 static PyObject *__pyx_n_s__7;
 static PyObject *__pyx_n_s_abspath;
 static PyObject *__pyx_n_s_align;
-static PyObject *__pyx_n_s_aligner;
-static PyObject *__pyx_n_s_app_families;
-static PyObject *__pyx_n_s_app_families_file;
 static PyObject *__pyx_n_s_append;
 static PyObject *__pyx_n_s_approx_fp_str;
-static PyObject *__pyx_n_s_approx_matches_set;
 static PyObject *__pyx_n_u_approx_str;
-static PyObject *__pyx_n_s_approx_str_2;
-static PyObject *__pyx_n_s_asn;
-static PyObject *__pyx_n_s_base_prior;
 static PyObject *__pyx_n_u_big;
 static PyObject *__pyx_n_s_buf;
 static PyObject *__pyx_n_s_byteorder;
@@ -1762,12 +1664,10 @@ static PyObject *__pyx_n_s_data_len;
 static PyObject *__pyx_n_s_degrease_type_code;
 static PyObject *__pyx_n_s_dest_addr;
 static PyObject *__pyx_n_s_dest_port;
+static PyObject *__pyx_n_s_dict;
 static PyObject *__pyx_n_s_dirname;
-static PyObject *__pyx_n_s_doc;
-static PyObject *__pyx_n_s_domain;
 static PyObject *__pyx_n_u_error;
 static PyObject *__pyx_n_s_eval_fp_str;
-static PyObject *__pyx_n_s_exp;
 static PyObject *__pyx_n_s_ext_len;
 static PyObject *__pyx_n_s_ext_total_len;
 static PyObject *__pyx_n_u_extensions;
@@ -1782,12 +1682,9 @@ static PyObject *__pyx_n_s_fingerprint;
 static PyObject *__pyx_kp_u_fingerprint_string_parsing_error;
 static PyObject *__pyx_n_s_fp;
 static PyObject *__pyx_n_s_fp_database;
-static PyObject *__pyx_n_s_fp_db;
-static PyObject *__pyx_n_s_fp_h;
 static PyObject *__pyx_n_s_fp_str;
 static PyObject *__pyx_n_s_fp_str_2;
 static PyObject *__pyx_n_s_fp_tc;
-static PyObject *__pyx_n_s_fp_tc_2;
 static PyObject *__pyx_n_s_from_bytes;
 static PyObject *__pyx_n_s_functools;
 static PyObject *__pyx_n_s_gen_unknown_fingerprint;
@@ -1796,58 +1693,44 @@ static PyObject *__pyx_n_s_get_asn_info;
 static PyObject *__pyx_n_s_get_cs_from_str;
 static PyObject *__pyx_n_s_get_database_entry;
 static PyObject *__pyx_n_s_get_ext_from_str;
-static PyObject *__pyx_n_s_get_human_readable;
 static PyObject *__pyx_n_s_get_implementation_date;
 static PyObject *__pyx_n_s_get_port_application;
 static PyObject *__pyx_n_s_get_sequence;
 static PyObject *__pyx_n_s_get_tld_info;
 static PyObject *__pyx_n_s_get_tls_params;
 static PyObject *__pyx_n_s_get_version_from_str;
+static PyObject *__pyx_n_s_getstate;
 static PyObject *__pyx_n_s_hex;
-static PyObject *__pyx_n_s_i;
 static PyObject *__pyx_n_s_identify;
 static PyObject *__pyx_n_s_import;
-static PyObject *__pyx_n_s_init;
 static PyObject *__pyx_n_s_intersection;
 static PyObject *__pyx_n_s_itemgetter;
 static PyObject *__pyx_n_s_json;
-static PyObject *__pyx_n_s_k;
 static PyObject *__pyx_n_s_key;
 static PyObject *__pyx_n_s_key_filter;
 static PyObject *__pyx_n_s_keys;
-static PyObject *__pyx_n_s_line;
 static PyObject *__pyx_n_s_list_procs;
-static PyObject *__pyx_n_s_lit_fp;
 static PyObject *__pyx_n_s_load_database;
 static PyObject *__pyx_n_s_loads;
-static PyObject *__pyx_n_s_log;
 static PyObject *__pyx_n_s_lru_cache;
 static PyObject *__pyx_n_s_main;
 static PyObject *__pyx_n_u_malware;
-static PyObject *__pyx_n_s_malware_score;
-static PyObject *__pyx_n_s_math;
-static PyObject *__pyx_n_s_max_imp;
 static PyObject *__pyx_n_u_max_implementation_date;
 static PyObject *__pyx_n_s_maxsize;
-static PyObject *__pyx_n_s_metaclass;
-static PyObject *__pyx_n_s_min_imp;
 static PyObject *__pyx_n_u_min_implementation_date;
-static PyObject *__pyx_n_s_module;
 static PyObject *__pyx_n_u_name;
 static PyObject *__pyx_n_s_name_2;
+static PyObject *__pyx_n_s_new;
 static PyObject *__pyx_n_s_offset;
 static PyObject *__pyx_n_s_open;
 static PyObject *__pyx_n_s_operator;
 static PyObject *__pyx_n_s_os;
 static PyObject *__pyx_n_u_os_info;
-static PyObject *__pyx_n_s_out;
 static PyObject *__pyx_n_s_p;
-static PyObject *__pyx_n_s_p0;
-static PyObject *__pyx_n_s_p1;
-static PyObject *__pyx_n_s_p_count;
 static PyObject *__pyx_n_u_p_malware;
 static PyObject *__pyx_n_s_parse_extension;
 static PyObject *__pyx_n_s_path;
+static PyObject *__pyx_n_s_pickle;
 static PyObject *__pyx_n_s_pmercury_protocols_protocol;
 static PyObject *__pyx_n_s_pmercury_protocols_tls;
 static PyObject *__pyx_n_s_pmercury_utils_contextual_info;
@@ -1857,39 +1740,31 @@ static PyObject *__pyx_n_s_pmercury_utils_tls_constants;
 static PyObject *__pyx_n_s_pmercury_utils_tls_utils;
 static PyObject *__pyx_n_s_pop;
 static PyObject *__pyx_n_s_popen;
-static PyObject *__pyx_n_s_port_app;
-static PyObject *__pyx_n_s_predict;
-static PyObject *__pyx_n_s_prepare;
-static PyObject *__pyx_n_s_prior;
-static PyObject *__pyx_n_s_prob_process_given_fp;
 static PyObject *__pyx_n_u_probable_processes;
-static PyObject *__pyx_n_s_proc_identify;
 static PyObject *__pyx_n_u_process;
 static PyObject *__pyx_n_u_process_info;
-static PyObject *__pyx_n_s_process_name;
 static PyObject *__pyx_n_s_proto_identify;
-static PyObject *__pyx_n_s_q0;
-static PyObject *__pyx_n_s_q1;
-static PyObject *__pyx_n_s_qualname;
+static PyObject *__pyx_n_s_pyx_PickleError;
+static PyObject *__pyx_n_s_pyx_checksum;
+static PyObject *__pyx_n_s_pyx_result;
+static PyObject *__pyx_n_s_pyx_state;
+static PyObject *__pyx_n_s_pyx_type;
+static PyObject *__pyx_n_s_pyx_unpickle_TLS;
 static PyObject *__pyx_n_u_r;
-static PyObject *__pyx_n_s_r_2;
-static PyObject *__pyx_n_s_r_proc;
 static PyObject *__pyx_n_s_range;
+static PyObject *__pyx_n_s_reduce;
+static PyObject *__pyx_n_s_reduce_cython;
+static PyObject *__pyx_n_s_reduce_ex;
 static PyObject *__pyx_kp_u_resources_app_families_txt;
 static PyObject *__pyx_kp_u_resources_fingerprint_db_json_gz;
-static PyObject *__pyx_n_s_result;
 static PyObject *__pyx_n_s_reverse;
 static PyObject *__pyx_kp_u_s;
-static PyObject *__pyx_n_s_s0;
-static PyObject *__pyx_n_s_s1;
-static PyObject *__pyx_n_s_s_2;
 static PyObject *__pyx_n_u_score;
-static PyObject *__pyx_n_s_score_2;
-static PyObject *__pyx_n_s_score_sum;
-static PyObject *__pyx_n_s_self;
 static PyObject *__pyx_n_s_server_name;
 static PyObject *__pyx_n_u_server_name;
 static PyObject *__pyx_n_s_session_id_length;
+static PyObject *__pyx_n_s_setstate;
+static PyObject *__pyx_n_s_setstate_cython;
 static PyObject *__pyx_n_u_sha256;
 static PyObject *__pyx_n_s_sorted;
 static PyObject *__pyx_n_u_source;
@@ -1897,43 +1772,38 @@ static PyObject *__pyx_n_s_source_filter;
 static PyObject *__pyx_n_s_split;
 static PyObject *__pyx_n_s_staticmethod;
 static PyObject *__pyx_n_u_str_repr;
+static PyObject *__pyx_kp_s_stringsource;
 static PyObject *__pyx_n_s_strip;
 static PyObject *__pyx_n_s_sum;
 static PyObject *__pyx_n_s_sys;
-static PyObject *__pyx_n_s_t_scores;
-static PyObject *__pyx_n_s_t_sim_set;
-static PyObject *__pyx_n_s_target;
 static PyObject *__pyx_n_s_test;
-static PyObject *__pyx_n_s_test_2;
-static PyObject *__pyx_n_s_tld;
 static PyObject *__pyx_n_s_tls_features;
 static PyObject *__pyx_n_s_tls_params;
-static PyObject *__pyx_n_s_tls_params_2;
-static PyObject *__pyx_n_s_tls_params_db;
 static PyObject *__pyx_kp_s_tls_pyx;
-static PyObject *__pyx_n_s_tmp;
 static PyObject *__pyx_n_s_tmp_fp_ext;
-static PyObject *__pyx_n_s_tmp_lit_fp;
-static PyObject *__pyx_n_s_tokens;
 static PyObject *__pyx_n_u_total_count;
 static PyObject *__pyx_n_s_ujson;
 static PyObject *__pyx_n_s_union;
+static PyObject *__pyx_n_s_update;
 static PyObject *__pyx_n_u_version;
-static PyObject *__pyx_n_s_x;
 static PyObject *__pyx_kp_u_zcat_s;
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_database, CYTHON_UNUSED PyObject *__pyx_v_config); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_database); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_data, PyObject *__pyx_v_offset, PyObject *__pyx_v_data_len); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_data, unsigned int __pyx_v_offset, unsigned int __pyx_v_data_len); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_, PyObject *__pyx_v_context_, PyObject *__pyx_v_dest_addr, PyObject *__pyx_v_dest_port, PyObject *__pyx_v_list_procs); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_, PyObject *__pyx_v_server_name, PyObject *__pyx_v_dest_addr, PyObject *__pyx_v_dest_port, PyObject *__pyx_v_list_procs); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_12compute_score(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_features, PyObject *__pyx_v_p_, PyObject *__pyx_v_fp_tc_); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_approx_fp_str); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprint(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_tls_features, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_source_filter, PyObject *__pyx_v_key_filter); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matches_set(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_tls_params, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_source_filter, PyObject *__pyx_v_key_filter); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerprint(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_); /* proto */
+static int __pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_database, CYTHON_UNUSED PyObject *__pyx_v_config); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_database); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(PyObject *__pyx_v_data, PyObject *__pyx_v_offset, PyObject *__pyx_v_data_len); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(PyObject *__pyx_v_data, unsigned int __pyx_v_offset, unsigned int __pyx_v_data_len); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_, PyObject *__pyx_v_context_, PyObject *__pyx_v_dest_addr, PyObject *__pyx_v_dest_port, PyObject *__pyx_v_list_procs); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_, PyObject *__pyx_v_server_name, PyObject *__pyx_v_dest_addr, PyObject *__pyx_v_dest_port, PyObject *__pyx_v_list_procs); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_12compute_score(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_features, PyObject *__pyx_v_p_, PyObject *__pyx_v_fp_tc_); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_approx_fp_str); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprint(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_tls_features, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_source_filter, PyObject *__pyx_v_key_filter); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matches_set(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_tls_params, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_source_filter, PyObject *__pyx_v_key_filter); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerprint(CYTHON_UNUSED struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CYTHON_UNUSED struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_26__reduce_cython__(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_28__setstate_cython__(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls___pyx_unpickle_TLS(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_tp_new_8pmercury_9protocols_3tls_TLS(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static __Pyx_CachedCFunction __pyx_umethod_PySet_Type_intersection = {0, &__pyx_n_s_intersection, 0, 0, 0};
 static __Pyx_CachedCFunction __pyx_umethod_PySet_Type_union = {0, &__pyx_n_s_union, 0, 0, 0};
 static PyObject *__pyx_float_0_0;
@@ -1950,42 +1820,18 @@ static PyObject *__pyx_int_10;
 static PyObject *__pyx_int_16;
 static PyObject *__pyx_int_22;
 static PyObject *__pyx_int_16777216;
+static PyObject *__pyx_int_113705059;
 static PyObject *__pyx_tuple__2;
 static PyObject *__pyx_tuple__8;
 static PyObject *__pyx_tuple__10;
-static PyObject *__pyx_tuple__11;
-static PyObject *__pyx_tuple__13;
-static PyObject *__pyx_tuple__15;
-static PyObject *__pyx_tuple__17;
-static PyObject *__pyx_tuple__19;
-static PyObject *__pyx_tuple__20;
-static PyObject *__pyx_tuple__22;
-static PyObject *__pyx_tuple__23;
-static PyObject *__pyx_tuple__25;
-static PyObject *__pyx_tuple__27;
-static PyObject *__pyx_tuple__30;
-static PyObject *__pyx_tuple__32;
-static PyObject *__pyx_tuple__33;
-static PyObject *__pyx_tuple__35;
-static PyObject *__pyx_tuple__36;
-static PyObject *__pyx_tuple__38;
+static PyObject *__pyx_tuple__12;
 static PyObject *__pyx_codeobj__9;
-static PyObject *__pyx_codeobj__12;
-static PyObject *__pyx_codeobj__14;
-static PyObject *__pyx_codeobj__16;
-static PyObject *__pyx_codeobj__18;
-static PyObject *__pyx_codeobj__21;
-static PyObject *__pyx_codeobj__24;
-static PyObject *__pyx_codeobj__26;
-static PyObject *__pyx_codeobj__28;
-static PyObject *__pyx_codeobj__31;
-static PyObject *__pyx_codeobj__34;
-static PyObject *__pyx_codeobj__37;
-static PyObject *__pyx_codeobj__39;
+static PyObject *__pyx_codeobj__11;
+static PyObject *__pyx_codeobj__13;
 /* Late includes */
 
-/* "pmercury/protocols/tls.pyx":31
- * class TLS(Protocol):
+/* "pmercury/protocols/tls.pyx":36
+ *     cdef object aligner
  * 
  *     def __init__(self, fp_database=None, config=None):             # <<<<<<<<<<<<<<
  *         # cached data/results
@@ -1993,26 +1839,22 @@ static PyObject *__pyx_codeobj__39;
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_1__init__(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_1__init__ = {"__init__", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_1__init__, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_1__init__(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_self = 0;
+static int __pyx_pw_8pmercury_9protocols_3tls_3TLS_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static int __pyx_pw_8pmercury_9protocols_3tls_3TLS_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_fp_database = 0;
   CYTHON_UNUSED PyObject *__pyx_v_config = 0;
-  PyObject *__pyx_r = 0;
+  int __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__init__ (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_database,&__pyx_n_s_config,0};
-    PyObject* values[3] = {0,0,0};
-    values[1] = ((PyObject *)((PyObject *)Py_None));
-    values[2] = ((PyObject *)((PyObject *)Py_None));
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_fp_database,&__pyx_n_s_config,0};
+    PyObject* values[2] = {0,0};
+    values[0] = ((PyObject *)Py_None);
+    values[1] = ((PyObject *)Py_None);
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
-        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
-        CYTHON_FALLTHROUGH;
         case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
         CYTHON_FALLTHROUGH;
         case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
@@ -2023,60 +1865,54 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_1__init__(PyObject *__p
       kw_args = PyDict_Size(__pyx_kwds);
       switch (pos_args) {
         case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
-        else goto __pyx_L5_argtuple_error;
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_database);
+          if (value) { values[0] = value; kw_args--; }
+        }
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
-          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_database);
-          if (value) { values[1] = value; kw_args--; }
-        }
-        CYTHON_FALLTHROUGH;
-        case  2:
-        if (kw_args > 0) {
           PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_config);
-          if (value) { values[2] = value; kw_args--; }
+          if (value) { values[1] = value; kw_args--; }
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(0, 31, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(0, 36, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
-        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
-        CYTHON_FALLTHROUGH;
         case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
         CYTHON_FALLTHROUGH;
         case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-        break;
+        CYTHON_FALLTHROUGH;
+        case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
-    __pyx_v_self = values[0];
-    __pyx_v_fp_database = values[1];
-    __pyx_v_config = values[2];
+    __pyx_v_fp_database = values[0];
+    __pyx_v_config = values[1];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 31, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 36, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
-  return NULL;
+  return -1;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(__pyx_self, __pyx_v_self, __pyx_v_fp_database, __pyx_v_config);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), __pyx_v_fp_database, __pyx_v_config);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_database, CYTHON_UNUSED PyObject *__pyx_v_config) {
+static int __pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_database, CYTHON_UNUSED PyObject *__pyx_v_config) {
   PyObject *__pyx_v_app_families_file = NULL;
   PyObject *__pyx_v_line = NULL;
   PyObject *__pyx_v_tokens = NULL;
   Py_ssize_t __pyx_v_i;
-  PyObject *__pyx_r = NULL;
+  int __pyx_r;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   int __pyx_t_2;
@@ -2093,57 +1929,63 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
   __Pyx_RefNannySetupContext("__init__", 0);
   __Pyx_INCREF(__pyx_v_fp_database);
 
-  /* "pmercury/protocols/tls.pyx":33
+  /* "pmercury/protocols/tls.pyx":38
  *     def __init__(self, fp_database=None, config=None):
  *         # cached data/results
  *         self.tls_params_db = {}             # <<<<<<<<<<<<<<
  *         self.MALWARE_DB = True
  * 
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_tls_params_db, __pyx_t_1) < 0) __PYX_ERR(0, 33, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v_self->tls_params_db);
+  __Pyx_DECREF(__pyx_v_self->tls_params_db);
+  __pyx_v_self->tls_params_db = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":34
+  /* "pmercury/protocols/tls.pyx":39
  *         # cached data/results
  *         self.tls_params_db = {}
  *         self.MALWARE_DB = True             # <<<<<<<<<<<<<<
  * 
  *         # populate fingerprint databases
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_MALWARE_DB, Py_True) < 0) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_v_self->MALWARE_DB = 1;
 
-  /* "pmercury/protocols/tls.pyx":37
+  /* "pmercury/protocols/tls.pyx":42
  * 
  *         # populate fingerprint databases
  *         self.fp_db = {}             # <<<<<<<<<<<<<<
  *         if fp_database == 'resources/fingerprint_db.json.gz':
  *             fp_database = find_resource_path(fp_database)
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_fp_db, __pyx_t_1) < 0) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v_self->fp_db);
+  __Pyx_DECREF(__pyx_v_self->fp_db);
+  __pyx_v_self->fp_db = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":38
+  /* "pmercury/protocols/tls.pyx":43
  *         # populate fingerprint databases
  *         self.fp_db = {}
  *         if fp_database == 'resources/fingerprint_db.json.gz':             # <<<<<<<<<<<<<<
  *             fp_database = find_resource_path(fp_database)
  *         if fp_database != None:
  */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_fp_database, __pyx_kp_u_resources_fingerprint_db_json_gz, Py_EQ)); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_fp_database, __pyx_kp_u_resources_fingerprint_db_json_gz, Py_EQ)); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 43, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "pmercury/protocols/tls.pyx":39
+    /* "pmercury/protocols/tls.pyx":44
  *         self.fp_db = {}
  *         if fp_database == 'resources/fingerprint_db.json.gz':
  *             fp_database = find_resource_path(fp_database)             # <<<<<<<<<<<<<<
  *         if fp_database != None:
  *             self.load_database(fp_database)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_find_resource_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 39, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_find_resource_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 44, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
@@ -2157,13 +1999,13 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
     }
     __pyx_t_1 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_4, __pyx_v_fp_database) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_fp_database);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 39, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF_SET(__pyx_v_fp_database, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "pmercury/protocols/tls.pyx":38
+    /* "pmercury/protocols/tls.pyx":43
  *         # populate fingerprint databases
  *         self.fp_db = {}
  *         if fp_database == 'resources/fingerprint_db.json.gz':             # <<<<<<<<<<<<<<
@@ -2172,26 +2014,26 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":40
+  /* "pmercury/protocols/tls.pyx":45
  *         if fp_database == 'resources/fingerprint_db.json.gz':
  *             fp_database = find_resource_path(fp_database)
  *         if fp_database != None:             # <<<<<<<<<<<<<<
  *             self.load_database(fp_database)
  * 
  */
-  __pyx_t_1 = PyObject_RichCompare(__pyx_v_fp_database, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 40, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_v_fp_database, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "pmercury/protocols/tls.pyx":41
+    /* "pmercury/protocols/tls.pyx":46
  *             fp_database = find_resource_path(fp_database)
  *         if fp_database != None:
  *             self.load_database(fp_database)             # <<<<<<<<<<<<<<
  * 
  *         app_families_file = find_resource_path('resources/app_families.txt')
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_load_database); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 41, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_load_database); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
@@ -2205,12 +2047,12 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
     }
     __pyx_t_1 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_4, __pyx_v_fp_database) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_fp_database);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 41, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "pmercury/protocols/tls.pyx":40
+    /* "pmercury/protocols/tls.pyx":45
  *         if fp_database == 'resources/fingerprint_db.json.gz':
  *             fp_database = find_resource_path(fp_database)
  *         if fp_database != None:             # <<<<<<<<<<<<<<
@@ -2219,14 +2061,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":43
+  /* "pmercury/protocols/tls.pyx":48
  *             self.load_database(fp_database)
  * 
  *         app_families_file = find_resource_path('resources/app_families.txt')             # <<<<<<<<<<<<<<
  *         self.app_families = {}
  *         for line in open(app_families_file, 'r'):
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_find_resource_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_find_resource_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
@@ -2240,32 +2082,35 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
   }
   __pyx_t_1 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_4, __pyx_kp_u_resources_app_families_txt) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_kp_u_resources_app_families_txt);
   __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_app_families_file = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":44
+  /* "pmercury/protocols/tls.pyx":49
  * 
  *         app_families_file = find_resource_path('resources/app_families.txt')
  *         self.app_families = {}             # <<<<<<<<<<<<<<
  *         for line in open(app_families_file, 'r'):
  *             tokens = line.strip().split(',')
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_app_families, __pyx_t_1) < 0) __PYX_ERR(0, 44, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v_self->app_families);
+  __Pyx_DECREF(__pyx_v_self->app_families);
+  __pyx_v_self->app_families = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":45
+  /* "pmercury/protocols/tls.pyx":50
  *         app_families_file = find_resource_path('resources/app_families.txt')
  *         self.app_families = {}
  *         for line in open(app_families_file, 'r'):             # <<<<<<<<<<<<<<
  *             tokens = line.strip().split(',')
  *             for i in range(1, len(tokens)):
  */
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_app_families_file);
   __Pyx_GIVEREF(__pyx_v_app_families_file);
@@ -2273,16 +2118,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
   __Pyx_INCREF(__pyx_n_u_r);
   __Pyx_GIVEREF(__pyx_n_u_r);
   PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_n_u_r);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_open, __pyx_t_1, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_open, __pyx_t_1, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(PyList_CheckExact(__pyx_t_3)) || PyTuple_CheckExact(__pyx_t_3)) {
     __pyx_t_1 = __pyx_t_3; __Pyx_INCREF(__pyx_t_1); __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
   } else {
-    __pyx_t_5 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 45, __pyx_L1_error)
+    __pyx_t_5 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 45, __pyx_L1_error)
+    __pyx_t_6 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 50, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   for (;;) {
@@ -2290,17 +2135,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
       if (likely(PyList_CheckExact(__pyx_t_1))) {
         if (__pyx_t_5 >= PyList_GET_SIZE(__pyx_t_1)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_3); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 45, __pyx_L1_error)
+        __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_3); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 50, __pyx_L1_error)
         #else
-        __pyx_t_3 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 45, __pyx_L1_error)
+        __pyx_t_3 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 50, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         #endif
       } else {
         if (__pyx_t_5 >= PyTuple_GET_SIZE(__pyx_t_1)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_3); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 45, __pyx_L1_error)
+        __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_3); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 50, __pyx_L1_error)
         #else
-        __pyx_t_3 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 45, __pyx_L1_error)
+        __pyx_t_3 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 50, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         #endif
       }
@@ -2310,7 +2155,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(0, 45, __pyx_L1_error)
+          else __PYX_ERR(0, 50, __pyx_L1_error)
         }
         break;
       }
@@ -2319,14 +2164,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
     __Pyx_XDECREF_SET(__pyx_v_line, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "pmercury/protocols/tls.pyx":46
+    /* "pmercury/protocols/tls.pyx":51
  *         self.app_families = {}
  *         for line in open(app_families_file, 'r'):
  *             tokens = line.strip().split(',')             # <<<<<<<<<<<<<<
  *             for i in range(1, len(tokens)):
  *                 self.app_families[tokens[i]] = tokens[0]
  */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_line, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 46, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_line, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 51, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_8 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_7))) {
@@ -2340,10 +2185,10 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
     }
     __pyx_t_4 = (__pyx_t_8) ? __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_t_8) : __Pyx_PyObject_CallNoArg(__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 46, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 51, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_split); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 46, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_split); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 51, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_4 = NULL;
@@ -2358,44 +2203,45 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
     }
     __pyx_t_3 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_7, __pyx_t_4, __pyx_kp_u_) : __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_kp_u_);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 46, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 51, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_XDECREF_SET(__pyx_v_tokens, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "pmercury/protocols/tls.pyx":47
+    /* "pmercury/protocols/tls.pyx":52
  *         for line in open(app_families_file, 'r'):
  *             tokens = line.strip().split(',')
  *             for i in range(1, len(tokens)):             # <<<<<<<<<<<<<<
  *                 self.app_families[tokens[i]] = tokens[0]
  * 
  */
-    __pyx_t_9 = PyObject_Length(__pyx_v_tokens); if (unlikely(__pyx_t_9 == ((Py_ssize_t)-1))) __PYX_ERR(0, 47, __pyx_L1_error)
+    __pyx_t_9 = PyObject_Length(__pyx_v_tokens); if (unlikely(__pyx_t_9 == ((Py_ssize_t)-1))) __PYX_ERR(0, 52, __pyx_L1_error)
     __pyx_t_10 = __pyx_t_9;
     for (__pyx_t_11 = 1; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
       __pyx_v_i = __pyx_t_11;
 
-      /* "pmercury/protocols/tls.pyx":48
+      /* "pmercury/protocols/tls.pyx":53
  *             tokens = line.strip().split(',')
  *             for i in range(1, len(tokens)):
  *                 self.app_families[tokens[i]] = tokens[0]             # <<<<<<<<<<<<<<
  * 
  *         self.aligner = SequenceAlignment(f_similarity, 0.0)
  */
-      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_tokens, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_tokens, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 53, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_app_families); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 48, __pyx_L1_error)
+      if (unlikely(__pyx_v_self->app_families == Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+        __PYX_ERR(0, 53, __pyx_L1_error)
+      }
+      __pyx_t_7 = __Pyx_GetItemInt(__pyx_v_tokens, __pyx_v_i, Py_ssize_t, 1, PyInt_FromSsize_t, 0, 0, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 53, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_tokens, __pyx_v_i, Py_ssize_t, 1, PyInt_FromSsize_t, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      if (unlikely(PyObject_SetItem(__pyx_t_7, __pyx_t_4, __pyx_t_3) < 0)) __PYX_ERR(0, 48, __pyx_L1_error)
+      if (unlikely(PyDict_SetItem(__pyx_v_self->app_families, __pyx_t_7, __pyx_t_3) < 0)) __PYX_ERR(0, 53, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
 
-    /* "pmercury/protocols/tls.pyx":45
+    /* "pmercury/protocols/tls.pyx":50
  *         app_families_file = find_resource_path('resources/app_families.txt')
  *         self.app_families = {}
  *         for line in open(app_families_file, 'r'):             # <<<<<<<<<<<<<<
@@ -2405,24 +2251,24 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":50
+  /* "pmercury/protocols/tls.pyx":55
  *                 self.app_families[tokens[i]] = tokens[0]
  * 
  *         self.aligner = SequenceAlignment(f_similarity, 0.0)             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_SequenceAlignment); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_SequenceAlignment); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_f_similarity); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_7 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_f_similarity); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_4 = NULL;
   __pyx_t_12 = 0;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
-    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_3);
-    if (likely(__pyx_t_7)) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_3);
+    if (likely(__pyx_t_4)) {
       PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
-      __Pyx_INCREF(__pyx_t_7);
+      __Pyx_INCREF(__pyx_t_4);
       __Pyx_INCREF(function);
       __Pyx_DECREF_SET(__pyx_t_3, function);
       __pyx_t_12 = 1;
@@ -2430,44 +2276,47 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_3)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_7, __pyx_t_4, __pyx_float_0_0};
-    __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_12, 2+__pyx_t_12); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    PyObject *__pyx_temp[3] = {__pyx_t_4, __pyx_t_7, __pyx_float_0_0};
+    __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_12, 2+__pyx_t_12); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   } else
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_3)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_7, __pyx_t_4, __pyx_float_0_0};
-    __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_12, 2+__pyx_t_12); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    PyObject *__pyx_temp[3] = {__pyx_t_4, __pyx_t_7, __pyx_float_0_0};
+    __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_12, 2+__pyx_t_12); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   } else
   #endif
   {
-    __pyx_t_8 = PyTuple_New(2+__pyx_t_12); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 50, __pyx_L1_error)
+    __pyx_t_8 = PyTuple_New(2+__pyx_t_12); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    if (__pyx_t_7) {
-      __Pyx_GIVEREF(__pyx_t_7); PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_7); __pyx_t_7 = NULL;
+    if (__pyx_t_4) {
+      __Pyx_GIVEREF(__pyx_t_4); PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_4); __pyx_t_4 = NULL;
     }
-    __Pyx_GIVEREF(__pyx_t_4);
-    PyTuple_SET_ITEM(__pyx_t_8, 0+__pyx_t_12, __pyx_t_4);
+    __Pyx_GIVEREF(__pyx_t_7);
+    PyTuple_SET_ITEM(__pyx_t_8, 0+__pyx_t_12, __pyx_t_7);
     __Pyx_INCREF(__pyx_float_0_0);
     __Pyx_GIVEREF(__pyx_float_0_0);
     PyTuple_SET_ITEM(__pyx_t_8, 1+__pyx_t_12, __pyx_float_0_0);
-    __pyx_t_4 = 0;
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_8, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
+    __pyx_t_7 = 0;
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_8, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_aligner, __pyx_t_1) < 0) __PYX_ERR(0, 50, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v_self->aligner);
+  __Pyx_DECREF(__pyx_v_self->aligner);
+  __pyx_v_self->aligner = __pyx_t_1;
+  __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":31
- * class TLS(Protocol):
+  /* "pmercury/protocols/tls.pyx":36
+ *     cdef object aligner
  * 
  *     def __init__(self, fp_database=None, config=None):             # <<<<<<<<<<<<<<
  *         # cached data/results
@@ -2475,7 +2324,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
  */
 
   /* function exit code */
-  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  __pyx_r = 0;
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
@@ -2484,90 +2333,46 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS___init__(CYTHON_UNUSED 
   __Pyx_XDECREF(__pyx_t_7);
   __Pyx_XDECREF(__pyx_t_8);
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = NULL;
+  __pyx_r = -1;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_app_families_file);
   __Pyx_XDECREF(__pyx_v_line);
   __Pyx_XDECREF(__pyx_v_tokens);
   __Pyx_XDECREF(__pyx_v_fp_database);
-  __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":53
+/* "pmercury/protocols/tls.pyx":58
  * 
  * 
- *     def load_database(self, fp_database):             # <<<<<<<<<<<<<<
- *         for line in os.popen('zcat %s' % (fp_database)):
- *             fp_ = json.loads(line)
+ *     def load_database(self, str fp_database):             # <<<<<<<<<<<<<<
+ *         cdef str line, fp_str
+ *         cdef dict fp_
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_3load_database(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_3load_database = {"load_database", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_3load_database, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_3load_database(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_self = 0;
-  PyObject *__pyx_v_fp_database = 0;
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_3load_database(PyObject *__pyx_v_self, PyObject *__pyx_v_fp_database); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_3load_database(PyObject *__pyx_v_self, PyObject *__pyx_v_fp_database) {
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("load_database (wrapper)", 0);
-  {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_database,0};
-    PyObject* values[2] = {0,0};
-    if (unlikely(__pyx_kwds)) {
-      Py_ssize_t kw_args;
-      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
-      switch (pos_args) {
-        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-        CYTHON_FALLTHROUGH;
-        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-        CYTHON_FALLTHROUGH;
-        case  0: break;
-        default: goto __pyx_L5_argtuple_error;
-      }
-      kw_args = PyDict_Size(__pyx_kwds);
-      switch (pos_args) {
-        case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
-        else goto __pyx_L5_argtuple_error;
-        CYTHON_FALLTHROUGH;
-        case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_database)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("load_database", 1, 2, 2, 1); __PYX_ERR(0, 53, __pyx_L3_error)
-        }
-      }
-      if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "load_database") < 0)) __PYX_ERR(0, 53, __pyx_L3_error)
-      }
-    } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
-      goto __pyx_L5_argtuple_error;
-    } else {
-      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-    }
-    __pyx_v_self = values[0];
-    __pyx_v_fp_database = values[1];
-  }
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("load_database", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 53, __pyx_L3_error)
-  __pyx_L3_error:;
-  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.load_database", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(__pyx_self, __pyx_v_self, __pyx_v_fp_database);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_fp_database), (&PyUnicode_Type), 1, "fp_database", 1))) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), ((PyObject*)__pyx_v_fp_database));
 
   /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_database) {
-  PyObject *__pyx_v_line = NULL;
-  PyObject *__pyx_v_fp_ = NULL;
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_database) {
+  PyObject *__pyx_v_line = 0;
+  PyObject *__pyx_v_fp_str = 0;
+  PyObject *__pyx_v_fp_ = 0;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -2580,19 +2385,19 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(CYTHON_U
   int __pyx_t_8;
   __Pyx_RefNannySetupContext("load_database", 0);
 
-  /* "pmercury/protocols/tls.pyx":54
- * 
- *     def load_database(self, fp_database):
+  /* "pmercury/protocols/tls.pyx":61
+ *         cdef str line, fp_str
+ *         cdef dict fp_
  *         for line in os.popen('zcat %s' % (fp_database)):             # <<<<<<<<<<<<<<
  *             fp_ = json.loads(line)
- *             self.fp_db[fp_['str_repr']] = fp_
+ *             fp_str = fp_['str_repr']
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_popen); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_popen); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_zcat_s, __pyx_v_fp_database); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Format(__pyx_kp_u_zcat_s, __pyx_v_fp_database); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
@@ -2607,16 +2412,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(CYTHON_U
   __pyx_t_1 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_4, __pyx_t_2) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_2);
   __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
     __pyx_t_3 = __pyx_t_1; __Pyx_INCREF(__pyx_t_3); __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
   } else {
-    __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 61, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = Py_TYPE(__pyx_t_3)->tp_iternext; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_6 = Py_TYPE(__pyx_t_3)->tp_iternext; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 61, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -2624,17 +2429,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(CYTHON_U
       if (likely(PyList_CheckExact(__pyx_t_3))) {
         if (__pyx_t_5 >= PyList_GET_SIZE(__pyx_t_3)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_1 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_5); __Pyx_INCREF(__pyx_t_1); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 54, __pyx_L1_error)
+        __pyx_t_1 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_5); __Pyx_INCREF(__pyx_t_1); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 61, __pyx_L1_error)
         #else
-        __pyx_t_1 = PySequence_ITEM(__pyx_t_3, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
+        __pyx_t_1 = PySequence_ITEM(__pyx_t_3, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         #endif
       } else {
         if (__pyx_t_5 >= PyTuple_GET_SIZE(__pyx_t_3)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_5); __Pyx_INCREF(__pyx_t_1); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 54, __pyx_L1_error)
+        __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_5); __Pyx_INCREF(__pyx_t_1); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 61, __pyx_L1_error)
         #else
-        __pyx_t_1 = PySequence_ITEM(__pyx_t_3, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
+        __pyx_t_1 = PySequence_ITEM(__pyx_t_3, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         #endif
       }
@@ -2644,25 +2449,26 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(CYTHON_U
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(0, 54, __pyx_L1_error)
+          else __PYX_ERR(0, 61, __pyx_L1_error)
         }
         break;
       }
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __Pyx_XDECREF_SET(__pyx_v_line, __pyx_t_1);
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "unicode", Py_TYPE(__pyx_t_1)->tp_name), 0))) __PYX_ERR(0, 61, __pyx_L1_error)
+    __Pyx_XDECREF_SET(__pyx_v_line, ((PyObject*)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "pmercury/protocols/tls.pyx":55
- *     def load_database(self, fp_database):
+    /* "pmercury/protocols/tls.pyx":62
+ *         cdef dict fp_
  *         for line in os.popen('zcat %s' % (fp_database)):
  *             fp_ = json.loads(line)             # <<<<<<<<<<<<<<
- *             self.fp_db[fp_['str_repr']] = fp_
- *         if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
+ *             fp_str = fp_['str_repr']
+ *             self.fp_db[fp_str] = fp_
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_json); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_json); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 62, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_loads); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_loads); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 62, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_2 = NULL;
@@ -2677,88 +2483,102 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(CYTHON_U
     }
     __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_2, __pyx_v_line) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_v_line);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 62, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_XDECREF_SET(__pyx_v_fp_, __pyx_t_1);
+    if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "dict", Py_TYPE(__pyx_t_1)->tp_name), 0))) __PYX_ERR(0, 62, __pyx_L1_error)
+    __Pyx_XDECREF_SET(__pyx_v_fp_, ((PyObject*)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "pmercury/protocols/tls.pyx":56
+    /* "pmercury/protocols/tls.pyx":63
  *         for line in os.popen('zcat %s' % (fp_database)):
  *             fp_ = json.loads(line)
- *             self.fp_db[fp_['str_repr']] = fp_             # <<<<<<<<<<<<<<
- *         if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
+ *             fp_str = fp_['str_repr']             # <<<<<<<<<<<<<<
+ *             self.fp_db[fp_str] = fp_
+ *         if 'malware' not in self.fp_db[fp_str]['process_info'][0]:
+ */
+    if (unlikely(__pyx_v_fp_ == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 63, __pyx_L1_error)
+    }
+    __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_fp_, __pyx_n_u_str_repr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 63, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "unicode", Py_TYPE(__pyx_t_1)->tp_name), 0))) __PYX_ERR(0, 63, __pyx_L1_error)
+    __Pyx_XDECREF_SET(__pyx_v_fp_str, ((PyObject*)__pyx_t_1));
+    __pyx_t_1 = 0;
+
+    /* "pmercury/protocols/tls.pyx":64
+ *             fp_ = json.loads(line)
+ *             fp_str = fp_['str_repr']
+ *             self.fp_db[fp_str] = fp_             # <<<<<<<<<<<<<<
+ *         if 'malware' not in self.fp_db[fp_str]['process_info'][0]:
  *             self.MALWARE_DB = False
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 56, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_str_repr); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    if (unlikely(PyObject_SetItem(__pyx_t_1, __pyx_t_4, __pyx_v_fp_) < 0)) __PYX_ERR(0, 56, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 64, __pyx_L1_error)
+    }
+    if (unlikely(PyDict_SetItem(__pyx_v_self->fp_db, __pyx_v_fp_str, __pyx_v_fp_) < 0)) __PYX_ERR(0, 64, __pyx_L1_error)
 
-    /* "pmercury/protocols/tls.pyx":54
- * 
- *     def load_database(self, fp_database):
+    /* "pmercury/protocols/tls.pyx":61
+ *         cdef str line, fp_str
+ *         cdef dict fp_
  *         for line in os.popen('zcat %s' % (fp_database)):             # <<<<<<<<<<<<<<
  *             fp_ = json.loads(line)
- *             self.fp_db[fp_['str_repr']] = fp_
+ *             fp_str = fp_['str_repr']
  */
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "pmercury/protocols/tls.pyx":57
- *             fp_ = json.loads(line)
- *             self.fp_db[fp_['str_repr']] = fp_
- *         if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:             # <<<<<<<<<<<<<<
+  /* "pmercury/protocols/tls.pyx":65
+ *             fp_str = fp_['str_repr']
+ *             self.fp_db[fp_str] = fp_
+ *         if 'malware' not in self.fp_db[fp_str]['process_info'][0]:             # <<<<<<<<<<<<<<
  *             self.MALWARE_DB = False
  * 
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 57, __pyx_L1_error)
+  if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(0, 65, __pyx_L1_error)
+  }
+  if (unlikely(!__pyx_v_fp_str)) { __Pyx_RaiseUnboundLocalError("fp_str"); __PYX_ERR(0, 65, __pyx_L1_error) }
+  __pyx_t_3 = __Pyx_PyDict_GetItem(__pyx_v_self->fp_db, __pyx_v_fp_str); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (unlikely(!__pyx_v_fp_)) { __Pyx_RaiseUnboundLocalError("fp_"); __PYX_ERR(0, 57, __pyx_L1_error) }
-  __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_str_repr); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_t_3, __pyx_n_u_process_info); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_n_u_process_info); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_3 = __Pyx_GetItemInt(__pyx_t_1, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_t_4, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_malware, __pyx_t_1, Py_NE)); if (unlikely(__pyx_t_7 < 0)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_malware, __pyx_t_3, Py_NE)); if (unlikely(__pyx_t_7 < 0)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_8 = (__pyx_t_7 != 0);
   if (__pyx_t_8) {
 
-    /* "pmercury/protocols/tls.pyx":58
- *             self.fp_db[fp_['str_repr']] = fp_
- *         if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
+    /* "pmercury/protocols/tls.pyx":66
+ *             self.fp_db[fp_str] = fp_
+ *         if 'malware' not in self.fp_db[fp_str]['process_info'][0]:
  *             self.MALWARE_DB = False             # <<<<<<<<<<<<<<
  * 
  * 
  */
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_MALWARE_DB, Py_False) < 0) __PYX_ERR(0, 58, __pyx_L1_error)
+    __pyx_v_self->MALWARE_DB = 0;
 
-    /* "pmercury/protocols/tls.pyx":57
- *             fp_ = json.loads(line)
- *             self.fp_db[fp_['str_repr']] = fp_
- *         if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:             # <<<<<<<<<<<<<<
+    /* "pmercury/protocols/tls.pyx":65
+ *             fp_str = fp_['str_repr']
+ *             self.fp_db[fp_str] = fp_
+ *         if 'malware' not in self.fp_db[fp_str]['process_info'][0]:             # <<<<<<<<<<<<<<
  *             self.MALWARE_DB = False
  * 
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":53
+  /* "pmercury/protocols/tls.pyx":58
  * 
  * 
- *     def load_database(self, fp_database):             # <<<<<<<<<<<<<<
- *         for line in os.popen('zcat %s' % (fp_database)):
- *             fp_ = json.loads(line)
+ *     def load_database(self, str fp_database):             # <<<<<<<<<<<<<<
+ *         cdef str line, fp_str
+ *         cdef dict fp_
  */
 
   /* function exit code */
@@ -2773,13 +2593,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(CYTHON_U
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_line);
+  __Pyx_XDECREF(__pyx_v_fp_str);
   __Pyx_XDECREF(__pyx_v_fp_);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":62
+/* "pmercury/protocols/tls.pyx":70
  * 
  *     @staticmethod
  *     def proto_identify(data, offset, data_len):             # <<<<<<<<<<<<<<
@@ -2788,9 +2609,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_2load_database(CYTHON_U
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_5proto_identify(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_5proto_identify(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
 static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_5proto_identify = {"proto_identify", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_5proto_identify, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_5proto_identify(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_5proto_identify(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_data = 0;
   PyObject *__pyx_v_offset = 0;
   PyObject *__pyx_v_data_len = 0;
@@ -2822,17 +2643,17 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_5proto_identify(PyObjec
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_offset)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proto_identify", 1, 3, 3, 1); __PYX_ERR(0, 62, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proto_identify", 1, 3, 3, 1); __PYX_ERR(0, 70, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_data_len)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proto_identify", 1, 3, 3, 2); __PYX_ERR(0, 62, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proto_identify", 1, 3, 3, 2); __PYX_ERR(0, 70, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "proto_identify") < 0)) __PYX_ERR(0, 62, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "proto_identify") < 0)) __PYX_ERR(0, 70, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 3) {
       goto __pyx_L5_argtuple_error;
@@ -2847,20 +2668,20 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_5proto_identify(PyObjec
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("proto_identify", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 62, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("proto_identify", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 70, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.proto_identify", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(__pyx_self, __pyx_v_data, __pyx_v_offset, __pyx_v_data_len);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(__pyx_v_data, __pyx_v_offset, __pyx_v_data_len);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_data, PyObject *__pyx_v_offset, PyObject *__pyx_v_data_len) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(PyObject *__pyx_v_data, PyObject *__pyx_v_offset, PyObject *__pyx_v_data_len) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -2869,22 +2690,22 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
   int __pyx_t_4;
   __Pyx_RefNannySetupContext("proto_identify", 0);
 
-  /* "pmercury/protocols/tls.pyx":63
+  /* "pmercury/protocols/tls.pyx":71
  *     @staticmethod
  *     def proto_identify(data, offset, data_len):
  *         if data_len-offset < 16:             # <<<<<<<<<<<<<<
  *             return False
  *         if (data[offset]    == 22 and
  */
-  __pyx_t_1 = PyNumber_Subtract(__pyx_v_data_len, __pyx_v_offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_1 = PyNumber_Subtract(__pyx_v_data_len, __pyx_v_offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_int_16, Py_LT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_int_16, Py_LT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_3 < 0)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_3 < 0)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_3) {
 
-    /* "pmercury/protocols/tls.pyx":64
+    /* "pmercury/protocols/tls.pyx":72
  *     def proto_identify(data, offset, data_len):
  *         if data_len-offset < 16:
  *             return False             # <<<<<<<<<<<<<<
@@ -2896,7 +2717,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
     __pyx_r = Py_False;
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":63
+    /* "pmercury/protocols/tls.pyx":71
  *     @staticmethod
  *     def proto_identify(data, offset, data_len):
  *         if data_len-offset < 16:             # <<<<<<<<<<<<<<
@@ -2905,19 +2726,19 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":65
+  /* "pmercury/protocols/tls.pyx":73
  *         if data_len-offset < 16:
  *             return False
  *         if (data[offset]    == 22 and             # <<<<<<<<<<<<<<
  *             data[offset+1]  ==  3 and
  *             data[offset+2]  <=  3 and
  */
-  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_v_offset); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_v_offset); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyInt_EqObjC(__pyx_t_2, __pyx_int_22, 22, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_EqObjC(__pyx_t_2, __pyx_int_22, 22, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
   } else {
@@ -2925,22 +2746,22 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
     goto __pyx_L5_bool_binop_done;
   }
 
-  /* "pmercury/protocols/tls.pyx":66
+  /* "pmercury/protocols/tls.pyx":74
  *             return False
  *         if (data[offset]    == 22 and
  *             data[offset+1]  ==  3 and             # <<<<<<<<<<<<<<
  *             data[offset+2]  <=  3 and
  *             data[offset+5]  ==  1 and
  */
-  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyInt_EqObjC(__pyx_t_2, __pyx_int_3, 3, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_EqObjC(__pyx_t_2, __pyx_int_3, 3, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
   } else {
@@ -2948,21 +2769,21 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
     goto __pyx_L5_bool_binop_done;
   }
 
-  /* "pmercury/protocols/tls.pyx":67
+  /* "pmercury/protocols/tls.pyx":75
  *         if (data[offset]    == 22 and
  *             data[offset+1]  ==  3 and
  *             data[offset+2]  <=  3 and             # <<<<<<<<<<<<<<
  *             data[offset+5]  ==  1 and
  *             data[offset+9]  ==  3 and
  */
-  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyObject_RichCompare(__pyx_t_2, __pyx_int_3, Py_LE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_t_2, __pyx_int_3, Py_LE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
   } else {
@@ -2970,22 +2791,22 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
     goto __pyx_L5_bool_binop_done;
   }
 
-  /* "pmercury/protocols/tls.pyx":68
+  /* "pmercury/protocols/tls.pyx":76
  *             data[offset+1]  ==  3 and
  *             data[offset+2]  <=  3 and
  *             data[offset+5]  ==  1 and             # <<<<<<<<<<<<<<
  *             data[offset+9]  ==  3 and
  *             data[offset+10] <=  3):
  */
-  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_5, 5, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_5, 5, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyInt_EqObjC(__pyx_t_2, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_EqObjC(__pyx_t_2, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
   } else {
@@ -2993,22 +2814,22 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
     goto __pyx_L5_bool_binop_done;
   }
 
-  /* "pmercury/protocols/tls.pyx":69
+  /* "pmercury/protocols/tls.pyx":77
  *             data[offset+2]  <=  3 and
  *             data[offset+5]  ==  1 and
  *             data[offset+9]  ==  3 and             # <<<<<<<<<<<<<<
  *             data[offset+10] <=  3):
  *             return True
  */
-  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_9, 9, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_9, 9, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyInt_EqObjC(__pyx_t_2, __pyx_int_3, 3, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_EqObjC(__pyx_t_2, __pyx_int_3, 3, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
   } else {
@@ -3016,26 +2837,26 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
     goto __pyx_L5_bool_binop_done;
   }
 
-  /* "pmercury/protocols/tls.pyx":70
+  /* "pmercury/protocols/tls.pyx":78
  *             data[offset+5]  ==  1 and
  *             data[offset+9]  ==  3 and
  *             data[offset+10] <=  3):             # <<<<<<<<<<<<<<
  *             return True
  *         return False
  */
-  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_10, 10, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_AddObjC(__pyx_v_offset, __pyx_int_10, 10, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_data, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyObject_RichCompare(__pyx_t_2, __pyx_int_3, Py_LE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_t_2, __pyx_int_3, Py_LE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_3 = __pyx_t_4;
   __pyx_L5_bool_binop_done:;
 
-  /* "pmercury/protocols/tls.pyx":65
+  /* "pmercury/protocols/tls.pyx":73
  *         if data_len-offset < 16:
  *             return False
  *         if (data[offset]    == 22 and             # <<<<<<<<<<<<<<
@@ -3044,7 +2865,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
  */
   if (__pyx_t_3) {
 
-    /* "pmercury/protocols/tls.pyx":71
+    /* "pmercury/protocols/tls.pyx":79
  *             data[offset+9]  ==  3 and
  *             data[offset+10] <=  3):
  *             return True             # <<<<<<<<<<<<<<
@@ -3056,7 +2877,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
     __pyx_r = Py_True;
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":65
+    /* "pmercury/protocols/tls.pyx":73
  *         if data_len-offset < 16:
  *             return False
  *         if (data[offset]    == 22 and             # <<<<<<<<<<<<<<
@@ -3065,7 +2886,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":72
+  /* "pmercury/protocols/tls.pyx":80
  *             data[offset+10] <=  3):
  *             return True
  *         return False             # <<<<<<<<<<<<<<
@@ -3077,7 +2898,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
   __pyx_r = Py_False;
   goto __pyx_L0;
 
-  /* "pmercury/protocols/tls.pyx":62
+  /* "pmercury/protocols/tls.pyx":70
  * 
  *     @staticmethod
  *     def proto_identify(data, offset, data_len):             # <<<<<<<<<<<<<<
@@ -3097,7 +2918,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":76
+/* "pmercury/protocols/tls.pyx":84
  * 
  *     @staticmethod
  *     def fingerprint(bytes data, unsigned int offset, unsigned int data_len):             # <<<<<<<<<<<<<<
@@ -3106,9 +2927,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_4proto_identify(CYTHON_
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_7fingerprint(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_7fingerprint(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
 static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_7fingerprint = {"fingerprint", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_7fingerprint, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_7fingerprint(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_7fingerprint(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_data = 0;
   unsigned int __pyx_v_offset;
   unsigned int __pyx_v_data_len;
@@ -3140,17 +2961,17 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_7fingerprint(PyObject *
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_offset)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("fingerprint", 1, 3, 3, 1); __PYX_ERR(0, 76, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("fingerprint", 1, 3, 3, 1); __PYX_ERR(0, 84, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_data_len)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("fingerprint", 1, 3, 3, 2); __PYX_ERR(0, 76, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("fingerprint", 1, 3, 3, 2); __PYX_ERR(0, 84, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "fingerprint") < 0)) __PYX_ERR(0, 76, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "fingerprint") < 0)) __PYX_ERR(0, 84, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 3) {
       goto __pyx_L5_argtuple_error;
@@ -3160,19 +2981,19 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_7fingerprint(PyObject *
       values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
     }
     __pyx_v_data = ((PyObject*)values[0]);
-    __pyx_v_offset = __Pyx_PyInt_As_unsigned_int(values[1]); if (unlikely((__pyx_v_offset == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 76, __pyx_L3_error)
-    __pyx_v_data_len = __Pyx_PyInt_As_unsigned_int(values[2]); if (unlikely((__pyx_v_data_len == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 76, __pyx_L3_error)
+    __pyx_v_offset = __Pyx_PyInt_As_unsigned_int(values[1]); if (unlikely((__pyx_v_offset == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 84, __pyx_L3_error)
+    __pyx_v_data_len = __Pyx_PyInt_As_unsigned_int(values[2]); if (unlikely((__pyx_v_data_len == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 84, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("fingerprint", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 76, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("fingerprint", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 84, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.fingerprint", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 1, "data", 1))) __PYX_ERR(0, 76, __pyx_L1_error)
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(__pyx_self, __pyx_v_data, __pyx_v_offset, __pyx_v_data_len);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 1, "data", 1))) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(__pyx_v_data, __pyx_v_offset, __pyx_v_data_len);
 
   /* function exit code */
   goto __pyx_L0;
@@ -3183,7 +3004,7 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_7fingerprint(PyObject *
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_data, unsigned int __pyx_v_offset, unsigned int __pyx_v_data_len) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(PyObject *__pyx_v_data, unsigned int __pyx_v_offset, unsigned int __pyx_v_data_len) {
   unsigned char *__pyx_v_buf;
   PyObject *__pyx_v_fp_ = 0;
   unsigned int __pyx_v_session_id_length;
@@ -3210,7 +3031,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   PyObject *(*__pyx_t_11)(PyObject *);
   __Pyx_RefNannySetupContext("fingerprint", 0);
 
-  /* "pmercury/protocols/tls.pyx":77
+  /* "pmercury/protocols/tls.pyx":85
  *     @staticmethod
  *     def fingerprint(bytes data, unsigned int offset, unsigned int data_len):
  *         cdef unsigned char *buf = data             # <<<<<<<<<<<<<<
@@ -3219,12 +3040,12 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   if (unlikely(__pyx_v_data == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-    __PYX_ERR(0, 77, __pyx_L1_error)
+    __PYX_ERR(0, 85, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyBytes_AsWritableUString(__pyx_v_data); if (unlikely((!__pyx_t_1) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_AsWritableUString(__pyx_v_data); if (unlikely((!__pyx_t_1) && PyErr_Occurred())) __PYX_ERR(0, 85, __pyx_L1_error)
   __pyx_v_buf = __pyx_t_1;
 
-  /* "pmercury/protocols/tls.pyx":78
+  /* "pmercury/protocols/tls.pyx":86
  *     def fingerprint(bytes data, unsigned int offset, unsigned int data_len):
  *         cdef unsigned char *buf = data
  *         offset += 5             # <<<<<<<<<<<<<<
@@ -3233,7 +3054,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   __pyx_v_offset = (__pyx_v_offset + 5);
 
-  /* "pmercury/protocols/tls.pyx":81
+  /* "pmercury/protocols/tls.pyx":89
  * 
  *         # extract handshake version
  *         cdef str fp_ = '(%s)' % data[offset+4:offset+6].hex()             # <<<<<<<<<<<<<<
@@ -3242,11 +3063,11 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   if (unlikely(__pyx_v_data == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 81, __pyx_L1_error)
+    __PYX_ERR(0, 89, __pyx_L1_error)
   }
-  __pyx_t_3 = PySequence_GetSlice(__pyx_v_data, (__pyx_v_offset + 4), (__pyx_v_offset + 6)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_3 = PySequence_GetSlice(__pyx_v_data, (__pyx_v_offset + 4), (__pyx_v_offset + 6)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_hex); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_hex); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -3261,16 +3082,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   }
   __pyx_t_2 = (__pyx_t_3) ? __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_3) : __Pyx_PyObject_CallNoArg(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_fp_ = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "pmercury/protocols/tls.pyx":84
+  /* "pmercury/protocols/tls.pyx":92
  * 
  *         # skip header/client_random
  *         offset += 38             # <<<<<<<<<<<<<<
@@ -3279,7 +3100,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   __pyx_v_offset = (__pyx_v_offset + 38);
 
-  /* "pmercury/protocols/tls.pyx":87
+  /* "pmercury/protocols/tls.pyx":95
  * 
  *         # parse/skip session_id
  *         cdef unsigned int session_id_length = buf[offset]             # <<<<<<<<<<<<<<
@@ -3288,7 +3109,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   __pyx_v_session_id_length = (__pyx_v_buf[__pyx_v_offset]);
 
-  /* "pmercury/protocols/tls.pyx":88
+  /* "pmercury/protocols/tls.pyx":96
  *         # parse/skip session_id
  *         cdef unsigned int session_id_length = buf[offset]
  *         offset += 1 + session_id_length             # <<<<<<<<<<<<<<
@@ -3297,7 +3118,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   __pyx_v_offset = (__pyx_v_offset + (1 + __pyx_v_session_id_length));
 
-  /* "pmercury/protocols/tls.pyx":89
+  /* "pmercury/protocols/tls.pyx":97
  *         cdef unsigned int session_id_length = buf[offset]
  *         offset += 1 + session_id_length
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3307,7 +3128,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   __pyx_t_5 = ((__pyx_v_offset >= __pyx_v_data_len) != 0);
   if (__pyx_t_5) {
 
-    /* "pmercury/protocols/tls.pyx":90
+    /* "pmercury/protocols/tls.pyx":98
  *         offset += 1 + session_id_length
  *         if offset >= data_len:
  *             return None, None             # <<<<<<<<<<<<<<
@@ -3319,7 +3140,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __pyx_r = __pyx_tuple__2;
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":89
+    /* "pmercury/protocols/tls.pyx":97
  *         cdef unsigned int session_id_length = buf[offset]
  *         offset += 1 + session_id_length
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3328,35 +3149,35 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":93
+  /* "pmercury/protocols/tls.pyx":101
  * 
  *         # parse/extract/skip cipher_suites length
  *         cdef unsigned int cipher_suites_length = int.from_bytes(buf[offset:offset+2], byteorder='big')             # <<<<<<<<<<<<<<
  *         offset += 2
  *         if offset >= data_len:
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PyInt_Type)), __pyx_n_s_from_bytes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PyInt_Type)), __pyx_n_s_from_bytes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + __pyx_v_offset, (__pyx_v_offset + 2) - __pyx_v_offset); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + __pyx_v_offset, (__pyx_v_offset + 2) - __pyx_v_offset); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_2);
   PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_2);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_byteorder, __pyx_n_u_big) < 0) __PYX_ERR(0, 93, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_3, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 93, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_byteorder, __pyx_n_u_big) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_3, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_7 = __Pyx_PyInt_As_unsigned_int(__pyx_t_6); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyInt_As_unsigned_int(__pyx_t_6); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_v_cipher_suites_length = __pyx_t_7;
 
-  /* "pmercury/protocols/tls.pyx":94
+  /* "pmercury/protocols/tls.pyx":102
  *         # parse/extract/skip cipher_suites length
  *         cdef unsigned int cipher_suites_length = int.from_bytes(buf[offset:offset+2], byteorder='big')
  *         offset += 2             # <<<<<<<<<<<<<<
@@ -3365,7 +3186,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   __pyx_v_offset = (__pyx_v_offset + 2);
 
-  /* "pmercury/protocols/tls.pyx":95
+  /* "pmercury/protocols/tls.pyx":103
  *         cdef unsigned int cipher_suites_length = int.from_bytes(buf[offset:offset+2], byteorder='big')
  *         offset += 2
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3375,7 +3196,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   __pyx_t_5 = ((__pyx_v_offset >= __pyx_v_data_len) != 0);
   if (__pyx_t_5) {
 
-    /* "pmercury/protocols/tls.pyx":96
+    /* "pmercury/protocols/tls.pyx":104
  *         offset += 2
  *         if offset >= data_len:
  *             return None, None             # <<<<<<<<<<<<<<
@@ -3387,7 +3208,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __pyx_r = __pyx_tuple__2;
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":95
+    /* "pmercury/protocols/tls.pyx":103
  *         cdef unsigned int cipher_suites_length = int.from_bytes(buf[offset:offset+2], byteorder='big')
  *         offset += 2
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3396,16 +3217,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":99
+  /* "pmercury/protocols/tls.pyx":107
  * 
  *         # parse/extract/skip cipher_suites
  *         cdef str cs_ = degrease_type_code(data, offset)             # <<<<<<<<<<<<<<
  *         if cipher_suites_length > 2:
  *             cs_ += buf[offset+2:offset+cipher_suites_length].hex()
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_degrease_type_code); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_degrease_type_code); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyInt_From_unsigned_int(__pyx_v_offset); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_unsigned_int(__pyx_v_offset); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   __pyx_t_8 = 0;
@@ -3422,7 +3243,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
     PyObject *__pyx_temp[3] = {__pyx_t_4, __pyx_v_data, __pyx_t_3};
-    __pyx_t_6 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_8, 2+__pyx_t_8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_8, 2+__pyx_t_8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -3431,14 +3252,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
     PyObject *__pyx_temp[3] = {__pyx_t_4, __pyx_v_data, __pyx_t_3};
-    __pyx_t_6 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_8, 2+__pyx_t_8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_8, 2+__pyx_t_8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   } else
   #endif
   {
-    __pyx_t_9 = PyTuple_New(2+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_9 = PyTuple_New(2+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     if (__pyx_t_4) {
       __Pyx_GIVEREF(__pyx_t_4); PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_4); __pyx_t_4 = NULL;
@@ -3449,16 +3270,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __Pyx_GIVEREF(__pyx_t_3);
     PyTuple_SET_ITEM(__pyx_t_9, 1+__pyx_t_8, __pyx_t_3);
     __pyx_t_3 = 0;
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_9, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_9, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "unicode", Py_TYPE(__pyx_t_6)->tp_name), 0))) __PYX_ERR(0, 99, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "unicode", Py_TYPE(__pyx_t_6)->tp_name), 0))) __PYX_ERR(0, 107, __pyx_L1_error)
   __pyx_v_cs_ = ((PyObject*)__pyx_t_6);
   __pyx_t_6 = 0;
 
-  /* "pmercury/protocols/tls.pyx":100
+  /* "pmercury/protocols/tls.pyx":108
  *         # parse/extract/skip cipher_suites
  *         cdef str cs_ = degrease_type_code(data, offset)
  *         if cipher_suites_length > 2:             # <<<<<<<<<<<<<<
@@ -3468,16 +3289,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   __pyx_t_5 = ((__pyx_v_cipher_suites_length > 2) != 0);
   if (__pyx_t_5) {
 
-    /* "pmercury/protocols/tls.pyx":101
+    /* "pmercury/protocols/tls.pyx":109
  *         cdef str cs_ = degrease_type_code(data, offset)
  *         if cipher_suites_length > 2:
  *             cs_ += buf[offset+2:offset+cipher_suites_length].hex()             # <<<<<<<<<<<<<<
  *         fp_ += '(%s)' % cs_
  *         offset += cipher_suites_length
  */
-    __pyx_t_2 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + (__pyx_v_offset + 2), (__pyx_v_offset + __pyx_v_cipher_suites_length) - (__pyx_v_offset + 2)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + (__pyx_v_offset + 2), (__pyx_v_offset + __pyx_v_cipher_suites_length) - (__pyx_v_offset + 2)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_hex); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_hex); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_2 = NULL;
@@ -3492,17 +3313,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     }
     __pyx_t_6 = (__pyx_t_2) ? __Pyx_PyObject_CallOneArg(__pyx_t_9, __pyx_t_2) : __Pyx_PyObject_CallNoArg(__pyx_t_9);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 101, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __pyx_t_9 = PyNumber_InPlaceAdd(__pyx_v_cs_, __pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __pyx_t_9 = PyNumber_InPlaceAdd(__pyx_v_cs_, __pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_9))||((__pyx_t_9) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "unicode", Py_TYPE(__pyx_t_9)->tp_name), 0))) __PYX_ERR(0, 101, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_9))||((__pyx_t_9) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "unicode", Py_TYPE(__pyx_t_9)->tp_name), 0))) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_DECREF_SET(__pyx_v_cs_, ((PyObject*)__pyx_t_9));
     __pyx_t_9 = 0;
 
-    /* "pmercury/protocols/tls.pyx":100
+    /* "pmercury/protocols/tls.pyx":108
  *         # parse/extract/skip cipher_suites
  *         cdef str cs_ = degrease_type_code(data, offset)
  *         if cipher_suites_length > 2:             # <<<<<<<<<<<<<<
@@ -3511,22 +3332,22 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":102
+  /* "pmercury/protocols/tls.pyx":110
  *         if cipher_suites_length > 2:
  *             cs_ += buf[offset+2:offset+cipher_suites_length].hex()
  *         fp_ += '(%s)' % cs_             # <<<<<<<<<<<<<<
  *         offset += cipher_suites_length
  *         if offset >= data_len:
  */
-  __pyx_t_9 = PyUnicode_Format(__pyx_kp_u_s, __pyx_v_cs_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_9 = PyUnicode_Format(__pyx_kp_u_s, __pyx_v_cs_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __Pyx_DECREF_SET(__pyx_v_fp_, ((PyObject*)__pyx_t_6));
   __pyx_t_6 = 0;
 
-  /* "pmercury/protocols/tls.pyx":103
+  /* "pmercury/protocols/tls.pyx":111
  *             cs_ += buf[offset+2:offset+cipher_suites_length].hex()
  *         fp_ += '(%s)' % cs_
  *         offset += cipher_suites_length             # <<<<<<<<<<<<<<
@@ -3535,7 +3356,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   __pyx_v_offset = (__pyx_v_offset + __pyx_v_cipher_suites_length);
 
-  /* "pmercury/protocols/tls.pyx":104
+  /* "pmercury/protocols/tls.pyx":112
  *         fp_ += '(%s)' % cs_
  *         offset += cipher_suites_length
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3545,7 +3366,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   __pyx_t_5 = ((__pyx_v_offset >= __pyx_v_data_len) != 0);
   if (__pyx_t_5) {
 
-    /* "pmercury/protocols/tls.pyx":105
+    /* "pmercury/protocols/tls.pyx":113
  *         offset += cipher_suites_length
  *         if offset >= data_len:
  *             return fp_+'()', None             # <<<<<<<<<<<<<<
@@ -3553,9 +3374,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  *         # parse/skip compression method
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_GIVEREF(__pyx_t_6);
     PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_6);
@@ -3567,7 +3388,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __pyx_t_9 = 0;
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":104
+    /* "pmercury/protocols/tls.pyx":112
  *         fp_ += '(%s)' % cs_
  *         offset += cipher_suites_length
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3576,7 +3397,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":108
+  /* "pmercury/protocols/tls.pyx":116
  * 
  *         # parse/skip compression method
  *         cdef unsigned int compression_methods_length = buf[offset]             # <<<<<<<<<<<<<<
@@ -3585,7 +3406,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   __pyx_v_compression_methods_length = (__pyx_v_buf[__pyx_v_offset]);
 
-  /* "pmercury/protocols/tls.pyx":109
+  /* "pmercury/protocols/tls.pyx":117
  *         # parse/skip compression method
  *         cdef unsigned int compression_methods_length = buf[offset]
  *         offset += 1 + compression_methods_length             # <<<<<<<<<<<<<<
@@ -3594,7 +3415,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   __pyx_v_offset = (__pyx_v_offset + (1 + __pyx_v_compression_methods_length));
 
-  /* "pmercury/protocols/tls.pyx":110
+  /* "pmercury/protocols/tls.pyx":118
  *         cdef unsigned int compression_methods_length = buf[offset]
  *         offset += 1 + compression_methods_length
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3604,7 +3425,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   __pyx_t_5 = ((__pyx_v_offset >= __pyx_v_data_len) != 0);
   if (__pyx_t_5) {
 
-    /* "pmercury/protocols/tls.pyx":111
+    /* "pmercury/protocols/tls.pyx":119
  *         offset += 1 + compression_methods_length
  *         if offset >= data_len:
  *             return fp_+'()', None             # <<<<<<<<<<<<<<
@@ -3612,9 +3433,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  *         # parse/skip extensions length
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_9);
     PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_9);
@@ -3626,7 +3447,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __pyx_t_6 = 0;
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":110
+    /* "pmercury/protocols/tls.pyx":118
  *         cdef unsigned int compression_methods_length = buf[offset]
  *         offset += 1 + compression_methods_length
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3635,35 +3456,35 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":114
+  /* "pmercury/protocols/tls.pyx":122
  * 
  *         # parse/skip extensions length
  *         cdef unsigned int ext_total_len = int.from_bytes(buf[offset:offset+2], byteorder='big')             # <<<<<<<<<<<<<<
  *         offset += 2
  *         if offset >= data_len:
  */
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PyInt_Type)), __pyx_n_s_from_bytes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PyInt_Type)), __pyx_n_s_from_bytes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_9 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + __pyx_v_offset, (__pyx_v_offset + 2) - __pyx_v_offset); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + __pyx_v_offset, (__pyx_v_offset + 2) - __pyx_v_offset); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_9);
   PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_9);
   __pyx_t_9 = 0;
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_n_s_byteorder, __pyx_n_u_big) < 0) __PYX_ERR(0, 114, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_2, __pyx_t_9); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 114, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_n_s_byteorder, __pyx_n_u_big) < 0) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_2, __pyx_t_9); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_7 = __Pyx_PyInt_As_unsigned_int(__pyx_t_3); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyInt_As_unsigned_int(__pyx_t_3); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_ext_total_len = __pyx_t_7;
 
-  /* "pmercury/protocols/tls.pyx":115
+  /* "pmercury/protocols/tls.pyx":123
  *         # parse/skip extensions length
  *         cdef unsigned int ext_total_len = int.from_bytes(buf[offset:offset+2], byteorder='big')
  *         offset += 2             # <<<<<<<<<<<<<<
@@ -3672,7 +3493,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   __pyx_v_offset = (__pyx_v_offset + 2);
 
-  /* "pmercury/protocols/tls.pyx":116
+  /* "pmercury/protocols/tls.pyx":124
  *         cdef unsigned int ext_total_len = int.from_bytes(buf[offset:offset+2], byteorder='big')
  *         offset += 2
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3682,7 +3503,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   __pyx_t_5 = ((__pyx_v_offset >= __pyx_v_data_len) != 0);
   if (__pyx_t_5) {
 
-    /* "pmercury/protocols/tls.pyx":117
+    /* "pmercury/protocols/tls.pyx":125
  *         offset += 2
  *         if offset >= data_len:
  *             return fp_+'()', None             # <<<<<<<<<<<<<<
@@ -3690,9 +3511,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  *         # parse/extract/skip extension type/length/values
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 117, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 125, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 117, __pyx_L1_error)
+    __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 125, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_GIVEREF(__pyx_t_3);
     PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_3);
@@ -3704,7 +3525,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __pyx_t_9 = 0;
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":116
+    /* "pmercury/protocols/tls.pyx":124
  *         cdef unsigned int ext_total_len = int.from_bytes(buf[offset:offset+2], byteorder='big')
  *         offset += 2
  *         if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3713,19 +3534,19 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":120
+  /* "pmercury/protocols/tls.pyx":128
  * 
  *         # parse/extract/skip extension type/length/values
  *         fp_ += '('             # <<<<<<<<<<<<<<
  *         server_name = None
  *         while ext_total_len > 0:
  */
-  __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF_SET(__pyx_v_fp_, ((PyObject*)__pyx_t_9));
   __pyx_t_9 = 0;
 
-  /* "pmercury/protocols/tls.pyx":121
+  /* "pmercury/protocols/tls.pyx":129
  *         # parse/extract/skip extension type/length/values
  *         fp_ += '('
  *         server_name = None             # <<<<<<<<<<<<<<
@@ -3735,7 +3556,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   __Pyx_INCREF(Py_None);
   __pyx_v_server_name = Py_None;
 
-  /* "pmercury/protocols/tls.pyx":122
+  /* "pmercury/protocols/tls.pyx":130
  *         fp_ += '('
  *         server_name = None
  *         while ext_total_len > 0:             # <<<<<<<<<<<<<<
@@ -3746,7 +3567,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __pyx_t_5 = ((__pyx_v_ext_total_len > 0) != 0);
     if (!__pyx_t_5) break;
 
-    /* "pmercury/protocols/tls.pyx":123
+    /* "pmercury/protocols/tls.pyx":131
  *         server_name = None
  *         while ext_total_len > 0:
  *             if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3756,7 +3577,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __pyx_t_5 = ((__pyx_v_offset >= __pyx_v_data_len) != 0);
     if (__pyx_t_5) {
 
-      /* "pmercury/protocols/tls.pyx":124
+      /* "pmercury/protocols/tls.pyx":132
  *         while ext_total_len > 0:
  *             if offset >= data_len:
  *                 return fp_+')', None             # <<<<<<<<<<<<<<
@@ -3764,9 +3585,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  *             # extract server name for process/malware identification
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__5); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 124, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__5); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 132, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 124, __pyx_L1_error)
+      __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 132, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_GIVEREF(__pyx_t_9);
       PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_9);
@@ -3778,7 +3599,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "pmercury/protocols/tls.pyx":123
+      /* "pmercury/protocols/tls.pyx":131
  *         server_name = None
  *         while ext_total_len > 0:
  *             if offset >= data_len:             # <<<<<<<<<<<<<<
@@ -3787,49 +3608,49 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
     }
 
-    /* "pmercury/protocols/tls.pyx":127
+    /* "pmercury/protocols/tls.pyx":135
  * 
  *             # extract server name for process/malware identification
  *             if int.from_bytes(buf[offset:offset+2], byteorder='big') == 0:             # <<<<<<<<<<<<<<
  *                 server_name = extract_server_name(data, offset+2, data_len)
  * 
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PyInt_Type)), __pyx_n_s_from_bytes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PyInt_Type)), __pyx_n_s_from_bytes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_9 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + __pyx_v_offset, (__pyx_v_offset + 2) - __pyx_v_offset); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + __pyx_v_offset, (__pyx_v_offset + 2) - __pyx_v_offset); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GIVEREF(__pyx_t_9);
     PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_9);
     __pyx_t_9 = 0;
-    __pyx_t_9 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    if (PyDict_SetItem(__pyx_t_9, __pyx_n_s_byteorder, __pyx_n_u_big) < 0) __PYX_ERR(0, 127, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_2, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_9, __pyx_n_s_byteorder, __pyx_n_u_big) < 0) __PYX_ERR(0, 135, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_2, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __pyx_t_9 = __Pyx_PyInt_EqObjC(__pyx_t_6, __pyx_int_0, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyInt_EqObjC(__pyx_t_6, __pyx_int_0, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely(__pyx_t_5 < 0)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely(__pyx_t_5 < 0)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     if (__pyx_t_5) {
 
-      /* "pmercury/protocols/tls.pyx":128
+      /* "pmercury/protocols/tls.pyx":136
  *             # extract server name for process/malware identification
  *             if int.from_bytes(buf[offset:offset+2], byteorder='big') == 0:
  *                 server_name = extract_server_name(data, offset+2, data_len)             # <<<<<<<<<<<<<<
  * 
  *             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_extract_server_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 128, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_extract_server_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 136, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_2 = __Pyx_PyInt_From_long((__pyx_v_offset + 2)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyInt_From_long((__pyx_v_offset + 2)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 136, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_3 = __Pyx_PyInt_From_unsigned_int(__pyx_v_data_len); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 128, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyInt_From_unsigned_int(__pyx_v_data_len); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 136, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_4 = NULL;
       __pyx_t_8 = 0;
@@ -3846,7 +3667,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       #if CYTHON_FAST_PYCALL
       if (PyFunction_Check(__pyx_t_6)) {
         PyObject *__pyx_temp[4] = {__pyx_t_4, __pyx_v_data, __pyx_t_2, __pyx_t_3};
-        __pyx_t_9 = __Pyx_PyFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_8, 3+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_8, 3+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 136, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -3856,7 +3677,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       #if CYTHON_FAST_PYCCALL
       if (__Pyx_PyFastCFunction_Check(__pyx_t_6)) {
         PyObject *__pyx_temp[4] = {__pyx_t_4, __pyx_v_data, __pyx_t_2, __pyx_t_3};
-        __pyx_t_9 = __Pyx_PyCFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_8, 3+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyCFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_8, 3+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 136, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -3864,7 +3685,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       } else
       #endif
       {
-        __pyx_t_10 = PyTuple_New(3+__pyx_t_8); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 128, __pyx_L1_error)
+        __pyx_t_10 = PyTuple_New(3+__pyx_t_8); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 136, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         if (__pyx_t_4) {
           __Pyx_GIVEREF(__pyx_t_4); PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_4); __pyx_t_4 = NULL;
@@ -3878,7 +3699,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
         PyTuple_SET_ITEM(__pyx_t_10, 2+__pyx_t_8, __pyx_t_3);
         __pyx_t_2 = 0;
         __pyx_t_3 = 0;
-        __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_10, NULL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_10, NULL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 136, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       }
@@ -3886,7 +3707,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       __Pyx_DECREF_SET(__pyx_v_server_name, __pyx_t_9);
       __pyx_t_9 = 0;
 
-      /* "pmercury/protocols/tls.pyx":127
+      /* "pmercury/protocols/tls.pyx":135
  * 
  *             # extract server name for process/malware identification
  *             if int.from_bytes(buf[offset:offset+2], byteorder='big') == 0:             # <<<<<<<<<<<<<<
@@ -3895,16 +3716,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
     }
 
-    /* "pmercury/protocols/tls.pyx":130
+    /* "pmercury/protocols/tls.pyx":138
  *                 server_name = extract_server_name(data, offset+2, data_len)
  * 
  *             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)             # <<<<<<<<<<<<<<
  *             fp_ += '(%s)' % tmp_fp_ext
  * 
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_parse_extension); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_parse_extension); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_10 = __Pyx_PyInt_From_unsigned_int(__pyx_v_offset); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyInt_From_unsigned_int(__pyx_v_offset); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __pyx_t_3 = NULL;
     __pyx_t_8 = 0;
@@ -3921,7 +3742,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     #if CYTHON_FAST_PYCALL
     if (PyFunction_Check(__pyx_t_6)) {
       PyObject *__pyx_temp[3] = {__pyx_t_3, __pyx_v_data, __pyx_t_10};
-      __pyx_t_9 = __Pyx_PyFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_8, 2+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 130, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_8, 2+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -3930,14 +3751,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     #if CYTHON_FAST_PYCCALL
     if (__Pyx_PyFastCFunction_Check(__pyx_t_6)) {
       PyObject *__pyx_temp[3] = {__pyx_t_3, __pyx_v_data, __pyx_t_10};
-      __pyx_t_9 = __Pyx_PyCFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_8, 2+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 130, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyCFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_8, 2+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     } else
     #endif
     {
-      __pyx_t_2 = PyTuple_New(2+__pyx_t_8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
+      __pyx_t_2 = PyTuple_New(2+__pyx_t_8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       if (__pyx_t_3) {
         __Pyx_GIVEREF(__pyx_t_3); PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3); __pyx_t_3 = NULL;
@@ -3948,7 +3769,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       __Pyx_GIVEREF(__pyx_t_10);
       PyTuple_SET_ITEM(__pyx_t_2, 1+__pyx_t_8, __pyx_t_10);
       __pyx_t_10 = 0;
-      __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_2, NULL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 130, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_2, NULL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
@@ -3959,7 +3780,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       if (unlikely(size != 3)) {
         if (size > 3) __Pyx_RaiseTooManyValuesError(3);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 130, __pyx_L1_error)
+        __PYX_ERR(0, 138, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -3975,17 +3796,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       __Pyx_INCREF(__pyx_t_2);
       __Pyx_INCREF(__pyx_t_10);
       #else
-      __pyx_t_6 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 130, __pyx_L1_error)
+      __pyx_t_6 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
+      __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_10 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 130, __pyx_L1_error)
+      __pyx_t_10 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       #endif
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_3 = PyObject_GetIter(__pyx_t_9); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 130, __pyx_L1_error)
+      __pyx_t_3 = PyObject_GetIter(__pyx_t_9); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_11 = Py_TYPE(__pyx_t_3)->tp_iternext;
@@ -3995,7 +3816,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       __Pyx_GOTREF(__pyx_t_2);
       index = 2; __pyx_t_10 = __pyx_t_11(__pyx_t_3); if (unlikely(!__pyx_t_10)) goto __pyx_L13_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_10);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_11(__pyx_t_3), 3) < 0) __PYX_ERR(0, 130, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_11(__pyx_t_3), 3) < 0) __PYX_ERR(0, 138, __pyx_L1_error)
       __pyx_t_11 = NULL;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L14_unpacking_done;
@@ -4003,10 +3824,10 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_11 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 130, __pyx_L1_error)
+      __PYX_ERR(0, 138, __pyx_L1_error)
       __pyx_L14_unpacking_done:;
     }
-    __pyx_t_7 = __Pyx_PyInt_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 130, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyInt_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_XDECREF_SET(__pyx_v_tmp_fp_ext, __pyx_t_6);
     __pyx_t_6 = 0;
@@ -4014,54 +3835,54 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __Pyx_XDECREF_SET(__pyx_v_ext_len, __pyx_t_10);
     __pyx_t_10 = 0;
 
-    /* "pmercury/protocols/tls.pyx":131
+    /* "pmercury/protocols/tls.pyx":139
  * 
  *             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
  *             fp_ += '(%s)' % tmp_fp_ext             # <<<<<<<<<<<<<<
  * 
  *             ext_total_len -= 4 + ext_len
  */
-    __pyx_t_9 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s, __pyx_v_tmp_fp_ext); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 131, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s, __pyx_v_tmp_fp_ext); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 139, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_10 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_t_9); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 131, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_t_9); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 139, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF_SET(__pyx_v_fp_, ((PyObject*)__pyx_t_10));
     __pyx_t_10 = 0;
 
-    /* "pmercury/protocols/tls.pyx":133
+    /* "pmercury/protocols/tls.pyx":141
  *             fp_ += '(%s)' % tmp_fp_ext
  * 
  *             ext_total_len -= 4 + ext_len             # <<<<<<<<<<<<<<
  *         fp_ += ')'
  * 
  */
-    __pyx_t_10 = __Pyx_PyInt_From_unsigned_int(__pyx_v_ext_total_len); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyInt_From_unsigned_int(__pyx_v_ext_total_len); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 141, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_9 = __Pyx_PyInt_AddCObj(__pyx_int_4, __pyx_v_ext_len, 4, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyInt_AddCObj(__pyx_int_4, __pyx_v_ext_len, 4, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 141, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_2 = PyNumber_InPlaceSubtract(__pyx_t_10, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_2 = PyNumber_InPlaceSubtract(__pyx_t_10, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 141, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __pyx_t_7 = __Pyx_PyInt_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyInt_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_v_ext_total_len = __pyx_t_7;
   }
 
-  /* "pmercury/protocols/tls.pyx":134
+  /* "pmercury/protocols/tls.pyx":142
  * 
  *             ext_total_len -= 4 + ext_len
  *         fp_ += ')'             # <<<<<<<<<<<<<<
  * 
  *         cdef list context = None
  */
-  __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_fp_, __pyx_kp_u__5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF_SET(__pyx_v_fp_, ((PyObject*)__pyx_t_2));
   __pyx_t_2 = 0;
 
-  /* "pmercury/protocols/tls.pyx":136
+  /* "pmercury/protocols/tls.pyx":144
  *         fp_ += ')'
  * 
  *         cdef list context = None             # <<<<<<<<<<<<<<
@@ -4071,30 +3892,30 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   __Pyx_INCREF(Py_None);
   __pyx_v_context = ((PyObject*)Py_None);
 
-  /* "pmercury/protocols/tls.pyx":137
+  /* "pmercury/protocols/tls.pyx":145
  * 
  *         cdef list context = None
  *         if server_name != None:             # <<<<<<<<<<<<<<
  *             context = [{'name':'server_name', 'data':server_name}]
  * 
  */
-  __pyx_t_2 = PyObject_RichCompare(__pyx_v_server_name, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 137, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_5 < 0)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_v_server_name, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_5 < 0)) __PYX_ERR(0, 145, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_5) {
 
-    /* "pmercury/protocols/tls.pyx":138
+    /* "pmercury/protocols/tls.pyx":146
  *         cdef list context = None
  *         if server_name != None:
  *             context = [{'name':'server_name', 'data':server_name}]             # <<<<<<<<<<<<<<
  * 
  *         return  fp_, context
  */
-    __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_name, __pyx_n_u_server_name) < 0) __PYX_ERR(0, 138, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_data, __pyx_v_server_name) < 0) __PYX_ERR(0, 138, __pyx_L1_error)
-    __pyx_t_9 = PyList_New(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 138, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_name, __pyx_n_u_server_name) < 0) __PYX_ERR(0, 146, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_data, __pyx_v_server_name) < 0) __PYX_ERR(0, 146, __pyx_L1_error)
+    __pyx_t_9 = PyList_New(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_GIVEREF(__pyx_t_2);
     PyList_SET_ITEM(__pyx_t_9, 0, __pyx_t_2);
@@ -4102,7 +3923,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
     __Pyx_DECREF_SET(__pyx_v_context, ((PyObject*)__pyx_t_9));
     __pyx_t_9 = 0;
 
-    /* "pmercury/protocols/tls.pyx":137
+    /* "pmercury/protocols/tls.pyx":145
  * 
  *         cdef list context = None
  *         if server_name != None:             # <<<<<<<<<<<<<<
@@ -4111,7 +3932,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":140
+  /* "pmercury/protocols/tls.pyx":148
  *             context = [{'name':'server_name', 'data':server_name}]
  * 
  *         return  fp_, context             # <<<<<<<<<<<<<<
@@ -4119,7 +3940,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_INCREF(__pyx_v_fp_);
   __Pyx_GIVEREF(__pyx_v_fp_);
@@ -4131,7 +3952,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   __pyx_t_9 = 0;
   goto __pyx_L0;
 
-  /* "pmercury/protocols/tls.pyx":76
+  /* "pmercury/protocols/tls.pyx":84
  * 
  *     @staticmethod
  *     def fingerprint(bytes data, unsigned int offset, unsigned int data_len):             # <<<<<<<<<<<<<<
@@ -4161,7 +3982,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":143
+/* "pmercury/protocols/tls.pyx":151
  * 
  * 
  *     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):             # <<<<<<<<<<<<<<
@@ -4170,10 +3991,8 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_6fingerprint(CYTHON_UNU
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_9proc_identify(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_9proc_identify = {"proc_identify", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_9proc_identify, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_9proc_identify(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_self = 0;
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_9proc_identify(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_9proc_identify(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_fp_str_ = 0;
   PyObject *__pyx_v_context_ = 0;
   PyObject *__pyx_v_dest_addr = 0;
@@ -4183,15 +4002,13 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_9proc_identify(PyObject
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("proc_identify (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_str,&__pyx_n_s_context,&__pyx_n_s_dest_addr,&__pyx_n_s_dest_port,&__pyx_n_s_list_procs,0};
-    PyObject* values[6] = {0,0,0,0,0,0};
-    values[5] = ((PyObject *)((PyObject *)__pyx_int_0));
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_fp_str,&__pyx_n_s_context,&__pyx_n_s_dest_addr,&__pyx_n_s_dest_port,&__pyx_n_s_list_procs,0};
+    PyObject* values[5] = {0,0,0,0,0};
+    values[4] = ((PyObject *)__pyx_int_0);
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
-        case  6: values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
-        CYTHON_FALLTHROUGH;
         case  5: values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
         CYTHON_FALLTHROUGH;
         case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
@@ -4208,48 +4025,41 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_9proc_identify(PyObject
       kw_args = PyDict_Size(__pyx_kwds);
       switch (pos_args) {
         case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
+        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_context)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 6, 1); __PYX_ERR(0, 143, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, 1); __PYX_ERR(0, 151, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
-        if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_context)) != 0)) kw_args--;
+        if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dest_addr)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 6, 2); __PYX_ERR(0, 143, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, 2); __PYX_ERR(0, 151, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
-        if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dest_addr)) != 0)) kw_args--;
+        if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dest_port)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 6, 3); __PYX_ERR(0, 143, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, 3); __PYX_ERR(0, 151, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
-        if (likely((values[4] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dest_port)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 6, 4); __PYX_ERR(0, 143, __pyx_L3_error)
-        }
-        CYTHON_FALLTHROUGH;
-        case  5:
         if (kw_args > 0) {
           PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_list_procs);
-          if (value) { values[5] = value; kw_args--; }
+          if (value) { values[4] = value; kw_args--; }
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "proc_identify") < 0)) __PYX_ERR(0, 143, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "proc_identify") < 0)) __PYX_ERR(0, 151, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
-        case  6: values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
-        CYTHON_FALLTHROUGH;
         case  5: values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
-        values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
+        CYTHON_FALLTHROUGH;
+        case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
         values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
         values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
         values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
@@ -4257,315 +4067,229 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_9proc_identify(PyObject
         default: goto __pyx_L5_argtuple_error;
       }
     }
-    __pyx_v_self = values[0];
-    __pyx_v_fp_str_ = values[1];
-    __pyx_v_context_ = values[2];
-    __pyx_v_dest_addr = values[3];
-    __pyx_v_dest_port = values[4];
-    __pyx_v_list_procs = values[5];
+    __pyx_v_fp_str_ = values[0];
+    __pyx_v_context_ = values[1];
+    __pyx_v_dest_addr = values[2];
+    __pyx_v_dest_port = values[3];
+    __pyx_v_list_procs = values[4];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 6, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 143, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 151, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.proc_identify", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(__pyx_self, __pyx_v_self, __pyx_v_fp_str_, __pyx_v_context_, __pyx_v_dest_addr, __pyx_v_dest_port, __pyx_v_list_procs);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), __pyx_v_fp_str_, __pyx_v_context_, __pyx_v_dest_addr, __pyx_v_dest_port, __pyx_v_list_procs);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_, PyObject *__pyx_v_context_, PyObject *__pyx_v_dest_addr, PyObject *__pyx_v_dest_port, PyObject *__pyx_v_list_procs) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_, PyObject *__pyx_v_context_, PyObject *__pyx_v_dest_addr, PyObject *__pyx_v_dest_port, PyObject *__pyx_v_list_procs) {
   PyObject *__pyx_v_server_name = NULL;
-  PyObject *__pyx_v_x_ = NULL;
   PyObject *__pyx_v_lit_fp = NULL;
   PyObject *__pyx_v_approx_str_ = NULL;
   PyObject *__pyx_v_fp_ = NULL;
   PyObject *__pyx_v_result = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  int __pyx_t_2;
-  Py_ssize_t __pyx_t_3;
-  PyObject *(*__pyx_t_4)(PyObject *);
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_t_3;
+  int __pyx_t_4;
   PyObject *__pyx_t_5 = NULL;
-  int __pyx_t_6;
-  PyObject *__pyx_t_7 = NULL;
-  int __pyx_t_8;
-  PyObject *__pyx_t_9 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  int __pyx_t_7;
+  PyObject *__pyx_t_8 = NULL;
   __Pyx_RefNannySetupContext("proc_identify", 0);
 
-  /* "pmercury/protocols/tls.pyx":144
+  /* "pmercury/protocols/tls.pyx":152
  * 
  *     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):
  *         server_name = None             # <<<<<<<<<<<<<<
  *         # extract server_name field from context object
- *         if context_ != None:
+ *         if context_ != None and 'server_name' in context_:
  */
   __Pyx_INCREF(Py_None);
   __pyx_v_server_name = Py_None;
 
-  /* "pmercury/protocols/tls.pyx":146
+  /* "pmercury/protocols/tls.pyx":154
  *         server_name = None
  *         # extract server_name field from context object
- *         if context_ != None:             # <<<<<<<<<<<<<<
- *             for x_ in context_:
- *                 if x_['name'] == 'server_name':
- */
-  __pyx_t_1 = PyObject_RichCompare(__pyx_v_context_, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 146, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__pyx_t_2) {
-
-    /* "pmercury/protocols/tls.pyx":147
- *         # extract server_name field from context object
- *         if context_ != None:
- *             for x_ in context_:             # <<<<<<<<<<<<<<
- *                 if x_['name'] == 'server_name':
- *                     server_name = x_['data']
- */
-    if (likely(PyList_CheckExact(__pyx_v_context_)) || PyTuple_CheckExact(__pyx_v_context_)) {
-      __pyx_t_1 = __pyx_v_context_; __Pyx_INCREF(__pyx_t_1); __pyx_t_3 = 0;
-      __pyx_t_4 = NULL;
-    } else {
-      __pyx_t_3 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_context_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 147, __pyx_L1_error)
-    }
-    for (;;) {
-      if (likely(!__pyx_t_4)) {
-        if (likely(PyList_CheckExact(__pyx_t_1))) {
-          if (__pyx_t_3 >= PyList_GET_SIZE(__pyx_t_1)) break;
-          #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_5 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_3); __Pyx_INCREF(__pyx_t_5); __pyx_t_3++; if (unlikely(0 < 0)) __PYX_ERR(0, 147, __pyx_L1_error)
-          #else
-          __pyx_t_5 = PySequence_ITEM(__pyx_t_1, __pyx_t_3); __pyx_t_3++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 147, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_5);
-          #endif
-        } else {
-          if (__pyx_t_3 >= PyTuple_GET_SIZE(__pyx_t_1)) break;
-          #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_5 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_3); __Pyx_INCREF(__pyx_t_5); __pyx_t_3++; if (unlikely(0 < 0)) __PYX_ERR(0, 147, __pyx_L1_error)
-          #else
-          __pyx_t_5 = PySequence_ITEM(__pyx_t_1, __pyx_t_3); __pyx_t_3++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 147, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_5);
-          #endif
-        }
-      } else {
-        __pyx_t_5 = __pyx_t_4(__pyx_t_1);
-        if (unlikely(!__pyx_t_5)) {
-          PyObject* exc_type = PyErr_Occurred();
-          if (exc_type) {
-            if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(0, 147, __pyx_L1_error)
-          }
-          break;
-        }
-        __Pyx_GOTREF(__pyx_t_5);
-      }
-      __Pyx_XDECREF_SET(__pyx_v_x_, __pyx_t_5);
-      __pyx_t_5 = 0;
-
-      /* "pmercury/protocols/tls.pyx":148
- *         if context_ != None:
- *             for x_ in context_:
- *                 if x_['name'] == 'server_name':             # <<<<<<<<<<<<<<
- *                     server_name = x_['data']
- *                     break
- */
-      __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_x_, __pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 148, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_5, __pyx_n_u_server_name, Py_EQ)); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 148, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (__pyx_t_2) {
-
-        /* "pmercury/protocols/tls.pyx":149
- *             for x_ in context_:
- *                 if x_['name'] == 'server_name':
- *                     server_name = x_['data']             # <<<<<<<<<<<<<<
- *                     break
+ *         if context_ != None and 'server_name' in context_:             # <<<<<<<<<<<<<<
+ *             server_name = context_['server_name']
  * 
  */
-        __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_x_, __pyx_n_u_data); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 149, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_5);
-        __Pyx_DECREF_SET(__pyx_v_server_name, __pyx_t_5);
-        __pyx_t_5 = 0;
+  __pyx_t_2 = PyObject_RichCompare(__pyx_v_context_, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_3 < 0)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (__pyx_t_3) {
+  } else {
+    __pyx_t_1 = __pyx_t_3;
+    goto __pyx_L4_bool_binop_done;
+  }
+  __pyx_t_3 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_server_name, __pyx_v_context_, Py_EQ)); if (unlikely(__pyx_t_3 < 0)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_4 = (__pyx_t_3 != 0);
+  __pyx_t_1 = __pyx_t_4;
+  __pyx_L4_bool_binop_done:;
+  if (__pyx_t_1) {
 
-        /* "pmercury/protocols/tls.pyx":150
- *                 if x_['name'] == 'server_name':
- *                     server_name = x_['data']
- *                     break             # <<<<<<<<<<<<<<
+    /* "pmercury/protocols/tls.pyx":155
+ *         # extract server_name field from context object
+ *         if context_ != None and 'server_name' in context_:
+ *             server_name = context_['server_name']             # <<<<<<<<<<<<<<
  * 
  *         # fingerprint approximate matching if necessary
  */
-        goto __pyx_L5_break;
+    __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_context_, __pyx_n_u_server_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 155, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF_SET(__pyx_v_server_name, __pyx_t_2);
+    __pyx_t_2 = 0;
 
-        /* "pmercury/protocols/tls.pyx":148
- *         if context_ != None:
- *             for x_ in context_:
- *                 if x_['name'] == 'server_name':             # <<<<<<<<<<<<<<
- *                     server_name = x_['data']
- *                     break
- */
-      }
-
-      /* "pmercury/protocols/tls.pyx":147
- *         # extract server_name field from context object
- *         if context_ != None:
- *             for x_ in context_:             # <<<<<<<<<<<<<<
- *                 if x_['name'] == 'server_name':
- *                     server_name = x_['data']
- */
-    }
-    __pyx_L5_break:;
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-    /* "pmercury/protocols/tls.pyx":146
+    /* "pmercury/protocols/tls.pyx":154
  *         server_name = None
  *         # extract server_name field from context object
- *         if context_ != None:             # <<<<<<<<<<<<<<
- *             for x_ in context_:
- *                 if x_['name'] == 'server_name':
+ *         if context_ != None and 'server_name' in context_:             # <<<<<<<<<<<<<<
+ *             server_name = context_['server_name']
+ * 
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":153
+  /* "pmercury/protocols/tls.pyx":158
  * 
  *         # fingerprint approximate matching if necessary
  *         if fp_str_ not in self.fp_db:             # <<<<<<<<<<<<<<
  *             lit_fp = eval_fp_str(fp_str_)
  *             approx_str_ = self.find_approx_match(lit_fp)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_v_fp_str_, __pyx_t_1, Py_NE)); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 153, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_6 = (__pyx_t_2 != 0);
-  if (__pyx_t_6) {
+  if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
+    __PYX_ERR(0, 158, __pyx_L1_error)
+  }
+  __pyx_t_1 = (__Pyx_PyDict_ContainsTF(__pyx_v_fp_str_, __pyx_v_self->fp_db, Py_NE)); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_t_4 = (__pyx_t_1 != 0);
+  if (__pyx_t_4) {
 
-    /* "pmercury/protocols/tls.pyx":154
+    /* "pmercury/protocols/tls.pyx":159
  *         # fingerprint approximate matching if necessary
  *         if fp_str_ not in self.fp_db:
  *             lit_fp = eval_fp_str(fp_str_)             # <<<<<<<<<<<<<<
  *             approx_str_ = self.find_approx_match(lit_fp)
  *             if approx_str_ == None:
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 154, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 159, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_7 = NULL;
+    __pyx_t_6 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_5))) {
-      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_5);
-      if (likely(__pyx_t_7)) {
+      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_5);
+      if (likely(__pyx_t_6)) {
         PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
-        __Pyx_INCREF(__pyx_t_7);
+        __Pyx_INCREF(__pyx_t_6);
         __Pyx_INCREF(function);
         __Pyx_DECREF_SET(__pyx_t_5, function);
       }
     }
-    __pyx_t_1 = (__pyx_t_7) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_7, __pyx_v_fp_str_) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_v_fp_str_);
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_2 = (__pyx_t_6) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_6, __pyx_v_fp_str_) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_v_fp_str_);
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_v_lit_fp = __pyx_t_1;
-    __pyx_t_1 = 0;
+    __pyx_v_lit_fp = __pyx_t_2;
+    __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":155
+    /* "pmercury/protocols/tls.pyx":160
  *         if fp_str_ not in self.fp_db:
  *             lit_fp = eval_fp_str(fp_str_)
  *             approx_str_ = self.find_approx_match(lit_fp)             # <<<<<<<<<<<<<<
  *             if approx_str_ == None:
  *                 fp_ = self.gen_unknown_fingerprint(fp_str_)
  */
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_find_approx_match); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 155, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_find_approx_match); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 160, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_7 = NULL;
+    __pyx_t_6 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
-      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_5);
-      if (likely(__pyx_t_7)) {
+      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_5);
+      if (likely(__pyx_t_6)) {
         PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
-        __Pyx_INCREF(__pyx_t_7);
+        __Pyx_INCREF(__pyx_t_6);
         __Pyx_INCREF(function);
         __Pyx_DECREF_SET(__pyx_t_5, function);
       }
     }
-    __pyx_t_1 = (__pyx_t_7) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_7, __pyx_v_lit_fp) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_v_lit_fp);
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_2 = (__pyx_t_6) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_6, __pyx_v_lit_fp) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_v_lit_fp);
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 160, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_v_approx_str_ = __pyx_t_1;
-    __pyx_t_1 = 0;
+    __pyx_v_approx_str_ = __pyx_t_2;
+    __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":156
+    /* "pmercury/protocols/tls.pyx":161
  *             lit_fp = eval_fp_str(fp_str_)
  *             approx_str_ = self.find_approx_match(lit_fp)
  *             if approx_str_ == None:             # <<<<<<<<<<<<<<
  *                 fp_ = self.gen_unknown_fingerprint(fp_str_)
  *                 self.fp_db[fp_str_] = fp_
  */
-    __pyx_t_1 = PyObject_RichCompare(__pyx_v_approx_str_, Py_None, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 156, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 156, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (__pyx_t_6) {
+    __pyx_t_2 = PyObject_RichCompare(__pyx_v_approx_str_, Py_None, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 161, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 161, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (__pyx_t_4) {
 
-      /* "pmercury/protocols/tls.pyx":157
+      /* "pmercury/protocols/tls.pyx":162
  *             approx_str_ = self.find_approx_match(lit_fp)
  *             if approx_str_ == None:
  *                 fp_ = self.gen_unknown_fingerprint(fp_str_)             # <<<<<<<<<<<<<<
  *                 self.fp_db[fp_str_] = fp_
  *                 if self.MALWARE_DB:
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_gen_unknown_fingerprint); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 157, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_gen_unknown_fingerprint); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 162, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_7 = NULL;
+      __pyx_t_6 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
-        __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_5);
-        if (likely(__pyx_t_7)) {
+        __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_5);
+        if (likely(__pyx_t_6)) {
           PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
-          __Pyx_INCREF(__pyx_t_7);
+          __Pyx_INCREF(__pyx_t_6);
           __Pyx_INCREF(function);
           __Pyx_DECREF_SET(__pyx_t_5, function);
         }
       }
-      __pyx_t_1 = (__pyx_t_7) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_7, __pyx_v_fp_str_) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_v_fp_str_);
-      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_2 = (__pyx_t_6) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_6, __pyx_v_fp_str_) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_v_fp_str_);
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 162, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_v_fp_ = __pyx_t_1;
-      __pyx_t_1 = 0;
+      __pyx_v_fp_ = __pyx_t_2;
+      __pyx_t_2 = 0;
 
-      /* "pmercury/protocols/tls.pyx":158
+      /* "pmercury/protocols/tls.pyx":163
  *             if approx_str_ == None:
  *                 fp_ = self.gen_unknown_fingerprint(fp_str_)
  *                 self.fp_db[fp_str_] = fp_             # <<<<<<<<<<<<<<
  *                 if self.MALWARE_DB:
  *                     return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
  */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 158, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      if (unlikely(PyObject_SetItem(__pyx_t_1, __pyx_v_fp_str_, __pyx_v_fp_) < 0)) __PYX_ERR(0, 158, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+        __PYX_ERR(0, 163, __pyx_L1_error)
+      }
+      if (unlikely(PyDict_SetItem(__pyx_v_self->fp_db, __pyx_v_fp_str_, __pyx_v_fp_) < 0)) __PYX_ERR(0, 163, __pyx_L1_error)
 
-      /* "pmercury/protocols/tls.pyx":159
+      /* "pmercury/protocols/tls.pyx":164
  *                 fp_ = self.gen_unknown_fingerprint(fp_str_)
  *                 self.fp_db[fp_str_] = fp_
  *                 if self.MALWARE_DB:             # <<<<<<<<<<<<<<
  *                     return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
  *                 else:
  */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_MALWARE_DB); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 159, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 159, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (__pyx_t_6) {
+      __pyx_t_4 = (__pyx_v_self->MALWARE_DB != 0);
+      if (__pyx_t_4) {
 
-        /* "pmercury/protocols/tls.pyx":160
+        /* "pmercury/protocols/tls.pyx":165
  *                 self.fp_db[fp_str_] = fp_
  *                 if self.MALWARE_DB:
  *                     return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}             # <<<<<<<<<<<<<<
@@ -4573,17 +4297,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_U
  *                     return {'process': 'Unknown', 'score': 0.0}
  */
         __Pyx_XDECREF(__pyx_r);
-        __pyx_t_1 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 160, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 160, __pyx_L1_error)
-        if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 160, __pyx_L1_error)
-        if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_malware, Py_False) < 0) __PYX_ERR(0, 160, __pyx_L1_error)
-        if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_p_malware, __pyx_float_0_0) < 0) __PYX_ERR(0, 160, __pyx_L1_error)
-        __pyx_r = __pyx_t_1;
-        __pyx_t_1 = 0;
+        __pyx_t_2 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 165, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 165, __pyx_L1_error)
+        if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 165, __pyx_L1_error)
+        if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_malware, Py_False) < 0) __PYX_ERR(0, 165, __pyx_L1_error)
+        if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_p_malware, __pyx_float_0_0) < 0) __PYX_ERR(0, 165, __pyx_L1_error)
+        __pyx_r = __pyx_t_2;
+        __pyx_t_2 = 0;
         goto __pyx_L0;
 
-        /* "pmercury/protocols/tls.pyx":159
+        /* "pmercury/protocols/tls.pyx":164
  *                 fp_ = self.gen_unknown_fingerprint(fp_str_)
  *                 self.fp_db[fp_str_] = fp_
  *                 if self.MALWARE_DB:             # <<<<<<<<<<<<<<
@@ -4592,7 +4316,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_U
  */
       }
 
-      /* "pmercury/protocols/tls.pyx":162
+      /* "pmercury/protocols/tls.pyx":167
  *                     return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
  *                 else:
  *                     return {'process': 'Unknown', 'score': 0.0}             # <<<<<<<<<<<<<<
@@ -4601,16 +4325,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_U
  */
       /*else*/ {
         __Pyx_XDECREF(__pyx_r);
-        __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 162, __pyx_L1_error)
-        if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 162, __pyx_L1_error)
-        __pyx_r = __pyx_t_1;
-        __pyx_t_1 = 0;
+        __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 167, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 167, __pyx_L1_error)
+        if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 167, __pyx_L1_error)
+        __pyx_r = __pyx_t_2;
+        __pyx_t_2 = 0;
         goto __pyx_L0;
       }
 
-      /* "pmercury/protocols/tls.pyx":156
+      /* "pmercury/protocols/tls.pyx":161
  *             lit_fp = eval_fp_str(fp_str_)
  *             approx_str_ = self.find_approx_match(lit_fp)
  *             if approx_str_ == None:             # <<<<<<<<<<<<<<
@@ -4619,40 +4343,43 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_U
  */
     }
 
-    /* "pmercury/protocols/tls.pyx":163
+    /* "pmercury/protocols/tls.pyx":168
  *                 else:
  *                     return {'process': 'Unknown', 'score': 0.0}
  *             self.fp_db[fp_str_] = self.fp_db[approx_str_]             # <<<<<<<<<<<<<<
  *             self.fp_db[fp_str_]['approx_str'] = approx_str_
  * 
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_5 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_v_approx_str_); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 163, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely(PyObject_SetItem(__pyx_t_1, __pyx_v_fp_str_, __pyx_t_5) < 0)) __PYX_ERR(0, 163, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 168, __pyx_L1_error)
+    }
+    __pyx_t_2 = __Pyx_PyDict_GetItem(__pyx_v_self->fp_db, __pyx_v_approx_str_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 168, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 168, __pyx_L1_error)
+    }
+    if (unlikely(PyDict_SetItem(__pyx_v_self->fp_db, __pyx_v_fp_str_, __pyx_t_2) < 0)) __PYX_ERR(0, 168, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":164
+    /* "pmercury/protocols/tls.pyx":169
  *                     return {'process': 'Unknown', 'score': 0.0}
  *             self.fp_db[fp_str_] = self.fp_db[approx_str_]
  *             self.fp_db[fp_str_]['approx_str'] = approx_str_             # <<<<<<<<<<<<<<
  * 
  *         # perform process identification given the fingerprint string and destination information
  */
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 164, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_t_5, __pyx_v_fp_str_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(PyObject_SetItem(__pyx_t_1, __pyx_n_u_approx_str, __pyx_v_approx_str_) < 0)) __PYX_ERR(0, 164, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 169, __pyx_L1_error)
+    }
+    __pyx_t_2 = __Pyx_PyDict_GetItem(__pyx_v_self->fp_db, __pyx_v_fp_str_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 169, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    if (unlikely(PyObject_SetItem(__pyx_t_2, __pyx_n_u_approx_str, __pyx_v_approx_str_) < 0)) __PYX_ERR(0, 169, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":153
+    /* "pmercury/protocols/tls.pyx":158
  * 
  *         # fingerprint approximate matching if necessary
  *         if fp_str_ not in self.fp_db:             # <<<<<<<<<<<<<<
@@ -4661,73 +4388,73 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_U
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":167
+  /* "pmercury/protocols/tls.pyx":172
  * 
  *         # perform process identification given the fingerprint string and destination information
  *         result = self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)             # <<<<<<<<<<<<<<
  * 
  *         return result
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_identify); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_identify); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_7 = NULL;
-  __pyx_t_8 = 0;
+  __pyx_t_6 = NULL;
+  __pyx_t_7 = 0;
   if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
-    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_5);
-    if (likely(__pyx_t_7)) {
+    __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_5);
+    if (likely(__pyx_t_6)) {
       PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
-      __Pyx_INCREF(__pyx_t_7);
+      __Pyx_INCREF(__pyx_t_6);
       __Pyx_INCREF(function);
       __Pyx_DECREF_SET(__pyx_t_5, function);
-      __pyx_t_8 = 1;
+      __pyx_t_7 = 1;
     }
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_5)) {
-    PyObject *__pyx_temp[6] = {__pyx_t_7, __pyx_v_fp_str_, __pyx_v_server_name, __pyx_v_dest_addr, __pyx_v_dest_port, __pyx_v_list_procs};
-    __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_8, 5+__pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_GOTREF(__pyx_t_1);
+    PyObject *__pyx_temp[6] = {__pyx_t_6, __pyx_v_fp_str_, __pyx_v_server_name, __pyx_v_dest_addr, __pyx_v_dest_port, __pyx_v_list_procs};
+    __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 5+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_GOTREF(__pyx_t_2);
   } else
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_5)) {
-    PyObject *__pyx_temp[6] = {__pyx_t_7, __pyx_v_fp_str_, __pyx_v_server_name, __pyx_v_dest_addr, __pyx_v_dest_port, __pyx_v_list_procs};
-    __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_8, 5+__pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_GOTREF(__pyx_t_1);
+    PyObject *__pyx_temp[6] = {__pyx_t_6, __pyx_v_fp_str_, __pyx_v_server_name, __pyx_v_dest_addr, __pyx_v_dest_port, __pyx_v_list_procs};
+    __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 5+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_GOTREF(__pyx_t_2);
   } else
   #endif
   {
-    __pyx_t_9 = PyTuple_New(5+__pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 167, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
-    if (__pyx_t_7) {
-      __Pyx_GIVEREF(__pyx_t_7); PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_7); __pyx_t_7 = NULL;
+    __pyx_t_8 = PyTuple_New(5+__pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 172, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    if (__pyx_t_6) {
+      __Pyx_GIVEREF(__pyx_t_6); PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_6); __pyx_t_6 = NULL;
     }
     __Pyx_INCREF(__pyx_v_fp_str_);
     __Pyx_GIVEREF(__pyx_v_fp_str_);
-    PyTuple_SET_ITEM(__pyx_t_9, 0+__pyx_t_8, __pyx_v_fp_str_);
+    PyTuple_SET_ITEM(__pyx_t_8, 0+__pyx_t_7, __pyx_v_fp_str_);
     __Pyx_INCREF(__pyx_v_server_name);
     __Pyx_GIVEREF(__pyx_v_server_name);
-    PyTuple_SET_ITEM(__pyx_t_9, 1+__pyx_t_8, __pyx_v_server_name);
+    PyTuple_SET_ITEM(__pyx_t_8, 1+__pyx_t_7, __pyx_v_server_name);
     __Pyx_INCREF(__pyx_v_dest_addr);
     __Pyx_GIVEREF(__pyx_v_dest_addr);
-    PyTuple_SET_ITEM(__pyx_t_9, 2+__pyx_t_8, __pyx_v_dest_addr);
+    PyTuple_SET_ITEM(__pyx_t_8, 2+__pyx_t_7, __pyx_v_dest_addr);
     __Pyx_INCREF(__pyx_v_dest_port);
     __Pyx_GIVEREF(__pyx_v_dest_port);
-    PyTuple_SET_ITEM(__pyx_t_9, 3+__pyx_t_8, __pyx_v_dest_port);
+    PyTuple_SET_ITEM(__pyx_t_8, 3+__pyx_t_7, __pyx_v_dest_port);
     __Pyx_INCREF(__pyx_v_list_procs);
     __Pyx_GIVEREF(__pyx_v_list_procs);
-    PyTuple_SET_ITEM(__pyx_t_9, 4+__pyx_t_8, __pyx_v_list_procs);
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_9, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    PyTuple_SET_ITEM(__pyx_t_8, 4+__pyx_t_7, __pyx_v_list_procs);
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   }
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_v_result = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_v_result = __pyx_t_2;
+  __pyx_t_2 = 0;
 
-  /* "pmercury/protocols/tls.pyx":169
+  /* "pmercury/protocols/tls.pyx":174
  *         result = self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
  * 
  *         return result             # <<<<<<<<<<<<<<
@@ -4739,7 +4466,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_U
   __pyx_r = __pyx_v_result;
   goto __pyx_L0;
 
-  /* "pmercury/protocols/tls.pyx":143
+  /* "pmercury/protocols/tls.pyx":151
  * 
  * 
  *     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):             # <<<<<<<<<<<<<<
@@ -4749,15 +4476,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_U
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_7);
-  __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_8);
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.proc_identify", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_server_name);
-  __Pyx_XDECREF(__pyx_v_x_);
   __Pyx_XDECREF(__pyx_v_lit_fp);
   __Pyx_XDECREF(__pyx_v_approx_str_);
   __Pyx_XDECREF(__pyx_v_fp_);
@@ -4767,7 +4493,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_U
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":173
+/* "pmercury/protocols/tls.pyx":178
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):             # <<<<<<<<<<<<<<
@@ -4776,10 +4502,8 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_8proc_identify(CYTHON_U
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_11identify(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_11identify = {"identify", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_11identify, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_11identify(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_self = 0;
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_11identify(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_11identify(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_fp_str_ = 0;
   PyObject *__pyx_v_server_name = 0;
   PyObject *__pyx_v_dest_addr = 0;
@@ -4789,15 +4513,13 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_11identify(PyObject *__
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("identify (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_str,&__pyx_n_s_server_name,&__pyx_n_s_dest_addr,&__pyx_n_s_dest_port,&__pyx_n_s_list_procs,0};
-    PyObject* values[6] = {0,0,0,0,0,0};
-    values[5] = ((PyObject *)((PyObject *)__pyx_int_0));
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_fp_str,&__pyx_n_s_server_name,&__pyx_n_s_dest_addr,&__pyx_n_s_dest_port,&__pyx_n_s_list_procs,0};
+    PyObject* values[5] = {0,0,0,0,0};
+    values[4] = ((PyObject *)__pyx_int_0);
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
-        case  6: values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
-        CYTHON_FALLTHROUGH;
         case  5: values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
         CYTHON_FALLTHROUGH;
         case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
@@ -4814,48 +4536,41 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_11identify(PyObject *__
       kw_args = PyDict_Size(__pyx_kwds);
       switch (pos_args) {
         case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
+        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_server_name)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("identify", 0, 5, 6, 1); __PYX_ERR(0, 173, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("identify", 0, 4, 5, 1); __PYX_ERR(0, 178, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
-        if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_server_name)) != 0)) kw_args--;
+        if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dest_addr)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("identify", 0, 5, 6, 2); __PYX_ERR(0, 173, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("identify", 0, 4, 5, 2); __PYX_ERR(0, 178, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
-        if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dest_addr)) != 0)) kw_args--;
+        if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dest_port)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("identify", 0, 5, 6, 3); __PYX_ERR(0, 173, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("identify", 0, 4, 5, 3); __PYX_ERR(0, 178, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
-        if (likely((values[4] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dest_port)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("identify", 0, 5, 6, 4); __PYX_ERR(0, 173, __pyx_L3_error)
-        }
-        CYTHON_FALLTHROUGH;
-        case  5:
         if (kw_args > 0) {
           PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_list_procs);
-          if (value) { values[5] = value; kw_args--; }
+          if (value) { values[4] = value; kw_args--; }
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "identify") < 0)) __PYX_ERR(0, 173, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "identify") < 0)) __PYX_ERR(0, 178, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
-        case  6: values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
-        CYTHON_FALLTHROUGH;
         case  5: values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
-        values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
+        CYTHON_FALLTHROUGH;
+        case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
         values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
         values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
         values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
@@ -4863,29 +4578,28 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_11identify(PyObject *__
         default: goto __pyx_L5_argtuple_error;
       }
     }
-    __pyx_v_self = values[0];
-    __pyx_v_fp_str_ = values[1];
-    __pyx_v_server_name = values[2];
-    __pyx_v_dest_addr = values[3];
-    __pyx_v_dest_port = values[4];
-    __pyx_v_list_procs = values[5];
+    __pyx_v_fp_str_ = values[0];
+    __pyx_v_server_name = values[1];
+    __pyx_v_dest_addr = values[2];
+    __pyx_v_dest_port = values[3];
+    __pyx_v_list_procs = values[4];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("identify", 0, 5, 6, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 173, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("identify", 0, 4, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 178, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.identify", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(__pyx_self, __pyx_v_self, __pyx_v_fp_str_, __pyx_v_server_name, __pyx_v_dest_addr, __pyx_v_dest_port, __pyx_v_list_procs);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), __pyx_v_fp_str_, __pyx_v_server_name, __pyx_v_dest_addr, __pyx_v_dest_port, __pyx_v_list_procs);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_, PyObject *__pyx_v_server_name, PyObject *__pyx_v_dest_addr, PyObject *__pyx_v_dest_port, PyObject *__pyx_v_list_procs) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_, PyObject *__pyx_v_server_name, PyObject *__pyx_v_dest_addr, PyObject *__pyx_v_dest_port, PyObject *__pyx_v_list_procs) {
   PyObject *__pyx_v_fp_ = NULL;
   PyObject *__pyx_v_domain = NULL;
   CYTHON_UNUSED PyObject *__pyx_v_tld = NULL;
@@ -4921,14 +4635,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   PyObject *__pyx_t_13 = NULL;
   __Pyx_RefNannySetupContext("identify", 0);
 
-  /* "pmercury/protocols/tls.pyx":174
+  /* "pmercury/protocols/tls.pyx":179
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):
  *         fp_ = self.get_database_entry(fp_str_, None)             # <<<<<<<<<<<<<<
  *         if fp_ == None:
  *             # if malware data is in the database, report malware scores
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_database_entry); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 174, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_get_database_entry); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -4945,7 +4659,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
     PyObject *__pyx_temp[3] = {__pyx_t_3, __pyx_v_fp_str_, Py_None};
-    __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_4, 2+__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_4, 2+__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_GOTREF(__pyx_t_1);
   } else
@@ -4953,13 +4667,13 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
     PyObject *__pyx_temp[3] = {__pyx_t_3, __pyx_v_fp_str_, Py_None};
-    __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_4, 2+__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_4, 2+__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_GOTREF(__pyx_t_1);
   } else
   #endif
   {
-    __pyx_t_5 = PyTuple_New(2+__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 174, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(2+__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     if (__pyx_t_3) {
       __Pyx_GIVEREF(__pyx_t_3); PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_3); __pyx_t_3 = NULL;
@@ -4970,7 +4684,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
     PyTuple_SET_ITEM(__pyx_t_5, 1+__pyx_t_4, Py_None);
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_5, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_5, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
@@ -4978,32 +4692,29 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   __pyx_v_fp_ = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":175
+  /* "pmercury/protocols/tls.pyx":180
  *     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):
  *         fp_ = self.get_database_entry(fp_str_, None)
  *         if fp_ == None:             # <<<<<<<<<<<<<<
  *             # if malware data is in the database, report malware scores
  *             if self.MALWARE_DB:
  */
-  __pyx_t_1 = PyObject_RichCompare(__pyx_v_fp_, Py_None, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_v_fp_, Py_None, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_6) {
 
-    /* "pmercury/protocols/tls.pyx":177
+    /* "pmercury/protocols/tls.pyx":182
  *         if fp_ == None:
  *             # if malware data is in the database, report malware scores
  *             if self.MALWARE_DB:             # <<<<<<<<<<<<<<
  *                 return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
  *             else:
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_MALWARE_DB); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 177, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_6 = (__pyx_v_self->MALWARE_DB != 0);
     if (__pyx_t_6) {
 
-      /* "pmercury/protocols/tls.pyx":178
+      /* "pmercury/protocols/tls.pyx":183
  *             # if malware data is in the database, report malware scores
  *             if self.MALWARE_DB:
  *                 return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}             # <<<<<<<<<<<<<<
@@ -5011,17 +4722,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  *                 return {'process': 'Unknown', 'score': 0.0}
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_1 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
-      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
-      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_malware, Py_False) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
-      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_p_malware, __pyx_float_0_0) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 183, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 183, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_malware, Py_False) < 0) __PYX_ERR(0, 183, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_p_malware, __pyx_float_0_0) < 0) __PYX_ERR(0, 183, __pyx_L1_error)
       __pyx_r = __pyx_t_1;
       __pyx_t_1 = 0;
       goto __pyx_L0;
 
-      /* "pmercury/protocols/tls.pyx":177
+      /* "pmercury/protocols/tls.pyx":182
  *         if fp_ == None:
  *             # if malware data is in the database, report malware scores
  *             if self.MALWARE_DB:             # <<<<<<<<<<<<<<
@@ -5030,7 +4741,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
     }
 
-    /* "pmercury/protocols/tls.pyx":180
+    /* "pmercury/protocols/tls.pyx":185
  *                 return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
  *             else:
  *                 return {'process': 'Unknown', 'score': 0.0}             # <<<<<<<<<<<<<<
@@ -5039,16 +4750,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
     /*else*/ {
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 180, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 180, __pyx_L1_error)
-      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 180, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 185, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 185, __pyx_L1_error)
       __pyx_r = __pyx_t_1;
       __pyx_t_1 = 0;
       goto __pyx_L0;
     }
 
-    /* "pmercury/protocols/tls.pyx":175
+    /* "pmercury/protocols/tls.pyx":180
  *     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):
  *         fp_ = self.get_database_entry(fp_str_, None)
  *         if fp_ == None:             # <<<<<<<<<<<<<<
@@ -5057,14 +4768,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":183
+  /* "pmercury/protocols/tls.pyx":188
  * 
  *         # find generalized classes for destination information
  *         domain, tld = get_tld_info(server_name)             # <<<<<<<<<<<<<<
  *         asn = get_asn_info(dest_addr)
  *         port_app = get_port_application(dest_port)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_tld_info); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_tld_info); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_5 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -5078,7 +4789,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   }
   __pyx_t_1 = (__pyx_t_5) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_5, __pyx_v_server_name) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_server_name);
   __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
@@ -5087,7 +4798,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     if (unlikely(size != 2)) {
       if (size > 2) __Pyx_RaiseTooManyValuesError(2);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 183, __pyx_L1_error)
+      __PYX_ERR(0, 188, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -5100,15 +4811,15 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     __Pyx_INCREF(__pyx_t_2);
     __Pyx_INCREF(__pyx_t_5);
     #else
-    __pyx_t_2 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_2 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_5 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_5 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 188, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 188, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_7 = Py_TYPE(__pyx_t_3)->tp_iternext;
@@ -5116,7 +4827,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     __Pyx_GOTREF(__pyx_t_2);
     index = 1; __pyx_t_5 = __pyx_t_7(__pyx_t_3); if (unlikely(!__pyx_t_5)) goto __pyx_L5_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_5);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_3), 2) < 0) __PYX_ERR(0, 183, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_3), 2) < 0) __PYX_ERR(0, 188, __pyx_L1_error)
     __pyx_t_7 = NULL;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     goto __pyx_L6_unpacking_done;
@@ -5124,7 +4835,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_7 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 183, __pyx_L1_error)
+    __PYX_ERR(0, 188, __pyx_L1_error)
     __pyx_L6_unpacking_done:;
   }
   __pyx_v_domain = __pyx_t_2;
@@ -5132,14 +4843,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   __pyx_v_tld = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "pmercury/protocols/tls.pyx":184
+  /* "pmercury/protocols/tls.pyx":189
  *         # find generalized classes for destination information
  *         domain, tld = get_tld_info(server_name)
  *         asn = get_asn_info(dest_addr)             # <<<<<<<<<<<<<<
  *         port_app = get_port_application(dest_port)
  *         features = [asn, domain, port_app]
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_get_asn_info); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_get_asn_info); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_2 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_5))) {
@@ -5153,20 +4864,20 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   }
   __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_2, __pyx_v_dest_addr) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_v_dest_addr);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_asn = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":185
+  /* "pmercury/protocols/tls.pyx":190
  *         domain, tld = get_tld_info(server_name)
  *         asn = get_asn_info(dest_addr)
  *         port_app = get_port_application(dest_port)             # <<<<<<<<<<<<<<
  *         features = [asn, domain, port_app]
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_get_port_application); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_get_port_application); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_2 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_5))) {
@@ -5180,20 +4891,20 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   }
   __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_2, __pyx_v_dest_port) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_v_dest_port);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_port_app = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":186
+  /* "pmercury/protocols/tls.pyx":191
  *         asn = get_asn_info(dest_addr)
  *         port_app = get_port_application(dest_port)
  *         features = [asn, domain, port_app]             # <<<<<<<<<<<<<<
  * 
  *         # compute and sort scores for each process in the fingerprint
  */
-  __pyx_t_1 = PyList_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 191, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_asn);
   __Pyx_GIVEREF(__pyx_v_asn);
@@ -5207,19 +4918,19 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   __pyx_v_features = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":189
+  /* "pmercury/protocols/tls.pyx":194
  * 
  *         # compute and sort scores for each process in the fingerprint
  *         fp_tc = fp_['total_count']             # <<<<<<<<<<<<<<
  *         r_ = [self.compute_score(features, p_, fp_tc) for p_ in fp_['process_info']]
  *         r_ = sorted(r_, key=operator.itemgetter('score'), reverse=True)
  */
-  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_total_count); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_total_count); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 194, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_fp_tc = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":190
+  /* "pmercury/protocols/tls.pyx":195
  *         # compute and sort scores for each process in the fingerprint
  *         fp_tc = fp_['total_count']
  *         r_ = [self.compute_score(features, p_, fp_tc) for p_ in fp_['process_info']]             # <<<<<<<<<<<<<<
@@ -5227,17 +4938,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  * 
  */
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L9_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 195, __pyx_L9_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_process_info); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L9_error)
+    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_process_info); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L9_error)
     __Pyx_GOTREF(__pyx_t_5);
     if (likely(PyList_CheckExact(__pyx_t_5)) || PyTuple_CheckExact(__pyx_t_5)) {
       __pyx_t_2 = __pyx_t_5; __Pyx_INCREF(__pyx_t_2); __pyx_t_8 = 0;
       __pyx_t_9 = NULL;
     } else {
-      __pyx_t_8 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L9_error)
+      __pyx_t_8 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 195, __pyx_L9_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_9 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 190, __pyx_L9_error)
+      __pyx_t_9 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 195, __pyx_L9_error)
     }
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     for (;;) {
@@ -5245,17 +4956,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
         if (likely(PyList_CheckExact(__pyx_t_2))) {
           if (__pyx_t_8 >= PyList_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_5 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_5); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 190, __pyx_L9_error)
+          __pyx_t_5 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_5); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 195, __pyx_L9_error)
           #else
-          __pyx_t_5 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L9_error)
+          __pyx_t_5 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L9_error)
           __Pyx_GOTREF(__pyx_t_5);
           #endif
         } else {
           if (__pyx_t_8 >= PyTuple_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_5 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_5); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 190, __pyx_L9_error)
+          __pyx_t_5 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_5); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 195, __pyx_L9_error)
           #else
-          __pyx_t_5 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L9_error)
+          __pyx_t_5 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L9_error)
           __Pyx_GOTREF(__pyx_t_5);
           #endif
         }
@@ -5265,7 +4976,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(0, 190, __pyx_L9_error)
+            else __PYX_ERR(0, 195, __pyx_L9_error)
           }
           break;
         }
@@ -5273,7 +4984,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
       }
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_p_, __pyx_t_5);
       __pyx_t_5 = 0;
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_compute_score); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 190, __pyx_L9_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_compute_score); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 195, __pyx_L9_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_10 = NULL;
       __pyx_t_4 = 0;
@@ -5290,7 +5001,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
       #if CYTHON_FAST_PYCALL
       if (PyFunction_Check(__pyx_t_3)) {
         PyObject *__pyx_temp[4] = {__pyx_t_10, __pyx_v_features, __pyx_7genexpr__pyx_v_p_, __pyx_v_fp_tc};
-        __pyx_t_5 = __Pyx_PyFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_4, 3+__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L9_error)
+        __pyx_t_5 = __Pyx_PyFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_4, 3+__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L9_error)
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_GOTREF(__pyx_t_5);
       } else
@@ -5298,13 +5009,13 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
       #if CYTHON_FAST_PYCCALL
       if (__Pyx_PyFastCFunction_Check(__pyx_t_3)) {
         PyObject *__pyx_temp[4] = {__pyx_t_10, __pyx_v_features, __pyx_7genexpr__pyx_v_p_, __pyx_v_fp_tc};
-        __pyx_t_5 = __Pyx_PyCFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_4, 3+__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L9_error)
+        __pyx_t_5 = __Pyx_PyCFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_4, 3+__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L9_error)
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_GOTREF(__pyx_t_5);
       } else
       #endif
       {
-        __pyx_t_11 = PyTuple_New(3+__pyx_t_4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 190, __pyx_L9_error)
+        __pyx_t_11 = PyTuple_New(3+__pyx_t_4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 195, __pyx_L9_error)
         __Pyx_GOTREF(__pyx_t_11);
         if (__pyx_t_10) {
           __Pyx_GIVEREF(__pyx_t_10); PyTuple_SET_ITEM(__pyx_t_11, 0, __pyx_t_10); __pyx_t_10 = NULL;
@@ -5318,12 +5029,12 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
         __Pyx_INCREF(__pyx_v_fp_tc);
         __Pyx_GIVEREF(__pyx_v_fp_tc);
         PyTuple_SET_ITEM(__pyx_t_11, 2+__pyx_t_4, __pyx_v_fp_tc);
-        __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_11, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L9_error)
+        __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_11, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L9_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       }
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 190, __pyx_L9_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 195, __pyx_L9_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -5337,23 +5048,23 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   __pyx_v_r_ = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":191
+  /* "pmercury/protocols/tls.pyx":196
  *         fp_tc = fp_['total_count']
  *         r_ = [self.compute_score(features, p_, fp_tc) for p_ in fp_['process_info']]
  *         r_ = sorted(r_, key=operator.itemgetter('score'), reverse=True)             # <<<<<<<<<<<<<<
  * 
  *         # if score == 0 or no match could be found, return default process
  */
-  __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_r_);
   __Pyx_GIVEREF(__pyx_v_r_);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_r_);
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_operator); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_operator); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_itemgetter); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_itemgetter); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -5368,84 +5079,86 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   }
   __pyx_t_5 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_11, __pyx_t_3, __pyx_n_u_score) : __Pyx_PyObject_CallOneArg(__pyx_t_11, __pyx_n_u_score);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 191, __pyx_L1_error)
+  if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_t_5) < 0) __PYX_ERR(0, 191, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_t_5) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_reverse, Py_True) < 0) __PYX_ERR(0, 191, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_builtin_sorted, __pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 191, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_reverse, Py_True) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_builtin_sorted, __pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF_SET(__pyx_v_r_, __pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "pmercury/protocols/tls.pyx":194
+  /* "pmercury/protocols/tls.pyx":199
  * 
  *         # if score == 0 or no match could be found, return default process
  *         if len(r_) == 0 or r_[0]['score'] == 0.0:             # <<<<<<<<<<<<<<
  *             predict_ = fp_['process_info'][0]['process']
  *             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
  */
-  __pyx_t_8 = PyObject_Length(__pyx_v_r_); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1))) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_8 = PyObject_Length(__pyx_v_r_); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1))) __PYX_ERR(0, 199, __pyx_L1_error)
   __pyx_t_12 = ((__pyx_t_8 == 0) != 0);
   if (!__pyx_t_12) {
   } else {
     __pyx_t_6 = __pyx_t_12;
     goto __pyx_L14_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 199, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_score); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_score); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 199, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyFloat_EqObjC(__pyx_t_2, __pyx_float_0_0, 0.0, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyFloat_EqObjC(__pyx_t_2, __pyx_float_0_0, 0.0, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 199, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely(__pyx_t_12 < 0)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely(__pyx_t_12 < 0)) __PYX_ERR(0, 199, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_6 = __pyx_t_12;
   __pyx_L14_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "pmercury/protocols/tls.pyx":195
+    /* "pmercury/protocols/tls.pyx":200
  *         # if score == 0 or no match could be found, return default process
  *         if len(r_) == 0 or r_[0]['score'] == 0.0:
  *             predict_ = fp_['process_info'][0]['process']             # <<<<<<<<<<<<<<
  *             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
  *             if self.MALWARE_DB:
  */
-    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_process_info); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_process_info); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 200, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_5, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 195, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_5, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 200, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_n_u_process); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_n_u_process); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 200, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_v_predict_ = __pyx_t_5;
     __pyx_t_5 = 0;
 
-    /* "pmercury/protocols/tls.pyx":196
+    /* "pmercury/protocols/tls.pyx":201
  *         if len(r_) == 0 or r_[0]['score'] == 0.0:
  *             predict_ = fp_['process_info'][0]['process']
  *             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_             # <<<<<<<<<<<<<<
  *             if self.MALWARE_DB:
  *                 return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_app_families); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 196, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_v_predict_, __pyx_t_2, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 196, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(__pyx_v_self->app_families == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
+      __PYX_ERR(0, 201, __pyx_L1_error)
+    }
+    __pyx_t_6 = (__Pyx_PyDict_ContainsTF(__pyx_v_predict_, __pyx_v_self->app_families, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 201, __pyx_L1_error)
     if ((__pyx_t_6 != 0)) {
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_app_families); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 196, __pyx_L1_error)
+      if (unlikely(__pyx_v_self->app_families == Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+        __PYX_ERR(0, 201, __pyx_L1_error)
+      }
+      __pyx_t_2 = __Pyx_PyDict_GetItem(__pyx_v_self->app_families, __pyx_v_predict_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_v_predict_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 196, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __pyx_t_5 = __pyx_t_1;
-      __pyx_t_1 = 0;
+      __pyx_t_5 = __pyx_t_2;
+      __pyx_t_2 = 0;
     } else {
       __Pyx_INCREF(__pyx_v_predict_);
       __pyx_t_5 = __pyx_v_predict_;
@@ -5453,20 +5166,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     __Pyx_DECREF_SET(__pyx_v_predict_, __pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "pmercury/protocols/tls.pyx":197
+    /* "pmercury/protocols/tls.pyx":202
  *             predict_ = fp_['process_info'][0]['process']
  *             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
  *             if self.MALWARE_DB:             # <<<<<<<<<<<<<<
  *                 return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
  *             else:
  */
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_MALWARE_DB); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 197, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 197, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __pyx_t_6 = (__pyx_v_self->MALWARE_DB != 0);
     if (__pyx_t_6) {
 
-      /* "pmercury/protocols/tls.pyx":198
+      /* "pmercury/protocols/tls.pyx":203
  *             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
  *             if self.MALWARE_DB:
  *                 return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}             # <<<<<<<<<<<<<<
@@ -5474,26 +5184,26 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  *                 return {'process':predict_, 'score':0.0}
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_5 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 198, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 203, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_process, __pyx_v_predict_) < 0) __PYX_ERR(0, 198, __pyx_L1_error)
-      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 198, __pyx_L1_error)
-      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_process_info); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 198, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_1, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 198, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_process, __pyx_v_predict_) < 0) __PYX_ERR(0, 203, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 203, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_fp_, __pyx_n_u_process_info); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 203, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_n_u_malware); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 198, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 203, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_malware, __pyx_t_1) < 0) __PYX_ERR(0, 198, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_n_u_malware); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 203, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_p_malware, __pyx_float_0_0) < 0) __PYX_ERR(0, 198, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_malware, __pyx_t_2) < 0) __PYX_ERR(0, 203, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_p_malware, __pyx_float_0_0) < 0) __PYX_ERR(0, 203, __pyx_L1_error)
       __pyx_r = __pyx_t_5;
       __pyx_t_5 = 0;
       goto __pyx_L0;
 
-      /* "pmercury/protocols/tls.pyx":197
+      /* "pmercury/protocols/tls.pyx":202
  *             predict_ = fp_['process_info'][0]['process']
  *             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
  *             if self.MALWARE_DB:             # <<<<<<<<<<<<<<
@@ -5502,7 +5212,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
     }
 
-    /* "pmercury/protocols/tls.pyx":200
+    /* "pmercury/protocols/tls.pyx":205
  *                 return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
  *             else:
  *                 return {'process':predict_, 'score':0.0}             # <<<<<<<<<<<<<<
@@ -5511,16 +5221,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
     /*else*/ {
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 200, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 205, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_process, __pyx_v_predict_) < 0) __PYX_ERR(0, 200, __pyx_L1_error)
-      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 200, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_process, __pyx_v_predict_) < 0) __PYX_ERR(0, 205, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_5, __pyx_n_u_score, __pyx_float_0_0) < 0) __PYX_ERR(0, 205, __pyx_L1_error)
       __pyx_r = __pyx_t_5;
       __pyx_t_5 = 0;
       goto __pyx_L0;
     }
 
-    /* "pmercury/protocols/tls.pyx":194
+    /* "pmercury/protocols/tls.pyx":199
  * 
  *         # if score == 0 or no match could be found, return default process
  *         if len(r_) == 0 or r_[0]['score'] == 0.0:             # <<<<<<<<<<<<<<
@@ -5529,30 +5239,27 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":203
+  /* "pmercury/protocols/tls.pyx":208
  * 
  *         # in the case of malware, remove pseudo process meant to reduce false positives
  *         if self.MALWARE_DB and r_[0]['malware'] == False and \             # <<<<<<<<<<<<<<
  *            r_[0]['process'] == 'Generic DMZ Traffic' and len(r_) > 1 and r_[1]['malware'] == False:
  *             r_.pop(0)
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_MALWARE_DB); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 203, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely(__pyx_t_12 < 0)) __PYX_ERR(0, 203, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_12 = (__pyx_v_self->MALWARE_DB != 0);
   if (__pyx_t_12) {
   } else {
     __pyx_t_6 = __pyx_t_12;
     goto __pyx_L18_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_malware); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 203, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_malware); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, Py_False, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 203, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely(__pyx_t_12 < 0)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_2, Py_False, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely(__pyx_t_12 < 0)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (__pyx_t_12) {
   } else {
@@ -5560,45 +5267,45 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     goto __pyx_L18_bool_binop_done;
   }
 
-  /* "pmercury/protocols/tls.pyx":204
+  /* "pmercury/protocols/tls.pyx":209
  *         # in the case of malware, remove pseudo process meant to reduce false positives
  *         if self.MALWARE_DB and r_[0]['malware'] == False and \
  *            r_[0]['process'] == 'Generic DMZ Traffic' and len(r_) > 1 and r_[1]['malware'] == False:             # <<<<<<<<<<<<<<
  *             r_.pop(0)
  * 
  */
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_process); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_process); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_kp_u_Generic_DMZ_Traffic, Py_EQ)); if (unlikely(__pyx_t_12 < 0)) __PYX_ERR(0, 204, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_kp_u_Generic_DMZ_Traffic, Py_EQ)); if (unlikely(__pyx_t_12 < 0)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_12) {
   } else {
     __pyx_t_6 = __pyx_t_12;
     goto __pyx_L18_bool_binop_done;
   }
-  __pyx_t_8 = PyObject_Length(__pyx_v_r_); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1))) __PYX_ERR(0, 204, __pyx_L1_error)
+  __pyx_t_8 = PyObject_Length(__pyx_v_r_); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1))) __PYX_ERR(0, 209, __pyx_L1_error)
   __pyx_t_12 = ((__pyx_t_8 > 1) != 0);
   if (__pyx_t_12) {
   } else {
     __pyx_t_6 = __pyx_t_12;
     goto __pyx_L18_bool_binop_done;
   }
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_r_, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_n_u_malware); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_r_, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_n_u_malware); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyObject_RichCompare(__pyx_t_5, Py_False, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_5, Py_False, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_12 < 0)) __PYX_ERR(0, 204, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_12 < 0)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_6 = __pyx_t_12;
   __pyx_L18_bool_binop_done:;
 
-  /* "pmercury/protocols/tls.pyx":203
+  /* "pmercury/protocols/tls.pyx":208
  * 
  *         # in the case of malware, remove pseudo process meant to reduce false positives
  *         if self.MALWARE_DB and r_[0]['malware'] == False and \             # <<<<<<<<<<<<<<
@@ -5607,18 +5314,18 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
   if (__pyx_t_6) {
 
-    /* "pmercury/protocols/tls.pyx":205
+    /* "pmercury/protocols/tls.pyx":210
  *         if self.MALWARE_DB and r_[0]['malware'] == False and \
  *            r_[0]['process'] == 'Generic DMZ Traffic' and len(r_) > 1 and r_[1]['malware'] == False:
  *             r_.pop(0)             # <<<<<<<<<<<<<<
  * 
  *         # get generalized process name if available
  */
-    __pyx_t_1 = __Pyx_PyObject_PopIndex(__pyx_v_r_, __pyx_int_0, 0, 1, Py_ssize_t, PyInt_FromSsize_t); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 205, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_2 = __Pyx_PyObject_PopIndex(__pyx_v_r_, __pyx_int_0, 0, 1, Py_ssize_t, PyInt_FromSsize_t); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 210, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":203
+    /* "pmercury/protocols/tls.pyx":208
  * 
  *         # in the case of malware, remove pseudo process meant to reduce false positives
  *         if self.MALWARE_DB and r_[0]['malware'] == False and \             # <<<<<<<<<<<<<<
@@ -5627,38 +5334,40 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":208
+  /* "pmercury/protocols/tls.pyx":213
  * 
  *         # get generalized process name if available
  *         process_name = r_[0]['process']             # <<<<<<<<<<<<<<
  *         process_name = self.app_families[process_name] if process_name in self.app_families else process_name
  * 
  */
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_n_u_process); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_n_u_process); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_process_name = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "pmercury/protocols/tls.pyx":209
+  /* "pmercury/protocols/tls.pyx":214
  *         # get generalized process name if available
  *         process_name = r_[0]['process']
  *         process_name = self.app_families[process_name] if process_name in self.app_families else process_name             # <<<<<<<<<<<<<<
  * 
  *         # package the most probable process
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_app_families); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_v_process_name, __pyx_t_1, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 209, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (unlikely(__pyx_v_self->app_families == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
+    __PYX_ERR(0, 214, __pyx_L1_error)
+  }
+  __pyx_t_6 = (__Pyx_PyDict_ContainsTF(__pyx_v_process_name, __pyx_v_self->app_families, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 214, __pyx_L1_error)
   if ((__pyx_t_6 != 0)) {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_app_families); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_v_process_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
+    if (unlikely(__pyx_v_self->app_families == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 214, __pyx_L1_error)
+    }
+    __pyx_t_2 = __Pyx_PyDict_GetItem(__pyx_v_self->app_families, __pyx_v_process_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 214, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_5 = __pyx_t_2;
     __pyx_t_2 = 0;
   } else {
@@ -5668,7 +5377,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   __Pyx_DECREF_SET(__pyx_v_process_name, __pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "pmercury/protocols/tls.pyx":212
+  /* "pmercury/protocols/tls.pyx":217
  * 
  *         # package the most probable process
  *         score_sum_ = sum([x_['score'] for x_ in r_])             # <<<<<<<<<<<<<<
@@ -5676,32 +5385,32 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  *             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
  */
   { /* enter inner scope */
-    __pyx_t_5 = PyList_New(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 212, __pyx_L25_error)
+    __pyx_t_5 = PyList_New(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 217, __pyx_L25_error)
     __Pyx_GOTREF(__pyx_t_5);
     if (likely(PyList_CheckExact(__pyx_v_r_)) || PyTuple_CheckExact(__pyx_v_r_)) {
       __pyx_t_2 = __pyx_v_r_; __Pyx_INCREF(__pyx_t_2); __pyx_t_8 = 0;
       __pyx_t_9 = NULL;
     } else {
-      __pyx_t_8 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_r_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L25_error)
+      __pyx_t_8 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_r_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L25_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_9 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 212, __pyx_L25_error)
+      __pyx_t_9 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 217, __pyx_L25_error)
     }
     for (;;) {
       if (likely(!__pyx_t_9)) {
         if (likely(PyList_CheckExact(__pyx_t_2))) {
           if (__pyx_t_8 >= PyList_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_1 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_1); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 212, __pyx_L25_error)
+          __pyx_t_1 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_1); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 217, __pyx_L25_error)
           #else
-          __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L25_error)
+          __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L25_error)
           __Pyx_GOTREF(__pyx_t_1);
           #endif
         } else {
           if (__pyx_t_8 >= PyTuple_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_1); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 212, __pyx_L25_error)
+          __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_1); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 217, __pyx_L25_error)
           #else
-          __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L25_error)
+          __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L25_error)
           __Pyx_GOTREF(__pyx_t_1);
           #endif
         }
@@ -5711,7 +5420,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(0, 212, __pyx_L25_error)
+            else __PYX_ERR(0, 217, __pyx_L25_error)
           }
           break;
         }
@@ -5719,9 +5428,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
       }
       __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_x_, __pyx_t_1);
       __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_8genexpr1__pyx_v_x_, __pyx_n_u_score); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L25_error)
+      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_8genexpr1__pyx_v_x_, __pyx_n_u_score); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L25_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_5, (PyObject*)__pyx_t_1))) __PYX_ERR(0, 212, __pyx_L25_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_5, (PyObject*)__pyx_t_1))) __PYX_ERR(0, 217, __pyx_L25_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -5732,26 +5441,23 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     goto __pyx_L1_error;
     __pyx_L28_exit_scope:;
   } /* exit inner scope */
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_sum, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_sum, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_score_sum_ = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "pmercury/protocols/tls.pyx":213
+  /* "pmercury/protocols/tls.pyx":218
  *         # package the most probable process
  *         score_sum_ = sum([x_['score'] for x_ in r_])
  *         if self.MALWARE_DB:             # <<<<<<<<<<<<<<
  *             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
  *             out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'], 'p_malware':malware_score_}
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_MALWARE_DB); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 213, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_6 = (__pyx_v_self->MALWARE_DB != 0);
   if (__pyx_t_6) {
 
-    /* "pmercury/protocols/tls.pyx":214
+    /* "pmercury/protocols/tls.pyx":219
  *         score_sum_ = sum([x_['score'] for x_ in r_])
  *         if self.MALWARE_DB:
  *             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_             # <<<<<<<<<<<<<<
@@ -5759,32 +5465,32 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  *         else:
  */
     { /* enter inner scope */
-      __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 214, __pyx_L32_error)
+      __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 219, __pyx_L32_error)
       __Pyx_GOTREF(__pyx_t_2);
       if (likely(PyList_CheckExact(__pyx_v_r_)) || PyTuple_CheckExact(__pyx_v_r_)) {
         __pyx_t_5 = __pyx_v_r_; __Pyx_INCREF(__pyx_t_5); __pyx_t_8 = 0;
         __pyx_t_9 = NULL;
       } else {
-        __pyx_t_8 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_v_r_); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 214, __pyx_L32_error)
+        __pyx_t_8 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_v_r_); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 219, __pyx_L32_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_9 = Py_TYPE(__pyx_t_5)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 214, __pyx_L32_error)
+        __pyx_t_9 = Py_TYPE(__pyx_t_5)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 219, __pyx_L32_error)
       }
       for (;;) {
         if (likely(!__pyx_t_9)) {
           if (likely(PyList_CheckExact(__pyx_t_5))) {
             if (__pyx_t_8 >= PyList_GET_SIZE(__pyx_t_5)) break;
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_1 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_8); __Pyx_INCREF(__pyx_t_1); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 214, __pyx_L32_error)
+            __pyx_t_1 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_8); __Pyx_INCREF(__pyx_t_1); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 219, __pyx_L32_error)
             #else
-            __pyx_t_1 = PySequence_ITEM(__pyx_t_5, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L32_error)
+            __pyx_t_1 = PySequence_ITEM(__pyx_t_5, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L32_error)
             __Pyx_GOTREF(__pyx_t_1);
             #endif
           } else {
             if (__pyx_t_8 >= PyTuple_GET_SIZE(__pyx_t_5)) break;
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_5, __pyx_t_8); __Pyx_INCREF(__pyx_t_1); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 214, __pyx_L32_error)
+            __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_5, __pyx_t_8); __Pyx_INCREF(__pyx_t_1); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 219, __pyx_L32_error)
             #else
-            __pyx_t_1 = PySequence_ITEM(__pyx_t_5, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L32_error)
+            __pyx_t_1 = PySequence_ITEM(__pyx_t_5, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L32_error)
             __Pyx_GOTREF(__pyx_t_1);
             #endif
           }
@@ -5794,7 +5500,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
               if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-              else __PYX_ERR(0, 214, __pyx_L32_error)
+              else __PYX_ERR(0, 219, __pyx_L32_error)
             }
             break;
           }
@@ -5802,17 +5508,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
         }
         __Pyx_XDECREF_SET(__pyx_8genexpr2__pyx_v_x_, __pyx_t_1);
         __pyx_t_1 = 0;
-        __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_8genexpr2__pyx_v_x_, __pyx_n_u_malware); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L32_error)
+        __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_8genexpr2__pyx_v_x_, __pyx_n_u_malware); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L32_error)
         __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_11 = __Pyx_PyInt_EqObjC(__pyx_t_1, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 214, __pyx_L32_error)
+        __pyx_t_11 = __Pyx_PyInt_EqObjC(__pyx_t_1, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 219, __pyx_L32_error)
         __Pyx_GOTREF(__pyx_t_11);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 214, __pyx_L32_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 219, __pyx_L32_error)
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         if (__pyx_t_6) {
-          __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_8genexpr2__pyx_v_x_, __pyx_n_u_score); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 214, __pyx_L32_error)
+          __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_8genexpr2__pyx_v_x_, __pyx_n_u_score); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 219, __pyx_L32_error)
           __Pyx_GOTREF(__pyx_t_11);
-          if (unlikely(__Pyx_ListComp_Append(__pyx_t_2, (PyObject*)__pyx_t_11))) __PYX_ERR(0, 214, __pyx_L32_error)
+          if (unlikely(__Pyx_ListComp_Append(__pyx_t_2, (PyObject*)__pyx_t_11))) __PYX_ERR(0, 219, __pyx_L32_error)
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         }
       }
@@ -5824,44 +5530,44 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
       goto __pyx_L1_error;
       __pyx_L36_exit_scope:;
     } /* exit inner scope */
-    __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_sum, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 214, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_sum, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 219, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_5, __pyx_v_score_sum_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 214, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_5, __pyx_v_score_sum_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 219, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_v_malware_score_ = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":215
+    /* "pmercury/protocols/tls.pyx":220
  *         if self.MALWARE_DB:
  *             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
  *             out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'], 'p_malware':malware_score_}             # <<<<<<<<<<<<<<
  *         else:
  *             out_ = {'process':process_name, 'score':r_[0]['score']}
  */
-    __pyx_t_2 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 220, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_process, __pyx_v_process_name) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_process, __pyx_v_process_name) < 0) __PYX_ERR(0, 220, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 220, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_score); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_score); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 220, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_score, __pyx_t_11) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_score, __pyx_t_11) < 0) __PYX_ERR(0, 220, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    __pyx_t_11 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 220, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_11, __pyx_n_u_malware); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_11, __pyx_n_u_malware); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 220, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_malware, __pyx_t_5) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_malware, __pyx_t_5) < 0) __PYX_ERR(0, 220, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_p_malware, __pyx_v_malware_score_) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_p_malware, __pyx_v_malware_score_) < 0) __PYX_ERR(0, 220, __pyx_L1_error)
     __pyx_v_out_ = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":213
+    /* "pmercury/protocols/tls.pyx":218
  *         # package the most probable process
  *         score_sum_ = sum([x_['score'] for x_ in r_])
  *         if self.MALWARE_DB:             # <<<<<<<<<<<<<<
@@ -5871,7 +5577,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     goto __pyx_L29;
   }
 
-  /* "pmercury/protocols/tls.pyx":217
+  /* "pmercury/protocols/tls.pyx":222
  *             out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'], 'p_malware':malware_score_}
  *         else:
  *             out_ = {'process':process_name, 'score':r_[0]['score']}             # <<<<<<<<<<<<<<
@@ -5879,46 +5585,46 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  *         # return the top-n most probable processes is list_procs > 0
  */
   /*else*/ {
-    __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_process, __pyx_v_process_name) < 0) __PYX_ERR(0, 217, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 217, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_process, __pyx_v_process_name) < 0) __PYX_ERR(0, 222, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_r_, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 222, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_score); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 217, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_score); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 222, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_score, __pyx_t_11) < 0) __PYX_ERR(0, 217, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_score, __pyx_t_11) < 0) __PYX_ERR(0, 222, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __pyx_v_out_ = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
   }
   __pyx_L29:;
 
-  /* "pmercury/protocols/tls.pyx":220
+  /* "pmercury/protocols/tls.pyx":225
  * 
  *         # return the top-n most probable processes is list_procs > 0
  *         if list_procs > 0:             # <<<<<<<<<<<<<<
  *             r_proc_ = r_[0:list_procs]
  *             for p_ in r_proc_:
  */
-  __pyx_t_2 = PyObject_RichCompare(__pyx_v_list_procs, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 220, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 220, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_v_list_procs, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 225, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_6) {
 
-    /* "pmercury/protocols/tls.pyx":221
+    /* "pmercury/protocols/tls.pyx":226
  *         # return the top-n most probable processes is list_procs > 0
  *         if list_procs > 0:
  *             r_proc_ = r_[0:list_procs]             # <<<<<<<<<<<<<<
  *             for p_ in r_proc_:
  *                 p_['score'] /= score_sum_
  */
-    __pyx_t_2 = __Pyx_PyObject_GetSlice(__pyx_v_r_, 0, 0, NULL, &__pyx_v_list_procs, NULL, 1, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 221, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetSlice(__pyx_v_r_, 0, 0, NULL, &__pyx_v_list_procs, NULL, 1, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_r_proc_ = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":222
+    /* "pmercury/protocols/tls.pyx":227
  *         if list_procs > 0:
  *             r_proc_ = r_[0:list_procs]
  *             for p_ in r_proc_:             # <<<<<<<<<<<<<<
@@ -5929,26 +5635,26 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
       __pyx_t_2 = __pyx_v_r_proc_; __Pyx_INCREF(__pyx_t_2); __pyx_t_8 = 0;
       __pyx_t_9 = NULL;
     } else {
-      __pyx_t_8 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_r_proc_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L1_error)
+      __pyx_t_8 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_r_proc_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 227, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_9 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 222, __pyx_L1_error)
+      __pyx_t_9 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 227, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_9)) {
         if (likely(PyList_CheckExact(__pyx_t_2))) {
           if (__pyx_t_8 >= PyList_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_11 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_11); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 222, __pyx_L1_error)
+          __pyx_t_11 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_11); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 227, __pyx_L1_error)
           #else
-          __pyx_t_11 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 222, __pyx_L1_error)
+          __pyx_t_11 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 227, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_11);
           #endif
         } else {
           if (__pyx_t_8 >= PyTuple_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_11 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_11); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 222, __pyx_L1_error)
+          __pyx_t_11 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_8); __Pyx_INCREF(__pyx_t_11); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 227, __pyx_L1_error)
           #else
-          __pyx_t_11 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 222, __pyx_L1_error)
+          __pyx_t_11 = PySequence_ITEM(__pyx_t_2, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 227, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_11);
           #endif
         }
@@ -5958,7 +5664,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(0, 222, __pyx_L1_error)
+            else __PYX_ERR(0, 227, __pyx_L1_error)
           }
           break;
         }
@@ -5967,7 +5673,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
       __Pyx_XDECREF_SET(__pyx_v_p_, __pyx_t_11);
       __pyx_t_11 = 0;
 
-      /* "pmercury/protocols/tls.pyx":223
+      /* "pmercury/protocols/tls.pyx":228
  *             r_proc_ = r_[0:list_procs]
  *             for p_ in r_proc_:
  *                 p_['score'] /= score_sum_             # <<<<<<<<<<<<<<
@@ -5976,16 +5682,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
       __Pyx_INCREF(__pyx_n_u_score);
       __pyx_t_13 = __pyx_n_u_score;
-      __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_t_13); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 223, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_t_13); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 228, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
-      __pyx_t_5 = __Pyx_PyNumber_InPlaceDivide(__pyx_t_11, __pyx_v_score_sum_); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 223, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyNumber_InPlaceDivide(__pyx_t_11, __pyx_v_score_sum_); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 228, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(PyObject_SetItem(__pyx_v_p_, __pyx_t_13, __pyx_t_5) < 0)) __PYX_ERR(0, 223, __pyx_L1_error)
+      if (unlikely(PyObject_SetItem(__pyx_v_p_, __pyx_t_13, __pyx_t_5) < 0)) __PYX_ERR(0, 228, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-      /* "pmercury/protocols/tls.pyx":222
+      /* "pmercury/protocols/tls.pyx":227
  *         if list_procs > 0:
  *             r_proc_ = r_[0:list_procs]
  *             for p_ in r_proc_:             # <<<<<<<<<<<<<<
@@ -5995,16 +5701,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":224
+    /* "pmercury/protocols/tls.pyx":229
  *             for p_ in r_proc_:
  *                 p_['score'] /= score_sum_
  *             out_['probable_processes'] = r_proc_             # <<<<<<<<<<<<<<
  *         out_['score'] /= score_sum_
  * 
  */
-    if (unlikely(PyDict_SetItem(__pyx_v_out_, __pyx_n_u_probable_processes, __pyx_v_r_proc_) < 0)) __PYX_ERR(0, 224, __pyx_L1_error)
+    if (unlikely(PyDict_SetItem(__pyx_v_out_, __pyx_n_u_probable_processes, __pyx_v_r_proc_) < 0)) __PYX_ERR(0, 229, __pyx_L1_error)
 
-    /* "pmercury/protocols/tls.pyx":220
+    /* "pmercury/protocols/tls.pyx":225
  * 
  *         # return the top-n most probable processes is list_procs > 0
  *         if list_procs > 0:             # <<<<<<<<<<<<<<
@@ -6013,7 +5719,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":225
+  /* "pmercury/protocols/tls.pyx":230
  *                 p_['score'] /= score_sum_
  *             out_['probable_processes'] = r_proc_
  *         out_['score'] /= score_sum_             # <<<<<<<<<<<<<<
@@ -6022,16 +5728,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
   __Pyx_INCREF(__pyx_n_u_score);
   __pyx_t_13 = __pyx_n_u_score;
-  __pyx_t_2 = __Pyx_PyDict_GetItem(__pyx_v_out_, __pyx_t_13); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_GetItem(__pyx_v_out_, __pyx_t_13); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyNumber_InPlaceDivide(__pyx_t_2, __pyx_v_score_sum_); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyNumber_InPlaceDivide(__pyx_t_2, __pyx_v_score_sum_); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 230, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(PyDict_SetItem(__pyx_v_out_, __pyx_t_13, __pyx_t_5) < 0)) __PYX_ERR(0, 225, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_out_, __pyx_t_13, __pyx_t_5) < 0)) __PYX_ERR(0, 230, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-  /* "pmercury/protocols/tls.pyx":227
+  /* "pmercury/protocols/tls.pyx":232
  *         out_['score'] /= score_sum_
  * 
  *         return out_             # <<<<<<<<<<<<<<
@@ -6043,7 +5749,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   __pyx_r = __pyx_v_out_;
   goto __pyx_L0;
 
-  /* "pmercury/protocols/tls.pyx":173
+  /* "pmercury/protocols/tls.pyx":178
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):             # <<<<<<<<<<<<<<
@@ -6086,7 +5792,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":230
+/* "pmercury/protocols/tls.pyx":235
  * 
  * 
  *     def compute_score(self, features, p_, fp_tc_):             # <<<<<<<<<<<<<<
@@ -6095,10 +5801,8 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_10identify(CYTHON_UNUSE
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_13compute_score(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_13compute_score = {"compute_score", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_13compute_score, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_13compute_score(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_self = 0;
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_13compute_score(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_13compute_score(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_features = 0;
   PyObject *__pyx_v_p_ = 0;
   PyObject *__pyx_v_fp_tc_ = 0;
@@ -6106,820 +5810,7 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_13compute_score(PyObjec
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("compute_score (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_features,&__pyx_n_s_p,&__pyx_n_s_fp_tc,0};
-    PyObject* values[4] = {0,0,0,0};
-    if (unlikely(__pyx_kwds)) {
-      Py_ssize_t kw_args;
-      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
-      switch (pos_args) {
-        case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
-        CYTHON_FALLTHROUGH;
-        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
-        CYTHON_FALLTHROUGH;
-        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-        CYTHON_FALLTHROUGH;
-        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-        CYTHON_FALLTHROUGH;
-        case  0: break;
-        default: goto __pyx_L5_argtuple_error;
-      }
-      kw_args = PyDict_Size(__pyx_kwds);
-      switch (pos_args) {
-        case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
-        else goto __pyx_L5_argtuple_error;
-        CYTHON_FALLTHROUGH;
-        case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_features)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("compute_score", 1, 4, 4, 1); __PYX_ERR(0, 230, __pyx_L3_error)
-        }
-        CYTHON_FALLTHROUGH;
-        case  2:
-        if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_p)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("compute_score", 1, 4, 4, 2); __PYX_ERR(0, 230, __pyx_L3_error)
-        }
-        CYTHON_FALLTHROUGH;
-        case  3:
-        if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_tc)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("compute_score", 1, 4, 4, 3); __PYX_ERR(0, 230, __pyx_L3_error)
-        }
-      }
-      if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "compute_score") < 0)) __PYX_ERR(0, 230, __pyx_L3_error)
-      }
-    } else if (PyTuple_GET_SIZE(__pyx_args) != 4) {
-      goto __pyx_L5_argtuple_error;
-    } else {
-      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-      values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
-      values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
-    }
-    __pyx_v_self = values[0];
-    __pyx_v_features = values[1];
-    __pyx_v_p_ = values[2];
-    __pyx_v_fp_tc_ = values[3];
-  }
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("compute_score", 1, 4, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 230, __pyx_L3_error)
-  __pyx_L3_error:;
-  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_12compute_score(__pyx_self, __pyx_v_self, __pyx_v_features, __pyx_v_p_, __pyx_v_fp_tc_);
-
-  /* function exit code */
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_12compute_score(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_features, PyObject *__pyx_v_p_, PyObject *__pyx_v_fp_tc_) {
-  PyObject *__pyx_v_p_count = NULL;
-  PyObject *__pyx_v_prob_process_given_fp = NULL;
-  double __pyx_v_base_prior_;
-  double __pyx_v_prior_;
-  PyObject *__pyx_v_score_ = NULL;
-  PyObject *__pyx_v_tmp_ = NULL;
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
-  PyObject *__pyx_t_3 = NULL;
-  PyObject *__pyx_t_4 = NULL;
-  int __pyx_t_5;
-  PyObject *__pyx_t_6 = NULL;
-  PyObject *__pyx_t_7 = NULL;
-  PyObject *__pyx_t_8 = NULL;
-  PyObject *__pyx_t_9 = NULL;
-  int __pyx_t_10;
-  __Pyx_RefNannySetupContext("compute_score", 0);
-
-  /* "pmercury/protocols/tls.pyx":231
- * 
- *     def compute_score(self, features, p_, fp_tc_):
- *         p_count = p_['count']             # <<<<<<<<<<<<<<
- *         prob_process_given_fp = log(p_count/fp_tc_)
- * 
- */
-  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_count); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_v_p_count = __pyx_t_1;
-  __pyx_t_1 = 0;
-
-  /* "pmercury/protocols/tls.pyx":232
- *     def compute_score(self, features, p_, fp_tc_):
- *         p_count = p_['count']
- *         prob_process_given_fp = log(p_count/fp_tc_)             # <<<<<<<<<<<<<<
- * 
- *         base_prior_ = -18.42068 # log(1e-8)
- */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_log); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 232, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_p_count, __pyx_v_fp_tc_); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 232, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = NULL;
-  if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
-    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_2);
-    if (likely(__pyx_t_4)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_2);
-      __Pyx_INCREF(__pyx_t_4);
-      __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_2, function);
-    }
-  }
-  __pyx_t_1 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_4, __pyx_t_3) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 232, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_v_prob_process_given_fp = __pyx_t_1;
-  __pyx_t_1 = 0;
-
-  /* "pmercury/protocols/tls.pyx":234
- *         prob_process_given_fp = log(p_count/fp_tc_)
- * 
- *         base_prior_ = -18.42068 # log(1e-8)             # <<<<<<<<<<<<<<
- *         prior_      =  -4.60517 # log(1e-2)
- * 
- */
-  __pyx_v_base_prior_ = -18.42068;
-
-  /* "pmercury/protocols/tls.pyx":235
- * 
- *         base_prior_ = -18.42068 # log(1e-8)
- *         prior_      =  -4.60517 # log(1e-2)             # <<<<<<<<<<<<<<
- * 
- *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
- */
-  __pyx_v_prior_ = -4.60517;
-
-  /* "pmercury/protocols/tls.pyx":237
- *         prior_      =  -4.60517 # log(1e-2)
- * 
- *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3             # <<<<<<<<<<<<<<
- * 
- *         try:
- */
-  __pyx_t_2 = PyFloat_FromDouble(__pyx_v_base_prior_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 237, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyObject_RichCompare(__pyx_v_prob_process_given_fp, __pyx_t_2, Py_GT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 237, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely(__pyx_t_5 < 0)) __PYX_ERR(0, 237, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__pyx_t_5) {
-    __pyx_t_3 = PyNumber_Multiply(__pyx_v_prob_process_given_fp, __pyx_int_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 237, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_1 = __pyx_t_3;
-    __pyx_t_3 = 0;
-  } else {
-    __pyx_t_3 = PyFloat_FromDouble((__pyx_v_base_prior_ * 3.0)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 237, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_1 = __pyx_t_3;
-    __pyx_t_3 = 0;
-  }
-  __pyx_v_score_ = __pyx_t_1;
-  __pyx_t_1 = 0;
-
-  /* "pmercury/protocols/tls.pyx":239
- *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- */
-  {
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    __Pyx_ExceptionSave(&__pyx_t_6, &__pyx_t_7, &__pyx_t_8);
-    __Pyx_XGOTREF(__pyx_t_6);
-    __Pyx_XGOTREF(__pyx_t_7);
-    __Pyx_XGOTREF(__pyx_t_8);
-    /*try:*/ {
-
-      /* "pmercury/protocols/tls.pyx":240
- * 
- *         try:
- *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)             # <<<<<<<<<<<<<<
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- *         except KeyError:
- */
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_log); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 240, __pyx_L3_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_classes_ip_as); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 240, __pyx_L3_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_features, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 240, __pyx_L3_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_9 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_t_4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 240, __pyx_L3_error)
-      __Pyx_GOTREF(__pyx_t_9);
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_9, __pyx_v_p_count); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 240, __pyx_L3_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __pyx_t_9 = NULL;
-      if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
-        __pyx_t_9 = PyMethod_GET_SELF(__pyx_t_3);
-        if (likely(__pyx_t_9)) {
-          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
-          __Pyx_INCREF(__pyx_t_9);
-          __Pyx_INCREF(function);
-          __Pyx_DECREF_SET(__pyx_t_3, function);
-        }
-      }
-      __pyx_t_1 = (__pyx_t_9) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_9, __pyx_t_4) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4);
-      __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 240, __pyx_L3_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_v_tmp_ = __pyx_t_1;
-      __pyx_t_1 = 0;
-
-      /* "pmercury/protocols/tls.pyx":241
- *         try:
- *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_             # <<<<<<<<<<<<<<
- *         except KeyError:
- *             score_ += base_prior_
- */
-      __pyx_t_3 = PyFloat_FromDouble(__pyx_v_prior_); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 241, __pyx_L3_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_4 = PyObject_RichCompare(__pyx_v_tmp_, __pyx_t_3, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 241, __pyx_L3_error)
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely(__pyx_t_5 < 0)) __PYX_ERR(0, 241, __pyx_L3_error)
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (__pyx_t_5) {
-        __Pyx_INCREF(__pyx_v_tmp_);
-        __pyx_t_1 = __pyx_v_tmp_;
-      } else {
-        __pyx_t_4 = PyFloat_FromDouble(__pyx_v_prior_); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 241, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_1 = __pyx_t_4;
-        __pyx_t_4 = 0;
-      }
-      __pyx_t_4 = PyNumber_InPlaceAdd(__pyx_v_score_, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 241, __pyx_L3_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __Pyx_DECREF_SET(__pyx_v_score_, __pyx_t_4);
-      __pyx_t_4 = 0;
-
-      /* "pmercury/protocols/tls.pyx":239
- *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- */
-    }
-    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    goto __pyx_L8_try_end;
-    __pyx_L3_error:;
-    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-
-    /* "pmercury/protocols/tls.pyx":242
- *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- *         except KeyError:             # <<<<<<<<<<<<<<
- *             score_ += base_prior_
- * 
- */
-    __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
-    if (__pyx_t_10) {
-      __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_1, &__pyx_t_3) < 0) __PYX_ERR(0, 242, __pyx_L5_except_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_GOTREF(__pyx_t_3);
-
-      /* "pmercury/protocols/tls.pyx":243
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- *         except KeyError:
- *             score_ += base_prior_             # <<<<<<<<<<<<<<
- * 
- *         try:
- */
-      __pyx_t_9 = PyFloat_FromDouble(__pyx_v_base_prior_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 243, __pyx_L5_except_error)
-      __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_2 = PyNumber_InPlaceAdd(__pyx_v_score_, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 243, __pyx_L5_except_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_DECREF_SET(__pyx_v_score_, __pyx_t_2);
-      __pyx_t_2 = 0;
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      goto __pyx_L4_exception_handled;
-    }
-    goto __pyx_L5_except_error;
-    __pyx_L5_except_error:;
-
-    /* "pmercury/protocols/tls.pyx":239
- *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- */
-    __Pyx_XGIVEREF(__pyx_t_6);
-    __Pyx_XGIVEREF(__pyx_t_7);
-    __Pyx_XGIVEREF(__pyx_t_8);
-    __Pyx_ExceptionReset(__pyx_t_6, __pyx_t_7, __pyx_t_8);
-    goto __pyx_L1_error;
-    __pyx_L4_exception_handled:;
-    __Pyx_XGIVEREF(__pyx_t_6);
-    __Pyx_XGIVEREF(__pyx_t_7);
-    __Pyx_XGIVEREF(__pyx_t_8);
-    __Pyx_ExceptionReset(__pyx_t_6, __pyx_t_7, __pyx_t_8);
-    __pyx_L8_try_end:;
-  }
-
-  /* "pmercury/protocols/tls.pyx":245
- *             score_ += base_prior_
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- */
-  {
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    __Pyx_ExceptionSave(&__pyx_t_8, &__pyx_t_7, &__pyx_t_6);
-    __Pyx_XGOTREF(__pyx_t_8);
-    __Pyx_XGOTREF(__pyx_t_7);
-    __Pyx_XGOTREF(__pyx_t_6);
-    /*try:*/ {
-
-      /* "pmercury/protocols/tls.pyx":246
- * 
- *         try:
- *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)             # <<<<<<<<<<<<<<
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- *         except KeyError:
- */
-      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_log); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 246, __pyx_L11_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_classes_hostname_domains); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 246, __pyx_L11_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_features, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 246, __pyx_L11_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_9 = __Pyx_PyObject_GetItem(__pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 246, __pyx_L11_error)
-      __Pyx_GOTREF(__pyx_t_9);
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_9, __pyx_v_p_count); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 246, __pyx_L11_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __pyx_t_9 = NULL;
-      if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_1))) {
-        __pyx_t_9 = PyMethod_GET_SELF(__pyx_t_1);
-        if (likely(__pyx_t_9)) {
-          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_1);
-          __Pyx_INCREF(__pyx_t_9);
-          __Pyx_INCREF(function);
-          __Pyx_DECREF_SET(__pyx_t_1, function);
-        }
-      }
-      __pyx_t_3 = (__pyx_t_9) ? __Pyx_PyObject_Call2Args(__pyx_t_1, __pyx_t_9, __pyx_t_2) : __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_2);
-      __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 246, __pyx_L11_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __Pyx_XDECREF_SET(__pyx_v_tmp_, __pyx_t_3);
-      __pyx_t_3 = 0;
-
-      /* "pmercury/protocols/tls.pyx":247
- *         try:
- *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_             # <<<<<<<<<<<<<<
- *         except KeyError:
- *             score_ += base_prior_
- */
-      __pyx_t_1 = PyFloat_FromDouble(__pyx_v_prior_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 247, __pyx_L11_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_2 = PyObject_RichCompare(__pyx_v_tmp_, __pyx_t_1, Py_GT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 247, __pyx_L11_error)
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_5 < 0)) __PYX_ERR(0, 247, __pyx_L11_error)
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (__pyx_t_5) {
-        __Pyx_INCREF(__pyx_v_tmp_);
-        __pyx_t_3 = __pyx_v_tmp_;
-      } else {
-        __pyx_t_2 = PyFloat_FromDouble(__pyx_v_prior_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 247, __pyx_L11_error)
-        __Pyx_GOTREF(__pyx_t_2);
-        __pyx_t_3 = __pyx_t_2;
-        __pyx_t_2 = 0;
-      }
-      __pyx_t_2 = PyNumber_InPlaceAdd(__pyx_v_score_, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 247, __pyx_L11_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __Pyx_DECREF_SET(__pyx_v_score_, __pyx_t_2);
-      __pyx_t_2 = 0;
-
-      /* "pmercury/protocols/tls.pyx":245
- *             score_ += base_prior_
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- */
-    }
-    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    goto __pyx_L16_try_end;
-    __pyx_L11_error:;
-    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-
-    /* "pmercury/protocols/tls.pyx":248
- *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- *         except KeyError:             # <<<<<<<<<<<<<<
- *             score_ += base_prior_
- * 
- */
-    __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
-    if (__pyx_t_10) {
-      __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_3, &__pyx_t_1) < 0) __PYX_ERR(0, 248, __pyx_L13_except_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __Pyx_GOTREF(__pyx_t_3);
-      __Pyx_GOTREF(__pyx_t_1);
-
-      /* "pmercury/protocols/tls.pyx":249
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- *         except KeyError:
- *             score_ += base_prior_             # <<<<<<<<<<<<<<
- * 
- *         try:
- */
-      __pyx_t_9 = PyFloat_FromDouble(__pyx_v_base_prior_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 249, __pyx_L13_except_error)
-      __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_4 = PyNumber_InPlaceAdd(__pyx_v_score_, __pyx_t_9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 249, __pyx_L13_except_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_DECREF_SET(__pyx_v_score_, __pyx_t_4);
-      __pyx_t_4 = 0;
-      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      goto __pyx_L12_exception_handled;
-    }
-    goto __pyx_L13_except_error;
-    __pyx_L13_except_error:;
-
-    /* "pmercury/protocols/tls.pyx":245
- *             score_ += base_prior_
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- */
-    __Pyx_XGIVEREF(__pyx_t_8);
-    __Pyx_XGIVEREF(__pyx_t_7);
-    __Pyx_XGIVEREF(__pyx_t_6);
-    __Pyx_ExceptionReset(__pyx_t_8, __pyx_t_7, __pyx_t_6);
-    goto __pyx_L1_error;
-    __pyx_L12_exception_handled:;
-    __Pyx_XGIVEREF(__pyx_t_8);
-    __Pyx_XGIVEREF(__pyx_t_7);
-    __Pyx_XGIVEREF(__pyx_t_6);
-    __Pyx_ExceptionReset(__pyx_t_8, __pyx_t_7, __pyx_t_6);
-    __pyx_L16_try_end:;
-  }
-
-  /* "pmercury/protocols/tls.pyx":251
- *             score_ += base_prior_
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- */
-  {
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    __Pyx_ExceptionSave(&__pyx_t_6, &__pyx_t_7, &__pyx_t_8);
-    __Pyx_XGOTREF(__pyx_t_6);
-    __Pyx_XGOTREF(__pyx_t_7);
-    __Pyx_XGOTREF(__pyx_t_8);
-    /*try:*/ {
-
-      /* "pmercury/protocols/tls.pyx":252
- * 
- *         try:
- *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)             # <<<<<<<<<<<<<<
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- *         except KeyError:
- */
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_log); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 252, __pyx_L19_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_classes_port_applications); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 252, __pyx_L19_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_features, 2, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 252, __pyx_L19_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_9 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_t_4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 252, __pyx_L19_error)
-      __Pyx_GOTREF(__pyx_t_9);
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_9, __pyx_v_p_count); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 252, __pyx_L19_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __pyx_t_9 = NULL;
-      if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
-        __pyx_t_9 = PyMethod_GET_SELF(__pyx_t_3);
-        if (likely(__pyx_t_9)) {
-          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
-          __Pyx_INCREF(__pyx_t_9);
-          __Pyx_INCREF(function);
-          __Pyx_DECREF_SET(__pyx_t_3, function);
-        }
-      }
-      __pyx_t_1 = (__pyx_t_9) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_9, __pyx_t_4) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4);
-      __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 252, __pyx_L19_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __Pyx_XDECREF_SET(__pyx_v_tmp_, __pyx_t_1);
-      __pyx_t_1 = 0;
-
-      /* "pmercury/protocols/tls.pyx":253
- *         try:
- *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_             # <<<<<<<<<<<<<<
- *         except KeyError:
- *             score_ += base_prior_
- */
-      __pyx_t_3 = PyFloat_FromDouble(__pyx_v_prior_); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 253, __pyx_L19_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_4 = PyObject_RichCompare(__pyx_v_tmp_, __pyx_t_3, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 253, __pyx_L19_error)
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely(__pyx_t_5 < 0)) __PYX_ERR(0, 253, __pyx_L19_error)
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (__pyx_t_5) {
-        __Pyx_INCREF(__pyx_v_tmp_);
-        __pyx_t_1 = __pyx_v_tmp_;
-      } else {
-        __pyx_t_4 = PyFloat_FromDouble(__pyx_v_prior_); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 253, __pyx_L19_error)
-        __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_1 = __pyx_t_4;
-        __pyx_t_4 = 0;
-      }
-      __pyx_t_4 = PyNumber_InPlaceAdd(__pyx_v_score_, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 253, __pyx_L19_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __Pyx_DECREF_SET(__pyx_v_score_, __pyx_t_4);
-      __pyx_t_4 = 0;
-
-      /* "pmercury/protocols/tls.pyx":251
- *             score_ += base_prior_
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- */
-    }
-    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    goto __pyx_L24_try_end;
-    __pyx_L19_error:;
-    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-
-    /* "pmercury/protocols/tls.pyx":254
- *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- *         except KeyError:             # <<<<<<<<<<<<<<
- *             score_ += base_prior_
- * 
- */
-    __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
-    if (__pyx_t_10) {
-      __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_1, &__pyx_t_3) < 0) __PYX_ERR(0, 254, __pyx_L21_except_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_GOTREF(__pyx_t_3);
-
-      /* "pmercury/protocols/tls.pyx":255
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- *         except KeyError:
- *             score_ += base_prior_             # <<<<<<<<<<<<<<
- * 
- *         if self.MALWARE_DB:
- */
-      __pyx_t_9 = PyFloat_FromDouble(__pyx_v_base_prior_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 255, __pyx_L21_except_error)
-      __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_2 = PyNumber_InPlaceAdd(__pyx_v_score_, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 255, __pyx_L21_except_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_DECREF_SET(__pyx_v_score_, __pyx_t_2);
-      __pyx_t_2 = 0;
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      goto __pyx_L20_exception_handled;
-    }
-    goto __pyx_L21_except_error;
-    __pyx_L21_except_error:;
-
-    /* "pmercury/protocols/tls.pyx":251
- *             score_ += base_prior_
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
- *             score_ += tmp_ if tmp_ > prior_ else prior_
- */
-    __Pyx_XGIVEREF(__pyx_t_6);
-    __Pyx_XGIVEREF(__pyx_t_7);
-    __Pyx_XGIVEREF(__pyx_t_8);
-    __Pyx_ExceptionReset(__pyx_t_6, __pyx_t_7, __pyx_t_8);
-    goto __pyx_L1_error;
-    __pyx_L20_exception_handled:;
-    __Pyx_XGIVEREF(__pyx_t_6);
-    __Pyx_XGIVEREF(__pyx_t_7);
-    __Pyx_XGIVEREF(__pyx_t_8);
-    __Pyx_ExceptionReset(__pyx_t_6, __pyx_t_7, __pyx_t_8);
-    __pyx_L24_try_end:;
-  }
-
-  /* "pmercury/protocols/tls.pyx":257
- *             score_ += base_prior_
- * 
- *         if self.MALWARE_DB:             # <<<<<<<<<<<<<<
- *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
- *         else:
- */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_MALWARE_DB); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 257, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely(__pyx_t_5 < 0)) __PYX_ERR(0, 257, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__pyx_t_5) {
-
-    /* "pmercury/protocols/tls.pyx":258
- * 
- *         if self.MALWARE_DB:
- *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}             # <<<<<<<<<<<<<<
- *         else:
- *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}
- */
-    __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_exp); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = NULL;
-    if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_4))) {
-      __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_4);
-      if (likely(__pyx_t_2)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
-        __Pyx_INCREF(__pyx_t_2);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_4, function);
-      }
-    }
-    __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_2, __pyx_v_score_) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_v_score_);
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_score, __pyx_t_1) < 0) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_process); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_process, __pyx_t_1) < 0) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_sha256); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_sha256, __pyx_t_1) < 0) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_malware); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_malware, __pyx_t_1) < 0) __PYX_ERR(0, 258, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_r = __pyx_t_3;
-    __pyx_t_3 = 0;
-    goto __pyx_L0;
-
-    /* "pmercury/protocols/tls.pyx":257
- *             score_ += base_prior_
- * 
- *         if self.MALWARE_DB:             # <<<<<<<<<<<<<<
- *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
- *         else:
- */
-  }
-
-  /* "pmercury/protocols/tls.pyx":260
- *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
- *         else:
- *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}             # <<<<<<<<<<<<<<
- * 
- * 
- */
-  /*else*/ {
-    __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 260, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_exp); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 260, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = NULL;
-    if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_4))) {
-      __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_4);
-      if (likely(__pyx_t_2)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
-        __Pyx_INCREF(__pyx_t_2);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_4, function);
-      }
-    }
-    __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_2, __pyx_v_score_) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_v_score_);
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_score, __pyx_t_1) < 0) __PYX_ERR(0, 260, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_process); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_process, __pyx_t_1) < 0) __PYX_ERR(0, 260, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_sha256); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_sha256, __pyx_t_1) < 0) __PYX_ERR(0, 260, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_r = __pyx_t_3;
-    __pyx_t_3 = 0;
-    goto __pyx_L0;
-  }
-
-  /* "pmercury/protocols/tls.pyx":230
- * 
- * 
- *     def compute_score(self, features, p_, fp_tc_):             # <<<<<<<<<<<<<<
- *         p_count = p_['count']
- *         prob_process_given_fp = log(p_count/fp_tc_)
- */
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_9);
-  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = NULL;
-  __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_p_count);
-  __Pyx_XDECREF(__pyx_v_prob_process_given_fp);
-  __Pyx_XDECREF(__pyx_v_score_);
-  __Pyx_XDECREF(__pyx_v_tmp_);
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "pmercury/protocols/tls.pyx":264
- * 
- *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
- *     def get_database_entry(self, fp_str, approx_fp_str):             # <<<<<<<<<<<<<<
- *         fp_str_ = fp_str
- *         if approx_fp_str != None:
- */
-
-/* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_15get_database_entry(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_15get_database_entry = {"get_database_entry", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_15get_database_entry, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_15get_database_entry(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_self = 0;
-  PyObject *__pyx_v_fp_str = 0;
-  PyObject *__pyx_v_approx_fp_str = 0;
-  PyObject *__pyx_r = 0;
-  __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("get_database_entry (wrapper)", 0);
-  {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_str_2,&__pyx_n_s_approx_fp_str,0};
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_features,&__pyx_n_s_p,&__pyx_n_s_fp_tc,0};
     PyObject* values[3] = {0,0,0};
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
@@ -6937,23 +5828,23 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_15get_database_entry(Py
       kw_args = PyDict_Size(__pyx_kwds);
       switch (pos_args) {
         case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_features)) != 0)) kw_args--;
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str_2)) != 0)) kw_args--;
+        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_p)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("get_database_entry", 1, 3, 3, 1); __PYX_ERR(0, 264, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("compute_score", 1, 3, 3, 1); __PYX_ERR(0, 235, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
-        if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_approx_fp_str)) != 0)) kw_args--;
+        if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_tc)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("get_database_entry", 1, 3, 3, 2); __PYX_ERR(0, 264, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("compute_score", 1, 3, 3, 2); __PYX_ERR(0, 235, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "get_database_entry") < 0)) __PYX_ERR(0, 264, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "compute_score") < 0)) __PYX_ERR(0, 235, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 3) {
       goto __pyx_L5_argtuple_error;
@@ -6962,26 +5853,631 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_15get_database_entry(Py
       values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
       values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
     }
-    __pyx_v_self = values[0];
-    __pyx_v_fp_str = values[1];
-    __pyx_v_approx_fp_str = values[2];
+    __pyx_v_features = values[0];
+    __pyx_v_p_ = values[1];
+    __pyx_v_fp_tc_ = values[2];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_database_entry", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 264, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("compute_score", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 235, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.get_database_entry", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(__pyx_self, __pyx_v_self, __pyx_v_fp_str, __pyx_v_approx_fp_str);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_12compute_score(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), __pyx_v_features, __pyx_v_p_, __pyx_v_fp_tc_);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_approx_fp_str) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_12compute_score(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_features, PyObject *__pyx_v_p_, PyObject *__pyx_v_fp_tc_) {
+  PyObject *__pyx_v_p_count = NULL;
+  double __pyx_v_prob_process_given_fp;
+  double __pyx_v_base_prior_;
+  double __pyx_v_prior_;
+  double __pyx_v_score_;
+  double __pyx_v_tmp_;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  double __pyx_t_2;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  int __pyx_t_8;
+  int __pyx_t_9;
+  __Pyx_RefNannySetupContext("compute_score", 0);
+
+  /* "pmercury/protocols/tls.pyx":236
+ * 
+ *     def compute_score(self, features, p_, fp_tc_):
+ *         p_count = p_['count']             # <<<<<<<<<<<<<<
+ *         prob_process_given_fp = log(p_count/fp_tc_)
+ * 
+ */
+  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_count); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 236, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_v_p_count = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "pmercury/protocols/tls.pyx":237
+ *     def compute_score(self, features, p_, fp_tc_):
+ *         p_count = p_['count']
+ *         prob_process_given_fp = log(p_count/fp_tc_)             # <<<<<<<<<<<<<<
+ * 
+ *         base_prior_ = -18.42068 # log(1e-8)
+ */
+  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_p_count, __pyx_v_fp_tc_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 237, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __pyx_PyFloat_AsDouble(__pyx_t_1); if (unlikely((__pyx_t_2 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 237, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_v_prob_process_given_fp = log(__pyx_t_2);
+
+  /* "pmercury/protocols/tls.pyx":239
+ *         prob_process_given_fp = log(p_count/fp_tc_)
+ * 
+ *         base_prior_ = -18.42068 # log(1e-8)             # <<<<<<<<<<<<<<
+ *         prior_      =  -4.60517 # log(1e-2)
+ * 
+ */
+  __pyx_v_base_prior_ = -18.42068;
+
+  /* "pmercury/protocols/tls.pyx":240
+ * 
+ *         base_prior_ = -18.42068 # log(1e-8)
+ *         prior_      =  -4.60517 # log(1e-2)             # <<<<<<<<<<<<<<
+ * 
+ *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
+ */
+  __pyx_v_prior_ = -4.60517;
+
+  /* "pmercury/protocols/tls.pyx":242
+ *         prior_      =  -4.60517 # log(1e-2)
+ * 
+ *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3             # <<<<<<<<<<<<<<
+ * 
+ *         try:
+ */
+  if (((__pyx_v_prob_process_given_fp > __pyx_v_base_prior_) != 0)) {
+    __pyx_t_2 = (__pyx_v_prob_process_given_fp * 3.0);
+  } else {
+    __pyx_t_2 = (__pyx_v_base_prior_ * 3.0);
+  }
+  __pyx_v_score_ = __pyx_t_2;
+
+  /* "pmercury/protocols/tls.pyx":244
+ *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
+ * 
+ *         try:             # <<<<<<<<<<<<<<
+ *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ */
+  {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    __Pyx_ExceptionSave(&__pyx_t_3, &__pyx_t_4, &__pyx_t_5);
+    __Pyx_XGOTREF(__pyx_t_3);
+    __Pyx_XGOTREF(__pyx_t_4);
+    __Pyx_XGOTREF(__pyx_t_5);
+    /*try:*/ {
+
+      /* "pmercury/protocols/tls.pyx":245
+ * 
+ *         try:
+ *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)             # <<<<<<<<<<<<<<
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ *         except KeyError:
+ */
+      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_classes_ip_as); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 245, __pyx_L3_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_6 = __Pyx_GetItemInt(__pyx_v_features, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 245, __pyx_L3_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __pyx_t_7 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 245, __pyx_L3_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_7, __pyx_v_p_count); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 245, __pyx_L3_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __pyx_t_2 = __pyx_PyFloat_AsDouble(__pyx_t_6); if (unlikely((__pyx_t_2 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 245, __pyx_L3_error)
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __pyx_v_tmp_ = log(__pyx_t_2);
+
+      /* "pmercury/protocols/tls.pyx":246
+ *         try:
+ *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_             # <<<<<<<<<<<<<<
+ *         except KeyError:
+ *             score_ += base_prior_
+ */
+      if (((__pyx_v_tmp_ > __pyx_v_prior_) != 0)) {
+        __pyx_t_2 = __pyx_v_tmp_;
+      } else {
+        __pyx_t_2 = __pyx_v_prior_;
+      }
+      __pyx_v_score_ = (__pyx_v_score_ + __pyx_t_2);
+
+      /* "pmercury/protocols/tls.pyx":244
+ *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
+ * 
+ *         try:             # <<<<<<<<<<<<<<
+ *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ */
+    }
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    goto __pyx_L8_try_end;
+    __pyx_L3_error:;
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+    /* "pmercury/protocols/tls.pyx":247
+ *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ *         except KeyError:             # <<<<<<<<<<<<<<
+ *             score_ += base_prior_
+ * 
+ */
+    __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
+    if (__pyx_t_8) {
+      __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
+      if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_7, &__pyx_t_1) < 0) __PYX_ERR(0, 247, __pyx_L5_except_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_GOTREF(__pyx_t_7);
+      __Pyx_GOTREF(__pyx_t_1);
+
+      /* "pmercury/protocols/tls.pyx":248
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ *         except KeyError:
+ *             score_ += base_prior_             # <<<<<<<<<<<<<<
+ * 
+ *         try:
+ */
+      __pyx_v_score_ = (__pyx_v_score_ + __pyx_v_base_prior_);
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      goto __pyx_L4_exception_handled;
+    }
+    goto __pyx_L5_except_error;
+    __pyx_L5_except_error:;
+
+    /* "pmercury/protocols/tls.pyx":244
+ *         score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
+ * 
+ *         try:             # <<<<<<<<<<<<<<
+ *             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ */
+    __Pyx_XGIVEREF(__pyx_t_3);
+    __Pyx_XGIVEREF(__pyx_t_4);
+    __Pyx_XGIVEREF(__pyx_t_5);
+    __Pyx_ExceptionReset(__pyx_t_3, __pyx_t_4, __pyx_t_5);
+    goto __pyx_L1_error;
+    __pyx_L4_exception_handled:;
+    __Pyx_XGIVEREF(__pyx_t_3);
+    __Pyx_XGIVEREF(__pyx_t_4);
+    __Pyx_XGIVEREF(__pyx_t_5);
+    __Pyx_ExceptionReset(__pyx_t_3, __pyx_t_4, __pyx_t_5);
+    __pyx_L8_try_end:;
+  }
+
+  /* "pmercury/protocols/tls.pyx":250
+ *             score_ += base_prior_
+ * 
+ *         try:             # <<<<<<<<<<<<<<
+ *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ */
+  {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    __Pyx_ExceptionSave(&__pyx_t_5, &__pyx_t_4, &__pyx_t_3);
+    __Pyx_XGOTREF(__pyx_t_5);
+    __Pyx_XGOTREF(__pyx_t_4);
+    __Pyx_XGOTREF(__pyx_t_3);
+    /*try:*/ {
+
+      /* "pmercury/protocols/tls.pyx":251
+ * 
+ *         try:
+ *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)             # <<<<<<<<<<<<<<
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ *         except KeyError:
+ */
+      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_classes_hostname_domains); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 251, __pyx_L11_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_7 = __Pyx_GetItemInt(__pyx_v_features, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 251, __pyx_L11_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __pyx_t_6 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_t_7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 251, __pyx_L11_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __pyx_t_7 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_v_p_count); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 251, __pyx_L11_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __pyx_t_2 = __pyx_PyFloat_AsDouble(__pyx_t_7); if (unlikely((__pyx_t_2 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 251, __pyx_L11_error)
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __pyx_v_tmp_ = log(__pyx_t_2);
+
+      /* "pmercury/protocols/tls.pyx":252
+ *         try:
+ *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_             # <<<<<<<<<<<<<<
+ *         except KeyError:
+ *             score_ += base_prior_
+ */
+      if (((__pyx_v_tmp_ > __pyx_v_prior_) != 0)) {
+        __pyx_t_2 = __pyx_v_tmp_;
+      } else {
+        __pyx_t_2 = __pyx_v_prior_;
+      }
+      __pyx_v_score_ = (__pyx_v_score_ + __pyx_t_2);
+
+      /* "pmercury/protocols/tls.pyx":250
+ *             score_ += base_prior_
+ * 
+ *         try:             # <<<<<<<<<<<<<<
+ *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ */
+    }
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    goto __pyx_L16_try_end;
+    __pyx_L11_error:;
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+    /* "pmercury/protocols/tls.pyx":253
+ *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ *         except KeyError:             # <<<<<<<<<<<<<<
+ *             score_ += base_prior_
+ * 
+ */
+    __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
+    if (__pyx_t_8) {
+      __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
+      if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_6, &__pyx_t_1) < 0) __PYX_ERR(0, 253, __pyx_L13_except_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_GOTREF(__pyx_t_1);
+
+      /* "pmercury/protocols/tls.pyx":254
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ *         except KeyError:
+ *             score_ += base_prior_             # <<<<<<<<<<<<<<
+ * 
+ *         try:
+ */
+      __pyx_v_score_ = (__pyx_v_score_ + __pyx_v_base_prior_);
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      goto __pyx_L12_exception_handled;
+    }
+    goto __pyx_L13_except_error;
+    __pyx_L13_except_error:;
+
+    /* "pmercury/protocols/tls.pyx":250
+ *             score_ += base_prior_
+ * 
+ *         try:             # <<<<<<<<<<<<<<
+ *             tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ */
+    __Pyx_XGIVEREF(__pyx_t_5);
+    __Pyx_XGIVEREF(__pyx_t_4);
+    __Pyx_XGIVEREF(__pyx_t_3);
+    __Pyx_ExceptionReset(__pyx_t_5, __pyx_t_4, __pyx_t_3);
+    goto __pyx_L1_error;
+    __pyx_L12_exception_handled:;
+    __Pyx_XGIVEREF(__pyx_t_5);
+    __Pyx_XGIVEREF(__pyx_t_4);
+    __Pyx_XGIVEREF(__pyx_t_3);
+    __Pyx_ExceptionReset(__pyx_t_5, __pyx_t_4, __pyx_t_3);
+    __pyx_L16_try_end:;
+  }
+
+  /* "pmercury/protocols/tls.pyx":256
+ *             score_ += base_prior_
+ * 
+ *         try:             # <<<<<<<<<<<<<<
+ *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ */
+  {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    __Pyx_ExceptionSave(&__pyx_t_3, &__pyx_t_4, &__pyx_t_5);
+    __Pyx_XGOTREF(__pyx_t_3);
+    __Pyx_XGOTREF(__pyx_t_4);
+    __Pyx_XGOTREF(__pyx_t_5);
+    /*try:*/ {
+
+      /* "pmercury/protocols/tls.pyx":257
+ * 
+ *         try:
+ *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)             # <<<<<<<<<<<<<<
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ *         except KeyError:
+ */
+      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_classes_port_applications); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 257, __pyx_L19_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_6 = __Pyx_GetItemInt(__pyx_v_features, 2, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 257, __pyx_L19_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __pyx_t_7 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 257, __pyx_L19_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_7, __pyx_v_p_count); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 257, __pyx_L19_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __pyx_t_2 = __pyx_PyFloat_AsDouble(__pyx_t_6); if (unlikely((__pyx_t_2 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 257, __pyx_L19_error)
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __pyx_v_tmp_ = log(__pyx_t_2);
+
+      /* "pmercury/protocols/tls.pyx":258
+ *         try:
+ *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_             # <<<<<<<<<<<<<<
+ *         except KeyError:
+ *             score_ += base_prior_
+ */
+      if (((__pyx_v_tmp_ > __pyx_v_prior_) != 0)) {
+        __pyx_t_2 = __pyx_v_tmp_;
+      } else {
+        __pyx_t_2 = __pyx_v_prior_;
+      }
+      __pyx_v_score_ = (__pyx_v_score_ + __pyx_t_2);
+
+      /* "pmercury/protocols/tls.pyx":256
+ *             score_ += base_prior_
+ * 
+ *         try:             # <<<<<<<<<<<<<<
+ *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ */
+    }
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    goto __pyx_L24_try_end;
+    __pyx_L19_error:;
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+    /* "pmercury/protocols/tls.pyx":259
+ *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ *         except KeyError:             # <<<<<<<<<<<<<<
+ *             score_ += base_prior_
+ * 
+ */
+    __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
+    if (__pyx_t_8) {
+      __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
+      if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_7, &__pyx_t_1) < 0) __PYX_ERR(0, 259, __pyx_L21_except_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_GOTREF(__pyx_t_7);
+      __Pyx_GOTREF(__pyx_t_1);
+
+      /* "pmercury/protocols/tls.pyx":260
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ *         except KeyError:
+ *             score_ += base_prior_             # <<<<<<<<<<<<<<
+ * 
+ *         if self.MALWARE_DB:
+ */
+      __pyx_v_score_ = (__pyx_v_score_ + __pyx_v_base_prior_);
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      goto __pyx_L20_exception_handled;
+    }
+    goto __pyx_L21_except_error;
+    __pyx_L21_except_error:;
+
+    /* "pmercury/protocols/tls.pyx":256
+ *             score_ += base_prior_
+ * 
+ *         try:             # <<<<<<<<<<<<<<
+ *             tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
+ *             score_ += tmp_ if tmp_ > prior_ else prior_
+ */
+    __Pyx_XGIVEREF(__pyx_t_3);
+    __Pyx_XGIVEREF(__pyx_t_4);
+    __Pyx_XGIVEREF(__pyx_t_5);
+    __Pyx_ExceptionReset(__pyx_t_3, __pyx_t_4, __pyx_t_5);
+    goto __pyx_L1_error;
+    __pyx_L20_exception_handled:;
+    __Pyx_XGIVEREF(__pyx_t_3);
+    __Pyx_XGIVEREF(__pyx_t_4);
+    __Pyx_XGIVEREF(__pyx_t_5);
+    __Pyx_ExceptionReset(__pyx_t_3, __pyx_t_4, __pyx_t_5);
+    __pyx_L24_try_end:;
+  }
+
+  /* "pmercury/protocols/tls.pyx":262
+ *             score_ += base_prior_
+ * 
+ *         if self.MALWARE_DB:             # <<<<<<<<<<<<<<
+ *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
+ *         else:
+ */
+  __pyx_t_9 = (__pyx_v_self->MALWARE_DB != 0);
+  if (__pyx_t_9) {
+
+    /* "pmercury/protocols/tls.pyx":263
+ * 
+ *         if self.MALWARE_DB:
+ *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}             # <<<<<<<<<<<<<<
+ *         else:
+ *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}
+ */
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_7 = PyFloat_FromDouble(exp(__pyx_v_score_)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_score, __pyx_t_7) < 0) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_process); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_t_7) < 0) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_sha256); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_sha256, __pyx_t_7) < 0) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_malware); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_malware, __pyx_t_7) < 0) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_r = __pyx_t_1;
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "pmercury/protocols/tls.pyx":262
+ *             score_ += base_prior_
+ * 
+ *         if self.MALWARE_DB:             # <<<<<<<<<<<<<<
+ *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
+ *         else:
+ */
+  }
+
+  /* "pmercury/protocols/tls.pyx":265
+ *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
+ *         else:
+ *             return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}             # <<<<<<<<<<<<<<
+ * 
+ * 
+ */
+  /*else*/ {
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 265, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_7 = PyFloat_FromDouble(exp(__pyx_v_score_)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 265, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_score, __pyx_t_7) < 0) __PYX_ERR(0, 265, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_process); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 265, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_t_7) < 0) __PYX_ERR(0, 265, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_p_, __pyx_n_u_sha256); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 265, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_sha256, __pyx_t_7) < 0) __PYX_ERR(0, 265, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_r = __pyx_t_1;
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+  }
+
+  /* "pmercury/protocols/tls.pyx":235
+ * 
+ * 
+ *     def compute_score(self, features, p_, fp_tc_):             # <<<<<<<<<<<<<<
+ *         p_count = p_['count']
+ *         prob_process_given_fp = log(p_count/fp_tc_)
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.compute_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_p_count);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "pmercury/protocols/tls.pyx":269
+ * 
+ *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
+ *     def get_database_entry(self, fp_str, approx_fp_str):             # <<<<<<<<<<<<<<
+ *         fp_str_ = fp_str
+ *         if approx_fp_str != None:
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_15get_database_entry(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_15get_database_entry(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  PyObject *__pyx_v_fp_str = 0;
+  PyObject *__pyx_v_approx_fp_str = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("get_database_entry (wrapper)", 0);
+  {
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_fp_str_2,&__pyx_n_s_approx_fp_str,0};
+    PyObject* values[2] = {0,0};
+    if (unlikely(__pyx_kwds)) {
+      Py_ssize_t kw_args;
+      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
+      switch (pos_args) {
+        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = PyDict_Size(__pyx_kwds);
+      switch (pos_args) {
+        case  0:
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str_2)) != 0)) kw_args--;
+        else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_approx_fp_str)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("get_database_entry", 1, 2, 2, 1); __PYX_ERR(0, 269, __pyx_L3_error)
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "get_database_entry") < 0)) __PYX_ERR(0, 269, __pyx_L3_error)
+      }
+    } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+    }
+    __pyx_v_fp_str = values[0];
+    __pyx_v_approx_fp_str = values[1];
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("get_database_entry", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 269, __pyx_L3_error)
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.get_database_entry", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), __pyx_v_fp_str, __pyx_v_approx_fp_str);
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_approx_fp_str) {
   PyObject *__pyx_v_fp_str_ = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -6990,12 +6486,12 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
   PyObject *__pyx_t_5 = NULL;
-  PyObject *__pyx_t_6 = NULL;
-  int __pyx_t_7;
+  int __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
   PyObject *__pyx_t_8 = NULL;
   __Pyx_RefNannySetupContext("get_database_entry", 0);
 
-  /* "pmercury/protocols/tls.pyx":265
+  /* "pmercury/protocols/tls.pyx":270
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def get_database_entry(self, fp_str, approx_fp_str):
  *         fp_str_ = fp_str             # <<<<<<<<<<<<<<
@@ -7005,19 +6501,19 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
   __Pyx_INCREF(__pyx_v_fp_str);
   __pyx_v_fp_str_ = __pyx_v_fp_str;
 
-  /* "pmercury/protocols/tls.pyx":266
+  /* "pmercury/protocols/tls.pyx":271
  *     def get_database_entry(self, fp_str, approx_fp_str):
  *         fp_str_ = fp_str
  *         if approx_fp_str != None:             # <<<<<<<<<<<<<<
  *             fp_str_ = approx_fp_str
  * 
  */
-  __pyx_t_1 = PyObject_RichCompare(__pyx_v_approx_fp_str, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 266, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 266, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_v_approx_fp_str, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 271, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 271, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "pmercury/protocols/tls.pyx":267
+    /* "pmercury/protocols/tls.pyx":272
  *         fp_str_ = fp_str
  *         if approx_fp_str != None:
  *             fp_str_ = approx_fp_str             # <<<<<<<<<<<<<<
@@ -7027,7 +6523,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
     __Pyx_INCREF(__pyx_v_approx_fp_str);
     __Pyx_DECREF_SET(__pyx_v_fp_str_, __pyx_v_approx_fp_str);
 
-    /* "pmercury/protocols/tls.pyx":266
+    /* "pmercury/protocols/tls.pyx":271
  *     def get_database_entry(self, fp_str, approx_fp_str):
  *         fp_str_ = fp_str
  *         if approx_fp_str != None:             # <<<<<<<<<<<<<<
@@ -7036,7 +6532,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":269
+  /* "pmercury/protocols/tls.pyx":274
  *             fp_str_ = approx_fp_str
  * 
  *         try:             # <<<<<<<<<<<<<<
@@ -7052,7 +6548,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
     __Pyx_XGOTREF(__pyx_t_5);
     /*try:*/ {
 
-      /* "pmercury/protocols/tls.pyx":270
+      /* "pmercury/protocols/tls.pyx":275
  * 
  *         try:
  *             return self.fp_db[fp_str_]             # <<<<<<<<<<<<<<
@@ -7060,16 +6556,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
  *             return None
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 270, __pyx_L4_error)
+      if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+        __PYX_ERR(0, 275, __pyx_L4_error)
+      }
+      __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_self->fp_db, __pyx_v_fp_str_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 275, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_6 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_v_fp_str_); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 270, __pyx_L4_error)
-      __Pyx_GOTREF(__pyx_t_6);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_r = __pyx_t_6;
-      __pyx_t_6 = 0;
+      __pyx_r = __pyx_t_1;
+      __pyx_t_1 = 0;
       goto __pyx_L8_try_return;
 
-      /* "pmercury/protocols/tls.pyx":269
+      /* "pmercury/protocols/tls.pyx":274
  *             fp_str_ = approx_fp_str
  * 
  *         try:             # <<<<<<<<<<<<<<
@@ -7079,24 +6576,23 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
     }
     __pyx_L4_error:;
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "pmercury/protocols/tls.pyx":271
+    /* "pmercury/protocols/tls.pyx":276
  *         try:
  *             return self.fp_db[fp_str_]
  *         except KeyError:             # <<<<<<<<<<<<<<
  *             return None
  * 
  */
-    __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
-    if (__pyx_t_7) {
+    __pyx_t_6 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
+    if (__pyx_t_6) {
       __Pyx_AddTraceback("pmercury.protocols.tls.TLS.get_database_entry", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_1, &__pyx_t_8) < 0) __PYX_ERR(0, 271, __pyx_L6_except_error)
-      __Pyx_GOTREF(__pyx_t_6);
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(0, 276, __pyx_L6_except_error)
       __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_GOTREF(__pyx_t_7);
       __Pyx_GOTREF(__pyx_t_8);
 
-      /* "pmercury/protocols/tls.pyx":272
+      /* "pmercury/protocols/tls.pyx":277
  *             return self.fp_db[fp_str_]
  *         except KeyError:
  *             return None             # <<<<<<<<<<<<<<
@@ -7106,14 +6602,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
       __Pyx_XDECREF(__pyx_r);
       __pyx_r = Py_None; __Pyx_INCREF(Py_None);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       goto __pyx_L7_except_return;
     }
     goto __pyx_L6_except_error;
     __pyx_L6_except_error:;
 
-    /* "pmercury/protocols/tls.pyx":269
+    /* "pmercury/protocols/tls.pyx":274
  *             fp_str_ = approx_fp_str
  * 
  *         try:             # <<<<<<<<<<<<<<
@@ -7139,7 +6635,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
     goto __pyx_L0;
   }
 
-  /* "pmercury/protocols/tls.pyx":264
+  /* "pmercury/protocols/tls.pyx":269
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def get_database_entry(self, fp_str, approx_fp_str):             # <<<<<<<<<<<<<<
@@ -7150,7 +6646,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
   __Pyx_XDECREF(__pyx_t_8);
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.get_database_entry", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -7161,7 +6657,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":276
+/* "pmercury/protocols/tls.pyx":281
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def get_approx_fingerprint(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -7170,68 +6666,19 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_14get_database_entry(CY
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_17get_approx_fingerprint(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_17get_approx_fingerprint = {"get_approx_fingerprint", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_17get_approx_fingerprint, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_17get_approx_fingerprint(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_self = 0;
-  PyObject *__pyx_v_fp_str_ = 0;
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_17get_approx_fingerprint(PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_17get_approx_fingerprint(PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_) {
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("get_approx_fingerprint (wrapper)", 0);
-  {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_str,0};
-    PyObject* values[2] = {0,0};
-    if (unlikely(__pyx_kwds)) {
-      Py_ssize_t kw_args;
-      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
-      switch (pos_args) {
-        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-        CYTHON_FALLTHROUGH;
-        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-        CYTHON_FALLTHROUGH;
-        case  0: break;
-        default: goto __pyx_L5_argtuple_error;
-      }
-      kw_args = PyDict_Size(__pyx_kwds);
-      switch (pos_args) {
-        case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
-        else goto __pyx_L5_argtuple_error;
-        CYTHON_FALLTHROUGH;
-        case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("get_approx_fingerprint", 1, 2, 2, 1); __PYX_ERR(0, 276, __pyx_L3_error)
-        }
-      }
-      if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "get_approx_fingerprint") < 0)) __PYX_ERR(0, 276, __pyx_L3_error)
-      }
-    } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
-      goto __pyx_L5_argtuple_error;
-    } else {
-      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-    }
-    __pyx_v_self = values[0];
-    __pyx_v_fp_str_ = values[1];
-  }
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_approx_fingerprint", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 276, __pyx_L3_error)
-  __pyx_L3_error:;
-  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.get_approx_fingerprint", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprint(__pyx_self, __pyx_v_self, __pyx_v_fp_str_);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprint(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), ((PyObject *)__pyx_v_fp_str_));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprint(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprint(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -7243,7 +6690,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprin
   PyObject *__pyx_t_7 = NULL;
   __Pyx_RefNannySetupContext("get_approx_fingerprint", 0);
 
-  /* "pmercury/protocols/tls.pyx":277
+  /* "pmercury/protocols/tls.pyx":282
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def get_approx_fingerprint(self, fp_str_):
  *         try:             # <<<<<<<<<<<<<<
@@ -7259,7 +6706,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprin
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "pmercury/protocols/tls.pyx":278
+      /* "pmercury/protocols/tls.pyx":283
  *     def get_approx_fingerprint(self, fp_str_):
  *         try:
  *             return self.fp_db[fp_str_]['approx_str']             # <<<<<<<<<<<<<<
@@ -7267,19 +6714,20 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprin
  *             return None
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 278, __pyx_L3_error)
+      if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+        __PYX_ERR(0, 283, __pyx_L3_error)
+      }
+      __pyx_t_4 = __Pyx_PyDict_GetItem(__pyx_v_self->fp_db, __pyx_v_fp_str_); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 283, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = __Pyx_PyObject_GetItem(__pyx_t_4, __pyx_v_fp_str_); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 278, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_4, __pyx_n_u_approx_str); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 283, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_approx_str); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 278, __pyx_L3_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_r = __pyx_t_4;
-      __pyx_t_4 = 0;
+      __pyx_r = __pyx_t_5;
+      __pyx_t_5 = 0;
       goto __pyx_L7_try_return;
 
-      /* "pmercury/protocols/tls.pyx":277
+      /* "pmercury/protocols/tls.pyx":282
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def get_approx_fingerprint(self, fp_str_):
  *         try:             # <<<<<<<<<<<<<<
@@ -7291,7 +6739,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprin
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "pmercury/protocols/tls.pyx":279
+    /* "pmercury/protocols/tls.pyx":284
  *         try:
  *             return self.fp_db[fp_str_]['approx_str']
  *         except KeyError:             # <<<<<<<<<<<<<<
@@ -7301,12 +6749,12 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprin
     __pyx_t_6 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
     if (__pyx_t_6) {
       __Pyx_AddTraceback("pmercury.protocols.tls.TLS.get_approx_fingerprint", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_7) < 0) __PYX_ERR(0, 279, __pyx_L5_except_error)
-      __Pyx_GOTREF(__pyx_t_4);
+      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_4, &__pyx_t_7) < 0) __PYX_ERR(0, 284, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_5);
+      __Pyx_GOTREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_t_7);
 
-      /* "pmercury/protocols/tls.pyx":280
+      /* "pmercury/protocols/tls.pyx":285
  *             return self.fp_db[fp_str_]['approx_str']
  *         except KeyError:
  *             return None             # <<<<<<<<<<<<<<
@@ -7323,7 +6771,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprin
     goto __pyx_L5_except_error;
     __pyx_L5_except_error:;
 
-    /* "pmercury/protocols/tls.pyx":277
+    /* "pmercury/protocols/tls.pyx":282
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def get_approx_fingerprint(self, fp_str_):
  *         try:             # <<<<<<<<<<<<<<
@@ -7349,7 +6797,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprin
     goto __pyx_L0;
   }
 
-  /* "pmercury/protocols/tls.pyx":276
+  /* "pmercury/protocols/tls.pyx":281
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def get_approx_fingerprint(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -7370,7 +6818,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprin
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":283
+/* "pmercury/protocols/tls.pyx":288
  * 
  * 
  *     def find_approx_match(self, tls_features, fp_str=None, source_filter=None, key_filter=None):             # <<<<<<<<<<<<<<
@@ -7379,10 +6827,8 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_16get_approx_fingerprin
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_19find_approx_match(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_19find_approx_match = {"find_approx_match", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_19find_approx_match, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_19find_approx_match(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_self = 0;
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_19find_approx_match(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_19find_approx_match(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_tls_features = 0;
   PyObject *__pyx_v_fp_str = 0;
   PyObject *__pyx_v_source_filter = 0;
@@ -7391,17 +6837,15 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_19find_approx_match(PyO
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("find_approx_match (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_tls_features,&__pyx_n_s_fp_str_2,&__pyx_n_s_source_filter,&__pyx_n_s_key_filter,0};
-    PyObject* values[5] = {0,0,0,0,0};
-    values[2] = ((PyObject *)((PyObject *)Py_None));
-    values[3] = ((PyObject *)((PyObject *)Py_None));
-    values[4] = ((PyObject *)((PyObject *)Py_None));
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_tls_features,&__pyx_n_s_fp_str_2,&__pyx_n_s_source_filter,&__pyx_n_s_key_filter,0};
+    PyObject* values[4] = {0,0,0,0};
+    values[1] = ((PyObject *)Py_None);
+    values[2] = ((PyObject *)Py_None);
+    values[3] = ((PyObject *)Py_None);
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
-        case  5: values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
-        CYTHON_FALLTHROUGH;
         case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
         CYTHON_FALLTHROUGH;
         case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
@@ -7416,72 +6860,64 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_19find_approx_match(PyO
       kw_args = PyDict_Size(__pyx_kwds);
       switch (pos_args) {
         case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_tls_features)) != 0)) kw_args--;
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_tls_features)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("find_approx_match", 0, 2, 5, 1); __PYX_ERR(0, 283, __pyx_L3_error)
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str_2);
+          if (value) { values[1] = value; kw_args--; }
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
-          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str_2);
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_source_filter);
           if (value) { values[2] = value; kw_args--; }
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
-          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_source_filter);
-          if (value) { values[3] = value; kw_args--; }
-        }
-        CYTHON_FALLTHROUGH;
-        case  4:
-        if (kw_args > 0) {
           PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_key_filter);
-          if (value) { values[4] = value; kw_args--; }
+          if (value) { values[3] = value; kw_args--; }
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "find_approx_match") < 0)) __PYX_ERR(0, 283, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "find_approx_match") < 0)) __PYX_ERR(0, 288, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
-        case  5: values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
-        CYTHON_FALLTHROUGH;
         case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
         CYTHON_FALLTHROUGH;
         case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
         CYTHON_FALLTHROUGH;
         case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-        values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
         break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
-    __pyx_v_self = values[0];
-    __pyx_v_tls_features = values[1];
-    __pyx_v_fp_str = values[2];
-    __pyx_v_source_filter = values[3];
-    __pyx_v_key_filter = values[4];
+    __pyx_v_tls_features = values[0];
+    __pyx_v_fp_str = values[1];
+    __pyx_v_source_filter = values[2];
+    __pyx_v_key_filter = values[3];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("find_approx_match", 0, 2, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 283, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("find_approx_match", 0, 1, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 288, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.find_approx_match", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(__pyx_self, __pyx_v_self, __pyx_v_tls_features, __pyx_v_fp_str, __pyx_v_source_filter, __pyx_v_key_filter);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), __pyx_v_tls_features, __pyx_v_fp_str, __pyx_v_source_filter, __pyx_v_key_filter);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_tls_features, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_source_filter, PyObject *__pyx_v_key_filter) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_tls_features, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_source_filter, PyObject *__pyx_v_key_filter) {
   PyObject *__pyx_v_target_ = NULL;
   PyObject *__pyx_v_tls_params_ = NULL;
   PyObject *__pyx_v_t_sim_set = NULL;
@@ -7508,14 +6944,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
   int __pyx_t_13;
   __Pyx_RefNannySetupContext("find_approx_match", 0);
 
-  /* "pmercury/protocols/tls.pyx":284
+  /* "pmercury/protocols/tls.pyx":289
  * 
  *     def find_approx_match(self, tls_features, fp_str=None, source_filter=None, key_filter=None):
  *         target_ = get_sequence(tls_features)             # <<<<<<<<<<<<<<
  *         tls_params_ = get_tls_params(tls_features)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_sequence); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_sequence); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 289, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -7529,20 +6965,20 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
   }
   __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_v_tls_features) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_tls_features);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 284, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_target_ = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":285
+  /* "pmercury/protocols/tls.pyx":290
  *     def find_approx_match(self, tls_features, fp_str=None, source_filter=None, key_filter=None):
  *         target_ = get_sequence(tls_features)
  *         tls_params_ = get_tls_params(tls_features)             # <<<<<<<<<<<<<<
  * 
  *         t_sim_set = []
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_tls_params); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 285, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_tls_params); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -7556,32 +6992,32 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
   }
   __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_v_tls_features) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_tls_features);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 285, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_tls_params_ = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":287
+  /* "pmercury/protocols/tls.pyx":292
  *         tls_params_ = get_tls_params(tls_features)
  * 
  *         t_sim_set = []             # <<<<<<<<<<<<<<
  *         approx_matches_set = self.find_approximate_matches_set(tls_params_, fp_str, source_filter, key_filter)
  *         for _,k in approx_matches_set:
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 292, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_t_sim_set = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":288
+  /* "pmercury/protocols/tls.pyx":293
  * 
  *         t_sim_set = []
  *         approx_matches_set = self.find_approximate_matches_set(tls_params_, fp_str, source_filter, key_filter)             # <<<<<<<<<<<<<<
  *         for _,k in approx_matches_set:
  *             tmp_lit_fp = eval_fp_str(self.fp_db[k]['str_repr'])
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_find_approximate_matches_set); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 288, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_find_approximate_matches_set); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -7598,7 +7034,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
     PyObject *__pyx_temp[5] = {__pyx_t_3, __pyx_v_tls_params_, __pyx_v_fp_str, __pyx_v_source_filter, __pyx_v_key_filter};
-    __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_4, 4+__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 288, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_4, 4+__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 293, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_GOTREF(__pyx_t_1);
   } else
@@ -7606,13 +7042,13 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
     PyObject *__pyx_temp[5] = {__pyx_t_3, __pyx_v_tls_params_, __pyx_v_fp_str, __pyx_v_source_filter, __pyx_v_key_filter};
-    __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_4, 4+__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 288, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_4, 4+__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 293, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_GOTREF(__pyx_t_1);
   } else
   #endif
   {
-    __pyx_t_5 = PyTuple_New(4+__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 288, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(4+__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 293, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     if (__pyx_t_3) {
       __Pyx_GIVEREF(__pyx_t_3); PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_3); __pyx_t_3 = NULL;
@@ -7629,7 +7065,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
     __Pyx_INCREF(__pyx_v_key_filter);
     __Pyx_GIVEREF(__pyx_v_key_filter);
     PyTuple_SET_ITEM(__pyx_t_5, 3+__pyx_t_4, __pyx_v_key_filter);
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_5, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 288, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_5, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 293, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
@@ -7637,7 +7073,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
   __pyx_v_approx_matches_set = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":289
+  /* "pmercury/protocols/tls.pyx":294
  *         t_sim_set = []
  *         approx_matches_set = self.find_approximate_matches_set(tls_params_, fp_str, source_filter, key_filter)
  *         for _,k in approx_matches_set:             # <<<<<<<<<<<<<<
@@ -7648,26 +7084,26 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
     __pyx_t_1 = __pyx_v_approx_matches_set; __Pyx_INCREF(__pyx_t_1); __pyx_t_6 = 0;
     __pyx_t_7 = NULL;
   } else {
-    __pyx_t_6 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_approx_matches_set); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __pyx_t_6 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_approx_matches_set); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 294, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_7 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __pyx_t_7 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 294, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_7)) {
       if (likely(PyList_CheckExact(__pyx_t_1))) {
         if (__pyx_t_6 >= PyList_GET_SIZE(__pyx_t_1)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_2 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_6); __Pyx_INCREF(__pyx_t_2); __pyx_t_6++; if (unlikely(0 < 0)) __PYX_ERR(0, 289, __pyx_L1_error)
+        __pyx_t_2 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_6); __Pyx_INCREF(__pyx_t_2); __pyx_t_6++; if (unlikely(0 < 0)) __PYX_ERR(0, 294, __pyx_L1_error)
         #else
-        __pyx_t_2 = PySequence_ITEM(__pyx_t_1, __pyx_t_6); __pyx_t_6++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 289, __pyx_L1_error)
+        __pyx_t_2 = PySequence_ITEM(__pyx_t_1, __pyx_t_6); __pyx_t_6++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 294, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         #endif
       } else {
         if (__pyx_t_6 >= PyTuple_GET_SIZE(__pyx_t_1)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_6); __Pyx_INCREF(__pyx_t_2); __pyx_t_6++; if (unlikely(0 < 0)) __PYX_ERR(0, 289, __pyx_L1_error)
+        __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_6); __Pyx_INCREF(__pyx_t_2); __pyx_t_6++; if (unlikely(0 < 0)) __PYX_ERR(0, 294, __pyx_L1_error)
         #else
-        __pyx_t_2 = PySequence_ITEM(__pyx_t_1, __pyx_t_6); __pyx_t_6++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 289, __pyx_L1_error)
+        __pyx_t_2 = PySequence_ITEM(__pyx_t_1, __pyx_t_6); __pyx_t_6++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 294, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         #endif
       }
@@ -7677,7 +7113,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(0, 289, __pyx_L1_error)
+          else __PYX_ERR(0, 294, __pyx_L1_error)
         }
         break;
       }
@@ -7689,7 +7125,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 289, __pyx_L1_error)
+        __PYX_ERR(0, 294, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -7702,15 +7138,15 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
       __Pyx_INCREF(__pyx_t_5);
       __Pyx_INCREF(__pyx_t_3);
       #else
-      __pyx_t_5 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 289, __pyx_L1_error)
+      __pyx_t_5 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 294, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_3 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 289, __pyx_L1_error)
+      __pyx_t_3 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 294, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       #endif
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_8 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 289, __pyx_L1_error)
+      __pyx_t_8 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 294, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_9 = Py_TYPE(__pyx_t_8)->tp_iternext;
@@ -7718,7 +7154,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
       __Pyx_GOTREF(__pyx_t_5);
       index = 1; __pyx_t_3 = __pyx_t_9(__pyx_t_8); if (unlikely(!__pyx_t_3)) goto __pyx_L5_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_3);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 2) < 0) __PYX_ERR(0, 289, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 2) < 0) __PYX_ERR(0, 294, __pyx_L1_error)
       __pyx_t_9 = NULL;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       goto __pyx_L6_unpacking_done;
@@ -7726,7 +7162,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_t_9 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 289, __pyx_L1_error)
+      __PYX_ERR(0, 294, __pyx_L1_error)
       __pyx_L6_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v__, __pyx_t_5);
@@ -7734,51 +7170,24 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
     __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "pmercury/protocols/tls.pyx":290
+    /* "pmercury/protocols/tls.pyx":295
  *         approx_matches_set = self.find_approximate_matches_set(tls_params_, fp_str, source_filter, key_filter)
  *         for _,k in approx_matches_set:
  *             tmp_lit_fp = eval_fp_str(self.fp_db[k]['str_repr'])             # <<<<<<<<<<<<<<
  *             test_ = get_sequence(tmp_lit_fp)
  *             score_ = self.aligner.align(target_, test_)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 290, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 290, __pyx_L1_error)
+    if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 295, __pyx_L1_error)
+    }
+    __pyx_t_5 = __Pyx_PyDict_GetItem(__pyx_v_self->fp_db, __pyx_v_k); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_8 = __Pyx_PyObject_GetItem(__pyx_t_5, __pyx_v_k); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 290, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_n_u_str_repr); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_t_8, __pyx_n_u_str_repr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 290, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_8 = NULL;
-    if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
-      __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_3);
-      if (likely(__pyx_t_8)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
-        __Pyx_INCREF(__pyx_t_8);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_3, function);
-      }
-    }
-    __pyx_t_2 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_8, __pyx_t_5) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_5);
-    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 290, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_XDECREF_SET(__pyx_v_tmp_lit_fp, __pyx_t_2);
-    __pyx_t_2 = 0;
-
-    /* "pmercury/protocols/tls.pyx":291
- *         for _,k in approx_matches_set:
- *             tmp_lit_fp = eval_fp_str(self.fp_db[k]['str_repr'])
- *             test_ = get_sequence(tmp_lit_fp)             # <<<<<<<<<<<<<<
- *             score_ = self.aligner.align(target_, test_)
- *             t_sim_set.append((1.0-2*score_/float(len(target_)+len(test_)), k))
- */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_get_sequence); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 291, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
       __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_3);
@@ -7789,106 +7198,131 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
         __Pyx_DECREF_SET(__pyx_t_3, function);
       }
     }
-    __pyx_t_2 = (__pyx_t_5) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_5, __pyx_v_tmp_lit_fp) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_tmp_lit_fp);
+    __pyx_t_2 = (__pyx_t_5) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_5, __pyx_t_8) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 291, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 295, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_tmp_lit_fp, __pyx_t_2);
+    __pyx_t_2 = 0;
+
+    /* "pmercury/protocols/tls.pyx":296
+ *         for _,k in approx_matches_set:
+ *             tmp_lit_fp = eval_fp_str(self.fp_db[k]['str_repr'])
+ *             test_ = get_sequence(tmp_lit_fp)             # <<<<<<<<<<<<<<
+ *             score_ = self.aligner.align(target_, test_)
+ *             t_sim_set.append((1.0-2*score_/float(len(target_)+len(test_)), k))
+ */
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_get_sequence); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 296, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_8 = NULL;
+    if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
+      __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_3);
+      if (likely(__pyx_t_8)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
+        __Pyx_INCREF(__pyx_t_8);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_3, function);
+      }
+    }
+    __pyx_t_2 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_8, __pyx_v_tmp_lit_fp) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_tmp_lit_fp);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 296, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_XDECREF_SET(__pyx_v_test_, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":292
+    /* "pmercury/protocols/tls.pyx":297
  *             tmp_lit_fp = eval_fp_str(self.fp_db[k]['str_repr'])
  *             test_ = get_sequence(tmp_lit_fp)
  *             score_ = self.aligner.align(target_, test_)             # <<<<<<<<<<<<<<
  *             t_sim_set.append((1.0-2*score_/float(len(target_)+len(test_)), k))
  * 
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_aligner); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 292, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->aligner, __pyx_n_s_align); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 297, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_align); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 292, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = NULL;
+    __pyx_t_8 = NULL;
     __pyx_t_4 = 0;
-    if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
-      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_5);
-      if (likely(__pyx_t_3)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
-        __Pyx_INCREF(__pyx_t_3);
+    if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
+      __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_3);
+      if (likely(__pyx_t_8)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
+        __Pyx_INCREF(__pyx_t_8);
         __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_5, function);
+        __Pyx_DECREF_SET(__pyx_t_3, function);
         __pyx_t_4 = 1;
       }
     }
     #if CYTHON_FAST_PYCALL
-    if (PyFunction_Check(__pyx_t_5)) {
-      PyObject *__pyx_temp[3] = {__pyx_t_3, __pyx_v_target_, __pyx_v_test_};
-      __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_4, 2+__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 292, __pyx_L1_error)
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (PyFunction_Check(__pyx_t_3)) {
+      PyObject *__pyx_temp[3] = {__pyx_t_8, __pyx_v_target_, __pyx_v_test_};
+      __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_4, 2+__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 297, __pyx_L1_error)
+      __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_GOTREF(__pyx_t_2);
     } else
     #endif
     #if CYTHON_FAST_PYCCALL
-    if (__Pyx_PyFastCFunction_Check(__pyx_t_5)) {
-      PyObject *__pyx_temp[3] = {__pyx_t_3, __pyx_v_target_, __pyx_v_test_};
-      __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_4, 2+__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 292, __pyx_L1_error)
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (__Pyx_PyFastCFunction_Check(__pyx_t_3)) {
+      PyObject *__pyx_temp[3] = {__pyx_t_8, __pyx_v_target_, __pyx_v_test_};
+      __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_4, 2+__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 297, __pyx_L1_error)
+      __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_GOTREF(__pyx_t_2);
     } else
     #endif
     {
-      __pyx_t_8 = PyTuple_New(2+__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 292, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_8);
-      if (__pyx_t_3) {
-        __Pyx_GIVEREF(__pyx_t_3); PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_3); __pyx_t_3 = NULL;
+      __pyx_t_5 = PyTuple_New(2+__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 297, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      if (__pyx_t_8) {
+        __Pyx_GIVEREF(__pyx_t_8); PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_8); __pyx_t_8 = NULL;
       }
       __Pyx_INCREF(__pyx_v_target_);
       __Pyx_GIVEREF(__pyx_v_target_);
-      PyTuple_SET_ITEM(__pyx_t_8, 0+__pyx_t_4, __pyx_v_target_);
+      PyTuple_SET_ITEM(__pyx_t_5, 0+__pyx_t_4, __pyx_v_target_);
       __Pyx_INCREF(__pyx_v_test_);
       __Pyx_GIVEREF(__pyx_v_test_);
-      PyTuple_SET_ITEM(__pyx_t_8, 1+__pyx_t_4, __pyx_v_test_);
-      __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 292, __pyx_L1_error)
+      PyTuple_SET_ITEM(__pyx_t_5, 1+__pyx_t_4, __pyx_v_test_);
+      __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_5, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 297, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     }
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_XDECREF_SET(__pyx_v_score_, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":293
+    /* "pmercury/protocols/tls.pyx":298
  *             test_ = get_sequence(tmp_lit_fp)
  *             score_ = self.aligner.align(target_, test_)
  *             t_sim_set.append((1.0-2*score_/float(len(target_)+len(test_)), k))             # <<<<<<<<<<<<<<
  * 
  *         t_sim_set.sort()
  */
-    __pyx_t_2 = PyNumber_Multiply(__pyx_int_2, __pyx_v_score_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 293, __pyx_L1_error)
+    __pyx_t_2 = PyNumber_Multiply(__pyx_int_2, __pyx_v_score_); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 298, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_10 = PyObject_Length(__pyx_v_target_); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 293, __pyx_L1_error)
-    __pyx_t_11 = PyObject_Length(__pyx_v_test_); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 293, __pyx_L1_error)
-    __pyx_t_5 = PyFloat_FromDouble(((double)(__pyx_t_10 + __pyx_t_11))); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 293, __pyx_L1_error)
+    __pyx_t_10 = PyObject_Length(__pyx_v_target_); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 298, __pyx_L1_error)
+    __pyx_t_11 = PyObject_Length(__pyx_v_test_); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 298, __pyx_L1_error)
+    __pyx_t_3 = PyFloat_FromDouble(((double)(__pyx_t_10 + __pyx_t_11))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 298, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_5 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 298, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_8 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 293, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = __Pyx_PyFloat_SubtractCObj(__pyx_float_1_0, __pyx_t_5, 1.0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 298, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyFloat_SubtractCObj(__pyx_float_1_0, __pyx_t_8, 1.0, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 293, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 298, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 293, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_GIVEREF(__pyx_t_5);
-    PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_5);
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_3);
     __Pyx_INCREF(__pyx_v_k);
     __Pyx_GIVEREF(__pyx_v_k);
-    PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_v_k);
-    __pyx_t_5 = 0;
-    __pyx_t_12 = __Pyx_PyList_Append(__pyx_v_t_sim_set, __pyx_t_8); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 293, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_v_k);
+    __pyx_t_3 = 0;
+    __pyx_t_12 = __Pyx_PyList_Append(__pyx_v_t_sim_set, __pyx_t_5); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 298, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "pmercury/protocols/tls.pyx":289
+    /* "pmercury/protocols/tls.pyx":294
  *         t_sim_set = []
  *         approx_matches_set = self.find_approximate_matches_set(tls_params_, fp_str, source_filter, key_filter)
  *         for _,k in approx_matches_set:             # <<<<<<<<<<<<<<
@@ -7898,27 +7332,27 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":295
+  /* "pmercury/protocols/tls.pyx":300
  *             t_sim_set.append((1.0-2*score_/float(len(target_)+len(test_)), k))
  * 
  *         t_sim_set.sort()             # <<<<<<<<<<<<<<
  *         if len(t_sim_set) == 0:
  *             return None
  */
-  __pyx_t_12 = PyList_Sort(__pyx_v_t_sim_set); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 295, __pyx_L1_error)
+  __pyx_t_12 = PyList_Sort(__pyx_v_t_sim_set); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 300, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":296
+  /* "pmercury/protocols/tls.pyx":301
  * 
  *         t_sim_set.sort()
  *         if len(t_sim_set) == 0:             # <<<<<<<<<<<<<<
  *             return None
  *         if t_sim_set[0][0] < 0.1:
  */
-  __pyx_t_6 = PyList_GET_SIZE(__pyx_v_t_sim_set); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 296, __pyx_L1_error)
+  __pyx_t_6 = PyList_GET_SIZE(__pyx_v_t_sim_set); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 301, __pyx_L1_error)
   __pyx_t_13 = ((__pyx_t_6 == 0) != 0);
   if (__pyx_t_13) {
 
-    /* "pmercury/protocols/tls.pyx":297
+    /* "pmercury/protocols/tls.pyx":302
  *         t_sim_set.sort()
  *         if len(t_sim_set) == 0:
  *             return None             # <<<<<<<<<<<<<<
@@ -7929,7 +7363,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":296
+    /* "pmercury/protocols/tls.pyx":301
  * 
  *         t_sim_set.sort()
  *         if len(t_sim_set) == 0:             # <<<<<<<<<<<<<<
@@ -7938,25 +7372,25 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":298
+  /* "pmercury/protocols/tls.pyx":303
  *         if len(t_sim_set) == 0:
  *             return None
  *         if t_sim_set[0][0] < 0.1:             # <<<<<<<<<<<<<<
  *             return t_sim_set[0][1]
  *         else:
  */
-  __pyx_t_1 = __Pyx_GetItemInt_List(__pyx_v_t_sim_set, 0, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt_List(__pyx_v_t_sim_set, 0, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_8 = __Pyx_GetItemInt(__pyx_t_1, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 298, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_1, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 303, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyObject_RichCompare(__pyx_t_8, __pyx_float_0_1, Py_LT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 298, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_13 < 0)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_t_5, __pyx_float_0_1, Py_LT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 303, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_13 < 0)) __PYX_ERR(0, 303, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_13) {
 
-    /* "pmercury/protocols/tls.pyx":299
+    /* "pmercury/protocols/tls.pyx":304
  *             return None
  *         if t_sim_set[0][0] < 0.1:
  *             return t_sim_set[0][1]             # <<<<<<<<<<<<<<
@@ -7964,16 +7398,16 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
  *             return None
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_GetItemInt_List(__pyx_v_t_sim_set, 0, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 299, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_GetItemInt_List(__pyx_v_t_sim_set, 0, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 304, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_8 = __Pyx_GetItemInt(__pyx_t_1, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 299, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
+    __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_1, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 304, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_r = __pyx_t_8;
-    __pyx_t_8 = 0;
+    __pyx_r = __pyx_t_5;
+    __pyx_t_5 = 0;
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":298
+    /* "pmercury/protocols/tls.pyx":303
  *         if len(t_sim_set) == 0:
  *             return None
  *         if t_sim_set[0][0] < 0.1:             # <<<<<<<<<<<<<<
@@ -7982,7 +7416,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":301
+  /* "pmercury/protocols/tls.pyx":306
  *             return t_sim_set[0][1]
  *         else:
  *             return None             # <<<<<<<<<<<<<<
@@ -7995,7 +7429,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
     goto __pyx_L0;
   }
 
-  /* "pmercury/protocols/tls.pyx":283
+  /* "pmercury/protocols/tls.pyx":288
  * 
  * 
  *     def find_approx_match(self, tls_features, fp_str=None, source_filter=None, key_filter=None):             # <<<<<<<<<<<<<<
@@ -8027,7 +7461,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":304
+/* "pmercury/protocols/tls.pyx":309
  * 
  * 
  *     def find_approximate_matches_set(self, tls_params, fp_str=None, source_filter=None, key_filter=None):             # <<<<<<<<<<<<<<
@@ -8036,10 +7470,8 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_18find_approx_match(CYT
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_21find_approximate_matches_set(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_21find_approximate_matches_set = {"find_approximate_matches_set", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_21find_approximate_matches_set, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_21find_approximate_matches_set(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_self = 0;
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_21find_approximate_matches_set(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_21find_approximate_matches_set(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_tls_params = 0;
   PyObject *__pyx_v_fp_str = 0;
   PyObject *__pyx_v_source_filter = 0;
@@ -8048,17 +7480,15 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_21find_approximate_matc
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("find_approximate_matches_set (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_tls_params,&__pyx_n_s_fp_str_2,&__pyx_n_s_source_filter,&__pyx_n_s_key_filter,0};
-    PyObject* values[5] = {0,0,0,0,0};
-    values[2] = ((PyObject *)((PyObject *)Py_None));
-    values[3] = ((PyObject *)((PyObject *)Py_None));
-    values[4] = ((PyObject *)((PyObject *)Py_None));
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_tls_params,&__pyx_n_s_fp_str_2,&__pyx_n_s_source_filter,&__pyx_n_s_key_filter,0};
+    PyObject* values[4] = {0,0,0,0};
+    values[1] = ((PyObject *)Py_None);
+    values[2] = ((PyObject *)Py_None);
+    values[3] = ((PyObject *)Py_None);
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
-        case  5: values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
-        CYTHON_FALLTHROUGH;
         case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
         CYTHON_FALLTHROUGH;
         case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
@@ -8073,72 +7503,64 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_21find_approximate_matc
       kw_args = PyDict_Size(__pyx_kwds);
       switch (pos_args) {
         case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_tls_params)) != 0)) kw_args--;
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_tls_params)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("find_approximate_matches_set", 0, 2, 5, 1); __PYX_ERR(0, 304, __pyx_L3_error)
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str_2);
+          if (value) { values[1] = value; kw_args--; }
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
-          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str_2);
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_source_filter);
           if (value) { values[2] = value; kw_args--; }
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
-          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_source_filter);
-          if (value) { values[3] = value; kw_args--; }
-        }
-        CYTHON_FALLTHROUGH;
-        case  4:
-        if (kw_args > 0) {
           PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_key_filter);
-          if (value) { values[4] = value; kw_args--; }
+          if (value) { values[3] = value; kw_args--; }
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "find_approximate_matches_set") < 0)) __PYX_ERR(0, 304, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "find_approximate_matches_set") < 0)) __PYX_ERR(0, 309, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
-        case  5: values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
-        CYTHON_FALLTHROUGH;
         case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
         CYTHON_FALLTHROUGH;
         case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
         CYTHON_FALLTHROUGH;
         case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-        values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
         break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
-    __pyx_v_self = values[0];
-    __pyx_v_tls_params = values[1];
-    __pyx_v_fp_str = values[2];
-    __pyx_v_source_filter = values[3];
-    __pyx_v_key_filter = values[4];
+    __pyx_v_tls_params = values[0];
+    __pyx_v_fp_str = values[1];
+    __pyx_v_source_filter = values[2];
+    __pyx_v_key_filter = values[3];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("find_approximate_matches_set", 0, 2, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 304, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("find_approximate_matches_set", 0, 1, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 309, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.find_approximate_matches_set", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matches_set(__pyx_self, __pyx_v_self, __pyx_v_tls_params, __pyx_v_fp_str, __pyx_v_source_filter, __pyx_v_key_filter);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matches_set(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), __pyx_v_tls_params, __pyx_v_fp_str, __pyx_v_source_filter, __pyx_v_key_filter);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matches_set(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_tls_params, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_source_filter, PyObject *__pyx_v_key_filter) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matches_set(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_tls_params, PyObject *__pyx_v_fp_str, PyObject *__pyx_v_source_filter, PyObject *__pyx_v_key_filter) {
   PyObject *__pyx_v_t_scores = NULL;
   PyObject *__pyx_v_p0_ = NULL;
   PyObject *__pyx_v_p1_ = NULL;
@@ -8157,62 +7579,60 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
   Py_ssize_t __pyx_t_3;
   Py_ssize_t __pyx_t_4;
   int __pyx_t_5;
-  PyObject *__pyx_t_6 = NULL;
+  int __pyx_t_6;
   int __pyx_t_7;
   int __pyx_t_8;
-  int __pyx_t_9;
+  PyObject *__pyx_t_9 = NULL;
   int __pyx_t_10;
   PyObject *__pyx_t_11 = NULL;
   Py_ssize_t __pyx_t_12;
   Py_ssize_t __pyx_t_13;
-  double __pyx_t_14;
-  double __pyx_t_15;
-  int __pyx_t_16;
+  int __pyx_t_14;
   __Pyx_RefNannySetupContext("find_approximate_matches_set", 0);
 
-  /* "pmercury/protocols/tls.pyx":305
+  /* "pmercury/protocols/tls.pyx":310
  * 
  *     def find_approximate_matches_set(self, tls_params, fp_str=None, source_filter=None, key_filter=None):
  *         t_scores = []             # <<<<<<<<<<<<<<
  *         p0_ = set(tls_params[0])
  *         p1_ = set(tls_params[1])
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 310, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_t_scores = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":306
+  /* "pmercury/protocols/tls.pyx":311
  *     def find_approximate_matches_set(self, tls_params, fp_str=None, source_filter=None, key_filter=None):
  *         t_scores = []
  *         p0_ = set(tls_params[0])             # <<<<<<<<<<<<<<
  *         p1_ = set(tls_params[1])
  *         for k in self.fp_db.keys():
  */
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_tls_params, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 306, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_tls_params, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 311, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PySet_New(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 306, __pyx_L1_error)
+  __pyx_t_2 = PySet_New(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 311, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_p0_ = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "pmercury/protocols/tls.pyx":307
+  /* "pmercury/protocols/tls.pyx":312
  *         t_scores = []
  *         p0_ = set(tls_params[0])
  *         p1_ = set(tls_params[1])             # <<<<<<<<<<<<<<
  *         for k in self.fp_db.keys():
  *             k = k
  */
-  __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_tls_params, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 307, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_tls_params, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 312, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = PySet_New(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 307, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 312, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_p1_ = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":308
+  /* "pmercury/protocols/tls.pyx":313
  *         p0_ = set(tls_params[0])
  *         p1_ = set(tls_params[1])
  *         for k in self.fp_db.keys():             # <<<<<<<<<<<<<<
@@ -8220,27 +7640,24 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
  *             if source_filter != None and source_filter not in self.fp_db[k]['source']:
  */
   __pyx_t_3 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 308, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (unlikely(__pyx_t_2 == Py_None)) {
+  if (unlikely(__pyx_v_self->fp_db == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "keys");
-    __PYX_ERR(0, 308, __pyx_L1_error)
+    __PYX_ERR(0, 313, __pyx_L1_error)
   }
-  __pyx_t_6 = __Pyx_dict_iterator(__pyx_t_2, 0, __pyx_n_s_keys, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 308, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_dict_iterator(__pyx_v_self->fp_db, 1, __pyx_n_s_keys, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 313, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_1);
-  __pyx_t_1 = __pyx_t_6;
-  __pyx_t_6 = 0;
+  __pyx_t_1 = __pyx_t_2;
+  __pyx_t_2 = 0;
   while (1) {
-    __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_4, &__pyx_t_3, &__pyx_t_6, NULL, NULL, __pyx_t_5);
-    if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 308, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_6);
-    __pyx_t_6 = 0;
+    __pyx_t_6 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_4, &__pyx_t_3, &__pyx_t_2, NULL, NULL, __pyx_t_5);
+    if (unlikely(__pyx_t_6 == 0)) break;
+    if (unlikely(__pyx_t_6 == -1)) __PYX_ERR(0, 313, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_2);
+    __pyx_t_2 = 0;
 
-    /* "pmercury/protocols/tls.pyx":309
+    /* "pmercury/protocols/tls.pyx":314
  *         p1_ = set(tls_params[1])
  *         for k in self.fp_db.keys():
  *             k = k             # <<<<<<<<<<<<<<
@@ -8250,37 +7667,38 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
     __Pyx_INCREF(__pyx_v_k);
     __Pyx_DECREF_SET(__pyx_v_k, __pyx_v_k);
 
-    /* "pmercury/protocols/tls.pyx":310
+    /* "pmercury/protocols/tls.pyx":315
  *         for k in self.fp_db.keys():
  *             k = k
  *             if source_filter != None and source_filter not in self.fp_db[k]['source']:             # <<<<<<<<<<<<<<
  *                 continue
  *             if fp_str != None and key_filter != None and fp_str not in key_filter and k not in key_filter:
  */
-    __pyx_t_6 = PyObject_RichCompare(__pyx_v_source_filter, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_6); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 310, __pyx_L1_error)
-    __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 310, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (__pyx_t_9) {
+    __pyx_t_2 = PyObject_RichCompare(__pyx_v_source_filter, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_8 < 0)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (__pyx_t_8) {
     } else {
-      __pyx_t_8 = __pyx_t_9;
+      __pyx_t_7 = __pyx_t_8;
       goto __pyx_L6_bool_binop_done;
     }
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fp_db); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 310, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_6, __pyx_v_k); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 310, __pyx_L1_error)
+    if (unlikely(__pyx_v_self->fp_db == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 315, __pyx_L1_error)
+    }
+    __pyx_t_2 = __Pyx_PyDict_GetItem(__pyx_v_self->fp_db, __pyx_v_k); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 315, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_n_u_source); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 310, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_9 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_n_u_source); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_9 = (__Pyx_PySequence_ContainsTF(__pyx_v_source_filter, __pyx_t_6, Py_NE)); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 310, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_10 = (__pyx_t_9 != 0);
-    __pyx_t_8 = __pyx_t_10;
+    __pyx_t_8 = (__Pyx_PySequence_ContainsTF(__pyx_v_source_filter, __pyx_t_9, Py_NE)); if (unlikely(__pyx_t_8 < 0)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __pyx_t_10 = (__pyx_t_8 != 0);
+    __pyx_t_7 = __pyx_t_10;
     __pyx_L6_bool_binop_done:;
-    if (__pyx_t_8) {
+    if (__pyx_t_7) {
 
-      /* "pmercury/protocols/tls.pyx":311
+      /* "pmercury/protocols/tls.pyx":316
  *             k = k
  *             if source_filter != None and source_filter not in self.fp_db[k]['source']:
  *                 continue             # <<<<<<<<<<<<<<
@@ -8289,7 +7707,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
  */
       goto __pyx_L3_continue;
 
-      /* "pmercury/protocols/tls.pyx":310
+      /* "pmercury/protocols/tls.pyx":315
  *         for k in self.fp_db.keys():
  *             k = k
  *             if source_filter != None and source_filter not in self.fp_db[k]['source']:             # <<<<<<<<<<<<<<
@@ -8298,43 +7716,43 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
  */
     }
 
-    /* "pmercury/protocols/tls.pyx":312
+    /* "pmercury/protocols/tls.pyx":317
  *             if source_filter != None and source_filter not in self.fp_db[k]['source']:
  *                 continue
  *             if fp_str != None and key_filter != None and fp_str not in key_filter and k not in key_filter:             # <<<<<<<<<<<<<<
  *                 continue
  *             if k not in self.tls_params_db:
  */
-    __pyx_t_6 = PyObject_RichCompare(__pyx_v_fp_str, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_6); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 312, __pyx_L1_error)
-    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 312, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_9 = PyObject_RichCompare(__pyx_v_fp_str, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 317, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 317, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     if (__pyx_t_10) {
     } else {
-      __pyx_t_8 = __pyx_t_10;
+      __pyx_t_7 = __pyx_t_10;
       goto __pyx_L9_bool_binop_done;
     }
-    __pyx_t_6 = PyObject_RichCompare(__pyx_v_key_filter, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_6); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 312, __pyx_L1_error)
-    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 312, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_9 = PyObject_RichCompare(__pyx_v_key_filter, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 317, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 317, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     if (__pyx_t_10) {
     } else {
-      __pyx_t_8 = __pyx_t_10;
+      __pyx_t_7 = __pyx_t_10;
       goto __pyx_L9_bool_binop_done;
     }
-    __pyx_t_10 = (__Pyx_PySequence_ContainsTF(__pyx_v_fp_str, __pyx_v_key_filter, Py_NE)); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 312, __pyx_L1_error)
-    __pyx_t_9 = (__pyx_t_10 != 0);
-    if (__pyx_t_9) {
-    } else {
-      __pyx_t_8 = __pyx_t_9;
-      goto __pyx_L9_bool_binop_done;
-    }
-    __pyx_t_9 = (__Pyx_PySequence_ContainsTF(__pyx_v_k, __pyx_v_key_filter, Py_NE)); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 312, __pyx_L1_error)
-    __pyx_t_10 = (__pyx_t_9 != 0);
-    __pyx_t_8 = __pyx_t_10;
-    __pyx_L9_bool_binop_done:;
+    __pyx_t_10 = (__Pyx_PySequence_ContainsTF(__pyx_v_fp_str, __pyx_v_key_filter, Py_NE)); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 317, __pyx_L1_error)
+    __pyx_t_8 = (__pyx_t_10 != 0);
     if (__pyx_t_8) {
+    } else {
+      __pyx_t_7 = __pyx_t_8;
+      goto __pyx_L9_bool_binop_done;
+    }
+    __pyx_t_8 = (__Pyx_PySequence_ContainsTF(__pyx_v_k, __pyx_v_key_filter, Py_NE)); if (unlikely(__pyx_t_8 < 0)) __PYX_ERR(0, 317, __pyx_L1_error)
+    __pyx_t_10 = (__pyx_t_8 != 0);
+    __pyx_t_7 = __pyx_t_10;
+    __pyx_L9_bool_binop_done:;
+    if (__pyx_t_7) {
 
-      /* "pmercury/protocols/tls.pyx":313
+      /* "pmercury/protocols/tls.pyx":318
  *                 continue
  *             if fp_str != None and key_filter != None and fp_str not in key_filter and k not in key_filter:
  *                 continue             # <<<<<<<<<<<<<<
@@ -8343,7 +7761,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
  */
       goto __pyx_L3_continue;
 
-      /* "pmercury/protocols/tls.pyx":312
+      /* "pmercury/protocols/tls.pyx":317
  *             if source_filter != None and source_filter not in self.fp_db[k]['source']:
  *                 continue
  *             if fp_str != None and key_filter != None and fp_str not in key_filter and k not in key_filter:             # <<<<<<<<<<<<<<
@@ -8352,28 +7770,29 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
  */
     }
 
-    /* "pmercury/protocols/tls.pyx":314
+    /* "pmercury/protocols/tls.pyx":319
  *             if fp_str != None and key_filter != None and fp_str not in key_filter and k not in key_filter:
  *                 continue
  *             if k not in self.tls_params_db:             # <<<<<<<<<<<<<<
  *                 lit_fp = eval_fp_str(k)
  *                 tls_params_ = get_tls_params(lit_fp)
  */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tls_params_db); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 314, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_8 = (__Pyx_PySequence_ContainsTF(__pyx_v_k, __pyx_t_6, Py_NE)); if (unlikely(__pyx_t_8 < 0)) __PYX_ERR(0, 314, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_10 = (__pyx_t_8 != 0);
+    if (unlikely(__pyx_v_self->tls_params_db == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
+      __PYX_ERR(0, 319, __pyx_L1_error)
+    }
+    __pyx_t_7 = (__Pyx_PyDict_ContainsTF(__pyx_v_k, __pyx_v_self->tls_params_db, Py_NE)); if (unlikely(__pyx_t_7 < 0)) __PYX_ERR(0, 319, __pyx_L1_error)
+    __pyx_t_10 = (__pyx_t_7 != 0);
     if (__pyx_t_10) {
 
-      /* "pmercury/protocols/tls.pyx":315
+      /* "pmercury/protocols/tls.pyx":320
  *                 continue
  *             if k not in self.tls_params_db:
  *                 lit_fp = eval_fp_str(k)             # <<<<<<<<<<<<<<
  *                 tls_params_ = get_tls_params(lit_fp)
  *                 self.tls_params_db[k] = tls_params_
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 315, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 320, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_11 = NULL;
       if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -8385,22 +7804,22 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
           __Pyx_DECREF_SET(__pyx_t_2, function);
         }
       }
-      __pyx_t_6 = (__pyx_t_11) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_11, __pyx_v_k) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_k);
+      __pyx_t_9 = (__pyx_t_11) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_11, __pyx_v_k) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_k);
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 315, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 320, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_XDECREF_SET(__pyx_v_lit_fp, __pyx_t_6);
-      __pyx_t_6 = 0;
+      __Pyx_XDECREF_SET(__pyx_v_lit_fp, __pyx_t_9);
+      __pyx_t_9 = 0;
 
-      /* "pmercury/protocols/tls.pyx":316
+      /* "pmercury/protocols/tls.pyx":321
  *             if k not in self.tls_params_db:
  *                 lit_fp = eval_fp_str(k)
  *                 tls_params_ = get_tls_params(lit_fp)             # <<<<<<<<<<<<<<
  *                 self.tls_params_db[k] = tls_params_
  *             q0_ = set(self.tls_params_db[k][0])
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_tls_params); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 316, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_tls_params); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 321, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_11 = NULL;
       if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -8412,27 +7831,28 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
           __Pyx_DECREF_SET(__pyx_t_2, function);
         }
       }
-      __pyx_t_6 = (__pyx_t_11) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_11, __pyx_v_lit_fp) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_lit_fp);
+      __pyx_t_9 = (__pyx_t_11) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_11, __pyx_v_lit_fp) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_lit_fp);
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 316, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 321, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_XDECREF_SET(__pyx_v_tls_params_, __pyx_t_6);
-      __pyx_t_6 = 0;
+      __Pyx_XDECREF_SET(__pyx_v_tls_params_, __pyx_t_9);
+      __pyx_t_9 = 0;
 
-      /* "pmercury/protocols/tls.pyx":317
+      /* "pmercury/protocols/tls.pyx":322
  *                 lit_fp = eval_fp_str(k)
  *                 tls_params_ = get_tls_params(lit_fp)
  *                 self.tls_params_db[k] = tls_params_             # <<<<<<<<<<<<<<
  *             q0_ = set(self.tls_params_db[k][0])
  *             q1_ = set(self.tls_params_db[k][1])
  */
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tls_params_db); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 317, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
-      if (unlikely(PyObject_SetItem(__pyx_t_6, __pyx_v_k, __pyx_v_tls_params_) < 0)) __PYX_ERR(0, 317, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(__pyx_v_self->tls_params_db == Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+        __PYX_ERR(0, 322, __pyx_L1_error)
+      }
+      if (unlikely(PyDict_SetItem(__pyx_v_self->tls_params_db, __pyx_v_k, __pyx_v_tls_params_) < 0)) __PYX_ERR(0, 322, __pyx_L1_error)
 
-      /* "pmercury/protocols/tls.pyx":314
+      /* "pmercury/protocols/tls.pyx":319
  *             if fp_str != None and key_filter != None and fp_str not in key_filter and k not in key_filter:
  *                 continue
  *             if k not in self.tls_params_db:             # <<<<<<<<<<<<<<
@@ -8441,145 +7861,135 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
  */
     }
 
-    /* "pmercury/protocols/tls.pyx":318
+    /* "pmercury/protocols/tls.pyx":323
  *                 tls_params_ = get_tls_params(lit_fp)
  *                 self.tls_params_db[k] = tls_params_
  *             q0_ = set(self.tls_params_db[k][0])             # <<<<<<<<<<<<<<
  *             q1_ = set(self.tls_params_db[k][1])
- *             s0_ = len(p0_.intersection(q0_))/max(1.0,len(p0_.union(q0_)))
+ *             s0_ = len(p0_.intersection(q0_))/fmax(1.0,len(p0_.union(q0_)))
  */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tls_params_db); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 318, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_6, __pyx_v_k); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 318, __pyx_L1_error)
+    if (unlikely(__pyx_v_self->tls_params_db == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 323, __pyx_L1_error)
+    }
+    __pyx_t_9 = __Pyx_PyDict_GetItem(__pyx_v_self->tls_params_db, __pyx_v_k); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 323, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_9, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 318, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __pyx_t_9 = PySet_New(__pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 323, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = PySet_New(__pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 318, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_XDECREF_SET(__pyx_v_q0_, ((PyObject*)__pyx_t_2));
-    __pyx_t_2 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_q0_, ((PyObject*)__pyx_t_9));
+    __pyx_t_9 = 0;
 
-    /* "pmercury/protocols/tls.pyx":319
+    /* "pmercury/protocols/tls.pyx":324
  *                 self.tls_params_db[k] = tls_params_
  *             q0_ = set(self.tls_params_db[k][0])
  *             q1_ = set(self.tls_params_db[k][1])             # <<<<<<<<<<<<<<
- *             s0_ = len(p0_.intersection(q0_))/max(1.0,len(p0_.union(q0_)))
- *             s1_ = len(p1_.intersection(q1_))/max(1.0,len(p1_.union(q1_)))
+ *             s0_ = len(p0_.intersection(q0_))/fmax(1.0,len(p0_.union(q0_)))
+ *             s1_ = len(p1_.intersection(q1_))/fmax(1.0,len(p1_.union(q1_)))
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tls_params_db); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 319, __pyx_L1_error)
+    if (unlikely(__pyx_v_self->tls_params_db == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 324, __pyx_L1_error)
+    }
+    __pyx_t_9 = __Pyx_PyDict_GetItem(__pyx_v_self->tls_params_db, __pyx_v_k); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 324, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_9, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 324, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_6 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_v_k); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 319, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __pyx_t_9 = PySet_New(__pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 324, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_6, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 319, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = PySet_New(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 319, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_XDECREF_SET(__pyx_v_q1_, ((PyObject*)__pyx_t_6));
-    __pyx_t_6 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_q1_, ((PyObject*)__pyx_t_9));
+    __pyx_t_9 = 0;
 
-    /* "pmercury/protocols/tls.pyx":320
+    /* "pmercury/protocols/tls.pyx":325
  *             q0_ = set(self.tls_params_db[k][0])
  *             q1_ = set(self.tls_params_db[k][1])
- *             s0_ = len(p0_.intersection(q0_))/max(1.0,len(p0_.union(q0_)))             # <<<<<<<<<<<<<<
- *             s1_ = len(p1_.intersection(q1_))/max(1.0,len(p1_.union(q1_)))
+ *             s0_ = len(p0_.intersection(q0_))/fmax(1.0,len(p0_.union(q0_)))             # <<<<<<<<<<<<<<
+ *             s1_ = len(p1_.intersection(q1_))/fmax(1.0,len(p1_.union(q1_)))
  *             s_ = s0_ + s1_
  */
-    __pyx_t_6 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PySet_Type_intersection, __pyx_v_p0_, __pyx_v_q0_); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 320, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_12 = PyObject_Length(__pyx_t_6); if (unlikely(__pyx_t_12 == ((Py_ssize_t)-1))) __PYX_ERR(0, 320, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PySet_Type_union, __pyx_v_p0_, __pyx_v_q0_); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 320, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_13 = PyObject_Length(__pyx_t_6); if (unlikely(__pyx_t_13 == ((Py_ssize_t)-1))) __PYX_ERR(0, 320, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_14 = 1.0;
-    if (((__pyx_t_13 > __pyx_t_14) != 0)) {
-      __pyx_t_15 = __pyx_t_13;
-    } else {
-      __pyx_t_15 = __pyx_t_14;
-    }
-    __pyx_v_s0_ = (((double)__pyx_t_12) / __pyx_t_15);
+    __pyx_t_9 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PySet_Type_intersection, __pyx_v_p0_, __pyx_v_q0_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 325, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_12 = PyObject_Length(__pyx_t_9); if (unlikely(__pyx_t_12 == ((Py_ssize_t)-1))) __PYX_ERR(0, 325, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __pyx_t_9 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PySet_Type_union, __pyx_v_p0_, __pyx_v_q0_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 325, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_13 = PyObject_Length(__pyx_t_9); if (unlikely(__pyx_t_13 == ((Py_ssize_t)-1))) __PYX_ERR(0, 325, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __pyx_v_s0_ = (((double)__pyx_t_12) / fmax(1.0, __pyx_t_13));
 
-    /* "pmercury/protocols/tls.pyx":321
+    /* "pmercury/protocols/tls.pyx":326
  *             q1_ = set(self.tls_params_db[k][1])
- *             s0_ = len(p0_.intersection(q0_))/max(1.0,len(p0_.union(q0_)))
- *             s1_ = len(p1_.intersection(q1_))/max(1.0,len(p1_.union(q1_)))             # <<<<<<<<<<<<<<
+ *             s0_ = len(p0_.intersection(q0_))/fmax(1.0,len(p0_.union(q0_)))
+ *             s1_ = len(p1_.intersection(q1_))/fmax(1.0,len(p1_.union(q1_)))             # <<<<<<<<<<<<<<
  *             s_ = s0_ + s1_
  *             t_scores.append((s_, k))
  */
-    __pyx_t_6 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PySet_Type_intersection, __pyx_v_p1_, __pyx_v_q1_); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 321, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_12 = PyObject_Length(__pyx_t_6); if (unlikely(__pyx_t_12 == ((Py_ssize_t)-1))) __PYX_ERR(0, 321, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PySet_Type_union, __pyx_v_p1_, __pyx_v_q1_); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 321, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_13 = PyObject_Length(__pyx_t_6); if (unlikely(__pyx_t_13 == ((Py_ssize_t)-1))) __PYX_ERR(0, 321, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_15 = 1.0;
-    if (((__pyx_t_13 > __pyx_t_15) != 0)) {
-      __pyx_t_14 = __pyx_t_13;
-    } else {
-      __pyx_t_14 = __pyx_t_15;
-    }
-    __pyx_v_s1_ = (((double)__pyx_t_12) / __pyx_t_14);
+    __pyx_t_9 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PySet_Type_intersection, __pyx_v_p1_, __pyx_v_q1_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 326, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_13 = PyObject_Length(__pyx_t_9); if (unlikely(__pyx_t_13 == ((Py_ssize_t)-1))) __PYX_ERR(0, 326, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __pyx_t_9 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PySet_Type_union, __pyx_v_p1_, __pyx_v_q1_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 326, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_12 = PyObject_Length(__pyx_t_9); if (unlikely(__pyx_t_12 == ((Py_ssize_t)-1))) __PYX_ERR(0, 326, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __pyx_v_s1_ = (((double)__pyx_t_13) / fmax(1.0, __pyx_t_12));
 
-    /* "pmercury/protocols/tls.pyx":322
- *             s0_ = len(p0_.intersection(q0_))/max(1.0,len(p0_.union(q0_)))
- *             s1_ = len(p1_.intersection(q1_))/max(1.0,len(p1_.union(q1_)))
+    /* "pmercury/protocols/tls.pyx":327
+ *             s0_ = len(p0_.intersection(q0_))/fmax(1.0,len(p0_.union(q0_)))
+ *             s1_ = len(p1_.intersection(q1_))/fmax(1.0,len(p1_.union(q1_)))
  *             s_ = s0_ + s1_             # <<<<<<<<<<<<<<
  *             t_scores.append((s_, k))
  *         t_scores.sort()
  */
     __pyx_v_s_ = (__pyx_v_s0_ + __pyx_v_s1_);
 
-    /* "pmercury/protocols/tls.pyx":323
- *             s1_ = len(p1_.intersection(q1_))/max(1.0,len(p1_.union(q1_)))
+    /* "pmercury/protocols/tls.pyx":328
+ *             s1_ = len(p1_.intersection(q1_))/fmax(1.0,len(p1_.union(q1_)))
  *             s_ = s0_ + s1_
  *             t_scores.append((s_, k))             # <<<<<<<<<<<<<<
  *         t_scores.sort()
  *         t_scores.reverse()
  */
-    __pyx_t_6 = PyFloat_FromDouble(__pyx_v_s_); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 323, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 323, __pyx_L1_error)
+    __pyx_t_9 = PyFloat_FromDouble(__pyx_v_s_); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 328, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 328, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_6);
-    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_6);
+    __Pyx_GIVEREF(__pyx_t_9);
+    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_9);
     __Pyx_INCREF(__pyx_v_k);
     __Pyx_GIVEREF(__pyx_v_k);
     PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_k);
-    __pyx_t_6 = 0;
-    __pyx_t_16 = __Pyx_PyList_Append(__pyx_v_t_scores, __pyx_t_2); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 323, __pyx_L1_error)
+    __pyx_t_9 = 0;
+    __pyx_t_14 = __Pyx_PyList_Append(__pyx_v_t_scores, __pyx_t_2); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 328, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_L3_continue:;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":324
+  /* "pmercury/protocols/tls.pyx":329
  *             s_ = s0_ + s1_
  *             t_scores.append((s_, k))
  *         t_scores.sort()             # <<<<<<<<<<<<<<
  *         t_scores.reverse()
  *         return t_scores[0:10]
  */
-  __pyx_t_16 = PyList_Sort(__pyx_v_t_scores); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 324, __pyx_L1_error)
+  __pyx_t_14 = PyList_Sort(__pyx_v_t_scores); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 329, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":325
+  /* "pmercury/protocols/tls.pyx":330
  *             t_scores.append((s_, k))
  *         t_scores.sort()
  *         t_scores.reverse()             # <<<<<<<<<<<<<<
  *         return t_scores[0:10]
  * 
  */
-  __pyx_t_16 = PyList_Reverse(__pyx_v_t_scores); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 325, __pyx_L1_error)
+  __pyx_t_14 = PyList_Reverse(__pyx_v_t_scores); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 330, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":326
+  /* "pmercury/protocols/tls.pyx":331
  *         t_scores.sort()
  *         t_scores.reverse()
  *         return t_scores[0:10]             # <<<<<<<<<<<<<<
@@ -8587,13 +7997,13 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyList_GetSlice(__pyx_v_t_scores, 0, 10); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 326, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyList_GetSlice(__pyx_v_t_scores, 0, 10); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 331, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "pmercury/protocols/tls.pyx":304
+  /* "pmercury/protocols/tls.pyx":309
  * 
  * 
  *     def find_approximate_matches_set(self, tls_params, fp_str=None, source_filter=None, key_filter=None):             # <<<<<<<<<<<<<<
@@ -8605,7 +8015,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_9);
   __Pyx_XDECREF(__pyx_t_11);
   __Pyx_AddTraceback("pmercury.protocols.tls.TLS.find_approximate_matches_set", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -8623,7 +8033,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":330
+/* "pmercury/protocols/tls.pyx":335
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def gen_unknown_fingerprint(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -8632,68 +8042,19 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_20find_approximate_matc
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_23gen_unknown_fingerprint(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_23gen_unknown_fingerprint = {"gen_unknown_fingerprint", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_23gen_unknown_fingerprint, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_23gen_unknown_fingerprint(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  CYTHON_UNUSED PyObject *__pyx_v_self = 0;
-  PyObject *__pyx_v_fp_str_ = 0;
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_23gen_unknown_fingerprint(PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_23gen_unknown_fingerprint(PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_) {
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("gen_unknown_fingerprint (wrapper)", 0);
-  {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_str,0};
-    PyObject* values[2] = {0,0};
-    if (unlikely(__pyx_kwds)) {
-      Py_ssize_t kw_args;
-      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
-      switch (pos_args) {
-        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-        CYTHON_FALLTHROUGH;
-        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-        CYTHON_FALLTHROUGH;
-        case  0: break;
-        default: goto __pyx_L5_argtuple_error;
-      }
-      kw_args = PyDict_Size(__pyx_kwds);
-      switch (pos_args) {
-        case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
-        else goto __pyx_L5_argtuple_error;
-        CYTHON_FALLTHROUGH;
-        case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("gen_unknown_fingerprint", 1, 2, 2, 1); __PYX_ERR(0, 330, __pyx_L3_error)
-        }
-      }
-      if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "gen_unknown_fingerprint") < 0)) __PYX_ERR(0, 330, __pyx_L3_error)
-      }
-    } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
-      goto __pyx_L5_argtuple_error;
-    } else {
-      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-    }
-    __pyx_v_self = values[0];
-    __pyx_v_fp_str_ = values[1];
-  }
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("gen_unknown_fingerprint", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 330, __pyx_L3_error)
-  __pyx_L3_error:;
-  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.gen_unknown_fingerprint", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerprint(__pyx_self, __pyx_v_self, __pyx_v_fp_str_);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerprint(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), ((PyObject *)__pyx_v_fp_str_));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerprint(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerprint(CYTHON_UNUSED struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_) {
   PyObject *__pyx_v_fp_ = NULL;
   PyObject *__pyx_v_lit_fp = NULL;
   PyObject *__pyx_v_max_imp = NULL;
@@ -8710,35 +8071,35 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
   PyObject *(*__pyx_t_8)(PyObject *);
   __Pyx_RefNannySetupContext("gen_unknown_fingerprint", 0);
 
-  /* "pmercury/protocols/tls.pyx":331
+  /* "pmercury/protocols/tls.pyx":336
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def gen_unknown_fingerprint(self, fp_str_):
  *         fp_ = {}             # <<<<<<<<<<<<<<
  *         fp_['str_repr'] = fp_str_
  *         lit_fp = eval_fp_str(fp_str_)
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 331, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_fp_ = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":332
+  /* "pmercury/protocols/tls.pyx":337
  *     def gen_unknown_fingerprint(self, fp_str_):
  *         fp_ = {}
  *         fp_['str_repr'] = fp_str_             # <<<<<<<<<<<<<<
  *         lit_fp = eval_fp_str(fp_str_)
  *         if len(lit_fp) < 2 or len(lit_fp[1]) < 1:
  */
-  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_str_repr, __pyx_v_fp_str_) < 0)) __PYX_ERR(0, 332, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_str_repr, __pyx_v_fp_str_) < 0)) __PYX_ERR(0, 337, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":333
+  /* "pmercury/protocols/tls.pyx":338
  *         fp_ = {}
  *         fp_['str_repr'] = fp_str_
  *         lit_fp = eval_fp_str(fp_str_)             # <<<<<<<<<<<<<<
  *         if len(lit_fp) < 2 or len(lit_fp[1]) < 1:
  *             fp_['error'] = 'fingerprint string parsing error'
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 333, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 338, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -8752,45 +8113,45 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
   }
   __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_v_fp_str_) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_fp_str_);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 333, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 338, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_lit_fp = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":334
+  /* "pmercury/protocols/tls.pyx":339
  *         fp_['str_repr'] = fp_str_
  *         lit_fp = eval_fp_str(fp_str_)
  *         if len(lit_fp) < 2 or len(lit_fp[1]) < 1:             # <<<<<<<<<<<<<<
  *             fp_['error'] = 'fingerprint string parsing error'
  *             return fp_
  */
-  __pyx_t_5 = PyObject_Length(__pyx_v_lit_fp); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 334, __pyx_L1_error)
+  __pyx_t_5 = PyObject_Length(__pyx_v_lit_fp); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 339, __pyx_L1_error)
   __pyx_t_6 = ((__pyx_t_5 < 2) != 0);
   if (!__pyx_t_6) {
   } else {
     __pyx_t_4 = __pyx_t_6;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_lit_fp, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 334, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_lit_fp, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 339, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 334, __pyx_L1_error)
+  __pyx_t_5 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 339, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_6 = ((__pyx_t_5 < 1) != 0);
   __pyx_t_4 = __pyx_t_6;
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_4) {
 
-    /* "pmercury/protocols/tls.pyx":335
+    /* "pmercury/protocols/tls.pyx":340
  *         lit_fp = eval_fp_str(fp_str_)
  *         if len(lit_fp) < 2 or len(lit_fp[1]) < 1:
  *             fp_['error'] = 'fingerprint string parsing error'             # <<<<<<<<<<<<<<
  *             return fp_
  *         max_imp, min_imp = get_implementation_date(lit_fp[1][0])
  */
-    if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_error, __pyx_kp_u_fingerprint_string_parsing_error) < 0)) __PYX_ERR(0, 335, __pyx_L1_error)
+    if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_error, __pyx_kp_u_fingerprint_string_parsing_error) < 0)) __PYX_ERR(0, 340, __pyx_L1_error)
 
-    /* "pmercury/protocols/tls.pyx":336
+    /* "pmercury/protocols/tls.pyx":341
  *         if len(lit_fp) < 2 or len(lit_fp[1]) < 1:
  *             fp_['error'] = 'fingerprint string parsing error'
  *             return fp_             # <<<<<<<<<<<<<<
@@ -8802,7 +8163,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
     __pyx_r = __pyx_v_fp_;
     goto __pyx_L0;
 
-    /* "pmercury/protocols/tls.pyx":334
+    /* "pmercury/protocols/tls.pyx":339
  *         fp_['str_repr'] = fp_str_
  *         lit_fp = eval_fp_str(fp_str_)
  *         if len(lit_fp) < 2 or len(lit_fp[1]) < 1:             # <<<<<<<<<<<<<<
@@ -8811,18 +8172,18 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":337
+  /* "pmercury/protocols/tls.pyx":342
  *             fp_['error'] = 'fingerprint string parsing error'
  *             return fp_
  *         max_imp, min_imp = get_implementation_date(lit_fp[1][0])             # <<<<<<<<<<<<<<
  *         fp_['max_implementation_date'] = max_imp
  *         fp_['min_implementation_date'] = min_imp
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_implementation_date); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 337, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_implementation_date); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 342, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_lit_fp, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 337, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_lit_fp, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 342, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_7 = __Pyx_GetItemInt(__pyx_t_3, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 337, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_GetItemInt(__pyx_t_3, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 342, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -8838,7 +8199,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
   __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_t_7) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_7);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 342, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
@@ -8847,7 +8208,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
     if (unlikely(size != 2)) {
       if (size > 2) __Pyx_RaiseTooManyValuesError(2);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 337, __pyx_L1_error)
+      __PYX_ERR(0, 342, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -8860,15 +8221,15 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
     __Pyx_INCREF(__pyx_t_2);
     __Pyx_INCREF(__pyx_t_7);
     #else
-    __pyx_t_2 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 337, __pyx_L1_error)
+    __pyx_t_2 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 342, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_7 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 337, __pyx_L1_error)
+    __pyx_t_7 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 342, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 337, __pyx_L1_error)
+    __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 342, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_8 = Py_TYPE(__pyx_t_3)->tp_iternext;
@@ -8876,7 +8237,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
     __Pyx_GOTREF(__pyx_t_2);
     index = 1; __pyx_t_7 = __pyx_t_8(__pyx_t_3); if (unlikely(!__pyx_t_7)) goto __pyx_L6_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_7);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_8(__pyx_t_3), 2) < 0) __PYX_ERR(0, 337, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_8(__pyx_t_3), 2) < 0) __PYX_ERR(0, 342, __pyx_L1_error)
     __pyx_t_8 = NULL;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     goto __pyx_L7_unpacking_done;
@@ -8884,7 +8245,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_8 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 337, __pyx_L1_error)
+    __PYX_ERR(0, 342, __pyx_L1_error)
     __pyx_L7_unpacking_done:;
   }
   __pyx_v_max_imp = __pyx_t_2;
@@ -8892,99 +8253,99 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
   __pyx_v_min_imp = __pyx_t_7;
   __pyx_t_7 = 0;
 
-  /* "pmercury/protocols/tls.pyx":338
+  /* "pmercury/protocols/tls.pyx":343
  *             return fp_
  *         max_imp, min_imp = get_implementation_date(lit_fp[1][0])
  *         fp_['max_implementation_date'] = max_imp             # <<<<<<<<<<<<<<
  *         fp_['min_implementation_date'] = min_imp
  *         fp_['total_count'] = 1
  */
-  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_max_implementation_date, __pyx_v_max_imp) < 0)) __PYX_ERR(0, 338, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_max_implementation_date, __pyx_v_max_imp) < 0)) __PYX_ERR(0, 343, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":339
+  /* "pmercury/protocols/tls.pyx":344
  *         max_imp, min_imp = get_implementation_date(lit_fp[1][0])
  *         fp_['max_implementation_date'] = max_imp
  *         fp_['min_implementation_date'] = min_imp             # <<<<<<<<<<<<<<
  *         fp_['total_count'] = 1
  *         fp_['process_info'] = [{'process': 'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,
  */
-  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_min_implementation_date, __pyx_v_min_imp) < 0)) __PYX_ERR(0, 339, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_min_implementation_date, __pyx_v_min_imp) < 0)) __PYX_ERR(0, 344, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":340
+  /* "pmercury/protocols/tls.pyx":345
  *         fp_['max_implementation_date'] = max_imp
  *         fp_['min_implementation_date'] = min_imp
  *         fp_['total_count'] = 1             # <<<<<<<<<<<<<<
  *         fp_['process_info'] = [{'process': 'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,
  *                                 'classes_ip_as':{},'classes_hostname_tlds':{},'classes_hostname_domains':{},
  */
-  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_total_count, __pyx_int_1) < 0)) __PYX_ERR(0, 340, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_total_count, __pyx_int_1) < 0)) __PYX_ERR(0, 345, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":341
+  /* "pmercury/protocols/tls.pyx":346
  *         fp_['min_implementation_date'] = min_imp
  *         fp_['total_count'] = 1
  *         fp_['process_info'] = [{'process': 'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,             # <<<<<<<<<<<<<<
  *                                 'classes_ip_as':{},'classes_hostname_tlds':{},'classes_hostname_domains':{},
  *                                 'classes_port_applications':{},'os_info':{}}]
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 341, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_sha256, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_count, __pyx_int_1) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_malware, __pyx_int_0) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_process, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 346, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_sha256, __pyx_n_u_Unknown) < 0) __PYX_ERR(0, 346, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_count, __pyx_int_1) < 0) __PYX_ERR(0, 346, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_malware, __pyx_int_0) < 0) __PYX_ERR(0, 346, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":342
+  /* "pmercury/protocols/tls.pyx":347
  *         fp_['total_count'] = 1
  *         fp_['process_info'] = [{'process': 'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,
  *                                 'classes_ip_as':{},'classes_hostname_tlds':{},'classes_hostname_domains':{},             # <<<<<<<<<<<<<<
  *                                 'classes_port_applications':{},'os_info':{}}]
  * 
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_classes_ip_as, __pyx_t_7) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_classes_ip_as, __pyx_t_7) < 0) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_classes_hostname_tlds, __pyx_t_7) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_classes_hostname_tlds, __pyx_t_7) < 0) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_classes_hostname_domains, __pyx_t_7) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_classes_hostname_domains, __pyx_t_7) < 0) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "pmercury/protocols/tls.pyx":343
+  /* "pmercury/protocols/tls.pyx":348
  *         fp_['process_info'] = [{'process': 'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,
  *                                 'classes_ip_as':{},'classes_hostname_tlds':{},'classes_hostname_domains':{},
  *                                 'classes_port_applications':{},'os_info':{}}]             # <<<<<<<<<<<<<<
  * 
  *         return fp_
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 343, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 348, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_classes_port_applications, __pyx_t_7) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_classes_port_applications, __pyx_t_7) < 0) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 343, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 348, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_os_info, __pyx_t_7) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_os_info, __pyx_t_7) < 0) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "pmercury/protocols/tls.pyx":341
+  /* "pmercury/protocols/tls.pyx":346
  *         fp_['min_implementation_date'] = min_imp
  *         fp_['total_count'] = 1
  *         fp_['process_info'] = [{'process': 'Unknown', 'sha256':'Unknown', 'count':1, 'malware': 0,             # <<<<<<<<<<<<<<
  *                                 'classes_ip_as':{},'classes_hostname_tlds':{},'classes_hostname_domains':{},
  *                                 'classes_port_applications':{},'os_info':{}}]
  */
-  __pyx_t_7 = PyList_New(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 341, __pyx_L1_error)
+  __pyx_t_7 = PyList_New(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_GIVEREF(__pyx_t_1);
   PyList_SET_ITEM(__pyx_t_7, 0, __pyx_t_1);
   __pyx_t_1 = 0;
-  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_process_info, __pyx_t_7) < 0)) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_fp_, __pyx_n_u_process_info, __pyx_t_7) < 0)) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "pmercury/protocols/tls.pyx":345
+  /* "pmercury/protocols/tls.pyx":350
  *                                 'classes_port_applications':{},'os_info':{}}]
  * 
  *         return fp_             # <<<<<<<<<<<<<<
@@ -8996,7 +8357,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
   __pyx_r = __pyx_v_fp_;
   goto __pyx_L0;
 
-  /* "pmercury/protocols/tls.pyx":330
+  /* "pmercury/protocols/tls.pyx":335
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def gen_unknown_fingerprint(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -9022,7 +8383,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tls.pyx":348
+/* "pmercury/protocols/tls.pyx":353
  * 
  * 
  *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -9031,68 +8392,19 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_22gen_unknown_fingerpri
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_25get_human_readable(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_3TLS_25get_human_readable = {"get_human_readable", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_25get_human_readable, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_25get_human_readable(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  CYTHON_UNUSED PyObject *__pyx_v_self = 0;
-  PyObject *__pyx_v_fp_str_ = 0;
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_25get_human_readable(PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_25get_human_readable(PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_) {
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("get_human_readable (wrapper)", 0);
-  {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_str,0};
-    PyObject* values[2] = {0,0};
-    if (unlikely(__pyx_kwds)) {
-      Py_ssize_t kw_args;
-      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
-      switch (pos_args) {
-        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-        CYTHON_FALLTHROUGH;
-        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-        CYTHON_FALLTHROUGH;
-        case  0: break;
-        default: goto __pyx_L5_argtuple_error;
-      }
-      kw_args = PyDict_Size(__pyx_kwds);
-      switch (pos_args) {
-        case  0:
-        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
-        else goto __pyx_L5_argtuple_error;
-        CYTHON_FALLTHROUGH;
-        case  1:
-        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
-        else {
-          __Pyx_RaiseArgtupleInvalid("get_human_readable", 1, 2, 2, 1); __PYX_ERR(0, 348, __pyx_L3_error)
-        }
-      }
-      if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "get_human_readable") < 0)) __PYX_ERR(0, 348, __pyx_L3_error)
-      }
-    } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
-      goto __pyx_L5_argtuple_error;
-    } else {
-      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-    }
-    __pyx_v_self = values[0];
-    __pyx_v_fp_str_ = values[1];
-  }
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_human_readable", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 348, __pyx_L3_error)
-  __pyx_L3_error:;
-  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.get_human_readable", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(__pyx_self, __pyx_v_self, __pyx_v_fp_str_);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), ((PyObject *)__pyx_v_fp_str_));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CYTHON_UNUSED struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v_fp_str_) {
   PyObject *__pyx_v_lit_fp = NULL;
   PyObject *__pyx_v_fp_h = NULL;
   PyObject *__pyx_r = NULL;
@@ -9105,14 +8417,14 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CY
   int __pyx_t_6;
   __Pyx_RefNannySetupContext("get_human_readable", 0);
 
-  /* "pmercury/protocols/tls.pyx":349
+  /* "pmercury/protocols/tls.pyx":354
  * 
  *     def get_human_readable(self, fp_str_):
  *         lit_fp = eval_fp_str(fp_str_)             # <<<<<<<<<<<<<<
  *         fp_h = {}
  *         fp_h['version'] = get_version_from_str(lit_fp[0])
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 349, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_eval_fp_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -9126,34 +8438,34 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CY
   }
   __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_v_fp_str_) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_fp_str_);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 349, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_lit_fp = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":350
+  /* "pmercury/protocols/tls.pyx":355
  *     def get_human_readable(self, fp_str_):
  *         lit_fp = eval_fp_str(fp_str_)
  *         fp_h = {}             # <<<<<<<<<<<<<<
  *         fp_h['version'] = get_version_from_str(lit_fp[0])
  *         fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1])
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_fp_h = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":351
+  /* "pmercury/protocols/tls.pyx":356
  *         lit_fp = eval_fp_str(fp_str_)
  *         fp_h = {}
  *         fp_h['version'] = get_version_from_str(lit_fp[0])             # <<<<<<<<<<<<<<
  *         fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1])
  *         fp_h['extensions'] = []
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_version_from_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_version_from_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 356, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_lit_fp, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_lit_fp, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 356, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -9168,22 +8480,22 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CY
   __pyx_t_1 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_4, __pyx_t_3) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 351, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 356, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(PyDict_SetItem(__pyx_v_fp_h, __pyx_n_u_version, __pyx_t_1) < 0)) __PYX_ERR(0, 351, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_fp_h, __pyx_n_u_version, __pyx_t_1) < 0)) __PYX_ERR(0, 356, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":352
+  /* "pmercury/protocols/tls.pyx":357
  *         fp_h = {}
  *         fp_h['version'] = get_version_from_str(lit_fp[0])
  *         fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1])             # <<<<<<<<<<<<<<
  *         fp_h['extensions'] = []
  *         if len(lit_fp) > 2:
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_cs_from_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 352, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_cs_from_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 357, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_lit_fp, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 352, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_lit_fp, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 357, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -9198,45 +8510,45 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CY
   __pyx_t_1 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_4, __pyx_t_3) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 352, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 357, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(PyDict_SetItem(__pyx_v_fp_h, __pyx_n_u_cipher_suites, __pyx_t_1) < 0)) __PYX_ERR(0, 352, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_fp_h, __pyx_n_u_cipher_suites, __pyx_t_1) < 0)) __PYX_ERR(0, 357, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":353
+  /* "pmercury/protocols/tls.pyx":358
  *         fp_h['version'] = get_version_from_str(lit_fp[0])
  *         fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1])
  *         fp_h['extensions'] = []             # <<<<<<<<<<<<<<
  *         if len(lit_fp) > 2:
  *             fp_h['extensions'] = get_ext_from_str(lit_fp[2])
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 353, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 358, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely(PyDict_SetItem(__pyx_v_fp_h, __pyx_n_u_extensions, __pyx_t_1) < 0)) __PYX_ERR(0, 353, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_fp_h, __pyx_n_u_extensions, __pyx_t_1) < 0)) __PYX_ERR(0, 358, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":354
+  /* "pmercury/protocols/tls.pyx":359
  *         fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1])
  *         fp_h['extensions'] = []
  *         if len(lit_fp) > 2:             # <<<<<<<<<<<<<<
  *             fp_h['extensions'] = get_ext_from_str(lit_fp[2])
  * 
  */
-  __pyx_t_5 = PyObject_Length(__pyx_v_lit_fp); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 354, __pyx_L1_error)
+  __pyx_t_5 = PyObject_Length(__pyx_v_lit_fp); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 359, __pyx_L1_error)
   __pyx_t_6 = ((__pyx_t_5 > 2) != 0);
   if (__pyx_t_6) {
 
-    /* "pmercury/protocols/tls.pyx":355
+    /* "pmercury/protocols/tls.pyx":360
  *         fp_h['extensions'] = []
  *         if len(lit_fp) > 2:
  *             fp_h['extensions'] = get_ext_from_str(lit_fp[2])             # <<<<<<<<<<<<<<
  * 
  *         return fp_h
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_ext_from_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 355, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_get_ext_from_str); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 360, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_lit_fp, 2, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 355, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_lit_fp, 2, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 360, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -9251,13 +8563,13 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CY
     __pyx_t_1 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_4, __pyx_t_3) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_3);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 355, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 360, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(PyDict_SetItem(__pyx_v_fp_h, __pyx_n_u_extensions, __pyx_t_1) < 0)) __PYX_ERR(0, 355, __pyx_L1_error)
+    if (unlikely(PyDict_SetItem(__pyx_v_fp_h, __pyx_n_u_extensions, __pyx_t_1) < 0)) __PYX_ERR(0, 360, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "pmercury/protocols/tls.pyx":354
+    /* "pmercury/protocols/tls.pyx":359
  *         fp_h['cipher_suites'] = get_cs_from_str(lit_fp[1])
  *         fp_h['extensions'] = []
  *         if len(lit_fp) > 2:             # <<<<<<<<<<<<<<
@@ -9266,7 +8578,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CY
  */
   }
 
-  /* "pmercury/protocols/tls.pyx":357
+  /* "pmercury/protocols/tls.pyx":362
  *             fp_h['extensions'] = get_ext_from_str(lit_fp[2])
  * 
  *         return fp_h             # <<<<<<<<<<<<<<
@@ -9276,7 +8588,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CY
   __pyx_r = __pyx_v_fp_h;
   goto __pyx_L0;
 
-  /* "pmercury/protocols/tls.pyx":348
+  /* "pmercury/protocols/tls.pyx":353
  * 
  * 
  *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -9300,12 +8612,919 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_24get_human_readable(CY
   return __pyx_r;
 }
 
+/* "(tree fragment)":1
+ * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
+ *     cdef tuple state
+ *     cdef object _dict
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_27__reduce_cython__(PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *unused); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_27__reduce_cython__(PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *unused) {
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__reduce_cython__ (wrapper)", 0);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_26__reduce_cython__(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_26__reduce_cython__(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self) {
+  PyObject *__pyx_v_state = 0;
+  PyObject *__pyx_v__dict = 0;
+  int __pyx_v_use_setstate;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_t_3;
+  int __pyx_t_4;
+  int __pyx_t_5;
+  PyObject *__pyx_t_6 = NULL;
+  __Pyx_RefNannySetupContext("__reduce_cython__", 0);
+
+  /* "(tree fragment)":5
+ *     cdef object _dict
+ *     cdef bint use_setstate
+ *     state = (self.MALWARE_DB, self.aligner, self.app_families, self.fp_db, self.tls_params_db)             # <<<<<<<<<<<<<<
+ *     _dict = getattr(self, '__dict__', None)
+ *     if _dict is not None:
+ */
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->MALWARE_DB); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 5, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = PyTuple_New(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 5, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_1);
+  PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1);
+  __Pyx_INCREF(__pyx_v_self->aligner);
+  __Pyx_GIVEREF(__pyx_v_self->aligner);
+  PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_self->aligner);
+  __Pyx_INCREF(__pyx_v_self->app_families);
+  __Pyx_GIVEREF(__pyx_v_self->app_families);
+  PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_v_self->app_families);
+  __Pyx_INCREF(__pyx_v_self->fp_db);
+  __Pyx_GIVEREF(__pyx_v_self->fp_db);
+  PyTuple_SET_ITEM(__pyx_t_2, 3, __pyx_v_self->fp_db);
+  __Pyx_INCREF(__pyx_v_self->tls_params_db);
+  __Pyx_GIVEREF(__pyx_v_self->tls_params_db);
+  PyTuple_SET_ITEM(__pyx_t_2, 4, __pyx_v_self->tls_params_db);
+  __pyx_t_1 = 0;
+  __pyx_v_state = ((PyObject*)__pyx_t_2);
+  __pyx_t_2 = 0;
+
+  /* "(tree fragment)":6
+ *     cdef bint use_setstate
+ *     state = (self.MALWARE_DB, self.aligner, self.app_families, self.fp_db, self.tls_params_db)
+ *     _dict = getattr(self, '__dict__', None)             # <<<<<<<<<<<<<<
+ *     if _dict is not None:
+ *         state += (_dict,)
+ */
+  __pyx_t_2 = __Pyx_GetAttr3(((PyObject *)__pyx_v_self), __pyx_n_s_dict, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 6, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_v__dict = __pyx_t_2;
+  __pyx_t_2 = 0;
+
+  /* "(tree fragment)":7
+ *     state = (self.MALWARE_DB, self.aligner, self.app_families, self.fp_db, self.tls_params_db)
+ *     _dict = getattr(self, '__dict__', None)
+ *     if _dict is not None:             # <<<<<<<<<<<<<<
+ *         state += (_dict,)
+ *         use_setstate = True
+ */
+  __pyx_t_3 = (__pyx_v__dict != Py_None);
+  __pyx_t_4 = (__pyx_t_3 != 0);
+  if (__pyx_t_4) {
+
+    /* "(tree fragment)":8
+ *     _dict = getattr(self, '__dict__', None)
+ *     if _dict is not None:
+ *         state += (_dict,)             # <<<<<<<<<<<<<<
+ *         use_setstate = True
+ *     else:
+ */
+    __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 8, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx_v__dict);
+    __Pyx_GIVEREF(__pyx_v__dict);
+    PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v__dict);
+    __pyx_t_1 = PyNumber_InPlaceAdd(__pyx_v_state, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 8, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF_SET(__pyx_v_state, ((PyObject*)__pyx_t_1));
+    __pyx_t_1 = 0;
+
+    /* "(tree fragment)":9
+ *     if _dict is not None:
+ *         state += (_dict,)
+ *         use_setstate = True             # <<<<<<<<<<<<<<
+ *     else:
+ *         use_setstate = self.aligner is not None or self.app_families is not None or self.fp_db is not None or self.tls_params_db is not None
+ */
+    __pyx_v_use_setstate = 1;
+
+    /* "(tree fragment)":7
+ *     state = (self.MALWARE_DB, self.aligner, self.app_families, self.fp_db, self.tls_params_db)
+ *     _dict = getattr(self, '__dict__', None)
+ *     if _dict is not None:             # <<<<<<<<<<<<<<
+ *         state += (_dict,)
+ *         use_setstate = True
+ */
+    goto __pyx_L3;
+  }
+
+  /* "(tree fragment)":11
+ *         use_setstate = True
+ *     else:
+ *         use_setstate = self.aligner is not None or self.app_families is not None or self.fp_db is not None or self.tls_params_db is not None             # <<<<<<<<<<<<<<
+ *     if use_setstate:
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, None), state
+ */
+  /*else*/ {
+    __pyx_t_3 = (__pyx_v_self->aligner != Py_None);
+    __pyx_t_5 = (__pyx_t_3 != 0);
+    if (!__pyx_t_5) {
+    } else {
+      __pyx_t_4 = __pyx_t_5;
+      goto __pyx_L4_bool_binop_done;
+    }
+    __pyx_t_5 = (__pyx_v_self->app_families != ((PyObject*)Py_None));
+    __pyx_t_3 = (__pyx_t_5 != 0);
+    if (!__pyx_t_3) {
+    } else {
+      __pyx_t_4 = __pyx_t_3;
+      goto __pyx_L4_bool_binop_done;
+    }
+    __pyx_t_3 = (__pyx_v_self->fp_db != ((PyObject*)Py_None));
+    __pyx_t_5 = (__pyx_t_3 != 0);
+    if (!__pyx_t_5) {
+    } else {
+      __pyx_t_4 = __pyx_t_5;
+      goto __pyx_L4_bool_binop_done;
+    }
+    __pyx_t_5 = (__pyx_v_self->tls_params_db != ((PyObject*)Py_None));
+    __pyx_t_3 = (__pyx_t_5 != 0);
+    __pyx_t_4 = __pyx_t_3;
+    __pyx_L4_bool_binop_done:;
+    __pyx_v_use_setstate = __pyx_t_4;
+  }
+  __pyx_L3:;
+
+  /* "(tree fragment)":12
+ *     else:
+ *         use_setstate = self.aligner is not None or self.app_families is not None or self.fp_db is not None or self.tls_params_db is not None
+ *     if use_setstate:             # <<<<<<<<<<<<<<
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, None), state
+ *     else:
+ */
+  __pyx_t_4 = (__pyx_v_use_setstate != 0);
+  if (__pyx_t_4) {
+
+    /* "(tree fragment)":13
+ *         use_setstate = self.aligner is not None or self.app_families is not None or self.fp_db is not None or self.tls_params_db is not None
+ *     if use_setstate:
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, None), state             # <<<<<<<<<<<<<<
+ *     else:
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, state)
+ */
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_pyx_unpickle_TLS); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 13, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 13, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_INCREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
+    __Pyx_GIVEREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
+    PyTuple_SET_ITEM(__pyx_t_2, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
+    __Pyx_INCREF(__pyx_int_113705059);
+    __Pyx_GIVEREF(__pyx_int_113705059);
+    PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_int_113705059);
+    __Pyx_INCREF(Py_None);
+    __Pyx_GIVEREF(Py_None);
+    PyTuple_SET_ITEM(__pyx_t_2, 2, Py_None);
+    __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 13, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_GIVEREF(__pyx_t_1);
+    PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_1);
+    __Pyx_GIVEREF(__pyx_t_2);
+    PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_2);
+    __Pyx_INCREF(__pyx_v_state);
+    __Pyx_GIVEREF(__pyx_v_state);
+    PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_v_state);
+    __pyx_t_1 = 0;
+    __pyx_t_2 = 0;
+    __pyx_r = __pyx_t_6;
+    __pyx_t_6 = 0;
+    goto __pyx_L0;
+
+    /* "(tree fragment)":12
+ *     else:
+ *         use_setstate = self.aligner is not None or self.app_families is not None or self.fp_db is not None or self.tls_params_db is not None
+ *     if use_setstate:             # <<<<<<<<<<<<<<
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, None), state
+ *     else:
+ */
+  }
+
+  /* "(tree fragment)":15
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, None), state
+ *     else:
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, state)             # <<<<<<<<<<<<<<
+ * def __setstate_cython__(self, __pyx_state):
+ *     __pyx_unpickle_TLS__set_state(self, __pyx_state)
+ */
+  /*else*/ {
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_pyx_unpickle_TLS); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 15, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 15, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_INCREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
+    __Pyx_GIVEREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
+    PyTuple_SET_ITEM(__pyx_t_2, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
+    __Pyx_INCREF(__pyx_int_113705059);
+    __Pyx_GIVEREF(__pyx_int_113705059);
+    PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_int_113705059);
+    __Pyx_INCREF(__pyx_v_state);
+    __Pyx_GIVEREF(__pyx_v_state);
+    PyTuple_SET_ITEM(__pyx_t_2, 2, __pyx_v_state);
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 15, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_GIVEREF(__pyx_t_6);
+    PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_6);
+    __Pyx_GIVEREF(__pyx_t_2);
+    PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_2);
+    __pyx_t_6 = 0;
+    __pyx_t_2 = 0;
+    __pyx_r = __pyx_t_1;
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+  }
+
+  /* "(tree fragment)":1
+ * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
+ *     cdef tuple state
+ *     cdef object _dict
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.__reduce_cython__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_state);
+  __Pyx_XDECREF(__pyx_v__dict);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "(tree fragment)":16
+ *     else:
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, state)
+ * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
+ *     __pyx_unpickle_TLS__set_state(self, __pyx_state)
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_29__setstate_cython__(PyObject *__pyx_v_self, PyObject *__pyx_v___pyx_state); /*proto*/
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_3TLS_29__setstate_cython__(PyObject *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__setstate_cython__ (wrapper)", 0);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls_3TLS_28__setstate_cython__(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v_self), ((PyObject *)__pyx_v___pyx_state));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls_3TLS_28__setstate_cython__(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  __Pyx_RefNannySetupContext("__setstate_cython__", 0);
+
+  /* "(tree fragment)":17
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, state)
+ * def __setstate_cython__(self, __pyx_state):
+ *     __pyx_unpickle_TLS__set_state(self, __pyx_state)             # <<<<<<<<<<<<<<
+ */
+  if (!(likely(PyTuple_CheckExact(__pyx_v___pyx_state))||((__pyx_v___pyx_state) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "tuple", Py_TYPE(__pyx_v___pyx_state)->tp_name), 0))) __PYX_ERR(1, 17, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8pmercury_9protocols_3tls___pyx_unpickle_TLS__set_state(__pyx_v_self, ((PyObject*)__pyx_v___pyx_state)); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 17, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "(tree fragment)":16
+ *     else:
+ *         return __pyx_unpickle_TLS, (type(self), 0x6c70063, state)
+ * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
+ *     __pyx_unpickle_TLS__set_state(self, __pyx_state)
+ */
+
+  /* function exit code */
+  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("pmercury.protocols.tls.TLS.__setstate_cython__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "(tree fragment)":1
+ * def __pyx_unpickle_TLS(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
+ *     cdef object __pyx_PickleError
+ *     cdef object __pyx_result
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_1__pyx_unpickle_TLS(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_8pmercury_9protocols_3tls_1__pyx_unpickle_TLS = {"__pyx_unpickle_TLS", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_1__pyx_unpickle_TLS, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8pmercury_9protocols_3tls_1__pyx_unpickle_TLS(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  PyObject *__pyx_v___pyx_type = 0;
+  long __pyx_v___pyx_checksum;
+  PyObject *__pyx_v___pyx_state = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__pyx_unpickle_TLS (wrapper)", 0);
+  {
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_pyx_type,&__pyx_n_s_pyx_checksum,&__pyx_n_s_pyx_state,0};
+    PyObject* values[3] = {0,0,0};
+    if (unlikely(__pyx_kwds)) {
+      Py_ssize_t kw_args;
+      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
+      switch (pos_args) {
+        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
+        CYTHON_FALLTHROUGH;
+        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = PyDict_Size(__pyx_kwds);
+      switch (pos_args) {
+        case  0:
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_pyx_type)) != 0)) kw_args--;
+        else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_pyx_checksum)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("__pyx_unpickle_TLS", 1, 3, 3, 1); __PYX_ERR(1, 1, __pyx_L3_error)
+        }
+        CYTHON_FALLTHROUGH;
+        case  2:
+        if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_pyx_state)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("__pyx_unpickle_TLS", 1, 3, 3, 2); __PYX_ERR(1, 1, __pyx_L3_error)
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__pyx_unpickle_TLS") < 0)) __PYX_ERR(1, 1, __pyx_L3_error)
+      }
+    } else if (PyTuple_GET_SIZE(__pyx_args) != 3) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+      values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
+    }
+    __pyx_v___pyx_type = values[0];
+    __pyx_v___pyx_checksum = __Pyx_PyInt_As_long(values[1]); if (unlikely((__pyx_v___pyx_checksum == (long)-1) && PyErr_Occurred())) __PYX_ERR(1, 1, __pyx_L3_error)
+    __pyx_v___pyx_state = values[2];
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("__pyx_unpickle_TLS", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 1, __pyx_L3_error)
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("pmercury.protocols.tls.__pyx_unpickle_TLS", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tls___pyx_unpickle_TLS(__pyx_self, __pyx_v___pyx_type, __pyx_v___pyx_checksum, __pyx_v___pyx_state);
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8pmercury_9protocols_3tls___pyx_unpickle_TLS(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state) {
+  PyObject *__pyx_v___pyx_PickleError = 0;
+  PyObject *__pyx_v___pyx_result = 0;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  int __pyx_t_6;
+  __Pyx_RefNannySetupContext("__pyx_unpickle_TLS", 0);
+
+  /* "(tree fragment)":4
+ *     cdef object __pyx_PickleError
+ *     cdef object __pyx_result
+ *     if __pyx_checksum != 0x6c70063:             # <<<<<<<<<<<<<<
+ *         from pickle import PickleError as __pyx_PickleError
+ *         raise __pyx_PickleError("Incompatible checksums (%s vs 0x6c70063 = (MALWARE_DB, aligner, app_families, fp_db, tls_params_db))" % __pyx_checksum)
+ */
+  __pyx_t_1 = ((__pyx_v___pyx_checksum != 0x6c70063) != 0);
+  if (__pyx_t_1) {
+
+    /* "(tree fragment)":5
+ *     cdef object __pyx_result
+ *     if __pyx_checksum != 0x6c70063:
+ *         from pickle import PickleError as __pyx_PickleError             # <<<<<<<<<<<<<<
+ *         raise __pyx_PickleError("Incompatible checksums (%s vs 0x6c70063 = (MALWARE_DB, aligner, app_families, fp_db, tls_params_db))" % __pyx_checksum)
+ *     __pyx_result = TLS.__new__(__pyx_type)
+ */
+    __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 5, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx_n_s_PickleError);
+    __Pyx_GIVEREF(__pyx_n_s_PickleError);
+    PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_PickleError);
+    __pyx_t_3 = __Pyx_Import(__pyx_n_s_pickle, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 5, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_PickleError); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 5, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx_t_2);
+    __pyx_v___pyx_PickleError = __pyx_t_2;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+    /* "(tree fragment)":6
+ *     if __pyx_checksum != 0x6c70063:
+ *         from pickle import PickleError as __pyx_PickleError
+ *         raise __pyx_PickleError("Incompatible checksums (%s vs 0x6c70063 = (MALWARE_DB, aligner, app_families, fp_db, tls_params_db))" % __pyx_checksum)             # <<<<<<<<<<<<<<
+ *     __pyx_result = TLS.__new__(__pyx_type)
+ *     if __pyx_state is not None:
+ */
+    __pyx_t_2 = __Pyx_PyInt_From_long(__pyx_v___pyx_checksum); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 6, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_4 = __Pyx_PyString_Format(__pyx_kp_s_Incompatible_checksums_s_vs_0x6c, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 6, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_INCREF(__pyx_v___pyx_PickleError);
+    __pyx_t_2 = __pyx_v___pyx_PickleError; __pyx_t_5 = NULL;
+    if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
+      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_2);
+      if (likely(__pyx_t_5)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_2);
+        __Pyx_INCREF(__pyx_t_5);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_2, function);
+      }
+    }
+    __pyx_t_3 = (__pyx_t_5) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_5, __pyx_t_4) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_4);
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 6, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_Raise(__pyx_t_3, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __PYX_ERR(1, 6, __pyx_L1_error)
+
+    /* "(tree fragment)":4
+ *     cdef object __pyx_PickleError
+ *     cdef object __pyx_result
+ *     if __pyx_checksum != 0x6c70063:             # <<<<<<<<<<<<<<
+ *         from pickle import PickleError as __pyx_PickleError
+ *         raise __pyx_PickleError("Incompatible checksums (%s vs 0x6c70063 = (MALWARE_DB, aligner, app_families, fp_db, tls_params_db))" % __pyx_checksum)
+ */
+  }
+
+  /* "(tree fragment)":7
+ *         from pickle import PickleError as __pyx_PickleError
+ *         raise __pyx_PickleError("Incompatible checksums (%s vs 0x6c70063 = (MALWARE_DB, aligner, app_families, fp_db, tls_params_db))" % __pyx_checksum)
+ *     __pyx_result = TLS.__new__(__pyx_type)             # <<<<<<<<<<<<<<
+ *     if __pyx_state is not None:
+ *         __pyx_unpickle_TLS__set_state(<TLS> __pyx_result, __pyx_state)
+ */
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS), __pyx_n_s_new); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 7, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_4 = NULL;
+  if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_2))) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_2);
+    if (likely(__pyx_t_4)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_2);
+      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(function);
+      __Pyx_DECREF_SET(__pyx_t_2, function);
+    }
+  }
+  __pyx_t_3 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_4, __pyx_v___pyx_type) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v___pyx_type);
+  __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 7, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_v___pyx_result = __pyx_t_3;
+  __pyx_t_3 = 0;
+
+  /* "(tree fragment)":8
+ *         raise __pyx_PickleError("Incompatible checksums (%s vs 0x6c70063 = (MALWARE_DB, aligner, app_families, fp_db, tls_params_db))" % __pyx_checksum)
+ *     __pyx_result = TLS.__new__(__pyx_type)
+ *     if __pyx_state is not None:             # <<<<<<<<<<<<<<
+ *         __pyx_unpickle_TLS__set_state(<TLS> __pyx_result, __pyx_state)
+ *     return __pyx_result
+ */
+  __pyx_t_1 = (__pyx_v___pyx_state != Py_None);
+  __pyx_t_6 = (__pyx_t_1 != 0);
+  if (__pyx_t_6) {
+
+    /* "(tree fragment)":9
+ *     __pyx_result = TLS.__new__(__pyx_type)
+ *     if __pyx_state is not None:
+ *         __pyx_unpickle_TLS__set_state(<TLS> __pyx_result, __pyx_state)             # <<<<<<<<<<<<<<
+ *     return __pyx_result
+ * cdef __pyx_unpickle_TLS__set_state(TLS __pyx_result, tuple __pyx_state):
+ */
+    if (!(likely(PyTuple_CheckExact(__pyx_v___pyx_state))||((__pyx_v___pyx_state) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "tuple", Py_TYPE(__pyx_v___pyx_state)->tp_name), 0))) __PYX_ERR(1, 9, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8pmercury_9protocols_3tls___pyx_unpickle_TLS__set_state(((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)__pyx_v___pyx_result), ((PyObject*)__pyx_v___pyx_state)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 9, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+    /* "(tree fragment)":8
+ *         raise __pyx_PickleError("Incompatible checksums (%s vs 0x6c70063 = (MALWARE_DB, aligner, app_families, fp_db, tls_params_db))" % __pyx_checksum)
+ *     __pyx_result = TLS.__new__(__pyx_type)
+ *     if __pyx_state is not None:             # <<<<<<<<<<<<<<
+ *         __pyx_unpickle_TLS__set_state(<TLS> __pyx_result, __pyx_state)
+ *     return __pyx_result
+ */
+  }
+
+  /* "(tree fragment)":10
+ *     if __pyx_state is not None:
+ *         __pyx_unpickle_TLS__set_state(<TLS> __pyx_result, __pyx_state)
+ *     return __pyx_result             # <<<<<<<<<<<<<<
+ * cdef __pyx_unpickle_TLS__set_state(TLS __pyx_result, tuple __pyx_state):
+ *     __pyx_result.MALWARE_DB = __pyx_state[0]; __pyx_result.aligner = __pyx_state[1]; __pyx_result.app_families = __pyx_state[2]; __pyx_result.fp_db = __pyx_state[3]; __pyx_result.tls_params_db = __pyx_state[4]
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_INCREF(__pyx_v___pyx_result);
+  __pyx_r = __pyx_v___pyx_result;
+  goto __pyx_L0;
+
+  /* "(tree fragment)":1
+ * def __pyx_unpickle_TLS(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
+ *     cdef object __pyx_PickleError
+ *     cdef object __pyx_result
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_AddTraceback("pmercury.protocols.tls.__pyx_unpickle_TLS", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v___pyx_PickleError);
+  __Pyx_XDECREF(__pyx_v___pyx_result);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "(tree fragment)":11
+ *         __pyx_unpickle_TLS__set_state(<TLS> __pyx_result, __pyx_state)
+ *     return __pyx_result
+ * cdef __pyx_unpickle_TLS__set_state(TLS __pyx_result, tuple __pyx_state):             # <<<<<<<<<<<<<<
+ *     __pyx_result.MALWARE_DB = __pyx_state[0]; __pyx_result.aligner = __pyx_state[1]; __pyx_result.app_families = __pyx_state[2]; __pyx_result.fp_db = __pyx_state[3]; __pyx_result.tls_params_db = __pyx_state[4]
+ *     if len(__pyx_state) > 5 and hasattr(__pyx_result, '__dict__'):
+ */
+
+static PyObject *__pyx_f_8pmercury_9protocols_3tls___pyx_unpickle_TLS__set_state(struct __pyx_obj_8pmercury_9protocols_3tls_TLS *__pyx_v___pyx_result, PyObject *__pyx_v___pyx_state) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_2;
+  Py_ssize_t __pyx_t_3;
+  int __pyx_t_4;
+  int __pyx_t_5;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  __Pyx_RefNannySetupContext("__pyx_unpickle_TLS__set_state", 0);
+
+  /* "(tree fragment)":12
+ *     return __pyx_result
+ * cdef __pyx_unpickle_TLS__set_state(TLS __pyx_result, tuple __pyx_state):
+ *     __pyx_result.MALWARE_DB = __pyx_state[0]; __pyx_result.aligner = __pyx_state[1]; __pyx_result.app_families = __pyx_state[2]; __pyx_result.fp_db = __pyx_state[3]; __pyx_result.tls_params_db = __pyx_state[4]             # <<<<<<<<<<<<<<
+ *     if len(__pyx_state) > 5 and hasattr(__pyx_result, '__dict__'):
+ *         __pyx_result.__dict__.update(__pyx_state[5])
+ */
+  if (unlikely(__pyx_v___pyx_state == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(1, 12, __pyx_L1_error)
+  }
+  __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v___pyx_state, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 12, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_v___pyx_result->MALWARE_DB = __pyx_t_2;
+  if (unlikely(__pyx_v___pyx_state == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(1, 12, __pyx_L1_error)
+  }
+  __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v___pyx_state, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 12, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v___pyx_result->aligner);
+  __Pyx_DECREF(__pyx_v___pyx_result->aligner);
+  __pyx_v___pyx_result->aligner = __pyx_t_1;
+  __pyx_t_1 = 0;
+  if (unlikely(__pyx_v___pyx_state == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(1, 12, __pyx_L1_error)
+  }
+  __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v___pyx_state, 2, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 12, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "dict", Py_TYPE(__pyx_t_1)->tp_name), 0))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v___pyx_result->app_families);
+  __Pyx_DECREF(__pyx_v___pyx_result->app_families);
+  __pyx_v___pyx_result->app_families = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  if (unlikely(__pyx_v___pyx_state == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(1, 12, __pyx_L1_error)
+  }
+  __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v___pyx_state, 3, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 12, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "dict", Py_TYPE(__pyx_t_1)->tp_name), 0))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v___pyx_result->fp_db);
+  __Pyx_DECREF(__pyx_v___pyx_result->fp_db);
+  __pyx_v___pyx_result->fp_db = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  if (unlikely(__pyx_v___pyx_state == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(1, 12, __pyx_L1_error)
+  }
+  __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v___pyx_state, 4, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 12, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "dict", Py_TYPE(__pyx_t_1)->tp_name), 0))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v___pyx_result->tls_params_db);
+  __Pyx_DECREF(__pyx_v___pyx_result->tls_params_db);
+  __pyx_v___pyx_result->tls_params_db = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "(tree fragment)":13
+ * cdef __pyx_unpickle_TLS__set_state(TLS __pyx_result, tuple __pyx_state):
+ *     __pyx_result.MALWARE_DB = __pyx_state[0]; __pyx_result.aligner = __pyx_state[1]; __pyx_result.app_families = __pyx_state[2]; __pyx_result.fp_db = __pyx_state[3]; __pyx_result.tls_params_db = __pyx_state[4]
+ *     if len(__pyx_state) > 5 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
+ *         __pyx_result.__dict__.update(__pyx_state[5])
+ */
+  if (unlikely(__pyx_v___pyx_state == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
+    __PYX_ERR(1, 13, __pyx_L1_error)
+  }
+  __pyx_t_3 = PyTuple_GET_SIZE(__pyx_v___pyx_state); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(1, 13, __pyx_L1_error)
+  __pyx_t_4 = ((__pyx_t_3 > 5) != 0);
+  if (__pyx_t_4) {
+  } else {
+    __pyx_t_2 = __pyx_t_4;
+    goto __pyx_L4_bool_binop_done;
+  }
+  __pyx_t_4 = __Pyx_HasAttr(((PyObject *)__pyx_v___pyx_result), __pyx_n_s_dict); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 13, __pyx_L1_error)
+  __pyx_t_5 = (__pyx_t_4 != 0);
+  __pyx_t_2 = __pyx_t_5;
+  __pyx_L4_bool_binop_done:;
+  if (__pyx_t_2) {
+
+    /* "(tree fragment)":14
+ *     __pyx_result.MALWARE_DB = __pyx_state[0]; __pyx_result.aligner = __pyx_state[1]; __pyx_result.app_families = __pyx_state[2]; __pyx_result.fp_db = __pyx_state[3]; __pyx_result.tls_params_db = __pyx_state[4]
+ *     if len(__pyx_state) > 5 and hasattr(__pyx_result, '__dict__'):
+ *         __pyx_result.__dict__.update(__pyx_state[5])             # <<<<<<<<<<<<<<
+ */
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v___pyx_result), __pyx_n_s_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 14, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_update); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 14, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(__pyx_v___pyx_state == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(1, 14, __pyx_L1_error)
+    }
+    __pyx_t_6 = __Pyx_GetItemInt_Tuple(__pyx_v___pyx_state, 5, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 14, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_8 = NULL;
+    if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_7))) {
+      __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_7);
+      if (likely(__pyx_t_8)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_7);
+        __Pyx_INCREF(__pyx_t_8);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_7, function);
+      }
+    }
+    __pyx_t_1 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_7, __pyx_t_8, __pyx_t_6) : __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_t_6);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 14, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+    /* "(tree fragment)":13
+ * cdef __pyx_unpickle_TLS__set_state(TLS __pyx_result, tuple __pyx_state):
+ *     __pyx_result.MALWARE_DB = __pyx_state[0]; __pyx_result.aligner = __pyx_state[1]; __pyx_result.app_families = __pyx_state[2]; __pyx_result.fp_db = __pyx_state[3]; __pyx_result.tls_params_db = __pyx_state[4]
+ *     if len(__pyx_state) > 5 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
+ *         __pyx_result.__dict__.update(__pyx_state[5])
+ */
+  }
+
+  /* "(tree fragment)":11
+ *         __pyx_unpickle_TLS__set_state(<TLS> __pyx_result, __pyx_state)
+ *     return __pyx_result
+ * cdef __pyx_unpickle_TLS__set_state(TLS __pyx_result, tuple __pyx_state):             # <<<<<<<<<<<<<<
+ *     __pyx_result.MALWARE_DB = __pyx_state[0]; __pyx_result.aligner = __pyx_state[1]; __pyx_result.app_families = __pyx_state[2]; __pyx_result.fp_db = __pyx_state[3]; __pyx_result.tls_params_db = __pyx_state[4]
+ *     if len(__pyx_state) > 5 and hasattr(__pyx_result, '__dict__'):
+ */
+
+  /* function exit code */
+  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_AddTraceback("pmercury.protocols.tls.__pyx_unpickle_TLS__set_state", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_tp_new_8pmercury_9protocols_3tls_TLS(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
+  struct __pyx_obj_8pmercury_9protocols_3tls_TLS *p;
+  PyObject *o;
+  if (likely((t->tp_flags & Py_TPFLAGS_IS_ABSTRACT) == 0)) {
+    o = (*t->tp_alloc)(t, 0);
+  } else {
+    o = (PyObject *) PyBaseObject_Type.tp_new(t, __pyx_empty_tuple, 0);
+  }
+  if (unlikely(!o)) return 0;
+  p = ((struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)o);
+  p->tls_params_db = ((PyObject*)Py_None); Py_INCREF(Py_None);
+  p->fp_db = ((PyObject*)Py_None); Py_INCREF(Py_None);
+  p->app_families = ((PyObject*)Py_None); Py_INCREF(Py_None);
+  p->aligner = Py_None; Py_INCREF(Py_None);
+  return o;
+}
+
+static void __pyx_tp_dealloc_8pmercury_9protocols_3tls_TLS(PyObject *o) {
+  struct __pyx_obj_8pmercury_9protocols_3tls_TLS *p = (struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)o;
+  #if CYTHON_USE_TP_FINALIZE
+  if (unlikely(PyType_HasFeature(Py_TYPE(o), Py_TPFLAGS_HAVE_FINALIZE) && Py_TYPE(o)->tp_finalize) && !_PyGC_FINALIZED(o)) {
+    if (PyObject_CallFinalizerFromDealloc(o)) return;
+  }
+  #endif
+  PyObject_GC_UnTrack(o);
+  Py_CLEAR(p->tls_params_db);
+  Py_CLEAR(p->fp_db);
+  Py_CLEAR(p->app_families);
+  Py_CLEAR(p->aligner);
+  (*Py_TYPE(o)->tp_free)(o);
+}
+
+static int __pyx_tp_traverse_8pmercury_9protocols_3tls_TLS(PyObject *o, visitproc v, void *a) {
+  int e;
+  struct __pyx_obj_8pmercury_9protocols_3tls_TLS *p = (struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)o;
+  if (p->tls_params_db) {
+    e = (*v)(p->tls_params_db, a); if (e) return e;
+  }
+  if (p->fp_db) {
+    e = (*v)(p->fp_db, a); if (e) return e;
+  }
+  if (p->app_families) {
+    e = (*v)(p->app_families, a); if (e) return e;
+  }
+  if (p->aligner) {
+    e = (*v)(p->aligner, a); if (e) return e;
+  }
+  return 0;
+}
+
+static int __pyx_tp_clear_8pmercury_9protocols_3tls_TLS(PyObject *o) {
+  PyObject* tmp;
+  struct __pyx_obj_8pmercury_9protocols_3tls_TLS *p = (struct __pyx_obj_8pmercury_9protocols_3tls_TLS *)o;
+  tmp = ((PyObject*)p->tls_params_db);
+  p->tls_params_db = ((PyObject*)Py_None); Py_INCREF(Py_None);
+  Py_XDECREF(tmp);
+  tmp = ((PyObject*)p->fp_db);
+  p->fp_db = ((PyObject*)Py_None); Py_INCREF(Py_None);
+  Py_XDECREF(tmp);
+  tmp = ((PyObject*)p->app_families);
+  p->app_families = ((PyObject*)Py_None); Py_INCREF(Py_None);
+  Py_XDECREF(tmp);
+  tmp = ((PyObject*)p->aligner);
+  p->aligner = Py_None; Py_INCREF(Py_None);
+  Py_XDECREF(tmp);
+  return 0;
+}
+
+static PyMethodDef __pyx_methods_8pmercury_9protocols_3tls_TLS[] = {
+  {"load_database", (PyCFunction)__pyx_pw_8pmercury_9protocols_3tls_3TLS_3load_database, METH_O, 0},
+  {"proto_identify", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_5proto_identify, METH_VARARGS|METH_KEYWORDS, 0},
+  {"fingerprint", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_7fingerprint, METH_VARARGS|METH_KEYWORDS, 0},
+  {"proc_identify", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_9proc_identify, METH_VARARGS|METH_KEYWORDS, 0},
+  {"identify", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_11identify, METH_VARARGS|METH_KEYWORDS, 0},
+  {"compute_score", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_13compute_score, METH_VARARGS|METH_KEYWORDS, 0},
+  {"get_database_entry", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_15get_database_entry, METH_VARARGS|METH_KEYWORDS, 0},
+  {"get_approx_fingerprint", (PyCFunction)__pyx_pw_8pmercury_9protocols_3tls_3TLS_17get_approx_fingerprint, METH_O, 0},
+  {"find_approx_match", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_19find_approx_match, METH_VARARGS|METH_KEYWORDS, 0},
+  {"find_approximate_matches_set", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_3tls_3TLS_21find_approximate_matches_set, METH_VARARGS|METH_KEYWORDS, 0},
+  {"gen_unknown_fingerprint", (PyCFunction)__pyx_pw_8pmercury_9protocols_3tls_3TLS_23gen_unknown_fingerprint, METH_O, 0},
+  {"get_human_readable", (PyCFunction)__pyx_pw_8pmercury_9protocols_3tls_3TLS_25get_human_readable, METH_O, 0},
+  {"__reduce_cython__", (PyCFunction)__pyx_pw_8pmercury_9protocols_3tls_3TLS_27__reduce_cython__, METH_NOARGS, 0},
+  {"__setstate_cython__", (PyCFunction)__pyx_pw_8pmercury_9protocols_3tls_3TLS_29__setstate_cython__, METH_O, 0},
+  {0, 0, 0, 0}
+};
+
+static PyTypeObject __pyx_type_8pmercury_9protocols_3tls_TLS = {
+  PyVarObject_HEAD_INIT(0, 0)
+  "pmercury.protocols.tls.TLS", /*tp_name*/
+  sizeof(struct __pyx_obj_8pmercury_9protocols_3tls_TLS), /*tp_basicsize*/
+  0, /*tp_itemsize*/
+  __pyx_tp_dealloc_8pmercury_9protocols_3tls_TLS, /*tp_dealloc*/
+  0, /*tp_print*/
+  0, /*tp_getattr*/
+  0, /*tp_setattr*/
+  #if PY_MAJOR_VERSION < 3
+  0, /*tp_compare*/
+  #endif
+  #if PY_MAJOR_VERSION >= 3
+  0, /*tp_as_async*/
+  #endif
+  0, /*tp_repr*/
+  0, /*tp_as_number*/
+  0, /*tp_as_sequence*/
+  0, /*tp_as_mapping*/
+  0, /*tp_hash*/
+  0, /*tp_call*/
+  0, /*tp_str*/
+  0, /*tp_getattro*/
+  0, /*tp_setattro*/
+  0, /*tp_as_buffer*/
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
+  0, /*tp_doc*/
+  __pyx_tp_traverse_8pmercury_9protocols_3tls_TLS, /*tp_traverse*/
+  __pyx_tp_clear_8pmercury_9protocols_3tls_TLS, /*tp_clear*/
+  0, /*tp_richcompare*/
+  0, /*tp_weaklistoffset*/
+  0, /*tp_iter*/
+  0, /*tp_iternext*/
+  __pyx_methods_8pmercury_9protocols_3tls_TLS, /*tp_methods*/
+  0, /*tp_members*/
+  0, /*tp_getset*/
+  0, /*tp_base*/
+  0, /*tp_dict*/
+  0, /*tp_descr_get*/
+  0, /*tp_descr_set*/
+  0, /*tp_dictoffset*/
+  __pyx_pw_8pmercury_9protocols_3tls_3TLS_1__init__, /*tp_init*/
+  0, /*tp_alloc*/
+  __pyx_tp_new_8pmercury_9protocols_3tls_TLS, /*tp_new*/
+  0, /*tp_free*/
+  0, /*tp_is_gc*/
+  0, /*tp_bases*/
+  0, /*tp_mro*/
+  0, /*tp_cache*/
+  0, /*tp_subclasses*/
+  0, /*tp_weaklist*/
+  0, /*tp_del*/
+  0, /*tp_version_tag*/
+  #if PY_VERSION_HEX >= 0x030400a1
+  0, /*tp_finalize*/
+  #endif
+  #if PY_VERSION_HEX >= 0x030800b1
+  0, /*tp_vectorcall*/
+  #endif
+};
+
 static PyMethodDef __pyx_methods[] = {
   {0, 0, 0, 0}
 };
 
 static int __pyx_import_star_set(PyObject *o, PyObject* py_name, char *name) {
   static const char* internal_type_names[] = {
+    "TLS",
     "__pyx_ctuple_Py_ssize_t",
     "__pyx_ctuple_Py_ssize_t_struct",
     "__pyx_ctuple_long",
@@ -9481,27 +9700,14 @@ static struct PyModuleDef __pyx_moduledef = {
 static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_kp_u_, __pyx_k_, sizeof(__pyx_k_), 0, 1, 0, 0},
   {&__pyx_kp_u_Generic_DMZ_Traffic, __pyx_k_Generic_DMZ_Traffic, sizeof(__pyx_k_Generic_DMZ_Traffic), 0, 1, 0, 0},
+  {&__pyx_kp_s_Incompatible_checksums_s_vs_0x6c, __pyx_k_Incompatible_checksums_s_vs_0x6c, sizeof(__pyx_k_Incompatible_checksums_s_vs_0x6c), 0, 0, 1, 0},
   {&__pyx_n_s_KeyError, __pyx_k_KeyError, sizeof(__pyx_k_KeyError), 0, 0, 1, 1},
-  {&__pyx_n_s_MALWARE_DB, __pyx_k_MALWARE_DB, sizeof(__pyx_k_MALWARE_DB), 0, 0, 1, 1},
   {&__pyx_n_s_MAX_CACHED_RESULTS, __pyx_k_MAX_CACHED_RESULTS, sizeof(__pyx_k_MAX_CACHED_RESULTS), 0, 0, 1, 1},
+  {&__pyx_n_s_PickleError, __pyx_k_PickleError, sizeof(__pyx_k_PickleError), 0, 0, 1, 1},
   {&__pyx_n_s_Protocol, __pyx_k_Protocol, sizeof(__pyx_k_Protocol), 0, 0, 1, 1},
   {&__pyx_n_s_SequenceAlignment, __pyx_k_SequenceAlignment, sizeof(__pyx_k_SequenceAlignment), 0, 0, 1, 1},
   {&__pyx_n_s_TLS, __pyx_k_TLS, sizeof(__pyx_k_TLS), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS___init, __pyx_k_TLS___init, sizeof(__pyx_k_TLS___init), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_compute_score, __pyx_k_TLS_compute_score, sizeof(__pyx_k_TLS_compute_score), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_find_approx_match, __pyx_k_TLS_find_approx_match, sizeof(__pyx_k_TLS_find_approx_match), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_find_approximate_matches_set, __pyx_k_TLS_find_approximate_matches_set, sizeof(__pyx_k_TLS_find_approximate_matches_set), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_fingerprint, __pyx_k_TLS_fingerprint, sizeof(__pyx_k_TLS_fingerprint), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_gen_unknown_fingerprint, __pyx_k_TLS_gen_unknown_fingerprint, sizeof(__pyx_k_TLS_gen_unknown_fingerprint), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_get_approx_fingerprint, __pyx_k_TLS_get_approx_fingerprint, sizeof(__pyx_k_TLS_get_approx_fingerprint), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_get_database_entry, __pyx_k_TLS_get_database_entry, sizeof(__pyx_k_TLS_get_database_entry), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_get_human_readable, __pyx_k_TLS_get_human_readable, sizeof(__pyx_k_TLS_get_human_readable), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_identify, __pyx_k_TLS_identify, sizeof(__pyx_k_TLS_identify), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_load_database, __pyx_k_TLS_load_database, sizeof(__pyx_k_TLS_load_database), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_proc_identify, __pyx_k_TLS_proc_identify, sizeof(__pyx_k_TLS_proc_identify), 0, 0, 1, 1},
-  {&__pyx_n_s_TLS_proto_identify, __pyx_k_TLS_proto_identify, sizeof(__pyx_k_TLS_proto_identify), 0, 0, 1, 1},
   {&__pyx_n_u_Unknown, __pyx_k_Unknown, sizeof(__pyx_k_Unknown), 0, 1, 0, 1},
-  {&__pyx_n_s__29, __pyx_k__29, sizeof(__pyx_k__29), 0, 0, 1, 1},
   {&__pyx_kp_u__3, __pyx_k__3, sizeof(__pyx_k__3), 0, 1, 0, 0},
   {&__pyx_kp_u__4, __pyx_k__4, sizeof(__pyx_k__4), 0, 1, 0, 0},
   {&__pyx_kp_u__5, __pyx_k__5, sizeof(__pyx_k__5), 0, 1, 0, 0},
@@ -9509,16 +9715,9 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s__7, __pyx_k__7, sizeof(__pyx_k__7), 0, 0, 1, 1},
   {&__pyx_n_s_abspath, __pyx_k_abspath, sizeof(__pyx_k_abspath), 0, 0, 1, 1},
   {&__pyx_n_s_align, __pyx_k_align, sizeof(__pyx_k_align), 0, 0, 1, 1},
-  {&__pyx_n_s_aligner, __pyx_k_aligner, sizeof(__pyx_k_aligner), 0, 0, 1, 1},
-  {&__pyx_n_s_app_families, __pyx_k_app_families, sizeof(__pyx_k_app_families), 0, 0, 1, 1},
-  {&__pyx_n_s_app_families_file, __pyx_k_app_families_file, sizeof(__pyx_k_app_families_file), 0, 0, 1, 1},
   {&__pyx_n_s_append, __pyx_k_append, sizeof(__pyx_k_append), 0, 0, 1, 1},
   {&__pyx_n_s_approx_fp_str, __pyx_k_approx_fp_str, sizeof(__pyx_k_approx_fp_str), 0, 0, 1, 1},
-  {&__pyx_n_s_approx_matches_set, __pyx_k_approx_matches_set, sizeof(__pyx_k_approx_matches_set), 0, 0, 1, 1},
   {&__pyx_n_u_approx_str, __pyx_k_approx_str, sizeof(__pyx_k_approx_str), 0, 1, 0, 1},
-  {&__pyx_n_s_approx_str_2, __pyx_k_approx_str_2, sizeof(__pyx_k_approx_str_2), 0, 0, 1, 1},
-  {&__pyx_n_s_asn, __pyx_k_asn, sizeof(__pyx_k_asn), 0, 0, 1, 1},
-  {&__pyx_n_s_base_prior, __pyx_k_base_prior, sizeof(__pyx_k_base_prior), 0, 0, 1, 1},
   {&__pyx_n_u_big, __pyx_k_big, sizeof(__pyx_k_big), 0, 1, 0, 1},
   {&__pyx_n_s_buf, __pyx_k_buf, sizeof(__pyx_k_buf), 0, 0, 1, 1},
   {&__pyx_n_s_byteorder, __pyx_k_byteorder, sizeof(__pyx_k_byteorder), 0, 0, 1, 1},
@@ -9542,12 +9741,10 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_degrease_type_code, __pyx_k_degrease_type_code, sizeof(__pyx_k_degrease_type_code), 0, 0, 1, 1},
   {&__pyx_n_s_dest_addr, __pyx_k_dest_addr, sizeof(__pyx_k_dest_addr), 0, 0, 1, 1},
   {&__pyx_n_s_dest_port, __pyx_k_dest_port, sizeof(__pyx_k_dest_port), 0, 0, 1, 1},
+  {&__pyx_n_s_dict, __pyx_k_dict, sizeof(__pyx_k_dict), 0, 0, 1, 1},
   {&__pyx_n_s_dirname, __pyx_k_dirname, sizeof(__pyx_k_dirname), 0, 0, 1, 1},
-  {&__pyx_n_s_doc, __pyx_k_doc, sizeof(__pyx_k_doc), 0, 0, 1, 1},
-  {&__pyx_n_s_domain, __pyx_k_domain, sizeof(__pyx_k_domain), 0, 0, 1, 1},
   {&__pyx_n_u_error, __pyx_k_error, sizeof(__pyx_k_error), 0, 1, 0, 1},
   {&__pyx_n_s_eval_fp_str, __pyx_k_eval_fp_str, sizeof(__pyx_k_eval_fp_str), 0, 0, 1, 1},
-  {&__pyx_n_s_exp, __pyx_k_exp, sizeof(__pyx_k_exp), 0, 0, 1, 1},
   {&__pyx_n_s_ext_len, __pyx_k_ext_len, sizeof(__pyx_k_ext_len), 0, 0, 1, 1},
   {&__pyx_n_s_ext_total_len, __pyx_k_ext_total_len, sizeof(__pyx_k_ext_total_len), 0, 0, 1, 1},
   {&__pyx_n_u_extensions, __pyx_k_extensions, sizeof(__pyx_k_extensions), 0, 1, 0, 1},
@@ -9562,12 +9759,9 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_kp_u_fingerprint_string_parsing_error, __pyx_k_fingerprint_string_parsing_error, sizeof(__pyx_k_fingerprint_string_parsing_error), 0, 1, 0, 0},
   {&__pyx_n_s_fp, __pyx_k_fp, sizeof(__pyx_k_fp), 0, 0, 1, 1},
   {&__pyx_n_s_fp_database, __pyx_k_fp_database, sizeof(__pyx_k_fp_database), 0, 0, 1, 1},
-  {&__pyx_n_s_fp_db, __pyx_k_fp_db, sizeof(__pyx_k_fp_db), 0, 0, 1, 1},
-  {&__pyx_n_s_fp_h, __pyx_k_fp_h, sizeof(__pyx_k_fp_h), 0, 0, 1, 1},
   {&__pyx_n_s_fp_str, __pyx_k_fp_str, sizeof(__pyx_k_fp_str), 0, 0, 1, 1},
   {&__pyx_n_s_fp_str_2, __pyx_k_fp_str_2, sizeof(__pyx_k_fp_str_2), 0, 0, 1, 1},
   {&__pyx_n_s_fp_tc, __pyx_k_fp_tc, sizeof(__pyx_k_fp_tc), 0, 0, 1, 1},
-  {&__pyx_n_s_fp_tc_2, __pyx_k_fp_tc_2, sizeof(__pyx_k_fp_tc_2), 0, 0, 1, 1},
   {&__pyx_n_s_from_bytes, __pyx_k_from_bytes, sizeof(__pyx_k_from_bytes), 0, 0, 1, 1},
   {&__pyx_n_s_functools, __pyx_k_functools, sizeof(__pyx_k_functools), 0, 0, 1, 1},
   {&__pyx_n_s_gen_unknown_fingerprint, __pyx_k_gen_unknown_fingerprint, sizeof(__pyx_k_gen_unknown_fingerprint), 0, 0, 1, 1},
@@ -9576,58 +9770,44 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_get_cs_from_str, __pyx_k_get_cs_from_str, sizeof(__pyx_k_get_cs_from_str), 0, 0, 1, 1},
   {&__pyx_n_s_get_database_entry, __pyx_k_get_database_entry, sizeof(__pyx_k_get_database_entry), 0, 0, 1, 1},
   {&__pyx_n_s_get_ext_from_str, __pyx_k_get_ext_from_str, sizeof(__pyx_k_get_ext_from_str), 0, 0, 1, 1},
-  {&__pyx_n_s_get_human_readable, __pyx_k_get_human_readable, sizeof(__pyx_k_get_human_readable), 0, 0, 1, 1},
   {&__pyx_n_s_get_implementation_date, __pyx_k_get_implementation_date, sizeof(__pyx_k_get_implementation_date), 0, 0, 1, 1},
   {&__pyx_n_s_get_port_application, __pyx_k_get_port_application, sizeof(__pyx_k_get_port_application), 0, 0, 1, 1},
   {&__pyx_n_s_get_sequence, __pyx_k_get_sequence, sizeof(__pyx_k_get_sequence), 0, 0, 1, 1},
   {&__pyx_n_s_get_tld_info, __pyx_k_get_tld_info, sizeof(__pyx_k_get_tld_info), 0, 0, 1, 1},
   {&__pyx_n_s_get_tls_params, __pyx_k_get_tls_params, sizeof(__pyx_k_get_tls_params), 0, 0, 1, 1},
   {&__pyx_n_s_get_version_from_str, __pyx_k_get_version_from_str, sizeof(__pyx_k_get_version_from_str), 0, 0, 1, 1},
+  {&__pyx_n_s_getstate, __pyx_k_getstate, sizeof(__pyx_k_getstate), 0, 0, 1, 1},
   {&__pyx_n_s_hex, __pyx_k_hex, sizeof(__pyx_k_hex), 0, 0, 1, 1},
-  {&__pyx_n_s_i, __pyx_k_i, sizeof(__pyx_k_i), 0, 0, 1, 1},
   {&__pyx_n_s_identify, __pyx_k_identify, sizeof(__pyx_k_identify), 0, 0, 1, 1},
   {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
-  {&__pyx_n_s_init, __pyx_k_init, sizeof(__pyx_k_init), 0, 0, 1, 1},
   {&__pyx_n_s_intersection, __pyx_k_intersection, sizeof(__pyx_k_intersection), 0, 0, 1, 1},
   {&__pyx_n_s_itemgetter, __pyx_k_itemgetter, sizeof(__pyx_k_itemgetter), 0, 0, 1, 1},
   {&__pyx_n_s_json, __pyx_k_json, sizeof(__pyx_k_json), 0, 0, 1, 1},
-  {&__pyx_n_s_k, __pyx_k_k, sizeof(__pyx_k_k), 0, 0, 1, 1},
   {&__pyx_n_s_key, __pyx_k_key, sizeof(__pyx_k_key), 0, 0, 1, 1},
   {&__pyx_n_s_key_filter, __pyx_k_key_filter, sizeof(__pyx_k_key_filter), 0, 0, 1, 1},
   {&__pyx_n_s_keys, __pyx_k_keys, sizeof(__pyx_k_keys), 0, 0, 1, 1},
-  {&__pyx_n_s_line, __pyx_k_line, sizeof(__pyx_k_line), 0, 0, 1, 1},
   {&__pyx_n_s_list_procs, __pyx_k_list_procs, sizeof(__pyx_k_list_procs), 0, 0, 1, 1},
-  {&__pyx_n_s_lit_fp, __pyx_k_lit_fp, sizeof(__pyx_k_lit_fp), 0, 0, 1, 1},
   {&__pyx_n_s_load_database, __pyx_k_load_database, sizeof(__pyx_k_load_database), 0, 0, 1, 1},
   {&__pyx_n_s_loads, __pyx_k_loads, sizeof(__pyx_k_loads), 0, 0, 1, 1},
-  {&__pyx_n_s_log, __pyx_k_log, sizeof(__pyx_k_log), 0, 0, 1, 1},
   {&__pyx_n_s_lru_cache, __pyx_k_lru_cache, sizeof(__pyx_k_lru_cache), 0, 0, 1, 1},
   {&__pyx_n_s_main, __pyx_k_main, sizeof(__pyx_k_main), 0, 0, 1, 1},
   {&__pyx_n_u_malware, __pyx_k_malware, sizeof(__pyx_k_malware), 0, 1, 0, 1},
-  {&__pyx_n_s_malware_score, __pyx_k_malware_score, sizeof(__pyx_k_malware_score), 0, 0, 1, 1},
-  {&__pyx_n_s_math, __pyx_k_math, sizeof(__pyx_k_math), 0, 0, 1, 1},
-  {&__pyx_n_s_max_imp, __pyx_k_max_imp, sizeof(__pyx_k_max_imp), 0, 0, 1, 1},
   {&__pyx_n_u_max_implementation_date, __pyx_k_max_implementation_date, sizeof(__pyx_k_max_implementation_date), 0, 1, 0, 1},
   {&__pyx_n_s_maxsize, __pyx_k_maxsize, sizeof(__pyx_k_maxsize), 0, 0, 1, 1},
-  {&__pyx_n_s_metaclass, __pyx_k_metaclass, sizeof(__pyx_k_metaclass), 0, 0, 1, 1},
-  {&__pyx_n_s_min_imp, __pyx_k_min_imp, sizeof(__pyx_k_min_imp), 0, 0, 1, 1},
   {&__pyx_n_u_min_implementation_date, __pyx_k_min_implementation_date, sizeof(__pyx_k_min_implementation_date), 0, 1, 0, 1},
-  {&__pyx_n_s_module, __pyx_k_module, sizeof(__pyx_k_module), 0, 0, 1, 1},
   {&__pyx_n_u_name, __pyx_k_name, sizeof(__pyx_k_name), 0, 1, 0, 1},
   {&__pyx_n_s_name_2, __pyx_k_name_2, sizeof(__pyx_k_name_2), 0, 0, 1, 1},
+  {&__pyx_n_s_new, __pyx_k_new, sizeof(__pyx_k_new), 0, 0, 1, 1},
   {&__pyx_n_s_offset, __pyx_k_offset, sizeof(__pyx_k_offset), 0, 0, 1, 1},
   {&__pyx_n_s_open, __pyx_k_open, sizeof(__pyx_k_open), 0, 0, 1, 1},
   {&__pyx_n_s_operator, __pyx_k_operator, sizeof(__pyx_k_operator), 0, 0, 1, 1},
   {&__pyx_n_s_os, __pyx_k_os, sizeof(__pyx_k_os), 0, 0, 1, 1},
   {&__pyx_n_u_os_info, __pyx_k_os_info, sizeof(__pyx_k_os_info), 0, 1, 0, 1},
-  {&__pyx_n_s_out, __pyx_k_out, sizeof(__pyx_k_out), 0, 0, 1, 1},
   {&__pyx_n_s_p, __pyx_k_p, sizeof(__pyx_k_p), 0, 0, 1, 1},
-  {&__pyx_n_s_p0, __pyx_k_p0, sizeof(__pyx_k_p0), 0, 0, 1, 1},
-  {&__pyx_n_s_p1, __pyx_k_p1, sizeof(__pyx_k_p1), 0, 0, 1, 1},
-  {&__pyx_n_s_p_count, __pyx_k_p_count, sizeof(__pyx_k_p_count), 0, 0, 1, 1},
   {&__pyx_n_u_p_malware, __pyx_k_p_malware, sizeof(__pyx_k_p_malware), 0, 1, 0, 1},
   {&__pyx_n_s_parse_extension, __pyx_k_parse_extension, sizeof(__pyx_k_parse_extension), 0, 0, 1, 1},
   {&__pyx_n_s_path, __pyx_k_path, sizeof(__pyx_k_path), 0, 0, 1, 1},
+  {&__pyx_n_s_pickle, __pyx_k_pickle, sizeof(__pyx_k_pickle), 0, 0, 1, 1},
   {&__pyx_n_s_pmercury_protocols_protocol, __pyx_k_pmercury_protocols_protocol, sizeof(__pyx_k_pmercury_protocols_protocol), 0, 0, 1, 1},
   {&__pyx_n_s_pmercury_protocols_tls, __pyx_k_pmercury_protocols_tls, sizeof(__pyx_k_pmercury_protocols_tls), 0, 0, 1, 1},
   {&__pyx_n_s_pmercury_utils_contextual_info, __pyx_k_pmercury_utils_contextual_info, sizeof(__pyx_k_pmercury_utils_contextual_info), 0, 0, 1, 1},
@@ -9637,39 +9817,31 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_pmercury_utils_tls_utils, __pyx_k_pmercury_utils_tls_utils, sizeof(__pyx_k_pmercury_utils_tls_utils), 0, 0, 1, 1},
   {&__pyx_n_s_pop, __pyx_k_pop, sizeof(__pyx_k_pop), 0, 0, 1, 1},
   {&__pyx_n_s_popen, __pyx_k_popen, sizeof(__pyx_k_popen), 0, 0, 1, 1},
-  {&__pyx_n_s_port_app, __pyx_k_port_app, sizeof(__pyx_k_port_app), 0, 0, 1, 1},
-  {&__pyx_n_s_predict, __pyx_k_predict, sizeof(__pyx_k_predict), 0, 0, 1, 1},
-  {&__pyx_n_s_prepare, __pyx_k_prepare, sizeof(__pyx_k_prepare), 0, 0, 1, 1},
-  {&__pyx_n_s_prior, __pyx_k_prior, sizeof(__pyx_k_prior), 0, 0, 1, 1},
-  {&__pyx_n_s_prob_process_given_fp, __pyx_k_prob_process_given_fp, sizeof(__pyx_k_prob_process_given_fp), 0, 0, 1, 1},
   {&__pyx_n_u_probable_processes, __pyx_k_probable_processes, sizeof(__pyx_k_probable_processes), 0, 1, 0, 1},
-  {&__pyx_n_s_proc_identify, __pyx_k_proc_identify, sizeof(__pyx_k_proc_identify), 0, 0, 1, 1},
   {&__pyx_n_u_process, __pyx_k_process, sizeof(__pyx_k_process), 0, 1, 0, 1},
   {&__pyx_n_u_process_info, __pyx_k_process_info, sizeof(__pyx_k_process_info), 0, 1, 0, 1},
-  {&__pyx_n_s_process_name, __pyx_k_process_name, sizeof(__pyx_k_process_name), 0, 0, 1, 1},
   {&__pyx_n_s_proto_identify, __pyx_k_proto_identify, sizeof(__pyx_k_proto_identify), 0, 0, 1, 1},
-  {&__pyx_n_s_q0, __pyx_k_q0, sizeof(__pyx_k_q0), 0, 0, 1, 1},
-  {&__pyx_n_s_q1, __pyx_k_q1, sizeof(__pyx_k_q1), 0, 0, 1, 1},
-  {&__pyx_n_s_qualname, __pyx_k_qualname, sizeof(__pyx_k_qualname), 0, 0, 1, 1},
+  {&__pyx_n_s_pyx_PickleError, __pyx_k_pyx_PickleError, sizeof(__pyx_k_pyx_PickleError), 0, 0, 1, 1},
+  {&__pyx_n_s_pyx_checksum, __pyx_k_pyx_checksum, sizeof(__pyx_k_pyx_checksum), 0, 0, 1, 1},
+  {&__pyx_n_s_pyx_result, __pyx_k_pyx_result, sizeof(__pyx_k_pyx_result), 0, 0, 1, 1},
+  {&__pyx_n_s_pyx_state, __pyx_k_pyx_state, sizeof(__pyx_k_pyx_state), 0, 0, 1, 1},
+  {&__pyx_n_s_pyx_type, __pyx_k_pyx_type, sizeof(__pyx_k_pyx_type), 0, 0, 1, 1},
+  {&__pyx_n_s_pyx_unpickle_TLS, __pyx_k_pyx_unpickle_TLS, sizeof(__pyx_k_pyx_unpickle_TLS), 0, 0, 1, 1},
   {&__pyx_n_u_r, __pyx_k_r, sizeof(__pyx_k_r), 0, 1, 0, 1},
-  {&__pyx_n_s_r_2, __pyx_k_r_2, sizeof(__pyx_k_r_2), 0, 0, 1, 1},
-  {&__pyx_n_s_r_proc, __pyx_k_r_proc, sizeof(__pyx_k_r_proc), 0, 0, 1, 1},
   {&__pyx_n_s_range, __pyx_k_range, sizeof(__pyx_k_range), 0, 0, 1, 1},
+  {&__pyx_n_s_reduce, __pyx_k_reduce, sizeof(__pyx_k_reduce), 0, 0, 1, 1},
+  {&__pyx_n_s_reduce_cython, __pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 0, 1, 1},
+  {&__pyx_n_s_reduce_ex, __pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 0, 1, 1},
   {&__pyx_kp_u_resources_app_families_txt, __pyx_k_resources_app_families_txt, sizeof(__pyx_k_resources_app_families_txt), 0, 1, 0, 0},
   {&__pyx_kp_u_resources_fingerprint_db_json_gz, __pyx_k_resources_fingerprint_db_json_gz, sizeof(__pyx_k_resources_fingerprint_db_json_gz), 0, 1, 0, 0},
-  {&__pyx_n_s_result, __pyx_k_result, sizeof(__pyx_k_result), 0, 0, 1, 1},
   {&__pyx_n_s_reverse, __pyx_k_reverse, sizeof(__pyx_k_reverse), 0, 0, 1, 1},
   {&__pyx_kp_u_s, __pyx_k_s, sizeof(__pyx_k_s), 0, 1, 0, 0},
-  {&__pyx_n_s_s0, __pyx_k_s0, sizeof(__pyx_k_s0), 0, 0, 1, 1},
-  {&__pyx_n_s_s1, __pyx_k_s1, sizeof(__pyx_k_s1), 0, 0, 1, 1},
-  {&__pyx_n_s_s_2, __pyx_k_s_2, sizeof(__pyx_k_s_2), 0, 0, 1, 1},
   {&__pyx_n_u_score, __pyx_k_score, sizeof(__pyx_k_score), 0, 1, 0, 1},
-  {&__pyx_n_s_score_2, __pyx_k_score_2, sizeof(__pyx_k_score_2), 0, 0, 1, 1},
-  {&__pyx_n_s_score_sum, __pyx_k_score_sum, sizeof(__pyx_k_score_sum), 0, 0, 1, 1},
-  {&__pyx_n_s_self, __pyx_k_self, sizeof(__pyx_k_self), 0, 0, 1, 1},
   {&__pyx_n_s_server_name, __pyx_k_server_name, sizeof(__pyx_k_server_name), 0, 0, 1, 1},
   {&__pyx_n_u_server_name, __pyx_k_server_name, sizeof(__pyx_k_server_name), 0, 1, 0, 1},
   {&__pyx_n_s_session_id_length, __pyx_k_session_id_length, sizeof(__pyx_k_session_id_length), 0, 0, 1, 1},
+  {&__pyx_n_s_setstate, __pyx_k_setstate, sizeof(__pyx_k_setstate), 0, 0, 1, 1},
+  {&__pyx_n_s_setstate_cython, __pyx_k_setstate_cython, sizeof(__pyx_k_setstate_cython), 0, 0, 1, 1},
   {&__pyx_n_u_sha256, __pyx_k_sha256, sizeof(__pyx_k_sha256), 0, 1, 0, 1},
   {&__pyx_n_s_sorted, __pyx_k_sorted, sizeof(__pyx_k_sorted), 0, 0, 1, 1},
   {&__pyx_n_u_source, __pyx_k_source, sizeof(__pyx_k_source), 0, 1, 0, 1},
@@ -9677,39 +9849,30 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_split, __pyx_k_split, sizeof(__pyx_k_split), 0, 0, 1, 1},
   {&__pyx_n_s_staticmethod, __pyx_k_staticmethod, sizeof(__pyx_k_staticmethod), 0, 0, 1, 1},
   {&__pyx_n_u_str_repr, __pyx_k_str_repr, sizeof(__pyx_k_str_repr), 0, 1, 0, 1},
+  {&__pyx_kp_s_stringsource, __pyx_k_stringsource, sizeof(__pyx_k_stringsource), 0, 0, 1, 0},
   {&__pyx_n_s_strip, __pyx_k_strip, sizeof(__pyx_k_strip), 0, 0, 1, 1},
   {&__pyx_n_s_sum, __pyx_k_sum, sizeof(__pyx_k_sum), 0, 0, 1, 1},
   {&__pyx_n_s_sys, __pyx_k_sys, sizeof(__pyx_k_sys), 0, 0, 1, 1},
-  {&__pyx_n_s_t_scores, __pyx_k_t_scores, sizeof(__pyx_k_t_scores), 0, 0, 1, 1},
-  {&__pyx_n_s_t_sim_set, __pyx_k_t_sim_set, sizeof(__pyx_k_t_sim_set), 0, 0, 1, 1},
-  {&__pyx_n_s_target, __pyx_k_target, sizeof(__pyx_k_target), 0, 0, 1, 1},
   {&__pyx_n_s_test, __pyx_k_test, sizeof(__pyx_k_test), 0, 0, 1, 1},
-  {&__pyx_n_s_test_2, __pyx_k_test_2, sizeof(__pyx_k_test_2), 0, 0, 1, 1},
-  {&__pyx_n_s_tld, __pyx_k_tld, sizeof(__pyx_k_tld), 0, 0, 1, 1},
   {&__pyx_n_s_tls_features, __pyx_k_tls_features, sizeof(__pyx_k_tls_features), 0, 0, 1, 1},
   {&__pyx_n_s_tls_params, __pyx_k_tls_params, sizeof(__pyx_k_tls_params), 0, 0, 1, 1},
-  {&__pyx_n_s_tls_params_2, __pyx_k_tls_params_2, sizeof(__pyx_k_tls_params_2), 0, 0, 1, 1},
-  {&__pyx_n_s_tls_params_db, __pyx_k_tls_params_db, sizeof(__pyx_k_tls_params_db), 0, 0, 1, 1},
   {&__pyx_kp_s_tls_pyx, __pyx_k_tls_pyx, sizeof(__pyx_k_tls_pyx), 0, 0, 1, 0},
-  {&__pyx_n_s_tmp, __pyx_k_tmp, sizeof(__pyx_k_tmp), 0, 0, 1, 1},
   {&__pyx_n_s_tmp_fp_ext, __pyx_k_tmp_fp_ext, sizeof(__pyx_k_tmp_fp_ext), 0, 0, 1, 1},
-  {&__pyx_n_s_tmp_lit_fp, __pyx_k_tmp_lit_fp, sizeof(__pyx_k_tmp_lit_fp), 0, 0, 1, 1},
-  {&__pyx_n_s_tokens, __pyx_k_tokens, sizeof(__pyx_k_tokens), 0, 0, 1, 1},
   {&__pyx_n_u_total_count, __pyx_k_total_count, sizeof(__pyx_k_total_count), 0, 1, 0, 1},
   {&__pyx_n_s_ujson, __pyx_k_ujson, sizeof(__pyx_k_ujson), 0, 0, 1, 1},
   {&__pyx_n_s_union, __pyx_k_union, sizeof(__pyx_k_union), 0, 0, 1, 1},
+  {&__pyx_n_s_update, __pyx_k_update, sizeof(__pyx_k_update), 0, 0, 1, 1},
   {&__pyx_n_u_version, __pyx_k_version, sizeof(__pyx_k_version), 0, 1, 0, 1},
-  {&__pyx_n_s_x, __pyx_k_x, sizeof(__pyx_k_x), 0, 0, 1, 1},
   {&__pyx_kp_u_zcat_s, __pyx_k_zcat_s, sizeof(__pyx_k_zcat_s), 0, 1, 0, 0},
   {0, 0, 0, 0, 0, 0, 0}
 };
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
-  __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_n_s_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 61, __pyx_L1_error)
-  __pyx_builtin_open = __Pyx_GetBuiltinName(__pyx_n_s_open); if (!__pyx_builtin_open) __PYX_ERR(0, 45, __pyx_L1_error)
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 47, __pyx_L1_error)
-  __pyx_builtin_sorted = __Pyx_GetBuiltinName(__pyx_n_s_sorted); if (!__pyx_builtin_sorted) __PYX_ERR(0, 191, __pyx_L1_error)
-  __pyx_builtin_sum = __Pyx_GetBuiltinName(__pyx_n_s_sum); if (!__pyx_builtin_sum) __PYX_ERR(0, 212, __pyx_L1_error)
-  __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 242, __pyx_L1_error)
+  __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_n_s_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_builtin_open = __Pyx_GetBuiltinName(__pyx_n_s_open); if (!__pyx_builtin_open) __PYX_ERR(0, 50, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_builtin_sorted = __Pyx_GetBuiltinName(__pyx_n_s_sorted); if (!__pyx_builtin_sorted) __PYX_ERR(0, 196, __pyx_L1_error)
+  __pyx_builtin_sum = __Pyx_GetBuiltinName(__pyx_n_s_sum); if (!__pyx_builtin_sum) __PYX_ERR(0, 217, __pyx_L1_error)
+  __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 247, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -9719,187 +9882,50 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "pmercury/protocols/tls.pyx":90
+  /* "pmercury/protocols/tls.pyx":98
  *         offset += 1 + session_id_length
  *         if offset >= data_len:
  *             return None, None             # <<<<<<<<<<<<<<
  * 
  *         # parse/extract/skip cipher_suites length
  */
-  __pyx_tuple__2 = PyTuple_Pack(2, Py_None, Py_None); if (unlikely(!__pyx_tuple__2)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_tuple__2 = PyTuple_Pack(2, Py_None, Py_None); if (unlikely(!__pyx_tuple__2)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__2);
   __Pyx_GIVEREF(__pyx_tuple__2);
 
-  /* "pmercury/protocols/tls.pyx":31
- * class TLS(Protocol):
- * 
- *     def __init__(self, fp_database=None, config=None):             # <<<<<<<<<<<<<<
- *         # cached data/results
- *         self.tls_params_db = {}
- */
-  __pyx_tuple__8 = PyTuple_Pack(7, __pyx_n_s_self, __pyx_n_s_fp_database, __pyx_n_s_config, __pyx_n_s_app_families_file, __pyx_n_s_line, __pyx_n_s_tokens, __pyx_n_s_i); if (unlikely(!__pyx_tuple__8)) __PYX_ERR(0, 31, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__8);
-  __Pyx_GIVEREF(__pyx_tuple__8);
-  __pyx_codeobj__9 = (PyObject*)__Pyx_PyCode_New(3, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__8, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_init, 31, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__9)) __PYX_ERR(0, 31, __pyx_L1_error)
-  __pyx_tuple__10 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)Py_None)); if (unlikely(!__pyx_tuple__10)) __PYX_ERR(0, 31, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__10);
-  __Pyx_GIVEREF(__pyx_tuple__10);
-
-  /* "pmercury/protocols/tls.pyx":53
- * 
- * 
- *     def load_database(self, fp_database):             # <<<<<<<<<<<<<<
- *         for line in os.popen('zcat %s' % (fp_database)):
- *             fp_ = json.loads(line)
- */
-  __pyx_tuple__11 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_fp_database, __pyx_n_s_line, __pyx_n_s_fp); if (unlikely(!__pyx_tuple__11)) __PYX_ERR(0, 53, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__11);
-  __Pyx_GIVEREF(__pyx_tuple__11);
-  __pyx_codeobj__12 = (PyObject*)__Pyx_PyCode_New(2, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__11, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_load_database, 53, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__12)) __PYX_ERR(0, 53, __pyx_L1_error)
-
-  /* "pmercury/protocols/tls.pyx":62
+  /* "pmercury/protocols/tls.pyx":70
  * 
  *     @staticmethod
  *     def proto_identify(data, offset, data_len):             # <<<<<<<<<<<<<<
  *         if data_len-offset < 16:
  *             return False
  */
-  __pyx_tuple__13 = PyTuple_Pack(3, __pyx_n_s_data, __pyx_n_s_offset, __pyx_n_s_data_len); if (unlikely(!__pyx_tuple__13)) __PYX_ERR(0, 62, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__13);
-  __Pyx_GIVEREF(__pyx_tuple__13);
-  __pyx_codeobj__14 = (PyObject*)__Pyx_PyCode_New(3, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__13, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_proto_identify, 62, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__14)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_tuple__8 = PyTuple_Pack(3, __pyx_n_s_data, __pyx_n_s_offset, __pyx_n_s_data_len); if (unlikely(!__pyx_tuple__8)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__8);
+  __Pyx_GIVEREF(__pyx_tuple__8);
+  __pyx_codeobj__9 = (PyObject*)__Pyx_PyCode_New(3, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__8, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_proto_identify, 70, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__9)) __PYX_ERR(0, 70, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":76
+  /* "pmercury/protocols/tls.pyx":84
  * 
  *     @staticmethod
  *     def fingerprint(bytes data, unsigned int offset, unsigned int data_len):             # <<<<<<<<<<<<<<
  *         cdef unsigned char *buf = data
  *         offset += 5
  */
-  __pyx_tuple__15 = PyTuple_Pack(14, __pyx_n_s_data, __pyx_n_s_offset, __pyx_n_s_data_len, __pyx_n_s_buf, __pyx_n_s_fp, __pyx_n_s_session_id_length, __pyx_n_s_cipher_suites_length, __pyx_n_s_cs, __pyx_n_s_compression_methods_length, __pyx_n_s_ext_total_len, __pyx_n_s_server_name, __pyx_n_s_tmp_fp_ext, __pyx_n_s_ext_len, __pyx_n_s_context_2); if (unlikely(!__pyx_tuple__15)) __PYX_ERR(0, 76, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__15);
-  __Pyx_GIVEREF(__pyx_tuple__15);
-  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(3, 0, 14, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__15, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_fingerprint, 76, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __pyx_tuple__10 = PyTuple_Pack(14, __pyx_n_s_data, __pyx_n_s_offset, __pyx_n_s_data_len, __pyx_n_s_buf, __pyx_n_s_fp, __pyx_n_s_session_id_length, __pyx_n_s_cipher_suites_length, __pyx_n_s_cs, __pyx_n_s_compression_methods_length, __pyx_n_s_ext_total_len, __pyx_n_s_server_name, __pyx_n_s_tmp_fp_ext, __pyx_n_s_ext_len, __pyx_n_s_context_2); if (unlikely(!__pyx_tuple__10)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__10);
+  __Pyx_GIVEREF(__pyx_tuple__10);
+  __pyx_codeobj__11 = (PyObject*)__Pyx_PyCode_New(3, 0, 14, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__10, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_fingerprint, 84, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__11)) __PYX_ERR(0, 84, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":143
- * 
- * 
- *     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):             # <<<<<<<<<<<<<<
- *         server_name = None
- *         # extract server_name field from context object
+  /* "(tree fragment)":1
+ * def __pyx_unpickle_TLS(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
+ *     cdef object __pyx_PickleError
+ *     cdef object __pyx_result
  */
-  __pyx_tuple__17 = PyTuple_Pack(12, __pyx_n_s_self, __pyx_n_s_fp_str, __pyx_n_s_context, __pyx_n_s_dest_addr, __pyx_n_s_dest_port, __pyx_n_s_list_procs, __pyx_n_s_server_name, __pyx_n_s_x, __pyx_n_s_lit_fp, __pyx_n_s_approx_str_2, __pyx_n_s_fp, __pyx_n_s_result); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(0, 143, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__17);
-  __Pyx_GIVEREF(__pyx_tuple__17);
-  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(6, 0, 12, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_proc_identify, 143, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(0, 143, __pyx_L1_error)
-  __pyx_tuple__19 = PyTuple_Pack(1, ((PyObject *)__pyx_int_0)); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(0, 143, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__19);
-  __Pyx_GIVEREF(__pyx_tuple__19);
-
-  /* "pmercury/protocols/tls.pyx":173
- * 
- *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
- *     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):             # <<<<<<<<<<<<<<
- *         fp_ = self.get_database_entry(fp_str_, None)
- *         if fp_ == None:
- */
-  __pyx_tuple__20 = PyTuple_Pack(24, __pyx_n_s_self, __pyx_n_s_fp_str, __pyx_n_s_server_name, __pyx_n_s_dest_addr, __pyx_n_s_dest_port, __pyx_n_s_list_procs, __pyx_n_s_fp, __pyx_n_s_domain, __pyx_n_s_tld, __pyx_n_s_asn, __pyx_n_s_port_app, __pyx_n_s_features, __pyx_n_s_fp_tc_2, __pyx_n_s_r_2, __pyx_n_s_predict, __pyx_n_s_process_name, __pyx_n_s_score_sum, __pyx_n_s_malware_score, __pyx_n_s_out, __pyx_n_s_r_proc, __pyx_n_s_p, __pyx_n_s_p, __pyx_n_s_x, __pyx_n_s_x); if (unlikely(!__pyx_tuple__20)) __PYX_ERR(0, 173, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__20);
-  __Pyx_GIVEREF(__pyx_tuple__20);
-  __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(6, 0, 24, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__20, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_identify, 173, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 173, __pyx_L1_error)
-  __pyx_tuple__22 = PyTuple_Pack(1, ((PyObject *)__pyx_int_0)); if (unlikely(!__pyx_tuple__22)) __PYX_ERR(0, 173, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__22);
-  __Pyx_GIVEREF(__pyx_tuple__22);
-
-  /* "pmercury/protocols/tls.pyx":230
- * 
- * 
- *     def compute_score(self, features, p_, fp_tc_):             # <<<<<<<<<<<<<<
- *         p_count = p_['count']
- *         prob_process_given_fp = log(p_count/fp_tc_)
- */
-  __pyx_tuple__23 = PyTuple_Pack(10, __pyx_n_s_self, __pyx_n_s_features, __pyx_n_s_p, __pyx_n_s_fp_tc, __pyx_n_s_p_count, __pyx_n_s_prob_process_given_fp, __pyx_n_s_base_prior, __pyx_n_s_prior, __pyx_n_s_score_2, __pyx_n_s_tmp); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 230, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__23);
-  __Pyx_GIVEREF(__pyx_tuple__23);
-  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(4, 0, 10, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_compute_score, 230, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 230, __pyx_L1_error)
-
-  /* "pmercury/protocols/tls.pyx":264
- * 
- *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
- *     def get_database_entry(self, fp_str, approx_fp_str):             # <<<<<<<<<<<<<<
- *         fp_str_ = fp_str
- *         if approx_fp_str != None:
- */
-  __pyx_tuple__25 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_fp_str_2, __pyx_n_s_approx_fp_str, __pyx_n_s_fp_str); if (unlikely(!__pyx_tuple__25)) __PYX_ERR(0, 264, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__25);
-  __Pyx_GIVEREF(__pyx_tuple__25);
-  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(3, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__25, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_get_database_entry, 264, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 264, __pyx_L1_error)
-
-  /* "pmercury/protocols/tls.pyx":276
- * 
- *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
- *     def get_approx_fingerprint(self, fp_str_):             # <<<<<<<<<<<<<<
- *         try:
- *             return self.fp_db[fp_str_]['approx_str']
- */
-  __pyx_tuple__27 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_fp_str); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 276, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__27);
-  __Pyx_GIVEREF(__pyx_tuple__27);
-  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(2, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__27, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_get_approx_fingerprint, 276, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 276, __pyx_L1_error)
-
-  /* "pmercury/protocols/tls.pyx":283
- * 
- * 
- *     def find_approx_match(self, tls_features, fp_str=None, source_filter=None, key_filter=None):             # <<<<<<<<<<<<<<
- *         target_ = get_sequence(tls_features)
- *         tls_params_ = get_tls_params(tls_features)
- */
-  __pyx_tuple__30 = PyTuple_Pack(14, __pyx_n_s_self, __pyx_n_s_tls_features, __pyx_n_s_fp_str_2, __pyx_n_s_source_filter, __pyx_n_s_key_filter, __pyx_n_s_target, __pyx_n_s_tls_params_2, __pyx_n_s_t_sim_set, __pyx_n_s_approx_matches_set, __pyx_n_s__29, __pyx_n_s_k, __pyx_n_s_tmp_lit_fp, __pyx_n_s_test, __pyx_n_s_score_2); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(0, 283, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__30);
-  __Pyx_GIVEREF(__pyx_tuple__30);
-  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(5, 0, 14, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__30, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_find_approx_match, 283, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 283, __pyx_L1_error)
-  __pyx_tuple__32 = PyTuple_Pack(3, ((PyObject *)Py_None), ((PyObject *)Py_None), ((PyObject *)Py_None)); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 283, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__32);
-  __Pyx_GIVEREF(__pyx_tuple__32);
-
-  /* "pmercury/protocols/tls.pyx":304
- * 
- * 
- *     def find_approximate_matches_set(self, tls_params, fp_str=None, source_filter=None, key_filter=None):             # <<<<<<<<<<<<<<
- *         t_scores = []
- *         p0_ = set(tls_params[0])
- */
-  __pyx_tuple__33 = PyTuple_Pack(16, __pyx_n_s_self, __pyx_n_s_tls_params, __pyx_n_s_fp_str_2, __pyx_n_s_source_filter, __pyx_n_s_key_filter, __pyx_n_s_t_scores, __pyx_n_s_p0, __pyx_n_s_p1, __pyx_n_s_k, __pyx_n_s_lit_fp, __pyx_n_s_tls_params_2, __pyx_n_s_q0, __pyx_n_s_q1, __pyx_n_s_s0, __pyx_n_s_s1, __pyx_n_s_s_2); if (unlikely(!__pyx_tuple__33)) __PYX_ERR(0, 304, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__33);
-  __Pyx_GIVEREF(__pyx_tuple__33);
-  __pyx_codeobj__34 = (PyObject*)__Pyx_PyCode_New(5, 0, 16, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_find_approximate_matches_set, 304, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__34)) __PYX_ERR(0, 304, __pyx_L1_error)
-  __pyx_tuple__35 = PyTuple_Pack(3, ((PyObject *)Py_None), ((PyObject *)Py_None), ((PyObject *)Py_None)); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(0, 304, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__35);
-  __Pyx_GIVEREF(__pyx_tuple__35);
-
-  /* "pmercury/protocols/tls.pyx":330
- * 
- *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
- *     def gen_unknown_fingerprint(self, fp_str_):             # <<<<<<<<<<<<<<
- *         fp_ = {}
- *         fp_['str_repr'] = fp_str_
- */
-  __pyx_tuple__36 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_fp_str, __pyx_n_s_fp, __pyx_n_s_lit_fp, __pyx_n_s_max_imp, __pyx_n_s_min_imp); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(0, 330, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__36);
-  __Pyx_GIVEREF(__pyx_tuple__36);
-  __pyx_codeobj__37 = (PyObject*)__Pyx_PyCode_New(2, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__36, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_gen_unknown_fingerprint, 330, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__37)) __PYX_ERR(0, 330, __pyx_L1_error)
-
-  /* "pmercury/protocols/tls.pyx":348
- * 
- * 
- *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
- *         lit_fp = eval_fp_str(fp_str_)
- *         fp_h = {}
- */
-  __pyx_tuple__38 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_fp_str, __pyx_n_s_lit_fp, __pyx_n_s_fp_h); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(0, 348, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__38);
-  __Pyx_GIVEREF(__pyx_tuple__38);
-  __pyx_codeobj__39 = (PyObject*)__Pyx_PyCode_New(2, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__38, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tls_pyx, __pyx_n_s_get_human_readable, 348, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__39)) __PYX_ERR(0, 348, __pyx_L1_error)
+  __pyx_tuple__12 = PyTuple_Pack(5, __pyx_n_s_pyx_type, __pyx_n_s_pyx_checksum, __pyx_n_s_pyx_state, __pyx_n_s_pyx_PickleError, __pyx_n_s_pyx_result); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__12);
+  __Pyx_GIVEREF(__pyx_tuple__12);
+  __pyx_codeobj__13 = (PyObject*)__Pyx_PyCode_New(3, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_TLS, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__13)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -9925,6 +9951,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitGlobals(void) {
   __pyx_int_16 = PyInt_FromLong(16); if (unlikely(!__pyx_int_16)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_22 = PyInt_FromLong(22); if (unlikely(!__pyx_int_22)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_16777216 = PyInt_FromLong(16777216L); if (unlikely(!__pyx_int_16777216)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_113705059 = PyInt_FromLong(113705059L); if (unlikely(!__pyx_int_113705059)) __PYX_ERR(0, 1, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -9966,8 +9993,21 @@ static int __Pyx_modinit_type_init_code(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
+  if (PyType_Ready(&__pyx_type_8pmercury_9protocols_3tls_TLS) < 0) __PYX_ERR(0, 29, __pyx_L1_error)
+  #if PY_VERSION_HEX < 0x030800B1
+  __pyx_type_8pmercury_9protocols_3tls_TLS.tp_print = 0;
+  #endif
+  if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_type_8pmercury_9protocols_3tls_TLS.tp_dictoffset && __pyx_type_8pmercury_9protocols_3tls_TLS.tp_getattro == PyObject_GenericGetAttr)) {
+    __pyx_type_8pmercury_9protocols_3tls_TLS.tp_getattro = __Pyx_PyObject_GenericGetAttr;
+  }
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_TLS, (PyObject *)&__pyx_type_8pmercury_9protocols_3tls_TLS) < 0) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject*)&__pyx_type_8pmercury_9protocols_3tls_TLS) < 0) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_ptype_8pmercury_9protocols_3tls_TLS = &__pyx_type_8pmercury_9protocols_3tls_TLS;
   __Pyx_RefNannyFinishContext();
   return 0;
+  __pyx_L1_error:;
+  __Pyx_RefNannyFinishContext();
+  return -1;
 }
 
 static int __Pyx_modinit_type_import_code(void) {
@@ -10092,8 +10132,6 @@ static CYTHON_SMALL_CODE int __pyx_pymod_exec_tls(PyObject *__pyx_pyinit_module)
   PyObject *__pyx_t_4 = NULL;
   PyObject *__pyx_t_5 = NULL;
   int __pyx_t_6;
-  PyObject *__pyx_t_7 = NULL;
-  PyObject *__pyx_t_8 = NULL;
   __Pyx_RefNannyDeclarations
   #if CYTHON_PEP489_MULTI_PHASE_INIT
   if (__pyx_m) {
@@ -10189,7 +10227,7 @@ if (!__Pyx_RefNanny) {
   (void)__Pyx_modinit_global_init_code();
   (void)__Pyx_modinit_variable_export_code();
   (void)__Pyx_modinit_function_export_code();
-  (void)__Pyx_modinit_type_init_code();
+  if (unlikely(__Pyx_modinit_type_init_code() != 0)) goto __pyx_L1_error;
   (void)__Pyx_modinit_type_import_code();
   (void)__Pyx_modinit_variable_import_code();
   (void)__Pyx_modinit_function_import_code();
@@ -10251,7 +10289,7 @@ if (!__Pyx_RefNanny) {
  * import functools
  * import ujson as json             # <<<<<<<<<<<<<<
  * from sys import path
- * from math import exp, log
+ * 
  */
   __pyx_t_1 = __Pyx_Import(__pyx_n_s_ujson, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -10262,8 +10300,8 @@ if (!__Pyx_RefNanny) {
  * import functools
  * import ujson as json
  * from sys import path             # <<<<<<<<<<<<<<
- * from math import exp, log
  * 
+ * sys.path.append(os.path.dirname(os.path.abspath(__file__)))
  */
   __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -10279,234 +10317,206 @@ if (!__Pyx_RefNanny) {
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "pmercury/protocols/tls.pyx":14
- * import ujson as json
+  /* "pmercury/protocols/tls.pyx":15
  * from sys import path
- * from math import exp, log             # <<<<<<<<<<<<<<
- * 
- * 
- */
-  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_INCREF(__pyx_n_s_exp);
-  __Pyx_GIVEREF(__pyx_n_s_exp);
-  PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_exp);
-  __Pyx_INCREF(__pyx_n_s_log);
-  __Pyx_GIVEREF(__pyx_n_s_log);
-  PyList_SET_ITEM(__pyx_t_2, 1, __pyx_n_s_log);
-  __pyx_t_1 = __Pyx_Import(__pyx_n_s_math, __pyx_t_2, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 14, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_1, __pyx_n_s_exp); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_exp, __pyx_t_2) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_1, __pyx_n_s_log); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_log, __pyx_t_2) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "pmercury/protocols/tls.pyx":17
- * 
  * 
  * sys.path.append(os.path.dirname(os.path.abspath(__file__)))             # <<<<<<<<<<<<<<
  * sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
  * from pmercury.protocols.protocol import Protocol
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_sys); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 17, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_sys); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_os); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dirname); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 17, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dirname); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_os); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_os); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_abspath); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_abspath); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_file); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_file); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_6 = __Pyx_PyObject_Append(__pyx_t_2, __pyx_t_4); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = __Pyx_PyObject_Append(__pyx_t_1, __pyx_t_4); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pmercury/protocols/tls.pyx":18
+  /* "pmercury/protocols/tls.pyx":16
  * 
  * sys.path.append(os.path.dirname(os.path.abspath(__file__)))
  * sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')             # <<<<<<<<<<<<<<
  * from pmercury.protocols.protocol import Protocol
  * from pmercury.utils.tls_utils import *
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_sys); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_sys); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_os); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_dirname); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_os); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_abspath); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_file); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_os); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_dirname); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_os); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_abspath); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_file); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyNumber_Add(__pyx_t_1, __pyx_kp_u__6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __pyx_t_3 = PyNumber_Add(__pyx_t_2, __pyx_kp_u__6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_6 = __Pyx_PyObject_Append(__pyx_t_2, __pyx_t_3); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_6 = __Pyx_PyObject_Append(__pyx_t_1, __pyx_t_3); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "pmercury/protocols/tls.pyx":19
+  /* "pmercury/protocols/tls.pyx":17
  * sys.path.append(os.path.dirname(os.path.abspath(__file__)))
  * sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
  * from pmercury.protocols.protocol import Protocol             # <<<<<<<<<<<<<<
  * from pmercury.utils.tls_utils import *
  * from pmercury.utils.tls_constants import *
  */
-  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_n_s_Protocol);
   __Pyx_GIVEREF(__pyx_n_s_Protocol);
   PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_s_Protocol);
-  __pyx_t_2 = __Pyx_Import(__pyx_n_s_pmercury_protocols_protocol, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_1 = __Pyx_Import(__pyx_n_s_pmercury_protocols_protocol, __pyx_t_3, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_Protocol); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_1, __pyx_n_s_Protocol); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_Protocol, __pyx_t_3) < 0) __PYX_ERR(0, 19, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_Protocol, __pyx_t_3) < 0) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":20
+  /* "pmercury/protocols/tls.pyx":18
  * sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
  * from pmercury.protocols.protocol import Protocol
  * from pmercury.utils.tls_utils import *             # <<<<<<<<<<<<<<
  * from pmercury.utils.tls_constants import *
  * from pmercury.utils.pmercury_utils import *
  */
-  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_n_s__7);
   __Pyx_GIVEREF(__pyx_n_s__7);
-  PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s__7);
-  __pyx_t_3 = __Pyx_Import(__pyx_n_s_pmercury_utils_tls_utils, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 20, __pyx_L1_error)
+  PyList_SET_ITEM(__pyx_t_1, 0, __pyx_n_s__7);
+  __pyx_t_3 = __Pyx_Import(__pyx_n_s_pmercury_utils_tls_utils, __pyx_t_1, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__pyx_import_star(__pyx_t_3) < 0) __PYX_ERR(0, 20, __pyx_L1_error);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_import_star(__pyx_t_3) < 0) __PYX_ERR(0, 18, __pyx_L1_error);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "pmercury/protocols/tls.pyx":21
+  /* "pmercury/protocols/tls.pyx":19
  * from pmercury.protocols.protocol import Protocol
  * from pmercury.utils.tls_utils import *
  * from pmercury.utils.tls_constants import *             # <<<<<<<<<<<<<<
  * from pmercury.utils.pmercury_utils import *
  * from pmercury.utils.contextual_info import *
  */
-  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_n_s__7);
   __Pyx_GIVEREF(__pyx_n_s__7);
   PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_s__7);
-  __pyx_t_2 = __Pyx_Import(__pyx_n_s_pmercury_utils_tls_constants, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_1 = __Pyx_Import(__pyx_n_s_pmercury_utils_tls_constants, __pyx_t_3, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__pyx_import_star(__pyx_t_2) < 0) __PYX_ERR(0, 21, __pyx_L1_error);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (__pyx_import_star(__pyx_t_1) < 0) __PYX_ERR(0, 19, __pyx_L1_error);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":22
+  /* "pmercury/protocols/tls.pyx":20
  * from pmercury.utils.tls_utils import *
  * from pmercury.utils.tls_constants import *
  * from pmercury.utils.pmercury_utils import *             # <<<<<<<<<<<<<<
  * from pmercury.utils.contextual_info import *
  * from pmercury.utils.sequence_alignment import *
  */
-  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 22, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_n_s__7);
   __Pyx_GIVEREF(__pyx_n_s__7);
-  PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s__7);
-  __pyx_t_3 = __Pyx_Import(__pyx_n_s_pmercury_utils_pmercury_utils, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
+  PyList_SET_ITEM(__pyx_t_1, 0, __pyx_n_s__7);
+  __pyx_t_3 = __Pyx_Import(__pyx_n_s_pmercury_utils_pmercury_utils, __pyx_t_1, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 20, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__pyx_import_star(__pyx_t_3) < 0) __PYX_ERR(0, 22, __pyx_L1_error);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_import_star(__pyx_t_3) < 0) __PYX_ERR(0, 20, __pyx_L1_error);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "pmercury/protocols/tls.pyx":23
+  /* "pmercury/protocols/tls.pyx":21
  * from pmercury.utils.tls_constants import *
  * from pmercury.utils.pmercury_utils import *
  * from pmercury.utils.contextual_info import *             # <<<<<<<<<<<<<<
  * from pmercury.utils.sequence_alignment import *
  * 
  */
-  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_n_s__7);
   __Pyx_GIVEREF(__pyx_n_s__7);
   PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_s__7);
-  __pyx_t_2 = __Pyx_Import(__pyx_n_s_pmercury_utils_contextual_info, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 23, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_1 = __Pyx_Import(__pyx_n_s_pmercury_utils_contextual_info, __pyx_t_3, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__pyx_import_star(__pyx_t_2) < 0) __PYX_ERR(0, 23, __pyx_L1_error);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (__pyx_import_star(__pyx_t_1) < 0) __PYX_ERR(0, 21, __pyx_L1_error);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":24
+  /* "pmercury/protocols/tls.pyx":22
  * from pmercury.utils.pmercury_utils import *
  * from pmercury.utils.contextual_info import *
  * from pmercury.utils.sequence_alignment import *             # <<<<<<<<<<<<<<
  * 
- * MAX_CACHED_RESULTS = 2**24
+ * from libc.math cimport exp, log, fmax
  */
-  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 24, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 22, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_n_s__7);
   __Pyx_GIVEREF(__pyx_n_s__7);
-  PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s__7);
-  __pyx_t_3 = __Pyx_Import(__pyx_n_s_pmercury_utils_sequence_alignmen, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 24, __pyx_L1_error)
+  PyList_SET_ITEM(__pyx_t_1, 0, __pyx_n_s__7);
+  __pyx_t_3 = __Pyx_Import(__pyx_n_s_pmercury_utils_sequence_alignmen, __pyx_t_1, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__pyx_import_star(__pyx_t_3) < 0) __PYX_ERR(0, 24, __pyx_L1_error);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_import_star(__pyx_t_3) < 0) __PYX_ERR(0, 22, __pyx_L1_error);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "pmercury/protocols/tls.pyx":26
- * from pmercury.utils.sequence_alignment import *
+ * from libc.math cimport exp, log, fmax
  * 
  * MAX_CACHED_RESULTS = 2**24             # <<<<<<<<<<<<<<
  * 
@@ -10514,388 +10524,291 @@ if (!__Pyx_RefNanny) {
  */
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_MAX_CACHED_RESULTS, __pyx_int_16777216) < 0) __PYX_ERR(0, 26, __pyx_L1_error)
 
-  /* "pmercury/protocols/tls.pyx":29
- * 
- * 
- * class TLS(Protocol):             # <<<<<<<<<<<<<<
- * 
- *     def __init__(self, fp_database=None, config=None):
- */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_Protocol); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GIVEREF(__pyx_t_3);
-  PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3);
-  __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_Py3MetaclassPrepare(__pyx_t_3, __pyx_t_2, __pyx_n_s_TLS, __pyx_n_s_TLS, (PyObject *) NULL, __pyx_n_s_pmercury_protocols_tls, (PyObject *) NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-
-  /* "pmercury/protocols/tls.pyx":31
- * class TLS(Protocol):
- * 
- *     def __init__(self, fp_database=None, config=None):             # <<<<<<<<<<<<<<
- *         # cached data/results
- *         self.tls_params_db = {}
- */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_1__init__, 0, __pyx_n_s_TLS___init, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__9)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__10);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_init, __pyx_t_4) < 0) __PYX_ERR(0, 31, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "pmercury/protocols/tls.pyx":53
- * 
- * 
- *     def load_database(self, fp_database):             # <<<<<<<<<<<<<<
- *         for line in os.popen('zcat %s' % (fp_database)):
- *             fp_ = json.loads(line)
- */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_3load_database, 0, __pyx_n_s_TLS_load_database, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__12)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 53, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_load_database, __pyx_t_4) < 0) __PYX_ERR(0, 53, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "pmercury/protocols/tls.pyx":62
+  /* "pmercury/protocols/tls.pyx":70
  * 
  *     @staticmethod
  *     def proto_identify(data, offset, data_len):             # <<<<<<<<<<<<<<
  *         if data_len-offset < 16:
  *             return False
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_5proto_identify, __Pyx_CYFUNCTION_STATICMETHOD, __pyx_n_s_TLS_proto_identify, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__14)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 62, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_3 = PyCFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_5proto_identify, NULL, __pyx_n_s_pmercury_protocols_tls); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem((PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS->tp_dict, __pyx_n_s_proto_identify, __pyx_t_3) < 0) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  PyType_Modified(__pyx_ptype_8pmercury_9protocols_3tls_TLS);
 
-  /* "pmercury/protocols/tls.pyx":61
+  /* "pmercury/protocols/tls.pyx":69
  * 
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
  *     def proto_identify(data, offset, data_len):
  *         if data_len-offset < 16:
  */
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_staticmethod, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 61, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_proto_identify, __pyx_t_5) < 0) __PYX_ERR(0, 62, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS, __pyx_n_s_proto_identify); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_builtin_staticmethod, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (PyDict_SetItem((PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS->tp_dict, __pyx_n_s_proto_identify, __pyx_t_1) < 0) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  PyType_Modified(__pyx_ptype_8pmercury_9protocols_3tls_TLS);
 
-  /* "pmercury/protocols/tls.pyx":76
+  /* "pmercury/protocols/tls.pyx":84
  * 
  *     @staticmethod
  *     def fingerprint(bytes data, unsigned int offset, unsigned int data_len):             # <<<<<<<<<<<<<<
  *         cdef unsigned char *buf = data
  *         offset += 5
  */
-  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_7fingerprint, __Pyx_CYFUNCTION_STATICMETHOD, __pyx_n_s_TLS_fingerprint, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 76, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_7fingerprint, NULL, __pyx_n_s_pmercury_protocols_tls); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (PyDict_SetItem((PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS->tp_dict, __pyx_n_s_fingerprint, __pyx_t_1) < 0) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  PyType_Modified(__pyx_ptype_8pmercury_9protocols_3tls_TLS);
 
-  /* "pmercury/protocols/tls.pyx":75
+  /* "pmercury/protocols/tls.pyx":83
  * 
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
  *     def fingerprint(bytes data, unsigned int offset, unsigned int data_len):
  *         cdef unsigned char *buf = data
  */
-  __pyx_t_4 = __Pyx_PyObject_CallOneArg(__pyx_builtin_staticmethod, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 75, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_fingerprint, __pyx_t_4) < 0) __PYX_ERR(0, 76, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __Pyx_GetNameInClass(__pyx_t_1, (PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS, __pyx_n_s_fingerprint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_staticmethod, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (PyDict_SetItem((PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS->tp_dict, __pyx_n_s_fingerprint, __pyx_t_3) < 0) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  PyType_Modified(__pyx_ptype_8pmercury_9protocols_3tls_TLS);
 
-  /* "pmercury/protocols/tls.pyx":143
- * 
- * 
- *     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):             # <<<<<<<<<<<<<<
- *         server_name = None
- *         # extract server_name field from context object
- */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_9proc_identify, 0, __pyx_n_s_TLS_proc_identify, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 143, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__19);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_proc_identify, __pyx_t_4) < 0) __PYX_ERR(0, 143, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "pmercury/protocols/tls.pyx":172
+  /* "pmercury/protocols/tls.pyx":177
  * 
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)             # <<<<<<<<<<<<<<
  *     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):
  *         fp_ = self.get_database_entry(fp_str_, None)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_functools); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 172, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_lru_cache); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 172, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 172, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_MAX_CACHED_RESULTS); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 172, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_maxsize, __pyx_t_8) < 0) __PYX_ERR(0, 172, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_empty_tuple, __pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 172, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_functools); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_lru_cache); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_MAX_CACHED_RESULTS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_maxsize, __pyx_t_4) < 0) __PYX_ERR(0, 177, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":173
+  /* "pmercury/protocols/tls.pyx":178
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):             # <<<<<<<<<<<<<<
  *         fp_ = self.get_database_entry(fp_str_, None)
  *         if fp_ == None:
  */
-  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_11identify, 0, __pyx_n_s_TLS_identify, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__21)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 173, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_tuple__22);
-  __pyx_t_7 = NULL;
-  if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_8))) {
-    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_8);
-    if (likely(__pyx_t_7)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_8);
-      __Pyx_INCREF(__pyx_t_7);
+  __Pyx_GetNameInClass(__pyx_t_1, (PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS, __pyx_n_s_identify); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = NULL;
+  if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_4))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_4);
+    if (likely(__pyx_t_2)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
+      __Pyx_INCREF(__pyx_t_2);
       __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_8, function);
+      __Pyx_DECREF_SET(__pyx_t_4, function);
     }
   }
-  __pyx_t_4 = (__pyx_t_7) ? __Pyx_PyObject_Call2Args(__pyx_t_8, __pyx_t_7, __pyx_t_5) : __Pyx_PyObject_CallOneArg(__pyx_t_8, __pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 172, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_identify, __pyx_t_4) < 0) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_3 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_2, __pyx_t_1) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem((PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS->tp_dict, __pyx_n_s_identify, __pyx_t_3) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  PyType_Modified(__pyx_ptype_8pmercury_9protocols_3tls_TLS);
 
-  /* "pmercury/protocols/tls.pyx":230
- * 
- * 
- *     def compute_score(self, features, p_, fp_tc_):             # <<<<<<<<<<<<<<
- *         p_count = p_['count']
- *         prob_process_given_fp = log(p_count/fp_tc_)
- */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_13compute_score, 0, __pyx_n_s_TLS_compute_score, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 230, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_compute_score, __pyx_t_4) < 0) __PYX_ERR(0, 230, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "pmercury/protocols/tls.pyx":263
+  /* "pmercury/protocols/tls.pyx":268
  * 
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)             # <<<<<<<<<<<<<<
  *     def get_database_entry(self, fp_str, approx_fp_str):
  *         fp_str_ = fp_str
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_functools); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 263, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_lru_cache); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 263, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_8 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 263, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_MAX_CACHED_RESULTS); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 263, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_8, __pyx_n_s_maxsize, __pyx_t_7) < 0) __PYX_ERR(0, 263, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_empty_tuple, __pyx_t_8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 263, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_functools); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_lru_cache); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_MAX_CACHED_RESULTS); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_maxsize, __pyx_t_2) < 0) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pmercury/protocols/tls.pyx":264
+  /* "pmercury/protocols/tls.pyx":269
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def get_database_entry(self, fp_str, approx_fp_str):             # <<<<<<<<<<<<<<
  *         fp_str_ = fp_str
  *         if approx_fp_str != None:
  */
-  __pyx_t_8 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_15get_database_entry, 0, __pyx_n_s_TLS_get_database_entry, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 264, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_5 = NULL;
-  if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_7))) {
-    __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_7);
-    if (likely(__pyx_t_5)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_7);
-      __Pyx_INCREF(__pyx_t_5);
+  __Pyx_GetNameInClass(__pyx_t_4, (PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS, __pyx_n_s_get_database_entry); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 269, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_1 = NULL;
+  if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
+    __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_2);
+    if (likely(__pyx_t_1)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_2);
+      __Pyx_INCREF(__pyx_t_1);
       __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_7, function);
+      __Pyx_DECREF_SET(__pyx_t_2, function);
     }
   }
-  __pyx_t_4 = (__pyx_t_5) ? __Pyx_PyObject_Call2Args(__pyx_t_7, __pyx_t_5, __pyx_t_8) : __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_t_8);
-  __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 263, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_database_entry, __pyx_t_4) < 0) __PYX_ERR(0, 264, __pyx_L1_error)
+  __pyx_t_3 = (__pyx_t_1) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_1, __pyx_t_4) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem((PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS->tp_dict, __pyx_n_s_get_database_entry, __pyx_t_3) < 0) __PYX_ERR(0, 269, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  PyType_Modified(__pyx_ptype_8pmercury_9protocols_3tls_TLS);
 
-  /* "pmercury/protocols/tls.pyx":275
+  /* "pmercury/protocols/tls.pyx":280
  * 
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)             # <<<<<<<<<<<<<<
  *     def get_approx_fingerprint(self, fp_str_):
  *         try:
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_functools); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 275, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_lru_cache); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 275, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 275, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_MAX_CACHED_RESULTS); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 275, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_maxsize, __pyx_t_5) < 0) __PYX_ERR(0, 275, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_8, __pyx_empty_tuple, __pyx_t_7); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 275, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_functools); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_lru_cache); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_MAX_CACHED_RESULTS); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_maxsize, __pyx_t_1) < 0) __PYX_ERR(0, 280, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "pmercury/protocols/tls.pyx":276
+  /* "pmercury/protocols/tls.pyx":281
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def get_approx_fingerprint(self, fp_str_):             # <<<<<<<<<<<<<<
  *         try:
  *             return self.fp_db[fp_str_]['approx_str']
  */
-  __pyx_t_7 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_17get_approx_fingerprint, 0, __pyx_n_s_TLS_get_approx_fingerprint, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 276, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = NULL;
-  if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_5))) {
-    __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_5);
-    if (likely(__pyx_t_8)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
-      __Pyx_INCREF(__pyx_t_8);
+  __Pyx_GetNameInClass(__pyx_t_2, (PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS, __pyx_n_s_get_approx_fingerprint); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 281, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_4 = NULL;
+  if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_1))) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_1);
+    if (likely(__pyx_t_4)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_1);
+      __Pyx_INCREF(__pyx_t_4);
       __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_5, function);
+      __Pyx_DECREF_SET(__pyx_t_1, function);
     }
   }
-  __pyx_t_4 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_8, __pyx_t_7) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_7);
-  __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 275, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_approx_fingerprint, __pyx_t_4) < 0) __PYX_ERR(0, 276, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_3 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_1, __pyx_t_4, __pyx_t_2) : __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (PyDict_SetItem((PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS->tp_dict, __pyx_n_s_get_approx_fingerprint, __pyx_t_3) < 0) __PYX_ERR(0, 281, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  PyType_Modified(__pyx_ptype_8pmercury_9protocols_3tls_TLS);
 
-  /* "pmercury/protocols/tls.pyx":283
- * 
- * 
- *     def find_approx_match(self, tls_features, fp_str=None, source_filter=None, key_filter=None):             # <<<<<<<<<<<<<<
- *         target_ = get_sequence(tls_features)
- *         tls_params_ = get_tls_params(tls_features)
- */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_19find_approx_match, 0, __pyx_n_s_TLS_find_approx_match, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__31)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 283, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__32);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_find_approx_match, __pyx_t_4) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "pmercury/protocols/tls.pyx":304
- * 
- * 
- *     def find_approximate_matches_set(self, tls_params, fp_str=None, source_filter=None, key_filter=None):             # <<<<<<<<<<<<<<
- *         t_scores = []
- *         p0_ = set(tls_params[0])
- */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_21find_approximate_matches_set, 0, __pyx_n_s_TLS_find_approximate_matches_set, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__34)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 304, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__35);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_find_approximate_matches_set, __pyx_t_4) < 0) __PYX_ERR(0, 304, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "pmercury/protocols/tls.pyx":329
+  /* "pmercury/protocols/tls.pyx":334
  * 
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)             # <<<<<<<<<<<<<<
  *     def gen_unknown_fingerprint(self, fp_str_):
  *         fp_ = {}
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_functools); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 329, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_lru_cache); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 329, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 329, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_MAX_CACHED_RESULTS); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 329, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_maxsize, __pyx_t_8) < 0) __PYX_ERR(0, 329, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_empty_tuple, __pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 329, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_functools); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 334, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_lru_cache); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 334, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 334, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_MAX_CACHED_RESULTS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 334, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_maxsize, __pyx_t_4) < 0) __PYX_ERR(0, 334, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 334, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/tls.pyx":330
+  /* "pmercury/protocols/tls.pyx":335
  * 
  *     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
  *     def gen_unknown_fingerprint(self, fp_str_):             # <<<<<<<<<<<<<<
  *         fp_ = {}
  *         fp_['str_repr'] = fp_str_
  */
-  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_23gen_unknown_fingerprint, 0, __pyx_n_s_TLS_gen_unknown_fingerprint, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__37)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 330, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_7 = NULL;
-  if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_8))) {
-    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_8);
-    if (likely(__pyx_t_7)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_8);
-      __Pyx_INCREF(__pyx_t_7);
+  __Pyx_GetNameInClass(__pyx_t_1, (PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS, __pyx_n_s_gen_unknown_fingerprint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 335, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = NULL;
+  if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_4))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_4);
+    if (likely(__pyx_t_2)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
+      __Pyx_INCREF(__pyx_t_2);
       __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_8, function);
+      __Pyx_DECREF_SET(__pyx_t_4, function);
     }
   }
-  __pyx_t_4 = (__pyx_t_7) ? __Pyx_PyObject_Call2Args(__pyx_t_8, __pyx_t_7, __pyx_t_5) : __Pyx_PyObject_CallOneArg(__pyx_t_8, __pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 329, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_gen_unknown_fingerprint, __pyx_t_4) < 0) __PYX_ERR(0, 330, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "pmercury/protocols/tls.pyx":348
- * 
- * 
- *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
- *         lit_fp = eval_fp_str(fp_str_)
- *         fp_h = {}
- */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_3TLS_25get_human_readable, 0, __pyx_n_s_TLS_get_human_readable, NULL, __pyx_n_s_pmercury_protocols_tls, __pyx_d, ((PyObject *)__pyx_codeobj__39)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 348, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_human_readable, __pyx_t_4) < 0) __PYX_ERR(0, 348, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "pmercury/protocols/tls.pyx":29
- * 
- * 
- * class TLS(Protocol):             # <<<<<<<<<<<<<<
- * 
- *     def __init__(self, fp_database=None, config=None):
- */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_3, __pyx_n_s_TLS, __pyx_t_2, __pyx_t_1, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_TLS, __pyx_t_4) < 0) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_3 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_2, __pyx_t_1) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 334, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem((PyObject *)__pyx_ptype_8pmercury_9protocols_3tls_TLS->tp_dict, __pyx_n_s_gen_unknown_fingerprint, __pyx_t_3) < 0) __PYX_ERR(0, 335, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  PyType_Modified(__pyx_ptype_8pmercury_9protocols_3tls_TLS);
+
+  /* "(tree fragment)":1
+ * def __pyx_unpickle_TLS(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
+ *     cdef object __pyx_PickleError
+ *     cdef object __pyx_result
+ */
+  __pyx_t_3 = PyCFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tls_1__pyx_unpickle_TLS, NULL, __pyx_n_s_pmercury_protocols_tls); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_TLS, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "pmercury/protocols/tls.pyx":1
- * #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False             # <<<<<<<<<<<<<<
+ * #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False             # <<<<<<<<<<<<<<
  * 
  * """
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test_2, __pyx_t_2) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test, __pyx_t_3) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /*--- Wrapped vars code ---*/
 
@@ -10906,8 +10819,6 @@ if (!__Pyx_RefNanny) {
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_7);
-  __Pyx_XDECREF(__pyx_t_8);
   if (__pyx_m) {
     if (__pyx_d) {
       __Pyx_AddTraceback("init pmercury.protocols.tls", __pyx_clineno, __pyx_lineno, __pyx_filename);
@@ -11114,20 +11025,6 @@ static void __Pyx_RaiseArgtupleInvalid(
                  func_name, more_or_less, num_expected,
                  (num_expected == 1) ? "" : "s", num_found);
 }
-
-/* PyObjectSetAttrStr */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE int __Pyx_PyObject_SetAttrStr(PyObject* obj, PyObject* attr_name, PyObject* value) {
-    PyTypeObject* tp = Py_TYPE(obj);
-    if (likely(tp->tp_setattro))
-        return tp->tp_setattro(obj, attr_name, value);
-#if PY_MAJOR_VERSION < 3
-    if (likely(tp->tp_setattr))
-        return tp->tp_setattr(obj, PyString_AS_STRING(attr_name), value);
-#endif
-    return PyObject_SetAttr(obj, attr_name, value);
-}
-#endif
 
 /* BytesEquals */
 static CYTHON_INLINE int __Pyx_PyBytes_Equals(PyObject* s1, PyObject* s2, int equals) {
@@ -11699,6 +11596,27 @@ static CYTHON_INLINE PyObject *__Pyx_GetItemInt_Fast(PyObject *o, Py_ssize_t i, 
     return __Pyx_GetItemInt_Generic(o, PyInt_FromSsize_t(i));
 }
 
+/* ArgTypeTest */
+static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact)
+{
+    if (unlikely(!type)) {
+        PyErr_SetString(PyExc_SystemError, "Missing type object");
+        return 0;
+    }
+    else if (exact) {
+        #if PY_MAJOR_VERSION == 2
+        if ((type == &PyBaseString_Type) && likely(__Pyx_PyBaseString_CheckExact(obj))) return 1;
+        #endif
+    }
+    else {
+        if (likely(__Pyx_TypeCheck(obj, type))) return 1;
+    }
+    PyErr_Format(PyExc_TypeError,
+        "Argument '%.200s' has incorrect type (expected %.200s, got %.200s)",
+        name, type->tp_name, Py_TYPE(obj)->tp_name);
+    return 0;
+}
+
 /* DictGetItem */
 #if PY_MAJOR_VERSION >= 3 && !CYTHON_COMPILING_IN_PYPY
 static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key) {
@@ -11727,35 +11645,6 @@ static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key) {
 static CYTHON_INLINE void __Pyx_RaiseUnboundLocalError(const char *varname) {
     PyErr_Format(PyExc_UnboundLocalError, "local variable '%s' referenced before assignment", varname);
 }
-
-/* ObjectGetItem */
-#if CYTHON_USE_TYPE_SLOTS
-static PyObject *__Pyx_PyObject_GetIndex(PyObject *obj, PyObject* index) {
-    PyObject *runerr;
-    Py_ssize_t key_value;
-    PySequenceMethods *m = Py_TYPE(obj)->tp_as_sequence;
-    if (unlikely(!(m && m->sq_item))) {
-        PyErr_Format(PyExc_TypeError, "'%.200s' object is not subscriptable", Py_TYPE(obj)->tp_name);
-        return NULL;
-    }
-    key_value = __Pyx_PyIndex_AsSsize_t(index);
-    if (likely(key_value != -1 || !(runerr = PyErr_Occurred()))) {
-        return __Pyx_GetItemInt_Fast(obj, key_value, 0, 1, 1);
-    }
-    if (PyErr_GivenExceptionMatches(runerr, PyExc_OverflowError)) {
-        PyErr_Clear();
-        PyErr_Format(PyExc_IndexError, "cannot fit '%.200s' into an index-sized integer", Py_TYPE(index)->tp_name);
-    }
-    return NULL;
-}
-static PyObject *__Pyx_PyObject_GetItem(PyObject *obj, PyObject* key) {
-    PyMappingMethods *m = Py_TYPE(obj)->tp_as_mapping;
-    if (likely(m && m->mp_subscript)) {
-        return m->mp_subscript(obj, key);
-    }
-    return __Pyx_PyObject_GetIndex(obj, key);
-}
-#endif
 
 /* PyIntCompare */
 static CYTHON_INLINE PyObject* __Pyx_PyInt_EqObjC(PyObject *op1, PyObject *op2, CYTHON_UNUSED long intval, CYTHON_UNUSED long inplace) {
@@ -11823,6 +11712,35 @@ static CYTHON_INLINE PyObject* __Pyx_PyInt_EqObjC(PyObject *op1, PyObject *op2, 
     return (
         PyObject_RichCompare(op1, op2, Py_EQ));
 }
+
+/* ObjectGetItem */
+#if CYTHON_USE_TYPE_SLOTS
+static PyObject *__Pyx_PyObject_GetIndex(PyObject *obj, PyObject* index) {
+    PyObject *runerr;
+    Py_ssize_t key_value;
+    PySequenceMethods *m = Py_TYPE(obj)->tp_as_sequence;
+    if (unlikely(!(m && m->sq_item))) {
+        PyErr_Format(PyExc_TypeError, "'%.200s' object is not subscriptable", Py_TYPE(obj)->tp_name);
+        return NULL;
+    }
+    key_value = __Pyx_PyIndex_AsSsize_t(index);
+    if (likely(key_value != -1 || !(runerr = PyErr_Occurred()))) {
+        return __Pyx_GetItemInt_Fast(obj, key_value, 0, 1, 1);
+    }
+    if (PyErr_GivenExceptionMatches(runerr, PyExc_OverflowError)) {
+        PyErr_Clear();
+        PyErr_Format(PyExc_IndexError, "cannot fit '%.200s' into an index-sized integer", Py_TYPE(index)->tp_name);
+    }
+    return NULL;
+}
+static PyObject *__Pyx_PyObject_GetItem(PyObject *obj, PyObject* key) {
+    PyMappingMethods *m = Py_TYPE(obj)->tp_as_mapping;
+    if (likely(m && m->mp_subscript)) {
+        return m->mp_subscript(obj, key);
+    }
+    return __Pyx_PyObject_GetIndex(obj, key);
+}
+#endif
 
 /* PyIntBinop */
 #if !CYTHON_COMPILING_IN_PYPY
@@ -11947,27 +11865,6 @@ static PyObject* __Pyx_PyInt_AddObjC(PyObject *op1, PyObject *op2, CYTHON_UNUSED
     return (inplace ? PyNumber_InPlaceAdd : PyNumber_Add)(op1, op2);
 }
 #endif
-
-/* ArgTypeTest */
-static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact)
-{
-    if (unlikely(!type)) {
-        PyErr_SetString(PyExc_SystemError, "Missing type object");
-        return 0;
-    }
-    else if (exact) {
-        #if PY_MAJOR_VERSION == 2
-        if ((type == &PyBaseString_Type) && likely(__Pyx_PyBaseString_CheckExact(obj))) return 1;
-        #endif
-    }
-    else {
-        if (likely(__Pyx_TypeCheck(obj, type))) return 1;
-    }
-    PyErr_Format(PyExc_TypeError,
-        "Argument '%.200s' has incorrect type (expected %.200s, got %.200s)",
-        name, type->tp_name, Py_TYPE(obj)->tp_name);
-    return 0;
-}
 
 /* RaiseTooManyValuesToUnpack */
 static CYTHON_INLINE void __Pyx_RaiseTooManyValuesError(Py_ssize_t expected) {
@@ -13039,6 +12936,58 @@ static CYTHON_INLINE PyObject* __Pyx_PyTuple_GetSlice(
 }
 #endif
 
+/* PyErrFetchRestore */
+    #if CYTHON_FAST_THREAD_STATE
+static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
+    PyObject *tmp_type, *tmp_value, *tmp_tb;
+    tmp_type = tstate->curexc_type;
+    tmp_value = tstate->curexc_value;
+    tmp_tb = tstate->curexc_traceback;
+    tstate->curexc_type = type;
+    tstate->curexc_value = value;
+    tstate->curexc_traceback = tb;
+    Py_XDECREF(tmp_type);
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(tmp_tb);
+}
+static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
+    *type = tstate->curexc_type;
+    *value = tstate->curexc_value;
+    *tb = tstate->curexc_traceback;
+    tstate->curexc_type = 0;
+    tstate->curexc_value = 0;
+    tstate->curexc_traceback = 0;
+}
+#endif
+
+/* GetAttr */
+    static CYTHON_INLINE PyObject *__Pyx_GetAttr(PyObject *o, PyObject *n) {
+#if CYTHON_USE_TYPE_SLOTS
+#if PY_MAJOR_VERSION >= 3
+    if (likely(PyUnicode_Check(n)))
+#else
+    if (likely(PyString_Check(n)))
+#endif
+        return __Pyx_PyObject_GetAttrStr(o, n);
+#endif
+    return PyObject_GetAttr(o, n);
+}
+
+/* GetAttr3 */
+    static PyObject *__Pyx_GetAttr3Default(PyObject *d) {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    if (unlikely(!__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
+        return NULL;
+    __Pyx_PyErr_Clear();
+    Py_INCREF(d);
+    return d;
+}
+static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *o, PyObject *n, PyObject *d) {
+    PyObject *r = __Pyx_GetAttr(o, n);
+    return (likely(r)) ? r : __Pyx_GetAttr3Default(d);
+}
+
 /* Import */
     static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level) {
     PyObject *empty_list = 0;
@@ -13118,6 +13067,309 @@ bad:
     return value;
 }
 
+/* RaiseException */
+    #if PY_MAJOR_VERSION < 3
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb,
+                        CYTHON_UNUSED PyObject *cause) {
+    __Pyx_PyThreadState_declare
+    Py_XINCREF(type);
+    if (!value || value == Py_None)
+        value = NULL;
+    else
+        Py_INCREF(value);
+    if (!tb || tb == Py_None)
+        tb = NULL;
+    else {
+        Py_INCREF(tb);
+        if (!PyTraceBack_Check(tb)) {
+            PyErr_SetString(PyExc_TypeError,
+                "raise: arg 3 must be a traceback or None");
+            goto raise_error;
+        }
+    }
+    if (PyType_Check(type)) {
+#if CYTHON_COMPILING_IN_PYPY
+        if (!value) {
+            Py_INCREF(Py_None);
+            value = Py_None;
+        }
+#endif
+        PyErr_NormalizeException(&type, &value, &tb);
+    } else {
+        if (value) {
+            PyErr_SetString(PyExc_TypeError,
+                "instance exception may not have a separate value");
+            goto raise_error;
+        }
+        value = type;
+        type = (PyObject*) Py_TYPE(type);
+        Py_INCREF(type);
+        if (!PyType_IsSubtype((PyTypeObject *)type, (PyTypeObject *)PyExc_BaseException)) {
+            PyErr_SetString(PyExc_TypeError,
+                "raise: exception class must be a subclass of BaseException");
+            goto raise_error;
+        }
+    }
+    __Pyx_PyThreadState_assign
+    __Pyx_ErrRestore(type, value, tb);
+    return;
+raise_error:
+    Py_XDECREF(value);
+    Py_XDECREF(type);
+    Py_XDECREF(tb);
+    return;
+}
+#else
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause) {
+    PyObject* owned_instance = NULL;
+    if (tb == Py_None) {
+        tb = 0;
+    } else if (tb && !PyTraceBack_Check(tb)) {
+        PyErr_SetString(PyExc_TypeError,
+            "raise: arg 3 must be a traceback or None");
+        goto bad;
+    }
+    if (value == Py_None)
+        value = 0;
+    if (PyExceptionInstance_Check(type)) {
+        if (value) {
+            PyErr_SetString(PyExc_TypeError,
+                "instance exception may not have a separate value");
+            goto bad;
+        }
+        value = type;
+        type = (PyObject*) Py_TYPE(value);
+    } else if (PyExceptionClass_Check(type)) {
+        PyObject *instance_class = NULL;
+        if (value && PyExceptionInstance_Check(value)) {
+            instance_class = (PyObject*) Py_TYPE(value);
+            if (instance_class != type) {
+                int is_subclass = PyObject_IsSubclass(instance_class, type);
+                if (!is_subclass) {
+                    instance_class = NULL;
+                } else if (unlikely(is_subclass == -1)) {
+                    goto bad;
+                } else {
+                    type = instance_class;
+                }
+            }
+        }
+        if (!instance_class) {
+            PyObject *args;
+            if (!value)
+                args = PyTuple_New(0);
+            else if (PyTuple_Check(value)) {
+                Py_INCREF(value);
+                args = value;
+            } else
+                args = PyTuple_Pack(1, value);
+            if (!args)
+                goto bad;
+            owned_instance = PyObject_Call(type, args, NULL);
+            Py_DECREF(args);
+            if (!owned_instance)
+                goto bad;
+            value = owned_instance;
+            if (!PyExceptionInstance_Check(value)) {
+                PyErr_Format(PyExc_TypeError,
+                             "calling %R should have returned an instance of "
+                             "BaseException, not %R",
+                             type, Py_TYPE(value));
+                goto bad;
+            }
+        }
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+            "raise: exception class must be a subclass of BaseException");
+        goto bad;
+    }
+    if (cause) {
+        PyObject *fixed_cause;
+        if (cause == Py_None) {
+            fixed_cause = NULL;
+        } else if (PyExceptionClass_Check(cause)) {
+            fixed_cause = PyObject_CallObject(cause, NULL);
+            if (fixed_cause == NULL)
+                goto bad;
+        } else if (PyExceptionInstance_Check(cause)) {
+            fixed_cause = cause;
+            Py_INCREF(fixed_cause);
+        } else {
+            PyErr_SetString(PyExc_TypeError,
+                            "exception causes must derive from "
+                            "BaseException");
+            goto bad;
+        }
+        PyException_SetCause(value, fixed_cause);
+    }
+    PyErr_SetObject(type, value);
+    if (tb) {
+#if CYTHON_COMPILING_IN_PYPY
+        PyObject *tmp_type, *tmp_value, *tmp_tb;
+        PyErr_Fetch(&tmp_type, &tmp_value, &tmp_tb);
+        Py_INCREF(tb);
+        PyErr_Restore(tmp_type, tmp_value, tb);
+        Py_XDECREF(tmp_tb);
+#else
+        PyThreadState *tstate = __Pyx_PyThreadState_Current;
+        PyObject* tmp_tb = tstate->curexc_traceback;
+        if (tb != tmp_tb) {
+            Py_INCREF(tb);
+            tstate->curexc_traceback = tb;
+            Py_XDECREF(tmp_tb);
+        }
+#endif
+    }
+bad:
+    Py_XDECREF(owned_instance);
+    return;
+}
+#endif
+
+/* HasAttr */
+    static CYTHON_INLINE int __Pyx_HasAttr(PyObject *o, PyObject *n) {
+    PyObject *r;
+    if (unlikely(!__Pyx_PyBaseString_Check(n))) {
+        PyErr_SetString(PyExc_TypeError,
+                        "hasattr(): attribute name must be string");
+        return -1;
+    }
+    r = __Pyx_GetAttr(o, n);
+    if (unlikely(!r)) {
+        PyErr_Clear();
+        return 0;
+    } else {
+        Py_DECREF(r);
+        return 1;
+    }
+}
+
+/* PyObject_GenericGetAttrNoDict */
+    #if CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP && PY_VERSION_HEX < 0x03070000
+static PyObject *__Pyx_RaiseGenericGetAttributeError(PyTypeObject *tp, PyObject *attr_name) {
+    PyErr_Format(PyExc_AttributeError,
+#if PY_MAJOR_VERSION >= 3
+                 "'%.50s' object has no attribute '%U'",
+                 tp->tp_name, attr_name);
+#else
+                 "'%.50s' object has no attribute '%.400s'",
+                 tp->tp_name, PyString_AS_STRING(attr_name));
+#endif
+    return NULL;
+}
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GenericGetAttrNoDict(PyObject* obj, PyObject* attr_name) {
+    PyObject *descr;
+    PyTypeObject *tp = Py_TYPE(obj);
+    if (unlikely(!PyString_Check(attr_name))) {
+        return PyObject_GenericGetAttr(obj, attr_name);
+    }
+    assert(!tp->tp_dictoffset);
+    descr = _PyType_Lookup(tp, attr_name);
+    if (unlikely(!descr)) {
+        return __Pyx_RaiseGenericGetAttributeError(tp, attr_name);
+    }
+    Py_INCREF(descr);
+    #if PY_MAJOR_VERSION < 3
+    if (likely(PyType_HasFeature(Py_TYPE(descr), Py_TPFLAGS_HAVE_CLASS)))
+    #endif
+    {
+        descrgetfunc f = Py_TYPE(descr)->tp_descr_get;
+        if (unlikely(f)) {
+            PyObject *res = f(descr, obj, (PyObject *)tp);
+            Py_DECREF(descr);
+            return res;
+        }
+    }
+    return descr;
+}
+#endif
+
+/* PyObject_GenericGetAttr */
+    #if CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP && PY_VERSION_HEX < 0x03070000
+static PyObject* __Pyx_PyObject_GenericGetAttr(PyObject* obj, PyObject* attr_name) {
+    if (unlikely(Py_TYPE(obj)->tp_dictoffset)) {
+        return PyObject_GenericGetAttr(obj, attr_name);
+    }
+    return __Pyx_PyObject_GenericGetAttrNoDict(obj, attr_name);
+}
+#endif
+
+/* SetupReduce */
+    static int __Pyx_setup_reduce_is_named(PyObject* meth, PyObject* name) {
+  int ret;
+  PyObject *name_attr;
+  name_attr = __Pyx_PyObject_GetAttrStr(meth, __pyx_n_s_name_2);
+  if (likely(name_attr)) {
+      ret = PyObject_RichCompareBool(name_attr, name, Py_EQ);
+  } else {
+      ret = -1;
+  }
+  if (unlikely(ret < 0)) {
+      PyErr_Clear();
+      ret = 0;
+  }
+  Py_XDECREF(name_attr);
+  return ret;
+}
+static int __Pyx_setup_reduce(PyObject* type_obj) {
+    int ret = 0;
+    PyObject *object_reduce = NULL;
+    PyObject *object_reduce_ex = NULL;
+    PyObject *reduce = NULL;
+    PyObject *reduce_ex = NULL;
+    PyObject *reduce_cython = NULL;
+    PyObject *setstate = NULL;
+    PyObject *setstate_cython = NULL;
+#if CYTHON_USE_PYTYPE_LOOKUP
+    if (_PyType_Lookup((PyTypeObject*)type_obj, __pyx_n_s_getstate)) goto GOOD;
+#else
+    if (PyObject_HasAttr(type_obj, __pyx_n_s_getstate)) goto GOOD;
+#endif
+#if CYTHON_USE_PYTYPE_LOOKUP
+    object_reduce_ex = _PyType_Lookup(&PyBaseObject_Type, __pyx_n_s_reduce_ex); if (!object_reduce_ex) goto BAD;
+#else
+    object_reduce_ex = __Pyx_PyObject_GetAttrStr((PyObject*)&PyBaseObject_Type, __pyx_n_s_reduce_ex); if (!object_reduce_ex) goto BAD;
+#endif
+    reduce_ex = __Pyx_PyObject_GetAttrStr(type_obj, __pyx_n_s_reduce_ex); if (unlikely(!reduce_ex)) goto BAD;
+    if (reduce_ex == object_reduce_ex) {
+#if CYTHON_USE_PYTYPE_LOOKUP
+        object_reduce = _PyType_Lookup(&PyBaseObject_Type, __pyx_n_s_reduce); if (!object_reduce) goto BAD;
+#else
+        object_reduce = __Pyx_PyObject_GetAttrStr((PyObject*)&PyBaseObject_Type, __pyx_n_s_reduce); if (!object_reduce) goto BAD;
+#endif
+        reduce = __Pyx_PyObject_GetAttrStr(type_obj, __pyx_n_s_reduce); if (unlikely(!reduce)) goto BAD;
+        if (reduce == object_reduce || __Pyx_setup_reduce_is_named(reduce, __pyx_n_s_reduce_cython)) {
+            reduce_cython = __Pyx_PyObject_GetAttrStr(type_obj, __pyx_n_s_reduce_cython); if (unlikely(!reduce_cython)) goto BAD;
+            ret = PyDict_SetItem(((PyTypeObject*)type_obj)->tp_dict, __pyx_n_s_reduce, reduce_cython); if (unlikely(ret < 0)) goto BAD;
+            ret = PyDict_DelItem(((PyTypeObject*)type_obj)->tp_dict, __pyx_n_s_reduce_cython); if (unlikely(ret < 0)) goto BAD;
+            setstate = __Pyx_PyObject_GetAttrStr(type_obj, __pyx_n_s_setstate);
+            if (!setstate) PyErr_Clear();
+            if (!setstate || __Pyx_setup_reduce_is_named(setstate, __pyx_n_s_setstate_cython)) {
+                setstate_cython = __Pyx_PyObject_GetAttrStr(type_obj, __pyx_n_s_setstate_cython); if (unlikely(!setstate_cython)) goto BAD;
+                ret = PyDict_SetItem(((PyTypeObject*)type_obj)->tp_dict, __pyx_n_s_setstate, setstate_cython); if (unlikely(ret < 0)) goto BAD;
+                ret = PyDict_DelItem(((PyTypeObject*)type_obj)->tp_dict, __pyx_n_s_setstate_cython); if (unlikely(ret < 0)) goto BAD;
+            }
+            PyType_Modified((PyTypeObject*)type_obj);
+        }
+    }
+    goto GOOD;
+BAD:
+    if (!PyErr_Occurred())
+        PyErr_Format(PyExc_RuntimeError, "Unable to initialize pickling for %s", ((PyTypeObject*)type_obj)->tp_name);
+    ret = -1;
+GOOD:
+#if !CYTHON_USE_PYTYPE_LOOKUP
+    Py_XDECREF(object_reduce);
+    Py_XDECREF(object_reduce_ex);
+#endif
+    Py_XDECREF(reduce);
+    Py_XDECREF(reduce_ex);
+    Py_XDECREF(reduce_cython);
+    Py_XDECREF(setstate);
+    Py_XDECREF(setstate_cython);
+    return ret;
+}
+
 /* append */
     static CYTHON_INLINE int __Pyx_PyObject_Append(PyObject* L, PyObject* x) {
     if (likely(PyList_CheckExact(L))) {
@@ -13131,773 +13383,25 @@ bad:
     return 0;
 }
 
-/* CalculateMetaclass */
-    static PyObject *__Pyx_CalculateMetaclass(PyTypeObject *metaclass, PyObject *bases) {
-    Py_ssize_t i, nbases = PyTuple_GET_SIZE(bases);
-    for (i=0; i < nbases; i++) {
-        PyTypeObject *tmptype;
-        PyObject *tmp = PyTuple_GET_ITEM(bases, i);
-        tmptype = Py_TYPE(tmp);
-#if PY_MAJOR_VERSION < 3
-        if (tmptype == &PyClass_Type)
-            continue;
-#endif
-        if (!metaclass) {
-            metaclass = tmptype;
-            continue;
-        }
-        if (PyType_IsSubtype(metaclass, tmptype))
-            continue;
-        if (PyType_IsSubtype(tmptype, metaclass)) {
-            metaclass = tmptype;
-            continue;
-        }
-        PyErr_SetString(PyExc_TypeError,
-                        "metaclass conflict: "
-                        "the metaclass of a derived class "
-                        "must be a (non-strict) subclass "
-                        "of the metaclasses of all its bases");
-        return NULL;
-    }
-    if (!metaclass) {
-#if PY_MAJOR_VERSION < 3
-        metaclass = &PyClass_Type;
-#else
-        metaclass = &PyType_Type;
-#endif
-    }
-    Py_INCREF((PyObject*) metaclass);
-    return (PyObject*) metaclass;
-}
-
-/* FetchCommonType */
-    static PyTypeObject* __Pyx_FetchCommonType(PyTypeObject* type) {
-    PyObject* fake_module;
-    PyTypeObject* cached_type = NULL;
-    fake_module = PyImport_AddModule((char*) "_cython_" CYTHON_ABI);
-    if (!fake_module) return NULL;
-    Py_INCREF(fake_module);
-    cached_type = (PyTypeObject*) PyObject_GetAttrString(fake_module, type->tp_name);
-    if (cached_type) {
-        if (!PyType_Check((PyObject*)cached_type)) {
-            PyErr_Format(PyExc_TypeError,
-                "Shared Cython type %.200s is not a type object",
-                type->tp_name);
-            goto bad;
-        }
-        if (cached_type->tp_basicsize != type->tp_basicsize) {
-            PyErr_Format(PyExc_TypeError,
-                "Shared Cython type %.200s has the wrong size, try recompiling",
-                type->tp_name);
-            goto bad;
-        }
-    } else {
-        if (!PyErr_ExceptionMatches(PyExc_AttributeError)) goto bad;
-        PyErr_Clear();
-        if (PyType_Ready(type) < 0) goto bad;
-        if (PyObject_SetAttrString(fake_module, type->tp_name, (PyObject*) type) < 0)
-            goto bad;
-        Py_INCREF(type);
-        cached_type = type;
-    }
-done:
-    Py_DECREF(fake_module);
-    return cached_type;
-bad:
-    Py_XDECREF(cached_type);
-    cached_type = NULL;
-    goto done;
-}
-
-/* CythonFunction */
-    #include <structmember.h>
-static PyObject *
-__Pyx_CyFunction_get_doc(__pyx_CyFunctionObject *op, CYTHON_UNUSED void *closure)
-{
-    if (unlikely(op->func_doc == NULL)) {
-        if (op->func.m_ml->ml_doc) {
-#if PY_MAJOR_VERSION >= 3
-            op->func_doc = PyUnicode_FromString(op->func.m_ml->ml_doc);
-#else
-            op->func_doc = PyString_FromString(op->func.m_ml->ml_doc);
-#endif
-            if (unlikely(op->func_doc == NULL))
-                return NULL;
-        } else {
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-    Py_INCREF(op->func_doc);
-    return op->func_doc;
-}
-static int
-__Pyx_CyFunction_set_doc(__pyx_CyFunctionObject *op, PyObject *value, CYTHON_UNUSED void *context)
-{
-    PyObject *tmp = op->func_doc;
-    if (value == NULL) {
-        value = Py_None;
-    }
-    Py_INCREF(value);
-    op->func_doc = value;
-    Py_XDECREF(tmp);
-    return 0;
-}
-static PyObject *
-__Pyx_CyFunction_get_name(__pyx_CyFunctionObject *op, CYTHON_UNUSED void *context)
-{
-    if (unlikely(op->func_name == NULL)) {
-#if PY_MAJOR_VERSION >= 3
-        op->func_name = PyUnicode_InternFromString(op->func.m_ml->ml_name);
-#else
-        op->func_name = PyString_InternFromString(op->func.m_ml->ml_name);
-#endif
-        if (unlikely(op->func_name == NULL))
-            return NULL;
-    }
-    Py_INCREF(op->func_name);
-    return op->func_name;
-}
-static int
-__Pyx_CyFunction_set_name(__pyx_CyFunctionObject *op, PyObject *value, CYTHON_UNUSED void *context)
-{
-    PyObject *tmp;
-#if PY_MAJOR_VERSION >= 3
-    if (unlikely(value == NULL || !PyUnicode_Check(value)))
-#else
-    if (unlikely(value == NULL || !PyString_Check(value)))
-#endif
-    {
-        PyErr_SetString(PyExc_TypeError,
-                        "__name__ must be set to a string object");
-        return -1;
-    }
-    tmp = op->func_name;
-    Py_INCREF(value);
-    op->func_name = value;
-    Py_XDECREF(tmp);
-    return 0;
-}
-static PyObject *
-__Pyx_CyFunction_get_qualname(__pyx_CyFunctionObject *op, CYTHON_UNUSED void *context)
-{
-    Py_INCREF(op->func_qualname);
-    return op->func_qualname;
-}
-static int
-__Pyx_CyFunction_set_qualname(__pyx_CyFunctionObject *op, PyObject *value, CYTHON_UNUSED void *context)
-{
-    PyObject *tmp;
-#if PY_MAJOR_VERSION >= 3
-    if (unlikely(value == NULL || !PyUnicode_Check(value)))
-#else
-    if (unlikely(value == NULL || !PyString_Check(value)))
-#endif
-    {
-        PyErr_SetString(PyExc_TypeError,
-                        "__qualname__ must be set to a string object");
-        return -1;
-    }
-    tmp = op->func_qualname;
-    Py_INCREF(value);
-    op->func_qualname = value;
-    Py_XDECREF(tmp);
-    return 0;
-}
-static PyObject *
-__Pyx_CyFunction_get_self(__pyx_CyFunctionObject *m, CYTHON_UNUSED void *closure)
-{
-    PyObject *self;
-    self = m->func_closure;
-    if (self == NULL)
-        self = Py_None;
-    Py_INCREF(self);
-    return self;
-}
-static PyObject *
-__Pyx_CyFunction_get_dict(__pyx_CyFunctionObject *op, CYTHON_UNUSED void *context)
-{
-    if (unlikely(op->func_dict == NULL)) {
-        op->func_dict = PyDict_New();
-        if (unlikely(op->func_dict == NULL))
-            return NULL;
-    }
-    Py_INCREF(op->func_dict);
-    return op->func_dict;
-}
-static int
-__Pyx_CyFunction_set_dict(__pyx_CyFunctionObject *op, PyObject *value, CYTHON_UNUSED void *context)
-{
-    PyObject *tmp;
-    if (unlikely(value == NULL)) {
-        PyErr_SetString(PyExc_TypeError,
-               "function's dictionary may not be deleted");
-        return -1;
-    }
-    if (unlikely(!PyDict_Check(value))) {
-        PyErr_SetString(PyExc_TypeError,
-               "setting function's dictionary to a non-dict");
-        return -1;
-    }
-    tmp = op->func_dict;
-    Py_INCREF(value);
-    op->func_dict = value;
-    Py_XDECREF(tmp);
-    return 0;
-}
-static PyObject *
-__Pyx_CyFunction_get_globals(__pyx_CyFunctionObject *op, CYTHON_UNUSED void *context)
-{
-    Py_INCREF(op->func_globals);
-    return op->func_globals;
-}
-static PyObject *
-__Pyx_CyFunction_get_closure(CYTHON_UNUSED __pyx_CyFunctionObject *op, CYTHON_UNUSED void *context)
-{
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-static PyObject *
-__Pyx_CyFunction_get_code(__pyx_CyFunctionObject *op, CYTHON_UNUSED void *context)
-{
-    PyObject* result = (op->func_code) ? op->func_code : Py_None;
-    Py_INCREF(result);
-    return result;
-}
-static int
-__Pyx_CyFunction_init_defaults(__pyx_CyFunctionObject *op) {
-    int result = 0;
-    PyObject *res = op->defaults_getter((PyObject *) op);
-    if (unlikely(!res))
-        return -1;
-    #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    op->defaults_tuple = PyTuple_GET_ITEM(res, 0);
-    Py_INCREF(op->defaults_tuple);
-    op->defaults_kwdict = PyTuple_GET_ITEM(res, 1);
-    Py_INCREF(op->defaults_kwdict);
-    #else
-    op->defaults_tuple = PySequence_ITEM(res, 0);
-    if (unlikely(!op->defaults_tuple)) result = -1;
-    else {
-        op->defaults_kwdict = PySequence_ITEM(res, 1);
-        if (unlikely(!op->defaults_kwdict)) result = -1;
-    }
-    #endif
-    Py_DECREF(res);
-    return result;
-}
-static int
-__Pyx_CyFunction_set_defaults(__pyx_CyFunctionObject *op, PyObject* value, CYTHON_UNUSED void *context) {
-    PyObject* tmp;
-    if (!value) {
-        value = Py_None;
-    } else if (value != Py_None && !PyTuple_Check(value)) {
-        PyErr_SetString(PyExc_TypeError,
-                        "__defaults__ must be set to a tuple object");
-        return -1;
-    }
-    Py_INCREF(value);
-    tmp = op->defaults_tuple;
-    op->defaults_tuple = value;
-    Py_XDECREF(tmp);
-    return 0;
-}
-static PyObject *
-__Pyx_CyFunction_get_defaults(__pyx_CyFunctionObject *op, CYTHON_UNUSED void *context) {
-    PyObject* result = op->defaults_tuple;
-    if (unlikely(!result)) {
-        if (op->defaults_getter) {
-            if (__Pyx_CyFunction_init_defaults(op) < 0) return NULL;
-            result = op->defaults_tuple;
-        } else {
-            result = Py_None;
-        }
-    }
-    Py_INCREF(result);
-    return result;
-}
-static int
-__Pyx_CyFunction_set_kwdefaults(__pyx_CyFunctionObject *op, PyObject* value, CYTHON_UNUSED void *context) {
-    PyObject* tmp;
-    if (!value) {
-        value = Py_None;
-    } else if (value != Py_None && !PyDict_Check(value)) {
-        PyErr_SetString(PyExc_TypeError,
-                        "__kwdefaults__ must be set to a dict object");
-        return -1;
-    }
-    Py_INCREF(value);
-    tmp = op->defaults_kwdict;
-    op->defaults_kwdict = value;
-    Py_XDECREF(tmp);
-    return 0;
-}
-static PyObject *
-__Pyx_CyFunction_get_kwdefaults(__pyx_CyFunctionObject *op, CYTHON_UNUSED void *context) {
-    PyObject* result = op->defaults_kwdict;
-    if (unlikely(!result)) {
-        if (op->defaults_getter) {
-            if (__Pyx_CyFunction_init_defaults(op) < 0) return NULL;
-            result = op->defaults_kwdict;
-        } else {
-            result = Py_None;
-        }
-    }
-    Py_INCREF(result);
-    return result;
-}
-static int
-__Pyx_CyFunction_set_annotations(__pyx_CyFunctionObject *op, PyObject* value, CYTHON_UNUSED void *context) {
-    PyObject* tmp;
-    if (!value || value == Py_None) {
-        value = NULL;
-    } else if (!PyDict_Check(value)) {
-        PyErr_SetString(PyExc_TypeError,
-                        "__annotations__ must be set to a dict object");
-        return -1;
-    }
-    Py_XINCREF(value);
-    tmp = op->func_annotations;
-    op->func_annotations = value;
-    Py_XDECREF(tmp);
-    return 0;
-}
-static PyObject *
-__Pyx_CyFunction_get_annotations(__pyx_CyFunctionObject *op, CYTHON_UNUSED void *context) {
-    PyObject* result = op->func_annotations;
-    if (unlikely(!result)) {
-        result = PyDict_New();
-        if (unlikely(!result)) return NULL;
-        op->func_annotations = result;
-    }
-    Py_INCREF(result);
-    return result;
-}
-static PyGetSetDef __pyx_CyFunction_getsets[] = {
-    {(char *) "func_doc", (getter)__Pyx_CyFunction_get_doc, (setter)__Pyx_CyFunction_set_doc, 0, 0},
-    {(char *) "__doc__",  (getter)__Pyx_CyFunction_get_doc, (setter)__Pyx_CyFunction_set_doc, 0, 0},
-    {(char *) "func_name", (getter)__Pyx_CyFunction_get_name, (setter)__Pyx_CyFunction_set_name, 0, 0},
-    {(char *) "__name__", (getter)__Pyx_CyFunction_get_name, (setter)__Pyx_CyFunction_set_name, 0, 0},
-    {(char *) "__qualname__", (getter)__Pyx_CyFunction_get_qualname, (setter)__Pyx_CyFunction_set_qualname, 0, 0},
-    {(char *) "__self__", (getter)__Pyx_CyFunction_get_self, 0, 0, 0},
-    {(char *) "func_dict", (getter)__Pyx_CyFunction_get_dict, (setter)__Pyx_CyFunction_set_dict, 0, 0},
-    {(char *) "__dict__", (getter)__Pyx_CyFunction_get_dict, (setter)__Pyx_CyFunction_set_dict, 0, 0},
-    {(char *) "func_globals", (getter)__Pyx_CyFunction_get_globals, 0, 0, 0},
-    {(char *) "__globals__", (getter)__Pyx_CyFunction_get_globals, 0, 0, 0},
-    {(char *) "func_closure", (getter)__Pyx_CyFunction_get_closure, 0, 0, 0},
-    {(char *) "__closure__", (getter)__Pyx_CyFunction_get_closure, 0, 0, 0},
-    {(char *) "func_code", (getter)__Pyx_CyFunction_get_code, 0, 0, 0},
-    {(char *) "__code__", (getter)__Pyx_CyFunction_get_code, 0, 0, 0},
-    {(char *) "func_defaults", (getter)__Pyx_CyFunction_get_defaults, (setter)__Pyx_CyFunction_set_defaults, 0, 0},
-    {(char *) "__defaults__", (getter)__Pyx_CyFunction_get_defaults, (setter)__Pyx_CyFunction_set_defaults, 0, 0},
-    {(char *) "__kwdefaults__", (getter)__Pyx_CyFunction_get_kwdefaults, (setter)__Pyx_CyFunction_set_kwdefaults, 0, 0},
-    {(char *) "__annotations__", (getter)__Pyx_CyFunction_get_annotations, (setter)__Pyx_CyFunction_set_annotations, 0, 0},
-    {0, 0, 0, 0, 0}
-};
-static PyMemberDef __pyx_CyFunction_members[] = {
-    {(char *) "__module__", T_OBJECT, offsetof(PyCFunctionObject, m_module), PY_WRITE_RESTRICTED, 0},
-    {0, 0, 0,  0, 0}
-};
-static PyObject *
-__Pyx_CyFunction_reduce(__pyx_CyFunctionObject *m, CYTHON_UNUSED PyObject *args)
-{
-#if PY_MAJOR_VERSION >= 3
-    return PyUnicode_FromString(m->func.m_ml->ml_name);
-#else
-    return PyString_FromString(m->func.m_ml->ml_name);
-#endif
-}
-static PyMethodDef __pyx_CyFunction_methods[] = {
-    {"__reduce__", (PyCFunction)__Pyx_CyFunction_reduce, METH_VARARGS, 0},
-    {0, 0, 0, 0}
-};
-#if PY_VERSION_HEX < 0x030500A0
-#define __Pyx_CyFunction_weakreflist(cyfunc) ((cyfunc)->func_weakreflist)
-#else
-#define __Pyx_CyFunction_weakreflist(cyfunc) ((cyfunc)->func.m_weakreflist)
-#endif
-static PyObject *__Pyx_CyFunction_New(PyTypeObject *type, PyMethodDef *ml, int flags, PyObject* qualname,
-                                      PyObject *closure, PyObject *module, PyObject* globals, PyObject* code) {
-    __pyx_CyFunctionObject *op = PyObject_GC_New(__pyx_CyFunctionObject, type);
-    if (op == NULL)
-        return NULL;
-    op->flags = flags;
-    __Pyx_CyFunction_weakreflist(op) = NULL;
-    op->func.m_ml = ml;
-    op->func.m_self = (PyObject *) op;
-    Py_XINCREF(closure);
-    op->func_closure = closure;
-    Py_XINCREF(module);
-    op->func.m_module = module;
-    op->func_dict = NULL;
-    op->func_name = NULL;
-    Py_INCREF(qualname);
-    op->func_qualname = qualname;
-    op->func_doc = NULL;
-    op->func_classobj = NULL;
-    op->func_globals = globals;
-    Py_INCREF(op->func_globals);
-    Py_XINCREF(code);
-    op->func_code = code;
-    op->defaults_pyobjects = 0;
-    op->defaults = NULL;
-    op->defaults_tuple = NULL;
-    op->defaults_kwdict = NULL;
-    op->defaults_getter = NULL;
-    op->func_annotations = NULL;
-    PyObject_GC_Track(op);
-    return (PyObject *) op;
-}
-static int
-__Pyx_CyFunction_clear(__pyx_CyFunctionObject *m)
-{
-    Py_CLEAR(m->func_closure);
-    Py_CLEAR(m->func.m_module);
-    Py_CLEAR(m->func_dict);
-    Py_CLEAR(m->func_name);
-    Py_CLEAR(m->func_qualname);
-    Py_CLEAR(m->func_doc);
-    Py_CLEAR(m->func_globals);
-    Py_CLEAR(m->func_code);
-    Py_CLEAR(m->func_classobj);
-    Py_CLEAR(m->defaults_tuple);
-    Py_CLEAR(m->defaults_kwdict);
-    Py_CLEAR(m->func_annotations);
-    if (m->defaults) {
-        PyObject **pydefaults = __Pyx_CyFunction_Defaults(PyObject *, m);
-        int i;
-        for (i = 0; i < m->defaults_pyobjects; i++)
-            Py_XDECREF(pydefaults[i]);
-        PyObject_Free(m->defaults);
-        m->defaults = NULL;
-    }
-    return 0;
-}
-static void __Pyx__CyFunction_dealloc(__pyx_CyFunctionObject *m)
-{
-    if (__Pyx_CyFunction_weakreflist(m) != NULL)
-        PyObject_ClearWeakRefs((PyObject *) m);
-    __Pyx_CyFunction_clear(m);
-    PyObject_GC_Del(m);
-}
-static void __Pyx_CyFunction_dealloc(__pyx_CyFunctionObject *m)
-{
-    PyObject_GC_UnTrack(m);
-    __Pyx__CyFunction_dealloc(m);
-}
-static int __Pyx_CyFunction_traverse(__pyx_CyFunctionObject *m, visitproc visit, void *arg)
-{
-    Py_VISIT(m->func_closure);
-    Py_VISIT(m->func.m_module);
-    Py_VISIT(m->func_dict);
-    Py_VISIT(m->func_name);
-    Py_VISIT(m->func_qualname);
-    Py_VISIT(m->func_doc);
-    Py_VISIT(m->func_globals);
-    Py_VISIT(m->func_code);
-    Py_VISIT(m->func_classobj);
-    Py_VISIT(m->defaults_tuple);
-    Py_VISIT(m->defaults_kwdict);
-    if (m->defaults) {
-        PyObject **pydefaults = __Pyx_CyFunction_Defaults(PyObject *, m);
-        int i;
-        for (i = 0; i < m->defaults_pyobjects; i++)
-            Py_VISIT(pydefaults[i]);
-    }
-    return 0;
-}
-static PyObject *__Pyx_CyFunction_descr_get(PyObject *func, PyObject *obj, PyObject *type)
-{
-    __pyx_CyFunctionObject *m = (__pyx_CyFunctionObject *) func;
-    if (m->flags & __Pyx_CYFUNCTION_STATICMETHOD) {
-        Py_INCREF(func);
-        return func;
-    }
-    if (m->flags & __Pyx_CYFUNCTION_CLASSMETHOD) {
-        if (type == NULL)
-            type = (PyObject *)(Py_TYPE(obj));
-        return __Pyx_PyMethod_New(func, type, (PyObject *)(Py_TYPE(type)));
-    }
-    if (obj == Py_None)
-        obj = NULL;
-    return __Pyx_PyMethod_New(func, obj, type);
-}
-static PyObject*
-__Pyx_CyFunction_repr(__pyx_CyFunctionObject *op)
-{
-#if PY_MAJOR_VERSION >= 3
-    return PyUnicode_FromFormat("<cyfunction %U at %p>",
-                                op->func_qualname, (void *)op);
-#else
-    return PyString_FromFormat("<cyfunction %s at %p>",
-                               PyString_AsString(op->func_qualname), (void *)op);
-#endif
-}
-static PyObject * __Pyx_CyFunction_CallMethod(PyObject *func, PyObject *self, PyObject *arg, PyObject *kw) {
-    PyCFunctionObject* f = (PyCFunctionObject*)func;
-    PyCFunction meth = f->m_ml->ml_meth;
-    Py_ssize_t size;
-    switch (f->m_ml->ml_flags & (METH_VARARGS | METH_KEYWORDS | METH_NOARGS | METH_O)) {
-    case METH_VARARGS:
-        if (likely(kw == NULL || PyDict_Size(kw) == 0))
-            return (*meth)(self, arg);
-        break;
-    case METH_VARARGS | METH_KEYWORDS:
-        return (*(PyCFunctionWithKeywords)(void*)meth)(self, arg, kw);
-    case METH_NOARGS:
-        if (likely(kw == NULL || PyDict_Size(kw) == 0)) {
-            size = PyTuple_GET_SIZE(arg);
-            if (likely(size == 0))
-                return (*meth)(self, NULL);
-            PyErr_Format(PyExc_TypeError,
-                "%.200s() takes no arguments (%" CYTHON_FORMAT_SSIZE_T "d given)",
-                f->m_ml->ml_name, size);
-            return NULL;
-        }
-        break;
-    case METH_O:
-        if (likely(kw == NULL || PyDict_Size(kw) == 0)) {
-            size = PyTuple_GET_SIZE(arg);
-            if (likely(size == 1)) {
-                PyObject *result, *arg0;
-                #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-                arg0 = PyTuple_GET_ITEM(arg, 0);
-                #else
-                arg0 = PySequence_ITEM(arg, 0); if (unlikely(!arg0)) return NULL;
-                #endif
-                result = (*meth)(self, arg0);
-                #if !(CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS)
-                Py_DECREF(arg0);
-                #endif
-                return result;
-            }
-            PyErr_Format(PyExc_TypeError,
-                "%.200s() takes exactly one argument (%" CYTHON_FORMAT_SSIZE_T "d given)",
-                f->m_ml->ml_name, size);
-            return NULL;
-        }
-        break;
-    default:
-        PyErr_SetString(PyExc_SystemError, "Bad call flags in "
-                        "__Pyx_CyFunction_Call. METH_OLDARGS is no "
-                        "longer supported!");
-        return NULL;
-    }
-    PyErr_Format(PyExc_TypeError, "%.200s() takes no keyword arguments",
-                 f->m_ml->ml_name);
-    return NULL;
-}
-static CYTHON_INLINE PyObject *__Pyx_CyFunction_Call(PyObject *func, PyObject *arg, PyObject *kw) {
-    return __Pyx_CyFunction_CallMethod(func, ((PyCFunctionObject*)func)->m_self, arg, kw);
-}
-static PyObject *__Pyx_CyFunction_CallAsMethod(PyObject *func, PyObject *args, PyObject *kw) {
+/* GetNameInClass */
+    static PyObject *__Pyx_GetGlobalNameAfterAttributeLookup(PyObject *name) {
     PyObject *result;
-    __pyx_CyFunctionObject *cyfunc = (__pyx_CyFunctionObject *) func;
-    if ((cyfunc->flags & __Pyx_CYFUNCTION_CCLASS) && !(cyfunc->flags & __Pyx_CYFUNCTION_STATICMETHOD)) {
-        Py_ssize_t argc;
-        PyObject *new_args;
-        PyObject *self;
-        argc = PyTuple_GET_SIZE(args);
-        new_args = PyTuple_GetSlice(args, 1, argc);
-        if (unlikely(!new_args))
-            return NULL;
-        self = PyTuple_GetItem(args, 0);
-        if (unlikely(!self)) {
-            Py_DECREF(new_args);
-            return NULL;
-        }
-        result = __Pyx_CyFunction_CallMethod(func, self, new_args, kw);
-        Py_DECREF(new_args);
-    } else {
-        result = __Pyx_CyFunction_Call(func, args, kw);
-    }
-    return result;
-}
-static PyTypeObject __pyx_CyFunctionType_type = {
-    PyVarObject_HEAD_INIT(0, 0)
-    "cython_function_or_method",
-    sizeof(__pyx_CyFunctionObject),
-    0,
-    (destructor) __Pyx_CyFunction_dealloc,
-    0,
-    0,
-    0,
-#if PY_MAJOR_VERSION < 3
-    0,
-#else
-    0,
-#endif
-    (reprfunc) __Pyx_CyFunction_repr,
-    0,
-    0,
-    0,
-    0,
-    __Pyx_CyFunction_CallAsMethod,
-    0,
-    0,
-    0,
-    0,
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
-    0,
-    (traverseproc) __Pyx_CyFunction_traverse,
-    (inquiry) __Pyx_CyFunction_clear,
-    0,
-#if PY_VERSION_HEX < 0x030500A0
-    offsetof(__pyx_CyFunctionObject, func_weakreflist),
-#else
-    offsetof(PyCFunctionObject, m_weakreflist),
-#endif
-    0,
-    0,
-    __pyx_CyFunction_methods,
-    __pyx_CyFunction_members,
-    __pyx_CyFunction_getsets,
-    0,
-    0,
-    __Pyx_CyFunction_descr_get,
-    0,
-    offsetof(__pyx_CyFunctionObject, func_dict),
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-#if PY_VERSION_HEX >= 0x030400a1
-    0,
-#endif
-#if PY_VERSION_HEX >= 0x030800b1
-    0,
-#endif
-};
-static int __pyx_CyFunction_init(void) {
-    __pyx_CyFunctionType = __Pyx_FetchCommonType(&__pyx_CyFunctionType_type);
-    if (unlikely(__pyx_CyFunctionType == NULL)) {
-        return -1;
-    }
-    return 0;
-}
-static CYTHON_INLINE void *__Pyx_CyFunction_InitDefaults(PyObject *func, size_t size, int pyobjects) {
-    __pyx_CyFunctionObject *m = (__pyx_CyFunctionObject *) func;
-    m->defaults = PyObject_Malloc(size);
-    if (unlikely(!m->defaults))
-        return PyErr_NoMemory();
-    memset(m->defaults, 0, size);
-    m->defaults_pyobjects = pyobjects;
-    return m->defaults;
-}
-static CYTHON_INLINE void __Pyx_CyFunction_SetDefaultsTuple(PyObject *func, PyObject *tuple) {
-    __pyx_CyFunctionObject *m = (__pyx_CyFunctionObject *) func;
-    m->defaults_tuple = tuple;
-    Py_INCREF(tuple);
-}
-static CYTHON_INLINE void __Pyx_CyFunction_SetDefaultsKwDict(PyObject *func, PyObject *dict) {
-    __pyx_CyFunctionObject *m = (__pyx_CyFunctionObject *) func;
-    m->defaults_kwdict = dict;
-    Py_INCREF(dict);
-}
-static CYTHON_INLINE void __Pyx_CyFunction_SetAnnotationsDict(PyObject *func, PyObject *dict) {
-    __pyx_CyFunctionObject *m = (__pyx_CyFunctionObject *) func;
-    m->func_annotations = dict;
-    Py_INCREF(dict);
-}
-
-/* Py3ClassCreate */
-    static PyObject *__Pyx_Py3MetaclassPrepare(PyObject *metaclass, PyObject *bases, PyObject *name,
-                                           PyObject *qualname, PyObject *mkw, PyObject *modname, PyObject *doc) {
-    PyObject *ns;
-    if (metaclass) {
-        PyObject *prep = __Pyx_PyObject_GetAttrStr(metaclass, __pyx_n_s_prepare);
-        if (prep) {
-            PyObject *pargs = PyTuple_Pack(2, name, bases);
-            if (unlikely(!pargs)) {
-                Py_DECREF(prep);
-                return NULL;
-            }
-            ns = PyObject_Call(prep, pargs, mkw);
-            Py_DECREF(prep);
-            Py_DECREF(pargs);
-        } else {
-            if (unlikely(!PyErr_ExceptionMatches(PyExc_AttributeError)))
-                return NULL;
-            PyErr_Clear();
-            ns = PyDict_New();
-        }
-    } else {
-        ns = PyDict_New();
-    }
-    if (unlikely(!ns))
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    if (unlikely(!__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
         return NULL;
-    if (unlikely(PyObject_SetItem(ns, __pyx_n_s_module, modname) < 0)) goto bad;
-    if (unlikely(PyObject_SetItem(ns, __pyx_n_s_qualname, qualname) < 0)) goto bad;
-    if (unlikely(doc && PyObject_SetItem(ns, __pyx_n_s_doc, doc) < 0)) goto bad;
-    return ns;
-bad:
-    Py_DECREF(ns);
-    return NULL;
-}
-static PyObject *__Pyx_Py3ClassCreate(PyObject *metaclass, PyObject *name, PyObject *bases,
-                                      PyObject *dict, PyObject *mkw,
-                                      int calculate_metaclass, int allow_py2_metaclass) {
-    PyObject *result, *margs;
-    PyObject *owned_metaclass = NULL;
-    if (allow_py2_metaclass) {
-        owned_metaclass = PyObject_GetItem(dict, __pyx_n_s_metaclass);
-        if (owned_metaclass) {
-            metaclass = owned_metaclass;
-        } else if (likely(PyErr_ExceptionMatches(PyExc_KeyError))) {
-            PyErr_Clear();
-        } else {
-            return NULL;
-        }
-    }
-    if (calculate_metaclass && (!metaclass || PyType_Check(metaclass))) {
-        metaclass = __Pyx_CalculateMetaclass((PyTypeObject*) metaclass, bases);
-        Py_XDECREF(owned_metaclass);
-        if (unlikely(!metaclass))
-            return NULL;
-        owned_metaclass = metaclass;
-    }
-    margs = PyTuple_Pack(3, name, bases, dict);
-    if (unlikely(!margs)) {
-        result = NULL;
-    } else {
-        result = PyObject_Call(metaclass, margs, mkw);
-        Py_DECREF(margs);
-    }
-    Py_XDECREF(owned_metaclass);
+    __Pyx_PyErr_Clear();
+    __Pyx_GetModuleGlobalNameUncached(result, name);
     return result;
 }
-
-/* PyErrFetchRestore */
-    #if CYTHON_FAST_THREAD_STATE
-static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
-    PyObject *tmp_type, *tmp_value, *tmp_tb;
-    tmp_type = tstate->curexc_type;
-    tmp_value = tstate->curexc_value;
-    tmp_tb = tstate->curexc_traceback;
-    tstate->curexc_type = type;
-    tstate->curexc_value = value;
-    tstate->curexc_traceback = tb;
-    Py_XDECREF(tmp_type);
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(tmp_tb);
+static PyObject *__Pyx__GetNameInClass(PyObject *nmspace, PyObject *name) {
+    PyObject *result;
+    result = __Pyx_PyObject_GetAttrStr(nmspace, name);
+    if (!result) {
+        result = __Pyx_GetGlobalNameAfterAttributeLookup(name);
+    }
+    return result;
 }
-static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
-    *type = tstate->curexc_type;
-    *value = tstate->curexc_value;
-    *tb = tstate->curexc_traceback;
-    tstate->curexc_type = 0;
-    tstate->curexc_value = 0;
-    tstate->curexc_traceback = 0;
-}
-#endif
 
 /* CLineInTraceback */
     #ifndef CYTHON_CLINE_IN_TRACEBACK
