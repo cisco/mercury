@@ -33,6 +33,7 @@
 
 #include "af_packet_io.h"
 #include "af_packet_v3.h"
+#include "signal_handling.h"
 #include "utils.h"
 #include "rnd_pkt_drop.h"
 
@@ -163,14 +164,9 @@ void *stats_thread_func(void *statst_arg) {
   double time_d; /* time delta */
   memset(&ts, 0, sizeof(ts));
   /**
-   * Enable all signals
+   * Enable all signals so that this thread shuts down first
    */
-  sigset_t signal_set;
-  sigfillset(&signal_set);
-  if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL) != 0) {
-      fprintf(stderr, "%s: error by pthread_sigmask unblocking signals for stats thread id = %lu\n", 
-              strerror(errno), pthread_self());
-  }
+  enable_all_signals();
 
   while (sig_close_flag == 0) {
     uint64_t packets_before = statst->received_packets;
@@ -684,14 +680,10 @@ void *packet_capture_thread_func(void *arg)  {
   struct thread_storage *thread_stor = (struct thread_storage *)arg;
 
   /**
-   * Block signals
+   * Disable all signals so that this worker thread is not disturbed 
+   * in the middle of packet processing.
    */
-  sigset_t signal_set;
-  sigfillset(&signal_set);
-  if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
-      fprintf(stderr, "%s: error by pthread_sigmask blocking signals for thread id = %lu\n", 
-              strerror(errno), pthread_self());
-  }
+  disable_all_signals();
 
   /* now process the packets */
   if (af_packet_rx_ring_fanout_capture(thread_stor) < 0) {
