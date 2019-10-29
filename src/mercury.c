@@ -25,6 +25,7 @@
 #include "af_packet_io.h"
 #include "af_packet_v3.h"
 #include "analysis.h"
+#include "signal_handling.h"
 
 enum input_mode {
     input_mode_unknown        = 0,
@@ -39,28 +40,6 @@ enum output_mode {
 };
 
 #define TWO_TO_THE_N(N) (unsigned int)1 << (N)
-
-int sig_close_flag = 0; /* Watched by the stats tracking thread in af_packet_v3.c */
-enum input_mode current_mode = input_mode_unknown;
-
-/*
- * sig_close() causes a graceful shutdown of the program after recieving
- * an appropriate signal
- */
-static void sig_close (int signal_arg) {
-  psignal(signal_arg, "\nGracefully shutting down");
-  if (current_mode == input_mode_capture) {
-    sig_close_flag = 1; /* tell all threads to shutdown gracefully */
-  } else {
-    /* for any other mode, close this process right away */
-    analysis_finalize();
-    /*
-     * the function exit() should invoke fflush() on our output buffers
-     */
-    exit(0);
-  }
-}
-
 
 #define FLAGS_CLOBBER (O_TRUNC)
 
@@ -683,8 +662,7 @@ int main(int argc, char *argv[]) {
     /*
      * set up signal handlers, so that output is flushed upon close
      */
-    signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
-    signal(SIGTERM, sig_close);
+    setup_signal_handler();
 
     /* process packets */
     
@@ -701,7 +679,7 @@ int main(int argc, char *argv[]) {
     
     if (cfg.capture_interface) {
 	struct ring_limits rl;
-    current_mode = input_mode_capture;
+
 	if (cfg.verbosity) {
 	    printf("initializing interface %s\n", cfg.capture_interface);
 	}
@@ -710,12 +688,13 @@ int main(int argc, char *argv[]) {
 	af_packet_bind_and_dispatch(&cfg, &rl);
 	
     } else if (cfg.read_filename) {
-    current_mode = input_mode_read_file;
+
 	open_and_dispatch(&cfg);
 	
     }
 	
     analysis_finalize();
+    printf("Shutdown!\n");
     
     return 0;
 }
