@@ -1,4 +1,4 @@
-#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
+#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
 
 """     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
@@ -11,8 +11,6 @@ import operator
 import functools
 import ujson as json
 from sys import path
-from math import exp, log
-
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -23,10 +21,17 @@ from pmercury.utils.pmercury_utils import *
 from pmercury.utils.contextual_info import *
 from pmercury.utils.sequence_alignment import *
 
+from libc.math cimport exp, log, fmax
+
 MAX_CACHED_RESULTS = 2**24
 
 
-class TLS(Protocol):
+cdef class TLS():
+    cdef dict tls_params_db
+    cdef bint MALWARE_DB
+    cdef dict fp_db
+    cdef dict app_families
+    cdef object aligner
 
     def __init__(self, fp_database=None, config=None):
         # cached data/results
@@ -50,11 +55,14 @@ class TLS(Protocol):
         self.aligner = SequenceAlignment(f_similarity, 0.0)
 
 
-    def load_database(self, fp_database):
+    def load_database(self, str fp_database):
+        cdef str line, fp_str
+        cdef dict fp_
         for line in os.popen('zcat %s' % (fp_database)):
             fp_ = json.loads(line)
-            self.fp_db[fp_['str_repr']] = fp_
-        if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
+            fp_str = fp_['str_repr']
+            self.fp_db[fp_str] = fp_
+        if 'malware' not in self.fp_db[fp_str]['process_info'][0]:
             self.MALWARE_DB = False
 
 
@@ -143,11 +151,8 @@ class TLS(Protocol):
     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):
         server_name = None
         # extract server_name field from context object
-        if context_ != None:
-            for x_ in context_:
-                if x_['name'] == 'server_name':
-                    server_name = x_['data']
-                    break
+        if context_ != None and 'server_name' in context_:
+            server_name = context_['server_name']
 
         # fingerprint approximate matching if necessary
         if fp_str_ not in self.fp_db:
@@ -317,8 +322,8 @@ class TLS(Protocol):
                 self.tls_params_db[k] = tls_params_
             q0_ = set(self.tls_params_db[k][0])
             q1_ = set(self.tls_params_db[k][1])
-            s0_ = len(p0_.intersection(q0_))/max(1.0,len(p0_.union(q0_)))
-            s1_ = len(p1_.intersection(q1_))/max(1.0,len(p1_.union(q1_)))
+            s0_ = len(p0_.intersection(q0_))/fmax(1.0,len(p0_.union(q0_)))
+            s1_ = len(p1_.intersection(q1_))/fmax(1.0,len(p1_.union(q1_)))
             s_ = s0_ + s1_
             t_scores.append((s_, k))
         t_scores.sort()

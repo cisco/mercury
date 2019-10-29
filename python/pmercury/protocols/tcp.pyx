@@ -1,4 +1,4 @@
-#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
+#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
 
 """     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
@@ -16,14 +16,13 @@ from pmercury.protocols.protocol import Protocol
 
 MAX_CACHED_RESULTS = 2**24
 
-class TCP(Protocol):
+cdef class TCP:
+    cdef dict fp_db
 
     def __init__(self, fp_database=None, config=None):
         # populate fingerprint databases
         self.fp_db = None
         self.load_database(fp_database)
-
-        self.tcp_options_data = set([0,1,2,3])
 
 
     def load_database(self, fp_database):
@@ -98,3 +97,12 @@ class TCP(Protocol):
                 cur_ += length
 
         return fp_, None
+
+
+    def get_human_readable(self, fp_str_):
+        return None
+
+
+    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):
+        return None
+
