@@ -842,7 +842,6 @@ int main(int argc, char *argv[]) {
 	
     }
     analysis_finalize();
-    printf("Shutdown!\n");
     
     return 0;
 }
