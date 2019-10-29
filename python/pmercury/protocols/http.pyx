@@ -74,12 +74,12 @@ class HTTP(Protocol):
         if len(request) < 3:
             return None, None
 
-        fp_ = ''
+        cdef list c = []
         for rh in HTTP.headers_data:
-            fp_ += '(%s)' % request[rh].hex()
+            c.append('(%s)' % request[rh].hex())
 
         if len(t_) == 1:
-            return fp_, None
+            return ''.join(c), None
 
         cdef bint http_ah = HTTP.all_headers
         cdef set http_cish = HTTP.case_insensitive_static_headers
@@ -105,11 +105,11 @@ class HTTP(Protocol):
             else:
                 h_c = t0_.hex()
 
-            fp_ += '(%s)' % h_c
+            c.append('(%s)' % h_c)
             if t0_lower in http_ctx:
                 context.append({'name':HTTP.contextual_data[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1]})
 
-        return fp_, context
+        return ''.join(c), context
 
 
     def get_human_readable(self, fp_str_):

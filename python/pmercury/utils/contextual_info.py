@@ -33,7 +33,7 @@ pyasn_context_file    = find_resource_path('resources/pyasn.db.gz')
 as_context_file       = find_resource_path('resources/asn_info.db.gz')
 pyasn_contextual_data = pyasn.pyasn(pyasn_context_file)
 as_contextual_data    = {}
-for line in os.popen('zcat %s' % (as_context_file)):
+for line in os.popen('zcat %s' % (as_context_file), mode='r', buffering=8192*256):
     t_ = line.split()
     as_contextual_data[int(t_[0])] = t_[1]
 
