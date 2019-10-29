@@ -5,8 +5,6 @@
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
 
-from cython.operator cimport dereference as deref
-
 from pmercury.protocols.tcp import TCP
 from pmercury.protocols.tls import TLS
 from pmercury.protocols.http import HTTP
@@ -16,6 +14,7 @@ from pmercury.protocols.http_server import HTTP_Server
 from pmercury.protocols.dhcp import DHCP
 
 
+from cython.operator cimport dereference as deref
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 
 cdef extern from "arpa/inet.h":

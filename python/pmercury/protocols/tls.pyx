@@ -21,7 +21,11 @@ from pmercury.utils.pmercury_utils import *
 from pmercury.utils.contextual_info import *
 from pmercury.utils.sequence_alignment import *
 
+from cython.operator cimport dereference as deref
 from libc.math cimport exp, log, fmax
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+cdef extern from "arpa/inet.h":
+    uint16_t htons(uint16_t hostshort)
 
 MAX_CACHED_RESULTS = 2**24
 
@@ -86,7 +90,7 @@ cdef class TLS():
         offset += 5
 
         # extract handshake version
-        cdef list c = ['(%s)' % data[offset+4:offset+6].hex()]
+        cdef list c = [f'({buf[offset+4]:02x}{buf[offset+5]:02x})']
 
         # skip header/client_random
         offset += 38
@@ -98,7 +102,7 @@ cdef class TLS():
             return None, None
 
         # parse/extract/skip cipher_suites length
-        cdef unsigned int cipher_suites_length = int.from_bytes(buf[offset:offset+2], byteorder='big')
+        cdef unsigned int cipher_suites_length = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
             return None, None
@@ -121,7 +125,7 @@ cdef class TLS():
             return ''.join(c), None
 
         # parse/skip extensions length
-        cdef unsigned int ext_total_len = int.from_bytes(buf[offset:offset+2], byteorder='big')
+        cdef unsigned int ext_total_len = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
             c.append('()')
@@ -136,7 +140,7 @@ cdef class TLS():
                 return ''.join(c), None
 
             # extract server name for process/malware identification
-            if int.from_bytes(buf[offset:offset+2], byteorder='big') == 0:
+            if htons(deref(<uint16_t *>(buf+offset))) == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)

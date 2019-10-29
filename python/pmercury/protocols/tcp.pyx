@@ -73,7 +73,7 @@ cdef class TCP:
 
     @staticmethod
     def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):
-        cdef list c = ['(%s)' % buf[offset+14:offset+16].hex()]
+        cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
 
         offset += 20
         cdef unsigned int cur_ = 20

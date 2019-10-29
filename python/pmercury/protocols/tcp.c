@@ -1151,11 +1151,7 @@ static PyObject* __Pyx_PyUnicode_BuildFromAscii(Py_ssize_t ulength, char* chars,
                                                 int prepend_sign, char padding_char);
 
 /* CIntToPyUnicode.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyUnicode_From_unsigned_int(unsigned int value, Py_ssize_t width, char padding_char, char format_char);
-
-/* PyObjectFormatAndDecref.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatSimpleAndDecref(PyObject* s, PyObject* f);
-static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObject* f);
+static CYTHON_INLINE PyObject* __Pyx_PyUnicode_From_unsigned_char(unsigned char value, Py_ssize_t width, char padding_char, char format_char);
 
 /* IncludeStringH.proto */
 #include <string.h>
@@ -1163,6 +1159,13 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObj
 /* JoinPyUnicode.proto */
 static PyObject* __Pyx_PyUnicode_Join(PyObject* value_tuple, Py_ssize_t value_count, Py_ssize_t result_ulength,
                                       Py_UCS4 max_char);
+
+/* CIntToPyUnicode.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyUnicode_From_unsigned_int(unsigned int value, Py_ssize_t width, char padding_char, char format_char);
+
+/* PyObjectFormatAndDecref.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatSimpleAndDecref(PyObject* s, PyObject* f);
+static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObject* f);
 
 /* PyErrExceptionMatches.proto */
 #if CYTHON_FAST_THREAD_STATE
@@ -1325,12 +1328,11 @@ int __pyx_module_is_main_pmercury__protocols__tcp = 0;
 static PyObject *__pyx_builtin_staticmethod;
 static const char __pyx_k_[] = "(";
 static const char __pyx_k_c[] = "c";
-static const char __pyx_k_s[] = "(%s)";
 static const char __pyx_k__2[] = ")";
 static const char __pyx_k__3[] = "";
 static const char __pyx_k__4[] = "/../";
 static const char __pyx_k_os[] = "os";
-static const char __pyx_k_02x[] = "(%02x)";
+static const char __pyx_k_02x[] = "02x";
 static const char __pyx_k_TCP[] = "TCP";
 static const char __pyx_k_buf[] = "buf";
 static const char __pyx_k_cur[] = "cur_";
@@ -1347,7 +1349,7 @@ static const char __pyx_k_main[] = "__main__";
 static const char __pyx_k_name[] = "__name__";
 static const char __pyx_k_path[] = "path";
 static const char __pyx_k_test[] = "__test__";
-static const char __pyx_k_02x_2[] = "02x";
+static const char __pyx_k_02x_2[] = "(%02x)";
 static const char __pyx_k_loads[] = "loads";
 static const char __pyx_k_popen[] = "popen";
 static const char __pyx_k_score[] = "score";
@@ -1477,7 +1479,6 @@ static PyObject *__pyx_n_s_pyx_unpickle_TCP;
 static PyObject *__pyx_n_s_reduce;
 static PyObject *__pyx_n_s_reduce_cython;
 static PyObject *__pyx_n_s_reduce_ex;
-static PyObject *__pyx_kp_u_s;
 static PyObject *__pyx_n_u_score;
 static PyObject *__pyx_n_s_setstate;
 static PyObject *__pyx_n_s_setstate_cython;
@@ -2553,7 +2554,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_8proto_identify(PyObjec
  * 
  *     @staticmethod
  *     def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):             # <<<<<<<<<<<<<<
- *         cdef list c = ['(%s)' % buf[offset+14:offset+16].hex()]
+ *         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
  * 
  */
 
@@ -2638,55 +2639,59 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
-  PyObject *__pyx_t_3 = NULL;
-  int __pyx_t_4;
+  Py_ssize_t __pyx_t_2;
+  Py_UCS4 __pyx_t_3;
+  PyObject *__pyx_t_4 = NULL;
   int __pyx_t_5;
-  Py_ssize_t __pyx_t_6;
-  Py_UCS4 __pyx_t_7;
+  int __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
   PyObject *__pyx_t_8 = NULL;
   __Pyx_RefNannySetupContext("fingerprint", 0);
 
   /* "pmercury/protocols/tcp.pyx":76
  *     @staticmethod
  *     def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):
- *         cdef list c = ['(%s)' % buf[offset+14:offset+16].hex()]             # <<<<<<<<<<<<<<
+ *         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']             # <<<<<<<<<<<<<<
  * 
  *         offset += 20
  */
-  __pyx_t_2 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + (__pyx_v_offset + 14), (__pyx_v_offset + 16) - (__pyx_v_offset + 14)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 76, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_hex); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 76, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = NULL;
-  if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
-    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
-    if (likely(__pyx_t_2)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
-      __Pyx_INCREF(__pyx_t_2);
-      __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_3, function);
-    }
-  }
-  __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_2) : __Pyx_PyObject_CallNoArg(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 76, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = 0;
+  __pyx_t_3 = 127;
+  __Pyx_INCREF(__pyx_kp_u_);
+  __pyx_t_2 += 1;
+  __Pyx_GIVEREF(__pyx_kp_u_);
+  PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_);
+  __pyx_t_4 = __Pyx_PyUnicode_From_unsigned_char((__pyx_v_buf[(__pyx_v_offset + 14)]), 2, '0', 'x'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
+  __Pyx_GIVEREF(__pyx_t_4);
+  PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_4);
+  __pyx_t_4 = 0;
+  __pyx_t_4 = __Pyx_PyUnicode_From_unsigned_char((__pyx_v_buf[(__pyx_v_offset + 15)]), 2, '0', 'x'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
+  __Pyx_GIVEREF(__pyx_t_4);
+  PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_t_4);
+  __pyx_t_4 = 0;
+  __Pyx_INCREF(__pyx_kp_u__2);
+  __pyx_t_2 += 1;
+  __Pyx_GIVEREF(__pyx_kp_u__2);
+  PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_kp_u__2);
+  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 4, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GIVEREF(__pyx_t_3);
-  PyList_SET_ITEM(__pyx_t_1, 0, __pyx_t_3);
-  __pyx_t_3 = 0;
+  __Pyx_GIVEREF(__pyx_t_4);
+  PyList_SET_ITEM(__pyx_t_1, 0, __pyx_t_4);
+  __pyx_t_4 = 0;
   __pyx_v_c = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
   /* "pmercury/protocols/tcp.pyx":78
- *         cdef list c = ['(%s)' % buf[offset+14:offset+16].hex()]
+ *         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
  * 
  *         offset += 20             # <<<<<<<<<<<<<<
  *         cdef unsigned int cur_ = 20
@@ -2711,8 +2716,8 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
  *             length = buf[offset+1]
  */
   while (1) {
-    __pyx_t_4 = ((__pyx_v_cur_ < __pyx_v_data_len) != 0);
-    if (!__pyx_t_4) break;
+    __pyx_t_5 = ((__pyx_v_cur_ < __pyx_v_data_len) != 0);
+    if (!__pyx_t_5) break;
 
     /* "pmercury/protocols/tcp.pyx":84
  * 
@@ -2742,13 +2747,13 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
     switch (__pyx_v_kind) {
       case 0:
       case 1:
-      __pyx_t_4 = 1;
+      __pyx_t_5 = 1;
       break;
       default:
-      __pyx_t_4 = 0;
+      __pyx_t_5 = 0;
       break;
     }
-    if (__pyx_t_4) {
+    if (__pyx_t_5) {
 
       /* "pmercury/protocols/tcp.pyx":87
  *             length = buf[offset+1]
@@ -2759,11 +2764,11 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
  */
       __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_kind); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = PyUnicode_Format(__pyx_kp_u_02x, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_3);
+      __pyx_t_4 = PyUnicode_Format(__pyx_kp_u_02x_2, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 87, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_5 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_3); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 87, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __pyx_t_6 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_4); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 87, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
       /* "pmercury/protocols/tcp.pyx":88
  *             if kind == 0 or kind == 1: # End of Options / NOP
@@ -2803,13 +2808,13 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
     switch (__pyx_v_kind) {
       case 2:
       case 3:
-      __pyx_t_4 = 0;
+      __pyx_t_5 = 0;
       break;
       default:
-      __pyx_t_4 = 1;
+      __pyx_t_5 = 1;
       break;
     }
-    if (__pyx_t_4) {
+    if (__pyx_t_5) {
 
       /* "pmercury/protocols/tcp.pyx":91
  *                 cur_ += 1
@@ -2818,12 +2823,12 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
  *                 offset += length
  *                 cur_ += length
  */
-      __pyx_t_3 = __Pyx_PyInt_From_unsigned_int(__pyx_v_kind); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 91, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = PyUnicode_Format(__pyx_kp_u_02x, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_v_kind); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 91, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_1 = PyUnicode_Format(__pyx_kp_u_02x_2, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_5 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_1); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 91, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __pyx_t_6 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_1); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 91, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
       /* "pmercury/protocols/tcp.pyx":92
@@ -2864,54 +2869,54 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
     /*else*/ {
       __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_6 = 0;
-      __pyx_t_7 = 127;
+      __pyx_t_2 = 0;
+      __pyx_t_3 = 127;
       __Pyx_INCREF(__pyx_kp_u_);
-      __pyx_t_6 += 1;
+      __pyx_t_2 += 1;
       __Pyx_GIVEREF(__pyx_kp_u_);
       PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_);
-      __pyx_t_3 = __Pyx_PyUnicode_From_unsigned_int(__pyx_v_kind, 2, '0', 'x'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 95, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3);
-      __Pyx_GIVEREF(__pyx_t_3);
-      PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_3);
-      __pyx_t_3 = 0;
-      __pyx_t_2 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + (__pyx_v_offset + 1), (__pyx_v_offset + __pyx_v_length) - (__pyx_v_offset + 1)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 95, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_hex); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyUnicode_From_unsigned_int(__pyx_v_kind, 2, '0', 'x'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
+      __Pyx_GIVEREF(__pyx_t_4);
+      PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_4);
+      __pyx_t_4 = 0;
+      __pyx_t_7 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + (__pyx_v_offset + 1), (__pyx_v_offset + __pyx_v_length) - (__pyx_v_offset + 1)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_hex); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __pyx_t_2 = NULL;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __pyx_t_7 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_8))) {
-        __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_8);
-        if (likely(__pyx_t_2)) {
+        __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_8);
+        if (likely(__pyx_t_7)) {
           PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_8);
-          __Pyx_INCREF(__pyx_t_2);
+          __Pyx_INCREF(__pyx_t_7);
           __Pyx_INCREF(function);
           __Pyx_DECREF_SET(__pyx_t_8, function);
         }
       }
-      __pyx_t_3 = (__pyx_t_2) ? __Pyx_PyObject_CallOneArg(__pyx_t_8, __pyx_t_2) : __Pyx_PyObject_CallNoArg(__pyx_t_8);
-      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 95, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_3);
+      __pyx_t_4 = (__pyx_t_7) ? __Pyx_PyObject_CallOneArg(__pyx_t_8, __pyx_t_7) : __Pyx_PyObject_CallNoArg(__pyx_t_8);
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_3), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_4), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_7 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_7) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_7;
-      __pyx_t_6 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_3;
+      __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8);
       __Pyx_GIVEREF(__pyx_t_8);
       PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_t_8);
       __pyx_t_8 = 0;
       __Pyx_INCREF(__pyx_kp_u__2);
-      __pyx_t_6 += 1;
+      __pyx_t_2 += 1;
       __Pyx_GIVEREF(__pyx_kp_u__2);
       PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_kp_u__2);
-      __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_1, 4, __pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_1, 4, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_5 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_8); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_8); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
       /* "pmercury/protocols/tcp.pyx":96
@@ -2961,15 +2966,15 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
  * 
  *     @staticmethod
  *     def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):             # <<<<<<<<<<<<<<
- *         cdef list c = ['(%s)' % buf[offset+14:offset+16].hex()]
+ *         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
  * 
  */
 
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_7);
   __Pyx_XDECREF(__pyx_t_8);
   __Pyx_AddTraceback("pmercury.protocols.tcp.TCP.fingerprint", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -4078,7 +4083,6 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_reduce, __pyx_k_reduce, sizeof(__pyx_k_reduce), 0, 0, 1, 1},
   {&__pyx_n_s_reduce_cython, __pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 0, 1, 1},
   {&__pyx_n_s_reduce_ex, __pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 0, 1, 1},
-  {&__pyx_kp_u_s, __pyx_k_s, sizeof(__pyx_k_s), 0, 1, 0, 0},
   {&__pyx_n_u_score, __pyx_k_score, sizeof(__pyx_k_score), 0, 1, 0, 1},
   {&__pyx_n_s_setstate, __pyx_k_setstate, sizeof(__pyx_k_setstate), 0, 0, 1, 1},
   {&__pyx_n_s_setstate_cython, __pyx_k_setstate_cython, sizeof(__pyx_k_setstate_cython), 0, 0, 1, 1},
@@ -4121,7 +4125,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * 
  *     @staticmethod
  *     def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):             # <<<<<<<<<<<<<<
- *         cdef list c = ['(%s)' % buf[offset+14:offset+16].hex()]
+ *         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
  * 
  */
   __pyx_tuple__7 = PyTuple_Pack(7, __pyx_n_s_buf, __pyx_n_s_offset, __pyx_n_s_data_len, __pyx_n_s_c, __pyx_n_s_cur, __pyx_n_s_kind, __pyx_n_s_length); if (unlikely(!__pyx_tuple__7)) __PYX_ERR(0, 75, __pyx_L1_error)
@@ -4740,7 +4744,7 @@ if (!__Pyx_RefNanny) {
  * 
  *     @staticmethod
  *     def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):             # <<<<<<<<<<<<<<
- *         cdef list c = ['(%s)' % buf[offset+14:offset+16].hex()]
+ *         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
  * 
  */
   __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_3tcp_3TCP_11fingerprint, NULL, __pyx_n_s_pmercury_protocols_tcp); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
@@ -4754,7 +4758,7 @@ if (!__Pyx_RefNanny) {
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
  *     def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):
- *         cdef list c = ['(%s)' % buf[offset+14:offset+16].hex()]
+ *         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
  */
   __Pyx_GetNameInClass(__pyx_t_1, (PyObject *)__pyx_ptype_8pmercury_9protocols_3tcp_TCP, __pyx_n_s_fingerprint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6195,6 +6199,157 @@ done_or_error:
 #if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
 #define GCC_DIAGNOSTIC
 #endif
+static CYTHON_INLINE PyObject* __Pyx_PyUnicode_From_unsigned_char(unsigned char value, Py_ssize_t width, char padding_char, char format_char) {
+    char digits[sizeof(unsigned char)*3+2];
+    char *dpos, *end = digits + sizeof(unsigned char)*3+2;
+    const char *hex_digits = DIGITS_HEX;
+    Py_ssize_t length, ulength;
+    int prepend_sign, last_one_off;
+    unsigned char remaining;
+#ifdef GCC_DIAGNOSTIC
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
+    const unsigned char neg_one = (unsigned char) -1, const_zero = (unsigned char) 0;
+#ifdef GCC_DIAGNOSTIC
+#pragma GCC diagnostic pop
+#endif
+    const int is_unsigned = neg_one > const_zero;
+    if (format_char == 'X') {
+        hex_digits += 16;
+        format_char = 'x';
+    }
+    remaining = value;
+    last_one_off = 0;
+    dpos = end;
+    do {
+        int digit_pos;
+        switch (format_char) {
+        case 'o':
+            digit_pos = abs((int)(remaining % (8*8)));
+            remaining = (unsigned char) (remaining / (8*8));
+            dpos -= 2;
+            *(uint16_t*)dpos = ((const uint16_t*)DIGIT_PAIRS_8)[digit_pos];
+            last_one_off = (digit_pos < 8);
+            break;
+        case 'd':
+            digit_pos = abs((int)(remaining % (10*10)));
+            remaining = (unsigned char) (remaining / (10*10));
+            dpos -= 2;
+            *(uint16_t*)dpos = ((const uint16_t*)DIGIT_PAIRS_10)[digit_pos];
+            last_one_off = (digit_pos < 10);
+            break;
+        case 'x':
+            *(--dpos) = hex_digits[abs((int)(remaining % 16))];
+            remaining = (unsigned char) (remaining / 16);
+            break;
+        default:
+            assert(0);
+            break;
+        }
+    } while (unlikely(remaining != 0));
+    if (last_one_off) {
+        assert(*dpos == '0');
+        dpos++;
+    }
+    length = end - dpos;
+    ulength = length;
+    prepend_sign = 0;
+    if (!is_unsigned && value <= neg_one) {
+        if (padding_char == ' ' || width <= length + 1) {
+            *(--dpos) = '-';
+            ++length;
+        } else {
+            prepend_sign = 1;
+        }
+        ++ulength;
+    }
+    if (width > ulength) {
+        ulength = width;
+    }
+    if (ulength == 1) {
+        return PyUnicode_FromOrdinal(*dpos);
+    }
+    return __Pyx_PyUnicode_BuildFromAscii(ulength, dpos, (int) length, prepend_sign, padding_char);
+}
+
+/* JoinPyUnicode */
+static PyObject* __Pyx_PyUnicode_Join(PyObject* value_tuple, Py_ssize_t value_count, Py_ssize_t result_ulength,
+                                      CYTHON_UNUSED Py_UCS4 max_char) {
+#if CYTHON_USE_UNICODE_INTERNALS && CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+    PyObject *result_uval;
+    int result_ukind;
+    Py_ssize_t i, char_pos;
+    void *result_udata;
+#if CYTHON_PEP393_ENABLED
+    result_uval = PyUnicode_New(result_ulength, max_char);
+    if (unlikely(!result_uval)) return NULL;
+    result_ukind = (max_char <= 255) ? PyUnicode_1BYTE_KIND : (max_char <= 65535) ? PyUnicode_2BYTE_KIND : PyUnicode_4BYTE_KIND;
+    result_udata = PyUnicode_DATA(result_uval);
+#else
+    result_uval = PyUnicode_FromUnicode(NULL, result_ulength);
+    if (unlikely(!result_uval)) return NULL;
+    result_ukind = sizeof(Py_UNICODE);
+    result_udata = PyUnicode_AS_UNICODE(result_uval);
+#endif
+    char_pos = 0;
+    for (i=0; i < value_count; i++) {
+        int ukind;
+        Py_ssize_t ulength;
+        void *udata;
+        PyObject *uval = PyTuple_GET_ITEM(value_tuple, i);
+        if (unlikely(__Pyx_PyUnicode_READY(uval)))
+            goto bad;
+        ulength = __Pyx_PyUnicode_GET_LENGTH(uval);
+        if (unlikely(!ulength))
+            continue;
+        if (unlikely(char_pos + ulength < 0))
+            goto overflow;
+        ukind = __Pyx_PyUnicode_KIND(uval);
+        udata = __Pyx_PyUnicode_DATA(uval);
+        if (!CYTHON_PEP393_ENABLED || ukind == result_ukind) {
+            memcpy((char *)result_udata + char_pos * result_ukind, udata, (size_t) (ulength * result_ukind));
+        } else {
+            #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030300F0 || defined(_PyUnicode_FastCopyCharacters)
+            _PyUnicode_FastCopyCharacters(result_uval, char_pos, uval, 0, ulength);
+            #else
+            Py_ssize_t j;
+            for (j=0; j < ulength; j++) {
+                Py_UCS4 uchar = __Pyx_PyUnicode_READ(ukind, udata, j);
+                __Pyx_PyUnicode_WRITE(result_ukind, result_udata, char_pos+j, uchar);
+            }
+            #endif
+        }
+        char_pos += ulength;
+    }
+    return result_uval;
+overflow:
+    PyErr_SetString(PyExc_OverflowError, "join() result is too long for a Python string");
+bad:
+    Py_DECREF(result_uval);
+    return NULL;
+#else
+    result_ulength++;
+    value_count++;
+    return PyUnicode_Join(__pyx_empty_unicode, value_tuple);
+#endif
+}
+
+/* CIntToPyUnicode */
+#ifdef _MSC_VER
+    #ifndef _MSC_STDINT_H_
+        #if _MSC_VER < 1300
+           typedef unsigned short    uint16_t;
+        #else
+           typedef unsigned __int16  uint16_t;
+        #endif
+    #endif
+#else
+   #include <stdint.h>
+#endif
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#define GCC_DIAGNOSTIC
+#endif
 static CYTHON_INLINE PyObject* __Pyx_PyUnicode_From_unsigned_int(unsigned int value, Py_ssize_t width, char padding_char, char format_char) {
     char digits[sizeof(unsigned int)*3+2];
     char *dpos, *end = digits + sizeof(unsigned int)*3+2;
@@ -6286,68 +6441,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObj
     PyObject *result = PyObject_Format(s, f);
     Py_DECREF(s);
     return result;
-}
-
-/* JoinPyUnicode */
-static PyObject* __Pyx_PyUnicode_Join(PyObject* value_tuple, Py_ssize_t value_count, Py_ssize_t result_ulength,
-                                      CYTHON_UNUSED Py_UCS4 max_char) {
-#if CYTHON_USE_UNICODE_INTERNALS && CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    PyObject *result_uval;
-    int result_ukind;
-    Py_ssize_t i, char_pos;
-    void *result_udata;
-#if CYTHON_PEP393_ENABLED
-    result_uval = PyUnicode_New(result_ulength, max_char);
-    if (unlikely(!result_uval)) return NULL;
-    result_ukind = (max_char <= 255) ? PyUnicode_1BYTE_KIND : (max_char <= 65535) ? PyUnicode_2BYTE_KIND : PyUnicode_4BYTE_KIND;
-    result_udata = PyUnicode_DATA(result_uval);
-#else
-    result_uval = PyUnicode_FromUnicode(NULL, result_ulength);
-    if (unlikely(!result_uval)) return NULL;
-    result_ukind = sizeof(Py_UNICODE);
-    result_udata = PyUnicode_AS_UNICODE(result_uval);
-#endif
-    char_pos = 0;
-    for (i=0; i < value_count; i++) {
-        int ukind;
-        Py_ssize_t ulength;
-        void *udata;
-        PyObject *uval = PyTuple_GET_ITEM(value_tuple, i);
-        if (unlikely(__Pyx_PyUnicode_READY(uval)))
-            goto bad;
-        ulength = __Pyx_PyUnicode_GET_LENGTH(uval);
-        if (unlikely(!ulength))
-            continue;
-        if (unlikely(char_pos + ulength < 0))
-            goto overflow;
-        ukind = __Pyx_PyUnicode_KIND(uval);
-        udata = __Pyx_PyUnicode_DATA(uval);
-        if (!CYTHON_PEP393_ENABLED || ukind == result_ukind) {
-            memcpy((char *)result_udata + char_pos * result_ukind, udata, (size_t) (ulength * result_ukind));
-        } else {
-            #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030300F0 || defined(_PyUnicode_FastCopyCharacters)
-            _PyUnicode_FastCopyCharacters(result_uval, char_pos, uval, 0, ulength);
-            #else
-            Py_ssize_t j;
-            for (j=0; j < ulength; j++) {
-                Py_UCS4 uchar = __Pyx_PyUnicode_READ(ukind, udata, j);
-                __Pyx_PyUnicode_WRITE(result_ukind, result_udata, char_pos+j, uchar);
-            }
-            #endif
-        }
-        char_pos += ulength;
-    }
-    return result_uval;
-overflow:
-    PyErr_SetString(PyExc_OverflowError, "join() result is too long for a Python string");
-bad:
-    Py_DECREF(result_uval);
-    return NULL;
-#else
-    result_ulength++;
-    value_count++;
-    return PyUnicode_Join(__pyx_empty_unicode, value_tuple);
-#endif
 }
 
 /* PyErrExceptionMatches */
