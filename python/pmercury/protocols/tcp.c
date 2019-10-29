@@ -1335,7 +1335,6 @@ static const char __pyx_k_os[] = "os";
 static const char __pyx_k_02x[] = "02x";
 static const char __pyx_k_TCP[] = "TCP";
 static const char __pyx_k_buf[] = "buf";
-static const char __pyx_k_cur[] = "cur_";
 static const char __pyx_k_hex[] = "hex";
 static const char __pyx_k_new[] = "__new__";
 static const char __pyx_k_sys[] = "sys";
@@ -1428,7 +1427,6 @@ static PyObject *__pyx_n_s_c;
 static PyObject *__pyx_n_s_cline_in_traceback;
 static PyObject *__pyx_n_s_config;
 static PyObject *__pyx_n_s_context;
-static PyObject *__pyx_n_s_cur;
 static PyObject *__pyx_n_s_data;
 static PyObject *__pyx_n_s_data_len;
 static PyObject *__pyx_n_s_dict;
@@ -2633,7 +2631,6 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tcp_3TCP_11fingerprint(CYTHON_UN
 
 static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned char *__pyx_v_buf, unsigned int __pyx_v_offset, unsigned int __pyx_v_data_len) {
   PyObject *__pyx_v_c = 0;
-  unsigned int __pyx_v_cur_;
   unsigned int __pyx_v_kind;
   unsigned int __pyx_v_length;
   PyObject *__pyx_r = NULL;
@@ -2694,42 +2691,33 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
  *         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
  * 
  *         offset += 20             # <<<<<<<<<<<<<<
- *         cdef unsigned int cur_ = 20
  *         cdef unsigned int kind
+ *         cdef unsigned int length
  */
   __pyx_v_offset = (__pyx_v_offset + 20);
 
-  /* "pmercury/protocols/tcp.pyx":79
- * 
- *         offset += 20
- *         cdef unsigned int cur_ = 20             # <<<<<<<<<<<<<<
- *         cdef unsigned int kind
- *         cdef unsigned int length
- */
-  __pyx_v_cur_ = 20;
-
-  /* "pmercury/protocols/tcp.pyx":83
+  /* "pmercury/protocols/tcp.pyx":82
  *         cdef unsigned int length
  * 
- *         while cur_ < data_len:             # <<<<<<<<<<<<<<
+ *         while offset < data_len:             # <<<<<<<<<<<<<<
  *             kind   = buf[offset]
  *             length = buf[offset+1]
  */
   while (1) {
-    __pyx_t_5 = ((__pyx_v_cur_ < __pyx_v_data_len) != 0);
+    __pyx_t_5 = ((__pyx_v_offset < __pyx_v_data_len) != 0);
     if (!__pyx_t_5) break;
 
-    /* "pmercury/protocols/tcp.pyx":84
+    /* "pmercury/protocols/tcp.pyx":83
  * 
- *         while cur_ < data_len:
+ *         while offset < data_len:
  *             kind   = buf[offset]             # <<<<<<<<<<<<<<
  *             length = buf[offset+1]
  *             if kind == 0 or kind == 1: # End of Options / NOP
  */
     __pyx_v_kind = (__pyx_v_buf[__pyx_v_offset]);
 
-    /* "pmercury/protocols/tcp.pyx":85
- *         while cur_ < data_len:
+    /* "pmercury/protocols/tcp.pyx":84
+ *         while offset < data_len:
  *             kind   = buf[offset]
  *             length = buf[offset+1]             # <<<<<<<<<<<<<<
  *             if kind == 0 or kind == 1: # End of Options / NOP
@@ -2737,7 +2725,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
  */
     __pyx_v_length = (__pyx_v_buf[(__pyx_v_offset + 1)]);
 
-    /* "pmercury/protocols/tcp.pyx":86
+    /* "pmercury/protocols/tcp.pyx":85
  *             kind   = buf[offset]
  *             length = buf[offset+1]
  *             if kind == 0 or kind == 1: # End of Options / NOP             # <<<<<<<<<<<<<<
@@ -2755,40 +2743,31 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
     }
     if (__pyx_t_5) {
 
-      /* "pmercury/protocols/tcp.pyx":87
+      /* "pmercury/protocols/tcp.pyx":86
  *             length = buf[offset+1]
  *             if kind == 0 or kind == 1: # End of Options / NOP
  *                 c.append('(%02x)' % kind)             # <<<<<<<<<<<<<<
  *                 offset += 1
- *                 cur_ += 1
+ *             elif kind != 2 and kind != 3:
  */
-      __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_kind); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyInt_From_unsigned_int(__pyx_v_kind); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 86, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = PyUnicode_Format(__pyx_kp_u_02x_2, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 87, __pyx_L1_error)
+      __pyx_t_4 = PyUnicode_Format(__pyx_kp_u_02x_2, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 86, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_6 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_4); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 87, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_4); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 86, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "pmercury/protocols/tcp.pyx":88
+      /* "pmercury/protocols/tcp.pyx":87
  *             if kind == 0 or kind == 1: # End of Options / NOP
  *                 c.append('(%02x)' % kind)
  *                 offset += 1             # <<<<<<<<<<<<<<
- *                 cur_ += 1
  *             elif kind != 2 and kind != 3:
+ *                 c.append('(%02x)' % kind)
  */
       __pyx_v_offset = (__pyx_v_offset + 1);
 
-      /* "pmercury/protocols/tcp.pyx":89
- *                 c.append('(%02x)' % kind)
- *                 offset += 1
- *                 cur_ += 1             # <<<<<<<<<<<<<<
- *             elif kind != 2 and kind != 3:
- *                 c.append('(%02x)' % kind)
- */
-      __pyx_v_cur_ = (__pyx_v_cur_ + 1);
-
-      /* "pmercury/protocols/tcp.pyx":86
+      /* "pmercury/protocols/tcp.pyx":85
  *             kind   = buf[offset]
  *             length = buf[offset+1]
  *             if kind == 0 or kind == 1: # End of Options / NOP             # <<<<<<<<<<<<<<
@@ -2798,9 +2777,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
       goto __pyx_L5;
     }
 
-    /* "pmercury/protocols/tcp.pyx":90
+    /* "pmercury/protocols/tcp.pyx":88
+ *                 c.append('(%02x)' % kind)
  *                 offset += 1
- *                 cur_ += 1
  *             elif kind != 2 and kind != 3:             # <<<<<<<<<<<<<<
  *                 c.append('(%02x)' % kind)
  *                 offset += length
@@ -2816,42 +2795,33 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
     }
     if (__pyx_t_5) {
 
-      /* "pmercury/protocols/tcp.pyx":91
- *                 cur_ += 1
+      /* "pmercury/protocols/tcp.pyx":89
+ *                 offset += 1
  *             elif kind != 2 and kind != 3:
  *                 c.append('(%02x)' % kind)             # <<<<<<<<<<<<<<
  *                 offset += length
- *                 cur_ += length
+ *             else:
  */
-      __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_v_kind); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 91, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyInt_From_unsigned_int(__pyx_v_kind); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 89, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_1 = PyUnicode_Format(__pyx_kp_u_02x_2, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
+      __pyx_t_1 = PyUnicode_Format(__pyx_kp_u_02x_2, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_6 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_1); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 91, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_1); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 89, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "pmercury/protocols/tcp.pyx":92
+      /* "pmercury/protocols/tcp.pyx":90
  *             elif kind != 2 and kind != 3:
  *                 c.append('(%02x)' % kind)
  *                 offset += length             # <<<<<<<<<<<<<<
- *                 cur_ += length
- *             else:
- */
-      __pyx_v_offset = (__pyx_v_offset + __pyx_v_length);
-
-      /* "pmercury/protocols/tcp.pyx":93
- *                 c.append('(%02x)' % kind)
- *                 offset += length
- *                 cur_ += length             # <<<<<<<<<<<<<<
  *             else:
  *                 c.append('(%02x%s)' % (kind, buf[offset+1:offset+length].hex()))
  */
-      __pyx_v_cur_ = (__pyx_v_cur_ + __pyx_v_length);
+      __pyx_v_offset = (__pyx_v_offset + __pyx_v_length);
 
-      /* "pmercury/protocols/tcp.pyx":90
+      /* "pmercury/protocols/tcp.pyx":88
+ *                 c.append('(%02x)' % kind)
  *                 offset += 1
- *                 cur_ += 1
  *             elif kind != 2 and kind != 3:             # <<<<<<<<<<<<<<
  *                 c.append('(%02x)' % kind)
  *                 offset += length
@@ -2859,15 +2829,15 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
       goto __pyx_L5;
     }
 
-    /* "pmercury/protocols/tcp.pyx":95
- *                 cur_ += length
+    /* "pmercury/protocols/tcp.pyx":92
+ *                 offset += length
  *             else:
  *                 c.append('(%02x%s)' % (kind, buf[offset+1:offset+length].hex()))             # <<<<<<<<<<<<<<
  *                 offset += length
- *                 cur_ += length
+ * 
  */
     /*else*/ {
-      __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_1 = PyTuple_New(4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_2 = 0;
       __pyx_t_3 = 127;
@@ -2875,15 +2845,15 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
       __pyx_t_2 += 1;
       __Pyx_GIVEREF(__pyx_kp_u_);
       PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_);
-      __pyx_t_4 = __Pyx_PyUnicode_From_unsigned_int(__pyx_v_kind, 2, '0', 'x'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyUnicode_From_unsigned_int(__pyx_v_kind, 2, '0', 'x'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 92, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
       __Pyx_GIVEREF(__pyx_t_4);
       PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_4);
       __pyx_t_4 = 0;
-      __pyx_t_7 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + (__pyx_v_offset + 1), (__pyx_v_offset + __pyx_v_length) - (__pyx_v_offset + 1)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyBytes_FromStringAndSize(((const char*)__pyx_v_buf) + (__pyx_v_offset + 1), (__pyx_v_offset + __pyx_v_length) - (__pyx_v_offset + 1)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 92, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_hex); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_hex); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 92, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __pyx_t_7 = NULL;
@@ -2898,10 +2868,10 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
       }
       __pyx_t_4 = (__pyx_t_7) ? __Pyx_PyObject_CallOneArg(__pyx_t_8, __pyx_t_7) : __Pyx_PyObject_CallNoArg(__pyx_t_8);
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 95, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 92, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_4), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_t_4), __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 92, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_3;
@@ -2913,44 +2883,35 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
       __pyx_t_2 += 1;
       __Pyx_GIVEREF(__pyx_kp_u__2);
       PyTuple_SET_ITEM(__pyx_t_1, 3, __pyx_kp_u__2);
-      __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_1, 4, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_1, 4, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 92, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_6 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_8); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 95, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyList_Append(__pyx_v_c, __pyx_t_8); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 92, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "pmercury/protocols/tcp.pyx":96
+      /* "pmercury/protocols/tcp.pyx":93
  *             else:
  *                 c.append('(%02x%s)' % (kind, buf[offset+1:offset+length].hex()))
  *                 offset += length             # <<<<<<<<<<<<<<
- *                 cur_ += length
- * 
- */
-      __pyx_v_offset = (__pyx_v_offset + __pyx_v_length);
-
-      /* "pmercury/protocols/tcp.pyx":97
- *                 c.append('(%02x%s)' % (kind, buf[offset+1:offset+length].hex()))
- *                 offset += length
- *                 cur_ += length             # <<<<<<<<<<<<<<
  * 
  *         return ''.join(c), None
  */
-      __pyx_v_cur_ = (__pyx_v_cur_ + __pyx_v_length);
+      __pyx_v_offset = (__pyx_v_offset + __pyx_v_length);
     }
     __pyx_L5:;
   }
 
-  /* "pmercury/protocols/tcp.pyx":99
- *                 cur_ += length
+  /* "pmercury/protocols/tcp.pyx":95
+ *                 offset += length
  * 
  *         return ''.join(c), None             # <<<<<<<<<<<<<<
  * 
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_8 = PyUnicode_Join(__pyx_kp_u__3, __pyx_v_c); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_t_8 = PyUnicode_Join(__pyx_kp_u__3, __pyx_v_c); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_8);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_8);
@@ -2985,7 +2946,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10fingerprint(unsigned 
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tcp.pyx":102
+/* "pmercury/protocols/tcp.pyx":98
  * 
  * 
  *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -3011,7 +2972,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_12get_human_readable(CY
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("get_human_readable", 0);
 
-  /* "pmercury/protocols/tcp.pyx":103
+  /* "pmercury/protocols/tcp.pyx":99
  * 
  *     def get_human_readable(self, fp_str_):
  *         return None             # <<<<<<<<<<<<<<
@@ -3022,7 +2983,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_12get_human_readable(CY
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "pmercury/protocols/tcp.pyx":102
+  /* "pmercury/protocols/tcp.pyx":98
  * 
  * 
  *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -3037,7 +2998,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_12get_human_readable(CY
   return __pyx_r;
 }
 
-/* "pmercury/protocols/tcp.pyx":106
+/* "pmercury/protocols/tcp.pyx":102
  * 
  * 
  *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):             # <<<<<<<<<<<<<<
@@ -3086,19 +3047,19 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tcp_3TCP_15proc_identify(PyObjec
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_context)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, 1); __PYX_ERR(0, 106, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, 1); __PYX_ERR(0, 102, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dst_ip)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, 2); __PYX_ERR(0, 106, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, 2); __PYX_ERR(0, 102, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dst_port)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, 3); __PYX_ERR(0, 106, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, 3); __PYX_ERR(0, 102, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
@@ -3108,7 +3069,7 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tcp_3TCP_15proc_identify(PyObjec
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "proc_identify") < 0)) __PYX_ERR(0, 106, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "proc_identify") < 0)) __PYX_ERR(0, 102, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -3130,7 +3091,7 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tcp_3TCP_15proc_identify(PyObjec
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 106, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 102, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.tcp.TCP.proc_identify", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -3148,7 +3109,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_14proc_identify(CYTHON_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("proc_identify", 0);
 
-  /* "pmercury/protocols/tcp.pyx":107
+  /* "pmercury/protocols/tcp.pyx":103
  * 
  *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):
  *         return None             # <<<<<<<<<<<<<<
@@ -3158,7 +3119,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_14proc_identify(CYTHON_
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "pmercury/protocols/tcp.pyx":106
+  /* "pmercury/protocols/tcp.pyx":102
  * 
  * 
  *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):             # <<<<<<<<<<<<<<
@@ -4032,7 +3993,6 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_cline_in_traceback, __pyx_k_cline_in_traceback, sizeof(__pyx_k_cline_in_traceback), 0, 0, 1, 1},
   {&__pyx_n_s_config, __pyx_k_config, sizeof(__pyx_k_config), 0, 0, 1, 1},
   {&__pyx_n_s_context, __pyx_k_context, sizeof(__pyx_k_context), 0, 0, 1, 1},
-  {&__pyx_n_s_cur, __pyx_k_cur, sizeof(__pyx_k_cur), 0, 0, 1, 1},
   {&__pyx_n_s_data, __pyx_k_data, sizeof(__pyx_k_data), 0, 0, 1, 1},
   {&__pyx_n_s_data_len, __pyx_k_data_len, sizeof(__pyx_k_data_len), 0, 0, 1, 1},
   {&__pyx_n_s_dict, __pyx_k_dict, sizeof(__pyx_k_dict), 0, 0, 1, 1},
@@ -4128,10 +4088,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
  * 
  */
-  __pyx_tuple__7 = PyTuple_Pack(7, __pyx_n_s_buf, __pyx_n_s_offset, __pyx_n_s_data_len, __pyx_n_s_c, __pyx_n_s_cur, __pyx_n_s_kind, __pyx_n_s_length); if (unlikely(!__pyx_tuple__7)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_tuple__7 = PyTuple_Pack(6, __pyx_n_s_buf, __pyx_n_s_offset, __pyx_n_s_data_len, __pyx_n_s_c, __pyx_n_s_kind, __pyx_n_s_length); if (unlikely(!__pyx_tuple__7)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__7);
   __Pyx_GIVEREF(__pyx_tuple__7);
-  __pyx_codeobj__8 = (PyObject*)__Pyx_PyCode_New(3, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__7, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tcp_pyx, __pyx_n_s_fingerprint, 75, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__8)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_codeobj__8 = (PyObject*)__Pyx_PyCode_New(3, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__7, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_tcp_pyx, __pyx_n_s_fingerprint, 75, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__8)) __PYX_ERR(0, 75, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __pyx_unpickle_TCP(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<

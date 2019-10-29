@@ -76,25 +76,21 @@ cdef class TCP:
         cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
 
         offset += 20
-        cdef unsigned int cur_ = 20
         cdef unsigned int kind
         cdef unsigned int length
 
-        while cur_ < data_len:
+        while offset < data_len:
             kind   = buf[offset]
             length = buf[offset+1]
             if kind == 0 or kind == 1: # End of Options / NOP
                 c.append('(%02x)' % kind)
                 offset += 1
-                cur_ += 1
             elif kind != 2 and kind != 3:
                 c.append('(%02x)' % kind)
                 offset += length
-                cur_ += length
             else:
                 c.append('(%02x%s)' % (kind, buf[offset+1:offset+length].hex()))
                 offset += length
-                cur_ += length
 
         return ''.join(c), None
 
