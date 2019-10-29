@@ -52,10 +52,10 @@ class Fingerprinter:
         if output == None:
             self.out_file_pointer = None
         else:
-            self.out_file_pointer = open(output, 'w', buffering=4096*256)
+            self.out_file_pointer = open(output, 'w', buffering=8192*64)
 
         if endpoint:
-            self.endpoint_file_pointer = open('endpoint_'+output, 'w', buffering=4096*256)
+            self.endpoint_file_pointer = open('endpoint_'+output, 'w', buffering=8192*64)
 
         config = parse_config('../config.txt')
 

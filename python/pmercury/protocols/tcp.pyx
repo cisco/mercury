@@ -73,7 +73,7 @@ cdef class TCP:
 
     @staticmethod
     def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):
-        cdef str fp_ = '(%s)' % (buf[offset+14:offset+16].hex())
+        cdef list c = ['(%s)' % buf[offset+14:offset+16].hex()]
 
         offset += 20
         cdef unsigned int cur_ = 20
@@ -84,19 +84,19 @@ cdef class TCP:
             kind   = buf[offset]
             length = buf[offset+1]
             if kind == 0 or kind == 1: # End of Options / NOP
-                fp_ += '(%02x)' % kind
+                c.append('(%02x)' % kind)
                 offset += 1
                 cur_ += 1
             elif kind != 2 and kind != 3:
-                fp_ += '(%02x)' % kind
+                c.append('(%02x)' % kind)
                 offset += length
                 cur_ += length
             else:
-                fp_ += '(%02x%s)' % (kind, buf[offset+1:offset+length].hex())
+                c.append('(%02x%s)' % (kind, buf[offset+1:offset+length].hex()))
                 offset += length
                 cur_ += length
 
-        return fp_, None
+        return ''.join(c), None
 
 
     def get_human_readable(self, fp_str_):

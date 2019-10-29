@@ -58,7 +58,7 @@ cdef class TLS():
     def load_database(self, str fp_database):
         cdef str line, fp_str
         cdef dict fp_
-        for line in os.popen('zcat %s' % (fp_database)):
+        for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):
             fp_ = json.loads(line)
             fp_str = fp_['str_repr']
             self.fp_db[fp_str] = fp_
@@ -86,7 +86,7 @@ cdef class TLS():
         offset += 5
 
         # extract handshake version
-        cdef str fp_ = '(%s)' % data[offset+4:offset+6].hex()
+        cdef list c = ['(%s)' % data[offset+4:offset+6].hex()]
 
         # skip header/client_random
         offset += 38
@@ -107,45 +107,49 @@ cdef class TLS():
         cdef str cs_ = degrease_type_code(data, offset)
         if cipher_suites_length > 2:
             cs_ += buf[offset+2:offset+cipher_suites_length].hex()
-        fp_ += '(%s)' % cs_
+        c.append('(%s)' % cs_)
         offset += cipher_suites_length
         if offset >= data_len:
-            return fp_+'()', None
+            c.append('()')
+            return ''.join(c), None
 
         # parse/skip compression method
         cdef unsigned int compression_methods_length = buf[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
-            return fp_+'()', None
+            c.append('()')
+            return ''.join(c), None
 
         # parse/skip extensions length
         cdef unsigned int ext_total_len = int.from_bytes(buf[offset:offset+2], byteorder='big')
         offset += 2
         if offset >= data_len:
-            return fp_+'()', None
+            c.append('()')
+            return ''.join(c), None
 
         # parse/extract/skip extension type/length/values
-        fp_ += '('
+        c.append('(')
         server_name = None
         while ext_total_len > 0:
             if offset >= data_len:
-                return fp_+')', None
+                c.append(')')
+                return ''.join(c), None
 
             # extract server name for process/malware identification
             if int.from_bytes(buf[offset:offset+2], byteorder='big') == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
-            fp_ += '(%s)' % tmp_fp_ext
+            c.append('(%s)' % tmp_fp_ext)
 
             ext_total_len -= 4 + ext_len
-        fp_ += ')'
+        c.append(')')
 
         cdef list context = None
         if server_name != None:
             context = [{'name':'server_name', 'data':server_name}]
 
-        return  fp_, context
+        return  ''.join(c), context
 
 
     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):

@@ -5,7 +5,6 @@
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
 
-from socket import AF_INET, AF_INET6, inet_ntop
 from cython.operator cimport dereference as deref
 
 from pmercury.protocols.tcp import TCP
@@ -99,14 +98,20 @@ def pkt_proc(double ts, bytes data):
     dst_port = htons(deref(<uint16_t *>(buf+prot_offset+2)))
     if ip_type == 4:
         o_ = prot_offset-8
-        src_ip = inet_ntop(AF_INET, buf[o_:o_+4])
+        src_ip = f'{buf[o_]}.{buf[o_+1]}.{buf[o_+2]}.{buf[o_+3]}'
         o_ += 4
-        dst_ip = inet_ntop(AF_INET, buf[o_:o_+4])
+        dst_ip = f'{buf[o_]}.{buf[o_+1]}.{buf[o_+2]}.{buf[o_+3]}'
     else:
         o_ = prot_offset-32
-        src_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
+        src_ip = (f'{buf[o_]:02x}{buf[o_+1]:02x}:{buf[o_+2]:02x}{buf[o_+3]:02x}:'
+                  f'{buf[o_+4]:02x}{buf[o_+5]:02x}:{buf[o_+6]:02x}{buf[o_+7]:02x}:'
+                  f'{buf[o_+8]:02x}{buf[o_+9]:02x}:{buf[o_+10]:02x}{buf[o_+11]:02x}:'
+                  f'{buf[o_+12]:02x}{buf[o_+13]:02x}:{buf[o_+14]:02x}{buf[o_+15]:02x}')
         o_ += 16
-        dst_ip = inet_ntop(AF_INET6, buf[o_:o_+16])
+        dst_ip = (f'{buf[o_]:02x}{buf[o_+1]:02x}:{buf[o_+2]:02x}{buf[o_+3]:02x}:'
+                  f'{buf[o_+4]:02x}{buf[o_+5]:02x}:{buf[o_+6]:02x}{buf[o_+7]:02x}:'
+                  f'{buf[o_+8]:02x}{buf[o_+9]:02x}:{buf[o_+10]:02x}{buf[o_+11]:02x}:'
+                  f'{buf[o_+12]:02x}{buf[o_+13]:02x}:{buf[o_+14]:02x}{buf[o_+15]:02x}')
 
     flow = {'src_ip':src_ip,
             'dst_ip':dst_ip,
