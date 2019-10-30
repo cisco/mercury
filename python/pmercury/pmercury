@@ -139,7 +139,11 @@ class Fingerprinter:
 
         if flow != None:
             if self.fast_path:
-                self.out_file_pointer.write('%s\n' % json.dumps(flow))
+                try:
+                    self.out_file_pointer.write('%s\n' % json.dumps(flow))
+                except:
+                    print(flow)
+                    1/0
                 return
 
             fp_type = next(iter(flow['fingerprints']))

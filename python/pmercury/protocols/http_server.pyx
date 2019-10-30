@@ -112,7 +112,13 @@ class HTTP_Server(Protocol):
 
             c.append('(%s)' % h_c)
             if t0_lower in http_ctx:
-                context.append({'name':HTTP_Server.contextual_data[t0_.lower()], 'data':h_.split(b'\x3a\x20',1)[1]})
+                if b'\x3a\x20' in h_:
+                    try:
+                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
+                    except UnicodeDecodeError:
+                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].hex()})
+                else:
+                        context.append({'name':http_ctx[t0_lower], 'data':''})
 
         return ''.join(c), context
 

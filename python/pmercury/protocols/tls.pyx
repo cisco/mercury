@@ -96,13 +96,13 @@ cdef class TLS():
         offset += 38
 
         # parse/skip session_id
-        cdef unsigned int session_id_length = buf[offset]
+        cdef uint8_t session_id_length = buf[offset]
         offset += 1 + session_id_length
         if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites length
-        cdef unsigned int cipher_suites_length = htons(deref(<uint16_t *>(buf+offset)))
+        cdef uint16_t cipher_suites_length = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
             return None, None
@@ -118,14 +118,14 @@ cdef class TLS():
             return ''.join(c), None
 
         # parse/skip compression method
-        cdef unsigned int compression_methods_length = buf[offset]
+        cdef uint8_t compression_methods_length = buf[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
             c.append('()')
             return ''.join(c), None
 
         # parse/skip extensions length
-        cdef unsigned int ext_total_len = htons(deref(<uint16_t *>(buf+offset)))
+        cdef uint16_t ext_total_len = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
             c.append('()')
@@ -144,6 +144,9 @@ cdef class TLS():
                 server_name = extract_server_name(data, offset+2, data_len)
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
+            if ext_len+4 > ext_total_len:
+                c.append(')')
+                return ''.join(c), None
             c.append('(%s)' % tmp_fp_ext)
 
             ext_total_len -= 4 + ext_len
