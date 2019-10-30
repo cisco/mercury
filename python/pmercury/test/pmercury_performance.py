@@ -61,7 +61,7 @@ def main():
     parser.add_option('-r','--read',action='store',dest='pcap_file',
                       help='read packets from file',default=None)
     parser.add_option('-f','--fingerprint',action='store',dest='output',
-                      help='write fingerprints to file',default=sys.stdout)
+                      help='write fingerprints to file',default=None)
     parser.add_option('-d','--fp_db',action='store',dest='fp_db',
                       help='location of fingerprint database',default='resources/fingerprint_db.json.gz')
     parser.add_option('-a','--analysis',action='store_true',dest='analyze',
