@@ -1,10 +1,10 @@
 /*
  * mercury.h
- * 
+ *
  * main header file for mercury packet metadata capture and analysis
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef MERCURY_H
@@ -20,15 +20,15 @@
 #define MAX_HEX 16
 
 #ifdef DEBUG
-    #define debug_print_int(X)  printf("%s:\t%d:\t%s():\t%s:\t%ld\n", __FILE__, __LINE__, __func__, #X, (unsigned long)(X))
-    #define debug_print_uint(X) printf("%s:\t%d:\t%s():\t%s:\t%lu\n", __FILE__, __LINE__, __func__, #X, (unsigned long)(X))
-    #define debug_print_ptr(X)  printf("%s:\t%d:\t%s():\t%s:\t%p\n",  __FILE__, __LINE__, __func__, #X, (void *)(X))
-    #define debug_print_u8_array(X)  printf("%s:\t%d:\t%s():\t%s:\t%02x%02x%02x%02x\n",  __FILE__, __LINE__, __func__, #X, ((unsigned char *)X)[0], ((unsigned char *)X)[1], ((unsigned char *)X)[2], ((unsigned char *)X)[3])
+#define debug_print_int(X)  printf("%s:\t%d:\t%s():\t%s:\t%ld\n", __FILE__, __LINE__, __func__, #X, (unsigned long)(X))
+#define debug_print_uint(X) printf("%s:\t%d:\t%s():\t%s:\t%lu\n", __FILE__, __LINE__, __func__, #X, (unsigned long)(X))
+#define debug_print_ptr(X)  printf("%s:\t%d:\t%s():\t%s:\t%p\n",  __FILE__, __LINE__, __func__, #X, (void *)(X))
+#define debug_print_u8_array(X)  printf("%s:\t%d:\t%s():\t%s:\t%02x%02x%02x%02x\n",  __FILE__, __LINE__, __func__, #X, ((unsigned char *)X)[0], ((unsigned char *)X)[1], ((unsigned char *)X)[2], ((unsigned char *)X)[3])
 #else
-    #define debug_print_int(X)  
-    #define debug_print_uint(X) 
-    #define debug_print_ptr(X)  
-    #define debug_print_u8_array(X)
+#define debug_print_int(X)
+#define debug_print_uint(X)
+#define debug_print_ptr(X)
+#define debug_print_u8_array(X)
 #endif
 
 enum status {
@@ -64,14 +64,14 @@ struct mercury_config {
 
 enum create_subdir_mode {
     create_subdir_mode_do_not_overwrite = 0,
-    create_subdir_mode_overwrite = 1    
+    create_subdir_mode_overwrite = 1
 };
 
 void create_subdirectory(const char *outdir, enum create_subdir_mode mode);
 
 enum status filename_append(char dst[MAX_FILENAME],
-			    const char *src,
-			    const char *delim,
-			    const char *tail);
+                            const char *src,
+                            const char *delim,
+                            const char *tail);
 
 #endif /* MERCURY_H */
