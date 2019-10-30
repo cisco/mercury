@@ -50,9 +50,9 @@ class Fingerprinter:
             self.fast_path = False
 
         if output == None:
-            self.out_file_pointer = None
+            self.out_file_pointer = sys.stdout
         else:
-            self.out_file_pointer = open(output, 'w', buffering=8192*64)
+            self.out_file_pointer = open(output, 'w', buffering=8192*4)
 
         if endpoint:
             self.endpoint_file_pointer = open('endpoint_'+output, 'w', buffering=8192*64)
@@ -144,7 +144,7 @@ class Fingerprinter:
 
         if flow != None:
             if self.fast_path:
-                self.write_record(flow)
+                self.out_file_pointer.write('%s\n' % json.dumps(flow))
                 return
 
             fp_type = next(iter(flow['fingerprints']))
@@ -322,11 +322,7 @@ class Fingerprinter:
 
 
     def write_record(self, flow_repr):
-        if self.out_file_pointer == None:
-            return
-
-        if flow_repr != None:
-            self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
+        self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
 
 
     def write_flows(self, active=False):
@@ -343,7 +339,7 @@ class Fingerprinter:
 
 
     def close_files(self):
-        if self.out_file_pointer != None:
+        if self.out_file_pointer != None and self.out_file_pointer != sys.stdout:
             self.out_file_pointer.close()
         if self.endpoint and self.endpoint_file_pointer != None:
             self.endpoint_file_pointer.close()
