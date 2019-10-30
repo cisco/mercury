@@ -16,7 +16,7 @@
 #include "pkt_proc.h"
 
 #ifdef TPACKET3_HDRLEN
-#define USE_FANOUT 
+#define USE_FANOUT
 #endif
 
 
@@ -26,7 +26,7 @@
  */
 struct thread_context {
     // packet_callback_t p_callback; /* The packet callback function */
-    struct frame_handler handler; 
+    struct frame_handler handler;
     int tnum;                 /* Thread Number */
     pthread_t tid;            /* Thread ID */
     int sockfd;               /* Socket owned by this thread */
@@ -45,23 +45,23 @@ enum status capture_loop(struct thread_context *tc);
 
 
 void frame_handler_write_pcap(void *userdata,
-			      //struct tpacket_hdr *tphdr,
-			      struct packet_info *pi,
-			      uint8_t *eth);
+                              //struct tpacket_hdr *tphdr,
+                              struct packet_info *pi,
+                              uint8_t *eth);
 
 void frame_handler_write_fingerprints(void *userdata,
-				      //struct tpacket_hdr *tphdr,
-				      struct packet_info *pi,
-				      uint8_t *eth);
+                                      //struct tpacket_hdr *tphdr,
+                                      struct packet_info *pi,
+                                      uint8_t *eth);
 
 void frame_handler_filter_write_fingerprints(void *userdata,
-					     //struct tpacket_hdr *tphdr,
-					     struct packet_info *pi,
-					     char *eth);
+                                             //struct tpacket_hdr *tphdr,
+                                             struct packet_info *pi,
+                                             char *eth);
 
 void frame_handler_filter_write_pcap(void *userdata,
-				     // struct tpacket_hdr *tphdr,
-				     struct packet_info *pi,
-				     uint8_t *eth);
+                                     // struct tpacket_hdr *tphdr,
+                                     struct packet_info *pi,
+                                     uint8_t *eth);
 
 #endif /* AF_PACKET_IO_H */

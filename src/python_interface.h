@@ -1,8 +1,8 @@
 /*
  * python_interface.h
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef PYTHON_INTERFACE_H
@@ -24,9 +24,9 @@ int init_python();
 int finalize_python();
 
 void py_process_detection(char **results,
-			  char *fp_string,
-			  char *sni,
-			  char *dst_addr_string,
-			  int dest_port);
+                          char *fp_string,
+                          char *sni,
+                          char *dst_addr_string,
+                          int dest_port);
 
 #endif /* PYTHON_INTERFACE_H */
