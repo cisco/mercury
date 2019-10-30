@@ -44,17 +44,17 @@ void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, 
 
     fprintf(f, "\"%s\":\"", key);
     while (x < end) {
-	if (*x < 0x20) {                   /* escape control characters   */
-	    fprintf(f, "\\u%04x", *x);
-	} else if (*x > 0x7f) {            /* escape non-ASCII characters */
-	    fprintf(f, "\\u%04x", *x);
-	} else {
-	    if (*x == '"' || *x == '\\') { /* escape special characters   */
-		fprintf(f, "\\");
-	    }
-	    fprintf(f, "%c", *x);
-	}
-	x++;
+        if (*x < 0x20) {                   /* escape control characters   */
+            fprintf(f, "\\u%04x", *x);
+        } else if (*x > 0x7f) {            /* escape non-ASCII characters */
+            fprintf(f, "\\u%04x", *x);
+        } else {
+            if (*x == '"' || *x == '\\') { /* escape special characters   */
+                fprintf(f, "\\");
+            }
+            fprintf(f, "%c", *x);
+        }
+        x++;
     }
     fprintf(f, "\"");
 }
@@ -65,15 +65,15 @@ unsigned int string_is_nonascii(const uint8_t *data, size_t len) {
 
     uint8_t sum = 0;
     while (x < end) {
-	sum |= *x;
-	x++;
+        sum |= *x;
+        x++;
     }
     return sum & 0x80; /* return 0 if no high bits are set */
 }
 
 inline bool string_starts_with_0x(const uint8_t *data, size_t len) {
     if (len > 2 && data[0] == '0' && data[1] == 'x') {
-	return true;
+        return true;
     }
     return false;
 }
@@ -81,43 +81,43 @@ inline bool string_starts_with_0x(const uint8_t *data, size_t len) {
 void fprintf_json_string(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
 
     if (string_is_nonascii(data, len) || string_starts_with_0x(data, len)) {
-	fprintf_json_hex_string(f, key, data, len);
+        fprintf_json_hex_string(f, key, data, len);
     } else {
-	fprintf_json_string_escaped(f, key, data, len);
+        fprintf_json_string_escaped(f, key, data, len);
     }
 }
 
 size_t hex_to_raw(const void *output,
-		       size_t output_buf_len,
-		       const char *null_terminated_hex_string) {
+                  size_t output_buf_len,
+                  const char *null_terminated_hex_string) {
     const char *hex = null_terminated_hex_string;
     const unsigned char *out = (uint8_t *)output;
     size_t count = 0;
 
     while (output_buf_len-- > 0) {
-	if (hex[0] == 0) {
-	    break;
-	}
-	if (hex[1] == 0) {
-	    return 0;   /* error, report no data copied */
-	}
+        if (hex[0] == 0) {
+            break;
+        }
+        if (hex[1] == 0) {
+            return 0;   /* error, report no data copied */
+        }
         sscanf(hex, "%2hhx", (unsigned char *)&out[count++]);
-	hex += 2;
+        hex += 2;
     }
 
     return count;
 }
 
 void packet_handler_printf(uint8_t *ignore,
-		    const struct pcap_pkthdr *pcap_pkthdr,
-		    const uint8_t *packet) {
+                           const struct pcap_pkthdr *pcap_pkthdr,
+                           const uint8_t *packet) {
 
     (void)ignore;
 
     printf("--------------------------------\npacket\ntimestamp: %u.%u\nlength: %u\n",
-	   (unsigned int)pcap_pkthdr->ts.tv_sec,
-	   (unsigned int)pcap_pkthdr->ts.tv_usec,
-	   pcap_pkthdr->caplen);
+           (unsigned int)pcap_pkthdr->ts.tv_sec,
+           (unsigned int)pcap_pkthdr->ts.tv_usec,
+           pcap_pkthdr->caplen);
     fprintf_raw_as_hex(stdout, packet, pcap_pkthdr->caplen);
     printf("\n");
 
@@ -125,12 +125,12 @@ void packet_handler_printf(uint8_t *ignore,
 
 
 void packet_handler_null(uint8_t *ignore,
-		    const struct pcap_pkthdr *pcap_pkthdr,
-		    const uint8_t *packet) {
+                         const struct pcap_pkthdr *pcap_pkthdr,
+                         const uint8_t *packet) {
 
-  (void)ignore;
-  (void)pcap_pkthdr;
-  (void)packet;
+    (void)ignore;
+    (void)pcap_pkthdr;
+    (void)packet;
 
 }
 
@@ -146,72 +146,72 @@ enum status drop_root_privileges(const char *username, const char *directory) {
 
     if (username == NULL) {
 
-	/*
-	 * if we are not root, we have nothing to do
-	 */
-	if (getuid() != 0) {
-	    return status_ok;
-	}
-	
-	/*
-	 * set new user's UID, GID, and username from environment variables
-	 */
-	uid = getuid();
-	if (uid == 0) {
-	    const char *sudo_uid = getenv("SUDO_UID");
-	    if (sudo_uid == NULL) {
-		printf("environment variable `SUDO_UID` not found\n");
-		return status_err;
-	    }
-	    errno = 0;
-	    uid = (uid_t) strtoll(sudo_uid, NULL, 10);
-	    if (errno) {
-		perror("error converting SUDO_UID to int");
-		return status_err;
-	    }
-	}
-	
-	gid = getgid();
-	if (gid == 0) {
-	    const char *sudo_gid = getenv("SUDO_GID");
-	    if (sudo_gid == NULL) {
-		printf("environment variable SUDO_GID not found\n");
-		return status_err;
-	    }
-	    errno = 0;
-	    gid = (gid_t) strtoll(sudo_gid, NULL, 10);
-	    if (errno) {
-		perror("error converting SUDO_GID to int");
-		return status_err;
-	    }
-	}
-	
-	new_username = getenv("SUDO_USER");
-	if (new_username == NULL) {
+        /*
+         * if we are not root, we have nothing to do
+         */
+        if (getuid() != 0) {
+            return status_ok;
+        }
+
+        /*
+         * set new user's UID, GID, and username from environment variables
+         */
+        uid = getuid();
+        if (uid == 0) {
+            const char *sudo_uid = getenv("SUDO_UID");
+            if (sudo_uid == NULL) {
+                printf("environment variable `SUDO_UID` not found\n");
+                return status_err;
+            }
+            errno = 0;
+            uid = (uid_t) strtoll(sudo_uid, NULL, 10);
+            if (errno) {
+                perror("error converting SUDO_UID to int");
+                return status_err;
+            }
+        }
+
+        gid = getgid();
+        if (gid == 0) {
+            const char *sudo_gid = getenv("SUDO_GID");
+            if (sudo_gid == NULL) {
+                printf("environment variable SUDO_GID not found\n");
+                return status_err;
+            }
+            errno = 0;
+            gid = (gid_t) strtoll(sudo_gid, NULL, 10);
+            if (errno) {
+                perror("error converting SUDO_GID to int");
+                return status_err;
+            }
+        }
+
+        new_username = getenv("SUDO_USER");
+        if (new_username == NULL) {
             printf("environment variable `SUDO_USER` not found\n");
-	    return status_err;
-	}
+            return status_err;
+        }
 
     } else {
 
-	userdata = getpwnam(username);
-	if (userdata) {
-	    new_username = userdata->pw_name;
-	    gid = userdata->pw_gid;
-	    uid = userdata->pw_uid;
+        userdata = getpwnam(username);
+        if (userdata) {
+            new_username = userdata->pw_name;
+            gid = userdata->pw_gid;
+            uid = userdata->pw_uid;
         } else {
             printf("%s: could not find user '%.32s'", strerror(errno), username);
             return status_err;
         }
     }
-    
+
 
     /*
      * set gid, uid and groups
      */
     if (initgroups(new_username, gid)) {
-	perror("error setting groups");
-	return status_err;
+        perror("error setting groups");
+        return status_err;
     }
     if (setgid(gid)) {
         perror("error setting GID");
@@ -234,10 +234,10 @@ enum status drop_root_privileges(const char *username, const char *directory) {
      * change working directory to a non-root one, if asked
      */
     if (directory) {
-      if (chdir(directory) != 0) {
-        perror("error changing current working directory");
-        return status_err;
-      }
+        if (chdir(directory) != 0) {
+            perror("error changing current working directory");
+            return status_err;
+        }
     }
 
     return status_ok;
@@ -249,7 +249,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
  * dst         - destination buffer
  * dst_len     - bytes in destination buffer
  * src         - (null terminated) source string
- * max_src_len - maximum length of source string  
+ * max_src_len - maximum length of source string
  *
  * return value:
  *       0 success
@@ -259,13 +259,13 @@ enum status drop_root_privileges(const char *username, const char *directory) {
 
 int copy_string_into_buffer(char *dst, size_t dst_len, const char *src, size_t max_src_len) {
 
-  size_t src_len = strnlen(src, max_src_len);
-  if (src_len == max_src_len) {
-    return -1; /* error: no null termination in source */
-  }
-  if (src_len + 1 > dst_len) {
-    return -1; /* error: source string (plus null) too large for destination */
-  }
-  strcpy(dst, src);
-  return 0;
+    size_t src_len = strnlen(src, max_src_len);
+    if (src_len == max_src_len) {
+        return -1; /* error: no null termination in source */
+    }
+    if (src_len + 1 > dst_len) {
+        return -1; /* error: source string (plus null) too large for destination */
+    }
+    strcpy(dst, src);
+    return 0;
 }

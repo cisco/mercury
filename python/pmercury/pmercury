@@ -371,7 +371,7 @@ class Fingerprinter:
     def write_flows(self, active=False):
         curtime = time.time()
         flow_keys = [k for k in self.flow_cache.keys()
-                     if not active or 
+                     if not active or
                      ((curtime - self.flow_cache[k]['event_start']) > self.FLOW_TIMEOUT)]
 
         for k in flow_keys:
@@ -473,4 +473,3 @@ if __name__ == '__main__':
 #                parser_ = HTTP_Server
 #                offset = app_offset
 #                fp_type = 'http_server'
-
