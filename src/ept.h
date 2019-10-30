@@ -8,18 +8,18 @@
 #ifndef EPT_H
 #define EPT_H
 
-#include <stdio.h> 
+#include <stdio.h>
 #include <stdint.h>
 #include "mercury.h"
 
 /*
- * Encoded Parse Tree (EPT) 
- * 
+ * Encoded Parse Tree (EPT)
+ *
  * An Encoded Parse Tree (EPT) is a general and flexible way to
  * represent a fingerprint.  It faithfully represents the
  * implementation-static data extracted from packets, using a tree of
  * byte strings that can be serialized in readable or binary form.
- * 
+ *
  * Selective packet parsing produces a parse tree whose leaves contain
  * the selected fields of the packet.  Each leaf (external node) of
  * the parse tree contains a byte string, and each internal node holds
@@ -28,14 +28,14 @@
  * the serialized data as they do on the wire.  For a particular
  * fingerprint format, the position of the node in the tree determines
  * its semantics; for instance, the first leaf may be the version
- * field, and so on.  
- * 
+ * field, and so on.
+ *
  * Each protocol has its own fingerprint format, which specifies the
  * fields that are extracted from the packets and how they are
  * normalized.  Because protocols evolve over time, fingerprint
  * formats need to be able to evolve as well.  We define formats for
  * TLS, TCP, SSH, and DHCP.
- * 
+ *
  * The human-readable representation of an EPT uses bracket
  * expressions.  Each leaf is a hexadecimal string surrounded by
  * parentheses, such as "(474554)", and each internal node is
@@ -47,10 +47,10 @@
  * that is defined below.
  *
  * EPT is both flexible and reversible, meeting the following requirements:
- *  
+ *
  *   - It can easily accommodate changes in the fingerprint format, and
  *     can readily be applied to new protocols,
- * 
+ *
  *   - It can represent any selected fields from the fingerprint,
  *
  *   - It can support approximate fingerprint matching, so that slightly
@@ -82,25 +82,25 @@ uint16_t decode_uint16(const void *x);
 /* output functions */
 
 enum status fprintf_binary_ept_as_paren_ept(FILE *f,
-					    const unsigned char *data,
-					    unsigned int len);
+                                            const unsigned char *data,
+                                            unsigned int len);
 
 void fprintf_binary_ept_as_tls_json(FILE *f,
-				    const unsigned char *data,
-				    unsigned int len);
+                                    const unsigned char *data,
+                                    unsigned int len);
 
 size_t sprintf_binary_ept_as_paren_ept(uint8_t *data,
-				       size_t length,
-				       unsigned char *outbuf,
-				       size_t outbuf_len);
+                                       size_t length,
+                                       unsigned char *outbuf,
+                                       size_t outbuf_len);
 
 size_t binary_ept_from_paren_ept(uint8_t *outbuf,
-				 const uint8_t *outbuf_end,
-				 const uint8_t *paren_ept,
-				 const uint8_t *paren_ept_end);
+                                 const uint8_t *outbuf_end,
+                                 const uint8_t *paren_ept,
+                                 const uint8_t *paren_ept_end);
 
 enum status binary_ept_print_as_tls(uint8_t *data,
-				    size_t length);
+                                    size_t length);
 
 
 #endif /* EPT_H */
