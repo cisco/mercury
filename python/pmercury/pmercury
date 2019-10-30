@@ -28,10 +28,6 @@ from pmercury.utils.config_parser import parse_config
 from pmercury.utils.packet_proc import *
 
 
-def noop(ts, buf):
-    fp_str_, fp_type, context_, flow = pkt_proc(ts, buf)
-    if fp_str_ != None:
-        return
 
 class Fingerprinter:
 
@@ -106,7 +102,6 @@ class Fingerprinter:
     def process_pcap(self, pcap_file):
         p = pcap.pcap(pcap_file)
         p.setfilter('ip proto 6 or ip6 proto 6 or ip proto 17 or ip6 proto 17')
-#        p.dispatch(-1, noop)
         p.dispatch(-1, self.process_packet)
 
         if self.group:
