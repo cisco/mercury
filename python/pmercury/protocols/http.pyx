@@ -108,9 +108,12 @@ class HTTP(Protocol):
             c.append('(%s)' % h_c)
             if t0_lower in http_ctx:
                 if b'\x3a\x20' in h_:
-                    context.append({'name':HTTP.contextual_data[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1]})
+                    try:
+                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
+                    except UnicodeDecodeError:
+                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].hex()})
                 else:
-                    context.append({'name':HTTP.contextual_data[t0_lower], 'data':''})
+                    context.append({'name':http_ctx[t0_lower], 'data':''})
 
         return ''.join(c), context
 
