@@ -107,7 +107,10 @@ class HTTP(Protocol):
 
             c.append('(%s)' % h_c)
             if t0_lower in http_ctx:
-                context.append({'name':HTTP.contextual_data[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1]})
+                if b'\x3a\x20' in h_:
+                    context.append({'name':HTTP.contextual_data[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1]})
+                else:
+                    context.append({'name':HTTP.contextual_data[t0_lower], 'data':''})
 
         return ''.join(c), context
 
