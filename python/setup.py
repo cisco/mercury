@@ -23,7 +23,7 @@ ext_modules = [
 
 setuptools.setup(
     name='pmercury',
-    version='0.2.1.003',
+    version='0.3.0.004',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
