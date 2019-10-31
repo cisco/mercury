@@ -1,6 +1,6 @@
 #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
 
-"""     
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -14,7 +14,6 @@ from sys import path
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
-from pmercury.protocols.protocol import Protocol
 from pmercury.utils.tls_utils import *
 from pmercury.utils.tls_constants import *
 from pmercury.utils.pmercury_utils import *
@@ -64,9 +63,8 @@ cdef class TLS():
         cdef dict fp_
         for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):
             fp_ = json.loads(line)
-            fp_str = fp_['str_repr']
-            self.fp_db[fp_str] = fp_
-        if 'malware' not in self.fp_db[fp_str]['process_info'][0]:
+            self.fp_db[fp_['str_repr']] = fp_
+        if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
             self.MALWARE_DB = False
 
 
