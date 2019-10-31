@@ -178,9 +178,7 @@ cdef class TLS():
             self.fp_db[fp_str_]['approx_str'] = approx_str_
 
         # perform process identification given the fingerprint string and destination information
-        result = self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
-
-        return result
+        return self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
