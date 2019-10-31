@@ -1499,7 +1499,7 @@ static const char __pyx_k_upgrade_insecure_requests[] = "upgrade-insecure-reques
 static const char __pyx_k_HTTP___init___locals_lambda[] = "HTTP.__init__.<locals>.<lambda>";
 static const char __pyx_k_pmercury_protocols_protocol[] = "pmercury.protocols.protocol";
 static const char __pyx_k_case_sensitive_static_headers[] = "case_sensitive_static_headers";
-static const char __pyx_k_Copyright_c_2019_Cisco_Systems[] = "     \n Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.\n License at https://github.com/cisco/mercury/blob/master/LICENSE\n";
+static const char __pyx_k_Copyright_c_2019_Cisco_Systems[] = "\n Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.\n License at https://github.com/cisco/mercury/blob/master/LICENSE\n";
 static const char __pyx_k_case_insensitive_static_headers[] = "case_insensitive_static_headers";
 static PyObject *__pyx_kp_u_;
 static PyObject *__pyx_n_s_HTTP;

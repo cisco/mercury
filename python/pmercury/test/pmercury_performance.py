@@ -9,13 +9,13 @@ import os
 import sys
 import pcap
 import time
-import numpy
 import optparse
 import importlib
 from importlib import machinery
+from statistics import mean, stdev
 from binascii import hexlify, unhexlify
 
-import sys
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../../')
 
 
@@ -40,13 +40,13 @@ def performance_test(input_file, output_file, fp_db, analyze, human_readable, ex
     for l in range(loops):
         start = time.time()
         fp.process_pcap(input_file)
-#        p = pcap.pcap(input_file, timeout_ms=1000)
-#        p.setfilter('ip proto 6 or ip6 proto 6')
-#        p.dispatch(-1, fp.process_packet)
 
         loop_time = time.time() - start
         loop_times.append(loop_time)
-    print('Average Process Time:\t%0.3fs (+-%0.3fs)' % (numpy.mean(loop_times), numpy.std(loop_times)))
+    if len(loop_times) > 1:
+        print('Average Process Time:\t%0.3fs (+-%0.3fs)' % (mean(loop_times), stdev(loop_times)))
+    else:
+        print('Average Process Time:\t%0.3fs (+-%0.3fs)' % (loop_times[0], 0.0))
     fp.close_files()
 
     pcap_size = os.path.getsize(input_file)
@@ -68,7 +68,7 @@ def main():
                       help='perform process identification',default=False)
     parser.add_option('-w','--human-readable',action='store_true',dest='human_readable',
                       help='return human readable fingerprint information',default=False)
-    parser.add_option('-e','--experimental',action='store_true',dest='experimental',
+    parser.add_option('-x','--experimental',action='store_true',dest='experimental',
                       help='turns on all experimental features',default=False)
     parser.add_option('-g','--group-flows',action='store_true',dest='group',
                       help='aggregate packet-based fingerprints to flow-based',default=False)

@@ -49,7 +49,10 @@ class Fingerprinter:
             self.out_file_pointer = open(output, 'w', buffering=8192*4)
 
         if endpoint:
-            self.endpoint_file_pointer = open('endpoint_'+output, 'w', buffering=8192*64)
+            if output == None:
+                self.endpoint_file_pointer = sys.stdout
+            else:
+                self.endpoint_file_pointer = open('endpoint_'+output, 'w', buffering=8192*64)
 
         config = parse_config('../config.txt')
 
@@ -92,6 +95,9 @@ class Fingerprinter:
 
         for input_file in input_files:
             if '.pcap' in input_file:
+                if not os.path.exists(input_file):
+                    print('error: file does not exist')
+                    return 1
                 self.process_pcap(input_file)
             else:
                 self.process_capture(input_file)
@@ -127,7 +133,6 @@ class Fingerprinter:
 
             nrecv, ndrop, nifdrop = p.stats()
             print('nrecv: % 12i, ndrop: % 12i, nifdrop: % 12i' % (nrecv, ndrop, nifdrop))
-#            sys.stdout.write("\x1b[f\x1b[Jnrecv:   % 12i\nndrop:   % 12i\nnifdrop: % 12i" % (nrecv, ndrop, nifdrop))
         if self.group:
             self.write_flows(active=False)
 
@@ -308,11 +313,10 @@ class Fingerprinter:
 
     def lookup_fingerprint_string(self, fp_str):
         for protocol_type in self.parsers:
-            if not hasattr(self.parsers[protocol_type], 'fp_db'):
-                return
-            fp_str_ = fp_str.encode()
-            if fp_str_ in self.parsers[protocol_type].fp_db:
-                fp_ = self.parsers[protocol_type].fp_db[fp_str_]
+            if not hasattr(self.parsers[protocol_type], 'get_database_entry'):
+                continue
+            fp_ = self.parsers[protocol_type].get_database_entry(fp_str, None)
+            if fp_ != None:
                 self.write_record(fp_)
 
 
@@ -382,8 +386,6 @@ def main():
         input_files.append(options.capture_interface)
 
     output = options.output
-    if output == None:
-        output = input_files[0].split('/')[-1]+'.json'
 
     fingerprinter = Fingerprinter(options.fp_db, output, options.analyze,
                                   options.num_procs, options.human_readable, options.group,
