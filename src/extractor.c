@@ -407,9 +407,9 @@ enum status parser_extractor_copy_append_upto_delim(struct parser *p,
  * parser_find_delim(p, d, l) looks for the delimiter d with length l
  * in the parser p's data buffer, until it reaches the delimiter d or
  * the end of the data in the parser, whichever comes first.  In the
- * first case, the function returns the number of bytes to the
- * delimiter; in the second case, the function returns the number of
- * bytes to the end of the data buffer.
+ * first case, the function returns the number of bytes to the end of
+ * the delimiter; in the second case, the function returns the
+ * negative of the number of bytes to the end of the data buffer.
  */
 int parser_find_delim(struct parser *p,
                       const unsigned char *delim,
@@ -1338,7 +1338,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
     /*
      * handle possible packet parsing errors
      */
-    extractor_debug("%s: warning: TLS serverHello did not complete\n", __func__);
+    extractor_debug("%s: warning: TLS serverHello processing did not fully complete\n", __func__);
     return 0;
 
 }
@@ -1452,15 +1452,21 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
         } else {
             const uint8_t *user_agent_string = NULL;
             if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher) == status_ok) {
+                /* store user agent value */
+                if (parser_skip_upto_delim(p, csp, sizeof(csp)) == status_err) {
+                    return extractor_get_output_length(x);
+                }
                 user_agent_string = p->data;
             }
             if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
                 return extractor_get_output_length(x);
             }
             if (user_agent_string) {
+                size_t ua_len = p->data - user_agent_string;
+                ua_len = ua_len > sizeof(crlf) ? ua_len - sizeof(crlf) : 0;
                 packet_data_set(&x->packet_data,
                                 packet_data_type_http_user_agent,
-                                p->data - user_agent_string - 1,
+                                ua_len,
                                 user_agent_string);
             }
         }
