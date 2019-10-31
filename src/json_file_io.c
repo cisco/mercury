@@ -151,8 +151,8 @@ void json_file_write(struct json_file *jf,
                 fprintf(file, "\"http\":{");
                 fprintf_json_hex_string(file,
                                         "user_agent",
-                                        x.packet_data.value + 2,
-                                        x.packet_data.length - 2);
+                                        x.packet_data.value,
+                                        x.packet_data.length);
                 fprintf(file, "},");
             }
 
