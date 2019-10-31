@@ -1,8 +1,5 @@
-<<<<<<< HEAD:python/pmercury/protocols/http.pyx
 #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
 
-=======
->>>>>>> trunk:python/pmercury/protocols/http.py
 """
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE

@@ -1,8 +1,5 @@
-<<<<<<< HEAD:python/pmercury/protocols/tls.pyx
 #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
 
-=======
->>>>>>> trunk:python/pmercury/protocols/tls.py
 """
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -174,9 +171,9 @@ cdef class TLS():
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
                 if self.MALWARE_DB:
-                    return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
+                    return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
                 else:
-                    return {'process': 'Unknown', 'score': 0.0}
+                    return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
             self.fp_db[fp_str_] = self.fp_db[approx_str_]
             self.fp_db[fp_str_]['approx_str'] = approx_str_
 
@@ -190,9 +187,9 @@ cdef class TLS():
         if fp_ == None:
             # if malware data is in the database, report malware scores
             if self.MALWARE_DB:
-                return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
+                return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
             else:
-                return {'process': 'Unknown', 'score': 0.0}
+                return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
 
         # find generalized classes for destination information
         domain, tld = get_tld_info(server_name)
@@ -210,9 +207,10 @@ cdef class TLS():
             predict_ = fp_['process_info'][0]['process']
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
             if self.MALWARE_DB:
-                return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
+                return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'],
+                        'p_malware': 0.0, 'category': 'Unknown'}
             else:
-                return {'process':predict_, 'score':0.0}
+                return {'process':predict_, 'score':0.0, 'category': 'Unknown'}
 
         # in the case of malware, remove pseudo process meant to reduce false positives
         if self.MALWARE_DB and r_[0]['malware'] == False and \
@@ -227,9 +225,10 @@ cdef class TLS():
         score_sum_ = sum([x_['score'] for x_ in r_])
         if self.MALWARE_DB:
             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
-            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'], 'p_malware':malware_score_}
+            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'],
+                    'p_malware':malware_score_, 'category':r_[0]['category']}
         else:
-            out_ = {'process':process_name, 'score':r_[0]['score']}
+            out_ = {'process':process_name, 'score':r_[0]['score'], 'category':r_[0]['category']}
 
         # return the top-n most probable processes is list_procs > 0
         if list_procs > 0:
@@ -269,10 +268,15 @@ cdef class TLS():
         except KeyError:
             score_ += base_prior_
 
+        app_cat = 'Unknown'
+        if 'application_category' in p_:
+            app_cat = p_['application_category']
+
         if self.MALWARE_DB:
-            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
+            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'],
+                    'malware':p_['malware'], 'category':app_cat}
         else:
-            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}
+            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'category':app_cat}
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
