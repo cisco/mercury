@@ -1,5 +1,8 @@
+<<<<<<< HEAD:python/pmercury/utils/tls_utils.pyx
 #cython: language_level=3, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
 
+=======
+>>>>>>> trunk:python/pmercury/utils/tls_utils.py
 """
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE

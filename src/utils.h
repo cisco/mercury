@@ -9,17 +9,17 @@
 #include "pcap_file_io.h"
 
 void packet_handler_null(uint8_t *ignore,
-			 const struct pcap_pkthdr *pcap_pkthdr,
-			 const uint8_t *packet);
+                         const struct pcap_pkthdr *pcap_pkthdr,
+                         const uint8_t *packet);
 
 void packet_handler_printf(uint8_t *ignore,
-			   const struct pcap_pkthdr *pcap_pkthdr,
-			   const uint8_t *packet);
+                           const struct pcap_pkthdr *pcap_pkthdr,
+                           const uint8_t *packet);
 
 
 enum status hex_to_raw(const void *output,
-		       size_t output_buf_len,
-		       const char *null_terminated_hex_string);
+                       size_t output_buf_len,
+                       const char *null_terminated_hex_string);
 
 
 void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len);

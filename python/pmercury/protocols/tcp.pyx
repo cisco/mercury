@@ -1,5 +1,8 @@
+<<<<<<< HEAD:python/pmercury/protocols/tcp.pyx
 #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
 
+=======
+>>>>>>> trunk:python/pmercury/protocols/tcp.py
 """
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -99,6 +102,10 @@ cdef class TCP:
         return None
 
 
+<<<<<<< HEAD:python/pmercury/protocols/tcp.pyx
     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):
         return None
 
+=======
+        return fp_, None
+>>>>>>> trunk:python/pmercury/protocols/tcp.py

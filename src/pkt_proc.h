@@ -1,8 +1,8 @@
 /*
  * pkt_proc.h
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef PKT_PROC_H
@@ -17,15 +17,15 @@
 
 /* Information about each packet on the wire */
 struct packet_info {
-  struct timespec ts;   /* timestamp */
-  uint32_t caplen;     /* length of portion present */
-  uint32_t len;        /* length this packet (off wire) */
+    struct timespec ts;   /* timestamp */
+    uint32_t caplen;     /* length of portion present */
+    uint32_t len;        /* length this packet (off wire) */
 };
 
 
 typedef void (*frame_handler_func)(void *userdata,
-				   struct packet_info *pi,
-				   uint8_t *eth);
+                                   struct packet_info *pi,
+                                   uint8_t *eth);
 
 /*
  * struct frame_handler 'object' includes the function pointer func
@@ -50,16 +50,16 @@ struct frame_handler {
  * frame_handler_write_fingerprints_init(handler, outfile_name, mode)
  * initializes handler to write (TLS and TCP) fingerprints to the
  * output file with the path outfile_name and mode passed as
- * arguments; that file is opened by this invocation, with that mode.  
- * 
+ * arguments; that file is opened by this invocation, with that mode.
+ *
  * return values are status_ok (no error), status_err (unspecified error),
  * or other error values
  *
  */
 enum status frame_handler_write_fingerprints_init(struct frame_handler *handler,
-						  const char *outfile_name,
-						  const char *mode,
-						  uint64_t max_records);
+                                                  const char *outfile_name,
+                                                  const char *mode,
+                                                  uint64_t max_records);
 
 
 /*
@@ -68,14 +68,14 @@ enum status frame_handler_write_fingerprints_init(struct frame_handler *handler,
  * packets into the pcap file with the path outfile and flags passed
  * as arguments; that file is opened by this invocation, with those
  * flags.
- * 
+ *
  * return values are status_ok (no error), status_err (unspecified error),
  * or other error values
  *
  */
 enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
-						 const char *outfile,
-						 int flags);
+                                                 const char *outfile,
+                                                 int flags);
 
 
 /*
@@ -83,19 +83,19 @@ enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
  * initializes handler to write packets into the pcap file with the
  * path outfile and flags passed as arguments; that file is opened by
  * this invocation, with those flags.
- * 
+ *
  * return values are status_ok (no error), status_err (unspecified error),
  * or other error values
  *
  */
 enum status frame_handler_write_pcap_init(struct frame_handler *handler,
-					  const char *outfile,
-					  int flags);
+                                          const char *outfile,
+                                          int flags);
 
 /*
  * frame_handler_dump_init(handler) initializes handler to write a
  * JSON object summarizing each packet to stdout
- * 
+ *
  * return values are status_ok (no error), status_err (unspecified error),
  * or other error values
  *
@@ -104,14 +104,14 @@ enum status frame_handler_dump_init(struct frame_handler *handler);
 
 
 enum status frame_handler_init_from_config(struct frame_handler *handler,
-					   struct mercury_config *ppt,
-					   int tnum,
-					   char *fileset_id);
+                                           struct mercury_config *ppt,
+                                           int tnum,
+                                           char *fileset_id);
 
 enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
-					     frame_handler_func func,
-					     void *userdata,
-						 int loop_count);
+                                             frame_handler_func func,
+                                             void *userdata,
+                                             int loop_count);
 
 
 
