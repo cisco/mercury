@@ -1,7 +1,7 @@
 /*
  * tcp.h
- * 
- * 
+ *
+ *
  */
 
 #ifndef MERC_TCP_H
@@ -50,8 +50,8 @@ struct tcp_state {
 
 typedef unsigned __int128 uint128_t;
 
-// class key could use this comparison strategy: 
-//	return memcmp(this, k, sizeof(class key));
+// class key could use this comparison strategy:
+//  return memcmp(this, k, sizeof(class key));
 // if the structure is packed
 //
 // #pragma pack (1)
@@ -60,49 +60,49 @@ struct key {
     uint16_t dst_port;
     uint8_t ip_vers;
     union {
-	struct {
-	    uint32_t src;
-	    uint32_t dst;
-	} ipv4;
-	struct {
-	    uint128_t src;
-	    uint128_t dst;
-	} ipv6;	
+        struct {
+            uint32_t src;
+            uint32_t dst;
+        } ipv4;
+        struct {
+            uint128_t src;
+            uint128_t dst;
+        } ipv6;
     } addr;
-    
+
     key(uint16_t sp, uint16_t dp, uint32_t sa, uint32_t da) {
-	src_port = sp;
-	dst_port = dp;
-	ip_vers = 4;
-	addr.ipv6.src = 0;   /* zeroize v6 src addr */
-	addr.ipv6.dst = 0;   /* zeroize v6 dst addr */
-	addr.ipv4.src = sa;
-	addr.ipv4.dst = da;
+        src_port = sp;
+        dst_port = dp;
+        ip_vers = 4;
+        addr.ipv6.src = 0;   /* zeroize v6 src addr */
+        addr.ipv6.dst = 0;   /* zeroize v6 dst addr */
+        addr.ipv4.src = sa;
+        addr.ipv4.dst = da;
     }
     key(uint16_t sp, uint16_t dp, uint128_t sa, uint128_t da) {
-	src_port = sp;
-	dst_port = dp;
-	ip_vers = 6;
-	addr.ipv6.src = sa;
-	addr.ipv6.dst = da;
+        src_port = sp;
+        dst_port = dp;
+        ip_vers = 6;
+        addr.ipv6.src = sa;
+        addr.ipv6.dst = da;
     }
     key() {
-	src_port = 0;
-	dst_port = 0;
-	ip_vers = 0;       // null key can be distinguished by ip_vers field
-	addr.ipv6.src = 0;
-	addr.ipv6.dst = 0;
+        src_port = 0;
+        dst_port = 0;
+        ip_vers = 0;       // null key can be distinguished by ip_vers field
+        addr.ipv6.src = 0;
+        addr.ipv6.dst = 0;
     }
     bool operator==(const key &k) const {
-	switch (ip_vers) {
-	case 4:
-	return src_port == k.src_port && dst_port == k.dst_port && k.ip_vers == 4 && addr.ipv4.src == k.addr.ipv4.src && addr.ipv4.dst == k.addr.ipv4.dst;
-	break;
-	case 6:
-	return src_port == k.src_port && dst_port == k.dst_port && k.ip_vers == 6 && addr.ipv6.src == k.addr.ipv6.src && addr.ipv6.dst == k.addr.ipv6.dst;
-	default:
-	return 0;
-	}
+        switch (ip_vers) {
+        case 4:
+        return src_port == k.src_port && dst_port == k.dst_port && k.ip_vers == 4 && addr.ipv4.src == k.addr.ipv4.src && addr.ipv4.dst == k.addr.ipv4.dst;
+        break;
+        case 6:
+        return src_port == k.src_port && dst_port == k.dst_port && k.ip_vers == 6 && addr.ipv6.src == k.addr.ipv6.src && addr.ipv6.dst == k.addr.ipv6.dst;
+        default:
+        return 0;
+        }
     }
 };
 
@@ -110,33 +110,33 @@ struct key {
 namespace std {
 
     template <>  struct hash<struct key>  {
-	std::size_t operator()(const struct key& k) const    {
-	    
-	    /* assume sizeof(size_t) == 8 for now */
-	    size_t x = (size_t) k.src_port | ((size_t) k.dst_port << 16) | ((size_t) k.ip_vers << 32);
-	    x ^= (size_t) k.addr.ipv6.src;
-	    x ^= (size_t) (k.addr.ipv6.src >> 64);
-	    x ^= (size_t) k.addr.ipv6.dst;
-	    x ^= (size_t) (k.addr.ipv6.dst >> 64);
+        std::size_t operator()(const struct key& k) const    {
 
-	    return x;
-	}
+            /* assume sizeof(size_t) == 8 for now */
+            size_t x = (size_t) k.src_port | ((size_t) k.dst_port << 16) | ((size_t) k.ip_vers << 32);
+            x ^= (size_t) k.addr.ipv6.src;
+            x ^= (size_t) (k.addr.ipv6.src >> 64);
+            x ^= (size_t) k.addr.ipv6.dst;
+            x ^= (size_t) (k.addr.ipv6.dst >> 64);
+
+            return x;
+        }
     };
 }
 
 #define BYTE_BINARY_FORMAT "%c%c%c%c%c%c%c%c"
-#define UINT8_BINARY(x)  \
-  (x & 0x80 ? '1' : '0'), \
-  (x & 0x40 ? '1' : '0'), \
-  (x & 0x20 ? '1' : '0'), \
-  (x & 0x10 ? '1' : '0'), \
-  (x & 0x08 ? '1' : '0'), \
-  (x & 0x04 ? '1' : '0'), \
-  (x & 0x02 ? '1' : '0'), \
-  (x & 0x01 ? '1' : '0') 
+#define UINT8_BINARY(x)                         \
+    (x & 0x80 ? '1' : '0'),                     \
+        (x & 0x40 ? '1' : '0'),                 \
+        (x & 0x20 ? '1' : '0'),                 \
+        (x & 0x10 ? '1' : '0'),                 \
+        (x & 0x08 ? '1' : '0'),                 \
+        (x & 0x04 ? '1' : '0'),                 \
+        (x & 0x02 ? '1' : '0'),                 \
+        (x & 0x01 ? '1' : '0')
 
 #define TCP_FLAGS_FORMAT "%c%c%c%c "
-#define TCP_FLAGS_PRINT(x) (x & 0x02 ? 'S' : ' '), (x & 0x10 ? 'A' : ' '), (x & 0x01 ? 'F' : ' '), (x & 0x04 ? 'R' : ' ') 
+#define TCP_FLAGS_PRINT(x) (x & 0x02 ? 'S' : ' '), (x & 0x10 ? 'A' : ' '), (x & 0x01 ? 'F' : ' '), (x & 0x04 ? 'R' : ' ')
 
 #define TCP_IS_ACK(flags) ((flags) & 0x10)
 #define TCP_IS_PSH(flags) ((flags) & 0x08)
@@ -152,34 +152,34 @@ void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header 
     uint32_t rel_ack = ntohl(tcp->ack) - ntohl(state->init_ack);
 
     if (k->ip_vers == 4) {
-	uint8_t *s = (uint8_t *)&k->addr.ipv4.src;
-	uint8_t *d = (uint8_t *)&k->addr.ipv4.dst;
-	fprintf(f, "%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\t",
-		s[0], s[1], s[2], s[3], ntohs(tcp->src_port),
-		d[0], d[1], d[2], d[3], ntohs(tcp->dst_port));
+        uint8_t *s = (uint8_t *)&k->addr.ipv4.src;
+        uint8_t *d = (uint8_t *)&k->addr.ipv4.dst;
+        fprintf(f, "%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\t",
+                s[0], s[1], s[2], s[3], ntohs(tcp->src_port),
+                d[0], d[1], d[2], d[3], ntohs(tcp->dst_port));
     } else if (k->ip_vers == 6) {
-	uint8_t *s = (uint8_t *)&k->addr.ipv6.src;
-	uint8_t *d = (uint8_t *)&k->addr.ipv6.dst;
-	fprintf(f,
-		"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%u -> "	
-		"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%u\t",
-		s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15], ntohs(tcp->src_port),
-		d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15], ntohs(tcp->dst_port));
-    } 
+        uint8_t *s = (uint8_t *)&k->addr.ipv6.src;
+        uint8_t *d = (uint8_t *)&k->addr.ipv6.dst;
+        fprintf(f,
+                "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%u -> "
+                "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%u\t",
+                s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15], ntohs(tcp->src_port),
+                d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15], ntohs(tcp->dst_port));
+    }
     //    fprintf(f, "flags: " BYTE_BINARY_FORMAT "\t", UINT8_BINARY(tcp->flags));
     fprintf(f, TCP_FLAGS_FORMAT, TCP_FLAGS_PRINT(tcp->flags));
     fprintf(f, "seq: %10d ack: %10d ", rel_seq, rel_ack);
     fprintf(f, "len: %5zu ", data_length);
     // fprintf(f, "len: %5d\tpkt: %5zu\n", tcp_offrsv_get_length(tcp->offrsv), length);
     if (state->disposition == talking) {
-	fprintf(f, "talking [%u] ", state->msg_num);
+        fprintf(f, "talking [%u] ", state->msg_num);
     } else {
-	fprintf(f, "listening   ");
+        fprintf(f, "listening   ");
     }
     if (retval != 0) {
-	fprintf(f, "ACCEPT\n");
+        fprintf(f, "ACCEPT\n");
     } else {
-	fprintf(f, "\n");
+        fprintf(f, "\n");
     }
 }
 
@@ -190,7 +190,7 @@ struct tcp_initial_message_filter {
     std::unordered_map<struct key, struct tcp_state> tcp_flow_table;
 
     tcp_initial_message_filter() {
-	tcp_flow_table = {};
+        tcp_flow_table = {};
     }
 
     // A TCP message is defined as the set of TCP/IP packets for which
@@ -207,76 +207,76 @@ struct tcp_initial_message_filter {
     // p.ack > s.ack      crosstalk          listening               *
     // p.ack = s.ack       talking           listening               *
     // p.ack < s.ack          *                  *                   *
-    
+
     size_t apply(struct key &k, const struct tcp_header *tcp, size_t length) {
-	
-	size_t retval = DROP_PACKET; 
-	
-	k.src_port = tcp->src_port;
-	k.dst_port = tcp->dst_port;
-	size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
-	
-	auto it = tcp_flow_table.find(k);
-	if (it == tcp_flow_table.end()) {
 
-	    uint32_t tmp_seq = tcp->seq;
-	    if (TCP_IS_SYN(tcp->flags)) {
-		tmp_seq = htonl(ntohl(tcp->seq) + 1); 
-	    }
-	    struct tcp_state state = { .seq = tmp_seq,
-				       .ack = tcp->ack,
-				       .msg_num = 0, 
-				       .init_seq = tmp_seq,   
-				       .init_ack = tcp->ack,  
-				       .disposition = listening  
-	    };
-	    tcp_flow_table[k] = state;
-	    retval = ACCEPT_PACKET;
+        size_t retval = DROP_PACKET;
 
-	    fprintf_tcp_hdr_info(stderr, &k, tcp, &state, length, retval);
+        k.src_port = tcp->src_port;
+        k.dst_port = tcp->dst_port;
+        size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
 
-	} else {
-	    
-	    struct tcp_state state = it->second;
+        auto it = tcp_flow_table.find(k);
+        if (it == tcp_flow_table.end()) {
 
-	    // initialize acknowledgement number, if it has not yet been set
-	    if (state.ack == 0) { 
-		state.ack = tcp->ack;
-		state.init_ack = tcp->ack;
-	    }
+            uint32_t tmp_seq = tcp->seq;
+            if (TCP_IS_SYN(tcp->flags)) {
+                tmp_seq = htonl(ntohl(tcp->seq) + 1);
+            }
+            struct tcp_state state = { .seq = tmp_seq,
+                                       .ack = tcp->ack,
+                                       .msg_num = 0,
+                                       .init_seq = tmp_seq,
+                                       .init_ack = tcp->ack,
+                                       .disposition = listening
+            };
+            tcp_flow_table[k] = state;
+            retval = ACCEPT_PACKET;
 
-	    // update disposition and message number if appropriate
-	    if (data_length > 0) {
-		if (ntohl(tcp->ack) > ntohl(state.ack) || state.disposition == listening) {
-		    state.msg_num++;        
-		}
-		state.disposition = talking;
-	    } else {
-		if (ntohl(tcp->ack) > ntohl(state.ack)) {
-		    state.disposition = listening;
-		}
-	    }
-	    if (state.disposition == talking && state.msg_num < 2) {
-		retval = ACCEPT_PACKET;
-	    }
+            fprintf_tcp_hdr_info(stderr, &k, tcp, &state, length, retval);
 
-	    // update state 
-	    if (ntohl(tcp->seq) > ntohl(state.seq)) {
-		state.seq = tcp->seq;
-	    }
-	    if (ntohl(tcp->ack) > ntohl(state.ack)) {
-		state.ack = tcp->ack;
-	    }
-	    tcp_flow_table[k] = state;		
+        } else {
 
-	    fprintf_tcp_hdr_info(stderr, &k, tcp, &state, length, retval);
+            struct tcp_state state = it->second;
 
-	    if (TCP_IS_FIN(tcp->flags) || TCP_IS_RST(tcp->flags)) {
-		tcp_flow_table.erase(it);
-	    }
-	}
-	
-	return retval;
+            // initialize acknowledgement number, if it has not yet been set
+            if (state.ack == 0) {
+                state.ack = tcp->ack;
+                state.init_ack = tcp->ack;
+            }
+
+            // update disposition and message number if appropriate
+            if (data_length > 0) {
+                if (ntohl(tcp->ack) > ntohl(state.ack) || state.disposition == listening) {
+                    state.msg_num++;
+                }
+                state.disposition = talking;
+            } else {
+                if (ntohl(tcp->ack) > ntohl(state.ack)) {
+                    state.disposition = listening;
+                }
+            }
+            if (state.disposition == talking && state.msg_num < 2) {
+                retval = ACCEPT_PACKET;
+            }
+
+            // update state
+            if (ntohl(tcp->seq) > ntohl(state.seq)) {
+                state.seq = tcp->seq;
+            }
+            if (ntohl(tcp->ack) > ntohl(state.ack)) {
+                state.ack = tcp->ack;
+            }
+            tcp_flow_table[k] = state;
+
+            fprintf_tcp_hdr_info(stderr, &k, tcp, &state, length, retval);
+
+            if (TCP_IS_FIN(tcp->flags) || TCP_IS_RST(tcp->flags)) {
+                tcp_flow_table.erase(it);
+            }
+        }
+
+        return retval;
     }
 
 };
