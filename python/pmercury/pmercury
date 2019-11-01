@@ -142,7 +142,7 @@ class Fingerprinter:
 
         if flow != None:
             if self.fast_path:
-                self.out_file_pointer.write('%s\n' % json.dumps(flow))
+                self.write_record(flow)
                 return
 
             fp_type = next(iter(flow['fingerprints']))
@@ -246,9 +246,10 @@ class Fingerprinter:
                     flow['readable'] = {}
                 flow['readable'][fp_type] = desc_
         if self.analyze:
-            proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
-            if proc_info != None:
-                flow['analysis'] = proc_info
+            if fp_type in self.parsers:
+                proc_info = self.parsers[fp_type].proc_identify(fp_str_, context_, dst_ip, dst_port, self.num_procs)
+                if proc_info != None:
+                    flow['analysis'] = proc_info
 
         if self.group:
             self.update_flow_cache(flow)
@@ -398,6 +399,7 @@ def main():
     else:
         print('error: need a pcap/interface or fingerprint string for lookup')
 
+    fingerprinter.close_files()
 
 
 if __name__ == '__main__':
