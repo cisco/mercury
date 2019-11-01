@@ -1,12 +1,12 @@
 # pmercury
 
-pmercury provides a Python reference implementation for network fingerprinting and advanced analysis techniques. Specifically, the code can generate a TLS fingerprint given a network interface or packet capture file. The code can then leverage the provided fingerprint database to perform process identification and operating system identification (soon).
+pmercury provides a Python reference implementation for network fingerprinting and advanced analysis techniques. As an example, the code can generate a TLS fingerprint given a network interface or packet capture file, and then leverage the provided fingerprint database to perform process identification.
 
 There are four distinct (but related) components:
 
-* protocols/tls.py - A Python library providing an API for fingerprint generation and inferencing
-* pmercury - A wrapper around protocols/tls.py that can process pcaps or listen to a network interface
-* ../src/python-inference/&ast; - A Cython port of protocols/tls.py that can be called from C++14 or higher code
+* protocols/&ast;.pyx - A Python libraries providing APIs for fingerprint generation and inferencing
+* pmercury - A wrapper around protocols/&ast;.pyx that can process pcaps or listen to a network interface
+* ../src/python-inference/&ast; - A Cython port of protocols/tls.pyx that can be called from C++14 or higher code (and is used to perform process inference in mercury)
 * ../resources/fingerprint_db.json.gz - The star of the show; a detailed database associating billions of network and endpoint observations
 
 ## Installation
@@ -17,19 +17,32 @@ pmercury depends on libpcap-dev:
 sudo apt-get install libpcap-dev
 ```
 
-To install pmercury with pip:
+On Linux and Python 3.6 and 3.7, install pmercury with pip:
 
 ```bash
 pip3 install pmercury
 ```
 
+To build cython extensions:
+
+```bash
+python setup.py build_ext --inplace
+```
+
+To install pmercury:
+
+```bash
+python setup.py install
+```
+
 ## pmercury
 
-pmercury is designed to highlight the functionality of tls.py and to provide a simple interface into the fingerprint database.
+pmercury is designed to highlight the functionality of the protocol classes and to provide a simple interface into the fingerprint database.
+
 
 ### Dependencies
 
-pmercury requires Python 3.6 along with the following packages:
+pmercury requires Python 3.6+ along with the following packages:
 
 ```bash
 pip3 install ujson
@@ -65,7 +78,8 @@ FLAGS
    [-a or --analysis]                           # perform process identification
    [-w or --human-readable]                     # return human readable fingerprint string
    [-g or --group-flows]                        # aggregate packet-based fingerprints to flow-based
-   [-e or --experimental]                       # turns on all experimental features
+   [-e or --endpoint]                           # aggregate packet-based fingerprints to endpoint-based
+   [-x or --experimental]                       # turns on all experimental features
    [-h or --help]                               # help text
 ```
 
@@ -120,20 +134,16 @@ Performing process identification:
 
 TLS client fingerprint extraction and process identification is relatively mature. The following are additional pmercury features that either have less thought put into their development, undergone less testing, and/or do not have associated fingerprint databases:
 
-* TCP fingerprint extraction - Currently only based on TCP options; no fingerprint database.
-* TLS server fingerprint extraction - Currently only based on ServerHello; no fingerprint database.
-* HTTP/1.x client fingerprint extraction - Currently extracts all headers from the HTTP/1.x request; no fingerprint database.
-* HTTP/1.x server fingerprint extraction - Currently extracts all headers from the HTTP/1.x response; no fingerprint database.
 * TLS decryption and fingerprint extraction - Currently decrypts TLS sessions when supplied a file in [NSS Key Log Format](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format) and extracts the internal HTTP/1.x and HTTP/2 requests and responses.
 * TLS server certificate extraction - Currently extracts metadata from the first certificate; no associated auxiliary data.
 * SSH server/client fingerprint extraction - Currently extracts metadata from the initial two messages from an SSH client or server.
 
-These features can be turned on by invoking the **-e** option.
+These features can be turned on by invoking the **-x** option.
 
 To perform decryption with HTTP/2 data extraction:
 
 ```bash
-~/ $: ./pmercury -r ../test/data/test_decrypt.pcap -s ../test/data/sslkeylogfile.log -w -e
+~/ $: ./pmercury -r ../test/data/test_decrypt.pcap -s ../test/data/sslkeylogfile.log -w -x
 {
   "src_ip": "10.0.2.15",
   "dst_ip": "216.58.194.163",
@@ -192,17 +202,25 @@ def fingerprint(self, data):
 Process identification is also handled, and is implemented with the help of lru_cache to improve performance. The function takes a fingerprint string, approximate fingerprint string which can be None, SNI, destination address, destination port, and an optional integer specifying the number of potential processes to return. This function return a dictionary with the inferred process, score, malware indicator, probability of malware, and an optional list of probable processes (probable_processes):
 
 ```python
-def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=5):
+def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):
     server_name = None
-    if context_ != None:
-        for x_ in context_:
-            if x_['name'] == 'server_name':
-                server_name = x_['data']
-                break
-    result = self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
+    if context_ != None and 'server_name' in context_:
+        server_name = context_['server_name']
+    # fingerprint approximate matching if necessary
+    ...
 
-    return result
+    return self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
 ```
+
+
+## protocols/&ast;.py
+Other supported protocols in varying stages of development include:
+* TCP fingerprint extraction - Currently only based on TCP options; no fingerprint database.
+* TLS server fingerprint extraction - Currently only based on ServerHello; no fingerprint database.
+* HTTP/1.x client fingerprint extraction - Currently extracts all headers from the HTTP/1.x request; no fingerprint database.
+* HTTP/1.x server fingerprint extraction - Currently extracts all headers from the HTTP/1.x response; no fingerprint database.
+* DHCP - Currently extracts DHCP options and contextual data; no fingerprint database
+
 
 ## Cython C++ Inferface
 

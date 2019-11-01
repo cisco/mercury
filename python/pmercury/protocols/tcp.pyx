@@ -1,4 +1,6 @@
-"""     
+#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
+
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -14,14 +16,13 @@ from pmercury.protocols.protocol import Protocol
 
 MAX_CACHED_RESULTS = 2**24
 
-class TCP(Protocol):
+cdef class TCP:
+    cdef dict fp_db
 
     def __init__(self, fp_database=None, config=None):
         # populate fingerprint databases
         self.fp_db = None
         self.load_database(fp_database)
-
-        self.tcp_options_data = set([0,1,2,3])
 
 
     def load_database(self, fp_database):
@@ -38,7 +39,7 @@ class TCP(Protocol):
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
     def os_identify(self, fp_str_, list_oses=0):
-        fp_ = self.get_database_entry(fp_str_)
+        fp_ = self.get_database_entry(fp_str_, None)
         if fp_ == None:
             return {'os': 'Unknown', 'score': 0.0}
 
@@ -56,7 +57,7 @@ class TCP(Protocol):
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
-    def get_database_entry(self, fp_str):
+    def get_database_entry(self, fp_str, approx_fp_str):
         if self.fp_db == None or fp_str not in self.fp_db:
             return None
 
@@ -71,31 +72,33 @@ class TCP(Protocol):
 
 
     @staticmethod
-    def fingerprint(data, offset, data_len):
-        fp_ = '(%s)' % data[offset+14:offset+16].hex()
+    def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):
+        cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
 
         offset += 20
-        cur_ = 20
-        while cur_ < data_len:
-            kind   = data[offset]
+        cdef unsigned int kind
+        cdef unsigned int length
+
+        while offset < data_len:
+            kind   = buf[offset]
+            length = buf[offset+1]
             if kind == 0 or kind == 1: # End of Options / NOP
-                fp_ += '(%02x)' % kind
+                c.append('(%02x)' % kind)
                 offset += 1
-                cur_ += 1
-                continue
-
-            length = data[offset+1]
-            if cur_ >= data_len:
-                return None
-            if kind != 2 and kind != 3:
-                fp_ += '(%02x)' % kind
+            elif kind != 2 and kind != 3:
+                c.append('(%02x)' % kind)
                 offset += length
-                cur_ += length
-                continue
+            else:
+                c.append('(%02x%s)' % (kind, buf[offset+1:offset+length].hex()))
+                offset += length
 
-            fp_ += '(%02x%s)' % (kind, data[offset+1:offset+length].hex())
-            offset += length
-            cur_ += length
+        return ''.join(c), None
 
-        return fp_, None
+
+    def get_human_readable(self, fp_str_):
+        return None
+
+
+    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):
+        return None
 

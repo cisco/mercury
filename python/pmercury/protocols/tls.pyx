@@ -1,4 +1,6 @@
-"""     
+#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
+
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -9,22 +11,30 @@ import operator
 import functools
 import ujson as json
 from sys import path
-from math import exp, log
-
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
-from pmercury.protocols.protocol import Protocol
 from pmercury.utils.tls_utils import *
 from pmercury.utils.tls_constants import *
 from pmercury.utils.pmercury_utils import *
 from pmercury.utils.contextual_info import *
 from pmercury.utils.sequence_alignment import *
 
+from cython.operator cimport dereference as deref
+from libc.math cimport exp, log, fmax
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+cdef extern from "arpa/inet.h":
+    uint16_t htons(uint16_t hostshort)
+
 MAX_CACHED_RESULTS = 2**24
 
 
-class TLS(Protocol):
+cdef class TLS():
+    cdef dict tls_params_db
+    cdef bint MALWARE_DB
+    cdef dict fp_db
+    cdef dict app_families
+    cdef object aligner
 
     def __init__(self, fp_database=None, config=None):
         # cached data/results
@@ -48,8 +58,10 @@ class TLS(Protocol):
         self.aligner = SequenceAlignment(f_similarity, 0.0)
 
 
-    def load_database(self, fp_database):
-        for line in os.popen('zcat %s' % (fp_database)):
+    def load_database(self, str fp_database):
+        cdef str line, fp_str
+        cdef dict fp_
+        for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):
             fp_ = json.loads(line)
             self.fp_db[fp_['str_repr']] = fp_
         if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
@@ -71,105 +83,102 @@ class TLS(Protocol):
 
 
     @staticmethod
-    def fingerprint(data, offset, data_len):
+    def fingerprint(bytes data, unsigned int offset, unsigned int data_len):
+        cdef unsigned char *buf = data
         offset += 5
 
         # extract handshake version
-        c_ = ['(%s)' % data[offset+4:offset+6].hex()]
+        cdef list c = [f'({buf[offset+4]:02x}{buf[offset+5]:02x})']
 
         # skip header/client_random
         offset += 38
 
         # parse/skip session_id
-        session_id_length = data[offset]
+        cdef uint8_t session_id_length = buf[offset]
         offset += 1 + session_id_length
         if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites length
-        cipher_suites_length = int.from_bytes(data[offset:offset+2], byteorder='big')
+        cdef uint16_t cipher_suites_length = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites
-        cs0_ = degrease_type_code(data, offset)
-        cs1_ = ''
+        cdef str cs_ = degrease_type_code(data, offset)
         if cipher_suites_length > 2:
-            cs1_ = data[offset+2:offset+cipher_suites_length].hex()
-        c_.append('(%s%s)' % (cs0_, cs1_))
+            cs_ += buf[offset+2:offset+cipher_suites_length].hex()
+        c.append('(%s)' % cs_)
         offset += cipher_suites_length
         if offset >= data_len:
-            c_.append('()')
-            return ''.join(c_), None
+            c.append('()')
+            return ''.join(c), None
 
         # parse/skip compression method
-        compression_methods_length = data[offset]
+        cdef uint8_t compression_methods_length = buf[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
-            c_.append('()')
-            return ''.join(c_), None
+            c.append('()')
+            return ''.join(c), None
 
         # parse/skip extensions length
-        ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
+        cdef uint16_t ext_total_len = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
-            c_.append('()')
-            return ''.join(c_), None
+            c.append('()')
+            return ''.join(c), None
 
         # parse/extract/skip extension type/length/values
-        c_.append('(')
+        c.append('(')
         server_name = None
         while ext_total_len > 0:
             if offset >= data_len:
-                c_.append(')')
-                return ''.join(c_), None
+                c.append(')')
+                return ''.join(c), server_name
 
             # extract server name for process/malware identification
-            if int.from_bytes(data[offset:offset+2], byteorder='big') == 0:
+            if htons(deref(<uint16_t *>(buf+offset))) == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
-            c_.append('(%s)' % tmp_fp_ext)
+            if ext_len+4 > ext_total_len:
+                c.append(')')
+                return ''.join(c), server_name
+            c.append('(%s)' % tmp_fp_ext)
 
             ext_total_len -= 4 + ext_len
-        c_.append(')')
+        c.append(')')
 
-        context = None
+        cdef list context = None
         if server_name != None:
             context = [{'name':'server_name', 'data':server_name}]
 
-        return  ''.join(c_), context
+        return  ''.join(c), context
 
 
     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):
         server_name = None
         # extract server_name field from context object
-        if context_ != None:
-            for x_ in context_:
-                if x_['name'] == 'server_name':
-                    server_name = x_['data']
-                    break
+        if context_ != None and 'server_name' in context_:
+            server_name = context_['server_name']
 
         # fingerprint approximate matching if necessary
         if fp_str_ not in self.fp_db:
             lit_fp = eval_fp_str(fp_str_)
             approx_str_ = self.find_approx_match(lit_fp)
-            print(approx_str_)
             if approx_str_ == None:
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
                 if self.MALWARE_DB:
-                    return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
+                    return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
                 else:
-                    return {'process': 'Unknown', 'score': 0.0}
+                    return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
             self.fp_db[fp_str_] = self.fp_db[approx_str_]
             self.fp_db[fp_str_]['approx_str'] = approx_str_
 
         # perform process identification given the fingerprint string and destination information
-        result = self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
-
-        return result
+        return self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
@@ -178,9 +187,9 @@ class TLS(Protocol):
         if fp_ == None:
             # if malware data is in the database, report malware scores
             if self.MALWARE_DB:
-                return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
+                return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
             else:
-                return {'process': 'Unknown', 'score': 0.0}
+                return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
 
         # find generalized classes for destination information
         domain, tld = get_tld_info(server_name)
@@ -198,9 +207,10 @@ class TLS(Protocol):
             predict_ = fp_['process_info'][0]['process']
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
             if self.MALWARE_DB:
-                return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
+                return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'],
+                        'p_malware': 0.0, 'category': 'Unknown'}
             else:
-                return {'process':predict_, 'score':0.0}
+                return {'process':predict_, 'score':0.0, 'category': 'Unknown'}
 
         # in the case of malware, remove pseudo process meant to reduce false positives
         if self.MALWARE_DB and r_[0]['malware'] == False and \
@@ -215,9 +225,10 @@ class TLS(Protocol):
         score_sum_ = sum([x_['score'] for x_ in r_])
         if self.MALWARE_DB:
             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
-            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'], 'p_malware':malware_score_}
+            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'],
+                    'p_malware':malware_score_, 'category':r_[0]['category']}
         else:
-            out_ = {'process':process_name, 'score':r_[0]['score']}
+            out_ = {'process':process_name, 'score':r_[0]['score'], 'category':r_[0]['category']}
 
         # return the top-n most probable processes is list_procs > 0
         if list_procs > 0:
@@ -257,10 +268,15 @@ class TLS(Protocol):
         except KeyError:
             score_ += base_prior_
 
+        app_cat = 'Unknown'
+        if 'application_category' in p_:
+            app_cat = p_['application_category']
+
         if self.MALWARE_DB:
-            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
+            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'],
+                    'malware':p_['malware'], 'category':app_cat}
         else:
-            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}
+            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'category':app_cat}
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
@@ -320,8 +336,8 @@ class TLS(Protocol):
                 self.tls_params_db[k] = tls_params_
             q0_ = set(self.tls_params_db[k][0])
             q1_ = set(self.tls_params_db[k][1])
-            s0_ = len(p0_.intersection(q0_))/max(1.0,len(p0_.union(q0_)))
-            s1_ = len(p1_.intersection(q1_))/max(1.0,len(p1_.union(q1_)))
+            s0_ = len(p0_.intersection(q0_))/fmax(1.0,len(p0_.union(q0_)))
+            s1_ = len(p1_.intersection(q1_))/fmax(1.0,len(p1_.union(q1_)))
             s_ = s0_ + s1_
             t_scores.append((s_, k))
         t_scores.sort()

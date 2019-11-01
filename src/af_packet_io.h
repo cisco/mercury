@@ -43,6 +43,15 @@ enum status capture_init(struct thread_context *tc, int fanout_group, int buffer
 
 enum status capture_loop(struct thread_context *tc);
 
+void get_readable_number_int(unsigned int power,
+			     unsigned int input,
+			     unsigned int *num_output,
+			     char **str_output);
+
+void get_readable_number_float(double power,
+			       double input,
+			       double *num_output,
+			       char **str_output);
 
 void frame_handler_write_pcap(void *userdata,
 			      //struct tpacket_hdr *tphdr,

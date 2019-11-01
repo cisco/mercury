@@ -5,12 +5,12 @@
  * https://github.com/cisco/mercury/blob/master/LICENSE 
  */
 
-#include <linux/if_packet.h>
 #include <string.h>
 #include "extractor.h"
 #include "pcap_file_io.h"
 #include "json_file_io.h"
 #include "packet.h"
+#include "rnd_pkt_drop.h"
 
 /*
  * packet_filter_threshold is a (somewhat arbitrary) threshold used in
@@ -18,6 +18,17 @@
  * in favor of extractor::proto_state::state, but for now it remains
  */
 unsigned int packet_filter_threshold = 8;
+
+void frame_handler_flush_pcap(void *userdata) {
+    union frame_handler_context *fhc = (union frame_handler_context *)userdata;
+    struct pcap_file *f = &fhc->pcap_file;
+    FILE *file_ptr = f->file_ptr;
+    if (file_ptr != NULL) {
+        if (fflush(file_ptr) != 0) {
+            perror("warning: could not flush the pcap file\n");
+        }
+    }
+}
 
 void frame_handler_filter_write_pcap(void *userdata,
 				     struct packet_info *pi,
@@ -47,17 +58,22 @@ enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
      * setup output to fingerprint file or PCAP write file
      */
     handler->func = frame_handler_filter_write_pcap;
+    handler->flush_func = frame_handler_flush_pcap;
     enum status status = pcap_file_open(&handler->context.pcap_file, outfile, io_direction_writer, flags);
     
     return status;
 }
-				      
 
 void frame_handler_write_pcap(void *userdata,
 			      struct packet_info *pi,
 			      uint8_t *eth) {
     union frame_handler_context *fhc = (union frame_handler_context *)userdata;
 
+    extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
+
+    if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
+        return;  /* random packet drop configured, and this packet got selected to be discarded */
+    }
     pcap_file_write_packet_direct(&fhc->pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
 
 }
@@ -75,10 +91,20 @@ enum status frame_handler_write_pcap_init(struct frame_handler *handler,
 	return status_err;
     }
     handler->func = frame_handler_write_pcap;
+    handler->flush_func = frame_handler_flush_pcap;
 
     return status_ok;
 }
 
+void frame_handler_flush_fingerprints(void *userdata) {
+    union frame_handler_context *fhc = (union frame_handler_context *)userdata;
+    FILE *file_ptr = fhc->json_file.file;
+    if (file_ptr != NULL) {
+        if (fflush(file_ptr) != 0) {
+            perror("warning: could not flush the json file\n");
+        }
+    }
+}
 
 void frame_handler_write_fingerprints(void *userdata,
 				      struct packet_info *pi,
@@ -100,6 +126,7 @@ enum status frame_handler_write_fingerprints_init(struct frame_handler *handler,
 	return status;
     }
     handler->func = frame_handler_write_fingerprints;
+    handler->flush_func = frame_handler_flush_fingerprints;
 
     return status_ok;
 }
@@ -118,6 +145,7 @@ enum status frame_handler_dump_init(struct frame_handler *handler) {
 
     /* note: we leave handler->context uninitialized */
     handler->func = frame_handler_dump;
+    handler->flush_func = NULL;
 
     return status_ok;
 }
