@@ -20,7 +20,7 @@ int analysis_init();
 int analysis_finalize();
 
 void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
-                                                  const struct extractor *x,
-                                                  const struct flow_key *key);
+						  const struct extractor *x,
+						  const struct flow_key *key);
 
 #endif /* ANALYSIS_H */

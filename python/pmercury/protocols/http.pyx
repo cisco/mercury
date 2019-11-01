@@ -1,6 +1,6 @@
 #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
 
-"""
+"""     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -108,12 +108,9 @@ class HTTP(Protocol):
             c.append('(%s)' % h_c)
             if t0_lower in http_ctx:
                 if b'\x3a\x20' in h_:
-                    try:
-                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
-                    except UnicodeDecodeError:
-                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].hex()})
+                    context.append({'name':HTTP.contextual_data[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1]})
                 else:
-                    context.append({'name':http_ctx[t0_lower], 'data':''})
+                    context.append({'name':HTTP.contextual_data[t0_lower], 'data':''})
 
         return ''.join(c), context
 

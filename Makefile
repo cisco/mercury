@@ -19,7 +19,7 @@ endif
 test:
 	cd src && $(MAKE) test
 
-.PHONY: clean
+.PHONY: clean 
 clean:
 	for file in Makefile README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 ifneq ($(wildcard src/Makefile), src/Makefile)

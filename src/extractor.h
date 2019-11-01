@@ -114,16 +114,16 @@ extractor_state_e extractor_is_not_done(const struct extractor *x);
  *
  */
 void extractor_init(struct extractor *x,
-                    unsigned char *output,
-                    unsigned int output_len);
+		    unsigned char *output,
+		    unsigned int output_len);
 
 /*
  * parser_init initializes a parser object with a data buffer
  * (holding the data to be parsed)
  */
-void parser_init(struct parser *p,
-                 const unsigned char *data,
-                 unsigned int data_len);
+void parser_init(struct parser *p, 
+		 const unsigned char *data,
+		 unsigned int data_len);
 
 
 /*
@@ -131,7 +131,7 @@ void parser_init(struct parser *p,
  * advance the output pointer.  It does not copy any data.
  */
 enum status extractor_skip(struct extractor *x,
-                           unsigned int len);
+			   unsigned int len);
 
 /*
  * extractor_skip_to advances the data pointer to the location
@@ -139,7 +139,7 @@ enum status extractor_skip(struct extractor *x,
  * does not copy any data.
  */
 enum status extractor_skip_to(struct extractor *x,
-                              const unsigned char *location);
+			      const unsigned char *location);
 
 /*
  * extractor_copy copies data from the data buffer to the output
@@ -147,8 +147,8 @@ enum status extractor_skip_to(struct extractor *x,
  * the data pointer and the output pointer.
  */
 enum status parser_extractor_copy(struct parser *p,
-                                  struct extractor *x,
-                                  unsigned int len);
+				  struct extractor *x,
+				  unsigned int len);
 
 
 /*
@@ -157,9 +157,9 @@ enum status parser_extractor_copy(struct parser *p,
  * data, then advances both the data pointer and the output pointer.
  */
 enum status extractor_copy_append(struct extractor *x,
-                                  unsigned int len);
+				  unsigned int len);
 
-/*
+ /*
  * extractor_read_uint reads the next num_bytes from the data buffer,
  * interprets them as an unsigned integer in network byte (big endian)
  * order, and writes the resulting value into the size_t at
@@ -167,8 +167,8 @@ enum status extractor_copy_append(struct extractor *x,
  * advanced.
  */
 enum status extractor_read_uint(struct extractor *x,
-                                unsigned int num_bytes,
-                                size_t *uint_output);
+				unsigned int num_bytes,
+				size_t *uint_output);
 
 
 /*
@@ -177,8 +177,8 @@ enum status extractor_read_uint(struct extractor *x,
  * restricted to the number of bytes indicated by the length parameter
  */
 enum status extractor_push(struct extractor *inner,
-                           const struct extractor *outer,
-                           size_t length);
+			   const struct extractor *outer,
+			   size_t length);
 
 /*
  * extractor_pop removes the inner extractor and updates the outer
@@ -188,7 +188,7 @@ enum status extractor_push(struct extractor *inner,
  * copied into the output buffer is accurate and complete.
  */
 void extractor_pop(struct extractor *outer,
-                   const struct extractor *inner);
+		   const struct extractor *inner);
 
 /*
  * extractor_reserve_output reserves num_bytes bytes of the output
@@ -199,7 +199,7 @@ void extractor_pop(struct extractor *outer,
  * extractor_pop).
  */
 enum status extractor_reserve_output(struct extractor *x,
-                                     size_t num_bytes);
+				     size_t num_bytes);
 
 /*
  * extractor_get_data_length returns the number of bytes remaining in
@@ -215,31 +215,31 @@ ptrdiff_t extractor_get_data_length(struct extractor *x);
 ptrdiff_t extractor_get_output_length(const struct extractor *x);
 
 enum status extractor_push_vector_extractor(struct extractor *y,
-                                            struct extractor *x,
-                                            size_t bytes_in_length_field);
+					    struct extractor *x,
+					    size_t bytes_in_length_field);
 
 void extractor_pop_vector_extractor(struct extractor *x,
-                                    struct extractor *y);
+				    struct extractor *y);
 
 enum status extractor_copy_alt(struct extractor *x,
-                               unsigned char *data, /* alternative data source */
-                               unsigned int len);
+			       unsigned char *data, /* alternative data source */
+			       unsigned int len);
 
 unsigned int match(const unsigned char *data,
-                   size_t data_len,
-                   const unsigned char *mask,
-                   const unsigned char *value,
-                   size_t value_len);
+		   size_t data_len,
+		   const unsigned char *mask,
+		   const unsigned char *value,
+		   size_t value_len);
 
 
 unsigned int extractor_match(struct extractor *x,
-                             const unsigned char *value,
-                             size_t value_len,
-                             const unsigned char *mask);
+			     const unsigned char *value,
+			     size_t value_len,
+			     const unsigned char *mask);
 
 unsigned int uint16_match(uint16_t x,
-                          const uint16_t *ulist,
-                          unsigned int num);
+			  const uint16_t *ulist,
+			  unsigned int num);
 
 
 /*
@@ -252,7 +252,7 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
 unsigned int extractor_process_tcp(struct extractor *x);
 
 const char *get_frame_type(const unsigned char *data,
-                           unsigned int len);
+			   unsigned int len);
 
 
 
@@ -279,12 +279,12 @@ unsigned int parser_process_tls_server(struct parser *p);
  *
  * RETURN VALUE: the number of (single-byte) characters written into
  * the output buffer, or zero on failure.
- *
+ * 
  */
 size_t extract_fp_from_tls_client_hello(uint8_t *data,
-                                        size_t data_len,
-                                        uint8_t *outbuf,
-                                        size_t outbuf_len);
+					size_t data_len,
+					uint8_t *outbuf,
+					size_t outbuf_len);
 
 
 void parser_init_packet(struct parser *p, const unsigned char *data, unsigned int length);

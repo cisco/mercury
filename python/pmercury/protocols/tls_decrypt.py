@@ -1,4 +1,4 @@
-"""
+"""     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -103,7 +103,7 @@ class TLS_Decrypt:
         # Parse ServerHello server_random
         self.session_metadata[flow_key]['server_random'] = str(hexlify(data[6:38]),'utf-8')
         offset = 38
-
+        
         # Parse ServerHello session_id ...
         #   if this is not TLS 1.3
         session_id_length = data[offset]
@@ -122,7 +122,7 @@ class TLS_Decrypt:
 
         # Parse ServerHello extensions
         if len(data) < offset+1: # check for existence of extensions
-            return
+            return 
         ext_total_len = int(hexlify(data[offset:offset+2]),16)
         offset += 2
 
@@ -211,7 +211,7 @@ class TLS_Decrypt:
         # Decrypt Data
         tmp_data = None
         if self.session_metadata[flow_key]['client_random'] in self.secrets:
-            tmp_data, pad_length, auth_length = self.tls_crypto.decrypt(data[5:5+record_length], flow_key, self.cur_mode,
+            tmp_data, pad_length, auth_length = self.tls_crypto.decrypt(data[5:5+record_length], flow_key, self.cur_mode, 
                                                                         self.session_metadata, self.tls_sequence,
                                                                         self.secrets, self.tls13_handshake)
 
@@ -219,7 +219,7 @@ class TLS_Decrypt:
         if tmp_data != None:
             self.parse_encrypted_content_message(tmp_data, flow_key)
 
-
+    
     def parse_encrypted_content_message(self, data, flow_key):
         cur_flow_key = flow_key + self.cur_mode
 
@@ -310,7 +310,7 @@ class TLS_Decrypt:
                 else:
                     self.data_cache[flow_key+self.cur_mode][0] += data[offset:]
                 return protocol_type, fp_str_, None
-
+    
             record_length = int(hexlify(data[offset+3:offset+5]),16)
             if record_length > len(data[offset+5:]):
                 self.data_cache[flow_key+self.cur_mode] = [data[offset:],record_length,True]
@@ -330,7 +330,7 @@ class TLS_Decrypt:
                 self.session_metadata[flow_key][self.cur_mode + '_change_cipher_spec'] = 1
             elif record_name == 'handshake':
                 # check for encrypted messages
-                if (flow_key in self.session_metadata and
+                if (flow_key in self.session_metadata and 
                     self.cur_mode + '_change_cipher_spec' in self.session_metadata[flow_key]):
                     self.encrypted_handshake_message(data[offset:], flow_key)
                     offset += 5 + record_length

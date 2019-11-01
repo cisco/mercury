@@ -1,6 +1,6 @@
 #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
 
-"""
+"""     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -39,7 +39,7 @@ cdef class TCP:
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
     def os_identify(self, fp_str_, list_oses=0):
-        fp_ = self.get_database_entry(fp_str_, None)
+        fp_ = self.get_database_entry(fp_str_)
         if fp_ == None:
             return {'os': 'Unknown', 'score': 0.0}
 
@@ -57,7 +57,7 @@ cdef class TCP:
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
-    def get_database_entry(self, fp_str, approx_fp_str):
+    def get_database_entry(self, fp_str):
         if self.fp_db == None or fp_str not in self.fp_db:
             return None
 
@@ -99,10 +99,6 @@ cdef class TCP:
         return None
 
 
-<<<<<<< HEAD:python/pmercury/protocols/tcp.pyx
     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):
         return None
 
-=======
-        return fp_, None
->>>>>>> trunk:python/pmercury/protocols/tcp.py
