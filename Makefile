@@ -19,15 +19,21 @@ endif
 test:
 	cd src && $(MAKE) test
 
+.PHONY: doc
+doc:
+	doxygen
+	cd doc/latex; make; mv refman.pdf ../mercury.pdf
+
 .PHONY: clean 
 clean:
-	for file in Makefile README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+	for file in Makefile README.md configure.ac Doxyfile; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo "error: run ./configure before running make (src/Makefile is missing)"
 	@/bin/false
 else
 	cd src && $(MAKE) clean
 	cd test && $(MAKE) clean
+	rm -rf doc/latex
 endif
 
 .PHONY: distclean
