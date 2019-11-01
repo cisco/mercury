@@ -1,4 +1,6 @@
-"""     
+#cython: language_level=3, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
+
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -14,14 +16,14 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from pmercury.utils.tls_constants import *
 from pmercury.utils.pmercury_utils import *
 
-grease_ = set(['0a0a','1a1a','2a2a','3a3a','4a4a','5a5a','6a6a','7a7a',
-               '8a8a','9a9a','aaaa','baba','caca','dada','eaea','fafa'])
+cdef set grease_ = set(['0a0a','1a1a','2a2a','3a3a','4a4a','5a5a','6a6a','7a7a',
+                        '8a8a','9a9a','aaaa','baba','caca','dada','eaea','fafa'])
 
-grease_single_int_ = set([10,26,42,58,74,90,106,122,138,154,170,186,202,218,234,250])
+cdef set grease_single_int_ = set([10,26,42,58,74,90,106,122,138,154,170,186,202,218,234,250])
 
-ext_data_extract_ = set(['0001','0005','0007','0008','0009','000a','000b',
-                         '000d','000f','0010','0011','0013','0014','0018',
-                         '001b','001c','002b','002d','0032','5500'])
+cdef set ext_data_extract_ = set(['0001','0005','0007','0008','0009','000a','000b',
+                                  '000d','000f','0010','0011','0013','0014','0018',
+                                  '001b','001c','002b','002d','0032','5500'])
 ext_data_extract_ = ext_data_extract_.union(grease_)
 
 
@@ -37,11 +39,14 @@ for line in os.popen('zcat %s' % (imp_date_ext_file)):
 
 
 
-def extract_server_name(data, offset, data_len):
+def extract_server_name(bytes data, unsigned int offset, unsigned int data_len):
     if data_len - offset < 7:
         return 'None'
     sni_len = int.from_bytes(data[offset+5:offset+7], 'big')
-    return data[offset+7:offset+7+sni_len].decode()
+    try:
+        return data[offset+7:offset+7+sni_len].decode()
+    except UnicodeDecodeError:
+        return data[offset+7:offset+7+sni_len].hex()
 
 
 def eval_fp_str_general(fp_str_):
@@ -145,13 +150,13 @@ def parse_extension_data(ext_type, ext_data_, mode):
 
 
 # helper to parse/extract/skip single extension
-def parse_extension(data, offset):
-    tmp_ext_type = degrease_type_code(data, offset)
-    fp_ext_ = tmp_ext_type
+def parse_extension(bytes data, unsigned int offset):
+    cdef str tmp_ext_type = degrease_type_code(data, offset)
+    cdef str fp_ext_ = tmp_ext_type
     offset += 2
-    ext_len = int.from_bytes(data[offset:offset+2],'big')
+    cdef unsigned int ext_len = int.from_bytes(data[offset:offset+2],'big')
     offset += 2
-    tmp_ext_value = data[offset:offset+ext_len]
+    cdef bytes tmp_ext_value = data[offset:offset+ext_len]
     if tmp_ext_type in ext_data_extract_:
         tmp_ext_value = degrease_ext_data(data, offset, tmp_ext_type, ext_len, tmp_ext_value)
         fp_ext_ += '%04x%s' % (ext_len, tmp_ext_value.hex())
@@ -160,7 +165,7 @@ def parse_extension(data, offset):
     return fp_ext_, offset, ext_len
 
 # helper to normalize grease type codes
-def degrease_type_code(data, offset):
+def degrease_type_code(unsigned char *data, unsigned int offset):
     if data[offset] in grease_single_int_ and data[offset] == data[offset+1]:
         return '0a0a'
     else:
@@ -168,7 +173,7 @@ def degrease_type_code(data, offset):
 
 
 # helper to normalize grease within supported_groups and supported_versions
-def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
+def degrease_ext_data(unsigned char *data, unsigned int offset, str ext_type, unsigned int ext_length, bytes ext_value):
     degreased_ext_value = b''
     if ext_type == '000a': # supported_groups
         degreased_ext_value += data[offset:offset+2]

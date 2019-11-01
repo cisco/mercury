@@ -1,4 +1,6 @@
-"""     
+#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
+
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -66,21 +68,27 @@ class HTTP(Protocol):
 
 
     @staticmethod
-    def fingerprint(data, offset, data_len):
-        t_ = data[offset:].split(b'\x0d\x0a', 1)
-        request = t_[0].split()
+    def fingerprint(bytes data, unsigned int offset, unsigned int data_len):
+        cdef list t_ = data[offset:].split(b'\x0d\x0a', 1)
+        cdef list request = t_[0].split()
         if len(request) < 3:
             return None, None
 
-        fp_ = ''
+        cdef list c = []
         for rh in HTTP.headers_data:
-            fp_ += '(%s)' % request[rh].hex()
+            c.append('(%s)' % request[rh].hex())
 
         if len(t_) == 1:
-            return fp_, None
+            return ''.join(c), None
 
-        headers = t_[1].split(b'\x0d\x0a')
-        context = None
+        cdef bint http_ah = HTTP.all_headers
+        cdef set http_cish = HTTP.case_insensitive_static_headers
+        cdef set http_cssh = HTTP.case_sensitive_static_headers
+        cdef dict http_ctx = HTTP.contextual_data
+        cdef list headers = t_[1].split(b'\x0d\x0a')
+        cdef bytes t0_
+        cdef bytes t0_lower
+        context = []
         for h_ in headers:
             if h_ == b'':
                 break
@@ -88,22 +96,26 @@ class HTTP(Protocol):
             t0_lower = t0_.lower()
 
 
-            if HTTP.all_headers:
+            if http_ah:
                 h_c = h_.hex()
-            if t0_lower in HTTP.case_insensitive_static_headers:
+            elif t0_lower in http_cish:
                 h_c = h_.hex()
-            elif t0_ in HTTP.case_sensitive_static_headers:
+            elif t0_ in http_cssh:
                 h_c = h_.hex()
             else:
                 h_c = t0_.hex()
 
-            fp_ += '(%s)' % h_c
-            if t0_lower in HTTP.contextual_data:
-                if context == None:
-                    context = []
-                context.append({'name':HTTP.contextual_data[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1]})
+            c.append('(%s)' % h_c)
+            if t0_lower in http_ctx:
+                if b'\x3a\x20' in h_:
+                    try:
+                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
+                    except UnicodeDecodeError:
+                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].hex()})
+                else:
+                    context.append({'name':http_ctx[t0_lower], 'data':''})
 
-        return fp_, context
+        return ''.join(c), context
 
 
     def get_human_readable(self, fp_str_):

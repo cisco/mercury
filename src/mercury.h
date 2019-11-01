@@ -11,13 +11,14 @@
 #define MERCURY_H
 
 #include <stdint.h>
-#include <linux/if_packet.h>
+#include <time.h>
 #include <stdbool.h>
 #include <inttypes.h>
 
 #define MAX_FILENAME 256
 
 #define MAX_HEX 16
+#define BILLION 1000000000L
 
 #ifdef DEBUG
     #define debug_print_int(X)  printf("%s:\t%d:\t%s():\t%s:\t%ld\n", __FILE__, __LINE__, __func__, #X, (unsigned long)(X))
@@ -57,10 +58,11 @@ struct mercury_config {
     char *user;                     /* username of account used for privilege drop    */
     int loop_count;                 /* loop count for repeat processing of read file  */
     int verbosity;                  /* 0=minimal output; 1=more detailed output       */
+    int use_test_packet;            /* use test packet to write output file           */
+    int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0 }
-
+#define mercury_config_init() { NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0  }
 
 enum create_subdir_mode {
     create_subdir_mode_do_not_overwrite = 0,
@@ -73,5 +75,8 @@ enum status filename_append(char dst[MAX_FILENAME],
 			    const char *src,
 			    const char *delim,
 			    const char *tail);
+
+void get_clocktime_before (struct timespec *before);
+uint64_t get_clocktime_after (struct timespec *before, struct timespec *after);
 
 #endif /* MERCURY_H */

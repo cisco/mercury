@@ -1,3 +1,5 @@
+#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
+
 """     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -11,6 +13,12 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from pmercury.utils.tls_utils import *
 from pmercury.utils.tls_constants import *
 from pmercury.protocols.protocol import Protocol
+
+from cython.operator cimport dereference as deref
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+cdef extern from "arpa/inet.h":
+    uint16_t htons(uint16_t hostshort)
+
 
 MAX_CACHED_RESULTS = 2**24
 
@@ -37,40 +45,43 @@ class TLS_Server(Protocol):
 
 
     @staticmethod
-    def fingerprint(data, offset, data_len):
+    def fingerprint(bytes data, unsigned int offset, unsigned int data_len):
+        cdef unsigned char *buf = data
         offset += 5
 
         # extract handshake version
-        fp_ = '(%s)' % data[offset+4:offset+6].hex()
+        cdef str fp_ = f'({buf[offset+4]:02x}{buf[offset+5]:02x})'
 
         # skip header/server_random
         offset += 38
 
         # parse/skip session_id
-        session_id_length = data[offset]
+        cdef unsigned int session_id_length = buf[offset]
         offset += 1 + session_id_length
         if offset >= data_len:
             return None, None
 
         # parse selected_cipher_suite
-        fp_ += '(%s)' % data[offset:offset+2].hex()
+        fp_ += f'({buf[offset]:02x}{buf[offset+1]:02x})'
         offset += 2
         if offset >= data_len:
             return fp_+'()', None
 
         # parse/skip compression method
-        compression_methods_length = data[offset]
+        cdef unsigned int compression_methods_length = buf[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
             return fp_+'()', None
 
         # parse/skip extensions length
-        ext_total_len = int.from_bytes(data[offset:offset+2], 'big')
+        cdef unsigned int ext_total_len = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
             return fp_+'()', None
 
         # parse/extract/skip extension type/length/values
+        cdef str tmp_fp_ext
+        cdef unsigned int ext_len
         fp_ += '('
         while ext_total_len > 0:
             if offset >= data_len:

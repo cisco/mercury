@@ -13,6 +13,8 @@ from pmercury.utils.pmercury_utils import *
 
 
 def parse_config(f_):
+    protocols = set(['http','http_server'])
+
     config_file = find_resource_path(f_)
     if not os.path.exists(config_file):
         return None
@@ -25,20 +27,19 @@ def parse_config(f_):
         if line == '' or line.startswith('#'):
             continue
 
-        if line.startswith('--'):
-            if cur_type == None:
-                print('error: unknown configuration file format (cur_type)')
-                return None
-            config[cur_proto][cur_type].append(line.split('--')[1].strip())
-        elif line.startswith('-'):
-            if cur_proto == None:
-                print('error: unknown configuration file format (cur_proto)')
-                return None
-            cur_type = line.split('-')[1].strip()
-            config[cur_proto][cur_type] = []
-        else:
+        if line in protocols:
             cur_proto = line
+            continue
+
+        if cur_proto not in config:
             config[cur_proto] = {}
+
+        try:
+            cur_type, params = line.split()
+            config[cur_proto][cur_type] = params.split(',')
+        except:
+            print('error: unknown configuration file format (cur_proto)')
+            return None
 
     return config
 

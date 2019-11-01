@@ -27,7 +27,7 @@
 
 #define MAX_READABLE_SUFFIX 9
 char *readable_number_suffix[MAX_READABLE_SUFFIX] = {
-    (char *)"B",
+    (char *)"",
     (char *)"K",
     (char *)"M",
     (char *)"G",
@@ -38,14 +38,31 @@ char *readable_number_suffix[MAX_READABLE_SUFFIX] = {
     (char *)"Y"
 };
 
-void get_readable_number(unsigned int input,
-			 unsigned int *num_output,
-			 char **str_output) {
+void get_readable_number_int(unsigned int power,
+			     unsigned int input,
+			     unsigned int *num_output,
+			     char **str_output) {
     unsigned int index = 0;
 
-    while (input > 1024 && index < MAX_READABLE_SUFFIX) {
+    while ((input > power) && ((index + 1) < MAX_READABLE_SUFFIX)) {
 	index++;
-	input = input / 1024;
+	input = input / power;
+    }
+    *num_output = input;
+    *str_output = readable_number_suffix[index];
+
+}
+
+
+void get_readable_number_float(double power,
+			       double input,
+			       double *num_output,
+			       char **str_output) {
+    unsigned int index = 0;
+
+    while ((input > power) && ((index + 1) < MAX_READABLE_SUFFIX)) {
+	index++;
+	input = input / power;
     }
     *num_output = input;
     *str_output = readable_number_suffix[index];
@@ -91,9 +108,9 @@ enum status capture_init(struct thread_context *ts, int fanout_group, int buffer
 
     unsigned int readable_num;
     char *readable_str;
-    get_readable_number(ts->tp_req.tp_block_nr * ts->tp_req.tp_block_size,
-			&readable_num,
-			&readable_str);
+    get_readable_number_int(1024, ts->tp_req.tp_block_nr * ts->tp_req.tp_block_size,
+			    &readable_num,
+			    &readable_str);
     printf("setting up RX_RING with %u%s bytes\n", readable_num, readable_str);
 
     /* create ring buffer */

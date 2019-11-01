@@ -8,7 +8,6 @@
 #ifndef ETH_H
 #define ETH_H
 
-#include <endian.h>
 #include <stdint.h>
 
 #define ETH_ADDR_LEN 6

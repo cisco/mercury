@@ -71,19 +71,22 @@ struct stats_tracking {
  * including its thread id and socket file handle
  */
 struct thread_storage {
-    packet_callback_t p_callback; /* The packet callback function */
-    struct frame_handler handler;
-    int tnum;                 /* Thread Number */
-    pthread_t tid;            /* Thread ID */
-    int sockfd;               /* Socket owned by this thread */
-    const char *if_name;      /* The name of the interface to bind the socket to */
-    uint8_t *mapped_buffer;   /* The pointer to the mmap()'d region */
-    struct tpacket_block_desc **block_header; /* The pointer to each block in the mmap()'d region */
-    struct tpacket_req3 ring_params; /* The ring allocation params to setsockopt() */
-    struct stats_tracking *statst;   /* A pointer to the struct with the stats counters */
-    int *t_start_p;             /* The clean start predicate */
-    pthread_cond_t *t_start_c;  /* The clean start condition */
-    pthread_mutex_t *t_start_m; /* The clean start mutex */
+  packet_callback_t p_callback; /* The packet callback function */
+  struct frame_handler handler;
+  int tnum;                 /* Thread Number */
+  pthread_t tid;            /* Thread ID */
+  pthread_attr_t thread_attributes;
+  int sockfd;               /* Socket owned by this thread */
+  const char *if_name;      /* The name of the interface to bind the socket to */
+  uint8_t *mapped_buffer;   /* The pointer to the mmap()'d region */
+  struct tpacket_block_desc **block_header; /* The pointer to each block in the mmap()'d region */
+  struct tpacket_req3 ring_params; /* The ring allocation params to setsockopt() */
+  struct stats_tracking *statst;   /* A pointer to the struct with the stats counters */
+  double *block_streak_hist;  /* The block streak histogram */
+  pthread_mutex_t bstreak_m;  /* The block streak mutex */
+  int *t_start_p;             /* The clean start predicate */
+  pthread_cond_t *t_start_c;  /* The clean start condition */
+  pthread_mutex_t *t_start_m; /* The clean start mutex */
 };
 
 
