@@ -1452,16 +1452,22 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
 	} else {
 	    const uint8_t *user_agent_string = NULL;
 	    if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher) == status_ok) {
-		user_agent_string = p->data;
-	    } 
+	        /* store user agent value */
+            if (parser_skip_upto_delim(p, csp, sizeof(csp)) == status_err) {
+                return extractor_get_output_length(x);
+            }
+            user_agent_string = p->data;
+	    }
 	    if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
 		return extractor_get_output_length(x);
 	    }
 	    if (user_agent_string) {
-		packet_data_set(&x->packet_data,
-				packet_data_type_http_user_agent,
-				p->data - user_agent_string - 1,
-				user_agent_string);
+            size_t ua_len = p->data - user_agent_string;
+            ua_len = ua_len > sizeof(crlf) ? ua_len - sizeof(crlf) : 0;
+            packet_data_set(&x->packet_data,
+                            packet_data_type_http_user_agent,
+                            ua_len,
+                            user_agent_string);
 	    }
 	}
     }
