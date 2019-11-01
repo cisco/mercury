@@ -1,6 +1,6 @@
 #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
 
-"""     
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -14,7 +14,6 @@ from sys import path
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
-from pmercury.protocols.protocol import Protocol
 from pmercury.utils.tls_utils import *
 from pmercury.utils.tls_constants import *
 from pmercury.utils.pmercury_utils import *
@@ -64,9 +63,8 @@ cdef class TLS():
         cdef dict fp_
         for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):
             fp_ = json.loads(line)
-            fp_str = fp_['str_repr']
-            self.fp_db[fp_str] = fp_
-        if 'malware' not in self.fp_db[fp_str]['process_info'][0]:
+            self.fp_db[fp_['str_repr']] = fp_
+        if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
             self.MALWARE_DB = False
 
 
@@ -96,13 +94,13 @@ cdef class TLS():
         offset += 38
 
         # parse/skip session_id
-        cdef unsigned int session_id_length = buf[offset]
+        cdef uint8_t session_id_length = buf[offset]
         offset += 1 + session_id_length
         if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites length
-        cdef unsigned int cipher_suites_length = htons(deref(<uint16_t *>(buf+offset)))
+        cdef uint16_t cipher_suites_length = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
             return None, None
@@ -118,14 +116,14 @@ cdef class TLS():
             return ''.join(c), None
 
         # parse/skip compression method
-        cdef unsigned int compression_methods_length = buf[offset]
+        cdef uint8_t compression_methods_length = buf[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
             c.append('()')
             return ''.join(c), None
 
         # parse/skip extensions length
-        cdef unsigned int ext_total_len = htons(deref(<uint16_t *>(buf+offset)))
+        cdef uint16_t ext_total_len = htons(deref(<uint16_t *>(buf+offset)))
         offset += 2
         if offset >= data_len:
             c.append('()')
@@ -137,13 +135,16 @@ cdef class TLS():
         while ext_total_len > 0:
             if offset >= data_len:
                 c.append(')')
-                return ''.join(c), None
+                return ''.join(c), server_name
 
             # extract server name for process/malware identification
             if htons(deref(<uint16_t *>(buf+offset))) == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
+            if ext_len+4 > ext_total_len:
+                c.append(')')
+                return ''.join(c), server_name
             c.append('(%s)' % tmp_fp_ext)
 
             ext_total_len -= 4 + ext_len
@@ -170,16 +171,14 @@ cdef class TLS():
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
                 if self.MALWARE_DB:
-                    return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
+                    return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
                 else:
-                    return {'process': 'Unknown', 'score': 0.0}
+                    return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
             self.fp_db[fp_str_] = self.fp_db[approx_str_]
             self.fp_db[fp_str_]['approx_str'] = approx_str_
 
         # perform process identification given the fingerprint string and destination information
-        result = self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
-
-        return result
+        return self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
@@ -188,9 +187,9 @@ cdef class TLS():
         if fp_ == None:
             # if malware data is in the database, report malware scores
             if self.MALWARE_DB:
-                return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0}
+                return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
             else:
-                return {'process': 'Unknown', 'score': 0.0}
+                return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
 
         # find generalized classes for destination information
         domain, tld = get_tld_info(server_name)
@@ -208,9 +207,10 @@ cdef class TLS():
             predict_ = fp_['process_info'][0]['process']
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
             if self.MALWARE_DB:
-                return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'], 'p_malware': 0.0}
+                return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'],
+                        'p_malware': 0.0, 'category': 'Unknown'}
             else:
-                return {'process':predict_, 'score':0.0}
+                return {'process':predict_, 'score':0.0, 'category': 'Unknown'}
 
         # in the case of malware, remove pseudo process meant to reduce false positives
         if self.MALWARE_DB and r_[0]['malware'] == False and \
@@ -225,9 +225,10 @@ cdef class TLS():
         score_sum_ = sum([x_['score'] for x_ in r_])
         if self.MALWARE_DB:
             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
-            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'], 'p_malware':malware_score_}
+            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'],
+                    'p_malware':malware_score_, 'category':r_[0]['category']}
         else:
-            out_ = {'process':process_name, 'score':r_[0]['score']}
+            out_ = {'process':process_name, 'score':r_[0]['score'], 'category':r_[0]['category']}
 
         # return the top-n most probable processes is list_procs > 0
         if list_procs > 0:
@@ -267,10 +268,15 @@ cdef class TLS():
         except KeyError:
             score_ += base_prior_
 
+        app_cat = 'Unknown'
+        if 'application_category' in p_:
+            app_cat = p_['application_category']
+
         if self.MALWARE_DB:
-            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'malware':p_['malware']}
+            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'],
+                    'malware':p_['malware'], 'category':app_cat}
         else:
-            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256']}
+            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'category':app_cat}
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)

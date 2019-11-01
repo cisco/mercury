@@ -1,4 +1,4 @@
-"""     
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -23,7 +23,7 @@ ext_modules = [
 
 setuptools.setup(
     name='pmercury',
-    version='0.3.0.004',
+    version='0.3.1.004',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
