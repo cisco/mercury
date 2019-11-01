@@ -25,6 +25,7 @@
 #include "af_packet_io.h"
 #include "af_packet_v3.h"
 #include "analysis.h"
+#include "rnd_pkt_drop.h"
 
 enum input_mode {
     input_mode_unknown        = 0,
@@ -39,7 +40,6 @@ enum output_mode {
 };
 
 #define TWO_TO_THE_N(N) (unsigned int)1 << (N)
-
 
 /*
  * sig_close() causes a graceful shutdown of the program after recieving
@@ -220,17 +220,19 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
 	return status;
     }
 
-    status = filename_append(input_filename, cfg->read_filename, "/", fileset_id);
-    if (status) {
-	return status;
-    }	
-    
-    status = pcap_file_open(&tc->rf, input_filename, io_direction_reader, cfg->flags);
-    if (status) {
-	printf("%s: could not open pcap input file %s\n", strerror(errno), cfg->read_filename);
-	return status;
+    // if cfg->use_test_packet is on, read_filename will be NULL
+    if (cfg->read_filename != NULL) {
+        status = filename_append(input_filename, cfg->read_filename, "/", fileset_id);
+        if (status) {
+            return status;
+        }
+	
+        status = pcap_file_open(&tc->rf, input_filename, io_direction_reader, cfg->flags);
+        if (status) {
+	    printf("%s: could not open pcap input file %s\n", strerror(errno), cfg->read_filename);
+	    return status;
+        }
     }
-
     return status_ok;
 }
 
@@ -243,18 +245,28 @@ void *pcap_file_processing_thread_func(void *userdata) {
 	printf("error in pcap file dispatch (code: %d)\n", (int)status);
 	return NULL;
     }
-    status = pcap_file_close(&tc->rf);
+    
+    return NULL;
+}
+
+void *pcap_file_processing_test_packet_func(void *userdata) {
+    struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
+    enum status status;
+
+    status = pcap_file_dispatch_test_packet(tc->handler.func,
+                                            &tc->handler.context,
+                                            tc->loop_count);
     if (status) {
-	printf("error closing pcap file (code: %d)\n", (int)status);
-	return NULL;
+        printf("error in pcap file dispatch (code: %u)\n", status);
+        return NULL;
     }
-			     
+
     return NULL;
 }
 
 #define BILLION 1000000000L
 
-static inline void get_clocktime_before (struct timespec *before) {
+inline void get_clocktime_before (struct timespec *before) {
     if (clock_gettime(CLOCK_REALTIME, before) != 0) {
         // failed to get clock time, set the uninitialized struct to zero
         bzero(before, sizeof(struct timespec));
@@ -262,7 +274,7 @@ static inline void get_clocktime_before (struct timespec *before) {
     }
 }
 
-static inline uint64_t get_clocktime_after (struct timespec *before,
+inline uint64_t get_clocktime_after (struct timespec *before,
                                             struct timespec *after) {
     uint64_t nano_sec = 0;
     if (clock_gettime(CLOCK_REALTIME, after) != 0) {
@@ -364,8 +376,8 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 
 	for (int i = 0; i < tnum; i++) {
 	    pthread_join(tc[i].tid, NULL);
-		bytes_written += tc[i].rf.bytes_written;
-		packets_written += tc[i].rf.packets_written;
+	    bytes_written += tc[i].handler.context.pcap_file.bytes_written;
+	    packets_written += tc[i].handler.context.pcap_file.packets_written;
 	}
 		
     } else {
@@ -381,8 +393,8 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	}
 
 	pcap_file_processing_thread_func(&tc);
-	bytes_written = tc.rf.bytes_written;
-	packets_written = tc.rf.packets_written;
+	bytes_written = tc.handler.context.pcap_file.bytes_written;
+	packets_written = tc.handler.context.pcap_file.packets_written;
     }
 
     nano_seconds = get_clocktime_after(&before, &after);
@@ -396,6 +408,96 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
     return status_ok;
 }
 
+/*
+ * For -T or --test option, we use a canned packet to generate the output data
+ * If -t or --threads option is specified, we create a subdirectory and spawn a number
+ * of threads to generate output data.
+ * If -p or --loop-count option is specified, we generate as many packets as the loop-count.
+ */
+int dispatch_test_packets(struct mercury_config *cfg, int num_threads) {
+
+    struct timespec before, after;
+	u_int64_t nano_seconds = 0;
+	u_int64_t bytes_written = 0;
+	u_int64_t packets_written = 0;
+
+        printf("dispatch_test_packets: num_threads=%d\n", num_threads);
+
+    get_clocktime_before(&before); // get timestamp before we start processing
+
+    if (num_threads == 1) {
+        struct pcap_reader_thread_context tc;
+        tc.handler.context.pcap_file.bytes_written = 0;
+        tc.handler.context.pcap_file.packets_written = 0;
+
+        enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
+        if (status != status_ok) {
+            return status;
+        }
+
+        pcap_file_processing_test_packet_func(&tc);
+        bytes_written = tc.handler.context.pcap_file.bytes_written;
+        packets_written = tc.handler.context.pcap_file.packets_written;
+    } else if (num_threads > 1) {
+        /*
+	     * create subdirectory into which each thread will write its output
+	     */
+	    char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
+	    //enum create_subdir_mode mode = cfg->rotate ? create_subdir_mode_overwrite : create_subdir_mode_do_not_overwrite;
+	    create_subdirectory(outdir, create_subdir_mode_overwrite);
+
+        /*
+         * create capture worker threads and set up thread contexts
+         */
+        struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)
+                                                malloc(num_threads * sizeof(struct pcap_reader_thread_context));
+        if (!tc) {
+	        perror("could not allocate memory for thread storage array\n");
+        }
+
+        for (int i=0; i < num_threads; i++) {
+	        tc[i].tnum = i;
+	        tc[i].tid = 0;
+        }
+
+        for (int i=0; i < num_threads; i++) {
+            char hexname[MAX_HEX];
+            snprintf(hexname, MAX_HEX, "%x", tc[i].tnum);
+
+            enum status status = pcap_reader_thread_context_init_from_config(&tc[i], cfg, tc[i].tnum, hexname);
+	        if (status) {
+	            printf("error: could not initialize thread context\n");
+	            exit(255);
+	        }
+	        printf("creating capture thread %d\n", i);
+	        int err = pthread_create(&(tc[i].tid), NULL, pcap_file_processing_test_packet_func, &tc[i]);
+	        if (err) {
+	            printf("%s: error creating af_packet capture thread %d\n", strerror(err), i);
+	            exit(255);
+	        }
+        }
+
+        /*
+         * wait for threads to finish (but they never do; should we use detached threads?)
+        */
+        for (int i = 0; i < num_threads; i++) {
+	        pthread_join(tc[i].tid, NULL);
+            bytes_written += tc[i].handler.context.pcap_file.bytes_written;
+            packets_written += tc[i].handler.context.pcap_file.packets_written;
+        }
+    }
+
+    nano_seconds = get_clocktime_after(&before, &after);
+    double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
+
+	if (cfg->write_filename) {
+	    printf("For all files, Packets Written: %lu, Bytes Written: %lu, nano sec: %lu, byte rate: %lf\n",
+                packets_written, bytes_written, nano_seconds, byte_rate);
+	}
+
+    return 0;
+}
+
 #define EXIT_ERR 255
 
 char mercury_help[] =
@@ -403,6 +505,7 @@ char mercury_help[] =
     "INPUT\n"
     "   [-c or --capture] capture_interface   # capture packets from interface\n"
     "   [-r or --read] read_file              # read packets from file\n"
+//  "   [-T or --test]                        # write pcap file with test packet\n"
     "OUTPUT\n"
     "   [-f or --fingerprint] json_file_name  # write fingerprints to JSON file\n"
     "   [-w or --write] pcap_file_name        # write packets to PCAP/MCAP file\n"
@@ -418,6 +521,8 @@ char mercury_help[] =
     "   [-s or --select]                      # select only packets with metadata\n"
     "   [-l or --limit] l                     # rotate JSON files after l records\n"
     "   [-v or --verbose]                     # additional information sent to stdout\n"
+    "   [-p or --loop] loop_count             # loop count >= 1 for the read_file\n"
+//  "   [--adaptive]                          # adaptively accept or skip packets for pcap file\n"
     "   [-h or --help]                        # extended help, with examples\n";
 
 char mercury_extended_help[] =
@@ -488,6 +593,7 @@ void usage(const char *progname, const char *err_string, enum extended_help exte
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     int c;
+    int num_inputs = 0;  // we need to have one and only one input
 
     while(1) {
 	int opt_idx = 0;
@@ -505,9 +611,12 @@ int main(int argc, char *argv[]) {
 	    { "help",        no_argument,       NULL, 'h' },
 	    { "select",      no_argument,       NULL, 's' },
 	    { "verbose",     no_argument,       NULL, 'v' },
+	    { "test",        no_argument,       NULL, 'T' },
+	    { "loop",        required_argument, NULL, 'p' },
+	    { "adaptive",    no_argument,       NULL,  0  },
 	    { NULL,          0,                 0,     0  }
 	};
-	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:v", long_opts, &opt_idx);
+	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vTp:", long_opts, &opt_idx);
 	if (c < 0) {
 	    break;
 	}
@@ -515,6 +624,7 @@ int main(int argc, char *argv[]) {
 	case 'r':
 	    if (optarg) {
 		cfg.read_filename = optarg;
+		num_inputs++;
 	    } else {
 		usage(argv[0], "error: option r or read requires filename argument", extended_help_off);
 	    }
@@ -529,6 +639,7 @@ int main(int argc, char *argv[]) {
 	case 'c':
 	    if (optarg) {
 		cfg.capture_interface = optarg;
+		num_inputs++;
 	    } else {
 		usage(argv[0], "error: option c or capture requires interface argument", extended_help_off);
 	    }
@@ -579,6 +690,14 @@ int main(int argc, char *argv[]) {
 		usage(argv[0], NULL, extended_help_on);
 	    }
 	    break;
+	case 'T':
+	    if (optarg) {
+		usage(argv[0], "error: option T or test does not use an argument", extended_help_off);
+	    } else {
+		cfg.use_test_packet = 1;
+		num_inputs++;
+	    }
+	    break;
 	case 't':
 	    if (optarg) {
 		if (strcmp(optarg, "cpu") == 0) {
@@ -614,6 +733,14 @@ int main(int argc, char *argv[]) {
 		}
 	    } else {
 		usage(argv[0], "error: option p or loop requires a numeric argument", extended_help_off);
+	    }
+	    break;
+	case 0:
+	    /* The option --adaptive to adaptively accept or skip packets for PCAP file. */
+	    if (optarg) {
+		usage(argv[0], "error: option --adaptive does not use an argument", extended_help_off);
+	    } else {
+		cfg.adaptive = 1;
 	    }
 	    break;
 	case 'u':
@@ -652,11 +779,11 @@ int main(int argc, char *argv[]) {
 	}
     }
 
-    if (!cfg.capture_interface && !cfg.read_filename) {
-	usage(argv[0], "neither read [r] nor capture [c] specified on command line", extended_help_off);
+    if (num_inputs == 0) {
+	usage(argv[0], "neither read [r] nor capture [c] nor Test [T] specified on command line", extended_help_off);
     }
-    if (cfg.capture_interface && cfg.read_filename) {
-	usage(argv[0], "both read [r] and capture [c] specified on command line", extended_help_off);
+    if (num_inputs > 1) {
+	usage(argv[0], "more than one read [r] or capture [c] or Test [T] are specified on command line", extended_help_off);
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
 	usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
@@ -674,6 +801,15 @@ int main(int argc, char *argv[]) {
 	usage(argv[0], "Invalid loop count, it should be >= 1", extended_help_off);
     } else if (cfg.loop_count > 1) {
 	printf("Loop count: %d\n", cfg.loop_count);
+    }
+
+    /* The option --adaptive works only with -w PCAP file option and -c capture interface */
+    if (cfg.adaptive > 0) {
+        if (cfg.write_filename == NULL || cfg.capture_interface == NULL) {
+            usage(argv[0], "The option --adaptive requires options -c capture interface and -w pcap file.", extended_help_off);
+	} else {
+            set_percent_accept(30); /* set starting percentage */
+        }
     }
 	
     /*
@@ -695,6 +831,9 @@ int main(int argc, char *argv[]) {
 	printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
     }
     
+    /* init random number generator */
+    srand(time(0));
+
     if (cfg.capture_interface) {
 	struct ring_limits rl;
 
@@ -712,7 +851,12 @@ int main(int argc, char *argv[]) {
 	open_and_dispatch(&cfg);
 	
     }
+
+    if (cfg.use_test_packet) {
 	
+	dispatch_test_packets(&cfg, cfg.num_threads);
+	
+    }
     analysis_finalize();
     
     return 0;

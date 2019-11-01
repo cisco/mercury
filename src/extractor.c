@@ -1338,7 +1338,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
     /*
      * handle possible packet parsing errors
      */
-    extractor_debug("%s: warning: TLS serverHello did not complete\n", __func__);
+    extractor_debug("%s: warning: TLS serverHello processing did not fully complete\n", __func__);
     return 0;
 
 }
