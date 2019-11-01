@@ -18,7 +18,7 @@ have_jq = @JQ@
 have_valgrind = @VALGRIND@
 
 # all test files go in the ./tests subdirectory
-#
+# 
 vpath %.pcap ./data
 
 # for each test, add a filename with the .comp suffix
@@ -57,8 +57,8 @@ endif
 # implicit rule to compare results
 #
 %.comp: %.fp
-	@echo "checking file" $< "against expected output"
-	diff $< ./data/$<
+	@echo "checking file" $< "against expected output" 
+	diff $< ./data/$< 
 	@echo "passed"  # this output only happens if diff returns 0
 
 # implicit rule to make an MCAP file from a PCAP file
@@ -69,16 +69,16 @@ endif
 # implicit rule to compare MCAP results
 #
 %.mcap-comp: %.mcap
-	@echo "checking file" $< "against expected output"
-	diff $< ./data/$<
-	@echo "passed"
+	@echo "checking file" $< "against expected output" 
+	diff $< ./data/$< 
+	@echo "passed" 
 
 # implicit rule to compare JSON results
 #
 %.json-comp: %.json
-	@echo "checking file" $< "against expected output"
-	diff $< ./data/$<
-	@echo "passed"
+	@echo "checking file" $< "against expected output" 
+	diff $< ./data/$< 
+	@echo "passed" 
 
 # prevent deletion of intermediate files
 #

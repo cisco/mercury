@@ -1,8 +1,8 @@
 /*
  * packet.h
- *
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
- * https://github.com/cisco/mercury/blob/master/LICENSE
+ * 
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
+ * https://github.com/cisco/mercury/blob/master/LICENSE 
  */
 
 #ifndef PACKET_H
@@ -48,8 +48,8 @@ struct flow_key {
 #define flow_key_init() { none, { 0, 0, 0, 0, 0 } }
 
 void flow_key_set_from_packet(struct flow_key *k,
-                              uint8_t *packet,
-                              size_t length);
+			      uint8_t *packet,
+			      size_t length);
 
 void packet_fprintf(FILE *f, uint8_t *packet, size_t length, unsigned int sec, unsigned int usec);
 

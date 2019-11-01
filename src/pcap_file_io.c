@@ -3,9 +3,9 @@
  *
  * functions for reading and writing packets using the (old) libpcap
  * file format
- *
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
- * https://github.com/cisco/mercury/blob/master/LICENSE
+ * 
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
+ * https://github.com/cisco/mercury/blob/master/LICENSE 
  */
 
 #ifndef _GNU_SOURCE
@@ -61,9 +61,9 @@ struct pcap_packet_hdr {
 #define ONE_KB (1024)
 #define ONE_MB (1024 * ONE_KB)
 #ifndef FBUFSIZE
-#define STREAM_BUFFER_SIZE (ONE_MB)
+   #define STREAM_BUFFER_SIZE (ONE_MB)
 #else
-#define STREAM_BUFFER_SIZE FBUFSIZE
+   #define STREAM_BUFFER_SIZE FBUFSIZE
 #endif
 #define PRE_ALLOCATE_DISK_SPACE  (100 * ONE_MB)
 
@@ -83,9 +83,9 @@ static inline void set_file_io_buffer(struct pcap_file *f, const char *fname) {
 }
 
 enum status pcap_file_open(struct pcap_file *f,
-                           const char *fname,
-                           enum io_direction dir,
-                           int flags) {
+               const char *fname,
+               enum io_direction dir,
+               int flags) {
     struct pcap_file_hdr file_header;
     ssize_t items_written, items_read;
 
@@ -124,88 +124,88 @@ enum status pcap_file_open(struct pcap_file *f,
 
         f->allocated_size = 0; // initialize
         if (fallocate(f->fd, FALLOC_FL_KEEP_SIZE, 0, PRE_ALLOCATE_DISK_SPACE) != 0) {
-            printf("%s: Could not pre-allocate %d MB disk space for pcap file %s\n",
-                   strerror(errno), PRE_ALLOCATE_DISK_SPACE, fname);
+            printf("%s: Could not pre-allocate %d MB disk space for pcap file %s\n", 
+                    strerror(errno), PRE_ALLOCATE_DISK_SPACE, fname);
         } else {
             f->allocated_size = PRE_ALLOCATE_DISK_SPACE;  // initial allocation
         }
 
-        /* write pcap file header */
-        file_header.magic_number = magic;
-        file_header.version_major = 2;
-        file_header.version_minor = 4;
-        file_header.thiszone = 0;     /* no GMT correction for now */
-        file_header.sigfigs = 0;      /* we don't claim sigfigs for now */
-        file_header.snaplen = 65535;
-        file_header.network = 1;      /* ethernet */
+    /* write pcap file header */
+    file_header.magic_number = magic;
+    file_header.version_major = 2;
+    file_header.version_minor = 4;
+    file_header.thiszone = 0;     /* no GMT correction for now */
+    file_header.sigfigs = 0;      /* we don't claim sigfigs for now */
+    file_header.snaplen = 65535;
+    file_header.network = 1;      /* ethernet */
 
-        items_written = fwrite(&file_header, sizeof(file_header), 1, f->file_ptr);
-        if (items_written == 0) {
-            perror("error writing pcap file header");
-            fclose(f->file_ptr);
-            f->file_ptr = NULL;
-            if (f->buffer != NULL) {
-                free(f->buffer);
-                f->buffer = NULL;
-            }
-            return status_err;
+    items_written = fwrite(&file_header, sizeof(file_header), 1, f->file_ptr);
+    if (items_written == 0) {
+        perror("error writing pcap file header");
+        fclose(f->file_ptr);
+        f->file_ptr = NULL;
+        if (f->buffer != NULL) {
+            free(f->buffer);
+            f->buffer = NULL;
         }
-
-        f->bytes_written = sizeof(file_header);
+        return status_err;
+    }
+    
+    f->bytes_written = sizeof(file_header);
 
     } else { /* O_RDONLY */
 
-        /*  open existing file for reading */
-        f->file_ptr = fopen(fname, "r");
-        if (f->file_ptr == NULL) {
-            printf("%s: error opening read file %s\n", strerror(errno), fname);
-            return status_err; /* could not open file */
-        }
+	/*  open existing file for reading */
+	f->file_ptr = fopen(fname, "r");
+	if (f->file_ptr == NULL) {
+	    printf("%s: error opening read file %s\n", strerror(errno), fname);
+	    return status_err; /* could not open file */
+	}
 
-        f->fd = fileno(f->file_ptr);  // save file descriptor
-        if (f->fd < 0) {
-            printf("%s: error getting file descriptor for read file %s\n", strerror(errno), fname);
-            return status_err; /* system call failed */
-        }
+	f->fd = fileno(f->file_ptr);  // save file descriptor
+	if (f->fd < 0) {
+	    printf("%s: error getting file descriptor for read file %s\n", strerror(errno), fname);
+	    return status_err; /* system call failed */
+	}
 
-        // set the file advisory for the read file
-        if (posix_fadvise(f->fd, 0, 0, POSIX_FADV_SEQUENTIAL) != 0) {
-            printf("%s: Could not set file advisory for read file %s\n", strerror(errno), fname);
-        }
+	// set the file advisory for the read file
+	if (posix_fadvise(f->fd, 0, 0, POSIX_FADV_SEQUENTIAL) != 0) {
+	    printf("%s: Could not set file advisory for read file %s\n", strerror(errno), fname);
+	}
 
-        // set file i/o buffer
-        set_file_io_buffer(f, fname);
-        f->bytes_written = 0L;  // will never write any bytes to this file opened for reading
+	// set file i/o buffer
+	set_file_io_buffer(f, fname);
+	f->bytes_written = 0L;  // will never write any bytes to this file opened for reading
 
-        // printf("info: file %s opened\n", fname);
+	// printf("info: file %s opened\n", fname);
 
-        items_read = fread(&file_header, sizeof(file_header), 1, f->file_ptr);
-        if (items_read == 0) {
-            perror("could not read file header");
-            return status_err; /* could not read packet header from file */
-        }
-        if (file_header.magic_number == magic) {
-            f->byteswap = 0;
-            // printf("file is in pcap format\nno byteswap needed\n");
-        } else if (file_header.magic_number == cagim) {
-            f->byteswap = 1;
-            // printf("file is in pcap format\nbyteswap is needed\n");
-        } else {
-            printf("error: file %s not in pcap format (file header: %08x)\n",
-                   fname, file_header.magic_number);
-            if (file_header.magic_number == 0x0a0d0d0a) {
-                printf("error: pcap-ng format found; this format is currently unsupported\n");
-            }
-            exit(255);
-        }
-        if (f->byteswap) {
-            file_header.version_major = htons(file_header.version_major);
-            file_header.version_minor = htons(file_header.version_minor);
-            file_header.thiszone = htonl(file_header.thiszone);
-            file_header.sigfigs = htonl(file_header.sigfigs);
-            file_header.snaplen = htonl(file_header.snaplen);
-            file_header.network = htonl(file_header.network);
-        }
+	items_read = fread(&file_header, sizeof(file_header), 1, f->file_ptr);
+	if (items_read == 0) {
+	    perror("could not read file header");
+	    return status_err; /* could not read packet header from file */
+	}
+	if (file_header.magic_number == magic) {
+	    f->byteswap = 0;
+	    // printf("file is in pcap format\nno byteswap needed\n");
+	} else if (file_header.magic_number == cagim) {
+	    f->byteswap = 1;
+	    // printf("file is in pcap format\nbyteswap is needed\n");
+	} else {
+	    printf("error: file %s not in pcap format (file header: %08x)\n",
+		   fname, file_header.magic_number);
+	    if (file_header.magic_number == 0x0a0d0d0a) {
+		printf("error: pcap-ng format found; this format is currently unsupported\n");
+	    }
+	    exit(255);
+	}
+	if (f->byteswap) {
+	    file_header.version_major = htons(file_header.version_major);
+	    file_header.version_minor = htons(file_header.version_minor);
+	    file_header.thiszone = htonl(file_header.thiszone);
+	    file_header.sigfigs = htonl(file_header.sigfigs);
+	    file_header.snaplen = htonl(file_header.snaplen);
+	    file_header.network = htonl(file_header.network);
+	}
     }
 
     return status_ok;
@@ -213,16 +213,16 @@ enum status pcap_file_open(struct pcap_file *f,
 
 
 enum status pcap_file_write_packet_direct(struct pcap_file *f,
-                                          const void *packet,
-                                          size_t length,
-                                          unsigned int sec,
-                                          unsigned int usec) {
+                      const void *packet,
+                      size_t length,
+                      unsigned int sec,
+                      unsigned int usec) {
     size_t items_written;
     struct pcap_packet_hdr packet_hdr;
 
     if (packet && !length) {
-        printf("warning: attempt to write an empty packet\n");
-        return status_ok;
+	printf("warning: attempt to write an empty packet\n");
+	return status_ok;
     }
 
     /* note: we never perform byteswap when writing */
@@ -263,9 +263,9 @@ enum status pcap_file_write_packet_direct(struct pcap_file *f,
 #define BUFLEN  16384
 
 enum status pcap_file_read_packet(struct pcap_file *f,
-                                  struct pcap_pkthdr *pkthdr, /* output */
-                                  void *packet_data           /* output */
-                                  ) {
+                  struct pcap_pkthdr *pkthdr, /* output */
+                  void *packet_data           /* output */
+                  ) {
     ssize_t items_read;
     struct pcap_packet_hdr packet_hdr;
 
@@ -322,18 +322,18 @@ enum status pcap_file_read_packet(struct pcap_file *f,
 
 
 void packet_info_init_from_pkthdr(struct packet_info *pi,
-                                  struct pcap_pkthdr *pkthdr) {
+				  struct pcap_pkthdr *pkthdr) {
     pi->len = pkthdr->caplen;
     pi->caplen = pkthdr->caplen;
     pi->ts.tv_sec = pkthdr->ts.tv_sec;
     pi->ts.tv_nsec = pkthdr->ts.tv_usec * 1000;
-}
+} 
 
 
 enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
-                                             frame_handler_func func,
-                                             void *userdata,
-                                             int loop_count) {
+					     frame_handler_func func,
+					     void *userdata,
+					     int loop_count) {
     enum status status = status_ok;
     struct pcap_pkthdr pkthdr;
     uint8_t packet_data[BUFLEN];
@@ -352,7 +352,7 @@ enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
                 total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
             }
         } while (status == status_ok);
-
+        
         if (i < loop_count - 1) {
             // Rewind the file to the first packet after skipping file header.
             if (fseek(f->file_ptr, sizeof(struct pcap_file_hdr), SEEK_SET) != 0) {
@@ -373,11 +373,11 @@ enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
 
 enum status pcap_file_close(struct pcap_file *f) {
     if (fclose(f->file_ptr) != 0) {
-        perror("could not close input pcap file");
-        return status_err;
+	perror("could not close input pcap file");
+	return status_err;
     }
     if (f->buffer) {
-        free(f->buffer);
+	free(f->buffer);
     }
     return status_ok;
 }

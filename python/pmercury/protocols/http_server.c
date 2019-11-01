@@ -1374,7 +1374,6 @@ int __pyx_module_is_main_pmercury__protocols__http_server = 0;
 /* Implementation of 'pmercury.protocols.http_server' */
 static PyObject *__pyx_builtin_staticmethod;
 static PyObject *__pyx_builtin_IndexError;
-static PyObject *__pyx_builtin_UnicodeDecodeError;
 static PyObject *__pyx_builtin_range;
 static const char __pyx_k_[] = "*";
 static const char __pyx_k_c[] = "c";
@@ -1418,7 +1417,6 @@ static const char __pyx_k_range[] = "range";
 static const char __pyx_k_split[] = "split";
 static const char __pyx_k_append[] = "append";
 static const char __pyx_k_config[] = "config";
-static const char __pyx_k_decode[] = "decode";
 static const char __pyx_k_encode[] = "encode";
 static const char __pyx_k_fp_str[] = "fp_str_";
 static const char __pyx_k_import[] = "__import__";
@@ -1465,7 +1463,6 @@ static const char __pyx_k_referrer_policy[] = "referrer-policy";
 static const char __pyx_k_content_encoding[] = "content-encoding";
 static const char __pyx_k_x_xss_protection[] = "x-xss-protection";
 static const char __pyx_k_HTTP_Server___init[] = "HTTP_Server.__init__";
-static const char __pyx_k_UnicodeDecodeError[] = "UnicodeDecodeError";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
 static const char __pyx_k_get_human_readable[] = "get_human_readable";
 static const char __pyx_k_HTTP_Server_fingerprint[] = "HTTP_Server.fingerprint";
@@ -1487,7 +1484,6 @@ static PyObject *__pyx_n_s_HTTP_Server_get_human_readable;
 static PyObject *__pyx_n_s_HTTP_Server_proto_identify;
 static PyObject *__pyx_n_s_IndexError;
 static PyObject *__pyx_n_s_Protocol;
-static PyObject *__pyx_n_s_UnicodeDecodeError;
 static PyObject *__pyx_kp_u__10;
 static PyObject *__pyx_kp_b__11;
 static PyObject *__pyx_kp_u__11;
@@ -1519,7 +1515,6 @@ static PyObject *__pyx_n_s_contextual_data;
 static PyObject *__pyx_n_s_data;
 static PyObject *__pyx_n_u_data;
 static PyObject *__pyx_n_s_data_len;
-static PyObject *__pyx_n_s_decode;
 static PyObject *__pyx_n_s_dirname;
 static PyObject *__pyx_n_s_doc;
 static PyObject *__pyx_n_s_encode;
@@ -2914,8 +2909,6 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_4fing
   int __pyx_t_13;
   PyObject *__pyx_t_14 = NULL;
   PyObject *__pyx_t_15 = NULL;
-  PyObject *__pyx_t_16 = NULL;
-  PyObject *__pyx_t_17 = NULL;
   __Pyx_RefNannySetupContext("fingerprint", 0);
 
   /* "pmercury/protocols/http_server.pyx":75
@@ -3679,7 +3672,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_4fing
  * 
  *             c.append('(%s)' % h_c)             # <<<<<<<<<<<<<<
  *             if t0_lower in http_ctx:
- *                 if b'\x3a\x20' in h_:
+ *                 context.append({'name':HTTP_Server.contextual_data[t0_.lower()], 'data':h_.split(b'\x3a\x20',1)[1]})
  */
     __pyx_t_2 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_s, __pyx_v_h_c); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
@@ -3690,8 +3683,8 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_4fing
  * 
  *             c.append('(%s)' % h_c)
  *             if t0_lower in http_ctx:             # <<<<<<<<<<<<<<
- *                 if b'\x3a\x20' in h_:
- *                     try:
+ *                 context.append({'name':HTTP_Server.contextual_data[t0_.lower()], 'data':h_.split(b'\x3a\x20',1)[1]})
+ * 
  */
     if (unlikely(__pyx_v_http_ctx == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
@@ -3704,226 +3697,59 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_4fing
       /* "pmercury/protocols/http_server.pyx":115
  *             c.append('(%s)' % h_c)
  *             if t0_lower in http_ctx:
- *                 if b'\x3a\x20' in h_:             # <<<<<<<<<<<<<<
- *                     try:
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
- */
-      __pyx_t_13 = (__Pyx_PySequence_ContainsTF(__pyx_kp_b__12, __pyx_v_h_, Py_EQ)); if (unlikely(__pyx_t_13 < 0)) __PYX_ERR(0, 115, __pyx_L1_error)
-      __pyx_t_4 = (__pyx_t_13 != 0);
-      if (__pyx_t_4) {
-
-        /* "pmercury/protocols/http_server.pyx":116
- *             if t0_lower in http_ctx:
- *                 if b'\x3a\x20' in h_:
- *                     try:             # <<<<<<<<<<<<<<
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
- *                     except UnicodeDecodeError:
- */
-        {
-          __Pyx_PyThreadState_declare
-          __Pyx_PyThreadState_assign
-          __Pyx_ExceptionSave(&__pyx_t_8, &__pyx_t_7, &__pyx_t_6);
-          __Pyx_XGOTREF(__pyx_t_8);
-          __Pyx_XGOTREF(__pyx_t_7);
-          __Pyx_XGOTREF(__pyx_t_6);
-          /*try:*/ {
-
-            /* "pmercury/protocols/http_server.pyx":117
- *                 if b'\x3a\x20' in h_:
- *                     try:
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})             # <<<<<<<<<<<<<<
- *                     except UnicodeDecodeError:
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].hex()})
- */
-            __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_GOTREF(__pyx_t_2);
-            if (unlikely(__pyx_v_http_ctx == Py_None)) {
-              PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-              __PYX_ERR(0, 117, __pyx_L24_error)
-            }
-            __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_http_ctx, __pyx_v_t0_lower); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_GOTREF(__pyx_t_1);
-            if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_name, __pyx_t_1) < 0) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_h_, __pyx_n_s_split); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_GOTREF(__pyx_t_10);
-            __pyx_t_14 = __Pyx_PyObject_Call(__pyx_t_10, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_GOTREF(__pyx_t_14);
-            __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-            __pyx_t_10 = __Pyx_GetItemInt(__pyx_t_14, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_GOTREF(__pyx_t_10);
-            __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-            __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_decode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_GOTREF(__pyx_t_14);
-            __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-            __pyx_t_10 = NULL;
-            if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_14))) {
-              __pyx_t_10 = PyMethod_GET_SELF(__pyx_t_14);
-              if (likely(__pyx_t_10)) {
-                PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_14);
-                __Pyx_INCREF(__pyx_t_10);
-                __Pyx_INCREF(function);
-                __Pyx_DECREF_SET(__pyx_t_14, function);
-              }
-            }
-            __pyx_t_1 = (__pyx_t_10) ? __Pyx_PyObject_CallOneArg(__pyx_t_14, __pyx_t_10) : __Pyx_PyObject_CallNoArg(__pyx_t_14);
-            __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_GOTREF(__pyx_t_1);
-            __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-            if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_data, __pyx_t_1) < 0) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __pyx_t_11 = __Pyx_PyList_Append(__pyx_v_context, __pyx_t_2); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 117, __pyx_L24_error)
-            __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-            /* "pmercury/protocols/http_server.pyx":116
- *             if t0_lower in http_ctx:
- *                 if b'\x3a\x20' in h_:
- *                     try:             # <<<<<<<<<<<<<<
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
- *                     except UnicodeDecodeError:
- */
-          }
-          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-          __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-          __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-          goto __pyx_L31_try_end;
-          __pyx_L24_error:;
-          __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-          __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-          __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
-          __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-          /* "pmercury/protocols/http_server.pyx":118
- *                     try:
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
- *                     except UnicodeDecodeError:             # <<<<<<<<<<<<<<
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].hex()})
- *                 else:
- */
-          __pyx_t_12 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_UnicodeDecodeError);
-          if (__pyx_t_12) {
-            __Pyx_AddTraceback("pmercury.protocols.http_server.HTTP_Server.fingerprint", __pyx_clineno, __pyx_lineno, __pyx_filename);
-            if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_1, &__pyx_t_14) < 0) __PYX_ERR(0, 118, __pyx_L26_except_error)
-            __Pyx_GOTREF(__pyx_t_2);
-            __Pyx_GOTREF(__pyx_t_1);
-            __Pyx_GOTREF(__pyx_t_14);
-
-            /* "pmercury/protocols/http_server.pyx":119
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
- *                     except UnicodeDecodeError:
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].hex()})             # <<<<<<<<<<<<<<
- *                 else:
- *                         context.append({'name':http_ctx[t0_lower], 'data':''})
- */
-            __pyx_t_10 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_GOTREF(__pyx_t_10);
-            if (unlikely(__pyx_v_http_ctx == Py_None)) {
-              PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-              __PYX_ERR(0, 119, __pyx_L26_except_error)
-            }
-            __pyx_t_15 = __Pyx_PyDict_GetItem(__pyx_v_http_ctx, __pyx_v_t0_lower); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_GOTREF(__pyx_t_15);
-            if (PyDict_SetItem(__pyx_t_10, __pyx_n_u_name, __pyx_t_15) < 0) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-            __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_h_, __pyx_n_s_split); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_GOTREF(__pyx_t_16);
-            __pyx_t_17 = __Pyx_PyObject_Call(__pyx_t_16, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-            __pyx_t_16 = __Pyx_GetItemInt(__pyx_t_17, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_GOTREF(__pyx_t_16);
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_n_s_hex); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-            __pyx_t_16 = NULL;
-            if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_17))) {
-              __pyx_t_16 = PyMethod_GET_SELF(__pyx_t_17);
-              if (likely(__pyx_t_16)) {
-                PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_17);
-                __Pyx_INCREF(__pyx_t_16);
-                __Pyx_INCREF(function);
-                __Pyx_DECREF_SET(__pyx_t_17, function);
-              }
-            }
-            __pyx_t_15 = (__pyx_t_16) ? __Pyx_PyObject_CallOneArg(__pyx_t_17, __pyx_t_16) : __Pyx_PyObject_CallNoArg(__pyx_t_17);
-            __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
-            if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_GOTREF(__pyx_t_15);
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            if (PyDict_SetItem(__pyx_t_10, __pyx_n_u_data, __pyx_t_15) < 0) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-            __pyx_t_11 = __Pyx_PyList_Append(__pyx_v_context, __pyx_t_10); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 119, __pyx_L26_except_error)
-            __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-            __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-            __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
-            goto __pyx_L25_exception_handled;
-          }
-          goto __pyx_L26_except_error;
-          __pyx_L26_except_error:;
-
-          /* "pmercury/protocols/http_server.pyx":116
- *             if t0_lower in http_ctx:
- *                 if b'\x3a\x20' in h_:
- *                     try:             # <<<<<<<<<<<<<<
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
- *                     except UnicodeDecodeError:
- */
-          __Pyx_XGIVEREF(__pyx_t_8);
-          __Pyx_XGIVEREF(__pyx_t_7);
-          __Pyx_XGIVEREF(__pyx_t_6);
-          __Pyx_ExceptionReset(__pyx_t_8, __pyx_t_7, __pyx_t_6);
-          goto __pyx_L1_error;
-          __pyx_L25_exception_handled:;
-          __Pyx_XGIVEREF(__pyx_t_8);
-          __Pyx_XGIVEREF(__pyx_t_7);
-          __Pyx_XGIVEREF(__pyx_t_6);
-          __Pyx_ExceptionReset(__pyx_t_8, __pyx_t_7, __pyx_t_6);
-          __pyx_L31_try_end:;
-        }
-
-        /* "pmercury/protocols/http_server.pyx":115
- *             c.append('(%s)' % h_c)
- *             if t0_lower in http_ctx:
- *                 if b'\x3a\x20' in h_:             # <<<<<<<<<<<<<<
- *                     try:
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
- */
-        goto __pyx_L23;
-      }
-
-      /* "pmercury/protocols/http_server.pyx":121
- *                         context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].hex()})
- *                 else:
- *                         context.append({'name':http_ctx[t0_lower], 'data':''})             # <<<<<<<<<<<<<<
+ *                 context.append({'name':HTTP_Server.contextual_data[t0_.lower()], 'data':h_.split(b'\x3a\x20',1)[1]})             # <<<<<<<<<<<<<<
  * 
  *         return ''.join(c), context
  */
-      /*else*/ {
-        __pyx_t_14 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 121, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_14);
-        if (unlikely(__pyx_v_http_ctx == Py_None)) {
-          PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-          __PYX_ERR(0, 121, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_HTTP_Server); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_contextual_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_10);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_t0_, __pyx_n_s_lower); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_14);
+      __pyx_t_15 = NULL;
+      if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_14))) {
+        __pyx_t_15 = PyMethod_GET_SELF(__pyx_t_14);
+        if (likely(__pyx_t_15)) {
+          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_14);
+          __Pyx_INCREF(__pyx_t_15);
+          __Pyx_INCREF(function);
+          __Pyx_DECREF_SET(__pyx_t_14, function);
         }
-        __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_http_ctx, __pyx_v_t0_lower); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        if (PyDict_SetItem(__pyx_t_14, __pyx_n_u_name, __pyx_t_1) < 0) __PYX_ERR(0, 121, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (PyDict_SetItem(__pyx_t_14, __pyx_n_u_data, __pyx_kp_u__11) < 0) __PYX_ERR(0, 121, __pyx_L1_error)
-        __pyx_t_11 = __Pyx_PyList_Append(__pyx_v_context, __pyx_t_14); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 121, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
       }
-      __pyx_L23:;
+      __pyx_t_1 = (__pyx_t_15) ? __Pyx_PyObject_CallOneArg(__pyx_t_14, __pyx_t_15) : __Pyx_PyObject_CallNoArg(__pyx_t_14);
+      __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+      __pyx_t_14 = __Pyx_PyObject_GetItem(__pyx_t_10, __pyx_t_1); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_14);
+      __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_name, __pyx_t_14) < 0) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_h_, __pyx_n_s_split); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_14);
+      __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_14, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+      __pyx_t_14 = __Pyx_GetItemInt(__pyx_t_1, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_14);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_data, __pyx_t_14) < 0) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+      __pyx_t_11 = __Pyx_PyList_Append(__pyx_v_context, __pyx_t_2); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 115, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
       /* "pmercury/protocols/http_server.pyx":114
  * 
  *             c.append('(%s)' % h_c)
  *             if t0_lower in http_ctx:             # <<<<<<<<<<<<<<
- *                 if b'\x3a\x20' in h_:
- *                     try:
+ *                 context.append({'name':HTTP_Server.contextual_data[t0_.lower()], 'data':h_.split(b'\x3a\x20',1)[1]})
+ * 
  */
     }
 
@@ -3938,26 +3764,26 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_4fing
   __pyx_L19_break:;
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "pmercury/protocols/http_server.pyx":123
- *                         context.append({'name':http_ctx[t0_lower], 'data':''})
+  /* "pmercury/protocols/http_server.pyx":117
+ *                 context.append({'name':HTTP_Server.contextual_data[t0_.lower()], 'data':h_.split(b'\x3a\x20',1)[1]})
  * 
  *         return ''.join(c), context             # <<<<<<<<<<<<<<
  * 
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_9 = PyUnicode_Join(__pyx_kp_u__11, __pyx_v_c); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 123, __pyx_L1_error)
+  __pyx_t_9 = PyUnicode_Join(__pyx_kp_u__11, __pyx_v_c); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_14 = PyTuple_New(2); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 123, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_14);
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_9);
-  PyTuple_SET_ITEM(__pyx_t_14, 0, __pyx_t_9);
+  PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_9);
   __Pyx_INCREF(__pyx_v_context);
   __Pyx_GIVEREF(__pyx_v_context);
-  PyTuple_SET_ITEM(__pyx_t_14, 1, __pyx_v_context);
+  PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_context);
   __pyx_t_9 = 0;
-  __pyx_r = __pyx_t_14;
-  __pyx_t_14 = 0;
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
   /* "pmercury/protocols/http_server.pyx":74
@@ -3976,8 +3802,6 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_4fing
   __Pyx_XDECREF(__pyx_t_10);
   __Pyx_XDECREF(__pyx_t_14);
   __Pyx_XDECREF(__pyx_t_15);
-  __Pyx_XDECREF(__pyx_t_16);
-  __Pyx_XDECREF(__pyx_t_17);
   __Pyx_AddTraceback("pmercury.protocols.http_server.HTTP_Server.fingerprint", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3999,7 +3823,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_4fing
   return __pyx_r;
 }
 
-/* "pmercury/protocols/http_server.pyx":126
+/* "pmercury/protocols/http_server.pyx":120
  * 
  * 
  *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -4039,11 +3863,11 @@ static PyObject *__pyx_pw_8pmercury_9protocols_11http_server_11HTTP_Server_7get_
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("get_human_readable", 1, 2, 2, 1); __PYX_ERR(0, 126, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("get_human_readable", 1, 2, 2, 1); __PYX_ERR(0, 120, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "get_human_readable") < 0)) __PYX_ERR(0, 126, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "get_human_readable") < 0)) __PYX_ERR(0, 120, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -4056,7 +3880,7 @@ static PyObject *__pyx_pw_8pmercury_9protocols_11http_server_11HTTP_Server_7get_
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_human_readable", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 126, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_human_readable", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 120, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.http_server.HTTP_Server.get_human_readable", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -4092,7 +3916,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
   int __pyx_t_13;
   __Pyx_RefNannySetupContext("get_human_readable", 0);
 
-  /* "pmercury/protocols/http_server.pyx":127
+  /* "pmercury/protocols/http_server.pyx":121
  * 
  *     def get_human_readable(self, fp_str_):
  *         t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]             # <<<<<<<<<<<<<<
@@ -4100,9 +3924,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
  *         for i in range(3, len(t_)-1):
  */
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L5_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_fp_str_, __pyx_n_s_split); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L5_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_fp_str_, __pyx_n_s_split); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
@@ -4116,19 +3940,19 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
     }
     __pyx_t_2 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_4, __pyx_kp_u__14) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_kp_u__14);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L5_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 121, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_GetSlice(__pyx_t_2, 0, -1L, NULL, NULL, &__pyx_slice__15, 0, 1, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L5_error)
+    __pyx_t_3 = __Pyx_PyObject_GetSlice(__pyx_t_2, 0, -1L, NULL, NULL, &__pyx_slice__15, 0, 1, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (likely(PyList_CheckExact(__pyx_t_3)) || PyTuple_CheckExact(__pyx_t_3)) {
       __pyx_t_2 = __pyx_t_3; __Pyx_INCREF(__pyx_t_2); __pyx_t_5 = 0;
       __pyx_t_6 = NULL;
     } else {
-      __pyx_t_5 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L5_error)
+      __pyx_t_5 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 121, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_6 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L5_error)
+      __pyx_t_6 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 121, __pyx_L5_error)
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     for (;;) {
@@ -4136,17 +3960,17 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
         if (likely(PyList_CheckExact(__pyx_t_2))) {
           if (__pyx_t_5 >= PyList_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_5); __Pyx_INCREF(__pyx_t_3); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 127, __pyx_L5_error)
+          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_5); __Pyx_INCREF(__pyx_t_3); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 121, __pyx_L5_error)
           #else
-          __pyx_t_3 = PySequence_ITEM(__pyx_t_2, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L5_error)
+          __pyx_t_3 = PySequence_ITEM(__pyx_t_2, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L5_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         } else {
           if (__pyx_t_5 >= PyTuple_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_5); __Pyx_INCREF(__pyx_t_3); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 127, __pyx_L5_error)
+          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_5); __Pyx_INCREF(__pyx_t_3); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 121, __pyx_L5_error)
           #else
-          __pyx_t_3 = PySequence_ITEM(__pyx_t_2, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L5_error)
+          __pyx_t_3 = PySequence_ITEM(__pyx_t_2, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L5_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         }
@@ -4156,7 +3980,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(0, 127, __pyx_L5_error)
+            else __PYX_ERR(0, 121, __pyx_L5_error)
           }
           break;
         }
@@ -4164,9 +3988,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
       }
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_x, __pyx_t_3);
       __pyx_t_3 = 0;
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PyBytes_Type)), __pyx_n_s_fromhex); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L5_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PyBytes_Type)), __pyx_n_s_fromhex); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 121, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_7 = __Pyx_PyObject_GetSlice(__pyx_7genexpr__pyx_v_x, 1, 0, NULL, NULL, &__pyx_slice__16, 1, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 127, __pyx_L5_error)
+      __pyx_t_7 = __Pyx_PyObject_GetSlice(__pyx_7genexpr__pyx_v_x, 1, 0, NULL, NULL, &__pyx_slice__16, 1, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 121, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_t_8 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_4))) {
@@ -4181,10 +4005,10 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
       __pyx_t_3 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_8, __pyx_t_7) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_7);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L5_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_3))) __PYX_ERR(0, 127, __pyx_L5_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_3))) __PYX_ERR(0, 121, __pyx_L5_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -4198,32 +4022,32 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
   __pyx_v_t_ = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "pmercury/protocols/http_server.pyx":128
+  /* "pmercury/protocols/http_server.pyx":122
  *     def get_human_readable(self, fp_str_):
  *         t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]
  *         fp_h = [{'version':t_[0]},{'code':t_[1]},{'response':t_[2]}]             # <<<<<<<<<<<<<<
  *         for i in range(3, len(t_)-1):
  *             field = t_[i].split(b': ')
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_GetItemInt_List(__pyx_v_t_, 0, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetItemInt_List(__pyx_v_t_, 0, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_version, __pyx_t_2) < 0) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_version, __pyx_t_2) < 0) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_GetItemInt_List(__pyx_v_t_, 1, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_GetItemInt_List(__pyx_v_t_, 1, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_code, __pyx_t_3) < 0) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_code, __pyx_t_3) < 0) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_GetItemInt_List(__pyx_v_t_, 2, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_GetItemInt_List(__pyx_v_t_, 2, long, 1, __Pyx_PyInt_From_long, 1, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_response, __pyx_t_4) < 0) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_response, __pyx_t_4) < 0) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = PyList_New(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_4 = PyList_New(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_1);
   PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_1);
@@ -4237,29 +4061,29 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
   __pyx_v_fp_h = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "pmercury/protocols/http_server.pyx":129
+  /* "pmercury/protocols/http_server.pyx":123
  *         t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]
  *         fp_h = [{'version':t_[0]},{'code':t_[1]},{'response':t_[2]}]
  *         for i in range(3, len(t_)-1):             # <<<<<<<<<<<<<<
  *             field = t_[i].split(b': ')
  *             if len(field) == 2:
  */
-  __pyx_t_5 = PyList_GET_SIZE(__pyx_v_t_); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_t_5 = PyList_GET_SIZE(__pyx_v_t_); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 123, __pyx_L1_error)
   __pyx_t_9 = (__pyx_t_5 - 1);
   __pyx_t_5 = __pyx_t_9;
   for (__pyx_t_10 = 3; __pyx_t_10 < __pyx_t_5; __pyx_t_10+=1) {
     __pyx_v_i = __pyx_t_10;
 
-    /* "pmercury/protocols/http_server.pyx":130
+    /* "pmercury/protocols/http_server.pyx":124
  *         fp_h = [{'version':t_[0]},{'code':t_[1]},{'response':t_[2]}]
  *         for i in range(3, len(t_)-1):
  *             field = t_[i].split(b': ')             # <<<<<<<<<<<<<<
  *             if len(field) == 2:
  *                 fp_h.append({field[0]: field[1]})
  */
-    __pyx_t_3 = __Pyx_GetItemInt_List(__pyx_v_t_, __pyx_v_i, Py_ssize_t, 1, PyInt_FromSsize_t, 1, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_GetItemInt_List(__pyx_v_t_, __pyx_v_i, Py_ssize_t, 1, PyInt_FromSsize_t, 1, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 124, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_split); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_split); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 124, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_3 = NULL;
@@ -4274,43 +4098,43 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
     }
     __pyx_t_4 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_kp_b__12) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_kp_b__12);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 130, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 124, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_XDECREF_SET(__pyx_v_field, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "pmercury/protocols/http_server.pyx":131
+    /* "pmercury/protocols/http_server.pyx":125
  *         for i in range(3, len(t_)-1):
  *             field = t_[i].split(b': ')
  *             if len(field) == 2:             # <<<<<<<<<<<<<<
  *                 fp_h.append({field[0]: field[1]})
  *             else:
  */
-    __pyx_t_11 = PyObject_Length(__pyx_v_field); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 131, __pyx_L1_error)
+    __pyx_t_11 = PyObject_Length(__pyx_v_field); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 125, __pyx_L1_error)
     __pyx_t_12 = ((__pyx_t_11 == 2) != 0);
     if (__pyx_t_12) {
 
-      /* "pmercury/protocols/http_server.pyx":132
+      /* "pmercury/protocols/http_server.pyx":126
  *             field = t_[i].split(b': ')
  *             if len(field) == 2:
  *                 fp_h.append({field[0]: field[1]})             # <<<<<<<<<<<<<<
  *             else:
  *                 fp_h.append({field[0]: ''})
  */
-      __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 132, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_field, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 132, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_field, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 126, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_field, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 132, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_field, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 126, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      if (PyDict_SetItem(__pyx_t_4, __pyx_t_2, __pyx_t_3) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_4, __pyx_t_2, __pyx_t_3) < 0) __PYX_ERR(0, 126, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_13 = __Pyx_PyList_Append(__pyx_v_fp_h, __pyx_t_4); if (unlikely(__pyx_t_13 == ((int)-1))) __PYX_ERR(0, 132, __pyx_L1_error)
+      __pyx_t_13 = __Pyx_PyList_Append(__pyx_v_fp_h, __pyx_t_4); if (unlikely(__pyx_t_13 == ((int)-1))) __PYX_ERR(0, 126, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "pmercury/protocols/http_server.pyx":131
+      /* "pmercury/protocols/http_server.pyx":125
  *         for i in range(3, len(t_)-1):
  *             field = t_[i].split(b': ')
  *             if len(field) == 2:             # <<<<<<<<<<<<<<
@@ -4320,26 +4144,26 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
       goto __pyx_L11;
     }
 
-    /* "pmercury/protocols/http_server.pyx":134
+    /* "pmercury/protocols/http_server.pyx":128
  *                 fp_h.append({field[0]: field[1]})
  *             else:
  *                 fp_h.append({field[0]: ''})             # <<<<<<<<<<<<<<
  *         return fp_h
  */
     /*else*/ {
-      __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 134, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_field, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 134, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_field, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 128, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      if (PyDict_SetItem(__pyx_t_4, __pyx_t_3, __pyx_kp_u__11) < 0) __PYX_ERR(0, 134, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_4, __pyx_t_3, __pyx_kp_u__11) < 0) __PYX_ERR(0, 128, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_13 = __Pyx_PyList_Append(__pyx_v_fp_h, __pyx_t_4); if (unlikely(__pyx_t_13 == ((int)-1))) __PYX_ERR(0, 134, __pyx_L1_error)
+      __pyx_t_13 = __Pyx_PyList_Append(__pyx_v_fp_h, __pyx_t_4); if (unlikely(__pyx_t_13 == ((int)-1))) __PYX_ERR(0, 128, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __pyx_L11:;
   }
 
-  /* "pmercury/protocols/http_server.pyx":135
+  /* "pmercury/protocols/http_server.pyx":129
  *             else:
  *                 fp_h.append({field[0]: ''})
  *         return fp_h             # <<<<<<<<<<<<<<
@@ -4349,7 +4173,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_11http_server_11HTTP_Server_6get_
   __pyx_r = __pyx_v_fp_h;
   goto __pyx_L0;
 
-  /* "pmercury/protocols/http_server.pyx":126
+  /* "pmercury/protocols/http_server.pyx":120
  * 
  * 
  *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
@@ -4431,7 +4255,6 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_HTTP_Server_proto_identify, __pyx_k_HTTP_Server_proto_identify, sizeof(__pyx_k_HTTP_Server_proto_identify), 0, 0, 1, 1},
   {&__pyx_n_s_IndexError, __pyx_k_IndexError, sizeof(__pyx_k_IndexError), 0, 0, 1, 1},
   {&__pyx_n_s_Protocol, __pyx_k_Protocol, sizeof(__pyx_k_Protocol), 0, 0, 1, 1},
-  {&__pyx_n_s_UnicodeDecodeError, __pyx_k_UnicodeDecodeError, sizeof(__pyx_k_UnicodeDecodeError), 0, 0, 1, 1},
   {&__pyx_kp_u__10, __pyx_k__10, sizeof(__pyx_k__10), 0, 1, 0, 0},
   {&__pyx_kp_b__11, __pyx_k__11, sizeof(__pyx_k__11), 0, 0, 0, 0},
   {&__pyx_kp_u__11, __pyx_k__11, sizeof(__pyx_k__11), 0, 1, 0, 0},
@@ -4463,7 +4286,6 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_data, __pyx_k_data, sizeof(__pyx_k_data), 0, 0, 1, 1},
   {&__pyx_n_u_data, __pyx_k_data, sizeof(__pyx_k_data), 0, 1, 0, 1},
   {&__pyx_n_s_data_len, __pyx_k_data_len, sizeof(__pyx_k_data_len), 0, 0, 1, 1},
-  {&__pyx_n_s_decode, __pyx_k_decode, sizeof(__pyx_k_decode), 0, 0, 1, 1},
   {&__pyx_n_s_dirname, __pyx_k_dirname, sizeof(__pyx_k_dirname), 0, 0, 1, 1},
   {&__pyx_n_s_doc, __pyx_k_doc, sizeof(__pyx_k_doc), 0, 0, 1, 1},
   {&__pyx_n_s_encode, __pyx_k_encode, sizeof(__pyx_k_encode), 0, 0, 1, 1},
@@ -4538,8 +4360,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_n_s_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 59, __pyx_L1_error)
   __pyx_builtin_IndexError = __Pyx_GetBuiltinName(__pyx_n_s_IndexError); if (!__pyx_builtin_IndexError) __PYX_ERR(0, 84, __pyx_L1_error)
-  __pyx_builtin_UnicodeDecodeError = __Pyx_GetBuiltinName(__pyx_n_s_UnicodeDecodeError); if (!__pyx_builtin_UnicodeDecodeError) __PYX_ERR(0, 118, __pyx_L1_error)
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 123, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -4604,17 +4425,17 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__13);
   __Pyx_GIVEREF(__pyx_tuple__13);
 
-  /* "pmercury/protocols/http_server.pyx":127
+  /* "pmercury/protocols/http_server.pyx":121
  * 
  *     def get_human_readable(self, fp_str_):
  *         t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]             # <<<<<<<<<<<<<<
  *         fp_h = [{'version':t_[0]},{'code':t_[1]},{'response':t_[2]}]
  *         for i in range(3, len(t_)-1):
  */
-  __pyx_slice__15 = PySlice_New(Py_None, __pyx_int_neg_1, Py_None); if (unlikely(!__pyx_slice__15)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_slice__15 = PySlice_New(Py_None, __pyx_int_neg_1, Py_None); if (unlikely(!__pyx_slice__15)) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_slice__15);
   __Pyx_GIVEREF(__pyx_slice__15);
-  __pyx_slice__16 = PySlice_New(__pyx_int_1, Py_None, Py_None); if (unlikely(!__pyx_slice__16)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_slice__16 = PySlice_New(__pyx_int_1, Py_None, Py_None); if (unlikely(!__pyx_slice__16)) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_slice__16);
   __Pyx_GIVEREF(__pyx_slice__16);
 
@@ -4657,17 +4478,17 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__23);
   __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(3, 0, 17, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_http_server_pyx, __pyx_n_s_fingerprint, 74, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 74, __pyx_L1_error)
 
-  /* "pmercury/protocols/http_server.pyx":126
+  /* "pmercury/protocols/http_server.pyx":120
  * 
  * 
  *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
  *         t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]
  *         fp_h = [{'version':t_[0]},{'code':t_[1]},{'response':t_[2]}]
  */
-  __pyx_tuple__25 = PyTuple_Pack(7, __pyx_n_s_self, __pyx_n_s_fp_str, __pyx_n_s_t, __pyx_n_s_fp_h, __pyx_n_s_i, __pyx_n_s_field, __pyx_n_s_x); if (unlikely(!__pyx_tuple__25)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_tuple__25 = PyTuple_Pack(7, __pyx_n_s_self, __pyx_n_s_fp_str, __pyx_n_s_t, __pyx_n_s_fp_h, __pyx_n_s_i, __pyx_n_s_field, __pyx_n_s_x); if (unlikely(!__pyx_tuple__25)) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__25);
   __Pyx_GIVEREF(__pyx_tuple__25);
-  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(2, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__25, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_http_server_pyx, __pyx_n_s_get_human_readable, 126, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(2, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__25, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_http_server_pyx, __pyx_n_s_get_human_readable, 120, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -5171,16 +4992,16 @@ if (!__Pyx_RefNanny) {
   if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_fingerprint, __pyx_t_4) < 0) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pmercury/protocols/http_server.pyx":126
+  /* "pmercury/protocols/http_server.pyx":120
  * 
  * 
  *     def get_human_readable(self, fp_str_):             # <<<<<<<<<<<<<<
  *         t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]
  *         fp_h = [{'version':t_[0]},{'code':t_[1]},{'response':t_[2]}]
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_11http_server_11HTTP_Server_7get_human_readable, 0, __pyx_n_s_HTTP_Server_get_human_readable, NULL, __pyx_n_s_pmercury_protocols_http_server, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_11http_server_11HTTP_Server_7get_human_readable, 0, __pyx_n_s_HTTP_Server_get_human_readable, NULL, __pyx_n_s_pmercury_protocols_http_server, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_human_readable, __pyx_t_4) < 0) __PYX_ERR(0, 126, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_human_readable, __pyx_t_4) < 0) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "pmercury/protocols/http_server.pyx":16

@@ -1,6 +1,6 @@
 #cython: language_level=3, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
 
-"""
+"""     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -43,10 +43,7 @@ def extract_server_name(bytes data, unsigned int offset, unsigned int data_len):
     if data_len - offset < 7:
         return 'None'
     sni_len = int.from_bytes(data[offset+5:offset+7], 'big')
-    try:
-        return data[offset+7:offset+7+sni_len].decode()
-    except UnicodeDecodeError:
-        return data[offset+7:offset+7+sni_len].hex()
+    return data[offset+7:offset+7+sni_len].decode()
 
 
 def eval_fp_str_general(fp_str_):
