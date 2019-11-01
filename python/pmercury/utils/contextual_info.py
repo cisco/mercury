@@ -1,4 +1,4 @@
-"""
+"""     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -33,9 +33,9 @@ pyasn_context_file    = find_resource_path('resources/pyasn.db.gz')
 as_context_file       = find_resource_path('resources/asn_info.db.gz')
 pyasn_contextual_data = pyasn.pyasn(pyasn_context_file)
 as_contextual_data    = {}
-for line in os.popen('zcat %s' % (as_context_file), mode='r'):
+for line in os.popen('zcat %s' % (as_context_file), mode='r', buffering=8192*256):
     t_ = line.split()
-    as_contextual_data[t_[0]] = t_[1]
+    as_contextual_data[int(t_[0])] = t_[1]
 
 
 port_mapping = {
@@ -77,7 +77,7 @@ def get_tld_info(hostname):
 def get_asn_info(ip_addr):
     asn,_ = pyasn_contextual_data.lookup(ip_addr)
     if asn != None:
-        return as_contextual_data[str(asn)]
+        return as_contextual_data[asn]
 
     return 'unknown'
 

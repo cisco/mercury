@@ -1,20 +1,20 @@
 # Mercury: network fingerprinting and packet metadata capture
-<img align="right" src="./mercury.png" width="200">
+<img align="right" src="./mercury.png" width="200"> 
 
 This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application, which is described [here](python/README.md).
 
 ## Building and running mercury
-In the root directory, run
+In the root directory, run 
 ```
-./configure
+./configure 
 make
 ```
-to build the package and install the required pip3 modules (dpkt ujson numpy pyasn hpack pypcap).  If you do not have **python3**, **cython**, and **pip3** installed, then you either need to install them (using apt, yum, or whatever your preferred package management tool is), or you need to run
+to build the package and install the required pip3 modules (dpkt ujson numpy pyasn hpack pypcap).  If you do not have **python3**, **cython**, and **pip3** installed, then you either need to install them (using apt, yum, or whatever your preferred package management tool is), or you need to run 
 ```
 ./configure --disable-python
 make
 ```
-With the **--disable-python** flag, the configure script can build mercury in a way that omits the fingerprint analysis module (which is implemented using cython and python3).  Without the analysis module, mercury can still perform fingerprint and metadata capture.
+With the **--disable-python** flag, the configure script can build mercury in a way that omits the fingerprint analysis module (which is implemented using cython and python3).  Without the analysis module, mercury can still perform fingerprint and metadata capture.  
 
 #### Compile-time options
 There are compile-time options that can tune mercury for your hardware, or generate debugging output.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make".   For instance, to turn on debugging, first run **make clean** to remove the previous build, then run **make "OPTFLAGS=-DDEBUG"**.   This runs make, telling it to pass the string "-DDEBUG" to the C/C++ compiler.  The available compile time options are:
@@ -96,7 +96,7 @@ GENERAL OPTIONS
 Mercury is intended for defensive network monitoring and security research and forensics.  Researchers, administrators, penetration testers, and security operations teams can use these tools to protect networks, detect vulnerabilities, and benefit the broader community through improved awareness and defensive posture. As with any packet monitoring tool, Mercury could potentially be misused. **Do not run it on any network of which you are not the owner or the administrator**.
 
 ## Credits
-Mercury was developed by David McGrew, Brandon Enright, Blake Anderson, Shekhar Acharya, and Adam Weller, with input from Brian Long, Bill Hudson, and others.  Pmercury was developed by Blake Anderson, with input from the others.
+Mercury was developed by David McGrew, Brandon Enright, Blake Anderson, Shekhar Acharya, and Adam Weller, with input from Brian Long, Bill Hudson, and others.  Pmercury was developed by Blake Anderson, with input from the others.  
 
 ## Acknowledgments
 This software includes GeoLite2 data created by MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com).

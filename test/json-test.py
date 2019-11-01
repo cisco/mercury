@@ -45,7 +45,7 @@ def test_mercury_json_line(line):
 
     return 0
 
-
+    
 def main():
     if len(sys.argv) != 2:
         print('usage: %s <jsonfilename>' % sys.argv[0])
@@ -62,6 +62,7 @@ def main():
 
     print('%% Failed:\t%0.2f%%' % (100.*failed/float(total)))
 
-
+  
 if __name__== "__main__":
   main()
+
