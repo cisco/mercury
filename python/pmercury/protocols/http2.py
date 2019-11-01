@@ -1,4 +1,4 @@
-"""
+"""     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -34,7 +34,7 @@ class HTTP2:
             else:
                 self.data_cache[flow_key][0] += len(data)
                 data_offset = None
-
+                
         offset_ = self.check_magic(data)
         offset += offset_
 

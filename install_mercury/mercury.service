@@ -6,7 +6,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/usr/local/var/mercury/
-ExecStart=/usr/local/bin/mercury -c enp0s10 -f output.json -l 10000 -u mercury -t cpu
+ExecStart=/usr/local/bin/mercury -c enp0s10 -f output.json -l 10000 -u mercury -t cpu	
 StandardError=null
 
 [Install]
