@@ -1,3 +1,5 @@
+import os
+import sys
 import struct
 from binascii import hexlify, unhexlify
 
@@ -10,7 +12,8 @@ from cryptography.hazmat.primitives.hashes import SHA1, SHA256, SHA384, MD5, Has
 from cryptography.hazmat.primitives.ciphers.algorithms import AES, ARC4, TripleDES, Camellia, SEED
 
 # constants
-from utils.tls_constants import *
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
+from pmercury.utils.tls_constants import *
 
 
 class TLS_CRYPTO:

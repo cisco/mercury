@@ -20,7 +20,9 @@ test:
 	cd src && $(MAKE) test
 
 .PHONY: doc
-doc:
+doc: doc/mercury.pdf
+
+doc/mercury.pdf:
 	doxygen
 	cd doc/latex; make; mv refman.pdf ../mercury.pdf
 
