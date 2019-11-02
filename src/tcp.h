@@ -146,6 +146,9 @@ namespace std {
 
 #define tcp_offrsv_get_header_length(offrsv) ((offrsv >> 4) * 4)
 
+#ifndef DEBUG_TCP
+#define fprintf_tcp_hdr_info(f, k, tcp, state, length, retval)
+#else
 void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header *tcp, const struct tcp_state *state, size_t length, size_t retval) {
     size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
     uint32_t rel_seq = ntohl(tcp->seq) - ntohl(state->init_seq);
@@ -182,6 +185,7 @@ void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header 
         fprintf(f, "\n");
     }
 }
+#endif /* DEBUG */
 
 #define ACCEPT_PACKET 100
 #define DROP_PACKET     0
