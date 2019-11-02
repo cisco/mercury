@@ -28,10 +28,13 @@
 #include <net/if.h>
 #include <net/ethernet.h> /* the L2 protocols */
 
+#include <time.h>
+#include <math.h>
+
 #include "af_packet_io.h"
 #include "af_packet_v3.h"
 #include "utils.h"
-
+#include "rnd_pkt_drop.h"
 
 /*
  * == Signal handling ==
@@ -46,6 +49,8 @@
 int sig_close_flag = 0; /* Watched by the stats tracking thread */
 int sig_close_workers = 0; /* Packet proccessing var */
 
+double time_elapsed(struct timespec *ts);
+
 void sig_close(int signal_arg) {
   psignal(signal_arg, "\nGracefully shutting down");
 
@@ -59,7 +64,8 @@ void af_packet_stats(int sockfd, struct stats_tracking *statst) {
   socklen_t tp3_len = sizeof(tp3_stats);
   err = getsockopt(sockfd, SOL_PACKET, PACKET_STATISTICS, &tp3_stats, &tp3_len);
   if (err) {
-    perror("error: could not get packet statistics");
+    perror("error: could not get packet statistics for the given socket");
+    return;
   }
 
   if (statst != NULL) {
@@ -102,10 +108,32 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
   __sync_add_and_fetch(&(statst->received_bytes), byte_count);
 }
 
+void check_socket_drops(int duration, uint64_t sdps, uint64_t sfps, int *socket_drops, int *zero_drops) {
+    int current_percent;
+
+    if (sdps == 0 && sfps == 0) {
+       (*zero_drops)++;
+       (*socket_drops) = 0;
+       if (*zero_drops >= 60) {
+          *zero_drops = 0;
+          current_percent = increment_percent_accept(5);
+          fprintf(stderr, "  Duration: %6d, Current percent acceptance Increased to %d\n", duration, current_percent);
+       }
+    } else {
+       (*zero_drops) = 0;
+       (*socket_drops)++;
+       if (*socket_drops > 1) {
+           *socket_drops = -58;
+           current_percent = increment_percent_accept(-10);
+           fprintf(stderr, "  Duration: %6d,    Current percent acceptance Decreased to %d\n", duration, current_percent);
+       }
+    }
+}
 
 void *stats_thread_func(void *statst_arg) {
 
     struct stats_tracking *statst = (struct stats_tracking *)statst_arg;
+    int duration = 0, socket_drops = 0, zero_drops = 0;
 
   /* The stats thread is one of the first to get started and it has to wait
    * for the other threads otherwise we'll be tracking bogus stats
@@ -130,6 +158,10 @@ void *stats_thread_func(void *statst_arg) {
     exit(255);
   }
 
+  char space[2] = " ";
+  struct timespec ts;
+  double time_d; /* time delta */
+  memset(&ts, 0, sizeof(ts));
   while (sig_close_flag == 0) {
     uint64_t packets_before = statst->received_packets;
     uint64_t bytes_before = statst->received_bytes;
@@ -137,22 +169,142 @@ void *stats_thread_func(void *statst_arg) {
     uint64_t socket_drops_before = statst->socket_drops;
     uint64_t socket_freezes_before = statst->socket_freezes;
 
+    (void)time_elapsed(&ts); /* Fills out the struct for us */
+
+    /* == THIS IS WHERE WE WAIT A SECOND == */
     sleep(1);
-    for (int thread = 0; thread < statst->num_threads; thread++) {
-      af_packet_stats(statst->tstor[thread].sockfd, statst);
+    /* == WAIT DONE == */
+
+    time_d = time_elapsed(&ts); /* compares to the previous time */
+
+    /* Just give up if the time doesn't sound right */
+    if ((time_d < 0.9) || (time_d > 1.1)) {
+      fprintf(stderr, "Unable to compute statistics because sleep / clock strayed too far from 1 second: %f seconds\n", time_d);
+      continue;
     }
 
-    uint64_t pps = statst->received_packets - packets_before;
-    uint64_t bps = statst->received_bytes - bytes_before;
-    uint64_t spps = statst->socket_packets - socket_packets_before;
+    /* Now go grab the socket and streak statistics */
+    double tot_rusage = 0;   /* Sum of all threads rusage */
+    double worst_rusage = 0; /* Worst average rbuffer usage */
+    double worst_i_rusage = 0; /* Worst instantanious rbuffer usage */
+    for (int thread = 0; thread < statst->num_threads; thread++) {
+      af_packet_stats(statst->tstor[thread].sockfd, statst);
+
+      int thread_block_count = statst->tstor[thread].ring_params.tp_block_nr;
+      double *bstreak_hist = statst->tstor[thread].block_streak_hist;
+
+      /* Get the lock for the bstreak histogram computation */
+      err = pthread_mutex_lock(&(statst->tstor[thread].bstreak_m));
+      if (err != 0) {
+	fprintf(stderr, "%s: stats func error acquiring bstreak mutex lock\n", strerror(err));
+	exit(255);
+      }
+
+      /* First compute the time total */
+      double ttot = 0;
+      for (int i = 0; i <= thread_block_count; i++) {
+	ttot += bstreak_hist[i];
+
+	if (bstreak_hist[i] > 0) {
+	  double utmp = (double)(i) / (double)thread_block_count;
+	  if (utmp > worst_i_rusage) {
+	    worst_i_rusage = utmp;
+	  }
+	}
+	//fprintf(stderr, "%d: %lu\n", i, bstreak_hist[i]);
+      }
+      //fprintf(stderr, "time total: %f\n", ttot);
+
+      /* Now compute the average (weighted) ring usage */
+      double rusage = 0;
+      if (ttot > 0) {
+	for (int i = 0; i <= thread_block_count; i++) {
+	  rusage += (bstreak_hist[i] / ttot) * ((double)(i) / (double)thread_block_count);
+	}
+      }
+
+      /* Now clear the bstreak histogram */
+      for (int i = 0; i <= thread_block_count; i++) {
+	bstreak_hist[i] = 0;
+      }
+
+      err = pthread_mutex_unlock(&(statst->tstor[thread].bstreak_m));
+      if (err != 0) {
+	fprintf(stderr, "%s: stats func error releasing bstreak mutex lock\n", strerror(err));
+	exit(255);
+      }
+
+      //fprintf(stderr, "[thread %d] Got ring usage of %4f\n", thread, rusage);
+      tot_rusage += rusage;
+      if (rusage > worst_rusage) {
+	worst_rusage = rusage;
+      }
+    }
+
+    /* The per-second stats scaled by the time delta */
+    double pps  = (statst->received_packets - packets_before) / time_d;      /* packets */
+    double byps  = (statst->received_bytes - bytes_before) / time_d;         /* bytes */
+    double spps = (statst->socket_packets - socket_packets_before) / time_d; /* socket packets */
+
+    /* The socket stats that don't need to be scaled */
     uint64_t sdps = statst->socket_drops - socket_drops_before;
     uint64_t sfps = statst->socket_freezes - socket_freezes_before;
 
+    /* Compute the estimated Ethernet rate which accounts for the
+     * "extra" per-packet data including the:
+     * interpacket gap (12 bytes)
+     * preamble (7 bytes)
+     * start of frame delimiter (1 byte)
+     * frame-check-sequence / FCS (4 bytes)
+     */
+    double ebips = (byps + (pps * (12 + 7 + 1 + 4))) * 8; /* in bits */
+
+    /* Get the "readable" numbers */
+    double r_pps;
+    char *r_pps_s;
+    get_readable_number_float(1000, pps, &r_pps, &r_pps_s);
+    if (r_pps_s[0] == '\0') {
+      r_pps_s = &(space[0]);
+    }
+
+    double r_byps;
+    char *r_byps_s;
+    get_readable_number_float(1000, byps, &r_byps, &r_byps_s);
+    if (r_byps_s[0] == '\0') {
+      r_byps_s = &(space[0]);
+    }
+
+    double r_spps;
+    char *r_spps_s;
+    get_readable_number_float(1000, spps, &r_spps, &r_spps_s);
+    if (r_spps_s[0] == '\0') {
+      r_spps_s = &(space[0]);
+    }
+
+    double r_ebips;
+    char *r_ebips_s;
+    get_readable_number_float(1000, ebips, &r_ebips, &r_ebips_s);
+    if (r_ebips_s[0] == '\0') {
+      r_ebips_s = &(space[0]);
+    }
+
     fprintf(stderr,
-	    "Per second stats: "
-	    "recieved packets %8lu; recieved bytes %10lu; "
-	    "socket packets %8lu; socket drops %8lu; socket freezes %2lu\n",
-	    pps, bps, spps, sdps, sfps);
+	    "Stats: "
+	    "%7.03f%s Packets/s; Data Rate %7.03f%s bytes/s; "
+	    "Ethernet Rate (est.) %7.03f%s bits/s; "
+	    "Socket Packets %7.03f%s; Socket Drops %lu (packets); Socket Freezes %lu; "
+	    "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantanious rbuf %4.1f%%\n",
+	    r_pps, r_pps_s, r_byps, r_byps_s,
+	    r_ebips, r_ebips_s,
+	    r_spps, r_spps_s, sdps, sfps,
+	    (tot_rusage / (statst->num_threads)) * 100.0, worst_rusage * 100.0,
+	    worst_i_rusage * 100.0);
+ 
+    duration++;
+    if (get_percent_accept() > 0) {
+        /* check socket drops and update accept percentage only when percent accept > 0 */
+        check_socket_drops(duration, sdps, sfps, &socket_drops, &zero_drops);
+    }
   }
 
   return NULL;
@@ -172,7 +324,7 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
   int err;
   int sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
   if (sockfd == -1) {
-      fprintf(stderr, "%s: could not create AF_PACKET socket for thread %d\n", strerror(errno), thread_stor->tnum);
+    fprintf(stderr, "%s: could not create AF_PACKET socket for thread %d\n", strerror(errno), thread_stor->tnum);
     return -1;
   }
   /* Now store this socket file descriptor in the thread storage */
@@ -230,7 +382,7 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
 					  PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED,
 					  sockfd, 0);
   if (mapped_buffer == MAP_FAILED) {
-      fprintf(stderr, "%s: mmap failed for thread %d\n", strerror(errno), thread_stor->tnum);
+    fprintf(stderr, "%s: mmap failed for thread %d\n", strerror(errno), thread_stor->tnum);
     return -1;
   }
 
@@ -330,6 +482,9 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
   int sockfd = thread_stor->sockfd;
   struct tpacket_block_desc **block_header = thread_stor->block_header;
   struct stats_tracking *statst = thread_stor->statst;
+  double *block_streak_hist = thread_stor->block_streak_hist;
+  pthread_mutex_t *bstreak_m = &(thread_stor->bstreak_m);
+  //packet_callback_t p_callback = thread_stor->p_callback;
   struct frame_handler *handler = &thread_stor->handler;
   
   /* We got the clean start all clear so we can get started but
@@ -393,34 +548,122 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
   psockfd.events = POLLIN | POLLERR;
   psockfd.revents = 0;
 
-  int pstreak = 0;
-  int polret;
-  unsigned int cb = 0;
+  int pstreak = 0;      /* Tracks the number of times in a row (the streak) poll() has told us there is data */
+  uint64_t bstreak = 0; /* The number of blocks in a row we've gotten without a poll() */
+  int polret;           /* The return value from poll() */
+  int haveflushed = 0;  /* Tracks whether we've opportunistically flushed yet or not */
+  unsigned int cb = 0;  /* The current block pointer (index) */
+  struct timespec ts;
+  (void)time_elapsed(&ts); /* init the struct for us */
+  double time_d; /* The time delta */
   while (sig_close_workers == 0) {
 
+    /* This checks if the 'user' bit is NOT set on the block.  If the
+     * block isn't set, the block is still owned by the kernel and we
+     * should wait.  If the bit is set, the block has been filled by
+     * the kernel and we should process the block.
+     */
     if ((block_header[cb]->hdr.bh1.block_status & TP_STATUS_USER) == 0) {
+      /* In this branch the bit is not set meaning the kernel still
+       * owns this block and the kernel is still filling up the block
+       * with new packets
+       */
 
-      polret = poll(&psockfd, 1, 1000); /* Let poll wait up to a second */
-      if (polret < 0) {
-	perror("poll returned error");
-      } else if (polret > 0) {
-	pstreak++; /* This wasn't a timeout */
+      /* Track the number of blocks in a row in this streak */
+      time_d = time_elapsed(&ts); /* How long this streak lasted */
+
+      if (bstreak > thread_block_count) {
+	bstreak = thread_block_count;
+      }
+
+      /* The use of a mutex can be justified in this case
+       * because 1) this will rarely ever clash with the stats
+       * thread and 2) there aren't any blocks for us to process
+       * at the moment so we can take a tiny bit of time tracking
+       * stats and such
+       */
+      err = pthread_mutex_lock(bstreak_m);
+      if (err != 0) {
+	fprintf(stderr, "%s: error acquiring bstreak mutex lock\n", strerror(err));
+	exit(255);
+      }
+
+      block_streak_hist[bstreak] += time_d;
+
+      err = pthread_mutex_unlock(bstreak_m);
+      if (err != 0) {
+	fprintf(stderr, "%s: error releasing bstreak mutex lock\n", strerror(err));
+	exit(255);
+      }
+
+      bstreak = 0;
+
+      /* we have processed all previously received packets.  since we
+       * may potentially wait during poll, let us flush the output
+       * file.  We'll only do this once before calling poll() as this
+       * could allow us to avoid calling poll since the flush may take
+       * just long enough for another block to have been returned to
+       * us.
+       */
+      if ((haveflushed == 0) && (pstreak == 0)) {
+	if (handler->flush_func != NULL) {
+	  handler->flush_func(&handler->context);
+	  haveflushed = 1;
+	}
+	continue; /* Restart the cb status check now that we flushed */
       }
 
       /* If poll() has returned but we haven't found any data... */
       if (pstreak > 2) {
-	cb = (cb + 1) % thread_block_count; /* Go find the block the kernel is stuck on */
+	/* Since poll() keeps telling us there is data but we aren't
+	 * seeing it in the current block our curent block pointer
+	 * could be out of sync with the kernel's so we should go
+	 * probe all the blocks and reset our pointer to the first
+	 * filled block */
+	for (uint32_t i = 0; i < thread_block_count; i++) {
+	  if ((block_header[i]->hdr.bh1.block_status & TP_STATUS_USER) != 0) {
+	    cb = i;
+	    break; /* just stop at the first block found */
+	  }
+	}
       }
-      continue;
+
+      /* Now that we've done the housekeeping, poll the kernel for
+       * when data has been returned to us
+       */
+      polret = poll(&psockfd, 1, 1000); /* Let poll wait up to a second */
+      if (polret < 0) {
+	perror("poll returned error");
+      } else if (polret == 0) {
+	/* This was a timeout meaning we just aren't getting any
+	 * packets at the moment. This isn't an error and there isn't
+	 * anything special for us to do here.
+	 */
+      } else if (polret > 0) {
+	pstreak++; /* This wasn't a timeout */
+      }
+
+    } else {
+      /* In this branch the bit is set meaning the kernel has filled
+       * this block and returned it to us for processing.
+       */
+      bstreak++; /* We've gotten another block */
+
+      /* We found data, process it! */
+      process_all_packets_in_block(block_header[cb], statst, handler);
+
+      /* Reset our accounting */
+      pstreak = 0; /* Reset the poll streak tracking */
+      haveflushed = 0; /* We now have the chance to opportunistically flush again */
+
+      /* return this block to the kernel */
+      block_header[cb]->hdr.bh1.block_status = TP_STATUS_KERNEL;
+
+      cb += 1; /* Advanced our current block pointer */
+      cb %= thread_block_count; /* Wrap it */
     }
 
-    /* We found data! */
-    pstreak = 0; /* Reset the poll streak tracking */
-    process_all_packets_in_block(block_header[cb], statst, handler);
-    block_header[cb]->hdr.bh1.block_status = TP_STATUS_KERNEL;
-
-    cb = (cb + 1) % thread_block_count;
-  }
+  } /* end while (sig_close_workers == 0) */
 
   fprintf(stderr, "Thread %d with thread id %lu exiting...\n", thread_stor->tnum, thread_stor->tid);
   return 0;
@@ -526,19 +769,52 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
       tstor[thread].t_start_c = &t_start_c;
       tstor[thread].t_start_m = &t_start_m;
 
-      memcpy(&(tstor[thread].ring_params), &thread_ring_req, sizeof(thread_ring_req));
+    err = pthread_attr_init(&(tstor[thread].thread_attributes));
+    if (err) {
+      fprintf(stderr, "%s: error initializing attributes for thread %d\n", strerror(err), thread);
+      exit(255);
+    }
 
-      err = create_dedicated_socket(&(tstor[thread]), fanout_arg);
+    pthread_mutexattr_t m_attr;
+    err = pthread_mutexattr_init(&m_attr);
+    if (err) {
+      fprintf(stderr, "%s: error initializing block streak mutex attributes for thread %d\n", strerror(err), thread);
+      exit(255);
+    }
 
-      if (err != 0) {
-	  fprintf(stderr, "error creating dedicated socket for thread %d\n", thread);
-	  exit(255);
-      }
+    err = pthread_mutex_init(&(tstor[thread].bstreak_m), &m_attr);
+    if (err) {
+      fprintf(stderr, "%s: error initializing block streak mutex for thread %d\n", strerror(err), thread);
+      exit(255);
+    }
+
+    tstor[thread].tnum = thread;
+    tstor[thread].tid = 0;
+    tstor[thread].sockfd = -1;
+    tstor[thread].if_name = cfg->capture_interface;
+    tstor[thread].statst = &statst;
+    tstor[thread].t_start_p = &t_start_p;
+    tstor[thread].t_start_c = &t_start_c;
+    tstor[thread].t_start_m = &t_start_m;
+
+    tstor[thread].block_streak_hist = (double *)calloc(thread_ring_blockcount + 1, sizeof(double));
+    if (!(tstor[thread].block_streak_hist)) {
+      perror("could not allocate memory for thread stats block streak histogram\n");
+    }
+
+    memcpy(&(tstor[thread].ring_params), &thread_ring_req, sizeof(thread_ring_req));
+
+    err = create_dedicated_socket(&(tstor[thread]), fanout_arg);
+
+    if (err != 0) {
+      fprintf(stderr, "error creating dedicated socket for thread %d\n", thread);
+      exit(255);
+    }
   }
 
   /* drop privileges from root to normal user */
   if (drop_root_privileges(cfg->user, NULL) != status_ok) {
-      return status_err;
+    return status_err;
   }
   printf("dropped root privileges\n");
 
@@ -619,16 +895,17 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   for (int thread = 0; thread < num_threads; thread++) {
     free(tstor[thread].block_header);
     munmap(tstor[thread].mapped_buffer, tstor[thread].ring_params.tp_block_size * tstor[thread].ring_params.tp_block_nr);
+    free(tstor[thread].block_streak_hist);
     close(tstor[thread].sockfd);
   }
   free(tstor);
 
   fprintf(stderr, "--\n"
-	  "%lu packets captured\n"
-	  "%lu bytes captured\n"
-	  "%lu packets seen by socket\n"
-	  "%lu packets dropped\n"
-	  "%lu socket queue freezes\n",
+	  "%" PRIu64 " packets captured\n"
+	  "%" PRIu64 " bytes captured\n"
+	  "%" PRIu64  "packets seen by socket\n"
+	  "%" PRIu64 " packets dropped\n"
+	  "%" PRIu64 " socket queue freezes\n",
 	  statst.received_packets, statst.received_bytes, statst.socket_packets, statst.socket_drops, statst.socket_freezes);
 
   return 0;
@@ -643,9 +920,9 @@ void ring_limits_init(struct ring_limits *rl, float frac) {
     }
     
     /* This is the only parameter you should need to change */
-    rl->af_desired_memory = sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;
+    rl->af_desired_memory = (uint64_t) sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;
     //rl->af_desired_memory = 128 * (uint64_t)(1 << 30);  /* 8 GiB */
-    printf("mem: %lu\tfrac: %f\n", rl->af_desired_memory, frac); 
+    printf("mem: %" PRIu64 "\tfrac: %f\n", rl->af_desired_memory, frac); 
 
     /* Don't change any of the following parameters without good reason */
     rl->af_ring_limit     = 0xffffffff;      /* setsockopt() can't allocate more than this so don't even try */
@@ -657,4 +934,18 @@ void ring_limits_init(struct ring_limits *rl, float frac) {
     rl->af_blocktimeout   = 100;             /* milliseconds before a block is returned partially full */
     rl->af_fanout_type    = PACKET_FANOUT_HASH;
 
+}
+
+
+double time_elapsed(struct timespec *ts) {
+
+    double time_s;
+    time_s = ts->tv_sec + (ts->tv_nsec / 1000000000.0);
+    
+    if (clock_gettime(CLOCK_REALTIME, ts) != 0) {
+	perror("Unable to get clock time for elapsed calculation");
+	return NAN;
+    }
+
+  return (ts->tv_sec + (ts->tv_nsec / 1000000000.0)) - time_s;
 }

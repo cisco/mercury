@@ -4,7 +4,6 @@
 """
 
 import functools
-import numpy as np
 
 ###
 ## Similarity Matching for Fingerprints
@@ -25,19 +24,19 @@ class SequenceAlignment:
     def align(self, s1, s2):
         s1_len = len(s1)
         s2_len = len(s2)
-        F = np.zeros((s1_len+1, s2_len+1))
+        F = [[0]*(s2_len+1)]*(s1_len+1)
         for i in range(s1_len+1):
-            F[i,0] = self.gap*i
+            F[i][0] = self.gap*i
         for i in range(s2_len+1):
-            F[0,i] = self.gap*i
+            F[0][i] = self.gap*i
         for i in range(1,s1_len+1):
             for j in range(1,s2_len+1):
-                match_ = F[i-1,j-1] + self.similarity(s1[i-1], s2[j-1])
-                delete_ = F[i-1,j] + self.gap
-                insert_ = F[i,j-1] + self.gap
-                F[i,j] = max(match_, delete_, insert_)
+                match_ = F[i-1][j-1] + self.similarity(s1[i-1], s2[j-1])
+                delete_ = F[i-1][j] + self.gap
+                insert_ = F[i][j-1] + self.gap
+                F[i][j] = max(match_, delete_, insert_)
 
-        return F[s1_len,s2_len]
+        return F[s1_len][s2_len]
 
 # default function: determine the similarity between two elements
 @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)

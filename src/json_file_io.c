@@ -95,7 +95,7 @@ void json_file_write(struct json_file *jf,
 		     size_t length,
 		     unsigned int sec,
 		     unsigned int usec) {
-
+    extern unsigned int packet_filter_threshold;
     struct parser p; 
     struct extractor x;
     uint8_t extractor_buffer[FP_BUF_LEN]= { 0 };
@@ -105,7 +105,7 @@ void json_file_write(struct json_file *jf,
     extractor_init(&x, extractor_buffer, FP_BUF_LEN);
     parser_init(&p, packet, length);
     bytes_extracted = parser_extractor_process_packet(&p, &x);
-    if (bytes_extracted > 16) {
+    if (bytes_extracted > packet_filter_threshold) {
 	switch(x.fingerprint_type) {
 	case fingerprint_type_tls:
 	    fprintf(file, "{\"fingerprints\":{");
@@ -151,8 +151,8 @@ void json_file_write(struct json_file *jf,
 		fprintf(file, "\"http\":{");
 		fprintf_json_hex_string(file,
 					"user_agent",
-					x.packet_data.value + 2,
-					x.packet_data.length - 2);
+					x.packet_data.value,
+					x.packet_data.length);
 		fprintf(file, "},");
 	    }
 	    
@@ -165,8 +165,11 @@ void json_file_write(struct json_file *jf,
 	    fprintf(file, "\"complete\":\"%s\",", (x.proto_state.state == state_done) ? "yes" : "no");
 	    break;
 	case fingerprint_type_tls_server:
-	    /* no tls server fingerprint currently defined */
-	    return;
+	    fprintf(file, "{\"fingerprints\":{");
+	    fprintf(file, "\"tls_server\":\"");
+	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+	    fprintf(file, "\"},");
+	    break;
 	default:
 	    /* print nothing */
 	    return; 

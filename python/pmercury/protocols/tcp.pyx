@@ -1,3 +1,5 @@
+#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
+
 """     
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -7,22 +9,21 @@ import os
 import sys
 import functools
 import ujson as json
-from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
-from protocol import Protocol
+from pmercury.protocols.protocol import Protocol
 
 MAX_CACHED_RESULTS = 2**24
 
-class TCP(Protocol):
+cdef class TCP:
+    cdef dict fp_db
 
-    def __init__(self, fp_database=None):
+    def __init__(self, fp_database=None, config=None):
         # populate fingerprint databases
         self.fp_db = None
         self.load_database(fp_database)
 
-        self.tcp_options_data = set([0,1,2,3])
 
     def load_database(self, fp_database):
         if fp_database == None:
@@ -31,7 +32,7 @@ class TCP(Protocol):
         self.fp_db = {}
         for line in os.popen('zcat %s' % (fp_database)):
             fp_ = json.loads(line)
-            fp_['str_repr'] = bytes(fp_['str_repr'],'utf-8')
+            fp_['str_repr'] = fp_['str_repr'].encode()
 
             self.fp_db[fp_['str_repr']] = fp_
 
@@ -63,41 +64,41 @@ class TCP(Protocol):
         return self.fp_db[fp_str]
 
 
-    def fingerprint(self, data):
-        if data.flags == 2:
-            options = data.opts
-            fp_str_ = self.extract_fingerprint(options)
-            return 'tcp', fp_str_, None, None
-
-        return None, None, None, None
+    @staticmethod
+    def proto_identify(data, offset, data_len):
+        if data[offset+13] != 2:
+            return False
+        return True
 
 
-    def extract_fingerprint(self, options):
-        idx = 0
+    @staticmethod
+    def fingerprint(unsigned char *buf, unsigned int offset, unsigned int data_len):
+        cdef list c = [f'({buf[offset+14]:02x}{buf[offset+15]:02x})']
 
-        fp_str = ''
-        while idx < len(options):
-            opt = b''
-            kind = options[idx]
-            opt += b'%02x' % options[idx]
-            if options[idx] == 1: # NOP
-                fp_str += '(' + str(opt,'utf-8') + ')'
-                idx += 1
-                continue
+        offset += 20
+        cdef unsigned int kind
+        cdef unsigned int length
 
-            length = options[idx+1]
-            if options[idx] not in self.tcp_options_data:
-                idx += length
-                fp_str += '(' + str(opt,'utf-8') + ')'
-                continue
+        while offset < data_len:
+            kind   = buf[offset]
+            length = buf[offset+1]
+            if kind == 0 or kind == 1: # End of Options / NOP
+                c.append('(%02x)' % kind)
+                offset += 1
+            elif kind != 2 and kind != 3:
+                c.append('(%02x)' % kind)
+                offset += length
+            else:
+                c.append('(%02x%s)' % (kind, buf[offset+1:offset+length].hex()))
+                offset += length
 
-            data = ''
-            if length-2 > 0:
-                opt += b'%02x' % options[idx+1]
-                for i in range(idx+2, idx+2+length-2):
-                    opt += b'%02x' % options[i]
-            idx += length
+        return ''.join(c), None
 
-            fp_str += '(' + str(opt,'utf-8') + ')'
 
-        return fp_str
+    def get_human_readable(self, fp_str_):
+        return None
+
+
+    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):
+        return None
+

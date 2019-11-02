@@ -32,6 +32,8 @@ typedef void (*frame_handler_func)(void *userdata,
 				   struct packet_info *pi,
 				   uint8_t *eth);
 
+typedef void (*frame_handler_flush_func)(void *userdata);
+
 /*
  * struct frame_handler 'object' includes the function pointer func
  * and the context passed to that function, which may be either a
@@ -48,6 +50,7 @@ union frame_handler_context {
 };
 struct frame_handler {
     frame_handler_func func;
+    frame_handler_flush_func flush_func;
     union frame_handler_context context;
 };
 
@@ -120,7 +123,8 @@ enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
 					     void *userdata,
 						 int loop_count);
 
-
-
+enum status pcap_file_dispatch_test_packet(frame_handler_func func,
+                         void *userdata,
+                         int loop_count);
 
 #endif /* PKT_PROC_H */
