@@ -256,7 +256,7 @@ void *pcap_file_processing_test_packet_func(void *userdata) {
                                             &tc->handler.context,
                                             tc->loop_count);
     if (status) {
-        printf("error in pcap file dispatch (code: %u)\n", status);
+        printf("error in pcap file dispatch (code: %d)\n", status);
         return NULL;
     }
 
