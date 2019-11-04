@@ -7,7 +7,7 @@
 
 import os
 import sys
-#import pcap
+import pcap
 import time
 import optparse
 import ujson as json
@@ -84,8 +84,8 @@ class Fingerprinter:
                 self.flow_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))
 
         if endpoint == True:
-            from pmercury.utils.endpoint import Endpoint
-            self.endpoint_model = Endpoint()
+            from pmercury.utils.endpoint import Endpoints
+            self.endpoint_model = Endpoints()
 
         # data
         self.flow_cache = {}
@@ -281,9 +281,11 @@ class Fingerprinter:
             if fp_type in flow:
                 context = flow[fp_type]
 
-            prev_flow = self.endpoint_model.get_prev_flow(src_ip)
-            proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context,
-                                                            flow['dst_ip'], flow['dst_port'], self.num_procs, prev_flow=prev_flow)
+            endpoint = None
+            if self.endpoint:
+                endpoint = self.endpoint_model.get_endpoint(src_ip)
+            proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context, flow['dst_ip'],
+                                                            flow['dst_port'], self.num_procs, endpoint)
             if proc_info != None:
                 flow['analysis'] = proc_info
 
@@ -355,6 +357,12 @@ class Fingerprinter:
             fp_ = self.parsers[protocol_type].get_database_entry(fp_str, None)
             if fp_ != None:
                 self.write_record(fp_)
+
+
+    def get_database_entry(self, fp_str, fp_type):
+        if not hasattr(self.parsers[fp_type], 'get_database_entry'):
+            return None
+        return self.parsers[fp_type].get_database_entry(fp_str, None)
 
 
     def write_record(self, flow_repr):

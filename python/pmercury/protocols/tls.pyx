@@ -171,18 +171,11 @@ cdef class TLS():
         return  ''.join(c), context
 
 
-    def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0, prev_flow=None):
+    def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0, endpoint=None):
         server_name = None
         # extract server_name field from context object
         if context_ != None and 'server_name' in context_:
             server_name = context_['server_name']
-
-        prev_proc = None
-        prev_score = None
-        if prev_flow != None:
-            prev_proc_obj = prev_flow['analysis']['probable_processes'][0]
-            prev_proc = prev_proc_obj['process']
-            prev_score = prev_proc_obj['score']
 
         # fingerprint approximate matching if necessary
         if fp_str_ not in self.fp_db:
@@ -199,11 +192,11 @@ cdef class TLS():
             self.fp_db[fp_str_]['approx_str'] = approx_str_
 
         # perform process identification given the fingerprint string and destination information
-        return self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs, prev_proc, prev_score)
+        return self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs, endpoint)
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
-    def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs, prev_proc, prev_score):
+    def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs, endpoint=None):
         fp_ = self.get_database_entry(fp_str_, None)
         if fp_ == None:
             # if malware data is in the database, report malware scores
@@ -220,7 +213,7 @@ cdef class TLS():
 
         # compute and sort scores for each process in the fingerprint
         fp_tc = fp_['total_count']
-        r_ = [self.compute_score(features, p_, fp_tc, prev_proc, prev_score) for p_ in fp_['process_info']]
+        r_ = [self.compute_score(features, p_, fp_tc, endpoint) for p_ in fp_['process_info']]
         r_ = sorted(r_, key=operator.itemgetter('score'), reverse=True)
 
         # if score == 0 or no match could be found, return default process
@@ -262,20 +255,22 @@ cdef class TLS():
         return out_
 
 
-    def compute_score(self, list features, dict p_, double fp_tc_, str prev_proc, prev_score):
+    def compute_score(self, list features, dict p_, double fp_tc_, object endpoint):
         cdef str cur_proc       = p_['process']
         cdef double p_count     = p_['count']
         cdef double prob_process_given_fp = log(p_count/fp_tc_)
 
         cdef double base_prior_ = -27.63102 # log(1e-12)
-        cdef double proc_prior_ = -16.11810 # log(1e-7)
+        cdef double proc_prior_ =  -6.90776 # log(1e-3)
         cdef double prior_      = -13.81551 # log(1e-6)
 
         cdef double score_ = prob_process_given_fp*3 if prob_process_given_fp > proc_prior_ else proc_prior_*3
         cdef double tmp_, trans_prob, prev_proc_prior
 
-        if prev_proc != None and prev_proc in self.transition_probs and cur_proc in self.transition_probs[prev_proc]:
-            trans_prob = prev_score*self.transition_probs[prev_proc][cur_proc]
+        if endpoint != None and endpoint.prev_flow != None:
+            trans_prob = sum([pp_['score']*self.transition_probs[pp_['process']][cur_proc]
+                              for pp_ in endpoint.prev_flow['analysis']['probable_processes']
+                              if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
             prev_proc_prior = base_prior_
             if trans_prob > 0:
                 prev_proc_prior = log(trans_prob)
