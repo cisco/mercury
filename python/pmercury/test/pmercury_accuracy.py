@@ -11,13 +11,13 @@ import ujson as json
 from importlib import machinery
 from multiprocessing import Pool
 
-sys.path.append('../mercury-transition/python/')
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../../')
 
 from fp_constants import *
 
 fingerprinter = None
 
-app_families_file = '../mercury-transition/resources/app_families.txt'
+app_families_file = '../../../resources/app_families.txt'
 app_families = {}
 for line in open(app_families_file, 'r'):
     tokens = line.strip().split(',')
@@ -27,20 +27,21 @@ for line in open(app_families_file, 'r'):
 
 class Validation:
 
-    def __init__(self, in_file, fp_db_name, output, categories):
+    def __init__(self, in_file, fp_db_name, output, categories, top):
         if output == sys.stdout:
             self.out_file_pointer = sys.stdout
         else:
             self.out_file_pointer = open(output, 'w')
         self.categories = categories
+        self.top = top
 
         # read in application categories
-        app_cat_file = '../../resources/application_categories.json.gz'
+        app_cat_file = 'application_categories.json.gz'
         with gzip.open(app_cat_file,'r') as fp:
             self.app_cat_data = json.loads(fp.read())
 
         self.input_file = in_file
-        self.data       = self.read_file(in_file)
+        self.data       = self.read_file_csv(in_file)
         self.mt_pool    = Pool(8)
 
 
@@ -49,7 +50,10 @@ class Validation:
         unknown_fp = 0
         unknown_s  = 0
 
-        results = self.mt_pool.map(get_results, [self.data[k] for k in self.data])
+        if self.top:
+            results = self.mt_pool.map(get_results_csv_top, [self.data[k] for k in self.data])
+        else:
+            results = self.mt_pool.map(get_results_csv, [self.data[k] for k in self.data])
 
         self.analyze_results(results)
 
@@ -80,12 +84,16 @@ class Validation:
             idx += 1
 
 
-    def read_file(self, f):
+    def read_file_csv(self, f):
         uninformative_proc_names = set(['vmnet-natd','vmnat','vmnet-natd.exe','vmnat.exe',
                                         'svchost.exe','Unknown','VirtualBoxVM.exe','VirtualBoxVM',
                                         'VirtualBox','VirtualBox.exe','VBoxHeadless','VBoxHeadless.exe',
-                                        'SearchProtocolHost.exe','backgroundTaskHost.exe','powershell.exe',
-                                        'DgWip.exe','dgwipd','VPN Tracker 365','com.docker.vpnkit'])
+                                        'VBoxNetNAT.exe','NoxVMHandle.exe','prl_naptd','qemu-system-i386.exe',
+                                        'VMware Fusion','vmrc.exe','vmplayer.exe','vmware.exe','vmware-view.exe',
+                                        'vmware-remotemks.exe','vmware-view','vmware-vmrc.exe','VMware Remote Console',
+                                        'com.docker.vpnkit','vpnkit.exe','vpnkit','vpnui.exe','swi_fc.exe','DgWip.exe',
+                                        'SearchProtocolHost.exe','backgroundTaskHost.exe'])
+
         data = {}
         os_map = {}
         bad_src = set([])
@@ -105,6 +113,20 @@ class Validation:
             server_name = dst_x[2][1:]
             src_port    = int(t_[9].split(')')[1][1:])
 
+            app_cat = None
+            if proc in self.app_cat_data:
+                app_cat = self.app_cat_data[proc]
+            malware = is_proc_malware({'process':proc}, False)
+            app_cats = {}
+            app_cats['malware'] = malware
+            for c in self.categories:
+                if c == 'malware':
+                    app_cats[c] = malware
+                else:
+                    app_cats[c] = False
+                    if c == app_cat:
+                        app_cats[c] = True
+
             if os_ == None or proc in uninformative_proc_names:
                 continue
 
@@ -115,14 +137,14 @@ class Validation:
             if src not in data:
                 data[src] = []
 
-            data[src].append((src,src_port,proc,sha256,type_,fp_str,dst_ip,dst_port,server_name,os_))
+            data[src].append((src,src_port,proc,sha256,type_,fp_str,dst_ip,dst_port,server_name,os_,app_cats))
 
         print('time to read data:\t%0.2f' % (time.time()-start))
 
         return data
 
 
-def get_results(data):
+def get_results_csv(data):
     results = []
     for d_ in data:
         src_ip      = d_[0]
@@ -135,20 +157,72 @@ def get_results(data):
         dst_port    = d_[7]
         server_name = d_[8]
         os_         = d_[9]
+        app_cats    = d_[10]
         protocol    = 6
         ts          = 0.00
 
         flow = fingerprinter.process_csv('tls', str_repr, src_ip, dst_ip, src_port, dst_port,
                                          protocol, ts, {'server_name': server_name})
         r_ = flow['analysis']
-
-        o_ = None
-
         pi_ = r_['probable_processes'][0]
+
+        malware = False
+        app_cat = 'None'
+        for k in app_cats:
+            if k == 'malware':
+                malware = app_cats[k]
+            elif app_cats[k] == True:
+                app_cat = k
+
         o_ = {}
         o_['count'] = 1
-        o_['ground_truth']   = {'process': proc, 'sha256': sha256, 'server_name': server_name, 'categories': {}}
-        o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256'], 'categories': {}}
+        o_['fp_str'] = str_repr
+        o_['ground_truth']   = {'process': proc, 'sha256': sha256, 'server_name': server_name}
+        o_['ground_truth']['categories'] = {'malware': app_cats['malware'], app_cat: True}
+        o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256']}
+        o_['inferred_truth']['categories'] = {'malware': pi_['malware'], pi_['category']: True}
+
+        results.append(o_)
+
+    return results
+
+
+def get_results_csv_top(data):
+    results = []
+    for d_ in data:
+        proc        = d_[2]
+        sha256      = d_[3]
+        type_       = d_[4]
+        str_repr    = d_[5]
+        server_name = d_[8]
+        app_cats    = d_[10]
+
+        fp_ = fingerprinter.get_database_entry(str_repr, type_)
+        if fp_ == None:
+            continue
+
+        pi_ = fp_['process_info'][0]
+        if pi_['process'] == 'Generic DMZ Traffic':
+            pi_ = fp_['process_info'][1]
+        if 'application_category' not in pi_:
+            pi_['application_category'] = 'None'
+
+        malware = False
+        app_cat = 'None'
+        for k in app_cats:
+            if k == 'malware':
+                malware = app_cats[k]
+            elif app_cats[k] == True:
+                app_cat = k
+
+        o_ = {}
+        o_['count'] = 1
+        o_['fp_str'] = str_repr
+        o_['ground_truth']   = {'process': proc, 'sha256': sha256, 'server_name': server_name}
+        o_['ground_truth']['categories'] = {'malware': app_cats['malware'], app_cat: True}
+        o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256']}
+        o_['inferred_truth']['categories'] = {'malware': pi_['malware'], pi_['application_category']: True}
+
 
         results.append(o_)
 
@@ -192,7 +266,7 @@ def process_result(x_):
         r_sha    = r['count'] if sha_gt   == sha_nf else 0
 
         if gproc_gt != gproc_nf:
-            verbose_out.write('%i,%s,%s,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name']))
+            verbose_out.write('%i,%s,%s,%s,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name'],r['fp_str']))
             verbose_out.flush()
 
         r_cats = []
@@ -232,6 +306,10 @@ def main():
                       help='location of fingerprint database',default='../../../resources/fingerprint_db.json.gz')
     parser.add_option('-c','--categories',action='store',dest='categories',
                       help='test 1-vs-all on specific category, e.g., vpn',default='')
+    parser.add_option('-e','--endpoint',action='store_true',dest='endpoint',
+                      help='enable endpoint modeling',default=False)
+    parser.add_option('-t','--top',action='store_true',dest='top',
+                      help='report most prevalent process',default=False)
 
     options, args = parser.parse_args()
 
@@ -240,10 +318,10 @@ def main():
 
     importlib.machinery.SOURCE_SUFFIXES.append('')
     pmercury = importlib.import_module('..pmercury','pmercury.pmercury')
-    fingerprinter = pmercury.Fingerprinter(options.fp_db, 'test.out', True, num_procs=1,
-                                           human_readable=False, group=False, experimental=False, endpoint=True)
+    fingerprinter = pmercury.Fingerprinter(options.fp_db, 'test.out', True, num_procs=5, human_readable=False,
+                                           group=False, experimental=False, endpoint=options.endpoint)
 
-    tester = Validation(options.input, options.fp_db, options.output, options.categories.split(','))
+    tester = Validation(options.input, options.fp_db, options.output, options.categories.split(','), options.top)
 
     tester.validate_process_identification()
 

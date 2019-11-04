@@ -1,7 +1,32 @@
 import ujson as json
 from copy import deepcopy
+from collections import defaultdict
 
 class Endpoint:
+
+    def __init__(self):
+        self.summary = {}
+        self.prev_flow = None
+
+    def update(self, flow, fp_type, fp_):
+        self.prev_flow = flow
+
+        if fp_type not in self.summary:
+            self.summary[fp_type] = {}
+
+        if fp_ not in self.summary[fp_type]:
+            self.summary[fp_type][fp_] = {}
+            self.summary[fp_type][fp_]['count'] = 0
+        self.summary[fp_type][fp_]['count'] += 1
+
+        if fp_type in flow:
+            if 'context' not in self.summary[fp_type][fp_]:
+                self.summary[fp_type][fp_]['context'] = defaultdict(lambda: defaultdict(int))
+            for k_ in flow[fp_type]:
+                self.summary[fp_type][fp_]['context'][k_][flow[fp_type][k_]] += 1
+
+
+class Endpoints:
 
     def __init__(self):
         self.ip_to_mac = {}
@@ -14,42 +39,30 @@ class Endpoint:
         src     = self.get_src(flow, fp_type)
 
         if src not in self.endpoints:
-            self.endpoints[src] = {}
-            self.endpoints[src]['summary'] = {}
-            self.endpoints[src]['prev_flow'] = None
-        if fp_type not in self.endpoints[src]:
-            self.endpoints[src]['summary'][fp_type] = {}
+            self.endpoints[src] = Endpoint()
 
-        self.endpoints[src]['prev_flow'] = flow
-
-        if fp_ not in self.endpoints[src]['summary'][fp_type]:
-            self.endpoints[src]['summary'][fp_type][fp_] = {}
-            self.endpoints[src]['summary'][fp_type][fp_]['count'] = 0
-
-        self.endpoints[src]['summary'][fp_type][fp_]['count'] += 1
-        if fp_type in flow:
-            if 'context' not in self.endpoints[src]['summary'][fp_type][fp_]:
-                self.endpoints[src]['summary'][fp_type][fp_]['context'] = {}
-            for k_ in flow[fp_type]:
-                if k_ not in self.endpoints[src]['summary'][fp_type][fp_]['context']:
-                    self.endpoints[src]['summary'][fp_type][fp_]['context'][k_] = {}
-                if flow[fp_type][k_] not in self.endpoints[src]['summary'][fp_type][fp_]['context'][k_]:
-                    self.endpoints[src]['summary'][fp_type][fp_]['context'][k_][flow[fp_type][k_]] = 0
-                self.endpoints[src]['summary'][fp_type][fp_]['context'][k_][flow[fp_type][k_]] += 1
+        self.endpoints[src].update(flow, fp_type, fp_)
 
 
     def write_all(self, out):
         for id_ in self.endpoints:
             o_ = {}
             o_['identifier'] = id_
-            o_['fingerprints'] = self.endpoints[id_]
+            o_['fingerprints'] = self.endpoints[id_].summary
 
             out.write(json.dumps(o_) + '\n')
 
 
+    def get_endpoint(self, src):
+        try:
+            return self.endpoints[src]
+        except KeyError:
+            return None
+
+
     def get_prev_flow(self, src):
         try:
-            return self.endpoints[src]['prev_flow']
+            return self.endpoints[src].prev_flow
         except KeyError:
             return None
 
