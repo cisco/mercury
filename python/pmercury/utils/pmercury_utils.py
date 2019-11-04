@@ -5,7 +5,6 @@
 
 import os
 
-
 def find_resource_path(rel_file_path):
     p0 = os.path.dirname(os.path.abspath(__file__)) + '/../../../' + rel_file_path
     p1 = os.path.dirname(os.path.abspath(__file__)) + '/../../' + rel_file_path

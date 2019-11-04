@@ -7,7 +7,7 @@
 
 import os
 import sys
-import pcap
+#import pcap
 import time
 import optparse
 import ujson as json
@@ -258,6 +258,39 @@ class Fingerprinter:
             self.update_flow_cache(flow)
         else:
             self.write_record(flow)
+
+
+    def process_csv(self, fp_type, fp_str, src_ip, dst_ip, src_port, dst_port, protocol, ts, context):
+        flow = {'src_ip':src_ip,
+                'dst_ip':dst_ip,
+                'src_port':src_port,
+                'dst_port':dst_port,
+                'protocol':protocol,
+                'event_start':ts,
+                'fingerprints':{fp_type: fp_str}}
+
+        if self.human_readable:
+            desc_ = self.parsers[fp_type].get_human_readable(flow['fingerprints'][fp_type])
+            if desc_ != None:
+                if 'readable' not in flow:
+                    flow['readable'] = {}
+                flow['readable'][fp_type] = desc_
+
+        if self.analyze:
+            context = None
+            if fp_type in flow:
+                context = flow[fp_type]
+
+            prev_flow = self.endpoint_model.get_prev_flow(src_ip)
+            proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context,
+                                                            flow['dst_ip'], flow['dst_port'], self.num_procs, prev_flow=prev_flow)
+            if proc_info != None:
+                flow['analysis'] = proc_info
+
+        if self.endpoint:
+            self.endpoint_model.update(flow)
+
+        return flow
 
 
     def update_flow_cache(self, flow):

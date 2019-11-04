@@ -30,16 +30,19 @@ MAX_CACHED_RESULTS = 2**24
 
 
 cdef class TLS():
-    cdef dict tls_params_db
     cdef bint MALWARE_DB
+    cdef bint EXTENDED_FP_METADATA
+    cdef dict tls_params_db
     cdef dict fp_db
     cdef dict app_families
+    cdef dict transition_probs
     cdef object aligner
 
     def __init__(self, fp_database=None, config=None):
         # cached data/results
         self.tls_params_db = {}
         self.MALWARE_DB = True
+        self.EXTENDED_FP_METADATA = False
 
         # populate fingerprint databases
         self.fp_db = {}
@@ -47,6 +50,14 @@ cdef class TLS():
             fp_database = find_resource_path(fp_database)
         if fp_database != None:
             self.load_database(fp_database)
+
+        transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
+        self.transition_probs = {}
+        for line in os.popen('zcat %s' % (transition_probs_file), mode='r', buffering=8192*256):
+            t_ = line.strip().split(',')
+            if t_[1] not in self.transition_probs:
+                self.transition_probs[t_[1]] = {}
+            self.transition_probs[t_[1]][t_[2]] = float(t_[0])
 
         app_families_file = find_resource_path('resources/app_families.txt')
         self.app_families = {}
@@ -66,6 +77,9 @@ cdef class TLS():
             self.fp_db[fp_['str_repr']] = fp_
         if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
             self.MALWARE_DB = False
+        if ('classes_ip_ip' in self.fp_db[fp_['str_repr']]['process_info'][0] and
+            'classes_hostname_sni' in self.fp_db[fp_['str_repr']]['process_info'][0]):
+            self.EXTENDED_FP_METADATA = True
 
 
     @staticmethod
@@ -157,11 +171,18 @@ cdef class TLS():
         return  ''.join(c), context
 
 
-    def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0):
+    def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0, prev_flow=None):
         server_name = None
         # extract server_name field from context object
         if context_ != None and 'server_name' in context_:
             server_name = context_['server_name']
+
+        prev_proc = None
+        prev_score = None
+        if prev_flow != None:
+            prev_proc_obj = prev_flow['analysis']['probable_processes'][0]
+            prev_proc = prev_proc_obj['process']
+            prev_score = prev_proc_obj['score']
 
         # fingerprint approximate matching if necessary
         if fp_str_ not in self.fp_db:
@@ -178,11 +199,11 @@ cdef class TLS():
             self.fp_db[fp_str_]['approx_str'] = approx_str_
 
         # perform process identification given the fingerprint string and destination information
-        return self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs)
+        return self.identify(fp_str_, server_name, dest_addr, dest_port, list_procs, prev_proc, prev_score)
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
-    def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs=0):
+    def identify(self, fp_str_, server_name, dest_addr, dest_port, list_procs, prev_proc, prev_score):
         fp_ = self.get_database_entry(fp_str_, None)
         if fp_ == None:
             # if malware data is in the database, report malware scores
@@ -195,11 +216,11 @@ cdef class TLS():
         domain, tld = get_tld_info(server_name)
         asn = get_asn_info(dest_addr)
         port_app = get_port_application(dest_port)
-        features = [asn, domain, port_app]
+        features = [asn, domain, port_app, dest_addr, server_name]
 
         # compute and sort scores for each process in the fingerprint
         fp_tc = fp_['total_count']
-        r_ = [self.compute_score(features, p_, fp_tc) for p_ in fp_['process_info']]
+        r_ = [self.compute_score(features, p_, fp_tc, prev_proc, prev_score) for p_ in fp_['process_info']]
         r_ = sorted(r_, key=operator.itemgetter('score'), reverse=True)
 
         # if score == 0 or no match could be found, return default process
@@ -241,14 +262,24 @@ cdef class TLS():
         return out_
 
 
-    def compute_score(self, features, p_, fp_tc_):
-        p_count = p_['count']
-        prob_process_given_fp = log(p_count/fp_tc_)
+    def compute_score(self, list features, dict p_, double fp_tc_, str prev_proc, prev_score):
+        cdef str cur_proc       = p_['process']
+        cdef double p_count     = p_['count']
+        cdef double prob_process_given_fp = log(p_count/fp_tc_)
 
-        base_prior_ = -18.42068 # log(1e-8)
-        prior_      =  -4.60517 # log(1e-2)
+        cdef double base_prior_ = -27.63102 # log(1e-12)
+        cdef double proc_prior_ = -16.11810 # log(1e-7)
+        cdef double prior_      = -13.81551 # log(1e-6)
 
-        score_ = prob_process_given_fp*3 if prob_process_given_fp > base_prior_ else base_prior_*3
+        cdef double score_ = prob_process_given_fp*3 if prob_process_given_fp > proc_prior_ else proc_prior_*3
+        cdef double tmp_, trans_prob, prev_proc_prior
+
+        if prev_proc != None and prev_proc in self.transition_probs and cur_proc in self.transition_probs[prev_proc]:
+            trans_prob = prev_score*self.transition_probs[prev_proc][cur_proc]
+            prev_proc_prior = base_prior_
+            if trans_prob > 0:
+                prev_proc_prior = log(trans_prob)
+            score_ += base_prior_ if base_prior_> prev_proc_prior else prev_proc_prior
 
         try:
             tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
@@ -268,15 +299,30 @@ cdef class TLS():
         except KeyError:
             score_ += base_prior_
 
+        if self.EXTENDED_FP_METADATA:
+            score_ += prob_process_given_fp*2 if prob_process_given_fp > proc_prior_ else proc_prior_*2
+
+            try:
+                tmp_ = log(p_['classes_ip_ip'][features[3]]/p_count)
+                score_ += tmp_ if tmp_ > prior_ else prior_
+            except KeyError:
+                score_ += base_prior_
+
+            try:
+                tmp_ = log(p_['classes_hostname_sni'][features[4]]/p_count)
+                score_ += tmp_ if tmp_ > prior_ else prior_
+            except KeyError:
+                score_ += base_prior_
+
         app_cat = 'Unknown'
         if 'application_category' in p_:
             app_cat = p_['application_category']
 
         if self.MALWARE_DB:
-            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'],
+            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256'],
                     'malware':p_['malware'], 'category':app_cat}
         else:
-            return {'score':exp(score_), 'process':p_['process'], 'sha256':p_['sha256'], 'category':app_cat}
+            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256'], 'category':app_cat}
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
