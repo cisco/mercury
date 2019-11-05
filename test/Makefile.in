@@ -112,7 +112,7 @@ distclean: clean
 .PHONY: memcheck
 memcheck:
 ifeq ($(have_valgrind),yes)
-	valgrind $(MERCURY) -r data/top-https.pcap -f tmp.json 2> memcheck.tmp
+	valgrind --trace-children=yes -s --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json 2> memcheck.tmp
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
 else
 	@echo "valgrind unavailable; cannot perform memcheck"
