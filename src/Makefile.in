@@ -23,7 +23,8 @@ have_pip3   = @PIP3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) 
 
 CC      = @CXX@
-CFLAGS  = -march=native -mtune=native -O2
+CFLAGS  = --std=c++11
+CFLAGS += -march=native -mtune=native -O2
 CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += $(OPTFLAGS)
