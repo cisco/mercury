@@ -395,6 +395,7 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	pcap_file_processing_thread_func(&tc);
 	bytes_written = tc.handler.context.pcap_file.bytes_written;
 	packets_written = tc.handler.context.pcap_file.packets_written;
+    pcap_file_close(&(tc.rf));
     }
 
     nano_seconds = get_clocktime_after(&before, &after);
@@ -438,6 +439,7 @@ int dispatch_test_packets(struct mercury_config *cfg, int num_threads) {
         pcap_file_processing_test_packet_func(&tc);
         bytes_written = tc.handler.context.pcap_file.bytes_written;
         packets_written = tc.handler.context.pcap_file.packets_written;
+        pcap_file_close(&(tc.rf));
     } else if (num_threads > 1) {
         /*
 	     * create subdirectory into which each thread will write its output
@@ -484,6 +486,7 @@ int dispatch_test_packets(struct mercury_config *cfg, int num_threads) {
 	        pthread_join(tc[i].tid, NULL);
             bytes_written += tc[i].handler.context.pcap_file.bytes_written;
             packets_written += tc[i].handler.context.pcap_file.packets_written;
+            pcap_file_close(&(tc[i].rf));
         }
     }
 
