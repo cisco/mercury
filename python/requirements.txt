@@ -2,4 +2,4 @@ cryptography~=2.7
 hpack~=3.0.0
 pyasn~=1.6.0b1
 pypcap~=1.2.3
-ujson~=1.35
+

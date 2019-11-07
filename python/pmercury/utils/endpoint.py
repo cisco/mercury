@@ -1,4 +1,4 @@
-import ujson as json
+import json
 from copy import deepcopy
 from collections import defaultdict
 
