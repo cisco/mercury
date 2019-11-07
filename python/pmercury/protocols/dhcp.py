@@ -6,7 +6,6 @@
 import os
 import sys
 import functools
-import ujson as json
 from socket import AF_INET, AF_INET6, inet_ntop
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

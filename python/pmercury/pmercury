@@ -7,10 +7,10 @@
 
 import os
 import sys
+import json
 import pcap
 import time
 import optparse
-import ujson as json
 from socket import AF_INET, AF_INET6, inet_ntop
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

@@ -3,10 +3,10 @@
 import os
 import bz2
 import gzip
+import json
 import pyasn
 import pickle
 import functools
-import ujson as json
 from collections import defaultdict
 
 from libc.stdlib cimport malloc

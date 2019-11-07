@@ -13,7 +13,6 @@ import optparse
 import importlib
 from importlib import machinery
 from statistics import mean, stdev
-from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../../')
 

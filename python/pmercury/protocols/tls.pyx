@@ -209,7 +209,7 @@ cdef class TLS():
         domain, tld = get_tld_info(server_name)
         asn = get_asn_info(dest_addr)
         port_app = get_port_application(dest_port)
-        features = [asn, domain, port_app, dest_addr, server_name]
+        features = [asn, domain, port_app, dest_addr, str(server_name)]
 
         # compute and sort scores for each process in the fingerprint
         fp_tc = fp_['total_count']
@@ -257,17 +257,17 @@ cdef class TLS():
 
     def compute_score(self, list features, dict p_, double fp_tc_, object endpoint):
         cdef str cur_proc       = p_['process']
-        cdef double p_count     = p_['count']
+        cdef uint64_t p_count     = p_['count']
         cdef double prob_process_given_fp = log(p_count/fp_tc_)
 
         cdef double base_prior_ = -27.63102 # log(1e-12)
-        cdef double proc_prior_ =  -6.90776 # log(1e-3)
+        cdef double proc_prior_ = -11.51293 # log(1e-5)
         cdef double prior_      = -13.81551 # log(1e-6)
 
-        cdef double score_ = prob_process_given_fp*3 if prob_process_given_fp > proc_prior_ else proc_prior_*3
+        cdef double score_ = prob_process_given_fp if prob_process_given_fp > proc_prior_ else proc_prior_
         cdef double tmp_, trans_prob, prev_proc_prior
 
-        if endpoint != None and endpoint.prev_flow != None:
+        if endpoint != None and endpoint.prev_flow != None and 'analysis' in endpoint.prev_flow:
             trans_prob = sum([pp_['score']*self.transition_probs[pp_['process']][cur_proc]
                               for pp_ in endpoint.prev_flow['analysis']['probable_processes']
                               if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
@@ -295,8 +295,6 @@ cdef class TLS():
             score_ += base_prior_
 
         if self.EXTENDED_FP_METADATA:
-            score_ += prob_process_given_fp*2 if prob_process_given_fp > proc_prior_ else proc_prior_*2
-
             try:
                 tmp_ = log(p_['classes_ip_ip'][features[3]]/p_count)
                 score_ += tmp_ if tmp_ > prior_ else prior_
@@ -314,10 +312,10 @@ cdef class TLS():
             app_cat = p_['application_category']
 
         if self.MALWARE_DB:
-            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256'],
+            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256s'],
                     'malware':p_['malware'], 'category':app_cat}
         else:
-            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256'], 'category':app_cat}
+            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256s'], 'category':app_cat}
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
