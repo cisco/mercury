@@ -50,12 +50,17 @@
 extern int sig_close_flag; /* Watched by the stats tracking thread, defined in mercury.c */
 static int sig_close_workers = 0; /* Packet proccessing var */
 
-double time_elapsed(struct timespec *ts);
+static double time_elapsed(struct timespec *ts) {
 
-static void af_packet_sig_close(int signal_arg) {
-  psignal(signal_arg, "\nGracefully shutting down");
+    double time_s;
+    time_s = ts->tv_sec + (ts->tv_nsec / 1000000000.0);
+    
+    if (clock_gettime(CLOCK_REALTIME, ts) != 0) {
+	perror("Unable to get clock time for elapsed calculation");
+	return NAN;
+    }
 
-  sig_close_flag = 1;
+  return (ts->tv_sec + (ts->tv_nsec / 1000000000.0)) - time_s;
 }
 
 void af_packet_stats(int sockfd, struct stats_tracking *statst) {
@@ -947,18 +952,4 @@ void ring_limits_init(struct ring_limits *rl, float frac) {
     rl->af_blocktimeout   = 100;             /* milliseconds before a block is returned partially full */
     rl->af_fanout_type    = PACKET_FANOUT_HASH;
 
-}
-
-
-double time_elapsed(struct timespec *ts) {
-
-    double time_s;
-    time_s = ts->tv_sec + (ts->tv_nsec / 1000000000.0);
-    
-    if (clock_gettime(CLOCK_REALTIME, ts) != 0) {
-	perror("Unable to get clock time for elapsed calculation");
-	return NAN;
-    }
-
-  return (ts->tv_sec + (ts->tv_nsec / 1000000000.0)) - time_s;
 }
