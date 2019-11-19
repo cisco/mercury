@@ -77,6 +77,12 @@ unsigned char tls_server_cert_value[] = {
     0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00
 };
 
+struct pi_container https_server_cert = {
+    DIR_UNKNOWN,
+    HTTPS_PORT,
+    0
+};
+
 unsigned char http_client_mask[] = {
     0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00
 };
@@ -104,6 +110,21 @@ struct pi_container http_server = {
     DIR_SERVER,
     HTTP_PORT
 };
+
+
+void printf_raw_as_hex(const uint8_t *data, unsigned int len) {
+    const unsigned char *x = data;
+    const unsigned char *end = data + len;
+    int i;
+
+    printf("\n\tLen = %u\n", len);
+    for (x = data; x < end; ) {
+        for (i=0; i < 16 && x < end; i++) {
+            printf(" %02x", *x++);
+        }
+        printf("\n");
+    }
+}
 
 unsigned int u32_compare_masked_data_to_value(const void *data,
                                               const void *mask,
@@ -137,9 +158,14 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
         return &https_server;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
-                                         http_client_mask,
-                                         http_client_value)) {
-        return &http_client;
+					 tls_server_cert_mask,
+					 tls_server_cert_value)) {
+	return &https_server_cert;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+					 http_client_mask,
+					 http_client_value)) {
+	return &http_client;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
                                          http_server_mask,
@@ -1237,6 +1263,31 @@ unsigned int parser_process_tls(struct parser *p) {
  */
 #define L_CipherSuite              2
 #define L_CompressionMethod        1
+#define L_CertificateLength        3
+
+enum status parser_process_certificate(struct parser *p, struct extractor *x) {
+    size_t tmp_len;
+
+    /* get certificate length */
+    if (parser_read_and_skip_uint(p, L_CertificateLength, &tmp_len) == status_err) {
+	    return status_err;
+    }
+
+    if (tmp_len > (unsigned)parser_get_data_length(p)) {
+        /* certificate length is greater than remaining packet size */
+        tmp_len  = parser_get_data_length(p);
+    }
+
+    //printf_raw_as_hex(p->data, tmp_len);
+
+    /* set certificate data */
+    packet_data_set(&x->packet_data,
+                    packet_data_type_tls_cert_data,
+                    tmp_len,
+                    p->data);
+
+    return status_ok;
+}
 
 /*
  * The function parser_process_tls_server processes a TLS
@@ -1322,6 +1373,12 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
         struct parser ext_parser;
         parser_init_from_outer_parser(&ext_parser, p, tmp_len);
+
+        /* Skip extensions length from parser p (i.e. outer parser) */
+        if (parser_skip(p, tmp_len) == status_err) {
+            goto bail;
+        }
+
         while (parser_get_data_length(&ext_parser) > 0)
         {
             size_t tmp_type;
@@ -1359,6 +1416,31 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
          * write the length of the extracted extensions into the reserved slot
          */
         encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
+
+        /*
+         * After processing extensions, parse Server Certificate if present
+         */
+        if (parser_get_data_length(p) > 0) {
+            /*
+             * verify that we are looking at a TLS Certificate
+             */
+            if (parser_match(p, tls_server_cert_value,
+		          L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType,
+		          tls_server_cert_mask) == status_err) {
+	            goto bail; /* not a certificate */
+            }
+            extractor_debug("%s: Processing certificate after Server Hello, len = %lu\n",
+                            __func__, (p->data_end - p->data));
+            x->fingerprint_type = fingerprint_type_tls_server_and_cert;
+
+            if (parser_skip(p, L_CertificateLength + L_CertificateLength) == status_err) {
+                goto bail;
+            }
+
+            if (parser_process_certificate(p, x) == status_err) {
+                goto bail;
+            }
+        }
     }
 
     x->proto_state.state = state_done;
@@ -1374,6 +1456,33 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
 }
 
+unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct extractor *x) {
+
+    extractor_debug("%s: Processing server certificate at the begining, len = %lu, output len = %lu\n",
+            __func__, parser_get_data_length(p), extractor_get_output_length(x));
+
+    int skip_len = (L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType
+                    + L_CertificateLength + L_CertificateLength);
+
+    if (parser_skip(p, skip_len) == status_err) {
+        goto bail;
+    }
+
+    if (parser_process_certificate(p, x) == status_err) {
+        goto bail;
+    }
+
+    x->fingerprint_type = fingerprint_type_tls_cert;
+    x->proto_state.state = state_done;
+    return 10;
+
+bail:
+    /*
+     * handle possible packet parsing errors
+     */
+    printf("%s: warning: TLS serverCert did not complete\n", __func__);
+    return 0;
+}
 
 
 /*
@@ -1824,12 +1933,16 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
         }
         break;
     case HTTPS_PORT:
-        if (pi->dir == DIR_CLIENT) {
-            return parser_extractor_process_tls(p, x);
-        } else {
-            return parser_extractor_process_tls_server(p, x);
-        }
-        break;
+	if (pi->dir == DIR_CLIENT) {
+	    return parser_extractor_process_tls(p, x);
+	} else if (pi->dir == DIR_SERVER) {
+        /* we have Server Hello and possibly Server Certificate */
+	    return parser_extractor_process_tls_server(p, x);
+	} else if (pi->dir == DIR_UNKNOWN) {
+        /* we have Server Certificate only */
+	    return parser_extractor_process_tls_server_cert(p, x);
+    }
+	break;
     case SSH_PORT:
         return parser_extractor_process_ssh(p, x);
         break;
