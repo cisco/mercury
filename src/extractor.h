@@ -18,7 +18,8 @@
 enum packet_data_type {
     packet_data_type_none            = 0,
     packet_data_type_tls_sni         = 1,
-    packet_data_type_http_user_agent = 2
+    packet_data_type_http_user_agent = 2,
+    packet_data_type_tls_cert_data   = 3
 };
 
 struct packet_data {
@@ -33,8 +34,10 @@ enum fingerprint_type {
     fingerprint_type_tls        = 2,
     fingerprint_type_tls_sni    = 3,
     fingerprint_type_tls_server = 4,
-    fingerprint_type_http       = 5,
-    fingerprint_type_http_server = 6
+    fingerprint_type_tls_cert   = 5,
+    fingerprint_type_tls_server_and_cert = 6,
+    fingerprint_type_http       = 7,
+    fingerprint_type_http_server = 8
 };
 
 #define PROTO_UNKNOWN 65535
