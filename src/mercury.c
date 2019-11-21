@@ -384,7 +384,7 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	/*
 	 * we have a single capture file, not a directory of capture files
 	 */
-	struct pcap_reader_thread_context tc;
+        struct pcap_reader_thread_context tc;
 	    
 	enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
 	if (status != status_ok) {

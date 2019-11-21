@@ -732,19 +732,22 @@ unsigned int uint16_match(uint16_t x,
  * pointer set to the initial octet of a TCP header.
  */
 
-struct tcp_initial_message_filter tcp_init_msg_filter;
-
 unsigned int tcp_message_filter_cutoff = 0;
 
-unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x, struct key *k) {
+unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) {
     size_t flags, offrsv;
-    const uint8_t *data = p->data;
+    const uint8_t *data = pf->p.data;
+    struct parser *p = &pf->p;
+    struct extractor *x = &pf->x;
 
     extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
 
+    printf("%s: tcp_init_msg_filter: %p\n", __func__, pf->tcp_init_msg_filter);
+
     const struct tcp_header *tcp = (const struct tcp_header *)data;
-    if (tcp_message_filter_cutoff) {
-        return tcp_init_msg_filter.apply(*k, tcp, parser_get_data_length(p));
+    if (pf->tcp_init_msg_filter) {
+        printf("applying tcp initial message filter\n");
+        return pf->tcp_init_msg_filter->apply(*k, tcp, parser_get_data_length(p));
     }
 
     if (parser_skip(p, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack) == status_err) {
@@ -2103,31 +2106,30 @@ unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
 
 #include <net/ethernet.h>
 
-unsigned int parser_extractor_process_packet(struct parser *p, struct extractor *x) {
+unsigned int packet_filter_process_packet(struct packet_filter *pf) {
     size_t transport_proto = 0;
     size_t ethertype = 0;
     struct key k;
 
-    parser_process_eth(p, &ethertype);
+    printf("%s: tcp_init_msg_filter: %p\n", __func__, pf->tcp_init_msg_filter);
+
+    parser_process_eth(&pf->p, &ethertype);
     switch(ethertype) {
     case ETHERTYPE_IP:
-        parser_process_ipv4(p, &transport_proto, &k);
+        parser_process_ipv4(&pf->p, &transport_proto, &k);
         break;
     case ETHERTYPE_IPV6:
-        parser_process_ipv6(p, &transport_proto, &k);
+        parser_process_ipv6(&pf->p, &transport_proto, &k);
         break;
     default:
         ;
     }
     if (transport_proto == 6) {
-        return parser_extractor_process_tcp(p, x, &k);
+        return packet_filter_process_tcp(pf, &k);
     }
 
     return 0;
 }
-
-
-
 
 /*
  * The function parser_process_tcp processes a TCP packet.  The
@@ -2200,22 +2202,38 @@ unsigned int parser_process_packet(struct parser *p) {
  * struct packet_filter implements a packet metadata filter
  */
 enum status packet_filter_init(struct packet_filter *pf, const char *config_string) {
-    (void)pf;
-    return proto_ident_config(config_string);
+
+    enum status status = proto_ident_config(config_string);
+    if (status) {
+        return status;
+    }
+    if (tcp_message_filter_cutoff) {
+        printf("initializing tcp message filter\n");
+        pf->tcp_init_msg_filter = new tcp_initial_message_filter;
+        pf->tcp_init_msg_filter->tcp_initial_message_filter_init();
+        printf("%s: tcp_init_msg_filter: %p\n", __func__, pf->tcp_init_msg_filter);
+    } else {
+        pf->tcp_init_msg_filter = NULL;
+    }
+    printf("accepted config string \"%s\"\n", config_string);
+    return status_ok;
+}
+
+size_t packet_filter_extract(struct packet_filter *pf, uint8_t *packet, size_t length) {
+
+    extractor_init(&pf->x, pf->extractor_buffer, sizeof(packet_filter::extractor_buffer));
+    parser_init(&pf->p, (unsigned char *)packet, length);
+    return packet_filter_process_packet(pf);
 }
 
 bool packet_filter_apply(struct packet_filter *pf, uint8_t *packet, size_t length) {
 
-    extractor_init(&pf->x, pf->extractor_buffer, 2048);
-    parser_init(&pf->p, (unsigned char *)packet, length);
-    size_t bytes_extracted = parser_extractor_process_packet(&pf->p, &pf->x);
-
+    size_t bytes_extracted = packet_filter_extract(pf, packet, length);
     if (bytes_extracted > 7) {
         return true;
     }
     return false;
 }
-
 
 /*
  * configuration for protocol identification

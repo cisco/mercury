@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>      /* for FILE */
 #include "mercury.h"
+#include "tcp.h"
 
 
 enum packet_data_type {
@@ -284,6 +285,7 @@ void parser_init_packet(struct parser *p, const unsigned char *data, unsigned in
  * struct packet_filter implements packet metadata filtering
  */
 struct packet_filter {
+    struct tcp_initial_message_filter *tcp_init_msg_filter;
     struct parser p;
     struct extractor x;
     unsigned char extractor_buffer[2048];
@@ -306,6 +308,10 @@ enum status packet_filter_init(struct packet_filter *pf,
 bool packet_filter_apply(struct packet_filter *pf,
 			 uint8_t *packet,
 			 size_t length);
+
+size_t packet_filter_extract(struct packet_filter *pf,
+                             uint8_t *packet,
+                             size_t length);
 
 typedef unsigned int (*parser_extractor_func)(struct parser *p, struct extractor *x);
 
