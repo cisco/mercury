@@ -88,50 +88,36 @@ void fprintf_timestamp(FILE *f, unsigned int sec, unsigned int usec) {
 
 #define SNI_HDR_LEN 9
 
-#define FP_BUF_LEN 2048				  
-
 void json_file_write(struct json_file *jf,
 		     uint8_t *packet,
 		     size_t length,
 		     unsigned int sec,
 		     unsigned int usec) {
     extern unsigned int packet_filter_threshold;
-    struct parser p; 
-    struct extractor x;
-    uint8_t extractor_buffer[FP_BUF_LEN]= { 0 };
-    size_t bytes_extracted;
     FILE *file = jf->file;
-    
-    extractor_init(&x, extractor_buffer, FP_BUF_LEN);
-    parser_init(&p, packet, length);
-    bytes_extracted = parser_extractor_process_packet(&p, &x);
+    struct packet_filter pf;
+    pf.tcp_init_msg_filter = NULL;
+ 
+    size_t bytes_extracted = packet_filter_extract(&pf, packet, length);
     if (bytes_extracted > packet_filter_threshold) {
-	switch(x.fingerprint_type) {
+        uint8_t *extractor_buffer = pf.x.output_start;
+	switch(pf.x.fingerprint_type) {
 	case fingerprint_type_tls:
 	    fprintf(file, "{\"fingerprints\":{");
 	    fprintf(file, "\"tls\":\"");
 	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
 	    fprintf(file, "\"}");
-	    if (x.packet_data.type == packet_data_type_tls_sni) {
-		if (x.packet_data.length >= SNI_HDR_LEN) {
+	    if (pf.x.packet_data.type == packet_data_type_tls_sni) {
+		if (pf.x.packet_data.length >= SNI_HDR_LEN) {
 		    fprintf(file, ",\"tls\":{");
 		    fprintf_json_string(file,
 					"server_name",
-					x.packet_data.value  + SNI_HDR_LEN,
-					x.packet_data.length - SNI_HDR_LEN);
+					pf.x.packet_data.value  + SNI_HDR_LEN,
+					pf.x.packet_data.length - SNI_HDR_LEN);
 		    fprintf(file, "}");
 		}
 	    }
 	    fprintf(file, ",");
-	    
-	    //uint8_t *tls_fp;
-	    //size_t tls_fp_len;
-	    //uint8_t *sni;
-	    //size_t sni_len;
-	    // struct inference_engine *inferencer;
-	    // struct inference_results results;
-	    // get_tls_fp_and_sni_from_buffer(exctactor_buffer, bytes_extracted, &tls_fp, &tls_fp_len, &sni, &sni_len);
-	    // inference_engine_get_results(inferencer, &key, tls_fp, tls_fp_len, sni, sni_len, &results);
 
 	    break;
 	case fingerprint_type_tcp:
@@ -145,14 +131,14 @@ void json_file_write(struct json_file *jf,
 	    fprintf(file, "\"http\":\"");
 	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
 	    fprintf(file, "\"},");
-	    fprintf(file, "\"complete\":\"%s\",", (x.proto_state.state == state_done) ? "yes" : "no");
+	    fprintf(file, "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
 
-	    if (x.packet_data.type == packet_data_type_http_user_agent) {
+	    if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
 		fprintf(file, "\"http\":{");
 		fprintf_json_hex_string(file,
 					"user_agent",
-					x.packet_data.value,
-					x.packet_data.length);
+					pf.x.packet_data.value,
+					pf.x.packet_data.length);
 		fprintf(file, "},");
 	    }
 	    
@@ -162,7 +148,7 @@ void json_file_write(struct json_file *jf,
 	    fprintf(file, "\"http_server\":\"");
 	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
 	    fprintf(file, "\"},");
-	    fprintf(file, "\"complete\":\"%s\",", (x.proto_state.state == state_done) ? "yes" : "no");
+	    fprintf(file, "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
 	    break;
 	case fingerprint_type_tls_server:
 	    fprintf(file, "{\"fingerprints\":{");
@@ -180,7 +166,7 @@ void json_file_write(struct json_file *jf,
 
 	struct flow_key key = flow_key_init();
 	flow_key_set_from_packet(&key, packet, length);
-	fprintf_analysis_from_extractor_and_flow_key(file, &x, &key);
+	fprintf_analysis_from_extractor_and_flow_key(file, &pf.x, &key);
 
 	packet_fprintf_flow_key(file, packet, length);
 	fprintf_timestamp(file, sec, usec);

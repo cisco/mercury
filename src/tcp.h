@@ -193,7 +193,7 @@ void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header 
 struct tcp_initial_message_filter {
     std::unordered_map<struct key, struct tcp_state> tcp_flow_table;
 
-    tcp_initial_message_filter() {
+    void tcp_initial_message_filter_init(void) {
         tcp_flow_table = {};
     }
 

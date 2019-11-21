@@ -38,9 +38,9 @@ void frame_handler_filter_write_pcap(void *userdata,
     uint8_t *packet = eth_hdr;
     unsigned int length = pi->len;
 
-    struct packet_filter pf;
+    printf("%s: tcp_init_msg_filter: %p\n", __func__, &fhc->filter_writer.pf.tcp_init_msg_filter);
 
-    if (packet_filter_apply(&pf, packet, length)) {
+    if (packet_filter_apply(&fhc->filter_writer.pf, packet, length)) {
         pcap_file_write_packet_direct(&fhc->filter_writer.pcap_file, eth_hdr, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
 }
@@ -53,16 +53,18 @@ enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
      * setup output to fingerprint file or PCAP write file
      */
     handler->func = frame_handler_filter_write_pcap;
-    enum status status = packet_filter_init(&handler->context.filter_writer.pf, packet_filter_config_string);
+    handler->flush_func = frame_handler_flush_pcap;
+    printf("%s: tcp_init_msg_filter: %p\n", __func__, handler->context.filter_writer.pf.tcp_init_msg_filter);
+    enum status status = pcap_file_open(&handler->context.filter_writer.pcap_file, outfile, io_direction_writer, flags);
+    if (status != status_ok) {
+        printf("error: could not open pcap output file %s\n", outfile);
+    }
+    status = packet_filter_init(&handler->context.filter_writer.pf, packet_filter_config_string);
     if (status != status_ok) {
         printf("error: could not configure packet filter with config string \"%s\"\n", packet_filter_config_string);
         return status;
     }
-    status = pcap_file_open(&handler->context.filter_writer.pcap_file, outfile, io_direction_writer, flags);
-    if (status != status_ok) {
-        printf("error: could not open pcap output file %s\n", outfile);
-    }
-    handler->flush_func = frame_handler_flush_pcap;
+    printf("%s: tcp_init_msg_filter: %p\n", __func__, handler->context.filter_writer.pf.tcp_init_msg_filter);
     return status;
 }
 
