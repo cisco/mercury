@@ -7,9 +7,9 @@
 
 import os
 import sys
+import json
 import operator
 import functools
-import ujson as json
 from sys import path
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -23,8 +23,13 @@ from pmercury.utils.sequence_alignment import *
 from cython.operator cimport dereference as deref
 from libc.math cimport exp, log, fmax
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
-cdef extern from "arpa/inet.h":
-    uint16_t htons(uint16_t hostshort)
+
+IF UNAME_SYSNAME == "Windows":
+    cdef extern from "winsock2.h":
+        uint16_t htons(uint16_t hostshort)
+ELSE:
+    cdef extern from "arpa/inet.h":
+        uint16_t htons(uint16_t hostshort)
 
 MAX_CACHED_RESULTS = 2**24
 

@@ -5,20 +5,25 @@
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
 
+import sys
+
 from pmercury.protocols.tcp import TCP
 from pmercury.protocols.tls import TLS
 from pmercury.protocols.http import HTTP
+from pmercury.protocols.dhcp import DHCP
 from pmercury.protocols.tls_server import TLS_Server
 from pmercury.protocols.http_server import HTTP_Server
-
-from pmercury.protocols.dhcp import DHCP
 
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 
-cdef extern from "arpa/inet.h":
-    uint16_t htons(uint16_t hostshort)
+IF UNAME_SYSNAME == "Windows":
+    cdef extern from "winsock2.h":
+        uint16_t htons(uint16_t hostshort)
+ELSE:
+    cdef extern from "arpa/inet.h":
+        uint16_t htons(uint16_t hostshort)
 
 
 def pkt_proc(double ts, bytes data):

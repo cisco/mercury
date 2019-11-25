@@ -3,6 +3,7 @@
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
 
+import sys
 import setuptools
 from distutils.extension import Extension
 
@@ -11,19 +12,24 @@ def readme():
         return f.read()
 
 
+ext_libs = []
+if sys.platform[0:3] == "win":
+    ext_libs.append("Ws2_32")
+
+
 ext_modules = [
-    Extension("pmercury.utils.packet_proc", ["pmercury/utils/packet_proc.c"]),
-    Extension("pmercury.utils.tls_utils", ["pmercury/utils/tls_utils.c"]),
-    Extension("pmercury.protocols.tcp", ["pmercury/protocols/tcp.c"]),
-    Extension("pmercury.protocols.tls", ["pmercury/protocols/tls.c"]),
-    Extension("pmercury.protocols.tls_server", ["pmercury/protocols/tls_server.c"]),
-    Extension("pmercury.protocols.http", ["pmercury/protocols/http.c"]),
-    Extension("pmercury.protocols.http_server", ["pmercury/protocols/http_server.c"]),
+    Extension("pmercury.utils.packet_proc", ["pmercury/utils/packet_proc.pyx"], libraries=ext_libs),
+    Extension("pmercury.utils.tls_utils", ["pmercury/utils/tls_utils.pyx"]),
+    Extension("pmercury.protocols.tcp", ["pmercury/protocols/tcp.pyx"]),
+    Extension("pmercury.protocols.tls", ["pmercury/protocols/tls.pyx"], libraries=ext_libs),
+    Extension("pmercury.protocols.tls_server", ["pmercury/protocols/tls_server.pyx"], libraries=ext_libs),
+    Extension("pmercury.protocols.http", ["pmercury/protocols/http.pyx"]),
+    Extension("pmercury.protocols.http_server", ["pmercury/protocols/http_server.pyx"]),
 ]
 
 setuptools.setup(
     name='pmercury',
-    version='0.3.1.004',
+    version='0.3.1.7',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -33,11 +39,11 @@ setuptools.setup(
         'Topic :: System :: Networking :: Monitoring',
         'Topic :: Security',
     ],
+    python_requires='>=3.6.0',
     keywords='tls fingerprinting network traffic analysis',
     url='https://github.com/cisco/mercury/',
     author='Blake Anderson',
     author_email='blake.anderson@cisco.com',
-    license_files=['../LICENSE'],
     packages=setuptools.find_packages(),
     install_requires=[
         'cryptography',
