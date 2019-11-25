@@ -7,8 +7,8 @@
 
 import os
 import sys
+import json
 import functools
-import ujson as json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')

@@ -44,7 +44,8 @@ class Validation:
                                              'com.docker.vpnkit','vpnkit.exe','vpnkit','vpnui.exe','wepsvc.exe','WerFault.exe',
                                              'SearchProtocolHost.exe','backgroundTaskHost.exe','WWAHost.exe','dsb.exe','node.exe',
                                              'webfilterproxyd','SophosWebIntelligence','swi_fc.exe','DgWip.exe','dgwipd',
-                                             'FreedomProxy','IEXPLORE.EXE'])
+                                             'FreedomProxy'])
+
 
         # read in application categories
         app_cat_file = 'application_categories.json.gz'
@@ -156,16 +157,22 @@ class Validation:
         for line in os.popen('zcat %s' % (f)):
             fp_ = json.loads(line)
             fp_str = fp_['md5']
+
             if 'process_info' in fp_:
+                new_procs = []
                 for p_ in fp_['process_info']:
                     if 'process' not in p_:
                         p_['process'] = p_['filename']
+                    if 'av_sigs' in p_ or 'parent_av_sigs' in p_:
+                        new_procs.extend(clean_malware_proc(p_))
+                    else:
+                        new_procs.append(p_)
+                fp_['process_info'] = new_procs
+
+
                 fp_malware_ = is_fp_malware(fp_)
                 for p_ in fp_['process_info']:
-                    if 'filename' in p_:
-                        proc = p_['filename']
-                    else:
-                        proc = p_['process']
+                    proc = p_['process']
                     sha256 = p_['sha256']
 
                     if p_['process'] in self.uninformative_proc_names:
@@ -228,12 +235,9 @@ def get_results(data):
         r_ = flow['analysis']
         pi_ = r_['probable_processes'][0]
 
-        malware = False
         app_cat = 'None'
         for k in app_cats:
-            if k == 'malware':
-                malware = app_cats[k]
-            elif app_cats[k] == True:
+            if app_cats[k] == True:
                 app_cat = k
 
         o_ = {}
@@ -268,15 +272,13 @@ def get_results_top(data):
         pi_ = fp_['process_info'][0]
         if pi_['process'] == 'Generic DMZ Traffic':
             pi_ = fp_['process_info'][1]
+            pi_['malware'] = fp_['process_info'][0]['malware']
         if 'application_category' not in pi_:
             pi_['application_category'] = 'None'
 
-        malware = False
         app_cat = 'None'
         for k in app_cats:
-            if k == 'malware':
-                malware = app_cats[k]
-            elif app_cats[k] == True:
+            if app_cats[k] == True:
                 app_cat = k
 
         o_ = {}
