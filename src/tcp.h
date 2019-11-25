@@ -13,7 +13,6 @@
 #include <unordered_map>
 #include "mercury.h"
 
-#pragma pack (1)
 struct tcp_header {
     uint16_t src_port;
     uint16_t dst_port;

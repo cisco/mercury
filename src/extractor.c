@@ -742,11 +742,8 @@ unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) 
 
     extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
 
-    printf("%s: tcp_init_msg_filter: %p\n", __func__, pf->tcp_init_msg_filter);
-
     const struct tcp_header *tcp = (const struct tcp_header *)data;
     if (pf->tcp_init_msg_filter) {
-        printf("applying tcp initial message filter\n");
         return pf->tcp_init_msg_filter->apply(*k, tcp, parser_get_data_length(p));
     }
 
@@ -2111,8 +2108,6 @@ unsigned int packet_filter_process_packet(struct packet_filter *pf) {
     size_t ethertype = 0;
     struct key k;
 
-    printf("%s: tcp_init_msg_filter: %p\n", __func__, pf->tcp_init_msg_filter);
-
     parser_process_eth(&pf->p, &ethertype);
     switch(ethertype) {
     case ETHERTYPE_IP:
@@ -2208,14 +2203,11 @@ enum status packet_filter_init(struct packet_filter *pf, const char *config_stri
         return status;
     }
     if (tcp_message_filter_cutoff) {
-        printf("initializing tcp message filter\n");
         pf->tcp_init_msg_filter = new tcp_initial_message_filter;
         pf->tcp_init_msg_filter->tcp_initial_message_filter_init();
-        printf("%s: tcp_init_msg_filter: %p\n", __func__, pf->tcp_init_msg_filter);
     } else {
         pf->tcp_init_msg_filter = NULL;
     }
-    printf("accepted config string \"%s\"\n", config_string);
     return status_ok;
 }
 

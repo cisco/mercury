@@ -14,6 +14,23 @@
 #include <fcntl.h>
 #include "mercury.h"
 
+/*
+ * define a pcap_pkthdr, guarding against name collision with libpcap
+ */
+#ifndef lib_pcap_pcap_h
+
+struct pcap_pkthdr {
+    struct timeval ts;   /* timestamp                     */
+    uint32_t caplen;     /* length of portion present     */
+    uint32_t len;        /* length this packet (off wire) */
+};
+
+typedef void (*packet_handler_t)(uint8_t *user,
+				 const struct pcap_pkthdr *h,
+				 const uint8_t *bytes);
+
+#endif /* lib_pcap_pcap_h */
+
 enum io_direction {
     io_direction_none   = 0,
     io_direction_reader = 1,
@@ -29,31 +46,11 @@ struct pcap_file {
     //    unsigned char *w;      /* pointer to first emtpy byte in buffer        */ 
     unsigned char *buffer; /* buffer used for disk i/o                     */
     off_t  allocated_size; /* file size allocated using posix_fallocate    */
-    u_int64_t bytes_written; /* number of bytes written to this file       */
-    u_int64_t packets_written; /* number of packets written to this file   */
+    uint64_t bytes_written; /* number of bytes written to this file       */
+    uint64_t packets_written; /* number of packets written to this file   */
 };
 
 #define pcap_file_init() { NULL, 0, 0, 0, NULL, NULL, NULL }
-
-/*
- * define a pcap_pkthdr, guarding against name collision with libpcap
- */
-#ifndef lib_pcap_pcap_h
-#include <stdint.h>
-#include <sys/time.h>
-#include "pkt_proc.h"
-
-struct pcap_pkthdr {
-    struct timeval ts;   /* timestamp                     */
-    uint32_t caplen;     /* length of portion present     */
-    uint32_t len;        /* length this packet (off wire) */
-};
-
-typedef void (*packet_handler_t)(uint8_t *user,
-				 const struct pcap_pkthdr *h,
-				 const uint8_t *bytes);
-
-#endif /* lib_pcap_pcap_h */
 
 enum status pcap_file_open(struct pcap_file *f,
 			   const char *fname,
@@ -77,10 +74,6 @@ enum status pcap_file_write_packet_direct(struct pcap_file *f,
 					  unsigned int usec);
 
 enum status pcap_file_close(struct pcap_file *f);
-
-enum status packet_handler_fingerprint_to_file(void *userdata,
-					       const void *packet,
-					       size_t length);
 
 
 #endif /* PCAP_FILE_IO_H */
