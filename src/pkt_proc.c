@@ -11,6 +11,7 @@
 #include "json_file_io.h"
 #include "packet.h"
 #include "rnd_pkt_drop.h"
+#include "pkt_proc.h"
 
 /*
  * packet_filter_threshold is a (somewhat arbitrary) threshold used in
@@ -38,8 +39,6 @@ void frame_handler_filter_write_pcap(void *userdata,
     uint8_t *packet = eth_hdr;
     unsigned int length = pi->len;
 
-    printf("%s: tcp_init_msg_filter: %p\n", __func__, &fhc->filter_writer.pf.tcp_init_msg_filter);
-
     if (packet_filter_apply(&fhc->filter_writer.pf, packet, length)) {
         pcap_file_write_packet_direct(&fhc->filter_writer.pcap_file, eth_hdr, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
@@ -54,7 +53,7 @@ enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
      */
     handler->func = frame_handler_filter_write_pcap;
     handler->flush_func = frame_handler_flush_pcap;
-    printf("%s: tcp_init_msg_filter: %p\n", __func__, handler->context.filter_writer.pf.tcp_init_msg_filter);
+
     enum status status = packet_filter_init(&handler->context.filter_writer.pf, packet_filter_config_string);
     if (status != status_ok) {
         printf("error: could not configure packet filter with config string \"%s\"\n", packet_filter_config_string);
@@ -64,7 +63,7 @@ enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
     if (status != status_ok) {
         printf("error: could not open pcap output file %s\n", outfile);
     }
-    printf("%s: tcp_init_msg_filter: %p\n", __func__, handler->context.filter_writer.pf.tcp_init_msg_filter);
+
     return status;
 }
 
