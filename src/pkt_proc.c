@@ -11,6 +11,7 @@
 #include "json_file_io.h"
 #include "packet.h"
 #include "rnd_pkt_drop.h"
+#include "pkt_proc.h"
 
 /*
  * packet_filter_threshold is a (somewhat arbitrary) threshold used in

@@ -41,7 +41,7 @@ struct pcap_file {
 #ifndef lib_pcap_pcap_h
 #include <stdint.h>
 #include <sys/time.h>
-#include "pkt_proc.h"
+//#include "pkt_proc.h"
 
 struct pcap_pkthdr {
     struct timeval ts;   /* timestamp                     */

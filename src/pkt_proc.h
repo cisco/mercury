@@ -49,6 +49,67 @@ struct frame_handler {
 };
 
 
+// c++ classes for frame handling / packet processing
+//
+struct frame_handler_class {
+    virtual void frame_handler_func(struct packet_info *pi, uint8_t *eth) = 0;
+    virtual void frame_handler_flush_func(void *userdata) = 0;
+};
+
+struct frame_handler_json_writer : public frame_handler_class {
+    struct json_file json_file;
+
+    frame_handler_json_writer(const char *outfile_name,
+                              const char *mode,
+                              uint64_t max_records) {
+
+        enum status status = json_file_init(&json_file, outfile_name, mode, max_records);
+        if (status) {
+            throw "exception in frame_handler_json_writer()";
+        }
+    }
+
+    void frame_handler_func(struct packet_info *pi, uint8_t *eth) {
+        json_file_write(&json_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+    }
+
+    void frame_handler_flush_func() {
+        FILE *file_ptr = json_file.file;
+        if (file_ptr != NULL) {
+            if (fflush(file_ptr) != 0) {
+                perror("warning: could not flush json file\n");
+            }
+        }
+    }
+};
+
+struct frame_handler_pcap_writer : public frame_handler_class {
+    struct pcap_file pcap_file;
+
+    frame_handler_pcap_writer(const char *outfile, int flags) {
+        enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
+        if (status) {
+            printf("error: could not open pcap output file %s\n", outfile);
+            throw "could not open pcap output file";
+        }
+    }
+
+    void frame_handler_func(struct packet_info *pi, uint8_t *eth) {
+        pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+    }
+
+    void frame_handler_flush_func() {
+        FILE *file_ptr = pcap_file.file_ptr;
+        if (file_ptr != NULL) {
+            if (fflush(file_ptr) != 0) {
+                perror("warning: could not flush pcap file\n");
+            }
+        }
+    }
+
+};
+
+
 /*
  * frame_handler_write_fingerprints_init(handler, outfile_name, mode)
  * initializes handler to write (TLS and TCP) fingerprints to the
