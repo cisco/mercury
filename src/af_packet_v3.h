@@ -71,8 +71,8 @@ struct stats_tracking {
  * including its thread id and socket file handle
  */
 struct thread_storage {
-  packet_callback_t p_callback; /* The packet callback function */
   struct frame_handler handler;
+  struct frame_handler_class *frame_handler;
   int tnum;                 /* Thread Number */
   pthread_t tid;            /* Thread ID */
   pthread_attr_t thread_attributes;
