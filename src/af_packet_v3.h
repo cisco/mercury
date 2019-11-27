@@ -71,7 +71,6 @@ struct stats_tracking {
  * including its thread id and socket file handle
  */
 struct thread_storage {
-  struct frame_handler handler;
   struct frame_handler_class *frame_handler;
   int tnum;                 /* Thread Number */
   pthread_t tid;            /* Thread ID */

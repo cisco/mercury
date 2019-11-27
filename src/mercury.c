@@ -72,82 +72,6 @@ enum status filename_append(char dst[MAX_FILENAME],
     return status_ok;
 }
 
-enum status frame_handler_init_from_config(struct frame_handler *handler,
-					   struct mercury_config *cfg,
-					   int tnum,
-					   char *fileset_id) {
-    enum status status;
-    char outfile[MAX_FILENAME];
-    pid_t pid = tnum; // syscall(__NR_gettid);
-
-    uint64_t max_records = 0;
-    if (cfg->rotate) {
-	max_records = cfg->rotate;
-    }
-    
-    if (cfg->write_filename) {
-	
-	status = filename_append(outfile, cfg->write_filename, "/", fileset_id);
-	if (status) {
-	    return status;
-	}	
-	if (cfg->verbosity) {
-	    printf("initializing thread function %x with filename %s\n", pid, outfile);
-	}
-	
-	if (cfg->filter) {
-	    /*
-	     * write only TLS clientHellos and TCP SYNs to capture file
-	     */
-	    status = frame_handler_filter_write_pcap_init(handler, outfile, cfg->flags);
-	    if (status) {
-		printf("error: could not open pcap output file %s\n", outfile);
-		return status;
-	    }
-	} else {
-	    /*
-	     * write all packets to capture file
-	     */
-	    status = frame_handler_write_pcap_init(handler, outfile, cfg->flags);
-	    if (status) {
-		printf("%s: could not open pcap output file %s\n", strerror(errno), outfile);
-		return status;
-	    }
-
-	}
-	
-    } else if (cfg->fingerprint_filename) {
-	/*
-	 * write fingerprints into output file
-	 */	
-	status = filename_append(outfile, cfg->fingerprint_filename, "/", fileset_id);
-	if (status) {
-	    return status;
-	}
-	if (cfg->verbosity) {
-	    printf("initializing thread function %x with filename %s\n", pid, outfile);
-	}
-	
-	status = frame_handler_write_fingerprints_init(handler, outfile, cfg->mode, max_records);
-	if (status) {
-	    perror("error: could not open fingerprint output file");
-	    return status;
-	}
-    } else {
-        /*
-	 * default: dump JSON-formatted packet info to stdout
-	 */
-	status = frame_handler_dump_init(handler);
-	if (status) {
-	    perror("could not initialize frame dump");
-	    return status;
-	}
-	
-    }
-    
-    return status_ok;
-}
-
 void *packet_processing_thread_func(void *userdata) {
     struct thread_context *tc = (struct thread_context *)userdata;
     enum status status;
@@ -184,7 +108,8 @@ void create_subdirectory(const char *outdir,
  * threads
  */
 struct pcap_reader_thread_context {
-    struct frame_handler handler; 
+    struct frame_handler handler;
+    struct frame_handler_class *frame_handler;
     int tnum;                 /* Thread Number */
     pthread_t tid;            /* Thread ID */
     struct pcap_file rf;
@@ -198,10 +123,12 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
     char input_filename[MAX_FILENAME];
     tc->tnum = tnum;
 	tc->loop_count = cfg->loop_count;
+    enum status status;
     
-    enum status status = frame_handler_init_from_config(&tc->handler, cfg, tnum, fileset_id);
-    if (status) {
-	return status;
+    tc->frame_handler = frame_handler_class_new_from_config(cfg, tnum, fileset_id);
+    if (tc->frame_handler == NULL) {
+        printf("error: could not initialize frame handler\n");
+        return status_err;
     }
 
     // if cfg->use_test_packet is on, read_filename will be NULL
@@ -210,7 +137,6 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
         if (status) {
             return status;
         }
-	
         status = pcap_file_open(&tc->rf, input_filename, io_direction_reader, cfg->flags);
         if (status) {
 	    printf("%s: could not open pcap input file %s\n", strerror(errno), cfg->read_filename);
@@ -224,7 +150,7 @@ void *pcap_file_processing_thread_func(void *userdata) {
     struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
     enum status status;
     
-    status = pcap_file_dispatch_frame_handler(&tc->rf, tc->handler.func, &tc->handler.context, tc->loop_count);
+    status = pcap_file_dispatch_frame_handler_class(&tc->rf, tc->frame_handler, tc->loop_count);
     if (status) {
 	printf("error in pcap file dispatch (code: %d)\n", (int)status);
 	return NULL;
@@ -362,6 +288,7 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	    pthread_join(tc[i].tid, NULL);
 	    bytes_written += tc[i].handler.context.pcap_file.bytes_written;
 	    packets_written += tc[i].handler.context.pcap_file.packets_written;
+        delete tc[i].frame_handler;
 	}
 		
     } else {
@@ -380,6 +307,7 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	bytes_written = tc.handler.context.pcap_file.bytes_written;
 	packets_written = tc.handler.context.pcap_file.packets_written;
     pcap_file_close(&(tc.rf));
+    delete tc.frame_handler;
     }
 
     nano_seconds = get_clocktime_after(&before, &after);
