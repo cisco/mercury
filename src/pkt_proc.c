@@ -150,4 +150,70 @@ enum status frame_handler_dump_init(struct frame_handler *handler) {
 
     return status_ok;
 }
-				    
+
+struct frame_handler_class *frame_handler_class_new_from_config(struct mercury_config *cfg,
+                                                                int tnum,
+                                                                char *fileset_id) {
+    enum status status;
+    char outfile[MAX_FILENAME];
+    pid_t pid = tnum; // syscall(__NR_gettid);
+
+    uint64_t max_records = 0;
+    if (cfg->rotate) {
+        max_records = cfg->rotate;
+    }
+
+    if (cfg->write_filename) {
+
+        status = filename_append(outfile, cfg->write_filename, "/", fileset_id);
+        if (status) {
+            throw "error in filename";
+        }
+        if (cfg->verbosity) {
+            printf("initializing thread function %x with filename %s\n", pid, outfile);
+        }
+
+        if (cfg->filter) {
+            /*
+             * write only TLS clientHellos and TCP SYNs to capture file
+             */
+            return new frame_handler_filter_pcap_writer(outfile, cfg->flags);
+            if (status) {
+                printf("error: could not open pcap output file %s\n", outfile);
+                throw "error in pcap output file";
+            }
+        } else {
+            /*
+             * write all packets to capture file
+             */
+            return new frame_handler_pcap_writer(outfile, cfg->flags);
+
+        }
+
+    } else if (cfg->fingerprint_filename) {
+        /*
+         * write fingerprints into output file
+         */
+        status = filename_append(outfile, cfg->fingerprint_filename, "/", fileset_id);
+        if (status) {
+            throw "error in filename";
+        }
+        if (cfg->verbosity) {
+            printf("initializing thread function %x with filename %s\n", pid, outfile);
+        }
+
+        return new frame_handler_json_writer(outfile, cfg->mode, max_records);
+        if (status) {
+            perror("error: could not open fingerprint output file");
+            throw "error opening json file";
+        }
+    } else {
+        /*
+         * default: dump JSON-formatted packet info to stdout
+         */
+        return new frame_handler_dumper();
+
+    }
+
+    return NULL;
+}

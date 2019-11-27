@@ -374,6 +374,46 @@ enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
     return status;
 }
 
+enum status pcap_file_dispatch_frame_handler_class(struct pcap_file *f,
+                                                   struct frame_handler_class *fhc,
+                                                   int loop_count) {
+    enum status status = status_ok;
+    struct pcap_pkthdr pkthdr;
+    uint8_t packet_data[BUFLEN];
+    unsigned long total_length = sizeof(struct pcap_file_hdr); // file header is already written
+    unsigned long num_packets = 0;
+    struct packet_info pi;
+
+    for (int i=0; i < loop_count && sig_close_flag == 0; i++) {
+        do {
+            status = pcap_file_read_packet(f, &pkthdr, packet_data);
+            if (status == status_ok) {
+                packet_info_init_from_pkthdr(&pi, &pkthdr);
+                // process the packet that was read
+                fhc->frame_handler_func(&pi, packet_data);
+                num_packets++;
+                total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
+            }
+        } while (status == status_ok && sig_close_flag == 0);
+        
+        if (i < loop_count - 1) {
+            // Rewind the file to the first packet after skipping file header.
+            if (fseek(f->file_ptr, sizeof(struct pcap_file_hdr), SEEK_SET) != 0) {
+                perror("error: could not rewind file pointer\n");
+                status = status_err;
+            }
+        }
+    }
+
+    f->bytes_written = total_length;
+    f->packets_written = num_packets;
+
+    if (status == status_err_no_more_data) {
+        return status_ok;
+    }
+    return status;
+}
+
 enum status pcap_file_close(struct pcap_file *f) {
     if (fclose(f->file_ptr) != 0) {
 	perror("could not close input pcap file");

@@ -11,9 +11,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include <errno.h>
+#include <string.h>
 #include "pcap_file_io.h"
 #include "json_file_io.h"
-
+#include "extractor.h"
+#include "packet.h"
 
 /* Information about each packet on the wire */
 struct packet_info {
@@ -53,7 +56,8 @@ struct frame_handler {
 //
 struct frame_handler_class {
     virtual void frame_handler_func(struct packet_info *pi, uint8_t *eth) = 0;
-    virtual void frame_handler_flush_func(void *userdata) = 0;
+    virtual void frame_handler_flush_func() = 0;
+    virtual ~frame_handler_class() {};
 };
 
 struct frame_handler_json_writer : public frame_handler_class {
@@ -89,7 +93,7 @@ struct frame_handler_pcap_writer : public frame_handler_class {
     frame_handler_pcap_writer(const char *outfile, int flags) {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
-            printf("error: could not open pcap output file %s\n", outfile);
+            printf("%s: could not open pcap output file %s\n", strerror(errno), outfile);
             throw "could not open pcap output file";
         }
     }
@@ -109,6 +113,67 @@ struct frame_handler_pcap_writer : public frame_handler_class {
 
 };
 
+struct frame_handler_filter_pcap_writer : public frame_handler_class {
+    struct pcap_file pcap_file;
+
+    /*
+     * packet_filter_threshold is a (somewhat arbitrary) threshold used in
+     * the packet metadata filter; it will probably get eliminated soon,
+     * in favor of extractor::proto_state::state, but for now it remains
+     */
+    unsigned int packet_filter_threshold = 8;
+
+    frame_handler_filter_pcap_writer(const char *outfile, int flags) {
+        enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
+        if (status) {
+            printf("error: could not open pcap output file %s\n", outfile);
+            throw "could not open pcap output file";
+        }
+    }
+
+    void frame_handler_func(struct packet_info *pi, uint8_t *eth) {
+        struct parser p;
+        struct extractor x;
+        unsigned char extractor_buffer[2048];
+        size_t bytes_extracted;
+        uint8_t *packet = eth;
+        unsigned int length = pi->len;
+
+        extractor_init(&x, extractor_buffer, 2048);
+        parser_init(&p, (unsigned char *)packet, length);
+        bytes_extracted = parser_extractor_process_packet(&p, &x);
+
+        if (bytes_extracted > packet_filter_threshold) {
+            pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+        }
+    }
+
+    void frame_handler_flush_func() {
+        FILE *file_ptr = pcap_file.file_ptr;
+        if (file_ptr != NULL) {
+            if (fflush(file_ptr) != 0) {
+                perror("warning: could not flush pcap file\n");
+            }
+        }
+    }
+
+};
+
+struct frame_handler_dumper : public frame_handler_class {
+
+    frame_handler_dumper() {}
+
+    void frame_handler_func(struct packet_info *pi, uint8_t *eth) {
+        packet_fprintf(stdout, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+    }
+
+    void frame_handler_flush_func() {
+    }
+};
+
+struct frame_handler_class *frame_handler_class_new_from_config(struct mercury_config *cfg,
+                                                                int tnum,
+                                                                char *fileset_id);
 
 /*
  * frame_handler_write_fingerprints_init(handler, outfile_name, mode)
