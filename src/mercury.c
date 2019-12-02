@@ -404,12 +404,11 @@ int main(int argc, char *argv[]) {
 	    { "help",        no_argument,       NULL, 'h' },
 	    { "select",      no_argument,       NULL, 's' },
 	    { "verbose",     no_argument,       NULL, 'v' },
-	    { "test",        no_argument,       NULL, 'T' },
 	    { "loop",        required_argument, NULL, 'p' },
 	    { "adaptive",    no_argument,       NULL,  0  },
 	    { NULL,          0,                 0,     0  }
 	};
-	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vTp:", long_opts, &opt_idx);
+	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:", long_opts, &opt_idx);
 	if (c < 0) {
 	    break;
 	}
@@ -573,10 +572,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (num_inputs == 0) {
-	usage(argv[0], "neither read [r] nor capture [c] nor Test [T] specified on command line", extended_help_off);
+	usage(argv[0], "neither read [r] nor capture [c] specified on command line", extended_help_off);
     }
     if (num_inputs > 1) {
-	usage(argv[0], "more than one read [r] or capture [c] or Test [T] are specified on command line", extended_help_off);
+	usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
 	usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
