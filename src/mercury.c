@@ -72,22 +72,6 @@ enum status filename_append(char dst[MAX_FILENAME],
     return status_ok;
 }
 
-void *packet_processing_thread_func(void *userdata) {
-    struct thread_context *tc = (struct thread_context *)userdata;
-    enum status status;
-    
-    /*
-     * start packet processing loop
-     */
-    status = capture_loop(tc);
-    if (status) {
-	perror("failure in capture loop");
-	return NULL;
-    }
-    
-    return NULL;
-}
-
 void create_subdirectory(const char *outdir,
 			 enum create_subdir_mode mode) {
     printf("creating output directory %s\n", outdir);
@@ -108,8 +92,7 @@ void create_subdirectory(const char *outdir,
  * threads
  */
 struct pcap_reader_thread_context {
-    struct frame_handler handler;
-    struct frame_handler_class *frame_handler;
+    struct pkt_proc *pkt_processor;
     int tnum;                 /* Thread Number */
     pthread_t tid;            /* Thread ID */
     struct pcap_file rf;
@@ -125,8 +108,8 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
 	tc->loop_count = cfg->loop_count;
     enum status status;
     
-    tc->frame_handler = frame_handler_class_new_from_config(cfg, tnum, fileset_id);
-    if (tc->frame_handler == NULL) {
+    tc->pkt_processor = pkt_proc_new_from_config(cfg, tnum, fileset_id);
+    if (tc->pkt_processor == NULL) {
         printf("error: could not initialize frame handler\n");
         return status_err;
     }
@@ -150,27 +133,12 @@ void *pcap_file_processing_thread_func(void *userdata) {
     struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
     enum status status;
     
-    status = pcap_file_dispatch_frame_handler_class(&tc->rf, tc->frame_handler, tc->loop_count);
+    status = pcap_file_dispatch_pkt_processor(&tc->rf, tc->pkt_processor, tc->loop_count);
     if (status) {
 	printf("error in pcap file dispatch (code: %d)\n", (int)status);
 	return NULL;
     }
     
-    return NULL;
-}
-
-void *pcap_file_processing_test_packet_func(void *userdata) {
-    struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
-    enum status status;
-
-    status = pcap_file_dispatch_test_packet(tc->handler.func,
-                                            &tc->handler.context,
-                                            tc->loop_count);
-    if (status) {
-        printf("error in pcap file dispatch (code: %u)\n", status);
-        return NULL;
-    }
-
     return NULL;
 }
 
@@ -286,11 +254,12 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 
 	for (int i = 0; i < tnum; i++) {
 	    pthread_join(tc[i].tid, NULL);
-	    bytes_written += tc[i].handler.context.pcap_file.bytes_written;
-	    packets_written += tc[i].handler.context.pcap_file.packets_written;
-        delete tc[i].frame_handler;
+        //        struct pkt_proc_stats pkt_stats = tc[i].pkt_processor->get_stats();
+	    bytes_written += tc[i].pkt_processor->bytes_written;
+	    packets_written += tc[i].pkt_processor->packets_written;
+        delete tc[i].pkt_processor;
 	}
-		
+
     } else {
 
 	/*
@@ -304,10 +273,11 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	}
 
 	pcap_file_processing_thread_func(&tc);
-	bytes_written = tc.handler.context.pcap_file.bytes_written;
-	packets_written = tc.handler.context.pcap_file.packets_written;
+    //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
+	bytes_written = tc.pkt_processor->bytes_written;
+	packets_written = tc.pkt_processor->packets_written;
     pcap_file_close(&(tc.rf));
-    delete tc.frame_handler;
+    delete tc.pkt_processor;
     }
 
     nano_seconds = get_clocktime_after(&before, &after);
@@ -321,97 +291,6 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
     return status_ok;
 }
 
-/*
- * For -T or --test option, we use a canned packet to generate the output data
- * If -t or --threads option is specified, we create a subdirectory and spawn a number
- * of threads to generate output data.
- * If -p or --loop-count option is specified, we generate as many packets as the loop-count.
- */
-int dispatch_test_packets(struct mercury_config *cfg, int num_threads) {
-
-    struct timespec before, after;
-	u_int64_t nano_seconds = 0;
-	u_int64_t bytes_written = 0;
-	u_int64_t packets_written = 0;
-
-        printf("dispatch_test_packets: num_threads=%d\n", num_threads);
-
-    get_clocktime_before(&before); // get timestamp before we start processing
-
-    if (num_threads == 1) {
-        struct pcap_reader_thread_context tc;
-        tc.handler.context.pcap_file.bytes_written = 0;
-        tc.handler.context.pcap_file.packets_written = 0;
-
-        enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
-        if (status != status_ok) {
-            return status;
-        }
-
-        pcap_file_processing_test_packet_func(&tc);
-        bytes_written = tc.handler.context.pcap_file.bytes_written;
-        packets_written = tc.handler.context.pcap_file.packets_written;
-        pcap_file_close(&(tc.rf));
-    } else if (num_threads > 1) {
-        /*
-	     * create subdirectory into which each thread will write its output
-	     */
-	    char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
-	    //enum create_subdir_mode mode = cfg->rotate ? create_subdir_mode_overwrite : create_subdir_mode_do_not_overwrite;
-	    create_subdirectory(outdir, create_subdir_mode_overwrite);
-
-        /*
-         * create capture worker threads and set up thread contexts
-         */
-        struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)
-                                                malloc(num_threads * sizeof(struct pcap_reader_thread_context));
-        if (!tc) {
-	        perror("could not allocate memory for thread storage array\n");
-        }
-
-        for (int i=0; i < num_threads; i++) {
-	        tc[i].tnum = i;
-	        tc[i].tid = 0;
-        }
-
-        for (int i=0; i < num_threads; i++) {
-            char hexname[MAX_HEX];
-            snprintf(hexname, MAX_HEX, "%x", tc[i].tnum);
-
-            enum status status = pcap_reader_thread_context_init_from_config(&tc[i], cfg, tc[i].tnum, hexname);
-	        if (status) {
-	            printf("error: could not initialize thread context\n");
-	            exit(255);
-	        }
-	        printf("creating capture thread %d\n", i);
-	        int err = pthread_create(&(tc[i].tid), NULL, pcap_file_processing_test_packet_func, &tc[i]);
-	        if (err) {
-	            printf("%s: error creating af_packet capture thread %d\n", strerror(err), i);
-	            exit(255);
-	        }
-        }
-
-        /*
-         * wait for threads to finish (but they never do; should we use detached threads?)
-        */
-        for (int i = 0; i < num_threads; i++) {
-	        pthread_join(tc[i].tid, NULL);
-            bytes_written += tc[i].handler.context.pcap_file.bytes_written;
-            packets_written += tc[i].handler.context.pcap_file.packets_written;
-            pcap_file_close(&(tc[i].rf));
-        }
-    }
-
-    nano_seconds = get_clocktime_after(&before, &after);
-    double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
-
-	if (cfg->write_filename) {
-	    printf("For all files, Packets Written: %lu, Bytes Written: %lu, nano sec: %lu, byte rate: %lf\n",
-                packets_written, bytes_written, nano_seconds, byte_rate);
-	}
-
-    return 0;
-}
 
 #define EXIT_ERR 255
 
@@ -420,7 +299,6 @@ char mercury_help[] =
     "INPUT\n"
     "   [-c or --capture] capture_interface   # capture packets from interface\n"
     "   [-r or --read] read_file              # read packets from file\n"
-//  "   [-T or --test]                        # write pcap file with test packet\n"
     "OUTPUT\n"
     "   [-f or --fingerprint] json_file_name  # write fingerprints to JSON file\n"
     "   [-w or --write] pcap_file_name        # write packets to PCAP/MCAP file\n"
@@ -764,11 +642,6 @@ int main(int argc, char *argv[]) {
 	
     }
 
-    if (cfg.use_test_packet) {
-	
-	dispatch_test_packets(&cfg, cfg.num_threads);
-	
-    }
     analysis_finalize();
     
     return 0;

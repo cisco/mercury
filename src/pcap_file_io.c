@@ -332,50 +332,8 @@ void packet_info_init_from_pkthdr(struct packet_info *pi,
     pi->ts.tv_nsec = pkthdr->ts.tv_usec * 1000;
 } 
 
-
-enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
-					     frame_handler_func func,
-					     void *userdata,
-					     int loop_count) {
-    enum status status = status_ok;
-    struct pcap_pkthdr pkthdr;
-    uint8_t packet_data[BUFLEN];
-    unsigned long total_length = sizeof(struct pcap_file_hdr); // file header is already written
-    unsigned long num_packets = 0;
-    struct packet_info pi;
-
-    for (int i=0; i < loop_count && sig_close_flag == 0; i++) {
-        do {
-            status = pcap_file_read_packet(f, &pkthdr, packet_data);
-            if (status == status_ok) {
-                packet_info_init_from_pkthdr(&pi, &pkthdr);
-                // process the packet that was read
-                func(userdata, &pi, packet_data);
-                num_packets++;
-                total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
-            }
-        } while (status == status_ok && sig_close_flag == 0);
-        
-        if (i < loop_count - 1) {
-            // Rewind the file to the first packet after skipping file header.
-            if (fseek(f->file_ptr, sizeof(struct pcap_file_hdr), SEEK_SET) != 0) {
-                perror("error: could not rewind file pointer\n");
-                status = status_err;
-            }
-        }
-    }
-
-    f->bytes_written = total_length;
-    f->packets_written = num_packets;
-
-    if (status == status_err_no_more_data) {
-        return status_ok;
-    }
-    return status;
-}
-
-enum status pcap_file_dispatch_frame_handler_class(struct pcap_file *f,
-                                                   struct frame_handler_class *fhc,
+enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
+                                             struct pkt_proc *pkt_processor,
                                                    int loop_count) {
     enum status status = status_ok;
     struct pcap_pkthdr pkthdr;
@@ -390,7 +348,7 @@ enum status pcap_file_dispatch_frame_handler_class(struct pcap_file *f,
             if (status == status_ok) {
                 packet_info_init_from_pkthdr(&pi, &pkthdr);
                 // process the packet that was read
-                fhc->frame_handler_func(&pi, packet_data);
+                pkt_processor->apply(&pi, packet_data);
                 num_packets++;
                 total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
             }
@@ -535,23 +493,3 @@ uint8_t *get_test_packet(struct pcap_pkthdr *pkthdr) {
     return pkt_large;
 }
 
-enum status pcap_file_dispatch_test_packet(frame_handler_func func,
-                         void *userdata,
-                         int loop_count) {
-    struct pcap_pkthdr pkthdr;
-    uint8_t *packet_data;
-    unsigned long total_length = sizeof(struct pcap_file_hdr); // file header is already written
-    unsigned long num_packets = 0;
-    struct packet_info pi;
-    printf("pcap_file_dispatch_test_packet: loop=%d\n", loop_count);
-    for (int i=0; i < loop_count; i++) {
-            packet_data = get_test_packet(&pkthdr);
-            packet_info_init_from_pkthdr(&pi, &pkthdr);
-            // process the packet that was read
-            func(userdata, &pi, packet_data);
-            num_packets++;
-            total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
-    }
-
-    return status_ok;
-}

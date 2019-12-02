@@ -83,7 +83,7 @@ void af_packet_stats(int sockfd, struct stats_tracking *statst) {
 
 void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
                                   struct stats_tracking *statst,
-                                  struct frame_handler_class *frame_handler) {
+                                  struct pkt_proc *pkt_processor) {
   int num_pkts = block_hdr->hdr.bh1.num_pkts, i;
   unsigned long byte_count = 0;
   struct tpacket3_hdr *pkt_hdr;
@@ -102,7 +102,7 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
     pi.len = pkt_hdr->tp_snaplen; // Is this right??
 
     uint8_t *eth = (uint8_t *)pkt_hdr + pkt_hdr->tp_mac;
-    frame_handler->frame_handler_func(&pi, eth);
+    pkt_processor->apply(&pi, eth);
     
     pkt_hdr = (struct tpacket3_hdr *) ((uint8_t *)pkt_hdr + pkt_hdr->tp_next_offset);
   }
@@ -496,7 +496,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
   double *block_streak_hist = thread_stor->block_streak_hist;
   pthread_mutex_t *bstreak_m = &(thread_stor->bstreak_m);
   //packet_callback_t p_callback = thread_stor->p_callback;
-  struct frame_handler_class *frame_handler = thread_stor->frame_handler;
+  struct pkt_proc *pkt_processor = thread_stor->pkt_processor;
   
   /* We got the clean start all clear so we can get started but
    * while we were waiting our socket was filling up with packets
@@ -617,7 +617,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
        * us.
        */
       if ((haveflushed == 0) && (pstreak == 0)) {
-          frame_handler->frame_handler_flush_func();
+          pkt_processor->flush();
           haveflushed = 1;
           continue; /* Restart the cb status check now that we flushed */
       }
@@ -659,7 +659,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
       bstreak++; /* We've gotten another block */
 
       /* We found data, process it! */
-      process_all_packets_in_block(block_header[cb], statst, frame_handler);
+      process_all_packets_in_block(block_header[cb], statst, pkt_processor);
 
       /* Reset our accounting */
       pstreak = 0; /* Reset the poll streak tracking */
@@ -859,8 +859,8 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
 	  fileset_id = hexname;
       }
 
-      tstor[thread].frame_handler = frame_handler_class_new_from_config(cfg, thread, fileset_id);
-      if (tstor[thread].frame_handler == NULL) {
+      tstor[thread].pkt_processor = pkt_proc_new_from_config(cfg, thread, fileset_id);
+      if (tstor[thread].pkt_processor == NULL) {
           printf("error: could not initialize frame handler\n");
           return status_err;
       }
@@ -915,7 +915,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
     munmap(tstor[thread].mapped_buffer, tstor[thread].ring_params.tp_block_size * tstor[thread].ring_params.tp_block_nr);
     free(tstor[thread].block_streak_hist);
     close(tstor[thread].sockfd);
-    delete tstor[thread].frame_handler;
+    delete tstor[thread].pkt_processor;
   }
   free(tstor);
 

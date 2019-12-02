@@ -82,8 +82,8 @@ enum status packet_handler_fingerprint_to_file(void *userdata,
 					       const void *packet,
 					       size_t length);
 
-enum status pcap_file_dispatch_frame_handler_class(struct pcap_file *f,
-                                                   struct frame_handler_class *fhc,
-                                                   int loop_count);
+enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
+                                             struct pkt_proc *pkt_processor,
+                                             int loop_count);
 
 #endif /* PCAP_FILE_IO_H */
