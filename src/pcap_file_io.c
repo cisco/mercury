@@ -363,8 +363,8 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
         }
     }
 
-    f->bytes_written = total_length;
-    f->packets_written = num_packets;
+    pkt_processor->bytes_written = total_length;
+    pkt_processor->packets_written = num_packets;
 
     if (status == status_err_no_more_data) {
         return status_ok;
