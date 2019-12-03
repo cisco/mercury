@@ -26,6 +26,7 @@
 #include "mercury.h"
 #include "pcap_file_io.h"
 #include "af_packet_io.h"
+#include "signal_handling.h"
 #include "utils.h"
 
 /*
@@ -343,7 +344,7 @@ enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
     unsigned long num_packets = 0;
     struct packet_info pi;
 
-    for (int i=0; i < loop_count; i++) {
+    for (int i=0; i < loop_count && sig_close_flag == 0; i++) {
         do {
             status = pcap_file_read_packet(f, &pkthdr, packet_data);
             if (status == status_ok) {
@@ -353,7 +354,7 @@ enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
                 num_packets++;
                 total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
             }
-        } while (status == status_ok);
+        } while (status == status_ok && sig_close_flag == 0);
         
         if (i < loop_count - 1) {
             // Rewind the file to the first packet after skipping file header.
