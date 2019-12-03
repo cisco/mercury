@@ -43,7 +43,6 @@ struct pcap_file {
     int flags;
     unsigned int byteswap; /* boolean, indicates if swap needed after read */
     size_t buf_len;        /* number of bytes in buffer                    */
-    //    unsigned char *w;      /* pointer to first emtpy byte in buffer        */ 
     unsigned char *buffer; /* buffer used for disk i/o                     */
     off_t  allocated_size; /* file size allocated using posix_fallocate    */
     uint64_t bytes_written; /* number of bytes written to this file       */
