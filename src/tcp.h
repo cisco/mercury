@@ -49,11 +49,6 @@ struct tcp_state {
 
 typedef unsigned __int128 uint128_t;
 
-// class key could use this comparison strategy:
-//  return memcmp(this, k, sizeof(class key));
-// if the structure is packed
-//
-// #pragma pack (1)
 struct key {
     uint16_t src_port;
     uint16_t dst_port;

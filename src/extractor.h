@@ -96,11 +96,6 @@ struct parser {
     const unsigned char *data_end;      /* end of data buffer        */
 };
 
-// enum status {
-//     status_ok  = 0,
-//     status_err = 1
-// };
-
 /*
  * extractor_is_not_done(x) returns 0 if the extractor is
  * done parsing a flow, and otherwiwse returns another value.

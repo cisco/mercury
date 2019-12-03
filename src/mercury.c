@@ -28,18 +28,6 @@
 #include "rnd_pkt_drop.h"
 #include "signal_handling.h"
 
-enum input_mode {
-    input_mode_unknown        = 0,
-    input_mode_read_file      = 1,
-    input_mode_capture        = 2
-};
-
-enum output_mode {
-    output_mode_unknown       = 0,
-    output_mode_pcap_file     = 1,
-    output_mode_json          = 2
-};
-
 #define TWO_TO_THE_N(N) (unsigned int)1 << (N)
 
 #define FLAGS_CLOBBER (O_TRUNC)
