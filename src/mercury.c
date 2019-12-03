@@ -72,98 +72,6 @@ enum status filename_append(char dst[MAX_FILENAME],
     return status_ok;
 }
 
-enum status frame_handler_init_from_config(struct frame_handler *handler,
-					   struct mercury_config *cfg,
-					   int tnum,
-					   char *fileset_id) {
-    enum status status;
-    char outfile[MAX_FILENAME];
-    pid_t pid = tnum; // syscall(__NR_gettid);
-
-    uint64_t max_records = 0;
-    if (cfg->rotate) {
-	max_records = cfg->rotate;
-    }
-    
-    if (cfg->write_filename) {
-	
-	status = filename_append(outfile, cfg->write_filename, "/", fileset_id);
-	if (status) {
-	    return status;
-	}	
-	if (cfg->verbosity) {
-	    printf("initializing thread function %x with filename %s\n", pid, outfile);
-	}
-	
-	if (cfg->filter) {
-	    /*
-	     * write only TLS clientHellos and TCP SYNs to capture file
-	     */
-	    status = frame_handler_filter_write_pcap_init(handler, outfile, cfg->flags);
-	    if (status) {
-		printf("error: could not open pcap output file %s\n", outfile);
-		return status;
-	    }
-	} else {
-	    /*
-	     * write all packets to capture file
-	     */
-	    status = frame_handler_write_pcap_init(handler, outfile, cfg->flags);
-	    if (status) {
-		printf("%s: could not open pcap output file %s\n", strerror(errno), outfile);
-		return status;
-	    }
-
-	}
-	
-    } else if (cfg->fingerprint_filename) {
-	/*
-	 * write fingerprints into output file
-	 */	
-	status = filename_append(outfile, cfg->fingerprint_filename, "/", fileset_id);
-	if (status) {
-	    return status;
-	}
-	if (cfg->verbosity) {
-	    printf("initializing thread function %x with filename %s\n", pid, outfile);
-	}
-	
-	status = frame_handler_write_fingerprints_init(handler, outfile, cfg->mode, max_records);
-	if (status) {
-	    perror("error: could not open fingerprint output file");
-	    return status;
-	}
-    } else {
-        /*
-	 * default: dump JSON-formatted packet info to stdout
-	 */
-	status = frame_handler_dump_init(handler);
-	if (status) {
-	    perror("could not initialize frame dump");
-	    return status;
-	}
-	
-    }
-    
-    return status_ok;
-}
-
-void *packet_processing_thread_func(void *userdata) {
-    struct thread_context *tc = (struct thread_context *)userdata;
-    enum status status;
-    
-    /*
-     * start packet processing loop
-     */
-    status = capture_loop(tc);
-    if (status) {
-	perror("failure in capture loop");
-	return NULL;
-    }
-    
-    return NULL;
-}
-
 void create_subdirectory(const char *outdir,
 			 enum create_subdir_mode mode) {
     printf("creating output directory %s\n", outdir);
@@ -184,7 +92,7 @@ void create_subdirectory(const char *outdir,
  * threads
  */
 struct pcap_reader_thread_context {
-    struct frame_handler handler; 
+    struct pkt_proc *pkt_processor;
     int tnum;                 /* Thread Number */
     pthread_t tid;            /* Thread ID */
     struct pcap_file rf;
@@ -198,10 +106,12 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
     char input_filename[MAX_FILENAME];
     tc->tnum = tnum;
 	tc->loop_count = cfg->loop_count;
+    enum status status;
     
-    enum status status = frame_handler_init_from_config(&tc->handler, cfg, tnum, fileset_id);
-    if (status) {
-	return status;
+    tc->pkt_processor = pkt_proc_new_from_config(cfg, tnum, fileset_id);
+    if (tc->pkt_processor == NULL) {
+        printf("error: could not initialize frame handler\n");
+        return status_err;
     }
 
     // if cfg->use_test_packet is on, read_filename will be NULL
@@ -210,7 +120,6 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
         if (status) {
             return status;
         }
-	
         status = pcap_file_open(&tc->rf, input_filename, io_direction_reader, cfg->flags);
         if (status) {
 	    printf("%s: could not open pcap input file %s\n", strerror(errno), cfg->read_filename);
@@ -224,27 +133,12 @@ void *pcap_file_processing_thread_func(void *userdata) {
     struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
     enum status status;
     
-    status = pcap_file_dispatch_frame_handler(&tc->rf, tc->handler.func, &tc->handler.context, tc->loop_count);
+    status = pcap_file_dispatch_pkt_processor(&tc->rf, tc->pkt_processor, tc->loop_count);
     if (status) {
 	printf("error in pcap file dispatch (code: %d)\n", (int)status);
 	return NULL;
     }
     
-    return NULL;
-}
-
-void *pcap_file_processing_test_packet_func(void *userdata) {
-    struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
-    enum status status;
-
-    status = pcap_file_dispatch_test_packet(tc->handler.func,
-                                            &tc->handler.context,
-                                            tc->loop_count);
-    if (status) {
-        printf("error in pcap file dispatch (code: %u)\n", status);
-        return NULL;
-    }
-
     return NULL;
 }
 
@@ -360,10 +254,12 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 
 	for (int i = 0; i < tnum; i++) {
 	    pthread_join(tc[i].tid, NULL);
-	    bytes_written += tc[i].handler.context.pcap_file.bytes_written;
-	    packets_written += tc[i].handler.context.pcap_file.packets_written;
+        //        struct pkt_proc_stats pkt_stats = tc[i].pkt_processor->get_stats();
+	    bytes_written += tc[i].pkt_processor->bytes_written;
+	    packets_written += tc[i].pkt_processor->packets_written;
+        delete tc[i].pkt_processor;
 	}
-		
+
     } else {
 
 	/*
@@ -377,9 +273,11 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	}
 
 	pcap_file_processing_thread_func(&tc);
-	bytes_written = tc.handler.context.pcap_file.bytes_written;
-	packets_written = tc.handler.context.pcap_file.packets_written;
+    //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
+	bytes_written = tc.pkt_processor->bytes_written;
+	packets_written = tc.pkt_processor->packets_written;
     pcap_file_close(&(tc.rf));
+    delete tc.pkt_processor;
     }
 
     nano_seconds = get_clocktime_after(&before, &after);
@@ -393,97 +291,6 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
     return status_ok;
 }
 
-/*
- * For -T or --test option, we use a canned packet to generate the output data
- * If -t or --threads option is specified, we create a subdirectory and spawn a number
- * of threads to generate output data.
- * If -p or --loop-count option is specified, we generate as many packets as the loop-count.
- */
-int dispatch_test_packets(struct mercury_config *cfg, int num_threads) {
-
-    struct timespec before, after;
-	u_int64_t nano_seconds = 0;
-	u_int64_t bytes_written = 0;
-	u_int64_t packets_written = 0;
-
-        printf("dispatch_test_packets: num_threads=%d\n", num_threads);
-
-    get_clocktime_before(&before); // get timestamp before we start processing
-
-    if (num_threads == 1) {
-        struct pcap_reader_thread_context tc;
-        tc.handler.context.pcap_file.bytes_written = 0;
-        tc.handler.context.pcap_file.packets_written = 0;
-
-        enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
-        if (status != status_ok) {
-            return status;
-        }
-
-        pcap_file_processing_test_packet_func(&tc);
-        bytes_written = tc.handler.context.pcap_file.bytes_written;
-        packets_written = tc.handler.context.pcap_file.packets_written;
-        pcap_file_close(&(tc.rf));
-    } else if (num_threads > 1) {
-        /*
-	     * create subdirectory into which each thread will write its output
-	     */
-	    char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
-	    //enum create_subdir_mode mode = cfg->rotate ? create_subdir_mode_overwrite : create_subdir_mode_do_not_overwrite;
-	    create_subdirectory(outdir, create_subdir_mode_overwrite);
-
-        /*
-         * create capture worker threads and set up thread contexts
-         */
-        struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)
-                                                malloc(num_threads * sizeof(struct pcap_reader_thread_context));
-        if (!tc) {
-	        perror("could not allocate memory for thread storage array\n");
-        }
-
-        for (int i=0; i < num_threads; i++) {
-	        tc[i].tnum = i;
-	        tc[i].tid = 0;
-        }
-
-        for (int i=0; i < num_threads; i++) {
-            char hexname[MAX_HEX];
-            snprintf(hexname, MAX_HEX, "%x", tc[i].tnum);
-
-            enum status status = pcap_reader_thread_context_init_from_config(&tc[i], cfg, tc[i].tnum, hexname);
-	        if (status) {
-	            printf("error: could not initialize thread context\n");
-	            exit(255);
-	        }
-	        printf("creating capture thread %d\n", i);
-	        int err = pthread_create(&(tc[i].tid), NULL, pcap_file_processing_test_packet_func, &tc[i]);
-	        if (err) {
-	            printf("%s: error creating af_packet capture thread %d\n", strerror(err), i);
-	            exit(255);
-	        }
-        }
-
-        /*
-         * wait for threads to finish (but they never do; should we use detached threads?)
-        */
-        for (int i = 0; i < num_threads; i++) {
-	        pthread_join(tc[i].tid, NULL);
-            bytes_written += tc[i].handler.context.pcap_file.bytes_written;
-            packets_written += tc[i].handler.context.pcap_file.packets_written;
-            pcap_file_close(&(tc[i].rf));
-        }
-    }
-
-    nano_seconds = get_clocktime_after(&before, &after);
-    double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
-
-	if (cfg->write_filename) {
-	    printf("For all files, Packets Written: %lu, Bytes Written: %lu, nano sec: %lu, byte rate: %lf\n",
-                packets_written, bytes_written, nano_seconds, byte_rate);
-	}
-
-    return 0;
-}
 
 #define EXIT_ERR 255
 
@@ -492,7 +299,6 @@ char mercury_help[] =
     "INPUT\n"
     "   [-c or --capture] capture_interface   # capture packets from interface\n"
     "   [-r or --read] read_file              # read packets from file\n"
-//  "   [-T or --test]                        # write pcap file with test packet\n"
     "OUTPUT\n"
     "   [-f or --fingerprint] json_file_name  # write fingerprints to JSON file\n"
     "   [-w or --write] pcap_file_name        # write packets to PCAP/MCAP file\n"
@@ -598,12 +404,11 @@ int main(int argc, char *argv[]) {
 	    { "help",        no_argument,       NULL, 'h' },
 	    { "select",      no_argument,       NULL, 's' },
 	    { "verbose",     no_argument,       NULL, 'v' },
-	    { "test",        no_argument,       NULL, 'T' },
 	    { "loop",        required_argument, NULL, 'p' },
 	    { "adaptive",    no_argument,       NULL,  0  },
 	    { NULL,          0,                 0,     0  }
 	};
-	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vTp:", long_opts, &opt_idx);
+	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:", long_opts, &opt_idx);
 	if (c < 0) {
 	    break;
 	}
@@ -767,10 +572,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (num_inputs == 0) {
-	usage(argv[0], "neither read [r] nor capture [c] nor Test [T] specified on command line", extended_help_off);
+	usage(argv[0], "neither read [r] nor capture [c] specified on command line", extended_help_off);
     }
     if (num_inputs > 1) {
-	usage(argv[0], "more than one read [r] or capture [c] or Test [T] are specified on command line", extended_help_off);
+	usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
 	usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
@@ -836,11 +641,6 @@ int main(int argc, char *argv[]) {
 	
     }
 
-    if (cfg.use_test_packet) {
-	
-	dispatch_test_packets(&cfg, cfg.num_threads);
-	
-    }
     analysis_finalize();
     
     return 0;
