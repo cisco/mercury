@@ -88,6 +88,13 @@ void fprintf_timestamp(FILE *f, unsigned int sec, unsigned int usec) {
 
 }
 
+/* macro for fputc */
+#define FPUTC(C, F)                                       \
+        if (fputc((int)C, F) == EOF) {                    \
+            perror("Error while printing base64 char\n"); \
+            return;                                       \
+        }
+
 static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
                                 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
@@ -97,21 +104,13 @@ static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'w', 'x', 'y', 'z', '0', '1', '2', '3',
                                 '4', '5', '6', '7', '8', '9', '+', '/'};
 
-static int mod_table[] = {0, 2, 1};
-
+static size_t mod_table[] = {0, 2, 1};
 static void fprintf_json_base64_string(FILE *file,
                     const unsigned char *data,
                     size_t input_length) {
 
-    char encoded_data[FP_BUF_LEN * 3]= { 0 };
-    size_t output_length = 4 * ((input_length + 2) / 3);
-    if (output_length >= FP_BUF_LEN * 3) {
-        fprintf(stderr, "Error: Output length=%lu is bigger than BUF len=%u\n", output_length, FP_BUF_LEN * 3);
-        fprintf(file, "\"\""); /* print null string */
-        return;
-    }
-
-    for (unsigned int i = 0, j = 0; i < input_length;) {
+    size_t i = 0;
+    while ( i < input_length) {
 
         uint32_t octet_a = i < input_length ? (unsigned char)data[i++] : 0;
         uint32_t octet_b = i < input_length ? (unsigned char)data[i++] : 0;
@@ -119,16 +118,15 @@ static void fprintf_json_base64_string(FILE *file,
 
         uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
 
-        encoded_data[j++] = encoding_table[(triple >> 3 * 6) & 0x3F];
-        encoded_data[j++] = encoding_table[(triple >> 2 * 6) & 0x3F];
-        encoded_data[j++] = encoding_table[(triple >> 1 * 6) & 0x3F];
-        encoded_data[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
+        FPUTC(encoding_table[(triple >> 3 * 6) & 0x3F], file);
+        FPUTC(encoding_table[(triple >> 2 * 6) & 0x3F], file);
+        FPUTC(encoding_table[(triple >> 1 * 6) & 0x3F], file);
+        FPUTC(encoding_table[(triple >> 0 * 6) & 0x3F], file);
     }
 
-    for (int i = 0; i < mod_table[input_length % 3]; i++)
-        encoded_data[output_length - 1 - i] = '=';
-
-    fprintf(file, "%s", encoded_data);
+    for (i = 0; i < mod_table[input_length % 3]; i++) {
+        FPUTC('=', file);
+    }
 }
 
 void json_file_write(struct json_file *jf,
@@ -213,27 +211,41 @@ void json_file_write(struct json_file *jf,
 	    break;
 	case fingerprint_type_tls_cert:
         /* print the certificate in base64 format */
-	    fprintf(file, "{\"tls_server\":{");
-	    fprintf(file, "\"Certificate\":\"");
-		fprintf_json_base64_string(file,
+        fprintf(file, "{\"tls\":{");
+        fprintf(file, "\"server_certs\":[\"");
+        fprintf_json_base64_string(file,
 					x.packet_data.value,
 					x.packet_data.length);
-	    fprintf(file, "\"},");
+        /* check if we have another certificate */
+        if (x.cert_data.type == packet_data_type_tls_cert) {
+            fprintf(file, "\",\""); /* preceding comma to separate array elements */
+            fprintf_json_base64_string(file,
+                                        x.cert_data.value,
+                                        x.cert_data.length);
+        }
+	    fprintf(file, "\"]},");
 	    break;
 	case fingerprint_type_tls_server_and_cert:
-        /* print the certificate in base64 format */
-	    fprintf(file, "{\"tls_server\":{");
-	    fprintf(file, "\"Certificate\":\"");
-		fprintf_json_base64_string(file,
-					x.packet_data.value,
-					x.packet_data.length);
-	    fprintf(file, "\"}}\n");
-
-        /* now print the fingerprint */
+        /* print the fingerprint */
 	    fprintf(file, "{\"fingerprints\":{");
 	    fprintf(file, "\"tls_server\":\"");
 	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
 	    fprintf(file, "\"},");
+
+        /* print the certificate in base64 format */
+	    fprintf(file, "\"tls\":{");
+        fprintf(file, "\"server_certs\":[\"");
+        fprintf_json_base64_string(file,
+                                    x.packet_data.value,
+                                    x.packet_data.length);
+        /* check if we have another certificate */
+        if (x.cert_data.type == packet_data_type_tls_cert) {
+            fprintf(file, "\",\""); /* preceding comma to separate array elements */
+            fprintf_json_base64_string(file,
+                                        x.cert_data.value,
+                                        x.cert_data.length);
+        }
+	    fprintf(file, "\"]},");
 	    break;
 	default:
 	    /* print nothing */

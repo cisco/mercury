@@ -22,6 +22,7 @@ struct packet_info {
   uint32_t len;        /* length this packet (off wire) */
 };
 
+extern unsigned int packet_filter_threshold;
 
 typedef void (*frame_handler_func)(void *userdata,
 				   struct packet_info *pi,
