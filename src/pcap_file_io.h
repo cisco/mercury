@@ -41,7 +41,7 @@ struct pcap_file {
 #ifndef lib_pcap_pcap_h
 #include <stdint.h>
 #include <sys/time.h>
-#include "pkt_proc.h"
+//#include "pkt_proc.h"
 
 struct pcap_pkthdr {
     struct timeval ts;   /* timestamp                     */
@@ -82,5 +82,8 @@ enum status packet_handler_fingerprint_to_file(void *userdata,
 					       const void *packet,
 					       size_t length);
 
+enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
+                                             struct pkt_proc *pkt_processor,
+                                             int loop_count);
 
 #endif /* PCAP_FILE_IO_H */

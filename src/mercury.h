@@ -79,4 +79,5 @@ enum status filename_append(char dst[MAX_FILENAME],
 void get_clocktime_before (struct timespec *before);
 uint64_t get_clocktime_after (struct timespec *before, struct timespec *after);
 
+
 #endif /* MERCURY_H */
