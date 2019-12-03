@@ -77,9 +77,15 @@ cdef class TLS():
     def load_database(self, str fp_database):
         cdef str line, fp_str
         cdef dict fp_
-        for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):
-            fp_ = json.loads(line)
-            self.fp_db[fp_['str_repr']] = fp_
+        IF UNAME_SYSNAME == "Windows":
+            import gzip
+            for line in gzip.open(fp_database, 'r'):
+                fp_ = json.loads(line)
+                self.fp_db[fp_['str_repr']] = fp_
+        ELSE:
+            for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):
+                fp_ = json.loads(line)
+                self.fp_db[fp_['str_repr']] = fp_
         if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
             self.MALWARE_DB = False
         if ('classes_ip_ip' in self.fp_db[fp_['str_repr']]['process_info'][0] and
