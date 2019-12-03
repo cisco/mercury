@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>      /* for FILE */
 #include "mercury.h"
+#include "tcp.h"
 
 
 enum packet_data_type {
@@ -140,16 +141,6 @@ enum status extractor_skip(struct extractor *x,
  */
 enum status extractor_skip_to(struct extractor *x,
 			      const unsigned char *location);
-
-/*
- * extractor_copy copies data from the data buffer to the output
- * buffer, after prepending the length of that data, and advances both
- * the data pointer and the output pointer.
- */
-enum status parser_extractor_copy(struct parser *p,
-				  struct extractor *x,
-				  unsigned int len);
-
 
 /*
  * extractor_copy_append copies data from the data buffer to the
@@ -289,5 +280,62 @@ size_t extract_fp_from_tls_client_hello(uint8_t *data,
 
 void parser_init_packet(struct parser *p, const unsigned char *data, unsigned int length);
 
+
+/*
+ * struct packet_filter implements packet metadata filtering
+ */
+struct packet_filter {
+    struct tcp_initial_message_filter *tcp_init_msg_filter;
+    struct parser p;
+    struct extractor x;
+    unsigned char extractor_buffer[2048];
+};
+
+/*
+ * packet_filter_init(pf, s) initializes a packet filter, using the
+ * configuration string s passed as input
+ */
+enum status packet_filter_init(struct packet_filter *pf,
+			       const char *config_string);
+
+/*
+ * packet_filter_apply(pf, p, len) applies the packet
+ * filter pf to the packet p of length len, and returns
+ * true if the packet should be kept, and false if the
+ * packet should be dropped
+ */
+
+bool packet_filter_apply(struct packet_filter *pf,
+			 uint8_t *packet,
+			 size_t length);
+
+size_t packet_filter_extract(struct packet_filter *pf,
+                             uint8_t *packet,
+                             size_t length);
+
+typedef unsigned int (*parser_extractor_func)(struct parser *p, struct extractor *x);
+
+#define proto_ident_mask_len 8
+
+struct proto_dispatch_entry {
+    uint8_t mask[proto_ident_mask_len];
+    uint8_t value[proto_ident_mask_len];
+    parser_extractor_func func;
+};
+
+#define proto_dispatch_max 8
+
+struct proto_dispatch {
+    struct proto_dispatch_entry entry[proto_dispatch_max];
+    unsigned int num_entries;
+};
+
+void proto_dispatch_init(struct proto_dispatch *pd);
+
+enum status proto_dispatch_add(struct proto_dispatch *pd,
+			       const struct proto_dispatch_entry *pde);
+
+
+enum status proto_ident_config(const char *config_string);
 
 #endif /* EXTRACTOR_H */

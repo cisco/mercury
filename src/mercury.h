@@ -58,11 +58,12 @@ struct mercury_config {
     char *user;                     /* username of account used for privilege drop    */
     int loop_count;                 /* loop count for repeat processing of read file  */
     int verbosity;                  /* 0=minimal output; 1=more detailed output       */
+    char *packet_filter_cfg;        /* packet filter configuration string             */
     int use_test_packet;            /* use test packet to write output file           */
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0  }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0  }
 
 enum create_subdir_mode {
     create_subdir_mode_do_not_overwrite = 0,
