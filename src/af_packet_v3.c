@@ -33,6 +33,7 @@
 
 #include "af_packet_io.h"
 #include "af_packet_v3.h"
+#include "signal_handling.h"
 #include "utils.h"
 #include "rnd_pkt_drop.h"
 
@@ -46,15 +47,20 @@
  * sig_close_flag and the packet worker threads will watch
  * sig_close_workers.
  */
-int sig_close_flag = 0; /* Watched by the stats tracking thread */
-int sig_close_workers = 0; /* Packet proccessing var */
+extern int sig_close_flag; /* Watched by the stats tracking thread, defined in mercury.c */
+static int sig_close_workers = 0; /* Packet proccessing var */
 
-double time_elapsed(struct timespec *ts);
+static double time_elapsed(struct timespec *ts) {
 
-void sig_close(int signal_arg) {
-  psignal(signal_arg, "\nGracefully shutting down");
+    double time_s;
+    time_s = ts->tv_sec + (ts->tv_nsec / 1000000000.0);
+    
+    if (clock_gettime(CLOCK_REALTIME, ts) != 0) {
+	perror("Unable to get clock time for elapsed calculation");
+	return NAN;
+    }
 
-  sig_close_flag = 1;
+  return (ts->tv_sec + (ts->tv_nsec / 1000000000.0)) - time_s;
 }
 
 void af_packet_stats(int sockfd, struct stats_tracking *statst) {
@@ -162,6 +168,11 @@ void *stats_thread_func(void *statst_arg) {
   struct timespec ts;
   double time_d; /* time delta */
   memset(&ts, 0, sizeof(ts));
+  /**
+   * Enable all signals so that this thread shuts down first
+   */
+  enable_all_signals();
+
   while (sig_close_flag == 0) {
     uint64_t packets_before = statst->received_packets;
     uint64_t bytes_before = statst->received_bytes;
@@ -673,6 +684,13 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
 void *packet_capture_thread_func(void *arg)  {
   struct thread_storage *thread_stor = (struct thread_storage *)arg;
 
+  /**
+   * Disable all signals so that this worker thread is not disturbed 
+   * in the middle of packet processing.
+   */
+  disable_all_signals();
+
+  /* now process the packets */
   if (af_packet_rx_ring_fanout_capture(thread_stor) < 0) {
     fprintf(stdout, "error: could not perform packet capture\n");
     exit(255);
@@ -934,18 +952,4 @@ void ring_limits_init(struct ring_limits *rl, float frac) {
     rl->af_blocktimeout   = 100;             /* milliseconds before a block is returned partially full */
     rl->af_fanout_type    = PACKET_FANOUT_HASH;
 
-}
-
-
-double time_elapsed(struct timespec *ts) {
-
-    double time_s;
-    time_s = ts->tv_sec + (ts->tv_nsec / 1000000000.0);
-    
-    if (clock_gettime(CLOCK_REALTIME, ts) != 0) {
-	perror("Unable to get clock time for elapsed calculation");
-	return NAN;
-    }
-
-  return (ts->tv_sec + (ts->tv_nsec / 1000000000.0)) - time_s;
 }

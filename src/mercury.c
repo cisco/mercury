@@ -26,6 +26,7 @@
 #include "af_packet_v3.h"
 #include "analysis.h"
 #include "rnd_pkt_drop.h"
+#include "signal_handling.h"
 
 enum input_mode {
     input_mode_unknown        = 0,
@@ -40,23 +41,6 @@ enum output_mode {
 };
 
 #define TWO_TO_THE_N(N) (unsigned int)1 << (N)
-
-/*
- * sig_close() causes a graceful shutdown of the program after recieving
- * an appropriate signal
- */
-static void sig_close (int signal_arg) {
-
-    printf("\ngot signal %d, shutting down\n", signal_arg);
-
-    analysis_finalize();
-
-    /*
-     * the function exit() should invoke fflush() on our output buffers
-     */
-    exit(0);
-}
-
 
 #define FLAGS_CLOBBER (O_TRUNC)
 
@@ -395,6 +379,7 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	pcap_file_processing_thread_func(&tc);
 	bytes_written = tc.handler.context.pcap_file.bytes_written;
 	packets_written = tc.handler.context.pcap_file.packets_written;
+    pcap_file_close(&(tc.rf));
     }
 
     nano_seconds = get_clocktime_after(&before, &after);
@@ -438,6 +423,7 @@ int dispatch_test_packets(struct mercury_config *cfg, int num_threads) {
         pcap_file_processing_test_packet_func(&tc);
         bytes_written = tc.handler.context.pcap_file.bytes_written;
         packets_written = tc.handler.context.pcap_file.packets_written;
+        pcap_file_close(&(tc.rf));
     } else if (num_threads > 1) {
         /*
 	     * create subdirectory into which each thread will write its output
@@ -484,6 +470,7 @@ int dispatch_test_packets(struct mercury_config *cfg, int num_threads) {
 	        pthread_join(tc[i].tid, NULL);
             bytes_written += tc[i].handler.context.pcap_file.bytes_written;
             packets_written += tc[i].handler.context.pcap_file.packets_written;
+            pcap_file_close(&(tc[i].rf));
         }
     }
 
@@ -815,8 +802,7 @@ int main(int argc, char *argv[]) {
     /*
      * set up signal handlers, so that output is flushed upon close
      */
-    signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
-    signal(SIGTERM, sig_close);
+    setup_signal_handler();
 
     /* process packets */
     
@@ -844,10 +830,8 @@ int main(int argc, char *argv[]) {
 	
 	af_packet_bind_and_dispatch(&cfg, &rl);
 	
-    }
-    
-    if (cfg.read_filename) {
-	
+    } else if (cfg.read_filename) {
+
 	open_and_dispatch(&cfg);
 	
     }
