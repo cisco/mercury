@@ -332,11 +332,9 @@ void packet_info_init_from_pkthdr(struct packet_info *pi,
     pi->ts.tv_nsec = pkthdr->ts.tv_usec * 1000;
 } 
 
-
-enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
-					     frame_handler_func func,
-					     void *userdata,
-					     int loop_count) {
+enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
+                                             struct pkt_proc *pkt_processor,
+                                                   int loop_count) {
     enum status status = status_ok;
     struct pcap_pkthdr pkthdr;
     uint8_t packet_data[BUFLEN];
@@ -350,7 +348,7 @@ enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
             if (status == status_ok) {
                 packet_info_init_from_pkthdr(&pi, &pkthdr);
                 // process the packet that was read
-                func(userdata, &pi, packet_data);
+                pkt_processor->apply(&pi, packet_data);
                 num_packets++;
                 total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
             }
@@ -365,8 +363,8 @@ enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
         }
     }
 
-    f->bytes_written = total_length;
-    f->packets_written = num_packets;
+    pkt_processor->bytes_written = total_length;
+    pkt_processor->packets_written = num_packets;
 
     if (status == status_err_no_more_data) {
         return status_ok;
@@ -495,23 +493,3 @@ uint8_t *get_test_packet(struct pcap_pkthdr *pkthdr) {
     return pkt_large;
 }
 
-enum status pcap_file_dispatch_test_packet(frame_handler_func func,
-                         void *userdata,
-                         int loop_count) {
-    struct pcap_pkthdr pkthdr;
-    uint8_t *packet_data;
-    unsigned long total_length = sizeof(struct pcap_file_hdr); // file header is already written
-    unsigned long num_packets = 0;
-    struct packet_info pi;
-    printf("pcap_file_dispatch_test_packet: loop=%d\n", loop_count);
-    for (int i=0; i < loop_count; i++) {
-            packet_data = get_test_packet(&pkthdr);
-            packet_info_init_from_pkthdr(&pi, &pkthdr);
-            // process the packet that was read
-            func(userdata, &pi, packet_data);
-            num_packets++;
-            total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
-    }
-
-    return status_ok;
-}
