@@ -19,7 +19,7 @@ enum packet_data_type {
     packet_data_type_none            = 0,
     packet_data_type_tls_sni         = 1,
     packet_data_type_http_user_agent = 2,
-    packet_data_type_tls_cert_data   = 3
+    packet_data_type_tls_cert        = 3
 };
 
 struct packet_data {
@@ -92,6 +92,7 @@ struct extractor {
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
     struct packet_data packet_data;     /* data of interest in packt */
+    struct packet_data cert_data;       /* additional cert if present*/
 };
 
 struct parser {

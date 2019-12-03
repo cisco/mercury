@@ -114,10 +114,13 @@ struct pi_container http_server = {
 
 void printf_raw_as_hex(const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;
+    printf("\n  Len = %u\n", len);
+    if (len > 128) {
+        len = 128;
+    }
     const unsigned char *end = data + len;
     int i;
 
-    printf("\n\tLen = %u\n", len);
     for (x = data; x < end; ) {
         for (i=0; i < 16 && x < end; i++) {
             printf(" %02x", *x++);
@@ -209,6 +212,7 @@ void extractor_init(struct extractor *x,
     x->last_capture = NULL;
 
     packet_data_init(&x->packet_data);
+    packet_data_init(&x->cert_data);
 }
 
 void parser_init(struct parser *p,
@@ -1266,25 +1270,70 @@ unsigned int parser_process_tls(struct parser *p) {
 #define L_CertificateLength        3
 
 enum status parser_process_certificate(struct parser *p, struct extractor *x) {
-    size_t tmp_len;
+    size_t total_len, tmp_len;
 
-    /* get certificate length */
+    /* get total certificate length */
+    if (parser_read_and_skip_uint(p, L_CertificateLength, &total_len) == status_err) {
+	    return status_err;
+    }
+
     if (parser_read_and_skip_uint(p, L_CertificateLength, &tmp_len) == status_err) {
 	    return status_err;
     }
 
-    if (tmp_len > (unsigned)parser_get_data_length(p)) {
-        /* certificate length is greater than remaining packet size */
-        tmp_len  = parser_get_data_length(p);
+    if (total_len < tmp_len) {
+        extractor_debug("Certificate len %lu is less than total len %lu, so skip this data\n",
+                        tmp_len, total_len);
+        return status_err;
     }
 
-    //printf_raw_as_hex(p->data, tmp_len);
+    if (tmp_len > (unsigned)parser_get_data_length(p)) {
+        /* certificate length is greater than remaining packet size */
+        tmp_len  = parser_get_data_length(p);  /* truncate certificate length */
+    }
 
-    /* set certificate data */
+    /* set full or truncated certificate data */
     packet_data_set(&x->packet_data,
-                    packet_data_type_tls_cert_data,
+                    packet_data_type_tls_cert,
                     tmp_len,
                     p->data);
+
+    /*
+     * skip over certificate data
+     */
+    if (parser_skip(p, tmp_len) == status_err) {
+	    return status_err;
+    }
+
+    total_len -= (tmp_len + L_CertificateLength);
+    /*
+     * check if we have more certificates
+     */
+    if (parser_get_data_length(p) > 0) {
+        if (total_len > 0) {
+            /* we have another certificate */
+            if (parser_read_and_skip_uint(p, L_CertificateLength, &tmp_len) == status_err) {
+	            return status_ok; /* return ok since we already got one certificate */
+            }
+            if (total_len < tmp_len) {
+                extractor_debug("Certificate len %lu is less than total len %lu, so skip this data\n",
+                                tmp_len, total_len);
+                return status_ok; /* return ok since we already got one certificate */
+            }
+
+            /* get this second certificate  */
+            if (tmp_len > (unsigned)parser_get_data_length(p)) {
+                /* certificate length is greater than remaining packet size */
+                tmp_len  = parser_get_data_length(p);  /* truncate certificate length */
+            }
+
+            /* set full or truncated certificate data */
+            packet_data_set(&x->cert_data,
+                            packet_data_type_tls_cert,
+                            tmp_len,
+                            p->data);
+        }
+    }
 
     return status_ok;
 }
@@ -1418,7 +1467,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
         encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
 
         /*
-         * After processing extensions, parse Server Certificate if present
+         * After processing extensions, process Server Certificate if present
          */
         if (parser_get_data_length(p) > 0) {
             /*
@@ -1427,22 +1476,23 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
             if (parser_match(p, tls_server_cert_value,
 		          L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType,
 		          tls_server_cert_mask) == status_err) {
-	            goto bail; /* not a certificate */
+	            goto done; /* there is data, but no certificate */
             }
-            extractor_debug("%s: Processing certificate after Server Hello, len = %lu\n",
-                            __func__, (p->data_end - p->data));
-            x->fingerprint_type = fingerprint_type_tls_server_and_cert;
 
-            if (parser_skip(p, L_CertificateLength + L_CertificateLength) == status_err) {
-                goto bail;
+            if (parser_skip(p, L_CertificateLength) == status_err) {
+                goto done;
             }
 
             if (parser_process_certificate(p, x) == status_err) {
-                goto bail;
+                goto done;
             }
+
+            /* we got the Server Hello as well as the certificate */
+            x->fingerprint_type = fingerprint_type_tls_server_and_cert;
         }
     }
 
+ done:
     x->proto_state.state = state_done;
 
     return extractor_get_output_length(x);
@@ -1461,8 +1511,7 @@ unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct e
     extractor_debug("%s: Processing server certificate at the begining, len = %lu, output len = %lu\n",
             __func__, parser_get_data_length(p), extractor_get_output_length(x));
 
-    int skip_len = (L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType
-                    + L_CertificateLength + L_CertificateLength);
+    int skip_len = (L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType + L_CertificateLength);
 
     if (parser_skip(p, skip_len) == status_err) {
         goto bail;
@@ -1472,15 +1521,15 @@ unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct e
         goto bail;
     }
 
-    x->fingerprint_type = fingerprint_type_tls_cert;
+    x->fingerprint_type = fingerprint_type_tls_cert; /* only certificate(s) */
     x->proto_state.state = state_done;
-    return 10;
+    return packet_filter_threshold + 1; /* for json_file_write() */
 
 bail:
     /*
      * handle possible packet parsing errors
      */
-    printf("%s: warning: TLS serverCert did not complete\n", __func__);
+    extractor_debug("%s: warning: TLS serverCert did not complete\n", __func__);
     return 0;
 }
 

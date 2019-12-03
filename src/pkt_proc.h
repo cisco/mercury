@@ -26,6 +26,7 @@ struct packet_info {
   uint32_t len;        /* length this packet (off wire) */
 };
 
+extern unsigned int packet_filter_threshold;
 
 struct pkt_proc_stats {
     size_t bytes_written;
