@@ -265,7 +265,7 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	/*
 	 * we have a single capture file, not a directory of capture files
 	 */
-	struct pcap_reader_thread_context tc;
+        struct pcap_reader_thread_context tc;
 	    
 	enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
 	if (status != status_ok) {
@@ -402,7 +402,7 @@ int main(int argc, char *argv[]) {
 	    { "user",        required_argument, NULL, 'u' },
 	    { "multiple",    required_argument, NULL, 'm' },
 	    { "help",        no_argument,       NULL, 'h' },
-	    { "select",      no_argument,       NULL, 's' },
+	    { "select",      optional_argument, NULL, 's' },
 	    { "verbose",     no_argument,       NULL, 'v' },
 	    { "loop",        required_argument, NULL, 'p' },
 	    { "adaptive",    no_argument,       NULL,  0  },
@@ -469,10 +469,12 @@ int main(int argc, char *argv[]) {
 	    break;
 	case 's':
 	    if (optarg) {
-		usage(argv[0], "error: option s or select does not use an argument", extended_help_off);
-	    } else {
-		cfg.filter = 1;
-	    }
+		if (optarg[0] != '=' || optarg[1] == 0) {
+		    usage(argv[0], "error: option s or select has the form s=\"packet filter config string\"", extended_help_off);
+		}
+		cfg.packet_filter_cfg = optarg+1;
+	    } 
+	    cfg.filter = 1;
 	    break;
 	case 'h':
 	    if (optarg) {

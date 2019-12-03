@@ -20,7 +20,6 @@
  */
 unsigned int packet_filter_threshold = 8;
 
-
 struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                                           int tnum,
                                           char *fileset_id) {

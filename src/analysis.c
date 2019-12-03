@@ -54,7 +54,6 @@ void flow_key_sprintf_dst_addr(const struct flow_key *key,
 
 #define MAX_FP_STR_LEN 4096
 #define MAX_SNI_LEN     257
-#define FP_BUF_LEN     2048				  
 void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
 						  const struct extractor *x,
 						  const struct flow_key *key) {

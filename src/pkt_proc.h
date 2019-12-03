@@ -27,7 +27,6 @@ struct packet_info {
 };
 
 
-
 struct pkt_proc_stats {
     size_t bytes_written;
     size_t packets_written;
@@ -38,6 +37,7 @@ struct pkt_proc_stats {
  * the interface to packet processing that can be used by packet
  * capture or packet file readers.
  */
+
 struct pkt_proc {
     virtual void apply(struct packet_info *pi, uint8_t *eth) = 0;
     virtual void flush() = 0;
@@ -132,7 +132,6 @@ struct pkt_proc_pcap_writer : public pkt_proc {
 
 };
 
-
 /*
  * struct pkt_proc_filter_pcap_writer represents a packet processing
  * object that first filters packets, then writes tem out in PCAP file
@@ -157,10 +156,6 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) {
-        struct parser p;
-        struct extractor x;
-        unsigned char extractor_buffer[2048];
-        size_t bytes_extracted;
         uint8_t *packet = eth;
         unsigned int length = pi->len;
 
@@ -170,11 +165,8 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
             return;  /* random packet drop configured, and this packet got selected to be discarded */
         }
 
-        extractor_init(&x, extractor_buffer, 2048);
-        parser_init(&p, (unsigned char *)packet, length);
-        bytes_extracted = parser_extractor_process_packet(&p, &x);
-
-        if (bytes_extracted > packet_filter_threshold) {
+        struct packet_filter pf;
+        if (packet_filter_apply(&pf, packet, length)) {
             pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
         }
     }
