@@ -323,10 +323,10 @@ cdef class TLS():
             app_cat = p_['application_category']
 
         if self.MALWARE_DB:
-            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256s'],
+            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256'],
                     'malware':p_['malware'], 'category':app_cat}
         else:
-            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256s'], 'category':app_cat}
+            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256'], 'category':app_cat}
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
