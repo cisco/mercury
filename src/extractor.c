@@ -166,6 +166,11 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
 	return &https_server_cert;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
+					 tls_server_cert_mask,
+					 tls_server_cert_value)) {
+	return &https_server_cert;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
 					 http_client_mask,
 					 http_client_value)) {
 	return &http_client;
