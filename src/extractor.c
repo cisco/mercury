@@ -16,6 +16,7 @@
 #include "proto_identify.h"
 #include "eth.h"
 #include "tcp.h"
+#include "pkt_proc.h"
 
 /*
  * The extractor_debug macro is useful for debugging (but quite verbose)
@@ -79,8 +80,7 @@ unsigned char tls_server_cert_value[] = {
 
 struct pi_container https_server_cert = {
     DIR_UNKNOWN,
-    HTTPS_PORT,
-    0
+    HTTPS_PORT
 };
 
 unsigned char http_client_mask[] = {

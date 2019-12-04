@@ -202,14 +202,14 @@ void json_file_write(struct json_file *jf,
         fprintf(file, "{\"tls\":{");
         fprintf(file, "\"server_certs\":[\"");
         fprintf_json_base64_string(file,
-					x.packet_data.value,
-					x.packet_data.length);
+                                    pf.x.packet_data.value,
+                                    pf.x.packet_data.length);
         /* check if we have another certificate */
-        if (x.cert_data.type == packet_data_type_tls_cert) {
+        if (pf.x.cert_data.type == packet_data_type_tls_cert) {
             fprintf(file, "\",\""); /* preceding comma to separate array elements */
             fprintf_json_base64_string(file,
-                                        x.cert_data.value,
-                                        x.cert_data.length);
+                                        pf.x.cert_data.value,
+                                        pf.x.cert_data.length);
         }
 	    fprintf(file, "\"]},");
 	    break;
@@ -224,14 +224,14 @@ void json_file_write(struct json_file *jf,
 	    fprintf(file, "\"tls\":{");
         fprintf(file, "\"server_certs\":[\"");
         fprintf_json_base64_string(file,
-                                    x.packet_data.value,
-                                    x.packet_data.length);
+                                    pf.x.packet_data.value,
+                                    pf.x.packet_data.length);
         /* check if we have another certificate */
-        if (x.cert_data.type == packet_data_type_tls_cert) {
+        if (pf.x.cert_data.type == packet_data_type_tls_cert) {
             fprintf(file, "\",\""); /* preceding comma to separate array elements */
             fprintf_json_base64_string(file,
-                                        x.cert_data.value,
-                                        x.cert_data.length);
+                                        pf.x.cert_data.value,
+                                        pf.x.cert_data.length);
         }
 	    fprintf(file, "\"]},");
 	    break;

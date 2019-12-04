@@ -82,7 +82,7 @@ enum status element_init(struct element *e,
     uint16_t tmp = decode_uint16(data);
     uint16_t length = (tmp & LENGTH_MASK);
     if (length + sizeof(uint16_t) > max_length) {
-	fprintf(stderr, "element_init length: %04d\tmax_length: %04d\n", length, max_length);
+	//fprintf(stderr, "element_init length: %04d\tmax_length: %04d\n", length, max_length);
 	return status_err;
     }
     if (tmp & PARENT_NODE_INDICATOR) {
