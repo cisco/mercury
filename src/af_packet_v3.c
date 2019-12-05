@@ -922,7 +922,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   fprintf(stderr, "--\n"
 	  "%" PRIu64 " packets captured\n"
 	  "%" PRIu64 " bytes captured\n"
-	  "%" PRIu64  "packets seen by socket\n"
+	  "%" PRIu64 " packets seen by socket\n"
 	  "%" PRIu64 " packets dropped\n"
 	  "%" PRIu64 " socket queue freezes\n",
 	  statst.received_packets, statst.received_bytes, statst.socket_packets, statst.socket_drops, statst.socket_freezes);

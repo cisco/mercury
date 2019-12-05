@@ -1,7 +1,10 @@
 # Makefile for mercury
 #
 
-.PHONY: mercury test install
+INSTALL = /usr/bin/install -c
+INSTALLDATA = /usr/bin/install -c -m 644
+
+.PHONY: mercury test install 
 mercury:
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo "error: run ./configure before running make (src/Makefile is missing)"
@@ -9,12 +12,25 @@ else
 	cd src && $(MAKE)
 endif
 
-install:
+.PHONY: install
+install: install-mercury install-resources
+
+.PHONY: install-mercury
+install-mercury:
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo "error: run ./configure before running make (src/Makefile is missing)"
 else
 	cd src && $(MAKE) install
 endif
+
+.PHONY: install-resources
+install-resources: 
+ifneq ($(wildcard src/Makefile), src/Makefile)
+	@echo "error: run ./configure before running make (src/Makefile is missing)"
+else
+	cd resources && $(MAKE) install
+endif
+
 
 test:
 	cd src && $(MAKE) test
@@ -47,6 +63,11 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 else
 	cd src  && $(MAKE) distclean
 	cd test && $(MAKE) distclean
+	cd resources && $(MAKE) distclean
 endif
+
+.PHONY: format
+format:
+	git ls-tree --full-tree --name-only -r HEAD | egrep '\.(py|c|h)$$' | xargs ./utils/indent_files.sh
 
 # EOF

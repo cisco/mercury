@@ -26,17 +26,20 @@ void sig_close (int signal_arg) {
 
 /*
  * set up signal handlers, so that output is flushed upon close
+ *
  */
-void setup_signal_handler(void) {
+enum status setup_signal_handler(void) {
     /* Ctl-C causes graceful shutdown */
-    if (signal(SIGINT, sig_close) != 0) {
-      fprintf(stderr, "%s: error whie setting up SIGINT handler\n", strerror(errno));
+    if (signal(SIGINT, sig_close) == SIG_ERR) {
+        return status_err;
     }
-    
+
     /* kill -15 causes graceful shutdown */
-    if (signal(SIGTERM, sig_close) != 0) {
-      fprintf(stderr, "%s: error whie setting up SIGTERM handler\n", strerror(errno));
+    if (signal(SIGTERM, sig_close) == SIG_ERR) {
+        return status_err;
     }
+
+    return status_ok;
 }
 
 /**
