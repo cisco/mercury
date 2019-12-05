@@ -4615,7 +4615,7 @@ else
   { $as_echo "$as_me:${as_lineno-$LINENO}: valgrind not found; test/Makefile memcheck test will not work" >&5
 $as_echo "$as_me: valgrind not found; test/Makefile memcheck test will not work" >&6;}
 fi
-ac_config_files="$ac_config_files src/Makefile test/Makefile"
+ac_config_files="$ac_config_files src/Makefile test/Makefile resources/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -5324,6 +5324,7 @@ do
   case $ac_config_target in
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
+    "resources/Makefile") CONFIG_FILES="$CONFIG_FILES resources/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

@@ -593,11 +593,13 @@ int main(int argc, char *argv[]) {
             set_percent_accept(30); /* set starting percentage */
         }
     }
-	
+
     /*
      * set up signal handlers, so that output is flushed upon close
      */
-    setup_signal_handler();
+    if (setup_signal_handler() != status_ok) {
+        fprintf(stderr, "%s: error while setting up signal handlers\n", strerror(errno));
+    }
 
     /* process packets */
     

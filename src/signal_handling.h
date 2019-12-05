@@ -11,12 +11,13 @@
 #define SIGNAL_HANDLING_H
 
 #include <signal.h>
+#include "mercury.h"
 
 extern int sig_close_flag; /* Watched by the threads while processing packets */
 
 void sig_close (int signal_arg);
 
-void setup_signal_handler(void);
+enum status setup_signal_handler(void);
 
 void enable_all_signals(void);
 
