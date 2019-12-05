@@ -8,10 +8,10 @@ srcdir = .
 INSTALL = /usr/bin/install -c
 INSTALLDATA = /usr/bin/install -c -m 644
 
-DESTDIR =
 prefix = @prefix@
 exec_prefix=@exec_prefix@
 bindir = @bindir@
+localstatedir = @localstatedir@/mercury
 
 .SUFFIXES:
 .SUFFIXES: .c .o
@@ -99,8 +99,12 @@ distclean: clean
 
 .PHONY: install
 install: mercury
-	mkdir -p $(DESTDIR)$(bindir)
-	$(INSTALL) mercury $(DESTDIR)$(bindir)
+	mkdir -p $(bindir)
+	$(INSTALL) mercury $(bindir)
+	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
+	adduser --system --no-create-home --group mercury
+	mkdir -p $(localstatedir)
+	$(INSTALL) -d $(localstatedir) -o mercury -g mercury
 
 .PHONY: gprof
 gprof:
