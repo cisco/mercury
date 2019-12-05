@@ -66,4 +66,8 @@ else
 	cd resources && $(MAKE) distclean
 endif
 
+.PHONY: format
+format:
+	git ls-tree --full-tree --name-only -r HEAD | egrep '\.(py|c|h)$$' | xargs ./utils/indent_files.sh
+
 # EOF
