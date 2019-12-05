@@ -62,5 +62,5 @@ AS_IF([test "x$WGET" = xyes],
 AS_IF([test "x$VALGRIND" = xyes],
     [],
     [AC_MSG_NOTICE([valgrind not found; test/Makefile memcheck test will not work])])
-AC_CONFIG_FILES(src/Makefile test/Makefile)
+AC_CONFIG_FILES(src/Makefile test/Makefile resources/Makefile)
 AC_OUTPUT
