@@ -26,6 +26,10 @@ install:
 	$(INSTALL) -d $(datarootdir) -o mercury -g mercury
 	$(INSTALLDATA) $(RESOURCE_FILES) $(datarootdir)
 
+.PHONY: uninstall
+uinstall:
+	rm -rf $(datarootdir) 
+
 .PHONY: distclean
 distclean:
 	rm -rf Makefile

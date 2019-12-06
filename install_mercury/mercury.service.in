@@ -5,8 +5,8 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/usr/local/var/mercury/
-ExecStart=/usr/local/bin/mercury --config /etc/mercury/mercury.cfg
+WorkingDirectory=@prefix@/var/mercury/
+ExecStart=@prefix@/bin/mercury --config /etc/mercury/mercury.cfg
 StandardError=null
 
 [Install]
