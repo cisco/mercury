@@ -56,6 +56,7 @@ setuptools.setup(
     data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in']),
                 ('pmercury/resources', ['../resources/fingerprint_db.json.gz',
                                          '../resources/app_families.txt',
+                                         '../resources/transition_probs.csv.gz',
                                          '../resources/asn_info.db.gz',
                                          '../resources/implementation_date_cs.json.gz',
                                          '../resources/public_suffix_list.dat.gz',
