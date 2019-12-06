@@ -3,23 +3,42 @@
 
 This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application, which is described [here](python/README.md).
 
-## Building and running mercury
+## Building, installing, and running mercury
 In the root directory, run 
 ```
 ./configure 
 make
 ```
-to build the package and install the required pip3 modules (dpkt ujson numpy pyasn hpack pypcap).  If you do not have **python3**, **cython**, and **pip3** installed, then you either need to install them (using apt, yum, or whatever your preferred package management tool is), or you need to run 
+to build the package (and check for the required pip3 modules, dpkt ujson numpy pyasn hpack pypcap).  If you do not have **python3**, **cython**, and **pip3** installed, then you either need to install them (using apt, yum, or whatever your preferred package management tool is), or you need to run 
 ```
 ./configure --disable-python
 make
 ```
 With the **--disable-python** flag, the configure script can build mercury in a way that omits the fingerprint analysis module (which is implemented using cython and python3).  Without the analysis module, mercury can still perform fingerprint and metadata capture.  
 
+### Installation
+In the root directory, run 
+```
+./configure 
+sudo make install
+```
+to install mercury and create and start a systemd service.  If you don't want the mercury systemd service to be installed, then instead run
+```
+sudo make install-nosystemd
+```
+The default file and directory locations are
+   * **/usr/local/bin/mercury** for the executable
+   * **/usr/local/share/mercury** for the resource files
+   * **/usr/local/var/mercury** for the output files
+   * **/etc/mercury/mercury.cfg for the configuration file
+   * **/etc/systemd/system/mercury.service for the systemd unit file
+
+The installation prefix **/usr/local/** can be changed by running ./configure with the --prefix argument, for instance `--prefix=$HOME'.
+
 #### Compile-time options
 There are compile-time options that can tune mercury for your hardware, or generate debugging output.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make".   For instance, to turn on debugging, first run **make clean** to remove the previous build, then run **make "OPTFLAGS=-DDEBUG"**.   This runs make, telling it to pass the string "-DDEBUG" to the C/C++ compiler.  The available compile time options are:
    * -DDEBUG, which turns on debugging, and
-   * -FBUFSIZE=16384, which sets the fwrite/fread buffer to 16,384 bytes.
+   * -FBUFSIZE=16384, which sets the fwrite/fread buffer to 16,384 bytes (for instance).
 If multiple compile time options are used, then they must be passed to make together in the OPTFLAGS string, e.g. "OPTFLAGS=-DDEBUG -DFBUFSIZE=16384".
 
 ### Running mercury
@@ -37,12 +56,15 @@ OUTPUT
    [-b or --buffer] b                    # set RX_RING size to (b * PHYS_MEM)
    [-t or --threads] [num_threads | cpu] # set number of threads
    [-u or --user] u                      # set UID and GID to those of user u
+   [-d or --directory] d                 # set working directory to d
 --read OPTIONS
    [-m or --multiple] count              # loop over read_file count >= 1 times
 GENERAL OPTIONS
    [-a or --analysis]                    # analyze fingerprints
    [-s or --select]                      # select only packets with metadata
    [-l or --limit] l                     # rotate JSON files after l records
+   [-v or --verbose]                     # additional information sent to stdout
+   [-p or --loop] loop_count             # loop count >= 1 for the read_file
    [-h or --help]                        # extended help, with examples
 ```
 
