@@ -68,6 +68,6 @@ endif
 
 .PHONY: format
 format:
-	git ls-tree --full-tree --name-only -r HEAD | egrep '\.(py|c|h)$$' | xargs ./utils/indent_files.sh
+	./utils/indent_files.sh src/*.{c,h} src/python-inference/*.py python/*.py python/*/*.py python/*/*/*.py
 
 # EOF
