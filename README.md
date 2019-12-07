@@ -17,9 +17,10 @@ make
 With the **--disable-python** flag, the configure script can build mercury in a way that omits the fingerprint analysis module (which is implemented using cython and python3).  Without the analysis module, mercury can still perform fingerprint and metadata capture.  
 
 ### Installation
-In the root directory, run 
+In the root directory, edit mercury.cfg with the network interface you want to capture from, then run 
 ```
-./configure 
+./configure
+make
 sudo make install
 ```
 to install mercury and create and start a systemd service.  If you don't want the mercury systemd service to be installed, then instead run
