@@ -101,10 +101,17 @@ distclean: clean
 install: mercury
 	mkdir -p $(bindir)
 	$(INSTALL) mercury $(bindir)
-	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
+#	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
 	adduser --system --no-create-home --group mercury
 	mkdir -p $(localstatedir)
 	$(INSTALL) -d $(localstatedir) -o mercury -g mercury
+
+.PHONY: install-nonroot
+install-nonroot: mercury
+	mkdir -p $(bindir)
+	$(INSTALL) mercury $(bindir)
+	mkdir -p $(localstatedir)
+	$(INSTALL) -d $(localstatedir)
 
 .PHONY: uninstall
 uninstall:

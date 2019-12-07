@@ -51,6 +51,15 @@ else
 	systemctl enable mercury
 endif
 
+.PHONY: install-nonroot
+install-nonroot:
+ifneq ($(wildcard src/Makefile), src/Makefile)
+	@echo "error: run ./configure before running make (src/Makefile is missing)"
+else
+	cd src && $(MAKE) install-nonroot
+	cd resources && $(MAKE) install-nonroot
+endif
+
 .PHONY: uninstall
 uninstall: uninstall-mercury uninstall-systemd 
 
