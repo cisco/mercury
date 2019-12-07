@@ -300,6 +300,7 @@ char mercury_help[] =
     "--read OPTIONS\n"
     "   [-m or --multiple] count              # loop over read_file count >= 1 times\n"
     "GENERAL OPTIONS\n"
+    "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   [-s or --select]                      # select only packets with metadata\n"
     "   [-l or --limit] l                     # rotate JSON files after l records\n"
