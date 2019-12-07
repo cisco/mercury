@@ -30,8 +30,8 @@ The default file and directory locations are
    * **/usr/local/bin/mercury** for the executable
    * **/usr/local/share/mercury** for the resource files
    * **/usr/local/var/mercury** for the output files
-   * **/etc/mercury/mercury.cfg for the configuration file
-   * **/etc/systemd/system/mercury.service for the systemd unit file
+   * **/etc/mercury/mercury.cfg** for the configuration file
+   * **/etc/systemd/system/mercury.service** for the systemd unit file
 
 The installation prefix **/usr/local/** can be changed by running ./configure with the --prefix argument, for instance `--prefix=$HOME'.
 
