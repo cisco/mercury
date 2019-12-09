@@ -92,7 +92,6 @@ struct extractor {
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
     struct packet_data packet_data;     /* data of interest in packt */
-    struct packet_data cert_data;       /* additional cert if present*/
 };
 
 struct parser {
