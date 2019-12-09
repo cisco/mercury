@@ -257,6 +257,7 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
 
 unsigned int parser_process_tls_server(struct parser *p);
 
+void extract_certificates(FILE *file, const unsigned char *data, size_t data_len);
 
 /*
  * extract_fp_from_tls_client_hello() runs the fingerprint extraction
