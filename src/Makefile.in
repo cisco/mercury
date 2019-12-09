@@ -30,8 +30,8 @@ CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spur
 CFLAGS += -Wno-pedantic       # suppress warnings about non-ISO C++ (uint128_t, ...)
 CFLAGS += $(OPTFLAGS)
 
-MERC   = mercury.c af_packet_io.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c rnd_pkt_drop.c signal_handling.c
-MERC_H = af_packet_io.h af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h rnd_pkt_drop.h signal_handling.h tcp.h
+MERC   = mercury.c af_packet_io.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c rnd_pkt_drop.c signal_handling.c config.c
+MERC_H = af_packet_io.h af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h rnd_pkt_drop.h signal_handling.h config.h tcp.h
 
 ifeq ($(have_py3),yes)
 PYANALYSIS = python_interface.c
@@ -101,10 +101,22 @@ distclean: clean
 install: mercury
 	mkdir -p $(bindir)
 	$(INSTALL) mercury $(bindir)
-	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
+#	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
 	adduser --system --no-create-home --group mercury
 	mkdir -p $(localstatedir)
 	$(INSTALL) -d $(localstatedir) -o mercury -g mercury
+
+.PHONY: install-nonroot
+install-nonroot: mercury
+	mkdir -p $(bindir)
+	$(INSTALL) mercury $(bindir)
+	mkdir -p $(localstatedir)
+	$(INSTALL) -d $(localstatedir)
+
+.PHONY: uninstall
+uninstall:
+	rm -f $(bindir)/mercury
+	rm -rf $(localstatedir)
 
 .PHONY: gprof
 gprof:
