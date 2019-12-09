@@ -269,3 +269,96 @@ int copy_string_into_buffer(char *dst, size_t dst_len, const char *src, size_t m
   strcpy(dst, src);
   return 0;
 }
+
+/* macro for fputc */
+#define FPUTC(C, F)                                       \
+        if (fputc((int)C, F) == EOF) {                    \
+            perror("Error while printing base64 char\n"); \
+            return;                                       \
+        }
+
+static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+                                'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+                                'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+                                'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+                                'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+                                'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+                                'w', 'x', 'y', 'z', '0', '1', '2', '3',
+                                '4', '5', '6', '7', '8', '9', '+', '/'};
+
+static size_t mod_table[] = {0, 2, 1};
+
+/*
+ * fprintf_json_base64_string(file, data, input_length)
+ *
+ * file         - file pointer to the output file
+ * data         - pointer to start of data
+ * input_length - number of bytes of data
+ *
+ * return value:
+ *       void
+ */
+
+void fprintf_json_base64_string(FILE *file,
+                                const unsigned char *data,
+                                size_t input_length) {
+
+    size_t i = 0;
+    FPUTC('\"', file);
+    while ( i < input_length) {
+
+        uint32_t octet_a = i < input_length ? (unsigned char)data[i++] : 0;
+        uint32_t octet_b = i < input_length ? (unsigned char)data[i++] : 0;
+        uint32_t octet_c = i < input_length ? (unsigned char)data[i++] : 0;
+
+        uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
+
+        FPUTC(encoding_table[(triple >> 3 * 6) & 0x3F], file);
+        FPUTC(encoding_table[(triple >> 2 * 6) & 0x3F], file);
+        FPUTC(encoding_table[(triple >> 1 * 6) & 0x3F], file);
+        FPUTC(encoding_table[(triple >> 0 * 6) & 0x3F], file);
+    }
+
+    for (i = 0; i < mod_table[input_length % 3]; i++) {
+        FPUTC('=', file);
+    }
+    FPUTC('\"', file);
+}
+
+void fprintf_json_hex_string(FILE *file,
+                            const unsigned char *data,
+                            size_t len) {
+    const unsigned char *x = data;
+    const unsigned char *end = data + len;
+    fprintf(file, "\"");
+    while(x < end) {
+        fprintf(file, "%02x", *x++);
+    }
+    fprintf(file, "\"");
+}
+/*
+ * printf_raw_as_hex(data, len)
+ *
+ * data   - pointer to start of data
+ * len    - number of bytes of data
+ *
+ * return value:
+ *       void
+ */
+
+void printf_raw_as_hex(const uint8_t *data, unsigned int len) {
+    const unsigned char *x = data;
+    printf("\n  Len = %u\n", len);
+    if (len > 128) {
+        len = 128;
+    }
+    const unsigned char *end = data + len;
+    int i;
+
+    for (x = data; x < end; ) {
+        for (i=0; i < 16 && x < end; i++) {
+            printf(" %02x", *x++);
+        }
+        printf("\n");
+    }
+}

@@ -111,24 +111,6 @@ struct pi_container http_server = {
     HTTP_PORT
 };
 
-
-void printf_raw_as_hex(const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    printf("\n  Len = %u\n", len);
-    if (len > 128) {
-        len = 128;
-    }
-    const unsigned char *end = data + len;
-    int i;
-
-    for (x = data; x < end; ) {
-        for (i=0; i < 16 && x < end; i++) {
-            printf(" %02x", *x++);
-        }
-        printf("\n");
-    }
-}
-
 unsigned int u32_compare_masked_data_to_value(const void *data,
                                               const void *mask,
                                               const void *value) {
@@ -1273,74 +1255,64 @@ unsigned int parser_process_tls(struct parser *p) {
 #define L_CipherSuite              2
 #define L_CompressionMethod        1
 #define L_CertificateLength        3
+#define L_CertificateListLength    3
 
 enum status parser_process_certificate(struct parser *p, struct extractor *x) {
-    size_t total_len, tmp_len;
+    size_t tmp_len;
 
     /* get total certificate length */
-    if (parser_read_and_skip_uint(p, L_CertificateLength, &total_len) == status_err) {
+    if (parser_read_and_skip_uint(p, L_CertificateListLength, &tmp_len) == status_err) {
 	    return status_err;
-    }
-
-    if (parser_read_and_skip_uint(p, L_CertificateLength, &tmp_len) == status_err) {
-	    return status_err;
-    }
-
-    if (total_len < tmp_len) {
-        extractor_debug("Certificate len %lu is less than total len %lu, so skip this data\n",
-                        tmp_len, total_len);
-        return status_err;
     }
 
     if (tmp_len > (unsigned)parser_get_data_length(p)) {
-        /* certificate length is greater than remaining packet size */
-        tmp_len  = parser_get_data_length(p);  /* truncate certificate length */
+        tmp_len = parser_get_data_length(p);
     }
-
-    /* set full or truncated certificate data */
+    
+    /* we have some certificate data in this packet */
     packet_data_set(&x->packet_data,
                     packet_data_type_tls_cert,
                     tmp_len,
                     p->data);
-
-    /*
-     * skip over certificate data
-     */
-    if (parser_skip(p, tmp_len) == status_err) {
-	    return status_err;
-    }
-
-    total_len -= (tmp_len + L_CertificateLength);
-    /*
-     * check if we have more certificates
-     */
-    if (parser_get_data_length(p) > 0) {
-        if (total_len > 0) {
-            /* we have another certificate */
-            if (parser_read_and_skip_uint(p, L_CertificateLength, &tmp_len) == status_err) {
-	            return status_ok; /* return ok since we already got one certificate */
-            }
-            if (total_len < tmp_len) {
-                extractor_debug("Certificate len %lu is less than total len %lu, so skip this data\n",
-                                tmp_len, total_len);
-                return status_ok; /* return ok since we already got one certificate */
-            }
-
-            /* get this second certificate  */
-            if (tmp_len > (unsigned)parser_get_data_length(p)) {
-                /* certificate length is greater than remaining packet size */
-                tmp_len  = parser_get_data_length(p);  /* truncate certificate length */
-            }
-
-            /* set full or truncated certificate data */
-            packet_data_set(&x->cert_data,
-                            packet_data_type_tls_cert,
-                            tmp_len,
-                            p->data);
-        }
-    }
-
+                    
     return status_ok;
+}
+
+/**
+ * Extract and print binary certificate(s) as base64 encoded string(s).
+ */
+
+void extract_certificates(FILE *file, const unsigned char *data, size_t data_len) {
+    size_t tmp_len;
+    struct parser cert_parser;
+    int cert_num = 0;
+
+    parser_init(&cert_parser, data, data_len);
+    
+    while (parser_get_data_length(&cert_parser) > 0) {
+        /* get certificate length */
+        if (parser_read_and_skip_uint(&cert_parser, L_CertificateLength, &tmp_len) == status_err) {
+	        return;
+        }
+
+        if (tmp_len > (unsigned)parser_get_data_length(&cert_parser)) {
+            tmp_len = parser_get_data_length(&cert_parser); /* truncate */
+        }
+
+        if (cert_num > 0) {
+            fprintf(file, ","); /* print separating comma */
+        }
+
+        fprintf_json_base64_string(file, cert_parser.data, tmp_len);
+        
+        /*
+         * skip over certificate data
+         */
+        if (parser_skip(&cert_parser, tmp_len) == status_err) {
+	        return;
+        }
+        cert_num++;
+    }
 }
 
 /*
