@@ -27,6 +27,7 @@
 #include "analysis.h"
 #include "rnd_pkt_drop.h"
 #include "signal_handling.h"
+#include "config.h"
 
 #define TWO_TO_THE_N(N) (unsigned int)1 << (N)
 
@@ -295,9 +296,11 @@ char mercury_help[] =
     "   [-b or --buffer] b                    # set RX_RING size to (b * PHYS_MEM)\n"
     "   [-t or --threads] [num_threads | cpu] # set number of threads\n"
     "   [-u or --user] u                      # set UID and GID to those of user u\n"
+    "   [-d or --directory] d                 # set working directory to d\n"
     "--read OPTIONS\n"
     "   [-m or --multiple] count              # loop over read_file count >= 1 times\n"
     "GENERAL OPTIONS\n"
+    "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   [-s or --select]                      # select only packets with metadata\n"
     "   [-l or --limit] l                     # rotate JSON files after l records\n"
@@ -379,8 +382,10 @@ int main(int argc, char *argv[]) {
     while(1) {
 	int opt_idx = 0;
 	static struct option long_opts[] = {
+	    { "config",      required_argument, NULL, 1   },
 	    { "read",        required_argument, NULL, 'r' },
 	    { "write",       required_argument, NULL, 'w' },
+	    { "directory",   required_argument, NULL, 'd' },
 	    { "capture",     required_argument, NULL, 'c' },
 	    { "fingerprint", required_argument, NULL, 'f' },
 	    { "analysis",    no_argument,       NULL, 'a' },
@@ -396,11 +401,19 @@ int main(int argc, char *argv[]) {
 	    { "adaptive",    no_argument,       NULL,  0  },
 	    { NULL,          0,                 0,     0  }
 	};
-	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:", long_opts, &opt_idx);
+	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
 	if (c < 0) {
 	    break;
 	}
 	switch(c) {
+	case 1:
+	    if (optarg) {
+            mercury_config_read_from_file(&cfg, optarg);
+            num_inputs++;
+	    } else {
+            usage(argv[0], "error: option config requires filename argument", extended_help_off);
+	    }
+	    break;
 	case 'r':
 	    if (optarg) {
 		cfg.read_filename = optarg;
@@ -414,6 +427,14 @@ int main(int argc, char *argv[]) {
 		cfg.write_filename = optarg;
 	    } else {
 		usage(argv[0], "error: option w or write requires filename argument", extended_help_off);
+	    }
+	    break;
+	case 'd':
+	    if (optarg) {
+            cfg.working_dir = optarg;
+            num_inputs++;
+	    } else {
+            usage(argv[0], "error: option d or directory requires working directory argument", extended_help_off);
 	    }
 	    break;
 	case 'c':

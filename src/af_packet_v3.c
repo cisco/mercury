@@ -829,7 +829,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   }
 
   /* drop privileges from root to normal user */
-  if (drop_root_privileges(cfg->user, NULL) != status_ok) {
+  if (drop_root_privileges(cfg->user, cfg->working_dir) != status_ok) {
     return status_err;
   }
   printf("dropped root privileges\n");
