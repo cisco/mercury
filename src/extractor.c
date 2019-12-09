@@ -188,6 +188,7 @@ void extractor_init(struct extractor *x,
                     unsigned char *output,
                     unsigned int output_len) {
 
+    bzero(output, output_len); /* initialize the output buffer */
     x->proto_state.proto = PROTO_UNKNOWN;
     x->proto_state.dir = DIR_UNKNOWN;
     x->proto_state.state = state_start;
@@ -199,7 +200,6 @@ void extractor_init(struct extractor *x,
     x->last_capture = NULL;
 
     packet_data_init(&x->packet_data);
-    packet_data_init(&x->cert_data);
 }
 
 void parser_init(struct parser *p,
@@ -1274,7 +1274,7 @@ enum status parser_process_certificate(struct parser *p, struct extractor *x) {
                     packet_data_type_tls_cert,
                     tmp_len,
                     p->data);
-                    
+
     return status_ok;
 }
 
