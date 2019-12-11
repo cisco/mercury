@@ -161,21 +161,21 @@ void json_file_write(struct json_file *jf,
         fprintf(file, "{\"tls\":{");
         fprintf(file, "\"server_certs\":[");
         extract_certificates(file, pf.x.packet_data.value, pf.x.packet_data.length);
-	    fprintf(file, "]},");
-	    break;
+        fprintf(file, "]},");
+        break;
 	case fingerprint_type_tls_server_and_cert:
         /* print the fingerprint */
-	    fprintf(file, "{\"fingerprints\":{");
-	    fprintf(file, "\"tls_server\":\"");
-	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
-	    fprintf(file, "\"},");
+        fprintf(file, "{\"fingerprints\":{");
+        fprintf(file, "\"tls_server\":\"");
+        fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+        fprintf(file, "\"},");
 
         /* print the certificate in base64 format */
-	    fprintf(file, "\"tls\":{");
+        fprintf(file, "\"tls\":{");
         fprintf(file, "\"server_certs\":[");
         extract_certificates(file, pf.x.packet_data.value, pf.x.packet_data.length);
-	    fprintf(file, "]},");
-	    break;
+        fprintf(file, "]},");
+        break;
 	default:
 	    /* print nothing */
 	    return; 
