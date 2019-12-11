@@ -13,11 +13,21 @@
 #include <iostream>
 #include <fstream>
 #include <math.h>
+#include <unordered_map>
 
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
 json fp_db;
 
+
+std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,"database"}, {465,"email"},
+                                                          {563,"nntp"},    {585,"email"},    {614,"shell"},
+                                                          {636,"ldap"},    {989,"ftp"},      {990,"ftp"},
+                                                          {991,"nas"},     {992,"telnet"},   {993,"email"},
+                                                          {994,"irc"},     {995,"email"},    {1443,"alt-https"},
+                                                          {2376,"docker"}, {8001,"tor"},     {8443,"alt-https"},
+                                                          {9000,"tor"},    {9001,"tor"},     {9002,"tor"},
+                                                          {9101,"tor"}};
 
 enum analysis_cfg analysis_cfg = analysis_off;
 
@@ -40,8 +50,7 @@ int analysis_init() {
     extern enum analysis_cfg analysis_cfg;
     analysis_cfg = analysis_on;
 
-    database_init();
-    return 1;
+    return database_init();
 }
 
 int analysis_finalize() {
@@ -57,20 +66,29 @@ void flow_key_sprintf_dst_addr(const struct flow_key *key,
 			       char *dst_addr_str) {
 
     if (key->type == ipv4) {
-	uint8_t *d = (uint8_t *)&key->value.v4.dst_addr;
-	snprintf(dst_addr_str,
-		 MAX_DST_ADDR_LEN,
-		 "%u.%u.%u.%u",
-		 d[0], d[1], d[2], d[3]);
+        uint8_t *d = (uint8_t *)&key->value.v4.dst_addr;
+        snprintf(dst_addr_str,
+                 MAX_DST_ADDR_LEN,
+                 "%u.%u.%u.%u",
+                 d[0], d[1], d[2], d[3]);
     } else if (key->type == ipv6) {
-	uint8_t *d = (uint8_t *)&key->value.v6.dst_addr;
-	snprintf(dst_addr_str,
-		 MAX_DST_ADDR_LEN,
-		 "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
-		 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+        uint8_t *d = (uint8_t *)&key->value.v6.dst_addr;
+        snprintf(dst_addr_str,
+                 MAX_DST_ADDR_LEN,
+                 "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
+                 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
     }
 }
 
+uint16_t flow_key_get_dst_port(const struct flow_key *key) {
+    if (key->type == ipv4) {
+        return ntohs(key->value.v4.dst_port);
+    } else if (key->type == ipv6) {
+        return ntohs(key->value.v6.dst_port);
+    }
+
+    return 0;
+}
 
 
 std::string get_asn_info(char* dst_ip) {
@@ -78,7 +96,12 @@ std::string get_asn_info(char* dst_ip) {
 }
 
 std::string get_port_app(uint16_t dst_port) {
-    return "https";
+    auto it = port_mapping.find(dst_port);
+    if (it != port_mapping.end()) {
+        return it->second;
+    }
+
+    return "unknown";
 }
 
 std::string get_domain_name(char* server_name) {
@@ -104,7 +127,7 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
         char dst_ip[MAX_DST_ADDR_LEN];
         unsigned char fp_str[MAX_FP_STR_LEN];
         char server_name[MAX_SNI_LEN];
-        uint16_t dst_port = 0;
+        uint16_t dst_port = flow_key_get_dst_port(key);
 
         uint8_t *extractor_buffer = x->output_start;
         size_t bytes_extracted = extractor_get_output_length(x);
