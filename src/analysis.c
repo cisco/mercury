@@ -12,6 +12,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <math.h>
 #include <unordered_map>
 
@@ -105,7 +106,28 @@ std::string get_port_app(uint16_t dst_port) {
 }
 
 std::string get_domain_name(char* server_name) {
-    return "cisco.com";
+    std::string r_server_name(server_name);
+    std::reverse(r_server_name.begin(), r_server_name.end());
+
+    size_t pos = 0;
+    uint8_t n = 2;
+    std::string token;
+    std::string out_domain;
+    std::stringstream domain;
+    while (((pos = r_server_name.find(".")) != std::string::npos) && (n > 0)) {
+        token = r_server_name.substr(0, pos);
+        domain << token;
+        if (n > 1) {
+            domain << ".";
+        }
+        r_server_name.erase(0, pos + 1);
+        n -= 1;
+    }
+
+    out_domain = domain.str();
+    std::reverse(out_domain.begin(), out_domain.end());
+
+    return out_domain;
 }
 
 
