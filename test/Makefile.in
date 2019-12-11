@@ -13,6 +13,12 @@
 #    will be compared to ./tests/foo.fp.  If they are not identical,
 #    then an error will be reported
 
+# definitions for colorized output
+COLOR_RED    = "\033[0;31m"
+COLOR_GREEN  = "\033[0;32m"
+COLOR_YELLOW = "\033[0;33m"
+COLOR_OFF    = "\033[0m"
+
 MERCURY = ../src/mercury
 have_jq = @JQ@
 have_valgrind = @VALGRIND@
@@ -32,12 +38,12 @@ JSON_TEST_FILES = $(notdir $(wildcard ./data/*.json))
 JSON_COMP_FILES = $(JSON_TEST_FILES:%.json=%.json-comp)
 
 .PHONY: all
-all: comp memcheck
-	@echo "passed all tests"
+all: comp memcheck capture
+	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 
 .PHONY: comp
 comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
-	@echo "tested all targets"
+	@echo $(COLOR_GREEN) "passed all test/data target tests" $(COLOR_OFF)
 
 # implicit rule to make a JSON file from a PCAP file
 #
@@ -48,7 +54,7 @@ comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
 #
 %.fp: %.json
 ifneq ($(have_jq),yes)
-	@echo "jq is missing; cannot create .fp file from .json file"
+	@echo $(COLOR_RED) "jq is missing; cannot create .fp file from .json file" $(COLOR_OFF)
 	@/bin/false
 else
 	cat $< | jq .fingerprints.tls | grep -v null | tr -d "\"" > $@
@@ -59,7 +65,7 @@ endif
 %.comp: %.fp
 	@echo "checking file" $< "against expected output" 
 	diff $< ./data/$< 
-	@echo "passed"  # this output only happens if diff returns 0
+	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)  # this output only happens if diff returns 0
 
 # implicit rule to make an MCAP file from a PCAP file
 #
@@ -71,14 +77,14 @@ endif
 %.mcap-comp: %.mcap
 	@echo "checking file" $< "against expected output" 
 	diff $< ./data/$< 
-	@echo "passed" 
+	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)
 
 # implicit rule to compare JSON results
 #
 %.json-comp: %.json
 	@echo "checking file" $< "against expected output" 
 	diff $< ./data/$< 
-	@echo "passed" 
+	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)
 
 # prevent deletion of intermediate files
 #
@@ -87,15 +93,22 @@ endif
 
 .PHONY: capture
 capture:
+	@echo "running capture test"
 ifeq ($(IFNAME),)
-	@echo "error: IFNAME unspecified (run as 'make capture IFNAME=wlan0', for instance)"
+	@echo $(COLOR_RED) "error: IFNAME unspecified (run as 'make capture IFNAME=wlan0', for instance)" $(COLOR_OFF)
+	@/bin/false
 else
+ifeq ($(shell id -u),0)
 	$(MERCURY) -c $(IFNAME) -f tmp.json & echo $$! > mercury.PID
 	capture/https-test-driver.sh
 	kill `cat mercury.PID`
 	python json-test.py tmp.json
 	rm mercury.PID tmp.json
-	@echo "passed capture test"
+	@echo $(COLOR_GREEN) "passed capture test" $(COLOR_OFF)
+else
+	@echo $(COLOR_RED) "error: capture test must be run as root" $(COLOR_OFF)
+	@/bin/false
+endif
 endif
 
 .PHONY: clean
@@ -112,11 +125,13 @@ distclean: clean
 .PHONY: memcheck
 memcheck:
 ifeq ($(have_valgrind),yes)
+	@echo "running memcheck with valgrind"
 	valgrind --trace-children=yes --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json 2> memcheck.tmp
 	cat memcheck.tmp | grep "definitely lost: 0 bytes in 0 blocks"
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
+	@echo "passed memcheck"
 else
-	@echo "valgrind unavailable; cannot perform memcheck"
+	@echo $(COLOR_YELLOW) "valgrind unavailable; cannot perform memcheck" $(COLOR_OFF)
 	@/bin/false
 endif
 # EOF
