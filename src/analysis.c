@@ -15,6 +15,7 @@
 #include <sstream>
 #include <math.h>
 #include <unordered_map>
+#include <zlib.h>
 
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
@@ -31,21 +32,58 @@ std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,
                                                           {9101,"tor"}};
 
 enum analysis_cfg analysis_cfg = analysis_off;
+bool MALWARE_DB = false;
+bool EXTENDED_FP_METADATA = false;
 
-int database_init() {
-    json fp;
 
-
-    std::ifstream in_file("resources/fingerprint_db.json");
-    std::string line;
-    while(getline(in_file, line)) {
-        fp = json::parse(line);
-        fp_db[(std::string)fp["str_repr"]] = fp;
+int gzgetline(gzFile f, char** buf) {
+    *buf = (char*)malloc(sizeof(char)*256);
+    unsigned pos = 0;
+    unsigned size = 256;
+    for (;;) {
+        if (gzgets(f, *buf+pos, size-pos) == 0) {
+            // EOF
+            free(buf);
+            return 0;
+        }
+        unsigned read = strlen(*buf+pos);
+        if (*(*buf+pos+read-1) == '\n') {
+            pos = pos + read - 1;
+            break;
+        }
+        pos = size - 1;
+        size *= 2;
+        *buf = (char*)realloc(*buf, size);
     }
 
     return 1;
 }
 
+
+int database_init() {
+    json fp;
+
+    gzFile in_file = gzopen("resources/fingerprint_db.json.gz","r");
+    char* line = NULL;
+    while(gzgetline(in_file, &line)) {
+        std::string line_str(line);
+        fp = json::parse(line_str);
+        fp_db[(std::string)fp["str_repr"]] = fp;
+        free(line);
+    }
+    gzclose(in_file);
+
+    if (fp["process_info"][0]["malware"].is_boolean()) {
+        MALWARE_DB = true;
+    }
+
+    if (fp["process_info"][0]["classes_ip_ip"].is_object() &&
+        fp["process_info"][0]["classes_hostname_sni"].is_object()) {
+        EXTENDED_FP_METADATA = true;
+    }
+
+    return 1;
+}
 
 int analysis_init() {
     extern enum analysis_cfg analysis_cfg;
@@ -93,7 +131,7 @@ uint16_t flow_key_get_dst_port(const struct flow_key *key) {
 
 
 std::string get_asn_info(char* dst_ip) {
-    return "14618:Amazon.com";
+    return "109:Cisco_Systems";
 }
 
 std::string get_port_app(uint16_t dst_port) {
@@ -180,9 +218,9 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
         long double base_prior = -18.42068;
         long double prior      =  -4.60517;
 
-        fp_tc = fp["total_count"].get<uint32_t>();
+        fp_tc = fp["total_count"];//.get<uint32_t>();
         for (json::iterator it = fp["process_info"].begin(); it != fp["process_info"].end(); ++it) {
-            p_count = (*it)["count"].get<uint32_t>();
+            p_count = (*it)["count"];//.get<uint32_t>();
             prob_process_given_fp = (long double)p_count/fp_tc;
 
 
@@ -240,6 +278,52 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
  * analysis_cfg is a global variable that configures the analysis
  */
 /*
+int gzgetline_old(gzFile f, std::vector<char>& v) {
+    v = std::vector<char>(256);
+    unsigned pos = 0;
+    for (;;) {
+        if (gzgets(f, &v[pos], v.size()-pos) == 0) {
+            // EOF
+            return 0;
+        }
+        unsigned read = strlen(&v[pos]);
+        if (v[pos+read-1] == '\n') {
+            pos = pos + read - 1;
+            break;
+        }
+        pos = v.size() - 1;
+        v.resize(v.size() * 2);
+    }
+    v.resize(pos);
+    return 1;
+}
+
+
+int database_init_old() {
+    json fp;
+
+    gzFile in_file = gzopen("resources/fingerprint_db.json.gz","r");
+    std::vector<char> line;
+    while(gzgetline_old(in_file, line)) {
+        std::string line_str(line.begin(), line.end());
+        fp = json::parse(line_str);
+        fp_db[(std::string)fp["str_repr"]] = fp;
+    }
+    gzclose(in_file);
+
+    if (fp["process_info"][0]["malware"].is_boolean()) {
+        MALWARE_DB = true;
+    }
+
+    if (fp["process_info"][0]["classes_ip_ip"].is_object() &&
+        fp["process_info"][0]["classes_hostname_sni"].is_object()) {
+        EXTENDED_FP_METADATA = true;
+    }
+
+    return 1;
+}
+
+
 enum analysis_cfg analysis_cfg = analysis_off;
 
 #ifdef HAVE_PYTHON3
