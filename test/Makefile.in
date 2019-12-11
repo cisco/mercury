@@ -22,6 +22,7 @@ COLOR_OFF    = "\033[0m"
 MERCURY = ../src/mercury
 have_jq = @JQ@
 have_valgrind = @VALGRIND@
+have_py3    = @PYTHON3@
 
 # all test files go in the ./tests subdirectory
 # 
@@ -38,7 +39,7 @@ JSON_TEST_FILES = $(notdir $(wildcard ./data/*.json))
 JSON_COMP_FILES = $(JSON_TEST_FILES:%.json=%.json-comp)
 
 .PHONY: all
-all: comp memcheck capture
+all: comp analysis memcheck capture
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 
 .PHONY: comp
@@ -90,6 +91,17 @@ endif
 #
 #.PRECIOUS: %.fp %.mcap %.json
 
+.PHONY: analysis
+analysis:
+ifeq ($(have_py3),yes)
+	@echo "running analysis test"
+	$(MERCURY) -r data/top-https.pcap -f tmp.json -a
+	python json-test.py tmp.json
+	rm tmp.json
+	@echo $(COLOR_GREEN) "passed analysis test" $(COLOR_OFF)
+else
+	@echo $(COLOR_YELLOW) "--disable-python configured; omitting analysis test" $(COLOR_OFF)
+endif
 
 .PHONY: capture
 capture:
