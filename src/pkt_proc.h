@@ -72,7 +72,7 @@ struct pkt_proc_json_writer : public pkt_proc {
 
         enum status status = json_file_init(&json_file, outfile_name, mode, max_records);
         if (status) {
-            throw "exception in frame_handler_json_writer()";
+            throw "could not initialize JSON output file";
         }
     }
 
@@ -107,8 +107,7 @@ struct pkt_proc_pcap_writer : public pkt_proc {
     pkt_proc_pcap_writer(const char *outfile, int flags) {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
-            printf("%s: could not open pcap output file %s\n", strerror(errno), outfile);
-            throw "could not open pcap output file";
+            throw "could not open PCAP output file";
         }
     }
 
@@ -150,8 +149,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
     pkt_proc_filter_pcap_writer(const char *outfile, int flags) {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
-            printf("error: could not open pcap output file %s\n", outfile);
-            throw "could not open pcap output file";
+            throw "could not open PCAP output file";
         }
     }
 
