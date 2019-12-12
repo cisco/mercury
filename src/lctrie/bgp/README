@@ -1,0 +1,24 @@
+This directory is populated from the following mirrors:
+http://thyme.apnic.net/us/        - Washington (US) data
+http://thyme.apnic.net/current/   - DIX-IE (Japan) data
+http://thyme.apnic.net/au/        - Brisbane (AU) data
+http://thyme.apnic.net/hk/        - Honk Kong (CN) data
+http://thyme.apnic.net/london/    - LINX (London) data
+
+This file maps netmasks to ASNs
+http://thyme.apnic.net/us/data-raw-table
+
+This file maps ANSs to owner information
+http://thyme.apnic.net/us/data-used-autonums
+
+Original reference:
+https://quaxio.com/bgp/
+
+
+Team Cymru Bogon lists:
+http://www.team-cymru.org/bogon-reference.html
+http://www.team-cymru.org/bogon-reference-http.html
+
+Raw text files:
+http://www.team-cymru.org/Services/Bogons/bogon-bn-nonagg.txt
+http://www.team-cymru.org/Services/Bogons/fullbogons-ipv4.txt

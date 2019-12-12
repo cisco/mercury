@@ -30,8 +30,8 @@ CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spur
 CFLAGS += -Wno-pedantic       # suppress warnings about non-ISO C++ (uint128_t, ...)
 CFLAGS += $(OPTFLAGS)
 
-MERC   = mercury.c af_packet_io.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c rnd_pkt_drop.c signal_handling.c config.c
-MERC_H = af_packet_io.h af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h rnd_pkt_drop.h signal_handling.h config.h tcp.h
+MERC   = mercury.c af_packet_io.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c rnd_pkt_drop.c signal_handling.c config.c addr.c
+MERC_H = af_packet_io.h af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h rnd_pkt_drop.h signal_handling.h config.h addr.h tcp.h
 
 ifeq ($(have_py3),yes)
 PYANALYSIS = python_interface.c
@@ -47,8 +47,8 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-mercury: $(MERC) $(MERC_H) libmerc.a Makefile 
-	$(CC) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc
+mercury: $(MERC) $(MERC_H) libmerc.a Makefile lctrie/liblctrie.a
+	$(CC) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc -L./lctrie -llctrie -lpcre -lz
 	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
 
 setcap: mercury
@@ -70,6 +70,11 @@ LIBMERC_OBJ = $(LIBMERC:%.c=%.o)
 #
 libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) $(LIBMERC_H) Makefile 
 	ar rcs libmerc.a $(LIBMERC_OBJ) 
+
+# lctrie ip address subnet matching library (in lctrie subdirectory)
+#
+lctrie/liblctrie.a:
+	cd lctrie && $(MAKE) liblctrie.a
 
 # rule to build the cython/python analysis engine in python-inference
 #
