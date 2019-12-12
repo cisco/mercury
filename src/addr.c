@@ -20,19 +20,22 @@
 #endif
 
 lct_t ipv4_subnets;
-
 std::string get_asn_info(char* dst_ip) {
     uint32_t ipv4_addr;
 
     if (inet_pton(AF_INET, dst_ip, &ipv4_addr) != 1) {
-        return NULL;
+        return "None";
     }
 
     lct_subnet_t *subnet = lct_find(&ipv4_subnets, ntohl(ipv4_addr));
+    if (subnet == NULL) {
+        return "None";
+    }
     if (subnet->type == IP_SUBNET_BGP) {
         return std::to_string(subnet->info.bgp.asn);
     }
-    return NULL;
+
+    return "None";
     // return "14618:Amazon.com";
 }
 

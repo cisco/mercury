@@ -61,7 +61,7 @@ int gzgetline(gzFile f, std::vector<char>& v) {
 int database_init() {
     json fp;
 
-    gzFile in_file = gzopen("/home/blake/Cisco/github/mercury-transition/resources/fingerprint_db.json.gz","r");
+    gzFile in_file = gzopen("../resources/fingerprint_db.json.gz","r");
     std::vector<char> line;
     while(gzgetline(in_file, line)) {
         std::string line_str(line.begin(), line.end());
@@ -69,6 +69,7 @@ int database_init() {
         fp_db[(std::string)fp["str_repr"]] = fp;
     }
     gzclose(in_file);
+
 
     if (fp["process_info"][0]["malware"].is_boolean()) {
         MALWARE_DB = true;
