@@ -36,26 +36,24 @@ bool MALWARE_DB = false;
 bool EXTENDED_FP_METADATA = false;
 
 
-int gzgetline(gzFile f, char** buf) {
-    *buf = (char*)malloc(sizeof(char)*256);
+
+int gzgetline(gzFile f, std::vector<char>& v) {
+    v = std::vector<char>(256);
     unsigned pos = 0;
-    unsigned size = 256;
     for (;;) {
-        if (gzgets(f, *buf+pos, size-pos) == 0) {
+        if (gzgets(f, &v[pos], v.size()-pos) == 0) {
             // EOF
-            free(buf);
             return 0;
         }
-        unsigned read = strlen(*buf+pos);
-        if (*(*buf+pos+read-1) == '\n') {
+        unsigned read = strlen(&v[pos]);
+        if (v[pos+read-1] == '\n') {
             pos = pos + read - 1;
             break;
         }
-        pos = size - 1;
-        size *= 2;
-        *buf = (char*)realloc(*buf, size);
+        pos = v.size() - 1;
+        v.resize(v.size() * 2);
     }
-
+    v.resize(pos);
     return 1;
 }
 
@@ -63,13 +61,12 @@ int gzgetline(gzFile f, char** buf) {
 int database_init() {
     json fp;
 
-    gzFile in_file = gzopen("resources/fingerprint_db.json.gz","r");
-    char* line = NULL;
-    while(gzgetline(in_file, &line)) {
-        std::string line_str(line);
+    gzFile in_file = gzopen("/home/blake/Cisco/github/mercury-transition/resources/fingerprint_db.json.gz","r");
+    std::vector<char> line;
+    while(gzgetline(in_file, line)) {
+        std::string line_str(line.begin(), line.end());
         fp = json::parse(line_str);
         fp_db[(std::string)fp["str_repr"]] = fp;
-        free(line);
     }
     gzclose(in_file);
 
@@ -201,7 +198,7 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
         }
 
         fp = fp_db[std::string((char*)fp_str)];
-        if (fp == NULL) {
+        if (fp_db[std::string((char*)fp_str)].is_null()) {
             return; // no match
         }
 
@@ -278,7 +275,60 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
  * analysis_cfg is a global variable that configures the analysis
  */
 /*
-int gzgetline_old(gzFile f, std::vector<char>& v) {
+
+int gzgetline(gzFile f, char** buf) {
+    *buf = (char*)malloc(sizeof(char)*256);
+    unsigned pos = 0;
+    unsigned size = 256;
+    for (;;) {
+        if (gzgets(f, *buf+pos, size-pos) == 0) {
+            // EOF
+	  //            free(buf);
+            return 0;
+        }
+        unsigned read = strlen(*buf+pos);
+        if (*(*buf+pos+read-1) == '\n') {
+            pos = pos + read - 1;
+            break;
+        }
+        pos = size - 1;
+        size *= 2;
+        *buf = (char*)realloc(*buf, size);
+    }
+
+    return 1;
+}
+
+
+int database_init() {
+    json fp;
+
+    gzFile in_file = gzopen("/home/blake/Cisco/github/mercury-transition/resources/fingerprint_db.json.gz","r");
+    char* line = NULL;
+    while(gzgetline(in_file, &line)) {
+        std::string line_str(line);
+        fp = json::parse(line_str);
+        fp_db[(std::string)fp["str_repr"]] = fp;
+        //free(line);
+    }
+    gzclose(in_file);
+
+    if (fp["process_info"][0]["malware"].is_boolean()) {
+        MALWARE_DB = true;
+    }
+
+    if (fp["process_info"][0]["classes_ip_ip"].is_object() &&
+        fp["process_info"][0]["classes_hostname_sni"].is_object()) {
+        EXTENDED_FP_METADATA = true;
+    }
+
+    return 1;
+}
+
+
+
+
+int gzgetline(gzFile f, std::vector<char>& v) {
     v = std::vector<char>(256);
     unsigned pos = 0;
     for (;;) {
@@ -299,12 +349,12 @@ int gzgetline_old(gzFile f, std::vector<char>& v) {
 }
 
 
-int database_init_old() {
+int database_init() {
     json fp;
 
     gzFile in_file = gzopen("resources/fingerprint_db.json.gz","r");
     std::vector<char> line;
-    while(gzgetline_old(in_file, line)) {
+    while(gzgetline(in_file, line)) {
         std::string line_str(line.begin(), line.end());
         fp = json::parse(line_str);
         fp_db[(std::string)fp["str_repr"]] = fp;
