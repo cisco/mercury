@@ -16,6 +16,7 @@
 #include "proto_identify.h"
 #include "eth.h"
 #include "tcp.h"
+#include "pkt_proc.h"
 
 /*
  * The extractor_debug macro is useful for debugging (but quite verbose)
@@ -75,6 +76,11 @@ struct pi_container https_server = {
 
 unsigned char tls_server_cert_value[] = {
     0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00
+};
+
+struct pi_container https_server_cert = {
+    DIR_UNKNOWN,
+    HTTPS_PORT
 };
 
 unsigned char http_client_mask[] = {
@@ -137,9 +143,19 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
         return &https_server;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
-                                         http_client_mask,
-                                         http_client_value)) {
-        return &http_client;
+					 tls_server_cert_mask,
+					 tls_server_cert_value)) {
+	return &https_server_cert;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+					 tls_server_cert_mask,
+					 tls_server_cert_value)) {
+	return &https_server_cert;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+					 http_client_mask,
+					 http_client_value)) {
+	return &http_client;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
                                          http_server_mask,
@@ -172,6 +188,7 @@ void extractor_init(struct extractor *x,
                     unsigned char *output,
                     unsigned int output_len) {
 
+    bzero(output, output_len); /* initialize the output buffer */
     x->proto_state.proto = PROTO_UNKNOWN;
     x->proto_state.dir = DIR_UNKNOWN;
     x->proto_state.state = state_start;
@@ -1237,6 +1254,66 @@ unsigned int parser_process_tls(struct parser *p) {
  */
 #define L_CipherSuite              2
 #define L_CompressionMethod        1
+#define L_CertificateLength        3
+#define L_CertificateListLength    3
+
+enum status parser_process_certificate(struct parser *p, struct extractor *x) {
+    size_t tmp_len;
+
+    /* get total certificate length */
+    if (parser_read_and_skip_uint(p, L_CertificateListLength, &tmp_len) == status_err) {
+	    return status_err;
+    }
+
+    if (tmp_len > (unsigned)parser_get_data_length(p)) {
+        tmp_len = parser_get_data_length(p);
+    }
+    
+    /* we have some certificate data in this packet */
+    packet_data_set(&x->packet_data,
+                    packet_data_type_tls_cert,
+                    tmp_len,
+                    p->data);
+
+    return status_ok;
+}
+
+/**
+ * Extract and print binary certificate(s) as base64 encoded string(s).
+ */
+
+void extract_certificates(FILE *file, const unsigned char *data, size_t data_len) {
+    size_t tmp_len;
+    struct parser cert_parser;
+    int cert_num = 0;
+
+    parser_init(&cert_parser, data, data_len);
+    
+    while (parser_get_data_length(&cert_parser) > 0) {
+        /* get certificate length */
+        if (parser_read_and_skip_uint(&cert_parser, L_CertificateLength, &tmp_len) == status_err) {
+	        return;
+        }
+
+        if (tmp_len > (unsigned)parser_get_data_length(&cert_parser)) {
+            tmp_len = parser_get_data_length(&cert_parser); /* truncate */
+        }
+
+        if (cert_num > 0) {
+            fprintf(file, ","); /* print separating comma */
+        }
+
+        fprintf_json_base64_string(file, cert_parser.data, tmp_len);
+        
+        /*
+         * skip over certificate data
+         */
+        if (parser_skip(&cert_parser, tmp_len) == status_err) {
+	        return;
+        }
+        cert_num++;
+    }
+}
 
 /*
  * The function parser_process_tls_server processes a TLS
@@ -1322,6 +1399,12 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
         struct parser ext_parser;
         parser_init_from_outer_parser(&ext_parser, p, tmp_len);
+
+        /* Skip extensions length from parser p (i.e. outer parser) */
+        if (parser_skip(p, tmp_len) == status_err) {
+            goto bail;
+        }
+
         while (parser_get_data_length(&ext_parser) > 0)
         {
             size_t tmp_type;
@@ -1359,8 +1442,34 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
          * write the length of the extracted extensions into the reserved slot
          */
         encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
+
+        /*
+         * After processing extensions, process Server Certificate if present
+         */
+        if (parser_get_data_length(p) > 0) {
+            /*
+             * verify that we are looking at a TLS Certificate
+             */
+            if (parser_match(p, tls_server_cert_value,
+		          L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType,
+		          tls_server_cert_mask) == status_err) {
+	            goto done; /* there is data, but no certificate */
+            }
+
+            if (parser_skip(p, L_CertificateLength) == status_err) {
+                goto done;
+            }
+
+            if (parser_process_certificate(p, x) == status_err) {
+                goto done;
+            }
+
+            /* we got the Server Hello as well as the certificate */
+            x->fingerprint_type = fingerprint_type_tls_server_and_cert;
+        }
     }
 
+ done:
     x->proto_state.state = state_done;
 
     return extractor_get_output_length(x);
@@ -1374,6 +1483,32 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
 }
 
+unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct extractor *x) {
+
+    extractor_debug("%s: Processing server certificate at the begining, len = %lu, output len = %lu\n",
+            __func__, parser_get_data_length(p), extractor_get_output_length(x));
+
+    int skip_len = (L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType + L_CertificateLength);
+
+    if (parser_skip(p, skip_len) == status_err) {
+        goto bail;
+    }
+
+    if (parser_process_certificate(p, x) == status_err) {
+        goto bail;
+    }
+
+    x->fingerprint_type = fingerprint_type_tls_cert; /* only certificate(s) */
+    x->proto_state.state = state_done;
+    return packet_filter_threshold + 1; /* for json_file_write() */
+
+bail:
+    /*
+     * handle possible packet parsing errors
+     */
+    extractor_debug("%s: warning: TLS serverCert did not complete\n", __func__);
+    return 0;
+}
 
 
 /*
@@ -1824,12 +1959,16 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
         }
         break;
     case HTTPS_PORT:
-        if (pi->dir == DIR_CLIENT) {
-            return parser_extractor_process_tls(p, x);
-        } else {
-            return parser_extractor_process_tls_server(p, x);
-        }
-        break;
+	if (pi->dir == DIR_CLIENT) {
+	    return parser_extractor_process_tls(p, x);
+	} else if (pi->dir == DIR_SERVER) {
+        /* we have Server Hello and possibly Server Certificate */
+	    return parser_extractor_process_tls_server(p, x);
+	} else if (pi->dir == DIR_UNKNOWN) {
+        /* we have Server Certificate only */
+	    return parser_extractor_process_tls_server_cert(p, x);
+    }
+	break;
     case SSH_PORT:
         return parser_extractor_process_ssh(p, x);
         break;
