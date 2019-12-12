@@ -86,6 +86,10 @@ int analysis_init() {
     extern enum analysis_cfg analysis_cfg;
     analysis_cfg = analysis_on;
 
+    if (addr_init() != 0) {
+        return -1;
+    }
+
     return database_init();
 }
 
@@ -124,11 +128,6 @@ uint16_t flow_key_get_dst_port(const struct flow_key *key) {
     }
 
     return 0;
-}
-
-
-std::string get_asn_info(char* dst_ip) {
-    return "109:Cisco_Systems";
 }
 
 std::string get_port_app(uint16_t dst_port) {
