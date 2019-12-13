@@ -24,6 +24,7 @@ from pmercury.protocols.http import HTTP
 from pmercury.protocols.dhcp import DHCP
 from pmercury.protocols.tls_server import TLS_Server
 from pmercury.protocols.http_server import HTTP_Server
+from pmercury.protocols.tls_certificate import TLS_Certificate
 
 
 
@@ -61,13 +62,14 @@ class Fingerprinter:
 
         # register parsers
         self.parsers = {}
-        self.parsers['tcp']         = TCP()
-        self.parsers['tls']         = TLS(database)
-        self.parsers['tls_server']  = TLS_Server()
-        self.parsers['http']        = HTTP(None, config)
-        self.parsers['http_server'] = HTTP_Server(None, config)
+        self.parsers['tcp']          = TCP()
+        self.parsers['tls']          = TLS(database)
+        self.parsers['tls_server']   = TLS_Server()
+        self.parsers['http']         = HTTP(None, config)
+        self.parsers['http_server']  = HTTP_Server(None, config)
+        self.parsers['server_certs'] = TLS_Certificate()
 
-        self.parsers['dhcp']        = DHCP(None, config)
+        self.parsers['dhcp']         = DHCP(None, config)
 
         self.flow_parsers  = []
         self.experimental = False
@@ -75,10 +77,11 @@ class Fingerprinter:
             self.experimental = True
             from pmercury.protocols.ssh import SSH
             from pmercury.protocols.tls_decrypt import TLS_Decrypt
-            from pmercury.protocols.tls_certificate import TLS_Certificate
-            self.parsers['tls_certificate'] = TLS_Certificate()
+            from pmercury.protocols.tls_certificate_full import TLS_Certificate_Full
+
+            self.parsers['tls_certificate'] = TLS_Certificate_Full()
             self.parsers['ssh'] = SSH()
-            self.flow_parsers.extend([('tls_certificate', TLS_Certificate()), ('ssh', SSH())])
+            self.flow_parsers.extend([('tls_certificate', TLS_Certificate_Full()), ('ssh', SSH())])
             if sslkeylog != None:
                 self.parsers['tls_decrypt'] = TLS_Decrypt(sslkeylog)
                 self.flow_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))

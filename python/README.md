@@ -177,7 +177,6 @@ tls.py is designed to be a relatively self-contained Python library that provide
 tls.py requires Python 3.6 along with the following packages:
 
 ```bash
-sudo pip3 install ujson
 sudo pip3 install numpy
 sudo pip3 install pyasn
 ```
