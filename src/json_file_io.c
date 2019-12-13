@@ -151,30 +151,23 @@ void json_file_write(struct json_file *jf,
 	    fprintf(file, "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
 	    break;
 	case fingerprint_type_tls_server:
-	    fprintf(file, "{\"fingerprints\":{");
-	    fprintf(file, "\"tls_server\":\"");
-	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
-	    fprintf(file, "\"},");
-	    break;
-	case fingerprint_type_tls_cert:
-        /* print the certificate in base64 format */
-        fprintf(file, "{\"tls\":{");
-        fprintf(file, "\"server_certs\":[");
-        extract_certificates(file, pf.x.packet_data.value, pf.x.packet_data.length);
-        fprintf(file, "]},");
-        break;
-	case fingerprint_type_tls_server_and_cert:
-        /* print the fingerprint */
-        fprintf(file, "{\"fingerprints\":{");
-        fprintf(file, "\"tls_server\":\"");
-        fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
-        fprintf(file, "\"},");
+        fprintf(file, "{");
+        /* check if we have tls_server fingerprint */
+        if (extractor_get_output_length(&pf.x) > 0) {
+            fprintf(file, "\"fingerprints\":{");
+            fprintf(file, "\"tls_server\":\"");
+            fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+            fprintf(file, "\"},");
+        }
 
-        /* print the certificate in base64 format */
-        fprintf(file, "\"tls\":{");
-        fprintf(file, "\"server_certs\":[");
-        extract_certificates(file, pf.x.packet_data.value, pf.x.packet_data.length);
-        fprintf(file, "]},");
+        /* check if we have any certificates */
+        if (pf.x.packet_data.type == packet_data_type_tls_cert) {
+            /* print the certificates in base64 format */
+            fprintf(file, "\"tls\":{");
+            fprintf(file, "\"server_certs\":[");
+            extract_certificates(file, pf.x.packet_data.value, pf.x.packet_data.length);
+            fprintf(file, "]},");
+        }
         break;
 	default:
 	    /* print nothing */

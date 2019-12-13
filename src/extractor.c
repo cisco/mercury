@@ -1463,9 +1463,6 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
             if (parser_process_certificate(p, x) == status_err) {
                 goto done;
             }
-
-            /* we got the Server Hello as well as the certificate */
-            x->fingerprint_type = fingerprint_type_tls_server_and_cert;
         }
     }
 
@@ -1498,7 +1495,7 @@ unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct e
         goto bail;
     }
 
-    x->fingerprint_type = fingerprint_type_tls_cert; /* only certificate(s) */
+    x->fingerprint_type = fingerprint_type_tls_server;
     x->proto_state.state = state_done;
     return packet_filter_threshold + 1; /* for json_file_write() */
 
