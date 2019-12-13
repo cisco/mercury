@@ -39,7 +39,7 @@ JSON_TEST_FILES = $(notdir $(wildcard ./data/*.json))
 JSON_COMP_FILES = $(JSON_TEST_FILES:%.json=%.json-comp)
 
 .PHONY: all
-all: comp analysis memcheck capture
+all: comp analysis memcheck dummy-capture
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 
 .PHONY: comp
@@ -123,6 +123,28 @@ else
 endif
 endif
 
+.PHONY: dummy-capture
+dummy-capture:
+	@echo "running dummy interface capture test"
+ifneq ($(shell ip link show dummy0 2&> /dev/null; echo $$?),0)
+	@echo $(COLOR_RED) "error: network interface dummy0 unavailable (create with 'sudo ip link add dummy0 type dummy', for instance)" $(COLOR_OFF)
+	@/bin/false
+else
+ifeq ($(shell id -u),0)
+	rm -f tmp.json
+	$(MERCURY) -c dummy0 -f tmp.json & echo $$! > mercury.PID
+	tcpreplay -t -i dummy0 data/top-https.pcap
+	kill `cat mercury.PID`
+	python json-test.py tmp.json
+	bash -c "diff  <( jq . tmp.json | grep -v event_start) <( jq . data/top-https.json | grep -v event_start )"
+	rm mercury.PID tmp.json
+	@echo $(COLOR_GREEN) "passed dummy interface capture test" $(COLOR_OFF)
+else
+	@echo $(COLOR_RED) "error: dummy interface capture test must be run as root" $(COLOR_OFF)
+	@/bin/false
+endif
+endif
+
 .PHONY: clean
 clean:
 	rm -rf *.fp *.json *.mcap Makefile~ README.md~ deleteme/* memcheck.tmp tmp.json mercury.PID
@@ -141,7 +163,8 @@ ifeq ($(have_valgrind),yes)
 	valgrind --trace-children=yes --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json 2> memcheck.tmp
 	cat memcheck.tmp | grep "definitely lost: 0 bytes in 0 blocks"
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
-	@echo "passed memcheck"
+	rm -f memcheck.tmp
+	@echo $(COLOR_GREEN) "passed memcheck" $(COLOR_OFF)
 else
 	@echo $(COLOR_YELLOW) "valgrind unavailable; cannot perform memcheck" $(COLOR_OFF)
 	@/bin/false
