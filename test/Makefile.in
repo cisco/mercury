@@ -127,6 +127,7 @@ endif
 dummy-capture:
 	@echo "running dummy interface capture test"
 	ip link add dummy0 type dummy || true
+	ip link set dev dummy0 up || true
 ifneq ($(shell ip link show dummy0 2&> /dev/null; echo $$?),0)
 	@echo $(COLOR_RED) "error: network interface dummy0 unavailable (create with 'sudo ip link add dummy0 type dummy', for instance)" $(COLOR_OFF)
 	@/bin/false
