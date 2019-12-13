@@ -34,10 +34,8 @@ enum fingerprint_type {
     fingerprint_type_tls        = 2,
     fingerprint_type_tls_sni    = 3,
     fingerprint_type_tls_server = 4,
-    fingerprint_type_tls_cert   = 5,
-    fingerprint_type_tls_server_and_cert = 6,
-    fingerprint_type_http       = 7,
-    fingerprint_type_http_server = 8
+    fingerprint_type_http       = 5,
+    fingerprint_type_http_server = 6
 };
 
 #define PROTO_UNKNOWN 65535
