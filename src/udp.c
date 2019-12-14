@@ -339,9 +339,9 @@ unsigned int parser_extractor_process_dhcp(struct parser *p, struct extractor *x
              * TBD: what tags should be copied? not many probably; see
              * https://www.iana.org/assignments/bootp-dhcp-parameters/bootp-dhcp-parameters.xhtml
              */
-            if (option_tag == 0xfe) {
+            if (option_tag == 0x37) {
 
-                if (parser_extractor_copy_append(p, x, option_length - L_dhcp_option_tag) == status_err) {
+                if (parser_extractor_copy_append(p, x, option_length + L_dhcp_option_tag) == status_err) {
                     break;
                 }
             } else {
