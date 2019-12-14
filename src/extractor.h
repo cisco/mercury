@@ -15,6 +15,15 @@
 #include "tcp.h"
 
 
+/*
+ * The extractor_debug macro is useful for debugging (but quite verbose)
+ */
+#ifndef DEBUG
+#define extractor_debug(...)
+#else
+#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
+#endif
+
 enum packet_data_type {
     packet_data_type_none            = 0,
     packet_data_type_tls_sni         = 1,
@@ -34,7 +43,8 @@ enum fingerprint_type {
     fingerprint_type_tls_sni    = 3,
     fingerprint_type_tls_server = 4,
     fingerprint_type_http       = 5,
-    fingerprint_type_http_server = 6
+    fingerprint_type_http_server = 6,
+    fingerprint_type_dhcp_client = 7
 };
 
 #define PROTO_UNKNOWN 65535
@@ -253,6 +263,27 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
 
 unsigned int parser_process_tls_server(struct parser *p);
 
+enum status parser_read_and_skip_uint(struct parser *p,
+                                      unsigned int num_bytes,
+                                      size_t *output);
+
+enum status parser_skip(struct parser *p,
+                        unsigned int len);
+
+unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x);
+
+
+enum status parser_extractor_copy(struct parser *p,
+                                  struct extractor *x,
+                                  unsigned int len);
+
+enum status parser_read_uint(struct parser *p,
+                             unsigned int num_bytes,
+                             size_t *output);
+
+enum status parser_extractor_copy_append(struct parser *p,
+                                         struct extractor *x,
+                                         unsigned int len);
 
 /*
  * extract_fp_from_tls_client_hello() runs the fingerprint extraction
@@ -332,5 +363,14 @@ enum status proto_dispatch_add(struct proto_dispatch *pd,
 
 
 enum status proto_ident_config(const char *config_string);
+
+
+unsigned int u32_compare_masked_data_to_value(const void *data,
+                                              const void *mask,
+                                              const void *value);
+
+
+ptrdiff_t parser_get_data_length(struct parser *p);
+
 
 #endif /* EXTRACTOR_H */

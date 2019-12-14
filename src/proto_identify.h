@@ -29,6 +29,7 @@
 #define SSH_PORT          22
 #define DHCP_CLIENT_PORT  67
 #define DHCP_SERVER_PORT  68
+#define DTLS_PORT         99
 
 /**
  * \brief Protocol Inference container
