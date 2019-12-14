@@ -16,15 +16,7 @@
 #include "proto_identify.h"
 #include "eth.h"
 #include "tcp.h"
-
-/*
- * The extractor_debug macro is useful for debugging (but quite verbose)
- */
-#ifndef DEBUG
-#define extractor_debug(...)
-#else
-#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
-#endif
+#include "udp.h"
 
 /*
  * select_tcp_syn selects TCP SYNs for extraction
@@ -111,6 +103,8 @@ unsigned int u32_compare_masked_data_to_value(const void *data,
     const uint32_t *d = (const uint32_t *)data;
     const uint32_t *m = (const uint32_t *)mask;
     const uint32_t *v = (const uint32_t *)value;
+
+    extractor_debug("%s: data: %x, mask: %x, value: %x\n", __func__, d[0], m[0], v[0]);
 
     return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
 }
@@ -2121,6 +2115,9 @@ unsigned int packet_filter_process_packet(struct packet_filter *pf) {
     }
     if (transport_proto == 6) {
         return packet_filter_process_tcp(pf, &k);
+
+    } else if (transport_proto == 17) {
+        return packet_filter_process_udp(pf, &k);
     }
 
     return 0;
