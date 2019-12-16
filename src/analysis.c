@@ -83,6 +83,7 @@ int database_init() {
     return 1;
 }
 
+
 int analysis_init() {
     extern enum analysis_cfg analysis_cfg;
     analysis_cfg = analysis_on;
@@ -93,6 +94,7 @@ int analysis_init() {
 
     return database_init();
 }
+
 
 int analysis_finalize() {
     extern enum analysis_cfg analysis_cfg;
@@ -165,9 +167,6 @@ std::string get_domain_name(char* server_name) {
     return out_domain;
 }
 
-
-
-
 #define MAX_FP_STR_LEN 4096
 #define MAX_SNI_LEN     257
 void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
@@ -202,24 +201,30 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
             return; // no match
         }
 
-        std::string asn = get_asn_info(dst_ip);
+        uint32_t asn_int = get_asn_info(dst_ip);
+        std::string asn = std::to_string(asn_int);
         std::string port_app = get_port_app(dst_port);
         std::string domain = get_domain_name(server_name);
+        std::string server_name_str(server_name);
+        std::string dst_ip_str(dst_ip);
 
         uint32_t fp_tc, p_count, tmp_value;
         long double prob_process_given_fp, score;
         long double max_score = -1.0;
+        long double sec_score = -1.0;
         long double score_sum = 0.0;
-        json max_proc, equiv_class;
+        long double malware_prob = 0.0;
+        json max_proc, sec_proc, equiv_class;
+        bool max_mal = false;
+        bool sec_mal = false;
 
         long double base_prior = -18.42068;
         long double prior      =  -4.60517;
 
-        fp_tc = fp["total_count"];//.get<uint32_t>();
+        fp_tc = fp["total_count"];
         for (json::iterator it = fp["process_info"].begin(); it != fp["process_info"].end(); ++it) {
-            p_count = (*it)["count"];//.get<uint32_t>();
+            p_count = (*it)["count"];
             prob_process_given_fp = (long double)p_count/fp_tc;
-
 
             score = log(prob_process_given_fp);
             score = fmax(score, base_prior);
@@ -248,230 +253,71 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
                 score += fmax(log((long double)tmp_value/p_count), prior);
             }
 
+            if (EXTENDED_FP_METADATA) {
+                equiv_class = (*it)["classes_ip_ip"];
+                if (equiv_class[dst_ip_str].is_null()) {
+                    score += base_prior;
+                } else {
+                    tmp_value = equiv_class[dst_ip_str];
+                    score += fmax(log((long double)tmp_value/p_count), prior);
+                }
+
+                equiv_class = (*it)["classes_hostname_sni"];
+                if (equiv_class[server_name_str].is_null()) {
+                    score += base_prior;
+                } else {
+                    tmp_value = equiv_class[server_name_str];
+                    score += fmax(log((long double)tmp_value/p_count), prior);
+                }
+            }
+
             score = exp(score);
             score_sum += score;
 
-            if (score > max_score) {
-                max_score = score;
-                max_proc = *it;
+            if (MALWARE_DB) {
+                if ((*it)["malware"] == true && score > 0.0) {
+                    malware_prob += score;
+                }
+
+                if (score > max_score) {
+                    sec_score = max_score;
+                    sec_proc = max_proc;
+                    sec_mal = max_mal;
+                    max_score = score;
+                    max_proc = *it;
+                    max_mal = (*it)["malware"];
+                } else if (score > sec_score) {
+                    sec_score = score;
+                    sec_proc = *it;
+                    sec_mal = (*it)["malware"];
+                }
+            } else {
+                if (score > max_score) {
+                    max_score = score;
+                    max_proc = *it;
+                }
             }
+        }
+
+        if (MALWARE_DB && max_proc["process"] == "Generic DMZ Traffic" && sec_mal == false) {
+            max_proc = sec_proc;
+            max_score = sec_score;
+            max_mal = sec_mal;
         }
 
         if (score_sum > 0.0) {
             max_score /= score_sum;
+            if (MALWARE_DB) {
+                malware_prob /= score_sum;
+            }
         }
 
-        fprintf(file, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf},", max_proc["process"].get<std::string>().c_str(), max_score);
-
-    }
-
-}
-
-
-
-
-
-/*
- * analysis_cfg is a global variable that configures the analysis
- */
-/*
-
-int gzgetline(gzFile f, char** buf) {
-    *buf = (char*)malloc(sizeof(char)*256);
-    unsigned pos = 0;
-    unsigned size = 256;
-    for (;;) {
-        if (gzgets(f, *buf+pos, size-pos) == 0) {
-            // EOF
-	  //            free(buf);
-            return 0;
+        if (MALWARE_DB) {
+            fprintf(file, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf,\"malware\":%d,\"p_malware\":%Lf},", max_proc["process"].get<std::string>().c_str(), max_score, max_mal, malware_prob);
+        } else {
+            fprintf(file, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf},", max_proc["process"].get<std::string>().c_str(), max_score);
         }
-        unsigned read = strlen(*buf+pos);
-        if (*(*buf+pos+read-1) == '\n') {
-            pos = pos + read - 1;
-            break;
-        }
-        pos = size - 1;
-        size *= 2;
-        *buf = (char*)realloc(*buf, size);
-    }
 
-    return 1;
-}
-
-
-int database_init() {
-    json fp;
-
-    gzFile in_file = gzopen("/home/blake/Cisco/github/mercury-transition/resources/fingerprint_db.json.gz","r");
-    char* line = NULL;
-    while(gzgetline(in_file, &line)) {
-        std::string line_str(line);
-        fp = json::parse(line_str);
-        fp_db[(std::string)fp["str_repr"]] = fp;
-        //free(line);
-    }
-    gzclose(in_file);
-
-    if (fp["process_info"][0]["malware"].is_boolean()) {
-        MALWARE_DB = true;
-    }
-
-    if (fp["process_info"][0]["classes_ip_ip"].is_object() &&
-        fp["process_info"][0]["classes_hostname_sni"].is_object()) {
-        EXTENDED_FP_METADATA = true;
-    }
-
-    return 1;
-}
-
-
-
-
-int gzgetline(gzFile f, std::vector<char>& v) {
-    v = std::vector<char>(256);
-    unsigned pos = 0;
-    for (;;) {
-        if (gzgets(f, &v[pos], v.size()-pos) == 0) {
-            // EOF
-            return 0;
-        }
-        unsigned read = strlen(&v[pos]);
-        if (v[pos+read-1] == '\n') {
-            pos = pos + read - 1;
-            break;
-        }
-        pos = v.size() - 1;
-        v.resize(v.size() * 2);
-    }
-    v.resize(pos);
-    return 1;
-}
-
-
-int database_init() {
-    json fp;
-
-    gzFile in_file = gzopen("resources/fingerprint_db.json.gz","r");
-    std::vector<char> line;
-    while(gzgetline(in_file, line)) {
-        std::string line_str(line.begin(), line.end());
-        fp = json::parse(line_str);
-        fp_db[(std::string)fp["str_repr"]] = fp;
-    }
-    gzclose(in_file);
-
-    if (fp["process_info"][0]["malware"].is_boolean()) {
-        MALWARE_DB = true;
-    }
-
-    if (fp["process_info"][0]["classes_ip_ip"].is_object() &&
-        fp["process_info"][0]["classes_hostname_sni"].is_object()) {
-        EXTENDED_FP_METADATA = true;
-    }
-
-    return 1;
-}
-
-
-enum analysis_cfg analysis_cfg = analysis_off;
-
-#ifdef HAVE_PYTHON3
-
-#include "python_interface.h"
-
-int analysis_init() {
-    extern enum analysis_cfg analysis_cfg;
-    analysis_cfg = analysis_on;
-    return init_python();
-}
-
-int analysis_finalize() {
-    extern enum analysis_cfg analysis_cfg;
-    analysis_cfg = analysis_off;
-    return finalize_python();
-}
-
-#define SNI_HEADER_LEN 9
-
-#define MAX_DST_ADDR_LEN 40
-void flow_key_sprintf_dst_addr(const struct flow_key *key,
-			       char *dst_addr_str) {
- 
-    if (key->type == ipv4) {
-	uint8_t *d = (uint8_t *)&key->value.v4.dst_addr;
-	snprintf(dst_addr_str,
-		 MAX_DST_ADDR_LEN,
-		 "%u.%u.%u.%u",
-		 d[0], d[1], d[2], d[3]);		
-    } else if (key->type == ipv6) {
-	uint8_t *d = (uint8_t *)&key->value.v6.dst_addr;
-	snprintf(dst_addr_str,
-		 MAX_DST_ADDR_LEN,
-		 "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
-		 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
-    }
-}
-
-#define MAX_FP_STR_LEN 4096
-#define MAX_SNI_LEN     257
-void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
-						  const struct extractor *x,
-						  const struct flow_key *key) {
-    //struct results_obj *r_p;
-    char *r_p;
-    extern enum analysis_cfg analysis_cfg;
-
-    if (analysis_cfg == analysis_off) {
-	return; // do not perform any analysis
-    }
-    
-    if (x->fingerprint_type == fingerprint_type_tls) {
-	char dst_addr_string[MAX_DST_ADDR_LEN];
-	unsigned char fp_string[MAX_FP_STR_LEN];
-	char tmp_sni[MAX_SNI_LEN];
-	uint16_t dest_port = 0;
-	
-	uint8_t *extractor_buffer = x->output_start;
-	size_t bytes_extracted = extractor_get_output_length(x);
-	sprintf_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted, fp_string, MAX_FP_STR_LEN); // should check return result
-	flow_key_sprintf_dst_addr(key, dst_addr_string);
-	if (x->packet_data.type == packet_data_type_tls_sni) {
-	    size_t sni_len = x->packet_data.length - SNI_HEADER_LEN;
-	    sni_len = sni_len > MAX_SNI_LEN-1 ? MAX_SNI_LEN-1 : sni_len;
-	    memcpy(tmp_sni, x->packet_data.value + SNI_HEADER_LEN, sni_len);
-	    tmp_sni[sni_len] = 0; // null termination
-	}
-	
-	fprintf(file, "\"analysis\":");
-	py_process_detection(&r_p, (char *)fp_string, tmp_sni, dst_addr_string, dest_port);
-	fprintf(file, "%s", r_p);
-	fprintf(file, ",");
     }
 
 }
-
-#else // HAVE_PYTHON3 is not defined
-
-int analysis_init() {
-    fprintf(stderr, "error: analysis requested, but analysis engine not present\n"); 
-    return -1; 
-}
-
-int analysis_finalize() {
-    // nothing to do
-    return -1;
-}
-
-void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
-						  const struct extractor *x,
-						  const struct flow_key *key) {
-    (void)file; // unused
-    (void)x;    // unused
-    (void)key;  // unused
-}
-
-
-#endif // HAVE_PYTHON3
-*/
-
