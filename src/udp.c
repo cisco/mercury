@@ -201,7 +201,7 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         return parser_extractor_process_dhcp(p, x);
         break;
     case DTLS_PORT:
-        fprintf(stderr, "warning: dtls processing is incomplete\n");
+      //        fprintf(stderr, "warning: dtls processing is incomplete\n");
         break;
     case SSH_PORT:
         return parser_extractor_process_ssh(p, x);
