@@ -623,7 +623,9 @@ ac_subst_vars='LTLIBOBJS
 VALGRIND
 WGET
 JQ
+TCPREPLAY
 PYTHON3
+PY
 LIBOBJS
 ac_ct_CXX
 CXXFLAGS
@@ -4423,6 +4425,48 @@ _ACEOF
 ;;
   esac
 
+for ac_prog in python3 python python2
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_PY+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$PY"; then
+  ac_cv_prog_PY="$PY" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_PY="$ac_prog"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+PY=$ac_cv_prog_PY
+if test -n "$PY"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PY" >&5
+$as_echo "$PY" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  test -n "$PY" && break
+done
+
 # Check whether --enable-python was given.
 if test "${enable_python+set}" = set; then :
   enableval=$enable_python;
@@ -4486,6 +4530,43 @@ fi
 #    [AC_CHECK_HEADERS([pcap.h], [], [AC_MSG_ERROR([pcap.h not found; lipcap-dev seems not to be installed])])])
 #AS_IF([test "x$PIP3" = xyes],
 #    [AC_CONFIG_COMMANDS([pip3], [pip3 install cython ujson pyasn])])
+# Extract the first word of "tcpreplay", so it can be a program name with args.
+set dummy tcpreplay; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_TCPREPLAY+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$TCPREPLAY"; then
+  ac_cv_prog_TCPREPLAY="$TCPREPLAY" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_TCPREPLAY="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+TCPREPLAY=$ac_cv_prog_TCPREPLAY
+if test -n "$TCPREPLAY"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $TCPREPLAY" >&5
+$as_echo "$TCPREPLAY" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
 # Extract the first word of "jq", so it can be a program name with args.
 set dummy jq; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -4597,6 +4678,12 @@ $as_echo "no" >&6; }
 fi
 
 
+if test "x$TCPREPLAY" = xyes; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: tcpreplay not found; test/Makefile dummy-capture test will not work" >&5
+$as_echo "$as_me: tcpreplay not found; test/Makefile dummy-capture test will not work" >&6;}
+fi
 if test "x$JQ" = xyes; then :
 
 else

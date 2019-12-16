@@ -20,9 +20,11 @@ COLOR_YELLOW = "\033[0;33m"
 COLOR_OFF    = "\033[0m"
 
 MERCURY = ../src/mercury
+have_tcpreplay = @TCPREPLAY@
 have_jq = @JQ@
 have_valgrind = @VALGRIND@
 have_py3    = @PYTHON3@
+python      = @PY@
 
 # all test files go in the ./tests subdirectory
 # 
@@ -96,7 +98,7 @@ analysis:
 ifeq ($(have_py3),yes)
 	@echo "running analysis test"
 	$(MERCURY) -r data/top-https.pcap -f tmp.json -a
-	python json-test.py tmp.json
+	$(python) json-test.py tmp.json
 	rm tmp.json
 	@echo $(COLOR_GREEN) "passed analysis test" $(COLOR_OFF)
 else
@@ -114,7 +116,7 @@ ifeq ($(shell id -u),0)
 	$(MERCURY) -c $(IFNAME) -f tmp.json & echo $$! > mercury.PID
 	capture/https-test-driver.sh
 	kill `cat mercury.PID`
-	python json-test.py tmp.json
+	$(python) json-test.py tmp.json
 	rm mercury.PID tmp.json
 	@echo $(COLOR_GREEN) "passed capture test" $(COLOR_OFF)
 else
@@ -125,6 +127,10 @@ endif
 
 .PHONY: dummy-capture
 dummy-capture:
+ifneq ($(have_tcpreplay),yes)
+	@echo $(COLOR_RED) "tcpreplay is missing; cannot perform dummy-capture test" $(COLOR_OFF)
+	@/bin/false
+else
 	@echo "running dummy interface capture test"
 	ip link add dummy0 type dummy || true
 	ip link set dev dummy0 up || true
@@ -137,13 +143,14 @@ ifeq ($(shell id -u),0)
 	$(MERCURY) -c dummy0 -f tmp.json & echo $$! > mercury.PID
 	tcpreplay -t -i dummy0 data/top-https.pcap
 	kill `cat mercury.PID`
-	python json-test.py tmp.json
+	$(python) json-test.py tmp.json
 	bash -c "diff  <( jq . tmp.json | grep -v event_start) <( jq . data/top-https.json | grep -v event_start )"
 	rm mercury.PID tmp.json
 	@echo $(COLOR_GREEN) "passed dummy interface capture test" $(COLOR_OFF)
 else
 	@echo $(COLOR_RED) "error: dummy interface capture test must be run as root" $(COLOR_OFF)
 	@/bin/false
+endif
 endif
 endif
 
