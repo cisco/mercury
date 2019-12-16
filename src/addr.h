@@ -9,7 +9,7 @@
 #include <string>
 #include "mercury.h"
 
-std::string get_asn_info(char* dst_ip);
+uint32_t get_asn_info(char* dst_ip);
 
 int addr_init();
 

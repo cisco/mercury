@@ -19,24 +19,26 @@
     }
 #endif
 
+
+#include <iostream>
+
 lct_t ipv4_subnets;
-std::string get_asn_info(char* dst_ip) {
+uint32_t get_asn_info(char* dst_ip) {
     uint32_t ipv4_addr;
 
     if (inet_pton(AF_INET, dst_ip, &ipv4_addr) != 1) {
-        return "None";
+        return 0;
     }
 
     lct_subnet_t *subnet = lct_find(&ipv4_subnets, ntohl(ipv4_addr));
     if (subnet == NULL) {
-        return "None";
+        return 0;
     }
-    if (subnet->type == IP_SUBNET_BGP) {
-        return std::to_string(subnet->info.bgp.asn);
+    if (subnet->info.type == IP_SUBNET_BGP) {
+        return subnet->info.bgp.asn;
     }
 
-    return "None";
-    // return "14618:Amazon.com";
+    return 0;
 }
 
 #define BGP_MAX_ENTRIES             4000000
@@ -51,9 +53,8 @@ std::string get_asn_info(char* dst_ip) {
 
 int lct_init_from_file(char *filename) {
   int num = 0;
-  int nprefixes = 0, nbases = 0, nfull = 0;
-  uint32_t prefix; //, localprefix;
-  lct_subnet_t *p; //, *subnet = NULL;
+  uint32_t prefix;
+  lct_subnet_t *p;
   lct_t *t = &ipv4_subnets;
 
   // we need this to get thousands separators
@@ -78,7 +79,6 @@ int lct_init_from_file(char *filename) {
 #if BGP_READ_FILE
   // read in the ASN prefixes
   int rc;
-  printf("Reading prefixes from %s...\n\n", filename);
   if (0 > (rc = read_prefix_table(filename, &p[num], BGP_MAX_ENTRIES - num))) {
     fprintf(stderr, "could not read prefix file \"%s\"\n", filename);
     return rc;
@@ -135,23 +135,11 @@ int lct_init_from_file(char *filename) {
   }
 
   // count which subnets are prefixes of other subnets
-  nprefixes = subnet_prefix(p, stats, num);
-  nbases = num - nprefixes;
+  subnet_prefix(p, stats, num);
 
   // we're storing twice as many subnets as necessary for easy
   // iteration over the entire sorted subnet list.
-#if LCT_IP_DISPLAY_PREFIXES
-  printf("Enumerating database, get ready! 3..2..1..GO!!!\n\n");
-#endif
   for (int i = 0; i < num; i++) {
-#if LCT_IP_DISPLAY_PREFIXES
-    print_subnet_stats(&p[i], &stats[i]);
-#endif
-
-    // count up the full prefixes to calculate the savings on trie nodes
-    if (p[i].type == IP_PREFIX_FULL)
-      ++nfull;
-
     // quick error check on the optimized prefix indexes
     prefix = p[i].prefix;
     if (prefix != IP_PREFIX_NIL && p[prefix].type == IP_PREFIX_FULL) {
@@ -159,35 +147,14 @@ int lct_init_from_file(char *filename) {
     }
   }
 
-  uint32_t subnet_bytes = num * sizeof(lct_subnet_t);
-  uint32_t stats_bytes = num * sizeof(lct_ip_stats_t);
-  printf("\nStats:\n");
-  printf("Read %'d unique subnets using %u %s memory for subnet descriptors and %u %s for ephemeral IP stats.\n",
-         num,
-         subnet_bytes / ((subnet_bytes > 1024) ? (subnet_bytes > 1024 * 1024) ? 1024 * 1024 : 1024 : 1),
-         (subnet_bytes > 1024) ? (subnet_bytes > 1024 * 1024) ? "mB" : "kB" : "B",
-         stats_bytes / ((stats_bytes > 1024) ? (stats_bytes > 1024 * 1024) ? 1024 * 1024 : 1024 : 1),
-         (stats_bytes > 1024) ? (stats_bytes > 1024 * 1024) ? "mB" : "kB" : "B");
-  printf("%'d subnets are fully allocated to subprefixes culling %1.2f%% subnets from the match count.\n",
-         nfull, (100.0f * nfull) / num);
-  printf("%'d optimized prefixes of %d base subnets will make a trie with %1.2f%% base leaf nodes.\n",
-         nprefixes - nfull, nbases, (100.0f * nbases) / (num - nfull));
-  printf("The trie will consist of %1.2f%% base subnets and %1.2f%% total subnets from the full subnet list.\n",
-         (100.0f * nbases) / (num), (100.0f * (num - nfull)) / num);
-
   // actually build the trie and get the trie node count for statistics printing
   memset(t, 0, sizeof(lct_t));
   lct_build(t, p, num);
-  uint32_t node_bytes = t->ncount * sizeof(lct_node_t) + t->bcount * sizeof(uint32_t);
-  printf("The resulting trie has %'u nodes using %u %s memory.\n", t->ncount,
-         node_bytes / ((node_bytes > 1024) ? (node_bytes > 1024 * 1024) ? 1024 * 1024 : 1024 : 1),
-         (node_bytes > 1024) ? (node_bytes > 1024 * 1024) ? "mB" : "kB" : "B");
-  printf("The trie's shortest base subnet to match is %hhu bits long\n", t->shortest);
 
   return 0;
 }
 
 int addr_init() {
-    return lct_init_from_file((char *)"lctrie/bgp/data-raw-table");
+    return lct_init_from_file((char *)"../resources/pyasn.db");
 
 }
