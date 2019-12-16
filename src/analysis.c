@@ -191,10 +191,11 @@ std::string get_domain_name(char* server_name) {
 
 
 int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
-    rapidjson::Value& fp = fp_db[fp_str];
-    if (fp == NULL) {
-        return -1; // no match
+    rapidjson::Value::ConstMemberIterator matcher = fp_db.FindMember(fp_str);
+    if (matcher == fp_db.MemberEnd()) {
+        return -1;
     }
+    rapidjson::Value& fp = fp_db[fp_str];
 
     uint32_t asn_int = get_asn_info(dst_ip);
     std::string asn = std::to_string(asn_int);
