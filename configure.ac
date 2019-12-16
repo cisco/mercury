@@ -35,7 +35,8 @@ AC_TYPE_UID_T
 AC_TYPE_UINT16_T 
 AC_TYPE_UINT32_T 
 AC_TYPE_UINT64_T 
-AC_TYPE_UINT8_T 
+AC_TYPE_UINT8_T
+AC_CHECK_PROGS(PY, python3 python python2)
 AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PYTHON3,python3,yes)])
 AS_IF([test "x$PYTHON3" = xyes],
     [AC_DEFINE([HAVE_PYTHON3], [1], [python3 is available.])],
@@ -50,9 +51,13 @@ AS_IF([test "x$PYTHON3" = xyes],
 #    [AC_CHECK_HEADERS([pcap.h], [], [AC_MSG_ERROR([pcap.h not found; lipcap-dev seems not to be installed])])])
 #AS_IF([test "x$PIP3" = xyes],
 #    [AC_CONFIG_COMMANDS([pip3], [pip3 install cython ujson pyasn])])
+AC_CHECK_PROG(TCPREPLAY,tcpreplay,yes)
 AC_CHECK_PROG(JQ,jq,yes)
 AC_CHECK_PROG(WGET,wget,yes)
 AC_CHECK_PROG(VALGRIND,valgrind,yes)
+AS_IF([test "x$TCPREPLAY" = xyes],
+    [],
+    [AC_MSG_NOTICE([tcpreplay not found; test/Makefile dummy-capture test will not work])])
 AS_IF([test "x$JQ" = xyes],
     [],
     [AC_MSG_NOTICE([jq not found; test/Makefile comparison test will not work])])
