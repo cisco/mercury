@@ -17,10 +17,17 @@
 #include <math.h>
 #include <unordered_map>
 #include <zlib.h>
+#include <vector>
+#include <algorithm>
 
-#include "nlohmann/json.hpp"
-using json = nlohmann::json;
-json fp_db;
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
+//#include "nlohmann/json.hpp"
+//using json = nlohmann::json;
+//json fp_db;
+
+
+rapidjson::Document fp_db;
 
 #define MAX_FP_STR_LEN 4096
 #define MAX_SNI_LEN     257
@@ -38,8 +45,8 @@ std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,
                                                           {9101,"tor"}};
 
 enum analysis_cfg analysis_cfg = analysis_off;
-bool MALWARE_DB = false;
-bool EXTENDED_FP_METADATA = false;
+bool MALWARE_DB = true;
+bool EXTENDED_FP_METADATA = true;
 
 
 
@@ -65,26 +72,29 @@ int gzgetline(gzFile f, std::vector<char>& v) {
 
 
 int database_init() {
-    json fp;
+    fp_db.SetObject();
+    rapidjson::Document::AllocatorType& allocator = fp_db.GetAllocator();
 
     gzFile in_file = gzopen("../resources/fingerprint_db.json.gz","r");
     std::vector<char> line;
-    while(gzgetline(in_file, line)) {
+    while (gzgetline(in_file, line)) {
         std::string line_str(line.begin(), line.end());
-        fp = json::parse(line_str);
-        fp_db[(std::string)fp["str_repr"]] = fp;
+        rapidjson::Document fp(&allocator);
+        fp.Parse(line_str.c_str());
+
+        rapidjson::Value::ConstMemberIterator itr = fp["process_info"][0].FindMember("malware");
+        if (itr == fp["process_info"][0].MemberEnd()) {
+            MALWARE_DB = false;
+        }
+
+        itr = fp["process_info"][0].FindMember("classes_hostname_sni");
+        if (itr == fp["process_info"][0].MemberEnd()) {
+            EXTENDED_FP_METADATA = false;
+        }
+
+        fp_db.AddMember(fp["str_repr"], fp, allocator);
     }
     gzclose(in_file);
-
-
-    if (fp["process_info"][0]["malware"].is_boolean()) {
-        MALWARE_DB = true;
-    }
-
-    if (fp["process_info"][0]["classes_ip_ip"].is_object() &&
-        fp["process_info"][0]["classes_hostname_sni"].is_object()) {
-        EXTENDED_FP_METADATA = true;
-    }
 
     return 1;
 }
@@ -181,10 +191,8 @@ std::string get_domain_name(char* server_name) {
 
 
 int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
-    json fp;
-
-    fp = fp_db[std::string((char*)fp_str)];
-    if (fp.is_null()) {
+    rapidjson::Value& fp = fp_db[fp_str];
+    if (fp == NULL) {
         return -1; // no match
     }
 
@@ -201,65 +209,65 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
     long double sec_score = -1.0;
     long double score_sum = 0.0;
     long double malware_prob = 0.0;
-    json max_proc, sec_proc, equiv_class;
+    rapidjson::Value equiv_class;
+    std::string max_proc, sec_proc;
     bool max_mal = false;
     bool sec_mal = false;
 
     long double base_prior = -18.42068;
     long double prior      =  -4.60517;
 
-    fp_tc = fp["total_count"];
-    int j = 0;
-    for (json::iterator it = fp["process_info"].begin(); it != fp["process_info"].end(); ++it) {
-        j++;
-        if (j > 2) {
-            break;
-        }
-        p_count = (*it)["count"];
+    rapidjson::Value proc;
+    fp_tc = fp["total_count"].GetInt();
+
+    const rapidjson::Value& procs = fp["process_info"];
+    for (rapidjson::SizeType i = 0; i < procs.Size(); i++) {
+        p_count = procs[i]["count"].GetInt();
         prob_process_given_fp = (long double)p_count/fp_tc;
+
 
         score = log(prob_process_given_fp);
         score = fmax(score, base_prior);
 
-        equiv_class = (*it)["classes_ip_as"][asn];
-        if (equiv_class.is_null()) {
-            score += base_prior;
-        } else {
-            tmp_value = equiv_class;
+        rapidjson::Value::ConstMemberIterator itr = procs[i]["classes_ip_as"].FindMember(asn.c_str());
+        if (itr != procs[i]["classes_ip_as"].MemberEnd()) {
+            tmp_value = procs[i]["classes_ip_as"][asn.c_str()].GetInt();
             score += fmax(log((long double)tmp_value/p_count), prior);
+        } else {
+            score += base_prior;
         }
 
-        equiv_class = (*it)["classes_hostname_domains"][domain];
-        if (equiv_class.is_null()) {
-            score += base_prior;
-        } else {
-            tmp_value = equiv_class;
+        itr = procs[i]["classes_hostname_domains"].FindMember(domain.c_str());
+        if (itr != procs[i]["classes_hostname_domains"].MemberEnd()) {
+            tmp_value = procs[i]["classes_hostname_domains"][domain.c_str()].GetInt();
             score += fmax(log((long double)tmp_value/p_count), prior);
+        } else {
+            score += base_prior;
         }
 
-        equiv_class = (*it)["classes_port_applications"][port_app];
-        if (equiv_class.is_null()) {
-            score += base_prior;
-        } else {
-            tmp_value = equiv_class;
+        itr = procs[i]["classes_port_applications"].FindMember(port_app.c_str());
+        if (itr != procs[i]["classes_port_applications"].MemberEnd()) {
+            tmp_value = procs[i]["classes_port_applications"][port_app.c_str()].GetInt();
             score += fmax(log((long double)tmp_value/p_count), prior);
+        } else {
+            score += base_prior;
         }
 
         if (EXTENDED_FP_METADATA) {
-            equiv_class = (*it)["classes_ip_ip"][dst_ip_str];
-            if (equiv_class.is_null()) {
-                score += base_prior;
-            } else {
-                tmp_value = equiv_class;
+            itr = procs[i]["classes_ip_ip"].FindMember(dst_ip_str.c_str());
+            if (itr != procs[i]["classes_ip_ip"].MemberEnd()) {
+                tmp_value = procs[i]["classes_ip_ip"][dst_ip_str.c_str()].GetInt();
                 score += fmax(log((long double)tmp_value/p_count), prior);
+            } else {
+                score += base_prior;
             }
 
-            equiv_class = (*it)["classes_hostname_sni"][server_name_str];
-            if (equiv_class.is_null()) {
-                score += base_prior;
-            } else {
-                tmp_value = equiv_class;
+            itr = procs[i]["classes_hostname_sni"].FindMember(server_name_str.c_str());
+            if (itr != procs[i]["classes_hostname_sni"].MemberEnd()) {
+                tmp_value = procs[i]["classes_hostname_sni"][server_name_str.c_str()].GetInt();
                 score += fmax(log((long double)tmp_value/p_count), prior);
+            } else {
+                score += base_prior;
             }
         }
 
@@ -267,7 +275,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
         score_sum += score;
 
         if (MALWARE_DB) {
-            if ((*it)["malware"] == true && score > 0.0) {
+            if (procs[i]["malware"].GetBool() == true && score > 0.0) {
                 malware_prob += score;
             }
 
@@ -276,22 +284,23 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
                 sec_proc = max_proc;
                 sec_mal = max_mal;
                 max_score = score;
-                max_proc = *it;
-                max_mal = (*it)["malware"];
+                max_proc = procs[i]["process"].GetString();
+                max_mal = procs[i]["malware"].GetBool();
             } else if (score > sec_score) {
                 sec_score = score;
-                sec_proc = *it;
-                sec_mal = (*it)["malware"];
+                sec_proc = procs[i]["process"].GetString();
+                sec_mal = procs[i]["malware"].GetBool();
             }
         } else {
             if (score > max_score) {
                 max_score = score;
-                max_proc = *it;
+                max_proc = procs[i]["process"].GetString();
             }
         }
+
     }
 
-    if (MALWARE_DB && max_proc["process"] == "Generic DMZ Traffic" && sec_mal == false) {
+    if (MALWARE_DB && max_proc == "Generic DMZ Traffic" && sec_mal == false) {
         max_proc = sec_proc;
         max_score = sec_score;
         max_mal = sec_mal;
@@ -306,13 +315,14 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
 
     *result = (char*)calloc(max_bytes, sizeof(char));
     if (MALWARE_DB) {
-        snprintf(*result, max_bytes, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf,\"malware\":%d,\"p_malware\":%Lf}", max_proc["process"].get<std::string>().c_str(), max_score, max_mal, malware_prob);
+        snprintf(*result, max_bytes, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf,\"malware\":%d,\"p_malware\":%Lf}", max_proc.c_str(), max_score, max_mal, malware_prob);
     } else {
-        snprintf(*result, max_bytes, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf}", max_proc["process"].get<std::string>().c_str(), max_score);
+        snprintf(*result, max_bytes, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf}", max_proc.c_str(), max_score);
     }
 
     return 0;
 }
+
 
 void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
 						  const struct extractor *x,
