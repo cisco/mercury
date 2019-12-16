@@ -20,9 +20,11 @@ from pmercury.utils.packet_proc import pkt_proc
 
 from pmercury.protocols.tcp import TCP
 from pmercury.protocols.tls import TLS
+from pmercury.protocols.dtls import DTLS
 from pmercury.protocols.http import HTTP
 from pmercury.protocols.dhcp import DHCP
 from pmercury.protocols.tls_server import TLS_Server
+from pmercury.protocols.dtls_server import DTLS_Server
 from pmercury.protocols.http_server import HTTP_Server
 from pmercury.protocols.tls_certificate import TLS_Certificate
 
@@ -65,6 +67,8 @@ class Fingerprinter:
         self.parsers['tcp']          = TCP()
         self.parsers['tls']          = TLS(database)
         self.parsers['tls_server']   = TLS_Server()
+        self.parsers['dtls']         = DTLS(database)
+        self.parsers['dtls_server']  = DTLS_Server()
         self.parsers['http']         = HTTP(None, config)
         self.parsers['http_server']  = HTTP_Server(None, config)
         self.parsers['server_certs'] = TLS_Certificate()

@@ -9,9 +9,11 @@ import sys
 
 from pmercury.protocols.tcp import TCP
 from pmercury.protocols.tls import TLS
+from pmercury.protocols.dtls import DTLS
 from pmercury.protocols.http import HTTP
 from pmercury.protocols.dhcp import DHCP
 from pmercury.protocols.tls_server import TLS_Server
+from pmercury.protocols.dtls_server import DTLS_Server
 from pmercury.protocols.http_server import HTTP_Server
 from pmercury.protocols.tls_certificate import TLS_Certificate
 
@@ -94,7 +96,16 @@ def pkt_proc(double ts, bytes data):
         prot_offset = ip_offset+ip_length
         prot_length = 8
         app_offset = prot_offset + prot_length
-        if data_len - app_offset < 240:
+        if data_len - app_offset < 16:
+            return None
+        elif buf[app_offset] == 22 and buf[app_offset+1] == 254:
+            if buf[app_offset+13]  ==  1 and buf[app_offset+25] == 254:
+                fp_str_, context_ = DTLS.fingerprint(data, app_offset, data_len)
+                fp_type = 'dtls'
+            elif buf[app_offset+13]  ==  2 and buf[app_offset+25] == 254:
+                fp_str_, context_ = DTLS_Server.fingerprint(data, app_offset, data_len)
+                fp_type = 'dtls_server'
+        elif data_len - app_offset < 240:
             return None
         elif (buf[app_offset+236] == 0x63 and
               buf[app_offset+237] == 0x82 and

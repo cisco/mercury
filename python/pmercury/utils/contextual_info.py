@@ -29,13 +29,8 @@ for line in os.popen('zcat %s' % (public_suffix_file_raw)):
     tlds.add(line)
 
 
-pyasn_context_file    = find_resource_path('resources/pyasn.db.gz')
-as_context_file       = find_resource_path('resources/asn_info.db.gz')
+pyasn_context_file    = find_resource_path('resources/pyasn.db')
 pyasn_contextual_data = pyasn.pyasn(pyasn_context_file)
-as_contextual_data    = {}
-for line in os.popen('zcat %s' % (as_context_file), mode='r'):
-    t_ = line.split()
-    as_contextual_data[t_[0]] = t_[1]
 
 
 port_mapping = {
@@ -77,7 +72,7 @@ def get_tld_info(hostname):
 def get_asn_info(ip_addr):
     asn,_ = pyasn_contextual_data.lookup(ip_addr)
     if asn != None:
-        return as_contextual_data[str(asn)]
+        return str(asn)
 
     return 'unknown'
 

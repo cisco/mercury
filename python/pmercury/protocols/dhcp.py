@@ -1,4 +1,4 @@
-"""     
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -58,7 +58,7 @@ class DHCP(Protocol):
             length = data[offset+1]
             if kind in DHCP.contextual_data:
                 name_, transform_ = DHCP.contextual_data[kind]
-                context.append({'name':name_, 
+                context.append({'name':name_,
                                 'data':transform_(data[offset+2:offset+2+length])})
             if offset+length+2 >= data_len:
                 return None

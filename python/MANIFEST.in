@@ -7,6 +7,8 @@ include pmercury/utils/tls_utils.c
 include pmercury/protocols/tcp.c
 include pmercury/protocols/tls.c
 include pmercury/protocols/tls_server.c
+include pmercury/protocols/dtls.c
+include pmercury/protocols/dtls_server.c
 include pmercury/protocols/http.c
 include pmercury/protocols/http_server.c
 
