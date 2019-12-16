@@ -10,6 +10,7 @@
 #include "analysis.h"
 #include "ept.h"
 
+#include <pthread.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -21,6 +22,11 @@
 using json = nlohmann::json;
 json fp_db;
 
+#define MAX_FP_STR_LEN 4096
+#define MAX_SNI_LEN     257
+
+pthread_mutex_t lock_fp_cache;
+std::unordered_map<std::string,char*> fp_cache;
 
 std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,"database"}, {465,"email"},
                                                           {563,"nntp"},    {585,"email"},    {614,"shell"},
@@ -87,6 +93,12 @@ int database_init() {
 int analysis_init() {
     extern enum analysis_cfg analysis_cfg;
     analysis_cfg = analysis_on;
+
+    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
+        printf("\n mutex init has failed\n");
+        return -1;
+    }
+    fp_cache = {};
 
     if (addr_init() != 0) {
         return -1;
@@ -167,19 +179,153 @@ std::string get_domain_name(char* server_name) {
     return out_domain;
 }
 
-#define MAX_FP_STR_LEN 4096
-#define MAX_SNI_LEN     257
+
+int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
+    json fp;
+
+    fp = fp_db[std::string((char*)fp_str)];
+    if (fp.is_null()) {
+        return -1; // no match
+    }
+
+    uint32_t asn_int = get_asn_info(dst_ip);
+    std::string asn = std::to_string(asn_int);
+    std::string port_app = get_port_app(dst_port);
+    std::string domain = get_domain_name(server_name);
+    std::string server_name_str(server_name);
+    std::string dst_ip_str(dst_ip);
+
+    uint32_t fp_tc, p_count, tmp_value;
+    long double prob_process_given_fp, score;
+    long double max_score = -1.0;
+    long double sec_score = -1.0;
+    long double score_sum = 0.0;
+    long double malware_prob = 0.0;
+    json max_proc, sec_proc, equiv_class;
+    bool max_mal = false;
+    bool sec_mal = false;
+
+    long double base_prior = -18.42068;
+    long double prior      =  -4.60517;
+
+    fp_tc = fp["total_count"];
+    int j = 0;
+    for (json::iterator it = fp["process_info"].begin(); it != fp["process_info"].end(); ++it) {
+        j++;
+        if (j > 2) {
+            break;
+        }
+        p_count = (*it)["count"];
+        prob_process_given_fp = (long double)p_count/fp_tc;
+
+        score = log(prob_process_given_fp);
+        score = fmax(score, base_prior);
+
+        equiv_class = (*it)["classes_ip_as"][asn];
+        if (equiv_class.is_null()) {
+            score += base_prior;
+        } else {
+            tmp_value = equiv_class;
+            score += fmax(log((long double)tmp_value/p_count), prior);
+        }
+
+        equiv_class = (*it)["classes_hostname_domains"][domain];
+        if (equiv_class.is_null()) {
+            score += base_prior;
+        } else {
+            tmp_value = equiv_class;
+            score += fmax(log((long double)tmp_value/p_count), prior);
+        }
+
+        equiv_class = (*it)["classes_port_applications"][port_app];
+        if (equiv_class.is_null()) {
+            score += base_prior;
+        } else {
+            tmp_value = equiv_class;
+            score += fmax(log((long double)tmp_value/p_count), prior);
+        }
+
+        if (EXTENDED_FP_METADATA) {
+            equiv_class = (*it)["classes_ip_ip"][dst_ip_str];
+            if (equiv_class.is_null()) {
+                score += base_prior;
+            } else {
+                tmp_value = equiv_class;
+                score += fmax(log((long double)tmp_value/p_count), prior);
+            }
+
+            equiv_class = (*it)["classes_hostname_sni"][server_name_str];
+            if (equiv_class.is_null()) {
+                score += base_prior;
+            } else {
+                tmp_value = equiv_class;
+                score += fmax(log((long double)tmp_value/p_count), prior);
+            }
+        }
+
+        score = exp(score);
+        score_sum += score;
+
+        if (MALWARE_DB) {
+            if ((*it)["malware"] == true && score > 0.0) {
+                malware_prob += score;
+            }
+
+            if (score > max_score) {
+                sec_score = max_score;
+                sec_proc = max_proc;
+                sec_mal = max_mal;
+                max_score = score;
+                max_proc = *it;
+                max_mal = (*it)["malware"];
+            } else if (score > sec_score) {
+                sec_score = score;
+                sec_proc = *it;
+                sec_mal = (*it)["malware"];
+            }
+        } else {
+            if (score > max_score) {
+                max_score = score;
+                max_proc = *it;
+            }
+        }
+    }
+
+    if (MALWARE_DB && max_proc["process"] == "Generic DMZ Traffic" && sec_mal == false) {
+        max_proc = sec_proc;
+        max_score = sec_score;
+        max_mal = sec_mal;
+    }
+
+    if (score_sum > 0.0) {
+        max_score /= score_sum;
+        if (MALWARE_DB) {
+            malware_prob /= score_sum;
+        }
+    }
+
+    *result = (char*)calloc(max_bytes, sizeof(char));
+    if (MALWARE_DB) {
+        snprintf(*result, max_bytes, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf,\"malware\":%d,\"p_malware\":%Lf}", max_proc["process"].get<std::string>().c_str(), max_score, max_mal, malware_prob);
+    } else {
+        snprintf(*result, max_bytes, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf}", max_proc["process"].get<std::string>().c_str(), max_score);
+    }
+
+    return 0;
+}
+
 void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
 						  const struct extractor *x,
 						  const struct flow_key *key) {
-    json fp;
     extern enum analysis_cfg analysis_cfg;
+    char* results;
 
     if (analysis_cfg == analysis_off) {
         return; // do not perform any analysis
     }
 
     if (x->fingerprint_type == fingerprint_type_tls) {
+        int ret_value;
         char dst_ip[MAX_DST_ADDR_LEN];
         unsigned char fp_str[MAX_FP_STR_LEN];
         char server_name[MAX_SNI_LEN];
@@ -196,128 +342,32 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
             server_name[sni_len] = 0; // null termination
         }
 
-        fp = fp_db[std::string((char*)fp_str)];
-        if (fp_db[std::string((char*)fp_str)].is_null()) {
-            return; // no match
-        }
+        std::stringstream fp_cache_key_;
+        fp_cache_key_ << std::string((char*)fp_str) << std::string(server_name) << std::string(dst_ip) << std::to_string(dst_port);
+        std::string fp_cache_key = fp_cache_key_.str();
 
-        uint32_t asn_int = get_asn_info(dst_ip);
-        std::string asn = std::to_string(asn_int);
-        std::string port_app = get_port_app(dst_port);
-        std::string domain = get_domain_name(server_name);
-        std::string server_name_str(server_name);
-        std::string dst_ip_str(dst_ip);
-
-        uint32_t fp_tc, p_count, tmp_value;
-        long double prob_process_given_fp, score;
-        long double max_score = -1.0;
-        long double sec_score = -1.0;
-        long double score_sum = 0.0;
-        long double malware_prob = 0.0;
-        json max_proc, sec_proc, equiv_class;
-        bool max_mal = false;
-        bool sec_mal = false;
-
-        long double base_prior = -18.42068;
-        long double prior      =  -4.60517;
-
-        fp_tc = fp["total_count"];
-        for (json::iterator it = fp["process_info"].begin(); it != fp["process_info"].end(); ++it) {
-            p_count = (*it)["count"];
-            prob_process_given_fp = (long double)p_count/fp_tc;
-
-            score = log(prob_process_given_fp);
-            score = fmax(score, base_prior);
-
-            equiv_class = (*it)["classes_ip_as"];
-            if (equiv_class[asn].is_null()) {
-                score += base_prior;
-            } else {
-                tmp_value = equiv_class[asn];
-                score += fmax(log((long double)tmp_value/p_count), prior);
-            }
-
-            equiv_class = (*it)["classes_hostname_domains"];
-            if (equiv_class[domain].is_null()) {
-                score += base_prior;
-            } else {
-                tmp_value = equiv_class[domain];
-                score += fmax(log((long double)tmp_value/p_count), prior);
-            }
-
-            equiv_class = (*it)["classes_port_applications"];
-            if (equiv_class[port_app].is_null()) {
-                score += base_prior;
-            } else {
-                tmp_value = equiv_class[port_app];
-                score += fmax(log((long double)tmp_value/p_count), prior);
-            }
-
-            if (EXTENDED_FP_METADATA) {
-                equiv_class = (*it)["classes_ip_ip"];
-                if (equiv_class[dst_ip_str].is_null()) {
-                    score += base_prior;
-                } else {
-                    tmp_value = equiv_class[dst_ip_str];
-                    score += fmax(log((long double)tmp_value/p_count), prior);
-                }
-
-                equiv_class = (*it)["classes_hostname_sni"];
-                if (equiv_class[server_name_str].is_null()) {
-                    score += base_prior;
-                } else {
-                    tmp_value = equiv_class[server_name_str];
-                    score += fmax(log((long double)tmp_value/p_count), prior);
-                }
-            }
-
-            score = exp(score);
-            score_sum += score;
-
-            if (MALWARE_DB) {
-                if ((*it)["malware"] == true && score > 0.0) {
-                    malware_prob += score;
-                }
-
-                if (score > max_score) {
-                    sec_score = max_score;
-                    sec_proc = max_proc;
-                    sec_mal = max_mal;
-                    max_score = score;
-                    max_proc = *it;
-                    max_mal = (*it)["malware"];
-                } else if (score > sec_score) {
-                    sec_score = score;
-                    sec_proc = *it;
-                    sec_mal = (*it)["malware"];
-                }
-            } else {
-                if (score > max_score) {
-                    max_score = score;
-                    max_proc = *it;
-                }
-            }
-        }
-
-        if (MALWARE_DB && max_proc["process"] == "Generic DMZ Traffic" && sec_mal == false) {
-            max_proc = sec_proc;
-            max_score = sec_score;
-            max_mal = sec_mal;
-        }
-
-        if (score_sum > 0.0) {
-            max_score /= score_sum;
-            if (MALWARE_DB) {
-                malware_prob /= score_sum;
-            }
-        }
-
-        if (MALWARE_DB) {
-            fprintf(file, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf,\"malware\":%d,\"p_malware\":%Lf},", max_proc["process"].get<std::string>().c_str(), max_score, max_mal, malware_prob);
+        pthread_mutex_lock(&lock_fp_cache);
+        auto it = fp_cache.find(fp_cache_key);
+        pthread_mutex_unlock(&lock_fp_cache);
+        if (it != fp_cache.end()) {
+            results = it->second;
+            fprintf(file, "%s,", results);
         } else {
-            fprintf(file, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf},", max_proc["process"].get<std::string>().c_str(), max_score);
+            ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
+            if (ret_value == -1) {
+                return;
+            }
+            fprintf(file, "%s,", results);
+
+            pthread_mutex_lock(&lock_fp_cache);
+            auto it = fp_cache.find(fp_cache_key);
+            if (it == fp_cache.end()) {
+                fp_cache.emplace(fp_cache_key, results);
+            } else {
+                free(results);
+                results = it->second;
+            }
+            pthread_mutex_unlock(&lock_fp_cache);
         }
-
     }
-
 }
