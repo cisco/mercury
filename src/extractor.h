@@ -37,14 +37,15 @@ struct packet_data {
 };
 
 enum fingerprint_type {
-    fingerprint_type_unknown    = 0,
-    fingerprint_type_tcp        = 1,
-    fingerprint_type_tls        = 2,
-    fingerprint_type_tls_sni    = 3,
-    fingerprint_type_tls_server = 4,
-    fingerprint_type_http       = 5,
+    fingerprint_type_unknown     = 0,
+    fingerprint_type_tcp         = 1,
+    fingerprint_type_tls         = 2,
+    fingerprint_type_tls_sni     = 3,
+    fingerprint_type_tls_server  = 4,
+    fingerprint_type_http        = 5,
     fingerprint_type_http_server = 6,
-    fingerprint_type_dhcp_client = 7
+    fingerprint_type_dhcp_client = 7,
+    fingerprint_type_dtls        = 8,
 };
 
 #define PROTO_UNKNOWN 65535
@@ -127,9 +128,32 @@ void extractor_init(struct extractor *x,
  * parser_init initializes a parser object with a data buffer
  * (holding the data to be parsed)
  */
-void parser_init(struct parser *p, 
+void parser_init(struct parser *p,
 		 const unsigned char *data,
 		 unsigned int data_len);
+
+
+unsigned int parser_match(struct parser *p,
+                          const unsigned char *value,
+                          size_t value_len,
+                          const unsigned char *mask);
+
+enum status extractor_reserve(struct extractor *x,
+                              unsigned char **data,
+                              size_t length);
+
+void parser_init_from_outer_parser(struct parser *p,
+                                   const struct parser *outer,
+                                   unsigned int data_len);
+
+void packet_data_set(struct packet_data *pd,
+                     enum packet_data_type type,
+                     size_t length,
+                     const uint8_t *value);
+
+uint16_t degrease_uint16(uint16_t x);
+
+void degrease_octet_string(void *data, ssize_t len);
 
 
 /*
