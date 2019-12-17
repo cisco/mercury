@@ -194,7 +194,7 @@ cdef class TLS():
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
                 if self.MALWARE_DB:
-                    return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
+                    return {'process': 'Unknown', 'score': 0.0, 'malware': 0, 'p_malware': 0.0, 'category': 'Unknown'}
                 else:
                     return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
             self.fp_db[fp_str_] = self.fp_db[approx_str_]
@@ -210,7 +210,7 @@ cdef class TLS():
         if fp_ == None:
             # if malware data is in the database, report malware scores
             if self.MALWARE_DB:
-                return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
+                return {'process': 'Unknown', 'score': 0.0, 'malware': 0, 'p_malware': 0.0, 'category': 'Unknown'}
             else:
                 return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
 
