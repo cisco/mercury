@@ -155,21 +155,22 @@ class Fingerprinter:
                 self.write_record(flow)
                 return
 
-            fp_type = next(iter(flow['fingerprints']))
-            if self.human_readable:
-                desc_ = self.parsers[fp_type].get_human_readable(flow['fingerprints'][fp_type])
-                if desc_ != None:
-                    if 'readable' not in flow:
-                        flow['readable'] = {}
-                    flow['readable'][fp_type] = desc_
-            if self.analyze:
-                context = None
-                if fp_type in flow:
-                    context = flow[fp_type]
-                proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context,
-                                                                flow['dst_ip'], flow['dst_port'], self.num_procs)
-                if proc_info != None:
-                    flow['analysis'] = proc_info
+            if flow['fingerprints'] != {}:
+                fp_type = next(iter(flow['fingerprints']))
+                if self.human_readable:
+                    desc_ = self.parsers[fp_type].get_human_readable(flow['fingerprints'][fp_type])
+                    if desc_ != None:
+                        if 'readable' not in flow:
+                            flow['readable'] = {}
+                        flow['readable'][fp_type] = desc_
+                if self.analyze:
+                    context = None
+                    if fp_type in flow:
+                        context = flow[fp_type]
+                    proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context,
+                                                                    flow['dst_ip'], flow['dst_port'], self.num_procs)
+                    if proc_info != None:
+                        flow['analysis'] = proc_info
 
             if self.group:
                 self.update_flow_cache(flow)
@@ -373,6 +374,8 @@ class Fingerprinter:
 
 
     def write_record(self, flow_repr):
+        if flow_repr['fingerprints'] == {}:
+            del flow_repr['fingerprints']
         self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
 
 
