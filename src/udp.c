@@ -10,12 +10,15 @@
 #include "ept.h"
 
 
+/* DTLS Client */
 unsigned char dtls_client_hello_mask[] = {
-    0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
 };
 
 unsigned char dtls_client_hello_value[] = {
-    0x16, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00
 };
 
 struct pi_container dtls_client = {
@@ -23,6 +26,25 @@ struct pi_container dtls_client = {
     DTLS_PORT
 };
 
+
+/* DTLS Server */
+unsigned char dtls_server_hello_mask[] = {
+    0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
+};
+
+unsigned char dtls_server_hello_value[] = {
+    0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
+};
+
+struct pi_container dtls_server = {
+    DIR_SERVER,
+    DTLS_PORT
+};
+
+
+/* dhcp client */
 unsigned char dhcp_client_value[] = {
     0x01, 0x01, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00
 };
@@ -45,22 +67,31 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
         return NULL;
     }
 
+    /* note: udp_data will be 32-bit aligned as per the standard */
+
     extractor_debug("%s: udp data: %02x%02x%02x%02x%02x%02x%02x%02x\n", __func__,
                     udp_data[0], udp_data[1], udp_data[2], udp_data[3], udp_data[4], udp_data[5], udp_data[6], udp_data[7]);
 
-    // debug_print_u8_array(udp_data);
-
-    /* note: udp_data will be 32-bit aligned as per the standard */
-
-    if (u32_compare_masked_data_to_value(udp_data,
-                                         dtls_client_hello_mask,
-                                         dtls_client_hello_value)) {
-        return &dtls_client;
-    }
     if (u32_compare_masked_data_to_value(udp_data,
                                          dhcp_client_mask,
                                          dhcp_client_value)) {
         return &dhcp_client;
+    }
+
+
+    if (len < sizeof(dtls_client_hello_mask)) {
+        return NULL;
+    }
+
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         dtls_client_hello_mask,
+                                         dtls_client_hello_value)) {
+        return &dtls_client;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         dtls_server_hello_mask,
+                                         dtls_server_hello_value)) {
+        return &dtls_server;
     }
 
     return NULL;
@@ -141,6 +172,7 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
 
 
 unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extractor *x);
 unsigned int parser_extractor_process_dhcp(struct parser *p, struct extractor *x);
 
 unsigned int parser_extractor_process_udp_data(struct parser *p, struct extractor *x) {
@@ -162,7 +194,11 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         return parser_extractor_process_dhcp(p, x);
         break;
     case DTLS_PORT:
-        return parser_extractor_process_dtls(p, x);
+        if (pi->dir == DIR_CLIENT) {
+            return parser_extractor_process_dtls(p, x);
+        } else {
+            return parser_extractor_process_dtls_server(p, x);
+        }
         break;
     case SSH_PORT:
         return parser_extractor_process_ssh(p, x);
@@ -455,10 +491,9 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
     /*
      * verify that we are looking at a DTLS ClientHello
      */
-
     if (parser_match(p,
                      dtls_client_hello_value,
-                     L_DTLSContentType + L_DTLSProtocolVersion,
+                     L_DTLSContentType + L_DTLSProtocolVersion + L_DTLSEpoch + L_DTLSSequence + L_DTLSRecordLength + L_DTLSHandshakeType,
                      dtls_client_hello_mask) == status_err) {
         return 0; /* not a clientHello */
     }
@@ -468,7 +503,7 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
     /*
      * skip over initial fields
      */
-    if (parser_skip(p, L_DTLSEpoch + L_DTLSSequence + L_DTLSRecordLength + L_DTLSHandshakeType + L_DTLSHandshakeLength + L_DTLSMessageSequence + L_DTLSFragmentOffset + L_DTLSFragmentLength) == status_err) {
+    if (parser_skip(p, L_DTLSHandshakeLength + L_DTLSMessageSequence + L_DTLSFragmentOffset + L_DTLSFragmentLength) == status_err) {
         return 0;
     }
 
@@ -613,4 +648,148 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
     return extractor_get_output_length(x);
 
 }
+
+
+/*
+ * field lengths used in serverHello parsing
+ */
+#define L_DTLSCipherSuite              2
+#define L_DTLSCompressionMethod        1
+
+/*
+ * The function parser_process_tls_server processes a TLS
+ * serverHello packet.  The parser MUST have previously been
+ * initialized with its data pointer set to the initial octet of the
+ * TCP header of the TLS packet.
+ */
+unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extractor *x) {
+    size_t tmp_len;
+
+    extractor_debug("%s: processing packet\n", __func__);
+
+    /*
+     * verify that we are looking at a DTLS ClientHello
+     */
+    if (parser_match(p,
+                     dtls_server_hello_value,
+                     L_DTLSContentType + L_DTLSProtocolVersion + L_DTLSEpoch + L_DTLSSequence + L_DTLSRecordLength + L_DTLSHandshakeType,
+                     dtls_server_hello_mask) == status_err) {
+        return 0; /* not a clientHello */
+    }
+
+    /* set fingerprint type */
+    x->fingerprint_type = fingerprint_type_dtls_server;
+
+    /*
+     * skip over initial fields
+     */
+    if (parser_skip(p, L_DTLSHandshakeLength + L_DTLSMessageSequence + L_DTLSFragmentOffset + L_DTLSFragmentLength) == status_err) {
+        return 0;
+    }
+
+    /*
+     * copy serverHello.ProtocolVersion
+     */
+    if (parser_extractor_copy(p, x, L_DTLSProtocolVersion) == status_err) {
+	    goto bail;
+    }
+
+    /*
+     * skip over Random
+     */
+    if (parser_skip(p, L_DTLSRandom) == status_err) {
+	    goto bail;
+    }
+
+    /* skip over SessionID and SessionIDLen */
+    if (parser_read_uint(p, L_DTLSSessionIDLength, &tmp_len) == status_err) {
+	    goto bail;
+    }
+    if (parser_skip(p, tmp_len + L_DTLSSessionIDLength) == status_err) {
+	    goto bail;
+    }
+
+    if (parser_extractor_copy(p, x, L_DTLSCipherSuite) == status_err) {
+	    goto bail;
+    }
+
+    /* skip over compression methods */
+    if (parser_read_uint(p, L_DTLSCompressionMethodsLength, &tmp_len) == status_err) {
+	    goto bail;
+    }
+    if (parser_skip(p, tmp_len + L_DTLSCompressionMethod) == status_err) {
+	    goto bail;
+    }
+
+    /*
+     * parse extensions vector if present
+     */
+    if (parser_get_data_length(p) > 0) {
+        /*
+         * reserve slot in output for length of extracted extensions
+         */
+        unsigned char *ext_len_slot;
+        if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
+	        goto bail;
+        }
+
+        /*  extensions length */
+        if (parser_read_and_skip_uint(p, L_DTLSExtensionsVectorLength, &tmp_len)) {
+	        goto bail;
+        }
+
+        struct parser ext_parser;
+        parser_init_from_outer_parser(&ext_parser, p, tmp_len);
+        while (parser_get_data_length(&ext_parser) > 0)
+        {
+            size_t tmp_type;
+            if (parser_read_uint(&ext_parser, L_DTLSExtensionType, &tmp_type) == status_err)
+            {
+                break;
+            }
+            if (parser_extractor_copy(&ext_parser, x, L_DTLSExtensionType) == status_err)
+            {
+                break;
+            }
+
+            if (parser_read_uint(&ext_parser, L_DTLSExtensionLength, &tmp_len) == status_err)
+            {
+                break;
+            }
+
+            if (uint16_match(tmp_type, dtls_static_extension_types, dtls_num_static_extension_types) == status_err)
+            {
+                if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_DTLSExtensionLength) == status_err)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                if (parser_skip(&ext_parser, tmp_len + L_DTLSExtensionLength) == status_err)
+                {
+                    break;
+                }
+            }
+        }
+
+        /*
+         * write the length of the extracted extensions into the reserved slot
+         */
+        encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
+    }
+
+    x->proto_state.state = state_done;
+
+    return extractor_get_output_length(x);
+
+ bail:
+    /*
+     * handle possible packet parsing errors
+     */
+    extractor_debug("%s: warning: TLS serverHello processing did not fully complete\n", __func__);
+    return 0;
+
+}
+
 
