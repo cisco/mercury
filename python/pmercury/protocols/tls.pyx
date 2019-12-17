@@ -156,28 +156,26 @@ cdef class TLS():
 
         # parse/extract/skip extension type/length/values
         c.append('(')
-        server_name = None
+        cdef str server_name = None
+        cdef list context = None
         while ext_total_len > 0:
             if offset >= data_len:
                 c.append(')')
-                return ''.join(c), server_name
+                return ''.join(c), context
 
             # extract server name for process/malware identification
             if htons(deref(<uint16_t *>(buf+offset))) == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
+                context = [{'name':'server_name', 'data':server_name}]
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
             if ext_len+4 > ext_total_len:
                 c.append(')')
-                return ''.join(c), server_name
+                return ''.join(c), context
             c.append('(%s)' % tmp_fp_ext)
 
             ext_total_len -= 4 + ext_len
         c.append(')')
-
-        cdef list context = None
-        if server_name != None:
-            context = [{'name':'server_name', 'data':server_name}]
 
         return  ''.join(c), context
 
