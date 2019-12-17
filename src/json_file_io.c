@@ -179,6 +179,12 @@ void json_file_write(struct json_file *jf,
 	    fprintf(file, ",");
 
 	    break;
+	case fingerprint_type_dtls_server:
+	    fprintf(file, "{\"fingerprints\":{");
+	    fprintf(file, "\"dtls_server\":\"");
+	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+	    fprintf(file, "\"},");
+	    break;
 	default:
 	    /* print nothing */
 	    return;

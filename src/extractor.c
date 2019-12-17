@@ -109,6 +109,18 @@ unsigned int u32_compare_masked_data_to_value(const void *data,
     return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
 }
 
+unsigned int u64_compare_masked_data_to_value(const void *data,
+                                              const void *mask,
+                                              const void *value) {
+    const uint64_t *d = (const uint64_t *)data;
+    const uint64_t *m = (const uint64_t *)mask;
+    const uint64_t *v = (const uint64_t *)value;
+
+    extractor_debug("%s: data: %x, mask: %x, value: %x\n", __func__, d[0], m[0], v[0]);
+
+    return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
+}
+
 const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
                                               unsigned int len) {
 

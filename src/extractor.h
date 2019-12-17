@@ -46,6 +46,7 @@ enum fingerprint_type {
     fingerprint_type_http_server = 6,
     fingerprint_type_dhcp_client = 7,
     fingerprint_type_dtls        = 8,
+    fingerprint_type_dtls_server = 9
 };
 
 #define PROTO_UNKNOWN 65535
@@ -393,6 +394,9 @@ unsigned int u32_compare_masked_data_to_value(const void *data,
                                               const void *mask,
                                               const void *value);
 
+unsigned int u64_compare_masked_data_to_value(const void *data,
+                                              const void *mask,
+                                              const void *value);
 
 ptrdiff_t parser_get_data_length(struct parser *p);
 
