@@ -826,23 +826,6 @@ unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) 
  * TLS fingerprint extraction
  */
 
-#define L_ContentType              1
-#define L_ProtocolVersion          2
-#define L_RecordLength             2
-#define L_HandshakeType            1
-#define L_HandshakeLength          3
-#define L_ProtocolVersion          2
-#define L_Random                  32
-#define L_SessionIDLength          1
-#define L_CipherSuiteVectorLength  2
-#define L_CompressionMethodsLength 1
-#define L_ExtensionsVectorLength   2
-#define L_ExtensionType            2
-#define L_ExtensionLength          2
-
-#define L_NamedGroupListLen        2
-#define L_ProtocolVersionListLen   1
-
 uint16_t degrease_uint16(uint16_t x) {
     switch(x) {
     case 0x0a0a:
@@ -884,6 +867,24 @@ void degrease_octet_string(void *data, ssize_t len) {
 
 }
 
+/* TLS Constants */
+
+#define L_ContentType              1
+#define L_ProtocolVersion          2
+#define L_RecordLength             2
+#define L_HandshakeType            1
+#define L_HandshakeLength          3
+#define L_ProtocolVersion          2
+#define L_Random                  32
+#define L_SessionIDLength          1
+#define L_CipherSuiteVectorLength  2
+#define L_CompressionMethodsLength 1
+#define L_ExtensionsVectorLength   2
+#define L_ExtensionType            2
+#define L_ExtensionLength          2
+
+#define L_NamedGroupListLen        2
+#define L_ProtocolVersionListLen   1
 
 /*
  * expanded set of static extensions
@@ -943,6 +944,7 @@ uint16_t static_extension_types[num_static_extension_types] = {
         60138,     /* GREASE                                 */
         64250      /* GREASE                                 */
     };
+
 
 /*
  * The function extractor_process_tls processes a TLS packet.  The

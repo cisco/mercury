@@ -1,8 +1,8 @@
 /*
  * json_file_io.c
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <string.h>
@@ -147,7 +147,6 @@ void json_file_write(struct json_file *jf,
 					pf.x.packet_data.length);
 		fprintf(file, "},");
 	    }
-	    
 	    break;
 	case fingerprint_type_http_server:
 	    fprintf(file, "{\"fingerprints\":{");
@@ -162,9 +161,27 @@ void json_file_write(struct json_file *jf,
 	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
 	    fprintf(file, "\"},");
 	    break;
+	case fingerprint_type_dtls:
+	    fprintf(file, "{\"fingerprints\":{");
+	    fprintf(file, "\"dtls\":\"");
+	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+	    fprintf(file, "\"}");
+	    if (pf.x.packet_data.type == packet_data_type_tls_sni) {
+		if (pf.x.packet_data.length >= SNI_HDR_LEN) {
+		    fprintf(file, ",\"dtls\":{");
+		    fprintf_json_string(file,
+					"server_name",
+					pf.x.packet_data.value  + SNI_HDR_LEN,
+					pf.x.packet_data.length - SNI_HDR_LEN);
+		    fprintf(file, "}");
+		}
+	    }
+	    fprintf(file, ",");
+
+	    break;
 	default:
 	    /* print nothing */
-	    return; 
+	    return;
 	    //fprintf(file, "\"unknown\":\"");
 	    //fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
 	    //fprintf(file, "\"},");
