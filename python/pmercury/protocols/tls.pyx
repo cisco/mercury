@@ -230,7 +230,7 @@ cdef class TLS():
             predict_ = fp_['process_info'][0]['process']
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
             if self.MALWARE_DB:
-                return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'],
+                return {'process':predict_, 'score': 0.0, 'malware': int(fp_['process_info'][0]['malware']),
                         'p_malware': 0.0, 'category': 'Unknown'}
             else:
                 return {'process':predict_, 'score':0.0, 'category': 'Unknown'}
@@ -248,7 +248,7 @@ cdef class TLS():
         score_sum_ = sum([x_['score'] for x_ in r_])
         if self.MALWARE_DB:
             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
-            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'],
+            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':int(r_[0]['malware']),
                     'p_malware':malware_score_, 'category':r_[0]['category']}
         else:
             out_ = {'process':process_name, 'score':r_[0]['score'], 'category':r_[0]['category']}
