@@ -54,15 +54,20 @@ class TLS_Server(Protocol):
         cdef unsigned char *buf = data
         offset += 5
 
+        # get record length
+        cdef int record_length = int(data[offset+1:offset+4].hex(),16)
+
         # extract handshake version
         cdef str fp_ = f'({buf[offset+4]:02x}{buf[offset+5]:02x})'
 
         # skip header/server_random
         offset += 38
+        record_length -= 34
 
         # parse/skip session_id
         cdef unsigned int session_id_length = buf[offset]
         offset += 1 + session_id_length
+        record_length -= 1 + session_id_length
         if offset >= data_len:
             return None, None
 
@@ -75,7 +80,8 @@ class TLS_Server(Protocol):
         # parse/skip compression method
         cdef unsigned int compression_methods_length = buf[offset]
         offset += 1 + compression_methods_length
-        if offset >= data_len:
+        record_length -= 3 + compression_methods_length
+        if offset >= data_len or record_length < 2:
             return fp_+'()', None
 
         # parse/skip extensions length
