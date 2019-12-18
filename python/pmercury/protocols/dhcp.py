@@ -23,10 +23,10 @@ class DHCP(Protocol):
         DHCP.static_data = set([0x35, 0x37])
         DHCP.contextual_data = {0x03: ('router',lambda x: inet_ntop(AF_INET, x)),
                                 0x06: ('domain_name_server',lambda x: inet_ntop(AF_INET, x)),
-                                0x0c: ('hostname',lambda x: x),
-                                0x0f: ('domain_name',lambda x: x),
+                                0x0c: ('hostname',lambda x: x.decode()),
+                                0x0f: ('domain_name',lambda x: x.decode()),
                                 0x32: ('requested_ip',lambda x: inet_ntop(AF_INET, x)),
-                                0x3c: ('vendor_class_id',lambda x: x)}
+                                0x3c: ('vendor_class_id',lambda x: x.decode())}
 
     @staticmethod
     def proto_identify(data, offset, data_len):
