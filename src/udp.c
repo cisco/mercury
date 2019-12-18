@@ -153,9 +153,6 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
     if (parser_read_and_skip_uint(p, L_udp_length, &udp_length) == status_err) {
         return 0;
     }
-    /*
-     * TBD: should shorten parser data buffer based on udp_length, if needed
-     */
     if (parser_skip(p, L_udp_checksum) == status_err) {
         return 0;
     }
@@ -163,10 +160,18 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
     extractor_debug("%s: udp header: %02x%02x%02x%02x%02x%02x%02x%02x\n", __func__,
                     d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
 
+    /* handle the udp length field */
+    if (udp_length < 8) {
+      return 0; /* error: header claims that packet is shorter than header */
+    }
+    if ((unsigned int)parser_get_data_length(p) != udp_length - 8) {
+      parser_set_data_length(p, udp_length - 8);
+    }
+    
     /*
-	 * process the UDP Data payload
-	 */
-	return parser_extractor_process_udp_data(p, x);
+     * process the UDP Data payload
+     */
+    return parser_extractor_process_udp_data(p, x);
 
 }
 
@@ -292,6 +297,8 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
 
 #define DHCP_OPT_PAD 0x00
 #define DHCP_OPT_END 0xff
+#define DHCP_OPT_PARAMETER_LIST 0x37
+#define DHCP_OPT_VENDOR_CLASS   0x7C
 
 unsigned int parser_extractor_process_dhcp(struct parser *p, struct extractor *x) {
 
@@ -336,7 +343,7 @@ unsigned int parser_extractor_process_dhcp(struct parser *p, struct extractor *x
              * TBD: what tags should be copied? not many probably; see
              * https://www.iana.org/assignments/bootp-dhcp-parameters/bootp-dhcp-parameters.xhtml
              */
-            if (option_tag == 0x37) {
+            if (option_tag == DHCP_OPT_PARAMETER_LIST || option_tag == DHCP_OPT_VENDOR_CLASS) {
 
                 if (parser_extractor_copy_append(p, x, option_length + L_dhcp_option_tag) == status_err) {
                     break;
