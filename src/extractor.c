@@ -156,11 +156,6 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
 	return &https_server_cert;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
-					 tls_server_cert_mask,
-					 tls_server_cert_value)) {
-	return &https_server_cert;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
 					 http_client_mask,
 					 http_client_value)) {
 	return &http_client;
@@ -1297,7 +1292,7 @@ unsigned int parser_process_tls(struct parser *p) {
 #define L_CertificateLength        3
 #define L_CertificateListLength    3
 
-enum status parser_process_certificate(struct parser *p, struct extractor *x) {
+enum status parser_extractor_process_certificate(struct parser *p, struct extractor *x) {
     size_t tmp_len;
 
     /* get total certificate length */
@@ -1501,7 +1496,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
                     if (parser_skip(p, L_HandshakeType + L_HandshakeLength) == status_err) {
                         goto done;
                     }
-                    if (parser_process_certificate(p, x) == status_err) {
+                    if (parser_extractor_process_certificate(p, x) == status_err) {
                         goto done;
                     }
                 }
@@ -1512,7 +1507,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
                 goto done;
             }
 
-            if (parser_process_certificate(p, x) == status_err) {
+            if (parser_extractor_process_certificate(p, x) == status_err) {
                 goto done;
             }
         }
@@ -1543,7 +1538,7 @@ unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct e
         goto bail;
     }
 
-    if (parser_process_certificate(p, x) == status_err) {
+    if (parser_extractor_process_certificate(p, x) == status_err) {
         goto bail;
     }
 
