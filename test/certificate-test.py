@@ -71,7 +71,7 @@ def process_json(json_file):
 
 def main():
     if len(sys.argv) != 2:
-        print ("usage: " + sys.argv[0] + " <fingerprint file>")
+        print ("usage: " + sys.argv[0] + " <fingerprint file or directory>")
         return -1 # error
     inputfilename = sys.argv[1]
 
@@ -88,20 +88,21 @@ def main():
         if (max_certs < max_certs1):
             max_certs = max_certs1
     elif (os.path.isdir(inputfilename)):
-        print("{} this is a directory".format(inputfilename))
+        print("Processing directory {}...".format(inputfilename))
         file_list = os.listdir(inputfilename)
         for f in file_list:
             fname = os.path.join(inputfilename, f)
-            print("Processing file {}...".format(fname))
             cert_count1, good_cert1, bad_cert1, max_certs1 = process_json(fname)
             cert_count += cert_count1
             good_cert += good_cert1
             bad_cert += bad_cert1
             if (max_certs < max_certs1):
                 max_certs = max_certs1
+            print("  Processing file {}, Total certs {}, Complete certs {}, Partial certs {} ".format(
+                fname, cert_count1, good_cert1, bad_cert1))
 
-    print("Total Certs = {}, good certs = {}, bad certs = {}".format(cert_count, good_cert, bad_cert))
-    print("max certs in a packet = {}".format(max_certs))
+    print("Total Certs = {}, Complete certs = {}, Partial certs = {}".format(cert_count, good_cert, bad_cert))
+    print("Max certs in a packet = {}".format(max_certs))
 
 if __name__== "__main__":
     main()
