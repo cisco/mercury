@@ -78,6 +78,14 @@ unsigned char tls_server_cert_value[] = {
     0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00
 };
 
+unsigned char tls_server_cert_embedded_mask[] = {
+    0xff, 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff
+};
+
+unsigned char tls_server_cert_embedded_value[] = {
+    0x0b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x82
+};
+
 struct pi_container https_server_cert = {
     DIR_UNKNOWN,
     HTTPS_PORT
@@ -545,6 +553,7 @@ ptrdiff_t extractor_get_output_length(const struct extractor *x) {
 /*
  * parser_match(x, value, value_len, mask) returns status_ok if
  * (x->data & mask) == value, and returns status_err otherwise
+ * It advances p->data by value_len when it returns status_ok
  */
 unsigned int parser_match(struct parser *p,
                           const unsigned char *value,
@@ -568,6 +577,37 @@ unsigned int parser_match(struct parser *p,
             }
         }
         p->data += value_len;
+        return status_ok;
+    }
+    return status_err;
+}
+
+/*
+ * parser_match_no_advance(x, value, value_len, mask) returns status_ok if
+ * (x->data & mask) == value, and returns status_err otherwise
+ * It does NOT advance p->data at all.
+ */
+unsigned int parser_match_no_advance(struct parser *p,
+                          const unsigned char *value,
+                          size_t value_len,
+                          const unsigned char *mask) {
+
+    if (p->data + value_len <= p->data_end) {
+        unsigned int i;
+
+        if (mask) {
+            for (i = 0; i < value_len; i++) {
+                if ((p->data[i] & mask[i]) != value[i]) {
+                    return status_err;
+                }
+            }
+        } else { /* mask == NULL */
+            for (i = 0; i < value_len; i++) {
+                if (p->data[i] != value[i]) {
+                    return status_err;
+                }
+            }
+        }
         return status_ok;
     }
     return status_err;
@@ -1453,7 +1493,19 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
             if (parser_match(p, tls_server_cert_value,
 		          L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType,
 		          tls_server_cert_mask) == status_err) {
-	            goto done; /* there is data, but no certificate */
+
+                if (parser_match_no_advance(p, tls_server_cert_embedded_value,
+                                sizeof(tls_server_cert_embedded_value),
+                                tls_server_cert_embedded_mask) == status_ok) {
+                    /* we have embedded certificate */
+                    if (parser_skip(p, L_HandshakeType + L_HandshakeLength) == status_err) {
+                        goto done;
+                    }
+                    if (parser_process_certificate(p, x) == status_err) {
+                        goto done;
+                    }
+                }
+                goto done;
             }
 
             if (parser_skip(p, L_CertificateLength) == status_err) {
