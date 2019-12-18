@@ -329,7 +329,7 @@ def parse_application_layer_protocol_negotiation(data, length):
     while alpn_offset < length*2:
         tmp_alpn_len = int(data[alpn_offset:alpn_offset+2], 16)
         alpn_offset += 2
-        alpn_data.append(bytes.fromhex(data[alpn_offset:alpn_offset+2*tmp_alpn_len]))
+        alpn_data.append(bytes.fromhex(data[alpn_offset:alpn_offset+2*tmp_alpn_len]).decode())
         alpn_offset += tmp_alpn_len*2
 
     return alpn_data
