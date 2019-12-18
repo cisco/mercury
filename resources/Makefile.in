@@ -12,14 +12,14 @@ bindir = @bindir@
 localstatedir = @localstatedir@/mercury
 datarootdir = @datarootdir@/mercury
 
-RESOURCE_FILES  = app_families.txt
-RESOURCE_FILES += implementation_date_cs.json.gz
-RESOURCE_FILES += pyasn.db.gz
-RESOURCE_FILES += asn_info.db.gz
-RESOURCE_FILES += implementation_date_ext.json.gz
-RESOURCE_FILES += transition_probs.csv.gz
 RESOURCE_FILES += fingerprint_db.json.gz
-RESOURCE_FILES += public_suffix_list.dat.gz
+RESOURCE_FILES += pyasn.db
+# RESOURCE_FILES  = app_families.txt
+# RESOURCE_FILES += implementation_date_cs.json.gz
+# RESOURCE_FILES += asn_info.db.gz
+# RESOURCE_FILES += implementation_date_ext.json.gz
+# RESOURCE_FILES += transition_probs.csv.gz
+# RESOURCE_FILES += public_suffix_list.dat.gz
 
 .PHONY: install
 install:

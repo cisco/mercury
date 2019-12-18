@@ -12,6 +12,7 @@ prefix = @prefix@
 exec_prefix=@exec_prefix@
 bindir = @bindir@
 localstatedir = @localstatedir@/mercury
+datarootdir = @datarootdir@/mercury
 
 .SUFFIXES:
 .SUFFIXES: .c .o
@@ -20,7 +21,7 @@ localstatedir = @localstatedir@/mercury
 #
 have_py3    = @PYTHON3@
 have_pip3   = @PIP3@
-CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) 
+CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 CC      = @CXX@
 CFLAGS  = --std=c++11
