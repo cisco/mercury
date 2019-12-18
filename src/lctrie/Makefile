@@ -14,7 +14,7 @@ clean:
 
 CFLAGS = -g -ggdb -std=gnu99 -Wall -O3
 LDFLAGS = -g -ggdb -O3
-LDLIBS = -lpcre
+LDLIBS = 
 
 # autodep stuff
 

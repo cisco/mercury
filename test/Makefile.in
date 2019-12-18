@@ -16,6 +16,7 @@
 MERCURY = ../src/mercury
 have_jq = @JQ@
 have_valgrind = @VALGRIND@
+have_jsonschema = @HAVE_JSONSCHEMA@
 
 # all test files go in the ./tests subdirectory
 # 
@@ -93,7 +94,11 @@ else
 	$(MERCURY) -c $(IFNAME) -f tmp.json & echo $$! > mercury.PID
 	capture/https-test-driver.sh
 	kill `cat mercury.PID`
+ifeq ($(have_jsonschema),yes)
 	python json-test.py tmp.json
+else
+	@echo "warning: python package jsonschema not available, omitting json-test"
+endif
 	rm mercury.PID tmp.json
 	@echo "passed capture test"
 endif
