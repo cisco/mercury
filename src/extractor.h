@@ -147,6 +147,9 @@ void parser_init_from_outer_parser(struct parser *p,
                                    const struct parser *outer,
                                    unsigned int data_len);
 
+enum status parser_set_data_length(struct parser *p,
+                                   unsigned int data_len);
+
 void packet_data_set(struct packet_data *pd,
                      enum packet_data_type type,
                      size_t length,

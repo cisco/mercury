@@ -154,7 +154,6 @@ int lct_init_from_file(char *filename) {
   return 0;
 }
 
-int addr_init() {
-    return lct_init_from_file((char *)"../resources/pyasn.db");
-
+int addr_init(const char *resources_dir) {
+    return lct_init_from_file((char *)resources_dir);
 }

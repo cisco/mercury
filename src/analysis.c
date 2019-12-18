@@ -71,11 +71,11 @@ int gzgetline(gzFile f, std::vector<char>& v) {
 }
 
 
-int database_init() {
+int database_init(const char *resource_file) {
     fp_db.SetObject();
     rapidjson::Document::AllocatorType& allocator = fp_db.GetAllocator();
 
-    gzFile in_file = gzopen("../resources/fingerprint_db.json.gz","r");
+    gzFile in_file = gzopen(resource_file, "r");
     std::vector<char> line;
     while (gzgetline(in_file, line)) {
         std::string line_str(line.begin(), line.end());
@@ -96,9 +96,13 @@ int database_init() {
     }
     gzclose(in_file);
 
-    return 1;
+    return 0;  /* success */
 }
 
+
+#ifndef DEFAULT_RESOURCE_DIR
+#define DEFAULT_RESOURCE_DIR "/usr/local/var/mercury"
+#endif
 
 int analysis_init() {
     extern enum analysis_cfg analysis_cfg;
@@ -110,11 +114,35 @@ int analysis_init() {
     }
     fp_cache = {};
 
-    if (addr_init() != 0) {
-        return -1;
-    }
+    const char *resource_dir_list[] =
+      {
+       DEFAULT_RESOURCE_DIR,
+       "resources",
+       "../resources",
+       NULL
+      };
+    char resource_file_name[PATH_MAX];
 
-    return database_init();
+    unsigned int index = 0;
+    while (resource_dir_list[index] != NULL) {
+      
+      strncpy(resource_file_name, resource_dir_list[index], PATH_MAX);
+      strncat(resource_file_name, "/pyasn.db", PATH_MAX);    
+      int retcode = addr_init(resource_file_name);
+      
+      if (retcode == 0) { 
+	strncpy(resource_file_name, resource_dir_list[index], PATH_MAX);
+	strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX);    
+	retcode = database_init(resource_file_name);
+	if (retcode == 0) {
+	  fprintf(stderr, "using resource directory %s\n", resource_dir_list[index]);
+	  return 0;
+	}
+      }
+
+      index++;  /* try next directory in the list */
+    }
+    return -1;
 }
 
 
