@@ -20,7 +20,7 @@ to be wired into a performance critical asynchronous system.
 ### How to Build
 
 Build requirements:
-make, GCC, glibc, pcre
+make, GCC, glibc
 
 To build:
 On any relatively modern unix system, simply typing make should
