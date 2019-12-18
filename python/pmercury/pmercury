@@ -163,6 +163,13 @@ class Fingerprinter:
                         if 'readable' not in flow:
                             flow['readable'] = {}
                         flow['readable'][fp_type] = desc_
+                    if fp_type == 'tls_server':
+                        if 'tls' in flow and 'server_certs' in flow['tls']:
+                            desc_ = self.parsers['server_certs'].get_human_readable(flow['tls']['server_certs'])
+                            if desc_ != None:
+                                if 'readable' not in flow:
+                                    flow['readable'] = {}
+                                flow['readable']['server_certs'] = desc_
                 if self.analyze:
                     context = None
                     if fp_type in flow:
@@ -171,6 +178,12 @@ class Fingerprinter:
                                                                     flow['dst_ip'], flow['dst_port'], self.num_procs)
                     if proc_info != None:
                         flow['analysis'] = proc_info
+            elif 'tls' in flow and 'server_certs' in flow['tls']:
+                desc_ = self.parsers['server_certs'].get_human_readable(flow['tls']['server_certs'])
+                if desc_ != None:
+                    if 'readable' not in flow:
+                        flow['readable'] = {}
+                    flow['readable']['server_certs'] = desc_
 
             if self.group:
                 self.update_flow_cache(flow)
