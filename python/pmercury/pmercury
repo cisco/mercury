@@ -390,7 +390,10 @@ class Fingerprinter:
         if flow_repr['fingerprints'] == {}:
             del flow_repr['fingerprints']
 
-        self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
+        try:
+            self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
+        except:
+            print(flow_repr)
 
 
     def write_flows(self, active=False):

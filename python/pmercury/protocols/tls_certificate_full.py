@@ -178,36 +178,36 @@ class TLS_Certificate_Full(Protocol):
         lit_fp = eval_fp_str_general(fp_str_)
         fp_h = {}
         fp_h['serial_number'] = lit_fp[0][0]
-        fp_h['signature_algorithm'] = unhexlify(lit_fp[1][0])
+        fp_h['signature_algorithm'] = unhexlify(lit_fp[1][0]).decode()
         fp_h['issuer'] = {}
         for issuer in lit_fp[2]:
-            fp_h['issuer'][unhexlify(issuer[0][0])] = unhexlify(issuer[1][0])
-        fp_h['validity_not_before'] = unhexlify(lit_fp[3][0])
-        fp_h['validity_not_after'] = unhexlify(lit_fp[4][0])
+            fp_h['issuer'][unhexlify(issuer[0][0]).decode()] = unhexlify(issuer[1][0]).decode()
+        fp_h['validity_not_before'] = unhexlify(lit_fp[3][0]).decode()
+        fp_h['validity_not_after'] = unhexlify(lit_fp[4][0]).decode()
         fp_h['subject'] = {}
         for subject in lit_fp[5]:
-            fp_h['subject'][unhexlify(subject[0][0])] = unhexlify(subject[1][0])
+            fp_h['subject'][unhexlify(subject[0][0]).decode()] = unhexlify(subject[1][0]).decode()
 
         fp_h['public_key'] = {}
-        public_key_type = unhexlify(lit_fp[6][0][0])
+        public_key_type = unhexlify(lit_fp[6][0][0]).decode()
         fp_h['public_key']['type'] = public_key_type
         if public_key_type == b'ECPublicKey':
             fp_h['public_key']['key_size'] = int(unhexlify(lit_fp[6][1][0]),16)
-            fp_h['public_key']['curve_name'] = unhexlify(lit_fp[6][2][0])
+            fp_h['public_key']['curve_name'] = unhexlify(lit_fp[6][2][0]).decode()
         if public_key_type == b'RSAPublicKey':
             fp_h['public_key']['key_size'] = int(unhexlify(lit_fp[6][1][0]),16)
-            fp_h['public_key']['public_modulus'] = unhexlify(lit_fp[6][2][0])
-            fp_h['public_key']['public_exponent'] = unhexlify(lit_fp[6][3][0])
+            fp_h['public_key']['public_modulus'] = unhexlify(lit_fp[6][2][0]).decode()
+            fp_h['public_key']['public_exponent'] = unhexlify(lit_fp[6][3][0]).decode()
         if public_key_type == b'DSAPublicKey':
             fp_h['public_key']['key_size'] = int(unhexlify(lit_fp[6][1][0]),16)
-            fp_h['public_key']['public_value'] = unhexlify(lit_fp[6][2][0])
-            fp_h['public_key']['public_modulus'] = unhexlify(lit_fp[6][3][0])
-            fp_h['public_key']['sub_group_order'] = unhexlify(lit_fp[6][4][0])
-            fp_h['public_key']['generator'] = unhexlify(lit_fp[6][5][0])
+            fp_h['public_key']['public_value'] = unhexlify(lit_fp[6][2][0]).decode()
+            fp_h['public_key']['public_modulus'] = unhexlify(lit_fp[6][3][0]).decode()
+            fp_h['public_key']['sub_group_order'] = unhexlify(lit_fp[6][4][0]).decode()
+            fp_h['public_key']['generator'] = unhexlify(lit_fp[6][5][0]).decode()
 
         fp_h['extensions'] = {}
         for ext in lit_fp[7]:
-            fp_h['extensions'][unhexlify(ext[0][0])] = ''#self.parse_certificate_extension(unhexlify(ext[1][0]), unhexlify(ext[0][0]))
+            fp_h['extensions'][unhexlify(ext[0][0]).decode()] = ''#self.parse_certificate_extension(unhexlify(ext[1][0]), unhexlify(ext[0][0]))
 
         return fp_h
 

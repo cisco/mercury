@@ -27,14 +27,26 @@ ext_data_extract_ = ext_data_extract_.union(grease_)
 
 
 imp_date_cs_file = find_resource_path('resources/implementation_date_cs.json.gz')
-for line in os.popen('zcat %s' % (imp_date_cs_file)):
-    imp_date_cs_data = json.loads(line)
-    break
+IF UNAME_SYSNAME == "Windows":
+    import gzip
+    for line in gzip.open(imp_date_cs_file, 'r'):
+        imp_date_cs_data = json.loads(line)
+        break
+ELSE:
+    for line in os.popen('zcat %s' % (imp_date_cs_file)):
+        imp_date_cs_data = json.loads(line)
+        break
 
 imp_date_ext_file = find_resource_path('resources/implementation_date_ext.json.gz')
-for line in os.popen('zcat %s' % (imp_date_ext_file)):
-    imp_date_ext_data = json.loads(line)
-    break
+IF UNAME_SYSNAME == "Windows":
+    import gzip
+    for line in gzip.open(imp_date_ext_file, 'r'):
+        imp_date_ext_data = json.loads(line)
+        break
+ELSE:
+    for line in os.popen('zcat %s' % (imp_date_ext_file)):
+        imp_date_ext_data = json.loads(line)
+        break
 
 
 
