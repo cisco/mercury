@@ -162,12 +162,14 @@ class TLS_Certificate_Full(Protocol):
 
         # extract extension information
         fp_str_ += b'('
-        for ext in cert.extensions:
-            fp_str_ += b'('
-            fp_str_ += b'(' + hexlify(bytes(ext.oid._name,'utf-8')) + b')'
-#            fp_str_ += b'(' + hexlify(bytes(ext._value,'utf-8')) + b')'
+        try:
+            for ext in cert.extensions:
+                fp_str_ += b'('
+                fp_str_ += b'(' + hexlify(bytes(ext.oid._name,'utf-8')) + b')'
+                fp_str_ += b')'
             fp_str_ += b')'
-        fp_str_ += b')'
+        except:
+            fp_str_ += b'error parsing cert extensions)'
 
         del self.data_cache[flow_key]
 
@@ -207,7 +209,11 @@ class TLS_Certificate_Full(Protocol):
 
         fp_h['extensions'] = {}
         for ext in lit_fp[7]:
-            fp_h['extensions'][unhexlify(ext[0][0]).decode()] = ''#self.parse_certificate_extension(unhexlify(ext[1][0]), unhexlify(ext[0][0]))
+            if len(ext) > 0 and len(ext[0]) > 0:
+                try:
+                    fp_h['extensions'][unhexlify(ext[0][0]).decode()] = ''#self.parse_certificate_extension(unhexlify(ext[1][0]), unhexlify(ext[0][0]))
+                except:
+                    fp_h['extensions'][ext[0][0]] = ''
 
         return fp_h
 
