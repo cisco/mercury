@@ -87,54 +87,17 @@ class TLS_Certificate(Protocol):
         if offset >= data_len:
             return None, None
 
-        certs = []
+        certs = None
         while offset < certificates_length:
             cert_len = int(data[offset:offset+3].hex(),16)
             offset += 3
             if offset >= data_len:
                 return certs, None
+
+            if certs == None:
+                certs = []
 
             certs.append(base64.b64encode(data[offset:offset+cert_len]).decode())
-
-            offset += cert_len
-            if offset >= data_len:
-                return certs, None
-
-        return certs, None
-
-
-    @staticmethod
-    def fingerprint_old(data, app_offset, data_len):
-        data = data[app_offset:]
-
-        sh = False
-        if TLS_Certificate.proto_identify_sh(data,0):
-            data = data[9+int(data[6:9].hex(),16):]
-            if len(data) == 0:
-                return None, None
-            sh = True
-
-        if TLS_Certificate.proto_identify(data,0):
-            offset = 5
-        elif TLS_Certificate.proto_identify_hs(data,0):
-            offset = 0
-        else:
-            return None, None
-
-        certificates_length = int(data[offset+4:offset+7].hex(),16)
-        data_len = len(data)
-        offset += 7
-        if offset >= data_len:
-            return None, None
-
-        certs = []
-        while offset < certificates_length:
-            cert_len = int(data[offset:offset+3].hex(),16)
-            offset += 3
-            if offset >= data_len:
-                return certs, None
-
-            certs.append(base64.b64encode(data[offset:cert_len]).decode())
 
             offset += cert_len
             if offset >= data_len:
@@ -251,7 +214,10 @@ class TLS_Certificate(Protocol):
             san_arr = []
             _, _, san_, offset = self.parse_tlv(sans_, 0)
             while offset != None:
-                san_arr.append(san_.decode())
+                try:
+                    san_arr.append(san_.decode())
+                except:
+                    san_arr.append(san_.hex())
                 _, _, san_, offset = self.parse_tlv(sans_, offset)
 
             out_val_ = san_arr

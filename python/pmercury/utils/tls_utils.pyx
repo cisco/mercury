@@ -215,7 +215,10 @@ def supported_groups(data, length):
     info['supported_groups'] = []
     offset = 4
     while offset < length*2:
-        info['supported_groups'].append(TLS_SUPPORTED_GROUPS[int(data[offset:offset+4], 16)])
+        if int(data[offset:offset+4], 16) in TLS_SUPPORTED_GROUPS:
+            info['supported_groups'].append(TLS_SUPPORTED_GROUPS[int(data[offset:offset+4], 16)])
+        else:
+            info['supported_groups'].append('Unknown Group (%i)' % int(data[offset:offset+4], 16))
         offset += 4
 
     return info
