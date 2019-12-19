@@ -37,14 +37,16 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T 
 AC_TYPE_UINT8_T
 AC_CHECK_PROGS(PY, python3 python python2)
-AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PYTHON3,python3,yes)])
+AC_CHECK_HEADERS(zlib.h, [], [AC_ERROR([A working zlib is required])])
+AC_SEARCH_LIBS(deflate, z, [], [AC_ERROR([A working zlib is required])])
+AC_CHECK_PROG(PYTHON3,python3,yes)
 AS_IF([test "x$PYTHON3" = xyes],
-    [AC_DEFINE([HAVE_PYTHON3], [1], [python3 is available.])],
-    [AC_MSG_NOTICE([omitting embedded python3 analysis engine - either python3 was not found, or --disable-python option was invoked])])
+    [AC_DEFINE([HAVE_PYTHON3], [1], [python3 is available.])])
+#
 AS_IF([test "x$PYTHON3" = xyes],
     [AS_IF([python3 ./package_test.py],
-           [],
-           [AC_MSG_ERROR([python package(s) not found; install with 'pip3 install cython ujson pyasn', or ./configure --disable-python])])],
+           [AC_SUBST(HAVE_JSONSCHEMA,yes)],
+           [AC_MSG_WARN([python package jsonschema (required for 'make test') not found; install with 'pip3 install jsonschema'])])],
     [])    
 #AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PIP3,pip3,yes)])
 #AS_IF([test "x$PIP3" = xyes],

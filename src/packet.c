@@ -115,7 +115,7 @@ void packet_fprintf(FILE *f, uint8_t *packet, size_t length, unsigned int sec, u
 	    uint16_t *dst_port = src_port + 1;
 	    const char *format __attribute__((unused))= "%u.%u.%u.%u, %u.%u.%u.%u, %u, %u, %u\n";
 	    const char *json_format = "{\"src_ip\":\"%u.%u.%u.%u\",\"dst_ip\":\"%u.%u.%u.%u\",\"protocol\":%u,\"src_port\":%u,\"dst_port\":%u,\"len\":%u,\"t\":%u.%06u}\n";
-	    
+
 	    fprintf(f, json_format,
 		    src_addr_char[0],
 		    src_addr_char[1],
@@ -145,7 +145,7 @@ void packet_fprintf(FILE *f, uint8_t *packet, size_t length, unsigned int sec, u
 		"{\"src_ip\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
 		"\"dst_ip\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
 		"\"src_port\":%u,\"dst_port\":%u,\"len\":%u,\"t\":%u.%06u}\n";
-	    
+
 	    fprintf(f, v6_json_format,
 		    s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15],
 		    d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15],
@@ -173,6 +173,7 @@ void ipv4_packet_fprintf_flow_key(FILE *f, uint8_t *packet) {
     uint32_t *dst_addr = ip + 4;
     uint8_t  *src_addr_char = (uint8_t *)src_addr;
     uint8_t  *dst_addr_char = (uint8_t *)dst_addr;
+    uint8_t  *protocol = (uint8_t *)packet + 9;
     uint32_t *tcp = ip + uint32s_in_header;
     uint16_t *src_port = (uint16_t *)tcp;
     uint16_t *dst_port = src_port + 1;
@@ -189,7 +190,7 @@ void ipv4_packet_fprintf_flow_key(FILE *f, uint8_t *packet) {
 	    dst_addr_char[1],
 	    dst_addr_char[2],
 	    dst_addr_char[3],
-	    6, /* tcp */
+	    *protocol,
 	    ntohs(*src_port),
 	    ntohs(*dst_port));
 }

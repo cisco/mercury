@@ -25,6 +25,7 @@ have_jq = @JQ@
 have_valgrind = @VALGRIND@
 have_py3    = @PYTHON3@
 python      = @PY@
+have_jsonschema = @HAVE_JSONSCHEMA@
 
 # all test files go in the ./tests subdirectory
 # 
@@ -157,6 +158,11 @@ ifeq ($(shell id -u),0)
 	kill `cat mercury.PID`
 	$(python) json-test.py tmp.json
 	bash -c "diff  <( jq . tmp.json | grep -v event_start) <( jq . data/top-https.json | grep -v event_start )"
+ifeq ($(have_jsonschema),yes)
+	$(python) json-test.py tmp.json
+else
+	@echo $(COLOR_YELLOW) "warning: python package jsonschema not available, omitting json-test" $(COLOR_OFF)
+endif
 	rm mercury.PID tmp.json
 	@echo $(COLOR_GREEN) "passed dummy interface capture test" $(COLOR_OFF)
 else
