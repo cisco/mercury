@@ -393,7 +393,9 @@ class Fingerprinter:
         try:
             self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
         except:
+            print('error: flow incorrectly formatted:')
             print(flow_repr)
+            print()
 
 
     def write_flows(self, active=False):

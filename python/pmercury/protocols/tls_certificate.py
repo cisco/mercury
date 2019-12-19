@@ -202,7 +202,64 @@ class TLS_Certificate(Protocol):
         if offset == None:
             return out_
 
+        # parse extensions
+        _, _, cert_ext_outer, offset = self.parse_tlv(cert, offset)
+        if offset == None:
+            return out_
+        _, _, cert_ext, _ = self.parse_tlv(cert_ext_outer, 0)
+        if offset == None:
+            return out_
+
+
+        # parse individual extensions
+        cert_exts = []
+        ext_offset = 0
+        _, _, ext_value, ext_offset = self.parse_tlv(cert_ext, ext_offset)
+        if ext_offset == None:
+            return out_
+        while ext_offset != None:
+            ext_ = self.parse_ext(ext_value)
+            if ext_ != None:
+                cert_exts.append(ext_)
+            _, _, ext_value, ext_offset = self.parse_tlv(cert_ext, ext_offset)
+        out_['extensions'] = cert_exts
+
         return out_
+
+
+    def parse_ext(self, data):
+        offset = 0
+        _, _, id_, offset = self.parse_tlv(data, offset)
+        if offset == None:
+            return None
+        _, _, val_, offset = self.parse_tlv(data, offset)
+        if offset == None:
+            return None
+
+        id_ = id_.hex()
+        if id_.startswith('551d') and len(id_) == 6 and id_[4:6] in cert_extensions:
+            id_ = cert_extensions[id_[4:6]]
+        if id_.startswith('2b060105050701') and len(id_) == 16 and id_[14:16] in cert_extensions_private:
+            id_ = cert_extensions_private[id_[14:16]]
+
+        out_val_ = ''
+        if id_ == 'id-ce-subjectAltName':
+            _, _, sans_, offset = self.parse_tlv(val_, 0)
+            if offset == None:
+                return {id_: ''}
+
+            san_arr = []
+            _, _, san_, offset = self.parse_tlv(sans_, 0)
+            while offset != None:
+                san_arr.append(san_.decode())
+                _, _, san_, offset = self.parse_tlv(sans_, offset)
+
+            out_val_ = san_arr
+
+        return {id_: out_val_}
+
+
+
 
 
     def parse_validity(self, data):
@@ -226,6 +283,7 @@ class TLS_Certificate(Protocol):
             out_['not_after'] = not_after.hex()
 
         return out_
+
 
     def parse_rdn_sequence_item(self, data):
         _, _, value, _ = self.parse_tlv(data, 0)

@@ -111,8 +111,8 @@ class TLS_Server(Protocol):
         lit_fp = eval_fp_str(fp_str_)
 
         fp_h = {}
-        fp_h['version'] = get_version_from_str(lit_fp[0][0])
-        fp_h['selected_cipher_suite'] = get_cs_from_str(lit_fp[1][0])[0]
+        fp_h['version'] = get_version_from_str(lit_fp[0])
+        fp_h['selected_cipher_suite'] = get_cs_from_str(lit_fp[1])
         fp_h['extensions'] = []
         if len(lit_fp) > 2:
             fp_h['extensions'] = get_ext_from_str(lit_fp[2], mode='server')
