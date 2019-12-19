@@ -72,8 +72,9 @@ class Fingerprinter:
         self.parsers['http']         = HTTP(None, config)
         self.parsers['http_server']  = HTTP_Server(None, config)
         self.parsers['server_certs'] = TLS_Certificate()
-
         self.parsers['dhcp']         = DHCP(None, config)
+
+        self.contextual_data = ['tls','http','http_server','dhcp']
 
         self.flow_parsers  = []
         self.experimental = False
@@ -339,11 +340,25 @@ class Fingerprinter:
                     self.flow_cache[flow_key][k] = {}
                 for k1 in flow[k]:
                     self.flow_cache[flow_key][k][k1] = flow[k][k1]
-            if 'readable' in flow and k in flow['readable']:
-                packet_fp['readable'] = flow['readable'][k]
             if 'analysis' in flow:
                 packet_fp['analysis'] = flow['analysis']
             self.flow_cache[flow_key]['fingerprints'].append(packet_fp)
+
+        # add contextual data
+        for k in self.contextual_data:
+            if k in flow:
+                if k not in self.flow_cache[flow_key]:
+                    self.flow_cache[flow_key][k] = {}
+                for k1 in flow[k]:
+                    self.flow_cache[flow_key][k][k1] = flow[k][k1]
+
+        if 'readable' in flow:
+            if 'readable' not in self.flow_cache[flow_key]:
+                self.flow_cache[flow_key]['readable'] = {}
+            for k in flow['readable']:
+                self.flow_cache[flow_key]['readable'][k] = flow['readable'][k]
+
+
 
 
     def init_flow_cache(self, flow, flow_key):
