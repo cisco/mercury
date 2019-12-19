@@ -19,23 +19,30 @@ MAX_CACHED_RESULTS = 2**24
 
 
 tlds = set([])
-public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
-for line in os.popen('zcat %s' % (public_suffix_file_raw)):
-    line = line.strip()
-    if line.startswith('//') or line == '':
-        continue
-    if line.startswith('*'):
-        line = line[2:]
-    tlds.add(line)
+
+if os.name == 'nt':
+    import gzip
+    public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
+    for line in gzip.open(public_suffix_file_raw, 'r'):
+        line = line.strip()
+        if line.startswith(b'//') or line == b'':
+            continue
+        if line.startswith(b'*'):
+            line = line[2:]
+        tlds.add(line.decode())
+else:
+    public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
+    for line in os.popen('zcat %s' % (public_suffix_file_raw)):
+        line = line.strip()
+        if line.startswith('//') or line == '':
+            continue
+        if line.startswith('*'):
+            line = line[2:]
+        tlds.add(line)
 
 
-pyasn_context_file    = find_resource_path('resources/pyasn.db.gz')
-as_context_file       = find_resource_path('resources/asn_info.db.gz')
+pyasn_context_file    = find_resource_path('resources/pyasn.db')
 pyasn_contextual_data = pyasn.pyasn(pyasn_context_file)
-as_contextual_data    = {}
-for line in os.popen('zcat %s' % (as_context_file), mode='r'):
-    t_ = line.split()
-    as_contextual_data[t_[0]] = t_[1]
 
 
 port_mapping = {
@@ -77,7 +84,7 @@ def get_tld_info(hostname):
 def get_asn_info(ip_addr):
     asn,_ = pyasn_contextual_data.lookup(ip_addr)
     if asn != None:
-        return as_contextual_data[str(asn)]
+        return str(asn)
 
     return 'unknown'
 

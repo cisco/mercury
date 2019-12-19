@@ -1,4 +1,4 @@
-"""     
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -34,7 +34,7 @@ class HTTP2:
             else:
                 self.data_cache[flow_key][0] += len(data)
                 data_offset = None
-                
+
         offset_ = self.check_magic(data)
         offset += offset_
 
@@ -49,7 +49,7 @@ class HTTP2:
         fp_h = []
         for i in range(len(t_)):
             field = t_[i].split(b': ',1)
-            fp_h.append({field[0]: field[1]})
+            fp_h.append({field[0].decode(): field[1].decode()})
         return fp_h
 
     def parse_iterate(self, data, offset, flow_key):
