@@ -56,13 +56,23 @@ cdef class TLS():
         if fp_database != None:
             self.load_database(fp_database)
 
-        transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
-        self.transition_probs = {}
-        for line in os.popen('zcat %s' % (transition_probs_file), mode='r', buffering=8192*256):
-            t_ = line.strip().split(',')
-            if t_[1] not in self.transition_probs:
-                self.transition_probs[t_[1]] = {}
-            self.transition_probs[t_[1]][t_[2]] = float(t_[0])
+        IF UNAME_SYSNAME == "Windows":
+            transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
+            self.transition_probs = {}
+            import gzip
+            for line in gzip.open(transition_probs_file, 'r'):
+                t_ = line.strip().split(b',')
+                if t_[1].decode() not in self.transition_probs:
+                    self.transition_probs[t_[1].decode()] = {}
+                self.transition_probs[t_[1].decode()][t_[2].decode()] = float(t_[0])
+        ELSE:
+            transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
+            self.transition_probs = {}
+            for line in os.popen('zcat %s' % (transition_probs_file), mode='r', buffering=8192*256):
+                t_ = line.strip().split(',')
+                if t_[1] not in self.transition_probs:
+                    self.transition_probs[t_[1]] = {}
+                self.transition_probs[t_[1]][t_[2]] = float(t_[0])
 
         app_families_file = find_resource_path('resources/app_families.txt')
         self.app_families = {}
@@ -79,8 +89,8 @@ cdef class TLS():
         cdef dict fp_
         IF UNAME_SYSNAME == "Windows":
             import gzip
-            for line in gzip.open(fp_database, 'r'):
-                fp_ = json.loads(line)
+            for line_win in gzip.open(fp_database, 'r'):
+                fp_ = json.loads(line_win)
                 self.fp_db[fp_['str_repr']] = fp_
         ELSE:
             for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):

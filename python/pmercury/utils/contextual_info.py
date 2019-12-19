@@ -19,14 +19,26 @@ MAX_CACHED_RESULTS = 2**24
 
 
 tlds = set([])
-public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
-for line in os.popen('zcat %s' % (public_suffix_file_raw)):
-    line = line.strip()
-    if line.startswith('//') or line == '':
-        continue
-    if line.startswith('*'):
-        line = line[2:]
-    tlds.add(line)
+
+if os.name == 'nt':
+    import gzip
+    public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
+    for line in gzip.open(public_suffix_file_raw, 'r'):
+        line = line.strip()
+        if line.startswith(b'//') or line == b'':
+            continue
+        if line.startswith(b'*'):
+            line = line[2:]
+        tlds.add(line.decode())
+else:
+    public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
+    for line in os.popen('zcat %s' % (public_suffix_file_raw)):
+        line = line.strip()
+        if line.startswith('//') or line == '':
+            continue
+        if line.startswith('*'):
+            line = line[2:]
+        tlds.add(line)
 
 
 pyasn_context_file    = find_resource_path('resources/pyasn.db')

@@ -120,11 +120,11 @@ class HTTP(Protocol):
 
     def get_human_readable(self, fp_str_):
         t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]
-        fp_h = [{'method':t_[0]},{'uri':t_[1]},{'version':t_[2]}]
-        for i in range(3, len(t_)-1):
+        fp_h = [{'method':t_[0].decode()},{'version':t_[1].decode()}]
+        for i in range(2, len(t_)-1):
             field = t_[i].split(b': ',1)
             if len(field) == 2:
-                fp_h.append({field[0]: field[1]})
+                fp_h.append({field[0].decode(): field[1].decode()})
             else:
-                fp_h.append({field[0]: ''})
+                fp_h.append({field[0].decode(): ''})
         return fp_h
