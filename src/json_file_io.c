@@ -1,8 +1,8 @@
 /*
  * json_file_io.c
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <string.h>
@@ -102,6 +102,12 @@ void json_file_write(struct json_file *jf,
     if (bytes_extracted > packet_filter_threshold) {
         uint8_t *extractor_buffer = pf.x.output_start;
 	switch(pf.x.fingerprint_type) {
+    case fingerprint_type_dhcp_client:
+	    fprintf(file, "{\"fingerprints\":{");
+	    fprintf(file, "\"dhcp\":\"");
+	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+	    fprintf(file, "\"},");
+        break;
 	case fingerprint_type_tls:
 	    fprintf(file, "{\"fingerprints\":{");
 	    fprintf(file, "\"tls\":\"");
@@ -141,7 +147,6 @@ void json_file_write(struct json_file *jf,
 					pf.x.packet_data.length);
 		fprintf(file, "},");
 	    }
-	    
 	    break;
 	case fingerprint_type_http_server:
 	    fprintf(file, "{\"fingerprints\":{");
@@ -151,30 +156,55 @@ void json_file_write(struct json_file *jf,
 	    fprintf(file, "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
 	    break;
 	case fingerprint_type_tls_server:
-        fprintf(file, "{");
-        /* check if we have tls_server fingerprint */
-        if (extractor_get_output_length(&pf.x) > 0) {
+	  fprintf(file, "{");
+	  /* check if we have tls_server fingerprint */
+	  if (extractor_get_output_length(&pf.x) > 0) {
             fprintf(file, "\"fingerprints\":{");
             fprintf(file, "\"tls_server\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
-        }
+	  }
+	  
+	  break;
+	case fingerprint_type_dtls:
+	    fprintf(file, "{\"fingerprints\":{");
+	    fprintf(file, "\"dtls\":\"");
+	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+	    fprintf(file, "\"}");
+	    if (pf.x.packet_data.type == packet_data_type_tls_sni) {
+		if (pf.x.packet_data.length >= SNI_HDR_LEN) {
+		    fprintf(file, ",\"dtls\":{");
+		    fprintf_json_string(file,
+					"server_name",
+					pf.x.packet_data.value  + SNI_HDR_LEN,
+					pf.x.packet_data.length - SNI_HDR_LEN);
+		    fprintf(file, "}");
+		}
+	    }
+	    fprintf(file, ",");
 
-        /* check if we have any certificates */
-        if (pf.x.packet_data.type == packet_data_type_tls_cert) {
-            /* print the certificates in base64 format */
-            fprintf(file, "\"tls\":{");
-            fprintf(file, "\"server_certs\":[");
-            extract_certificates(file, pf.x.packet_data.value, pf.x.packet_data.length);
-            fprintf(file, "]},");
-        }
-        break;
+	    break;
+	case fingerprint_type_dtls_server:
+	    fprintf(file, "{\"fingerprints\":{");
+	    fprintf(file, "\"dtls_server\":\"");
+	    fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+	    fprintf(file, "\"},");
+	    break;
 	default:
 	    /* print nothing */
-	    return; 
+	    return;
 	    //fprintf(file, "\"unknown\":\"");
 	    //fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
 	    //fprintf(file, "\"},");
+	}
+
+	/* check if we have any certificates */
+	if (pf.x.packet_data.type == packet_data_type_tls_cert) {
+	  /* print the certificates in base64 format */
+	  fprintf(file, "\"tls\":{");
+	  fprintf(file, "\"server_certs\":[");
+	  extract_certificates(file, pf.x.packet_data.value, pf.x.packet_data.length);
+	  fprintf(file, "]},");
 	}
 
 	struct flow_key key = flow_key_init();

@@ -17,6 +17,7 @@
 #include "eth.h"
 #include "tcp.h"
 #include "pkt_proc.h"
+#include "udp.h"
 
 /*
  * The extractor_debug macro is useful for debugging (but quite verbose)
@@ -125,6 +126,20 @@ unsigned int u32_compare_masked_data_to_value(const void *data,
     const uint32_t *d = (const uint32_t *)data;
     const uint32_t *m = (const uint32_t *)mask;
     const uint32_t *v = (const uint32_t *)value;
+
+    extractor_debug("%s: data: %x, mask: %x, value: %x\n", __func__, d[0], m[0], v[0]);
+
+    return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
+}
+
+unsigned int u64_compare_masked_data_to_value(const void *data,
+                                              const void *mask,
+                                              const void *value) {
+    const uint64_t *d = (const uint64_t *)data;
+    const uint64_t *m = (const uint64_t *)mask;
+    const uint64_t *v = (const uint64_t *)value;
+
+    extractor_debug("%s: data: %x, mask: %x, value: %x\n", __func__, d[0], m[0], v[0]);
 
     return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
 }
@@ -884,23 +899,6 @@ unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) 
  * TLS fingerprint extraction
  */
 
-#define L_ContentType              1
-#define L_ProtocolVersion          2
-#define L_RecordLength             2
-#define L_HandshakeType            1
-#define L_HandshakeLength          3
-#define L_ProtocolVersion          2
-#define L_Random                  32
-#define L_SessionIDLength          1
-#define L_CipherSuiteVectorLength  2
-#define L_CompressionMethodsLength 1
-#define L_ExtensionsVectorLength   2
-#define L_ExtensionType            2
-#define L_ExtensionLength          2
-
-#define L_NamedGroupListLen        2
-#define L_ProtocolVersionListLen   1
-
 uint16_t degrease_uint16(uint16_t x) {
     switch(x) {
     case 0x0a0a:
@@ -942,6 +940,24 @@ void degrease_octet_string(void *data, ssize_t len) {
 
 }
 
+/* TLS Constants */
+
+#define L_ContentType              1
+#define L_ProtocolVersion          2
+#define L_RecordLength             2
+#define L_HandshakeType            1
+#define L_HandshakeLength          3
+#define L_ProtocolVersion          2
+#define L_Random                  32
+#define L_SessionIDLength          1
+#define L_CipherSuiteVectorLength  2
+#define L_CompressionMethodsLength 1
+#define L_ExtensionsVectorLength   2
+#define L_ExtensionType            2
+#define L_ExtensionLength          2
+
+#define L_NamedGroupListLen        2
+#define L_ProtocolVersionListLen   1
 
 /*
  * expanded set of static extensions
@@ -1001,6 +1017,7 @@ uint16_t static_extension_types[num_static_extension_types] = {
         60138,     /* GREASE                                 */
         64250      /* GREASE                                 */
     };
+
 
 /*
  * The function extractor_process_tls processes a TLS packet.  The
@@ -2304,6 +2321,9 @@ unsigned int packet_filter_process_packet(struct packet_filter *pf) {
     }
     if (transport_proto == 6) {
         return packet_filter_process_tcp(pf, &k);
+
+    } else if (transport_proto == 17) {
+        return packet_filter_process_udp(pf, &k);
     }
 
     return 0;
