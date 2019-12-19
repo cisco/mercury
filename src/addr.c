@@ -19,9 +19,6 @@
     }
 #endif
 
-
-#include <iostream>
-
 lct_t ipv4_subnets;
 uint32_t get_asn_info(char* dst_ip) {
     uint32_t ipv4_addr;

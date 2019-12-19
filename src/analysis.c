@@ -22,10 +22,6 @@
 
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
-//#include "nlohmann/json.hpp"
-//using json = nlohmann::json;
-//json fp_db;
-
 
 rapidjson::Document fp_db;
 
