@@ -96,8 +96,17 @@ int database_init(const char *resource_file) {
 }
 
 void database_finalize() {
-    /* TBD */
+    fp_db.SetObject();
 }
+
+
+void cache_finalize() {
+    for (std::pair<std::string, char*> element : fp_cache) {
+        free(element.second);
+    }
+    fp_cache.clear();
+}
+
 
 #ifndef DEFAULT_RESOURCE_DIR
 #define DEFAULT_RESOURCE_DIR "/usr/local/var/mercury"
@@ -124,22 +133,20 @@ int analysis_init() {
 
     unsigned int index = 0;
     while (resource_dir_list[index] != NULL) {
-      
-      strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
-      strncat(resource_file_name, "/pyasn.db", PATH_MAX-1);
-      int retcode = addr_init(resource_file_name);
-      
-      if (retcode == 0) { 
-	strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
-	strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
-	retcode = database_init(resource_file_name);
-	if (retcode == 0) {
-        // fprintf(stderr, "using resource directory %s\n", resource_dir_list[index]);
-	  return 0;
-	}
-      }
+        strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
+        strncat(resource_file_name, "/pyasn.db", PATH_MAX-1);
+        int retcode = addr_init(resource_file_name);
 
-      index++;  /* try next directory in the list */
+        if (retcode == 0) {
+            strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
+            strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
+            retcode = database_init(resource_file_name);
+            if (retcode == 0) {
+                return 0;
+            }
+        }
+
+        index++;  /* try next directory in the list */
     }
     return -1;
 }
@@ -151,6 +158,7 @@ int analysis_finalize() {
 
     addr_finalize();
     database_finalize();
+    cache_finalize();
 
     return 1;
 }
