@@ -24,7 +24,7 @@ RESOURCE_FILES += pyasn.db
 .PHONY: install
 install:
 	$(INSTALL) -d $(datarootdir) -o mercury -g mercury
-	$(INSTALLDATA) $(RESOURCE_FILES) $(datarootdir)
+	$(INSTALLDATA) $(RESOURCE_FILES) $(datarootdir) -o mercury -g mercury
 
 .PHONY: install-nonroot
 install-nonroot:
@@ -32,7 +32,8 @@ install-nonroot:
 	$(INSTALLDATA) $(RESOURCE_FILES) $(datarootdir)
 
 .PHONY: uninstall
-uinstall:
+uninstall:
+	rm -rf $(localstatedir) 
 	rm -rf $(datarootdir) 
 
 .PHONY: distclean
