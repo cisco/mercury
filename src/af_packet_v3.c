@@ -832,7 +832,11 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   if (drop_root_privileges(cfg->user, cfg->working_dir) != status_ok) {
     return status_err;
   }
-  printf("dropped root privileges\n");
+  if (cfg->user) {
+      printf("running as user %s\n", cfg->user);
+  } else {
+      printf("dropped root privileges\n");
+  }
 
   if (num_threads > 1) {
       

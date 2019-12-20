@@ -144,6 +144,13 @@ enum status drop_root_privileges(const char *username, const char *directory) {
     const char *new_username;
     struct passwd *userdata = NULL;
 
+    /*
+     * if asked to run as user=root, don't drop root privileges
+     */
+    if (username && strcmp("root", username) == 0) {
+        return status_ok;
+    }
+
     if (username == NULL) {
 
 	/*
