@@ -95,6 +95,9 @@ int database_init(const char *resource_file) {
     return 0;  /* success */
 }
 
+void database_finalize() {
+    /* TBD */
+}
 
 #ifndef DEFAULT_RESOURCE_DIR
 #define DEFAULT_RESOURCE_DIR "/usr/local/var/mercury"
@@ -131,7 +134,7 @@ int analysis_init() {
 	strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
 	retcode = database_init(resource_file_name);
 	if (retcode == 0) {
-	  fprintf(stderr, "using resource directory %s\n", resource_dir_list[index]);
+        // fprintf(stderr, "using resource directory %s\n", resource_dir_list[index]);
 	  return 0;
 	}
       }
@@ -145,6 +148,10 @@ int analysis_init() {
 int analysis_finalize() {
     extern enum analysis_cfg analysis_cfg;
     analysis_cfg = analysis_off;
+
+    addr_finalize();
+    database_finalize();
+
     return 1;
 }
 

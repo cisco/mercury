@@ -212,8 +212,13 @@ int lct_build(lct_t *trie, lct_subnet_t *subnets, uint32_t size) {
   build_inner(trie, 0, 0, trie->bcount, 0);
 
   // shrink down the trie node array to its actual size
-  trie->root = (lct_node_t *) realloc(trie->root, trie->ncount * sizeof(lct_node_t));
-
+  lct_node_t *tmp = (lct_node_t *) realloc(trie->root, trie->ncount * sizeof(lct_node_t));
+  if (tmp == NULL) {
+      free(trie->root);
+      return -1;   /* error: reallocation failed */
+  }
+  trie->root = tmp;
+  
   return 0;
 }
 

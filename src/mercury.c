@@ -456,9 +456,6 @@ int main(int argc, char *argv[]) {
 	    if (optarg) {
 		usage(argv[0], "error: option a or analysis does not use an argument", extended_help_off);
 	    } else {
-		if (analysis_init() == -1) {
-		    return EXIT_FAILURE;  /* analysis engine could not be initialized */
-		};
 		cfg.analysis = analysis_on;
 	    }
 	    break;
@@ -594,7 +591,13 @@ int main(int argc, char *argv[]) {
     if (cfg.num_threads != 1 && cfg.fingerprint_filename == NULL && cfg.write_filename == NULL) {
 	usage(argv[0], "multiple threads [t] requested, but neither fingerprint [f] no write [w] specified on command line", extended_help_off);
     }
-    
+
+    if (cfg.analysis) {
+        if (analysis_init() == -1) {
+            return EXIT_FAILURE;  /* analysis engine could not be initialized */
+        };
+    }
+
     /*
      * loop_count < 1  ==> not valid
      * loop_count > 1  ==> looping (i.e. repeating read file) will be done
@@ -654,7 +657,9 @@ int main(int argc, char *argv[]) {
 	
     }
 
-    analysis_finalize();
+    if (cfg.analysis) {
+        analysis_finalize();
+    }
     
     return 0;
 }
