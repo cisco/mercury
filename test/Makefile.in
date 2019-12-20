@@ -26,6 +26,7 @@ have_valgrind = @VALGRIND@
 have_py3    = @PYTHON3@
 python      = @PY@
 have_jsonschema = @HAVE_JSONSCHEMA@
+have_afl        = @HAVE_AFL@
 
 # check dependancies to see if any tests need to be omitted
 #
@@ -203,7 +204,7 @@ endif
 
 .PHONY: clean
 clean:
-	rm -rf *.fp *.json *.mcap Makefile~ README.md~ deleteme/* memcheck.tmp tmp.json mercury.PID
+	rm -rf *.fp *.json *.mcap Makefile~ README.md~ deleteme/* memcheck.tmp tmp.json mercury.PID afl-mercury
 	@echo "cleaned all targets"
 
 .PHONY: distclean
@@ -225,4 +226,20 @@ else
 	@echo $(COLOR_YELLOW) "valgrind unavailable; cannot perform memcheck" $(COLOR_OFF)
 	@/bin/false
 endif
+
+
+# fuzz testing with american fuzzy lop
+#
+FUZZ_CMD = -f tmp.json
+.PHONY: fuzz-test
+fuzz-test:
+ifeq ($(have_afl),yes)
+	@echo "running fuzz test with afl-g++"
+	cd ../src && $(MAKE) clean && $(MAKE) CXX=afl-g++ CC=afl-gcc
+	mv ../src/mercury ./afl-mercury
+	afl-fuzz -i afl_data -o afl_findings ./afl-mercury -r @@ $(FUZZ_CMD)
+else
+	@echo $(COLOR_YELLOW) "afl unavailable; cannot perform fuzz test" $(COLOR_OFF)
+endif
+
 # EOF

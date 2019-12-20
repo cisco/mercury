@@ -24,7 +24,7 @@ have_py3    = @PYTHON3@
 have_pip3   = @PIP3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
-CC      = @CXX@
+CXX      = @CXX@
 CFLAGS  = --std=c++11
 CFLAGS += -march=native -mtune=native -O2
 CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
@@ -50,7 +50,7 @@ CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
 mercury: $(MERC) $(MERC_H) libmerc.a Makefile lctrie/liblctrie.a
-	$(CC) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc -L./lctrie -llctrie -lz
+	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc -L./lctrie -llctrie -lz
 	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
 
 setcap: mercury
@@ -65,8 +65,8 @@ LIBMERC_OBJ = $(LIBMERC:%.c=%.o)
 # implicit rule for building object files
 #
 %.o: %.c
-	$(CC) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
-#	$(CC) $(CFLAGS) -c $<
+	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
+#	$(CXX) $(CFLAGS) -c $<
 
 # rule to build library
 #
@@ -90,7 +90,7 @@ endif
 #
 .PHONY: debug
 debug: $(MERC) $(MERC_H) libmerc.a Makefile
-	$(CC) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
+	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean 
@@ -128,7 +128,7 @@ uninstall:
 .PHONY: gprof
 gprof:
 	make clean
-	$(CC) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc 
+	$(CXX) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc 
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(MERC_H)
