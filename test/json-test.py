@@ -111,7 +111,10 @@ def main():
             failed += 1
 
     print('%% Failed:\t%0.2f%%' % (100.*failed/float(total)))
-
+    if (failed > 0):
+        sys.exit(1)
+    else:
+        sys.exit(0)
 
 if __name__== "__main__":
   main()

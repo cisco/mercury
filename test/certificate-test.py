@@ -1,8 +1,9 @@
-#!/usr/bin/env python3
+#!/bin/python
 
 import os
 import sys
 import json
+import argparse
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -45,35 +46,34 @@ def process_json(json_file):
             if 'tls' in a:
                 if 'server_certs' in a['tls']:
                     cert_list = a['tls']['server_certs']
-                    #src_ip = a['src_ip']
-                    #dst_ip = a['dst_ip']
-                    #event_start = a['event_start']
                     # compute maximum certificates present in a packet
                     if max_certs < len(cert_list):
                         max_certs = len(cert_list)
-
                     for c in cert_list:
                         pem_str = get_PEM_string(c)
                         cert_count += 1
-                        #ofilename = "cert" + str(cert_count) + ".pem"
-                        #with open(ofilename, "w") as ofile:
-                        #    ofile.write(pem_str)
-
                         cert = get_certificate(pem_str)
                         if (cert == None):
                             bad_cert += 1
-                            #print("bad cert_name {}, src_ip {}, dst_ip {} event_start {}\n".format(ofilename, src_ip, dst_ip, event_start))
                         else:
                             good_cert += 1
+                            #ofilename = "cert" + str(cert_count) + ".pem"
+                            #with open(ofilename, "w") as ofile:
+                            #    ofile.write(pem_str)
                             #print("cert_name {}, cert.serial_number {}\n".format(ofilename, cert.serial_number))
 
     return cert_count, good_cert, bad_cert, max_certs
 
 def main():
-    if len(sys.argv) != 2:
-        print ("usage: " + sys.argv[0] + " <fingerprint file or directory>")
-        return -1 # error
-    inputfilename = sys.argv[1]
+    # process arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file", help="json file or directory with json files")
+    parser.add_argument("--complete", type=int,
+                        help="Expected number of complete Certificates")
+    parser.add_argument("--partial", type=int,
+                        help="Expected number of partial Certificates")
+    args = parser.parse_args()
+    inputfilename = args.file
 
     cert_count = 0
     good_cert = 0
@@ -81,6 +81,7 @@ def main():
     max_certs = 0
 
     if (os.path.isfile(inputfilename)):
+        print("Processing file {}...".format(inputfilename))
         cert_count1, good_cert1, bad_cert1, max_certs1 = process_json(inputfilename)
         cert_count += cert_count1
         good_cert += good_cert1
@@ -89,20 +90,30 @@ def main():
             max_certs = max_certs1
     elif (os.path.isdir(inputfilename)):
         print("Processing directory {}...".format(inputfilename))
-        file_list = os.listdir(inputfilename)
+        os.chdir(inputfilename)
+        file_list = [ f for f in os.listdir(os.curdir) if os.path.isfile(f) ]
         for f in file_list:
-            fname = os.path.join(inputfilename, f)
-            cert_count1, good_cert1, bad_cert1, max_certs1 = process_json(fname)
+            cert_count1, good_cert1, bad_cert1, max_certs1 = process_json(f)
             cert_count += cert_count1
             good_cert += good_cert1
             bad_cert += bad_cert1
             if (max_certs < max_certs1):
                 max_certs = max_certs1
             print("  Processing file {}, Total certs {}, Complete certs {}, Partial certs {} ".format(
-                fname, cert_count1, good_cert1, bad_cert1))
+                f, cert_count1, good_cert1, bad_cert1))
 
     print("Total Certs = {}, Complete certs = {}, Partial certs = {}".format(cert_count, good_cert, bad_cert))
-    print("Max certs in a packet = {}".format(max_certs))
+    print("  Max certs in a packet = {}".format(max_certs))
+
+    # if expected complete certs and partial certs are given, verify the results
+    if (args.complete or args.partial):
+        if ((not args.complete or args.complete == good_cert)
+            and (not args.partial or args.partial == bad_cert)):
+            print("Success!")
+            sys.exit(0)
+        else:
+            print("Failure: did not match the expected value")
+            sys.exit(1)
 
 if __name__== "__main__":
     main()
