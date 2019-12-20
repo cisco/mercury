@@ -57,6 +57,7 @@ AC_CHECK_PROG(TCPREPLAY,tcpreplay,yes)
 AC_CHECK_PROG(JQ,jq,yes)
 AC_CHECK_PROG(WGET,wget,yes)
 AC_CHECK_PROG(VALGRIND,valgrind,yes)
+AC_CHECK_PROG(HAVE_AFL,afl-g++,yes)
 AS_IF([test "x$TCPREPLAY" = xyes],
     [],
     [AC_MSG_NOTICE([tcpreplay not found; test/Makefile dummy-capture test will not work])])
