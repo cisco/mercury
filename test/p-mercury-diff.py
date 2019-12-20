@@ -40,14 +40,19 @@ def read_data(filename):
     return total, db
 
 
-def contextual_data_consistency(rec0, rec1):
+def contextual_data_consistency(rec0, rec1, flow_key):
     matches    = {}
     mismatches = {}
     missing0   = {}
     missing1   = {}
+    raw_data   = {}
 
     keys0 = set(rec0.keys())
     keys1 = set(rec1.keys())
+
+    raw_data['mismatch'] = {}
+    raw_data['missing0'] = {}
+    raw_data['missing1'] = {}
 
     for k in CONTEXTUAL_DATA_KEYS:
         matches[k]    = defaultdict(int)
@@ -55,29 +60,37 @@ def contextual_data_consistency(rec0, rec1):
         missing0[k]   = defaultdict(int)
         missing1[k]   = defaultdict(int)
 
+        raw_data['mismatch'][k] = defaultdict(list)
+        raw_data['missing0'][k] = defaultdict(list)
+        raw_data['missing1'][k] = defaultdict(list)
+
         keys0 = get_keys(rec0, k)
         keys1 = get_keys(rec1, k)
 
         for kv in keys1.difference(keys0):
             missing0[k][kv] += 1
+            raw_data['missing0'][k][kv].append(('', rec1[k][kv], flow_key))
 
         for kv in keys0.difference(keys1):
             missing1[k][kv] += 1
+            raw_data['missing1'][k][kv].append((rec0[k][kv], '', flow_key))
 
         for kv in keys0.intersection(keys1):
             if rec0[k][kv] == rec1[k][kv]:
                 matches[k][kv] += 1
             else:
                 mismatches[k][kv] += 1
+                raw_data['mismatch'][k][kv].append((rec0[k][kv], rec1[k][kv], flow_key))
 
-    return matches, mismatches, missing0, missing1
+    return matches, mismatches, missing0, missing1, raw_data
 
 
-def fingerprint_consistency(rec0, rec1):
+def fingerprint_consistency(rec0, rec1, flow_key):
     matches    = defaultdict(int)
     mismatches = defaultdict(int)
     missing0   = defaultdict(int)
     missing1   = defaultdict(int)
+    raw_data   = {}
 
     fps0   = {}
     fps1   = {}
@@ -90,19 +103,30 @@ def fingerprint_consistency(rec0, rec1):
         fps1 = rec1['fingerprints']
         types1 = set(fps1.keys())
 
+    raw_data['mismatch'] = {}
+    raw_data['missing0'] = {}
+    raw_data['missing1'] = {}
+    for k in types0.union(types1):
+        raw_data['mismatch'][k] = []
+        raw_data['missing0'][k] = []
+        raw_data['missing1'][k] = []
+
     for k in types0.intersection(types1):
         if fps0[k] == fps1[k]:
             matches[k] += 1
         else:
             mismatches[k] += 1
+            raw_data['mismatch'][k].append((fps0[k], fps1[k], flow_key))
 
     for k in types1.difference(types0):
         missing0[k] += 1
+        raw_data['missing0'][k].append(('', fps1[k], flow_key))
 
     for k in types0.difference(types1):
         missing1[k] += 1
+        raw_data['missing1'][k].append((fps0[k], '', flow_key))
 
-    return matches, mismatches, missing0, missing1
+    return matches, mismatches, missing0, missing1, raw_data
 
 
 def consistency(keys, db0, db1):
@@ -110,15 +134,30 @@ def consistency(keys, db0, db1):
     mismatches  = {}
     missing0    = {}
     missing1    = {}
+    raw_data    = {}
+
+    raw_data['fp'] = {}
+    raw_data['fp']['mismatch'] = defaultdict(list)
+    raw_data['fp']['missing0'] = defaultdict(list)
+    raw_data['fp']['missing1'] = defaultdict(list)
+
+    raw_data['ctx'] = {}
+    raw_data['ctx']['mismatch'] = {}
+    raw_data['ctx']['missing0'] = {}
+    raw_data['ctx']['missing1'] = {}
+    for k in CONTEXTUAL_DATA_KEYS:
+        raw_data['ctx']['mismatch'][k] = defaultdict(list)
+        raw_data['ctx']['missing0'][k] = defaultdict(list)
+        raw_data['ctx']['missing1'][k] = defaultdict(list)
 
     matches['fp']     = defaultdict(int)
     matches['ctx']    = defaultdict(int)
     mismatches['fp']  = defaultdict(int)
     mismatches['ctx'] = defaultdict(int)
     missing0['fp']    = defaultdict(int)
-    missing0['ctx']    = defaultdict(int)
+    missing0['ctx']   = defaultdict(int)
     missing1['fp']    = defaultdict(int)
-    missing1['ctx']    = defaultdict(int)
+    missing1['ctx']   = defaultdict(int)
 
     for k in CONTEXTUAL_DATA_KEYS:
         matches['ctx'][k]    = defaultdict(int)
@@ -134,31 +173,40 @@ def consistency(keys, db0, db1):
         if k in db1:
             rec1 = db1[k]
 
-        rmatches, rmismatches, rmissing0, rmissing1 = fingerprint_consistency(rec0, rec1)
-        for k in rmatches:
-            matches['fp'][k] += rmatches[k]
-        for k in rmismatches:
-            mismatches['fp'][k] += rmismatches[k]
-        for k in rmissing0:
-            missing0['fp'][k] += rmissing0[k]
-        for k in rmissing1:
-            missing1['fp'][k] += rmissing1[k]
+        rmatches, rmismatches, rmissing0, rmissing1, rraw_data = fingerprint_consistency(rec0, rec1, k)
+        for k0 in rmatches:
+            matches['fp'][k0] += rmatches[k0]
+        for k0 in rmismatches:
+            mismatches['fp'][k0] += rmismatches[k0]
+        for k0 in rmissing0:
+            missing0['fp'][k0] += rmissing0[k0]
+        for k0 in rmissing1:
+            missing1['fp'][k0] += rmissing1[k0]
+        for k0 in rraw_data:
+            for k1 in rraw_data[k0]:
+                for t in rraw_data[k0][k1]:
+                    raw_data['fp'][k0][k1].append(t)
 
-        rmatches, rmismatches, rmissing0, rmissing1 = contextual_data_consistency(rec0, rec1)
-        for k in rmatches:
-            for kv in rmatches[k]:
-                matches['ctx'][k][kv] += rmatches[k][kv]
-        for k in rmismatches:
-            for kv in rmismatches[k]:
-                mismatches['ctx'][k][kv] += rmismatches[k][kv]
-        for k in rmissing0:
-            for kv in rmissing0[k]:
-                missing0['ctx'][k][kv] += rmissing0[k][kv]
-        for k in rmissing1:
-            for kv in rmissing1[k]:
-                missing1['ctx'][k][kv] += rmissing1[k][kv]
+        rmatches, rmismatches, rmissing0, rmissing1, rraw_data = contextual_data_consistency(rec0, rec1, k)
+        for k0 in rmatches:
+            for kv in rmatches[k0]:
+                matches['ctx'][k0][kv] += rmatches[k0][kv]
+        for k0 in rmismatches:
+            for kv in rmismatches[k0]:
+                mismatches['ctx'][k0][kv] += rmismatches[k0][kv]
+        for k0 in rmissing0:
+            for kv in rmissing0[k0]:
+                missing0['ctx'][k0][kv] += rmissing0[k0][kv]
+        for k0 in rmissing1:
+            for kv in rmissing1[k0]:
+                missing1['ctx'][k0][kv] += rmissing1[k0][kv]
+        for k0 in rraw_data:
+            for k1 in rraw_data[k0]:
+                for k2 in rraw_data[k0][k1]:
+                    for t in rraw_data[k0][k1][k2]:
+                        raw_data['ctx'][k0][k1][k2].append(t)
 
-    return matches, mismatches, missing0, missing1
+    return matches, mismatches, missing0, missing1, raw_data
 
 
 def main():
@@ -167,8 +215,10 @@ def main():
     parser.add_option('-m','--mercury',action='store',dest='fn0', help='mercury JSON output',default=None)
     parser.add_option('-p','--pmercury',action='store',dest='fn1', help='pmercury JSON output',default=None)
     parser.add_option('-q','--quiet',action='store_true',dest='quiet', help='only print general success/failure',default=False)
+    parser.add_option('-n','--number',action='store',dest='n', help='print the top <n> failures',default=5)
 
     options, args = parser.parse_args()
+    options.n = int(options.n)
 
     total0, db0 = read_data(options.fn0)
     total1, db1 = read_data(options.fn1)
@@ -195,10 +245,10 @@ def main():
     print('additional keys in 1:\t% 8i' % len(diff1))
     print()
 
-    matches, mismatches, missing0, missing1 = consistency(keys, db0, db1)
+    matches, mismatches, missing0, missing1, raw_data = consistency(keys, db0, db1)
 
-    print('MATCHING DATA')
-    print('-------------')
+    print('MATCHING DATA SUMMARY')
+    print('---------------------')
 
     print('matching fingerprint strings by protocol:')
     for k in matches['fp']:
@@ -213,8 +263,8 @@ def main():
     print()
 
     print()
-    print('MISMATCHING DATA')
-    print('----------------')
+    print('MISMATCHING DATA SUMMARY')
+    print('------------------------')
 
     print('mismatching fingerprint strings by protocol:')
     for k in mismatches['fp']:
@@ -229,8 +279,8 @@ def main():
     print()
 
     print()
-    print('MISSING DATA')
-    print('------------')
+    print('MISSING DATA SUMMARY')
+    print('--------------------')
 
     print('fingerprint strings missing in file_0 by protocol:')
     for k in missing0['fp']:
@@ -254,6 +304,87 @@ def main():
         for kv in missing1['ctx'][k]:
             print('\t\t% 20s\t% 8i' % (kv+':', missing1['ctx'][k][kv]))
     print()
+
+
+    print()
+    print('MISMATCHING DATA')
+    print('----------------')
+
+    print('mismatching fingerprint strings by protocol:')
+    for k in raw_data['fp']['mismatch']:
+        if len(raw_data['fp']['mismatch'][k]) > 0:
+            print('\t% 12s' % k)
+            for fp0,fp1,fk in raw_data['fp']['mismatch'][k][0:options.n]:
+                print('\t\tfp0:\t%s' % fp0)
+                print('\t\tfp1:\t%s' % fp1)
+                print('\t\tkey:\t%s' % fk)
+                print()
+
+    print()
+    print('mismatching contextual data by protocol:')
+    for k in raw_data['ctx']['mismatch']:
+        print('\t% 12s' % k)
+        for k1 in raw_data['ctx']['mismatch'][k]:
+            if len(raw_data['ctx']['mismatch'][k][k1]) > 0:
+                print('\t\t% 12s' % k1)
+                for fp0,fp1,fk in raw_data['ctx']['mismatch'][k][k1][0:options.n]:
+                    print('\t\t\tcd0:\t%s' % fp0)
+                    print('\t\t\tcd1:\t%s' % fp1)
+                    print('\t\t\tkey:\t%s' % fk)
+                    print()
+
+
+    print()
+    print('MISSING 0 DATA')
+    print('--------------')
+    print('missing fingerprint strings by protocol:')
+    for k in raw_data['fp']['missing0']:
+        if len(raw_data['fp']['missing0'][k]) > 0:
+            print('\t% 12s' % k)
+            for fp0,fp1,fk in raw_data['fp']['missing0'][k][0:options.n]:
+                print('\t\tfp0:\t%s' % fp0)
+                print('\t\tfp1:\t%s' % fp1)
+                print('\t\tkey:\t%s' % fk)
+                print()
+
+    print()
+    print('missing contextual data by protocol:')
+    for k in raw_data['ctx']['missing0']:
+        print('\t% 12s' % k)
+        for k1 in raw_data['ctx']['missing0'][k]:
+            if len(raw_data['ctx']['missing0'][k][k1]) > 0:
+                print('\t\t% 12s' % k1)
+                for fp0,fp1,fk in raw_data['ctx']['missing0'][k][k1][0:options.n]:
+                    print('\t\t\tcd0:\t%s' % fp0)
+                    print('\t\t\tcd1:\t%s' % fp1)
+                    print('\t\t\tkey:\t%s' % fk)
+                    print()
+
+    print()
+    print('MISSING 1 DATA')
+    print('--------------')
+    print('missing fingerprint strings by protocol:')
+    for k in raw_data['fp']['missing1']:
+        if len(raw_data['fp']['missing1'][k]) > 0:
+            print('\t% 12s' % k)
+            for fp0,fp1,fk in raw_data['fp']['missing1'][k][0:options.n]:
+                print('\t\tfp0:\t%s' % fp0)
+                print('\t\tfp1:\t%s' % fp1)
+                print('\t\tkey:\t%s' % fk)
+                print()
+
+    print()
+    print('missing contextual data by protocol:')
+    for k in raw_data['ctx']['missing1']:
+        print('\t% 12s' % k)
+        for k1 in raw_data['ctx']['missing1'][k]:
+            if len(raw_data['ctx']['missing1'][k][k1]) > 0:
+                print('\t\t% 12s' % k1)
+                for fp0,fp1,fk in raw_data['ctx']['missing1'][k][k1][0:options.n]:
+                    print('\t\t\tcd0:\t%s' % fp0)
+                    print('\t\t\tcd1:\t%s' % fp1)
+                    print('\t\t\tkey:\t%s' % fk)
+                    print()
 
 
 if __name__== "__main__":
