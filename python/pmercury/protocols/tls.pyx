@@ -56,13 +56,23 @@ cdef class TLS():
         if fp_database != None:
             self.load_database(fp_database)
 
-        transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
-        self.transition_probs = {}
-        for line in os.popen('zcat %s' % (transition_probs_file), mode='r', buffering=8192*256):
-            t_ = line.strip().split(',')
-            if t_[1] not in self.transition_probs:
-                self.transition_probs[t_[1]] = {}
-            self.transition_probs[t_[1]][t_[2]] = float(t_[0])
+        IF UNAME_SYSNAME == "Windows":
+            transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
+            self.transition_probs = {}
+            import gzip
+            for line in gzip.open(transition_probs_file, 'r'):
+                t_ = line.strip().split(b',')
+                if t_[1].decode() not in self.transition_probs:
+                    self.transition_probs[t_[1].decode()] = {}
+                self.transition_probs[t_[1].decode()][t_[2].decode()] = float(t_[0])
+        ELSE:
+            transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
+            self.transition_probs = {}
+            for line in os.popen('zcat %s' % (transition_probs_file), mode='r', buffering=8192*256):
+                t_ = line.strip().split(',')
+                if t_[1] not in self.transition_probs:
+                    self.transition_probs[t_[1]] = {}
+                self.transition_probs[t_[1]][t_[2]] = float(t_[0])
 
         app_families_file = find_resource_path('resources/app_families.txt')
         self.app_families = {}
@@ -79,8 +89,8 @@ cdef class TLS():
         cdef dict fp_
         IF UNAME_SYSNAME == "Windows":
             import gzip
-            for line in gzip.open(fp_database, 'r'):
-                fp_ = json.loads(line)
+            for line_win in gzip.open(fp_database, 'r'):
+                fp_ = json.loads(line_win)
                 self.fp_db[fp_['str_repr']] = fp_
         ELSE:
             for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):
@@ -156,28 +166,26 @@ cdef class TLS():
 
         # parse/extract/skip extension type/length/values
         c.append('(')
-        server_name = None
+        cdef str server_name = None
+        cdef list context = None
         while ext_total_len > 0:
             if offset >= data_len:
                 c.append(')')
-                return ''.join(c), server_name
+                return ''.join(c), context
 
             # extract server name for process/malware identification
             if htons(deref(<uint16_t *>(buf+offset))) == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
+                context = [{'name':'server_name', 'data':server_name}]
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
             if ext_len+4 > ext_total_len:
                 c.append(')')
-                return ''.join(c), server_name
+                return ''.join(c), context
             c.append('(%s)' % tmp_fp_ext)
 
             ext_total_len -= 4 + ext_len
         c.append(')')
-
-        cdef list context = None
-        if server_name != None:
-            context = [{'name':'server_name', 'data':server_name}]
 
         return  ''.join(c), context
 
@@ -196,7 +204,7 @@ cdef class TLS():
                 fp_ = self.gen_unknown_fingerprint(fp_str_)
                 self.fp_db[fp_str_] = fp_
                 if self.MALWARE_DB:
-                    return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
+                    return {'process': 'Unknown', 'score': 0.0, 'malware': 0, 'p_malware': 0.0, 'category': 'Unknown'}
                 else:
                     return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
             self.fp_db[fp_str_] = self.fp_db[approx_str_]
@@ -212,7 +220,7 @@ cdef class TLS():
         if fp_ == None:
             # if malware data is in the database, report malware scores
             if self.MALWARE_DB:
-                return {'process': 'Unknown', 'score': 0.0, 'malware': False, 'p_malware': 0.0, 'category': 'Unknown'}
+                return {'process': 'Unknown', 'score': 0.0, 'malware': 0, 'p_malware': 0.0, 'category': 'Unknown'}
             else:
                 return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
 
@@ -232,7 +240,7 @@ cdef class TLS():
             predict_ = fp_['process_info'][0]['process']
             predict_ = self.app_families[predict_] if predict_ in self.app_families else predict_
             if self.MALWARE_DB:
-                return {'process':predict_, 'score': 0.0, 'malware': fp_['process_info'][0]['malware'],
+                return {'process':predict_, 'score': 0.0, 'malware': int(fp_['process_info'][0]['malware']),
                         'p_malware': 0.0, 'category': 'Unknown'}
             else:
                 return {'process':predict_, 'score':0.0, 'category': 'Unknown'}
@@ -250,7 +258,7 @@ cdef class TLS():
         score_sum_ = sum([x_['score'] for x_ in r_])
         if self.MALWARE_DB:
             malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
-            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':r_[0]['malware'],
+            out_ = {'process':process_name, 'score':r_[0]['score'], 'malware':int(r_[0]['malware']),
                     'p_malware':malware_score_, 'category':r_[0]['category']}
         else:
             out_ = {'process':process_name, 'score':r_[0]['score'], 'category':r_[0]['category']}
