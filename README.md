@@ -28,13 +28,23 @@ to install mercury and create and start a systemd service.  If you don't want th
 sudo make install-nosystemd
 ```
 The default file and directory locations are
-   * **/usr/local/bin/mercury** for the executable
-   * **/usr/local/share/mercury** for the resource files
-   * **/usr/local/var/mercury** for the output files
-   * **/etc/mercury/mercury.cfg** for the configuration file
-   * **/etc/systemd/system/mercury.service** for the systemd unit file
+   * __/usr/local/bin/mercury__ for the executable
+   * __/usr/local/share/mercury__ for the resource files
+   * __/usr/local/var/mercury__ for the output files
+   * __/etc/mercury/mercury.cfg__ for the configuration file
+   * __/etc/systemd/system/mercury.service__ for the systemd unit file
 
 The output file directory is owned by the user **mercury**; this user is created by the 'make install' target, which must be run as root.  The installation prefix **/usr/local/** can be changed by running ./configure with the --prefix argument, for instance `--prefix=$HOME'.  If you want to install the program somewhere in your home directory, you probably don't want to create the user mercury; you should use the 'make install-nonroot' target, which does not create a user, does not install anything into /etc, and does not install a systemd unit.
+
+The easiest way to run mercury in capture mode is using systemd; the OS automatically starts the mercury systemd unit after each boot, and halts it when the OS is shut down.  To check its status, run
+```
+systemctl status mercury
+```
+and the output should contain 'active (running)'.  To view the log (stderr) output from the mercury unit, run
+```
+sudo journalctl -u mercury
+```
+
 
 #### Compile-time options
 There are compile-time options that can tune mercury for your hardware, or generate debugging output.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make".   For instance, to turn on debugging, first run **make clean** to remove the previous build, then run **make "OPTFLAGS=-DDEBUG"**.   This runs make, telling it to pass the string "-DDEBUG" to the C/C++ compiler.  The available compile time options are:
