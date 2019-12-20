@@ -26,7 +26,7 @@ CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(dat
 
 CXX      = @CXX@
 CFLAGS  = --std=c++11
-CFLAGS += -march=native -mtune=native -O2
+CFLAGS += -march=x86-64 -mtune=generic -O2
 CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += -Wno-pedantic       # suppress warnings about non-ISO C++ (uint128_t, ...)
