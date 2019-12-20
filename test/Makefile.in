@@ -131,8 +131,8 @@ ifeq ($(do_analysis),yes)
 	@echo "running analysis test"
 	$(MERCURY) -r data/top-https.pcap -f tmp.json -a
 	$(python) json-test.py tmp.json
-	rm -f tmp.json
 	@echo $(COLOR_GREEN) "passed analysis test" $(COLOR_OFF)
+	rm -f tmp.json
 else
 	@echo $(COLOR_YELLOW) "omitting analysis test; python3 or jsonschema unavailable" $(COLOR_OFF)
 endif
@@ -141,10 +141,16 @@ endif
 cert-check:
 ifeq ($(do_cert_check),yes)
 	@echo "running certificate test"
-	$(MERCURY) -r data/top-https.pcap -f tmp.json -a
-	$(python) certificate-test.py tmp.json
+	$(MERCURY) -r data/top-https.pcap -f tmp.json
+	$(python) certificate-test.py tmp.json --complete 1 --partial 43
+	@echo $(COLOR_GREEN) "passed top-https certificate test" $(COLOR_OFF)
+	$(MERCURY) -r data/top_100_fingerprints.pcap -f tmp.json
+	$(python) certificate-test.py tmp.json --complete 150 --partial 14
+	@echo $(COLOR_GREEN) "passed top_100_fingerprints certificate test" $(COLOR_OFF)
+	$(MERCURY) -r data/test_decrypt.pcap -f tmp.json
+	$(python) certificate-test.py tmp.json --complete 6 --partial 1
+	@echo $(COLOR_GREEN) "passed test_decrypt certificate test" $(COLOR_OFF)
 	rm -f tmp.json
-	@echo $(COLOR_GREEN) "passed certificate test" $(COLOR_OFF)
 else
 	@echo $(COLOR_YELLOW) "omitting certificate test; python3 or jsonschema unavailable" $(COLOR_OFF)
 endif
