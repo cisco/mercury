@@ -144,6 +144,7 @@ int addr_init(const char *resources_dir) {
 }
 
 void addr_finalize() {
+    free(ipv4_subnet_trie.root);
     lct_free(&ipv4_subnet_trie);
     free(ipv4_subnet_array);
 }
