@@ -233,6 +233,20 @@ else
 	@/bin/false
 endif
 
+# consistency test - compares mercury and pmercury output
+#
+FILE = afl_data/corner-cases.pcap
+PMERCURY = ../python/pmercury/pmercury
+.PHONY: consistency
+consistency:
+ifeq ($(wildcard $(PMERCURY)),)
+	@echo $(COLOR_YELLOW) "pmercury unavailable; cannot perform consistency test" $(COLOR_OFF)
+else
+	@echo "running consistency check with pmercury"
+	$(PMERCURY) -r $(FILE) -f p.json
+	$(MERCURY)  -r $(FILE) -f m.json
+	$(python) p-mercury-diff.py -p p.json -m m.json
+endif
 
 # fuzz testing with american fuzzy lop
 #

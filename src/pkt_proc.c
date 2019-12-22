@@ -18,7 +18,7 @@
  * the packet metadata filter; it will probably get eliminated soon,
  * in favor of extractor::proto_state::state, but for now it remains
  */
-unsigned int packet_filter_threshold = 8;
+unsigned int packet_filter_threshold = 7;
 
 struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                                           int tnum,
