@@ -1384,6 +1384,8 @@ enum status parser_extractor_process_tls_server_hello(struct parser *record, str
     size_t tmp_type;
     unsigned char *ext_len_slot = NULL;
 
+    extractor_debug("%s: processing server_hello with %td bytes\n", __func__, record->data_end - record->data);
+
     /* set fingerprint type */
     x->fingerprint_type = fingerprint_type_tls_server;
 
@@ -1413,28 +1415,28 @@ enum status parser_extractor_process_tls_server_hello(struct parser *record, str
 	    goto bail;
     }
 
-    /* skip over compression methods */
-    if (parser_read_uint(record, L_CompressionMethodsLength, &tmp_len) == status_err) {
-	    goto bail;
-    }
-    if (parser_skip(record, tmp_len + L_CompressionMethod) == status_err) {
+    /* skip over compression method */
+    if (parser_skip(record, L_CompressionMethod) == status_err) {
 	    goto bail;
     }
 
     /*
-     * parse extensions vector if present
+     * reserve slot in output for length of extracted extensions
+     */
+    if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
+        goto bail;
+    }
+
+    /*
+     * parse extensions vector (if present)
      */
     if (parser_get_data_length(record) > 0) {
-        /*
-         * reserve slot in output for length of extracted extensions
-         */
-        if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
-	        goto bail;
-        }
+
+        extractor_debug("%s: parsing extensions vector\n", __func__);
 
         /*  extensions length */
         if (parser_read_and_skip_uint(record, L_ExtensionsVectorLength, &tmp_len)) {
-	        goto bail;
+            goto bail;
         }
 
         struct parser ext_parser;
@@ -1463,18 +1465,18 @@ enum status parser_extractor_process_tls_server_hello(struct parser *record, str
             }
         }
 
-        /*
-         * write the length of the extracted extensions into the reserved slot
-         */
-        encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
-
         extractor_debug("%s: ext_parser has %td bytes\n", __func__, ext_parser.data_end - ext_parser.data);
 
         parser_pop(&ext_parser, record);
 
         extractor_debug("%s: record has %td bytes\n", __func__, record->data_end - record->data);
 
-    }
+    } 
+
+    /*
+     * write the length of the extracted extensions (if any) into the reserved slot
+     */
+    encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
 
     return status_ok;
 
