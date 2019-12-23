@@ -106,6 +106,8 @@ void json_file_write(struct json_file *jf,
         return;
     }
 
+    fprintf(file, "{");
+
     /*
      * output fingerprint (if any)
      */
@@ -113,45 +115,45 @@ void json_file_write(struct json_file *jf,
         uint8_t *extractor_buffer = pf.x.output_start;
         switch(pf.x.fingerprint_type) {
         case fingerprint_type_dhcp_client:
-            fprintf(file, "{\"fingerprints\":{\"dhcp\":\"");
+            fprintf(file, "\"fingerprints\":{\"dhcp\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
             break;
         case fingerprint_type_tls:
-            fprintf(file, "{\"fingerprints\":{\"tls\":\"");
+            fprintf(file, "\"fingerprints\":{\"tls\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
             break;
         case fingerprint_type_tcp:
-            fprintf(file, "{\"fingerprints\":{\"tcp\":\"");
+            fprintf(file, "\"fingerprints\":{\"tcp\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
             break;
         case fingerprint_type_http:
-            fprintf(file, "{\"fingerprints\":{\"http\":\"");
+            fprintf(file, "\"fingerprints\":{\"http\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
             fprintf(file, "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
             break;
         case fingerprint_type_http_server:
-            fprintf(file, "{\"fingerprints\":{\"http_server\":\"");
+            fprintf(file, "\"fingerprints\":{\"http_server\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
             fprintf(file, "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
             break;
         case fingerprint_type_tls_server:
-            fprintf(file, "{\"fingerprints\":{\"tls_server\":\"");
+            fprintf(file, "\"fingerprints\":{\"tls_server\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
             //fprintf_raw_as_hex(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
             break;
         case fingerprint_type_dtls:
-            fprintf(file, "{\"fingerprints\":{\"dtls\":\"");
+            fprintf(file, "\"fingerprints\":{\"dtls\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
             break;
         case fingerprint_type_dtls_server:
-            fprintf(file, "{\"fingerprints\":{dtls_server\":\"");
+            fprintf(file, "\"fingerprints\":{dtls_server\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
             break;
@@ -208,6 +210,7 @@ void json_file_write(struct json_file *jf,
 
     packet_fprintf_flow_key(file, packet, length);
     fprintf_timestamp(file, sec, usec);
+
     fprintf(file, "}\n");
 
     if (json_file_needs_rotation(jf)) {
