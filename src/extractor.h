@@ -28,7 +28,8 @@ enum packet_data_type {
     packet_data_type_none            = 0,
     packet_data_type_tls_sni         = 1,
     packet_data_type_http_user_agent = 2,
-    packet_data_type_tls_cert        = 3
+    packet_data_type_tls_cert        = 3,
+    packet_data_type_dtls_sni
 };
 
 struct packet_data {
