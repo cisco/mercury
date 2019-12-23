@@ -142,6 +142,7 @@ void json_file_write(struct json_file *jf,
         case fingerprint_type_tls_server:
             fprintf(file, "{\"fingerprints\":{\"tls_server\":\"");
             fprintf_binary_ept_as_paren_ept(file, extractor_buffer, bytes_extracted);
+            //fprintf_raw_as_hex(file, extractor_buffer, bytes_extracted);
             fprintf(file, "\"},");
             break;
         case fingerprint_type_dtls:
