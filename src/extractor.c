@@ -453,14 +453,23 @@ enum status parser_extractor_copy_append_upto_delim(struct parser *p,
     }
     len = data - p->data - 1;
 
-    /* copy_append data up to delimiter */
-    if (parser_extractor_copy_append(p, x, len) == status_err) {
-        extractor_debug("%s: error\n", __func__);
-        return status_err;
-    }
+    if (*data == delim[1]) {
+        /* copy_append data up to delimiter */
+        if (parser_extractor_copy_append(p, x, len) == status_err) {
+            extractor_debug("%s: error (at end of delimiter)\n", __func__);
+            return status_err;
+        }
 
-    /* skip delimiter */
-    return parser_skip(p, 2);
+        /* skip delimiter */
+        return parser_skip(p, 2);
+    } else {
+        /* copy_append data up to data_end */
+        if (parser_extractor_copy_append(p, x, data - p->data + 1) == status_err) {
+            extractor_debug("%s: error (at end of data)\n", __func__);
+            return status_err;
+        }
+    }
+    return status_ok;
 }
 
 /*
