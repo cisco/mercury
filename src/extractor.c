@@ -1621,15 +1621,13 @@ unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct e
         goto bail;
     }
 
-    x->fingerprint_type = fingerprint_type_tls_server;
-    x->proto_state.state = state_done;
-    return packet_filter_threshold + 1; /* for json_file_write() */
+    return 0; 
 
 bail:
     /*
      * handle possible packet parsing errors
      */
-    extractor_debug("%s: warning: TLS serverCert did not complete\n", __func__);
+    extractor_debug("%s: warning: processing did not complete\n", __func__);
     return 0;
 }
 
