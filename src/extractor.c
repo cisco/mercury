@@ -1348,31 +1348,35 @@ enum status parser_extractor_process_certificate(struct parser *p, struct extrac
 
 void extract_certificates(FILE *file, const unsigned char *data, size_t data_len) {
     size_t tmp_len;
-    struct parser cert_parser;
+    struct parser cert_list;
     int cert_num = 0;
 
-    parser_init(&cert_parser, data, data_len);
-    
-    while (parser_get_data_length(&cert_parser) > 0) {
+    parser_init(&cert_list, data, data_len);
+
+    while (parser_get_data_length(&cert_list) > 0) {
         /* get certificate length */
-        if (parser_read_and_skip_uint(&cert_parser, L_CertificateLength, &tmp_len) == status_err) {
+        if (parser_read_and_skip_uint(&cert_list, L_CertificateLength, &tmp_len) == status_err) {
 	        return;
         }
 
-        if (tmp_len > (unsigned)parser_get_data_length(&cert_parser)) {
-            tmp_len = parser_get_data_length(&cert_parser); /* truncate */
+        if (tmp_len > (unsigned)parser_get_data_length(&cert_list)) {
+            tmp_len = parser_get_data_length(&cert_list); /* truncate */
+        }
+
+        if (tmp_len == 0) {
+            return;  /* don't bother printing out a partial cert if it has a length of zero */
         }
 
         if (cert_num > 0) {
             fprintf(file, ","); /* print separating comma */
         }
 
-        fprintf_json_base64_string(file, cert_parser.data, tmp_len);
-        
+        fprintf_json_base64_string(file, cert_list.data, tmp_len);
+
         /*
          * skip over certificate data
          */
-        if (parser_skip(&cert_parser, tmp_len) == status_err) {
+        if (parser_skip(&cert_list, tmp_len) == status_err) {
 	        return;
         }
         cert_num++;
