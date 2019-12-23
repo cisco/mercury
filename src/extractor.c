@@ -2482,9 +2482,10 @@ size_t packet_filter_extract(struct packet_filter *pf, uint8_t *packet, size_t l
 }
 
 bool packet_filter_apply(struct packet_filter *pf, uint8_t *packet, size_t length) {
+    extern unsigned int packet_filter_threshold;
 
     size_t bytes_extracted = packet_filter_extract(pf, packet, length);
-    if (bytes_extracted > 7) {
+    if (bytes_extracted > packet_filter_threshold) {
         return true;
     }
     return false;
