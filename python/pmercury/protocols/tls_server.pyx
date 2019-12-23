@@ -78,9 +78,9 @@ class TLS_Server(Protocol):
             return fp_+'()', None
 
         # parse/skip compression method
-        cdef unsigned int compression_methods_length = buf[offset]
-        offset += 1 + compression_methods_length
-        record_length -= 3 + compression_methods_length
+        cdef unsigned int compression_method = buf[offset]
+        offset += 1
+        record_length -= 3
         if offset >= data_len or record_length < 2:
             return fp_+'()', None
 
