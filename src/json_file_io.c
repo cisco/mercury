@@ -158,58 +158,59 @@ void json_file_write(struct json_file *jf,
             ;    /* no fingerprint; do nothing */
         }
 
-        /*
-         * output packet_data (if any)
-         */
-        if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
-            fprintf(file, "\"http\":{");
+    }
+
+    /*
+     * output packet_data (if any)
+     */
+    if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
+        fprintf(file, "\"http\":{");
+        fprintf_json_string(file,
+                            "user_agent",
+                            pf.x.packet_data.value,
+                            pf.x.packet_data.length);
+        fprintf(file, "},");
+    }
+    if (pf.x.packet_data.type == packet_data_type_tls_sni) {
+        if (pf.x.packet_data.length >= SNI_HDR_LEN) {
+            fprintf(file, "\"tls\":{");
             fprintf_json_string(file,
-                                "user_agent",
-                                pf.x.packet_data.value,
-                                pf.x.packet_data.length);
+                                "server_name",
+                                pf.x.packet_data.value  + SNI_HDR_LEN,
+                                pf.x.packet_data.length - SNI_HDR_LEN);
             fprintf(file, "},");
         }
-        if (pf.x.packet_data.type == packet_data_type_tls_sni) {
-            if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-                fprintf(file, "\"tls\":{");
-                fprintf_json_string(file,
-                                    "server_name",
-                                    pf.x.packet_data.value  + SNI_HDR_LEN,
-                                    pf.x.packet_data.length - SNI_HDR_LEN);
-                fprintf(file, "},");
-            }
+    }
+    if (pf.x.packet_data.type == packet_data_type_tls_cert) {
+        /* print the certificates in base64 format */
+        fprintf(file, "\"tls\":{\"server_certs\":[");
+        extract_certificates(file, pf.x.packet_data.value, pf.x.packet_data.length);
+        fprintf(file, "]},");
+    }
+    if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
+        if (pf.x.packet_data.length >= SNI_HDR_LEN) {
+            fprintf(file, "\"dtls\":{");
+            fprintf_json_string(file,
+                                "server_name",
+                                pf.x.packet_data.value  + SNI_HDR_LEN,
+                                pf.x.packet_data.length - SNI_HDR_LEN);
+            fprintf(file, "},");
         }
-        if (pf.x.packet_data.type == packet_data_type_tls_cert) {
-            /* print the certificates in base64 format */
-            fprintf(file, "\"tls\":{\"server_certs\":[");
-            extract_certificates(file, pf.x.packet_data.value, pf.x.packet_data.length);
-            fprintf(file, "]},");
-        }
-        if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
-            if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-                fprintf(file, "\"dtls\":{");
-                fprintf_json_string(file,
-                                    "server_name",
-                                    pf.x.packet_data.value  + SNI_HDR_LEN,
-                                    pf.x.packet_data.length - SNI_HDR_LEN);
-                fprintf(file, "},");
-            }
-        }
+    }
 
-        /*
-         * output flow key, analysis (if it's configured), and the timestamp
-         */
-        struct flow_key key = flow_key_init();
-        flow_key_set_from_packet(&key, packet, length);
-        fprintf_analysis_from_extractor_and_flow_key(file, &pf.x, &key);
+    /*
+     * output flow key, analysis (if it's configured), and the timestamp
+     */
+    struct flow_key key = flow_key_init();
+    flow_key_set_from_packet(&key, packet, length);
+    fprintf_analysis_from_extractor_and_flow_key(file, &pf.x, &key);
 
-        packet_fprintf_flow_key(file, packet, length);
-        fprintf_timestamp(file, sec, usec);
-        fprintf(file, "}\n");
+    packet_fprintf_flow_key(file, packet, length);
+    fprintf_timestamp(file, sec, usec);
+    fprintf(file, "}\n");
 
-        if (json_file_needs_rotation(jf)) {
-            json_file_rotate(jf);
-        }
+    if (json_file_needs_rotation(jf)) {
+        json_file_rotate(jf);
     }
 
 }
