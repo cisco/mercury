@@ -141,7 +141,7 @@ void json_file_write(struct json_file *jf,
 
 	    if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
 		fprintf(file, "\"http\":{");
-		fprintf_json_hex_string(file,
+		fprintf_json_string(file,
 					"user_agent",
 					pf.x.packet_data.value,
 					pf.x.packet_data.length);
