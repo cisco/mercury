@@ -28,8 +28,8 @@ rapidjson::Document fp_db;
 #define MAX_FP_STR_LEN 4096
 #define MAX_SNI_LEN     257
 
-pthread_mutex_t lock_fp_cache;
-std::unordered_map<std::string,char*> fp_cache;
+//pthread_mutex_t lock_fp_cache;
+//std::unordered_map<std::string,char*> fp_cache;
 
 std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,"database"}, {465,"email"},
                                                           {563,"nntp"},    {585,"email"},    {614,"shell"},
@@ -101,10 +101,13 @@ void database_finalize() {
 
 
 void cache_finalize() {
+    return;
+    /*
     for (std::pair<std::string, char*> element : fp_cache) {
         free(element.second);
     }
     fp_cache.clear();
+    */
 }
 
 
@@ -116,11 +119,11 @@ int analysis_init() {
     extern enum analysis_cfg analysis_cfg;
     analysis_cfg = analysis_on;
 
-    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
-        printf("\n mutex init has failed\n");
-        return -1;
-    }
-    fp_cache = {};
+//    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
+//       printf("\n mutex init has failed\n");
+//        return -1;
+//    }
+//    fp_cache = {};
 
     const char *resource_dir_list[] =
       {
@@ -158,7 +161,7 @@ int analysis_finalize() {
 
     addr_finalize();
     database_finalize();
-    cache_finalize();
+//    cache_finalize();
 
     return 1;
 }
@@ -392,6 +395,14 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
             server_name[sni_len] = 0; // null termination
         }
 
+        ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
+        if (ret_value == -1) {
+            return;
+        }
+        fprintf(file, "%s,", results);
+        free(results);
+
+        /*
         std::stringstream fp_cache_key_;
         fp_cache_key_ << std::string((char*)fp_str) << std::string(server_name) << std::string(dst_ip) << std::to_string(dst_port);
         std::string fp_cache_key = fp_cache_key_.str();
@@ -419,5 +430,6 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
             }
             pthread_mutex_unlock(&lock_fp_cache);
         }
+        */
     }
 }
