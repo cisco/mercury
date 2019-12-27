@@ -12,6 +12,7 @@
 #include "extractor.h"
 #include "pkt_proc.h"
 #include "packet.h"
+#include "addr.h"
 
 enum analysis_cfg { analysis_off = 0, analysis_on = 1 };
 

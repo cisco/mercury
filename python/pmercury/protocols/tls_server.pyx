@@ -1,6 +1,6 @@
 #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
 
-"""     
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -16,8 +16,13 @@ from pmercury.protocols.protocol import Protocol
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
-cdef extern from "arpa/inet.h":
-    uint16_t htons(uint16_t hostshort)
+
+IF UNAME_SYSNAME == "Windows":
+    cdef extern from "winsock2.h":
+        uint16_t htons(uint16_t hostshort)
+ELSE:
+    cdef extern from "arpa/inet.h":
+        uint16_t htons(uint16_t hostshort)
 
 
 MAX_CACHED_RESULTS = 2**24
@@ -49,15 +54,20 @@ class TLS_Server(Protocol):
         cdef unsigned char *buf = data
         offset += 5
 
+        # get record length
+        cdef int record_length = int(data[offset+1:offset+4].hex(),16)
+
         # extract handshake version
         cdef str fp_ = f'({buf[offset+4]:02x}{buf[offset+5]:02x})'
 
         # skip header/server_random
         offset += 38
+        record_length -= 34
 
         # parse/skip session_id
         cdef unsigned int session_id_length = buf[offset]
         offset += 1 + session_id_length
+        record_length -= 1 + session_id_length
         if offset >= data_len:
             return None, None
 
@@ -68,9 +78,10 @@ class TLS_Server(Protocol):
             return fp_+'()', None
 
         # parse/skip compression method
-        cdef unsigned int compression_methods_length = buf[offset]
-        offset += 1 + compression_methods_length
-        if offset >= data_len:
+        cdef unsigned int compression_method = buf[offset]
+        offset += 1
+        record_length -= 3
+        if offset >= data_len or record_length < 2:
             return fp_+'()', None
 
         # parse/skip extensions length
@@ -100,8 +111,8 @@ class TLS_Server(Protocol):
         lit_fp = eval_fp_str(fp_str_)
 
         fp_h = {}
-        fp_h['version'] = get_version_from_str(lit_fp[0][0])
-        fp_h['selected_cipher_suite'] = get_cs_from_str(lit_fp[1][0])[0]
+        fp_h['version'] = get_version_from_str(lit_fp[0])
+        fp_h['selected_cipher_suite'] = get_cs_from_str(lit_fp[1])
         fp_h['extensions'] = []
         if len(lit_fp) > 2:
             fp_h['extensions'] = get_ext_from_str(lit_fp[2], mode='server')

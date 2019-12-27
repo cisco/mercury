@@ -1,0 +1,43 @@
+# makefile for mercury resources installation
+#
+
+srcdir = .
+
+INSTALL = /usr/bin/install -c
+INSTALLDATA = /usr/bin/install -c -m 644
+
+prefix = @prefix@
+exec_prefix=@exec_prefix@
+bindir = @bindir@
+localstatedir = @localstatedir@/mercury
+datarootdir = @datarootdir@/mercury
+
+RESOURCE_FILES += fingerprint_db.json.gz
+RESOURCE_FILES += pyasn.db
+# RESOURCE_FILES  = app_families.txt
+# RESOURCE_FILES += implementation_date_cs.json.gz
+# RESOURCE_FILES += asn_info.db.gz
+# RESOURCE_FILES += implementation_date_ext.json.gz
+# RESOURCE_FILES += transition_probs.csv.gz
+# RESOURCE_FILES += public_suffix_list.dat.gz
+
+.PHONY: install
+install:
+	$(INSTALL) -d $(datarootdir) -o mercury -g mercury
+	$(INSTALLDATA) $(RESOURCE_FILES) $(datarootdir) -o mercury -g mercury
+
+.PHONY: install-nonroot
+install-nonroot:
+	$(INSTALL) -d $(datarootdir)
+	$(INSTALLDATA) $(RESOURCE_FILES) $(datarootdir)
+
+.PHONY: uninstall
+uninstall:
+	rm -rf $(localstatedir) 
+	rm -rf $(datarootdir) 
+
+.PHONY: distclean
+distclean:
+	rm -rf Makefile
+
+# EOF

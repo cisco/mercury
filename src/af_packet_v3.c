@@ -33,6 +33,7 @@
 
 #include "af_packet_io.h"
 #include "af_packet_v3.h"
+#include "signal_handling.h"
 #include "utils.h"
 #include "rnd_pkt_drop.h"
 
@@ -46,15 +47,20 @@
  * sig_close_flag and the packet worker threads will watch
  * sig_close_workers.
  */
-int sig_close_flag = 0; /* Watched by the stats tracking thread */
-int sig_close_workers = 0; /* Packet proccessing var */
+extern int sig_close_flag; /* Watched by the stats tracking thread, defined in mercury.c */
+static int sig_close_workers = 0; /* Packet proccessing var */
 
-double time_elapsed(struct timespec *ts);
+static double time_elapsed(struct timespec *ts) {
 
-void sig_close(int signal_arg) {
-  psignal(signal_arg, "\nGracefully shutting down");
+    double time_s;
+    time_s = ts->tv_sec + (ts->tv_nsec / 1000000000.0);
+    
+    if (clock_gettime(CLOCK_REALTIME, ts) != 0) {
+	perror("Unable to get clock time for elapsed calculation");
+	return NAN;
+    }
 
-  sig_close_flag = 1;
+  return (ts->tv_sec + (ts->tv_nsec / 1000000000.0)) - time_s;
 }
 
 void af_packet_stats(int sockfd, struct stats_tracking *statst) {
@@ -76,8 +82,8 @@ void af_packet_stats(int sockfd, struct stats_tracking *statst) {
 }
 
 void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
-				  struct stats_tracking *statst,
-				  struct frame_handler *handler) {
+                                  struct stats_tracking *statst,
+                                  struct pkt_proc *pkt_processor) {
   int num_pkts = block_hdr->hdr.bh1.num_pkts, i;
   unsigned long byte_count = 0;
   struct tpacket3_hdr *pkt_hdr;
@@ -96,7 +102,7 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
     pi.len = pkt_hdr->tp_snaplen; // Is this right??
 
     uint8_t *eth = (uint8_t *)pkt_hdr + pkt_hdr->tp_mac;
-    handler->func(&handler->context, &pi, eth);
+    pkt_processor->apply(&pi, eth);
     
     pkt_hdr = (struct tpacket3_hdr *) ((uint8_t *)pkt_hdr + pkt_hdr->tp_next_offset);
   }
@@ -162,6 +168,11 @@ void *stats_thread_func(void *statst_arg) {
   struct timespec ts;
   double time_d; /* time delta */
   memset(&ts, 0, sizeof(ts));
+  /**
+   * Enable all signals so that this thread shuts down first
+   */
+  enable_all_signals();
+
   while (sig_close_flag == 0) {
     uint64_t packets_before = statst->received_packets;
     uint64_t bytes_before = statst->received_bytes;
@@ -485,7 +496,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
   double *block_streak_hist = thread_stor->block_streak_hist;
   pthread_mutex_t *bstreak_m = &(thread_stor->bstreak_m);
   //packet_callback_t p_callback = thread_stor->p_callback;
-  struct frame_handler *handler = &thread_stor->handler;
+  struct pkt_proc *pkt_processor = thread_stor->pkt_processor;
   
   /* We got the clean start all clear so we can get started but
    * while we were waiting our socket was filling up with packets
@@ -606,11 +617,9 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
        * us.
        */
       if ((haveflushed == 0) && (pstreak == 0)) {
-	if (handler->flush_func != NULL) {
-	  handler->flush_func(&handler->context);
-	  haveflushed = 1;
-	}
-	continue; /* Restart the cb status check now that we flushed */
+          pkt_processor->flush();
+          haveflushed = 1;
+          continue; /* Restart the cb status check now that we flushed */
       }
 
       /* If poll() has returned but we haven't found any data... */
@@ -650,7 +659,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
       bstreak++; /* We've gotten another block */
 
       /* We found data, process it! */
-      process_all_packets_in_block(block_header[cb], statst, handler);
+      process_all_packets_in_block(block_header[cb], statst, pkt_processor);
 
       /* Reset our accounting */
       pstreak = 0; /* Reset the poll streak tracking */
@@ -673,6 +682,13 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
 void *packet_capture_thread_func(void *arg)  {
   struct thread_storage *thread_stor = (struct thread_storage *)arg;
 
+  /**
+   * Disable all signals so that this worker thread is not disturbed 
+   * in the middle of packet processing.
+   */
+  disable_all_signals();
+
+  /* now process the packets */
   if (af_packet_rx_ring_fanout_capture(thread_stor) < 0) {
     fprintf(stdout, "error: could not perform packet capture\n");
     exit(255);
@@ -813,10 +829,14 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   }
 
   /* drop privileges from root to normal user */
-  if (drop_root_privileges(cfg->user, NULL) != status_ok) {
+  if (drop_root_privileges(cfg->user, cfg->working_dir) != status_ok) {
     return status_err;
   }
-  printf("dropped root privileges\n");
+  if (cfg->user) {
+      printf("running as user %s\n", cfg->user);
+  } else {
+      printf("dropped root privileges\n");
+  }
 
   if (num_threads > 1) {
       
@@ -841,10 +861,12 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
 	   */
 	  snprintf(hexname, MAX_HEX, "%x", thread);
 	  fileset_id = hexname;
-      } 
-      enum status status = frame_handler_init_from_config(&tstor[thread].handler, cfg, thread, fileset_id);
-      if (status) {
-	  return status;
+      }
+
+      tstor[thread].pkt_processor = pkt_proc_new_from_config(cfg, thread, fileset_id);
+      if (tstor[thread].pkt_processor == NULL) {
+          printf("error: could not initialize frame handler\n");
+          return status_err;
       }
   }
 
@@ -897,13 +919,14 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
     munmap(tstor[thread].mapped_buffer, tstor[thread].ring_params.tp_block_size * tstor[thread].ring_params.tp_block_nr);
     free(tstor[thread].block_streak_hist);
     close(tstor[thread].sockfd);
+    delete tstor[thread].pkt_processor;
   }
   free(tstor);
 
   fprintf(stderr, "--\n"
 	  "%" PRIu64 " packets captured\n"
 	  "%" PRIu64 " bytes captured\n"
-	  "%" PRIu64  "packets seen by socket\n"
+	  "%" PRIu64 " packets seen by socket\n"
 	  "%" PRIu64 " packets dropped\n"
 	  "%" PRIu64 " socket queue freezes\n",
 	  statst.received_packets, statst.received_bytes, statst.socket_packets, statst.socket_drops, statst.socket_freezes);
@@ -934,18 +957,4 @@ void ring_limits_init(struct ring_limits *rl, float frac) {
     rl->af_blocktimeout   = 100;             /* milliseconds before a block is returned partially full */
     rl->af_fanout_type    = PACKET_FANOUT_HASH;
 
-}
-
-
-double time_elapsed(struct timespec *ts) {
-
-    double time_s;
-    time_s = ts->tv_sec + (ts->tv_nsec / 1000000000.0);
-    
-    if (clock_gettime(CLOCK_REALTIME, ts) != 0) {
-	perror("Unable to get clock time for elapsed calculation");
-	return NAN;
-    }
-
-  return (ts->tv_sec + (ts->tv_nsec / 1000000000.0)) - time_s;
 }

@@ -11,9 +11,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include <errno.h>
+#include <string.h>
 #include "pcap_file_io.h"
 #include "json_file_io.h"
-
+#include "extractor.h"
+#include "packet.h"
+#include "rnd_pkt_drop.h"
 
 /* Information about each packet on the wire */
 struct packet_info {
@@ -22,102 +26,186 @@ struct packet_info {
   uint32_t len;        /* length this packet (off wire) */
 };
 
+extern unsigned int packet_filter_threshold;
 
-typedef void (*frame_handler_func)(void *userdata,
-				   struct packet_info *pi,
-				   uint8_t *eth);
-
-typedef void (*frame_handler_flush_func)(void *userdata);
+struct pkt_proc_stats {
+    size_t bytes_written;
+    size_t packets_written;
+};
 
 /*
- * struct frame_handler 'object' includes the function pointer func
- * and the context passed to that function, which may be either a
- * struct pcap_file or a FILE depending on the function to which
- * 'func' points
- *
- * to initialize a frame_handler, call one of the frame_handler_*_init
- * functions defined below (or define your own)
+ * struct pkt_proc is a packet processor; this abstract class defines
+ * the interface to packet processing that can be used by packet
+ * capture or packet file readers.
  */
-union frame_handler_context {
-    struct pcap_file pcap_file;
+
+struct pkt_proc {
+    virtual void apply(struct packet_info *pi, uint8_t *eth) = 0;
+    virtual void flush() = 0;
+    virtual ~pkt_proc() {};
+    size_t bytes_written = 0;
+    size_t packets_written = 0;
+};
+
+
+
+/*
+ * struct pkt_proc_json_writer represents a packet processing object
+ * that writes out a JSON representation of fingerprints, metadata,
+ * flow keys, and event time.
+ */
+struct pkt_proc_json_writer : public pkt_proc {
     struct json_file json_file;
+
+    /*
+     * pkt_proc_json_writer(outfile_name, mode, max_records)
+     * initializes object to write a single JSON line containing the
+     * flow key, time, fingerprints, and metadata to the output file
+     * with the path outfile_name and mode passed as arguments; that
+     * file is opened by this invocation, with that mode.  If
+     * max_records is nonzero, then it defines the maximum number of
+     * records (lines) per file; after that limit is reached, file
+     * rotation will take place.
+     */
+    pkt_proc_json_writer(const char *outfile_name,
+                         const char *mode,
+                         uint64_t max_records) {
+
+        enum status status = json_file_init(&json_file, outfile_name, mode, max_records);
+        if (status) {
+            throw "could not initialize JSON output file";
+        }
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) {
+        json_file_write(&json_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+    }
+
+    void flush() {
+        FILE *file_ptr = json_file.file;
+        if (file_ptr != NULL) {
+            if (fflush(file_ptr) != 0) {
+                perror("warning: could not flush json file\n");
+            }
+        }
+    }
 };
-struct frame_handler {
-    frame_handler_func func;
-    frame_handler_flush_func flush_func;
-    union frame_handler_context context;
+
+
+/*
+ * struct pkt_proc_pcap_writer represents a packet processing object
+ * that writes out packets in PCAP file format.
+ */
+struct pkt_proc_pcap_writer : public pkt_proc {
+    struct pcap_file pcap_file;
+
+    /*
+     * pkt_proc_pcap_writer(outfile_name, mode) initializes an object
+     * to write packets into the pcap file with the path outfile_name
+     * and flags passed as arguments; that file is opened by this
+     * invocation, with those flags.
+     */
+    pkt_proc_pcap_writer(const char *outfile, int flags) {
+        enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
+        if (status) {
+            throw "could not open PCAP output file";
+        }
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) {
+        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
+
+        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
+            return;  /* random packet drop configured, and this packet got selected to be discarded */
+        }
+        pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+    }
+
+    void flush() {
+        FILE *file_ptr = pcap_file.file_ptr;
+        if (file_ptr != NULL) {
+            if (fflush(file_ptr) != 0) {
+                perror("warning: could not flush pcap file\n");
+            }
+        }
+    }
+
 };
 
+/*
+ * struct pkt_proc_filter_pcap_writer represents a packet processing
+ * object that first filters packets, then writes tem out in PCAP file
+ * format.
+ */
+struct pkt_proc_filter_pcap_writer : public pkt_proc {
+    struct pcap_file pcap_file;
+
+    /*
+     * packet_filter_threshold is a (somewhat arbitrary) threshold used in
+     * the packet metadata filter; it will probably get eliminated soon,
+     * in favor of extractor::proto_state::state, but for now it remains
+     */
+    unsigned int packet_filter_threshold = 8;
+
+    pkt_proc_filter_pcap_writer(const char *outfile, int flags) {
+        enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
+        if (status) {
+            throw "could not open PCAP output file";
+        }
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) {
+        uint8_t *packet = eth;
+        unsigned int length = pi->len;
+
+        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
+
+        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
+            return;  /* random packet drop configured, and this packet got selected to be discarded */
+        }
+
+        struct packet_filter pf;
+        if (packet_filter_apply(&pf, packet, length)) {
+            pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+        }
+    }
+
+    void flush() {
+        FILE *file_ptr = pcap_file.file_ptr;
+        if (file_ptr != NULL) {
+            if (fflush(file_ptr) != 0) {
+                perror("warning: could not flush pcap file\n");
+            }
+        }
+    }
+
+};
 
 /*
- * frame_handler_write_fingerprints_init(handler, outfile_name, mode)
- * initializes handler to write (TLS and TCP) fingerprints to the
- * output file with the path outfile_name and mode passed as
- * arguments; that file is opened by this invocation, with that mode.  
- * 
- * return values are status_ok (no error), status_err (unspecified error),
- * or other error values
- *
+ * pkt_proc_dumper writes a JSON object summarizing each packet to
+ * stdout
  */
-enum status frame_handler_write_fingerprints_init(struct frame_handler *handler,
-						  const char *outfile_name,
-						  const char *mode,
-						  uint64_t max_records);
+struct pkt_proc_dumper : public pkt_proc {
 
+    pkt_proc_dumper() {}
+
+    void apply(struct packet_info *pi, uint8_t *eth) {
+        packet_fprintf(stdout, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+    }
+
+    void flush() {
+    }
+};
 
 /*
- * frame_handler_write_pcap_init(handler, outfile_name, mode)
- * initializes handler to filter packets and then write the remaining
- * packets into the pcap file with the path outfile and flags passed
- * as arguments; that file is opened by this invocation, with those
- * flags.
- * 
- * return values are status_ok (no error), status_err (unspecified error),
- * or other error values
- *
+ * the function pkt_proc_new_from_config() takes as input a
+ * configuration structure, a thread number, and a pointer to a
+ * fileset identifier, and returns a pointer to a new packet processor
+ * object.  This is a factory function that chooses what type of class
+ * to return based on the details of the configuration.
  */
-enum status frame_handler_filter_write_pcap_init(struct frame_handler *handler,
-						 const char *outfile,
-						 int flags);
-
-
-/*
- * frame_handler_write_pcap_init(handler, outfile_name, mode)
- * initializes handler to write packets into the pcap file with the
- * path outfile and flags passed as arguments; that file is opened by
- * this invocation, with those flags.
- * 
- * return values are status_ok (no error), status_err (unspecified error),
- * or other error values
- *
- */
-enum status frame_handler_write_pcap_init(struct frame_handler *handler,
-					  const char *outfile,
-					  int flags);
-
-/*
- * frame_handler_dump_init(handler) initializes handler to write a
- * JSON object summarizing each packet to stdout
- * 
- * return values are status_ok (no error), status_err (unspecified error),
- * or other error values
- *
- */
-enum status frame_handler_dump_init(struct frame_handler *handler);
-
-
-enum status frame_handler_init_from_config(struct frame_handler *handler,
-					   struct mercury_config *ppt,
-					   int tnum,
-					   char *fileset_id);
-
-enum status pcap_file_dispatch_frame_handler(struct pcap_file *f,
-					     frame_handler_func func,
-					     void *userdata,
-						 int loop_count);
-
-enum status pcap_file_dispatch_test_packet(frame_handler_func func,
-                         void *userdata,
-                         int loop_count);
+struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
+                                          int tnum,
+                                          char *fileset_id);
 
 #endif /* PKT_PROC_H */

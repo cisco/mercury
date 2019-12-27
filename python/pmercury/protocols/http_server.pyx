@@ -125,11 +125,20 @@ class HTTP_Server(Protocol):
 
     def get_human_readable(self, fp_str_):
         t_ = [bytes.fromhex(x[1:]) for x in fp_str_.split(')')[:-1]]
-        fp_h = [{'version':t_[0]},{'code':t_[1]},{'response':t_[2]}]
+        try:
+            fp_h = [{'version':t_[0].decode()},{'code':t_[1].decode()},{'response':t_[2].decode()}]
+        except:
+            fp_h = [{'version':t_[0].hex()},{'code':t_[1].hex()},{'response':t_[2].hex()}]
         for i in range(3, len(t_)-1):
             field = t_[i].split(b': ')
             if len(field) == 2:
-                fp_h.append({field[0]: field[1]})
+                try:
+                    fp_h.append({field[0].decode(): field[1].decode()})
+                except:
+                    fp_h.append({field[0].hex(): field[1].hex()})
             else:
-                fp_h.append({field[0]: ''})
+                try:
+                    fp_h.append({field[0].decode(): ''})
+                except:
+                    fp_h.append({field[0].hex(): ''})
         return fp_h

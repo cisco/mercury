@@ -45,13 +45,12 @@ pmercury is designed to highlight the functionality of the protocol classes and 
 pmercury requires Python 3.6+ along with the following packages:
 
 ```bash
-pip3 install ujson
 pip3 install pyasn
 pip3 install hpack
 pip3 install pypcap
 pip3 install cryptography
 
-pip3 install ujson pyasn hpack pypcap cryptography
+pip3 install pyasn hpack pypcap cryptography
 ```
 
 pip3 can be installed with 'sudo apt install python3-pip’ on debian/ubuntu, or the equivalent command for your OS.
@@ -178,7 +177,6 @@ tls.py is designed to be a relatively self-contained Python library that provide
 tls.py requires Python 3.6 along with the following packages:
 
 ```bash
-sudo pip3 install ujson
 sudo pip3 install numpy
 sudo pip3 install pyasn
 ```

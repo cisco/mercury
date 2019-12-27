@@ -2,9 +2,12 @@
 #
 # return value will be 0 (success) only if all needed packages are available
 
-import cython
-import ujson
-import pyasn
+import sys
 
-print ("found python packages cython, ujson, pyasn")
-
+try:
+    import jsonschema
+except ModuleNotFoundError:
+    print ("error: python3 jsonschema module not found")
+    sys.exit(-1)
+    
+print ("found python package jsonschema")

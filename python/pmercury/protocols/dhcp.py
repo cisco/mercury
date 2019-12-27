@@ -1,4 +1,4 @@
-"""     
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -6,7 +6,6 @@
 import os
 import sys
 import functools
-import ujson as json
 from socket import AF_INET, AF_INET6, inet_ntop
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -24,10 +23,10 @@ class DHCP(Protocol):
         DHCP.static_data = set([0x35, 0x37])
         DHCP.contextual_data = {0x03: ('router',lambda x: inet_ntop(AF_INET, x)),
                                 0x06: ('domain_name_server',lambda x: inet_ntop(AF_INET, x)),
-                                0x0c: ('hostname',lambda x: x),
-                                0x0f: ('domain_name',lambda x: x),
+                                0x0c: ('hostname',lambda x: x.decode()),
+                                0x0f: ('domain_name',lambda x: x.decode()),
                                 0x32: ('requested_ip',lambda x: inet_ntop(AF_INET, x)),
-                                0x3c: ('vendor_class_id',lambda x: x)}
+                                0x3c: ('vendor_class_id',lambda x: x.decode())}
 
     @staticmethod
     def proto_identify(data, offset, data_len):
@@ -59,7 +58,7 @@ class DHCP(Protocol):
             length = data[offset+1]
             if kind in DHCP.contextual_data:
                 name_, transform_ = DHCP.contextual_data[kind]
-                context.append({'name':name_, 
+                context.append({'name':name_,
                                 'data':transform_(data[offset+2:offset+2+length])})
             if offset+length+2 >= data_len:
                 return None

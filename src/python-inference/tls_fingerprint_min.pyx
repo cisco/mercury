@@ -3,10 +3,10 @@
 import os
 import bz2
 import gzip
+import json
 import pyasn
 import pickle
 import functools
-import ujson as json
 from collections import defaultdict
 
 from libc.stdlib cimport malloc
@@ -65,9 +65,9 @@ cdef public api void process_identification_embed(char **r, const char *fp_str_,
 
     cdef dict results_obj
     if MALWARE_DB:
-        results_obj = {'process':tmp_r[0],'score':tmp_r[1],'malware':tmp_r[2],'p_malware':tmp_r[3]}
+        results_obj = {'process':str(tmp_r[0],'utf-8'),'score':tmp_r[1],'malware':tmp_r[2],'p_malware':tmp_r[3]}
     else:
-        results_obj = {'process':tmp_r[0],'score':tmp_r[1]}
+        results_obj = {'process':str(tmp_r[0],'utf-8'),'score':tmp_r[1]}
 
     cdef bytes results_str = bytes(json.dumps(results_obj),'utf-8')
 

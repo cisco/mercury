@@ -5,20 +5,28 @@
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
 
+import sys
+
 from pmercury.protocols.tcp import TCP
 from pmercury.protocols.tls import TLS
+from pmercury.protocols.dtls import DTLS
 from pmercury.protocols.http import HTTP
-from pmercury.protocols.tls_server import TLS_Server
-from pmercury.protocols.http_server import HTTP_Server
-
 from pmercury.protocols.dhcp import DHCP
+from pmercury.protocols.tls_server import TLS_Server
+from pmercury.protocols.dtls_server import DTLS_Server
+from pmercury.protocols.http_server import HTTP_Server
+from pmercury.protocols.tls_certificate import TLS_Certificate
 
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 
-cdef extern from "arpa/inet.h":
-    uint16_t htons(uint16_t hostshort)
+IF UNAME_SYSNAME == "Windows":
+    cdef extern from "winsock2.h":
+        uint16_t htons(uint16_t hostshort)
+ELSE:
+    cdef extern from "arpa/inet.h":
+        uint16_t htons(uint16_t hostshort)
 
 
 def pkt_proc(double ts, bytes data):
@@ -30,28 +38,30 @@ def pkt_proc(double ts, bytes data):
     if buf[12] == 0x08 and buf[13] == 0x00: # IPv4
         ip_length = 20
         ip_offset = 14
-        protocol = buf[23]
+        protocol  = buf[23]
     elif buf[12] == 0x86 and buf[13] == 0xdd: # IPv6
-        ip_type = 6
+        ip_type   = 6
         ip_length = 40
         ip_offset = 14
-        protocol = buf[20]
+        protocol  = buf[20]
     elif buf[14] == 0x08 and buf[15] == 0x00: # IPv4 (hack for linux cooked capture)
         ip_length = 20
         ip_offset = 16
-        protocol = buf[25]
+        protocol  = buf[25]
     else: # currently skip other types
         return None
 
     cdef uint16_t data_len
     cdef uint16_t src_port, dst_port
     cdef uint16_t prot_length, prot_offset, app_offset
-    cdef str fp_str_, fp_type, src_ip, dst_ip
-    cdef list context_
+    cdef str fp_type, fp_type_2, src_ip, dst_ip
+    cdef list context_, context_2_
     cdef dict flow
 
-    data_len = len(data)
-    fp_str_ = None
+    data_len  = len(data)
+    fp_str_   = None
+    fp_str_2_ = None
+    prot_offset = 0
     if protocol == 6:
         prot_offset = ip_offset+ip_length
         if prot_offset+20 > data_len:
@@ -63,13 +73,18 @@ def pkt_proc(double ts, bytes data):
             fp_type = 'tcp'
         elif data_len - app_offset < 16:
             return None
-        elif (buf[app_offset] == 22 and buf[app_offset+1] == 3 and buf[app_offset+9] == 3):
-            if buf[app_offset+5]  ==  1:
+        elif buf[app_offset] == 22 and buf[app_offset+1] == 3:
+            if buf[app_offset+5]  ==  1 and buf[app_offset+9] == 3:
                 fp_str_, context_ = TLS.fingerprint(data, app_offset, data_len)
                 fp_type = 'tls'
-            elif buf[app_offset+5]  ==  2:
-                fp_str_, context_ = TLS_Server.fingerprint(data, app_offset, data_len)
+            elif buf[app_offset+5]  ==  2 and buf[app_offset+9] == 3:
+                fp_str_, context_     = TLS_Server.fingerprint(data, app_offset, data_len)
                 fp_type = 'tls_server'
+                fp_str_2_, context_2_ = TLS_Certificate.fingerprint(data, app_offset, data_len)
+                fp_type_2 = 'server_certs'
+            elif buf[app_offset+5]  ==  11:
+                fp_str_, context_ = TLS_Certificate.fingerprint(data, app_offset, data_len)
+                fp_type = 'server_certs'
         elif buf[app_offset+2] == 84:
             if (buf[app_offset] == 71 and buf[app_offset+3] == 32):
                 fp_str_, context_ = HTTP.fingerprint(data, app_offset, data_len)
@@ -81,9 +96,18 @@ def pkt_proc(double ts, bytes data):
         prot_offset = ip_offset+ip_length
         prot_length = 8
         app_offset = prot_offset + prot_length
-        if data_len - app_offset < 240:
+        if data_len - app_offset < 16:
             return None
-        elif (buf[app_offset+236] == 0x63 and 
+        elif buf[app_offset] == 22 and buf[app_offset+1] == 254:
+            if buf[app_offset+13]  ==  1 and buf[app_offset+25] == 254:
+                fp_str_, context_ = DTLS.fingerprint(data, app_offset, data_len)
+                fp_type = 'dtls'
+            elif buf[app_offset+13]  ==  2 and buf[app_offset+25] == 254:
+                fp_str_, context_ = DTLS_Server.fingerprint(data, app_offset, data_len)
+                fp_type = 'dtls_server'
+        elif data_len - app_offset < 240:
+            return None
+        elif (buf[app_offset+236] == 0x63 and
               buf[app_offset+237] == 0x82 and
               buf[app_offset+238] == 0x53 and
               buf[app_offset+239] == 0x63):
@@ -118,11 +142,30 @@ def pkt_proc(double ts, bytes data):
             'dst_port':dst_port,
             'protocol':protocol,
             'event_start':ts,
-            'fingerprints':{fp_type: fp_str_}}
+            'fingerprints': {}}
+    if fp_type != 'server_certs':
+        flow['fingerprints'][fp_type] = fp_str_
+    else:
+        if 'tls' not in flow:
+            flow['tls'] = {}
+        flow['tls'][fp_type] = fp_str_
 
     if context_ != None and context_ != []:
         flow[fp_type] = {}
         for x_ in context_:
             flow[fp_type][x_['name']]  = x_['data']
+
+    if fp_str_2_ != None:
+        if fp_type_2 != 'server_certs':
+            flow['fingerprints'][fp_type_2] = fp_str_2_
+        else:
+            if 'tls' not in flow:
+                flow['tls'] = {}
+            flow['tls'][fp_type_2] = fp_str_2_
+
+        if context_2_ != None and context_2_ != []:
+            flow[fp_type_2] = {}
+            for x_ in context_2_:
+                flow[fp_type_2][x_['name']]  = x_['data']
 
     return flow

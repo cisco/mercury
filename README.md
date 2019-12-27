@@ -3,23 +3,53 @@
 
 This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application, which is described [here](python/README.md).
 
-## Building and running mercury
+## Building, installing, and running mercury
 In the root directory, run 
 ```
 ./configure 
 make
 ```
-to build the package and install the required pip3 modules (dpkt ujson numpy pyasn hpack pypcap).  If you do not have **python3**, **cython**, and **pip3** installed, then you either need to install them (using apt, yum, or whatever your preferred package management tool is), or you need to run 
+to build the package (and check for the required pip3 modules, dpkt ujson numpy pyasn hpack pypcap).  If you do not have **python3**, **cython**, and **pip3** installed, then you either need to install them (using apt, yum, or whatever your preferred package management tool is), or you need to run 
 ```
 ./configure --disable-python
 make
 ```
 With the **--disable-python** flag, the configure script can build mercury in a way that omits the fingerprint analysis module (which is implemented using cython and python3).  Without the analysis module, mercury can still perform fingerprint and metadata capture.  
 
+### Installation
+In the root directory, edit mercury.cfg with the network interface you want to capture from, then run 
+```
+./configure
+make
+sudo make install
+```
+to install mercury and create and start a systemd service.  If you don't want the mercury systemd service to be installed, then instead run
+```
+sudo make install-nosystemd
+```
+The default file and directory locations are
+   * __/usr/local/bin/mercury__ for the executable
+   * __/usr/local/share/mercury__ for the resource files
+   * __/usr/local/var/mercury__ for the output files
+   * __/etc/mercury/mercury.cfg__ for the configuration file
+   * __/etc/systemd/system/mercury.service__ for the systemd unit file
+
+The output file directory is owned by the user **mercury**; this user is created by the 'make install' target, which must be run as root.  The installation prefix **/usr/local/** can be changed by running ./configure with the --prefix argument, for instance `--prefix=$HOME'.  If you want to install the program somewhere in your home directory, you probably don't want to create the user mercury; you should use the 'make install-nonroot' target, which does not create a user, does not install anything into /etc, and does not install a systemd unit.
+
+The easiest way to run mercury in capture mode is using systemd; the OS automatically starts the mercury systemd unit after each boot, and halts it when the OS is shut down.  To check its status, run
+```
+systemctl status mercury
+```
+and the output should contain 'active (running)'.  To view the log (stderr) output from the mercury unit, run
+```
+sudo journalctl -u mercury
+```
+
+
 #### Compile-time options
 There are compile-time options that can tune mercury for your hardware, or generate debugging output.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make".   For instance, to turn on debugging, first run **make clean** to remove the previous build, then run **make "OPTFLAGS=-DDEBUG"**.   This runs make, telling it to pass the string "-DDEBUG" to the C/C++ compiler.  The available compile time options are:
    * -DDEBUG, which turns on debugging, and
-   * -FBUFSIZE=16384, which sets the fwrite/fread buffer to 16,384 bytes.
+   * -FBUFSIZE=16384, which sets the fwrite/fread buffer to 16,384 bytes (for instance).
 If multiple compile time options are used, then they must be passed to make together in the OPTFLAGS string, e.g. "OPTFLAGS=-DDEBUG -DFBUFSIZE=16384".
 
 ### Running mercury
@@ -37,12 +67,15 @@ OUTPUT
    [-b or --buffer] b                    # set RX_RING size to (b * PHYS_MEM)
    [-t or --threads] [num_threads | cpu] # set number of threads
    [-u or --user] u                      # set UID and GID to those of user u
+   [-d or --directory] d                 # set working directory to d
 --read OPTIONS
    [-m or --multiple] count              # loop over read_file count >= 1 times
 GENERAL OPTIONS
    [-a or --analysis]                    # analyze fingerprints
    [-s or --select]                      # select only packets with metadata
    [-l or --limit] l                     # rotate JSON files after l records
+   [-v or --verbose]                     # additional information sent to stdout
+   [-p or --loop] loop_count             # loop count >= 1 for the read_file
    [-h or --help]                        # extended help, with examples
 ```
 

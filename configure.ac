@@ -35,24 +35,32 @@ AC_TYPE_UID_T
 AC_TYPE_UINT16_T 
 AC_TYPE_UINT32_T 
 AC_TYPE_UINT64_T 
-AC_TYPE_UINT8_T 
-AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PYTHON3,python3,yes)])
+AC_TYPE_UINT8_T
+AC_CHECK_PROGS(PY, python3 python python2)
+AC_CHECK_HEADERS(zlib.h, [], [AC_ERROR([A working zlib is required])])
+AC_SEARCH_LIBS(deflate, z, [], [AC_ERROR([A working zlib is required])])
+AC_CHECK_PROG(PYTHON3,python3,yes)
 AS_IF([test "x$PYTHON3" = xyes],
-    [AC_DEFINE([HAVE_PYTHON3], [1], [python3 is available.])],
-    [AC_MSG_NOTICE([omitting embedded python3 analysis engine - either python3 was not found, or --disable-python option was invoked])])
+    [AC_DEFINE([HAVE_PYTHON3], [1], [python3 is available.])])
+#
 AS_IF([test "x$PYTHON3" = xyes],
     [AS_IF([python3 ./package_test.py],
-           [],
-           [AC_MSG_ERROR([python package(s) not found; install with 'pip3 install cython ujson pyasn', or ./configure --disable-python])])],
+           [AC_SUBST(HAVE_JSONSCHEMA,yes)],
+           [AC_MSG_WARN([python package jsonschema (required for 'make test') not found; install with 'pip3 install jsonschema'])])],
     [])    
 #AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PIP3,pip3,yes)])
 #AS_IF([test "x$PIP3" = xyes],
 #    [AC_CHECK_HEADERS([pcap.h], [], [AC_MSG_ERROR([pcap.h not found; lipcap-dev seems not to be installed])])])
 #AS_IF([test "x$PIP3" = xyes],
 #    [AC_CONFIG_COMMANDS([pip3], [pip3 install cython ujson pyasn])])
+AC_CHECK_PROG(TCPREPLAY,tcpreplay,yes)
 AC_CHECK_PROG(JQ,jq,yes)
 AC_CHECK_PROG(WGET,wget,yes)
 AC_CHECK_PROG(VALGRIND,valgrind,yes)
+AC_CHECK_PROG(HAVE_AFL,afl-g++,yes)
+AS_IF([test "x$TCPREPLAY" = xyes],
+    [],
+    [AC_MSG_NOTICE([tcpreplay not found; test/Makefile dummy-capture test will not work])])
 AS_IF([test "x$JQ" = xyes],
     [],
     [AC_MSG_NOTICE([jq not found; test/Makefile comparison test will not work])])
@@ -62,5 +70,5 @@ AS_IF([test "x$WGET" = xyes],
 AS_IF([test "x$VALGRIND" = xyes],
     [],
     [AC_MSG_NOTICE([valgrind not found; test/Makefile memcheck test will not work])])
-AC_CONFIG_FILES(src/Makefile test/Makefile)
+AC_CONFIG_FILES(src/Makefile test/Makefile resources/Makefile install_mercury/mercury.service)
 AC_OUTPUT

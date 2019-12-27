@@ -8,8 +8,7 @@
 import os
 import sys
 import ast
-
-import ujson as json
+import json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -28,14 +27,26 @@ ext_data_extract_ = ext_data_extract_.union(grease_)
 
 
 imp_date_cs_file = find_resource_path('resources/implementation_date_cs.json.gz')
-for line in os.popen('zcat %s' % (imp_date_cs_file)):
-    imp_date_cs_data = json.loads(line)
-    break
+IF UNAME_SYSNAME == "Windows":
+    import gzip
+    for line in gzip.open(imp_date_cs_file, 'r'):
+        imp_date_cs_data = json.loads(line)
+        break
+ELSE:
+    for line in os.popen('zcat %s' % (imp_date_cs_file)):
+        imp_date_cs_data = json.loads(line)
+        break
 
 imp_date_ext_file = find_resource_path('resources/implementation_date_ext.json.gz')
-for line in os.popen('zcat %s' % (imp_date_ext_file)):
-    imp_date_ext_data = json.loads(line)
-    break
+IF UNAME_SYSNAME == "Windows":
+    import gzip
+    for line in gzip.open(imp_date_ext_file, 'r'):
+        imp_date_ext_data = json.loads(line)
+        break
+ELSE:
+    for line in os.popen('zcat %s' % (imp_date_ext_file)):
+        imp_date_ext_data = json.loads(line)
+        break
 
 
 
@@ -204,7 +215,10 @@ def supported_groups(data, length):
     info['supported_groups'] = []
     offset = 4
     while offset < length*2:
-        info['supported_groups'].append(TLS_SUPPORTED_GROUPS[int(data[offset:offset+4], 16)])
+        if int(data[offset:offset+4], 16) in TLS_SUPPORTED_GROUPS:
+            info['supported_groups'].append(TLS_SUPPORTED_GROUPS[int(data[offset:offset+4], 16)])
+        else:
+            info['supported_groups'].append('Unknown Group (%i)' % int(data[offset:offset+4], 16))
         offset += 4
 
     return info
@@ -330,7 +344,7 @@ def parse_application_layer_protocol_negotiation(data, length):
     while alpn_offset < length*2:
         tmp_alpn_len = int(data[alpn_offset:alpn_offset+2], 16)
         alpn_offset += 2
-        alpn_data.append(bytes.fromhex(data[alpn_offset:alpn_offset+2*tmp_alpn_len]))
+        alpn_data.append(bytes.fromhex(data[alpn_offset:alpn_offset+2*tmp_alpn_len]).decode())
         alpn_offset += tmp_alpn_len*2
 
     return alpn_data

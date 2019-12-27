@@ -13,7 +13,6 @@ import optparse
 import importlib
 from importlib import machinery
 from statistics import mean, stdev
-from binascii import hexlify, unhexlify
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../../')
 
@@ -30,7 +29,7 @@ def performance_test(input_file, output_file, fp_db, analyze, human_readable, ex
     start = time.time()
     importlib.machinery.SOURCE_SUFFIXES.append('')
     pmercury = importlib.import_module('..pmercury','pmercury.pmercury')
-    fp = pmercury.Fingerprinter(fp_db, output_file, analyze, num_procs, 
+    fp = pmercury.Fingerprinter(fp_db, output_file, analyze, num_procs,
                                 human_readable, group, experimental, None)
     load_time = time.time() - start
     print('Initialization Time:\t%0.3fs' % load_time)

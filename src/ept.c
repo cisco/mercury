@@ -47,7 +47,8 @@ unsigned int string_is_printable(const unsigned char *x,
 enum ept_node_type {
     ept_node_type_none     = 0,
     ept_node_type_list = 1,
-    ept_node_type_string = 2
+    ept_node_type_string = 2,
+    ept_node_type_empty_list = 3
 };
 
 struct element {
@@ -86,7 +87,11 @@ enum status element_init(struct element *e,
 	return status_err;
     }
     if (tmp & PARENT_NODE_INDICATOR) {
-	e->type = ept_node_type_list;
+        if (length > 0) {
+            e->type = ept_node_type_list;
+        } else {
+            e->type = ept_node_type_empty_list;
+        }
     } else {
 	e->type = ept_node_type_string;
     }
@@ -122,50 +127,51 @@ enum iterator_status element_iterator_advance(struct element_iterator *iterator)
 
     // element_iterator_print(iterator);
 
-    if (element->type == ept_node_type_string) {
-	
-	if (element->length > iterator->length[iterator->depth]) {
-	    /*
-	     * error: not enough data in buffer
-	     */
-	    return iterator_status_done;
-	}
-	/*
-	 * advance to location of next element
-	 */
-	iterator->length[iterator->depth] -= (element->length) + ELEMENT_HDR_LEN;
+    if (element->type == ept_node_type_string || element->type == ept_node_type_empty_list) {
 
-	if (iterator->length[iterator->depth] <= 0) {
-	    if (iterator->depth == 0) {
-		return iterator_status_done;
-	    } else {
-		/*
-		 * if we are out of data at this level, then pop up one level
-		 */
-		iterator->depth--;
-	    }
-	}
-	const uint8_t *next_data = element->data + element->length;
-	ssize_t next_length = iterator->length[iterator->depth];
-	if (element_init(element, next_data, next_length) == status_ok) {
-	    return iterator_status_not_done;
-	} else {
-	    return iterator_status_done;
-	}
-	
+        if (element->length > iterator->length[iterator->depth]) {
+            /*
+             * error: not enough data in buffer
+             */
+            return iterator_status_done;
+        }
+        /*
+         * advance to location of next element
+         */
+        iterator->length[iterator->depth] -= (element->length) + ELEMENT_HDR_LEN;
+
+        if (iterator->length[iterator->depth] <= 0) {
+            if (iterator->depth == 0) {
+                return iterator_status_done;
+            } else {
+                /*
+                 * if we are out of data at this level, then pop up one level
+                 */
+                iterator->depth--;
+            }
+        }
+        const uint8_t *next_data = element->data + element->length;
+        ssize_t next_length = iterator->length[iterator->depth];
+        if (element_init(element, next_data, next_length) == status_ok) {
+            return iterator_status_not_done;
+        } else {
+            return iterator_status_done;
+        }
+
     } else if (element->type == ept_node_type_list) {
-	/*
-	 * advance to next element one level down 
-	 */
-	iterator->length[iterator->depth] -= (element->length + ELEMENT_HDR_LEN);
-	iterator->depth++;
-	iterator->length[iterator->depth] = element->length;
-	if (element_init(element, element->data, element->length) == status_ok) {
-	    return iterator_status_not_done;
-	} else {
-	    printf("ERROR 3\n");
-	    return iterator_status_done;
-	}
+
+        /*
+         * advance to next element one level down
+         */
+        iterator->length[iterator->depth] -= (element->length + ELEMENT_HDR_LEN);
+        iterator->depth++;
+        iterator->length[iterator->depth] = element->length;
+        if (element_init(element, element->data, element->length) == status_ok) {
+            return iterator_status_not_done;
+        } else {
+            printf("ERROR 3\n");
+            return iterator_status_done;
+        }
     }
     return iterator_status_done; /* should not get here */
 }
@@ -374,7 +380,10 @@ enum status fprintf_binary_ept_as_paren_ept(FILE *f,
 
     unsigned int last_depth = ei.depth;
     do {
-		
+
+        if (ei.element.type == ept_node_type_empty_list) {
+            		fprintf(f, "()");
+        }
 	if (ei.element.type == ept_node_type_string) {
 	    if (ei.depth > last_depth) {
 		fprintf(f, "(");
@@ -471,9 +480,9 @@ uint8_t hex_to_raw_uint8(const uint8_t *hexstr) {
 #define MAX_LEVELS 4
 
 size_t binary_ept_from_paren_ept(uint8_t *outbuf,
-				 const uint8_t *outbuf_end,
-				 const uint8_t *inbuf,
-				 const uint8_t *inbuf_end) {
+                                 const uint8_t *outbuf_end,
+                                 const uint8_t *inbuf,
+                                 const uint8_t *inbuf_end) {
     uint8_t *outbuf_orig = outbuf;
     struct paren_ept expr[MAX_LEVELS] = { paren_ept_init_data, };
     uint8_t hexdata[3] = { 0, 0, 0 };
@@ -484,74 +493,78 @@ size_t binary_ept_from_paren_ept(uint8_t *outbuf,
     int level = -1;
     while (inbuf < inbuf_end) {
 	
-	switch (*inbuf) {
-	case '(':
-	    if (level > -1) {
-		expr[level].type = ept_node_type_list;
-	    }
-	    if (level > MAX_LEVELS) {
-		return 0;
-	    }
-	    level++;
-	    paren_ept_init(&expr[level], outbuf);
-	    outbuf += 2;
-	    hexdata_index = 0;
-	    break;
-	case ')':
-	    switch(expr[level].type) {
-	    case ept_node_type_none:
-	    case ept_node_type_string:
-		if (hexdata_index) {
-		    return 0; /* error: incomplete hex pair */
-		}
-		// printf("got %c\n", *inbuf);
-		hdr = bytes_written;
-		encode_uint16(expr[level].header, hdr);
-		if (level > 0) {
-		    expr[level-1].bytes += bytes_written + 2;
-		    // printf("adding to length: %zu (%zx)\n", bytes_written + 2, bytes_written + 2);
-		}
-		bytes_written = 0;
-		break;
-	    case ept_node_type_list:
-		hdr = expr[level].bytes | PARENT_NODE_INDICATOR;
-		encode_uint16(expr[level].header, hdr);
-		// printf("level: %u\tencoding: %x\n", level, hdr);
-	    }
-	    level--;
-	    if (level < -1) {
-		return 0;
-	    }
-	    break;
-	default:
-	    if (!isxdigit(*inbuf)) {
-		return 0;  /* error */
-	    }
-	    switch (expr[level].type) {
-	    case ept_node_type_none:
-	    case ept_node_type_string:
-		if (hexdata_index) {
-		    hexdata[1] = *inbuf;
-		    //printf("hex: %s\t%zu\n", hexdata, hexdata_index);
-		    *outbuf++ = hex_to_raw_uint8(hexdata);
-		    bytes_written++;
-		    hexdata_index = 0;
-		} else {
-		    hexdata[0] = *inbuf;
-		    hexdata_index = 1;
-		}
-		break;
-	    case ept_node_type_list:
-		return 0; /* error */
-	    }
-	}
+        switch (*inbuf) {
+        case '(':
+            if (level > -1) {
+                expr[level].type = ept_node_type_list;
+            }
+            if (level > MAX_LEVELS) {
+                return 0;
+            }
+            level++;
+            paren_ept_init(&expr[level], outbuf);
+            outbuf += 2;
+            hexdata_index = 0;
+            break;
+        case ')':
+            switch(expr[level].type) {
+            case ept_node_type_none:
+            case ept_node_type_string:
+                if (hexdata_index) {
+                    return 0; /* error: incomplete hex pair */
+                }
+                // printf("got %c\n", *inbuf);
+                hdr = bytes_written;
+                encode_uint16(expr[level].header, hdr);
+                if (level > 0) {
+                    expr[level-1].bytes += bytes_written + 2;
+                    // printf("adding to length: %zu (%zx)\n", bytes_written + 2, bytes_written + 2);
+                }
+                bytes_written = 0;
+                break;
+            case ept_node_type_list:
+                hdr = expr[level].bytes | PARENT_NODE_INDICATOR;
+                encode_uint16(expr[level].header, hdr);
+                // printf("level: %u\tencoding: %x\n", level, hdr);
+                break;
+            case ept_node_type_empty_list: /* just to suppress compiler warnings */
+                break;
+            }
+            level--;
+            if (level < -1) {
+                return 0;
+            }
+            break;
+        default:
+            if (!isxdigit(*inbuf)) {
+                return 0;  /* error */
+            }
+            switch (expr[level].type) {
+            case ept_node_type_none:
+            case ept_node_type_string:
+                if (hexdata_index) {
+                    hexdata[1] = *inbuf;
+                    //printf("hex: %s\t%zu\n", hexdata, hexdata_index);
+                    *outbuf++ = hex_to_raw_uint8(hexdata);
+                    bytes_written++;
+                    hexdata_index = 0;
+                } else {
+                    hexdata[0] = *inbuf;
+                    hexdata_index = 1;
+                }
+                break;
+            case ept_node_type_list:
+            case ept_node_type_empty_list: /* just to suppress compiler warnings */
+                return 0; /* error */
+            }
+        }
 	
-	if (outbuf >= outbuf_end) {
-	    return 0; /* error: at end of output buffer */
-	}
+        if (outbuf >= outbuf_end) {
+            return 0; /* error: at end of output buffer */
+        }
 
-	//	printf("%c\n", *inbuf);
-	inbuf++;
+        //	printf("%c\n", *inbuf);
+        inbuf++;
     }
 
     //    printf("level: %d\n", level);

@@ -620,10 +620,14 @@ ac_includes_default="\
 
 ac_header_list=
 ac_subst_vars='LTLIBOBJS
+HAVE_AFL
 VALGRIND
 WGET
 JQ
+TCPREPLAY
+HAVE_JSONSCHEMA
 PYTHON3
+PY
 LIBOBJS
 ac_ct_CXX
 CXXFLAGS
@@ -680,7 +684,6 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
-enable_python
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1309,12 +1312,6 @@ if test -n "$ac_init_help"; then
      short | recursive ) echo "Configuration of mercury 1.0:";;
    esac
   cat <<\_ACEOF
-
-Optional Features:
-  --disable-option-checking  ignore unrecognized --enable/--with options
-  --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
-  --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --disable-python        omit embedded python analysis engine
 
 Some influential environment variables:
   CC          C compiler command
@@ -4423,11 +4420,121 @@ _ACEOF
 ;;
   esac
 
-# Check whether --enable-python was given.
-if test "${enable_python+set}" = set; then :
-  enableval=$enable_python;
+for ac_prog in python3 python python2
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_PY+:} false; then :
+  $as_echo_n "(cached) " >&6
 else
-  # Extract the first word of "python3", so it can be a program name with args.
+  if test -n "$PY"; then
+  ac_cv_prog_PY="$PY" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_PY="$ac_prog"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+PY=$ac_cv_prog_PY
+if test -n "$PY"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PY" >&5
+$as_echo "$PY" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  test -n "$PY" && break
+done
+
+for ac_header in zlib.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "zlib.h" "ac_cv_header_zlib_h" "$ac_includes_default"
+if test "x$ac_cv_header_zlib_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_ZLIB_H 1
+_ACEOF
+
+else
+  as_fn_error $? "A working zlib is required" "$LINENO" 5
+fi
+
+done
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing deflate" >&5
+$as_echo_n "checking for library containing deflate... " >&6; }
+if ${ac_cv_search_deflate+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char deflate ();
+int
+main ()
+{
+return deflate ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' z; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_deflate=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_deflate+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_deflate+:} false; then :
+
+else
+  ac_cv_search_deflate=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_deflate" >&5
+$as_echo "$ac_cv_search_deflate" >&6; }
+ac_res=$ac_cv_search_deflate
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+else
+  as_fn_error $? "A working zlib is required" "$LINENO" 5
+fi
+
+# Extract the first word of "python3", so it can be a program name with args.
 set dummy python3; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
@@ -4464,21 +4571,19 @@ $as_echo "no" >&6; }
 fi
 
 
-fi
-
 if test "x$PYTHON3" = xyes; then :
 
 $as_echo "#define HAVE_PYTHON3 1" >>confdefs.h
 
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: omitting embedded python3 analysis engine - either python3 was not found, or --disable-python option was invoked" >&5
-$as_echo "$as_me: omitting embedded python3 analysis engine - either python3 was not found, or --disable-python option was invoked" >&6;}
 fi
+#
 if test "x$PYTHON3" = xyes; then :
   if python3 ./package_test.py; then :
+  HAVE_JSONSCHEMA=yes
 
 else
-  as_fn_error $? "python package(s) not found; install with 'pip3 install cython ujson pyasn', or ./configure --disable-python" "$LINENO" 5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: python package jsonschema (required for 'make test') not found; install with 'pip3 install jsonschema'" >&5
+$as_echo "$as_me: WARNING: python package jsonschema (required for 'make test') not found; install with 'pip3 install jsonschema'" >&2;}
 fi
 fi
 #AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PIP3,pip3,yes)])
@@ -4486,6 +4591,43 @@ fi
 #    [AC_CHECK_HEADERS([pcap.h], [], [AC_MSG_ERROR([pcap.h not found; lipcap-dev seems not to be installed])])])
 #AS_IF([test "x$PIP3" = xyes],
 #    [AC_CONFIG_COMMANDS([pip3], [pip3 install cython ujson pyasn])])
+# Extract the first word of "tcpreplay", so it can be a program name with args.
+set dummy tcpreplay; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_TCPREPLAY+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$TCPREPLAY"; then
+  ac_cv_prog_TCPREPLAY="$TCPREPLAY" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_TCPREPLAY="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+TCPREPLAY=$ac_cv_prog_TCPREPLAY
+if test -n "$TCPREPLAY"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $TCPREPLAY" >&5
+$as_echo "$TCPREPLAY" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
 # Extract the first word of "jq", so it can be a program name with args.
 set dummy jq; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -4597,6 +4739,49 @@ $as_echo "no" >&6; }
 fi
 
 
+# Extract the first word of "afl-g++", so it can be a program name with args.
+set dummy afl-g++; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_HAVE_AFL+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAVE_AFL"; then
+  ac_cv_prog_HAVE_AFL="$HAVE_AFL" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_HAVE_AFL="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+HAVE_AFL=$ac_cv_prog_HAVE_AFL
+if test -n "$HAVE_AFL"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAVE_AFL" >&5
+$as_echo "$HAVE_AFL" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+if test "x$TCPREPLAY" = xyes; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: tcpreplay not found; test/Makefile dummy-capture test will not work" >&5
+$as_echo "$as_me: tcpreplay not found; test/Makefile dummy-capture test will not work" >&6;}
+fi
 if test "x$JQ" = xyes; then :
 
 else
@@ -4615,7 +4800,7 @@ else
   { $as_echo "$as_me:${as_lineno-$LINENO}: valgrind not found; test/Makefile memcheck test will not work" >&5
 $as_echo "$as_me: valgrind not found; test/Makefile memcheck test will not work" >&6;}
 fi
-ac_config_files="$ac_config_files src/Makefile test/Makefile"
+ac_config_files="$ac_config_files src/Makefile test/Makefile resources/Makefile install_mercury/mercury.service"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -5324,6 +5509,8 @@ do
   case $ac_config_target in
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
+    "resources/Makefile") CONFIG_FILES="$CONFIG_FILES resources/Makefile" ;;
+    "install_mercury/mercury.service") CONFIG_FILES="$CONFIG_FILES install_mercury/mercury.service" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

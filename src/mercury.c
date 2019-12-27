@@ -26,37 +26,10 @@
 #include "af_packet_v3.h"
 #include "analysis.h"
 #include "rnd_pkt_drop.h"
-
-enum input_mode {
-    input_mode_unknown        = 0,
-    input_mode_read_file      = 1,
-    input_mode_capture        = 2
-};
-
-enum output_mode {
-    output_mode_unknown       = 0,
-    output_mode_pcap_file     = 1,
-    output_mode_json          = 2
-};
+#include "signal_handling.h"
+#include "config.h"
 
 #define TWO_TO_THE_N(N) (unsigned int)1 << (N)
-
-/*
- * sig_close() causes a graceful shutdown of the program after recieving
- * an appropriate signal
- */
-static void sig_close (int signal_arg) {
-
-    printf("\ngot signal %d, shutting down\n", signal_arg);
-
-    analysis_finalize();
-
-    /*
-     * the function exit() should invoke fflush() on our output buffers
-     */
-    exit(0);
-}
-
 
 #define FLAGS_CLOBBER (O_TRUNC)
 
@@ -88,98 +61,6 @@ enum status filename_append(char dst[MAX_FILENAME],
     return status_ok;
 }
 
-enum status frame_handler_init_from_config(struct frame_handler *handler,
-					   struct mercury_config *cfg,
-					   int tnum,
-					   char *fileset_id) {
-    enum status status;
-    char outfile[MAX_FILENAME];
-    pid_t pid = tnum; // syscall(__NR_gettid);
-
-    uint64_t max_records = 0;
-    if (cfg->rotate) {
-	max_records = cfg->rotate;
-    }
-    
-    if (cfg->write_filename) {
-	
-	status = filename_append(outfile, cfg->write_filename, "/", fileset_id);
-	if (status) {
-	    return status;
-	}	
-	if (cfg->verbosity) {
-	    printf("initializing thread function %x with filename %s\n", pid, outfile);
-	}
-	
-	if (cfg->filter) {
-	    /*
-	     * write only TLS clientHellos and TCP SYNs to capture file
-	     */
-	    status = frame_handler_filter_write_pcap_init(handler, outfile, cfg->flags);
-	    if (status) {
-		printf("error: could not open pcap output file %s\n", outfile);
-		return status;
-	    }
-	} else {
-	    /*
-	     * write all packets to capture file
-	     */
-	    status = frame_handler_write_pcap_init(handler, outfile, cfg->flags);
-	    if (status) {
-		printf("%s: could not open pcap output file %s\n", strerror(errno), outfile);
-		return status;
-	    }
-
-	}
-	
-    } else if (cfg->fingerprint_filename) {
-	/*
-	 * write fingerprints into output file
-	 */	
-	status = filename_append(outfile, cfg->fingerprint_filename, "/", fileset_id);
-	if (status) {
-	    return status;
-	}
-	if (cfg->verbosity) {
-	    printf("initializing thread function %x with filename %s\n", pid, outfile);
-	}
-	
-	status = frame_handler_write_fingerprints_init(handler, outfile, cfg->mode, max_records);
-	if (status) {
-	    perror("error: could not open fingerprint output file");
-	    return status;
-	}
-    } else {
-        /*
-	 * default: dump JSON-formatted packet info to stdout
-	 */
-	status = frame_handler_dump_init(handler);
-	if (status) {
-	    perror("could not initialize frame dump");
-	    return status;
-	}
-	
-    }
-    
-    return status_ok;
-}
-
-void *packet_processing_thread_func(void *userdata) {
-    struct thread_context *tc = (struct thread_context *)userdata;
-    enum status status;
-    
-    /*
-     * start packet processing loop
-     */
-    status = capture_loop(tc);
-    if (status) {
-	perror("failure in capture loop");
-	return NULL;
-    }
-    
-    return NULL;
-}
-
 void create_subdirectory(const char *outdir,
 			 enum create_subdir_mode mode) {
     printf("creating output directory %s\n", outdir);
@@ -200,7 +81,7 @@ void create_subdirectory(const char *outdir,
  * threads
  */
 struct pcap_reader_thread_context {
-    struct frame_handler handler; 
+    struct pkt_proc *pkt_processor;
     int tnum;                 /* Thread Number */
     pthread_t tid;            /* Thread ID */
     struct pcap_file rf;
@@ -214,10 +95,12 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
     char input_filename[MAX_FILENAME];
     tc->tnum = tnum;
 	tc->loop_count = cfg->loop_count;
+    enum status status;
     
-    enum status status = frame_handler_init_from_config(&tc->handler, cfg, tnum, fileset_id);
-    if (status) {
-	return status;
+    tc->pkt_processor = pkt_proc_new_from_config(cfg, tnum, fileset_id);
+    if (tc->pkt_processor == NULL) {
+        printf("error: could not initialize frame handler\n");
+        return status_err;
     }
 
     // if cfg->use_test_packet is on, read_filename will be NULL
@@ -226,7 +109,6 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
         if (status) {
             return status;
         }
-	
         status = pcap_file_open(&tc->rf, input_filename, io_direction_reader, cfg->flags);
         if (status) {
 	    printf("%s: could not open pcap input file %s\n", strerror(errno), cfg->read_filename);
@@ -240,27 +122,12 @@ void *pcap_file_processing_thread_func(void *userdata) {
     struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
     enum status status;
     
-    status = pcap_file_dispatch_frame_handler(&tc->rf, tc->handler.func, &tc->handler.context, tc->loop_count);
+    status = pcap_file_dispatch_pkt_processor(&tc->rf, tc->pkt_processor, tc->loop_count);
     if (status) {
 	printf("error in pcap file dispatch (code: %d)\n", (int)status);
 	return NULL;
     }
     
-    return NULL;
-}
-
-void *pcap_file_processing_test_packet_func(void *userdata) {
-    struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
-    enum status status;
-
-    status = pcap_file_dispatch_test_packet(tc->handler.func,
-                                            &tc->handler.context,
-                                            tc->loop_count);
-    if (status) {
-        printf("error in pcap file dispatch (code: %u)\n", status);
-        return NULL;
-    }
-
     return NULL;
 }
 
@@ -376,16 +243,18 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 
 	for (int i = 0; i < tnum; i++) {
 	    pthread_join(tc[i].tid, NULL);
-	    bytes_written += tc[i].handler.context.pcap_file.bytes_written;
-	    packets_written += tc[i].handler.context.pcap_file.packets_written;
+        //        struct pkt_proc_stats pkt_stats = tc[i].pkt_processor->get_stats();
+	    bytes_written += tc[i].pkt_processor->bytes_written;
+	    packets_written += tc[i].pkt_processor->packets_written;
+        delete tc[i].pkt_processor;
 	}
-		
+
     } else {
 
 	/*
 	 * we have a single capture file, not a directory of capture files
 	 */
-	struct pcap_reader_thread_context tc;
+        struct pcap_reader_thread_context tc;
 	    
 	enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
 	if (status != status_ok) {
@@ -393,8 +262,11 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 	}
 
 	pcap_file_processing_thread_func(&tc);
-	bytes_written = tc.handler.context.pcap_file.bytes_written;
-	packets_written = tc.handler.context.pcap_file.packets_written;
+    //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
+	bytes_written = tc.pkt_processor->bytes_written;
+	packets_written = tc.pkt_processor->packets_written;
+    pcap_file_close(&(tc.rf));
+    delete tc.pkt_processor;
     }
 
     nano_seconds = get_clocktime_after(&before, &after);
@@ -408,95 +280,6 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
     return status_ok;
 }
 
-/*
- * For -T or --test option, we use a canned packet to generate the output data
- * If -t or --threads option is specified, we create a subdirectory and spawn a number
- * of threads to generate output data.
- * If -p or --loop-count option is specified, we generate as many packets as the loop-count.
- */
-int dispatch_test_packets(struct mercury_config *cfg, int num_threads) {
-
-    struct timespec before, after;
-	u_int64_t nano_seconds = 0;
-	u_int64_t bytes_written = 0;
-	u_int64_t packets_written = 0;
-
-        printf("dispatch_test_packets: num_threads=%d\n", num_threads);
-
-    get_clocktime_before(&before); // get timestamp before we start processing
-
-    if (num_threads == 1) {
-        struct pcap_reader_thread_context tc;
-        tc.handler.context.pcap_file.bytes_written = 0;
-        tc.handler.context.pcap_file.packets_written = 0;
-
-        enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
-        if (status != status_ok) {
-            return status;
-        }
-
-        pcap_file_processing_test_packet_func(&tc);
-        bytes_written = tc.handler.context.pcap_file.bytes_written;
-        packets_written = tc.handler.context.pcap_file.packets_written;
-    } else if (num_threads > 1) {
-        /*
-	     * create subdirectory into which each thread will write its output
-	     */
-	    char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
-	    //enum create_subdir_mode mode = cfg->rotate ? create_subdir_mode_overwrite : create_subdir_mode_do_not_overwrite;
-	    create_subdirectory(outdir, create_subdir_mode_overwrite);
-
-        /*
-         * create capture worker threads and set up thread contexts
-         */
-        struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)
-                                                malloc(num_threads * sizeof(struct pcap_reader_thread_context));
-        if (!tc) {
-	        perror("could not allocate memory for thread storage array\n");
-        }
-
-        for (int i=0; i < num_threads; i++) {
-	        tc[i].tnum = i;
-	        tc[i].tid = 0;
-        }
-
-        for (int i=0; i < num_threads; i++) {
-            char hexname[MAX_HEX];
-            snprintf(hexname, MAX_HEX, "%x", tc[i].tnum);
-
-            enum status status = pcap_reader_thread_context_init_from_config(&tc[i], cfg, tc[i].tnum, hexname);
-	        if (status) {
-	            printf("error: could not initialize thread context\n");
-	            exit(255);
-	        }
-	        printf("creating capture thread %d\n", i);
-	        int err = pthread_create(&(tc[i].tid), NULL, pcap_file_processing_test_packet_func, &tc[i]);
-	        if (err) {
-	            printf("%s: error creating af_packet capture thread %d\n", strerror(err), i);
-	            exit(255);
-	        }
-        }
-
-        /*
-         * wait for threads to finish (but they never do; should we use detached threads?)
-        */
-        for (int i = 0; i < num_threads; i++) {
-	        pthread_join(tc[i].tid, NULL);
-            bytes_written += tc[i].handler.context.pcap_file.bytes_written;
-            packets_written += tc[i].handler.context.pcap_file.packets_written;
-        }
-    }
-
-    nano_seconds = get_clocktime_after(&before, &after);
-    double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
-
-	if (cfg->write_filename) {
-	    printf("For all files, Packets Written: %lu, Bytes Written: %lu, nano sec: %lu, byte rate: %lf\n",
-                packets_written, bytes_written, nano_seconds, byte_rate);
-	}
-
-    return 0;
-}
 
 #define EXIT_ERR 255
 
@@ -505,7 +288,6 @@ char mercury_help[] =
     "INPUT\n"
     "   [-c or --capture] capture_interface   # capture packets from interface\n"
     "   [-r or --read] read_file              # read packets from file\n"
-//  "   [-T or --test]                        # write pcap file with test packet\n"
     "OUTPUT\n"
     "   [-f or --fingerprint] json_file_name  # write fingerprints to JSON file\n"
     "   [-w or --write] pcap_file_name        # write packets to PCAP/MCAP file\n"
@@ -514,9 +296,11 @@ char mercury_help[] =
     "   [-b or --buffer] b                    # set RX_RING size to (b * PHYS_MEM)\n"
     "   [-t or --threads] [num_threads | cpu] # set number of threads\n"
     "   [-u or --user] u                      # set UID and GID to those of user u\n"
+    "   [-d or --directory] d                 # set working directory to d\n"
     "--read OPTIONS\n"
     "   [-m or --multiple] count              # loop over read_file count >= 1 times\n"
     "GENERAL OPTIONS\n"
+    "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   [-s or --select]                      # select only packets with metadata\n"
     "   [-l or --limit] l                     # rotate JSON files after l records\n"
@@ -598,8 +382,10 @@ int main(int argc, char *argv[]) {
     while(1) {
 	int opt_idx = 0;
 	static struct option long_opts[] = {
+	    { "config",      required_argument, NULL, 1   },
 	    { "read",        required_argument, NULL, 'r' },
 	    { "write",       required_argument, NULL, 'w' },
+	    { "directory",   required_argument, NULL, 'd' },
 	    { "capture",     required_argument, NULL, 'c' },
 	    { "fingerprint", required_argument, NULL, 'f' },
 	    { "analysis",    no_argument,       NULL, 'a' },
@@ -609,18 +395,25 @@ int main(int argc, char *argv[]) {
 	    { "user",        required_argument, NULL, 'u' },
 	    { "multiple",    required_argument, NULL, 'm' },
 	    { "help",        no_argument,       NULL, 'h' },
-	    { "select",      no_argument,       NULL, 's' },
+	    { "select",      optional_argument, NULL, 's' },
 	    { "verbose",     no_argument,       NULL, 'v' },
-	    { "test",        no_argument,       NULL, 'T' },
 	    { "loop",        required_argument, NULL, 'p' },
 	    { "adaptive",    no_argument,       NULL,  0  },
 	    { NULL,          0,                 0,     0  }
 	};
-	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vTp:", long_opts, &opt_idx);
+	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
 	if (c < 0) {
 	    break;
 	}
 	switch(c) {
+	case 1:
+	    if (optarg) {
+            mercury_config_read_from_file(&cfg, optarg);
+            num_inputs++;
+	    } else {
+            usage(argv[0], "error: option config requires filename argument", extended_help_off);
+	    }
+	    break;
 	case 'r':
 	    if (optarg) {
 		cfg.read_filename = optarg;
@@ -634,6 +427,14 @@ int main(int argc, char *argv[]) {
 		cfg.write_filename = optarg;
 	    } else {
 		usage(argv[0], "error: option w or write requires filename argument", extended_help_off);
+	    }
+	    break;
+	case 'd':
+	    if (optarg) {
+            cfg.working_dir = optarg;
+            num_inputs++;
+	    } else {
+            usage(argv[0], "error: option d or directory requires working directory argument", extended_help_off);
 	    }
 	    break;
 	case 'c':
@@ -655,9 +456,6 @@ int main(int argc, char *argv[]) {
 	    if (optarg) {
 		usage(argv[0], "error: option a or analysis does not use an argument", extended_help_off);
 	    } else {
-		if (analysis_init() == -1) {
-		    return EXIT_FAILURE;  /* analysis engine could not be initialized */
-		};
 		cfg.analysis = analysis_on;
 	    }
 	    break;
@@ -677,10 +475,12 @@ int main(int argc, char *argv[]) {
 	    break;
 	case 's':
 	    if (optarg) {
-		usage(argv[0], "error: option s or select does not use an argument", extended_help_off);
-	    } else {
-		cfg.filter = 1;
-	    }
+		if (optarg[0] != '=' || optarg[1] == 0) {
+		    usage(argv[0], "error: option s or select has the form s=\"packet filter config string\"", extended_help_off);
+		}
+		cfg.packet_filter_cfg = optarg+1;
+	    } 
+	    cfg.filter = 1;
 	    break;
 	case 'h':
 	    if (optarg) {
@@ -780,10 +580,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (num_inputs == 0) {
-	usage(argv[0], "neither read [r] nor capture [c] nor Test [T] specified on command line", extended_help_off);
+	usage(argv[0], "neither read [r] nor capture [c] specified on command line", extended_help_off);
     }
     if (num_inputs > 1) {
-	usage(argv[0], "more than one read [r] or capture [c] or Test [T] are specified on command line", extended_help_off);
+	usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
 	usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
@@ -791,7 +591,13 @@ int main(int argc, char *argv[]) {
     if (cfg.num_threads != 1 && cfg.fingerprint_filename == NULL && cfg.write_filename == NULL) {
 	usage(argv[0], "multiple threads [t] requested, but neither fingerprint [f] no write [w] specified on command line", extended_help_off);
     }
-    
+
+    if (cfg.analysis) {
+        if (analysis_init() == -1) {
+            return EXIT_FAILURE;  /* analysis engine could not be initialized */
+        };
+    }
+
     /*
      * loop_count < 1  ==> not valid
      * loop_count > 1  ==> looping (i.e. repeating read file) will be done
@@ -811,12 +617,13 @@ int main(int argc, char *argv[]) {
             set_percent_accept(30); /* set starting percentage */
         }
     }
-	
+
     /*
      * set up signal handlers, so that output is flushed upon close
      */
-    signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
-    signal(SIGTERM, sig_close);
+    if (setup_signal_handler() != status_ok) {
+        fprintf(stderr, "%s: error while setting up signal handlers\n", strerror(errno));
+    }
 
     /* process packets */
     
@@ -844,20 +651,15 @@ int main(int argc, char *argv[]) {
 	
 	af_packet_bind_and_dispatch(&cfg, &rl);
 	
-    }
-    
-    if (cfg.read_filename) {
-	
+    } else if (cfg.read_filename) {
+
 	open_and_dispatch(&cfg);
 	
     }
 
-    if (cfg.use_test_packet) {
-	
-	dispatch_test_packets(&cfg, cfg.num_threads);
-	
+    if (cfg.analysis) {
+        analysis_finalize();
     }
-    analysis_finalize();
     
     return 0;
 }
