@@ -8,34 +8,38 @@ srcdir = .
 INSTALL = /usr/bin/install -c
 INSTALLDATA = /usr/bin/install -c -m 644
 
-DESTDIR =
 prefix = @prefix@
 exec_prefix=@exec_prefix@
 bindir = @bindir@
+localstatedir = @localstatedir@/mercury
+datarootdir = @datarootdir@/mercury
 
 .SUFFIXES:
 .SUFFIXES: .c .o
 
 # set parameters from configure (autoconf)
 #
+python      = @PY@
 have_py3    = @PYTHON3@
 have_pip3   = @PIP3@
-CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) 
+CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
-CC      = @CXX@
-CFLAGS  = -march=native -mtune=native -O2
+CXX      = @CXX@
+CFLAGS  = --std=c++11
+CFLAGS += -march=x86-64 -mtune=generic -O2
 CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
+CFLAGS += -Wno-pedantic       # suppress warnings about non-ISO C++ (uint128_t, ...)
 CFLAGS += $(OPTFLAGS)
 
-MERC   = mercury.c af_packet_io.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c rnd_pkt_drop.c
-MERC_H = af_packet_io.h af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h rnd_pkt_drop.h
+MERC   = mercury.c af_packet_io.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c rnd_pkt_drop.c signal_handling.c config.c addr.c
+MERC_H = af_packet_io.h af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h rnd_pkt_drop.h signal_handling.h config.h addr.h tcp.h
 
 ifeq ($(have_py3),yes)
-PYANALYSIS = python_interface.c
-CDEFS     += -Wl,--no-as-needed -ldl -lutil $(shell pkg-config --libs --cflags python3)
-CYTARGETS  = python-inference/tls_fingerprint_min.cpp python-inference/tls_fingerprint_min.h python-inference/tls_fingerprint_min_api.h
-CYPREREQ   = python-inference/tls_fingerprint_min.pyx
+# PYANALYSIS = python_interface.c
+# CDEFS     += -Wl,--no-as-needed -ldl -lutil $(shell pkg-config --libs --cflags python3)
+# CYTARGETS  = python-inference/tls_fingerprint_min.cpp python-inference/tls_fingerprint_min.h python-inference/tls_fingerprint_min_api.h
+# CYPREREQ   = python-inference/tls_fingerprint_min.pyx
 else
 PYANALYSIS = 
 CYTARGETS  = 
@@ -45,8 +49,8 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-mercury: $(MERC) $(MERC_H) libmerc.a Makefile 
-	$(CC) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc
+mercury: $(MERC) $(MERC_H) libmerc.a Makefile lctrie/liblctrie.a
+	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc -L./lctrie -llctrie -lz
 	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
 
 setcap: mercury
@@ -54,20 +58,25 @@ setcap: mercury
 
 # libmerc performs selective packet parsing and fingerprint extraction
 #
-LIBMERC     = extractor.c ept.c packet.c $(PYANALYSIS)
-LIBMERC_H   = eth.h extractor.h ept.h proto_identify.h packet.h
+LIBMERC     = extractor.c ept.c packet.c udp.c $(PYANALYSIS)
+LIBMERC_H   = eth.h extractor.h ept.h proto_identify.h packet.h udp.h
 LIBMERC_OBJ = $(LIBMERC:%.c=%.o)
 
 # implicit rule for building object files
 #
 %.o: %.c
-	$(CC) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
-#	$(CC) $(CFLAGS) -c $<
+	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
+#	$(CXX) $(CFLAGS) -c $<
 
 # rule to build library
 #
 libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) $(LIBMERC_H) Makefile 
 	ar rcs libmerc.a $(LIBMERC_OBJ) 
+
+# lctrie ip address subnet matching library (in lctrie subdirectory)
+#
+lctrie/liblctrie.a:
+	cd lctrie && $(MAKE) liblctrie.a
 
 # rule to build the cython/python analysis engine in python-inference
 #
@@ -81,13 +90,13 @@ endif
 #
 .PHONY: debug
 debug: $(MERC) $(MERC_H) libmerc.a Makefile
-	$(CC) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
+	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean 
 clean:
 	rm -rf mercury gmon.out libmerc.a *.o tls_fingerprint_min.*.so
-	rm -rf build/ $(CYTARGETS)
+	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
@@ -97,13 +106,29 @@ distclean: clean
 
 .PHONY: install
 install: mercury
-	mkdir -p $(DESTDIR)$(bindir)
-	$(INSTALL) mercury $(DESTDIR)$(bindir)
+	mkdir -p $(bindir)
+	$(INSTALL) mercury $(bindir)
+#	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
+	adduser --system --no-create-home --group mercury
+	mkdir -p $(localstatedir)
+	$(INSTALL) -d $(localstatedir) -o mercury -g mercury
+
+.PHONY: install-nonroot
+install-nonroot: mercury
+	mkdir -p $(bindir)
+	$(INSTALL) mercury $(bindir)
+	mkdir -p $(localstatedir)
+	$(INSTALL) -d $(localstatedir)
+
+.PHONY: uninstall
+uninstall:
+	rm -f $(bindir)/mercury
+	rm -rf $(localstatedir)
 
 .PHONY: gprof
 gprof:
 	make clean
-	$(CC) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc 
+	$(CXX) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc 
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(MERC_H)

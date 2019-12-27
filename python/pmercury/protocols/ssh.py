@@ -1,4 +1,4 @@
-"""     
+"""
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
@@ -121,17 +121,17 @@ class SSH(Protocol):
         fields = [bytes.fromhex(s_[1:]) for s_ in fp_str_.split(')')[:-1]]
 
         fp_h = {}
-        fp_h['protocol']         = fields[0].split(b',')
-        fp_h['kex_algos']        = fields[1].split(b',')
-        fp_h['s_host_key_algos'] = fields[2].split(b',')
-        fp_h['c_enc_algos']      = fields[3].split(b',')
-        fp_h['s_enc_algos']      = fields[4].split(b',')
-        fp_h['c_mac_algos']      = fields[5].split(b',')
-        fp_h['s_mac_algos']      = fields[6].split(b',')
-        fp_h['c_comp_algos']     = fields[7].split(b',')
-        fp_h['s_comp_algos']     = fields[8].split(b',')
-        fp_h['c_languages']      = fields[9].split(b',')
-        fp_h['s_languages']      = fields[10].split(b',')
+        fp_h['protocol']         = fields[0].decode().split(',')
+        fp_h['kex_algos']        = fields[1].decode().split(',')
+        fp_h['s_host_key_algos'] = fields[2].decode().split(',')
+        fp_h['c_enc_algos']      = fields[3].decode().split(',')
+        fp_h['s_enc_algos']      = fields[4].decode().split(',')
+        fp_h['c_mac_algos']      = fields[5].decode().split(',')
+        fp_h['s_mac_algos']      = fields[6].decode().split(',')
+        fp_h['c_comp_algos']     = fields[7].decode().split(',')
+        fp_h['s_comp_algos']     = fields[8].decode().split(',')
+        fp_h['c_languages']      = fields[9].decode().split(',')
+        fp_h['s_languages']      = fields[10].decode().split(',')
 
         return fp_h
 

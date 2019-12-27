@@ -1,0 +1,13 @@
+[Unit]
+Description=mercury packet metadata capture and analysis
+Documentation=man:mercury(1)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=@prefix@/var/mercury/
+ExecStart=@prefix@/bin/mercury --config /etc/mercury/mercury.cfg
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

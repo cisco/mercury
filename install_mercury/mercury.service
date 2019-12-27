@@ -1,12 +1,12 @@
 [Unit]
-Description=Mercury packet metadata capture and analysis
+Description=mercury packet metadata capture and analysis
 Documentation=man:mercury(1)
 After=network.target
 
 [Service]
 Type=simple
 WorkingDirectory=/usr/local/var/mercury/
-ExecStart=/usr/local/bin/mercury -c enp0s10 -f output.json -l 10000 -u mercury -t cpu	
+ExecStart=/usr/local/bin/mercury --config /etc/mercury/mercury.cfg
 StandardError=null
 
 [Install]

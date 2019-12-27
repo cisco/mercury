@@ -15,17 +15,26 @@
 #include "utils.h"
 #include "proto_identify.h"
 #include "eth.h"
+#include "tcp.h"
+#include "pkt_proc.h"
+#include "udp.h"
 
 /*
  * The extractor_debug macro is useful for debugging (but quite verbose)
  */
 #ifndef DEBUG
-    #define extractor_debug(...)
+#define extractor_debug(...)
 #else
-    #define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
+#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
+/*
+ * select_tcp_syn selects TCP SYNs for extraction
+ */
+bool select_tcp_syn = 1;
+
 /* protocol identification, adapted from joy */
+
 
 /*
  * Hex strings for TLS ClientHello (which appear at the start of the
@@ -50,8 +59,7 @@ unsigned char tls_client_hello_value[] = {
 
 struct pi_container https_client = {
     DIR_CLIENT,
-    HTTPS_PORT,
-    0
+    HTTPS_PORT
 };
 
 #define tls_server_hello_mask tls_client_hello_mask
@@ -62,14 +70,26 @@ unsigned char tls_server_hello_value[] = {
 
 struct pi_container https_server = {
     DIR_SERVER,
-    HTTPS_PORT,
-    0
+    HTTPS_PORT
 };
 
 #define tls_server_cert_mask tls_client_hello_mask
 
 unsigned char tls_server_cert_value[] = {
     0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00
+};
+
+unsigned char tls_server_cert_embedded_mask[] = {
+    0xff, 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff
+};
+
+unsigned char tls_server_cert_embedded_value[] = {
+    0x0b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x82
+};
+
+struct pi_container https_server_cert = {
+    DIR_UNKNOWN,
+    HTTPS_PORT
 };
 
 unsigned char http_client_mask[] = {
@@ -82,8 +102,7 @@ unsigned char http_client_value[] = {
 
 struct pi_container http_client = {
     DIR_CLIENT,
-    HTTP_PORT,
-    0
+    HTTP_PORT
 };
 
 /* http server matching value: HTTP/1 */
@@ -98,16 +117,29 @@ unsigned char http_server_value[] = {
 
 struct pi_container http_server = {
     DIR_SERVER,
-    HTTP_PORT,
-    0
+    HTTP_PORT
 };
 
 unsigned int u32_compare_masked_data_to_value(const void *data,
-					      const void *mask,
-					      const void *value) {
+                                              const void *mask,
+                                              const void *value) {
     const uint32_t *d = (const uint32_t *)data;
     const uint32_t *m = (const uint32_t *)mask;
     const uint32_t *v = (const uint32_t *)value;
+
+    extractor_debug("%s: data: %x, mask: %x, value: %x\n", __func__, d[0], m[0], v[0]);
+
+    return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
+}
+
+unsigned int u64_compare_masked_data_to_value(const void *data,
+                                              const void *mask,
+                                              const void *value) {
+    const uint64_t *d = (const uint64_t *)data;
+    const uint64_t *m = (const uint64_t *)mask;
+    const uint64_t *v = (const uint64_t *)value;
+
+    extractor_debug("%s: data: %lx, mask: %lx, value: %lx\n", __func__, d[0], m[0], v[0]);
 
     return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
 }
@@ -116,7 +148,7 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
                                               unsigned int len) {
 
     if (len < sizeof(tls_client_hello_mask)) {
-	return NULL;
+        return NULL;
     }
 
     // debug_print_u8_array(tcp_data);
@@ -124,14 +156,19 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
     /* note: tcp_data will be 32-bit aligned as per the standard */
 
     if (u32_compare_masked_data_to_value(tcp_data,
-					 tls_client_hello_mask,
-					 tls_client_hello_value)) {
-	return &https_client;
+                                         tls_client_hello_mask,
+                                         tls_client_hello_value)) {
+        return &https_client;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
-					 tls_server_hello_mask,
-					 tls_server_hello_value)) {
-	return &https_server;
+                                         tls_server_hello_mask,
+                                         tls_server_hello_value)) {
+        return &https_server;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+					 tls_server_cert_mask,
+					 tls_server_cert_value)) {
+	return &https_server_cert;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
 					 http_client_mask,
@@ -139,19 +176,20 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
 	return &http_client;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
-					 http_server_mask,
-					 http_server_value)) {
-	return &http_server;
+                                         http_server_mask,
+                                         http_server_value)) {
+        return &http_server;
     }
     return NULL;
 }
 
+
 /* packet data methods */
 
 void packet_data_set(struct packet_data *pd,
-		     enum packet_data_type type,
-		     size_t length,
-		     const uint8_t *value) {
+                     enum packet_data_type type,
+                     size_t length,
+                     const uint8_t *value) {
     pd->type = type;
     pd->length = length;
     pd->value = value;
@@ -165,9 +203,10 @@ void packet_data_init(struct packet_data *pd) {
 /* extractor methods */
 
 void extractor_init(struct extractor *x,
-		    unsigned char *output,
-		    unsigned int output_len) {
+                    unsigned char *output,
+                    unsigned int output_len) {
 
+    bzero(output, output_len); /* initialize the output buffer */
     x->proto_state.proto = PROTO_UNKNOWN;
     x->proto_state.dir = DIR_UNKNOWN;
     x->proto_state.state = state_start;
@@ -181,9 +220,9 @@ void extractor_init(struct extractor *x,
     packet_data_init(&x->packet_data);
 }
 
-void parser_init(struct parser *p, 
-		 const unsigned char *data,
-		 unsigned int data_len) {
+void parser_init(struct parser *p,
+                 const unsigned char *data,
+                 unsigned int data_len) {
 
     p->data = data;
     p->data_end = data + data_len;
@@ -191,9 +230,9 @@ void parser_init(struct parser *p,
     extractor_debug("%s: initialized with %td bytes\n", __func__, p->data_end - p->data);
 }
 
-void parser_init_from_outer_parser(struct parser *p, 
-				   const struct parser *outer,
-				   unsigned int data_len) {
+void parser_init_from_outer_parser(struct parser *p,
+                                   const struct parser *outer,
+                                   unsigned int data_len) {
     const unsigned char *inner_data_end = outer->data + data_len;
 
     p->data = outer->data;
@@ -202,109 +241,130 @@ void parser_init_from_outer_parser(struct parser *p,
     extractor_debug("%s: initialized with %td bytes\n", __func__, p->data_end - p->data);
 }
 
-
+void parser_pop(struct parser *inner, struct parser *outer) {
+    outer->data = inner->data;
+    extractor_debug("%s: outer parser now has %td bytes\n", __func__, outer->data_end - outer->data);
+}
 
 enum status parser_set_data_length(struct parser *p,
-				   unsigned int data_len) {
+                                   unsigned int data_len) {
 
     extractor_debug("%s: set_data_length from %ld to %u\n", __func__, p->data_end - p->data, data_len);
 
     if (p->data + data_len <= p->data_end) {
-	p->data_end = p->data + data_len;
-	return status_ok;
+        p->data_end = p->data + data_len;
+        return status_ok;
     }
     return status_err;
 }
 
 enum status parser_skip(struct parser *p,
-			   unsigned int len) {
+                        unsigned int len) {
+    extractor_debug("%s: skipping %u bytes (%02x...)\n", __func__, len, p->data[0]);
 
     if (p->data + len <= p->data_end) {
-	p->data = p->data + len;
-	return status_ok;
+        p->data = p->data + len;
+        return status_ok;
     }
     extractor_debug("%s: error; tried to skip %u, only %td remaining\n", __func__, len, p->data_end - p->data);
     return status_err;
 }
 
 enum status parser_skip_to(struct parser *p,
-			   const unsigned char *location) {
+                           const unsigned char *location) {
 
     if (location <= p->data_end) {
-	p->data = location;
-	return status_ok;
+        p->data = location;
+        return status_ok;
     }
     extractor_debug("%s: error; tried to skip %td, only %td remaining\n", __func__, location - p->data_end, p->data_end - p->data);
     return status_err;
 }
 
 enum status parser_read_uint(struct parser *p,
-			     unsigned int num_bytes,
-			     size_t *output) {
-    
-    if (p->data + num_bytes <= p->data_end) {
-	size_t tmp = 0;
-	const unsigned char *c;
+                             unsigned int num_bytes,
+                             size_t *output) {
 
-	for (c = p->data; c < p->data + num_bytes; c++) {
-	    tmp = (tmp << 8) + *c;
-	}
-	*output = tmp;
-	extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
-	return status_ok;
+    if (p->data + num_bytes <= p->data_end) {
+        size_t tmp = 0;
+        const unsigned char *c;
+
+        for (c = p->data; c < p->data + num_bytes; c++) {
+            tmp = (tmp << 8) + *c;
+        }
+        *output = tmp;
+        extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
+        return status_ok;
     }
     return status_err;
 }
 
 enum status parser_read_and_skip_uint(struct parser *p,
-				      unsigned int num_bytes,
-				      size_t *output) {
+                                      unsigned int num_bytes,
+                                      size_t *output) {
 
     if (p->data + num_bytes <= p->data_end) {
-	size_t tmp = 0;
-	const unsigned char *c;
+        size_t tmp = 0;
+        const unsigned char *c;
 
-	for (c = p->data; c < p->data + num_bytes; c++) {
-	    tmp = (tmp << 8) + *c;
-	}
-	*output = tmp;
-	p->data += num_bytes;
-	extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned) tmp, tmp);
-	return status_ok;
+        for (c = p->data; c < p->data + num_bytes; c++) {
+            tmp = (tmp << 8) + *c;
+        }
+        *output = tmp;
+        p->data += num_bytes;
+        extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zu\n", __func__, num_bytes, (unsigned) tmp, tmp);
+        return status_ok;
+    }
+    return status_err;
+}
+
+enum status parser_read_and_skip_byte_string(struct parser *p,
+                                             unsigned int num_bytes,
+                                             uint8_t *output_string) {
+
+    if (p->data + num_bytes <= p->data_end) {
+        const unsigned char *c;
+
+        for (c = p->data; c < p->data + num_bytes; c++) {
+            *output_string++ = *c;
+        }
+        p->data += num_bytes;
+        extractor_debug("%s: num_bytes: %u\n", __func__, num_bytes);
+        return status_ok;
     }
     return status_err;
 }
 
 enum status parser_extractor_copy(struct parser *p,
-				  struct extractor *x,
-				  unsigned int len) {
+                                  struct extractor *x,
+                                  unsigned int len) {
 
     extractor_debug("%s: copying %u bytes (%02x%02x...)\n", __func__, len, p->data[0], p->data[1]);
 
     if (p->data + len <= p->data_end && x->output + len + 2 <= x->output_end) {
-	x->last_capture = x->output;
-	encode_uint16(x->output, len);
-	x->output += 2;
-	memcpy(x->output, p->data, len);
-	p->data += len;
-	x->output += len;
-	return status_ok;
+        x->last_capture = x->output;
+        encode_uint16(x->output, len);
+        x->output += 2;
+        memcpy(x->output, p->data, len);
+        p->data += len;
+        x->output += len;
+        return status_ok;
     }
     extractor_debug("%s: error\n", __func__);
     return status_err;
 }
 
 enum status extractor_write_to_output(struct extractor *x,
-				      const unsigned char *data,
-				      unsigned int len) {
+                                      const unsigned char *data,
+                                      unsigned int len) {
 
     if (x->output + len + 2 <= x->output_end) {
-	x->last_capture = NULL;
-	encode_uint16(x->output, len);
-	x->output += 2;
-	memcpy(x->output, data, len);
-	x->output += len;
-	return status_ok;
+        x->last_capture = NULL;
+        encode_uint16(x->output, len);
+        x->output += 2;
+        memcpy(x->output, data, len);
+        x->output += len;
+        return status_ok;
     }
     extractor_debug("%s: error\n", __func__);
     return status_err;
@@ -312,14 +372,14 @@ enum status extractor_write_to_output(struct extractor *x,
 
 
 enum status extractor_reserve(struct extractor *x,
-			      unsigned char **data,
-			      size_t length) {
-    
+                              unsigned char **data,
+                              size_t length) {
+
     if (x->output + length <= x->output_end) {
-	//	encode_uint16(x->output, len);
-	*data = x->output;
-	x->output += length;
-	return status_ok;
+        //  encode_uint16(x->output, len);
+        *data = x->output;
+        x->output += length;
+        return status_ok;
     }
     extractor_debug("%s: error\n", __func__);
     return status_err;
@@ -328,23 +388,23 @@ enum status extractor_reserve(struct extractor *x,
 
 
 enum status parser_extractor_copy_append(struct parser *p,
-					 struct extractor *x,
-					 unsigned int len) {
+                                         struct extractor *x,
+                                         unsigned int len) {
 
     if (p->data + len <= p->data_end && x->output + len <= x->output_end) {
-	/*
-	 * add len into the previously encoded length in the output buffer
-	 */
-	uint16_t tmp = decode_uint16(x->last_capture);
-	encode_uint16(x->last_capture, tmp + len);
+        /*
+         * add len into the previously encoded length in the output buffer
+         */
+        uint16_t tmp = decode_uint16(x->last_capture);
+        encode_uint16(x->last_capture, tmp + len);
 
-	/*
-	 * copy data to output buffer
-	 */
-	memcpy(x->output, p->data, len);
-	p->data += len;
-	x->output += len;
-	return status_ok;
+        /*
+         * copy data to output buffer
+         */
+        memcpy(x->output, p->data, len);
+        p->data += len;
+        x->output += len;
+        return status_ok;
     }
     extractor_debug("%s: error\n", __func__);
     return status_err;
@@ -353,13 +413,13 @@ enum status parser_extractor_copy_append(struct parser *p,
 enum status extractor_strip_last_capture(struct extractor *x) {
 
     if (x->last_capture) {
-	uint16_t tmp = decode_uint16(x->last_capture);
-	if (tmp == 0) {
-	    return status_err;
-	}
-	encode_uint16(x->last_capture, tmp - 1);
-	x->output -= 1;
-	return status_ok;
+        uint16_t tmp = decode_uint16(x->last_capture);
+        if (tmp == 0) {
+            return status_err;
+        }
+        encode_uint16(x->last_capture, tmp - 1);
+        x->output -= 1;
+        return status_ok;
     }
     extractor_debug("%s: error\n", __func__);
     return status_err;
@@ -372,35 +432,44 @@ enum status extractor_strip_last_capture(struct extractor *x) {
  * first
  */
 enum status parser_extractor_copy_append_upto_delim(struct parser *p,
-						    struct extractor *x,
-						    const unsigned char delim[2]) {
+                                                    struct extractor *x,
+                                                    const unsigned char delim[2]) {
     const unsigned char *data = p->data;
     const unsigned char *data_end = p->data_end - 1;
     ptrdiff_t len;
 
     /* find delimiter, if present */
     while (1) {
-	if (data >= data_end) {
-	    break;
-	}
-	if (*data == delim[0]) {
-	    data++;
-	    if (*data == delim[1]) {
-		break;
-	    }
-	}
-	data++;
+        if (data >= data_end) {
+            break;
+        }
+        if (*data == delim[0]) {
+            data++;
+            if (*data == delim[1]) {
+                break;
+            }
+        }
+        data++;
     }
     len = data - p->data - 1;
 
-    /* copy_append data up to delimiter */
-    if (parser_extractor_copy_append(p, x, len) == status_err) {
-	extractor_debug("%s: error\n", __func__);
-	return status_err;
-    }
+    if (*data == delim[1]) {
+        /* copy_append data up to delimiter */
+        if (parser_extractor_copy_append(p, x, len) == status_err) {
+            extractor_debug("%s: error (at end of delimiter)\n", __func__);
+            return status_err;
+        }
 
-    /* skip delimiter */
-    return parser_skip(p, 2);
+        /* skip delimiter */
+        return parser_skip(p, 2);
+    } else {
+        /* copy_append data up to data_end */
+        if (parser_extractor_copy_append(p, x, data - p->data + 1) == status_err) {
+            extractor_debug("%s: error (at end of data)\n", __func__);
+            return status_err;
+        }
+    }
+    return status_ok;
 }
 
 /*
@@ -412,39 +481,38 @@ enum status parser_extractor_copy_append_upto_delim(struct parser *p,
  * bytes to the end of the data buffer.
  */
 int parser_find_delim(struct parser *p,
-		      const unsigned char *delim,
-		      size_t length) {
+                      const unsigned char *delim,
+                      size_t length) {
 
     /* find delimiter, if present */
     const unsigned char *data = p->data;
     const unsigned char *pattern = delim;
     const unsigned char *pattern_end = delim + length;
     while (pattern < pattern_end && data < p->data_end) {
-	extractor_debug("%s: data index: %lu\tpattern index: %lu\n", __func__, data - p->data, pattern - delim);
-	extractor_debug("%s: data: %02x, pattern: %02x\n", __func__, *data, *pattern);
-	if (*data != *pattern) {
-	    pattern = delim - 1; /* reset pattern to the start of the delimeter string */
-	} 
-	data++;
-	pattern++;
-    } 
+        extractor_debug("%s: data index: %lu\tpattern index: %lu\n", __func__, data - p->data, pattern - delim);
+        extractor_debug("%s: data: %02x, pattern: %02x\n", __func__, *data, *pattern);
+        if (*data != *pattern) {
+            pattern = delim - 1; /* reset pattern to the start of the delimeter string */
+        }
+        data++;
+        pattern++;
+    }
     if (pattern == pattern_end) {
-	return data - p->data;
+        return data - p->data;
     }
     return - (data - p->data);
-    
 }
 
 enum status parser_skip_upto_delim(struct parser *p,
-				   const unsigned char delim[],
-				   size_t length) {
+                                   const unsigned char delim[],
+                                   size_t length) {
 
     int delim_index = parser_find_delim(p, delim, length);
 
     extractor_debug("%s: length: %zu, index: %d\n", __func__, length, delim_index);
 
     if (delim_index >= 0) {
-	return parser_skip(p, delim_index);
+        return parser_skip(p, delim_index);
 
     }
     extractor_debug("%s: error\n", __func__);
@@ -452,18 +520,18 @@ enum status parser_skip_upto_delim(struct parser *p,
 }
 
 enum status parser_extractor_copy_upto_delim(struct parser *p,
-					     struct extractor *x,
-					     const unsigned char delim[],
-					     size_t length) {
+                                             struct extractor *x,
+                                             const unsigned char delim[],
+                                             size_t length) {
 
     int delim_index = parser_find_delim(p, delim, length);
-    
+
     extractor_debug("%s: delim length: %zu, index: %d\n", __func__, length, delim_index);
 
     if (delim_index >= 0) {
-	return parser_extractor_copy(p, x, delim_index - length);
+        return parser_extractor_copy(p, x, delim_index - length);
     } else {
-	return parser_extractor_copy(p, x, - delim_index);
+        return parser_extractor_copy(p, x, - delim_index);
     }
     extractor_debug("%s: error\n", __func__);
     return status_err;
@@ -473,15 +541,15 @@ enum status parser_extractor_copy_upto_delim(struct parser *p,
 #define FP_RAW_BUF_LEN 512
 
 size_t extract_fp_from_tls_client_hello(uint8_t *data,
-					size_t data_len,
-					uint8_t *outbuf,
-					size_t outbuf_len) {
+                                        size_t data_len,
+                                        uint8_t *outbuf,
+                                        size_t outbuf_len) {
     struct parser p;
     struct extractor x;
     uint8_t extractor_buffer[FP_RAW_BUF_LEN];
     size_t bytes_extracted;
     size_t bytes_in_outbuf = 0;
-    
+
     extractor_init(&x, extractor_buffer, FP_RAW_BUF_LEN);
     parser_init(&p, data, data_len);
     bytes_extracted = parser_extractor_process_tls(&p, &x);
@@ -510,30 +578,62 @@ ptrdiff_t extractor_get_output_length(const struct extractor *x) {
 /*
  * parser_match(x, value, value_len, mask) returns status_ok if
  * (x->data & mask) == value, and returns status_err otherwise
+ * It advances p->data by value_len when it returns status_ok
  */
 unsigned int parser_match(struct parser *p,
-			  const unsigned char *value,
-			  size_t value_len,
-			  const unsigned char *mask) {
+                          const unsigned char *value,
+                          size_t value_len,
+                          const unsigned char *mask) {
 
     if (p->data + value_len <= p->data_end) {
-	unsigned int i;
+        unsigned int i;
 
-	if (mask) {
-	    for (i = 0; i < value_len; i++) {
-		if ((p->data[i] & mask[i]) != value[i]) {
-		    return status_err;
-		}
-	    }
-	} else { /* mask == NULL */
-	    for (i = 0; i < value_len; i++) {
-		if (p->data[i] != value[i]) {
-		    return status_err;
-		}
-	    }
-	}
-	p->data += value_len;
-	return status_ok;
+        if (mask) {
+            for (i = 0; i < value_len; i++) {
+                if ((p->data[i] & mask[i]) != value[i]) {
+                    return status_err;
+                }
+            }
+        } else { /* mask == NULL */
+            for (i = 0; i < value_len; i++) {
+                if (p->data[i] != value[i]) {
+                    return status_err;
+                }
+            }
+        }
+        p->data += value_len;
+        return status_ok;
+    }
+    return status_err;
+}
+
+/*
+ * parser_match_no_advance(x, value, value_len, mask) returns status_ok if
+ * (x->data & mask) == value, and returns status_err otherwise
+ * It does NOT advance p->data at all.
+ */
+unsigned int parser_match_no_advance(struct parser *p,
+                          const unsigned char *value,
+                          size_t value_len,
+                          const unsigned char *mask) {
+
+    if (p->data + value_len <= p->data_end) {
+        unsigned int i;
+
+        if (mask) {
+            for (i = 0; i < value_len; i++) {
+                if ((p->data[i] & mask[i]) != value[i]) {
+                    return status_err;
+                }
+            }
+        } else { /* mask == NULL */
+            for (i = 0; i < value_len; i++) {
+                if (p->data[i] != value[i]) {
+                    return status_err;
+                }
+            }
+        }
+        return status_ok;
     }
     return status_err;
 }
@@ -565,43 +665,43 @@ typedef struct keyword_matcher {
 #define match_all_keywords NULL
 
 enum status keyword_matcher_check(const keyword_matcher_t *keywords,
-				  unsigned char *string,
-				  size_t len) {
+                                  unsigned char *string,
+                                  size_t len) {
     keyword_t *k;
     size_t i;
 
     if (keywords == match_all_keywords) {
-	return status_ok;  /* by convention, NULL pointer corresponds to 'match all keywords' */
+        return status_ok;  /* by convention, NULL pointer corresponds to 'match all keywords' */
     }
-    
+
     k = keywords->case_insensitive;
     while (k->len != 0) {
-	if (len == k->len) {
-	    for (i = 0; i < len; i++) {
-		if (tolower(string[i]) != k->value[i]) {
-		    break;
-		}
-	    }
-	    if (i >= len) {       /* end of string; match found */
-		return status_ok;
-	    }
-	}
-	k++;
+        if (len == k->len) {
+            for (i = 0; i < len; i++) {
+                if (tolower(string[i]) != k->value[i]) {
+                    break;
+                }
+            }
+            if (i >= len) {       /* end of string; match found */
+                return status_ok;
+            }
+        }
+        k++;
     }
 
     k = keywords->case_sensitive;
     while (k->len != 0) {
-	if (len == k->len) {
-	    for (i = 0; i < len; i++) {
-		if (string[i] != k->value[i]) {
-		    break;
-		}
-	    }
-	    if (i >= len) {       /* end of string; match found */
-		return status_ok;
-	    }
-	}
-	k++;
+        if (len == k->len) {
+            for (i = 0; i < len; i++) {
+                if (string[i] != k->value[i]) {
+                    break;
+                }
+            }
+            if (i >= len) {       /* end of string; match found */
+                return status_ok;
+            }
+        }
+        k++;
     }
 
     return status_err;
@@ -613,13 +713,13 @@ enum status keyword_matcher_check(const keyword_matcher_t *keywords,
  * otherwise
  */
 unsigned int extractor_keyword_match_last_capture(struct extractor *x,
-						  const keyword_matcher_t *keywords) {
+                                                  const keyword_matcher_t *keywords) {
 
     unsigned char *last_capture = x->last_capture;
     size_t last_capture_len;
 
     if (last_capture == NULL) {
-	return status_err;
+        return status_err;
     }
 
     /* read length of capture, then advance over length field */
@@ -630,14 +730,14 @@ unsigned int extractor_keyword_match_last_capture(struct extractor *x,
 }
 
 unsigned int uint16_match(uint16_t x,
-			  const uint16_t *ulist,
-			  unsigned int num) {
+                          const uint16_t *ulist,
+                          unsigned int num) {
     const uint16_t *ulist_end = ulist + num;
 
     while (ulist < ulist_end) {
-	if (x == *ulist++) {
-	    return 1;
-	}
+        if (x == *ulist++) {
+            return 1;
+        }
     }
     return 0;
 }
@@ -714,23 +814,32 @@ unsigned int uint16_match(uint16_t x,
  * pointer set to the initial octet of a TCP header.
  */
 
-unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x) {
+unsigned int tcp_message_filter_cutoff = 0;
+
+unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) {
     size_t flags, offrsv;
-    const uint8_t *data = p->data;
+    const uint8_t *data = pf->p.data;
+    struct parser *p = &pf->p;
+    struct extractor *x = &pf->x;
 
     extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
 
+    const struct tcp_header *tcp = (const struct tcp_header *)data;
+    if (pf->tcp_init_msg_filter) {
+        return pf->tcp_init_msg_filter->apply(*k, tcp, parser_get_data_length(p));
+    }
+
     if (parser_skip(p, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack) == status_err) {
-	return 0;
+        return 0;
     }
     if (parser_read_uint(p, L_tcp_offrsv, &offrsv) == status_err) {
-	return 0;
+        return 0;
     }
     if (parser_skip(p, L_tcp_offrsv) == status_err) {
-	return 0;
+        return 0;
     }
     if (parser_read_uint(p, L_tcp_flags, &flags) == status_err) {
-	return 0;
+        return 0;
     }
     if (flags != TCP_SYN) {
 	/*
@@ -752,43 +861,47 @@ unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x)
 	return 0;
     }
     if (parser_set_data_length(p, tcp_offrsv_get_length(offrsv) - TCP_FIXED_HDR_LEN)) {
-	return 0;
+        return 0;
+    }
+
+    if (select_tcp_syn == 0) {
+        return 0; /* packet filter configuration does not want TCP SYN packets */
     }
 
     /* set fingerprint type TCP, since we succeeded in parsing the header up to the options */
     x->fingerprint_type = fingerprint_type_tcp;
 
     while (parser_get_data_length(p) > 0) {
-	size_t option_kind, option_length;
+        size_t option_kind, option_length;
 
-	if (parser_read_uint(p, L_option_kind, &option_kind) == status_err) {
-	    break;
-	}
-	if (parser_extractor_copy(p, x, L_option_kind) == status_err) {
-	    break;
-	}
+        if (parser_read_uint(p, L_option_kind, &option_kind) == status_err) {
+            break;
+        }
+        if (parser_extractor_copy(p, x, L_option_kind) == status_err) {
+            break;
+        }
 
-	if (option_kind == TCP_OPT_EOL || option_kind == TCP_OPT_NOP) {
+        if (option_kind == TCP_OPT_EOL || option_kind == TCP_OPT_NOP) {
 
-	    /* note: no option_length field is present for these kinds */
-	    ;
+            /* note: no option_length field is present for these kinds */
+            ;
 
-	} else {
-	    if (parser_read_uint(p, L_option_length, &option_length) == status_err) {
-		break;
-	    }
-	    if (option_kind == TCP_OPT_MSS || option_kind == TCP_OPT_WS) {
+        } else {
+            if (parser_read_uint(p, L_option_length, &option_length) == status_err) {
+                break;
+            }
+            if (option_kind == TCP_OPT_MSS || option_kind == TCP_OPT_WS) {
 
-		if (parser_extractor_copy_append(p, x, option_length - L_option_kind) == status_err) {
-		    break;
-		}
-	    } else {
+                if (parser_extractor_copy_append(p, x, option_length - L_option_kind) == status_err) {
+                    break;
+                }
+            } else {
 
-		if (parser_skip(p, option_length - L_option_kind) == status_err) {
-		    break;
-		}
-	    }
-	}
+                if (parser_skip(p, option_length - L_option_kind) == status_err) {
+                    break;
+                }
+            }
+        }
     }
 
     x->proto_state.state = state_done;
@@ -800,23 +913,6 @@ unsigned int parser_extractor_process_tcp(struct parser *p, struct extractor *x)
 /*
  * TLS fingerprint extraction
  */
-
-#define L_ContentType              1
-#define L_ProtocolVersion          2
-#define L_RecordLength             2
-#define L_HandshakeType            1
-#define L_HandshakeLength          3
-#define L_ProtocolVersion          2
-#define L_Random                  32
-#define L_SessionIDLength          1
-#define L_CipherSuiteVectorLength  2
-#define L_CompressionMethodsLength 1
-#define L_ExtensionsVectorLength   2
-#define L_ExtensionType            2
-#define L_ExtensionLength          2
-
-#define L_NamedGroupListLen        2
-#define L_ProtocolVersionListLen   1
 
 uint16_t degrease_uint16(uint16_t x) {
     switch(x) {
@@ -836,29 +932,47 @@ uint16_t degrease_uint16(uint16_t x) {
     case 0xdada:
     case 0xeaea:
     case 0xfafa:
-	return 0x0a0a;
-	break;
+        return 0x0a0a;
+        break;
     default:
-	return x;
+        return x;
     }
     return x;
 }
 
 void degrease_octet_string(void *data, ssize_t len) {
     if (len < 0) {
-	return;
+        return;
     }
 
     uint16_t *x = (uint16_t *)data;
     uint16_t *end = x + (len/2);
 
     while (x < end) {
-	*x = degrease_uint16(*x);
-	x++;
+        *x = degrease_uint16(*x);
+        x++;
     }
-    
+
 }
 
+/* TLS Constants */
+
+#define L_ContentType              1
+#define L_ProtocolVersion          2
+#define L_RecordLength             2
+#define L_HandshakeType            1
+#define L_HandshakeLength          3
+#define L_ProtocolVersion          2
+#define L_Random                  32
+#define L_SessionIDLength          1
+#define L_CipherSuiteVectorLength  2
+#define L_CompressionMethodsLength 1
+#define L_ExtensionsVectorLength   2
+#define L_ExtensionType            2
+#define L_ExtensionLength          2
+
+#define L_NamedGroupListLen        2
+#define L_ProtocolVersionListLen   1
 
 /*
  * expanded set of static extensions
@@ -884,40 +998,41 @@ uint16_t old_static_extension_types[7] __attribute__((unused)) = {
 
 uint16_t static_extension_types[num_static_extension_types] = {
         1,         /* max fragment length                    */
-	5,         /* status_request                         */
-	7,         /* client authz                           */
-	8,         /* server authz                           */
-	9,         /* cert type                              */
-	10,        /* supported_groups                       */
-	11,        /* ec_point_formats                       */
-	13,        /* signature_algorithms                   */
-	15,        /* heartbeat                              */
-	16,        /* application_layer_protocol_negotiation */
-	17,        /* status request v2                      */
-	24,        /* token binding                          */
-	27,        /* compressed certificate                 */
-	28,        /* record size limit                      */
-	43,        /* supported_versions                     */
-	45,        /* psk_key_exchange_modes                 */
-	50,        /* signature algorithms cert              */
-	2570,      /* GREASE                                 */
-	6682,      /* GREASE                                 */
-	10794,     /* GREASE                                 */
-	14906,     /* GREASE                                 */
-	19018,     /* GREASE                                 */
-	21760,     /* token binding (old)                    */
-	23130,     /* GREASE                                 */
-	27242,     /* GREASE                                 */
-	31354,     /* GREASE                                 */
-	35466,     /* GREASE                                 */
-	39578,     /* GREASE                                 */
-	43690,     /* GREASE                                 */
-	47802,     /* GREASE                                 */
-	51914,     /* GREASE                                 */
-	56026,     /* GREASE                                 */
-	60138,     /* GREASE                                 */
-	64250      /* GREASE                                 */
+        5,         /* status_request                         */
+        7,         /* client authz                           */
+        8,         /* server authz                           */
+        9,         /* cert type                              */
+        10,        /* supported_groups                       */
+        11,        /* ec_point_formats                       */
+        13,        /* signature_algorithms                   */
+        15,        /* heartbeat                              */
+        16,        /* application_layer_protocol_negotiation */
+        17,        /* status request v2                      */
+        24,        /* token binding                          */
+        27,        /* compressed certificate                 */
+        28,        /* record size limit                      */
+        43,        /* supported_versions                     */
+        45,        /* psk_key_exchange_modes                 */
+        50,        /* signature algorithms cert              */
+        2570,      /* GREASE                                 */
+        6682,      /* GREASE                                 */
+        10794,     /* GREASE                                 */
+        14906,     /* GREASE                                 */
+        19018,     /* GREASE                                 */
+        21760,     /* token binding (old)                    */
+        23130,     /* GREASE                                 */
+        27242,     /* GREASE                                 */
+        31354,     /* GREASE                                 */
+        35466,     /* GREASE                                 */
+        39578,     /* GREASE                                 */
+        43690,     /* GREASE                                 */
+        47802,     /* GREASE                                 */
+        51914,     /* GREASE                                 */
+        56026,     /* GREASE                                 */
+        60138,     /* GREASE                                 */
+        64250      /* GREASE                                 */
     };
+
 
 /*
  * The function extractor_process_tls processes a TLS packet.  The
@@ -931,23 +1046,24 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
     struct parser ext_parser;
     const uint8_t *sni_data = NULL;
     size_t sni_length = 0;
+    unsigned char *ext_len_slot = NULL;
 
     extractor_debug("%s: processing packet\n", __func__);
-    
+
     /*
      * verify that we are looking at a TLS ClientHello
      */
     if (parser_match(p,
-		     tls_client_hello_value,
-		     L_ContentType +	L_ProtocolVersion + L_RecordLength + L_HandshakeType,
-		     tls_client_hello_mask) == status_err) {
-	return 0; /* not a clientHello */
+                     tls_client_hello_value,
+                     L_ContentType +    L_ProtocolVersion + L_RecordLength + L_HandshakeType,
+                     tls_client_hello_mask) == status_err) {
+        return 0; /* not a clientHello */
     }
 
 #if 0 /* REMOVED during adaptation from joy*/
     uint16_t tls_proto_number = htons(HTTPS_PORT);
     if (extractor_write_to_output(x, (unsigned char *)&tls_proto_number, sizeof(tls_proto_number)) == status_err) {
-	return 0;
+        return 0;
     }
 #endif
     x->fingerprint_type = fingerprint_type_tls;
@@ -956,118 +1072,117 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
      * skip over initial fields
      */
     if (parser_skip(p, L_HandshakeLength) == status_err) {
-	return 0;
+        return 0;
     }
 
     /*
      * copy clientHello.ProtocolVersion
      */
     if (parser_extractor_copy(p, x, L_ProtocolVersion) == status_err) {
-	goto bail;
+        goto bail;
     }
 
     /*
      * skip over Random
      */
     if (parser_skip(p, L_Random) == status_err) {
-	goto bail;
+        goto bail;
     }
 
     /* skip over SessionID and SessionIDLen */
     if (parser_read_uint(p, L_SessionIDLength, &tmp_len) == status_err) {
-	goto bail;
+        goto bail;
     }
     if (parser_skip(p, tmp_len + L_SessionIDLength) == status_err) {
-	goto bail;
+        goto bail;
     }
 
     /* copy ciphersuite offer vector */
     if (parser_read_uint(p, L_CipherSuiteVectorLength, &tmp_len) == status_err) {
-	goto bail;
+        goto bail;
     }
     if (parser_skip(p, L_CipherSuiteVectorLength) == status_err) {
-	goto bail;
+        goto bail;
     }
     if (parser_extractor_copy(p, x, tmp_len) == status_err) {
-	goto bail;
+        goto bail;
     }
     degrease_octet_string(x->last_capture + 2, tmp_len);
-    
+
     /* skip over compression methods */
     if (parser_read_uint(p, L_CompressionMethodsLength, &tmp_len) == status_err) {
-	goto bail;
+        goto bail;
     }
     if (parser_skip(p, tmp_len + L_CompressionMethodsLength) == status_err) {
-	goto bail;
+        goto bail;
     }
 
     /*
-     * parse extensions vector 
+     * parse extensions vector
      */
     /*
-     * reserve slot in output for length of extracted extensions 
+     * reserve slot in output for length of extracted extensions
      */
-    unsigned char *ext_len_slot;
     if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
-	goto bail;
+        goto bail;
     }
-    
+
     /*  extensions length */
     if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
-	goto bail;
+        goto bail;
     }
     parser_init_from_outer_parser(&ext_parser, p, tmp_len);
     while (parser_get_data_length(&ext_parser) > 0) {
-	size_t tmp_type;
+        size_t tmp_type;
 
-	if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
-	    break;
-	}
-	if (tmp_type == type_sni) {
-	    /*
-	     * grab Server Name Indication so that we can report it separately
-	     */
-	    sni_data = ext_parser.data;
-	}
-	
-	if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err) {
-	    break;
-	}
-	/* degrease extracted type code */
-	degrease_octet_string(x->last_capture + 2, L_ExtensionType);
-	
-	if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
-	    break;
-	}
-	if (tmp_type == type_sni) {
-	    /*
-	     * grab Server Name Indication length
-	     */
-	    sni_length = tmp_len + L_ExtensionLength + L_ExtensionType;
-	    if (sni_data + sni_length > p->data_end) {
-		sni_length = p->data_end - sni_data;   /* trim to fit in packet */
-	    }
-	}
-		
-	if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err) {
-	    if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err) {
-		break;
-	    }
-	    if (tmp_type == type_supported_groups) {
-		degrease_octet_string(x->last_capture + 2 + L_ExtensionLength + L_ExtensionType + L_NamedGroupListLen,
-				      tmp_len - L_NamedGroupListLen);
-	    }
-	    if (tmp_type == type_supported_versions) {
-		degrease_octet_string(x->last_capture + 2 + L_ExtensionLength + L_ExtensionType + L_ProtocolVersionListLen,
-				      tmp_len - L_ProtocolVersionListLen);
-	    }
-	    
-	} else {
-	    
-	    if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
-		break;
-	    }
-	}
+        if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+            break;
+        }
+        if (tmp_type == type_sni) {
+            /*
+             * grab Server Name Indication so that we can report it separately
+             */
+            sni_data = ext_parser.data;
+        }
+
+        if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err) {
+            break;
+        }
+        /* degrease extracted type code */
+        degrease_octet_string(x->last_capture + 2, L_ExtensionType);
+
+        if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+            break;
+        }
+        if (tmp_type == type_sni) {
+            /*
+             * grab Server Name Indication length
+             */
+            sni_length = tmp_len + L_ExtensionLength + L_ExtensionType;
+            if (sni_data + sni_length > p->data_end) {
+                sni_length = p->data_end - sni_data;   /* trim to fit in packet */
+            }
+        }
+
+        if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err) {
+            if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err) {
+                break;
+            }
+            if (tmp_type == type_supported_groups) {
+                degrease_octet_string(x->last_capture + 2 + L_ExtensionLength + L_ExtensionType + L_NamedGroupListLen,
+                                      tmp_len - L_NamedGroupListLen);
+            }
+            if (tmp_type == type_supported_versions) {
+                degrease_octet_string(x->last_capture + 2 + L_ExtensionLength + L_ExtensionType + L_ProtocolVersionListLen,
+                                      tmp_len - L_ProtocolVersionListLen);
+            }
+
+        } else {
+
+            if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
+                break;
+            }
+        }
     }
 
     /*
@@ -1075,9 +1190,9 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
      */
     //size_t ext_len_value = (x->output - ext_len_slot) | PARENT_NODE_INDICATOR;
     encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
-        
+
     if (sni_data) {
-	packet_data_set(&x->packet_data, packet_data_type_tls_sni, sni_length, sni_data);
+        packet_data_set(&x->packet_data, packet_data_type_tls_sni, sni_length, sni_data);
     }
 
     x->proto_state.state = state_done;
@@ -1103,91 +1218,91 @@ unsigned int parser_process_tls(struct parser *p) {
     size_t tmp_len;
     struct parser ext_parser;
     extractor_debug("%s: processing packet\n", __func__);
-    
+
     /*
      * verify that we are looking at a TLS ClientHello
      */
     if (parser_match(p,
-		     tls_client_hello_value,
-		     L_ContentType +	L_ProtocolVersion + L_RecordLength + L_HandshakeType,
-		     tls_client_hello_mask) == status_err) {
-	return 0; /* not a clientHello */
+                     tls_client_hello_value,
+                     L_ContentType +    L_ProtocolVersion + L_RecordLength + L_HandshakeType,
+                     tls_client_hello_mask) == status_err) {
+        return 0; /* not a clientHello */
     }
 
     /*
      * skip over initial fields
      */
     if (parser_skip(p, L_HandshakeLength) == status_err) {
-	return 0;
+        return 0;
     }
 
     /*
      * copy clientHello.ProtocolVersion
      */
     if (parser_skip(p, L_ProtocolVersion) == status_err) {
-	goto bail;
+        goto bail;
     }
 
     /*
      * skip over Random
      */
     if (parser_skip(p, L_Random) == status_err) {
-	goto bail;
+        goto bail;
     }
 
     /* skip over SessionID and SessionIDLen */
     if (parser_read_uint(p, L_SessionIDLength, &tmp_len) == status_err) {
-	goto bail;
+        goto bail;
     }
     if (parser_skip(p, tmp_len + L_SessionIDLength) == status_err) {
-	goto bail;
+        goto bail;
     }
 
     /* copy ciphersuite offer vector */
     if (parser_read_uint(p, L_CipherSuiteVectorLength, &tmp_len) == status_err) {
-	goto bail;
+        goto bail;
     }
     if (parser_skip(p, L_CipherSuiteVectorLength) == status_err) {
-	goto bail;
+        goto bail;
     }
     if (parser_skip(p, tmp_len) == status_err) {
-	goto bail;
+        goto bail;
     }
-    
+
     /* skip over compression methods */
     if (parser_read_uint(p, L_CompressionMethodsLength, &tmp_len) == status_err) {
-	goto bail;
+        goto bail;
     }
     if (parser_skip(p, tmp_len + L_CompressionMethodsLength) == status_err) {
-	goto bail;
+        goto bail;
     }
 
     /*
-     * parse extensions vector 
+     * parse extensions vector
      */
     /*  extensions length */
     if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
-	return status_err;
+        return status_err;
     }
     parser_init_from_outer_parser(&ext_parser, p, tmp_len);
     while (parser_get_data_length(&ext_parser) > 0) {
-	size_t tmp_type;
+        size_t tmp_type;
 
-	if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
-	    break;
-	}
-	
-	if (parser_skip(&ext_parser, L_ExtensionType) == status_err) {
-	    break;
-	}
-	
-	if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
-	    break;
-	}
-		
-	if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
-	    break;
-	}
+        if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+            break;
+        }
+
+        if (parser_skip(&ext_parser, L_ExtensionType) == status_err) {
+            break;
+        }
+
+        if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+            break;
+        }
+
+        if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
+            break;
+        }
     }
 
     return 100; /* indicate success */
@@ -1206,6 +1321,181 @@ unsigned int parser_process_tls(struct parser *p) {
  */
 #define L_CipherSuite              2
 #define L_CompressionMethod        1
+#define L_CertificateLength        3
+#define L_CertificateListLength    3
+
+enum status parser_extractor_process_certificate(struct parser *p, struct extractor *x) {
+    size_t tmp_len;
+
+    extractor_debug("%s: processing new tls certificate list \n", __func__);
+
+    /* get total certificate length */
+    if (parser_read_and_skip_uint(p, L_CertificateListLength, &tmp_len) == status_err) {
+	    return status_err;
+    }
+
+    if (tmp_len > (unsigned)parser_get_data_length(p)) {
+        tmp_len = parser_get_data_length(p);
+    }
+    
+    /* we have some certificate data in this packet */
+    packet_data_set(&x->packet_data,
+                    packet_data_type_tls_cert,
+                    tmp_len,
+                    p->data);
+
+    parser_skip(p, tmp_len);  
+    
+    extractor_debug("%s: completed \n", __func__);
+
+    return status_ok;
+}
+
+/**
+ * Extract and print binary certificate(s) as base64 encoded string(s).
+ */
+
+void extract_certificates(FILE *file, const unsigned char *data, size_t data_len) {
+    size_t tmp_len;
+    struct parser cert_list;
+    int cert_num = 0;
+
+    parser_init(&cert_list, data, data_len);
+
+    while (parser_get_data_length(&cert_list) > 0) {
+        /* get certificate length */
+        if (parser_read_and_skip_uint(&cert_list, L_CertificateLength, &tmp_len) == status_err) {
+	        return;
+        }
+
+        if (tmp_len > (unsigned)parser_get_data_length(&cert_list)) {
+            tmp_len = parser_get_data_length(&cert_list); /* truncate */
+        }
+
+        if (tmp_len == 0) {
+            return;  /* don't bother printing out a partial cert if it has a length of zero */
+        }
+
+        if (cert_num > 0) {
+            fprintf(file, ","); /* print separating comma */
+        }
+
+        fprintf_json_base64_string(file, cert_list.data, tmp_len);
+
+        /*
+         * skip over certificate data
+         */
+        if (parser_skip(&cert_list, tmp_len) == status_err) {
+	        return;
+        }
+        cert_num++;
+    }
+}
+
+enum status parser_extractor_process_tls_server_hello(struct parser *record, struct extractor *x) {
+    size_t tmp_len;
+    size_t tmp_type;
+    unsigned char *ext_len_slot = NULL;
+
+    extractor_debug("%s: processing server_hello with %td bytes\n", __func__, record->data_end - record->data);
+
+    /* set fingerprint type */
+    x->fingerprint_type = fingerprint_type_tls_server;
+
+    /*
+     * copy serverHello.ProtocolVersion
+     */
+    if (parser_extractor_copy(record, x, L_ProtocolVersion) == status_err) {
+	    goto bail;
+    }
+
+    /*
+     * skip over Random
+     */
+    if (parser_skip(record, L_Random) == status_err) {
+	    goto bail;
+    }
+
+    /* skip over SessionID and SessionIDLen */
+    if (parser_read_uint(record, L_SessionIDLength, &tmp_len) == status_err) {
+	    goto bail;
+    }
+    if (parser_skip(record, tmp_len + L_SessionIDLength) == status_err) {
+	    goto bail;
+    }
+
+    if (parser_extractor_copy(record, x, L_CipherSuite) == status_err) {
+	    goto bail;
+    }
+
+    /* skip over compression method */
+    if (parser_skip(record, L_CompressionMethod) == status_err) {
+	    goto bail;
+    }
+
+    /*
+     * reserve slot in output for length of extracted extensions
+     */
+    if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
+        goto bail;
+    }
+
+    /*
+     * parse extensions vector (if present)
+     */
+    if (parser_get_data_length(record) > 0) {
+
+        extractor_debug("%s: parsing extensions vector\n", __func__);
+
+        /*  extensions length */
+        if (parser_read_and_skip_uint(record, L_ExtensionsVectorLength, &tmp_len)) {
+            goto bail;
+        }
+
+        struct parser ext_parser;
+        parser_init_from_outer_parser(&ext_parser, record, tmp_len);
+
+        while (parser_get_data_length(&ext_parser) > 0)  {
+
+            if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+                break;
+            }
+            if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err) {
+                break;
+            }
+            if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+                break;
+            }
+            if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err)  {
+                if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err)  {
+                    break;
+                }
+            }
+            else {
+                if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
+                    break;
+                }
+            }
+        }
+
+        extractor_debug("%s: ext_parser has %td bytes\n", __func__, ext_parser.data_end - ext_parser.data);
+
+        parser_pop(&ext_parser, record);
+
+        extractor_debug("%s: record has %td bytes\n", __func__, record->data_end - record->data);
+
+    } 
+
+    /*
+     * write the length of the extracted extensions (if any) into the reserved slot
+     */
+    encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
+
+    return status_ok;
+
+ bail:
+    return status_err;
+}
 
 /*
  * The function parser_process_tls_server processes a TLS
@@ -1215,122 +1505,108 @@ unsigned int parser_process_tls(struct parser *p) {
  */
 unsigned int parser_extractor_process_tls_server(struct parser *p, struct extractor *x) {
     size_t tmp_len;
-    
-    extractor_debug("%s: processing packet\n", __func__);
+    size_t tmp_type;
+
+    extractor_debug("%s: processing packet with %td bytes\n", __func__, p->data_end - p->data);
 
     /*
-     * verify that we are looking at a TLS ServerHello
+     * verify that we are looking at a TLS record
      */
-    if (parser_match(p,
-		     tls_server_hello_value,
-		     L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType,
-		     tls_server_hello_mask) == status_err) {
-	    goto bail; /* not a serverHello */
+    if (parser_read_and_skip_uint(p, L_ContentType, &tmp_type) == status_err) {
+        goto bail;
+    }
+    if (tmp_type != 0x16) {
+        goto bail;    /* not a handshake record */
+    }
+    if (parser_skip(p, L_ProtocolVersion) == status_err) {
+	    goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_RecordLength, &tmp_len) == status_err) {
+      goto bail;
+    }
+    extractor_debug("%s: got a record\n", __func__);
+    struct parser record;
+    parser_init_from_outer_parser(&record, p, tmp_len);
+
+    if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
+	    goto bail;
+    }
+    if (tmp_type != 0x02) {
+        goto bail;     /* not a serverHello */
     }
 
-    /*
-     * skip over initial fields
-     */
-    if (parser_skip(p, L_HandshakeLength) == status_err) {
+    if (parser_read_and_skip_uint(&record, L_HandshakeLength, &tmp_len) == status_err) {
 	    goto bail;
     }
+    extractor_debug("%s: got a handshake\n", __func__);
+    struct parser handshake;
+    parser_init_from_outer_parser(&handshake, &record, tmp_len);
+    if (parser_extractor_process_tls_server_hello(&handshake, x) != status_ok) {
+        goto bail;
+    }
+    parser_pop(&handshake, &record);
 
-    /* set fingerprint type */
-    x->fingerprint_type = fingerprint_type_tls_server;
-    
-    /*
-     * copy serverHello.ProtocolVersion
-     */
-    if (parser_extractor_copy(p, x, L_ProtocolVersion) == status_err) {
-	    goto bail;
-    }
+    if (parser_get_data_length(&record) > 0) {
 
-    /*
-     * skip over Random
-     */
-    if (parser_skip(p, L_Random) == status_err) {
-	    goto bail;
+        extractor_debug("%s: expecting another handshake structure\n", __func__);
+        size_t tmp_type;
+        if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
+            goto bail;
+        }
+        if (tmp_type != 11) { /* certificate */
+            goto done;
+        }
+        if (parser_skip(&record, L_HandshakeLength) == status_err) {
+            goto done;
+        }
+        if (parser_extractor_process_certificate(&record, x) == status_err) {
+            goto done;
+        }
     }
+    parser_pop(&record, p);
 
-    /* skip over SessionID and SessionIDLen */
-    if (parser_read_uint(p, L_SessionIDLength, &tmp_len) == status_err) {
-	    goto bail;
-    }
-    if (parser_skip(p, tmp_len + L_SessionIDLength) == status_err) {
-	    goto bail;
-    }
+    extractor_debug("%s: outermost parser has %td bytes\n", __func__, p->data_end - p->data);
 
-    if (parser_extractor_copy(p, x, L_CipherSuite) == status_err) {
-	    goto bail;
-    }
-    
-    /* skip over compression methods */
-    if (parser_read_uint(p, L_CompressionMethodsLength, &tmp_len) == status_err) {
-	    goto bail;
-    }
-    if (parser_skip(p, tmp_len + L_CompressionMethod) == status_err) {
-	    goto bail;
-    }
-
-    /*
-     * parse extensions vector if present
-     */
+    /* process data as a new record */
     if (parser_get_data_length(p) > 0) {
-        /*
-         * reserve slot in output for length of extracted extensions
-         */
-        unsigned char *ext_len_slot;
-        if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
-	        goto bail;
+
+        extractor_debug("%s: expecting another record\n", __func__);
+
+        if (parser_read_and_skip_uint(p, L_ContentType, &tmp_type) == status_err) {
+            goto done;
         }
-
-        /*  extensions length */
-        if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
-	        goto bail;
+        if (tmp_type != 0x16) {
+            goto done;    /* not a handshake record */
         }
+        if (parser_skip(p, L_ProtocolVersion) == status_err) {
+            goto done;
+        }
+        if (parser_read_and_skip_uint(p, L_RecordLength, &tmp_len) == status_err) {
+            goto done;
+        }
+        struct parser record;
+        parser_init_from_outer_parser(&record, p, tmp_len);
 
-        struct parser ext_parser;
-        parser_init_from_outer_parser(&ext_parser, p, tmp_len);
-        while (parser_get_data_length(&ext_parser) > 0)
-        {
-            size_t tmp_type;
-            if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err)
-            {
-                break;
-            }
-            if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err)
-            {
-                break;
-            }
+        extractor_debug("%s: new record has %td bytes\n", __func__, record.data_end - record.data);
 
-            if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err)
-            {
-                break;
+        size_t tmp_type;
+        if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
+            goto done;
+        }
+        if (tmp_type == 11) { /* certificate */
+            if (parser_skip(&record, L_HandshakeLength) == status_err) {
+                goto done;
             }
-
-            if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err)
-            {
-                if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err)
-                {
-                    break;
-                }
-            }
-            else
-            {
-                if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err)
-                {
-                    break;
-                }
+            if (parser_extractor_process_certificate(&record, x) == status_err) {
+                goto done;
             }
         }
-
-        /*
-         * write the length of the extracted extensions into the reserved slot
-         */
-        encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
     }
 
+ done:
     x->proto_state.state = state_done;
+
+    extractor_debug("%s: extractor_output_length: %td bytes\n", __func__, extractor_get_output_length(x));
 
     return extractor_get_output_length(x);
 
@@ -1343,6 +1619,30 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
 }
 
+unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct extractor *x) {
+
+    extractor_debug("%s: Processing server certificate at the begining, len = %lu, output len = %lu\n",
+            __func__, parser_get_data_length(p), extractor_get_output_length(x));
+
+    int skip_len = (L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType + L_CertificateLength);
+
+    if (parser_skip(p, skip_len) == status_err) {
+        goto bail;
+    }
+
+    if (parser_extractor_process_certificate(p, x) == status_err) {
+        goto bail;
+    }
+
+    return 0; 
+
+bail:
+    /*
+     * handle possible packet parsing errors
+     */
+    extractor_debug("%s: warning: processing did not complete\n", __func__);
+    return 0;
+}
 
 
 /*
@@ -1355,50 +1655,50 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
 unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x) {
     keyword_t user_agent_keyword[2] = {
-	keyword_init("user-agent"),
-	keyword_init("")
+        keyword_init("user-agent"),
+        keyword_init("")
     };
     keyword_t nil_keyword[1] = {
-	keyword_init("")
+        keyword_init("")
     };
     keyword_matcher_t user_agent_keyword_matcher = {
-	user_agent_keyword,
-	nil_keyword
+        user_agent_keyword,
+        nil_keyword
     };
     //unsigned char http_mask[http_value_len] = {
-    //	0xff, 0xff, 0xff, 0xff
+    //  0xff, 0xff, 0xff, 0xff
     //};
     //unsigned char http_value[http_value_len] = {
-    //	0x47, 0x45, 0x54, 0x20
+    //  0x47, 0x45, 0x54, 0x20
     //};
     // unsigned char sl[1] = { '/' };
     unsigned char sp[1] = { ' ' };
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
     keyword_t case_insensitive_static_headers[13] = {
-	// keyword_init("user-agent"),
-	keyword_init("upgrade-insecure-requests"),
-	keyword_init("dnt"),
-	keyword_init("accept-language"),
-	keyword_init("connection"),
-	keyword_init("x-requested-with"),
-	keyword_init("accept-encoding"),
-	keyword_init("content-length"),
-	keyword_init("accept"),
-	keyword_init("viewport-width"),
-	keyword_init("intervention"),
-	keyword_init("dpr"),
-	keyword_init("cache-control"),
+        // keyword_init("user-agent"),
+        keyword_init("upgrade-insecure-requests"),
+        keyword_init("dnt"),
+        keyword_init("accept-language"),
+        keyword_init("connection"),
+        keyword_init("x-requested-with"),
+        keyword_init("accept-encoding"),
+        keyword_init("content-length"),
+        keyword_init("accept"),
+        keyword_init("viewport-width"),
+        keyword_init("intervention"),
+        keyword_init("dpr"),
+        keyword_init("cache-control"),
         keyword_init("")
     };
     keyword_t case_sensitive_static_headers[3] = {
         keyword_init("content-type"),
-	keyword_init("origin"),
+        keyword_init("origin"),
         keyword_init("")
     };
     keyword_matcher_t static_header_keywords = {
-	case_insensitive_static_headers,
-	case_sensitive_static_headers
+        case_insensitive_static_headers,
+        case_sensitive_static_headers
     };
 
     extractor_debug("%s: processing packet\n", __func__);
@@ -1406,36 +1706,36 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
 #if 0
     uint16_t http_proto_number = htons(HTTP_PORT);
     if (extractor_write_to_output(x, (unsigned char *)&http_proto_number, sizeof(http_proto_number)) == status_err) {
-	return 0;
+        return 0;
     }
 #endif /* REMOVED during port from joy */
-    
+
     /*
      * verify that we are looking at HTTP
      */
     //if (parser_match(x, http_value, http_value_len, http_mask) == status_err) {
-    //	return 0; /* not an HTTP GET */
+    //  return 0; /* not an HTTP GET */
     //}
     x->fingerprint_type = fingerprint_type_http;
-    
+
     /* process request line */
     if (parser_extractor_copy_upto_delim(p, x, sp, sizeof(sp)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
     if (parser_skip(p, sizeof(sp)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
     if (parser_skip_upto_delim(p, sp, sizeof(sp)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
     //    if (extractor_skip_upto_delim(x, sl, sizeof(sl)) == status_err) {
-    //	return extractor_get_output_length(x);
+    //  return extractor_get_output_length(x);
     //}
     if (parser_extractor_copy_upto_delim(p, x, crlf, sizeof(crlf)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
     if (parser_skip(p, sizeof(crlf)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
 
     while (parser_get_data_length(p) > 0) {
@@ -1480,21 +1780,21 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
 }
 
 keyword_t http_response_case_insensitive_static_headers[16] = {
-    keyword_init("access-control-allow-headers"), 
-    keyword_init("access-control-allow-methods"), 
-    keyword_init("code"), 
-    keyword_init("connection"), 
-    keyword_init("content-encoding"), 
-    keyword_init("pragma"), 
-    keyword_init("reason"), 
-    keyword_init("referrer-policy"), 
-    keyword_init("server"), 
-    keyword_init("strict-transport-security"), 
-    keyword_init("vary"), 
-    keyword_init("version"), 
-    keyword_init("x-cache"), 
-    keyword_init("x-powered-by"), 
-    keyword_init("x-xss-protection"), 
+    keyword_init("access-control-allow-headers"),
+    keyword_init("access-control-allow-methods"),
+    keyword_init("code"),
+    keyword_init("connection"),
+    keyword_init("content-encoding"),
+    keyword_init("pragma"),
+    keyword_init("reason"),
+    keyword_init("referrer-policy"),
+    keyword_init("server"),
+    keyword_init("strict-transport-security"),
+    keyword_init("vary"),
+    keyword_init("version"),
+    keyword_init("x-cache"),
+    keyword_init("x-powered-by"),
+    keyword_init("x-xss-protection"),
     keyword_init("")
 };
 keyword_t http_response_case_sensitive_static_headers[3] = {
@@ -1511,8 +1811,8 @@ struct parser_spec_http_server {
 
 struct parser_spec_http_server parser_spec_http_server_default = {
     {
-	http_response_case_insensitive_static_headers,
-	http_response_case_sensitive_static_headers    
+        http_response_case_insensitive_static_headers,
+        http_response_case_sensitive_static_headers
     }
 };
 
@@ -1522,8 +1822,8 @@ keyword_t empty_keyword_list[1] = {
 
 struct parser_spec_http_server parser_spec_http_server_no_headers = {
     {
-	empty_keyword_list,
-	empty_keyword_list
+        empty_keyword_list,
+        empty_keyword_list
     }
 };
 
@@ -1539,58 +1839,58 @@ unsigned int parser_extractor_process_http_server(struct parser *p, struct extra
     unsigned char csp[2] = { ':', ' ' };
 
     extractor_debug("%s: processing packet\n", __func__);
-    
+
 #if 0
     uint16_t http_proto_number = htons(HTTP_PORT);
     if (extractor_write_to_output(x, (unsigned char *)&http_proto_number, sizeof(http_proto_number)) == status_err) {
-	return 0;
+        return 0;
     }
 #endif /* REMOVED during port from joy */
-    
+
     x->fingerprint_type = fingerprint_type_http_server;
-    
+
     /*
-     * process status line 
+     * process status line
      */
     /* copy HTTP version */
     if (parser_extractor_copy_upto_delim(p, x, sp, sizeof(sp)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
     if (parser_skip(p, sizeof(sp)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
     /* copy status code */
     if (parser_extractor_copy_upto_delim(p, x, sp, sizeof(sp)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
     if (parser_skip(p, sizeof(sp)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
     /* copy reason phrase */
     if (parser_extractor_copy_upto_delim(p, x, crlf, sizeof(crlf)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
     if (parser_skip(p, sizeof(crlf)) == status_err) {
-	return extractor_get_output_length(x);
+        return extractor_get_output_length(x);
     }
 
     /* process headers */
     while (parser_get_data_length(p) > 0) {
-	if (parser_match(p, crlf, sizeof(crlf), NULL) == status_ok) {
-	    break;  /* at end of headers */
-	}
-	if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
-	    return extractor_get_output_length(x);   
-	}
-	if (extractor_keyword_match_last_capture(x, &parser_spec_http_server->static_header_keywords) == status_ok) {
-	    if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
-		return extractor_get_output_length(x);
-	    }
-	} else {
-	    if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
-		return extractor_get_output_length(x);
-	    }
-	}
+        if (parser_match(p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+        if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
+            return extractor_get_output_length(x);
+        }
+        if (extractor_keyword_match_last_capture(x, &parser_spec_http_server->static_header_keywords) == status_ok) {
+            if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
+                return extractor_get_output_length(x);
+            }
+        } else {
+            if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
+                return extractor_get_output_length(x);
+            }
+        }
     }
 
     extractor_debug("%s: http server DONE\n", __func__);
@@ -1634,10 +1934,10 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
     size_t packet_length, padding_length, payload, tmp;
     uint16_t ssh_proto_number = htons(SSH_PORT);
     const unsigned char ssh_first_packet[] = {
-	'S', 'S', 'H', '-', '2', '.', '0', '-'
+        'S', 'S', 'H', '-', '2', '.', '0', '-'
     };
     unsigned char lf[] = {
-	'\n'    /* CRLF is required by RFC, but leagcy clients use just LF */
+        '\n'    /* CRLF is required by RFC, but leagcy clients use just LF */
     };
     unsigned char sp[] = { ' ' };
 
@@ -1651,118 +1951,118 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
 	    // return 0;
 	}
 
-	if (extractor_write_to_output(x, (unsigned char *)&ssh_proto_number, sizeof(ssh_proto_number)) == status_err) {
-	    return 0;
-	}
-	if (parser_extractor_copy_upto_delim(p, x, lf, sizeof(lf)) == status_err) {
-	    return extractor_get_output_length(x);
-	}
-	if (extractor_strip_last_capture(x) == status_err) {
-	    return extractor_get_output_length(x);
-	}
+        if (extractor_write_to_output(x, (unsigned char *)&ssh_proto_number, sizeof(ssh_proto_number)) == status_err) {
+            return 0;
+        }
+        if (parser_extractor_copy_upto_delim(p, x, lf, sizeof(lf)) == status_err) {
+            return extractor_get_output_length(x);
+        }
+        if (extractor_strip_last_capture(x) == status_err) {
+            return extractor_get_output_length(x);
+        }
 
-	x->proto_state.state = ssh_state_got_first_msg;
+        x->proto_state.state = ssh_state_got_first_msg;
 
-	if (parser_get_data_length(p) == 1) {
-	    return extractor_get_output_length(x);
-	}
-	if (parser_skip(p, 1) == status_err) {
-	    return extractor_get_output_length(x);
-	}
+        if (parser_get_data_length(p) == 1) {
+            return extractor_get_output_length(x);
+        }
+        if (parser_skip(p, 1) == status_err) {
+            return extractor_get_output_length(x);
+        }
 
     }
 
     if (x->proto_state.state == ssh_state_got_first_msg) {
 
-	/* parse as if second (KEX) packet */
+        /* parse as if second (KEX) packet */
 
-	extractor_debug("%s: parsing KEX\n", __func__);
+        extractor_debug("%s: parsing KEX\n", __func__);
 
-	if (parser_read_uint(p, L_ssh_packet_length, &packet_length) == status_err) {
-	    goto bail;
-	}
-	if (parser_skip(p, L_ssh_packet_length) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_uint(p, L_ssh_padding_length, &padding_length) == status_err) {
-	    goto bail;
-	}
-	if (parser_skip(p, L_ssh_padding_length) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_uint(p, L_ssh_payload, &payload) == status_err) {
-	    goto bail;
-	}
-	if (payload != 0x14) { /* KEX_INIT */
-	    goto bail;
-	}
-	if (parser_skip(p, L_ssh_payload) == status_err) {
-	    goto bail;
-	}
-	if (parser_skip(p, L_ssh_cookie) == status_err) {
-	    goto bail;
-	}
+        if (parser_read_uint(p, L_ssh_packet_length, &packet_length) == status_err) {
+            goto bail;
+        }
+        if (parser_skip(p, L_ssh_packet_length) == status_err) {
+            goto bail;
+        }
+        if (parser_read_uint(p, L_ssh_padding_length, &padding_length) == status_err) {
+            goto bail;
+        }
+        if (parser_skip(p, L_ssh_padding_length) == status_err) {
+            goto bail;
+        }
+        if (parser_read_uint(p, L_ssh_payload, &payload) == status_err) {
+            goto bail;
+        }
+        if (payload != 0x14) { /* KEX_INIT */
+            goto bail;
+        }
+        if (parser_skip(p, L_ssh_payload) == status_err) {
+            goto bail;
+        }
+        if (parser_skip(p, L_ssh_cookie) == status_err) {
+            goto bail;
+        }
 
-	if (parser_read_and_skip_uint(p, L_ssh_kex_algo_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_and_skip_uint(p, L_ssh_server_host_key_algos_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_and_skip_uint(p, L_ssh_enc_algos_client_to_server_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_and_skip_uint(p, L_ssh_enc_algos_server_to_client_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_and_skip_uint(p, L_ssh_mac_algos_client_to_server_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_and_skip_uint(p, L_ssh_mac_algos_server_to_client_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_and_skip_uint(p, L_ssh_comp_algos_client_to_server_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_and_skip_uint(p, L_ssh_comp_algos_server_to_client_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_and_skip_uint(p, L_ssh_languages_client_to_server_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_read_and_skip_uint(p, L_ssh_languages_server_to_client_len, &tmp) == status_err) {
-	    goto bail;
-	}
-	if (parser_extractor_copy(p, x, tmp) == status_err) {
-	    goto bail;
-	}
+        if (parser_read_and_skip_uint(p, L_ssh_kex_algo_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_read_and_skip_uint(p, L_ssh_server_host_key_algos_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_read_and_skip_uint(p, L_ssh_enc_algos_client_to_server_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_read_and_skip_uint(p, L_ssh_enc_algos_server_to_client_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_read_and_skip_uint(p, L_ssh_mac_algos_client_to_server_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_read_and_skip_uint(p, L_ssh_mac_algos_server_to_client_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_read_and_skip_uint(p, L_ssh_comp_algos_client_to_server_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_read_and_skip_uint(p, L_ssh_comp_algos_server_to_client_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_read_and_skip_uint(p, L_ssh_languages_client_to_server_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_read_and_skip_uint(p, L_ssh_languages_server_to_client_len, &tmp) == status_err) {
+            goto bail;
+        }
+        if (parser_extractor_copy(p, x, tmp) == status_err) {
+            goto bail;
+        }
     }
 
     extractor_debug("%s: done parsing KEX (output length: %td)\n", __func__, extractor_get_output_length(x));
@@ -1777,64 +2077,37 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
 
 unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x) {
     const struct pi_container *pi;
-    struct pi_container dummy = { 0, 0, 0 };
-#if 0
-    size_t seq, ack, offrsv;
-    const uint8_t *data = x->data;
-
-    /*
-     * uncomment this code to use this function to process data starting at TCP header
-     */
-
-    /* skip over TCP header */
-    if (parser_skip(p, L_src_port + L_dst_port) == status_err) {
-	return 0;
-    }
-    if (parser_read_uint(p, L_tcp_seq, &seq) == status_err) {
-	return 0;
-    }
-    if (parser_skip(p, L_tcp_seq) == status_err) {
-	return 0;
-    }
-    if (parser_read_uint(p, L_tcp_ack, &ack) == status_err) {
-	return 0;
-    }
-    if (parser_skip(p, L_tcp_ack) == status_err) {
-	return 0;
-    }
-    if (parser_read_uint(p, L_tcp_offrsv, &offrsv) == status_err) {
-	return 0;
-    }
-    if (parser_skip_to(p, data + tcp_offrsv_get_length(offrsv)) == status_err) {
-	return 0;
-    }
-#endif /*  0 */
+    struct pi_container dummy = { 0, 0 };
     pi = proto_identify_tcp(p->data, parser_get_data_length(p));
 
     if (pi == NULL) {
-	pi = &dummy;
+        pi = &dummy;
     }
 
     switch(pi->app) {
     case HTTP_PORT:
-	if (pi->dir == DIR_CLIENT) {
-	    return parser_extractor_process_http(p, x);
-	} else {
-	    return parser_extractor_process_http_server(p, x);
-	}
-	break;
+        if (pi->dir == DIR_CLIENT) {
+            return parser_extractor_process_http(p, x);
+        } else {
+            return parser_extractor_process_http_server(p, x);
+        }
+        break;
     case HTTPS_PORT:
 	if (pi->dir == DIR_CLIENT) {
 	    return parser_extractor_process_tls(p, x);
-	} else {
+	} else if (pi->dir == DIR_SERVER) {
+        /* we have Server Hello and possibly Server Certificate */
 	    return parser_extractor_process_tls_server(p, x);
-	}
+	} else if (pi->dir == DIR_UNKNOWN) {
+        /* we have Server Certificate only */
+	    return parser_extractor_process_tls_server_cert(p, x);
+    }
 	break;
     case SSH_PORT:
-	return parser_extractor_process_ssh(p, x);
-	break;
+        return parser_extractor_process_ssh(p, x);
+        break;
     default:
-	;
+        ;
     }
 
     return 0; /* if we get here, we have nothing to report */
@@ -1875,35 +2148,59 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
 #define L_ip_src_addr       4
 #define L_ip_dst_addr       4
 
-unsigned int parser_extractor_process_ipv4(struct parser *p, size_t *transport_protocol) {
+unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol, struct key *k) {
     size_t version_ihl;
     uint8_t *transport_data;
 
     extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
 
     if (parser_read_uint(p, L_ip_version_ihl, &version_ihl) == status_err) {
-	return 0;
+        return 0;
     }
     if (!(version_ihl & 0x40)) {
-	return 0;  /* version is not IPv4 */
+        return 0;  /* version is not IPv4 */
     }
     version_ihl &= 0x0f;
     if (version_ihl < 5) {
-	return 0;  /* invalid IP header length */
+        return 0;  /* invalid IP header length */
     }
     /*
      * tcp/udp headers are 4 * IHL bytes from start of ip headers
      */
     transport_data = (uint8_t *)p->data + (version_ihl << 2);
-    if (parser_skip(p, L_ip_version_ihl + L_ip_tos + L_ip_total_length + L_ip_identification + L_ip_flags_frag_off + L_ip_ttl) == status_err) {
-	return 0;
+    if (parser_skip(p, L_ip_version_ihl + L_ip_tos) == status_err) {
+        return 0;
     }
-    if (parser_read_uint(p, L_ip_protocol, transport_protocol) == status_err) {
-	return 0;
+    /*
+     *  check ip_total_length field, and trim data from parser if appropriate
+     */
+    size_t ip_total_length;
+    if (parser_read_and_skip_uint(p, L_ip_total_length, &ip_total_length) == status_err) {
+        return 0;
+    }
+    parser_set_data_length(p, ip_total_length - (L_ip_version_ihl + L_ip_tos + L_ip_total_length));
+    if (parser_skip(p, L_ip_identification + L_ip_flags_frag_off + L_ip_ttl) == status_err) {
+        return 0;
+    }
+    if (parser_read_and_skip_uint(p, L_ip_protocol, transport_protocol) == status_err) {
+        return 0;
+    }
+    if (parser_skip(p, L_ip_hdr_cksum) == status_err) {
+        return 0;
+    }
+    size_t src_addr, dst_addr;
+    if (parser_read_and_skip_uint(p, L_ip_src_addr, &src_addr) == status_err) {
+        return 0;
+    }
+    if (parser_read_and_skip_uint(p, L_ip_dst_addr, &dst_addr) == status_err) {
+        return 0;
     }
     if (parser_skip_to(p, transport_data) == status_err) {
-	return 0;
+        return 0;
     }
+    k->ip_vers = 4;
+    k->addr.ipv4.src = src_addr;
+    k->addr.ipv4.dst = dst_addr;
 
     return 0;  /* we don't extract any data, but this is not a failure */
 }
@@ -1974,7 +2271,7 @@ unsigned int parser_extractor_process_ipv4(struct parser *p, size_t *transport_p
 #define L_ipv6_hdr_ext_len           1
 #define L_ipv6_ext_hdr_base          8
 
-unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol) {
+unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol, struct key *k) {
     size_t version_tc_hi;
     size_t payload_length;
     size_t next_header;
@@ -1982,62 +2279,69 @@ unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol) {
     extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
 
     if (parser_read_uint(p, L_ipv6_version_tc_hi, &version_tc_hi) == status_err) {
-	return 0;
+        return 0;
     }
     if (!(version_tc_hi & 0x60)) {
-	return 0;  /* version is not IPv6 */
+        return 0;  /* version is not IPv6 */
     }
     if (parser_skip(p, L_ipv6_version_tc_hi + L_ipv6_tc_lo_flow_label_hi + L_ipv6_flow_label_lo) == status_err) {
-	return 0;
+        return 0;
     }
     if (parser_read_uint(p, L_ipv6_payload_length, &payload_length) == status_err) {
-	return 0;
+        return 0;
     }
     if (parser_skip(p, L_ipv6_payload_length) == status_err) {
-	return 0;
+        return 0;
     }
     /*
      * should we check the payload length here?
      */
     if (parser_read_uint(p, L_ipv6_next_header, &next_header) == status_err) {
-	return 0;
+        return 0;
     }
-    if (parser_skip(p, L_ipv6_next_header + L_ipv6_hop_limit + L_ipv6_source_address + L_ipv6_destination_address) == status_err) {
-	return 0;
+    if (parser_skip(p, L_ipv6_next_header + L_ipv6_hop_limit) == status_err) {
+        return 0;
     }
+    if (parser_read_and_skip_byte_string(p, L_ipv6_source_address, (uint8_t *)&k->addr.ipv6.src) == status_err) {
+        return 0;
+    }
+    if (parser_read_and_skip_byte_string(p, L_ipv6_destination_address, (uint8_t *)&k->addr.ipv6.dst) == status_err) {
+        return 0;
+    }
+    k->ip_vers = 6;
 
     /* loop over extensions headers until we find an upper layer protocol */
     unsigned int not_done = 1;
     while (not_done) {
-	size_t ext_hdr_len;
+        size_t ext_hdr_len;
 
-	switch (next_header) {
-	case IPPROTO_HOPOPTS:
-	case IPPROTO_ROUTING:
-	case IPPROTO_FRAGMENT:
-	case IPPROTO_ESP:
-	case IPPROTO_AH:
-	case IPPROTO_DSTOPTS:
-	    if (parser_read_uint(p, L_ipv6_next_header, &next_header) == status_err) {
-		return 0;
-	    }
-	    if (parser_skip(p, L_ipv6_next_header) == status_err) {
-		return 0;
-	    }
-	    if (parser_read_uint(p, L_ipv6_hdr_ext_len, &ext_hdr_len) == status_err) {
-		return 0;
-	    }
-	    if (parser_skip(p, L_ipv6_ext_hdr_base + ext_hdr_len) == status_err) {
-		return 0;
-	    }
+        switch (next_header) {
+        case IPPROTO_HOPOPTS:
+        case IPPROTO_ROUTING:
+        case IPPROTO_FRAGMENT:
+        case IPPROTO_ESP:
+        case IPPROTO_AH:
+        case IPPROTO_DSTOPTS:
+            if (parser_read_uint(p, L_ipv6_next_header, &next_header) == status_err) {
+                return 0;
+            }
+            if (parser_skip(p, L_ipv6_next_header) == status_err) {
+                return 0;
+            }
+            if (parser_read_uint(p, L_ipv6_hdr_ext_len, &ext_hdr_len) == status_err) {
+                return 0;
+            }
+            if (parser_skip(p, L_ipv6_ext_hdr_base + ext_hdr_len) == status_err) {
+                return 0;
+            }
 
-	    break;
+            break;
 
-	case IPPROTO_NONE:
-	default:
-	    not_done = 0;
-	    break;
-	}
+        case IPPROTO_NONE:
+        default:
+            not_done = 0;
+            break;
+        }
     }
     *transport_protocol = next_header;
 
@@ -2058,13 +2362,13 @@ unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
     *ethertype = ETH_TYPE_NONE;
 
     if (parser_skip(p, ETH_ADDR_LEN * 2) == status_err) {
-	return 0;
+        return 0;
     }
     if (parser_read_uint(p, sizeof(uint16_t), ethertype) == status_err) {
-	return 0;
+        return 0;
     }
     if (parser_skip(p, sizeof(uint16_t)) == status_err) {
-	return 0;
+        return 0;
     }
 
     return 0;  /* we don't extract any data, but this is not a failure */
@@ -2072,57 +2376,170 @@ unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
 
 #include <net/ethernet.h>
 
-unsigned int parser_extractor_process_packet(struct parser *p, struct extractor *x) {
+unsigned int packet_filter_process_packet(struct packet_filter *pf) {
     size_t transport_proto = 0;
     size_t ethertype = 0;
+    struct key k;
 
-    parser_process_eth(p, &ethertype);
+    parser_process_eth(&pf->p, &ethertype);
     switch(ethertype) {
     case ETHERTYPE_IP:
-	parser_extractor_process_ipv4(p, &transport_proto);
-	if (transport_proto == 6) {
-	    return parser_extractor_process_tcp(p, x);
-	}
-	break;
+        parser_process_ipv4(&pf->p, &transport_proto, &k);
+        break;
     case ETHERTYPE_IPV6:
-	parser_process_ipv6(p, &transport_proto);
-	if (transport_proto == 6) {
-	    return parser_extractor_process_tcp(p, x);
-	}
-	break;
+        parser_process_ipv6(&pf->p, &transport_proto, &k);
+        break;
     default:
-	;
+        ;
+    }
+    if (transport_proto == 6) {
+        return packet_filter_process_tcp(pf, &k);
+
+    } else if (transport_proto == 17) {
+        return packet_filter_process_udp(pf, &k);
     }
 
     return 0;
 }
 
-#if 0
+/*
+ * The function parser_process_tcp processes a TCP packet.  The
+ * parser MUST have previously been initialized with its data
+ * pointer set to the initial octet of a TCP header.
+ */
+
+unsigned int parser_process_tcp(struct parser *p) {
+    size_t flags, offrsv;
+    const uint8_t *data = p->data;
+    // size_t init_len = parser_get_data_length(p);
+
+    extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
+
+    if (parser_skip(p, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack) == status_err) {
+        return 0;
+    }
+    if (parser_read_uint(p, L_tcp_offrsv, &offrsv) == status_err) {
+        return 0;
+    }
+    if (parser_skip(p, L_tcp_offrsv) == status_err) {
+        return 0;
+    }
+    if (parser_read_uint(p, L_tcp_flags, &flags) == status_err) {
+        return 0;
+    }
+    if (flags != TCP_SYN) {
+        /*
+         * skip over TCP options, then process the TCP Data payload
+         */
+        if (parser_skip_to(p, data + ((offrsv >> 4) * 4)) == status_err) {
+            return 0;
+        }
+        unsigned char extractor_buffer[2048];
+        struct extractor x;
+        extractor_init(&x, extractor_buffer, 2048);
+        return parser_extractor_process_tcp_data(p, &x);
+
+    } else if (flags == TCP_SYN) {
+        return 100;
+    }
+    return 0;
+}
+
 unsigned int parser_process_packet(struct parser *p) {
     size_t transport_proto = 0;
     size_t ethertype = 0;
+    struct key k;
 
     parser_process_eth(p, &ethertype);
     switch(ethertype) {
     case ETHERTYPE_IP:
-	parser_extractor_process_ipv4(p, &transport_proto);
-	if (transport_proto == 6) {
-	    return parser_process_tcp(p);
-	}
-	break;
+        parser_process_ipv4(p, &transport_proto, &k);
+        break;
     case ETHERTYPE_IPV6:
-	parser_process_ipv6(p, &transport_proto);
-	if (transport_proto == 6) {
-	    return parser_process_tcp(p);
-	}
-	break;
+        parser_process_ipv6(p, &transport_proto, &k);
+        break;
     default:
-	;
+        ;
+    }
+    if (transport_proto == 6) {
+        return parser_process_tcp(p);
     }
 
     return 0;
 }
-#endif
 
 
+/*
+ * struct packet_filter implements a packet metadata filter
+ */
+enum status packet_filter_init(struct packet_filter *pf, const char *config_string) {
 
+    enum status status = proto_ident_config(config_string);
+    if (status) {
+        return status;
+    }
+    if (tcp_message_filter_cutoff) {
+        pf->tcp_init_msg_filter = new tcp_initial_message_filter;
+        pf->tcp_init_msg_filter->tcp_initial_message_filter_init();
+    } else {
+        pf->tcp_init_msg_filter = NULL;
+    }
+    return status_ok;
+}
+
+size_t packet_filter_extract(struct packet_filter *pf, uint8_t *packet, size_t length) {
+
+    extractor_init(&pf->x, pf->extractor_buffer, sizeof(packet_filter::extractor_buffer));
+    parser_init(&pf->p, (unsigned char *)packet, length);
+    return packet_filter_process_packet(pf);
+}
+
+bool packet_filter_apply(struct packet_filter *pf, uint8_t *packet, size_t length) {
+    extern unsigned int packet_filter_threshold;
+
+    size_t bytes_extracted = packet_filter_extract(pf, packet, length);
+    if (bytes_extracted > packet_filter_threshold) {
+        return true;
+    }
+    return false;
+}
+
+/*
+ * configuration for protocol identification
+ */
+
+enum status proto_ident_config(const char *config_string) {
+
+    if (config_string == NULL) {
+        return status_ok;
+    }
+    if (strncmp("all", config_string, sizeof("all")) == 0) {
+        return status_ok;
+    }
+    if (strncmp("http", config_string, sizeof("http")) == 0) {
+        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        select_tcp_syn = 0;
+        return status_ok;
+    }
+    if (strncmp("tls", config_string, sizeof("tls")) == 0) {
+        bzero(http_client_mask, sizeof(http_client_mask));
+        bzero(http_server_mask, sizeof(http_server_mask));
+        select_tcp_syn = 0;
+        return status_ok;
+    }
+    if (strncmp("tcp.message", config_string, sizeof("tcp.message")) == 0) {
+        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        bzero(http_client_mask, sizeof(http_client_mask));
+        bzero(http_server_mask, sizeof(http_server_mask));
+        select_tcp_syn = 0;
+        tcp_message_filter_cutoff = 1;
+        return status_ok;
+    }
+    if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
+        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        bzero(http_client_mask, sizeof(http_client_mask));
+        bzero(http_server_mask, sizeof(http_server_mask));
+        return status_ok;
+    }
+    return status_err;
+}

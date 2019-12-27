@@ -158,39 +158,3 @@ enum status capture_init(struct thread_context *ts, int fanout_group, int buffer
     return status_ok;
 }
 
-enum status capture_loop(struct thread_context *ts) {
-    struct pollfd fds[1] = {{0, 0, 0}};
-    fds[0].fd = ts->sockfd;
-    fds[0].events = POLLIN;
-    size_t frame_idx = 0;
-    uint8_t *frame_ptr = ts->mapped_buffer;
-    frame_handler_func frame_handler = ts->handler.func;
-    union frame_handler_context *frame_handler_context = (union frame_handler_context *)&ts->handler.context;
-    
-    while (1) {
-	struct tpacket_hdr* tphdr = (struct tpacket_hdr*)frame_ptr;
-	while (!(tphdr->tp_status & TP_STATUS_USER)) {
-	    if (poll(fds, 1, -1) == -1) {
-		perror("error in poll");
-		return status_err;
-	    }
-	}
-
-	struct packet_info pi;
-	pi.ts.tv_sec = tphdr->tp_sec;
-	pi.ts.tv_nsec = tphdr->tp_usec * 1000;
-	pi.len = tphdr->tp_len;
-	pi.caplen = tphdr->tp_snaplen;
-	
-	frame_handler(frame_handler_context, &pi, frame_ptr + tphdr->tp_mac);
-	tphdr->tp_status = TP_STATUS_KERNEL;
-
-	frame_idx = (frame_idx + 1) % ts->tp_req.tp_frame_nr;
-	int buffer_idx = frame_idx / ts->frames_per_buffer;
-	uint8_t *buffer_ptr = ts->mapped_buffer + buffer_idx * ts->tp_req.tp_block_size;
-	int frame_idx_diff = frame_idx % ts->frames_per_buffer;
-	frame_ptr = buffer_ptr + frame_idx_diff * ts->tp_req.tp_frame_size;
-    }
-
-}
-

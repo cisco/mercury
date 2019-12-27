@@ -22,7 +22,7 @@ int init_python() {
   
     if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) { 
         printf("\n mutex init has failed\n"); 
-        return 1; 
+        return -1; 
     }
     fp_cache = {};
 
@@ -50,13 +50,13 @@ int init_python() {
     PyRun_SimpleString(buf2);
     if (PyErr_Occurred()) {
         PyErr_Print();
-        return 1;
+        return -1;
     }
 
     import_tls_fingerprint_min();
     if (PyErr_Occurred()) {
         PyErr_Print();
-        return 1;
+        return -1;
     }
 
     main_thread_state = PyThreadState_Get();
@@ -64,7 +64,7 @@ int init_python() {
     PyEval_SaveThread();
     if (PyErr_Occurred()) {
         PyErr_Print();
-        return 1;
+        return -1;
     }
 
     return 0;

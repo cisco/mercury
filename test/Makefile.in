@@ -13,9 +13,41 @@
 #    will be compared to ./tests/foo.fp.  If they are not identical,
 #    then an error will be reported
 
+# definitions for colorized output
+COLOR_RED    = "\033[0;31m"
+COLOR_GREEN  = "\033[0;32m"
+COLOR_YELLOW = "\033[0;33m"
+COLOR_OFF    = "\033[0m"
+
 MERCURY = ../src/mercury
+have_tcpreplay = @TCPREPLAY@
 have_jq = @JQ@
 have_valgrind = @VALGRIND@
+have_py3    = @PYTHON3@
+python      = @PY@
+have_jsonschema = @HAVE_JSONSCHEMA@
+have_afl        = @HAVE_AFL@
+
+# check dependancies to see if any tests need to be omitted
+#
+omitted_test = no
+
+ifeq ($(have_py3),yes)
+ifeq ($(have_jsonschema),yes)
+do_analysis = yes
+do_cert_check = yes
+else
+omitted_test = yes
+endif
+else
+omitted_test = yes
+endif
+
+ifeq ($(have_tcpreplay),yes)
+do_dummy_capture = yes
+else
+omitted_test = yes
+endif
 
 # all test files go in the ./tests subdirectory
 # 
@@ -31,13 +63,20 @@ MCAP_COMP_FILES = $(MCAP_TEST_FILES:%.mcap=%.mcap-comp)
 JSON_TEST_FILES = $(notdir $(wildcard ./data/*.json))
 JSON_COMP_FILES = $(JSON_TEST_FILES:%.json=%.json-comp)
 
+
 .PHONY: all
-all: comp memcheck
-	@echo "passed all tests"
+all: comp analysis cert-check memcheck dummy-capture
+ifeq ($(omitted_test),no)
+	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
+else
+	@echo $(COLOR_GREEN) "passed all tests that could be performed" $(COLOR_OFF)
+	@echo $(COLOR_YELLOW) "warning: some tests could not be performed due to missing dependancies" $(COLOR_OFF)
+	@echo $(COLOR_YELLOW) "please install the missing packages mentioned above and re-run ./configure" $(COLOR_OFF)
+endif
 
 .PHONY: comp
 comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
-	@echo "tested all targets"
+	@echo $(COLOR_GREEN) "passed all test/data target tests" $(COLOR_OFF)
 
 # implicit rule to make a JSON file from a PCAP file
 #
@@ -48,7 +87,7 @@ comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
 #
 %.fp: %.json
 ifneq ($(have_jq),yes)
-	@echo "jq is missing; cannot create .fp file from .json file"
+	@echo $(COLOR_RED) "jq is missing; cannot create .fp file from .json file" $(COLOR_OFF)
 	@/bin/false
 else
 	cat $< | jq .fingerprints.tls | grep -v null | tr -d "\"" > $@
@@ -59,7 +98,7 @@ endif
 %.comp: %.fp
 	@echo "checking file" $< "against expected output" 
 	diff $< ./data/$< 
-	@echo "passed"  # this output only happens if diff returns 0
+	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)  # this output only happens if diff returns 0
 
 # implicit rule to make an MCAP file from a PCAP file
 #
@@ -71,36 +110,107 @@ endif
 %.mcap-comp: %.mcap
 	@echo "checking file" $< "against expected output" 
 	diff $< ./data/$< 
-	@echo "passed" 
+	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)
 
 # implicit rule to compare JSON results
 #
 %.json-comp: %.json
 	@echo "checking file" $< "against expected output" 
 	diff $< ./data/$< 
-	@echo "passed" 
+	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)
 
 # prevent deletion of intermediate files
 #
 #.PRECIOUS: %.fp %.mcap %.json
 
 
+
+.PHONY: analysis
+analysis:
+ifeq ($(do_analysis),yes)
+	@echo "running analysis test"
+	$(MERCURY) -r data/top-https.pcap -f tmp.json -a
+	$(python) json-test.py tmp.json
+	@echo $(COLOR_GREEN) "passed analysis test" $(COLOR_OFF)
+	rm -f tmp.json
+else
+	@echo $(COLOR_YELLOW) "omitting analysis test; python3 or jsonschema unavailable" $(COLOR_OFF)
+endif
+
+.PHONY: cert-check
+cert-check:
+ifeq ($(do_cert_check),yes)
+	@echo "running certificate test"
+	$(MERCURY) -r data/top-https.pcap -f tmp.json
+	$(python) certificate-test.py tmp.json --complete 1 --partial 43
+	@echo $(COLOR_GREEN) "passed top-https certificate test" $(COLOR_OFF)
+	$(MERCURY) -r data/top_100_fingerprints.pcap -f tmp.json
+	$(python) certificate-test.py tmp.json --complete 150 --partial 14
+	@echo $(COLOR_GREEN) "passed top_100_fingerprints certificate test" $(COLOR_OFF)
+	$(MERCURY) -r data/test_decrypt.pcap -f tmp.json
+	$(python) certificate-test.py tmp.json --complete 6 --partial 1
+	@echo $(COLOR_GREEN) "passed test_decrypt certificate test" $(COLOR_OFF)
+	rm -f tmp.json
+else
+	@echo $(COLOR_YELLOW) "omitting certificate test; python3 or jsonschema unavailable" $(COLOR_OFF)
+endif
+
 .PHONY: capture
 capture:
+	@echo "running capture test"
 ifeq ($(IFNAME),)
-	@echo "error: IFNAME unspecified (run as 'make capture IFNAME=wlan0', for instance)"
+	@echo $(COLOR_RED) "error: IFNAME unspecified (run as 'make capture IFNAME=wlan0', for instance)" $(COLOR_OFF)
+	@/bin/false
 else
+ifeq ($(shell id -u),0)
 	$(MERCURY) -c $(IFNAME) -f tmp.json & echo $$! > mercury.PID
 	capture/https-test-driver.sh
-	kill `cat mercury.PID`
-	python json-test.py tmp.json
+	while kill `cat mercury.PID`; do echo "waiting for mercury capture process to halt"; sleep 1; done
+ifeq $((have_jsonschema),yes)
+	$(python) json-test.py tmp.json
+endif
 	rm mercury.PID tmp.json
-	@echo "passed capture test"
+	@echo $(COLOR_GREEN) "passed capture test" $(COLOR_OFF)
+else
+	@echo $(COLOR_RED) "error: capture test must be run as root" $(COLOR_OFF)
+	@/bin/false
+endif
+endif
+
+
+.PHONY: dummy-capture
+dummy-capture:
+ifneq ($(shell id -u),0)
+	@echo $(COLOR_RED) "error: dummy interface capture test must be run as root" $(COLOR_OFF)
+	@/bin/false
+endif
+ifeq ($(do_dummy_capture),yes)
+	@echo "running dummy interface capture test"
+	ip link add dummy0 type dummy || true
+	ip link set dev dummy0 up || true
+ifneq ($(shell ip link show dummy0 2&> /dev/null; echo $$?),0)
+	@echo $(COLOR_RED) "error: network interface dummy0 unavailable (create with 'sudo ip link add dummy0 type dummy', for instance)" $(COLOR_OFF)
+	@/bin/false
+endif
+	rm -f tmp.json
+	$(MERCURY) -c dummy0 -f tmp.json & echo $$! > mercury.PID
+	tcpreplay -t -i dummy0 data/top-https.pcap
+	while kill `cat mercury.PID`; do echo "waiting for mercury dummy capture process to halt"; sleep 1; done
+	bash -c "diff  <( jq . tmp.json | grep -v event_start) <( jq . data/top-https.json | grep -v event_start )"
+ifeq ($(have_jsonschema),yes)
+	$(python) json-test.py tmp.json
+else
+	@echo $(COLOR_YELLOW) "warning: python package jsonschema not available, omitting json-test" $(COLOR_OFF)
+endif
+	rm mercury.PID tmp.json
+	@echo $(COLOR_GREEN) "passed dummy interface capture test" $(COLOR_OFF)
+else
+	@echo $(COLOR_YELLOW) "omitting dummy-capture test; tcpreplay is unavailable" $(COLOR_OFF)
 endif
 
 .PHONY: clean
 clean:
-	rm -rf *.fp *.json *.mcap Makefile~ README.md~ capture/deleteme memcheck.tmp tmp.json mercury.PID
+	rm -rf *.fp *.json *.mcap Makefile~ README.md~ deleteme/* memcheck.tmp tmp.json mercury.PID afl-mercury
 	@echo "cleaned all targets"
 
 .PHONY: distclean
@@ -112,10 +222,44 @@ distclean: clean
 .PHONY: memcheck
 memcheck:
 ifeq ($(have_valgrind),yes)
-	valgrind $(MERCURY) -r data/top-https.pcap -f tmp.json 2> memcheck.tmp
+	@echo "running memcheck with valgrind"
+	valgrind --trace-children=yes --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json -a 2> memcheck.tmp
+	cat memcheck.tmp | grep "definitely lost: 0 bytes in 0 blocks"
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
+	rm -f memcheck.tmp
+	@echo $(COLOR_GREEN) "passed memcheck" $(COLOR_OFF)
 else
-	@echo "valgrind unavailable; cannot perform memcheck"
+	@echo $(COLOR_YELLOW) "valgrind unavailable; cannot perform memcheck" $(COLOR_OFF)
 	@/bin/false
 endif
+
+# consistency test - compares mercury and pmercury output
+#
+FILE = afl_data/corner-cases.pcap
+PMERCURY = ../python/pmercury/pmercury
+.PHONY: consistency
+consistency:
+ifeq ($(wildcard $(PMERCURY)),)
+	@echo $(COLOR_YELLOW) "pmercury unavailable; cannot perform consistency test" $(COLOR_OFF)
+else
+	@echo "running consistency check with pmercury"
+	$(PMERCURY) -r $(FILE) -f p.json
+	$(MERCURY)  -r $(FILE) -f m.json
+	$(python) p-mercury-diff.py -p p.json -m m.json
+endif
+
+# fuzz testing with american fuzzy lop
+#
+FUZZ_CMD = -f tmp.json
+.PHONY: fuzz-test
+fuzz-test:
+ifeq ($(have_afl),yes)
+	@echo "running fuzz test with afl-g++"
+	cd ../src && $(MAKE) clean && $(MAKE) CXX=afl-g++ CC=afl-gcc
+	mv ../src/mercury ./afl-mercury
+	afl-fuzz -i afl_data -o afl_findings ./afl-mercury -r @@ $(FUZZ_CMD)
+else
+	@echo $(COLOR_YELLOW) "afl unavailable; cannot perform fuzz test" $(COLOR_OFF)
+endif
+
 # EOF

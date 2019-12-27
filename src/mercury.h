@@ -47,6 +47,7 @@ struct mercury_config {
     char *write_filename;           /* base name of pcap file to write, if any        */
     char *fingerprint_filename;     /* base name of fingerprint file to write, if any */
     char *capture_interface;        /* base name of interface to capture from, if any */
+    char *working_dir;              /* working directory                              */
     int filter;                     /* indicates that packets should be filtered      */
     int analysis;                   /* indicates that fingerprints should be analyzed */
     int flags;                      /* flags for open()                               */
@@ -58,11 +59,12 @@ struct mercury_config {
     char *user;                     /* username of account used for privilege drop    */
     int loop_count;                 /* loop count for repeat processing of read file  */
     int verbosity;                  /* 0=minimal output; 1=more detailed output       */
+    char *packet_filter_cfg;        /* packet filter configuration string             */
     int use_test_packet;            /* use test packet to write output file           */
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0  }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0  }
 
 enum create_subdir_mode {
     create_subdir_mode_do_not_overwrite = 0,
@@ -78,5 +80,6 @@ enum status filename_append(char dst[MAX_FILENAME],
 
 void get_clocktime_before (struct timespec *before);
 uint64_t get_clocktime_after (struct timespec *before, struct timespec *after);
+
 
 #endif /* MERCURY_H */

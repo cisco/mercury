@@ -1,8 +1,8 @@
 /*
  * proto_identify.h
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 /**
@@ -29,14 +29,14 @@
 #define SSH_PORT          22
 #define DHCP_CLIENT_PORT  67
 #define DHCP_SERVER_PORT  68
+#define DTLS_PORT         99
 
 /**
  * \brief Protocol Inference container
  */
 struct pi_container {
-    uint8_t dir; /**< Flow direction */
+    uint8_t dir;  /**< Flow direction */
     uint16_t app; /**< Application protocol prediction */
-    uint8_t pst; /**< Packet selection & truncation (flag) */
 };
 
 int proto_identify_init(void);

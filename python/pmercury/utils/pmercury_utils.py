@@ -5,11 +5,14 @@
 
 import os
 
-
 def find_resource_path(rel_file_path):
-    p0 = os.path.dirname(os.path.abspath(__file__)) + '/../../../' + rel_file_path
-    p1 = os.path.dirname(os.path.abspath(__file__)) + '/../../' + rel_file_path
-    p2 = os.path.dirname(os.path.abspath(__file__)) + '/../' + rel_file_path
+    t = rel_file_path.split('/')
+    rel_file_path = os.sep.join(t)
+
+    p0 = os.path.dirname(os.path.abspath(__file__)) + os.sep+'..'+ os.sep+'..'+os.sep+'..'+os.sep + rel_file_path
+    p1 = os.path.dirname(os.path.abspath(__file__)) + os.sep+'..'+os.sep+'..'+os.sep + rel_file_path
+    p2 = os.path.dirname(os.path.abspath(__file__)) + os.sep+'..'+os.sep + rel_file_path
+
     if os.path.exists(p0):
         return p0
     elif os.path.exists(p1):
@@ -17,5 +20,5 @@ def find_resource_path(rel_file_path):
     elif os.path.exists(p2):
         return p2
     else:
-        return os.path.dirname(os.path.abspath(__file__)) + '/' + rel_file_path
+        return os.path.dirname(os.path.abspath(__file__)) + os.sep + rel_file_path
 

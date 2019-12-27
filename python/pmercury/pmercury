@@ -7,10 +7,10 @@
 
 import os
 import sys
+import json
 import pcap
 import time
 import optparse
-import ujson as json
 from socket import AF_INET, AF_INET6, inet_ntop
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -20,10 +20,13 @@ from pmercury.utils.packet_proc import pkt_proc
 
 from pmercury.protocols.tcp import TCP
 from pmercury.protocols.tls import TLS
+from pmercury.protocols.dtls import DTLS
 from pmercury.protocols.http import HTTP
 from pmercury.protocols.dhcp import DHCP
 from pmercury.protocols.tls_server import TLS_Server
+from pmercury.protocols.dtls_server import DTLS_Server
 from pmercury.protocols.http_server import HTTP_Server
+from pmercury.protocols.tls_certificate import TLS_Certificate
 
 
 
@@ -61,13 +64,17 @@ class Fingerprinter:
 
         # register parsers
         self.parsers = {}
-        self.parsers['tcp']         = TCP()
-        self.parsers['tls']         = TLS(database)
-        self.parsers['tls_server']  = TLS_Server()
-        self.parsers['http']        = HTTP(None, config)
-        self.parsers['http_server'] = HTTP_Server(None, config)
+        self.parsers['tcp']          = TCP()
+        self.parsers['tls']          = TLS(database)
+        self.parsers['tls_server']   = TLS_Server()
+        self.parsers['dtls']         = DTLS(database)
+        self.parsers['dtls_server']  = DTLS_Server()
+        self.parsers['http']         = HTTP(None, config)
+        self.parsers['http_server']  = HTTP_Server(None, config)
+        self.parsers['server_certs'] = TLS_Certificate()
+        self.parsers['dhcp']         = DHCP(None, config)
 
-        self.parsers['dhcp']        = DHCP(None, config)
+        self.contextual_data = ['tls','http','http_server','dhcp']
 
         self.flow_parsers  = []
         self.experimental = False
@@ -75,17 +82,18 @@ class Fingerprinter:
             self.experimental = True
             from pmercury.protocols.ssh import SSH
             from pmercury.protocols.tls_decrypt import TLS_Decrypt
-            from pmercury.protocols.tls_certificate import TLS_Certificate
-            self.parsers['tls_certificate'] = TLS_Certificate()
+            from pmercury.protocols.tls_certificate_full import TLS_Certificate_Full
+
+            self.parsers['tls_certificate'] = TLS_Certificate_Full()
             self.parsers['ssh'] = SSH()
-            self.flow_parsers.extend([('tls_certificate', TLS_Certificate()), ('ssh', SSH())])
+            self.flow_parsers.extend([('tls_certificate', TLS_Certificate_Full()), ('ssh', SSH())])
             if sslkeylog != None:
                 self.parsers['tls_decrypt'] = TLS_Decrypt(sslkeylog)
                 self.flow_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))
 
         if endpoint == True:
-            from pmercury.utils.endpoint import Endpoint
-            self.endpoint_model = Endpoint()
+            from pmercury.utils.endpoint import Endpoints
+            self.endpoint_model = Endpoints()
 
         # data
         self.flow_cache = {}
@@ -148,21 +156,35 @@ class Fingerprinter:
                 self.write_record(flow)
                 return
 
-            fp_type = next(iter(flow['fingerprints']))
-            if self.human_readable:
-                desc_ = self.parsers[fp_type].get_human_readable(flow['fingerprints'][fp_type])
+            if flow['fingerprints'] != {}:
+                fp_type = next(iter(flow['fingerprints']))
+                if self.human_readable:
+                    desc_ = self.parsers[fp_type].get_human_readable(flow['fingerprints'][fp_type])
+                    if desc_ != None:
+                        if 'readable' not in flow:
+                            flow['readable'] = {}
+                        flow['readable'][fp_type] = desc_
+                    if fp_type == 'tls_server':
+                        if 'tls' in flow and 'server_certs' in flow['tls']:
+                            desc_ = self.parsers['server_certs'].get_human_readable(flow['tls']['server_certs'])
+                            if desc_ != None:
+                                if 'readable' not in flow:
+                                    flow['readable'] = {}
+                                flow['readable']['server_certs'] = desc_
+                if self.analyze:
+                    context = None
+                    if fp_type in flow:
+                        context = flow[fp_type]
+                    proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context,
+                                                                    flow['dst_ip'], flow['dst_port'], self.num_procs)
+                    if proc_info != None:
+                        flow['analysis'] = proc_info
+            elif 'tls' in flow and 'server_certs' in flow['tls']:
+                desc_ = self.parsers['server_certs'].get_human_readable(flow['tls']['server_certs'])
                 if desc_ != None:
                     if 'readable' not in flow:
                         flow['readable'] = {}
-                    flow['readable'][fp_type] = desc_
-            if self.analyze:
-                context = None
-                if fp_type in flow:
-                    context = flow[fp_type]
-                proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context,
-                                                                flow['dst_ip'], flow['dst_port'], self.num_procs)
-                if proc_info != None:
-                    flow['analysis'] = proc_info
+                    flow['readable']['server_certs'] = desc_
 
             if self.group:
                 self.update_flow_cache(flow)
@@ -260,6 +282,41 @@ class Fingerprinter:
             self.write_record(flow)
 
 
+    def process_csv(self, fp_type, fp_str, src_ip, dst_ip, src_port, dst_port, protocol, ts, context):
+        flow = {'src_ip':src_ip,
+                'dst_ip':dst_ip,
+                'src_port':src_port,
+                'dst_port':dst_port,
+                'protocol':protocol,
+                'event_start':ts,
+                'fingerprints':{fp_type: fp_str}}
+
+        if self.human_readable:
+            desc_ = self.parsers[fp_type].get_human_readable(flow['fingerprints'][fp_type])
+            if desc_ != None:
+                if 'readable' not in flow:
+                    flow['readable'] = {}
+                flow['readable'][fp_type] = desc_
+
+        if self.analyze:
+            context = None
+            if fp_type in flow:
+                context = flow[fp_type]
+
+            endpoint = None
+            if self.endpoint:
+                endpoint = self.endpoint_model.get_endpoint(src_ip)
+            proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context, flow['dst_ip'],
+                                                            flow['dst_port'], self.num_procs, endpoint)
+            if proc_info != None:
+                flow['analysis'] = proc_info
+
+        if self.endpoint:
+            self.endpoint_model.update(flow)
+
+        return flow
+
+
     def update_flow_cache(self, flow):
         t_flow_key, t_r_flow_key = self.get_flow_keys(flow)
         if t_flow_key in self.flow_cache:
@@ -283,11 +340,25 @@ class Fingerprinter:
                     self.flow_cache[flow_key][k] = {}
                 for k1 in flow[k]:
                     self.flow_cache[flow_key][k][k1] = flow[k][k1]
-            if 'readable' in flow and k in flow['readable']:
-                packet_fp['readable'] = flow['readable'][k]
             if 'analysis' in flow:
                 packet_fp['analysis'] = flow['analysis']
             self.flow_cache[flow_key]['fingerprints'].append(packet_fp)
+
+        # add contextual data
+        for k in self.contextual_data:
+            if k in flow:
+                if k not in self.flow_cache[flow_key]:
+                    self.flow_cache[flow_key][k] = {}
+                for k1 in flow[k]:
+                    self.flow_cache[flow_key][k][k1] = flow[k][k1]
+
+        if 'readable' in flow:
+            if 'readable' not in self.flow_cache[flow_key]:
+                self.flow_cache[flow_key]['readable'] = {}
+            for k in flow['readable']:
+                self.flow_cache[flow_key]['readable'][k] = flow['readable'][k]
+
+
 
 
     def init_flow_cache(self, flow, flow_key):
@@ -324,8 +395,22 @@ class Fingerprinter:
                 self.write_record(fp_)
 
 
+    def get_database_entry(self, fp_str, fp_type):
+        if not hasattr(self.parsers[fp_type], 'get_database_entry'):
+            return None
+        return self.parsers[fp_type].get_database_entry(fp_str, None)
+
+
     def write_record(self, flow_repr):
-        self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
+        if flow_repr['fingerprints'] == {}:
+            del flow_repr['fingerprints']
+
+        try:
+            self.out_file_pointer.write('%s\n' % json.dumps(flow_repr))
+        except:
+            print('error: flow incorrectly formatted:')
+            print(flow_repr)
+            print()
 
 
     def write_flows(self, active=False):

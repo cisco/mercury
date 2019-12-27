@@ -7,8 +7,8 @@
 
 import os
 import sys
+import json
 import functools
-import ujson as json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -30,11 +30,18 @@ cdef class TCP:
             return
 
         self.fp_db = {}
-        for line in os.popen('zcat %s' % (fp_database)):
-            fp_ = json.loads(line)
-            fp_['str_repr'] = fp_['str_repr'].encode()
 
-            self.fp_db[fp_['str_repr']] = fp_
+        IF UNAME_SYSNAME == "Windows":
+            import gzip
+            for line in gzip.open(fp_database, 'r'):
+                fp_ = json.loads(line)
+                fp_['str_repr'] = fp_['str_repr'].encode()
+                self.fp_db[fp_['str_repr']] = fp_
+        ELSE:
+            for line in os.popen('zcat %s' % (fp_database)):
+                fp_ = json.loads(line)
+                fp_['str_repr'] = fp_['str_repr'].encode()
+                self.fp_db[fp_['str_repr']] = fp_
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)

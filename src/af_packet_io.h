@@ -26,7 +26,6 @@
  */
 struct thread_context {
     // packet_callback_t p_callback; /* The packet callback function */
-    struct frame_handler handler; 
     int tnum;                 /* Thread Number */
     pthread_t tid;            /* Thread ID */
     int sockfd;               /* Socket owned by this thread */

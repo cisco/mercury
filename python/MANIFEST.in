@@ -2,11 +2,13 @@ include ../resources/*
 include ../LICENSE
 include README.md
 include requirements.txt
-include pmercury/utils/packet_proc.c
-include pmercury/utils/tls_utils.c
-include pmercury/protocols/tcp.c
-include pmercury/protocols/tls.c
-include pmercury/protocols/tls_server.c
-include pmercury/protocols/http.c
-include pmercury/protocols/http_server.c
+include pmercury/utils/packet_proc.pyx
+include pmercury/utils/tls_utils.pyx
+include pmercury/protocols/tcp.pyx
+include pmercury/protocols/tls.pyx
+include pmercury/protocols/tls_server.pyx
+include pmercury/protocols/dtls.pyx
+include pmercury/protocols/dtls_server.pyx
+include pmercury/protocols/http.pyx
+include pmercury/protocols/http_server.pyx
 
