@@ -303,7 +303,7 @@ void *stats_thread_func(void *statst_arg) {
 	    "Stats: "
 	    "%7.03f%s Packets/s; Data Rate %7.03f%s bytes/s; "
 	    "Ethernet Rate (est.) %7.03f%s bits/s; "
-	    "Socket Packets %7.03f%s; Socket Drops %lu (packets); Socket Freezes %lu; "
+	    "Socket Packets %7.03f%s; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
 	    "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantanious rbuf %4.1f%%\n",
 	    r_pps, r_pps_s, r_byps, r_byps_s,
 	    r_ebips, r_ebips_s,
@@ -759,7 +759,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   }
 
   if ((uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize < rlp->af_desired_memory) {
-    fprintf(stderr, "Notice: requested memory %lu will be less than desired memory %lu\n",
+    fprintf(stderr, "Notice: requested memory %" PRIu64 " will be less than desired memory %" PRIu64 "\n",
 	    (uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize, rlp->af_desired_memory);
   }
 
