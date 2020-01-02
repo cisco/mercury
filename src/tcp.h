@@ -233,12 +233,12 @@ struct tcp_initial_message_filter {
             if (TCP_IS_SYN(tcp->flags)) {
                 tmp_seq = htonl(ntohl(tcp->seq) + 1);
             }
-            struct tcp_state state = { .seq = tmp_seq,
-                                       .ack = tcp->ack,
-                                       .msg_num = 0,
-                                       .init_seq = tmp_seq,
-                                       .init_ack = tcp->ack,
-                                       .disposition = listening
+            struct tcp_state state = { tmp_seq,  // .seq
+                                       tcp->ack, // .ack
+                                       0,        // .msg_num
+                                       tmp_seq,  // .init_seq
+                                       tcp->ack, // .init_ack
+                                       listening // .disposition
             };
             tcp_flow_table[k] = state;
             retval = ACCEPT_PACKET;
