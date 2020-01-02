@@ -9,12 +9,7 @@ In the root directory, run
 ./configure 
 make
 ```
-to build the package (and check for the required pip3 modules, dpkt ujson numpy pyasn hpack pypcap).  If you do not have **python3**, **cython**, and **pip3** installed, then you either need to install them (using apt, yum, or whatever your preferred package management tool is), or you need to run 
-```
-./configure --disable-python
-make
-```
-With the **--disable-python** flag, the configure script can build mercury in a way that omits the fingerprint analysis module (which is implemented using cython and python3).  Without the analysis module, mercury can still perform fingerprint and metadata capture.  
+to build the package (and check for the programs and python modules required to test it).  TPACKETv3 is present in Linux kernels newer than 3.2.
 
 ### Installation
 In the root directory, edit mercury.cfg with the network interface you want to capture from, then run 
