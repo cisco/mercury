@@ -26,10 +26,10 @@ CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(dat
 
 CXX      = @CXX@
 CFLAGS  = --std=c++11
-CFLAGS += -march=x86-64 -mtune=generic -O2
+CFLAGS += -O2
+# CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
-CFLAGS += -Wno-pedantic       # suppress warnings about non-ISO C++ (uint128_t, ...)
 CFLAGS += $(OPTFLAGS)
 
 MERC   = mercury.c af_packet_io.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c rnd_pkt_drop.c signal_handling.c config.c addr.c
@@ -65,8 +65,8 @@ LIBMERC_OBJ = $(LIBMERC:%.c=%.o)
 # implicit rule for building object files
 #
 %.o: %.c
-	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
-#	$(CXX) $(CFLAGS) -c $<
+#	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
+	$(CXX) $(CFLAGS) -c $<
 
 # rule to build library
 #
