@@ -644,7 +644,7 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
     encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
 
     if (sni_data) {
-        packet_data_set(&x->packet_data, packet_data_type_tls_sni, sni_length, sni_data);
+        packet_data_set(&x->packet_data, packet_data_type_dtls_sni, sni_length, sni_data);
     }
 
     x->proto_state.state = state_done;
