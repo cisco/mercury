@@ -5,7 +5,7 @@ AC_USE_SYSTEM_EXTENSIONS
 #AC_PROG_CC
 AC_PROG_CXX
 AC_CHECK_HEADERS([linux/if_packet.h])
-#AC_CHECK_MEMBER([struct tpacket_req3.tp_snaplen],[],[AC_MSG_FAILURE([Linux AF_PACKET's TPACKET V3 is required, but not available])],[[#include <linux/if_packet.h>]])
+AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[],[AC_MSG_FAILURE([Linux AF_PACKET's TPACKET V3 is required, but not available])],[[#include <linux/if_packet.h>]])
 AC_CHECK_FUNCS([gettimeofday])
 AC_CHECK_FUNCS([memset]) 
 AC_CHECK_FUNCS([mkdir]) 
@@ -46,8 +46,8 @@ AS_IF([test "x$PYTHON3" = xyes],
 AS_IF([test "x$PYTHON3" = xyes],
     [AS_IF([python3 ./package_test.py],
            [AC_SUBST(HAVE_JSONSCHEMA,yes)],
-           [AC_MSG_WARN([python package jsonschema (required for 'make test') not found; install with 'pip3 install jsonschema'])])],
-    [])    
+           [AC_MSG_WARN([python3 package jsonschema not found; test/Makefile will not work, install with 'pip3 install jsonschema'])])],
+    [])
 #AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PIP3,pip3,yes)])
 #AS_IF([test "x$PIP3" = xyes],
 #    [AC_CHECK_HEADERS([pcap.h], [], [AC_MSG_ERROR([pcap.h not found; lipcap-dev seems not to be installed])])])
@@ -60,15 +60,15 @@ AC_CHECK_PROG(VALGRIND,valgrind,yes)
 AC_CHECK_PROG(HAVE_AFL,afl-g++,yes)
 AS_IF([test "x$TCPREPLAY" = xyes],
     [],
-    [AC_MSG_NOTICE([tcpreplay not found; test/Makefile dummy-capture test will not work])])
+    [AC_MSG_WARN([tcpreplay not found; test/Makefile dummy-capture test will not work])])
 AS_IF([test "x$JQ" = xyes],
     [],
-    [AC_MSG_NOTICE([jq not found; test/Makefile comparison test will not work])])
+    [AC_MSG_WARN([jq not found; test/Makefile comparison test will not work])])
 AS_IF([test "x$WGET" = xyes],
     [],
-    [AC_MSG_NOTICE([wget not found; test/capture script will not work])])
+    [AC_MSG_WARN([wget not found; test/capture script will not work])])
 AS_IF([test "x$VALGRIND" = xyes],
     [],
-    [AC_MSG_NOTICE([valgrind not found; test/Makefile memcheck test will not work])])
+    [AC_MSG_WARN([valgrind not found; test/Makefile memcheck test will not work])])
 AC_CONFIG_FILES(src/Makefile test/Makefile resources/Makefile install_mercury/mercury.service)
 AC_OUTPUT
