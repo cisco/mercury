@@ -48,7 +48,7 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 else
 ifneq ($(MERCURY_CFG),)
 	$(INSTALL) -d /etc/mercury
-	$(INSTALLDATA) $(MERCURY_CFG) /etc/mercury
+	$(INSTALLDATA) $(MERCURY_CFG) /etc/mercury/mercury.cfg
 else
 	@echo $(COLOR_RED) "error: you must specify the configuration file; run as 'make install MERCURY_CFG=filename'" $(COLOR_OFF)
 	@echo $(COLOR_RED) "where 'filename' is the configuration file you want to use for this installation.  You can" $(COLOR_OFF)
