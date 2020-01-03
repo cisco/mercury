@@ -77,11 +77,11 @@ struct pkt_proc_json_writer : public pkt_proc {
         }
     }
 
-    void apply(struct packet_info *pi, uint8_t *eth) {
+    void apply(struct packet_info *pi, uint8_t *eth) override {
         json_file_write(&json_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
 
-    void flush() {
+    void flush() override {
         FILE *file_ptr = json_file.file;
         if (file_ptr != NULL) {
             if (fflush(file_ptr) != 0) {
@@ -112,7 +112,7 @@ struct pkt_proc_pcap_writer : public pkt_proc {
         }
     }
 
-    void apply(struct packet_info *pi, uint8_t *eth) {
+    void apply(struct packet_info *pi, uint8_t *eth) override {
         extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
 
         if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
@@ -121,7 +121,7 @@ struct pkt_proc_pcap_writer : public pkt_proc {
         pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
 
-    void flush() {
+    void flush() override {
         FILE *file_ptr = pcap_file.file_ptr;
         if (file_ptr != NULL) {
             if (fflush(file_ptr) != 0) {
@@ -154,7 +154,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
         }
     }
 
-    void apply(struct packet_info *pi, uint8_t *eth) {
+    void apply(struct packet_info *pi, uint8_t *eth) override {
         uint8_t *packet = eth;
         unsigned int length = pi->len;
 
@@ -170,7 +170,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
         }
     }
 
-    void flush() {
+    void flush() override {
         FILE *file_ptr = pcap_file.file_ptr;
         if (file_ptr != NULL) {
             if (fflush(file_ptr) != 0) {
@@ -189,11 +189,11 @@ struct pkt_proc_dumper : public pkt_proc {
 
     pkt_proc_dumper() {}
 
-    void apply(struct packet_info *pi, uint8_t *eth) {
+    void apply(struct packet_info *pi, uint8_t *eth) override {
         packet_fprintf(stdout, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
 
-    void flush() {
+    void flush() override {
     }
 };
 
