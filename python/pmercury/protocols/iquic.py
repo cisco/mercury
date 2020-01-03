@@ -22,8 +22,10 @@ from pmercury.protocols.tls import TLS
 
 
 class IQUIC(Protocol):
-    VERSIONS = set([24])
+    VERSIONS = set([22,23,24])
     QUIC_VERSION_PARAMETERS = {
+        22: {'salt': bytes.fromhex('7fbcdb0e7c66bbe9193a96cd21519ebd7a02644a')},
+        23: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
         24: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
     }
     SAMPLE_SIZE = 16
