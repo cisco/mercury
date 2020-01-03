@@ -20,16 +20,13 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from pmercury.protocols.protocol import Protocol
 from pmercury.protocols.tls import TLS
 
-MAX_CACHED_RESULTS = 2**24
-
-QUIC_VERSION_PARAMETERS = {
-    24: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
-}
-SAMPLE_SIZE = 16
-recv_label, send_label = b'client in', b'server in'
 
 class IQUIC(Protocol):
-    versions = set([24])
+    VERSIONS = set([24])
+    QUIC_VERSION_PARAMETERS = {
+        24: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+    }
+    SAMPLE_SIZE = 16
 
     def __init__(self, fp_database=None, config=None):
         # populate fingerprint databases
@@ -78,10 +75,10 @@ class IQUIC(Protocol):
         data_len = len(data)
         offset = 0
 
-        if data[4] not in IQUIC.versions:
+        if data[4] not in IQUIC.VERSIONS:
             return None
 
-        salt = QUIC_VERSION_PARAMETERS[data[4]]['salt']
+        salt = IQUIC.QUIC_VERSION_PARAMETERS[data[4]]['salt']
 
         offset = 5
         dcid_len = data[offset]
@@ -110,12 +107,14 @@ class IQUIC(Protocol):
 
         hp_encryptor = Cipher(algorithms.AES(hp), mode=modes.ECB(), backend=default_backend()).encryptor()
         buf = bytearray(31)
-        sample = data[offset+4:offset+4+SAMPLE_SIZE]
+        sample = data[offset+4:offset+4+IQUIC.SAMPLE_SIZE]
         hp_encryptor.update_into(sample, buf)
         mask = buf[:5]
 
         data[0] ^= mask[0] & 0x0F
         pn_length = (data[0] & 0x03) + 1
+        if offset+pn_length >= data_len:
+            return None
         for i in range(pn_length):
             data[offset + i] ^= mask[1 + i]
         pn = data[offset:offset + pn_length]
@@ -142,8 +141,19 @@ class IQUIC(Protocol):
             decrypted_data[5] >  0x03):
             return None, None
 
-        quic_version = encrypted_data[1:5].hex()
         fp_, context = TLS.fingerprint(bytes.fromhex('1603030000') + decrypted_data, 0, len(decrypted_data)+5)
+        if fp_ == None:
+            return None, None
+
+        quic_version = encrypted_data[1:5].hex()
 
         return '('+quic_version+')'+fp_, context
+
+
+    def get_human_readable(self, fp_str_):
+        return None
+
+
+    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):
+        return None
 
