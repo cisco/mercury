@@ -131,8 +131,8 @@ gprof:
 	$(CXX) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc 
 
 .PHONY: cppcheck
-cppcheck: $(MERC) $(MERC_H)
-	cppcheck --enable=all --template='{file}:{line}:{severity}:{message}' $(MERC) $(MERC_H)
+cppcheck: $(MERC) $(LIBMERC)
+	cppcheck --language=c++ --std=c++11 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^
 
 .PHONY: test
 test: mercury
