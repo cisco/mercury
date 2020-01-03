@@ -23,6 +23,7 @@ from pmercury.protocols.tls import TLS
 from pmercury.protocols.dtls import DTLS
 from pmercury.protocols.http import HTTP
 from pmercury.protocols.dhcp import DHCP
+from pmercury.protocols.iquic import IQUIC
 from pmercury.protocols.tls_server import TLS_Server
 from pmercury.protocols.dtls_server import DTLS_Server
 from pmercury.protocols.http_server import HTTP_Server
@@ -73,6 +74,7 @@ class Fingerprinter:
         self.parsers['http_server']  = HTTP_Server(None, config)
         self.parsers['server_certs'] = TLS_Certificate()
         self.parsers['dhcp']         = DHCP(None, config)
+        self.parsers['iquic']        = DHCP(None, config)
 
         self.contextual_data = ['tls','http','http_server','dhcp']
 
@@ -123,6 +125,7 @@ class Fingerprinter:
             self.write_flows(active=False)
         if self.endpoint:
             self.endpoint_model.write_all(self.endpoint_file_pointer)
+
 
     def process_capture(self, iface):
         import signal
