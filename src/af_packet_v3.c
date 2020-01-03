@@ -31,7 +31,6 @@
 #include <time.h>
 #include <math.h>
 
-#include "af_packet_io.h"
 #include "af_packet_v3.h"
 #include "signal_handling.h"
 #include "utils.h"

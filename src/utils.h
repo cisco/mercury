@@ -38,3 +38,14 @@ int copy_string_into_buffer(char *dst, size_t dst_len, const char *src, size_t m
 void fprintf_json_base64_string(FILE *file, const unsigned char *data, size_t input_length);
 
 void printf_raw_as_hex(const uint8_t *data, unsigned int len);
+
+/*
+ * get_readable_number_float() provides an imprecise but
+ * human-understandable representation of a (potentially very large)
+ * number, for printing out
+ */
+
+void get_readable_number_float(double power,
+                               double input,
+                               double *num_output,
+                               char **str_output);
