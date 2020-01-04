@@ -30,7 +30,7 @@ lct_subnet_set_from_string(lct_subnet_t *subnet, const char *subnet_string) {
     
     subnet->addr = addr;
     subnet->len = mask_length;
-    subnet->type = IP_SUBNET_BGP;
+    subnet->info.type = IP_SUBNET_BGP;
     subnet->info.bgp.asn = asn;
     return 0;
   }
