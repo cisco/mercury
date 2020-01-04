@@ -177,7 +177,7 @@ void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header 
     }
     //    fprintf(f, "flags: " BYTE_BINARY_FORMAT "\t", UINT8_BINARY(tcp->flags));
     fprintf(f, TCP_FLAGS_FORMAT, TCP_FLAGS_PRINT(tcp->flags));
-    fprintf(f, "seq: %10d ack: %10d ", rel_seq, rel_ack);
+    fprintf(f, "seq: %10u ack: %10u ", rel_seq, rel_ack);
     fprintf(f, "len: %5zu ", data_length);
     // fprintf(f, "len: %5d\tpkt: %5zu\n", tcp_offrsv_get_length(tcp->offrsv), length);
     if (state->disposition == talking) {
