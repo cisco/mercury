@@ -255,8 +255,8 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
     bool max_mal = false;
     bool sec_mal = false;
 
-    long double base_prior = -18.42068;
-    long double prior      =  -4.60517;
+    long double base_prior = -27.63102;
+    long double prior      = -13.81551;
 
     rapidjson::Value proc;
     fp_tc = fp["total_count"].GetInt();
