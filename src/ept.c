@@ -176,10 +176,53 @@ enum iterator_status element_iterator_advance(struct element_iterator *iterator)
     return iterator_status_done; /* should not get here */
 }
 
+void fprintf_string_as_ascii_or_hex(FILE *f, const unsigned char *data, size_t len) {
+    if (string_is_printable(data, len)) {
+        putc('\'', f);
+        for (size_t i=0; i<len; i++) {
+            putc(*data++, f);
+        }
+        putc('\'', f);
+    } else {
+        fprintf_raw_as_hex(f, data, len);
+    }
+}
+
+void fprintf_string_as_ascii(FILE *f, const unsigned char *data, size_t len) {
+    putc('\'', f);
+    for (size_t i=0; i<len; i++) {
+        if (isprint(*data)) {
+            if (*data == '\"' || *data == '"') {
+                putc('\\', f);
+            } else if (*data == '\b') {
+                putc('\\', f);
+                putc('b', f);
+            } else if (*data == '\f') {
+                putc('\\', f);
+                putc('f', f);
+            } else if (*data == '\n') {
+                putc('\\', f);
+                putc('n', f);
+            } else if (*data == '\r') {
+                putc('\\', f);
+                putc('r', f);
+            } else if (*data == '\t') {
+                putc('\\', f);
+                putc('t', f);
+            }
+            putc(*data, f);
+        } else {
+            putc('.', f);  /* suppress nonprintable characters */
+        }
+        ++data;
+    }
+    putc('\'', f);
+}
 
 void element_fprintf(FILE *f, const struct element *e) {
     fprintf(f, "(");
-    fprintf_raw_as_hex(f, e->data, e->length); 
+    fprintf_raw_as_hex(f, e->data, e->length);
+    // fprintf_string_as_ascii_or_hex(f, e->data, e->length);
     fprintf(f, ")");
 }
 
