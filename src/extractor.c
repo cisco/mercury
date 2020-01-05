@@ -18,6 +18,7 @@
 #include "tcp.h"
 #include "pkt_proc.h"
 #include "udp.h"
+#include "match.h"
 
 /*
  * The extractor_debug macro is useful for debugging (but quite verbose)
@@ -119,30 +120,6 @@ struct pi_container http_server = {
     DIR_SERVER,
     HTTP_PORT
 };
-
-unsigned int u32_compare_masked_data_to_value(const void *data,
-                                              const void *mask,
-                                              const void *value) {
-    const uint32_t *d = (const uint32_t *)data;
-    const uint32_t *m = (const uint32_t *)mask;
-    const uint32_t *v = (const uint32_t *)value;
-
-    extractor_debug("%s: data: %x, mask: %x, value: %x\n", __func__, d[0], m[0], v[0]);
-
-    return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
-}
-
-unsigned int u64_compare_masked_data_to_value(const void *data,
-                                              const void *mask,
-                                              const void *value) {
-    const uint64_t *d = (const uint64_t *)data;
-    const uint64_t *m = (const uint64_t *)mask;
-    const uint64_t *v = (const uint64_t *)value;
-
-    extractor_debug("%s: data: %lx, mask: %lx, value: %lx\n", __func__, d[0], m[0], v[0]);
-
-    return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
-}
 
 const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
                                               unsigned int len) {
@@ -608,109 +585,9 @@ unsigned int parser_match(struct parser *p,
 }
 
 /*
- * parser_match_no_advance(x, value, value_len, mask) returns status_ok if
- * (x->data & mask) == value, and returns status_err otherwise
- * It does NOT advance p->data at all.
- */
-unsigned int parser_match_no_advance(struct parser *p,
-                          const unsigned char *value,
-                          size_t value_len,
-                          const unsigned char *mask) {
-
-    if (p->data + value_len <= p->data_end) {
-        unsigned int i;
-
-        if (mask) {
-            for (i = 0; i < value_len; i++) {
-                if ((p->data[i] & mask[i]) != value[i]) {
-                    return status_err;
-                }
-            }
-        } else { /* mask == NULL */
-            for (i = 0; i < value_len; i++) {
-                if (p->data[i] != value[i]) {
-                    return status_err;
-                }
-            }
-        }
-        return status_ok;
-    }
-    return status_err;
-}
-
-/*
- * keyword_matcher performs multiple string matching the
- * straightforward way.  It should be robust and maintainable, and
- * possibly useful for very short keyword lists, but its worst-case
- * and average case performance are not great (linear in the number of
- * keywords).
- *
- * This code will be replaced with a finite automaton keyword matcher
- * in the near future (once that code is tuned, tested, and debugged).
- *
- */
-
-#define keyword_init(s) { s, sizeof(s)-1 }
-
-typedef struct keyword {
-    const char *value;
-    size_t len;
-} keyword_t;
-
-typedef struct keyword_matcher {
-    keyword_t *case_insensitive;
-    keyword_t *case_sensitive;
-} keyword_matcher_t;
-
-#define match_all_keywords NULL
-
-enum status keyword_matcher_check(const keyword_matcher_t *keywords,
-                                  unsigned char *string,
-                                  size_t len) {
-    keyword_t *k;
-    size_t i;
-
-    if (keywords == match_all_keywords) {
-        return status_ok;  /* by convention, NULL pointer corresponds to 'match all keywords' */
-    }
-
-    k = keywords->case_insensitive;
-    while (k->len != 0) {
-        if (len == k->len) {
-            for (i = 0; i < len; i++) {
-                if (tolower(string[i]) != k->value[i]) {
-                    break;
-                }
-            }
-            if (i >= len) {       /* end of string; match found */
-                return status_ok;
-            }
-        }
-        k++;
-    }
-
-    k = keywords->case_sensitive;
-    while (k->len != 0) {
-        if (len == k->len) {
-            for (i = 0; i < len; i++) {
-                if (string[i] != k->value[i]) {
-                    break;
-                }
-            }
-            if (i >= len) {       /* end of string; match found */
-                return status_ok;
-            }
-        }
-        k++;
-    }
-
-    return status_err;
-}
-
-/*
- * extractor_keyword_match_last_capture_lowercase(x, value, value_len) returns
- * status_ok if lower(x->data) == value, and returns status_err
- * otherwise
+ * extractor_keyword_match_last_capture(x, keywords) returns status_ok
+ * if the extractor x's last capture matches a keyword, and returns
+ * status_err if it does not match, or if there was no last capture
  */
 unsigned int extractor_keyword_match_last_capture(struct extractor *x,
                                                   const keyword_matcher_t *keywords) {
@@ -729,19 +606,24 @@ unsigned int extractor_keyword_match_last_capture(struct extractor *x,
     return keyword_matcher_check(keywords, last_capture, last_capture_len);
 }
 
-unsigned int uint16_match(uint16_t x,
-                          const uint16_t *ulist,
-                          unsigned int num) {
-    const uint16_t *ulist_end = ulist + num;
+/*
+ * extractor_delete_last_capture(x) removes the last capture (if any)
+ * from the extractor, returning status_ok to indicate that the
+ * previous capture was deleted, or returning status_err to indicate
+ * that there was no previous capture that could be deleted.  If this
+ * function is called two or more times successively, all invocations
+ * after the first will return status_err, because the extractor does
+ * not remember *all* previous captures, but only the most recent.
+ */
+enum status extractor_delete_last_capture(struct extractor *x) {
 
-    while (ulist < ulist_end) {
-        if (x == *ulist++) {
-            return 1;
-        }
+    if (x->last_capture != NULL) {
+        x->output = x->last_capture;
+        x->last_capture = NULL;
+        return status_ok;
     }
-    return 0;
+    return status_err;
 }
-
 
 /*
  * TCP fingerprinting
@@ -1658,12 +1540,9 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
         keyword_init("user-agent"),
         keyword_init("")
     };
-    keyword_t nil_keyword[1] = {
-        keyword_init("")
-    };
     keyword_matcher_t user_agent_keyword_matcher = {
         user_agent_keyword,
-        nil_keyword
+        NULL
     };
     //unsigned char http_mask[http_value_len] = {
     //  0xff, 0xff, 0xff, 0xff
@@ -1779,59 +1658,77 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
     return extractor_get_output_length(x);
 }
 
-keyword_t http_response_case_insensitive_static_headers[16] = {
-    keyword_init("access-control-allow-headers"),
-    keyword_init("access-control-allow-methods"),
+/*
+ * http server processing
+ */
+
+keyword_t http_server_static_name[] = {
+    keyword_init("AppEx-Activity-Id"),
+    keyword_init("CDNUUID"),
+    keyword_init("CF-RAY"),
+    keyword_init("Content-Range"),
+    keyword_init("Content-Type"),
+    keyword_init("Date"),
+    keyword_init("ETag"),
+    keyword_init("Expires"),
+    keyword_init("FLOW_CONTEXT"),
+    keyword_init("MS-CV"),
+    keyword_init("MSRegion"),
+    keyword_init("MS-RequestId"),
+    keyword_init("request-id"),
+    keyword_init("Vary"),
+    keyword_init("X-Amz-Cf-Pop"),
+    keyword_init("x-amz-request-id"),
+    keyword_init("X-Azure-Ref-OriginShield"),
+    keyword_init("X-Cache"),
+    keyword_init("X-Cache-Hits"),
+    keyword_init("x-ccc"),
+    keyword_init("X-CCC"),
+    keyword_init("X-Diagnostic-S"),
+    keyword_init("X-FEServer"),
+    keyword_init("X-HW"),
+    keyword_init("X-MSEdge-Ref"),
+    keyword_init("X-OCSP-Responder-ID"),
+    keyword_init("X-RequestId"),
+    keyword_init("X-Served-By"),
+    keyword_init("X-Timer"),
+    keyword_init("X-Trace-Context"),
+    keyword_init("")
+};
+
+keyword_t http_server_static_name_and_value[] = {
+    keyword_init("Access-Control-Allow-Credentials"),
+    keyword_init("Access-Control-Allow-Headers"),
+    keyword_init("Access-Control-Allow-Methods"),
+    keyword_init("Access-Control-Expose-Headers"),
+    keyword_init("Cache-control"),
+    keyword_init("Cache-Control"),
     keyword_init("code"),
-    keyword_init("connection"),
-    keyword_init("content-encoding"),
-    keyword_init("pragma"),
+    keyword_init("Connection"),
+    keyword_init("Content-Language"),
+    keyword_init("content-transfer-encoding"),
+    keyword_init("P3P"),
+    keyword_init("Pragma"),
     keyword_init("reason"),
-    keyword_init("referrer-policy"),
-    keyword_init("server"),
-    keyword_init("strict-transport-security"),
-    keyword_init("vary"),
+    keyword_init("Server"),
+    keyword_init("Strict-Transport-Security"),
     keyword_init("version"),
-    keyword_init("x-cache"),
-    keyword_init("x-powered-by"),
-    keyword_init("x-xss-protection"),
+    keyword_init("X-AspNetMvc-Version"),
+    keyword_init("X-AspNet-Version"),
+    keyword_init("x-cid"),
+    keyword_init("X-CID"),
+    keyword_init("x-ms-version"),
+    keyword_init("X-Xss-Protection"),
     keyword_init("")
 };
-keyword_t http_response_case_sensitive_static_headers[3] = {
-    keyword_init("")
+keyword_matcher_t matcher_http_server_static_name_and_value = {
+    http_server_static_name_and_value, /* case insensitive */
+    NULL                               /* case sensitive   */
 };
-keyword_matcher_t http_response_static_header_keywords = {
-    http_response_case_insensitive_static_headers,
-    http_response_case_sensitive_static_headers
+keyword_matcher_t matcher_http_server_static_name = {
+    http_server_static_name,           /* case insensitive */
+    NULL                               /* case sensitive   */
 };
-
-struct parser_spec_http_server {
-    keyword_matcher_t static_header_keywords;
-};
-
-struct parser_spec_http_server parser_spec_http_server_default = {
-    {
-        http_response_case_insensitive_static_headers,
-        http_response_case_sensitive_static_headers
-    }
-};
-
-keyword_t empty_keyword_list[1] = {
-    keyword_init("")
-};
-
-struct parser_spec_http_server parser_spec_http_server_no_headers = {
-    {
-        empty_keyword_list,
-        empty_keyword_list
-    }
-};
-
-#define parser_spec_http_server_all_headers match_all_keywords
-
-// struct parser_spec_http_server *parser_spec_http_server = &parser_spec_http_server_default;
-//struct parser_spec_http_server *parser_spec_http_server = &parser_spec_http_server_no_headers;
-struct parser_spec_http_server *parser_spec_http_server = parser_spec_http_server_all_headers;
 
 unsigned int parser_extractor_process_http_server(struct parser *p, struct extractor *x) {
     unsigned char sp[1] = { ' ' };
@@ -1882,11 +1779,14 @@ unsigned int parser_extractor_process_http_server(struct parser *p, struct extra
         if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
             return extractor_get_output_length(x);
         }
-        if (extractor_keyword_match_last_capture(x, &parser_spec_http_server->static_header_keywords) == status_ok) {
+        if (extractor_keyword_match_last_capture(x, &matcher_http_server_static_name_and_value) == status_ok) {
             if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
                 return extractor_get_output_length(x);
             }
         } else {
+            if (extractor_keyword_match_last_capture(x, &matcher_http_server_static_name) != status_ok) {
+                extractor_delete_last_capture(x);
+            }
             if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
                 return extractor_get_output_length(x);
             }

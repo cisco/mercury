@@ -33,7 +33,7 @@ CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spur
 CFLAGS += $(OPTFLAGS)
 
 MERC   = mercury.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c rnd_pkt_drop.c signal_handling.c config.c addr.c
-MERC_H = af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h rnd_pkt_drop.h signal_handling.h config.h addr.h tcp.h
+MERC_H = af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h rnd_pkt_drop.h signal_handling.h config.h addr.h tcp.h match.h
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
