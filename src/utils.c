@@ -56,7 +56,7 @@ int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
 
 
 int append_strncpy(char *dstr, int *doff, int dlen, int *trunc,
-                   char *sstr) {
+                   const char *sstr) {
 
     /* Check to make sure the offset isn't already longer than the length */
     if (*doff >= dlen) {

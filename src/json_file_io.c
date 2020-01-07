@@ -85,8 +85,19 @@ enum status json_file_init(struct json_file *jf,
 void fprintf_timestamp(FILE *f, unsigned int sec, unsigned int usec) {
 
     fprintf(f, ",\"event_start\":%u.%06u", sec, usec); // not sure why usec has fewer than 6 digits, but appears to work
-
 }
+
+
+int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
+                     struct timespec *ts) {
+
+    int r;
+
+    r = append_snprintf(dstr, doff, dlen, trunc, ",\"event_start\":%u.%06u", ts->tv_sec, ts->tv_nsec / 1000);
+
+    return r;
+}
+
 
 void json_file_write(struct json_file *jf,
                      uint8_t *packet,
@@ -278,8 +289,8 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
                                 "\"fingerprints\":{\"http\":\"");
             r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
                                                 extractor_buffer, bytes_extracted);
-            r += append_putc(dstr, doff, dlen, trunc,
-                             "\"},");
+            r += append_strncpy(dstr, doff, dlen, trunc,
+                                "\"},");
             r += append_snprintf(dstr, doff, dlen, trunc,
                                  "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
             break;
@@ -288,8 +299,8 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
                                 "\"fingerprints\":{\"http_server\":\"");
             r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
                                                 extractor_buffer, bytes_extracted);
-            r += append_putc(dstr, doff, dlen, trunc,
-                             "\"},");
+            r += append_strncpy(dstr, doff, dlen, trunc,
+                                "\"},");
             r += append_snprintf(dstr, doff, dlen, trunc,
                                  "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
             break;
@@ -328,10 +339,10 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
     if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
         r += append_strncpy(dstr, doff, dlen, trunc,
                             "\"http\":{");
-        r += apppend_json_string(dstr, doff, dlen, trunc,
-                                 "user_agent",
-                                 pf.x.packet_data.value,
-                                 pf.x.packet_data.length);
+        r += append_json_string(dstr, doff, dlen, trunc,
+                                "user_agent",
+                                pf.x.packet_data.value,
+                                pf.x.packet_data.length);
         r += append_strncpy(dstr, doff, dlen, trunc,
                             "},");
     }
@@ -375,11 +386,17 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
     struct flow_key key = flow_key_init();
     flow_key_set_from_packet(&key, packet, length);
 
-    fprintf_analysis_from_extractor_and_flow_key(file, &pf.x, &key);
+    r += append_analysis_from_extractor_and_flow_key(dstr, doff, dlen, trunc,
+                                                 &pf.x, &key);
 
-    packet_fprintf_flow_key(file, packet, length);
-    fprintf_timestamp(file, sec, usec);
+    r += append_packet_flow_key(dstr, doff, dlen, trunc,
+                                packet, length);
 
-    fprintf(file, "}\n");
+    r += append_timestamp(dstr, doff, dlen, trunc,
+                          ts);
 
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                                "}\n");
+
+    return r;
 }
