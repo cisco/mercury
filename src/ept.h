@@ -89,6 +89,10 @@ void fprintf_binary_ept_as_tls_json(FILE *f,
 				    const unsigned char *data,
 				    unsigned int len);
 
+int append_binary_ept_as_paren_ept(char *dstr, int *doff, int dlen, int *trunc,
+                                   const unsigned char *data,
+                                   unsigned int length);
+
 size_t sprintf_binary_ept_as_paren_ept(uint8_t *data,
 				       size_t length,
 				       unsigned char *outbuf,

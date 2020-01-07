@@ -25,7 +25,7 @@ int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
                     const char *fmt, ...);
 
 int append_strncpy(char *dstr, int *doff, int dlen, int *trunc,
-                   char *sstr);
+                   const char *sstr);
 
 int append_putc(char *dstr, int *doff, int dlen, int *trunc,
                 char schr);
