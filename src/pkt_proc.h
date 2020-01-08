@@ -78,7 +78,7 @@ struct pkt_proc_json_writer : public pkt_proc {
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) {
-        json_file_write(&json_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+        json_file_write(&json_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
     }
 
     void flush() {
