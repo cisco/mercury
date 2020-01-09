@@ -2,9 +2,9 @@
  * mercury.c
  *
  * main() file for mercury packet metadata capture and analysis tool
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include "utils.h"
@@ -34,43 +34,43 @@
 #define FLAGS_CLOBBER (O_TRUNC)
 
 enum status filename_append(char dst[MAX_FILENAME],
-			    const char *src,
-			    const char *delim,
-			    const char *tail) {
+                            const char *src,
+                            const char *delim,
+                            const char *tail) {
 
-    if (tail) { 
+    if (tail) {
 
-	/*
-	 * filename = directory || '/' || thread_num 
-	 */	
-	if (strnlen(src, MAX_FILENAME) + strlen(tail) + 1 > MAX_FILENAME) {
-	    return status_err; /* filename too long */
-	}
-	strncpy(dst, src, MAX_FILENAME);
-	strcat(dst, delim);
-	strcat(dst, tail);
+        /*
+         * filename = directory || '/' || thread_num
+         */
+        if (strnlen(src, MAX_FILENAME) + strlen(tail) + 1 > MAX_FILENAME) {
+            return status_err; /* filename too long */
+        }
+        strncpy(dst, src, MAX_FILENAME);
+        strcat(dst, delim);
+        strcat(dst, tail);
 
     } else {
 
-	if (strnlen(src, MAX_FILENAME) >= MAX_FILENAME) {
-	    return status_err; /* filename too long */
-	}
-	strncpy(dst, src, MAX_FILENAME); 
-	
+        if (strnlen(src, MAX_FILENAME) >= MAX_FILENAME) {
+            return status_err; /* filename too long */
+        }
+        strncpy(dst, src, MAX_FILENAME);
+
     }
     return status_ok;
 }
 
 void create_subdirectory(const char *outdir,
-			 enum create_subdir_mode mode) {
+                         enum create_subdir_mode mode) {
     printf("creating output directory %s\n", outdir);
     if (mkdir(outdir, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
-	if (errno == EEXIST && mode == create_subdir_mode_overwrite) {
-	    printf("warning: directory %s exists; new data will be written into it\n", outdir);
-	} else {
-	    printf("error %s: could not create directory %s\n", strerror(errno), outdir);
-	    exit(255);
-	}
+        if (errno == EEXIST && mode == create_subdir_mode_overwrite) {
+            printf("warning: directory %s exists; new data will be written into it\n", outdir);
+        } else {
+            printf("error %s: could not create directory %s\n", strerror(errno), outdir);
+            exit(255);
+        }
     }
 }
 
@@ -89,14 +89,14 @@ struct pcap_reader_thread_context {
 };
 
 enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_thread_context *tc,
-							struct mercury_config *cfg,
-							int tnum,
-							char *fileset_id) {
+                                                        struct mercury_config *cfg,
+                                                        int tnum,
+                                                        char *fileset_id) {
     char input_filename[MAX_FILENAME];
     tc->tnum = tnum;
 	tc->loop_count = cfg->loop_count;
     enum status status;
-    
+
     tc->pkt_processor = pkt_proc_new_from_config(cfg, tnum, fileset_id);
     if (tc->pkt_processor == NULL) {
         printf("error: could not initialize frame handler\n");
@@ -111,8 +111,8 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
         }
         status = pcap_file_open(&tc->rf, input_filename, io_direction_reader, cfg->flags);
         if (status) {
-	    printf("%s: could not open pcap input file %s\n", strerror(errno), cfg->read_filename);
-	    return status;
+            printf("%s: could not open pcap input file %s\n", strerror(errno), cfg->read_filename);
+            return status;
         }
     }
     return status_ok;
@@ -121,13 +121,13 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
 void *pcap_file_processing_thread_func(void *userdata) {
     struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
     enum status status;
-    
+
     status = pcap_file_dispatch_pkt_processor(&tc->rf, tc->pkt_processor, tc->loop_count);
     if (status) {
-	printf("error in pcap file dispatch (code: %d)\n", (int)status);
-	return NULL;
+        printf("error in pcap file dispatch (code: %d)\n", (int)status);
+        return NULL;
     }
-    
+
     return NULL;
 }
 
@@ -142,7 +142,7 @@ inline void get_clocktime_before (struct timespec *before) {
 }
 
 inline uint64_t get_clocktime_after (struct timespec *before,
-                                            struct timespec *after) {
+                                     struct timespec *after) {
     uint64_t nano_sec = 0;
     if (clock_gettime(CLOCK_REALTIME, after) != 0) {
         perror("error: could not get clock time after fwrite file header\n");
@@ -165,118 +165,118 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
     get_clocktime_before(&before); // get timestamp before we start processing
 
     if (cfg->read_filename && stat(cfg->read_filename, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
-	DIR *dir = opendir(cfg->read_filename);
-	struct dirent *dirent;
+        DIR *dir = opendir(cfg->read_filename);
+        struct dirent *dirent;
 
-	/*
-	 * read_filename is a directory containing capture files created by separate threads
-	 */
+        /*
+         * read_filename is a directory containing capture files created by separate threads
+         */
 
-	/*
-	 * count number of files in fileset
-	 */
-	int num_files = 0;
-	while ((dirent = readdir(dir)) != NULL) {
-		
-	    char input_filename[MAX_FILENAME];
-	    filename_append(input_filename, cfg->read_filename, "/", dirent->d_name);
-	    if (stat(input_filename, &statbuf) == 0) {
-		if (S_ISREG(statbuf.st_mode)) {
-		    
-		    num_files++;
-		}
-	    } 
-	}
-	    
-	/*
-	 * set up thread contexts
-	 */
-	struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)malloc(num_files * sizeof(struct pcap_reader_thread_context));
-	if (!tc) {
-	    perror("could not allocate memory for thread storage array\n");
-	}
+        /*
+         * count number of files in fileset
+         */
+        int num_files = 0;
+        while ((dirent = readdir(dir)) != NULL) {
 
-	char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
-	if (outdir) {
-	    /*
-	     * create subdirectory into which each thread will write its output
-	     */
-	    create_subdirectory(outdir, create_subdir_mode_do_not_overwrite);
-	}
+            char input_filename[MAX_FILENAME];
+            filename_append(input_filename, cfg->read_filename, "/", dirent->d_name);
+            if (stat(input_filename, &statbuf) == 0) {
+                if (S_ISREG(statbuf.st_mode)) {
 
-	/*
-	 * loop over all files in directory
-	 */
-	rewinddir(dir);
-	int tnum = 0;
-	while ((dirent = readdir(dir)) != NULL) {
-		
-	    char input_filename[MAX_FILENAME];
-	    filename_append(input_filename, cfg->read_filename, "/", dirent->d_name);
-	    if (stat(input_filename, &statbuf) == 0) {
-		if (S_ISREG(statbuf.st_mode)) {
-		    
-		    status = pcap_reader_thread_context_init_from_config(&tc[tnum], cfg, tnum, dirent->d_name);
-		    if (status) {
-			perror("could not initialize pcap reader thread context");
-			return status;
-		    }
+                    num_files++;
+                }
+            }
+        }
 
-		    int err = pthread_create(&(tc[tnum].tid), NULL, pcap_file_processing_thread_func, &tc[tnum]);
-		    tnum++;
-		    if (err) {
-			printf("%s: error creating file reader thread\n", strerror(err));
-			exit(255);
-		    }
+        /*
+         * set up thread contexts
+         */
+        struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)malloc(num_files * sizeof(struct pcap_reader_thread_context));
+        if (!tc) {
+            perror("could not allocate memory for thread storage array\n");
+        }
 
-		}
+        char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
+        if (outdir) {
+            /*
+             * create subdirectory into which each thread will write its output
+             */
+            create_subdirectory(outdir, create_subdir_mode_do_not_overwrite);
+        }
 
-	    } else {
-		perror("stat");
-	    }
+        /*
+         * loop over all files in directory
+         */
+        rewinddir(dir);
+        int tnum = 0;
+        while ((dirent = readdir(dir)) != NULL) {
 
-	}
+            char input_filename[MAX_FILENAME];
+            filename_append(input_filename, cfg->read_filename, "/", dirent->d_name);
+            if (stat(input_filename, &statbuf) == 0) {
+                if (S_ISREG(statbuf.st_mode)) {
 
-	if (tnum != num_files) {
-	    printf("warning: num_files (%d) != tnum (%d)\n", num_files, tnum);
-	}
+                    status = pcap_reader_thread_context_init_from_config(&tc[tnum], cfg, tnum, dirent->d_name);
+                    if (status) {
+                        perror("could not initialize pcap reader thread context");
+                        return status;
+                    }
 
-	for (int i = 0; i < tnum; i++) {
-	    pthread_join(tc[i].tid, NULL);
-        //        struct pkt_proc_stats pkt_stats = tc[i].pkt_processor->get_stats();
-	    bytes_written += tc[i].pkt_processor->bytes_written;
-	    packets_written += tc[i].pkt_processor->packets_written;
-        delete tc[i].pkt_processor;
-	}
+                    int err = pthread_create(&(tc[tnum].tid), NULL, pcap_file_processing_thread_func, &tc[tnum]);
+                    tnum++;
+                    if (err) {
+                        printf("%s: error creating file reader thread\n", strerror(err));
+                        exit(255);
+                    }
+
+                }
+
+            } else {
+                perror("stat");
+            }
+
+        }
+
+        if (tnum != num_files) {
+            printf("warning: num_files (%d) != tnum (%d)\n", num_files, tnum);
+        }
+
+        for (int i = 0; i < tnum; i++) {
+            pthread_join(tc[i].tid, NULL);
+            //        struct pkt_proc_stats pkt_stats = tc[i].pkt_processor->get_stats();
+            bytes_written += tc[i].pkt_processor->bytes_written;
+            packets_written += tc[i].pkt_processor->packets_written;
+            delete tc[i].pkt_processor;
+        }
 
     } else {
 
-	/*
-	 * we have a single capture file, not a directory of capture files
-	 */
+        /*
+         * we have a single capture file, not a directory of capture files
+         */
         struct pcap_reader_thread_context tc;
-	    
-	enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
-	if (status != status_ok) {
-	    return status;
-	}
 
-	pcap_file_processing_thread_func(&tc);
-    //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
-	bytes_written = tc.pkt_processor->bytes_written;
-	packets_written = tc.pkt_processor->packets_written;
-    pcap_file_close(&(tc.rf));
-    delete tc.pkt_processor;
+        enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
+        if (status != status_ok) {
+            return status;
+        }
+
+        pcap_file_processing_thread_func(&tc);
+        //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
+        bytes_written = tc.pkt_processor->bytes_written;
+        packets_written = tc.pkt_processor->packets_written;
+        pcap_file_close(&(tc.rf));
+        delete tc.pkt_processor;
     }
 
     nano_seconds = get_clocktime_after(&before, &after);
     double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
 
     if (cfg->write_filename && cfg->verbosity) {
-	printf("For all files, packets written: %" PRIu64 ", bytes written: %" PRIu64 ", nano sec: %" PRIu64 ", bytes per second: %.4e\n",
-	       packets_written, bytes_written, nano_seconds, byte_rate);
+        printf("For all files, packets written: %" PRIu64 ", bytes written: %" PRIu64 ", nano sec: %" PRIu64 ", bytes per second: %.4e\n",
+               packets_written, bytes_written, nano_seconds, byte_rate);
     }
-    
+
     return status_ok;
 }
 
@@ -306,7 +306,7 @@ char mercury_help[] =
     "   [-l or --limit] l                     # rotate JSON files after l records\n"
     "   [-v or --verbose]                     # additional information sent to stdout\n"
     "   [-p or --loop] loop_count             # loop count >= 1 for the read_file\n"
-//  "   [--adaptive]                          # adaptively accept or skip packets for pcap file\n"
+    //  "   [--adaptive]                          # adaptively accept or skip packets for pcap file\n"
     "   [-h or --help]                        # extended help, with examples\n";
 
 char mercury_extended_help[] =
@@ -365,11 +365,11 @@ enum extended_help {
 
 void usage(const char *progname, const char *err_string, enum extended_help extended_help) {
     if (err_string) {
-	printf("error: %s\n", err_string);
+        printf("error: %s\n", err_string);
     }
     printf(mercury_help, progname);
     if (extended_help) {
-	printf("%s", mercury_extended_help);
+        printf("%s", mercury_extended_help);
     }
     exit(EXIT_ERR);
 }
@@ -380,216 +380,216 @@ int main(int argc, char *argv[]) {
     int num_inputs = 0;  // we need to have one and only one input
 
     while(1) {
-	int opt_idx = 0;
-	static struct option long_opts[] = {
-	    { "config",      required_argument, NULL, 1   },
-	    { "read",        required_argument, NULL, 'r' },
-	    { "write",       required_argument, NULL, 'w' },
-	    { "directory",   required_argument, NULL, 'd' },
-	    { "capture",     required_argument, NULL, 'c' },
-	    { "fingerprint", required_argument, NULL, 'f' },
-	    { "analysis",    no_argument,       NULL, 'a' },
-	    { "threads",     required_argument, NULL, 't' },
-	    { "buffer",      required_argument, NULL, 'b' },
-	    { "limit",       required_argument, NULL, 'l' },
-	    { "user",        required_argument, NULL, 'u' },
-	    { "multiple",    required_argument, NULL, 'm' },
-	    { "help",        no_argument,       NULL, 'h' },
-	    { "select",      optional_argument, NULL, 's' },
-	    { "verbose",     no_argument,       NULL, 'v' },
-	    { "loop",        required_argument, NULL, 'p' },
-	    { "adaptive",    no_argument,       NULL,  0  },
-	    { NULL,          0,                 0,     0  }
-	};
-	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
-	if (c < 0) {
-	    break;
-	}
-	switch(c) {
-	case 1:
-	    if (optarg) {
-            mercury_config_read_from_file(&cfg, optarg);
-            num_inputs++;
-	    } else {
-            usage(argv[0], "error: option config requires filename argument", extended_help_off);
-	    }
-	    break;
-	case 'r':
-	    if (optarg) {
-		cfg.read_filename = optarg;
-		num_inputs++;
-	    } else {
-		usage(argv[0], "error: option r or read requires filename argument", extended_help_off);
-	    }
-	    break;
-	case 'w':
-	    if (optarg) {
-		cfg.write_filename = optarg;
-	    } else {
-		usage(argv[0], "error: option w or write requires filename argument", extended_help_off);
-	    }
-	    break;
-	case 'd':
-	    if (optarg) {
-            cfg.working_dir = optarg;
-            num_inputs++;
-	    } else {
-            usage(argv[0], "error: option d or directory requires working directory argument", extended_help_off);
-	    }
-	    break;
-	case 'c':
-	    if (optarg) {
-		cfg.capture_interface = optarg;
-		num_inputs++;
-	    } else {
-		usage(argv[0], "error: option c or capture requires interface argument", extended_help_off);
-	    }
-	    break;
-	case 'f':
-	    if (optarg) {
-		cfg.fingerprint_filename = optarg;
-	    } else {
-		usage(argv[0], "error: option f or fingerprint requires filename argument", extended_help_off);
-	    }
-	    break;
-	case 'a':
-	    if (optarg) {
-		usage(argv[0], "error: option a or analysis does not use an argument", extended_help_off);
-	    } else {
-		cfg.analysis = analysis_on;
-	    }
-	    break;
-	case 'o':
-	    if (optarg) {
-		usage(argv[0], "error: option o or overwrite does not use an argument", extended_help_off);
-	    } else {
-		/*
-		 * remove 'exclusive' and add 'truncate' flags, to cause file writes to overwrite files if need be
-		 */
-		cfg.flags = FLAGS_CLOBBER;
-		/*
-		 * set file mode similarly
-		 */
-		cfg.mode = (char *)"w";
-	    }
-	    break;
-	case 's':
-	    if (optarg) {
-		if (optarg[0] != '=' || optarg[1] == 0) {
-		    usage(argv[0], "error: option s or select has the form s=\"packet filter config string\"", extended_help_off);
-		}
-		cfg.packet_filter_cfg = optarg+1;
-	    } 
-	    cfg.filter = 1;
-	    break;
-	case 'h':
-	    if (optarg) {
-		usage(argv[0], "error: option h or help does not use an argument", extended_help_on);
-	    } else {
-		printf("mercury: packet metadata capture and analysis\n"); 
-		usage(argv[0], NULL, extended_help_on);
-	    }
-	    break;
-	case 'T':
-	    if (optarg) {
-		usage(argv[0], "error: option T or test does not use an argument", extended_help_off);
-	    } else {
-		cfg.use_test_packet = 1;
-		num_inputs++;
-	    }
-	    break;
-	case 't':
-	    if (optarg) {
-		if (strcmp(optarg, "cpu") == 0) {
-		    cfg.num_threads = -1; /* create as many threads as there are cpus */
-		    break;
-		}
-		errno = 0;
-		cfg.num_threads = strtol(optarg, NULL, 10);
-		if (errno) {
-		    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
-		}
-	    } else {
-		usage(argv[0], "error: option t or threads requires a numeric argument", extended_help_off);
-	    }
-	    break;
-	case 'l':
-	    if (optarg) {
-		errno = 0;
-		cfg.rotate = strtol(optarg, NULL, 10);
-		if (errno) {
-		    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
-		}
-	    } else {
-		usage(argv[0], "error: option l or limit requires a numeric argument", extended_help_off);
-	    }
-	    break;
-	case 'p':
-	    if (optarg) {
-		errno = 0;
-		cfg.loop_count = strtol(optarg, NULL, 10);
-		if (errno) {
-		    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
-		}
-	    } else {
-		usage(argv[0], "error: option p or loop requires a numeric argument", extended_help_off);
-	    }
-	    break;
-	case 0:
-	    /* The option --adaptive to adaptively accept or skip packets for PCAP file. */
-	    if (optarg) {
-		usage(argv[0], "error: option --adaptive does not use an argument", extended_help_off);
-	    } else {
-		cfg.adaptive = 1;
-	    }
-	    break;
-	case 'u':
-	    if (optarg) {
-		errno = 0;
-		cfg.user = optarg;
-	    } else {
-		usage(argv[0], "error: option u or user requires an argument", extended_help_off);
-	    }
-	    break;
-	case 'b':
-	    if (optarg) {
-		errno = 0;
-		cfg.buffer_fraction = strtof(optarg, NULL);
-		if (errno) {
-		    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
-		    usage(argv[0], NULL, extended_help_off);
-		}
-		if (cfg.buffer_fraction < 0.0 || cfg.buffer_fraction > 1.0 ) {
-		    usage(argv[0], "buffer fraction must be between 0.0 and 1.0 inclusive", extended_help_off);
-		}
-	    } else {
-		usage(argv[0], "option b or buffer requires a numeric argument", extended_help_off);
-	    }
-	    break;
-	case 'v':
-	    if (optarg) {
-		usage(argv[0], "error: option v or verbose does not use an argument", extended_help_off);
-	    } else {
-		cfg.verbosity = 1;
-	    }
-	    break;
-	case '?':
-	default:
-	    usage(argv[0], NULL, extended_help_off);
-	}
+        int opt_idx = 0;
+        static struct option long_opts[] = {
+            { "config",      required_argument, NULL, 1   },
+            { "read",        required_argument, NULL, 'r' },
+            { "write",       required_argument, NULL, 'w' },
+            { "directory",   required_argument, NULL, 'd' },
+            { "capture",     required_argument, NULL, 'c' },
+            { "fingerprint", required_argument, NULL, 'f' },
+            { "analysis",    no_argument,       NULL, 'a' },
+            { "threads",     required_argument, NULL, 't' },
+            { "buffer",      required_argument, NULL, 'b' },
+            { "limit",       required_argument, NULL, 'l' },
+            { "user",        required_argument, NULL, 'u' },
+            { "multiple",    required_argument, NULL, 'm' },
+            { "help",        no_argument,       NULL, 'h' },
+            { "select",      optional_argument, NULL, 's' },
+            { "verbose",     no_argument,       NULL, 'v' },
+            { "loop",        required_argument, NULL, 'p' },
+            { "adaptive",    no_argument,       NULL,  0  },
+            { NULL,          0,                 0,     0  }
+        };
+        c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
+        if (c < 0) {
+            break;
+        }
+        switch(c) {
+        case 1:
+            if (optarg) {
+                mercury_config_read_from_file(&cfg, optarg);
+                num_inputs++;
+            } else {
+                usage(argv[0], "error: option config requires filename argument", extended_help_off);
+            }
+            break;
+        case 'r':
+            if (optarg) {
+                cfg.read_filename = optarg;
+                num_inputs++;
+            } else {
+                usage(argv[0], "error: option r or read requires filename argument", extended_help_off);
+            }
+            break;
+        case 'w':
+            if (optarg) {
+                cfg.write_filename = optarg;
+            } else {
+                usage(argv[0], "error: option w or write requires filename argument", extended_help_off);
+            }
+            break;
+        case 'd':
+            if (optarg) {
+                cfg.working_dir = optarg;
+                num_inputs++;
+            } else {
+                usage(argv[0], "error: option d or directory requires working directory argument", extended_help_off);
+            }
+            break;
+        case 'c':
+            if (optarg) {
+                cfg.capture_interface = optarg;
+                num_inputs++;
+            } else {
+                usage(argv[0], "error: option c or capture requires interface argument", extended_help_off);
+            }
+            break;
+        case 'f':
+            if (optarg) {
+                cfg.fingerprint_filename = optarg;
+            } else {
+                usage(argv[0], "error: option f or fingerprint requires filename argument", extended_help_off);
+            }
+            break;
+        case 'a':
+            if (optarg) {
+                usage(argv[0], "error: option a or analysis does not use an argument", extended_help_off);
+            } else {
+                cfg.analysis = analysis_on;
+            }
+            break;
+        case 'o':
+            if (optarg) {
+                usage(argv[0], "error: option o or overwrite does not use an argument", extended_help_off);
+            } else {
+                /*
+                 * remove 'exclusive' and add 'truncate' flags, to cause file writes to overwrite files if need be
+                 */
+                cfg.flags = FLAGS_CLOBBER;
+                /*
+                 * set file mode similarly
+                 */
+                cfg.mode = (char *)"w";
+            }
+            break;
+        case 's':
+            if (optarg) {
+                if (optarg[0] != '=' || optarg[1] == 0) {
+                    usage(argv[0], "error: option s or select has the form s=\"packet filter config string\"", extended_help_off);
+                }
+                cfg.packet_filter_cfg = optarg+1;
+            }
+            cfg.filter = 1;
+            break;
+        case 'h':
+            if (optarg) {
+                usage(argv[0], "error: option h or help does not use an argument", extended_help_on);
+            } else {
+                printf("mercury: packet metadata capture and analysis\n");
+                usage(argv[0], NULL, extended_help_on);
+            }
+            break;
+        case 'T':
+            if (optarg) {
+                usage(argv[0], "error: option T or test does not use an argument", extended_help_off);
+            } else {
+                cfg.use_test_packet = 1;
+                num_inputs++;
+            }
+            break;
+        case 't':
+            if (optarg) {
+                if (strcmp(optarg, "cpu") == 0) {
+                    cfg.num_threads = -1; /* create as many threads as there are cpus */
+                    break;
+                }
+                errno = 0;
+                cfg.num_threads = strtol(optarg, NULL, 10);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                }
+            } else {
+                usage(argv[0], "error: option t or threads requires a numeric argument", extended_help_off);
+            }
+            break;
+        case 'l':
+            if (optarg) {
+                errno = 0;
+                cfg.rotate = strtol(optarg, NULL, 10);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                }
+            } else {
+                usage(argv[0], "error: option l or limit requires a numeric argument", extended_help_off);
+            }
+            break;
+        case 'p':
+            if (optarg) {
+                errno = 0;
+                cfg.loop_count = strtol(optarg, NULL, 10);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                }
+            } else {
+                usage(argv[0], "error: option p or loop requires a numeric argument", extended_help_off);
+            }
+            break;
+        case 0:
+            /* The option --adaptive to adaptively accept or skip packets for PCAP file. */
+            if (optarg) {
+                usage(argv[0], "error: option --adaptive does not use an argument", extended_help_off);
+            } else {
+                cfg.adaptive = 1;
+            }
+            break;
+        case 'u':
+            if (optarg) {
+                errno = 0;
+                cfg.user = optarg;
+            } else {
+                usage(argv[0], "error: option u or user requires an argument", extended_help_off);
+            }
+            break;
+        case 'b':
+            if (optarg) {
+                errno = 0;
+                cfg.buffer_fraction = strtof(optarg, NULL);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                    usage(argv[0], NULL, extended_help_off);
+                }
+                if (cfg.buffer_fraction < 0.0 || cfg.buffer_fraction > 1.0 ) {
+                    usage(argv[0], "buffer fraction must be between 0.0 and 1.0 inclusive", extended_help_off);
+                }
+            } else {
+                usage(argv[0], "option b or buffer requires a numeric argument", extended_help_off);
+            }
+            break;
+        case 'v':
+            if (optarg) {
+                usage(argv[0], "error: option v or verbose does not use an argument", extended_help_off);
+            } else {
+                cfg.verbosity = 1;
+            }
+            break;
+        case '?':
+        default:
+            usage(argv[0], NULL, extended_help_off);
+        }
     }
 
     if (num_inputs == 0) {
-	usage(argv[0], "neither read [r] nor capture [c] specified on command line", extended_help_off);
+        usage(argv[0], "neither read [r] nor capture [c] specified on command line", extended_help_off);
     }
     if (num_inputs > 1) {
-	usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
+        usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
-	usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
+        usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
     }
     if (cfg.num_threads != 1 && cfg.fingerprint_filename == NULL && cfg.write_filename == NULL) {
-	usage(argv[0], "multiple threads [t] requested, but neither fingerprint [f] no write [w] specified on command line", extended_help_off);
+        usage(argv[0], "multiple threads [t] requested, but neither fingerprint [f] no write [w] specified on command line", extended_help_off);
     }
 
     if (cfg.analysis) {
@@ -604,16 +604,16 @@ int main(int argc, char *argv[]) {
      * loop_count == 1 ==> default condition
      */
     if (cfg.loop_count < 1) {
-	usage(argv[0], "Invalid loop count, it should be >= 1", extended_help_off);
+        usage(argv[0], "Invalid loop count, it should be >= 1", extended_help_off);
     } else if (cfg.loop_count > 1) {
-	printf("Loop count: %d\n", cfg.loop_count);
+        printf("Loop count: %d\n", cfg.loop_count);
     }
 
     /* The option --adaptive works only with -w PCAP file option and -c capture interface */
     if (cfg.adaptive > 0) {
         if (cfg.write_filename == NULL || cfg.capture_interface == NULL) {
             usage(argv[0], "The option --adaptive requires options -c capture interface and -w pcap file.", extended_help_off);
-	} else {
+        } else {
             set_percent_accept(30); /* set starting percentage */
         }
     }
@@ -626,40 +626,40 @@ int main(int argc, char *argv[]) {
     }
 
     /* process packets */
-    
+
 #ifndef USE_FANOUT
 #warning "TPACKET V3 unavailable; compiling for single-threaded use only"
     printf("error: multithreading not available; the --thread option must be omitted\n");
 #endif
-	
+
     int num_cpus = get_nprocs();  // would get_nprocs_conf() be more appropriate?
     if (cfg.num_threads == -1) {
-	cfg.num_threads = num_cpus;
-	printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
+        cfg.num_threads = num_cpus;
+        printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
     }
-    
+
     /* init random number generator */
     srand(time(0));
 
     if (cfg.capture_interface) {
-	struct ring_limits rl;
+        struct ring_limits rl;
 
-	if (cfg.verbosity) {
-	    printf("initializing interface %s\n", cfg.capture_interface);
-	}
-	ring_limits_init(&rl, cfg.buffer_fraction);
-	
-	af_packet_bind_and_dispatch(&cfg, &rl);
-	
+        if (cfg.verbosity) {
+            printf("initializing interface %s\n", cfg.capture_interface);
+        }
+        ring_limits_init(&rl, cfg.buffer_fraction);
+
+        af_packet_bind_and_dispatch(&cfg, &rl);
+
     } else if (cfg.read_filename) {
 
-	open_and_dispatch(&cfg);
-	
+        open_and_dispatch(&cfg);
+
     }
 
     if (cfg.analysis) {
         analysis_finalize();
     }
-    
+
     return 0;
 }
