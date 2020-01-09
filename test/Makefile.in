@@ -166,7 +166,7 @@ ifeq ($(shell id -u),0)
 	$(MERCURY) -c $(IFNAME) -f tmp.json & echo $$! > mercury.PID
 	capture/https-test-driver.sh
 	while kill `cat mercury.PID`; do echo "waiting for mercury capture process to halt"; sleep 1; done
-ifeq $((have_jsonschema),yes)
+ifeq ($(have_jsonschema),yes)
 	$(python) json-test.py tmp.json
 endif
 	rm mercury.PID tmp.json
