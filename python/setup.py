@@ -30,7 +30,7 @@ ext_modules = [
 
 setuptools.setup(
     name='pmercury',
-    version='0.4.0.14',
+    version='0.4.1.14',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -53,7 +53,7 @@ setuptools.setup(
         'pypcap',
     ],
     scripts=['pmercury/pmercury'],
-    data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in']),
+    data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in','config.txt']),
                 ('pmercury/resources', ['../resources/fingerprint_db.json.gz',
                                         '../resources/app_families.txt',
                                         '../resources/transition_probs.csv.gz',
