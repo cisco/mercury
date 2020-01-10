@@ -14,6 +14,9 @@
 #include <time.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <mqueue.h>
 
 #define MAX_FILENAME 256
 
@@ -64,6 +67,15 @@ struct mercury_config {
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
+
+struct thread_queues {
+    int qnum;          /* The number of queues that have been allocated */
+    int qidx;          /* The index of the first free queue */
+    mqd_t *queue;      /* The actual queue file handle */
+    char **queue_name; /* The queue name (needed to unlink) */
+};
+
+
 #define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0  }
 
 enum create_subdir_mode {
@@ -81,5 +93,6 @@ enum status filename_append(char dst[MAX_FILENAME],
 void get_clocktime_before (struct timespec *before);
 uint64_t get_clocktime_after (struct timespec *before, struct timespec *after);
 
+mqd_t open_thread_queue(const char *qid);
 
 #endif /* MERCURY_H */
