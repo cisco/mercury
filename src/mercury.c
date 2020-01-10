@@ -85,7 +85,7 @@ mqd_t open_thread_queue(const char *qid) {
         return -1;
     }
 
-    mqd_t tq = mq_open(qnamep, O_CREAT | O_NONBLOCK, S_IRUSR | S_IWUSR, NULL);
+    mqd_t tq = mq_open(qnamep, O_CREAT | O_RDWR | O_NONBLOCK, S_IRUSR | S_IWUSR, NULL);
     if (tq == -1) {
         perror("Failed to open queue");
         fprintf(stderr, "Queue named %s failed to open\n", qnamep);
