@@ -71,7 +71,9 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                 printf("initializing thread function %x with filename %s\n", pid, outfile);
             }
 
-            return new pkt_proc_json_writer(outfile, cfg->mode, max_records);
+            //return new pkt_proc_json_writer(outfile, cfg->mode, max_records);
+            (void)max_records;
+            return new pkt_proc_json_writer_mq(fileset_id);
 
         } else {
             /*

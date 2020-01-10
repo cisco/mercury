@@ -29,6 +29,78 @@
 #include "signal_handling.h"
 #include "config.h"
 
+struct thread_queues thread_queues;
+
+void init_thread_queues(int n) {
+    thread_queues.qnum = n;
+    thread_queues.qidx = 0;
+    thread_queues.queue = (mqd_t *)calloc(n, sizeof(mqd_t));
+    thread_queues.queue_name = (char **)calloc(n, sizeof(char *));
+
+    for (int i = 0; i < n; i++) {
+        thread_queues.queue[i] = -1;
+        thread_queues.queue_name[i] = NULL;
+    }
+}
+
+
+void destroy_thread_queues() {
+
+    for (int i = 0; i < thread_queues.qidx; i++) {
+
+        int ret = mq_close(thread_queues.queue[i]);
+        if (ret != 0) {
+            perror("Unable to close thread queue");
+        }
+
+        ret = mq_unlink(thread_queues.queue_name[i]);
+        if (ret != 0) {
+            perror("Unable to unlink thread queue");
+        }
+
+        free(thread_queues.queue_name[i]);
+    }
+
+    free(thread_queues.queue);
+    free(thread_queues.queue_name);
+    thread_queues.qnum = 0;
+    thread_queues.qidx = 0;
+}
+
+
+mqd_t open_thread_queue(const char *qid) {
+
+    if (thread_queues.qidx >= thread_queues.qnum) {
+        fprintf(stderr, "Unable to open queue %s: no free room in thread_queue list\n", qid);
+        return -1;
+    }
+
+    char qname[256];
+    snprintf(qname, 255, "/mercury_%s", qid);
+    qname[255] = '\0';
+
+    char *qnamep = strndup(qname, 255);
+    if (qnamep == NULL) {
+        perror("Unable to duplicate queue name string");
+        return -1;
+    }
+
+    mqd_t tq = mq_open(qnamep, O_CREAT | O_NONBLOCK, S_IRUSR | S_IWUSR, NULL);
+    if (tq == -1) {
+        perror("Failed to open queue");
+        fprintf(stderr, "Queue named %s failed to open\n", qnamep);
+        free(qnamep);
+        return -1;
+    }
+
+    thread_queues.queue[thread_queues.qidx] = tq;
+    thread_queues.queue_name[thread_queues.qidx] = qnamep;
+    thread_queues.qidx += 1;
+
+    return tq;
+}
+
+
 #define TWO_TO_THE_N(N) (unsigned int)1 << (N)
 
 #define FLAGS_CLOBBER (O_TRUNC)
@@ -638,6 +710,9 @@ int main(int argc, char *argv[]) {
         printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
     }
 
+    /* make the thread queues */
+    init_thread_queues(cfg.num_threads);
+
     /* init random number generator */
     srand(time(0));
 
@@ -660,6 +735,8 @@ int main(int argc, char *argv[]) {
     if (cfg.analysis) {
         analysis_finalize();
     }
+
+    destroy_thread_queues();
 
     return 0;
 }

@@ -93,6 +93,40 @@ struct pkt_proc_json_writer : public pkt_proc {
 
 
 /*
+ * struct pkt_proc_json_writer_mq represents a packet processing object
+ * that writes out a JSON representation of fingerprints, metadata,
+ * flow keys, and event time to a queue that is then written to a file
+ * by a dedicated output thread.
+ */
+struct pkt_proc_json_writer_mq : public pkt_proc {
+    mqd_t json_file_queue;
+
+    /*
+     * pkt_proc_json_writer(outfile_name, mode, max_records)
+     * initializes object to write a single JSON line containing the
+     * flow key, time, fingerprints, and metadata to the output file
+     * with the path outfile_name and mode passed as arguments; that
+     * file is opened by this invocation, with that mode.  If
+     * max_records is nonzero, then it defines the maximum number of
+     * records (lines) per file; after that limit is reached, file
+     * rotation will take place.
+     */
+    pkt_proc_json_writer_mq(const char *queue_name) {
+
+        json_file_queue = open_thread_queue(queue_name);
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) {
+        json_queue_write(json_file_queue, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
+    }
+
+    void flush() {
+
+    }
+};
+
+
+/*
  * struct pkt_proc_pcap_writer represents a packet processing object
  * that writes out packets in PCAP file format.
  */
