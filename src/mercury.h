@@ -1,10 +1,10 @@
 /*
  * mercury.h
- * 
+ *
  * main header file for mercury packet metadata capture and analysis
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef MERCURY_H
@@ -29,9 +29,9 @@
     #define debug_print_ptr(X)  printf("%s:\t%d:\t%s():\t%s:\t%p\n",  __FILE__, __LINE__, __func__, #X, (void *)(X))
     #define debug_print_u8_array(X)  printf("%s:\t%d:\t%s():\t%s:\t%02x%02x%02x%02x\n",  __FILE__, __LINE__, __func__, #X, ((unsigned char *)X)[0], ((unsigned char *)X)[1], ((unsigned char *)X)[2], ((unsigned char *)X)[3])
 #else
-    #define debug_print_int(X)  
-    #define debug_print_uint(X) 
-    #define debug_print_ptr(X)  
+    #define debug_print_int(X)
+    #define debug_print_uint(X)
+    #define debug_print_ptr(X)
     #define debug_print_u8_array(X)
 #endif
 
@@ -67,12 +67,18 @@ struct mercury_config {
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
+#define MQ_MAX_SIZE    8192 /* The number of bytes per message (LINUX DEFAULT LIMIT: 8192) */
+#define MQ_QUEUE_DEPTH 10   /* The number of messages in the queue (LINUX DEFAULT LIMIT: 10) */
+
+int sig_stop_output = 0;    /* Watched by the output thread to know when to terminate */
 
 struct thread_queues {
-    int qnum;          /* The number of queues that have been allocated */
-    int qidx;          /* The index of the first free queue */
-    mqd_t *queue;      /* The actual queue file handle */
-    char **queue_name; /* The queue name (needed to unlink) */
+    int qnum;             /* The number of queues that have been allocated */
+    int qidx;             /* The index of the first free queue */
+    pid_t pid;            /* Name collision avoidance */
+    mqd_t *queue;         /* The actual queue file handle */
+    char **queue_name;    /* The queue name (needed to unlink) */
+    struct pollfd *pqfd;  /* Array of struct pollfd to facilitate calls to poll() */
 };
 
 
@@ -80,7 +86,7 @@ struct thread_queues {
 
 enum create_subdir_mode {
     create_subdir_mode_do_not_overwrite = 0,
-    create_subdir_mode_overwrite = 1    
+    create_subdir_mode_overwrite = 1
 };
 
 void create_subdirectory(const char *outdir, enum create_subdir_mode mode);
