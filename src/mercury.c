@@ -36,6 +36,15 @@ void init_thread_queues(int n) {
     thread_queues.qidx = 0;
     thread_queues.queue = (mqd_t *)calloc(n, sizeof(mqd_t));
     thread_queues.queue_name = (char **)calloc(n, sizeof(char *));
+    thread_queues.pqfd = (struct pollfd*)calloc(n, sizeof(struct pollfd));
+    thread_queues.pid = getpid();
+
+    if ((thread_queues.queue == NULL) ||
+        (thread_queues.queue_name == NULL) ||
+        (thread_queues.pqfd == NULL)) {
+        fprintf(stderr, "Failed to allocate memory for thread queues\n");
+        exit(255);
+    }
 
     for (int i = 0; i < n; i++) {
         thread_queues.queue[i] = -1;
@@ -63,8 +72,11 @@ void destroy_thread_queues() {
 
     free(thread_queues.queue);
     free(thread_queues.queue_name);
+    thread_queues.queue = NULL;
+    thread_queues.queue_name = NULL;
     thread_queues.qnum = 0;
     thread_queues.qidx = 0;
+    thread_queues.pid = -1;
 }
 
 
@@ -76,7 +88,7 @@ mqd_t open_thread_queue(const char *qid) {
     }
 
     char qname[256];
-    snprintf(qname, 255, "/mercury_%s", qid);
+    snprintf(qname, 255, "/mercury_%d_%s", thread_queues.pid, qid);
     qname[255] = '\0';
 
     char *qnamep = strndup(qname, 255);
@@ -85,7 +97,12 @@ mqd_t open_thread_queue(const char *qid) {
         return -1;
     }
 
-    mqd_t tq = mq_open(qnamep, O_CREAT | O_RDWR | O_NONBLOCK, S_IRUSR | S_IWUSR, NULL);
+    struct mq_attr mattr;
+    memset(&mattr, 0, sizeof(mattr));
+    mattr.mq_maxmsg = MQ_QUEUE_DEPTH;
+    mattr.mq_msgsize = MQ_MAX_SIZE;
+
+    mqd_t tq = mq_open(qnamep, O_CREAT | O_RDWR | O_NONBLOCK, S_IRUSR | S_IWUSR, &mattr);
     if (tq == -1) {
         perror("Failed to open queue");
         fprintf(stderr, "Queue named %s failed to open\n", qnamep);
@@ -93,11 +110,44 @@ mqd_t open_thread_queue(const char *qid) {
         return -1;
     }
 
+    /* If somehow this queue has messages in it left over from a previous
+     * run we should loop through and flush them out */
+    int ret = mq_getattr(tq, &mattr);
+    if (ret < 0) {
+        perror("Failed to get queue attributes");
+        free(qnamep);
+        return -1;
+    }
+    for (int i = 0; i < mattr.mq_curmsgs; i++) {
+        char buf[MQ_MAX_SIZE];
+        ret = mq_receive(tq, buf, MQ_MAX_SIZE, NULL);
+        if (ret < 0) {
+            perror("Failed to get (flush) stale message in queue");
+            free(qnamep);
+            return -1;
+        }
+    }
+
     thread_queues.queue[thread_queues.qidx] = tq;
     thread_queues.queue_name[thread_queues.qidx] = qnamep;
+    thread_queues.pqfd[thread_queues.qidx].fd = tq;
+    thread_queues.pqfd[thread_queues.qidx].events = POLLIN | POLLERR;
+    thread_queues.pqfd[thread_queues.qidx].revents = 0;
     thread_queues.qidx += 1;
 
     return tq;
+}
+
+void *output_thread_func(void *arg) {
+
+    (void)arg;
+    while (sig_stop_output == 0) {
+        /* call poll, read from each ready queue */
+
+
+    }
+
+    return NULL;
 }
 
 
