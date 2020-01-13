@@ -21,27 +21,34 @@ class HTTP_Server(Protocol):
 
         # configuration
         HTTP_Server.all_headers = False
+        HTTP_Server.all_headers_and_data = False
         if config == None or 'http_server' not in config:
-            HTTP_Server.case_insensitive_static_headers = set([b'access-control-allow-headers',b'access-control-allow-methods',
-                                                        b'connection',b'content-encoding',b'pragma',b'referrer-policy',
-                                                        b'server',b'strict-transport-security',b'vary',b'version',b'x-cache',
-                                                        b'x-powered-by',b'x-xss-protection'])
-            HTTP_Server.case_sensitive_static_headers = set([])
+            HTTP_Server.static_names = set([b'appex-activity-id',b'cdnuuid',b'cf-ray',b'content-range',b'content-type',
+                                            b'date',b'etag',b'expires',b'flow_context',b'ms-cv',b'msregion',b'ms-requestid',
+                                            b'request-id',b'vary',b'x-amz-cf-pop',b'x-amz-request-id',b'x-azure-ref-originshield',
+                                            b'x-cache',b'x-cache-hits',b'x-ccc',b'x-diagnostic-s',b'x-feserver',b'x-hw',
+                                            b'x-msedge-ref',b'x-ocsp-responder-id',b'x-requestid',b'x-served-by',b'x-timer',
+                                            b'x-trace-context'])
+            HTTP_Server.static_names_and_values = set([b'access-control-allow-credentials',b'access-control-allow-headers',
+                                                       b'access-control-allow-methods',b'access-control-expose-headers',
+                                                       b'cache-control',b'connection',b'content-language',b'content-transfer-encoding',
+                                                       b'p3p',b'pragma',b'server',b'strict-transport-security',b'x-aspnetmvc-version',
+                                                       b'x-aspnet-version',b'x-cid',b'x-ms-version',b'x-xss-protection'])
             HTTP_Server.headers_data = [0,1,2]
             HTTP_Server.contextual_data = {b'via':'via'}
         else:
-            HTTP_Server.case_insensitive_static_headers = set([])
-            HTTP_Server.case_sensitive_static_headers = set([])
+            HTTP_Server.static_names = set([])
+            HTTP_Server.static_names_and_values = set([])
             HTTP_Server.headers_data = []
             HTTP_Server.contextual_data = {}
-            if 'case_insensitive_static_headers' in config['http_server']:
-                if config['http_server']['case_insensitive_static_headers'] == ['*']:
+            if 'static_names' in config['http_server']:
+                if config['http_server']['static_names'] == ['*']:
                     HTTP_Server.all_headers = True
-                HTTP_Server.case_insensitive_static_headers = set(config['http_server']['case_insensitive_static_headers'])
-            if 'case_sensitive_static_headers' in config['http_server']:
-                if config['http_server']['case_sensitive_static_headers'] == ['*']:
-                    HTTP_Server.all_headers = True
-                HTTP_Server.case_sensitive_static_headers = set(config['http_server']['case_sensitive_static_headers'])
+                HTTP_Server.static_names = set(map(lambda x: x.encode(), config['http_server']['static_names']))
+            if 'static_names_and_values' in config['http_server']:
+                if config['http_server']['static_names_and_values'] == ['*']:
+                    HTTP_Server.all_headers_and_data = True
+                HTTP_Server.static_names_and_values = set(map(lambda x: x.encode(), config['http_server']['static_names_and_values']))
             if 'preamble' in config['http_server']:
                 if 'version' in config['http_server']['preamble']:
                     HTTP_Server.headers_data.append(0)
@@ -90,10 +97,12 @@ class HTTP_Server(Protocol):
         cdef list headers = t_[1].split(b'\x0d\x0a')
         if headers[0] == '':
             headers = headers[1:]
-        cdef bint http_ah = HTTP_Server.all_headers
-        cdef set http_cish = HTTP_Server.case_insensitive_static_headers
-        cdef set http_cssh = HTTP_Server.case_sensitive_static_headers
+        cdef bint http_ah  = HTTP_Server.all_headers
+        cdef bint http_ahd = HTTP_Server.all_headers_and_data
+        cdef set http_sn   = HTTP_Server.static_names
+        cdef set http_snv  = HTTP_Server.static_names_and_values
         cdef dict http_ctx = HTTP_Server.contextual_data
+        cdef str h_c
         context = []
         for h_ in headers:
             if h_ == b'':
@@ -101,16 +110,18 @@ class HTTP_Server(Protocol):
             t0_ = h_.split(b'\x3a\x20',1)[0]
             t0_lower = t0_.lower()
 
-            if http_ah:
+            h_c = ''
+            if http_ahd:
                 h_c = h_.hex()
-            elif t0_lower in http_cish:
+            elif t0_lower in http_snv:
                 h_c = h_.hex()
-            elif t0_ in http_cssh:
-                h_c = h_.hex()
-            else:
+            elif t0_lower in http_sn:
+                h_c = t0_.hex()
+            elif http_ah:
                 h_c = t0_.hex()
 
-            c.append('(%s)' % h_c)
+            if h_c != '':
+                c.append('(%s)' % h_c)
             if t0_lower in http_ctx:
                 if b'\x3a\x20' in h_:
                     try:
