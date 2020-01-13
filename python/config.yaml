@@ -25,8 +25,54 @@ http:
     - x-forwarded-for
 
 http_server:
-  case_insensitive_static_headers:
-    - "*"
+  static_names:
+    - appex-activity-id
+    - cdnuuid
+    - cf-ray
+    - content-range
+    - content-type
+    - date
+    - etag
+    - expires
+    - flow_context
+    - ms-cv
+    - msregion
+    - ms-requestid
+    - request-id
+    - vary
+    - x-amz-cf-pop
+    - x-amz-request-id
+    - x-azure-ref-originshield
+    - x-cache
+    - x-cache-hits
+    - x-ccc
+    - x-diagnostic-s
+    - x-feserver
+    - x-hw
+    - x-msedge-ref
+    - x-ocsp-responder-id
+    - x-requestid
+    - x-served-by
+    - x-timer
+    - x-trace-context
+  static_names_and_values:
+    - access-control-allow-credentials
+    - access-control-allow-headers
+    - access-control-allow-methods
+    - access-control-expose-headers
+    - cache-control
+    - connection
+    - content-language
+    - content-transfer-encoding
+    - p3p
+    - pragma
+    - server
+    - strict-transport-security
+    - x-aspnetmvc-version
+    - x-aspnet-version
+    - x-cid
+    - x-ms-version
+    - x-xss-protection
   preamble:
     - version
     - code
