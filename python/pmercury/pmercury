@@ -61,7 +61,7 @@ class Fingerprinter:
             else:
                 self.endpoint_file_pointer = open('endpoint_'+output, 'w', buffering=8192*64)
 
-        config = parse_config('../config.txt')
+        config = parse_config('../config.yaml')
 
         # register parsers
         self.parsers = {}

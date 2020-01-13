@@ -2,4 +2,4 @@ cryptography~=2.7
 hpack~=3.0.0
 pyasn~=1.6.0b1
 pypcap~=1.2.3
-
+pyyaml~=5.3

@@ -48,9 +48,10 @@ pmercury requires Python 3.6+ along with the following packages:
 pip3 install pyasn
 pip3 install hpack
 pip3 install pypcap
+pip3 install pyyaml
 pip3 install cryptography
 
-pip3 install pyasn hpack pypcap cryptography
+pip3 install pyasn hpack pypcap pyyaml cryptography
 ```
 
 pip3 can be installed with 'sudo apt install python3-pip’ on debian/ubuntu, or the equivalent command for your OS.

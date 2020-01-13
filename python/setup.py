@@ -51,6 +51,7 @@ setuptools.setup(
         'hpack',
         'pyasn',
         'pypcap',
+        'pyyaml',
     ],
     scripts=['pmercury/pmercury'],
     data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in','config.txt']),
