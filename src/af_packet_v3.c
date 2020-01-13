@@ -892,6 +892,14 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
     }
   }
 
+  /* Wake up output thread so it's polling the queues waiting for data */
+  t_output_p = 1;
+  err = pthread_cond_broadcast(&t_output_c); /* Wake up output */
+  if (err != 0) {
+      printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
+      exit(255);
+  }
+
   /* At this point all threads are started but they're waiting on
      the clean start condition
   */

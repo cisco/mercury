@@ -31,6 +31,10 @@
 
 struct thread_queues thread_queues;
 int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
+int t_output_p = 0;
+pthread_cond_t t_output_c  = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t t_output_m = PTHREAD_MUTEX_INITIALIZER;
+
 
 void init_thread_queues(int n) {
     thread_queues.qnum = n;
@@ -142,10 +146,72 @@ mqd_t open_thread_queue(const char *qid) {
 void *output_thread_func(void *arg) {
 
     (void)arg;
+
+    int err;
+    err = pthread_mutex_lock(&t_output_m);
+    if (err != 0) {
+        fprintf(stderr, "%s: error locking output start mutex for stats thread\n", strerror(err));
+        exit(255);
+    }
+    while (t_output_p != 1) {
+        err = pthread_cond_wait(&t_output_c, &t_output_m);
+        if (err != 0) {
+            fprintf(stderr, "%s: error waiting on output start condition for stats thread\n", strerror(err));
+            exit(255);
+        }
+    }
+    err = pthread_mutex_unlock(&t_output_m);
+    if (err != 0) {
+        fprintf(stderr, "%s: error unlocking output start mutex for stats thread\n", strerror(err));
+        exit(255);
+    }
+
+    int polret;
+    int ret;
+    ssize_t mqlen;
+    char mqbuf[MQ_MAX_SIZE];
+    struct mq_attr mattr;
+    memset(&mattr, 0, sizeof(mattr));
+
     while (sig_stop_output == 0) {
-        /* call poll, read from each ready queue */
+
+        //sleep(1); // TODO: replace with actual work
+        //fprintf(stderr, "would be doing output...\n");
+
+        polret = poll(thread_queues.pqfd, thread_queues.qidx, 1000);
+        if (polret < 0) {
+            perror("poll returned error");
+        } else if (polret == 0) {
+            /* This was a timeout meaning we just aren't getting any
+             * output at the moment. This isn't an error and there isn't
+             * anything special for us to do here.
+             */
+        } else if (polret > 0) {
+            /* Now we need to loop through the pqfd struct list looking for POLIN events */
+            for (int q = 0; q < thread_queues.qidx; q++) {
+                if ((thread_queues.pqfd[q].revents & POLLIN) != 0) {
+                    /* we have data on this queue */
 
 
+                    ret = mq_getattr(thread_queues.queue[q], &mattr);
+                    if (ret < 0) {
+                        perror("Failed to get queue attributes");
+                    }
+                    for (int m = 0; m < mattr.mq_curmsgs; m++) {
+
+                        mqlen = mq_receive(thread_queues.queue[q], mqbuf, MQ_MAX_SIZE, NULL);
+                        if (mqlen < 0) {
+                            perror("Failed to recieve message in queue");
+                        }
+                        else {
+                            // TODO: enqueue this message for proper ordering
+                            fwrite(mqbuf, mqlen, 1, stdout);
+                        }
+                    }
+
+                }
+            }
+        } /* end poll found messages ready */
     }
 
     return NULL;
@@ -763,6 +829,11 @@ int main(int argc, char *argv[]) {
 
     /* make the thread queues */
     init_thread_queues(cfg.num_threads);
+    pthread_t output_thread;
+    int err = pthread_create(&output_thread, NULL, output_thread_func, NULL);
+    if (err != 0) {
+        perror("error creating output thread");
+    }
 
     /* init random number generator */
     srand(time(0));
@@ -787,6 +858,9 @@ int main(int argc, char *argv[]) {
         analysis_finalize();
     }
 
+    fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
+    sig_stop_output = 1;
+    pthread_join(output_thread, NULL);
     destroy_thread_queues();
 
     return 0;
