@@ -70,7 +70,7 @@ struct mercury_config {
 #define MQ_MAX_SIZE    8192 /* The number of bytes per message (LINUX DEFAULT LIMIT: 8192) */
 #define MQ_QUEUE_DEPTH 10   /* The number of messages in the queue (LINUX DEFAULT LIMIT: 10) */
 
-int sig_stop_output = 0;    /* Watched by the output thread to know when to terminate */
+extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
 
 struct thread_queues {
     int qnum;             /* The number of queues that have been allocated */

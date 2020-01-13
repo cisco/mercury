@@ -30,6 +30,7 @@
 #include "config.h"
 
 struct thread_queues thread_queues;
+int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
 
 void init_thread_queues(int n) {
     thread_queues.qnum = n;
