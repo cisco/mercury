@@ -1,6 +1,7 @@
 include ../resources/*
 include ../LICENSE
 include README.md
+include config.yaml
 include requirements.txt
 include pmercury/utils/packet_proc.pyx
 include pmercury/utils/tls_utils.pyx

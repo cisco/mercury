@@ -54,7 +54,7 @@ setuptools.setup(
         'pyyaml',
     ],
     scripts=['pmercury/pmercury'],
-    data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in','config.txt']),
+    data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in','config.yaml']),
                 ('pmercury/resources', ['../resources/fingerprint_db.json.gz',
                                         '../resources/app_families.txt',
                                         '../resources/transition_probs.csv.gz',
