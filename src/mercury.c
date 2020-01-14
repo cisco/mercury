@@ -170,6 +170,7 @@ void *output_thread_func(void *arg) {
     int ret;
     ssize_t mqlen;
     char mqbuf[MQ_MAX_SIZE];
+    struct timespec ts;
     struct mq_attr mattr;
     memset(&mattr, 0, sizeof(mattr));
 
@@ -203,9 +204,17 @@ void *output_thread_func(void *arg) {
                         if (mqlen < 0) {
                             perror("Failed to recieve message in queue");
                         }
+                        else if (mqlen < (ssize_t)sizeof(struct timespec)) {
+                            fprintf(stderr, "Received message smaller than the required struct timespec");
+                        }
                         else {
+
+                            memcpy(&ts, mqbuf, sizeof(struct timespec));
+
+                            /*fprintf(stdout, "msg: %f ", (double)ts.tv_sec + (double)ts.tv_nsec / 1000000000.0);*/
+
                             // TODO: enqueue this message for proper ordering
-                            fwrite(mqbuf, mqlen, 1, stdout);
+                            fwrite(&(mqbuf[sizeof(struct timespec)]), mqlen - sizeof(struct timespec), 1, stdout);
                         }
                     }
 
