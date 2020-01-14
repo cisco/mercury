@@ -22,7 +22,6 @@
 #include <dirent.h>
 #include "mercury.h"
 #include "pcap_file_io.h"
-#include "af_packet_io.h"
 #include "af_packet_v3.h"
 #include "analysis.h"
 #include "rnd_pkt_drop.h"
@@ -824,11 +823,6 @@ int main(int argc, char *argv[]) {
     }
 
     /* process packets */
-
-#ifndef USE_FANOUT
-#warning "TPACKET V3 unavailable; compiling for single-threaded use only"
-    printf("error: multithreading not available; the --thread option must be omitted\n");
-#endif
 
     int num_cpus = get_nprocs();  // would get_nprocs_conf() be more appropriate?
     if (cfg.num_threads == -1) {

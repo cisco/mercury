@@ -90,7 +90,7 @@ size_t subnet_dedup(lct_subnet_t *subnets, size_t size) {
   }
 
   if (ndup)
-    printf("%lu duplicates removed\n\n", ndup);
+    printf("%zu duplicates removed\n\n", ndup);
 
   return ndup;
 }

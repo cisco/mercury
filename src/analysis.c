@@ -29,8 +29,8 @@ rapidjson::Document fp_db;
 #define MAX_FP_STR_LEN 4096
 #define MAX_SNI_LEN     257
 
-pthread_mutex_t lock_fp_cache;
-std::unordered_map<std::string,char*> fp_cache;
+//pthread_mutex_t lock_fp_cache;
+//std::unordered_map<std::string,char*> fp_cache;
 
 std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,"database"}, {465,"email"},
                                                           {563,"nntp"},    {585,"email"},    {614,"shell"},
@@ -102,10 +102,13 @@ void database_finalize() {
 
 
 void cache_finalize() {
+    return;
+    /*
     for (std::pair<std::string, char*> element : fp_cache) {
         free(element.second);
     }
     fp_cache.clear();
+    */
 }
 
 
@@ -114,14 +117,13 @@ void cache_finalize() {
 #endif
 
 int analysis_init() {
-    extern enum analysis_cfg analysis_cfg;
     analysis_cfg = analysis_on;
 
-    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
-        printf("\n mutex init has failed\n");
-        return -1;
-    }
-    fp_cache = {};
+//    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
+//       printf("\n mutex init has failed\n");
+//        return -1;
+//    }
+//    fp_cache = {};
 
     const char *resource_dir_list[] =
       {
@@ -154,12 +156,11 @@ int analysis_init() {
 
 
 int analysis_finalize() {
-    extern enum analysis_cfg analysis_cfg;
     analysis_cfg = analysis_off;
 
     addr_finalize();
     database_finalize();
-    cache_finalize();
+//    cache_finalize();
 
     return 1;
 }
@@ -255,8 +256,8 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
     bool max_mal = false;
     bool sec_mal = false;
 
-    long double base_prior = -18.42068;
-    long double prior      =  -4.60517;
+    long double base_prior = -27.63102;
+    long double prior      = -13.81551;
 
     rapidjson::Value proc;
     fp_tc = fp["total_count"].GetInt();
@@ -368,7 +369,6 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
 void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
 						  const struct extractor *x,
 						  const struct flow_key *key) {
-    extern enum analysis_cfg analysis_cfg;
     char* results;
 
     if (analysis_cfg == analysis_off) {
@@ -393,6 +393,14 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
             server_name[sni_len] = 0; // null termination
         }
 
+        ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
+        if (ret_value == -1) {
+            return;
+        }
+        fprintf(file, "%s,", results);
+        free(results);
+
+        /*
         std::stringstream fp_cache_key_;
         fp_cache_key_ << std::string((char*)fp_str) << std::string(server_name) << std::string(dst_ip) << std::to_string(dst_port);
         std::string fp_cache_key = fp_cache_key_.str();
@@ -420,6 +428,7 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
             }
             pthread_mutex_unlock(&lock_fp_cache);
         }
+        */
     }
 }
 
@@ -427,7 +436,6 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
 int append_analysis_from_extractor_and_flow_key(char *dstr, int *doff, int dlen, int *trunc,
                                                 const struct extractor *x,
                                                 const struct flow_key *key) {
-    extern enum analysis_cfg analysis_cfg;
     char* results;
 
     if (analysis_cfg == analysis_off) {
@@ -454,37 +462,20 @@ int append_analysis_from_extractor_and_flow_key(char *dstr, int *doff, int dlen,
             server_name[sni_len] = 0; // null termination
         }
 
-        std::stringstream fp_cache_key_;
-        fp_cache_key_ << std::string((char*)fp_str) << std::string(server_name) << std::string(dst_ip) << std::to_string(dst_port);
-        std::string fp_cache_key = fp_cache_key_.str();
-
-        pthread_mutex_lock(&lock_fp_cache);
-        auto it = fp_cache.find(fp_cache_key);
-        pthread_mutex_unlock(&lock_fp_cache);
-        if (it != fp_cache.end()) {
-            results = it->second;
-
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                results);
-        } else {
-            ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
-            if (ret_value == -1) {
-                return 0;
-            }
-
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                results);
-
-            pthread_mutex_lock(&lock_fp_cache);
-            auto it = fp_cache.find(fp_cache_key);
-            if (it == fp_cache.end()) {
-                fp_cache.emplace(fp_cache_key, results);
-            } else {
-                free(results);
-                results = it->second;
-            }
-            pthread_mutex_unlock(&lock_fp_cache);
+        ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
+        if (ret_value == -1) {
+            return r;
         }
+        //fprintf(file, "%s,", results);
+
+        r += append_strncpy(dstr, doff, dlen, trunc,
+                            results);
+        r += append_putc(dstr, doff, dlen, trunc,
+                          ',');
+
+        free(results);
+
+
     }
 
     return r;

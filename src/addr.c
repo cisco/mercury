@@ -133,8 +133,6 @@ lct_subnet_t *lct_init_from_file(lct_t *lct, char *filename) {
 }
 
 int addr_init(const char *resources_dir) {
-    extern lct_t ipv4_subnet_trie;
-    extern lct_subnet_t *ipv4_subnet_array;
 
     ipv4_subnet_array = lct_init_from_file(&ipv4_subnet_trie, (char *)resources_dir);
     if (ipv4_subnet_array == NULL) {
