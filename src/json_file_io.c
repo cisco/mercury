@@ -277,8 +277,8 @@ void json_file_write(struct json_file *jf,
                      unsigned int nsec) {
 
     struct timespec ts;
-    char obuf[8192];
-    int olen = 8192;
+    char obuf[MQ_MAX_SIZE];
+    int olen = MQ_MAX_SIZE;
     int ooff = 0;
     int trunc = 0;
 
@@ -307,21 +307,24 @@ void json_queue_write(mqd_t jq,
                       unsigned int nsec) {
 
     struct timespec ts;
-    char obuf[8192];
-    int olen = 8192;
-    int ooff = 0;
+    char obuf[MQ_MAX_SIZE];
+    int olen = MQ_MAX_SIZE - sizeof(struct timespec);
+    int ooff = sizeof(struct timespec);
     int trunc = 0;
 
     ts.tv_sec = sec;
     ts.tv_nsec = nsec;
 
-    obuf[0] = '\0';
+    /* prepend struct timespec into message */
+    memcpy(obuf, &ts, sizeof(struct timespec));
+    obuf[sizeof(struct timespec)] = '\0';
+
     int r = append_packet_json(&(obuf[0]), &ooff, olen, &trunc,
                               packet, length, &ts);
 
     if ((trunc == 0) && (r > 0)) {
         //fwrite(obuf, r, 1, jf->file);
-        int ret = mq_send(jq, obuf, r, 0);
+        int ret = mq_send(jq, obuf, r + sizeof(struct timespec), 0);
 
         if (ret != 0) {
             perror("Unable to send json message over queue");
