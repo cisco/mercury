@@ -25,7 +25,7 @@
 
 #include "mercury.h"
 #include "pcap_file_io.h"
-#include "af_packet_io.h"
+#include "pkt_proc.h"
 #include "signal_handling.h"
 #include "utils.h"
 

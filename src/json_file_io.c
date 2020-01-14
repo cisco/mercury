@@ -190,7 +190,7 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
             break;
         case fingerprint_type_dtls_server:
             r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"fingerprints\":{dtls_server\":\"");
+                                "\"fingerprints\":{\"dtls_server\":\"");
             r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
                                                 extractor_buffer, bytes_extracted);
             r += append_strncpy(dstr, doff, dlen, trunc,

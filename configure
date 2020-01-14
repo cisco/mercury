@@ -1678,6 +1678,63 @@ fi
 
 } # ac_fn_cxx_try_compile
 
+# ac_fn_c_check_member LINENO AGGR MEMBER VAR INCLUDES
+# ----------------------------------------------------
+# Tries to find if the field MEMBER exists in type AGGR, after including
+# INCLUDES, setting cache variable VAR accordingly.
+ac_fn_c_check_member ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2.$3" >&5
+$as_echo_n "checking for $2.$3... " >&6; }
+if eval \${$4+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$5
+int
+main ()
+{
+static $2 ac_aggr;
+if (ac_aggr.$3)
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  eval "$4=yes"
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$5
+int
+main ()
+{
+static $2 ac_aggr;
+if (sizeof ac_aggr.$3)
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  eval "$4=yes"
+else
+  eval "$4=no"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+eval ac_res=\$$4
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+
+} # ac_fn_c_check_member
+
 # ac_fn_c_try_link LINENO
 # -----------------------
 # Try to link conftest.$ac_ext, and return whether this succeeded.
@@ -3847,7 +3904,17 @@ fi
 
 done
 
-#AC_CHECK_MEMBER([struct tpacket_req3.tp_snaplen],[],[AC_MSG_FAILURE([Linux AF_PACKET's TPACKET V3 is required, but not available])],[[#include <linux/if_packet.h>]])
+ac_fn_c_check_member "$LINENO" "struct tpacket_req3" "tp_block_size" "ac_cv_member_struct_tpacket_req3_tp_block_size" "#include <linux/if_packet.h>
+"
+if test "x$ac_cv_member_struct_tpacket_req3_tp_block_size" = xyes; then :
+
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Linux AF_PACKET's TPACKET V3 is required, but not available
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+
 for ac_func in gettimeofday
 do :
   ac_fn_c_check_func "$LINENO" "gettimeofday" "ac_cv_func_gettimeofday"
@@ -4582,8 +4649,8 @@ if test "x$PYTHON3" = xyes; then :
   HAVE_JSONSCHEMA=yes
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: python package jsonschema (required for 'make test') not found; install with 'pip3 install jsonschema'" >&5
-$as_echo "$as_me: WARNING: python package jsonschema (required for 'make test') not found; install with 'pip3 install jsonschema'" >&2;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: python3 package jsonschema not found; test/Makefile will not work, install with 'pip3 install jsonschema'" >&5
+$as_echo "$as_me: WARNING: python3 package jsonschema not found; test/Makefile will not work, install with 'pip3 install jsonschema'" >&2;}
 fi
 fi
 #AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PIP3,pip3,yes)])
@@ -4779,26 +4846,26 @@ fi
 if test "x$TCPREPLAY" = xyes; then :
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: tcpreplay not found; test/Makefile dummy-capture test will not work" >&5
-$as_echo "$as_me: tcpreplay not found; test/Makefile dummy-capture test will not work" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: tcpreplay not found; test/Makefile dummy-capture test will not work" >&5
+$as_echo "$as_me: WARNING: tcpreplay not found; test/Makefile dummy-capture test will not work" >&2;}
 fi
 if test "x$JQ" = xyes; then :
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: jq not found; test/Makefile comparison test will not work" >&5
-$as_echo "$as_me: jq not found; test/Makefile comparison test will not work" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: jq not found; test/Makefile comparison test will not work" >&5
+$as_echo "$as_me: WARNING: jq not found; test/Makefile comparison test will not work" >&2;}
 fi
 if test "x$WGET" = xyes; then :
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: wget not found; test/capture script will not work" >&5
-$as_echo "$as_me: wget not found; test/capture script will not work" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: wget not found; test/capture script will not work" >&5
+$as_echo "$as_me: WARNING: wget not found; test/capture script will not work" >&2;}
 fi
 if test "x$VALGRIND" = xyes; then :
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: valgrind not found; test/Makefile memcheck test will not work" >&5
-$as_echo "$as_me: valgrind not found; test/Makefile memcheck test will not work" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&5
+$as_echo "$as_me: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&2;}
 fi
 ac_config_files="$ac_config_files src/Makefile test/Makefile resources/Makefile install_mercury/mercury.service"
 

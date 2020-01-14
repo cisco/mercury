@@ -47,7 +47,15 @@ struct tcp_state {
 
 #define tcp_state_init = { 0, 0, 0, 0, 0, talking };
 
-typedef unsigned __int128 uint128_t;
+struct ipv6_addr {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+    bool operator==(const ipv6_addr &rhs) const {
+        return a == rhs.a && b == rhs.b && c == rhs.c && d == rhs.d;
+    }
+};
 
 struct key {
     uint16_t src_port;
@@ -59,8 +67,8 @@ struct key {
             uint32_t dst;
         } ipv4;
         struct {
-            uint128_t src;
-            uint128_t dst;
+            ipv6_addr src;
+            ipv6_addr dst;
         } ipv6;
     } addr;
 
@@ -68,12 +76,12 @@ struct key {
         src_port = sp;
         dst_port = dp;
         ip_vers = 4;
-        addr.ipv6.src = 0;   /* zeroize v6 src addr */
-        addr.ipv6.dst = 0;   /* zeroize v6 dst addr */
+        addr.ipv6.src = { 0, 0, 0, 0 };   /* zeroize v6 src addr */
+        addr.ipv6.dst = { 0, 0, 0, 0 };   /* zeroize v6 dst addr */
         addr.ipv4.src = sa;
         addr.ipv4.dst = da;
     }
-    key(uint16_t sp, uint16_t dp, uint128_t sa, uint128_t da) {
+    key(uint16_t sp, uint16_t dp, ipv6_addr sa, ipv6_addr da) {
         src_port = sp;
         dst_port = dp;
         ip_vers = 6;
@@ -84,8 +92,8 @@ struct key {
         src_port = 0;
         dst_port = 0;
         ip_vers = 0;       // null key can be distinguished by ip_vers field
-        addr.ipv6.src = 0;
-        addr.ipv6.dst = 0;
+        addr.ipv6.src = { 0, 0, 0, 0 };
+        addr.ipv6.dst = { 0, 0, 0, 0 };
     }
     bool operator==(const key &k) const {
         switch (ip_vers) {
@@ -107,11 +115,15 @@ namespace std {
         std::size_t operator()(const struct key& k) const    {
 
             /* assume sizeof(size_t) == 8 for now */
-            size_t x = (size_t) k.src_port | ((size_t) k.dst_port << 16) | ((size_t) k.ip_vers << 32);
-            x ^= (size_t) k.addr.ipv6.src;
-            x ^= (size_t) (k.addr.ipv6.src >> 64);
-            x ^= (size_t) k.addr.ipv6.dst;
-            x ^= (size_t) (k.addr.ipv6.dst >> 64);
+            size_t x = (size_t) k.src_port | ((size_t) k.dst_port << 16) | ((size_t) k.ip_vers);
+            x ^= (size_t) k.addr.ipv6.src.a;
+            x ^= (size_t) k.addr.ipv6.src.b;
+            x ^= (size_t) k.addr.ipv6.src.c;
+            x ^= (size_t) k.addr.ipv6.src.d;
+            x ^= (size_t) k.addr.ipv6.dst.a;
+            x ^= (size_t) k.addr.ipv6.dst.b;
+            x ^= (size_t) k.addr.ipv6.dst.c;
+            x ^= (size_t) k.addr.ipv6.dst.d;
 
             return x;
         }
@@ -165,7 +177,7 @@ void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header 
     }
     //    fprintf(f, "flags: " BYTE_BINARY_FORMAT "\t", UINT8_BINARY(tcp->flags));
     fprintf(f, TCP_FLAGS_FORMAT, TCP_FLAGS_PRINT(tcp->flags));
-    fprintf(f, "seq: %10d ack: %10d ", rel_seq, rel_ack);
+    fprintf(f, "seq: %10u ack: %10u ", rel_seq, rel_ack);
     fprintf(f, "len: %5zu ", data_length);
     // fprintf(f, "len: %5d\tpkt: %5zu\n", tcp_offrsv_get_length(tcp->offrsv), length);
     if (state->disposition == talking) {
@@ -221,12 +233,12 @@ struct tcp_initial_message_filter {
             if (TCP_IS_SYN(tcp->flags)) {
                 tmp_seq = htonl(ntohl(tcp->seq) + 1);
             }
-            struct tcp_state state = { .seq = tmp_seq,
-                                       .ack = tcp->ack,
-                                       .msg_num = 0,
-                                       .init_seq = tmp_seq,
-                                       .init_ack = tcp->ack,
-                                       .disposition = listening
+            struct tcp_state state = { tmp_seq,  // .seq
+                                       tcp->ack, // .ack
+                                       0,        // .msg_num
+                                       tmp_seq,  // .init_seq
+                                       tcp->ack, // .init_ack
+                                       listening // .disposition
             };
             tcp_flow_table[k] = state;
             retval = ACCEPT_PACKET;
