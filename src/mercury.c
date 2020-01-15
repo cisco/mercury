@@ -20,6 +20,10 @@
 #include <sys/syscall.h>
 #include <pthread.h>
 #include <dirent.h>
+
+#include <queue>
+//#include <vector>
+
 #include "mercury.h"
 #include "pcap_file_io.h"
 #include "af_packet_v3.h"
@@ -33,6 +37,33 @@ int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
 int t_output_p = 0;
 pthread_cond_t t_output_c  = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t t_output_m = PTHREAD_MUTEX_INITIALIZER;
+
+
+struct msg {
+    char buf[MQ_MAX_SIZE];
+    ssize_t len;
+
+    double age(struct timespec *cur_ts) {
+        struct timespec our_ts;
+        memcpy(&our_ts, buf, sizeof(struct timespec));
+
+        return ((double)cur_ts->tv_sec + ((double)cur_ts->tv_nsec / 1000000000.0)) -
+            ((double)our_ts.tv_sec + ((double)our_ts.tv_nsec / 1000000000.0));
+    }
+
+    friend bool operator < (const msg& lhs, const msg& rhs);
+};
+
+
+/* This is the "greater" operator which defined as the < operation
+ * which keeps the lowest time (priority) at the top of our pq */
+bool operator < (const msg& rhs, const msg& lhs) {
+    struct timespec tsl, tsr;
+    memcpy(&tsl, lhs.buf, sizeof(struct timespec));
+    memcpy(&tsr, rhs.buf, sizeof(struct timespec));
+
+    return ((tsl.tv_sec < tsr.tv_sec) || ((tsl.tv_sec == tsr.tv_sec) && (tsl.tv_nsec < tsr.tv_nsec)));
+}
 
 
 void init_thread_queues(int n) {
@@ -146,6 +177,8 @@ void *output_thread_func(void *arg) {
 
     (void)arg;
 
+    std::priority_queue<struct msg> pq;
+
     int err;
     err = pthread_mutex_lock(&t_output_m);
     if (err != 0) {
@@ -168,15 +201,11 @@ void *output_thread_func(void *arg) {
     int polret;
     int ret;
     ssize_t mqlen;
-    char mqbuf[MQ_MAX_SIZE];
-    struct timespec ts;
+    struct msg mq_msg;
     struct mq_attr mattr;
     memset(&mattr, 0, sizeof(mattr));
 
     while (sig_stop_output == 0) {
-
-        //sleep(1); // TODO: replace with actual work
-        //fprintf(stderr, "would be doing output...\n");
 
         polret = poll(thread_queues.pqfd, thread_queues.qidx, 1000);
         if (polret < 0) {
@@ -192,14 +221,14 @@ void *output_thread_func(void *arg) {
                 if ((thread_queues.pqfd[q].revents & POLLIN) != 0) {
                     /* we have data on this queue */
 
-
                     ret = mq_getattr(thread_queues.queue[q], &mattr);
                     if (ret < 0) {
                         perror("Failed to get queue attributes");
                     }
                     for (int m = 0; m < mattr.mq_curmsgs; m++) {
 
-                        mqlen = mq_receive(thread_queues.queue[q], mqbuf, MQ_MAX_SIZE, NULL);
+                        mqlen = mq_receive(thread_queues.queue[q], mq_msg.buf, MQ_MAX_SIZE, NULL);
+                        mq_msg.len = mqlen;
                         if (mqlen < 0) {
                             perror("Failed to recieve message in queue");
                         }
@@ -207,19 +236,48 @@ void *output_thread_func(void *arg) {
                             fprintf(stderr, "Received message smaller than the required struct timespec");
                         }
                         else {
-
-                            memcpy(&ts, mqbuf, sizeof(struct timespec));
-
-                            /*fprintf(stdout, "msg: %f ", (double)ts.tv_sec + (double)ts.tv_nsec / 1000000000.0);*/
-
-                            // TODO: enqueue this message for proper ordering
-                            fwrite(&(mqbuf[sizeof(struct timespec)]), mqlen - sizeof(struct timespec), 1, stdout);
+                            /* Enqueue this message so we can do proper msg ordering */
+                            pq.push(mq_msg);
                         }
                     }
 
                 }
             }
         } /* end poll found messages ready */
+
+        /* Flush queue until it's below our target limit */
+        while (pq.size() > MQ_PQ_LIMIT) {
+            mq_msg = pq.top();
+            fwrite(&(mq_msg.buf[sizeof(struct timespec)]), mq_msg.len - sizeof(struct timespec), 1, stdout);
+            pq.pop();
+        }
+
+        /* Flush queue whenever the top message is too old */
+        struct timespec cur_ts;
+        if (clock_gettime(CLOCK_REALTIME, &cur_ts) != 0) {
+            perror("Unable to get current time");
+        }
+
+        int age_done = 0;
+        while ((age_done == 0) && (pq.size() > 0)) {
+
+            mq_msg = pq.top();
+            if (mq_msg.age(&cur_ts) > MQ_PQ_MAX_AGE) {
+                fwrite(&(mq_msg.buf[sizeof(struct timespec)]), mq_msg.len - sizeof(struct timespec), 1, stdout);
+                pq.pop();
+            }
+            else {
+                age_done = 1;
+            }
+        }
+    }
+
+    /* Flush the entire priority queue when we're about to exit */
+    while (pq.size() > 0) {
+
+        mq_msg = pq.top();
+        fwrite(&(mq_msg.buf[sizeof(struct timespec)]), mq_msg.len - sizeof(struct timespec), 1, stdout);
+        pq.pop();
     }
 
     return NULL;

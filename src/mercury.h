@@ -67,8 +67,10 @@ struct mercury_config {
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
-#define MQ_MAX_SIZE    8192 /* The number of bytes per message (LINUX DEFAULT LIMIT: 8192) */
-#define MQ_QUEUE_DEPTH 10   /* The number of messages in the queue (LINUX DEFAULT LIMIT: 10) */
+#define MQ_MAX_SIZE    8192  /* The number of bytes per message (LINUX DEFAULT LIMIT: 8192) */
+#define MQ_QUEUE_DEPTH 10    /* The number of messages in the queue (LINUX DEFAULT LIMIT: 10) */
+#define MQ_PQ_LIMIT    10000 /* Maximum number of elements allowed in the priority queue */
+#define MQ_PQ_MAX_AGE  5     /* Maximum age (in seconds) messages are allowed to sit in the pq */
 
 extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
 extern int t_output_p;
