@@ -1274,6 +1274,52 @@ void extract_certificates(FILE *file, const unsigned char *data, size_t data_len
     }
 }
 
+
+int append_extract_certificates(char *dstr, int *doff, int dlen, int *trunc,
+                                const unsigned char *data, size_t data_len) {
+    size_t tmp_len;
+    struct parser cert_list;
+    int cert_num = 0;
+
+    parser_init(&cert_list, data, data_len);
+
+    int r = 0;
+
+    while (parser_get_data_length(&cert_list) > 0) {
+        /* get certificate length */
+        if (parser_read_and_skip_uint(&cert_list, L_CertificateLength, &tmp_len) == status_err) {
+	        return r;
+        }
+
+        if (tmp_len > (unsigned)parser_get_data_length(&cert_list)) {
+            tmp_len = parser_get_data_length(&cert_list); /* truncate */
+        }
+
+        if (tmp_len == 0) {
+            return r; /* don't bother printing out a partial cert if it has a length of zero */
+        }
+
+        if (cert_num > 0) {
+            r += append_putc(dstr, doff, dlen, trunc,
+                             ','); /* print separating comma */
+        }
+
+        r += append_json_base64_string(dstr, doff, dlen, trunc,
+                                       cert_list.data, tmp_len);
+
+        /*
+         * skip over certificate data
+         */
+        if (parser_skip(&cert_list, tmp_len) == status_err) {
+	        return r;
+        }
+        cert_num++;
+    }
+
+    return r;
+}
+
+
 enum status parser_extractor_process_tls_server_hello(struct parser *record, struct extractor *x) {
     size_t tmp_len;
     size_t tmp_type;
