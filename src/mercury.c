@@ -889,12 +889,13 @@ int main(int argc, char *argv[]) {
     }
 
     /* make the thread queues */
-    init_thread_queues(cfg.num_threads);
-    pthread_t output_thread;
-    int err = pthread_create(&output_thread, NULL, output_thread_func, NULL);
-    if (err != 0) {
-        perror("error creating output thread");
-    }
+    /* DISABLED IPC PORTION -- for merging into trunk */
+    /* init_thread_queues(cfg.num_threads); */
+    /* pthread_t output_thread; */
+    /* int err = pthread_create(&output_thread, NULL, output_thread_func, NULL); */
+    /* if (err != 0) { */
+    /*     perror("error creating output thread"); */
+    /* } */
 
     /* init random number generator */
     srand(time(0));
@@ -919,10 +920,11 @@ int main(int argc, char *argv[]) {
         analysis_finalize();
     }
 
-    fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
-    sig_stop_output = 1;
-    pthread_join(output_thread, NULL);
-    destroy_thread_queues();
+    /* DISABLED IPC PORTION -- for merging into trunk */
+    /* fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n"); */
+    /* sig_stop_output = 1; */
+    /* pthread_join(output_thread, NULL); */
+    /* destroy_thread_queues(); */
 
     return 0;
 }
