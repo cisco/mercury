@@ -306,6 +306,7 @@ char mercury_help[] =
     "   [-v or --verbose]                     # additional information sent to stdout\n"
     "   [-p or --loop] loop_count             # loop count >= 1 for the read_file\n"
 //  "   [--adaptive]                          # adaptively accept or skip packets for pcap file\n"
+    "   [--license]                           # display license\n"
     "   [-h or --help]                        # extended help, with examples\n";
 
 char mercury_extended_help[] =
@@ -346,6 +347,8 @@ char mercury_extended_help[] =
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
     "\n"
+    "   [--license] writes the license terms to stdout.\n"
+    "\n"
     "   [-h or --help] writes this extended help message to stdout.\n"
     "\n"
     "EXAMPLES\n"
@@ -355,7 +358,6 @@ char mercury_extended_help[] =
     "   mercury -r foo.mcap -f foo.json       # read foo.mcap, write fingerprints\n"
     "   mercury -r foo.mcap -f foo.json -a    # as above, with fingerprint analysis\n"
     "   mercury -c eth0 -t cpu -f foo.json -a # capture and analyze fingerprints\n";
-
 
 enum extended_help {
     extended_help_off = 0,
@@ -369,9 +371,28 @@ void usage(const char *progname, const char *err_string, enum extended_help exte
     printf(mercury_help, progname);
     if (extended_help) {
 	printf("%s", mercury_extended_help);
+    } else {
+        printf("\nrun %s --help for more information\n", progname);
     }
     exit(EXIT_ERR);
 }
+
+/*
+ * enum option_index holds the integers used for long options for
+ * which there is no corresponding short option
+ */
+enum option_index {
+  adaptive = 0,
+  config   = 1,
+  license  = 2
+};
+
+char banner[] = "\t   ____ ___  ___  ____________  _________  __\n"
+                "\t  / __ `__ \\/ _ \\/ ___/ ___/ / / / ___/ / / /\n"
+                "\t / / / / / /  __/ /  / /__/ /_/ / /  / /_/ /\n"
+                "\t/_/ /_/ /_/\\___/_/   \\___/\\__,_/_/   \\__, /\n"
+                "\t                                    /____/\n\n"
+                "\t  packet metadata collection and analysis\n";
 
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
@@ -381,7 +402,7 @@ int main(int argc, char *argv[]) {
     while(1) {
 	int opt_idx = 0;
 	static struct option long_opts[] = {
-	    { "config",      required_argument, NULL, 1   },
+	    { "config",      required_argument, NULL, config },
 	    { "read",        required_argument, NULL, 'r' },
 	    { "write",       required_argument, NULL, 'w' },
 	    { "directory",   required_argument, NULL, 'd' },
@@ -397,7 +418,8 @@ int main(int argc, char *argv[]) {
 	    { "select",      optional_argument, NULL, 's' },
 	    { "verbose",     no_argument,       NULL, 'v' },
 	    { "loop",        required_argument, NULL, 'p' },
-	    { "adaptive",    no_argument,       NULL,  0  },
+	    { "adaptive",    no_argument,       NULL,  adaptive },
+	    { "license",     no_argument,       NULL,  license },
 	    { NULL,          0,                 0,     0  }
 	};
 	c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
@@ -485,8 +507,8 @@ int main(int argc, char *argv[]) {
 	    if (optarg) {
 		usage(argv[0], "error: option h or help does not use an argument", extended_help_on);
 	    } else {
-		printf("mercury: packet metadata capture and analysis\n"); 
-		usage(argv[0], NULL, extended_help_on);
+            printf("%s\n", banner);
+            usage(argv[0], NULL, extended_help_on);
 	    }
 	    break;
 	case 'T':
@@ -540,6 +562,15 @@ int main(int argc, char *argv[]) {
 		usage(argv[0], "error: option --adaptive does not use an argument", extended_help_off);
 	    } else {
 		cfg.adaptive = 1;
+	    }
+	    break;
+	case license:
+	    if (optarg) {
+            usage(argv[0], "error: option --license does not use an argument", extended_help_off);
+	    } else {
+            extern unsigned char COPYING[];
+            fprintf(stdout, "%s\n\n%s\n", banner, COPYING);
+            exit(0);
 	    }
 	    break;
 	case 'u':
