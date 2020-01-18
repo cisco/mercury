@@ -137,3 +137,7 @@ class HTTP(Protocol):
                 except:
                     fp_h.append({field[0].hex(): ''})
         return fp_h
+
+
+    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None):
+        return None

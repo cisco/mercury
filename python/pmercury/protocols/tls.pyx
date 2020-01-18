@@ -228,7 +228,7 @@ cdef class TLS():
         domain, tld = get_tld_info(server_name)
         asn = get_asn_info(dest_addr)
         port_app = get_port_application(dest_port)
-        features = [asn, domain, port_app, dest_addr, str(server_name)]
+        features = [asn, domain, port_app, dest_addr, str(server_name), dest_port]
 
         # compute and sort scores for each process in the fingerprint
         fp_tc = fp_['total_count']
@@ -279,14 +279,18 @@ cdef class TLS():
         cdef uint64_t p_count     = p_['count']
         cdef double prob_process_given_fp = log(p_count/fp_tc_)
 
-        cdef double base_prior_ = -27.63102 # log(1e-12)
+        cdef double base_prior_ = -23.02585 # log(1e-10)
         cdef double proc_prior_ = -11.51293 # log(1e-5)
         cdef double prior_      = -13.81551 # log(1e-6)
 
-        cdef double score_ = prob_process_given_fp if prob_process_given_fp > proc_prior_ else proc_prior_
+        if 'domain_mean' in p_ and p_['domain_mean'] < 5.0:
+            base_prior_ = -25.32844 # log(1e-11)
+
+        cdef double score_ = 5*prob_process_given_fp if prob_process_given_fp > proc_prior_ else 5*proc_prior_
         cdef double tmp_, trans_prob, prev_proc_prior
 
-        if endpoint != None and endpoint.prev_flow != None and 'analysis' in endpoint.prev_flow:
+        if (endpoint != None and endpoint.prev_flow != None and
+            'analysis' in endpoint.prev_flow and 'probable_processes' in endpoint.prev_flow['analysis']):
             trans_prob = sum([pp_['score']*self.transition_probs[pp_['process']][cur_proc]
                               for pp_ in endpoint.prev_flow['analysis']['probable_processes']
                               if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
@@ -325,6 +329,12 @@ cdef class TLS():
                 score_ += tmp_ if tmp_ > prior_ else prior_
             except KeyError:
                 score_ += base_prior_
+
+#            try:
+#                tmp_ = log(p_['classes_port_port'][features[5]]/p_count)
+#                score_ += tmp_ if tmp_ > prior_ else prior_
+#            except KeyError:
+#                score_ += base_prior_
 
         app_cat = 'Unknown'
         if 'application_category' in p_:

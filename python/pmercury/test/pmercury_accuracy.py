@@ -25,6 +25,14 @@ for line in open(app_families_file, 'r'):
         app_families[tokens[i]] = tokens[0]
 
 
+app_families_strict_file = '../../../resources/app_families_strict.txt'
+app_families_strict = {}
+for line in open(app_families_strict_file, 'r'):
+    tokens = line.strip().split(',')
+    for i in range(1, len(tokens)):
+        app_families_strict[tokens[i]] = tokens[0]
+
+
 class Validation:
 
     def __init__(self, in_file, fp_db_name, output, categories, top):
@@ -44,7 +52,8 @@ class Validation:
                                              'com.docker.vpnkit','vpnkit.exe','vpnkit','vpnui.exe','wepsvc.exe','WerFault.exe',
                                              'SearchProtocolHost.exe','backgroundTaskHost.exe','WWAHost.exe','dsb.exe','node.exe',
                                              'webfilterproxyd','SophosWebIntelligence','swi_fc.exe','DgWip.exe','dgwipd',
-                                             'FreedomProxy'])
+                                             'FreedomProxy','CovenantEyesProxy.exe','FreedomProxy.exe', # <- new
+                                         ])
 
 
         # read in application categories
@@ -96,7 +105,7 @@ class Validation:
             r_ = [sum([row[idx][i] for row in r_c]) for i in range(0,len(r_c[0][0]))]
             print('\n\t%s Accuracy:\t\t    %0.6f' % (c, (r_[1]/r_[0])))
             print('\t%s Confusion Matrix:' % c)
-            print('\t\t\t   Postive       Negative')
+            print('\t\t\t   Positive       Negative')
             print('\t\tPositive:% 9i\t% 9i' % (r_[2], r_[5]))
             print('\t\tNegative:% 9i\t% 9i' % (r_[4], r_[3]))
 
@@ -153,6 +162,9 @@ class Validation:
     def read_file_json(self, f):
         data = {}
 
+#        data['blah'] = [(None,None,'acumbrellacore','','tls','(0303)(130313011302c02cc02bc024c023c00ac009cca9c030c02fc028c027c014c013cca8009d009c003d003c0035002fc008c012000a)((ff01)(0000)(0017)(000d0018001604030804040105030203080508050501080606010201)(000500050100000000)(3374)(0012)(00100030002e0268320568322d31360568322d31350568322d313408737064792f332e3106737064792f3308687474702f312e31)(000b00020100)(0033)(002d00020101)(002b0009080304030303020301)(000a000a0008001d001700180019)(0015))','10.10.10.10',443,'sync.hydra.opendns.com',10,None,{'malware': False})]
+#        return data
+
         start = time.time()
         for line in os.popen('zcat %s' % (f)):
             fp_ = json.loads(line)
@@ -202,7 +214,7 @@ class Validation:
                         server_name = dst_x[2][1:]
                         data[fp_str+proc].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
                                                   server_name,x_['count'],None,app_cats))
- 
+
         print('time to read data:\t%0.2f' % (time.time()-start))
 
         return data
@@ -228,11 +240,17 @@ def get_results(data):
         protocol    = 6
         ts          = 0.00
 
-        flow = fingerprinter.process_csv('tls', str_repr, src_ip, dst_ip, src_port, dst_port,
+#        fp_ = fingerprinter.get_database_entry(str_repr, type_)
+#        if fp_ == None:
+#            continue
+
+        flow = fingerprinter.process_csv(type_, str_repr, src_ip, dst_ip, src_port, dst_port,
                                          protocol, ts, {'server_name': server_name})
         if 'analysis' not in flow:
             continue
         r_ = flow['analysis']
+        if 'probable_processes' not in r_:
+            continue
         pi_ = r_['probable_processes'][0]
 
         app_cat = 'None'
@@ -308,6 +326,7 @@ def clean_proc(p):
 
 def process_result(x_):
     global app_families
+    global app_families_strict
 
     sl   = x_[0]
     cats = x_[1]
@@ -319,18 +338,27 @@ def process_result(x_):
             continue
 
         count    = r['count']
-        oproc_gt = r['ground_truth']['process']
-        gproc_gt = clean_proc(app_families[oproc_gt] if oproc_gt in app_families else oproc_gt)
+#        oproc_gt = r['ground_truth']['process']
+        tmp_oproc_gt = r['ground_truth']['process']
+        oproc_gt = app_families_strict[tmp_oproc_gt] if tmp_oproc_gt in app_families_strict else tmp_oproc_gt
+        gproc_gt = clean_proc(app_families[tmp_oproc_gt] if tmp_oproc_gt in app_families else tmp_oproc_gt)
         proc_gt  = clean_proc(oproc_gt)
         sha_gt   = r['ground_truth']['sha256']
-        oproc_nf = r['inferred_truth']['process']
-        gproc_nf = clean_proc(app_families[oproc_nf] if oproc_nf in app_families else oproc_nf)
+#        oproc_nf = r['inferred_truth']['process']
+        tmp_oproc_nf = r['inferred_truth']['process']
+        oproc_nf = app_families_strict[tmp_oproc_nf] if tmp_oproc_nf in app_families_strict else tmp_oproc_nf
+        gproc_nf = clean_proc(app_families[tmp_oproc_nf] if tmp_oproc_nf in app_families else tmp_oproc_nf)
         proc_nf  = clean_proc(oproc_nf)
         sha_nf   = r['inferred_truth']['sha256']
 
         r_proc   = r['count'] if proc_gt  == proc_nf else 0
         r_gproc  = r['count'] if gproc_gt == gproc_nf else 0
         r_sha    = r['count'] if sha_gt   == sha_nf else 0
+
+#        if oproc_gt != oproc_nf:
+#            verbose_out.write('%i,%s,%s,%s,%f,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name'],
+#                                                       r['score'],r['fp_str']))
+#            verbose_out.flush()
 
 #        if gproc_gt != gproc_nf:
 #            verbose_out.write('%i,%s,%s,%s,%f,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name'],

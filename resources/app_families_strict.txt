@@ -1,0 +1,27 @@
+Chrome,chrome.exe,chromee.exe,Google Chrome Helper,Chrome,chrome,Chromium Helper,Chromium
+
+Firefox,firefox.exe,firefox,firefox-esr,firefox-bin
+
+Cisco Spark,CiscoSparkHelper,CiscoCollabHost.exe,Cisco Jabber,Webex Teams,Cisco Webex Meetings,ptoneclk.exe,CiscoJabber.exe,ptMeetingsHost.exe,SparkWindows.exe,ptmeetingshost.exe,ciscojabber.exe
+
+Safari,Safari,com.apple.WebKit.Networking,com.apple.Safari.SearchHelper
+
+Internet Explorer,iexplore.exe,MicrosoftEdgeCP.exe,microsoftedgecp.exe,MicrosoftEdgeSH.exe,MicrosoftEdge.exe
+
+Brave Browser,brave.exe,Brave Browser Helper
+
+One Note,onenote.exe,ONENOTE.EXE
+
+Excel,EXCEL.EXE,excel.exe,Microsoft Excel
+
+Spotify,Spotify.exe,spotify.exe
+
+Twitter,Twitter,Twitterrific
+
+Webull,Webull.exe,Webull
+
+Splice Helper,Splice Helper,Splice.Helper.exe
+
+Slack,Slack,Slack.exe
+
+Communicator,Communicator,Communicator.exe
