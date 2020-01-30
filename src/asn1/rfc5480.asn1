@@ -1,0 +1,328 @@
+-- RFC 5480            ECC SubjectPublicKeyInfo Format           March 2009
+--
+--
+-- Appendix A.  ASN.1 Module
+--
+--   PKIX1Algorithms2008 { iso(1) identified-organization(3) dod(6)
+--     internet(1) security(5) mechanisms(5) pkix(7) id-mod(0) 45 }
+--
+--   DEFINITIONS EXPLICIT TAGS ::=
+--
+--   BEGIN
+--
+--   -- EXPORTS ALL;
+--
+--   IMPORTS
+--
+--   -- From RFC 4055 [RSAOAEP]
+--
+--   id-sha224, id-sha256, id-sha384, id-sha512
+--     FROM PKIX1-PSS-OAEP-Algorithms
+--       { iso(1) identified-organization(3) dod(6) internet(1)
+--         security(5) mechanisms(5) pkix(7) id-mod(0)
+--         id-mod-pkix1-rsa-pkalgs(33) }
+--
+--   ;
+
+   --
+   -- Message Digest Algorithms
+   --
+
+   -- MD-2
+   -- Parameters are NULL
+
+   id-md2  OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 2 }
+
+   -- MD-5
+   -- Parameters are NULL
+
+   id-md5  OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) rsadsi(113549)digestAlgorithm(2) 5 }
+
+   -- SHA-1
+   -- Parameters are preferred absent
+
+   id-sha1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) oiw(14) secsig(3)
+     algorithm(2) 26 }
+
+   -- SHA-224
+   -- Parameters are preferred absent
+
+   -- id-sha224 OBJECT IDENTIFIER ::= {
+   --   joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+   --   csor(3) nistalgorithm(4) hashalgs(2) 4 }
+   -- SHA-256
+   -- Parameters are preferred absent
+
+   -- id-sha256 OBJECT IDENTIFIER ::= {
+   --   joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+   --   csor(3) nistalgorithm(4) hashalgs(2) 1 }
+
+   -- SHA-384
+   -- Parameters are preferred absent
+
+   -- id-sha384 OBJECT IDENTIFIER ::= {
+   --   joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+   --   csor(3) nistalgorithm(4) hashalgs(2) 2 }
+
+   -- SHA-512
+   -- Parameters are preferred absent
+
+   -- id-sha512 OBJECT IDENTIFIER ::= {
+   --   joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+   --   csor(3) nistalgorithm(4) hashalgs(2) 3 }
+
+   --
+   -- Public Key (PK) Algorithms
+   --
+
+   -- RSA PK Algorithm and Key
+
+   rsaEncryption OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1) 1 }
+
+--   RSAPublicKey ::= SEQUENCE {
+--     modulus         INTEGER, -- n
+--     publicExponent  INTEGER  -- e
+--   }
+
+   -- DSA PK Algorithm, Key, and Parameters
+
+   id-dsa OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) x9-57(10040) x9algorithm(4) 1 }
+
+--   DSAPublicKey ::= INTEGER --  public key, y
+
+--   DSS-Parms ::= SEQUENCE {
+--     p  INTEGER,
+--     q  INTEGER,
+--     g  INTEGER
+--   }
+
+   -- Diffie-Hellman PK Algorithm, Key, and Parameters
+
+   dhpublicnumber OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) ansi-x942(10046) number-type(2) 1 }
+
+--   DHPublicKey ::= INTEGER  -- public key, y = g^x mod p
+--
+--   DomainParameters ::= SEQUENCE {
+--     p                INTEGER,           -- odd prime, p=jq +1
+--     g                INTEGER,           -- generator, g
+--     q                INTEGER,           -- factor of p-1
+--     j                INTEGER OPTIONAL,  -- subgroup factor, j>= 2
+--     validationParms  ValidationParms OPTIONAL
+--   }
+--
+--   ValidationParms ::= SEQUENCE {
+--     seed         BIT STRING,
+--     pgenCounter  INTEGER
+--   }
+
+   -- KEA PK Algorithm and Parameters
+
+   id-keyExchangeAlgorithm OBJECT IDENTIFIER ::= {
+     joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+     dod(2) infosec(1) algorithms(1) 22 }
+
+
+--   KEA-Parms-Id ::= OCTET STRING
+
+   -- Sec 2.1.1 Unrestricted Algorithm ID, Key, and Parameters
+   -- (ECDSA keys use id-ecPublicKey)
+
+   id-ecPublicKey OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
+
+--   ECPoint ::= OCTET STRING
+
+   -- Parameters for both Restricted and Unrestricted
+
+--   ECParameters ::= CHOICE {
+--     namedCurve         OBJECT IDENTIFIER
+--     -- implicitCurve   NULL
+--     -- specifiedCurve  SpecifiedECDomain
+--   }
+     -- implicitCurve and specifiedCurve MUST NOT be used in PKIX.
+     -- Details for SpecifiedECDomain can be found in [X9.62].
+     -- Any future additions to this CHOICE should be coordinated
+     -- with ANSI X9.
+
+   -- Sec 2.1.2 Restricted Algorithm IDs, Key, and Parameters: ECDH
+
+   id-ecDH OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) schemes(1)
+     ecdh(12) }
+
+   -- ECPoint ::= OCTET STRING
+
+   -- Parameters are ECParameters.
+
+   -- Sec 2.1.2 Restricted Algorithm IDs, Key, and Parameters: ECMQV
+
+   id-ecMQV OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) schemes(1)
+     ecmqv(13) }
+
+   -- ECPoint ::= OCTET STRING
+
+   -- Parameters are ECParameters.
+
+   --
+   -- Signature Algorithms
+   --
+
+   -- RSA with MD-2
+   -- Parameters are NULL
+
+   md2WithRSAEncryption OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1) 2 }
+
+   -- RSA with MD-5
+   -- Parameters are NULL
+
+   md5WithRSAEncryption OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1) 4 }
+
+   -- RSA with SHA-1
+   -- Parameters are NULL
+
+   sha1WithRSAEncryption OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1) 5 }
+
+   -- DSA with SHA-1
+   -- Parameters are ABSENT
+
+   id-dsa-with-sha1 OBJECT IDENTIFIER ::=  {
+     iso(1) member-body(2) us(840) x9-57(10040) x9algorithm(4) 3 }
+
+   -- DSA with SHA-224
+   -- Parameters are ABSENT
+
+   id-dsa-with-sha224 OBJECT IDENTIFIER  ::=  {
+     joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+     csor(3) algorithms(4) id-dsa-with-sha2(3) 1 }
+
+   -- DSA with SHA-256
+   -- Parameters are ABSENT
+
+   id-dsa-with-sha256 OBJECT IDENTIFIER  ::=  {
+     joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+     csor(3) algorithms(4) id-dsa-with-sha2(3) 2 }
+
+   -- ECDSA with SHA-1
+   -- Parameters are ABSENT
+
+   ecdsa-with-SHA1 OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) ansi-X9-62(10045) signatures(4) 1 }
+
+   -- ECDSA with SHA-224
+   -- Parameters are ABSENT
+
+   ecdsa-with-SHA224 OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) ansi-X9-62(10045) signatures(4)
+     ecdsa-with-SHA2(3) 1 }
+
+   -- ECDSA with SHA-256
+   -- Parameters are ABSENT
+
+   ecdsa-with-SHA256 OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) ansi-X9-62(10045) signatures(4)
+     ecdsa-with-SHA2(3) 2 }
+
+   -- ECDSA with SHA-384
+   -- Parameters are ABSENT
+
+   ecdsa-with-SHA384 OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) ansi-X9-62(10045) signatures(4)
+     ecdsa-with-SHA2(3) 3 }
+
+   -- ECDSA with SHA-512
+   -- Parameters are ABSENT
+
+   ecdsa-with-SHA512 OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) ansi-X9-62(10045) signatures(4)
+     ecdsa-with-SHA2(3) 4 }
+
+   --
+   -- Signature Values
+   --
+
+   -- DSA
+
+--   DSA-Sig-Value ::= SEQUENCE {
+--     r  INTEGER,
+--     s  INTEGER
+--   }
+
+   -- ECDSA
+
+--   ECDSA-Sig-Value ::= SEQUENCE {
+--     r  INTEGER,
+--     s  INTEGER
+--   }
+
+   --
+   -- Named Elliptic Curves
+   --
+
+   -- Note that in [X9.62] the curves are referred to as 'ansiX9' as
+   -- opposed to 'sec'.  For example secp192r1 is the same curve as
+   -- ansix9p192r1.
+
+   -- Note that in [PKI-ALG] the secp192r1 curve was referred to as
+   -- prime192v1 and the secp256r1 curve was referred to as prime256v1.
+
+   -- Note that [FIPS186-3] refers to secp192r1 as P-192, secp224r1 as
+   -- P-224, secp256r1 as P-256, secp384r1 as P-384, and secp521r1 as
+   -- P-521.
+
+   secp192r1 OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) ansi-X9-62(10045) curves(3)
+     prime(1) 1 }
+
+   sect163k1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 1 }
+
+   sect163r2 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 15 }
+
+   secp224r1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 33 }
+
+   sect233k1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 26 }
+
+   sect233r1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 27 }
+
+   secp256r1 OBJECT IDENTIFIER ::= {
+     iso(1) member-body(2) us(840) ansi-X9-62(10045) curves(3)
+     prime(1) 7 }
+
+   sect283k1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 16 }
+
+   sect283r1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 17 }
+
+   secp384r1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 34 }
+
+   sect409k1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 36 }
+
+   sect409r1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 37 }
+
+   secp521r1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 35 }
+
+   sect571k1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 38 }
+
+   sect571r1 OBJECT IDENTIFIER ::= {
+     iso(1) identified-organization(3) certicom(132) curve(0) 39 }
+

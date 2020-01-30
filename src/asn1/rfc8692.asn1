@@ -1,0 +1,9 @@
+   id-shake128 OBJECT IDENTIFIER ::= { joint-iso-itu-t(2) country(16)
+                                       us(840) organization(1) gov(101)
+                                       csor(3) nistAlgorithm(4)
+                                       hashAlgs(2) 11 }
+
+   id-shake256 OBJECT IDENTIFIER ::= { joint-iso-itu-t(2) country(16)
+                                       us(840) organization(1) gov(101)
+                                       csor(3) nistAlgorithm(4)
+                                       hashAlgs(2) 12 }
