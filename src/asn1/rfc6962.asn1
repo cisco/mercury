@@ -1,0 +1,66 @@
+-- RFC 6962                Certificate Transparency               June 2013
+--
+-- IMPORTANT NOTE: there is no ASN.1 module in RFC6962, so the definitions
+-- in this note are inferred from the main text of the RFC.  Unlike
+-- the other .asn1 modules, there are no naming conventions.
+--
+--
+-- The SCT data corresponding to the end-entity certificate from at
+-- least one log must be included in the TLS handshake, either by using
+-- an X509v3 certificate extension as described below, by using a TLS
+-- extension (Section 7.4.1.4 of [RFC5246]) with type
+-- "signed_certificate_timestamp", or by using Online Certificate Status
+-- Protocol (OCSP) Stapling (also known as the "Certificate Status
+-- Request" TLS extension; see [RFC6066]), where the response includes
+-- an OCSP extension with OID 1.3.6.1.4.1.11129.2.4.5 (see [RFC2560])
+-- and body:
+--
+--       SignedCertificateTimestampList ::= OCTET STRING
+--
+-- At least one SCT MUST be included.  Server operators MAY include more
+-- than one SCT.
+
+id-ad-ocsp-SignedCertificateTimestampList OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 11129 2 4 5 }
+
+--   Similarly, a certificate authority MAY submit a Precertificate to
+--   more than one log, and all obtained SCTs can be directly embedded in
+--   the final certificate, by encoding the SignedCertificateTimestampList
+--   structure as an ASN.1 OCTET STRING and inserting the resulting data
+--   in the TBSCertificate as an X.509v3 certificate extension (OID
+--   1.3.6.1.4.1.11129.2.4.2).  Upon receiving the certificate, clients
+--   can reconstruct the original TBSCertificate to verify the SCT
+--   signature.
+
+id-ce-SignedCertificateTimestampList OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 11129 2 4 2 }
+
+--
+--   The contents of the ASN.1 OCTET STRING embedded in an OCSP extension
+--   or X509v3 certificate extension are as follows:
+--
+--        opaque SerializedSCT<1..2^16-1>;
+--
+--        struct {
+--            SerializedSCT sct_list <1..2^16-1>;
+--        } SignedCertificateTimestampList;
+--
+--   Alternatively, (root as well as intermediate) certificate authorities
+--   may submit a certificate to logs prior to issuance.  To do so, the CA
+--   submits a Precertificate that the log can use to create an entry that
+--   will be valid against the issued certificate.  The Precertificate is
+--   constructed from the certificate to be issued by adding a special
+--   critical poison extension (OID 1.3.6.1.4.1.11129.2.4.3, whose
+--   extnValue OCTET STRING contains ASN.1 NULL data (0x05 0x00)) to the
+--   end-entity TBSCertificate (this extension is to ensure that the
+--   Precertificate cannot be validated by a standard X.509v3 client) and
+--   signing the resulting TBSCertificate [RFC5280] with either
+--
+--   o  a special-purpose (CA:true, Extended Key Usage: Certificate
+--      Transparency, OID 1.3.6.1.4.1.11129.2.4.4) Precertificate Signing
+--      Certificate.  The Precertificate Signing Certificate MUST be
+--      directly certified by the (root or intermediate) CA certificate
+--      that will ultimately sign the end-entity TBSCertificate yielding
+--      the end-entity certificate (note that the log may relax standard
+--      validation rules to allow this, so long as the issued certificate
+--      will be valid),
+--
+--   o  or, the CA certificate that will sign the final certificate.
