@@ -118,7 +118,7 @@ class Fingerprinter:
 
     def process_pcap(self, pcap_file):
         p = pcap.pcap(pcap_file)
-        p.setfilter('ip proto 6 or ip6 proto 6 or ip proto 17 or ip6 proto 17')
+#        p.setfilter('ip proto 6 or ip6 proto 6 or ip proto 17 or ip6 proto 17')
         p.dispatch(-1, self.process_packet)
 
         if self.group:
@@ -136,7 +136,7 @@ class Fingerprinter:
         signal.signal(signal.SIGINT, signal_handler)
 
         p = pcap.pcap(iface)
-        p.setfilter('ip proto 6 or ip6 proto 6 or ip proto 17 or ip6 proto 17')
+#        p.setfilter('ip proto 6 or ip6 proto 6 or ip proto 17 or ip6 proto 17')
         flow_timer = time.time()
         while 1:
             p.dispatch(-1, self.process_packet)
