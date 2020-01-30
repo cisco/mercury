@@ -58,8 +58,8 @@ setcap: mercury
 
 # libmerc performs selective packet parsing and fingerprint extraction
 #
-LIBMERC     = extractor.c ept.c packet.c udp.c $(PYANALYSIS)
-LIBMERC_H   = eth.h extractor.h ept.h proto_identify.h packet.h udp.h
+LIBMERC     = parser.c extractor.c ept.c packet.c udp.c $(PYANALYSIS)
+LIBMERC_H   = parser.h eth.h extractor.h ept.h proto_identify.h packet.h udp.h
 LIBMERC_OBJ = $(LIBMERC:%.c=%.o)
 
 # implicit rule for building object files

@@ -197,121 +197,6 @@ void extractor_init(struct extractor *x,
     packet_data_init(&x->packet_data);
 }
 
-void parser_init(struct parser *p,
-                 const unsigned char *data,
-                 unsigned int data_len) {
-
-    p->data = data;
-    p->data_end = data + data_len;
-
-    extractor_debug("%s: initialized with %td bytes\n", __func__, p->data_end - p->data);
-}
-
-void parser_init_from_outer_parser(struct parser *p,
-                                   const struct parser *outer,
-                                   unsigned int data_len) {
-    const unsigned char *inner_data_end = outer->data + data_len;
-
-    p->data = outer->data;
-    p->data_end = inner_data_end > outer->data_end ? outer->data_end : inner_data_end;
-
-    extractor_debug("%s: initialized with %td bytes\n", __func__, p->data_end - p->data);
-}
-
-void parser_pop(struct parser *inner, struct parser *outer) {
-    outer->data = inner->data;
-    extractor_debug("%s: outer parser now has %td bytes\n", __func__, outer->data_end - outer->data);
-}
-
-enum status parser_set_data_length(struct parser *p,
-                                   unsigned int data_len) {
-
-    extractor_debug("%s: set_data_length from %ld to %u\n", __func__, p->data_end - p->data, data_len);
-
-    if (p->data + data_len <= p->data_end) {
-        p->data_end = p->data + data_len;
-        return status_ok;
-    }
-    return status_err;
-}
-
-enum status parser_skip(struct parser *p,
-                        unsigned int len) {
-    extractor_debug("%s: skipping %u bytes (%02x...)\n", __func__, len, p->data[0]);
-
-    if (p->data + len <= p->data_end) {
-        p->data = p->data + len;
-        return status_ok;
-    }
-    extractor_debug("%s: error; tried to skip %u, only %td remaining\n", __func__, len, p->data_end - p->data);
-    return status_err;
-}
-
-enum status parser_skip_to(struct parser *p,
-                           const unsigned char *location) {
-
-    if (location <= p->data_end) {
-        p->data = location;
-        return status_ok;
-    }
-    extractor_debug("%s: error; tried to skip %td, only %td remaining\n", __func__, location - p->data_end, p->data_end - p->data);
-    return status_err;
-}
-
-enum status parser_read_uint(struct parser *p,
-                             unsigned int num_bytes,
-                             size_t *output) {
-
-    if (p->data + num_bytes <= p->data_end) {
-        size_t tmp = 0;
-        const unsigned char *c;
-
-        for (c = p->data; c < p->data + num_bytes; c++) {
-            tmp = (tmp << 8) + *c;
-        }
-        *output = tmp;
-        extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
-        return status_ok;
-    }
-    return status_err;
-}
-
-enum status parser_read_and_skip_uint(struct parser *p,
-                                      unsigned int num_bytes,
-                                      size_t *output) {
-
-    if (p->data + num_bytes <= p->data_end) {
-        size_t tmp = 0;
-        const unsigned char *c;
-
-        for (c = p->data; c < p->data + num_bytes; c++) {
-            tmp = (tmp << 8) + *c;
-        }
-        *output = tmp;
-        p->data += num_bytes;
-        extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zu\n", __func__, num_bytes, (unsigned) tmp, tmp);
-        return status_ok;
-    }
-    return status_err;
-}
-
-enum status parser_read_and_skip_byte_string(struct parser *p,
-                                             unsigned int num_bytes,
-                                             uint8_t *output_string) {
-
-    if (p->data + num_bytes <= p->data_end) {
-        const unsigned char *c;
-
-        for (c = p->data; c < p->data + num_bytes; c++) {
-            *output_string++ = *c;
-        }
-        p->data += num_bytes;
-        extractor_debug("%s: num_bytes: %u\n", __func__, num_bytes);
-        return status_ok;
-    }
-    return status_err;
-}
-
 enum status parser_extractor_copy(struct parser *p,
                                   struct extractor *x,
                                   unsigned int len) {
@@ -449,53 +334,6 @@ enum status parser_extractor_copy_append_upto_delim(struct parser *p,
     return status_ok;
 }
 
-/*
- * parser_find_delim(p, d, l) looks for the delimiter d with length l
- * in the parser p's data buffer, until it reaches the delimiter d or
- * the end of the data in the parser, whichever comes first.  In the
- * first case, the function returns the number of bytes to the
- * delimiter; in the second case, the function returns the number of
- * bytes to the end of the data buffer.
- */
-int parser_find_delim(struct parser *p,
-                      const unsigned char *delim,
-                      size_t length) {
-
-    /* find delimiter, if present */
-    const unsigned char *data = p->data;
-    const unsigned char *pattern = delim;
-    const unsigned char *pattern_end = delim + length;
-    while (pattern < pattern_end && data < p->data_end) {
-        extractor_debug("%s: data index: %lu\tpattern index: %lu\n", __func__, data - p->data, pattern - delim);
-        extractor_debug("%s: data: %02x, pattern: %02x\n", __func__, *data, *pattern);
-        if (*data != *pattern) {
-            pattern = delim - 1; /* reset pattern to the start of the delimeter string */
-        }
-        data++;
-        pattern++;
-    }
-    if (pattern == pattern_end) {
-        return data - p->data;
-    }
-    return - (data - p->data);
-}
-
-enum status parser_skip_upto_delim(struct parser *p,
-                                   const unsigned char delim[],
-                                   size_t length) {
-
-    int delim_index = parser_find_delim(p, delim, length);
-
-    extractor_debug("%s: length: %zu, index: %d\n", __func__, length, delim_index);
-
-    if (delim_index >= 0) {
-        return parser_skip(p, delim_index);
-
-    }
-    extractor_debug("%s: error\n", __func__);
-    return status_err;
-}
-
 enum status parser_extractor_copy_upto_delim(struct parser *p,
                                              struct extractor *x,
                                              const unsigned char delim[],
@@ -544,44 +382,8 @@ size_t extract_fp_from_tls_client_hello(uint8_t *data,
     return bytes_in_outbuf;
 }
 
-ptrdiff_t parser_get_data_length(struct parser *p) {
-    return p->data_end - p->data;
-}
-
 ptrdiff_t extractor_get_output_length(const struct extractor *x) {
     return x->output - x->output_start;
-}
-
-/*
- * parser_match(x, value, value_len, mask) returns status_ok if
- * (x->data & mask) == value, and returns status_err otherwise
- * It advances p->data by value_len when it returns status_ok
- */
-unsigned int parser_match(struct parser *p,
-                          const unsigned char *value,
-                          size_t value_len,
-                          const unsigned char *mask) {
-
-    if (p->data + value_len <= p->data_end) {
-        unsigned int i;
-
-        if (mask) {
-            for (i = 0; i < value_len; i++) {
-                if ((p->data[i] & mask[i]) != value[i]) {
-                    return status_err;
-                }
-            }
-        } else { /* mask == NULL */
-            for (i = 0; i < value_len; i++) {
-                if (p->data[i] != value[i]) {
-                    return status_err;
-                }
-            }
-        }
-        p->data += value_len;
-        return status_ok;
-    }
-    return status_err;
 }
 
 /*
@@ -1087,114 +889,6 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
      */
     extractor_debug("%s: warning: TLS clientHello processing did not fully complete\n", __func__);
     return extractor_get_output_length(x);
-
-}
-
-/*
- * The function parser_process_tls processes a TLS packet.  The
- * parser MUST have previously been initialized with its data
- * pointer set to the initial octet of the TCP header of the TLS
- * packet.
- */
-unsigned int parser_process_tls(struct parser *p) {
-    size_t tmp_len;
-    struct parser ext_parser;
-    extractor_debug("%s: processing packet\n", __func__);
-
-    /*
-     * verify that we are looking at a TLS ClientHello
-     */
-    if (parser_match(p,
-                     tls_client_hello_value,
-                     L_ContentType +    L_ProtocolVersion + L_RecordLength + L_HandshakeType,
-                     tls_client_hello_mask) == status_err) {
-        return 0; /* not a clientHello */
-    }
-
-    /*
-     * skip over initial fields
-     */
-    if (parser_skip(p, L_HandshakeLength) == status_err) {
-        return 0;
-    }
-
-    /*
-     * copy clientHello.ProtocolVersion
-     */
-    if (parser_skip(p, L_ProtocolVersion) == status_err) {
-        goto bail;
-    }
-
-    /*
-     * skip over Random
-     */
-    if (parser_skip(p, L_Random) == status_err) {
-        goto bail;
-    }
-
-    /* skip over SessionID and SessionIDLen */
-    if (parser_read_uint(p, L_SessionIDLength, &tmp_len) == status_err) {
-        goto bail;
-    }
-    if (parser_skip(p, tmp_len + L_SessionIDLength) == status_err) {
-        goto bail;
-    }
-
-    /* copy ciphersuite offer vector */
-    if (parser_read_uint(p, L_CipherSuiteVectorLength, &tmp_len) == status_err) {
-        goto bail;
-    }
-    if (parser_skip(p, L_CipherSuiteVectorLength) == status_err) {
-        goto bail;
-    }
-    if (parser_skip(p, tmp_len) == status_err) {
-        goto bail;
-    }
-
-    /* skip over compression methods */
-    if (parser_read_uint(p, L_CompressionMethodsLength, &tmp_len) == status_err) {
-        goto bail;
-    }
-    if (parser_skip(p, tmp_len + L_CompressionMethodsLength) == status_err) {
-        goto bail;
-    }
-
-    /*
-     * parse extensions vector
-     */
-    /*  extensions length */
-    if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
-        return status_err;
-    }
-    parser_init_from_outer_parser(&ext_parser, p, tmp_len);
-    while (parser_get_data_length(&ext_parser) > 0) {
-        size_t tmp_type;
-
-        if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
-            break;
-        }
-
-        if (parser_skip(&ext_parser, L_ExtensionType) == status_err) {
-            break;
-        }
-
-        if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
-            break;
-        }
-
-        if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
-            break;
-        }
-    }
-
-    return 100; /* indicate success */
-
- bail:
-    /*
-     * handle possible packet parsing errors
-     */
-    extractor_debug("%s: warning: TLS clientHello processing did not fully complete\n", __func__);
-    return 0;   /* indicate failure */
 
 }
 
@@ -2059,6 +1753,220 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
     return 0; /* if we get here, we have nothing to report */
 }
 
+#include <net/ethernet.h>
+
+unsigned int packet_filter_process_packet(struct packet_filter *pf) {
+    size_t transport_proto = 0;
+    size_t ethertype = 0;
+    struct key k;
+
+    parser_process_eth(&pf->p, &ethertype);
+    switch(ethertype) {
+    case ETHERTYPE_IP:
+        parser_process_ipv4(&pf->p, &transport_proto, &k);
+        break;
+    case ETHERTYPE_IPV6:
+        parser_process_ipv6(&pf->p, &transport_proto, &k);
+        break;
+    default:
+        ;
+    }
+    if (transport_proto == 6) {
+        return packet_filter_process_tcp(pf, &k);
+
+    } else if (transport_proto == 17) {
+        return packet_filter_process_udp(pf, &k);
+    }
+
+    return 0;
+}
+
+/*
+ * struct packet_filter implements a packet metadata filter
+ */
+enum status packet_filter_init(struct packet_filter *pf, const char *config_string) {
+
+    enum status status = proto_ident_config(config_string);
+    if (status) {
+        return status;
+    }
+    if (tcp_message_filter_cutoff) {
+        pf->tcp_init_msg_filter = new tcp_initial_message_filter;
+        pf->tcp_init_msg_filter->tcp_initial_message_filter_init();
+    } else {
+        pf->tcp_init_msg_filter = NULL;
+    }
+    return status_ok;
+}
+
+size_t packet_filter_extract(struct packet_filter *pf, uint8_t *packet, size_t length) {
+
+    extractor_init(&pf->x, pf->extractor_buffer, sizeof(packet_filter::extractor_buffer));
+    parser_init(&pf->p, (unsigned char *)packet, length);
+    return packet_filter_process_packet(pf);
+}
+
+bool packet_filter_apply(struct packet_filter *pf, uint8_t *packet, size_t length) {
+    extern unsigned int packet_filter_threshold;
+
+    size_t bytes_extracted = packet_filter_extract(pf, packet, length);
+    if (bytes_extracted > packet_filter_threshold) {
+        return true;
+    }
+    return false;
+}
+
+/*
+ * configuration for protocol identification
+ */
+
+enum status proto_ident_config(const char *config_string) {
+
+    if (config_string == NULL) {
+        return status_ok;
+    }
+    if (strncmp("all", config_string, sizeof("all")) == 0) {
+        return status_ok;
+    }
+    if (strncmp("http", config_string, sizeof("http")) == 0) {
+        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        select_tcp_syn = 0;
+        return status_ok;
+    }
+    if (strncmp("tls", config_string, sizeof("tls")) == 0) {
+        bzero(http_client_mask, sizeof(http_client_mask));
+        bzero(http_server_mask, sizeof(http_server_mask));
+        select_tcp_syn = 0;
+        return status_ok;
+    }
+    if (strncmp("tcp.message", config_string, sizeof("tcp.message")) == 0) {
+        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        bzero(http_client_mask, sizeof(http_client_mask));
+        bzero(http_server_mask, sizeof(http_server_mask));
+        select_tcp_syn = 0;
+        tcp_message_filter_cutoff = 1;
+        return status_ok;
+    }
+    if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
+        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        bzero(http_client_mask, sizeof(http_client_mask));
+        bzero(http_server_mask, sizeof(http_server_mask));
+        return status_ok;
+    }
+    return status_err;
+}
+
+
+
+/*
+ * The function parser_process_tls processes a TLS packet.  The
+ * parser MUST have previously been initialized with its data
+ * pointer set to the initial octet of the TCP header of the TLS
+ * packet.
+ */
+unsigned int parser_process_tls(struct parser *p) {
+    size_t tmp_len;
+    struct parser ext_parser;
+    extractor_debug("%s: processing packet\n", __func__);
+
+    /*
+     * verify that we are looking at a TLS ClientHello
+     */
+    if (parser_match(p,
+                     tls_client_hello_value,
+                     L_ContentType +    L_ProtocolVersion + L_RecordLength + L_HandshakeType,
+                     tls_client_hello_mask) == status_err) {
+        return 0; /* not a clientHello */
+    }
+
+    /*
+     * skip over initial fields
+     */
+    if (parser_skip(p, L_HandshakeLength) == status_err) {
+        return 0;
+    }
+
+    /*
+     * copy clientHello.ProtocolVersion
+     */
+    if (parser_skip(p, L_ProtocolVersion) == status_err) {
+        goto bail;
+    }
+
+    /*
+     * skip over Random
+     */
+    if (parser_skip(p, L_Random) == status_err) {
+        goto bail;
+    }
+
+    /* skip over SessionID and SessionIDLen */
+    if (parser_read_uint(p, L_SessionIDLength, &tmp_len) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(p, tmp_len + L_SessionIDLength) == status_err) {
+        goto bail;
+    }
+
+    /* copy ciphersuite offer vector */
+    if (parser_read_uint(p, L_CipherSuiteVectorLength, &tmp_len) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(p, L_CipherSuiteVectorLength) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(p, tmp_len) == status_err) {
+        goto bail;
+    }
+
+    /* skip over compression methods */
+    if (parser_read_uint(p, L_CompressionMethodsLength, &tmp_len) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(p, tmp_len + L_CompressionMethodsLength) == status_err) {
+        goto bail;
+    }
+
+    /*
+     * parse extensions vector
+     */
+    /*  extensions length */
+    if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
+        return status_err;
+    }
+    parser_init_from_outer_parser(&ext_parser, p, tmp_len);
+    while (parser_get_data_length(&ext_parser) > 0) {
+        size_t tmp_type;
+
+        if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+            break;
+        }
+
+        if (parser_skip(&ext_parser, L_ExtensionType) == status_err) {
+            break;
+        }
+
+        if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+            break;
+        }
+
+        if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
+            break;
+        }
+    }
+
+    return 100; /* indicate success */
+
+ bail:
+    /*
+     * handle possible packet parsing errors
+     */
+    extractor_debug("%s: warning: TLS clientHello processing did not fully complete\n", __func__);
+    return 0;   /* indicate failure */
+
+}
+
+
 
 
 /*
@@ -2301,51 +2209,47 @@ unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol, s
  * frame format is outlined in the file eth.h
  */
 
+#define L_eth_dhost_addr        6
+#define L_eth_shost_addr        6
+#define L_eth_ether_type        2
+#define L_eth_dot1q_tci         2
+#define L_eth_dot1ad_outer_tci  2
+#define L_eth_dot1ad_inner_tpid 2
+#define L_eth_dot1ad_inner_tci  2
+#define L_eth_dot1ad_ether_type 2
+
 unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
 
     extractor_debug("%s: processing ethernet (len %td)\n", __func__, parser_get_data_length(p));
 
     *ethertype = ETH_TYPE_NONE;
 
-    if (parser_skip(p, ETH_ADDR_LEN * 2) == status_err) {
+    if (parser_skip(p, L_eth_dhost_addr + L_eth_shost_addr) == status_err) {
         return 0;
     }
-    if (parser_read_uint(p, sizeof(uint16_t), ethertype) == status_err) {
+    if (parser_read_and_skip_uint(p, L_eth_ether_type, ethertype) == status_err) {
         return 0;
     }
-    if (parser_skip(p, sizeof(uint16_t)) == status_err) {
-        return 0;
+    if (*ethertype == ntohs(ETH_TYPE_VLAN)) {
+
+        if (parser_skip(p, L_eth_dot1q_tci) == status_err) {
+            return 0;
+        }
+        if (parser_read_and_skip_uint(p, L_eth_ether_type, ethertype) == status_err) {
+            return 0;
+        }
+        if (*ethertype == ntohs(ETH_TYPE_VLAN)) {
+
+            if (parser_skip(p, L_eth_dot1q_tci) == status_err) {
+                return 0;
+            }
+            if (parser_read_and_skip_uint(p, L_eth_ether_type, ethertype) == status_err) {
+                return 0;
+            }
+        }
     }
 
     return 0;  /* we don't extract any data, but this is not a failure */
-}
-
-#include <net/ethernet.h>
-
-unsigned int packet_filter_process_packet(struct packet_filter *pf) {
-    size_t transport_proto = 0;
-    size_t ethertype = 0;
-    struct key k;
-
-    parser_process_eth(&pf->p, &ethertype);
-    switch(ethertype) {
-    case ETHERTYPE_IP:
-        parser_process_ipv4(&pf->p, &transport_proto, &k);
-        break;
-    case ETHERTYPE_IPV6:
-        parser_process_ipv6(&pf->p, &transport_proto, &k);
-        break;
-    default:
-        ;
-    }
-    if (transport_proto == 6) {
-        return packet_filter_process_tcp(pf, &k);
-
-    } else if (transport_proto == 17) {
-        return packet_filter_process_udp(pf, &k);
-    }
-
-    return 0;
 }
 
 /*
@@ -2412,80 +2316,4 @@ unsigned int parser_process_packet(struct parser *p) {
     }
 
     return 0;
-}
-
-
-/*
- * struct packet_filter implements a packet metadata filter
- */
-enum status packet_filter_init(struct packet_filter *pf, const char *config_string) {
-
-    enum status status = proto_ident_config(config_string);
-    if (status) {
-        return status;
-    }
-    if (tcp_message_filter_cutoff) {
-        pf->tcp_init_msg_filter = new tcp_initial_message_filter;
-        pf->tcp_init_msg_filter->tcp_initial_message_filter_init();
-    } else {
-        pf->tcp_init_msg_filter = NULL;
-    }
-    return status_ok;
-}
-
-size_t packet_filter_extract(struct packet_filter *pf, uint8_t *packet, size_t length) {
-
-    extractor_init(&pf->x, pf->extractor_buffer, sizeof(packet_filter::extractor_buffer));
-    parser_init(&pf->p, (unsigned char *)packet, length);
-    return packet_filter_process_packet(pf);
-}
-
-bool packet_filter_apply(struct packet_filter *pf, uint8_t *packet, size_t length) {
-    extern unsigned int packet_filter_threshold;
-
-    size_t bytes_extracted = packet_filter_extract(pf, packet, length);
-    if (bytes_extracted > packet_filter_threshold) {
-        return true;
-    }
-    return false;
-}
-
-/*
- * configuration for protocol identification
- */
-
-enum status proto_ident_config(const char *config_string) {
-
-    if (config_string == NULL) {
-        return status_ok;
-    }
-    if (strncmp("all", config_string, sizeof("all")) == 0) {
-        return status_ok;
-    }
-    if (strncmp("http", config_string, sizeof("http")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        select_tcp_syn = 0;
-        return status_ok;
-    }
-    if (strncmp("tls", config_string, sizeof("tls")) == 0) {
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
-        select_tcp_syn = 0;
-        return status_ok;
-    }
-    if (strncmp("tcp.message", config_string, sizeof("tcp.message")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
-        select_tcp_syn = 0;
-        tcp_message_filter_cutoff = 1;
-        return status_ok;
-    }
-    if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
-        return status_ok;
-    }
-    return status_err;
 }
