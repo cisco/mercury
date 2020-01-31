@@ -13,7 +13,16 @@
 #include <stdio.h>      /* for FILE */
 #include "mercury.h"
 #include "tcp.h"
-#include "parser.h"
+
+
+/*
+ * The extractor_debug macro is useful for debugging (but quite verbose)
+ */
+#ifndef DEBUG
+#define extractor_debug(...)
+#else
+#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
+#endif
 
 enum packet_data_type {
     packet_data_type_none            = 0,
@@ -96,6 +105,11 @@ struct extractor {
     struct packet_data packet_data;     /* data of interest in packt */
 };
 
+struct parser {
+    const unsigned char *data;          /* data being parsed/copied  */
+    const unsigned char *data_end;      /* end of data buffer        */
+};
+
 /*
  * extractor_is_not_done(x) returns 0 if the extractor is
  * done parsing a flow, and otherwiwse returns another value.
@@ -113,10 +127,30 @@ void extractor_init(struct extractor *x,
 		    unsigned char *output,
 		    unsigned int output_len);
 
+/*
+ * parser_init initializes a parser object with a data buffer
+ * (holding the data to be parsed)
+ */
+void parser_init(struct parser *p,
+		 const unsigned char *data,
+		 unsigned int data_len);
+
+
+unsigned int parser_match(struct parser *p,
+                          const unsigned char *value,
+                          size_t value_len,
+                          const unsigned char *mask);
 
 enum status extractor_reserve(struct extractor *x,
                               unsigned char **data,
                               size_t length);
+
+void parser_init_from_outer_parser(struct parser *p,
+                                   const struct parser *outer,
+                                   unsigned int data_len);
+
+enum status parser_set_data_length(struct parser *p,
+                                   unsigned int data_len);
 
 void packet_data_set(struct packet_data *pd,
                      enum packet_data_type type,
@@ -257,10 +291,19 @@ unsigned int parser_extractor_process_packet(struct parser *p, struct extractor 
 
 unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x);
 
+unsigned int parser_process_tls_server(struct parser *p);
+
 void extract_certificates(FILE *file, const unsigned char *data, size_t data_len);
 
 int append_extract_certificates(char *dstr, int *doff, int dlen, int *trunc,
                                 const unsigned char *data, size_t data_len);
+
+enum status parser_read_and_skip_uint(struct parser *p,
+                                      unsigned int num_bytes,
+                                      size_t *output);
+
+enum status parser_skip(struct parser *p,
+                        unsigned int len);
 
 unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x);
 
@@ -268,6 +311,10 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
 enum status parser_extractor_copy(struct parser *p,
                                   struct extractor *x,
                                   unsigned int len);
+
+enum status parser_read_uint(struct parser *p,
+                             unsigned int num_bytes,
+                             size_t *output);
 
 enum status parser_extractor_copy_append(struct parser *p,
                                          struct extractor *x,
@@ -290,6 +337,10 @@ size_t extract_fp_from_tls_client_hello(uint8_t *data,
 					size_t data_len,
 					uint8_t *outbuf,
 					size_t outbuf_len);
+
+
+void parser_init_packet(struct parser *p, const unsigned char *data, unsigned int length);
+
 
 /*
  * struct packet_filter implements packet metadata filtering
@@ -356,5 +407,8 @@ unsigned int u32_compare_masked_data_to_value(const void *data,
 unsigned int u64_compare_masked_data_to_value(const void *data,
                                               const void *mask,
                                               const void *value);
+
+ptrdiff_t parser_get_data_length(struct parser *p);
+
 
 #endif /* EXTRACTOR_H */
