@@ -40,6 +40,29 @@ inline struct char_pair raw_to_hex(unsigned char x) {
     return result;
 }
 
+inline uint8_t hex_to_raw(const char *hex) {
+
+    int value = 0;
+    if(*hex >= '0' && *hex <= '9') {
+        value = (*hex - '0');
+    } else if (*hex >= 'A' && *hex <= 'F') {
+        value = (10 + (*hex - 'A'));
+    } else if (*hex >= 'a' && *hex <= 'f') {
+        value = (10 + (*hex - 'a'));
+    }
+    value = value << 4;
+    hex++;
+    if(*hex >= '0' && *hex <= '9') {
+        value |= (*hex - '0');
+    } else if (*hex >= 'A' && *hex <= 'F') {
+        value |= (10 + (*hex - 'A'));
+    } else if (*hex >= 'a' && *hex <= 'f') {
+        value |= (10 + (*hex - 'a'));
+    }
+
+    return value;
+}
+
 std::string raw_to_hex_string(std::vector<uint8_t> v) {
     std::string s;
     for (const auto &x: v) {
@@ -94,8 +117,50 @@ std::string oid_to_hex_string(std::vector<uint32_t> oid) {
 std::vector<uint32_t> hex_string_to_oid(std::string s) {
     std::vector<uint32_t> v;
 
+    if (s.size() & 1) {
+        return v;
+    }
+    const char *c = s.c_str();
+
+    uint32_t component = hex_to_raw(c);
+    uint32_t div = component / 40;
+    uint32_t rem = component - (div * 40);
+    if (div > 2 || rem > 39) {
+        return v; // error: invalid input
+    }
+    v.push_back(div);
+    v.push_back(rem);
+
+    c += 2;
+    component = 0;
+    for (unsigned int i=2; i<s.size(); i += 2) {
+        uint8_t tmp = hex_to_raw(c);
+        if (tmp & 0x80) {
+            component = component * 128 + (tmp & 0x7f);
+        } else {
+            component = component * 128 + tmp;
+            v.push_back(component);
+            component = 0;
+        }
+        c += 2;
+
+    }
+
     return v;
 }
+
+void output_oid(std::vector<uint32_t> oid, const char *delimiter) {
+
+    if (oid.size() < 1) {
+        return;    // nothing to output
+    }
+    auto i = 0;
+    for (   ; i < oid.size() - 1; i++) {
+        std::cout << oid[i] << delimiter;
+    }
+    std::cout << oid[i] << '\n';
+}
+
 
 //struct oid {
 //    std::vector<uint32_t> asn1_notation;
@@ -115,7 +180,7 @@ enum token_type {
 enum token_type type(const std::string &t) {
     using namespace std;
 
-    regex str("[a-zA-Z][a-zA-Z\\-\\(\\)0-9]*");
+    regex str("[a-zA-Z_][a-zA-Z_\\-\\(\\)0-9]*");
     regex num("[0-9]+");
 
     if (t == "{") {
@@ -200,6 +265,7 @@ void parse_asn1_line(std::list<std::string> &tokens) {
     if (type(*t) == token_str) {
         assignment.name = *t;
     } else {
+        cout << "error: expected string, got '" << *t << "'\n";
         throw "parse error";
     }
     t++;
@@ -369,6 +435,55 @@ int main(int argc, char *argv[]) {
     //    oid_print(oid.asn1_notation, "oid");
     //    cout << oid_to_hex_string(oid.asn1_notation) << "\t" << oid.name << endl;
     //}
+
+#if 0
+    auto unknown_oids =
+        {
+         "2a864886f70d01090f",
+         "2a864886f70d010914",
+         "2b0601040182371402",
+         "2b0601040182371501",
+         "2b0601040182371502",
+         "2b0601040182371507",
+         "2b060104018237150a",
+         "2b0601040182373c020101",
+         "2b0601040182373c020102",
+         "2b0601040182373c020103",
+         "2b060104018237540101",
+         "2b06010401d04701028245",
+         "2b06010401d679020402",
+         "2b06010505070101",
+         "2b06010505070103",
+         "550409",
+         "55040c",
+         "55040f",
+         "550411",
+         "55042a",
+         "550461",
+         "551d01",
+         "551d07",
+         "551d0a",
+         "551d10",
+         "551d11",
+         "551d12",
+         "551d13",
+         "551d1e",
+         "551d1f",
+         "551d20",
+         "551d23",
+         "6086480186f8420101",
+         "6086480186f8420103",
+         "6086480186f8420104",
+         "6086480186f842010c",
+         "6086480186f842010d"
+    };
+    for (auto &hexstring : unknown_oids) {
+        cout << hexstring << '\t';
+        auto v = hex_string_to_oid(hexstring);
+        const char *delimeter = ".";
+        output_oid(v, delimeter);
+    }
+#endif /* 0 */
 
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <file> [<file2> ... ]\n", argv[0]);

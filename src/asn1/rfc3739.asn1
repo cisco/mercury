@@ -1,0 +1,137 @@
+-- RFC 3739             Qualified Certificates Profile           March 2004
+--
+--
+-- A.  ASN.1 Definitions
+--
+--   As in RFC 3280, ASN.1 modules are supplied in two different variants
+--   of the ASN.1 syntax.
+--
+--   Appendix A.1 is in the 1988 syntax, and does not use macros.
+--   However, since the module imports type definitions from modules in
+--   RFC 3280 which are not completely in the 1988 syntax, the same
+--   comments as in RFC 3280 regarding its use applies here as well; i.e.,
+--   Appendix A.1 may be parsed by an 1988 ASN.1-parser by removing the
+--   definitions for the UNIVERSAL types and all references to them in RFC
+--   3280's 1988 modules.
+--
+--   Appendix A.2 is in the 1997 syntax.
+--
+--   In case of discrepancies between these modules, the 1988 module is
+--   the normative one.
+--
+-- A.1.  1988 ASN.1 Module (Normative)
+--
+--   PKIXqualified88 {iso(1) identified-organization(3) dod(6)
+--       internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+--       id-mod-qualified-cert(31) }
+--
+--   DEFINITIONS EXPLICIT TAGS ::=
+--
+--   BEGIN
+--
+--   -- EXPORTS ALL --
+--
+--   IMPORTS
+--
+--   GeneralName
+--       FROM PKIX1Implicit88 {iso(1) identified-organization(3) dod(6)
+--       internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+--       id-pkix1-implicit(19)}
+--
+--   AlgorithmIdentifier, DirectoryString, AttributeType, id-pkix, id-pe
+--       FROM PKIX1Explicit88 {iso(1) identified-organization(3) dod(6)
+--       internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+--       id-pkix1-explicit(18)};
+
+   id-pkix  OBJECT IDENTIFIER  ::=  {
+        iso(1) identified-organization(3) dod(6) internet(1)
+        security(5) mechanisms(5) pkix(7) }
+
+   id-pe OBJECT IDENTIFIER ::= { id-pkix 1 }
+
+   -- Locally defined OIDs
+
+   -- Arc for QC personal data attributes
+   id-pda  OBJECT IDENTIFIER ::= { id-pkix 9 }
+
+   -- Arc for QC statements
+   id-qcs  OBJECT IDENTIFIER ::= { id-pkix 11 }
+
+   -- Personal data attributes
+
+   id-pda-dateOfBirth          AttributeType ::= { id-pda 1 }
+   -- DateOfBirth ::=             GeneralizedTime
+
+   id-pda-placeOfBirth         AttributeType ::= { id-pda 2 }
+   -- PlaceOfBirth ::=            DirectoryString
+
+   id-pda-gender               AttributeType ::= { id-pda 3 }
+   -- Gender ::=                  PrintableString (SIZE(1))
+                               -- "M", "F", "m" or "f"
+
+   id-pda-countryOfCitizenship AttributeType ::= { id-pda 4 }
+   -- CountryOfCitizenship ::=    PrintableString (SIZE (2))
+                               -- ISO 3166 Country Code
+
+   id-pda-countryOfResidence   AttributeType ::= { id-pda 5 }
+   -- CountryOfResidence ::=      PrintableString (SIZE (2))
+                               -- ISO 3166 Country Code
+
+   -- Certificate extensions
+
+   -- Biometric info extension
+
+   id-pe-biometricInfo OBJECT IDENTIFIER  ::= { id-pe 2 }
+
+   -- BiometricSyntax ::= SEQUENCE OF BiometricData
+
+--   BiometricData ::= SEQUENCE {
+--       typeOfBiometricData  TypeOfBiometricData,
+--       hashAlgorithm        AlgorithmIdentifier,
+--       biometricDataHash    OCTET STRING,
+--       sourceDataUri        IA5String OPTIONAL }
+--
+--   TypeOfBiometricData ::= CHOICE {
+--       predefinedBiometricType   PredefinedBiometricType,
+--       biometricDataOid          OBJECT IDENTIFIER }
+--
+--   PredefinedBiometricType ::= INTEGER {
+--       picture(0), handwritten-signature(1)}
+--       (picture|handwritten-signature)
+--
+--   -- QC Statements Extension
+--   -- NOTE: This extension does not allow to mix critical and
+--   -- non-critical Qualified Certificate Statements. Either all
+--   -- statements must be critical or all statements must be
+--   -- non-critical.
+
+   id-pe-qcStatements OBJECT IDENTIFIER ::= { id-pe 3 }
+
+--   QCStatements ::= SEQUENCE OF QCStatement
+--
+--   QCStatement ::= SEQUENCE {
+--       statementId        OBJECT IDENTIFIER,
+--       statementInfo      ANY DEFINED BY statementId OPTIONAL}
+
+   -- QC statements
+   id-qcs-pkixQCSyntax-v1   OBJECT IDENTIFIER ::= { id-qcs 1 }
+   --  This statement identifies conformance with requirements
+   --  defined in RFC 3039 (Version 1). This statement may
+   --  optionally contain additional semantics information as specified
+   --  below.
+
+   id-qcs-pkixQCSyntax-v2   OBJECT IDENTIFIER ::= { id-qcs 2 }
+   --  This statement identifies conformance with requirements
+   --  defined in this Qualified Certificate profile
+   --  (Version 2). This statement may optionally contain
+   --  additional semantics information as specified below.
+
+--   SemanticsInformation  ::= SEQUENCE {
+--       semanticsIndentifier        OBJECT IDENTIFIER OPTIONAL,
+--       nameRegistrationAuthorities NameRegistrationAuthorities OPTIONAL
+--       } -- At least one field shall be present
+--
+--   NameRegistrationAuthorities ::= SEQUENCE SIZE (1..MAX) OF GeneralName
+--
+--   END
+

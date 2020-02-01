@@ -1,0 +1,63 @@
+-- Network Working Group                                  A. Sciberras, Ed.
+-- Request for Comments: 4519                                       eB2Bcom
+-- Obsoletes: 2256                                                June 2006
+-- Updates: 2247, 2798, 2377
+-- Category: Standards Track
+--
+--
+--             Lightweight Directory Access Protocol (LDAP):
+--                      Schema for User Applications
+--
+
+      businessCategory             OBJECT IDENTIFIER ::= {  2 5 4 15 }
+      c                            OBJECT IDENTIFIER ::= {  2 5 4 6 }
+      cn                           OBJECT IDENTIFIER ::= {  2 5 4 3 }
+      commonName                   OBJECT IDENTIFIER ::= {  2 5 4 3 }
+      countryName                  OBJECT IDENTIFIER ::= {  2 5 4 6 }
+      dc                           OBJECT IDENTIFIER ::= {  0 9 2342 19200300 100 1 25 }
+      description                  OBJECT IDENTIFIER ::= {  2 5 4 13 }
+      destinationIndicator         OBJECT IDENTIFIER ::= {  2 5 4 27 }
+      distinguishedName            OBJECT IDENTIFIER ::= {  2 5 4 49 }
+      dnQualifier                  OBJECT IDENTIFIER ::= {  2 5 4 46 }
+      domainComponent              OBJECT IDENTIFIER ::= {  0 9 2342 19200300 100 1 25 }
+      enhancedSearchGuide          OBJECT IDENTIFIER ::= {  2 5 4 47 }
+      facsimileTelephoneNumber     OBJECT IDENTIFIER ::= {  2 5 4 23 }
+      generationQualifier          OBJECT IDENTIFIER ::= {  2 5 4 44 }
+      givenName                    OBJECT IDENTIFIER ::= {  2 5 4 42 }
+      houseIdentifier              OBJECT IDENTIFIER ::= {  2 5 4 51 }
+      initials                     OBJECT IDENTIFIER ::= {  2 5 4 43 }
+      internationalISDNNumber      OBJECT IDENTIFIER ::= {  2 5 4 25 }
+      l                            OBJECT IDENTIFIER ::= {  2 5 4 7 }
+      localityName                 OBJECT IDENTIFIER ::= {  2 5 4 7 }
+      member                       OBJECT IDENTIFIER ::= {  2 5 4 31 }
+      name                         OBJECT IDENTIFIER ::= {  2 5 4 41 }
+      o                            OBJECT IDENTIFIER ::= {  2 5 4 10 }
+      organizationName             OBJECT IDENTIFIER ::= {  2 5 4 10 }
+      organizationalUnitName       OBJECT IDENTIFIER ::= {  2 5 4 11 }
+      ou                           OBJECT IDENTIFIER ::= {  2 5 4 11 }
+      owner                        OBJECT IDENTIFIER ::= {  2 5 4 32 }
+      physicalDeliveryOfficeName   OBJECT IDENTIFIER ::= {  2 5 4 19 }
+      postalAddress                OBJECT IDENTIFIER ::= {  2 5 4 16 }
+      postalCode                   OBJECT IDENTIFIER ::= {  2 5 4 17 }
+      postOfficeBox                OBJECT IDENTIFIER ::= {  2 5 4 18 }
+      preferredDeliveryMethod      OBJECT IDENTIFIER ::= {  2 5 4 28 }
+      registeredAddress            OBJECT IDENTIFIER ::= {  2 5 4 26 }
+      roleOccupant                 OBJECT IDENTIFIER ::= {  2 5 4 33 }
+      searchGuide                  OBJECT IDENTIFIER ::= {  2 5 4 14 }
+      seeAlso                      OBJECT IDENTIFIER ::= {  2 5 4 34 }
+      serialNumber                 OBJECT IDENTIFIER ::= {  2 5 4 5 }
+      sn                           OBJECT IDENTIFIER ::= {  2 5 4 4 }
+      st                           OBJECT IDENTIFIER ::= {  2 5 4 8 }
+      street                       OBJECT IDENTIFIER ::= {  2 5 4 9 }
+      surname                      OBJECT IDENTIFIER ::= {  2 5 4 4 }
+      telephoneNumber              OBJECT IDENTIFIER ::= {  2 5 4 20 }
+      teletexTerminalIdentifier    OBJECT IDENTIFIER ::= {  2 5 4 22 }
+      telexNumber                  OBJECT IDENTIFIER ::= {  2 5 4 21 }
+      title                        OBJECT IDENTIFIER ::= {  2 5 4 12 }
+      uid                          OBJECT IDENTIFIER ::= {  0 9 2342 19200300 100 1 1 }
+      uniqueMember                 OBJECT IDENTIFIER ::= {  2 5 4 50 }
+      userid                       OBJECT IDENTIFIER ::= {  0 9 2342 19200300 100 1 1 }
+      userPassword                 OBJECT IDENTIFIER ::= {  2 5 4 35 }
+      x121Address                  OBJECT IDENTIFIER ::= {  2 5 4 24 }
+      x500UniqueIdentifier         OBJECT IDENTIFIER ::= {  2 5 4 45 }
+
