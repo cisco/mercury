@@ -32,152 +32,52 @@
 #include "signal_handling.h"
 #include "config.h"
 
-struct thread_queues thread_queues;
+struct thread_queues t_queues;
 int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
 int t_output_p = 0;
 pthread_cond_t t_output_c  = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t t_output_m = PTHREAD_MUTEX_INITIALIZER;
 
 
-struct msg {
-    char buf[MQ_MAX_SIZE];
-    ssize_t len;
-
-    double age(struct timespec *cur_ts) {
-        struct timespec our_ts;
-        memcpy(&our_ts, buf, sizeof(struct timespec));
-
-        return ((double)cur_ts->tv_sec + ((double)cur_ts->tv_nsec / 1000000000.0)) -
-            ((double)our_ts.tv_sec + ((double)our_ts.tv_nsec / 1000000000.0));
-    }
-
-    friend bool operator < (const msg& lhs, const msg& rhs);
-};
-
-
 /* This is the "greater" operator which defined as the < operation
  * which keeps the lowest time (priority) at the top of our pq */
-bool operator < (const msg& rhs, const msg& lhs) {
-    struct timespec tsl, tsr;
-    memcpy(&tsl, lhs.buf, sizeof(struct timespec));
-    memcpy(&tsr, rhs.buf, sizeof(struct timespec));
-
-    return ((tsl.tv_sec < tsr.tv_sec) || ((tsl.tv_sec == tsr.tv_sec) && (tsl.tv_nsec < tsr.tv_nsec)));
+bool operator < (const llq_msg& rhs, const llq_msg& lhs) {
+    return ((lhs.ts.tv_sec < rhs.ts.tv_sec) || ((lhs.ts.tv_sec == rhs.ts.tv_sec) && (lhs.ts.tv_nsec < rhs.ts.tv_nsec)));
 }
 
+void init_t_queues(int n) {
+    t_queues.qnum = n;
+    t_queues.queue = (struct ll_queue *)calloc(n, sizeof(struct ll_queue));
 
-void init_thread_queues(int n) {
-    thread_queues.qnum = n;
-    thread_queues.qidx = 0;
-    thread_queues.queue = (mqd_t *)calloc(n, sizeof(mqd_t));
-    thread_queues.queue_name = (char **)calloc(n, sizeof(char *));
-    thread_queues.pqfd = (struct pollfd*)calloc(n, sizeof(struct pollfd));
-    thread_queues.pid = getpid();
-
-    if ((thread_queues.queue == NULL) ||
-        (thread_queues.queue_name == NULL) ||
-        (thread_queues.pqfd == NULL)) {
+    if (t_queues.queue == NULL) {
         fprintf(stderr, "Failed to allocate memory for thread queues\n");
         exit(255);
     }
 
     for (int i = 0; i < n; i++) {
-        thread_queues.queue[i] = -1;
-        thread_queues.queue_name[i] = NULL;
+        t_queues.queue[i].ridx = 0;
+        t_queues.queue[i].widx = 0;
+
+        for (int j = 0; j < LLQ_DEPTH; j++) {
+            t_queues.queue[i].msgs[j].used = 0;
+        }
     }
 }
 
 
 void destroy_thread_queues() {
-
-    for (int i = 0; i < thread_queues.qidx; i++) {
-
-        int ret = mq_close(thread_queues.queue[i]);
-        if (ret != 0) {
-            perror("Unable to close thread queue");
-        }
-
-        ret = mq_unlink(thread_queues.queue_name[i]);
-        if (ret != 0) {
-            perror("Unable to unlink thread queue");
-        }
-
-        free(thread_queues.queue_name[i]);
-    }
-
-    free(thread_queues.queue);
-    free(thread_queues.queue_name);
-    thread_queues.queue = NULL;
-    thread_queues.queue_name = NULL;
-    thread_queues.qnum = 0;
-    thread_queues.qidx = 0;
-    thread_queues.pid = -1;
+    free(t_queues.queue);
+    t_queues.queue = NULL;
+    t_queues.qnum = 0;
 }
 
-
-mqd_t open_thread_queue(const char *qid) {
-
-    if (thread_queues.qidx >= thread_queues.qnum) {
-        fprintf(stderr, "Unable to open queue %s: no free room in thread_queue list\n", qid);
-        return -1;
-    }
-
-    char qname[256];
-    snprintf(qname, 255, "/mercury_%d_%s", thread_queues.pid, qid);
-    qname[255] = '\0';
-
-    char *qnamep = strndup(qname, 255);
-    if (qnamep == NULL) {
-        perror("Unable to duplicate queue name string");
-        return -1;
-    }
-
-    struct mq_attr mattr;
-    memset(&mattr, 0, sizeof(mattr));
-    mattr.mq_maxmsg = MQ_QUEUE_DEPTH;
-    mattr.mq_msgsize = MQ_MAX_SIZE;
-
-    mqd_t tq = mq_open(qnamep, O_CREAT | O_RDWR | O_NONBLOCK, S_IRUSR | S_IWUSR, &mattr);
-    if (tq == -1) {
-        perror("Failed to open queue");
-        fprintf(stderr, "Queue named %s failed to open\n", qnamep);
-        free(qnamep);
-        return -1;
-    }
-
-    /* If somehow this queue has messages in it left over from a previous
-     * run we should loop through and flush them out */
-    int ret = mq_getattr(tq, &mattr);
-    if (ret < 0) {
-        perror("Failed to get queue attributes");
-        free(qnamep);
-        return -1;
-    }
-    for (int i = 0; i < mattr.mq_curmsgs; i++) {
-        char buf[MQ_MAX_SIZE];
-        ret = mq_receive(tq, buf, MQ_MAX_SIZE, NULL);
-        if (ret < 0) {
-            perror("Failed to get (flush) stale message in queue");
-            free(qnamep);
-            return -1;
-        }
-    }
-
-    thread_queues.queue[thread_queues.qidx] = tq;
-    thread_queues.queue_name[thread_queues.qidx] = qnamep;
-    thread_queues.pqfd[thread_queues.qidx].fd = tq;
-    thread_queues.pqfd[thread_queues.qidx].events = POLLIN | POLLERR;
-    thread_queues.pqfd[thread_queues.qidx].revents = 0;
-    thread_queues.qidx += 1;
-
-    return tq;
-}
 
 void *output_thread_func(void *arg) {
 
     (void)arg;
 
-    std::priority_queue<struct msg> pq;
+    std::priority_queue<llq_msg> pq;
+    llq_msg pq_msg;
 
     int err;
     err = pthread_mutex_lock(&t_output_m);
@@ -198,57 +98,30 @@ void *output_thread_func(void *arg) {
         exit(255);
     }
 
-    int polret;
-    int ret;
-    ssize_t mqlen;
-    struct msg mq_msg;
-    struct mq_attr mattr;
-    memset(&mattr, 0, sizeof(mattr));
 
     while (sig_stop_output == 0) {
 
-        polret = poll(thread_queues.pqfd, thread_queues.qidx, 1000);
-        if (polret < 0) {
-            perror("poll returned error");
-        } else if (polret == 0) {
-            /* This was a timeout meaning we just aren't getting any
-             * output at the moment. This isn't an error and there isn't
-             * anything special for us to do here.
-             */
-        } else if (polret > 0) {
-            /* Now we need to loop through the pqfd struct list looking for POLIN events */
-            for (int q = 0; q < thread_queues.qidx; q++) {
-                if ((thread_queues.pqfd[q].revents & POLLIN) != 0) {
-                    /* we have data on this queue */
+        /* We need to loop through the queues to see which have used buckets */
+        for (int q = 0; q < t_queues.qnum; q++) {
+            /* while we have data on this queue */
+            while (t_queues.queue[q].msgs[t_queues.queue[q].ridx].used == 1) {
 
-                    ret = mq_getattr(thread_queues.queue[q], &mattr);
-                    if (ret < 0) {
-                        perror("Failed to get queue attributes");
-                    }
-                    for (int m = 0; m < mattr.mq_curmsgs; m++) {
+                /* Enqueue this message so we can do proper msg ordering */
+                pq.push(t_queues.queue[q].msgs[t_queues.queue[q].ridx]);
 
-                        mqlen = mq_receive(thread_queues.queue[q], mq_msg.buf, MQ_MAX_SIZE, NULL);
-                        mq_msg.len = mqlen;
-                        if (mqlen < 0) {
-                            perror("Failed to recieve message in queue");
-                        }
-                        else if (mqlen < (ssize_t)sizeof(struct timespec)) {
-                            fprintf(stderr, "Received message smaller than the required struct timespec");
-                        }
-                        else {
-                            /* Enqueue this message so we can do proper msg ordering */
-                            pq.push(mq_msg);
-                        }
-                    }
+                //fprintf(stderr, "DEBUG: added message to PQ!\n");
 
-                }
+                __sync_synchronize(); /* A full memory barrier prevents the following flag (un)set from happening too soon */
+                t_queues.queue[q].msgs[t_queues.queue[q].ridx].used = 0;
+
+                t_queues.queue[q].next_read();
             }
-        } /* end poll found messages ready */
+        }
 
         /* Flush queue until it's below our target limit */
-        while (pq.size() > MQ_PQ_LIMIT) {
-            mq_msg = pq.top();
-            fwrite(&(mq_msg.buf[sizeof(struct timespec)]), mq_msg.len - sizeof(struct timespec), 1, stdout);
+        while (pq.size() > PQ_LIMIT) {
+            pq_msg = pq.top();
+            fwrite(pq_msg.buf, pq_msg.len, 1, stdout);
             pq.pop();
         }
 
@@ -261,22 +134,27 @@ void *output_thread_func(void *arg) {
         int age_done = 0;
         while ((age_done == 0) && (pq.size() > 0)) {
 
-            mq_msg = pq.top();
-            if (mq_msg.age(&cur_ts) > MQ_PQ_MAX_AGE) {
-                fwrite(&(mq_msg.buf[sizeof(struct timespec)]), mq_msg.len - sizeof(struct timespec), 1, stdout);
+            pq_msg = pq.top();
+            if (pq_msg.age(&cur_ts) > PQ_MAX_AGE) {
+                fwrite(pq_msg.buf, pq_msg.len, 1, stdout);
                 pq.pop();
             }
             else {
                 age_done = 1;
             }
         }
+
+        struct timespec sleep_ts;
+        sleep_ts.tv_sec = 0;
+        sleep_ts.tv_nsec = 1000;
+        nanosleep(&sleep_ts, NULL);
     }
 
     /* Flush the entire priority queue when we're about to exit */
     while (pq.size() > 0) {
 
-        mq_msg = pq.top();
-        fwrite(&(mq_msg.buf[sizeof(struct timespec)]), mq_msg.len - sizeof(struct timespec), 1, stdout);
+        pq_msg = pq.top();
+        fwrite(pq_msg.buf, pq_msg.len, 1, stdout);
         pq.pop();
     }
 
@@ -889,13 +767,12 @@ int main(int argc, char *argv[]) {
     }
 
     /* make the thread queues */
-    /* DISABLED IPC PORTION -- for merging into trunk */
-    /* init_thread_queues(cfg.num_threads); */
-    /* pthread_t output_thread; */
-    /* int err = pthread_create(&output_thread, NULL, output_thread_func, NULL); */
-    /* if (err != 0) { */
-    /*     perror("error creating output thread"); */
-    /* } */
+    init_t_queues(cfg.num_threads);
+    pthread_t output_thread;
+    int err = pthread_create(&output_thread, NULL, output_thread_func, NULL);
+    if (err != 0) {
+        perror("error creating output thread");
+    }
 
     /* init random number generator */
     srand(time(0));
@@ -920,11 +797,10 @@ int main(int argc, char *argv[]) {
         analysis_finalize();
     }
 
-    /* DISABLED IPC PORTION -- for merging into trunk */
-    /* fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n"); */
-    /* sig_stop_output = 1; */
-    /* pthread_join(output_thread, NULL); */
-    /* destroy_thread_queues(); */
+    fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
+    sig_stop_output = 1;
+    pthread_join(output_thread, NULL);
+    destroy_thread_queues();
 
     return 0;
 }
