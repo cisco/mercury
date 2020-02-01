@@ -93,13 +93,13 @@ struct pkt_proc_json_writer : public pkt_proc {
 
 
 /*
- * struct pkt_proc_json_writer_mq represents a packet processing object
+ * struct pkt_proc_json_writer_llq represents a packet processing object
  * that writes out a JSON representation of fingerprints, metadata,
  * flow keys, and event time to a queue that is then written to a file
  * by a dedicated output thread.
  */
-struct pkt_proc_json_writer_mq : public pkt_proc {
-    mqd_t json_file_queue;
+struct pkt_proc_json_writer_llq : public pkt_proc {
+    struct ll_queue *llq;
 
     /*
      * pkt_proc_json_writer(outfile_name, mode, max_records)
@@ -111,13 +111,13 @@ struct pkt_proc_json_writer_mq : public pkt_proc {
      * records (lines) per file; after that limit is reached, file
      * rotation will take place.
      */
-    pkt_proc_json_writer_mq(const char *queue_name) {
+    pkt_proc_json_writer_llq(struct ll_queue *llq_ptr) {
 
-        json_file_queue = open_thread_queue(queue_name);
+        llq = llq_ptr;
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) {
-        json_queue_write(json_file_queue, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
     }
 
     void flush() {

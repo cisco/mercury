@@ -67,22 +67,54 @@ struct mercury_config {
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
-#define MQ_MAX_SIZE    8192  /* The number of bytes per message (LINUX DEFAULT LIMIT: 8192) */
-#define MQ_QUEUE_DEPTH 10    /* The number of messages in the queue (LINUX DEFAULT LIMIT: 10) */
-#define MQ_PQ_LIMIT    10000 /* Maximum number of elements allowed in the priority queue */
-#define MQ_PQ_MAX_AGE  5     /* Maximum age (in seconds) messages are allowed to sit in the pq */
+#define LLQ_MSG_SIZE 8192    /* The number of bytes allowed for each message in the lockless queue */
+#define LLQ_DEPTH    128     /* The number of "buckets" (queue messages) allowed */
+
+#define PQ_LIMIT     10000   /* Maximum number of elements allowed in the priority queue */
+#define PQ_MAX_AGE   5       /* Maximum age (in seconds) messages are allowed to sit in the pq */
 
 extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
 extern int t_output_p;
 extern pthread_cond_t t_output_c;
 
+
+/* The message object suitable for the std::priority_queue */
+struct llq_msg {
+    volatile int used; /* The flag that says if this object is actually in use (if not, it's available) */
+    char buf[LLQ_MSG_SIZE];
+    ssize_t len;
+    struct timespec ts;
+
+    /* Assumes the our ts has already been filled out */
+    double age(struct timespec *cur_ts) {
+        return ((double)cur_ts->tv_sec + ((double)cur_ts->tv_nsec / 1000000000.0)) -
+            ((double)ts.tv_sec + ((double)ts.tv_nsec / 1000000000.0));
+    }
+
+    friend bool operator < (const llq_msg& lhs, const llq_msg& rhs);
+};
+
+
+/* a "lockless" queue */
+struct ll_queue {
+    int ridx;  /* The read index */
+    int widx;  /* The write index */
+    struct llq_msg msgs[LLQ_DEPTH];
+
+    void next_read() {
+        ridx = (ridx + 1) % LLQ_DEPTH;
+    }
+
+    void next_write() {
+        widx = (widx + 1) % LLQ_DEPTH;
+    }
+};
+
+
 struct thread_queues {
     int qnum;             /* The number of queues that have been allocated */
     int qidx;             /* The index of the first free queue */
-    pid_t pid;            /* Name collision avoidance */
-    mqd_t *queue;         /* The actual queue file handle */
-    char **queue_name;    /* The queue name (needed to unlink) */
-    struct pollfd *pqfd;  /* Array of struct pollfd to facilitate calls to poll() */
+    struct ll_queue *queue;      /* The actual queue datastructure */
 };
 
 
