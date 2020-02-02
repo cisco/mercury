@@ -438,7 +438,7 @@ const char *type[] = {
 };
 
 void fprintf_asn1_tlv(FILE *f, const struct asn1_tlv *x, const char *name) {
-    return;
+    // return;
     if (x && x->value.data) {
         fprintf(f, "T:%02x (%u:%u:%u, %s)\tL:%08zu\tV:", x->tag, x->tag >> 6, (x->tag >> 5) & 1, x->tag & 31, type[x->tag & 31], x->length);
         fprintf_raw_as_hex(f, x->value.data, x->value.data_end - x->value.data);
@@ -966,19 +966,66 @@ void buffer_parse_as_cert(const void *buffer,
 
     // tbs_certificate should be out of data now
     if (parser_get_data_length(&tbs_certificate.value) == 0) {
-        fprintf(stderr, "done parsing cert, no remainder\n");
-        return;
+        fprintf(stderr, "done parsing tbs_certificate, no remainder\n");
     }
-    // parse remainder, if any, just for debugging purposes
-    struct asn1_tlv remainder = { 0, 0, { NULL, NULL } };
-    status = parser_read_asn1_tlv(&tbs_certificate.value, &remainder);
+
+    struct asn1_tlv signatureAlgorithm = asn1_tlv_init();
+    status = parser_read_asn1_tlv(&certificate.value, &signatureAlgorithm);
     if (status) {
-        fprintf(stderr, "error reading asn1 tlv (remainder)\n");
+        fprintf(stderr, "error reading asn1 tlv\n");
         return;
     }
-    fprintf_asn1_tlv(stderr, &remainder, "remainder");
+    fprintf_asn1_tlv(stdout, &signatureAlgorithm, "signatureAlgorithm");
+    if (signatureAlgorithm.tag == 0x30) {
+        struct asn1_tlv algorithm_oid = asn1_tlv_init();
+        status = parser_read_asn1_tlv(&signatureAlgorithm.value, &algorithm_oid);
+        if (status) {
+            fprintf(stderr, "error reading asn1 tlv\n");
+        }
+        fprintf_asn1_tlv(stdout, &algorithm_oid, "algorithm_oid");
+
+        struct asn1_tlv null = asn1_tlv_init();
+        status = parser_read_asn1_tlv(&signatureAlgorithm.value, &null); // this might be optional
+        if (status) {
+            fprintf(stderr, "error reading asn1 tlv\n");
+        }
+        fprintf_asn1_tlv(stdout, &null, "null");
+    }
+
+    struct asn1_tlv signatureValue = asn1_tlv_init();
+    status = parser_read_asn1_tlv(&certificate.value, &signatureValue);
+    if (status) {
+        fprintf(stderr, "error reading asn1 tlv\n");
+        return;
+    }
+    fprintf_asn1_tlv(stdout, &signatureValue, "signatureValue");
 
 }
+
+#include <mhash.h>
+void sha256_hash(const void *buffer,
+                 unsigned int len) {
+    int i;
+    MHASH td;
+    unsigned char hash[32]; 
+
+    hashid hash_type = MHASH_SHA1;
+    td = mhash_init(hash_type);
+    if (td == MHASH_FAILED) {
+        return;
+    }
+
+    mhash(td, buffer, len);
+
+    mhash_deinit(td, hash);
+
+    printf("%s: ", mhash_get_hash_name(hash_type));
+    for (i = 0; i < mhash_get_block_size(hash_type); i++) {
+        printf("%.2x", hash[i]);
+    }
+    printf("\n");
+
+ }
 
 std::unordered_map<std::string, std::string> cert_dict;
 
@@ -1020,6 +1067,8 @@ int main(int argc, char *argv[]) {
         //fprintf(stdout, "key:\t");
         //fprintf_raw_as_hex(stdout, key.c_str(), key.length());
         //fprintf(stdout, "\n");
+
+        sha256_hash(cert.c_str(), cert.length());
 
         // fprintf(stderr, "parsing cert\n");
         buffer_parse_as_cert(cert.c_str(), cert.length());
