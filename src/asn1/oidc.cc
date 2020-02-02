@@ -439,6 +439,8 @@ int main(int argc, char *argv[]) {
 #if 0
     auto unknown_oids =
         {
+         "2b0e03021d",
+         "2a864886f70d01010b",
          "2a864886f70d01090f",
          "2a864886f70d010914",
          "2b0601040182371402",

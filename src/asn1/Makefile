@@ -18,7 +18,7 @@ datarootdir = ${prefix}/share/mercury
 all: cert-analyze oidc oid-list
 
 cert-analyze: cert-analyze.cc
-	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../parser.c
+	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../parser.c -lmhash
 
 oidc: oidc.cc
 	$(CXX) $(CFLAGS) -o oidc oidc.cc
