@@ -310,7 +310,7 @@ class Fingerprinter:
             if self.endpoint:
                 endpoint = self.endpoint_model.get_endpoint(src_ip)
             proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context, flow['dst_ip'],
-                                                            flow['dst_port'], self.num_procs, endpoint)
+                                                            flow['dst_port'], self.num_procs, endpoint, False)
             if proc_info != None:
                 flow['analysis'] = proc_info
 
