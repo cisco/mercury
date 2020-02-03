@@ -190,7 +190,7 @@ cdef class TLS():
         return  ''.join(c), context
 
 
-    def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0, endpoint=None):
+    def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0, endpoint=None, approx=True):
         server_name = None
         # extract server_name field from context object
         if context_ != None and 'server_name' in context_:
@@ -198,6 +198,8 @@ cdef class TLS():
 
         # fingerprint approximate matching if necessary
         if fp_str_ not in self.fp_db:
+            if not approx:
+                return {'process': 'Unknown', 'score': 0.0, 'malware': 0, 'p_malware': 0.0, 'category': 'Unknown'}
             lit_fp = eval_fp_str(fp_str_)
             approx_str_ = self.find_approx_match(lit_fp)
             if approx_str_ == None:
@@ -329,12 +331,6 @@ cdef class TLS():
                 score_ += tmp_ if tmp_ > prior_ else prior_
             except KeyError:
                 score_ += base_prior_
-
-#            try:
-#                tmp_ = log(p_['classes_port_port'][features[5]]/p_count)
-#                score_ += tmp_ if tmp_ > prior_ else prior_
-#            except KeyError:
-#                score_ += base_prior_
 
         app_cat = 'Unknown'
         if 'application_category' in p_:

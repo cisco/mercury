@@ -32,16 +32,21 @@ for line in open(app_families_strict_file, 'r'):
     for i in range(1, len(tokens)):
         app_families_strict[tokens[i]] = tokens[0]
 
+fp_sni_blacklist = set([])
+for line in open('data/fp_ip_blacklist.csv','r'):
+    fp_sni_blacklist.add(line.strip())
+
 
 class Validation:
 
-    def __init__(self, in_file, fp_db_name, output, categories, top):
+    def __init__(self, in_file, fp_db_name, output, categories, top, blacklist):
         if output == sys.stdout:
             self.out_file_pointer = sys.stdout
         else:
             self.out_file_pointer = open(output, 'w')
         self.categories = categories
         self.top = top
+        self.blacklist = blacklist
 
         self.uninformative_proc_names = set(['vmnet-natd','vmnat','vmnet-natd.exe','vmnat.exe',
                                              'svchost.exe','Unknown','VirtualBoxVM.exe','VirtualBoxVM',
@@ -64,6 +69,8 @@ class Validation:
         self.input_file = in_file
         if in_file.endswith('.csv.gz'):
             self.data = self.read_file_csv(in_file)
+        elif in_file.endswith('.json.gz') and 'dmz' in in_file:
+            self.data = self.read_file_dmz_json(in_file)
         elif in_file.endswith('.json.gz'):
             self.data = self.read_file_json(in_file)
         else:
@@ -80,6 +87,8 @@ class Validation:
 
         if self.top:
             results = self.mt_pool.map(get_results_top, [self.data[k] for k in self.data])
+        elif self.blacklist:
+            results = self.mt_pool.map(get_results_blacklist, [self.data[k] for k in self.data])
         else:
             results = self.mt_pool.map(get_results, [self.data[k] for k in self.data])
 
@@ -162,20 +171,20 @@ class Validation:
     def read_file_json(self, f):
         data = {}
 
-#        data['blah'] = [(None,None,'acumbrellacore','','tls','(0303)(130313011302c02cc02bc024c023c00ac009cca9c030c02fc028c027c014c013cca8009d009c003d003c0035002fc008c012000a)((ff01)(0000)(0017)(000d0018001604030804040105030203080508050501080606010201)(000500050100000000)(3374)(0012)(00100030002e0268320568322d31360568322d31350568322d313408737064792f332e3106737064792f3308687474702f312e31)(000b00020100)(0033)(002d00020101)(002b0009080304030303020301)(000a000a0008001d001700180019)(0015))','10.10.10.10',443,'sync.hydra.opendns.com',10,None,{'malware': False})]
-#        return data
-
         start = time.time()
         for line in os.popen('zcat %s' % (f)):
             fp_ = json.loads(line)
-            fp_str = fp_['md5']
+            fp_str = fp_['str_repr']
+#            fp_str = fp_['md5']
+            if fp_str in schannel_fps:
+                fp_str = 'schannel'
 
             if 'process_info' in fp_:
                 new_procs = []
                 for p_ in fp_['process_info']:
                     if 'process' not in p_:
                         p_['process'] = p_['filename']
-                    if 'av_sigs' in p_ or 'parent_av_sigs' in p_:
+                    if is_proc_malware(p_, False):
                         new_procs.extend(clean_malware_proc(p_))
                     else:
                         new_procs.append(p_)
@@ -214,6 +223,37 @@ class Validation:
                         server_name = dst_x[2][1:]
                         data[fp_str+proc].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
                                                   server_name,x_['count'],None,app_cats))
+
+        print('time to read data:\t%0.2f' % (time.time()-start))
+
+        return data
+
+
+    def read_file_dmz_json(self, f):
+        data = {}
+
+        start = time.time()
+        for line in os.popen('zcat %s' % (f)):
+            fp_ = json.loads(line)
+            fp_str = fp_['md5']
+            if fp_str in schannel_fps:
+                fp_str = 'schannel'
+
+            proc = 'dmz_process'
+            sha256 = 'dmz_process'
+            app_cats = {}
+            app_cats['malware'] = False
+
+            if fp_str not in data:
+                data[fp_str] = []
+
+            for x_ in fp_['dst_info']:
+                dst_x       = x_['dst'].split(')')
+                dst_ip      = dst_x[0][1:]
+                dst_port    = int(dst_x[1][1:])
+                server_name = dst_x[2][1:]
+                data[fp_str].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
+                                     server_name,x_['count'],None,app_cats))
 
         print('time to read data:\t%0.2f' % (time.time()-start))
 
@@ -266,6 +306,47 @@ def get_results(data):
         o_['ground_truth']['categories'] = {'malware': app_cats['malware'], app_cat: True}
         o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256']}
         o_['inferred_truth']['categories'] = {'malware': pi_['malware'], pi_['category']: True}
+
+        results.append(o_)
+
+    return results
+
+
+def get_results_blacklist(data):
+    global fp_sni_blacklist
+    results = []
+    for d_ in data:
+        src_ip      = d_[0]
+        src_port    = d_[1]
+        proc        = d_[2]
+        sha256      = d_[3]
+        type_       = d_[4]
+        str_repr    = d_[5]
+        dst_ip      = d_[6]
+        dst_port    = d_[7]
+        server_name = d_[8]
+        cnt         = d_[9]
+        os_         = d_[10]
+        app_cats    = d_[11]
+        protocol    = 6
+        ts          = 0.00
+
+
+        o_ = {}
+        o_['count'] = cnt
+        o_['fp_str'] = str_repr
+        o_['score'] = 0.0
+        o_['ground_truth']   = {'process': proc, 'sha256': sha256, 'server_name': server_name}
+        o_['ground_truth']['categories'] = {'malware': app_cats['malware']}
+        o_['inferred_truth'] = {'process': 'n/a', 'sha256': 'n/a'}
+
+#        k = '%s,%s' % (str_repr, server_name)
+        k = '%s,%s' % (str_repr, dst_ip)
+#        k = '%s' % (dst_ip)
+        if k in fp_sni_blacklist:
+            o_['inferred_truth']['categories'] = {'malware': True}
+        else:
+            o_['inferred_truth']['categories'] = {'malware': False}
 
         results.append(o_)
 
@@ -382,10 +463,18 @@ def process_result(x_):
 
             r_cats.append([r['count'], r_cat_a, r_cat_tp, r_cat_tn, r_cat_fp, r_cat_fn])
 
-            if c_gt   == False and c_nf == True:
+            if c_gt == False and c_nf == True:
+#            if c_gt == True and c_nf == False:
+#            if c_gt == False and c_nf == False:
                 verbose_out.write('%i,%s,%s,%s,%f,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name'],
                                                            r['score'],r['fp_str']))
                 verbose_out.flush()
+
+#            if c_gt == True and c_nf == False:
+#            if c_gt == False and c_nf == True:
+#                if count > 10:
+#                verbose_out.write('%i,%s\n' % (count, r['ground_truth']['server_name']))
+#                verbose_out.flush()
 
 
         results.append([r['count'], r_proc, r_gproc, r_sha, r_cats])
@@ -412,6 +501,8 @@ def main():
                       help='enable endpoint modeling',default=False)
     parser.add_option('-t','--top',action='store_true',dest='top',
                       help='report most prevalent process',default=False)
+    parser.add_option('-b','--blacklist',action='store_true',dest='blacklist',
+                      help='use fp/sni blacklist',default=False)
 
     options, args = parser.parse_args()
 
@@ -427,7 +518,7 @@ def main():
     fingerprinter = pmercury.Fingerprinter(options.fp_db, 'test.out', True, num_procs=5, human_readable=False,
                                            group=False, experimental=False, endpoint=options.endpoint)
 
-    tester = Validation(options.input, options.fp_db, options.output, options.categories.split(','), options.top)
+    tester = Validation(options.input, options.fp_db, options.output, options.categories.split(','), options.top, options.blacklist)
 
     tester.validate_process_identification()
 
