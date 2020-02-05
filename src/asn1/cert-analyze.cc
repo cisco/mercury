@@ -616,8 +616,18 @@ std::unordered_map<std::string, std::string> extension_oids =
      { { 0x55, 0x1d, 0x0f }, "key_usage" }
     };
 
-std::string *parser_get_oid_string(const struct parser *p) {
-    return NULL;
+#include <vector>
+#include "oid.h"
+
+const char *parser_get_oid_string(struct parser *p) {
+    std::string s = p->get_string();
+    const char *tmp = s.c_str();
+    // fprintf(stderr, "key: %02x%02x%02x\n", tmp[0], tmp[1], tmp[2]);
+    auto pair = oid_dict.find(s);
+    if (pair == oid_dict.end()) {
+        return NULL; 
+    }
+    return pair->second.c_str();;
 }
 
 unsigned char default_version_value[1] = { 0x00 };
@@ -661,6 +671,8 @@ enum status asn1_tlv_read_x509_name(struct asn1_tlv *tlv, const char *label) {
                         if (tmp3.tag == 0x06) {
                             const char *unknown_oid = "unknown_oid";
                             const char *oid_string = unknown_oid;
+
+                            std::cerr << "oid: " << parser_get_oid_string(&tmp3.value) << "\n";
 
                             if (parser_match(&tmp3.value, id_at_countryName, sizeof(id_at_countryName), NULL) == status_ok) {
                                 oid_string = "countryName";
