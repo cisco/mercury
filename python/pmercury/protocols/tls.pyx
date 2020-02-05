@@ -288,7 +288,8 @@ cdef class TLS():
         if 'domain_mean' in p_ and p_['domain_mean'] < 5.0:
             base_prior_ = -25.32844 # log(1e-11)
 
-        cdef double score_ = 5*prob_process_given_fp if prob_process_given_fp > proc_prior_ else 5*proc_prior_
+#        cdef double score_ = 5*prob_process_given_fp if prob_process_given_fp > proc_prior_ else 5*proc_prior_
+        cdef double score_ = 2*prob_process_given_fp if prob_process_given_fp > proc_prior_ else 2*proc_prior_
         cdef double tmp_, trans_prob, prev_proc_prior
 
         if (endpoint != None and endpoint.prev_flow != None and
@@ -301,23 +302,34 @@ cdef class TLS():
                 prev_proc_prior = log(trans_prob)
             score_ += base_prior_ if base_prior_> prev_proc_prior else prev_proc_prior
 
-        try:
-            tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
-            score_ += tmp_ if tmp_ > prior_ else prior_
-        except KeyError:
-            score_ += base_prior_
+        if endpoint != None:
+            os_info = endpoint.get_os()
+            if len(os_info) > 0:
+                tmp_score_ = 0.0
+                for k in os_info:
+                    try:
+                        tmp_ = log(p_['os_info'][k]/p_count)*os_info[k]
+                        tmp_score_ += tmp_ if tmp_ > prior_*os_info[k] else prior_*os_info[k]
+                    except KeyError:
+                        tmp_score_ += base_prior_*os_info[k]
+                score_ += tmp_score_
+#        try:
+#            tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
+#            score_ += tmp_ if tmp_ > prior_ else prior_
+#        except KeyError:
+#            score_ += base_prior_
 
-        try:
-            tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
-            score_ += tmp_ if tmp_ > prior_ else prior_
-        except KeyError:
-            score_ += base_prior_
+#        try:
+#            tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
+#            score_ += tmp_ if tmp_ > prior_ else prior_
+#        except KeyError:
+#            score_ += base_prior_
 
-        try:
-            tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
-            score_ += tmp_ if tmp_ > prior_ else prior_
-        except KeyError:
-            score_ += base_prior_
+#        try:
+#            tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
+#            score_ += tmp_ if tmp_ > prior_ else prior_
+#        except KeyError:
+#            score_ += base_prior_
 
         if self.EXTENDED_FP_METADATA:
             try:
@@ -438,3 +450,7 @@ cdef class TLS():
             fp_h['extensions'] = get_ext_from_str(lit_fp[2])
 
         return fp_h
+
+    @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
+    def os_identify(self, fp_str_, list_oses=0):
+        return None

@@ -1,4 +1,4 @@
-Cisco Webex,Webex Teams,CiscoCollabHost.exe,Cisco Webex Meetings,SparkWindows.exe,CiscoSparkHelper,ptMeetingsHost.exe,CiscoJabber.exe,Cisco Jabber,CiscoSparkHelper,ptoneclk.exe,Meeting Center,atmgr.exe,ptupdate.exe,ptMeetingsHost.exe,Communicator.exe,SparkWindowsDirect.exe,Cisco Spark,Event Center,proximity.exe,ciscocollabhost.exe,ptmeetingshost.exe,ciscojabber.exe,spark-windows-media.exe
+Cisco Webex,Webex Teams,CiscoCollabHost.exe,Cisco Webex Meetings,SparkWindows.exe,CiscoSparkHelper,ptMeetingsHost.exe,CiscoJabber.exe,Cisco Jabber,CiscoSparkHelper,ptoneclk.exe,Meeting Center,atmgr.exe,ptupdate.exe,ptMeetingsHost.exe,Communicator.exe,SparkWindowsDirect.exe,Cisco Spark,Event Center,proximity.exe,ciscocollabhost.exe,ptmeetingshost.exe,ciscojabber.exe,spark-windows-media.exe,ptsrv.exe
 
 Microsoft Office,OUTLOOK.EXE,EXCEL.EXE,POWERPNT.EXE,WINWORD.EXE,ONENOTE.EXE,VISIO.EXE,WINPROJ.EXE,OneDrive.exe,OfficeClickToRun.exe,OfficeC2RClient.exe,wbxcOIEx64.exe,wbxcOIEx.exe,ptOIEx64.exe,ptOIEx.exe,msoia.exe,OLicenseHeartbeat.exe,MSOSYNC.EXE,OneDriveStandaloneUpdater.exe,Teams.exe,SkypeApp.exe,Teams,SDXHelper.exe,Microsoft Outlook,Microsoft PowerPoint,Microsoft Excel,Microsoft Word,Microsoft OneNote,OneDrive,Microsoft AU Daemon,Microsoft To Do,Skype for Business,VeraOutlook,Microsoft Update Assistant,Microsoft To-Do,Office365ServiceV2,FileCoAuth.exe,SpeechModelDownload.exe,UpdateNotificationMgr.exe,X1OutlookService64.exe,Microsoft AutoUpdate,lync.exe,DeviceCensus.exe,CompatTelRunner.exe,OneDriveSetup.exe,OneDriveStandaloneUpdater,outlook.exe,powerpnt.exe,MSACCESS.EXE,excel.exe,onenote.exe,sdxhelper.exe,searchprotocolhost.exe
 
@@ -8,11 +8,11 @@ Cisco AMP for Endpoints,sfc.exe,ampdaemon
 
 Apple Safari/Networking,Safari,com.apple.WebKit.Networking,com.apple.Safari.SearchHelper,com.apple.Safari.SafeBrowsing.Service,nsurlsessiond,syncdefaultsd,cloudd,parsec-fbf,akd,locationd,parsecd,IMTransferAgent,assistantd,commerce,com.apple.geod,adprivacyd,Mail,CalendarAgent,AddressBookSourceSync,SubmitDiagInfo,accountsd,softwareupdated,helpd,Spotlight,AssetCacheLocatorService,nbagent,touristd,App Store,com.apple.iCloudHelper,com.apple.sbd,mobileactivationd,storeassetd,appstoreagent,ksfetch,remindd,News,syspolicyd,ScreenSaverEngine,securityuploadd,fmfd,rtcreportingd,findmydeviced,FindMy,storedownloadd
 
-iCloud,iTunes.exe,iCloudDrive.exe,iCloudPhotos.exe,AppleIEDAV.exe,AppleChromeDAV.exe,ApplePhotoStreamsDownloader.exe,iCloudChrome.exe,iCloudServices.exe,AppleFirefoxHost.exe,ApplePhotoStreams.exe,iCloudFirefox.exe,Music,iTunes
+iCloud,iTunes.exe,iCloudDrive.exe,iCloudPhotos.exe,AppleIEDAV.exe,AppleChromeDAV.exe,ApplePhotoStreamsDownloader.exe,iCloudChrome.exe,iCloudServices.exe,AppleFirefoxHost.exe,ApplePhotoStreams.exe,iCloudFirefox.exe,Music,iTunes,TV
 
 Microsoft Internet Explorer,iexplore.exe,MicrosoftEdgeCP.exe,Microsoft.Msn.News.exe,MicrosoftEdgeSH.exe,smartscreen.exe,BackgroundTransferHost.exe,MicrosoftEdge.exe,Microsoft.Photos.exe,HxTsr.exe,SearchUI.exe,microsoftedgecp.exe
 
-Chromium,chrome.exe,chrome,Chromium Helper,msedge.exe,Google Chrome Helper,Opera,Opera Helper,opera.exe,browser.exe,Vivaldi Helper,vivaldi.exe,Brave Browser,kinza.exe,brave.exe,Vivaldi,Google Chrome,Microsoft Edge Helper,Charles.exe,Chromium,Spotify Helper,Brave Browser Helper,slack.exe,Slack,Slack.exe,Spotify.exe,Spotify,Station,GrammarlyForWindows.exe,GitHub Desktop,TIDAL,Trello,All-in-One Messenger,Pulse SMS.exe,Pulse SMS,AresLookup,Franz,chromee.exe,spotify.exe
+Chromium,chrome.exe,chrome,Chromium Helper,msedge.exe,Google Chrome Helper,Opera,Opera Helper,opera.exe,browser.exe,Vivaldi Helper,vivaldi.exe,Brave Browser,kinza.exe,brave.exe,Vivaldi,Google Chrome,Microsoft Edge Helper,Charles.exe,Chromium,Spotify Helper,Brave Browser Helper,slack.exe,Slack,Slack.exe,Slack Helper,Spotify.exe,Spotify,Station,GrammarlyForWindows.exe,GitHub Desktop,TIDAL,Trello,All-in-One Messenger,Pulse SMS.exe,Pulse SMS,AresLookup,Franz,chromee.exe,spotify.exe
 
 Firefox,firefox.exe,firefox,firefox-bin,thunderbird.exe,waterfox,waterfox.exe,thunderbird,firefox-esr
 
@@ -30,7 +30,7 @@ DropBox,Dropbox.exe,Dropbox
 
 Dashlane,DashlaneAgent,P72E3GC48.com.dashlane.DashlaneAgent,DashlanePluginMASService,DashlanePluginService
 
-Box,Box,Box Sync,Box.exe,BoxSync.exe
+Box,Box,Box Sync,Box.exe,BoxSync.exe,Box Edit.exe,Box Local Com Service.exe
 
 Microsoft Visual Studio,Code Helper,Code.exe
 

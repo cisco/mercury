@@ -1,4 +1,4 @@
-#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
+#cython: language_level=3, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
 
 """
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
@@ -139,5 +139,9 @@ class HTTP(Protocol):
         return fp_h
 
 
-    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None):
+    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):
+        return None
+
+
+    def os_identify(self, fp_str_, list_oses=0):
         return None

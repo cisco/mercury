@@ -1437,6 +1437,7 @@ static const char __pyx_k_range[] = "range";
 static const char __pyx_k_split[] = "split";
 static const char __pyx_k_accept[] = "accept";
 static const char __pyx_k_append[] = "append";
+static const char __pyx_k_approx[] = "approx";
 static const char __pyx_k_config[] = "config";
 static const char __pyx_k_decode[] = "decode";
 static const char __pyx_k_dst_ip[] = "dst_ip";
@@ -1470,6 +1471,7 @@ static const char __pyx_k_t0_lower[] = "t0_lower";
 static const char __pyx_k_context_2[] = "context_";
 static const char __pyx_k_http_cish[] = "http_cish";
 static const char __pyx_k_http_cssh[] = "http_cssh";
+static const char __pyx_k_list_oses[] = "list_oses";
 static const char __pyx_k_metaclass[] = "__metaclass__";
 static const char __pyx_k_connection[] = "connection";
 static const char __pyx_k_list_procs[] = "list_procs";
@@ -1478,6 +1480,7 @@ static const char __pyx_k_HTTP___init[] = "HTTP.__init__";
 static const char __pyx_k_all_headers[] = "all_headers";
 static const char __pyx_k_fingerprint[] = "fingerprint";
 static const char __pyx_k_fp_database[] = "fp_database";
+static const char __pyx_k_os_identify[] = "os_identify";
 static const char __pyx_k_content_type[] = "content-type";
 static const char __pyx_k_headers_data[] = "headers_data";
 static const char __pyx_k_intervention[] = "intervention";
@@ -1493,6 +1496,7 @@ static const char __pyx_k_accept_language[] = "accept-language";
 static const char __pyx_k_contextual_data[] = "contextual_data";
 static const char __pyx_k_x_forwarded_for[] = "x-forwarded-for";
 static const char __pyx_k_HTTP_fingerprint[] = "HTTP.fingerprint";
+static const char __pyx_k_HTTP_os_identify[] = "HTTP.os_identify";
 static const char __pyx_k_x_requested_with[] = "x-requested-with";
 static const char __pyx_k_x_forwarded_for_2[] = "x_forwarded_for";
 static const char __pyx_k_HTTP_proc_identify[] = "HTTP.proc_identify";
@@ -1514,6 +1518,7 @@ static PyObject *__pyx_n_s_HTTP___init;
 static PyObject *__pyx_n_s_HTTP___init___locals_lambda;
 static PyObject *__pyx_n_s_HTTP_fingerprint;
 static PyObject *__pyx_n_s_HTTP_get_human_readable;
+static PyObject *__pyx_n_s_HTTP_os_identify;
 static PyObject *__pyx_n_s_HTTP_proc_identify;
 static PyObject *__pyx_n_s_HTTP_proto_identify;
 static PyObject *__pyx_n_s_Protocol;
@@ -1532,6 +1537,7 @@ static PyObject *__pyx_kp_b_accept_encoding;
 static PyObject *__pyx_kp_b_accept_language;
 static PyObject *__pyx_n_s_all_headers;
 static PyObject *__pyx_n_s_append;
+static PyObject *__pyx_n_s_approx;
 static PyObject *__pyx_n_s_c;
 static PyObject *__pyx_kp_b_cache_control;
 static PyObject *__pyx_n_s_case_insensitive_static_headers;
@@ -1585,6 +1591,7 @@ static PyObject *__pyx_n_s_i;
 static PyObject *__pyx_n_s_import;
 static PyObject *__pyx_n_s_init;
 static PyObject *__pyx_n_b_intervention;
+static PyObject *__pyx_n_s_list_oses;
 static PyObject *__pyx_n_s_list_procs;
 static PyObject *__pyx_n_s_lower;
 static PyObject *__pyx_n_s_main;
@@ -1597,6 +1604,7 @@ static PyObject *__pyx_n_s_name_2;
 static PyObject *__pyx_n_s_offset;
 static PyObject *__pyx_n_b_origin;
 static PyObject *__pyx_n_s_os;
+static PyObject *__pyx_n_s_os_identify;
 static PyObject *__pyx_n_s_path;
 static PyObject *__pyx_n_s_pmercury_protocols_http;
 static PyObject *__pyx_n_s_pmercury_protocols_protocol;
@@ -1634,7 +1642,8 @@ static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP___init__(CYTHON_UNUSE
 static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_2proto_identify(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_data, PyObject *__pyx_v_offset, PyObject *__pyx_v_data_len); /* proto */
 static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_4fingerprint(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_data, unsigned int __pyx_v_offset, CYTHON_UNUSED unsigned int __pyx_v_data_len); /* proto */
 static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_6get_human_readable(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_fp_str_); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_8proc_identify(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_context_, CYTHON_UNUSED PyObject *__pyx_v_dst_ip, CYTHON_UNUSED PyObject *__pyx_v_dst_port, CYTHON_UNUSED PyObject *__pyx_v_list_procs, CYTHON_UNUSED PyObject *__pyx_v_endpoint); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_8proc_identify(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_context_, CYTHON_UNUSED PyObject *__pyx_v_dst_ip, CYTHON_UNUSED PyObject *__pyx_v_dst_port, CYTHON_UNUSED PyObject *__pyx_v_list_procs, CYTHON_UNUSED PyObject *__pyx_v_endpoint, CYTHON_UNUSED PyObject *__pyx_v_approx); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_10os_identify(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_list_oses); /* proto */
 static __Pyx_CachedCFunction __pyx_umethod_PyBytes_Type_hex = {0, &__pyx_n_s_hex, 0, 0, 0};
 static __Pyx_CachedCFunction __pyx_umethod_PyBytes_Type_lower = {0, &__pyx_n_s_lower, 0, 0, 0};
 static PyObject *__pyx_int_0;
@@ -1660,11 +1669,14 @@ static PyObject *__pyx_tuple__20;
 static PyObject *__pyx_tuple__22;
 static PyObject *__pyx_tuple__24;
 static PyObject *__pyx_tuple__26;
+static PyObject *__pyx_tuple__27;
+static PyObject *__pyx_tuple__29;
 static PyObject *__pyx_codeobj__16;
 static PyObject *__pyx_codeobj__19;
 static PyObject *__pyx_codeobj__21;
 static PyObject *__pyx_codeobj__23;
 static PyObject *__pyx_codeobj__25;
+static PyObject *__pyx_codeobj__28;
 /* Late includes */
 
 /* "pmercury/protocols/http.pyx":18
@@ -4161,7 +4173,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_6get_human_readable(C
     if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_GetSlice(__pyx_t_2, 0, -1L, NULL, NULL, &__pyx_slice__12, 0, 1, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L5_error)
+    __pyx_t_3 = __Pyx_PyObject_GetSlice(__pyx_t_2, 0, -1L, NULL, NULL, &__pyx_slice__12, 0, 1, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (likely(PyList_CheckExact(__pyx_t_3)) || PyTuple_CheckExact(__pyx_t_3)) {
@@ -4208,7 +4220,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_6get_human_readable(C
       __pyx_t_3 = 0;
       __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PyBytes_Type)), __pyx_n_s_fromhex); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 122, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_7 = __Pyx_PyObject_GetSlice(__pyx_7genexpr__pyx_v_x, 1, 0, NULL, NULL, &__pyx_slice__13, 1, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 122, __pyx_L5_error)
+      __pyx_t_7 = __Pyx_PyObject_GetSlice(__pyx_7genexpr__pyx_v_x, 1, 0, NULL, NULL, &__pyx_slice__13, 1, 0, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 122, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_t_8 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_4))) {
@@ -4468,7 +4480,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_6get_human_readable(C
  *             if len(field) == 2:
  *                 try:
  */
-    __pyx_t_1 = __Pyx_GetItemInt_List(__pyx_v_t_, __pyx_v_i, Py_ssize_t, 1, PyInt_FromSsize_t, 1, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_GetItemInt_List(__pyx_v_t_, __pyx_v_i, Py_ssize_t, 1, PyInt_FromSsize_t, 1, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_split); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
@@ -4883,8 +4895,9 @@ static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_6get_human_readable(C
 /* "pmercury/protocols/http.pyx":142
  * 
  * 
- *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None):             # <<<<<<<<<<<<<<
+ *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):             # <<<<<<<<<<<<<<
  *         return None
+ * 
  */
 
 /* Python wrapper */
@@ -4898,18 +4911,22 @@ static PyObject *__pyx_pw_8pmercury_9protocols_4http_4HTTP_9proc_identify(PyObje
   CYTHON_UNUSED PyObject *__pyx_v_dst_port = 0;
   CYTHON_UNUSED PyObject *__pyx_v_list_procs = 0;
   CYTHON_UNUSED PyObject *__pyx_v_endpoint = 0;
+  CYTHON_UNUSED PyObject *__pyx_v_approx = 0;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("proc_identify (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_str,&__pyx_n_s_context_2,&__pyx_n_s_dst_ip,&__pyx_n_s_dst_port,&__pyx_n_s_list_procs,&__pyx_n_s_endpoint,0};
-    PyObject* values[7] = {0,0,0,0,0,0,0};
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_str,&__pyx_n_s_context_2,&__pyx_n_s_dst_ip,&__pyx_n_s_dst_port,&__pyx_n_s_list_procs,&__pyx_n_s_endpoint,&__pyx_n_s_approx,0};
+    PyObject* values[8] = {0,0,0,0,0,0,0,0};
     values[5] = ((PyObject *)((PyObject *)__pyx_int_0));
     values[6] = ((PyObject *)((PyObject *)Py_None));
+    values[7] = ((PyObject *)((PyObject *)Py_True));
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
+        case  8: values[7] = PyTuple_GET_ITEM(__pyx_args, 7);
+        CYTHON_FALLTHROUGH;
         case  7: values[6] = PyTuple_GET_ITEM(__pyx_args, 6);
         CYTHON_FALLTHROUGH;
         case  6: values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
@@ -4936,25 +4953,25 @@ static PyObject *__pyx_pw_8pmercury_9protocols_4http_4HTTP_9proc_identify(PyObje
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 7, 1); __PYX_ERR(0, 142, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 8, 1); __PYX_ERR(0, 142, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_context_2)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 7, 2); __PYX_ERR(0, 142, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 8, 2); __PYX_ERR(0, 142, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dst_ip)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 7, 3); __PYX_ERR(0, 142, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 8, 3); __PYX_ERR(0, 142, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
         if (likely((values[4] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dst_port)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 7, 4); __PYX_ERR(0, 142, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 8, 4); __PYX_ERR(0, 142, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  5:
@@ -4968,12 +4985,20 @@ static PyObject *__pyx_pw_8pmercury_9protocols_4http_4HTTP_9proc_identify(PyObje
           PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_endpoint);
           if (value) { values[6] = value; kw_args--; }
         }
+        CYTHON_FALLTHROUGH;
+        case  7:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_approx);
+          if (value) { values[7] = value; kw_args--; }
+        }
       }
       if (unlikely(kw_args > 0)) {
         if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "proc_identify") < 0)) __PYX_ERR(0, 142, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
+        case  8: values[7] = PyTuple_GET_ITEM(__pyx_args, 7);
+        CYTHON_FALLTHROUGH;
         case  7: values[6] = PyTuple_GET_ITEM(__pyx_args, 6);
         CYTHON_FALLTHROUGH;
         case  6: values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
@@ -4994,31 +5019,34 @@ static PyObject *__pyx_pw_8pmercury_9protocols_4http_4HTTP_9proc_identify(PyObje
     __pyx_v_dst_port = values[4];
     __pyx_v_list_procs = values[5];
     __pyx_v_endpoint = values[6];
+    __pyx_v_approx = values[7];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 7, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 142, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 5, 8, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 142, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.http.HTTP.proc_identify", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_4http_4HTTP_8proc_identify(__pyx_self, __pyx_v_self, __pyx_v_fp_str_, __pyx_v_context_, __pyx_v_dst_ip, __pyx_v_dst_port, __pyx_v_list_procs, __pyx_v_endpoint);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_4http_4HTTP_8proc_identify(__pyx_self, __pyx_v_self, __pyx_v_fp_str_, __pyx_v_context_, __pyx_v_dst_ip, __pyx_v_dst_port, __pyx_v_list_procs, __pyx_v_endpoint, __pyx_v_approx);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_8proc_identify(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_context_, CYTHON_UNUSED PyObject *__pyx_v_dst_ip, CYTHON_UNUSED PyObject *__pyx_v_dst_port, CYTHON_UNUSED PyObject *__pyx_v_list_procs, CYTHON_UNUSED PyObject *__pyx_v_endpoint) {
+static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_8proc_identify(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_context_, CYTHON_UNUSED PyObject *__pyx_v_dst_ip, CYTHON_UNUSED PyObject *__pyx_v_dst_port, CYTHON_UNUSED PyObject *__pyx_v_list_procs, CYTHON_UNUSED PyObject *__pyx_v_endpoint, CYTHON_UNUSED PyObject *__pyx_v_approx) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("proc_identify", 0);
 
   /* "pmercury/protocols/http.pyx":143
  * 
- *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None):
+ *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):
  *         return None             # <<<<<<<<<<<<<<
+ * 
+ * 
  */
   __Pyx_XDECREF(__pyx_r);
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
@@ -5027,7 +5055,120 @@ static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_8proc_identify(CYTHON
   /* "pmercury/protocols/http.pyx":142
  * 
  * 
- *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None):             # <<<<<<<<<<<<<<
+ *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):             # <<<<<<<<<<<<<<
+ *         return None
+ * 
+ */
+
+  /* function exit code */
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "pmercury/protocols/http.pyx":146
+ * 
+ * 
+ *     def os_identify(self, fp_str_, list_oses=0):             # <<<<<<<<<<<<<<
+ *         return None
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8pmercury_9protocols_4http_4HTTP_11os_identify(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_8pmercury_9protocols_4http_4HTTP_11os_identify = {"os_identify", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8pmercury_9protocols_4http_4HTTP_11os_identify, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8pmercury_9protocols_4http_4HTTP_11os_identify(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  CYTHON_UNUSED PyObject *__pyx_v_self = 0;
+  CYTHON_UNUSED PyObject *__pyx_v_fp_str_ = 0;
+  CYTHON_UNUSED PyObject *__pyx_v_list_oses = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("os_identify (wrapper)", 0);
+  {
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_fp_str,&__pyx_n_s_list_oses,0};
+    PyObject* values[3] = {0,0,0};
+    values[2] = ((PyObject *)((PyObject *)__pyx_int_0));
+    if (unlikely(__pyx_kwds)) {
+      Py_ssize_t kw_args;
+      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
+      switch (pos_args) {
+        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
+        CYTHON_FALLTHROUGH;
+        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = PyDict_Size(__pyx_kwds);
+      switch (pos_args) {
+        case  0:
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
+        else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_fp_str)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("os_identify", 0, 2, 3, 1); __PYX_ERR(0, 146, __pyx_L3_error)
+        }
+        CYTHON_FALLTHROUGH;
+        case  2:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_list_oses);
+          if (value) { values[2] = value; kw_args--; }
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "os_identify") < 0)) __PYX_ERR(0, 146, __pyx_L3_error)
+      }
+    } else {
+      switch (PyTuple_GET_SIZE(__pyx_args)) {
+        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
+        CYTHON_FALLTHROUGH;
+        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+        values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+    }
+    __pyx_v_self = values[0];
+    __pyx_v_fp_str_ = values[1];
+    __pyx_v_list_oses = values[2];
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("os_identify", 0, 2, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 146, __pyx_L3_error)
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("pmercury.protocols.http.HTTP.os_identify", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_8pmercury_9protocols_4http_4HTTP_10os_identify(__pyx_self, __pyx_v_self, __pyx_v_fp_str_, __pyx_v_list_oses);
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8pmercury_9protocols_4http_4HTTP_10os_identify(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_list_oses) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("os_identify", 0);
+
+  /* "pmercury/protocols/http.pyx":147
+ * 
+ *     def os_identify(self, fp_str_, list_oses=0):
+ *         return None             # <<<<<<<<<<<<<<
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  goto __pyx_L0;
+
+  /* "pmercury/protocols/http.pyx":146
+ * 
+ * 
+ *     def os_identify(self, fp_str_, list_oses=0):             # <<<<<<<<<<<<<<
  *         return None
  */
 
@@ -5090,6 +5231,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_HTTP___init___locals_lambda, __pyx_k_HTTP___init___locals_lambda, sizeof(__pyx_k_HTTP___init___locals_lambda), 0, 0, 1, 1},
   {&__pyx_n_s_HTTP_fingerprint, __pyx_k_HTTP_fingerprint, sizeof(__pyx_k_HTTP_fingerprint), 0, 0, 1, 1},
   {&__pyx_n_s_HTTP_get_human_readable, __pyx_k_HTTP_get_human_readable, sizeof(__pyx_k_HTTP_get_human_readable), 0, 0, 1, 1},
+  {&__pyx_n_s_HTTP_os_identify, __pyx_k_HTTP_os_identify, sizeof(__pyx_k_HTTP_os_identify), 0, 0, 1, 1},
   {&__pyx_n_s_HTTP_proc_identify, __pyx_k_HTTP_proc_identify, sizeof(__pyx_k_HTTP_proc_identify), 0, 0, 1, 1},
   {&__pyx_n_s_HTTP_proto_identify, __pyx_k_HTTP_proto_identify, sizeof(__pyx_k_HTTP_proto_identify), 0, 0, 1, 1},
   {&__pyx_n_s_Protocol, __pyx_k_Protocol, sizeof(__pyx_k_Protocol), 0, 0, 1, 1},
@@ -5108,6 +5250,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_kp_b_accept_language, __pyx_k_accept_language, sizeof(__pyx_k_accept_language), 0, 0, 0, 0},
   {&__pyx_n_s_all_headers, __pyx_k_all_headers, sizeof(__pyx_k_all_headers), 0, 0, 1, 1},
   {&__pyx_n_s_append, __pyx_k_append, sizeof(__pyx_k_append), 0, 0, 1, 1},
+  {&__pyx_n_s_approx, __pyx_k_approx, sizeof(__pyx_k_approx), 0, 0, 1, 1},
   {&__pyx_n_s_c, __pyx_k_c, sizeof(__pyx_k_c), 0, 0, 1, 1},
   {&__pyx_kp_b_cache_control, __pyx_k_cache_control, sizeof(__pyx_k_cache_control), 0, 0, 0, 0},
   {&__pyx_n_s_case_insensitive_static_headers, __pyx_k_case_insensitive_static_headers, sizeof(__pyx_k_case_insensitive_static_headers), 0, 0, 1, 1},
@@ -5161,6 +5304,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
   {&__pyx_n_s_init, __pyx_k_init, sizeof(__pyx_k_init), 0, 0, 1, 1},
   {&__pyx_n_b_intervention, __pyx_k_intervention, sizeof(__pyx_k_intervention), 0, 0, 0, 1},
+  {&__pyx_n_s_list_oses, __pyx_k_list_oses, sizeof(__pyx_k_list_oses), 0, 0, 1, 1},
   {&__pyx_n_s_list_procs, __pyx_k_list_procs, sizeof(__pyx_k_list_procs), 0, 0, 1, 1},
   {&__pyx_n_s_lower, __pyx_k_lower, sizeof(__pyx_k_lower), 0, 0, 1, 1},
   {&__pyx_n_s_main, __pyx_k_main, sizeof(__pyx_k_main), 0, 0, 1, 1},
@@ -5173,6 +5317,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_offset, __pyx_k_offset, sizeof(__pyx_k_offset), 0, 0, 1, 1},
   {&__pyx_n_b_origin, __pyx_k_origin, sizeof(__pyx_k_origin), 0, 0, 0, 1},
   {&__pyx_n_s_os, __pyx_k_os, sizeof(__pyx_k_os), 0, 0, 1, 1},
+  {&__pyx_n_s_os_identify, __pyx_k_os_identify, sizeof(__pyx_k_os_identify), 0, 0, 1, 1},
   {&__pyx_n_s_path, __pyx_k_path, sizeof(__pyx_k_path), 0, 0, 1, 1},
   {&__pyx_n_s_pmercury_protocols_http, __pyx_k_pmercury_protocols_http, sizeof(__pyx_k_pmercury_protocols_http), 0, 0, 1, 1},
   {&__pyx_n_s_pmercury_protocols_protocol, __pyx_k_pmercury_protocols_protocol, sizeof(__pyx_k_pmercury_protocols_protocol), 0, 0, 1, 1},
@@ -5332,16 +5477,31 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   /* "pmercury/protocols/http.pyx":142
  * 
  * 
- *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None):             # <<<<<<<<<<<<<<
+ *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):             # <<<<<<<<<<<<<<
  *         return None
+ * 
  */
-  __pyx_tuple__24 = PyTuple_Pack(7, __pyx_n_s_self, __pyx_n_s_fp_str, __pyx_n_s_context_2, __pyx_n_s_dst_ip, __pyx_n_s_dst_port, __pyx_n_s_list_procs, __pyx_n_s_endpoint); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __pyx_tuple__24 = PyTuple_Pack(8, __pyx_n_s_self, __pyx_n_s_fp_str, __pyx_n_s_context_2, __pyx_n_s_dst_ip, __pyx_n_s_dst_port, __pyx_n_s_list_procs, __pyx_n_s_endpoint, __pyx_n_s_approx); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__24);
   __Pyx_GIVEREF(__pyx_tuple__24);
-  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(7, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_http_pyx, __pyx_n_s_proc_identify, 142, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 142, __pyx_L1_error)
-  __pyx_tuple__26 = PyTuple_Pack(2, ((PyObject *)__pyx_int_0), ((PyObject *)Py_None)); if (unlikely(!__pyx_tuple__26)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(8, 0, 8, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_http_pyx, __pyx_n_s_proc_identify, 142, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __pyx_tuple__26 = PyTuple_Pack(3, ((PyObject *)__pyx_int_0), ((PyObject *)Py_None), ((PyObject *)Py_True)); if (unlikely(!__pyx_tuple__26)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__26);
   __Pyx_GIVEREF(__pyx_tuple__26);
+
+  /* "pmercury/protocols/http.pyx":146
+ * 
+ * 
+ *     def os_identify(self, fp_str_, list_oses=0):             # <<<<<<<<<<<<<<
+ *         return None
+ */
+  __pyx_tuple__27 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_fp_str, __pyx_n_s_list_oses); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__27);
+  __Pyx_GIVEREF(__pyx_tuple__27);
+  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(3, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__27, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_http_pyx, __pyx_n_s_os_identify, 146, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_tuple__29 = PyTuple_Pack(1, ((PyObject *)__pyx_int_0)); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__29);
+  __Pyx_GIVEREF(__pyx_tuple__29);
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -5859,13 +6019,26 @@ if (!__Pyx_RefNanny) {
   /* "pmercury/protocols/http.pyx":142
  * 
  * 
- *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None):             # <<<<<<<<<<<<<<
+ *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):             # <<<<<<<<<<<<<<
  *         return None
+ * 
  */
   __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_4http_4HTTP_9proc_identify, 0, __pyx_n_s_HTTP_proc_identify, NULL, __pyx_n_s_pmercury_protocols_http, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__26);
   if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_proc_identify, __pyx_t_4) < 0) __PYX_ERR(0, 142, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "pmercury/protocols/http.pyx":146
+ * 
+ * 
+ *     def os_identify(self, fp_str_, list_oses=0):             # <<<<<<<<<<<<<<
+ *         return None
+ */
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8pmercury_9protocols_4http_4HTTP_11os_identify, 0, __pyx_n_s_HTTP_os_identify, NULL, __pyx_n_s_pmercury_protocols_http, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__29);
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_os_identify, __pyx_t_4) < 0) __PYX_ERR(0, 146, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "pmercury/protocols/http.pyx":16
@@ -5884,7 +6057,7 @@ if (!__Pyx_RefNanny) {
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "pmercury/protocols/http.pyx":1
- * #cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False             # <<<<<<<<<<<<<<
+ * #cython: language_level=3, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False             # <<<<<<<<<<<<<<
  * 
  * """
  */

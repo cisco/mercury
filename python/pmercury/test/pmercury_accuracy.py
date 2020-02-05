@@ -48,19 +48,6 @@ class Validation:
         self.top = top
         self.blacklist = blacklist
 
-        self.uninformative_proc_names = set(['vmnet-natd','vmnat','vmnet-natd.exe','vmnat.exe',
-                                             'svchost.exe','Unknown','VirtualBoxVM.exe','VirtualBoxVM',
-                                             'VirtualBox','VirtualBox.exe','VBoxHeadless','VBoxHeadless.exe',
-                                             'VBoxNetNAT.exe','NoxVMHandle.exe','prl_naptd','qemu-system-i386.exe',
-                                             'VMware Fusion','vmrc.exe','vmplayer.exe','vmware.exe','vmware-view.exe',
-                                             'vmware-remotemks.exe','vmware-view','vmware-vmrc.exe','VMware Remote Console',
-                                             'com.docker.vpnkit','vpnkit.exe','vpnkit','vpnui.exe','wepsvc.exe','WerFault.exe',
-                                             'SearchProtocolHost.exe','backgroundTaskHost.exe','WWAHost.exe','dsb.exe','node.exe',
-                                             'webfilterproxyd','SophosWebIntelligence','swi_fc.exe','DgWip.exe','dgwipd',
-                                             'FreedomProxy','CovenantEyesProxy.exe','FreedomProxy.exe', # <- new
-                                         ])
-
-
         # read in application categories
         app_cat_file = 'application_categories.json.gz'
         with gzip.open(app_cat_file,'r') as fp:
@@ -91,6 +78,8 @@ class Validation:
             results = self.mt_pool.map(get_results_blacklist, [self.data[k] for k in self.data])
         else:
             results = self.mt_pool.map(get_results, [self.data[k] for k in self.data])
+#            for k in self.data:
+#                results.append(get_results(self.data[k]))
 
         self.analyze_results(results)
 
@@ -141,6 +130,9 @@ class Validation:
             server_name = dst_x[2][1:]
             src_port    = int(t_[9].split(')')[1][1:])
 
+            if proc in uninformative_proc_names:
+                continue
+
             app_cat = None
             if proc in self.app_cat_data:
                 app_cat = self.app_cat_data[proc]
@@ -155,7 +147,7 @@ class Validation:
                     if c == app_cat:
                         app_cats[c] = True
 
-            if os_ == None or proc in self.uninformative_proc_names:
+            if os_ == None:
                 continue
 
             if src not in data:
@@ -174,10 +166,12 @@ class Validation:
         start = time.time()
         for line in os.popen('zcat %s' % (f)):
             fp_ = json.loads(line)
-            fp_str = fp_['str_repr']
-#            fp_str = fp_['md5']
-            if fp_str in schannel_fps:
-                fp_str = 'schannel'
+            if 'str_repr' in fp_:
+                fp_str = fp_['str_repr']
+            else:
+                fp_str = fp_['md5']
+#            if fp_str in schannel_fps:
+#                fp_str = 'schannel'
 
             if 'process_info' in fp_:
                 new_procs = []
@@ -196,7 +190,7 @@ class Validation:
                     proc = p_['process']
                     sha256 = p_['sha256']
 
-                    if p_['process'] in self.uninformative_proc_names:
+                    if p_['process'] in uninformative_proc_names:
                         continue
 
                     app_cat = None
@@ -235,7 +229,10 @@ class Validation:
         start = time.time()
         for line in os.popen('zcat %s' % (f)):
             fp_ = json.loads(line)
-            fp_str = fp_['md5']
+            if 'str_repr' in fp_:
+                fp_str = fp_['str_repr']
+            else:
+                fp_str = fp_['md5']
             if fp_str in schannel_fps:
                 fp_str = 'schannel'
 
@@ -422,13 +419,15 @@ def process_result(x_):
 #        oproc_gt = r['ground_truth']['process']
         tmp_oproc_gt = r['ground_truth']['process']
         oproc_gt = app_families_strict[tmp_oproc_gt] if tmp_oproc_gt in app_families_strict else tmp_oproc_gt
-        gproc_gt = clean_proc(app_families[tmp_oproc_gt] if tmp_oproc_gt in app_families else tmp_oproc_gt)
+        gproc_gt = clean_proc(app_families[oproc_gt] if oproc_gt in app_families else oproc_gt)
+#        gproc_gt = clean_proc(app_families[tmp_oproc_gt] if tmp_oproc_gt in app_families else tmp_oproc_gt)
         proc_gt  = clean_proc(oproc_gt)
         sha_gt   = r['ground_truth']['sha256']
 #        oproc_nf = r['inferred_truth']['process']
         tmp_oproc_nf = r['inferred_truth']['process']
         oproc_nf = app_families_strict[tmp_oproc_nf] if tmp_oproc_nf in app_families_strict else tmp_oproc_nf
-        gproc_nf = clean_proc(app_families[tmp_oproc_nf] if tmp_oproc_nf in app_families else tmp_oproc_nf)
+        gproc_nf = clean_proc(app_families[oproc_nf] if oproc_nf in app_families else oproc_nf)
+#        gproc_nf = clean_proc(app_families[tmp_oproc_nf] if tmp_oproc_nf in app_families else tmp_oproc_nf)
         proc_nf  = clean_proc(oproc_nf)
         sha_nf   = r['inferred_truth']['sha256']
 
@@ -441,10 +440,10 @@ def process_result(x_):
 #                                                       r['score'],r['fp_str']))
 #            verbose_out.flush()
 
-#        if gproc_gt != gproc_nf:
-#            verbose_out.write('%i,%s,%s,%s,%f,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name'],
-#                                                       r['score'],r['fp_str']))
-#            verbose_out.flush()
+        if gproc_gt != gproc_nf:
+            verbose_out.write('%i,%s,%s,%s,%f,%s\n' % (count, tmp_oproc_gt, tmp_oproc_nf, r['ground_truth']['server_name'],
+                                                       r['score'],r['fp_str']))
+            verbose_out.flush()
 
         r_cats = []
         for c in cats:
@@ -463,12 +462,13 @@ def process_result(x_):
 
             r_cats.append([r['count'], r_cat_a, r_cat_tp, r_cat_tn, r_cat_fp, r_cat_fn])
 
-            if c_gt == False and c_nf == True:
+#            if c_gt == False and c_nf == True:
 #            if c_gt == True and c_nf == False:
 #            if c_gt == False and c_nf == False:
-                verbose_out.write('%i,%s,%s,%s,%f,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name'],
-                                                           r['score'],r['fp_str']))
-                verbose_out.flush()
+#                verbose_out.write('%s\n' % (sha_gt))
+#                verbose_out.write('%i,%s,%s,%s,%f,%s,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name'],
+#                                                              r['score'],sha_gt,r['fp_str']))
+#                verbose_out.flush()
 
 #            if c_gt == True and c_nf == False:
 #            if c_gt == False and c_nf == True:
@@ -523,6 +523,9 @@ def main():
     tester.validate_process_identification()
 
     verbose_out.close()
+
+    if options.endpoint:
+        fingerprinter.endpoint_model.write_all(fingerprinter.endpoint_file_pointer)
 
 
 if __name__ == '__main__':
