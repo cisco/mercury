@@ -14,6 +14,8 @@ bindir = ${exec_prefix}/bin
 localstatedir = ${prefix}/var/mercury
 datarootdir = ${prefix}/share/mercury
 
+CFLAGS = -Wno-narrowing
+
 .PHONY: all
 all: cert-analyze oidc oid-list
 

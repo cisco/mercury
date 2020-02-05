@@ -10,7 +10,7 @@
 #include <iterator>
 #include <regex>
 #include <unordered_map>
-
+#include <map>
 
 
 void oid_print(std::vector<uint32_t> oid, const char *label) {
@@ -73,6 +73,26 @@ std::string raw_to_hex_string(std::vector<uint8_t> v) {
     return s;
 }
 
+std::string raw_to_hex_array(std::vector<uint8_t> v) {
+    std::string s;
+    s.push_back('{');
+    bool comma = false;
+    for (const auto &x: v) {
+        if (comma) {
+            s.push_back(',');
+        } else {
+            comma = true;
+        }
+        s.push_back('0');
+        s.push_back('x');
+        char_pair p = raw_to_hex(x);
+        s.push_back(p.first);
+        s.push_back(p.second);
+    }
+    s.push_back('}');
+    return s;
+}
+
 std::vector<uint8_t> oid_to_raw_string(std::vector<uint32_t> oid) {
     std::vector<uint8_t> raw;
 
@@ -112,6 +132,10 @@ std::vector<uint8_t> oid_to_raw_string(std::vector<uint32_t> oid) {
 
 std::string oid_to_hex_string(std::vector<uint32_t> oid) {
     return raw_to_hex_string(oid_to_raw_string(oid));
+}
+
+std::string oid_to_hex_array(std::vector<uint32_t> oid) {
+    return raw_to_hex_array(oid_to_raw_string(oid));
 }
 
 std::vector<uint32_t> hex_string_to_oid(std::string s) {
@@ -422,6 +446,24 @@ void parse_asn1_file(const char *filename) {
 
 }
 
+void dump_oid_dict_sorted() {
+    using namespace std;
+
+    struct pair_cmp {
+        inline bool operator() (const pair<string, vector<uint32_t>> &s1, const pair<string, vector<uint32_t>> &s2) {
+            return (s1.second < s2.second);
+        }
+    };
+    vector<pair<string, vector<uint32_t>>> ordered_dict(oid_dict.begin(), oid_dict.end());
+    sort(ordered_dict.begin(), ordered_dict.end(), pair_cmp());
+
+    cout << "oid_dict[] = {\n";
+    for (pair <string, vector<uint32_t>> x : ordered_dict) {
+        cout << "\t{ " << oid_to_hex_array(x.second) << ", \"" <<  x.first << "\" },\n";
+    }
+    cout << "}\n";
+}
+
 int main(int argc, char *argv[]) {
     using namespace std;
     // struct oid all_oids[] =
@@ -509,15 +551,12 @@ int main(int argc, char *argv[]) {
     }
     cout << endl;
 
-    cout << "oid_dict[] = {\n";
-    for (pair <string, vector<uint32_t>> x : oid_dict) {
-        cout << "\t{ " << x.first << ", " << oid_to_hex_string(x.second) << " },\n";
-    }
-    cout << "}\n";
-#endif
     for (pair <string, vector<uint32_t>> x : oid_dict) {
         cout << oid_to_hex_string(x.second) << "\t\t" << x.first << endl;
     }
+#endif
+
+    dump_oid_dict_sorted();
 
     return 0;
 }
