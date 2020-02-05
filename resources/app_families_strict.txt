@@ -1,27 +1,51 @@
-Chrome,chrome.exe,chromee.exe,Google Chrome Helper,Chrome,chrome,Chromium Helper,Chromium
+chrome.exe,chrome.exe,chromee.exe,Google Chrome Helper,Chrome,chrome,Chromium Helper,Chromium
 
-Firefox,firefox.exe,firefox,firefox-esr,firefox-bin
+firefox.exe,firefox.exe,firefox,firefox-esr,firefox-bin
 
-Cisco Spark,CiscoSparkHelper,CiscoCollabHost.exe,Cisco Jabber,Webex Teams,Cisco Webex Meetings,ptoneclk.exe,CiscoJabber.exe,ptMeetingsHost.exe,SparkWindows.exe,ptmeetingshost.exe,ciscojabber.exe
+Webex Teams,CiscoSparkHelper,CiscoCollabHost.exe,Cisco Jabber,Webex Teams,Cisco Webex Meetings,ptoneclk.exe,CiscoJabber.exe,ptMeetingsHost.exe,SparkWindows.exe,ptmeetingshost.exe,ciscojabber.exe,ptOIEx64.exe,wbxcOIEx64.exe
 
 Safari,Safari,com.apple.WebKit.Networking,com.apple.Safari.SearchHelper
 
-Internet Explorer,iexplore.exe,MicrosoftEdgeCP.exe,microsoftedgecp.exe,MicrosoftEdgeSH.exe,MicrosoftEdge.exe
+iexplore.exe,iexplore.exe,MicrosoftEdgeCP.exe,microsoftedgecp.exe,MicrosoftEdgeSH.exe,MicrosoftEdge.exe
 
-Brave Browser,brave.exe,Brave Browser Helper
+brave.exe,brave.exe,Brave Browser Helper
 
-One Note,onenote.exe,ONENOTE.EXE
+onenote.exe,onenote.exe,ONENOTE.EXE
 
-Excel,EXCEL.EXE,excel.exe,Microsoft Excel
+excel.exe,EXCEL.EXE,excel.exe,Microsoft Excel
 
-Spotify,Spotify.exe,spotify.exe
+outlook.exe,outlook.exe,OUTLOOK.EXE,X1OutlookService64.exe
+
+OneDrive.exe,OneDrive.exe,onedrive.exe
+
+OfficeClickToRun.exe,OfficeC2RClient.exe,OfficeClickToRun.exe,OLicenseHeartbeat.exe,officeclicktorun.exe
+
+Spotify.exe,Spotify.exe,spotify.exe,Spotify,Spotify Helper
 
 Twitter,Twitter,Twitterrific
 
-Webull,Webull.exe,Webull
+Webull,Webull.exe,Webull,webull.exe
+
+Steam.exe,steam_osx,Steam.exe
 
 Splice Helper,Splice Helper,Splice.Helper.exe
 
-Slack,Slack,Slack.exe
+Slack,Slack,Slack.exe,Slack Helper,slack
 
 Communicator,Communicator,Communicator.exe
+
+Box,Box,Box Sync,Box.exe,BoxSync.exe,Box Edit.exe,Box Local Com Service.exe
+
+DashlaneAgent,P72E3GC48.com.dashlane.DashlaneAgent,DashlaneAgent
+
+ampdaemon,sfc.exe,ampdaemon
+
+terraform-provider-aws_v2.40.0_x4,terraform-provider-aws_v2.33.0_x4,terraform-provider-aws_v2.40.0_x4
+
+bdservicehost.exe,BDLDaemon,bdservicehost.exe
+
+WeatherService,WeatherService,WeatherService_iosmac
+
+Acrobat.exe,Acrobat.exe,adobe_licensing_helper.exe
+
+Dropbox.exe,Dropbox.exe,Dropbox

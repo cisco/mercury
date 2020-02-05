@@ -1,15 +1,25 @@
+"""
+ Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
+ License at https://github.com/cisco/mercury/blob/master/LICENSE
+"""
+
 import json
 from copy import deepcopy
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
+
 
 class Endpoint:
 
     def __init__(self):
-        self.summary = {}
-        self.prev_flow = None
+        self.summary    = {}
+        self.os_info    = defaultdict(float)
+        self.prot_count = defaultdict(int)
+        self.prev_flow  = None
+
 
     def update(self, flow, fp_type, fp_):
         self.prev_flow = flow
+        self.prot_count[fp_type] += 1
 
         if fp_type not in self.summary:
             self.summary[fp_type] = {}
@@ -24,6 +34,22 @@ class Endpoint:
                 self.summary[fp_type][fp_]['context'] = defaultdict(lambda: defaultdict(int))
             for k_ in flow[fp_type]:
                 self.summary[fp_type][fp_]['context'][k_][flow[fp_type][k_]] += 1
+
+        if 'analysis' in flow and 'os_info' in flow['analysis'] and 'probable_oses' in flow['analysis']['os_info']:
+            for x_ in flow['analysis']['os_info']['probable_oses']:
+                self.os_info[x_['os']] += x_['score']
+
+
+    def get_os(self):
+        tmp_os = []
+        for k in self.os_info:
+            tmp_os.append((self.os_info[k]/self.prot_count['tcp'], k))
+        tmp_os.sort(reverse=True)
+        os_info = OrderedDict({})
+        for c,k in tmp_os:
+            os_info[k] = c
+        return os_info
+
 
 
 class Endpoints:
@@ -49,6 +75,7 @@ class Endpoints:
             o_ = {}
             o_['identifier'] = id_
             o_['fingerprints'] = self.endpoints[id_].summary
+            o_['os_info']      = self.endpoints[id_].get_os()
 
             out.write(json.dumps(o_) + '\n')
 
