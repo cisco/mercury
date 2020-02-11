@@ -1,16 +1,16 @@
-Cisco Webex,Webex Teams,CiscoCollabHost.exe,Cisco Webex Meetings,SparkWindows.exe,CiscoSparkHelper,ptMeetingsHost.exe,CiscoJabber.exe,Cisco Jabber,CiscoSparkHelper,ptoneclk.exe,Meeting Center,atmgr.exe,ptupdate.exe,ptMeetingsHost.exe,Communicator.exe,SparkWindowsDirect.exe,Cisco Spark,Event Center,proximity.exe,ciscocollabhost.exe,ptmeetingshost.exe,ciscojabber.exe,spark-windows-media.exe,ptsrv.exe
+Cisco Webex,Webex Teams,CiscoCollabHost.exe,Cisco Webex Meetings,SparkWindows.exe,CiscoSparkHelper,ptMeetingsHost.exe,CiscoJabber.exe,Cisco Jabber,CiscoSparkHelper,ptoneclk.exe,Meeting Center,atmgr.exe,ptupdate.exe,ptMeetingsHost.exe,Communicator.exe,SparkWindowsDirect.exe,Cisco Spark,Event Center,proximity.exe,ciscocollabhost.exe,ptmeetingshost.exe,ciscojabber.exe,spark-windows-media.exe,ptsrv.exe,CiscoWebExStart.exe
 
-Microsoft Office,OUTLOOK.EXE,EXCEL.EXE,POWERPNT.EXE,WINWORD.EXE,ONENOTE.EXE,VISIO.EXE,WINPROJ.EXE,OneDrive.exe,OfficeClickToRun.exe,OfficeC2RClient.exe,wbxcOIEx64.exe,wbxcOIEx.exe,ptOIEx64.exe,ptOIEx.exe,msoia.exe,OLicenseHeartbeat.exe,MSOSYNC.EXE,OneDriveStandaloneUpdater.exe,Teams.exe,SkypeApp.exe,Teams,SDXHelper.exe,Microsoft Outlook,Microsoft PowerPoint,Microsoft Excel,Microsoft Word,Microsoft OneNote,OneDrive,Microsoft AU Daemon,Microsoft To Do,Skype for Business,VeraOutlook,Microsoft Update Assistant,Microsoft To-Do,Office365ServiceV2,FileCoAuth.exe,SpeechModelDownload.exe,UpdateNotificationMgr.exe,X1OutlookService64.exe,Microsoft AutoUpdate,lync.exe,DeviceCensus.exe,CompatTelRunner.exe,OneDriveSetup.exe,OneDriveStandaloneUpdater,outlook.exe,powerpnt.exe,MSACCESS.EXE,excel.exe,onenote.exe,sdxhelper.exe,searchprotocolhost.exe
+Microsoft Office,OUTLOOK.EXE,EXCEL.EXE,POWERPNT.EXE,WINWORD.EXE,ONENOTE.EXE,VISIO.EXE,WINPROJ.EXE,OneDrive.exe,OfficeClickToRun.exe,OfficeC2RClient.exe,wbxcOIEx64.exe,wbxcOIEx.exe,ptOIEx64.exe,ptOIEx.exe,msoia.exe,OLicenseHeartbeat.exe,MSOSYNC.EXE,OneDriveStandaloneUpdater.exe,Teams.exe,SkypeApp.exe,Teams,SDXHelper.exe,Microsoft Outlook,Microsoft PowerPoint,Microsoft Excel,Microsoft Word,Microsoft OneNote,OneDrive,Microsoft AU Daemon,Microsoft To Do,Skype for Business,VeraOutlook,Microsoft Update Assistant,Microsoft To-Do,Office365ServiceV2,FileCoAuth.exe,SpeechModelDownload.exe,UpdateNotificationMgr.exe,updatenotificationmgr.exe,X1OutlookService64.exe,Microsoft AutoUpdate,lync.exe,DeviceCensus.exe,CompatTelRunner.exe,OneDriveSetup.exe,OneDriveStandaloneUpdater,outlook.exe,powerpnt.exe,MSACCESS.EXE,excel.exe,onenote.exe,sdxhelper.exe,searchprotocolhost.exe,filecoauth.exe,SpeechRuntime.exe,speechruntime.exe,Microsoft.Notes.exe
 
 Skype,Skype.exe,Skype,Skype Helper
 
-Cisco AMP for Endpoints,sfc.exe,ampdaemon
+Cisco AMP for Endpoints,sfc.exe,ampdaemon,AMPLibraryAgent
 
-Apple Safari/Networking,Safari,com.apple.WebKit.Networking,com.apple.Safari.SearchHelper,com.apple.Safari.SafeBrowsing.Service,nsurlsessiond,syncdefaultsd,cloudd,parsec-fbf,akd,locationd,parsecd,IMTransferAgent,assistantd,commerce,com.apple.geod,adprivacyd,Mail,CalendarAgent,AddressBookSourceSync,SubmitDiagInfo,accountsd,softwareupdated,helpd,Spotlight,AssetCacheLocatorService,nbagent,touristd,App Store,com.apple.iCloudHelper,com.apple.sbd,mobileactivationd,storeassetd,appstoreagent,ksfetch,remindd,News,syspolicyd,ScreenSaverEngine,securityuploadd,fmfd,rtcreportingd,findmydeviced,FindMy,storedownloadd
+Apple Safari/Networking,Safari,com.apple.WebKit.Networking,com.apple.Safari.SearchHelper,com.apple.Safari.SafeBrowsing.Service,nsurlsessiond,syncdefaultsd,cloudd,parsec-fbf,akd,locationd,parsecd,IMTransferAgent,assistantd,commerce,com.apple.geod,adprivacyd,Mail,CalendarAgent,AddressBookSourceSync,SubmitDiagInfo,accountsd,softwareupdated,helpd,Spotlight,AssetCacheLocatorService,nbagent,touristd,App Store,com.apple.iCloudHelper,com.apple.sbd,mobileactivationd,storeassetd,appstoreagent,ksfetch,remindd,News,syspolicyd,ScreenSaverEngine,securityuploadd,fmfd,rtcreportingd,findmydeviced,FindMy,storedownloadd,searchpartyuseragent
 
 iCloud,iTunes.exe,iCloudDrive.exe,iCloudPhotos.exe,AppleIEDAV.exe,AppleChromeDAV.exe,ApplePhotoStreamsDownloader.exe,iCloudChrome.exe,iCloudServices.exe,AppleFirefoxHost.exe,ApplePhotoStreams.exe,iCloudFirefox.exe,Music,iTunes,TV
 
-Microsoft Internet Explorer,iexplore.exe,MicrosoftEdgeCP.exe,Microsoft.Msn.News.exe,MicrosoftEdgeSH.exe,smartscreen.exe,BackgroundTransferHost.exe,MicrosoftEdge.exe,Microsoft.Photos.exe,HxTsr.exe,SearchUI.exe,microsoftedgecp.exe
+Microsoft Internet Explorer,iexplore.exe,MicrosoftEdgeCP.exe,Microsoft.Msn.News.exe,MicrosoftEdgeSH.exe,smartscreen.exe,BackgroundTransferHost.exe,MicrosoftEdge.exe,Microsoft.Photos.exe,HxTsr.exe,SearchUI.exe,microsoftedgecp.exe,searchui.exe
 
 Chromium,chrome.exe,chrome,Chromium Helper,msedge.exe,Google Chrome Helper,Opera,Opera Helper,opera.exe,browser.exe,Vivaldi Helper,vivaldi.exe,Brave Browser,kinza.exe,brave.exe,Vivaldi,Google Chrome,Microsoft Edge Helper,Charles.exe,Chromium,Spotify Helper,Brave Browser Helper,slack.exe,Slack,Slack.exe,Slack Helper,Spotify.exe,Spotify,Station,GrammarlyForWindows.exe,GitHub Desktop,TIDAL,Trello,All-in-One Messenger,Pulse SMS.exe,Pulse SMS,AresLookup,Franz,chromee.exe,spotify.exe
 
@@ -34,13 +34,17 @@ Box,Box,Box Sync,Box.exe,BoxSync.exe,Box Edit.exe,Box Local Com Service.exe
 
 Microsoft Visual Studio,Code Helper,Code.exe
 
-PDF Reader,PDF Reader,PDF Reader Pro Lite
+PDF Reader,PDF Reader,PDF Reader Pro,PDF Reader Pro Lite,PDF Professional
 
-Adobe Productivity,CoreSync.exe,Core Sync,Adobe Desktop Service.exe,Adobe Desktop Service,CEPHtmlEngine Helper,Adobe_CCXProcess.node,Creative Cloud.exe,Creative Cloud,Setup,Setup.exe,adobe_licutil.exe,AcroCEF.exe,AcroCEF,AdobeAcrobat,AdobeReader,adobe_licensing_helper.exe,RdrCEF.exe,Adobe XD,RdrCEF
+Adobe Productivity,CoreSync.exe,Core Sync,Adobe Desktop Service.exe,Adobe Desktop Service,CEPHtmlEngine Helper,Adobe_CCXProcess.node,Creative Cloud.exe,Creative Cloud,Setup,Setup.exe,adobe_licutil.exe,AcroCEF.exe,AcroCEF,AdobeAcrobat,AdobeReader,adobe_licensing_helper.exe,RdrCEF.exe,Adobe XD,RdrCEF,AcroRd32.exe,Acrobat.exe
 
 McAfee,amupdate.exe,mcshield.exe
 
-Python,python2.7,Python,python3,python3.8,python3.7,python3.6,idea,pycharm
+Python,python2.7,Python,python3,python3.8,python3.7,python3.6,idea,pycharm,pycharm64.exe
+
+Java,java.exe,javaw.exe
+
+MATLAB,MATLAB,MATLAB.exe
 
 Line,LINE,LINE.exe
 
@@ -68,6 +72,8 @@ Twitch,Twitch,TwitchUI.exe
 
 ExpressVPN,expressvpnd.exe,expressvpnd
 
+vpnagent,vpnagent.exe,vpnagentd
+
 Electron,Electron,Code Helper (Renderer),Code.exe,Code Helper,Code - Insiders Helper (Renderer)
 
 Remoting Host,remoting_me2me_host,remoting_host.exe
@@ -79,3 +85,27 @@ Webull,Webull.exe,Webull
 Splice Helper,Splice Helper,Splice.Helper.exe
 
 Communicator,Communicator,Communicator.exe
+
+terraform,terraform-provider-aws_v2.31.0_x4,terraform-provider-aws_v2.40.0_x4,terraform-provider-aws_v2.42.0_x4,terraform-provider-aws_v2.46.0_x4,terraform-provider-aws_v2.47.0_x4
+
+Atomic Wallet,Atomic Wallet,Atomic Wallet.exe
+
+Microsoft Remote Desktop,Microsoft Remote Desktop,Microsoft Remote Desktop Beta
+
+Loom,Loom,Loom.exe
+
+Kite,Kite,kited.exe
+
+net.downloadhelper.coapp,net.downloadhelper.coapp-mac-64,net.downloadhelper.coapp-win-64.exe
+
+Musixmatch,Musixmatch.exe,Musixmatch
+
+nwjs,nwjs Helper,nw.exe
+
+Evernote,evernote.exe,Evernote.exe
+
+GoToMeeting,GoToMeeting,g2mupdate.exe,g2mcomm.exe
+
+davmail,davmail.exe,davmail64.exe
+
+jucheck,jucheck.exe,jusched.exe
