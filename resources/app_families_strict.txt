@@ -16,7 +16,7 @@ excel.exe,EXCEL.EXE,excel.exe,Microsoft Excel
 
 outlook.exe,outlook.exe,OUTLOOK.EXE,X1OutlookService64.exe
 
-OneDrive.exe,OneDrive.exe,onedrive.exe
+OneDrive.exe,OneDrive.exe,onedrive.exe,filecoauth.exe
 
 OfficeClickToRun.exe,OfficeC2RClient.exe,OfficeClickToRun.exe,OLicenseHeartbeat.exe,officeclicktorun.exe
 

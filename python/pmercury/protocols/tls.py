@@ -1,5 +1,3 @@
-#cython: language_level=3, wraparound=False, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False, nonecheck=False
-
 """
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -8,9 +6,11 @@
 import os
 import sys
 import json
+import math
 import operator
 import functools
 from sys import path
+from socket import htons
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
@@ -20,28 +20,18 @@ from pmercury.utils.pmercury_utils import *
 from pmercury.utils.contextual_info import *
 from pmercury.utils.sequence_alignment import *
 
-from cython.operator cimport dereference as deref
-from libc.math cimport exp, log, fmax
-from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
-
-IF UNAME_SYSNAME == "Windows":
-    cdef extern from "winsock2.h":
-        uint16_t htons(uint16_t hostshort)
-ELSE:
-    cdef extern from "arpa/inet.h":
-        uint16_t htons(uint16_t hostshort)
-
 MAX_CACHED_RESULTS = 2**24
 
 
-cdef class TLS():
-    cdef bint MALWARE_DB
-    cdef bint EXTENDED_FP_METADATA
-    cdef dict tls_params_db
-    cdef dict fp_db
-    cdef dict app_families
-    cdef dict transition_probs
-    cdef object aligner
+
+class TLS():
+    MALWARE_DB = None
+    EXTENDED_FP_METADATA = None
+    tls_params_db = None
+    fp_db = None
+    app_families = None
+    transition_probs = None
+    aligner = None
 
     def __init__(self, fp_database=None, config=None):
         # cached data/results
@@ -56,7 +46,7 @@ cdef class TLS():
         if fp_database != None:
             self.load_database(fp_database)
 
-        IF UNAME_SYSNAME == "Windows":
+        if os.name == 'nt':
             transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
             self.transition_probs = {}
             import gzip
@@ -65,7 +55,7 @@ cdef class TLS():
                 if t_[1].decode() not in self.transition_probs:
                     self.transition_probs[t_[1].decode()] = {}
                 self.transition_probs[t_[1].decode()][t_[2].decode()] = float(t_[0])
-        ELSE:
+        else:
             transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
             self.transition_probs = {}
             for line in os.popen('zcat %s' % (transition_probs_file), mode='r', buffering=8192*256):
@@ -84,15 +74,13 @@ cdef class TLS():
         self.aligner = SequenceAlignment(f_similarity, 0.0)
 
 
-    def load_database(self, str fp_database):
-        cdef str line, fp_str
-        cdef dict fp_
-        IF UNAME_SYSNAME == "Windows":
+    def load_database(self, fp_database):
+        if os.name == 'nt':
             import gzip
             for line_win in gzip.open(fp_database, 'r'):
                 fp_ = json.loads(line_win)
                 self.fp_db[fp_['str_repr']] = fp_
-        ELSE:
+        else:
             for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):
                 fp_ = json.loads(line)
                 self.fp_db[fp_['str_repr']] = fp_
@@ -118,32 +106,31 @@ cdef class TLS():
 
 
     @staticmethod
-    def fingerprint(bytes data, unsigned int offset, unsigned int data_len):
-        cdef unsigned char *buf = data
+    def fingerprint(data, offset, data_len):
         offset += 5
 
         # extract handshake version
-        cdef list c = [f'({buf[offset+4]:02x}{buf[offset+5]:02x})']
+        c = [f'({data[offset+4]:02x}{data[offset+5]:02x})']
 
         # skip header/client_random
         offset += 38
 
         # parse/skip session_id
-        cdef uint8_t session_id_length = buf[offset]
+        session_id_length = data[offset]
         offset += 1 + session_id_length
         if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites length
-        cdef uint16_t cipher_suites_length = htons(deref(<uint16_t *>(buf+offset)))
+        cipher_suites_length = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
         if offset >= data_len:
             return None, None
 
         # parse/extract/skip cipher_suites
-        cdef str cs_ = degrease_type_code(data, offset)
+        cs_ = degrease_type_code(data, offset)
         if cipher_suites_length > 2:
-            cs_ += buf[offset+2:offset+cipher_suites_length].hex()
+            cs_ += data[offset+2:offset+cipher_suites_length].hex()
         c.append('(%s)' % cs_)
         offset += cipher_suites_length
         if offset >= data_len:
@@ -151,14 +138,14 @@ cdef class TLS():
             return ''.join(c), None
 
         # parse/skip compression method
-        cdef uint8_t compression_methods_length = buf[offset]
+        compression_methods_length = data[offset]
         offset += 1 + compression_methods_length
         if offset >= data_len:
             c.append('()')
             return ''.join(c), None
 
         # parse/skip extensions length
-        cdef uint16_t ext_total_len = htons(deref(<uint16_t *>(buf+offset)))
+        ext_total_len = int.from_bytes(data[offset:offset+2], byteorder='big')
         offset += 2
         if offset >= data_len:
             c.append('()')
@@ -166,15 +153,15 @@ cdef class TLS():
 
         # parse/extract/skip extension type/length/values
         c.append('(')
-        cdef str server_name = None
-        cdef list context = None
+        server_name = None
+        context = None
         while ext_total_len > 0:
             if offset >= data_len:
                 c.append(')')
                 return ''.join(c), context
 
             # extract server name for process/malware identification
-            if htons(deref(<uint16_t *>(buf+offset))) == 0:
+            if int.from_bytes(data[offset:offset+2], byteorder='big') == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
                 context = [{'name':'server_name', 'data':server_name}]
 
@@ -276,21 +263,24 @@ cdef class TLS():
         return out_
 
 
-    def compute_score(self, list features, dict p_, double fp_tc_, object endpoint):
-        cdef str cur_proc       = p_['process']
-        cdef uint64_t p_count     = p_['count']
-        cdef double prob_process_given_fp = log(p_count/fp_tc_)
+    def compute_score(self, features, p_, fp_tc_, endpoint):
+        cur_proc       = p_['process']
+        p_count     = p_['count']
+        prob_process_given_fp = math.log(p_count/fp_tc_)
 
-        cdef double base_prior_ = -23.02585 # log(1e-10)
-        cdef double proc_prior_ = -11.51293 # log(1e-5)
-        cdef double prior_      = -13.81551 # log(1e-6)
+#        base_prior_ = -23.02585 # log(1e-10)
+        base_prior_ = -26.02585 # log(1e-10)
+        proc_prior_ = -16.11810 # log(1e-7)
+#        proc_prior_ = -11.51293 # log(1e-5)
+#        prior_      = -13.81551 # log(1e-6)
+        prior_      = -16.81551 # log(1e-6)
 
         if 'domain_mean' in p_ and p_['domain_mean'] < 5.0:
             base_prior_ = -25.32844 # log(1e-11)
 
-#        cdef double score_ = 5*prob_process_given_fp if prob_process_given_fp > proc_prior_ else 5*proc_prior_
-        cdef double score_ = 2*prob_process_given_fp if prob_process_given_fp > proc_prior_ else 2*proc_prior_
-        cdef double tmp_, trans_prob, prev_proc_prior
+#        score_ = 5*prob_process_given_fp if prob_process_given_fp > proc_prior_ else 5*proc_prior_
+        score_ = prob_process_given_fp if prob_process_given_fp > proc_prior_ else proc_prior_
+#        score_ = prob_process_given_fp if prob_process_given_fp > base_prior_ else base_prior_
 
         if (endpoint != None and endpoint.prev_flow != None and
             'analysis' in endpoint.prev_flow and 'probable_processes' in endpoint.prev_flow['analysis']):
@@ -299,47 +289,54 @@ cdef class TLS():
                               if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
             prev_proc_prior = base_prior_
             if trans_prob > 0:
-                prev_proc_prior = log(trans_prob)
+                prev_proc_prior = math.log(trans_prob)
             score_ += base_prior_ if base_prior_> prev_proc_prior else prev_proc_prior
 
-        if endpoint != None:
+        if endpoint != None and 'os_info' in p_:
             os_info = endpoint.get_os()
             if len(os_info) > 0:
-                tmp_score_ = 0.0
-                for k in os_info:
-                    try:
-                        tmp_ = log(p_['os_info'][k]/p_count)*os_info[k]
-                        tmp_score_ += tmp_ if tmp_ > prior_*os_info[k] else prior_*os_info[k]
-                    except KeyError:
-                        tmp_score_ += base_prior_*os_info[k]
-                score_ += tmp_score_
-#        try:
-#            tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
-#            score_ += tmp_ if tmp_ > prior_ else prior_
-#        except KeyError:
-#            score_ += base_prior_
+                k = next(iter(os_info.keys()))
+                if k in p_['os_info']:
+                    tmp_    = math.log((p_['os_info'][k]/p_count)*p_['os_info'][k]/fp_tc_)
+                    score_ += tmp_ if tmp_ > prior_ else prior_
+                else:
+                    score_ += base_prior_
+
+        try:
+            tmp_ = math.log((p_['classes_ip_as'][features[0]]/p_count)*p_['classes_ip_as'][features[0]]/fp_tc_)
+#            tmp_ = math.log(p_['classes_ip_as'][features[0]]/fp_tc_)
+#            tmp_ = math.log(p_['classes_ip_as'][features[0]]/p_count)
+            score_ += tmp_ if tmp_ > prior_ else prior_
+        except KeyError:
+            score_ += base_prior_
+
+        try:
+            tmp_ = math.log((p_['classes_hostname_domains'][features[1]]/p_count)*p_['classes_hostname_domains'][features[1]]/fp_tc_)
+#            tmp_ = math.log(p_['classes_hostname_domains'][features[1]]/fp_tc_)
+#            tmp_ = math.log(p_['classes_hostname_domains'][features[1]]/p_count)
+            score_ += tmp_ if tmp_ > prior_ else prior_
+        except KeyError:
+            score_ += base_prior_
 
 #        try:
-#            tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
-#            score_ += tmp_ if tmp_ > prior_ else prior_
-#        except KeyError:
-#            score_ += base_prior_
-
-#        try:
-#            tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
+#            tmp_ = math.log(p_['classes_port_applications'][features[2]]/p_count)
 #            score_ += tmp_ if tmp_ > prior_ else prior_
 #        except KeyError:
 #            score_ += base_prior_
 
         if self.EXTENDED_FP_METADATA:
             try:
-                tmp_ = log(p_['classes_ip_ip'][features[3]]/p_count)
+                tmp_ = math.log((p_['classes_ip_ip'][features[3]]/p_count)*p_['classes_ip_ip'][features[3]]/fp_tc_)
+#                tmp_ = math.log(p_['classes_ip_ip'][features[3]]/fp_tc_)
+#                tmp_ = math.log(p_['classes_ip_ip'][features[3]]/p_count)
                 score_ += tmp_ if tmp_ > prior_ else prior_
             except KeyError:
                 score_ += base_prior_
 
             try:
-                tmp_ = log(p_['classes_hostname_sni'][features[4]]/p_count)
+                tmp_ = math.log((p_['classes_hostname_sni'][features[4]]/p_count)*p_['classes_hostname_sni'][features[4]]/fp_tc_)
+#                tmp_ = math.log(p_['classes_hostname_sni'][features[4]]/fp_tc_)
+#                tmp_ = math.log(p_['classes_hostname_sni'][features[4]]/p_count)
                 score_ += tmp_ if tmp_ > prior_ else prior_
             except KeyError:
                 score_ += base_prior_
@@ -349,10 +346,10 @@ cdef class TLS():
             app_cat = p_['application_category']
 
         if self.MALWARE_DB:
-            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256'],
+            return {'score':math.exp(score_), 'process':cur_proc, 'sha256':p_['sha256'],
                     'malware':p_['malware'], 'category':app_cat}
         else:
-            return {'score':exp(score_), 'process':cur_proc, 'sha256':p_['sha256'], 'category':app_cat}
+            return {'score':math.exp(score_), 'process':cur_proc, 'sha256':p_['sha256'], 'category':app_cat}
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
@@ -412,8 +409,8 @@ cdef class TLS():
                 self.tls_params_db[k] = tls_params_
             q0_ = set(self.tls_params_db[k][0])
             q1_ = set(self.tls_params_db[k][1])
-            s0_ = len(p0_.intersection(q0_))/fmax(1.0,len(p0_.union(q0_)))
-            s1_ = len(p1_.intersection(q1_))/fmax(1.0,len(p1_.union(q1_)))
+            s0_ = len(p0_.intersection(q0_))/max(1.0,len(p0_.union(q0_)))
+            s1_ = len(p1_.intersection(q1_))/max(1.0,len(p1_.union(q1_)))
             s_ = s0_ + s1_
             t_scores.append((s_, k))
         t_scores.sort()

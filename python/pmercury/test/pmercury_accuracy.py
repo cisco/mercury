@@ -27,14 +27,12 @@ for line in open(app_families_file, 'r'):
 
 app_families_strict_file = '../../../resources/app_families_strict.txt'
 app_families_strict = {}
-for line in open(app_families_strict_file, 'r'):
-    tokens = line.strip().split(',')
-    for i in range(1, len(tokens)):
-        app_families_strict[tokens[i]] = tokens[0]
+#for line in open(app_families_strict_file, 'r'):
+#    tokens = line.strip().split(',')
+#    for i in range(1, len(tokens)):
+#        app_families_strict[tokens[i]] = tokens[0]
 
 fp_sni_blacklist = set([])
-for line in open('data/fp_ip_blacklist.csv','r'):
-    fp_sni_blacklist.add(line.strip())
 
 
 class Validation:
@@ -64,7 +62,7 @@ class Validation:
             print('error: file format not supported')
             sys.exit(-1)
 
-        self.mt_pool = Pool(8)
+        self.mt_pool = Pool(48)
 
 
     def validate_process_identification(self):
@@ -436,13 +434,9 @@ def process_result(x_):
         r_sha    = r['count'] if sha_gt   == sha_nf else 0
 
 #        if oproc_gt != oproc_nf:
-#            verbose_out.write('%i,%s,%s,%s,%f,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name'],
-#                                                       r['score'],r['fp_str']))
-#            verbose_out.flush()
-
         if gproc_gt != gproc_nf:
-            verbose_out.write('%i,%s,%s,%s,%f,%s\n' % (count, tmp_oproc_gt, tmp_oproc_nf, r['ground_truth']['server_name'],
-                                                       r['score'],r['fp_str']))
+            verbose_out.write('%i,%s,%s,%s,%f,%s,%s\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['ground_truth']['server_name'],
+                                                       r['score'],sha_gt,r['fp_str']))
             verbose_out.flush()
 
         r_cats = []
@@ -472,8 +466,12 @@ def process_result(x_):
 
 #            if c_gt == True and c_nf == False:
 #            if c_gt == False and c_nf == True:
+#            if c_nf == True:
 #                if count > 10:
 #                verbose_out.write('%i,%s\n' % (count, r['ground_truth']['server_name']))
+#                verbose_out.flush()
+#                verbose_out.write('%i,%s,%s,%s,%f,%s,%s\n' % (count, oproc_gt, oproc_nf, r['ground_truth']['server_name'],
+#                                                              r['score'],sha_gt,r['fp_str']))
 #                verbose_out.flush()
 
 
@@ -512,6 +510,11 @@ def main():
     if options.endpoint and options.input.endswith('.json.gz'):
         print('warning: endpoint modeling not available for json format')
         options.endpoint = False
+
+    if options.blacklist:
+        for line in open('data/fp_ip_blacklist.csv','r'):
+            fp_sni_blacklist.add(line.strip())
+
 
     importlib.machinery.SOURCE_SUFFIXES.append('')
     pmercury = importlib.import_module('..pmercury','pmercury.pmercury')
