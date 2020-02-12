@@ -128,6 +128,8 @@ class Validation:
             server_name = dst_x[2][1:]
             src_port    = int(t_[9].split(')')[1][1:])
 
+            proc = clean_proc_name(proc)
+
             if proc in uninformative_proc_names:
                 continue
 
@@ -176,6 +178,7 @@ class Validation:
                 for p_ in fp_['process_info']:
                     if 'process' not in p_:
                         p_['process'] = p_['filename']
+                    p_['process'] = clean_proc_name(p_['process'])
                     if is_proc_malware(p_, False):
                         new_procs.extend(clean_malware_proc(p_))
                     else:
