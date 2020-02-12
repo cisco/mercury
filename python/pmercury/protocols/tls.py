@@ -17,7 +17,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from pmercury.utils.tls_utils import *
 from pmercury.utils.tls_constants import *
 from pmercury.utils.pmercury_utils import *
-from pmercury.utils.contextual_info import *
+from pmercury.utils.eqv_classes import *
 from pmercury.utils.sequence_alignment import *
 
 MAX_CACHED_RESULTS = 2**24
@@ -72,6 +72,9 @@ class TLS():
                 self.app_families[tokens[i]] = tokens[0]
 
         self.aligner = SequenceAlignment(f_similarity, 0.0)
+
+        eqv_classes_path = find_path('resources/equivalence-classes/')
+        self.eqv_classes = EquivalenceClasses(eqv_classes_path)
 
 
     def load_database(self, fp_database):
@@ -183,6 +186,10 @@ class TLS():
         if context_ != None and 'server_name' in context_:
             server_name = context_['server_name']
 
+        fp_str_eqv_ = self.eqv_classes.get_str_repr(fp_str_)
+        if fp_str_eqv_ in self.fp_db:
+            fp_str_ = fp_str_eqv_
+
         # fingerprint approximate matching if necessary
         if fp_str_ not in self.fp_db:
             if not approx:
@@ -214,14 +221,16 @@ class TLS():
                 return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
 
         # find generalized classes for destination information
-        domain, tld = get_tld_info(server_name)
-        asn = get_asn_info(dest_addr)
-        port_app = get_port_application(dest_port)
-        features = [asn, domain, port_app, dest_addr, str(server_name), dest_port]
+        eqv_features = self.eqv_classes.get_dst_info(dest_addr, dest_port, server_name)
+#        domain, tld = get_tld_info(server_name)
+#        asn = get_asn_info(dest_addr)
+#        port_app = get_port_application(dest_port)
+#        features = [asn, domain, port_app, dest_addr, str(server_name), dest_port]
 
         # compute and sort scores for each process in the fingerprint
         fp_tc = fp_['total_count']
-        r_ = [self.compute_score(features, p_, fp_tc, endpoint) for p_ in fp_['process_info']]
+        r_ = [self.compute_score(eqv_features, p_, fp_tc, endpoint) for p_ in fp_['process_info']]
+#        r_ = [self.compute_score(features, p_, fp_tc, endpoint) for p_ in fp_['process_info']]
         r_ = sorted(r_, key=operator.itemgetter('score'), reverse=True)
 
         # if score == 0 or no match could be found, return default process
@@ -264,6 +273,58 @@ class TLS():
 
 
     def compute_score(self, features, p_, fp_tc_, endpoint):
+        cur_proc = p_['process']
+        p_count  = p_['count']
+        prob_process_given_fp = math.log(p_count/fp_tc_)
+
+        base_prior_ = -26.02585 # log(1e-10)
+        proc_prior_ = -16.11810 # log(1e-7)
+        prior_      = -16.81551 # log(1e-6)
+
+        if 'domain_mean' in p_ and p_['domain_mean'] < 5.0:
+            base_prior_ = -25.32844 # log(1e-11)
+
+        score_ = prob_process_given_fp if prob_process_given_fp > proc_prior_ else proc_prior_
+
+        if (endpoint != None and endpoint.prev_flow != None and
+            'analysis' in endpoint.prev_flow and 'probable_processes' in endpoint.prev_flow['analysis']):
+            trans_prob = sum([pp_['score']*self.transition_probs[pp_['process']][cur_proc]
+                              for pp_ in endpoint.prev_flow['analysis']['probable_processes']
+                              if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
+            prev_proc_prior = base_prior_
+            if trans_prob > 0:
+                prev_proc_prior = math.log(trans_prob)
+            score_ += base_prior_ if base_prior_> prev_proc_prior else prev_proc_prior
+
+        if endpoint != None and 'os_info' in p_:
+            os_info = endpoint.get_os()
+            if len(os_info) > 0:
+                k = next(iter(os_info.keys()))
+                if k in p_['os_info']:
+                    tmp_    = math.log((p_['os_info'][k]/p_count)*p_['os_info'][k]/fp_tc_)
+                    score_ += tmp_ if tmp_ > prior_ else prior_
+                else:
+                    score_ += base_prior_
+
+        for f_name, f_value in features:
+            try:
+                tmp_ = math.log((p_[f_name][f_value]/p_count)*p_[f_name][f_value]/fp_tc_)
+                score_ += tmp_ if tmp_ > prior_ else prior_
+            except KeyError:
+                score_ += base_prior_
+
+        app_cat = 'Unknown'
+        if 'application_category' in p_:
+            app_cat = p_['application_category']
+
+        if self.MALWARE_DB:
+            return {'score':math.exp(score_), 'process':cur_proc, 'sha256':p_['sha256'],
+                    'malware':p_['malware'], 'category':app_cat}
+        else:
+            return {'score':math.exp(score_), 'process':cur_proc, 'sha256':p_['sha256'], 'category':app_cat}
+
+
+    def compute_score_bak(self, features, p_, fp_tc_, endpoint):
         cur_proc       = p_['process']
         p_count     = p_['count']
         prob_process_given_fp = math.log(p_count/fp_tc_)

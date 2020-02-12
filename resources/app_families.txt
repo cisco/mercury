@@ -1,8 +1,8 @@
-Microsoft Office,microsoft excel,microsoft powerpoint,microsoft word,microsoft outlook,outlook.exe,officeclicktorun.exe,powerpnt.exe,excel.exe,winword.exe,microsoft onenote,onedrive.exe,onenote.exe,officec2rclient.exe,msoia.exe,microsoft to do,sdxhelper.exe,skype for business,microsoft update assistant,onedrive,visio.exe,filecoauth.exe,olicenseheartbeat.exe,office365servicev2,msosync.exe,onedrivestandaloneupdater.exe,onedrivestandaloneupdater,visio.exe,x1outlookservice64.exe,lync.exe,msaccess.exe,teams
+Microsoft Office,microsoft excel,microsoft powerpoint,microsoft word,microsoft outlook,outlook.exe,officeclicktorun.exe,powerpnt.exe,excel.exe,winword.exe,microsoft onenote,onedrive.exe,onenote.exe,officec2rclient.exe,msoia.exe,microsoft to do,sdxhelper.exe,skype for business,microsoft update assistant,onedrive,visio.exe,filecoauth.exe,olicenseheartbeat.exe,office365servicev2,msosync.exe,onedrivestandaloneupdater.exe,onedrivestandaloneupdater,visio.exe,x1outlookservice64.exe,lync.exe,msaccess.exe,teams,microsoft autoupdate,microsoft.notes.exe
 
 Chromium,chrome.exe,google chrome,google chrome helper,brave browser helper,brave.exe,opera helper,msedge.exe,microsoft edge helper,opera.exe,vivaldi helper,vivaldi.exe,chromium helper,browser.exe,brave browser
 
-Firefox,firefox,firefox.exe,firefox-esr
+Firefox,firefox,firefox.exe,firefox-esr,firefox-bin
 
 Safari,com.apple.webkit.webcontent,com.apple.webkit.networking,safari,com.apple.safari.searchhelper,com.apple.geod
 
@@ -10,9 +10,9 @@ Internet Explorer,iexplore.exe,microsoftedgecp.exe,searchui.exe,microsoftedgesh.
 
 Microsoft System,speechmodeldownload.exe,updatenotificationmgr.exe,compattelrunner.exe,devicecensus.exe
 
-Mac OS X System,securityuploadd,commerce,helpd,touristd,bosupdateproxy,mobileactivationd,nbagent,softwareupdated,rtcreportingd,appstoreagent,adprivacyd,categoriesservice
+Mac OS X System,securityuploadd,commerce,helpd,touristd,bosupdateproxy,mobileactivationd,nbagent,softwareupdated,rtcreportingd,appstoreagent,adprivacyd,categoriesservice,com.apple.sbd
 
-iCloud,cloudd,nsurlsessiond,imtransferagent,parsec-fbf,itunes,music,news,searchpartyuseragent,spotlight,findmydeviced,mail,calendaragent,notes,remindd,com.apple.sbd,icloudphotos.exe,iclouddrive.exe,com.apple.icloudhelper,searchpartyd,fmfd,findmy,syncdefaultsd,numbers,mstreamd,appleiedav.exe
+iCloud,cloudd,nsurlsessiond,imtransferagent,parsec-fbf,itunes,music,news,searchpartyuseragent,spotlight,findmydeviced,mail,calendaragent,notes,remindd,com.apple.sbd,icloudphotos.exe,iclouddrive.exe,com.apple.icloudhelper,searchpartyd,fmfd,findmy,syncdefaultsd,numbers,mstreamd,appleiedav.exe,applechromedav.exe,assetcache,com.flexibits.fbcaldav.fbcaldav-xpc,exchangesyncd
 
 Skype,skype.exe,skype,skype helper
 
@@ -40,6 +40,14 @@ Evernote,evernote,skitch
 
 Kite,kite,kited.exe
 
+Termius,termius beta.exe,termius.exe
+
+Jabra Direct,jabra-direct.exe,jabra direct
+
+CEPHTMLEngine,cephtmlengine.exe,cephtmlengine helper
+
+Grafana,grafana-server.exe,grafana-server
+
 Communicator,communicator.exe,communicator
 
 DropBox,dropbox.exe,dropbox
@@ -62,9 +70,15 @@ Twitter,twitterrific,twitter
 
 Atomic Wallet,atomic wallet,atomic wallet.exe
 
+DavMail,davmail.exe,davmail64.exe
+
+Bark,bark.exe,bark
+
+Cloud-Drive-UI,cloud-drive-ui.exe,cloud-drive-ui
+
 Net.DownloadHelper,net.downloadhelper.coapp-mac-64,net.downloadhelper.coapp-win-64.exe
 
-Electron,electron,code.exe,code - insiders helper,code - insiders.exe,code helper (renderer),code - insiders helper (renderer)
+Electron,electron,code.exe,code - insiders helper,code - insiders.exe,code helper (renderer),code - insiders helper (renderer),code helper
 
 PyIDE,idea,pycharm,pycharm64.exe,webstorm
 
