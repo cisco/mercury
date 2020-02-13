@@ -25,14 +25,6 @@ MAX_CACHED_RESULTS = 2**24
 
 
 class TLS():
-    MALWARE_DB = None
-    EXTENDED_FP_METADATA = None
-    tls_params_db = None
-    fp_db = None
-    app_families = None
-    transition_probs = None
-    aligner = None
-
     def __init__(self, fp_database=None, config=None):
         # cached data/results
         self.tls_params_db = {}
@@ -308,7 +300,9 @@ class TLS():
 
         for f_name, f_value in features:
             try:
-                tmp_ = math.log((p_[f_name][f_value]/p_count)*p_[f_name][f_value]/fp_tc_)
+                tmp_ = math.log(p_[f_name][f_value]/p_count)
+                score_ += tmp_ if tmp_ > prior_ else prior_
+                tmp_ = math.log(p_[f_name][f_value]/fp_tc_)
                 score_ += tmp_ if tmp_ > prior_ else prior_
             except KeyError:
                 score_ += base_prior_

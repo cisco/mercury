@@ -51,19 +51,21 @@ class EquivalenceClasses:
     def load_files(self, idir):
         files = os.listdir(idir)
         for f in files:
+            if not f.endswith('.gz'):
+                continue
             with gzip.open(idir + f) as in_file:
                 t_ = json.loads(in_file.readline())
                 if t_['type'] == 'identity':
                     t_['mapper'] = (lambda v_, _: v_)
                 elif t_['type'] == 'dict':
                     self.dict_data[t_['name']] = t_['data']
-                    t_['mapper'] = (lambda v_, f_: self.dict_data[f_][v_] if v_ in self.dict_data[f_] else 'unknown')
+                    t_['mapper'] = (lambda v_, f_: str(self.dict_data[f_][v_]) if v_ in self.dict_data[f_] else 'unknown')
                 elif t_['type'] == 'dict_identity':
                     self.dict_data[t_['name']] = t_['data']
-                    t_['mapper'] = (lambda v_, f_: self.dict_data[f_][v_] if v_ in self.dict_data[f_] else v_)
+                    t_['mapper'] = (lambda v_, f_: str(self.dict_data[f_][v_]) if v_ in self.dict_data[f_] else v_)
                 elif t_['type'] == 'radix':
                     self.prepare_radix(t_)
-                    t_['mapper'] = (lambda v_, f_: self.radix_tries[f_].search_best(v_).asn
+                    t_['mapper'] = (lambda v_, f_: str(self.radix_tries[f_].search_best(v_).asn)
                                     if self.radix_tries[f_].search_best(v_) != None else 'unknown')
                 else:
                     continue
@@ -96,7 +98,7 @@ class EquivalenceClasses:
                 continue
 
             for x_ in self.classes[feature]:
-                features.append((x_['name'], x_['mapper'](cur_f, x_['name'])))
+                features.append((x_['name'], x_['mapper'](str(cur_f), x_['name'])))
 
         return features
 

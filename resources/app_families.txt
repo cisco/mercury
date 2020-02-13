@@ -1,4 +1,4 @@
-Microsoft Office,microsoft excel,microsoft powerpoint,microsoft word,microsoft outlook,outlook.exe,officeclicktorun.exe,powerpnt.exe,excel.exe,winword.exe,microsoft onenote,onedrive.exe,onenote.exe,officec2rclient.exe,msoia.exe,microsoft to do,sdxhelper.exe,skype for business,microsoft update assistant,onedrive,visio.exe,filecoauth.exe,olicenseheartbeat.exe,office365servicev2,msosync.exe,onedrivestandaloneupdater.exe,onedrivestandaloneupdater,visio.exe,x1outlookservice64.exe,lync.exe,msaccess.exe,teams,microsoft autoupdate,microsoft.notes.exe
+Microsoft Office,microsoft excel,microsoft powerpoint,microsoft word,microsoft outlook,outlook.exe,officeclicktorun.exe,powerpnt.exe,excel.exe,winword.exe,microsoft onenote,onedrive.exe,onenote.exe,officec2rclient.exe,msoia.exe,microsoft to do,sdxhelper.exe,skype for business,microsoft update assistant,onedrive,visio.exe,filecoauth.exe,olicenseheartbeat.exe,office365servicev2,msosync.exe,onedrivestandaloneupdater.exe,onedrivestandaloneupdater,visio.exe,x1outlookservice64.exe,lync.exe,msaccess.exe,teams,microsoft autoupdate,microsoft.notes.exe,onenoteim.exe
 
 Chromium,chrome.exe,google chrome,google chrome helper,brave browser helper,brave.exe,opera helper,msedge.exe,microsoft edge helper,opera.exe,vivaldi helper,vivaldi.exe,chromium helper,browser.exe,brave browser
 
@@ -6,9 +6,9 @@ Firefox,firefox,firefox.exe,firefox-esr,firefox-bin
 
 Safari,com.apple.webkit.webcontent,com.apple.webkit.networking,safari,com.apple.safari.searchhelper,com.apple.geod
 
-Internet Explorer,iexplore.exe,microsoftedgecp.exe,searchui.exe,microsoftedgesh.exe,microsoft.msn.news.exe
+Internet Explorer,iexplore.exe,microsoftedgecp.exe,searchui.exe,microsoftedgesh.exe,microsoft.msn.news.exe,microsoftedge.exe
 
-Microsoft System,speechmodeldownload.exe,updatenotificationmgr.exe,compattelrunner.exe,devicecensus.exe
+Microsoft System,speechmodeldownload.exe,updatenotificationmgr.exe,compattelrunner.exe,devicecensus.exe,speechruntime.exe
 
 Mac OS X System,securityuploadd,commerce,helpd,touristd,bosupdateproxy,mobileactivationd,nbagent,softwareupdated,rtcreportingd,appstoreagent,adprivacyd,categoriesservice,com.apple.sbd
 
