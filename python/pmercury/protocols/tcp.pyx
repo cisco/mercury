@@ -120,6 +120,6 @@ cdef class TCP:
         return None
 
 
-    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):
+    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True, debug=None):
         return None
 

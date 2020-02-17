@@ -285,7 +285,7 @@ class Fingerprinter:
             self.write_record(flow)
 
 
-    def process_csv(self, fp_type, fp_str, src_ip, dst_ip, src_port, dst_port, protocol, ts, context):
+    def process_csv(self, fp_type, fp_str, src_ip, dst_ip, src_port, dst_port, protocol, ts, context, debug=None):
         flow = {'src_ip':src_ip,
                 'dst_ip':dst_ip,
                 'src_port':src_port,
@@ -306,7 +306,7 @@ class Fingerprinter:
             if self.endpoint:
                 endpoint = self.endpoint_model.get_endpoint(src_ip)
             proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context, flow['dst_ip'],
-                                                            flow['dst_port'], self.num_procs, endpoint, False)
+                                                            flow['dst_port'], self.num_procs, endpoint, False, debug)
             if proc_info != None:
                 flow['analysis'] = proc_info
 

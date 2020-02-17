@@ -1,18 +1,16 @@
-Microsoft Office,microsoft excel,microsoft powerpoint,microsoft word,microsoft outlook,outlook.exe,officeclicktorun.exe,powerpnt.exe,excel.exe,winword.exe,microsoft onenote,onedrive.exe,onenote.exe,officec2rclient.exe,msoia.exe,microsoft to do,sdxhelper.exe,skype for business,microsoft update assistant,onedrive,visio.exe,filecoauth.exe,olicenseheartbeat.exe,office365servicev2,msosync.exe,onedrivestandaloneupdater.exe,onedrivestandaloneupdater,visio.exe,x1outlookservice64.exe,lync.exe,msaccess.exe,teams,microsoft autoupdate,microsoft.notes.exe,onenoteim.exe
+Microsoft Office,microsoft excel,microsoft powerpoint,microsoft word,microsoft outlook,outlook.exe,officeclicktorun.exe,powerpnt.exe,excel.exe,winword.exe,microsoft onenote,onedrive.exe,onenote.exe,officec2rclient.exe,msoia.exe,microsoft to do,sdxhelper.exe,skype for business,microsoft update assistant,onedrive,visio.exe,filecoauth.exe,olicenseheartbeat.exe,office365servicev2,msosync.exe,onedrivestandaloneupdater.exe,onedrivestandaloneupdater,visio.exe,x1outlookservice64.exe,lync.exe,msaccess.exe,teams,teams.exe,microsoft autoupdate,microsoft.notes.exe,onenoteim.exe,appleoutlookdavconfig64.exe,onedrivesetup.exe,skypeapp.exe,winproj.exe
 
-Chromium,chrome.exe,google chrome,google chrome helper,brave browser helper,brave.exe,opera helper,msedge.exe,microsoft edge helper,opera.exe,vivaldi helper,vivaldi.exe,chromium helper,browser.exe,brave browser
+Chromium,chrome.exe,chrome,google chrome,google chrome helper,brave browser helper,brave.exe,opera helper,msedge.exe,microsoft edge helper,opera.exe,vivaldi helper,vivaldi.exe,chromium helper,browser.exe,brave browser
 
-Firefox,firefox,firefox.exe,firefox-esr,firefox-bin
+Firefox,firefox,firefox.exe,firefox-esr,firefox-bin,waterfox.exe,thunderbird,thunderbird.exe
 
 Safari,com.apple.webkit.webcontent,com.apple.webkit.networking,safari,com.apple.safari.searchhelper,com.apple.geod
 
-Internet Explorer,iexplore.exe,microsoftedgecp.exe,searchui.exe,microsoftedgesh.exe,microsoft.msn.news.exe,microsoftedge.exe
+Internet Explorer,iexplore.exe,microsoftedgecp.exe,searchui.exe,microsoftedgesh.exe,microsoft.msn.news.exe,microsoftedge.exe,smartscreen.exe
 
-Microsoft System,speechmodeldownload.exe,updatenotificationmgr.exe,compattelrunner.exe,devicecensus.exe,speechruntime.exe
+Microsoft System,speechmodeldownload.exe,updatenotificationmgr.exe,compattelrunner.exe,devicecensus.exe,speechruntime.exe,usocoreworker.exe
 
-Mac OS X System,securityuploadd,commerce,helpd,touristd,bosupdateproxy,mobileactivationd,nbagent,softwareupdated,rtcreportingd,appstoreagent,adprivacyd,categoriesservice,com.apple.sbd
-
-iCloud,cloudd,nsurlsessiond,imtransferagent,parsec-fbf,itunes,music,news,searchpartyuseragent,spotlight,findmydeviced,mail,calendaragent,notes,remindd,com.apple.sbd,icloudphotos.exe,iclouddrive.exe,com.apple.icloudhelper,searchpartyd,fmfd,findmy,syncdefaultsd,numbers,mstreamd,appleiedav.exe,applechromedav.exe,assetcache,com.flexibits.fbcaldav.fbcaldav-xpc,exchangesyncd
+iCloud,cloudd,nsurlsessiond,imtransferagent,parsec-fbf,itunes,music,news,searchpartyuseragent,spotlight,findmydeviced,mail,calendaragent,notes,remindd,com.apple.sbd,icloudphotos.exe,iclouddrive.exe,com.apple.icloudhelper,searchpartyd,fmfd,findmy,syncdefaultsd,numbers,mstreamd,appleiedav.exe,applechromedav.exe,assetcache,com.flexibits.fbcaldav.fbcaldav-xpc,exchangesyncd,com.apple.siri-distributed-evaluation,appstoreagent,amplibraryagent,commerce,securityuploadd,mobileactivationd,helpd,touristd,bosupdateproxy,nbagent,softwareupdated,rtcreportingd,adprivacyd,categoriesservice,com.apple.sbd,com.apple.ncplugin.stocks,stocks,app store
 
 Skype,skype.exe,skype,skype helper
 
@@ -22,13 +20,11 @@ Slack,slack.exe,slack,slack helper
 
 Cisco AMP,sfc.exe,ampdaemon
 
-Cisco Webex,cisco webex meetings,webex teams,ciscocollabhost.exe,ciscosparkhelper,ptmeetingshost.exe,ptoneclk.exe,cisco jabber,ciscojabber.exe,sparkwindows.exe,atmgr.exe,ptsrv.exe,spark-windows-media.exe
+Cisco Webex,cisco webex meetings,webex teams,ciscocollabhost.exe,ciscosparkhelper,ptmeetingshost.exe,ptoneclk.exe,cisco jabber,ciscojabber.exe,sparkwindows.exe,atmgr.exe,ptsrv.exe,spark-windows-media.exe,cisco spark,ptupdate.exe,ciscowebexstart.exe,meeting center,event center
 
 Google Drive,backup and sync,googledrivesync.exe,google~1.exe
 
 Google Earth,google earth,googleearth.exe
-
-Microsoft Teams,teams.exe,teams
 
 Box,box sync,boxsync.exe,box,box.exe
 
@@ -40,7 +36,7 @@ Evernote,evernote,skitch
 
 Kite,kite,kited.exe
 
-Termius,termius beta.exe,termius.exe
+Termius,termius beta.exe,termius.exe,termius
 
 Jabra Direct,jabra-direct.exe,jabra direct
 
@@ -56,7 +52,7 @@ NW.js,nw.exe,nwjs helper
 
 Fantastical,fantastical,fantastical 2,85c27nk92c.com.flexibits.fantastical2.mac.helper
 
-Dashlane,dashlane,p72e3gc48.com.dashlane.dashlaneagent,dashlaneagent,dashlanepluginservice
+Dashlane,dashlane,p72e3gc48.com.dashlane.dashlaneagent,dashlaneagent,dashlanepluginservice,dashlanepluginmasservice
 
 Steam,steam_osx,steam.exe
 
@@ -74,17 +70,19 @@ DavMail,davmail.exe,davmail64.exe
 
 Bark,bark.exe,bark
 
-Cloud-Drive-UI,cloud-drive-ui.exe,cloud-drive-ui
+Cloud-Drive-UI,cloud-drive-ui.exe,cloud-drive-ui,cloud-drive-daemon
 
 Net.DownloadHelper,net.downloadhelper.coapp-mac-64,net.downloadhelper.coapp-win-64.exe
 
 Electron,electron,code.exe,code - insiders helper,code - insiders.exe,code helper (renderer),code - insiders helper (renderer),code helper
 
-PyIDE,idea,pycharm,pycharm64.exe,webstorm
+PyIDE,idea,pycharm,pycharm64.exe,webstorm,idea64.exe
 
-Python,python,python.exe
+Python,python,python.exe,python2.7,python3.7,python3.8
 
-PDF Reader,pdf reader,pdf reader pro lite
+Java,java.exe,javaw.exe
+
+PDF Reader,pdf reader,pdf reader pro,pdf reader pro lite,pdf professional
 
 Trello,trello.exe,trello
 
@@ -100,10 +98,52 @@ WeBull,webull,webull.exe
 
 WhatsApp,whatsapp.exe,whatsapp
 
-Apple Stocks,com.apple.ncplugin.stocks,stocks
-
-Adobe Tools,creative cloud,creative cloud.exe,core sync,coresync.exe,adobe desktop service,acrobat_dc_set-up.exe,adobe desktop service.exe,acrocef,acrocef.exe,rdrcef.exe,adobe_licensing_helper.exe,acrobat.exe
+Adobe Tools,creative cloud,creative cloud.exe,core sync,coresync.exe,adobe desktop service,acrobat_dc_set-up.exe,adobe desktop service.exe,acrocef,acrocef.exe,rdrcef.exe,rdrcef,adobe_licensing_helper.exe,acrobat.exe,setup.exe,agsservice,adobegcclient,adobe_licensing_helper,node,adobe_ccxprocess.node,setup,fastappconfig,acrord32.exe,adobe_licutil.exe,creative_cloud_set-up.exe
 
 Splice,splice helper,splice.helper.exe
 
 Cisco AnyConnect,vpnagentd,vpnagent.exe
+
+GoToMeeting,gotomeeting,g2mupdate,g2mcomm.exe
+
+MongoDB,mongodb compass helper,mongodb compass community helper
+
+MusixMatch,musixmatch,musixmatch.exe
+
+Signal,signal.exe,signal,signal helper (renderer)
+
+BZTransmit,bztrans64_thread00.exe,bztransmit64.exe
+
+Screens Connect,screens connect,com.edovia.screens.connect
+
+KDD,kdd,ibikdd
+
+Bluestacks,bluestacks,bluestacks.exe,hd-player.exe
+
+Terraform,terraform-provider-terraform_v1.0.2_x4,terraform,terraform-0.12.16
+
+Matlab,matlab.exe,matlab
+
+Proximity,proximity.exe,id_service.exe,ib_service.exe
+
+Civ6,civ6_metal_exe,civ6_exe
+
+Zoom,zoom.exe,zoom.us
+
+Git Remote,git-remote-https,git-remote-http
+
+Postman,postman.exe,postman
+
+Plex,plex.exe,plex media server.exe
+
+AMPCReport,creport.exe,ampcreport
+
+Pandora,pandora,pandora.exe
+
+Galaxy Client,galaxyupdater.exe,galaxyclient.exe
+
+MatterMost,mattermost.exe,mattermost
+
+Quicken,quicken,quicken 2017
+
+Miro,miro - formerly realtimeboard,miro - formerly realtimeboard.exe

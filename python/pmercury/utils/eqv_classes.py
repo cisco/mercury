@@ -41,7 +41,8 @@ class EquivalenceClasses:
 
     def __init__(self, resource_dir):
         self.classes = defaultdict(list)
-        self.dst_keys = ['classes_hostname_domains','classes_hostname_tlds']
+#        self.dst_keys = ['classes_hostname_domains','classes_hostname_tlds']
+#        self.dst_keys = ['classes_hostname_domains']
         self.dst_features = set(['dst_ip','dst_port','server_name'])
         self.dict_data = {}
         self.radix_tries = {}
@@ -71,8 +72,8 @@ class EquivalenceClasses:
                     continue
 
                 self.classes[t_['feature']].append(t_)
-                if t_['feature'] in self.dst_features:
-                    self.dst_keys.append(t_['name'])
+#                if t_['feature'] in self.dst_features:
+#                    self.dst_keys.append(t_['name'])
 
 
     def get_str_repr(self, str_repr):
@@ -86,6 +87,7 @@ class EquivalenceClasses:
         features = []
         domain_, tld_ = self.clean_hostname(server_name)
         features.extend([('classes_hostname_domains',domain_),('classes_hostname_tlds',tld_)])
+#        features.extend([('classes_hostname_domains',domain_)])
 
         for feature in self.dst_features:
             if feature == 'dst_ip':
