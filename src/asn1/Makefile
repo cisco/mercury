@@ -14,12 +14,12 @@ bindir = ${exec_prefix}/bin
 localstatedir = ${prefix}/var/mercury
 datarootdir = ${prefix}/share/mercury
 
-CFLAGS = --std=c++11 -Wno-narrowing
+CFLAGS = --std=c++11 -Wno-narrowing # -DASN1_DEBUG=1
 
 .PHONY: all
 all: cert-analyze oidc oid-list
 
-cert-analyze: cert-analyze.cc
+cert-analyze: cert-analyze.cc x509.h
 	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../parser.c -lmhash
 
 oidc: oidc.cc
