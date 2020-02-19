@@ -137,6 +137,22 @@ else
 	cd resources && $(MAKE) distclean
 endif
 
+.PHONY: package-deb
+package-deb: mercury
+ifneq ($(wildcard src/Makefile), src/Makefile)
+	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
+else
+	./build_pkg.sh -t deb 
+endif
+
+.PHONY: package-rpm
+package-rpm: mercury
+ifneq ($(wildcard src/Makefile), src/Makefile)
+	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
+else
+	./build_pkg.sh -t rpm
+endif
+
 .PHONY: format
 format:
 	./utils/indent_files.sh src/*.{c,h} src/python-inference/*.py python/*.py python/*/*.py python/*/*/*.py
