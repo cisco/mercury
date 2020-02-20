@@ -263,6 +263,13 @@ struct tlv {
 #endif
     }
 
+    void remove_bitstring_encoding() {
+        size_t first_octet = 0;
+        parser_read_and_skip_uint(&value, 1, &first_octet);
+        if (first_octet) {
+            throw "error removing bitstring encoding";
+        }
+    }
     /*
      * fprintf(f, name) prints the ASN1 TLV
      *
@@ -392,6 +399,7 @@ struct tlv {
     void print_as_json_escaped_string(FILE *f, const char *name) {
         fprintf_json_string_escaped(f, name, value.data, value.data_end - value.data);
     }
+
 };
 
 
@@ -814,6 +822,40 @@ struct validity {
 };
 
 /*
+ * from RFC 2459
+ *
+ * RSAPublicKey ::= SEQUENCE {
+ *   modulus            INTEGER, -- n
+ *    publicExponent     INTEGER  -- e -- }
+ */
+
+struct rsa_public_key {
+    struct tlv sequence;
+    struct tlv modulus;
+    struct tlv exponent;
+
+    rsa_public_key() : sequence{}, modulus{}, exponent{} {}
+    rsa_public_key(struct parser *p) : sequence{}, modulus{}, exponent{} {
+        parse(p);
+    }
+
+    void parse(struct parser *p) {
+        sequence.parse(p, tlv::SEQUENCE);
+        modulus.parse(&sequence.value, tlv::INTEGER);
+        exponent.parse(&sequence.value, tlv::INTEGER);
+    }
+
+    void print_as_json(FILE *f, const char *name, bool comma) {
+        fprintf(f, comma ? ",\"%s\":{" : "\"%s\":{", name);
+        if (modulus.is_not_null() && exponent.is_not_null()) {
+            modulus.print_as_json_hex(f, "modulus", false);
+            exponent.print_as_json_hex(f, "exponent", true);
+        }
+        fprintf(f, "}");
+    }
+};
+
+/*
  *  AlgorithmIdentifier  ::=  SEQUENCE  {
  *       algorithm               OBJECT IDENTIFIER,
  *       parameters              ANY DEFINED BY algorithm OPTIONAL  }
@@ -845,6 +887,12 @@ struct algorithm_identifier {
         }
         fprintf(f, "}");
     }
+    const char *type() {
+        if (algorithm.is_not_null()) {
+            return parser_get_oid_string(&algorithm.value);
+        }
+        return NULL;
+    }
 };
 
 /*
@@ -866,13 +914,19 @@ struct subject_public_key_info {
     void parse(struct parser *p) {
         sequence.parse(p);
         algorithm.parse(&sequence.value);
-        subject_public_key.parse(&sequence.value);
+        subject_public_key.parse(&sequence.value, tlv::BIT_STRING);
     }
     void print_as_json(FILE *f) {
         fprintf(f, ",\"subject_public_key_info\":{");
         fprintf(f, "\"algorithm\":");
         algorithm.print_as_json(f);
-        subject_public_key.print_as_json_hex(f, "subject_public_key", true);
+        if (strcmp(algorithm.type(), "rsaEncryption") == 0) {
+            subject_public_key.remove_bitstring_encoding();
+            struct rsa_public_key pub_key(&subject_public_key.value);
+            pub_key.print_as_json(f, "subject_public_key", true);
+        } else {
+            subject_public_key.print_as_json_hex(f, "subject_public_key", true);
+        }
         fprintf(f, "}");
     }
 };
