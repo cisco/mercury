@@ -21,9 +21,6 @@
 #include <pthread.h>
 #include <dirent.h>
 
-#include <queue>
-//#include <vector>
-
 #include "mercury.h"
 #include "pcap_file_io.h"
 #include "af_packet_v3.h"
@@ -38,12 +35,6 @@ int t_output_p = 0;
 pthread_cond_t t_output_c  = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t t_output_m = PTHREAD_MUTEX_INITIALIZER;
 
-
-/* This is the "greater" operator which defined as the < operation
- * which keeps the lowest time (priority) at the top of our pq */
-bool operator < (const llq_msg& rhs, const llq_msg& lhs) {
-    return ((lhs.ts.tv_sec < rhs.ts.tv_sec) || ((lhs.ts.tv_sec == rhs.ts.tv_sec) && (lhs.ts.tv_nsec < rhs.ts.tv_nsec)));
-}
 
 void init_t_queues(int n) {
     t_queues.qnum = n;
@@ -72,12 +63,158 @@ void destroy_thread_queues() {
 }
 
 
+int time_less(struct timespec *tsl, struct timespec *tsr) {
+
+    if ((tsl->tv_sec < tsr->tv_sec) || ((tsl->tv_sec == tsr->tv_sec) && (tsl->tv_nsec < tsr->tv_nsec))) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+int queue_less(int ql, int qr, struct tourn_tree *t_tree) {
+
+    /* returns 1 if the time of ql < qr and 0 otherwise
+     * Also sets t_tree->stalled = 1 if needed.
+     *
+     * WARNING: This function is NOT thread safe!
+     *
+     * Meaning the access to the 'used' member in the queue
+     * struct happens and then later the access to the
+     * struct timespec happens.
+     * This function must be called by the output thread
+     * and ONLY the output thread because if
+     * queues are changed while this function is going
+     * shit will hit the fan!
+     */
+
+    int ql_used = 0;
+    int qr_used = 0;
+
+    /* check for a queue stall before we return anything otherwise
+     * we could short-circuit logic before realizing one of the
+     * queues was stalled
+     */
+    if ((ql >= 0) && (ql < t_queues.qnum)) {
+        ql_used = t_queues.queue[ql].msgs[t_queues.queue[ql].ridx].used;
+        if (ql_used == 0) {
+            t_tree->stalled = 1;
+        }
+    }
+    if ((qr >= 0) && (qr < t_queues.qnum)) {
+        qr_used = t_queues.queue[qr].msgs[t_queues.queue[qr].ridx].used;
+        if (qr_used == 0) {
+            t_tree->stalled = 1;
+        }
+    }
+
+    /* If the queue numbers here are -1 that means we've spilled
+     * over into the portion of the tournament tree that isn't
+     * populated by queues because the number of queues wasn't a
+     * power-of-two
+     *
+     * Don't blindly combine this into the above statements as an else
+     * without realising that both qr and ql must be checked for
+     * a stall before any return is done
+     */
+    if (ql == -1) {
+        return 0;
+    } else if (qr == -1) {
+        return 1;
+    }
+
+    /* The t_tree is built as though the number of queues is
+     * a power-of-two however it doesn't actually have to be
+     * that way so if the computed queue number spills over past
+     * the actual number of queues we just fill the tree with -1
+     * to indicate that portion of the tree shouldn't be use
+     * in the tournament (and any real queue compared to a -1 queue
+     * automatically "wins".
+     */
+    if (ql >= t_queues.qnum) {
+        return 0;
+    } else if (qr >= t_queues.qnum) {
+        return 1;
+    }
+
+    /* This is where we do the actual less comparison */
+    if (ql_used == 0) {
+        return 0;
+    } else if (qr_used == 0) {
+        return 1;
+    } else {
+        struct timespec *tsl = &(t_queues.queue[ql].msgs[t_queues.queue[ql].ridx].ts);
+        struct timespec *tsr = &(t_queues.queue[qr].msgs[t_queues.queue[qr].ridx].ts);
+
+        return time_less(tsl, tsr);
+    }
+}
+
+
+int lesser_queue(int ql, int qr, struct tourn_tree *t_tree) {
+
+    if (queue_less(ql, qr, t_tree) == 1) {
+        return ql;
+    } else {
+        return qr;
+    }
+}
+
+
+void run_tourn_for_queue(struct tourn_tree *t_tree, int q) {
+
+    /*
+     * The leaf index in the tree for a particular queue
+     * is the queue's index in the tree minus 1 (or 2) divided by 2
+     * however we don't bother to store the bottem-most layer in the
+     * the tree and also, by clearing the least significant bit in
+     * the q number we can reduce the minus 1 or 2 to just minus 1.
+     */
+
+    int ql = (q % 2 == 0)? q : q - 1; // the even q
+    int qr = ql + 1;                  // the odd q
+    int lidx = ((ql + t_tree->qp2) - 1) / 2;
+
+    t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree);
+
+    /* This "walks" back up the tree to the root node (0) */
+    while (lidx > 0) {
+        lidx = (lidx - 1) / 2;
+        ql = t_tree->tree[(lidx * 2) + 1];
+        qr = t_tree->tree[(lidx * 2) + 2];
+
+        t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree);
+    }
+}
+
+
+void debug_print_tour_tree(struct tourn_tree *t_tree) {
+
+    fprintf(stderr, "Tourn Tree size: %d\n", (t_tree->qp2 - 1));
+    int i = 0;
+    int l = 2;
+    while (i < (t_tree->qp2 - 1)) {
+        for (; i < l - 1; i++) {
+            fprintf(stderr, "%d ", t_tree->tree[i]);
+        }
+        fprintf(stderr, "\n");
+        l *= 2;
+    }
+
+    fprintf(stderr, "Ready queues:\n");
+    for (int q = 0; q < t_tree->qnum; q++) {
+        if (t_queues.queue[q].msgs[t_queues.queue[q].ridx].used == 1) {
+            fprintf(stderr, "%d ", q);
+        }
+    }
+    fprintf(stderr, "\n");
+}
+
+
+
 void *output_thread_func(void *arg) {
 
     (void)arg;
-
-    std::priority_queue<llq_msg> pq;
-    llq_msg pq_msg;
 
     int err;
     err = pthread_mutex_lock(&t_output_m);
@@ -98,64 +235,149 @@ void *output_thread_func(void *arg) {
         exit(255);
     }
 
+    struct tourn_tree t_tree;
+    t_tree.qnum = t_queues.qnum;
+    t_tree.qp2 = 2; /* This is the smallest power of 2 >= the number of queues */
+    while (t_tree.qp2 < t_tree.qnum) {
+        t_tree.qp2 *= 2;
+    }
+    t_tree.tree = (int *)calloc(t_tree.qp2 - 1, sizeof(int)); /* The tournament needs qp2 - 1 nodes */
+    if (t_tree.tree == NULL) {
+        fprintf(stderr, "Failed to allocate enough memory for the tournament tree\n");
+        exit(255);
+    }
 
-    while (sig_stop_output == 0) {
+    int all_output_flushed = 0;
+    while (all_output_flushed == 0) {
 
-        /* We need to loop through the queues to see which have used buckets */
-        for (int q = 0; q < t_queues.qnum; q++) {
-            /* while we have data on this queue */
-            while (t_queues.queue[q].msgs[t_queues.queue[q].ridx].used == 1) {
+        /* run the tournament for every queue */
+        t_tree.stalled = 0;
+        /* Every other works here because the tournament
+         * works on pairs: {0,1}, {2,3}, {3,4}, etc.
+         * Passing a q from either pair runs the tournament
+         * for the pair.
+         */
+        for (int q = 0; q < t_tree.qp2; q += 2) {
+            run_tourn_for_queue(&t_tree, q);
+        }
 
-                /* Enqueue this message so we can do proper msg ordering */
-                pq.push(t_queues.queue[q].msgs[t_queues.queue[q].ridx]);
+        int wq; /* winning queue */
+        int lq; /* losing queue (second place) */
+        while (t_tree.stalled == 0) {
+            wq = t_tree.tree[0];
+            lq = -1;
 
-                //fprintf(stderr, "DEBUG: added message to PQ!\n");
+            //fprintf(stderr, "Unstalled\n");
+            //debug_print_tour_tree(&t_tree);
 
-                __sync_synchronize(); /* A full memory barrier prevents the following flag (un)set from happening too soon */
-                t_queues.queue[q].msgs[t_queues.queue[q].ridx].used = 0;
-
-                t_queues.queue[q].next_read();
+            /* The first place queue is the root node of the t_tree
+             * but we need to "find" the 2nd place node by checking
+             * its children
+             */
+            if (t_tree.qp2 > 2) {
+                if (t_tree.tree[1] == wq) {
+                    lq = t_tree.tree[2];
+                } else {
+                    lq = t_tree.tree[1];
+                }
             }
+
+            //fprintf(stderr, "Unstalled: wq = %d; lq = %d; lq < wq: %d\n", wq, lq, queue_less(lq, wq, &t_tree));
+
+            /* While the winning queue (the one with the oldest messages)
+             * has messages older than second place
+             */
+            while (queue_less(lq, wq, &t_tree) != 1) {  /* less than or equal */
+                struct llq_msg *wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
+                if (wmsg->used == 1) {
+                    fwrite(wmsg->buf, wmsg->len, 1, stdout);
+
+                    /* A full memory barrier prevents the following flag (un)set from happening too soon */
+                    __sync_synchronize();
+                    wmsg->used = 0;
+
+                    t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
+                }
+                else {
+                    break;
+                }
+            }
+            run_tourn_for_queue(&t_tree, wq);
         }
 
-        /* Flush queue until it's below our target limit */
-        while (pq.size() > PQ_LIMIT) {
-            pq_msg = pq.top();
-            fwrite(pq_msg.buf, pq_msg.len, 1, stdout);
-            pq.pop();
-        }
-
-        /* Flush queue whenever the top message is too old */
-        struct timespec cur_ts;
-        if (clock_gettime(CLOCK_REALTIME, &cur_ts) != 0) {
+        /* The tree is now stalled because a queue has been emptied
+         * Now we must remove messages as long as they are "too old"
+         */
+        struct timespec old_ts;
+        if (clock_gettime(CLOCK_REALTIME, &old_ts) != 0) {
             perror("Unable to get current time");
         }
 
-        int age_done = 0;
-        while ((age_done == 0) && (pq.size() > 0)) {
+        /* This is the time we compare against to flush */
+        old_ts.tv_sec -= LLQ_MAX_AGE;
 
-            pq_msg = pq.top();
-            if (pq_msg.age(&cur_ts) > PQ_MAX_AGE) {
-                fwrite(pq_msg.buf, pq_msg.len, 1, stdout);
-                pq.pop();
+        int old_done = 0;
+        while (old_done == 0) {
+            wq = t_tree.tree[0];
+            lq = -1;
+
+            //fprintf(stderr, "Stalled\n");
+            //debug_print_tour_tree(&t_tree);
+
+            /* The first place queue is the root node of the t_tree
+             * but we need to "find" the 2nd place node by checking
+             * its children
+             */
+            if (t_tree.qp2 > 2) {
+                if (t_tree.tree[1] == wq) {
+                    lq = t_tree.tree[2];
+                } else {
+                    lq = t_tree.tree[1];
+                }
             }
-            else {
-                age_done = 1;
+
+            struct llq_msg *wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
+
+            if (wmsg->used == 0) {
+                /* Even the top queue has nothing so we can just stop now */
+                old_done = 1;
+
+                /* This is how we detect no more output is coming */
+                if (sig_stop_output != 0) {
+                    all_output_flushed = 1;
+                }
+
+                break;
             }
+
+            //fprintf(stderr, "Stalled: wq = %d; lq = %d; lq < wq: %d\n", wq, lq, queue_less(lq, wq, &t_tree));
+
+            /* While the winning queue (the one with the oldest messages)
+             * has messages older than second place
+             */
+            while (queue_less(lq, wq, &t_tree) != 1) { /* less than or equal */
+                wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
+
+                if ((wmsg->used == 1) && (time_less(&(wmsg->ts), &old_ts) == 1)) {
+                    fwrite(wmsg->buf, wmsg->len, 1, stdout);
+
+                    /* A full memory barrier prevents the following flag (un)set from happening too soon */
+                    __sync_synchronize();
+                    wmsg->used = 0;
+
+                    t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
+                } else {
+                    old_done = 1;
+                    break;
+                }
+            }
+            run_tourn_for_queue(&t_tree, wq);
         }
 
         struct timespec sleep_ts;
         sleep_ts.tv_sec = 0;
         sleep_ts.tv_nsec = 1000;
         nanosleep(&sleep_ts, NULL);
-    }
-
-    /* Flush the entire priority queue when we're about to exit */
-    while (pq.size() > 0) {
-
-        pq_msg = pq.top();
-        fwrite(pq_msg.buf, pq_msg.len, 1, stdout);
-        pq.pop();
     }
 
     return NULL;

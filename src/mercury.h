@@ -68,10 +68,9 @@ struct mercury_config {
 };
 
 #define LLQ_MSG_SIZE 8192    /* The number of bytes allowed for each message in the lockless queue */
-#define LLQ_DEPTH    128     /* The number of "buckets" (queue messages) allowed */
+#define LLQ_DEPTH    65536   /* The number of "buckets" (queue messages) allowed */
+#define LLQ_MAX_AGE  5       /* Maximum age (in seconds) messages are allowed to sit in a queue */
 
-#define PQ_LIMIT     10000   /* Maximum number of elements allowed in the priority queue */
-#define PQ_MAX_AGE   5       /* Maximum age (in seconds) messages are allowed to sit in the pq */
 
 extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
 extern int t_output_p;
@@ -84,14 +83,6 @@ struct llq_msg {
     char buf[LLQ_MSG_SIZE];
     ssize_t len;
     struct timespec ts;
-
-    /* Assumes the our ts has already been filled out */
-    double age(struct timespec *cur_ts) {
-        return ((double)cur_ts->tv_sec + ((double)cur_ts->tv_nsec / 1000000000.0)) -
-            ((double)ts.tv_sec + ((double)ts.tv_nsec / 1000000000.0));
-    }
-
-    friend bool operator < (const llq_msg& lhs, const llq_msg& rhs);
 };
 
 
@@ -100,14 +91,6 @@ struct ll_queue {
     int ridx;  /* The read index */
     int widx;  /* The write index */
     struct llq_msg msgs[LLQ_DEPTH];
-
-    void next_read() {
-        ridx = (ridx + 1) % LLQ_DEPTH;
-    }
-
-    void next_write() {
-        widx = (widx + 1) % LLQ_DEPTH;
-    }
 };
 
 
@@ -115,6 +98,14 @@ struct thread_queues {
     int qnum;             /* The number of queues that have been allocated */
     int qidx;             /* The index of the first free queue */
     struct ll_queue *queue;      /* The actual queue datastructure */
+};
+
+
+struct tourn_tree {
+    int qnum;
+    int qp2;
+    int *tree;
+    int stalled;
 };
 
 

@@ -331,7 +331,8 @@ void json_queue_write(struct ll_queue *llq,
             __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
             llq->msgs[llq->widx].used = 1;
 
-            llq->next_write();
+            //llq->next_write();
+            llq->widx = (llq->widx + 1) % LLQ_DEPTH;
         }
     }
     else {
