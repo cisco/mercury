@@ -231,7 +231,7 @@ enum assignment_type {
 
 struct oid_assignment {
     std::string name;
-    // std::list<std::string> 
+    // std::list<std::string>
     enum assignment_type type;
     std::vector<uint32_t> asn_notation;
 };
@@ -481,6 +481,8 @@ int main(int argc, char *argv[]) {
 #if 0
     auto unknown_oids =
         {
+         "2a8648ce3d030107",
+         "2b81040022",
          "2b0e03021d",
          "2a864886f70d01010b",
          "2a864886f70d01090f",
