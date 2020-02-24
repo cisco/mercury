@@ -11,9 +11,6 @@
 
 #include "x509.h"
 
-
-
-
 /*
  * START base64
  */
@@ -86,7 +83,9 @@ std::string base64_encode(const unsigned char *src, size_t len)
     return outStr;
 }
 
-static const int B64index[256] = {
+namespace base64 {
+
+static const int index[256] = {
      0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,
@@ -112,21 +111,85 @@ std::string b64decode(const void* data, const size_t len) {
     std::string str(L / 4 * 3 + pad, '\0');
 
     for (size_t i = 0, j = 0; i < L; i += 4)  {
-        int n = B64index[p[i]] << 18 | B64index[p[i + 1]] << 12 | B64index[p[i + 2]] << 6 | B64index[p[i + 3]];
+        int n = index[p[i]] << 18 | index[p[i + 1]] << 12 | index[p[i + 2]] << 6 | index[p[i + 3]];
         str[j++] = n >> 16;
         str[j++] = n >> 8 & 0xFF;
         str[j++] = n & 0xFF;
     }
     if (pad) {
-        int n = B64index[p[L]] << 18 | B64index[p[L + 1]] << 12;
+        int n = index[p[L]] << 18 | index[p[L + 1]] << 12;
         str[str.size() - 1] = n >> 16;
 
         if (len > L + 2 && p[L + 2] != '=') {
-            n |= B64index[p[L + 2]] << 6;
+            n |= index[p[L + 2]] << 6;
             str.push_back(n >> 8 & 0xFF);
         }
     }
     return str;
+}
+
+bool invalid[256] =  {
+     1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 0, 1, 1, 1, 0,
+     0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 1, 1, 1, 0, 1, 1,
+     1, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 1, 1, 1, 1, 1,
+     1, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1
+};
+
+/*
+ * base64::decode(outbuf, outlen, data, len) performs a base-64
+ * decoding of the data buffer with length len, and writes the
+ * resulting data into outbuf, if there is enough room in that buffer.
+ * If the decoding is successful, then the length of the decoded data
+ * in outbuf is returned.  Otherwise, a zero is returned to indicate
+ * that there is not enough room in the buffer, or a negative number
+ * is returned to indicate that the input data was not in base64
+ * format.
+ */
+int decode(void *outbuf, const size_t outlen, const void* data, const size_t len) {
+    unsigned char* p = (unsigned char*)data;
+    int pad = len > 0 && (len % 4 || p[len - 1] == '=');
+    const size_t L = ((len + 3) / 4 - pad) * 4;
+    uint8_t *str = (uint8_t *)outbuf;
+    size_t str_size = L / 4 * 3 + pad;
+
+    if (outlen < str_size) {
+        fprintf(stderr, "error: base64 decode needs %zu bytes, only has room for %zu\n", str_size, outlen);
+        return 0;  // not enough room for output
+    }
+    size_t i, j;
+    for (i = 0, j = 0; i < L; i += 4)  {
+        if (invalid[p[i]] | invalid[p[i+1]] | invalid[p[i+2]] | invalid[p[i+3]]) {
+            return -i;
+        }
+        int n = index[p[i]] << 18 | index[p[i + 1]] << 12 | index[p[i + 2]] << 6 | index[p[i + 3]];
+        str[j++] = n >> 16;
+        str[j++] = n >> 8 & 0xFF;
+        str[j++] = n & 0xFF;
+    }
+    if (pad) {
+        int n = index[p[L]] << 18 | index[p[L + 1]] << 12;
+        str[j++] = n >> 16;
+
+        if (len > L + 2 && p[L + 2] != '=') {
+            n |= index[p[L + 2]] << 6;
+            str[j++] = n >> 8 & 0xFF;
+        }
+    }
+    return j;
+}
 }
 
 void print_as_ascii_with_dots(const void *string, size_t len) {
@@ -150,7 +213,9 @@ void fprintf_parser_as_string(FILE *f, struct parser *p) {
 //  $ openssl x509 -in first.pem -text -noout
 //
 
-#if 0 // omit hashing for now
+// set to 1 to include hashing
+#define HAVE_MHASH 0
+#if HAVE_MHASH
 
 #include <mhash.h>
 void sha256_hash(const void *buffer,
@@ -180,7 +245,7 @@ void sha256_hash(const void *buffer,
 #endif
 
 // std::unordered_map<std::string, std::string> cert_dict;
-
+//#include <thread>
 int main(int argc, char *argv[]) {
     FILE *stream;
     char *line = NULL;
@@ -188,6 +253,7 @@ int main(int argc, char *argv[]) {
     ssize_t nread;
 
     if (argc != 2) {
+        //printf("%u threads supported\n", std::thread::hardware_concurrency());
         fprintf(stderr, "Usage: %s <file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
@@ -210,23 +276,37 @@ int main(int argc, char *argv[]) {
             }
         }
         char *b64_line = line + (i+1);
-        std::string cert = b64decode(b64_line, nread-(i+1));
+        //        std::string cert = b64decode(b64_line, nread-(i+1));
+
+        uint8_t cert_buf[8192];
+        size_t cert_len = base64::decode(cert_buf, sizeof(cert_buf), b64_line, nread-(i+1));
+        if (cert_len == 0) {
+            fprintf(stderr, "base64 decoding error\n");
+        }
+        //        sha256_hash(cert_buf, cert_len);
+
+        //fprintf(stdout, "base64_decode: ");
+        //fprintf_raw_as_hex(stdout, cert_buf, cert_len);
+        //fprintf(stdout, "\nb64decode:     ");
+        //fprintf_raw_as_hex(stdout, cert.c_str(), cert.length());
+        //fprintf(stdout, "\n");
+
         //fprintf(stdout, "parsed base64 (len: %zu)\n", cert.length());
 
-        // sha256_hash(cert.c_str(), cert.length());
 
         // fprintf(stderr, "parsing cert\n");
         try{
             // parse certificate, then print as JSON
             struct x509_cert c;
-            c.parse(cert.c_str(), cert.length());
+            //c.parse(cert.c_str(), cert.length());
+            c.parse(cert_buf, cert_len);
             c.print_as_json(stdout);
 
             // parse certificate prefix, then print as JSON 
             struct x509_cert_prefix p;
-            p.parse(cert.c_str(), cert.length());
+            p.parse(cert_buf, cert_len);
             p.print_as_json_hex(stdout);
-            // fprintf(stderr, "prefix length: %zu\n", p.get_length());
+            //fprintf(stderr, "prefix length: %zu\n", p.get_length());
         }
         catch (const char *msg) {
             fprintf(stderr, "error: %s\n", msg);
