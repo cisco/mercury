@@ -230,7 +230,7 @@ void *output_thread_func(void *arg) {
                         mqlen = mq_receive(thread_queues.queue[q], mq_msg.buf, MQ_MAX_SIZE, NULL);
                         mq_msg.len = mqlen;
                         if (mqlen < 0) {
-                            perror("Failed to recieve message in queue");
+                            perror("Failed to receive message in queue");
                         }
                         else if (mqlen < (ssize_t)sizeof(struct timespec)) {
                             fprintf(stderr, "Received message smaller than the required struct timespec");
