@@ -1243,7 +1243,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
 unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct extractor *x) {
 
-    extractor_debug("%s: Processing server certificate at the begining, len = %lu, output len = %lu\n",
+    extractor_debug("%s: Processing server certificate at the beginning, len = %lu, output len = %lu\n",
             __func__, parser_get_data_length(p), extractor_get_output_length(x));
 
     int skip_len = (L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType + L_CertificateLength);
