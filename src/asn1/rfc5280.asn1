@@ -93,6 +93,10 @@ id-ce-nameConstraints OBJECT IDENTIFIER ::=  { id-ce 30 }
 
 id-ce-policyConstraints OBJECT IDENTIFIER ::=  { id-ce 36 }
 
+-- CRL distribution points extension OID and syntax
+
+id-ce-cRLDistributionPoints     OBJECT IDENTIFIER  ::=  { id-ce 31 }
+
 -- extended key usage extension OID
 
 id-ce-extKeyUsage OBJECT IDENTIFIER ::= { id-ce 37 }

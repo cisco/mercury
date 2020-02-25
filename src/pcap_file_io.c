@@ -97,7 +97,7 @@ enum status pcap_file_open(struct pcap_file *f,
         f->flags = O_WRONLY;
         break;
     default:
-        printf("error: unsuppored flag, other flags=0x%x\n", flags);
+        printf("error: unsupported flag, other flags=0x%x\n", flags);
         return status_err; /* unsupported flags */
     }
 

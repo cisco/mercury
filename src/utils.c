@@ -41,7 +41,7 @@ int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
 
     /* Check for truncation */
     if (r >= dlen - *doff) {
-        fprintf(stderr, "Trucation occurred in substr_snprintf(...). Space available: %u; needed: %d\n",
+        fprintf(stderr, "Truncation occurred in substr_snprintf(...). Space available: %u; needed: %d\n",
                 dlen - *doff, r);
 
         *doff = dlen;

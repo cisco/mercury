@@ -12,3 +12,5 @@ src/mercury
 python/pmercury/protocols/*.pyr*
 python/pmercury/protocols/.#*
 python/pmercury/utils/.#*
+*.deb
+*.rpm
