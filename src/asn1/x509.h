@@ -8,554 +8,11 @@
 
 #include <stdio.h>
 #include <vector>
-#include "oid.h"
+#include "oid.h"    // oid dictionary
 
 #include "../mercury.h"
 #include "../parser.h"
-
-struct json_file {
-    FILE *f;
-    char epilog[32];
-    int epilog_length;
-
-    json_file(FILE *f) : f{f}, epilog{}, epilog_length{0} { }
-
-    void open_array() {
-        if (epilog_length >= sizeof(epilog)-1) {
-            throw "error: json_file epilog stack at upper limit\n";
-        }
-        epilog[epilog_length++] = ']';
-        fputc('[', f);
-    }
-    void close_array() {
-        if (epilog_length == 0) {
-            throw "error: json_file stack empty\n";
-        }
-        epilog[epilog_length--] = '\0';
-        fputc(']', f);
-    }
-    void open_object() {
-        if (epilog_length >= sizeof(epilog)-1) {
-            throw "error: json_file epilog stack at upper limit\n";
-        }
-        epilog[epilog_length++] = '}';
-        fputc('{', f);
-    }
-    void close_object() {
-        if (epilog_length == 0) {
-            throw "error: json_file stack empty\n";
-        }
-        epilog[epilog_length--] = '\0';
-        fputc('}', f);
-    }
-    void close_all() {
-        fprintf(f, "%.*s", epilog_length, epilog);
-        epilog_length = 0;
-    }
-};
-
-const char *oid_empty_string = "";
-const char *parser_get_oid_string(struct parser *p) {
-    std::string s = p->get_string();
-    const char *tmp = s.c_str();    // TBD: refactor to eliminate string allocation
-    auto pair = oid_dict.find(s);
-    if (pair == oid_dict.end()) {
-        return oid_empty_string;
-    }
-    return pair->second.c_str();;
-}
-
-/*
- * utility functions
- */
-
-void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
-    const unsigned char *x = (const unsigned char *)data;
-    const unsigned char *end = x + len;
-
-    while (x < end) {
-        fprintf(f, "%02x", *x++);
-    }
-}
-
-void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-
-    fprintf(f, "\"%s\":\"", key);
-    while (x < end) {
-        if (*x < 0x20) {                   /* escape control characters   */
-            fprintf(f, "\\u%04x", *x);
-        } else if (*x > 0x7f) {            /* escape non-ASCII characters */
-            fprintf(f, "\\u%04x", *x);
-        } else {
-            if (*x == '"' || *x == '\\') { /* escape special characters   */
-                fprintf(f, "\\");
-            }
-            fprintf(f, "%c", *x);
-        }
-        x++;
-    }
-    fprintf(f, "\"");
-
-}
-
-void fprintf_json_char_escaped(FILE *f, char x) {
-    if (x < 0x20) {                   /* escape control characters   */
-        fprintf(f, "\\u%04x", x);
-    } else if (x > 0x7f) {            /* escape non-ASCII characters */
-        fprintf(f, "\\u%04x", x);
-    } else {
-        if (x == '"' || x == '\\') { /* escape special characters   */
-            fprintf(f, "\\");
-        }
-        fprintf(f, "%c", x);
-    }
-}
-
-void fprintf_ip_address(FILE *f, const uint8_t *buffer, size_t length) {
-    const uint8_t *b = buffer;
-    if (length == 4) {
-        fprintf(f, "%u.%u.%u.%u", b[0], b[1], b[2], b[3]);
-    } else if (length == 16) {
-        fprintf(f, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
-                b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]);
-    } else {
-        fprintf(f, "malformed (length: %zu)", length);
-    }
-}
-
-/*
- * UTCTime (Coordinated Universal Time) consists of 13 bytes that
- * encode the Greenwich Mean Time in the format YYMMDDhhmmssZ.  For
- * instance, the bytes 17 0d 31 35 31 30 32 38 31 38 35 32 31 32 5a
- * encode the string "151028185212Z", which represents the time
- * "2015-10-28 18:52:12"
- */
-void fprintf_json_utctime(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
-
-    fprintf(f, "\"%s\":\"", key);
-    if (len != 13) {
-        fprintf(f, "malformed\"");
-        return;
-    }
-    if (data[0] < '5') {
-        fprintf(f, "20");
-    } else {
-       fprintf(f, "19");
-    }
-    fprintf_json_char_escaped(f, data[0]);
-    fprintf_json_char_escaped(f, data[1]);
-    fprintf(f, "-");
-    fprintf_json_char_escaped(f, data[2]);
-    fprintf_json_char_escaped(f, data[3]);
-    fprintf(f, "-");
-    fprintf_json_char_escaped(f, data[4]);
-    fprintf_json_char_escaped(f, data[5]);
-    fprintf(f, " ");
-    fprintf_json_char_escaped(f, data[6]);
-    fprintf_json_char_escaped(f, data[7]);
-    fprintf(f, ":");
-    fprintf_json_char_escaped(f, data[8]);
-    fprintf_json_char_escaped(f, data[9]);
-    fprintf(f, ":");
-    fprintf_json_char_escaped(f, data[10]);
-    fprintf_json_char_escaped(f, data[11]);
-
-    fprintf(f, "\"");
-}
-
-/*
- *  For the purposes of [RFC 5280], GeneralizedTime values MUST be
- *  expressed in Greenwich Mean Time (Zulu) and MUST include seconds
- *  (i.e., times are YYYYMMDDHHMMSSZ), even where the number of
- *  seconds is zero.
- */
-void fprintf_json_generalized_time(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
-
-    fprintf(f, "\"%s\":\"", key);
-    if (len != 15) {
-        fprintf(f, "malformed (length %u)\"", len);
-        return;
-    }
-    fprintf_json_char_escaped(f, data[0]);
-    fprintf_json_char_escaped(f, data[1]);
-    fprintf_json_char_escaped(f, data[2]);
-    fprintf_json_char_escaped(f, data[3]);
-    fprintf(f, "-");
-    fprintf_json_char_escaped(f, data[4]);
-    fprintf_json_char_escaped(f, data[5]);
-    fprintf(f, "-");
-    fprintf_json_char_escaped(f, data[6]);
-    fprintf_json_char_escaped(f, data[7]);
-    fprintf(f, " ");
-    fprintf_json_char_escaped(f, data[8]);
-    fprintf_json_char_escaped(f, data[9]);
-    fprintf(f, ":");
-    fprintf_json_char_escaped(f, data[10]);
-    fprintf_json_char_escaped(f, data[11]);
-    fprintf(f, ":");
-    fprintf_json_char_escaped(f, data[12]);
-    fprintf_json_char_escaped(f, data[13]);
-
-    fprintf(f, "\"");
-}
-
-
-/*
- * struct tlv holds the tag, length, and (pointers to the beginning
- * and end of the) value.  ASN.1 consists of a sequence of TLV
- * elements, and a struct tlv represents one of these elements.
- *
- * A struct tlv can be initialized to a null value, or initialized
- * with data.  To read data into a struct tlv, call the member
- * function 'parse()'.  The pointers in the 'value' member of a struct
- * tlv are either NULL, or are set to point to a region of memory by
- * the call to parse().
- *
- * WARNING: if that memory is deallocated or changed, the pointers in
- * the struct tlv object will be invalid.  To prevent a struct tlv
- * object from having dangling pointers, its scope MUST be no larger
- * than the scope of the memory buffer it is parsing.
- */
-
-struct tlv {
-    unsigned char tag;
-    size_t length;
-    struct parser value;
-
-    static unsigned char explicit_tag(unsigned char tag) {
-        if (tag > 31) {
-            throw "error: tag too long";
-        }
-        return 0x80 + tag;
-    }
-    static unsigned char explicit_tag_constructed(unsigned char tag) {
-        if (tag > 31) {
-            throw "error: tag too long";
-        }
-        return 0xa0 + tag;
-    }
-    enum tag {
-        END_OF_CONTENT	  = 0x00,
-        BOOLEAN	          = 0x01,
-        INTEGER		      = 0x02,
-        BIT_STRING		  = 0x03,
-        OCTET_STRING      = 0x04,
-        NULL_TAG          = 0x05,
-        OBJECT_IDENTIFIER = 0x06,
-        OBJECT_DESCRIPTOR = 0x07,
-        EXTERNAL          = 0x08,
-        REAL  		      = 0x09,
-        ENUMERATED	      = 0x0a,
-        EMBEDDED_PDV	  = 0x0b,
-        UTF8String		  = 0x0c,
-        RELATIVE_OID      = 0x0d,
-        TIME		      = 0x0e,
-        RESERVED	      = 0x0f,
-        SEQUENCE          = 0x30,  // also "SEQUENCE OF"
-        SET 		      = 0x31,  // also "SET OF"
-        NUMERIC_STRING	  = 0x12,
-        PRINTABLE_STRING  = 0x13,
-        T61String		  = 0x14,
-        VIDEOTEX_STRING   = 0x15,
-        IA5String		  = 0x16,
-        UTCTime		      = 0x17,
-        GeneralizedTime	  = 0x18,
-        GraphicString	  = 0x19,
-        VisibleString	  = 0x1a,
-        GeneralString	  = 0x1b,
-        UniversalString	  = 0x1c,
-        CHARACTER_STRING  = 0x1d,
-        BMP_STRING		  = 0x1e
-    };
-
-    bool is_not_null() {
-        return value.data;
-    }
-    bool is_null() {
-        return (value.data == NULL);
-    }
-    uint8_t get_tag() { return tag & 0x1f; }
-    tlv() {
-        // initialize to null/zero 
-        tag = 0;
-        length = 0;
-        value.data = NULL;
-        value.data_end = NULL;
-    }
-    tlv(const tlv &r) {
-        tag = r.tag;
-        length = r.length;
-        value.data = r.value.data;
-        value.data_end = r.value.data_end;
-    }
-    tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
-        parse(p, expected_tag, tlv_name);
-    }
-    void parse(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
-
-        if (parser_get_data_length(p) < 2) {
-            fprintf(stderr, "error: incomplete data (%ld bytes)\n", p->data_end - p->data);
-            throw "error initializing tlv";
-        }
-        // set tag
-        tag = p->data[0];
-        length = p->data[1];
-
-        if (expected_tag) {
-            // fprintf(stderr, "note: looking for tag %02x, got %02x\n", expected_tag, tag);
-            if (tag != expected_tag) {
-                // fprintf(stderr, "did not get expected tag\n");
-                // initialize to zero to indicate we don't match expected type
-                tag = 0;
-                length = 0;
-                value.data = NULL;
-                value.data_end = NULL;
-                return;
-            }
-        }
-
-        parser_skip(p, 2);
-
-        // set length
-        if (length >= 128) {
-            size_t num_octets_in_length = length - 128;
-            if (num_octets_in_length < 0) {
-                fprintf(stderr, "error: invalid length field\n");
-                throw "error initializing tlv";
-            }
-            if (parser_read_and_skip_uint(p, num_octets_in_length, &length) == status_err) {
-                fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, parser_get_data_length(p));
-                throw "error initializing tlv";
-            }
-        }
-
-        // set value
-        parser_init_from_outer_parser(&value, p, length);
-        parser_skip(p, length);
-
-#ifdef ASN1_DEBUG
-        fprint(stderr, tlv_name);
-#endif
-    }
-
-    void remove_bitstring_encoding() {
-        size_t first_octet = 0;
-        parser_read_and_skip_uint(&value, 1, &first_octet);
-        if (first_octet) {
-            throw "error removing bitstring encoding";
-        }
-    }
-    /*
-     * fprintf(f, name) prints the ASN1 TLV
-     *
-     * Tag notation: (Tag Class:Constructed:Tag Number)
-     *
-     *    Tag Class: 0=universal (native to ASN.1), 1=Application
-     *    specific, 2=Context-specific, 3=Private
-     *
-     *    Constructed: 1=yes (value contains zero or more element
-     *    encodings), 0=no (primitive)
-     *
-     *    Tag Number: 0-31
-     *
-     * End-of-Content (EOC)		0	0
-     * BOOLEAN		            1	1
-     * INTEGER		            2	2
-     * BIT STRING		        3	3
-     * OCTET STRING		        4	4
-     * NULL		                5	5
-     * OBJECT IDENTIFIER		6	6
-     * Object Descriptor		7	7
-     * EXTERNAL		            8	8
-     * REAL (float)		        9	9
-     * ENUMERATED		       10	A
-     * EMBEDDED PDV		       11	B
-     * UTF8String		       12	C
-     * RELATIVE-OID		       13	D
-     * TIME		               14	E
-     * Reserved		           15	F
-     * SEQUENCE, SEQUENCE OF   16	10
-     * SET and SET OF		   17	11
-     * NumericString		   18	12
-     * PrintableString		   19	13
-     * T61String		       20	14
-     * VideotexString		   21	15
-     * IA5String		       22	16
-     * UTCTime		           23	17
-     * GeneralizedTime		   24	18
-     * GraphicString		   25	19
-     * VisibleString		   26	1A
-     * GeneralString		   27	1B
-     * UniversalString		   28	1C
-     * CHARACTER STRING		   29	1D
-     * BMPString		       30	1E
-     * DATE		               31	1F *** LONG FORM TAG NUMBER ***
-     * TIME-OF-DAY		       32	20 *** LONG FORM TAG NUMBER ***
-     * DATE-TIME		       33	21 *** LONG FORM TAG NUMBER ***
-     * DURATION		           34	22 *** LONG FORM TAG NUMBER ***
-     * OID-IRI		           35	23 *** LONG FORM TAG NUMBER ***
-     * RELATIVE-OID-IRI		   36	24 *** LONG FORM TAG NUMBER ***
-     */
-
-    const char *type[32] = {
-        "End-of-Content",
-        "BOOLEAN",
-        "INTEGER",
-        "BIT STRING",
-        "OCTET STRING",
-        "NULL",
-        "OBJECT IDENTIFIER",
-        "Object Descriptor",
-        "EXTERNAL",
-        "REAL (float)",
-        "ENUMERATED",
-        "EMBEDDED PDV",
-        "UTF8String",
-        "RELATIVE-OID",
-        "TIME",
-        "Reserved",
-        "SEQUENCE, SEQUENCE OF",
-        "SET and SET OF",
-        "NumericString",
-        "PrintableString",
-        "T61String",
-        "VideotexString",
-        "IA5String",
-        "UTCTime",
-        "GeneralizedTime",
-        "GraphicString",
-        "VisibleString",
-        "GeneralString",
-        "UniversalString",
-        "CHARACTER STRING",
-        "BMPString"
-    };
-
-    void fprint(FILE *f, const char *tlv_name) {
-        // return;  // return;
-        if (value.data) {
-            uint8_t tag_class = tag >> 6;
-            uint8_t constructed = (tag >> 5) & 1;
-            uint8_t tag_number = tag & 31;
-            if (tag_class == 2) {
-                // tag is context-specific
-                fprintf(f, "T:%02x (%u:%u:%u, explicit tag %u)\tL:%08zu\tV:", tag, tag_class, constructed, tag_number, tag_number, length);
-            } else {
-                fprintf(f, "T:%02x (%u:%u:%u, %s)\tL:%08zu\tV:", tag, tag_class, constructed, tag_number, type[tag_number], length);
-            }
-            fprintf_raw_as_hex(f, value.data, value.data_end - value.data);
-            if (tlv_name) {
-                fprintf(f, "\t(%s)\n", tlv_name);
-            } else {
-                fprintf(f, "\n");
-            }
-        } else {
-            fprintf(f, "null (%s)\n", tlv_name);
-        }
-    }
-
-    inline bool is_constructed() {
-        return tag && 0x20;
-        // return (tag >> 5) & 1;
-    }
-
-    void print_as_json_hex(FILE *f, const char *name, bool comma=false) {
-        const char *format_string = "\"%s\":\"";
-        if (comma) {
-            format_string = ",\"%s\":\"";
-        }
-        fprintf(f, format_string, name);
-        if (value.data) {
-            fprintf_raw_as_hex(f, value.data, value.data_end - value.data);
-        }
-        fprintf(f, "\"");
-    }
-    void print_as_json_oid(FILE *f, const char *name, bool comma=false) {
-        const char *format_string = "\"%s\":\"%s\"";
-        if (comma) {
-            format_string = ",\"%s\":\"%s\"";
-        }
-        fprintf(f, format_string, name, parser_get_oid_string(&value));
-    }
-    void print_as_json_utctime(FILE *f, const char *name) {
-        fprintf_json_utctime(f, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_generalized_time(FILE *f, const char *name) {
-        fprintf_json_generalized_time(f, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_escaped_string(FILE *f, const char *name) {
-        fprintf_json_string_escaped(f, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_bitstring(FILE *f, const char *name, bool comma=false) {
-        const char *format_string = "\"%s\":[";
-        if (comma) {
-            format_string = ",\"%s\":[";
-        }
-        fprintf(f, format_string, name);
-        if (value.data) {
-            struct parser p = value;
-            size_t number_of_unused_bits;
-            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
-            const char *comma = "";
-            while (p.data < p.data_end-1) {
-                for (uint8_t x = 0x80; x > 0; x=x>>1) {
-                    fprintf(f, "%s%c", comma, x & *p.data ? '1' : '0');
-                    comma = ",";
-                }
-                p.data++;
-            }
-            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
-            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                fprintf(f, "%s%c", comma, x & *p.data ? '1' : '0');
-                comma = ",";
-            }
-
-        }
-        fprintf(f, "]");
-    }
-    void print_as_json_bitstring_flags(FILE *f, const char *name, char * const *flags, bool comma=false) {
-        const char *format_string = "\"%s\":[";
-        if (comma) {
-            format_string = ",\"%s\":[";
-        }
-        fprintf(f, format_string, name);
-        if (value.data) {
-            struct parser p = value;
-            char *const *tmp = flags;
-            size_t number_of_unused_bits;
-            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
-            const char *comma = "";
-            while (p.data < p.data_end-1) {
-                for (uint8_t x = 0x80; x > 0; x=x>>1) {
-                    if (x & *p.data) {
-                        fprintf(f, "%s\"%s\"", comma, *tmp);
-                        comma = ",";
-                    }
-                    if (*tmp) {
-                        tmp++;
-                    }
-                }
-                p.data++;
-            }
-            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
-            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                if (x & *p.data) {
-                    fprintf(f, "%s\"%s\"", comma, *tmp);
-                    comma = ",";
-                }
-                if (*tmp) {
-                    tmp++;
-                }
-            }
-
-        }
-        fprintf(f, "]");
-    }
-
-};
-
+#include "asn1.h"
 
 /*
    Name ::= CHOICE { -- only one possibility for now --
@@ -1015,56 +472,53 @@ struct private_key_usage_period {
 
 struct general_name {
     struct tlv explicit_tag;
-    struct tlv name;
 
-    general_name() : explicit_tag{}, name{} {}
+    general_name() : explicit_tag{} {}
     general_name(struct parser *p) {
         parse(p);
     }
     void parse(struct parser *p, uint8_t expected_tag=0x00) {
         explicit_tag.parse(p, expected_tag);
-        if (explicit_tag.is_not_null()) {
-            //            fprintf(stdout, "got explicit tag %02x\n", explicit_tag.get_tag());
-            // explicit_tag.fprint(stdout, "subject_alt_name.name.explicit_tag");
-            if (0 && explicit_tag.is_constructed()) { // HACK
-                // fprintf(stdout, "got constructed explicit tag in general_name (%02x)\n", explicit_tag.is_constructed());
-                name.parse(&explicit_tag.value, 0, "subject_alt_name.name");
-            }
-        }
     }
-
     void print_as_json(FILE *f) {
-        if (explicit_tag.get_tag() == 0) {
-            struct tlv type_id(&explicit_tag.value, tlv::OBJECT_IDENTIFIER, "other_name.type_id");
-            struct tlv value(&explicit_tag.value, 0, "other_name.value");
-
+        if (explicit_tag.tag == otherName) {
+            struct tlv type_id(&explicit_tag.value, tlv::OBJECT_IDENTIFIER);
+            struct tlv value(&explicit_tag.value, 0);
             fprintf(f, "{\"other_name\":{");
-            fprintf(f, "\"type_id\":\"");
-            fprintf_raw_as_hex(f, type_id.value.data, (int) (type_id.value.data_end - type_id.value.data));
-            fprintf(f, "\",\"value\":\"");
-            fprintf_raw_as_hex(f, value.value.data, (int) (value.value.data_end - value.value.data));
-            fprintf(f, "\"}}");
-        } else if (explicit_tag.get_tag() == 1) {
+            type_id.print_as_json_oid(f, "type_id");
+            value.print_as_json_hex(f, "value", true);
+            fprintf(f, "}}");
+        } else if (explicit_tag.tag == rfc822Name) {
             fprintf(f, "{");
-            fprintf_json_string_escaped(f, "rfc822_name", explicit_tag.value.data, (int) (explicit_tag.value.data_end - explicit_tag.value.data));
+            explicit_tag.print_as_json_escaped_string(f, "rfc822_name");
             fprintf(f, "}");
-        } else if (explicit_tag.get_tag() == 2) {
+        } else if (explicit_tag.tag == dNSName) {
             fprintf(f, "{");
-            fprintf_json_string_escaped(f, "dns_name", explicit_tag.value.data, (int) (explicit_tag.value.data_end - explicit_tag.value.data));
+            explicit_tag.print_as_json_escaped_string(f, "dns_name");
             fprintf(f, "}");
-        } else if (explicit_tag.get_tag() == 6) {
+        } else if (explicit_tag.tag == uniformResourceIdentifier) {
             fprintf(f, "{");
-            fprintf_json_string_escaped(f, "uri", explicit_tag.value.data, (int) (explicit_tag.value.data_end - explicit_tag.value.data));
+            explicit_tag.print_as_json_escaped_string(f, "uri");
             fprintf(f, "}");
-        } else if (explicit_tag.get_tag() == 7) {
-            fprintf(f, "{\"ip_address\":\"");
-            fprintf_ip_address(f, explicit_tag.value.data, (int) (explicit_tag.value.data_end - explicit_tag.value.data));
-            fprintf(f, "\"}");
+        } else if (explicit_tag.tag == iPAddress) {
+            explicit_tag.print_as_json_ip_address(f, "ip_address");
         } else {
-            fprintf(f, "{\"SAN explicit tag\":%u}", explicit_tag.get_tag());
+            fprintf(f, "{\"SAN explicit tag\": \"%02x\"}", explicit_tag.tag);
             // fprintf_raw_as_hex(f, explicit_tag.value.data, (int) (explicit_tag.value.data_end - explicit_tag.value.data));
         }
     }
+    enum tag {
+        otherName                 = tlv::explicit_tag_constructed(0),
+        rfc822Name                = tlv::explicit_tag(1),
+        dNSName                   = tlv::explicit_tag(2),
+        x400Address               = tlv::explicit_tag(3),
+        directoryName             = tlv::explicit_tag(4),
+        ediPartyName              = tlv::explicit_tag(5),
+        uniformResourceIdentifier = tlv::explicit_tag(6),
+        iPAddress                 = tlv::explicit_tag(7),
+        registeredID              = tlv::explicit_tag(8)
+    };
+
 };
 
 struct subject_alt_name {
@@ -1073,13 +527,16 @@ struct subject_alt_name {
 
     subject_alt_name(struct parser *p) : sequence{p}, names{} {
         // sequence.fprint(stdout, "subject_alt_name.names");
+#if 0
         while (parser_get_data_length(&sequence.value) > 0) {
             names.push_back(&sequence.value);
         }
+#endif
     }
 
     void print_as_json(FILE *f, const char *name) {
         fprintf(f, ",{\"%s\":[", name);
+#if 0
         bool first = true;
         for (auto &x : names) {
             if (first) {
@@ -1089,6 +546,15 @@ struct subject_alt_name {
             }
             x.print_as_json(f);
         }
+#endif
+        const char *comma = "";
+        while (parser_get_data_length(&sequence.value) > 0) {
+            struct general_name general_name(&sequence.value);
+            fprintf(f, "%s", comma);
+            general_name.print_as_json(f);
+            comma = ",";
+        }
+
         fprintf(f, "]}");
     }
 };
@@ -1257,6 +723,93 @@ struct authority_key_identifier {
 };
 
 /*
+      id-ce-nameConstraints OBJECT IDENTIFIER ::=  { id-ce 30 }
+
+      NameConstraints ::= SEQUENCE {
+           permittedSubtrees       [0]     GeneralSubtrees OPTIONAL,
+           excludedSubtrees        [1]     GeneralSubtrees OPTIONAL }
+
+      GeneralSubtrees ::= SEQUENCE SIZE (1..MAX) OF GeneralSubtree
+      GeneralSubtree ::= SEQUENCE {
+           base                    GeneralName,
+           minimum         [0]     BaseDistance DEFAULT 0,
+           maximum         [1]     BaseDistance OPTIONAL }
+
+      BaseDistance ::= INTEGER (0..MAX)
+ */
+
+
+struct general_subtree {
+    struct tlv sequence;
+    struct general_name base;
+    struct tlv minimum;
+    struct tlv maximum;
+
+    general_subtree(struct parser *p) {
+        sequence.parse(p, tlv::SEQUENCE);
+        base.parse(&sequence.value);
+        while (parser_get_data_length(&sequence.value) > 0) {
+            struct tlv tmp(&sequence.value);
+            // tmp.fprint(stderr, "general_subtree.sequence.tmp");
+            if (tmp.tag == tag_minimum) {
+                minimum = tmp;
+            }
+            if (tmp.tag == tag_maximum) {
+                maximum = tmp;
+            }
+        }
+    }
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+        fprintf(f, "%s\"%s\":", pre, name);
+        base.print_as_json(f);
+        if (minimum.is_not_null()) {
+            // TBD: print out minimum (what about default?)
+        } else {
+            fprintf(f, ",\"minimum\":0");
+        }
+        fprintf(f, "%s", post);
+    }
+
+    enum tag {
+        tag_minimum = tlv::explicit_tag(0),
+        tag_maximum = tlv::explicit_tag(1)
+    };
+};
+
+struct name_constraints {
+    struct tlv sequence;
+    struct tlv permitted_subtrees; // sequence of general_subtree
+    struct tlv excluded_subtrees;  // sequence of general_subtree
+
+    name_constraints(struct parser *p) {
+        sequence.parse(p, tlv::SEQUENCE);
+        while (parser_get_data_length(&sequence.value) > 0) {
+            struct tlv tmp(&sequence.value);
+            if (tmp.tag == permittedSubtrees) {
+                permitted_subtrees = tmp;
+            }
+            if (tmp.tag == excludedSubtrees) {
+                excluded_subtrees = tmp;
+            }
+        }
+    }
+
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+        fprintf(f, "%s\"%s\":{", pre, name);
+        if (permitted_subtrees.is_not_null()) {
+            general_subtree subtree(&permitted_subtrees.value);
+            subtree.print_as_json(f, "permitted_subtree");
+        }
+        fprintf(f, "}%s", post);
+    }
+
+    enum tag {
+       permittedSubtrees = tlv::explicit_tag_constructed(0),
+       excludedSubtrees  = tlv::explicit_tag_constructed(1)
+    };
+};
+
+/*
   id-ce-subjectKeyIdentifier OBJECT IDENTIFIER ::=  { id-ce 14 }
 
   SubjectKeyIdentifier ::= KeyIdentifier
@@ -1421,6 +974,35 @@ struct subject_public_key_info {
         }
         fprintf(f, "}");
     }
+};
+
+/*
+   id-ce-SignedCertificateTimestampList OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 11129 2 4 2 }
+
+   The contents of the ASN.1 OCTET STRING embedded in an OCSP extension
+   or X509v3 certificate extension are as follows:
+
+        opaque SerializedSCT<1..2^16-1>;
+
+        struct {
+            SerializedSCT sct_list <1..2^16-1>;
+        } SignedCertificateTimestampList;
+
+ */
+struct signed_certificate_timestamp_list {
+    struct tlv serialized_sct;
+
+    // for now, we don't parse the TLS-style formatting
+
+    signed_certificate_timestamp_list(struct parser *p) {
+        serialized_sct.parse(p);
+    }
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+        fprintf(f, "%s", pre);
+        serialized_sct.print_as_json_hex(f, name);
+        fprintf(f, "%s", post);
+    }
+
 };
 
 /*
@@ -1605,6 +1187,14 @@ struct x509_cert {
                     comma = ",";
 
                     // new stuff
+                    if (oid_string && strcmp("id-ce-SignedCertificateTimestampList", oid_string) == 0) {
+                        struct signed_certificate_timestamp_list x(&xtn.extnValue.value);
+                        x.print_as_json(stdout, "signed_certificate_timestamp_list", ",{", "}");
+                    }
+                    if (oid_string && strcmp("id-ce-nameConstraints", oid_string) == 0) {
+                        struct name_constraints x(&xtn.extnValue.value);
+                        x.print_as_json(stdout, "name_constraints", ",{", "}");
+                    }
                     if (oid_string && strcmp("id-ce-cRLDistributionPoints", oid_string) == 0) {
                         struct crl_distribution_points x(&xtn.extnValue.value);
                         x.print_as_json(stdout, "crl_distribution_points", ",{", "}");
@@ -1675,45 +1265,43 @@ struct x509_cert_prefix {
     }
 
     void parse(const void *buffer, unsigned int len) {
-        struct tlv certificate;
-        struct tlv tbs_certificate;
-        struct tlv explicitly_tagged_version;
         struct tlv version;
-        struct tlv algorithm_identifier;
 
         struct parser p;
         data = (const uint8_t *)buffer;
-
         parser_init(&p, (const unsigned char *)buffer, len);
 
-        certificate.parse(&p, tlv::SEQUENCE, "certificate");
+        struct constructed_tlv certificate(&p, tlv::SEQUENCE, "certificate");
 
-        tbs_certificate.parse(&certificate.value, tlv::SEQUENCE, "tbs_certificate");
+        struct constructed_tlv tbs_certificate(certificate, tlv::SEQUENCE, "tbs_certificate");
 
         // parse (implicit or explicit) version
-        explicitly_tagged_version.parse(&tbs_certificate.value, tlv::explicit_tag_constructed(0), "version_tag");
+        struct constructed_tlv explicitly_tagged_version(tbs_certificate, tlv::explicit_tag_constructed(0), "version_tag");
         if (explicitly_tagged_version.is_not_null()) {
-            version.parse(&explicitly_tagged_version.value, tlv::INTEGER, "version");
-        } else {
+            version.parse(explicitly_tagged_version, tlv::INTEGER, "version");
 
-            struct tlv version_or_serial_number(&tbs_certificate.value, tlv::INTEGER, "version_or_serial_number");
+        } else {
+            struct tlv version_or_serial_number(tbs_certificate, tlv::INTEGER, "version_or_serial_number");
             if (version_or_serial_number.length ==1 && version_or_serial_number.value.data[0] < 3) {
                 version = version_or_serial_number;
             } else {
                 serial_number = version_or_serial_number;
+                // no version in certificate; assume it is the default
             }
         }
-
         if (serial_number.is_null()) {
-            serial_number.parse(&tbs_certificate.value, tlv::INTEGER, "serial number");
+            serial_number.parse(tbs_certificate, tlv::INTEGER, "serial number");
         }
 
-        algorithm_identifier.parse(&tbs_certificate.value);
+        struct tlv algorithm_identifier(tbs_certificate, 0, "algorithm_identifier");
 
         // parse issuer
-        issuer.parse(&tbs_certificate.value);
-        data_end = tbs_certificate.value.data;
-
+        issuer.parse(tbs_certificate);
+        if (issuer.is_not_null()) {
+            data_end = tbs_certificate.value.data;  // found the end of the issuer, so set data_end
+        } else {
+            data = NULL;                            // indicate that we didn't get a complete prefix
+        }
     }
 
     size_t get_length() {
@@ -1733,7 +1321,9 @@ struct x509_cert_prefix {
 
     void print_as_json_hex(FILE *f) {
         fprintf(f, "{\"cert_prefix\":\"");   // open JSON object
-        fprintf_raw_as_hex(f, data, data_end - data);
+        if (data && data_end) {
+            fprintf_raw_as_hex(f, data, data_end - data);
+        }
         fprintf(f, "\"}\n"); // close JSON line
     }
 
