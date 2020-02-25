@@ -291,10 +291,11 @@ void json_file_write(struct json_file *jf,
 
     if ((trunc == 0) && (r > 0)) {
         fwrite(obuf, r, 1, jf->file);
-    }
 
-    if (json_file_needs_rotation(jf)) {
-        json_file_rotate(jf);
+        if (json_file_needs_rotation(jf)) {
+            json_file_rotate(jf);
+        }
+
     }
 
 }
