@@ -168,7 +168,7 @@ int decode(void *outbuf, const size_t outlen, const void* data, const size_t len
     size_t i, j;
     for (i = 0, j = 0; i < L; i += 4)  {
         if (invalid[p[i]] | invalid[p[i+1]] | invalid[p[i+2]] | invalid[p[i+3]]) {
-            return -i;
+            return -(i+1);
         }
         int n = index[p[i]] << 18 | index[p[i + 1]] << 12 | index[p[i + 2]] << 6 | index[p[i + 3]];
         str[j++] = n >> 16;

@@ -61,23 +61,126 @@ void sha256_hash(const void *buffer,
 
 #endif
 
+// file reading
+
+struct file_reader {
+    virtual ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) = 0;
+    // virtual ~file_reader();
+};
+
+struct base64_file_reader : public file_reader {
+    FILE *stream;
+    char *line;
+    unsigned int line_number = 0;
+
+    base64_file_reader(const char *infile) : stream{NULL}, line{NULL} {
+        stream = fopen(infile, "r");
+        if (stream == NULL) {
+            perror("fopen");
+            exit(EXIT_FAILURE);
+        }
+    }
+    ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
+        size_t len = 0;
+        line_number++;
+        ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
+        if (nread == -1) {
+            return 0;
+        }
+        ssize_t cert_len = base64::decode(outbuf, outbuf_len, line, nread);
+        if (cert_len < 0) {
+            fprintf(stderr, "error: base64 decoding failure on line %u around character %zd\n", line_number, -cert_len);
+            const char opening_line[] = "-----BEGIN CERTIFICATE-----";
+            if (nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) == 0) {
+                fprintf(stderr, "input seems to be in PEM format; try --pem\n");
+            }
+        }
+        return cert_len;
+    }
+    ~base64_file_reader() {
+        free(line);
+        fclose(stream);
+    }
+};
+
+struct pem_file_reader : public file_reader {
+    FILE *stream;
+    char *line;
+    size_t cert_number = 0;
+
+    pem_file_reader(const char *infile) : stream{NULL}, line{NULL} {
+        stream = fopen(infile, "r");
+        if (stream == NULL) {
+            perror("fopen");
+            exit(EXIT_FAILURE);
+        }
+    }
+    ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
+        size_t len = 0;
+        ssize_t nread = 0;
+        const char opening_line[] = "-----BEGIN CERTIFICATE-----";
+        const char closing_line[] = "-----END CERTIFICATE-----";
+
+        cert_number++;
+
+        // check for opening
+        nread = getline(&line, &len, stream);
+        if (nread == -1) {
+            return 0;  // empty line; assue we are done with certificates
+        }
+        fprintf(stderr, "nread: %zd\n", nread);
+        if (nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) != 0) {
+            fprintf(stderr, "error: not in PEM format, or missing opening line in certificate %zd\n", cert_number);
+            return -1; // missing opening line; not in PEM format
+        }
+
+        // marshall data
+        char base64_buffer[8192];       // note: hardcoded length for now
+        char *base64_buffer_end = base64_buffer + sizeof(base64_buffer);
+        char *b_ptr = base64_buffer;
+        while ((nread = getline(&line, &len, stream)) > 0 ) {
+            if (nread == -1) {
+                fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
+                return -1; // empty line; PEM format incomplete
+            }
+            if (nread == 65) {
+                memcpy(b_ptr, line, nread-1);
+                b_ptr += nread-1;
+            } else {
+                if (nread >= sizeof(closing_line)-1 && strncmp(line, closing_line, sizeof(closing_line)-1) == 0) {
+                    break;
+                } else {
+                    memcpy(b_ptr, line, nread-1);
+                    b_ptr += nread;
+                }
+            }
+            if (b_ptr >= base64_buffer_end) {
+                return -1; // PEM certificate is too long for buffer, or missing closing line
+            }
+        }
+        ssize_t cert_len = base64::decode(outbuf, outbuf_len, base64_buffer, b_ptr - base64_buffer);
+        return cert_len;
+    }
+    ~pem_file_reader() {
+        free(line);
+        fclose(stream);
+    }
+};
+
+
 // std::unordered_map<std::string, std::string> cert_dict;
 //#include <thread>
 
 void usage(const char *progname) {
-    fprintf(stdout, "%s: --input <infile> [--prefix] [--prefix-as-hex]\n", progname);
+    fprintf(stdout, "%s: --input <infile> [--prefix] [--prefix-as-hex] [--pem]\n", progname);
     exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
-    FILE *stream;
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t nread;
-
     const char *infile = NULL;
     bool prefix = false;
     bool prefix_as_hex = false;
+    bool input_is_pem = false;
     //const char *outfile = NULL;
 
     // parse arguments
@@ -88,12 +191,14 @@ int main(int argc, char *argv[]) {
              case_input,
              case_output,
              case_prefix,
-             case_prefix_as_hex
+             case_prefix_as_hex,
+             case_pem
         };
         static struct option long_options[] = {
              {"input",          required_argument, NULL,  case_input         },
              {"prefix",         no_argument,       NULL,  case_prefix        },
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
+             {"pem",            no_argument,       NULL,  case_pem           },
              {0,                0,                 0,     0                  }
         };
 
@@ -122,11 +227,14 @@ int main(int argc, char *argv[]) {
             }
             prefix = true;
             break;
+        case case_pem:
+            if (optarg) {
+                fprintf(stderr, "error: option 'pem' does not accept an argument\n");
+                usage(argv[0]);
+            }
+            input_is_pem = true;
+            break;
         case case_output:
-            printf("got output ");
-            if (optarg)
-                printf(" with arg %s", optarg);
-            printf("\n");
             break;
         default:
             ;
@@ -137,16 +245,19 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "error: no input file specified\n");
         usage(argv[0]);
     }
-    stream = fopen(infile, "r");
-    if (stream == NULL) {
-        perror("fopen");
-        exit(EXIT_FAILURE);
+
+    struct file_reader *reader = NULL;
+    if (input_is_pem) {
+        reader = new pem_file_reader(infile);
+    } else {
+        reader = new base64_file_reader(infile);
     }
 
-    unsigned int line_number = 0;
-    while ((nread = getline(&line, &len, stream)) != -1) {
-        line_number++;
+    uint8_t cert_buf[8192];
+    ssize_t cert_len = 1;
+    while ((cert_len = reader->get_cert(cert_buf, sizeof(cert_buf))) > 0) {
 
+#if 0
         size_t offset=0;
         if (0) {
             // advance just past the comma
@@ -159,50 +270,34 @@ int main(int argc, char *argv[]) {
             offset = i+1;
         }
         char *b64_line = line + offset;
+#endif
 
-        uint8_t cert_buf[8192];
-        int cert_len = base64::decode(cert_buf, sizeof(cert_buf), b64_line, nread-offset);
-        if (cert_len <= 0) {
-            fprintf(stderr, "error: base64 decoding failure on line %u\n", line_number);
+        //  sha256_hash(cert_buf, cert_len);
+
+        if (prefix || prefix_as_hex) {
+            // parse certificate prefix, then print as JSON 
+            struct x509_cert_prefix p;
+            p.parse(cert_buf, cert_len);
+            if (prefix) {
+                p.print_as_json(stdout);
+            }
+            if (prefix_as_hex) {
+                p.print_as_json_hex(stdout);
+            }
+            // fprintf(stderr, "cert: %u\tprefix length: %zu\n", line_number, p.get_length());
 
         } else {
+            // parse certificate, then print as JSON
+            struct x509_cert c;
+            c.parse(cert_buf, cert_len);
+            c.print_as_json(stdout);
 
-            //  sha256_hash(cert_buf, cert_len);
-
-            try{
-
-                if (prefix || prefix_as_hex) {
-                    // parse certificate prefix, then print as JSON 
-                    struct x509_cert_prefix p;
-                    p.parse(cert_buf, cert_len);
-                    if (prefix) {
-                        p.print_as_json(stdout);
-                    }
-                    if (prefix_as_hex) {
-                        p.print_as_json_hex(stdout);
-                    }
-                    // fprintf(stderr, "cert: %u\tprefix length: %zu\n", line_number, p.get_length());
-
-                } else {
-                    // parse certificate, then print as JSON
-                    struct x509_cert c;
-                    c.parse(cert_buf, cert_len);
-                    c.print_as_json(stdout);
-
-                }
-            }
-            catch (const char *msg) {
-                fprintf(stdout, "error processing certificate at line %u (%s)\n", line_number, msg);
-                //return EXIT_FAILURE;
-            }
         }
-        //        cert_dict[key] = cert;
     }
 
+    //        cert_dict[key] = cert;
     // fprintf(stderr, "loaded %lu certs\n", cert_dict.size());
 
-    free(line);
-    fclose(stream);
 
     exit(EXIT_SUCCESS);
 
