@@ -76,7 +76,7 @@ struct base64_file_reader : public file_reader {
     base64_file_reader(const char *infile) : stream{NULL}, line{NULL} {
         stream = fopen(infile, "r");
         if (stream == NULL) {
-            perror("fopen");
+            fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
             exit(EXIT_FAILURE);
         }
     }
@@ -120,12 +120,12 @@ struct base64_file_reader : public file_reader {
 struct pem_file_reader : public file_reader {
     FILE *stream;
     char *line;
-    size_t cert_number = 0;
+    size_t cert_number;
 
-    pem_file_reader(const char *infile) : stream{NULL}, line{NULL} {
+    pem_file_reader(const char *infile) : stream{NULL}, line{NULL}, cert_number{0} {
         stream = fopen(infile, "r");
         if (stream == NULL) {
-            perror("fopen");
+            fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
             exit(EXIT_FAILURE);
         }
     }
@@ -143,7 +143,12 @@ struct pem_file_reader : public file_reader {
             return 0;  // empty line; assue we are done with certificates
         }
         if (nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) != 0) {
-            fprintf(stderr, "error: not in PEM format, or missing opening line in certificate %zd\n", cert_number);
+            const char *pem = "-----BEGIN";
+            if (nread >= sizeof(pem)-1 && strncmp(line, pem, sizeof(pem)-1) == 0) {
+                fprintf(stderr, "error: PEM data does not contain a certificate (encapsulated text %zd)\n", cert_number);
+            } else {
+                fprintf(stderr, "error: not in PEM format, or missing opening line in certificate %zd\n", cert_number);
+            }
             return -1; // missing opening line; not in PEM format
         }
 
