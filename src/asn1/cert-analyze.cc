@@ -198,6 +198,7 @@ void usage(const char *progname) {
 
 int main(int argc, char *argv[]) {
     const char *infile = NULL;
+    const char *filter = NULL;
     bool prefix = false;
     bool prefix_as_hex = false;
     bool input_is_pem = false;
@@ -212,13 +213,15 @@ int main(int argc, char *argv[]) {
              case_output,
              case_prefix,
              case_prefix_as_hex,
-             case_pem
+             case_pem,
+             case_filter
         };
         static struct option long_options[] = {
              {"input",          required_argument, NULL,  case_input         },
              {"prefix",         no_argument,       NULL,  case_prefix        },
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"pem",            no_argument,       NULL,  case_pem           },
+             {"filter",         required_argument, NULL,  case_filter        },
              {0,                0,                 0,     0                  }
         };
 
@@ -254,6 +257,13 @@ int main(int argc, char *argv[]) {
             }
             input_is_pem = true;
             break;
+        case case_filter:
+            if (!optarg) {
+                fprintf(stderr, "error: option 'filter' requires an argument\n");
+                usage(argv[0]);
+            }
+            filter=optarg;
+            break;
         case case_output:
             break;
         default:
@@ -264,6 +274,10 @@ int main(int argc, char *argv[]) {
     if (!infile) {
         fprintf(stderr, "error: no input file specified\n");
         usage(argv[0]);
+    }
+
+    if ((prefix || prefix_as_hex) && filter) {
+        fprintf(stderr, "warning: filter cannot be applied to certificate prefix\n");
     }
 
     struct file_reader *reader = NULL;
@@ -295,8 +309,10 @@ int main(int argc, char *argv[]) {
             // parse certificate, then print as JSON
             struct x509_cert c;
             c.parse(cert_buf, cert_len);
-            c.print_as_json(stdout);
 
+            if ((filter == NULL) || c.is_weak()) {
+                c.print_as_json(stdout);
+            }
         }
     }
 

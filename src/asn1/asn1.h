@@ -630,6 +630,33 @@ struct tlv {
         fprintf(f, "]");
     }
 
+    void print_as_json(FILE *f, const char *name) {
+        switch(tag) {
+        case tlv::UTCTime:
+            print_as_json_utctime(f, name);
+            break;
+        case tlv::GeneralizedTime:
+            print_as_json_generalized_time(f, name);
+            break;
+        case tlv::OBJECT_IDENTIFIER:
+            print_as_json_oid(f, name);
+            break;
+        case tlv::PRINTABLE_STRING:
+        case tlv::T61String:
+        case tlv::VIDEOTEX_STRING:
+        case tlv::IA5String:
+        case tlv::GraphicString:
+        case tlv::VisibleString:
+            print_as_json_escaped_string(f, name);
+            break;
+        case tlv::BIT_STRING:
+            print_as_json_bitstring(f, name);
+            break;
+        default:
+            print_as_json_hex(f, name);  // handle unexpected type
+        }
+    }
+
 };
 
 
