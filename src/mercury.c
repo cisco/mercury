@@ -46,6 +46,7 @@ void init_t_queues(int n) {
     }
 
     for (int i = 0; i < n; i++) {
+        t_queues.queue[i].qnum = i; /* only needed for debug output */
         t_queues.queue[i].ridx = 0;
         t_queues.queue[i].widx = 0;
 
@@ -262,47 +263,25 @@ void *output_thread_func(void *arg) {
         }
 
         int wq; /* winning queue */
-        int lq; /* losing queue (second place) */
         while (t_tree.stalled == 0) {
             wq = t_tree.tree[0];
-            lq = -1;
 
-            //fprintf(stderr, "Unstalled\n");
-            //debug_print_tour_tree(&t_tree);
+            struct llq_msg *wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
+            if (wmsg->used == 1) {
+                fwrite(wmsg->buf, wmsg->len, 1, stdout);
 
-            /* The first place queue is the root node of the t_tree
-             * but we need to "find" the 2nd place node by checking
-             * its children
-             */
-            if (t_tree.qp2 > 2) {
-                if (t_tree.tree[1] == wq) {
-                    lq = t_tree.tree[2];
-                } else {
-                    lq = t_tree.tree[1];
-                }
+                /* A full memory barrier prevents the following flag (un)set from happening too soon */
+                __sync_synchronize();
+                wmsg->used = 0;
+
+                t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
+
+                run_tourn_for_queue(&t_tree, wq);
+            }
+            else {
+                break;
             }
 
-            //fprintf(stderr, "Unstalled: wq = %d; lq = %d; lq < wq: %d\n", wq, lq, queue_less(lq, wq, &t_tree));
-
-            /* While the winning queue (the one with the oldest messages)
-             * has messages older than second place
-             */
-            while (queue_less(lq, wq, &t_tree) != 1) {  /* less than or equal */
-                struct llq_msg *wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
-                if (wmsg->used == 1) {
-                    fwrite(wmsg->buf, wmsg->len, 1, stdout);
-
-                    /* A full memory barrier prevents the following flag (un)set from happening too soon */
-                    __sync_synchronize();
-                    wmsg->used = 0;
-
-                    t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
-                }
-                else {
-                    break;
-                }
-            }
-            run_tourn_for_queue(&t_tree, wq);
         }
 
         /* The tree is now stalled because a queue has been emptied
@@ -319,25 +298,8 @@ void *output_thread_func(void *arg) {
         int old_done = 0;
         while (old_done == 0) {
             wq = t_tree.tree[0];
-            lq = -1;
-
-            //fprintf(stderr, "Stalled\n");
-            //debug_print_tour_tree(&t_tree);
-
-            /* The first place queue is the root node of the t_tree
-             * but we need to "find" the 2nd place node by checking
-             * its children
-             */
-            if (t_tree.qp2 > 2) {
-                if (t_tree.tree[1] == wq) {
-                    lq = t_tree.tree[2];
-                } else {
-                    lq = t_tree.tree[1];
-                }
-            }
 
             struct llq_msg *wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
-
             if (wmsg->used == 0) {
                 /* Even the top queue has nothing so we can just stop now */
                 old_done = 1;
@@ -348,37 +310,26 @@ void *output_thread_func(void *arg) {
                 }
 
                 break;
+            } else if (time_less(&(wmsg->ts), &old_ts) == 1) {
+                fwrite(wmsg->buf, wmsg->len, 1, stdout);
+
+                /* A full memory barrier prevents the following flag (un)set from happening too soon */
+                __sync_synchronize();
+                wmsg->used = 0;
+
+                t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
+
+                run_tourn_for_queue(&t_tree, wq);
+            } else {
+                old_done = 1;
             }
-
-            //fprintf(stderr, "Stalled: wq = %d; lq = %d; lq < wq: %d\n", wq, lq, queue_less(lq, wq, &t_tree));
-
-            /* While the winning queue (the one with the oldest messages)
-             * has messages older than second place
-             */
-            while (queue_less(lq, wq, &t_tree) != 1) { /* less than or equal */
-                wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
-
-                if ((wmsg->used == 1) && (time_less(&(wmsg->ts), &old_ts) == 1)) {
-                    fwrite(wmsg->buf, wmsg->len, 1, stdout);
-
-                    /* A full memory barrier prevents the following flag (un)set from happening too soon */
-                    __sync_synchronize();
-                    wmsg->used = 0;
-
-                    t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
-                } else {
-                    old_done = 1;
-                    break;
-                }
-            }
-            run_tourn_for_queue(&t_tree, wq);
         }
 
         struct timespec sleep_ts;
         sleep_ts.tv_sec = 0;
         sleep_ts.tv_nsec = 1000;
         nanosleep(&sleep_ts, NULL);
-    }
+    } /* End all_output_flushed == 0 meaning we got a signal to stop */
 
     return NULL;
 }

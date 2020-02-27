@@ -332,6 +332,11 @@ void json_queue_write(struct ll_queue *llq,
             __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
             llq->msgs[llq->widx].used = 1;
 
+            fprintf(stderr, "DEBUG QUEUE %d packet time: %ld.%09ld\n",
+                    llq->qnum,
+                    llq->msgs[llq->widx].ts.tv_sec,
+                    llq->msgs[llq->widx].ts.tv_nsec);
+
             //llq->next_write();
             llq->widx = (llq->widx + 1) % LLQ_DEPTH;
         }
