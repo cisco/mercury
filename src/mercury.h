@@ -89,6 +89,7 @@ struct llq_msg {
 
 /* a "lockless" queue */
 struct ll_queue {
+    int qnum;  /* This is the queue number and is only needed for debugging */
     int ridx;  /* The read index */
     int widx;  /* The write index */
     struct llq_msg msgs[LLQ_DEPTH];
