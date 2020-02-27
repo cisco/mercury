@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <unordered_set>
 #include "oid.h"    // oid dictionary
 
 #include "../mercury.h"
@@ -836,16 +837,16 @@ struct validity {
     }
     void parse(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE, "validity.sequence");
-        notBefore.parse(&sequence.value, tlv::UTCTime, "validity.notBefore");
-        notAfter.parse(&sequence.value, tlv::UTCTime, "validity.notAfter");
+        notBefore.parse(&sequence.value, 0, "validity.notBefore"); // tlv::UTCTime or tlv::GeneralizedTime
+        notAfter.parse(&sequence.value, 0, "validity.notAfter");   // tlv::UTCTime or tlv::GeneralizedTime
     }
     void print_as_json(FILE *f) {
         fprintf(f, ",\"validity\":[");
         fprintf(f, "{");
-        fprintf_json_utctime(f, "notBefore", notBefore.value.data, notBefore.value.data_end - notBefore.value.data);
+        notBefore.print_as_json(f, "notBefore");
         fprintf(f, "}");
         fprintf(f, ",{");
-        fprintf_json_utctime(f, "notAfter", notAfter.value.data, notAfter.value.data_end - notAfter.value.data);
+        notAfter.print_as_json(f, "notAfter");
         fprintf(f, "}");
         fprintf(f, "]");  // closing validity
     }
@@ -888,8 +889,17 @@ struct rsa_public_key {
 
 
 struct ec_public_key {
-    ec_public_key(struct parser *p) {}
-    void print_as_json(FILE *f, const char *name, bool comma) {}
+    struct tlv tmp;
+
+    ec_public_key(struct parser *p) : tmp{} {
+        tmp.parse(p);
+    }
+    void print_as_json(FILE *f, const char *name, bool comma) {
+        if (comma) {
+            fprintf(f, ",");
+        }
+        tmp.print_as_json(f, name);
+    }
 };
 
 /*
@@ -930,6 +940,12 @@ struct algorithm_identifier {
     const char *type() {
         if (algorithm.is_not_null()) {
             return parser_get_oid_string(&algorithm.value);
+        }
+        return NULL;
+    }
+    const char *get_parameters() {
+        if (parameters.is_not_null()) {
+            return parser_get_oid_string(&parameters.value);
         }
         return NULL;
     }
@@ -1092,7 +1108,7 @@ struct x509_cert {
             serial_number.parse(&tbs_certificate.value, tlv::INTEGER, "serial number");
         }
 
-        algorithm_identifier.parse(&tbs_certificate.value); 
+        algorithm_identifier.parse(&tbs_certificate.value);
 
         // parse issuer
         issuer.parse(&tbs_certificate.value, "issuer");
@@ -1251,6 +1267,26 @@ struct x509_cert {
 
     }
 
+    bool is_weak() {
+        const char *alg_type = subjectPublicKeyInfo.algorithm.type();
+        if (strcmp(alg_type, "id-ecPublicKey") == 0) {
+            const char *parameters = subjectPublicKeyInfo.algorithm.get_parameters();
+            std::unordered_set<const char *> weak_parameters {
+              (const char *)"secp192r1",
+              (const char *)"secp224r1",
+              (const char *)"prime192v1",
+              (const char *)"prime192v2",
+              (const char *)"prime192v3",
+              (const char *)"prime239v1",
+              (const char *)"prime239v2",
+              (const char *)"prime239v3"   // "prime256v1"
+            };
+            if (weak_parameters.find(parameters) != weak_parameters.end()) {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 struct x509_cert_prefix {
