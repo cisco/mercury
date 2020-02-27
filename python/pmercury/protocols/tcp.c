@@ -1326,6 +1326,7 @@ static const char __pyx_k_path[] = "path";
 static const char __pyx_k_sort[] = "sort";
 static const char __pyx_k_test[] = "__test__";
 static const char __pyx_k_02x_2[] = "(%02x)";
+static const char __pyx_k_debug[] = "debug";
 static const char __pyx_k_loads[] = "loads";
 static const char __pyx_k_popen[] = "popen";
 static const char __pyx_k_score[] = "score";
@@ -1420,6 +1421,7 @@ static PyObject *__pyx_n_s_config;
 static PyObject *__pyx_n_s_context;
 static PyObject *__pyx_n_s_data;
 static PyObject *__pyx_n_s_data_len;
+static PyObject *__pyx_n_s_debug;
 static PyObject *__pyx_n_s_dict;
 static PyObject *__pyx_n_s_dirname;
 static PyObject *__pyx_n_s_dst_ip;
@@ -1492,7 +1494,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_8get_database_entry(str
 static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_10proto_identify(PyObject *__pyx_v_data, PyObject *__pyx_v_offset, CYTHON_UNUSED PyObject *__pyx_v_data_len); /* proto */
 static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_12fingerprint(unsigned char *__pyx_v_buf, unsigned int __pyx_v_offset, unsigned int __pyx_v_data_len); /* proto */
 static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_14get_human_readable(CYTHON_UNUSED struct __pyx_obj_8pmercury_9protocols_3tcp_TCP *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_); /* proto */
-static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_16proc_identify(CYTHON_UNUSED struct __pyx_obj_8pmercury_9protocols_3tcp_TCP *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_context_, CYTHON_UNUSED PyObject *__pyx_v_dst_ip, CYTHON_UNUSED PyObject *__pyx_v_dst_port, CYTHON_UNUSED PyObject *__pyx_v_list_procs, CYTHON_UNUSED PyObject *__pyx_v_endpoint, CYTHON_UNUSED PyObject *__pyx_v_approx); /* proto */
+static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_16proc_identify(CYTHON_UNUSED struct __pyx_obj_8pmercury_9protocols_3tcp_TCP *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_context_, CYTHON_UNUSED PyObject *__pyx_v_dst_ip, CYTHON_UNUSED PyObject *__pyx_v_dst_port, CYTHON_UNUSED PyObject *__pyx_v_list_procs, CYTHON_UNUSED PyObject *__pyx_v_endpoint, CYTHON_UNUSED PyObject *__pyx_v_approx, CYTHON_UNUSED PyObject *__pyx_v_debug); /* proto */
 static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_18__reduce_cython__(struct __pyx_obj_8pmercury_9protocols_3tcp_TCP *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_20__setstate_cython__(struct __pyx_obj_8pmercury_9protocols_3tcp_TCP *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_pf_8pmercury_9protocols_3tcp___pyx_unpickle_TCP(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state); /* proto */
@@ -3441,7 +3443,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_14get_human_readable(CY
 /* "pmercury/protocols/tcp.pyx":123
  * 
  * 
- *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):             # <<<<<<<<<<<<<<
+ *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True, debug=None):             # <<<<<<<<<<<<<<
  *         return None
  * 
  */
@@ -3456,19 +3458,23 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tcp_3TCP_17proc_identify(PyObjec
   CYTHON_UNUSED PyObject *__pyx_v_list_procs = 0;
   CYTHON_UNUSED PyObject *__pyx_v_endpoint = 0;
   CYTHON_UNUSED PyObject *__pyx_v_approx = 0;
+  CYTHON_UNUSED PyObject *__pyx_v_debug = 0;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("proc_identify (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_fp_str,&__pyx_n_s_context,&__pyx_n_s_dst_ip,&__pyx_n_s_dst_port,&__pyx_n_s_list_procs,&__pyx_n_s_endpoint,&__pyx_n_s_approx,0};
-    PyObject* values[7] = {0,0,0,0,0,0,0};
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_fp_str,&__pyx_n_s_context,&__pyx_n_s_dst_ip,&__pyx_n_s_dst_port,&__pyx_n_s_list_procs,&__pyx_n_s_endpoint,&__pyx_n_s_approx,&__pyx_n_s_debug,0};
+    PyObject* values[8] = {0,0,0,0,0,0,0,0};
     values[4] = ((PyObject *)__pyx_int_0);
     values[5] = ((PyObject *)Py_None);
     values[6] = ((PyObject *)Py_True);
+    values[7] = ((PyObject *)Py_None);
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
+        case  8: values[7] = PyTuple_GET_ITEM(__pyx_args, 7);
+        CYTHON_FALLTHROUGH;
         case  7: values[6] = PyTuple_GET_ITEM(__pyx_args, 6);
         CYTHON_FALLTHROUGH;
         case  6: values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
@@ -3495,19 +3501,19 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tcp_3TCP_17proc_identify(PyObjec
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_context)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 7, 1); __PYX_ERR(0, 123, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 8, 1); __PYX_ERR(0, 123, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dst_ip)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 7, 2); __PYX_ERR(0, 123, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 8, 2); __PYX_ERR(0, 123, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dst_port)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 7, 3); __PYX_ERR(0, 123, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 8, 3); __PYX_ERR(0, 123, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
@@ -3527,12 +3533,20 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tcp_3TCP_17proc_identify(PyObjec
           PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_approx);
           if (value) { values[6] = value; kw_args--; }
         }
+        CYTHON_FALLTHROUGH;
+        case  7:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_debug);
+          if (value) { values[7] = value; kw_args--; }
+        }
       }
       if (unlikely(kw_args > 0)) {
         if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "proc_identify") < 0)) __PYX_ERR(0, 123, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
+        case  8: values[7] = PyTuple_GET_ITEM(__pyx_args, 7);
+        CYTHON_FALLTHROUGH;
         case  7: values[6] = PyTuple_GET_ITEM(__pyx_args, 6);
         CYTHON_FALLTHROUGH;
         case  6: values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
@@ -3554,30 +3568,31 @@ static PyObject *__pyx_pw_8pmercury_9protocols_3tcp_3TCP_17proc_identify(PyObjec
     __pyx_v_list_procs = values[4];
     __pyx_v_endpoint = values[5];
     __pyx_v_approx = values[6];
+    __pyx_v_debug = values[7];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 7, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 123, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("proc_identify", 0, 4, 8, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 123, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("pmercury.protocols.tcp.TCP.proc_identify", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8pmercury_9protocols_3tcp_3TCP_16proc_identify(((struct __pyx_obj_8pmercury_9protocols_3tcp_TCP *)__pyx_v_self), __pyx_v_fp_str_, __pyx_v_context_, __pyx_v_dst_ip, __pyx_v_dst_port, __pyx_v_list_procs, __pyx_v_endpoint, __pyx_v_approx);
+  __pyx_r = __pyx_pf_8pmercury_9protocols_3tcp_3TCP_16proc_identify(((struct __pyx_obj_8pmercury_9protocols_3tcp_TCP *)__pyx_v_self), __pyx_v_fp_str_, __pyx_v_context_, __pyx_v_dst_ip, __pyx_v_dst_port, __pyx_v_list_procs, __pyx_v_endpoint, __pyx_v_approx, __pyx_v_debug);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_16proc_identify(CYTHON_UNUSED struct __pyx_obj_8pmercury_9protocols_3tcp_TCP *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_context_, CYTHON_UNUSED PyObject *__pyx_v_dst_ip, CYTHON_UNUSED PyObject *__pyx_v_dst_port, CYTHON_UNUSED PyObject *__pyx_v_list_procs, CYTHON_UNUSED PyObject *__pyx_v_endpoint, CYTHON_UNUSED PyObject *__pyx_v_approx) {
+static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_16proc_identify(CYTHON_UNUSED struct __pyx_obj_8pmercury_9protocols_3tcp_TCP *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_fp_str_, CYTHON_UNUSED PyObject *__pyx_v_context_, CYTHON_UNUSED PyObject *__pyx_v_dst_ip, CYTHON_UNUSED PyObject *__pyx_v_dst_port, CYTHON_UNUSED PyObject *__pyx_v_list_procs, CYTHON_UNUSED PyObject *__pyx_v_endpoint, CYTHON_UNUSED PyObject *__pyx_v_approx, CYTHON_UNUSED PyObject *__pyx_v_debug) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("proc_identify", 0);
 
   /* "pmercury/protocols/tcp.pyx":124
  * 
- *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):
+ *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True, debug=None):
  *         return None             # <<<<<<<<<<<<<<
  * 
  */
@@ -3588,7 +3603,7 @@ static PyObject *__pyx_pf_8pmercury_9protocols_3tcp_3TCP_16proc_identify(CYTHON_
   /* "pmercury/protocols/tcp.pyx":123
  * 
  * 
- *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True):             # <<<<<<<<<<<<<<
+ *     def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True, debug=None):             # <<<<<<<<<<<<<<
  *         return None
  * 
  */
@@ -4604,6 +4619,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_context, __pyx_k_context, sizeof(__pyx_k_context), 0, 0, 1, 1},
   {&__pyx_n_s_data, __pyx_k_data, sizeof(__pyx_k_data), 0, 0, 1, 1},
   {&__pyx_n_s_data_len, __pyx_k_data_len, sizeof(__pyx_k_data_len), 0, 0, 1, 1},
+  {&__pyx_n_s_debug, __pyx_k_debug, sizeof(__pyx_k_debug), 0, 0, 1, 1},
   {&__pyx_n_s_dict, __pyx_k_dict, sizeof(__pyx_k_dict), 0, 0, 1, 1},
   {&__pyx_n_s_dirname, __pyx_k_dirname, sizeof(__pyx_k_dirname), 0, 0, 1, 1},
   {&__pyx_n_s_dst_ip, __pyx_k_dst_ip, sizeof(__pyx_k_dst_ip), 0, 0, 1, 1},

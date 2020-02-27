@@ -17,6 +17,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from pmercury.utils.tls_utils import *
 from pmercury.utils.tls_constants import *
 from pmercury.utils.pmercury_utils import *
+from pmercury.utils.endpoint import *
 from pmercury.utils.eqv_classes import *
 from pmercury.utils.sequence_alignment import *
 
@@ -214,15 +215,10 @@ class TLS():
 
         # find generalized classes for destination information
         eqv_features = self.eqv_classes.get_dst_info(dest_addr, dest_port, server_name)
-#        domain, tld = get_tld_info(server_name)
-#        asn = get_asn_info(dest_addr)
-#        port_app = get_port_application(dest_port)
-#        features = [asn, domain, port_app, dest_addr, str(server_name), dest_port]
 
         # compute and sort scores for each process in the fingerprint
         fp_tc = fp_['total_count']
-        r_ = [self.compute_score(eqv_features, p_, fp_tc, endpoint, debug) for p_ in fp_['process_info']]
-#        r_ = [self.compute_score(features, p_, fp_tc, endpoint) for p_ in fp_['process_info']]
+        r_ = [self.compute_score(eqv_features, server_name, p_, fp_tc, endpoint, debug) for p_ in fp_['process_info']]
         r_ = sorted(r_, key=operator.itemgetter('score'), reverse=True)
 
         # if score == 0 or no match could be found, return default process
@@ -242,14 +238,8 @@ class TLS():
             else:
                 score_sum_ = sum([x_['score'] for x_ in r_])
                 malware_score_ = sum([x_['score'] for x_ in r_ if x_['malware'] == 1])/score_sum_
-                if malware_score_ > 0.9:
+                if malware_score_ > 0.99:
                     r_.pop(0)
-
-#        if self.MALWARE_DB and r_[0]['malware'] == False and \
-#           r_[0]['process'] == 'Generic DMZ Traffic' and len(r_) > 1 and r_[1]['malware'] == False:
-#            r_.pop(0)
-#        if r_[0]['process'] == 'Generic DMZ Traffic' and len(r_) > 1:
-#            r_.pop(0)
 
         # get generalized process name if available
         process_name = r_[0]['process']
@@ -275,7 +265,7 @@ class TLS():
         return out_
 
 
-    def compute_score(self, features, p_, fp_tc_, endpoint, debug=None):
+    def compute_score(self, features, server_name, p_, fp_tc_, endpoint, debug=None):
         cur_proc = p_['process']
         p_count  = p_['count']
         prob_process_given_fp = math.log(p_count/fp_tc_)
@@ -291,34 +281,37 @@ class TLS():
         if debug and p_['process'] in debug.split(','):
             print('%30s\t%30s\t%10s\t%0.4f' % (p_['process'], 'prob_process_given_fp', 'found', score_))
 
-        if (endpoint != None and endpoint.prev_flow != None and
-            'analysis' in endpoint.prev_flow and 'probable_processes' in endpoint.prev_flow['analysis']):
-            trans_prob = sum([pp_['score']*self.transition_probs[pp_['process']][cur_proc]
-                              for pp_ in endpoint.prev_flow['analysis']['probable_processes']
-                              if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
-            prev_proc_prior = base_prior_
-            if trans_prob > 0:
-                prev_proc_prior = math.log(trans_prob)
-            score_ += base_prior_ if base_prior_> prev_proc_prior else prev_proc_prior
+#        if (endpoint != None and endpoint.prev_flow != None and
+#            'analysis' in endpoint.prev_flow and 'probable_processes' in endpoint.prev_flow['analysis']):
+#            trans_prob = sum([pp_['score']*self.transition_probs[pp_['process']][cur_proc]
+#                              for pp_ in endpoint.prev_flow['analysis']['probable_processes'][0:1]
+#                              if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
+#            prev_proc_prior = proc_prior_
+#            if trans_prob > 0:
+#                prev_proc_prior = math.log(trans_prob)
+#            score_ += proc_prior_ if proc_prior_> prev_proc_prior else prev_proc_prior
 
         if endpoint != None and 'os_info' in p_:
             os_info = endpoint.get_os()
             if len(os_info) > 0:
                 k = next(iter(os_info.keys()))
                 if k in p_['os_info']:
-                    score_ += math.log(p_['os_info'][k]/fp_tc_)
+                    score_ += math.log(min(p_count,p_['os_info'][k])/p_count)
                 else:
-                    score_ += base_prior_
+                    score_ += math.log(1/p_count)
 
-#        weights = {
-#            'classes_hostname_tlds': 0.01,
-#            'classes_hostname_domains': 0.5,
-#            'classes_hostname_sni': 3.0,
-#            'classes_ip_ip': 0.8,
-#            'classes_ip_as': 0.1,
-#            'classes_port_port': 0.01,
-#            'classes_port_applications': 0.01,
-#        }
+        if endpoint != None:
+            gpn = self.app_families[cur_proc] if cur_proc in self.app_families else cur_proc
+            if gpn in endpoint.strong_procs:
+                score_ += math.log(.1)
+            else:
+                score_ += math.log(.05)
+
+            if server_name in strong_domains and gpn == strong_domains[server_name]:
+                score_ += math.log(1.0)
+            else:
+                score_ += math.log(.1)
+
         weights = {
             'classes_hostname_tlds': 0.01153,
             'classes_hostname_domains': 0.15590,
@@ -340,95 +333,6 @@ class TLS():
                 score_ += base_prior_*weights[f_name]
                 if debug and p_['process'] in debug.split(','):
                     print('%30s\t%30s\t%10s\t%0.4f' % (p_['process'], f_name, 'not found', base_prior_*weights[f_name]))
-
-        app_cat = 'Unknown'
-        if 'application_category' in p_:
-            app_cat = p_['application_category']
-
-        if self.MALWARE_DB:
-            return {'score':math.exp(score_), 'process':cur_proc, 'sha256':p_['sha256'],
-                    'malware':p_['malware'], 'category':app_cat}
-        else:
-            return {'score':math.exp(score_), 'process':cur_proc, 'sha256':p_['sha256'], 'category':app_cat}
-
-
-    def compute_score_bak(self, features, p_, fp_tc_, endpoint):
-        cur_proc       = p_['process']
-        p_count     = p_['count']
-        prob_process_given_fp = math.log(p_count/fp_tc_)
-
-#        base_prior_ = -23.02585 # log(1e-10)
-        base_prior_ = -26.02585 # log(1e-10)
-        proc_prior_ = -16.11810 # log(1e-7)
-#        proc_prior_ = -11.51293 # log(1e-5)
-#        prior_      = -13.81551 # log(1e-6)
-        prior_      = -16.81551 # log(1e-6)
-
-        if 'domain_mean' in p_ and p_['domain_mean'] < 5.0:
-            base_prior_ = -25.32844 # log(1e-11)
-
-#        score_ = 5*prob_process_given_fp if prob_process_given_fp > proc_prior_ else 5*proc_prior_
-        score_ = prob_process_given_fp if prob_process_given_fp > proc_prior_ else proc_prior_
-#        score_ = prob_process_given_fp if prob_process_given_fp > base_prior_ else base_prior_
-
-        if (endpoint != None and endpoint.prev_flow != None and
-            'analysis' in endpoint.prev_flow and 'probable_processes' in endpoint.prev_flow['analysis']):
-            trans_prob = sum([pp_['score']*self.transition_probs[pp_['process']][cur_proc]
-                              for pp_ in endpoint.prev_flow['analysis']['probable_processes']
-                              if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
-            prev_proc_prior = base_prior_
-            if trans_prob > 0:
-                prev_proc_prior = math.log(trans_prob)
-            score_ += base_prior_ if base_prior_> prev_proc_prior else prev_proc_prior
-
-        if endpoint != None and 'os_info' in p_:
-            os_info = endpoint.get_os()
-            if len(os_info) > 0:
-                k = next(iter(os_info.keys()))
-                if k in p_['os_info']:
-                    tmp_    = math.log((p_['os_info'][k]/p_count)*p_['os_info'][k]/fp_tc_)
-                    score_ += tmp_ if tmp_ > prior_ else prior_
-                else:
-                    score_ += base_prior_
-
-        try:
-            tmp_ = math.log((p_['classes_ip_as'][features[0]]/p_count)*p_['classes_ip_as'][features[0]]/fp_tc_)
-#            tmp_ = math.log(p_['classes_ip_as'][features[0]]/fp_tc_)
-#            tmp_ = math.log(p_['classes_ip_as'][features[0]]/p_count)
-            score_ += tmp_ if tmp_ > prior_ else prior_
-        except KeyError:
-            score_ += base_prior_
-
-        try:
-            tmp_ = math.log((p_['classes_hostname_domains'][features[1]]/p_count)*p_['classes_hostname_domains'][features[1]]/fp_tc_)
-#            tmp_ = math.log(p_['classes_hostname_domains'][features[1]]/fp_tc_)
-#            tmp_ = math.log(p_['classes_hostname_domains'][features[1]]/p_count)
-            score_ += tmp_ if tmp_ > prior_ else prior_
-        except KeyError:
-            score_ += base_prior_
-
-#        try:
-#            tmp_ = math.log(p_['classes_port_applications'][features[2]]/p_count)
-#            score_ += tmp_ if tmp_ > prior_ else prior_
-#        except KeyError:
-#            score_ += base_prior_
-
-        if self.EXTENDED_FP_METADATA:
-            try:
-                tmp_ = math.log((p_['classes_ip_ip'][features[3]]/p_count)*p_['classes_ip_ip'][features[3]]/fp_tc_)
-#                tmp_ = math.log(p_['classes_ip_ip'][features[3]]/fp_tc_)
-#                tmp_ = math.log(p_['classes_ip_ip'][features[3]]/p_count)
-                score_ += tmp_ if tmp_ > prior_ else prior_
-            except KeyError:
-                score_ += base_prior_
-
-            try:
-                tmp_ = math.log((p_['classes_hostname_sni'][features[4]]/p_count)*p_['classes_hostname_sni'][features[4]]/fp_tc_)
-#                tmp_ = math.log(p_['classes_hostname_sni'][features[4]]/fp_tc_)
-#                tmp_ = math.log(p_['classes_hostname_sni'][features[4]]/p_count)
-                score_ += tmp_ if tmp_ > prior_ else prior_
-            except KeyError:
-                score_ += base_prior_
 
         app_cat = 'Unknown'
         if 'application_category' in p_:

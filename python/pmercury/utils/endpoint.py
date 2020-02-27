@@ -3,9 +3,21 @@
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
 
+import os
+import sys
 import json
+import gzip
 from copy import deepcopy
 from collections import defaultdict, OrderedDict
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
+from pmercury.utils.pmercury_utils import *
+
+
+strong_domains_file = find_resource_path('resources/domain_indicators.json.gz')
+with gzip.open(strong_domains_file) as in_:
+    strong_domains = json.loads(in_.readline())
 
 
 class Endpoint:
@@ -15,7 +27,7 @@ class Endpoint:
         self.os_info    = defaultdict(float)
         self.prot_count = defaultdict(int)
         self.prev_flow  = None
-
+        self.strong_procs = set([])
 
     def update(self, flow, fp_type, fp_):
         self.prev_flow = flow
@@ -39,6 +51,10 @@ class Endpoint:
             for x_ in flow['analysis']['os_info']['probable_oses']:
                 self.os_info[x_['os']] += x_['score']
 
+        if fp_type == 'tls' and fp_type in flow and 'server_name' in flow[fp_type]:
+            server_name = flow[fp_type]['server_name']
+            if server_name in strong_domains:
+                self.strong_procs.add(strong_domains[server_name])
 
     def get_os(self):
         tmp_os = []

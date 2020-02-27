@@ -294,6 +294,11 @@ class Fingerprinter:
                 'event_start':ts,
                 'fingerprints':{fp_type: fp_str}}
 
+        if context != None:
+            flow[fp_type] = {}
+            for k in context:
+                flow[fp_type][k] = context[k]
+
         if self.human_readable:
             desc_ = self.parsers[fp_type].get_human_readable(flow['fingerprints'][fp_type])
             if desc_ != None:
