@@ -1294,6 +1294,12 @@ struct x509_cert {
               "prime239v1",
               "prime239v2",
               "prime239v3"
+              "brainpoolP160r1",
+              "brainpoolP160t1",
+              "brainpoolP192r1",
+              "brainpoolP192t1",
+              "brainpoolP224r1",
+              "brainpoolP224t1",
               // "prime256v1"
             };
             if (parameters == NULL || weak_parameters.find(parameters) != weak_parameters.end()) {
