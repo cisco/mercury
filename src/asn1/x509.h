@@ -196,7 +196,7 @@ struct basic_constraints {
  */
 
 struct ext_key_usage {
-    struct tlv sequence;
+    struct constructed_tlv sequence;
     std::vector<struct tlv> key_purpose_id;
 
     ext_key_usage(struct parser *p) : sequence{} {
