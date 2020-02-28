@@ -1296,7 +1296,7 @@ struct x509_cert {
               "prime239v3"
               // "prime256v1"
             };
-            if (weak_parameters.find(parameters) != weak_parameters.end()) {
+            if (parameters == NULL || weak_parameters.find(parameters) != weak_parameters.end()) {
                 return true;
             }
         }
