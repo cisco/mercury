@@ -455,7 +455,7 @@ def get_results_top(data):
         o_['ground_truth']['categories'] = {'malware': app_cats['malware'], app_cat: True}
         o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256s']}
         o_['inferred_truth']['categories'] = {}
-        o_['inferred_truth']['categories'][pi_['category']] = True
+        o_['inferred_truth']['categories'][pi_['application_category']] = True
         if 'malware' in pi_:
             o_['inferred_truth']['categories']['malware'] = pi_['malware']
         else:
