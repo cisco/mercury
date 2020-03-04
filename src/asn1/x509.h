@@ -926,9 +926,9 @@ struct algorithm_identifier {
             parameters.parse(&sequence.value);
         }
     }
-    void print_as_json(FILE *f) {
-        fprintf(f, "{");
-        fprintf(f, "\"algorithm\":\"%s\"", parser_get_oid_string(&algorithm.value));
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+        fprintf(f, "%s\"%s\":", pre, name);
+        fprintf(f, "{\"algorithm\":\"%s\"", parser_get_oid_string(&algorithm.value));
         if (parameters.is_not_null()) {
             fprintf(f, ",");
             if (parameters.tag == tlv::OBJECT_IDENTIFIER) {
@@ -937,7 +937,7 @@ struct algorithm_identifier {
                 parameters.print_as_json_hex(f, "parameters");
             }
         }
-        fprintf(f, "}");
+        fprintf(f, "}%s", post);
     }
     const char *type() {
         if (algorithm.is_not_null()) {
@@ -976,8 +976,7 @@ struct subject_public_key_info {
     }
     void print_as_json(FILE *f, const char *name) {
         fprintf(f, ",\"%s\":{", name);
-        fprintf(f, "\"algorithm\":");
-        algorithm.print_as_json(f);
+        algorithm.print_as_json(f, "algorithm_identifier");
         if (strcmp(algorithm.type(), "rsaEncryption") == 0) {
             subject_public_key.remove_bitstring_encoding();
             struct rsa_public_key pub_key(&subject_public_key.value);
@@ -1172,6 +1171,7 @@ struct x509_cert {
 
         fprintf(f, "{");   // open JSON object
         serial_number.print_as_json_hex(f, "serial_number");
+        algorithm_identifier.print_as_json(f, "algorithm_identifier", ",");
         issuer.print_as_json(f, "issuer");
         validity.print_as_json(f);
         subject.print_as_json(f, "subject");
@@ -1260,8 +1260,8 @@ struct x509_cert {
             fprintf(stdout, "]");  // closing extensions JSON array
         }
 
-        fprintf(f, ",\"signature_algorithm\":");
-        signature_algorithm.print_as_json(f);
+        //        fprintf(f, ",\"signature_algorithm\":");
+        signature_algorithm.print_as_json(f, "signature_algorithm", ",");
         fprintf(f, ",");
         signature.remove_bitstring_encoding();
         signature.print_as_json_hex(f, "signature");
