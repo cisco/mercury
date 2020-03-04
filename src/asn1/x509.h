@@ -217,7 +217,14 @@ struct ext_key_usage {
             } else {
                 fprintf(f, ",");
             }
-            fprintf(f, "\"%s\"", oid_string);
+            if (oid_string != oid_empty_string) {
+                fprintf(f, "\"%s\"", oid_string);
+            } else {
+                fprintf(f, "\"");
+                raw_string_print_as_oid(f, x.value.data, x.value.data_end - x.value.data);
+                fprintf(f, "\"");
+            }
+
         }
         fprintf(f, "]}");
     }
