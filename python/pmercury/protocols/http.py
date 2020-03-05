@@ -1,5 +1,3 @@
-#cython: language_level=3, cdivision=True, infer_types=True, initializedcheck=False, c_string_type=bytes, embedsignature=False
-
 """
  Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -68,26 +66,24 @@ class HTTP(Protocol):
 
 
     @staticmethod
-    def fingerprint(bytes data, unsigned int offset, unsigned int data_len):
-        cdef list t_ = data[offset:].split(b'\x0d\x0a', 1)
-        cdef list request = t_[0].split()
+    def fingerprint(data, offset, data_len):
+        t_ = data[offset:].split(b'\x0d\x0a', 1)
+        request = t_[0].split()
         if len(request) < 3:
             return None, None
 
-        cdef list c = []
+        c = []
         for rh in HTTP.headers_data:
             c.append('(%s)' % request[rh].hex())
 
         if len(t_) == 1:
             return ''.join(c), None
 
-        cdef bint http_ah = HTTP.all_headers
-        cdef set http_cish = HTTP.case_insensitive_static_headers
-        cdef set http_cssh = HTTP.case_sensitive_static_headers
-        cdef dict http_ctx = HTTP.contextual_data
-        cdef list headers = t_[1].split(b'\x0d\x0a')
-        cdef bytes t0_
-        cdef bytes t0_lower
+        http_ah = HTTP.all_headers
+        http_cish = HTTP.case_insensitive_static_headers
+        http_cssh = HTTP.case_sensitive_static_headers
+        http_ctx = HTTP.contextual_data
+        headers = t_[1].split(b'\x0d\x0a')
         context = []
         for h_ in headers:
             if h_ == b'':
