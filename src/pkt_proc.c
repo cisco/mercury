@@ -72,6 +72,9 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
             }
 
             return new pkt_proc_json_writer(outfile, cfg->mode, max_records);
+            /* DISABLED IPC PORTION -- for merging into trunk */
+            /*(void)max_records;
+              return new pkt_proc_json_writer_mq(fileset_id);*/
 
         } else {
             /*

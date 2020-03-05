@@ -1,0 +1,3 @@
+#!/bin/sh
+# TODO handle apt purge vs. remove
+rm -r /usr/local/var/mercury

@@ -1,0 +1,16 @@
+  -- borrowed FROM PKIX1Explicit-2009
+   id-pkix  OBJECT IDENTIFIER  ::=  {
+        iso(1) identified-organization(3) dod(6) internet(1)
+        security(5) mechanisms(5) pkix(7) }
+
+  -- otherName carries additional name types for subjectAltName,
+  -- issuerAltName, and other uses of GeneralNames.
+  --
+
+   id-on OBJECT IDENTIFIER ::= { id-pkix 8 }
+
+   id-on-SmtpUTF8Mailbox OBJECT IDENTIFIER ::= { id-on 9 }
+
+   id-on OBJECT IDENTIFIER ::= { id-pkix 8 }
+
+   id-on-SmtpUTF8Mailbox OBJECT IDENTIFIER ::= { id-on 9 }
