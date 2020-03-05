@@ -1,0 +1,23 @@
+-- deprecated X.509 / PKIX OIDs
+--
+-- Source: http://oidref.com/2.5.29
+-- Retrieved: Jan 31 2020
+--
+
+-- Note: there are several "Obsolete" OIDs at the same source; perhaps
+-- they should be included here.  For now they are omitted; the
+-- deprecated OIDs have all been observed in recently issued
+-- certificates.
+
+DeprecatedSubjectAltName OBJECT IDENTIFIER ::= {
+    joint-iso-itu-t(2) ds(5) certificateExtension(29) subjectAltName(7)
+}
+
+DeprecatedAuthorityKeyIdentifier OBJECT IDENTIFIER ::= {
+    joint-iso-itu-t(2) ds(5) certificateExtension(29) authorityKeyIdentifier(1)
+}
+
+DeprecatedpolicyConstraints OBJECT IDENTIFIER ::= {
+    joint-iso-itu-t(2) ds(5) certificateExtension(29) policyConstraints(34)
+}
+

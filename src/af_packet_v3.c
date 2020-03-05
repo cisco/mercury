@@ -196,7 +196,7 @@ void *stats_thread_func(void *statst_arg) {
     /* Now go grab the socket and streak statistics */
     double tot_rusage = 0;   /* Sum of all threads rusage */
     double worst_rusage = 0; /* Worst average rbuffer usage */
-    double worst_i_rusage = 0; /* Worst instantanious rbuffer usage */
+    double worst_i_rusage = 0; /* Worst instantaneous rbuffer usage */
     for (int thread = 0; thread < statst->num_threads; thread++) {
       af_packet_stats(statst->tstor[thread].sockfd, statst);
 
@@ -303,7 +303,7 @@ void *stats_thread_func(void *statst_arg) {
 	    "%7.03f%s Packets/s; Data Rate %7.03f%s bytes/s; "
 	    "Ethernet Rate (est.) %7.03f%s bits/s; "
 	    "Socket Packets %7.03f%s; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
-	    "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantanious rbuf %4.1f%%\n",
+	    "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantaneous rbuf %4.1f%%\n",
 	    r_pps, r_pps_s, r_byps, r_byps_s,
 	    r_ebips, r_ebips_s,
 	    r_spps, r_spps_s, sdps, sfps,
@@ -732,7 +732,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   uint32_t thread_ring_size;
   if (rlp->af_desired_memory / num_threads > rlp->af_ring_limit) {
     thread_ring_size = rlp->af_ring_limit;
-    fprintf(stderr, "Notice: desired memory exceedes %x memory for %d threads\n", rlp->af_ring_limit, num_threads);
+    fprintf(stderr, "Notice: desired memory exceeds %x memory for %d threads\n", rlp->af_ring_limit, num_threads);
   } else {
     thread_ring_size = rlp->af_desired_memory / num_threads;
   }
@@ -889,6 +889,14 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
       fprintf(stderr, "%s: error creating af_packet capture thread %d\n", strerror(err), thread);
       exit(255);
     }
+  }
+
+  /* Wake up output thread so it's polling the queues waiting for data */
+  t_output_p = 1;
+  err = pthread_cond_broadcast(&t_output_c); /* Wake up output */
+  if (err != 0) {
+      printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
+      exit(255);
   }
 
   /* At this point all threads are started but they're waiting on
