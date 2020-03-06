@@ -91,18 +91,24 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
 
   pkt_hdr = (struct tpacket3_hdr *) ((uint8_t *) block_hdr + block_hdr->hdr.bh1.offset_to_first_pkt);
   for (i = 0; i < num_pkts; ++i) {
-    byte_count += pkt_hdr->tp_snaplen;
+
+      /* The tp_snaplen value is the actual number of bytes of this packet
+       * that made it into the ringbuffer block.
+       * tp_len is the skb length which in special circumstances
+       * could be more (because of extra headers from the ethernet card, truncation, etc.)
+       */
+      byte_count += pkt_hdr->tp_snaplen;
 
     /* Grab the times */
     pi.ts.tv_sec = pkt_hdr->tp_sec;
     pi.ts.tv_nsec = pkt_hdr->tp_nsec;
 
     pi.caplen = pkt_hdr->tp_snaplen;
-    pi.len = pkt_hdr->tp_snaplen; // Is this right??
+    pi.len = pkt_hdr->tp_snaplen;
 
     uint8_t *eth = (uint8_t *)pkt_hdr + pkt_hdr->tp_mac;
     pkt_processor->apply(&pi, eth);
-    
+
     pkt_hdr = (struct tpacket3_hdr *) ((uint8_t *)pkt_hdr + pkt_hdr->tp_next_offset);
   }
 
@@ -832,9 +838,9 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
     return status_err;
   }
   if (cfg->user) {
-      printf("running as user %s\n", cfg->user);
+      fprintf(stderr, "running as user %s\n", cfg->user);
   } else {
-      printf("dropped root privileges\n");
+      fprintf(stderr, "dropped root privileges\n");
   }
 
   if (num_threads > 1) {
@@ -948,11 +954,18 @@ void ring_limits_init(struct ring_limits *rl, float frac) {
     if (frac < 0.0 || frac > 1.0 ) { /* sanity check */
 	frac = RING_LIMITS_DEFAULT_FRAC;
     }
-    
+
     /* This is the only parameter you should need to change */
     rl->af_desired_memory = (uint64_t) sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;
     //rl->af_desired_memory = 128 * (uint64_t)(1 << 30);  /* 8 GiB */
-    printf("mem: %" PRIu64 "\tfrac: %f\n", rl->af_desired_memory, frac); 
+    fprintf(stderr, "mem: %" PRIu64 "\tfrac: %f\n", rl->af_desired_memory, frac);
+
+    /* Note that with TPACKET_V3 the tp_frame_size value is effectively
+     * ignored because packets are packed together tightly
+     * to fill up a block.  There are still some restrictions
+     * but for the most part changing it won't have any effect
+     * and setting it small won't actually truncate any frames.
+     */
 
     /* Don't change any of the following parameters without good reason */
     rl->af_ring_limit     = 0xffffffff;      /* setsockopt() can't allocate more than this so don't even try */

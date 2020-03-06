@@ -68,8 +68,8 @@ struct mercury_config {
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
-#define LLQ_MSG_SIZE 8192    /* The number of bytes allowed for each message in the lockless queue */
-#define LLQ_DEPTH    65536   /* The number of "buckets" (queue messages) allowed */
+#define LLQ_MSG_SIZE 16384   /* The number of bytes allowed for each message in the lockless queue */
+#define LLQ_DEPTH    2048    /* The number of "buckets" (queue messages) allowed */
 #define LLQ_MAX_AGE  5       /* Maximum age (in seconds) messages are allowed to sit in a queue */
 
 

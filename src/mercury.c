@@ -311,6 +311,7 @@ void *output_thread_func(void *arg) {
 
                 break;
             } else if (time_less(&(wmsg->ts), &old_ts) == 1) {
+                //fprintf(stderr, "DEBUG: writing old message from queue %d\n", wq);
                 fwrite(wmsg->buf, wmsg->len, 1, stdout);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
@@ -369,12 +370,12 @@ enum status filename_append(char dst[MAX_FILENAME],
 
 void create_subdirectory(const char *outdir,
                          enum create_subdir_mode mode) {
-    printf("creating output directory %s\n", outdir);
+    fprintf(stderr, "creating output directory %s\n", outdir);
     if (mkdir(outdir, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
         if (errno == EEXIST && mode == create_subdir_mode_overwrite) {
-            printf("warning: directory %s exists; new data will be written into it\n", outdir);
+            fprintf(stderr, "warning: directory %s exists; new data will be written into it\n", outdir);
         } else {
-            printf("error %s: could not create directory %s\n", strerror(errno), outdir);
+            fprintf(stderr, "error %s: could not create directory %s\n", strerror(errno), outdir);
             exit(255);
         }
     }
