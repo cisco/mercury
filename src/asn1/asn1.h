@@ -9,6 +9,17 @@
  * utility functions
  */
 
+void utc_to_generalized_time(uint8_t gt[15], const uint8_t utc[13]) {
+    if (utc[0] < '5') {
+        gt[0] = '2';
+        gt[1] = '0';
+    } else {
+        gt[0] = '1';
+        gt[1] = '9';
+    }
+    memcpy(gt + 2, utc, 13);
+}
+
 void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
     const unsigned char *x = (const unsigned char *)data;
     const unsigned char *end = x + len;
@@ -140,6 +151,48 @@ void fprintf_json_generalized_time(FILE *f, const char *key, const uint8_t *data
 
     fprintf(f, "\"");
 }
+
+/*
+ * generalized_time_gt(d1, l1, d2, l2) compares two strings at
+ * locations d1 and d2 with lengths l1 and l2 assuming that they are
+ * in generalized time format (YYYYMMDDHHMMSSZ), and returns 1
+ * if d1 > d2, returns -1 if d1 < d2, and returns 0 if they are equal.
+ */
+
+int generalized_time_gt(const uint8_t *d1, unsigned int l1,
+                        const uint8_t *d2, unsigned int l2) {
+
+    if (l1 != 15 || l2 != 15) {
+        return -1;  // malformed input
+    }
+    for (int i=0; i<15; i++) {
+        if (d1[i] < d2[i]) {
+            return -1;
+        } else if (d1[i] > d2[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int utctime_to_generalized_time(uint8_t *gt, size_t gt_len, const uint8_t *utc_time, size_t utc_len) {
+    if (gt_len != 15) {
+        return -1;  // error: wrong output buffer size
+    }
+    if (utc_len != 12) {
+        return -1;  // error: wrong input buffer size
+    }
+    if (utc_time[0] < '5') {
+        gt[0] = '2';
+        gt[1] = '0';
+    } else {
+        gt[0] = '1';
+        gt[1] = '9';
+    }
+    memcpy(gt+2, utc_time, 12);
+    return 0;
+}
+
 
 struct json_file {
     FILE *f;
@@ -630,6 +683,70 @@ struct tlv {
         fprintf(f, "]");
     }
 
+    void print_as_json(FILE *f, const char *name) {
+        switch(tag) {
+        case tlv::UTCTime:
+            print_as_json_utctime(f, name);
+            break;
+        case tlv::GeneralizedTime:
+            print_as_json_generalized_time(f, name);
+            break;
+        case tlv::OBJECT_IDENTIFIER:
+            print_as_json_oid(f, name);
+            break;
+        case tlv::PRINTABLE_STRING:
+        case tlv::T61String:
+        case tlv::VIDEOTEX_STRING:
+        case tlv::IA5String:
+        case tlv::GraphicString:
+        case tlv::VisibleString:
+            print_as_json_escaped_string(f, name);
+            break;
+        case tlv::BIT_STRING:
+            print_as_json_bitstring(f, name);
+            break;
+        default:
+            print_as_json_hex(f, name);  // handle unexpected type
+        }
+    }
+
+    int time_cmp(const struct tlv &t) {
+        ssize_t l1 = value.data_end - value.data;
+        ssize_t l2 = t.value.data_end - t.value.data;
+        ssize_t min = l1 < l2 ? l1 : l2;
+        if (min == 0) {
+            return 0;
+        }
+        // fprintf(stderr, "comparing %zd bytes of times\nl1: %.*s\nl2: %.*s\n", min, l1, value.data, l2, t.value.data);
+
+        const uint8_t *d1 = value.data;
+        const uint8_t *d2 = t.value.data;
+        uint8_t gt1[15];
+        if (tag == tlv::UTCTime) {
+            d1 = gt1;
+            utc_to_generalized_time(gt1, value.data);
+        } else if (tag != tlv::GeneralizedTime) {
+            return 0; // error; attempt to compare non-time value
+        }
+        uint8_t gt2[15];
+        if (t.tag == tlv::UTCTime) {
+            d2 = gt2;
+            utc_to_generalized_time(gt2, t.value.data);
+        } else if (tag != tlv::GeneralizedTime) {
+            return 0; // error; attempt to compare non-time value
+        }
+
+        if (d1 && d2) {
+            return memcmp((const char *)d1, (const char *)d2, min);
+        }
+        return 0;
+    }
+    void set(enum tag type, const void *data, size_t len) {
+        tag = type;
+        length = len;
+        value.data = (const uint8_t *)data;
+        value.data_end = (const uint8_t *)data + len;
+    }
 };
 
 
