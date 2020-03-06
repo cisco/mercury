@@ -70,7 +70,7 @@ struct file_reader {
 
 struct base64_file_reader : public file_reader {
     FILE *stream;
-    char *line;
+    char *line = NULL;
     unsigned int line_number = 0;
 
     base64_file_reader(const char *infile) : stream{NULL}, line{NULL} {
@@ -85,6 +85,7 @@ struct base64_file_reader : public file_reader {
         line_number++;
         ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
         if (nread == -1) {
+            free(line);
             return 0;
         }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, line, nread);
@@ -109,6 +110,7 @@ struct base64_file_reader : public file_reader {
                 fprintf(stderr, "input seems to be in PEM format; try --pem\n");
             }
         }
+        free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
         return cert_len;
     }
     ~base64_file_reader() {
@@ -140,6 +142,7 @@ struct pem_file_reader : public file_reader {
         // check for opening
         nread = getline(&line, &len, stream);
         if (nread == -1) {
+            free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
             return 0;  // empty line; assue we are done with certificates
         }
         if (nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) != 0) {
@@ -149,6 +152,7 @@ struct pem_file_reader : public file_reader {
             } else {
                 fprintf(stderr, "error: not in PEM format, or missing opening line in certificate %zd\n", cert_number);
             }
+            free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
             return -1; // missing opening line; not in PEM format
         }
 
@@ -159,6 +163,7 @@ struct pem_file_reader : public file_reader {
         while ((nread = getline(&line, &len, stream)) > 0 ) {
             if (nread == -1) {
                 fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
+                free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
                 return -1; // empty line; PEM format incomplete
             }
             ssize_t advance = 0;
@@ -179,6 +184,7 @@ struct pem_file_reader : public file_reader {
             b_ptr += advance;
         }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, base64_buffer, b_ptr - base64_buffer);
+        free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
         return cert_len;
     }
     ~pem_file_reader() {
@@ -198,6 +204,7 @@ void usage(const char *progname) {
 
 int main(int argc, char *argv[]) {
     const char *infile = NULL;
+    const char *filter = NULL;
     bool prefix = false;
     bool prefix_as_hex = false;
     bool input_is_pem = false;
@@ -212,13 +219,15 @@ int main(int argc, char *argv[]) {
              case_output,
              case_prefix,
              case_prefix_as_hex,
-             case_pem
+             case_pem,
+             case_filter
         };
         static struct option long_options[] = {
              {"input",          required_argument, NULL,  case_input         },
              {"prefix",         no_argument,       NULL,  case_prefix        },
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"pem",            no_argument,       NULL,  case_pem           },
+             {"filter",         required_argument, NULL,  case_filter        },
              {0,                0,                 0,     0                  }
         };
 
@@ -254,6 +263,13 @@ int main(int argc, char *argv[]) {
             }
             input_is_pem = true;
             break;
+        case case_filter:
+            if (!optarg) {
+                fprintf(stderr, "error: option 'filter' requires an argument\n");
+                usage(argv[0]);
+            }
+            filter=optarg;
+            break;
         case case_output:
             break;
         default:
@@ -266,13 +282,17 @@ int main(int argc, char *argv[]) {
         usage(argv[0]);
     }
 
+    if ((prefix || prefix_as_hex) && filter) {
+        fprintf(stderr, "warning: filter cannot be applied to certificate prefix\n");
+    }
+
     struct file_reader *reader = NULL;
     if (input_is_pem) {
         reader = new pem_file_reader(infile);
     } else {
         reader = new base64_file_reader(infile);
     }
-
+    
     uint8_t cert_buf[8192];
     ssize_t cert_len = 1;
     while ((cert_len = reader->get_cert(cert_buf, sizeof(cert_buf))) > 0) {
@@ -295,14 +315,17 @@ int main(int argc, char *argv[]) {
             // parse certificate, then print as JSON
             struct x509_cert c;
             c.parse(cert_buf, cert_len);
-            c.print_as_json(stdout);
 
+            if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak()) {
+                c.print_as_json(stdout);
+            }
         }
     }
 
     //        cert_dict[key] = cert;
     // fprintf(stderr, "loaded %lu certs\n", cert_dict.size());
 
+    delete reader;
 
     exit(EXIT_SUCCESS);
 

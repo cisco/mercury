@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <unordered_set>
 #include "oid.h"    // oid dictionary
 
 #include "../mercury.h"
@@ -195,7 +196,7 @@ struct basic_constraints {
  */
 
 struct ext_key_usage {
-    struct tlv sequence;
+    struct constructed_tlv sequence;
     std::vector<struct tlv> key_purpose_id;
 
     ext_key_usage(struct parser *p) : sequence{} {
@@ -216,7 +217,14 @@ struct ext_key_usage {
             } else {
                 fprintf(f, ",");
             }
-            fprintf(f, "\"%s\"", oid_string);
+            if (oid_string != oid_empty_string) {
+                fprintf(f, "\"%s\"", oid_string);
+            } else {
+                fprintf(f, "\"");
+                raw_string_print_as_oid(f, x.value.data, x.value.data_end - x.value.data);
+                fprintf(f, "\"");
+            }
+
         }
         fprintf(f, "]}");
     }
@@ -338,7 +346,7 @@ struct policy_qualifier_info {
     }
     void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
         fprintf(f, "%s\"%s\":{", pre, name);
-        qualifier_id.print_as_json_hex(f, "qualifier_id");
+        qualifier_id.print_as_json_oid(f, "qualifier_id");
         fprintf(f, ",");
         qualifier.print_as_json_escaped_string(f, "qualifier");
         fprintf(f, "}%s", post);
@@ -362,7 +370,7 @@ struct policy_information {
     void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
         fprintf(f, "%s\"%s\":[", pre, name);
         fprintf(f, "{");
-        policy_identifier.print_as_json_hex(f, "policy_identifier");
+        policy_identifier.print_as_json_oid(f, "policy_identifier");
         if (policy_qualifiers.is_not_null()) {
             struct policy_qualifier_info policy_qualifier_info(&policy_qualifiers.value);
             policy_qualifier_info.print_as_json(f, "policy_qualifier_info", ",");
@@ -836,20 +844,22 @@ struct validity {
     }
     void parse(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE, "validity.sequence");
-        notBefore.parse(&sequence.value, tlv::UTCTime, "validity.notBefore");
-        notAfter.parse(&sequence.value, tlv::UTCTime, "validity.notAfter");
+        notBefore.parse(&sequence.value, 0, "validity.notBefore"); // tlv::UTCTime or tlv::GeneralizedTime
+        notAfter.parse(&sequence.value, 0, "validity.notAfter");   // tlv::UTCTime or tlv::GeneralizedTime
     }
     void print_as_json(FILE *f) {
         fprintf(f, ",\"validity\":[");
         fprintf(f, "{");
-        fprintf_json_utctime(f, "notBefore", notBefore.value.data, notBefore.value.data_end - notBefore.value.data);
+        notBefore.print_as_json(f, "notBefore");
         fprintf(f, "}");
         fprintf(f, ",{");
-        fprintf_json_utctime(f, "notAfter", notAfter.value.data, notAfter.value.data_end - notAfter.value.data);
+        notAfter.print_as_json(f, "notAfter");
         fprintf(f, "}");
         fprintf(f, "]");  // closing validity
     }
-
+    bool contains(const uint8_t gt, size_t len) {
+        return false;
+    }
 };
 
 /*
@@ -876,7 +886,7 @@ struct rsa_public_key {
         exponent.parse(&sequence.value, tlv::INTEGER);
     }
 
-    void print_as_json(FILE *f, const char *name, bool comma) {
+    void print_as_json(FILE *f, const char *name, bool comma=false) {
         fprintf(f, comma ? ",\"%s\":{" : "\"%s\":{", name);
         if (modulus.is_not_null() && exponent.is_not_null()) {
             modulus.print_as_json_hex(f, "modulus", false);
@@ -888,8 +898,17 @@ struct rsa_public_key {
 
 
 struct ec_public_key {
-    ec_public_key(struct parser *p) {}
-    void print_as_json(FILE *f, const char *name, bool comma) {}
+    struct tlv tmp;
+
+    ec_public_key(struct parser *p) : tmp{} {
+        tmp.parse(p);
+    }
+    void print_as_json(FILE *f, const char *name, bool comma) {
+        if (comma) {
+            fprintf(f, ",");
+        }
+        tmp.print_as_json(f, name);
+    }
 };
 
 /*
@@ -914,9 +933,9 @@ struct algorithm_identifier {
             parameters.parse(&sequence.value);
         }
     }
-    void print_as_json(FILE *f) {
-        fprintf(f, "{");
-        fprintf(f, "\"algorithm\":\"%s\"", parser_get_oid_string(&algorithm.value));
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+        fprintf(f, "%s\"%s\":", pre, name);
+        fprintf(f, "{\"algorithm\":\"%s\"", parser_get_oid_string(&algorithm.value));
         if (parameters.is_not_null()) {
             fprintf(f, ",");
             if (parameters.tag == tlv::OBJECT_IDENTIFIER) {
@@ -925,11 +944,17 @@ struct algorithm_identifier {
                 parameters.print_as_json_hex(f, "parameters");
             }
         }
-        fprintf(f, "}");
+        fprintf(f, "}%s", post);
     }
     const char *type() {
         if (algorithm.is_not_null()) {
             return parser_get_oid_string(&algorithm.value);
+        }
+        return NULL;
+    }
+    const char *get_parameters() {
+        if (parameters.is_not_null()) {
+            return parser_get_oid_string(&parameters.value);
         }
         return NULL;
     }
@@ -958,8 +983,7 @@ struct subject_public_key_info {
     }
     void print_as_json(FILE *f, const char *name) {
         fprintf(f, ",\"%s\":{", name);
-        fprintf(f, "\"algorithm\":");
-        algorithm.print_as_json(f);
+        algorithm.print_as_json(f, "algorithm_identifier");
         if (strcmp(algorithm.type(), "rsaEncryption") == 0) {
             subject_public_key.remove_bitstring_encoding();
             struct rsa_public_key pub_key(&subject_public_key.value);
@@ -1092,7 +1116,7 @@ struct x509_cert {
             serial_number.parse(&tbs_certificate.value, tlv::INTEGER, "serial number");
         }
 
-        algorithm_identifier.parse(&tbs_certificate.value); 
+        algorithm_identifier.parse(&tbs_certificate.value);
 
         // parse issuer
         issuer.parse(&tbs_certificate.value, "issuer");
@@ -1154,6 +1178,7 @@ struct x509_cert {
 
         fprintf(f, "{");   // open JSON object
         serial_number.print_as_json_hex(f, "serial_number");
+        algorithm_identifier.print_as_json(f, "algorithm_identifier", ",");
         issuer.print_as_json(f, "issuer");
         validity.print_as_json(f);
         subject.print_as_json(f, "subject");
@@ -1242,8 +1267,8 @@ struct x509_cert {
             fprintf(stdout, "]");  // closing extensions JSON array
         }
 
-        fprintf(f, ",\"signature_algorithm\":");
-        signature_algorithm.print_as_json(f);
+        //        fprintf(f, ",\"signature_algorithm\":");
+        signature_algorithm.print_as_json(f, "signature_algorithm", ",");
         fprintf(f, ",");
         signature.remove_bitstring_encoding();
         signature.print_as_json_hex(f, "signature");
@@ -1251,6 +1276,84 @@ struct x509_cert {
 
     }
 
+    bool is_weak(bool unsigned_is_weak=false) {
+
+        const char *alg_type = subjectPublicKeyInfo.algorithm.type();
+        if (strcmp(alg_type, "rsaEncryption") == 0) {
+            struct tlv tmp_key = subjectPublicKeyInfo.subject_public_key;  // make copy to leave original intact
+            tmp_key.remove_bitstring_encoding();
+            struct rsa_public_key pub_key(&tmp_key.value);
+            unsigned int bits_in_key = (pub_key.modulus.length-1)*8;  // we should check integer formatting, but instead we assume a leading 0x00
+            if (bits_in_key < 2048) {
+                return true;
+            }
+            unsigned int bytes_in_exponent = pub_key.exponent.length; // TBD: make proper
+            if (bytes_in_exponent < 3) {
+                return true;
+            }
+        }
+        if (strcmp(alg_type, "id-ecPublicKey") == 0) {
+            const char *parameters = subjectPublicKeyInfo.algorithm.get_parameters();
+            std::unordered_set<std::string> weak_parameters {
+              "secp192r1",
+              "secp224r1",
+              "prime192v1",
+              "prime192v2",
+              "prime192v3",
+              "prime239v1",
+              "prime239v2",
+              "prime239v3"
+              "brainpoolP160r1",
+              "brainpoolP160t1",
+              "brainpoolP192r1",
+              "brainpoolP192t1",
+              "brainpoolP224r1",
+              "brainpoolP224t1",
+              // "prime256v1"
+            };
+            if (parameters == NULL || weak_parameters.find(parameters) != weak_parameters.end()) {
+                return true;
+            }
+        }
+        const char *sig_alg_type = signature_algorithm.type();
+        std::unordered_set<std::string> weak_sig_algs= {
+            "rsaEncryption",
+            "md2WithRSAEncryption",
+            "md5WithRSAEncryption",
+            "sha-1WithRSAEncryption",
+            "sha1WithRSAEncryption",
+            "sha224WithRSAEncryption"
+            // "sha256WithRSAEncryption",
+            // "sha384WithRSAEncryption",
+            // "sha512WithRSAEncryption"
+        };
+        if (sig_alg_type == NULL) {
+            if (unsigned_is_weak) {  // TBD: check trusted roots to see if this is one
+                return true;
+            }
+        } else {
+            if (weak_sig_algs.find(sig_alg_type) != weak_sig_algs.end()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool is_not_currently_valid() {
+        char time_str[16];
+        time_t t = time(NULL);
+        struct tm *tt = localtime(&t);
+        size_t retval = strftime(time_str, sizeof(time_str), "%y%m%d%H%M%SZ", tt);
+
+        struct tlv tmp;
+        tmp.set(tlv::UTCTime, time_str, sizeof(time_str));
+        if (validity.notBefore.time_cmp(tmp) <= 0) {
+            if (validity.notAfter.time_cmp(tmp) >= 0) {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
 struct x509_cert_prefix {
