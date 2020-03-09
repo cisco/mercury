@@ -70,7 +70,7 @@ struct file_reader {
 
 struct base64_file_reader : public file_reader {
     FILE *stream;
-    char *line;
+    char *line = NULL;
     unsigned int line_number = 0;
 
     base64_file_reader(const char *infile) : stream{NULL}, line{NULL} {
@@ -85,6 +85,7 @@ struct base64_file_reader : public file_reader {
         line_number++;
         ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
         if (nread == -1) {
+            free(line);
             return 0;
         }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, line, nread);
@@ -109,6 +110,7 @@ struct base64_file_reader : public file_reader {
                 fprintf(stderr, "input seems to be in PEM format; try --pem\n");
             }
         }
+        free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
         return cert_len;
     }
     ~base64_file_reader() {
@@ -140,6 +142,7 @@ struct pem_file_reader : public file_reader {
         // check for opening
         nread = getline(&line, &len, stream);
         if (nread == -1) {
+            free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
             return 0;  // empty line; assue we are done with certificates
         }
         if (nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) != 0) {
@@ -149,6 +152,7 @@ struct pem_file_reader : public file_reader {
             } else {
                 fprintf(stderr, "error: not in PEM format, or missing opening line in certificate %zd\n", cert_number);
             }
+            free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
             return -1; // missing opening line; not in PEM format
         }
 
@@ -159,6 +163,7 @@ struct pem_file_reader : public file_reader {
         while ((nread = getline(&line, &len, stream)) > 0 ) {
             if (nread == -1) {
                 fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
+                free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
                 return -1; // empty line; PEM format incomplete
             }
             ssize_t advance = 0;
@@ -179,6 +184,7 @@ struct pem_file_reader : public file_reader {
             b_ptr += advance;
         }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, base64_buffer, b_ptr - base64_buffer);
+        free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
         return cert_len;
     }
     ~pem_file_reader() {
@@ -294,7 +300,7 @@ int main(int argc, char *argv[]) {
         //  sha256_hash(cert_buf, cert_len);
 
         if (prefix || prefix_as_hex) {
-            // parse certificate prefix, then print as JSON 
+            // parse certificate prefix, then print as JSON
             struct x509_cert_prefix p;
             p.parse(cert_buf, cert_len);
             if (prefix) {
@@ -319,6 +325,7 @@ int main(int argc, char *argv[]) {
     //        cert_dict[key] = cert;
     // fprintf(stderr, "loaded %lu certs\n", cert_dict.size());
 
+    delete reader;
 
     exit(EXIT_SUCCESS);
 

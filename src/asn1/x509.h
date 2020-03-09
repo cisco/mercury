@@ -196,7 +196,7 @@ struct basic_constraints {
  */
 
 struct ext_key_usage {
-    struct tlv sequence;
+    struct constructed_tlv sequence;
     std::vector<struct tlv> key_purpose_id;
 
     ext_key_usage(struct parser *p) : sequence{} {
@@ -877,7 +877,7 @@ struct rsa_public_key {
         exponent.parse(&sequence.value, tlv::INTEGER);
     }
 
-    void print_as_json(FILE *f, const char *name, bool comma) {
+    void print_as_json(FILE *f, const char *name, bool comma=false) {
         fprintf(f, comma ? ",\"%s\":{" : "\"%s\":{", name);
         if (modulus.is_not_null() && exponent.is_not_null()) {
             modulus.print_as_json_hex(f, "modulus", false);
@@ -1267,21 +1267,63 @@ struct x509_cert {
 
     }
 
-    bool is_weak() {
+    bool is_weak(bool unsigned_is_weak=false) {
+
         const char *alg_type = subjectPublicKeyInfo.algorithm.type();
+        if (strcmp(alg_type, "rsaEncryption") == 0) {
+            struct tlv tmp_key = subjectPublicKeyInfo.subject_public_key;  // make copy to leave original intact
+            tmp_key.remove_bitstring_encoding();
+            struct rsa_public_key pub_key(&tmp_key.value);
+            unsigned int bits_in_key = (pub_key.modulus.length-1)*8;  // we should check integer formatting, but instead we assume a leading 0x00
+            if (bits_in_key < 2048) {
+                return true;
+            }
+            unsigned int bytes_in_exponent = pub_key.exponent.length; // TBD: make proper
+            if (bytes_in_exponent < 3) {
+                return true;
+            }
+        }
         if (strcmp(alg_type, "id-ecPublicKey") == 0) {
             const char *parameters = subjectPublicKeyInfo.algorithm.get_parameters();
-            std::unordered_set<const char *> weak_parameters {
-              (const char *)"secp192r1",
-              (const char *)"secp224r1",
-              (const char *)"prime192v1",
-              (const char *)"prime192v2",
-              (const char *)"prime192v3",
-              (const char *)"prime239v1",
-              (const char *)"prime239v2",
-              (const char *)"prime239v3"   // "prime256v1"
+            std::unordered_set<std::string> weak_parameters {
+              "secp192r1",
+              "secp224r1",
+              "prime192v1",
+              "prime192v2",
+              "prime192v3",
+              "prime239v1",
+              "prime239v2",
+              "prime239v3"
+              "brainpoolP160r1",
+              "brainpoolP160t1",
+              "brainpoolP192r1",
+              "brainpoolP192t1",
+              "brainpoolP224r1",
+              "brainpoolP224t1",
+              // "prime256v1"
             };
-            if (weak_parameters.find(parameters) != weak_parameters.end()) {
+            if (parameters == NULL || weak_parameters.find(parameters) != weak_parameters.end()) {
+                return true;
+            }
+        }
+        const char *sig_alg_type = signature_algorithm.type();
+        std::unordered_set<std::string> weak_sig_algs= {
+            "rsaEncryption",
+            "md2WithRSAEncryption",
+            "md5WithRSAEncryption",
+            "sha-1WithRSAEncryption",
+            "sha1WithRSAEncryption",
+            "sha224WithRSAEncryption"
+            // "sha256WithRSAEncryption",
+            // "sha384WithRSAEncryption",
+            // "sha512WithRSAEncryption"
+        };
+        if (sig_alg_type == NULL) {
+            if (unsigned_is_weak) {  // TBD: check trusted roots to see if this is one
+                return true;
+            }
+        } else {
+            if (weak_sig_algs.find(sig_alg_type) != weak_sig_algs.end()) {
                 return true;
             }
         }
