@@ -65,7 +65,7 @@ class Fingerprinter:
 
         # register parsers
         self.parsers = {}
-        self.parsers['tcp']          = TCP()
+        self.parsers['tcp']          = TCP('resources/fingerprint_db_tcp.json.gz')
         self.parsers['tls']          = TLS(database)
         self.parsers['tls_server']   = TLS_Server()
         self.parsers['dtls']         = DTLS(database)
@@ -84,11 +84,9 @@ class Fingerprinter:
             self.experimental = True
             from pmercury.protocols.ssh import SSH
             from pmercury.protocols.tls_decrypt import TLS_Decrypt
-            from pmercury.protocols.tls_certificate_full import TLS_Certificate_Full
 
-            self.parsers['tls_certificate'] = TLS_Certificate_Full()
             self.parsers['ssh'] = SSH()
-            self.flow_parsers.extend([('tls_certificate', TLS_Certificate_Full()), ('ssh', SSH())])
+            self.flow_parsers.extend([('ssh', SSH())])
             if sslkeylog != None:
                 self.parsers['tls_decrypt'] = TLS_Decrypt(sslkeylog)
                 self.flow_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))
@@ -285,7 +283,7 @@ class Fingerprinter:
             self.write_record(flow)
 
 
-    def process_csv(self, fp_type, fp_str, src_ip, dst_ip, src_port, dst_port, protocol, ts, context):
+    def process_csv(self, fp_type, fp_str, src_ip, dst_ip, src_port, dst_port, protocol, ts, context, debug=None):
         flow = {'src_ip':src_ip,
                 'dst_ip':dst_ip,
                 'src_port':src_port,
@@ -293,6 +291,11 @@ class Fingerprinter:
                 'protocol':protocol,
                 'event_start':ts,
                 'fingerprints':{fp_type: fp_str}}
+
+        if context != None:
+            flow[fp_type] = {}
+            for k in context:
+                flow[fp_type][k] = context[k]
 
         if self.human_readable:
             desc_ = self.parsers[fp_type].get_human_readable(flow['fingerprints'][fp_type])
@@ -302,17 +305,19 @@ class Fingerprinter:
                 flow['readable'][fp_type] = desc_
 
         if self.analyze:
-            context = None
-            if fp_type in flow:
-                context = flow[fp_type]
-
             endpoint = None
             if self.endpoint:
                 endpoint = self.endpoint_model.get_endpoint(src_ip)
             proc_info = self.parsers[fp_type].proc_identify(flow['fingerprints'][fp_type], context, flow['dst_ip'],
-                                                            flow['dst_port'], self.num_procs, endpoint)
+                                                            flow['dst_port'], self.num_procs, endpoint, False, debug)
             if proc_info != None:
                 flow['analysis'] = proc_info
+
+            os_info = self.parsers[fp_type].os_identify(flow['fingerprints'][fp_type], self.num_procs)
+            if os_info != None:
+                if 'analysis' not in flow:
+                    flow['analysis'] = {}
+                flow['analysis']['os_info'] = os_info
 
         if self.endpoint:
             self.endpoint_model.update(flow)
