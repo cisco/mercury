@@ -157,7 +157,7 @@ struct pem_file_reader : public file_reader {
         }
 
         // marshall data
-        char base64_buffer[8192];       // note: hardcoded length for now
+        char base64_buffer[8*8192];       // note: hardcoded length for now
         char *base64_buffer_end = base64_buffer + sizeof(base64_buffer);
         char *b_ptr = base64_buffer;
         while ((nread = getline(&line, &len, stream)) > 0 ) {
@@ -293,14 +293,14 @@ int main(int argc, char *argv[]) {
         reader = new base64_file_reader(infile);
     }
 
-    uint8_t cert_buf[8192];
+    uint8_t cert_buf[8*8192];
     ssize_t cert_len = 1;
     while ((cert_len = reader->get_cert(cert_buf, sizeof(cert_buf))) > 0) {
 
         //  sha256_hash(cert_buf, cert_len);
 
         if (prefix || prefix_as_hex) {
-            // parse certificate prefix, then print as JSON 
+            // parse certificate prefix, then print as JSON
             struct x509_cert_prefix p;
             p.parse(cert_buf, cert_len);
             if (prefix) {

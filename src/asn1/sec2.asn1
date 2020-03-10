@@ -1,0 +1,41 @@
+-- From SEC 2 (Draft) Ver. 2.0
+-- Appendix 2: Object Identifiers for Recommended Parameters
+
+
+certicom-arc OBJECT IDENTIFIER ::= {
+   iso(1) identified-organization(3) certicom(132)
+}
+
+ansi-X9-62 OBJECT IDENTIFIER ::= {
+   iso(1) member-body(2) us(840) 10045
+}
+
+ellipticCurve OBJECT IDENTIFIER ::= { certicom-arc curve(0) }
+
+--
+-- Curves over prime-order fields:
+--
+secp192k1 OBJECT IDENTIFIER ::= { ellipticCurve 31 }
+secp192r1 OBJECT IDENTIFIER ::= { ansi-X9-62 curves(3) prime(1) 1 }
+secp224k1 OBJECT IDENTIFIER ::= { ellipticCurve 32 }
+secp224r1 OBJECT IDENTIFIER ::= { ellipticCurve 33 }
+secp256k1 OBJECT IDENTIFIER ::= { ellipticCurve 10 }
+secp256r1 OBJECT IDENTIFIER ::= { ansi-X9-62 curves(3) prime(1) 7 }
+secp384r1 OBJECT IDENTIFIER ::= { ellipticCurve 34 }
+secp521r1 OBJECT IDENTIFIER ::= { ellipticCurve 35 }
+
+--
+-- Curves over characteristic 2 fields.
+--
+sect163k1 OBJECT IDENTIFIER ::= { ellipticCurve 1 }
+sect163r1 OBJECT IDENTIFIER ::= { ellipticCurve 2 }
+sect163r2 OBJECT IDENTIFIER ::= { ellipticCurve 15 }
+sect233k1 OBJECT IDENTIFIER ::= { ellipticCurve 26 }
+sect233r1 OBJECT IDENTIFIER ::= { ellipticCurve 27 }
+sect239k1 OBJECT IDENTIFIER ::= { ellipticCurve 3 }
+sect283k1 OBJECT IDENTIFIER ::= { ellipticCurve 16 }
+sect283r1 OBJECT IDENTIFIER ::= { ellipticCurve 17 }
+sect409k1 OBJECT IDENTIFIER ::= { ellipticCurve 36 }
+sect409r1 OBJECT IDENTIFIER ::= { ellipticCurve 37 }
+sect571k1 OBJECT IDENTIFIER ::= { ellipticCurve 38 }
+sect571r1 OBJECT IDENTIFIER ::= { ellipticCurve 39 }
