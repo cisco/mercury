@@ -48,3 +48,40 @@ NetscapeCertificateComment OBJECT IDENTIFIER ::= { 2 16 840 1 113730 1 13 }
 
 -- An X.509 v3 certificate extension used to include free-form text
 -- comments inside certificates.
+
+-- Additional data from https://oidref.com/2.16.840.1.113730.1.1
+-- Retrieved March 10, 2020
+
+NetscapeCertType OBJECT IDENTIFIER ::= {
+      joint-iso-ccitt(2) country(16) us(840) organization(1) netscape(113730) cert-ext(1) cert-type(1)
+      }
+
+-- From https://www.openssl.org/docs/manmaster/man5/x509v3_config.html
+-- Retrieved March 10, 2020
+--
+-- The following extensions are non standard, Netscape specific and
+-- largely obsolete. Their use in new applications is discouraged.
+--
+-- Netscape String extensions
+--
+-- Netscape Comment (nsComment) is a string extension containing a
+-- comment which will be displayed when the certificate is viewed in some
+-- browsers.
+--
+-- Example:
+--
+--  nsComment = "Some Random Comment"
+--
+-- Other supported extensions in this category are: nsBaseUrl,
+-- nsRevocationUrl, nsCaRevocationUrl, nsRenewalUrl, nsCaPolicyUrl and
+-- nsSslServerName.
+--
+-- Netscape Certificate Type
+--
+-- This is a multi-valued extensions which consists of a list of flags to
+-- be included. It was used to indicate the purposes for which a
+-- certificate could be used. The basicConstraints, keyUsage and extended
+-- key usage extensions are now used instead.
+--
+-- Acceptable values for nsCertType are: client, server, email, objsign,
+-- reserved, sslCA, emailCA, objCA.
