@@ -1,0 +1,58 @@
+-- RFC 5639    ECC Brainpool Standard Curves & Curve Generation  March 2010
+--
+-- 4.  Object Identifiers and ASN.1 Syntax
+--
+-- 4.1.  Object Identifiers
+--
+-- The root of the tree for the object identifiers defined in this
+-- specification is given by:
+
+      ecStdCurvesAndGeneration OBJECT IDENTIFIER ::= {
+         iso(1)
+         identified-organization(3)
+         teletrust(36)
+         algorithm(3)
+         signature-algorithm(3)
+         ecSign(2)
+         8 }
+
+-- The object identifier ellipticCurve represents the tree for domain
+-- parameter sets.  It has the following value:
+
+      ellipticCurve OBJECT IDENTIFIER ::= { ecStdCurvesAndGeneration 1 }
+
+-- The tree containing the object identifiers for each set of domain
+-- parameters defined in this RFC is:
+
+      versionOne OBJECT IDENTIFIER ::= { ellipticCurve 1 }
+
+-- The following object identifiers represent the domain parameter sets
+-- defined in this RFC:
+
+      brainpoolP160r1 OBJECT IDENTIFIER ::= { versionOne 1 }
+
+      brainpoolP160t1 OBJECT IDENTIFIER ::= { versionOne 2 }
+
+      brainpoolP192r1 OBJECT IDENTIFIER ::= { versionOne 3 }
+
+      brainpoolP192t1 OBJECT IDENTIFIER ::= { versionOne 4 }
+
+      brainpoolP224r1 OBJECT IDENTIFIER ::= { versionOne 5 }
+
+      brainpoolP224t1 OBJECT IDENTIFIER ::= { versionOne 6 }
+
+      brainpoolP256r1 OBJECT IDENTIFIER ::= { versionOne 7 }
+
+      brainpoolP256t1 OBJECT IDENTIFIER ::= { versionOne 8 }
+
+      brainpoolP320r1 OBJECT IDENTIFIER ::= { versionOne 9 }
+
+      brainpoolP320t1 OBJECT IDENTIFIER ::= { versionOne 10 }
+
+      brainpoolP384r1 OBJECT IDENTIFIER ::= { versionOne 11 }
+
+      brainpoolP384t1 OBJECT IDENTIFIER ::= { versionOne 12 }
+
+      brainpoolP512r1 OBJECT IDENTIFIER ::= { versionOne 13 }
+
+      brainpoolP512t1 OBJECT IDENTIFIER ::= { versionOne 14 }

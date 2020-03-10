@@ -292,7 +292,7 @@ int main(int argc, char *argv[]) {
     } else {
         reader = new base64_file_reader(infile);
     }
-    
+
     uint8_t cert_buf[8192];
     ssize_t cert_len = 1;
     while ((cert_len = reader->get_cert(cert_buf, sizeof(cert_buf))) > 0) {
