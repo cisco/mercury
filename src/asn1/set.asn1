@@ -1,0 +1,34 @@
+-- SET  February 23, 1996
+
+id-sha-with-rsa-signature OBJECT IDENTIFIER ::= { 1 3 14 3 2 15 }
+
+
+-- from https://mailarchive.ietf.org/arch/msg/pkix/5zgqHliWw6dlx6K1eBTreDZ4Pow/
+--
+--	{ "1.3.14.3.2.2",  "md4WithRSA" },
+--	{ "1.3.14.3.2.3",  "md5WithRSA" },
+--	{ "1.3.14.3.2.4",  "md4WithRSAEncryption" },
+--	{ "1.3.14.3.2.6",  "desECB" },
+--	{ "1.3.14.3.2.7",  "desCBC" },
+--	{ "1.3.14.3.2.8",  "desOFB" },
+--	{ "1.3.14.3.2.9",  "desCFB" },
+--	{ "1.3.14.3.2.10", "desMAC" },
+--	{ "1.3.14.3.2.11", "rsaSignature" },
+--	{ "1.3.14.3.2.12", "dsa" },
+--	{ "1.3.14.3.2.13", "dsaWithSHA" },
+--	{ "1.3.14.3.2.14", "mdc2WithRSASignature" },
+--	{ "1.3.14.3.2.15", "shaWithRSASignature" },
+--	{ "1.3.14.3.2.16", "dhWithCommonModulus" },
+--	{ "1.3.14.3.2.17", "desEDE" },
+--	{ "1.3.14.3.2.18", "sha" },
+--	{ "1.3.14.3.2.19", "mdc-2" },
+--	{ "1.3.14.3.2.20", "dsaCommon" },
+--	{ "1.3.14.3.2.21", "dsaCommonWithSHA" },
+--	{ "1.3.14.3.2.22", "rsaKeyTransport" },
+--	{ "1.3.14.3.2.23", "keyed-hash-seal" },
+--	{ "1.3.14.3.2.24", "md2WithRSASignature" },
+--	{ "1.3.14.3.2.25", "md5WithRSASignature" },
+--	{ "1.3.14.3.2.26", "sha1" },
+--	{ "1.3.14.3.2.27", "dsaWithSHA1" },
+--	{ "1.3.14.3.2.28", "dsaCommonWithSHA1" },
+--	{ "1.3.14.3.2.29", "sha1WithRSASignature" },
