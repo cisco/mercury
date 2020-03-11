@@ -940,17 +940,11 @@ int main(int argc, char *argv[]) {
         printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
     }
 
-    /* make the thread queues */
-    init_t_queues(cfg.num_threads);
-    pthread_t output_thread;
-    int err = pthread_create(&output_thread, NULL, output_thread_func, NULL);
-    if (err != 0) {
-        perror("error creating output thread");
-    }
-
     /* init random number generator */
     srand(time(0));
 
+    int outthread = 0; /* Let's us know we made an output thread and it needs stopping */
+    pthread_t output_thread;
     if (cfg.capture_interface) {
         struct ring_limits rl;
 
@@ -959,22 +953,31 @@ int main(int argc, char *argv[]) {
         }
         ring_limits_init(&rl, cfg.buffer_fraction);
 
+        /* make the thread queues */
+        init_t_queues(cfg.num_threads);
+        int err = pthread_create(&output_thread, NULL, output_thread_func, NULL);
+        if (err != 0) {
+            perror("error creating output thread");
+        }
+        outthread = 1;
+
         af_packet_bind_and_dispatch(&cfg, &rl);
 
     } else if (cfg.read_filename) {
 
         open_and_dispatch(&cfg);
-
     }
 
     if (cfg.analysis) {
         analysis_finalize();
     }
 
-    fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
-    sig_stop_output = 1;
-    pthread_join(output_thread, NULL);
-    destroy_thread_queues();
+    if (outthread == 1) {
+        fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
+        sig_stop_output = 1;
+        pthread_join(output_thread, NULL);
+        destroy_thread_queues();
+    }
 
     return 0;
 }
