@@ -76,6 +76,9 @@ class Endpoints:
 
 
     def update(self, flow):
+        if 'fingerprints' not in flow:
+            return
+
         fp_type = next(iter(flow['fingerprints']))
         fp_     = flow['fingerprints'][fp_type]
         src     = self.get_src(flow, fp_type)

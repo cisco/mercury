@@ -84,11 +84,9 @@ class Fingerprinter:
             self.experimental = True
             from pmercury.protocols.ssh import SSH
             from pmercury.protocols.tls_decrypt import TLS_Decrypt
-            from pmercury.protocols.tls_certificate_full import TLS_Certificate_Full
 
-            self.parsers['tls_certificate'] = TLS_Certificate_Full()
             self.parsers['ssh'] = SSH()
-            self.flow_parsers.extend([('tls_certificate', TLS_Certificate_Full()), ('ssh', SSH())])
+            self.flow_parsers.extend([('ssh', SSH())])
             if sslkeylog != None:
                 self.parsers['tls_decrypt'] = TLS_Decrypt(sslkeylog)
                 self.flow_parsers.append(('tls_decrypt', TLS_Decrypt(sslkeylog)))
