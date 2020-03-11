@@ -25,8 +25,8 @@ cert-analyze: cert-analyze.cc x509.h asn1.h oid.h
 oidc: oidc.cc
 	$(CXX) $(CFLAGS) -o oidc oidc.cc
 
-oid-list: oidc.cc $(wildcard *.asn1)
-	./oidc $(wildcard *.asn1) > oid-list
+oid.h: oidc $(wildcard *.asn1)
+	./oidc $(wildcard *.asn1) > oid.h
 
 .PHONY: clean 
 clean:
