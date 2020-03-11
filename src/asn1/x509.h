@@ -937,6 +937,7 @@ struct algorithm_identifier {
     void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
         fprintf(f, "%s\"%s\":", pre, name);
         fprintf(f, "{\"algorithm\":\"%s\"", parser_get_oid_string(&algorithm.value));
+        algorithm.print_as_json_oid(stderr, "\nalgorithm");
         if (parameters.is_not_null()) {
             fprintf(f, ",");
             if (parameters.tag == tlv::OBJECT_IDENTIFIER) {
@@ -1522,6 +1523,83 @@ struct x509_cert_prefix {
     }
 
 };
+
+
+/*
+
+  Certificate Fingerprinting Notes
+
+  From RFC 2986:
+
+     A certification authority ... constructs an X.509 certificate
+     from the [subject] distinguished name and public key, the issuer
+     name, and the certification authority's choice of serial number,
+     validity period, and signature algorithm.  If the certification
+     request contains any PKCS #9 attributes, the certification
+     authority may also use the values in these attributes as well as
+     other information known to the certification authority to
+     construct X.509 certificate extensions.
+
+  From RFC 5280:
+
+     Conforming CAs MUST support the key identifiers, basic
+     constraints, key usage, and certificate policies extensions.  If
+     the CA issues certificates with an empty sequence for the subject
+     field, the CA MUST support the subject alternative name
+     extension.  Support for the remaining extensions is OPTIONAL.
+     Conforming CAs MAY support extensions that are not identified
+     within this specification; certificate issuers are cautioned that
+     marking such extensions as critical may inhibit interoperability.
+     At a minimum, applications conforming to this profile MUST
+     recognize the following extensions: key usage, certificate
+     policies, subject alternative name, basic constraints, name
+     constraints, policy constraints, extended key usage, and inhibit
+     anyPolicy.  In addition, applications conforming to this profile
+     SHOULD recognize the authority and subject key identifier
+     and policy mappings extensions.
+
+
+    Data Feature         Source
+    ----------------------------------------------------
+    version              CA
+    serialNumber         CA
+    signature            CA
+    issuer               CA
+    validity             CA
+    subject              Subject
+    subjectPublicKeyInfo Subject
+    extensions           CA or Subject (see below)
+
+    Extensions                      Source
+    ---------------------------------------------------
+    authorityKeyIdentifier          CA
+    basicConstraints                CA
+    certificateIssuer               CA
+    certificatePolicies             CA
+    cRLDistributionPoints           CA
+    cRLNumber                       CA
+    cRLReasons                      CA
+    deltaCRLIndicator               CA
+    extKeyUsage                     Subject?
+    freshestCRL
+    holdInstructionCode
+    inhibitAnyPolicy
+    invalidityDate
+    issuerAltName
+    issuingDistributionPoint
+    keyUsage                        CA?
+    nameConstraints
+    policyConstraints
+    policyMappings
+    privateKeyUsagePeriod
+    SignedCertificateTimestampList  ??
+    subjectAltName                  Subject
+    subjectDirectoryAttributes      Subject
+    subjectKeyIdentifier            Subject
+
+ */
+
+
 
 
 #endif /* X509_H */
