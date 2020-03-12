@@ -49,6 +49,9 @@ struct pkt_proc {
 
 
 
+// TODO: I believe the entire struct can be removed now that
+// we're using the lockless queues
+
 /*
  * struct pkt_proc_json_writer represents a packet processing object
  * that writes out a JSON representation of fingerprints, metadata,
@@ -71,6 +74,7 @@ struct pkt_proc_json_writer : public pkt_proc {
                          const char *mode,
                          uint64_t max_records) {
 
+        // TODO: this can be cleaned up / removed once the output thread is doing everything
         enum status status = json_file_init(&json_file, outfile_name, mode, max_records);
         if (status) {
             throw "could not initialize JSON output file";

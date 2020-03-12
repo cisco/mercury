@@ -844,15 +844,21 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   }
 
   if (num_threads > 1) {
-      
+
+      // TODO: figure out what to do here
+
       /*
        * create subdirectory into which each thread will write its output
        */
-      char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
-      enum create_subdir_mode mode = cfg->rotate ? create_subdir_mode_overwrite : create_subdir_mode_do_not_overwrite;
-      create_subdirectory(outdir, mode);
+      //char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
+      //enum create_subdir_mode mode = cfg->rotate ? create_subdir_mode_overwrite : create_subdir_mode_do_not_overwrite;
+
+      //create_subdirectory(outdir, mode);
   }
 
+
+  // TODO: eventually this entire fileset_id business can
+  // be removed since the output thread is handling files
   /*
    * initialze frame handlers 
    */
@@ -898,8 +904,8 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   }
 
   /* Wake up output thread so it's polling the queues waiting for data */
-  t_output_p = 1;
-  err = pthread_cond_broadcast(&t_output_c); /* Wake up output */
+  out_ctx.t_output_p = 1;
+  err = pthread_cond_broadcast(&(out_ctx.t_output_c)); /* Wake up output */
   if (err != 0) {
       printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
       exit(255);
@@ -909,7 +915,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
      the clean start condition
   */
   t_start_p = 1;
-  err = pthread_cond_broadcast(&(t_start_c)); // Wake up all the waiting threads
+  err = pthread_cond_broadcast(&t_start_c); // Wake up all the waiting threads
   if (err != 0) {
     printf("%s: error broadcasting all clear on clean start condition\n", strerror(err));
     exit(255);
