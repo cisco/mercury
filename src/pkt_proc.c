@@ -62,6 +62,9 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
 
             }
 
+            // TODO: eventually this entire branch can probably be removed
+            // since the output thread is doing it now
+
         } else if (cfg->fingerprint_filename) {
             /*
              * write fingerprints into output file

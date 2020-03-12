@@ -73,9 +73,27 @@ struct mercury_config {
 #define LLQ_MAX_AGE  5       /* Maximum age (in seconds) messages are allowed to sit in a queue */
 
 
+struct output_json_file {
+    FILE *file;
+    int64_t record_countdown;
+    int64_t max_records;
+    uint32_t file_num;
+    char *outfile_name;
+    const char *mode;
+};
+
+
+struct output_context {
+    struct output_json_file out_jf;
+    int t_output_p;
+    pthread_cond_t t_output_c;
+    pthread_mutex_t t_output_m;
+};
+
 extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
-extern int t_output_p;
-extern pthread_cond_t t_output_c;
+extern struct output_context out_ctx;
+//extern int t_output_p;
+//extern pthread_cond_t t_output_c;
 
 
 /* The message object suitable for the std::priority_queue */

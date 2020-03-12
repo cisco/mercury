@@ -31,10 +31,10 @@
 
 struct thread_queues t_queues;
 int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
-int t_output_p = 0;
-pthread_cond_t t_output_c  = PTHREAD_COND_INITIALIZER;
-pthread_mutex_t t_output_m = PTHREAD_MUTEX_INITIALIZER;
 
+struct output_context out_ctx;
+
+#define output_json_file_needs_rotation(ojf) (--((ojf).record_countdown) <= 0)
 
 void init_t_queues(int n) {
     t_queues.qnum = n;
@@ -89,8 +89,8 @@ int queue_less(int ql, int qr, struct tourn_tree *t_tree) {
      * shit will hit the fan!
      */
 
-    int ql_used = 0;
-    int qr_used = 0;
+    int ql_used = 0; /* The (l)eft queue in the tree */
+    int qr_used = 0; /* The (r)ight queue in the tree */
 
     /* check for a queue stall before we return anything otherwise
      * we could short-circuit logic before realizing one of the
@@ -130,7 +130,7 @@ int queue_less(int ql, int qr, struct tourn_tree *t_tree) {
      * the actual number of queues we just fill the tree with -1
      * to indicate that portion of the tree shouldn't be use
      * in the tournament (and any real queue compared to a -1 queue
-     * automatically "wins".
+     * automatically "wins").
      */
     if (ql >= t_queues.qnum) {
         return 0;
@@ -172,18 +172,19 @@ void run_tourn_for_queue(struct tourn_tree *t_tree, int q) {
      * the q number we can reduce the minus 1 or 2 to just minus 1.
      */
 
-    int ql = (q % 2 == 0)? q : q - 1; // the even q
-    int qr = ql + 1;                  // the odd q
+    int ql = (q % 2 == 0)? q : q - 1; /* the even q is (l)eft */
+    int qr = ql + 1;                  /* the odd q is (r)ight */
     int lidx = ((ql + t_tree->qp2) - 1) / 2;
 
     t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree);
 
     /* This "walks" back up the tree to the root node (0) */
     while (lidx > 0) {
-        lidx = (lidx - 1) / 2;
-        ql = t_tree->tree[(lidx * 2) + 1];
-        qr = t_tree->tree[(lidx * 2) + 2];
+        lidx = (lidx - 1) / 2; /* Up up a level in the tree */
+        ql = t_tree->tree[(lidx * 2) + 1]; /* (l)eft child queue */
+        qr = t_tree->tree[(lidx * 2) + 2]; /* (r)ight child queue */
 
+        /* Run the tournament between ql and qr */
         t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree);
     }
 }
@@ -212,29 +213,120 @@ void debug_print_tour_tree(struct tourn_tree *t_tree) {
 }
 
 
+enum status output_json_file_rotate(struct output_json_file *ojf) {
+    char outfile[MAX_FILENAME];
+
+    if (ojf->file) {
+        // printf("rotating output file\n");
+
+        if (fclose(ojf->file) != 0) {
+            perror("could not close json file");
+        }
+    }
+
+    if (ojf->max_records) {
+        /*
+         * create filename that includes sequence number and date/timestamp
+         */
+        char file_num[MAX_HEX];
+        snprintf(file_num, MAX_HEX, "%x", ojf->file_num++);
+        enum status status = filename_append(outfile, ojf->outfile_name, "-", file_num);
+        if (status) {
+            return status;
+        }
+
+        char time_str[128];
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        strftime(time_str, sizeof(time_str) - 1, "%Y%m%d%H%M%S", localtime(&now.tv_sec));
+        status = filename_append(outfile, outfile, "-", time_str);
+        if (status) {
+            return status;
+        }
+    } else {
+        strncpy(outfile, ojf->outfile_name, MAX_FILENAME - 1);
+    }
+
+    ojf->file = fopen(outfile, ojf->mode);
+    if (ojf->file == NULL) {
+        perror("error: could not open fingerprint output file");
+        return status_err;
+    }
+
+    ojf->record_countdown = ojf->max_records;
+
+    return status_ok;
+}
+
 
 void *output_thread_func(void *arg) {
 
-    (void)arg;
+    struct output_context *out_ctx = (struct output_context *)arg;
+
+    output_json_file_rotate(&(out_ctx->out_jf));
 
     int err;
-    err = pthread_mutex_lock(&t_output_m);
+    err = pthread_mutex_lock(&(out_ctx->t_output_m));
     if (err != 0) {
         fprintf(stderr, "%s: error locking output start mutex for stats thread\n", strerror(err));
         exit(255);
     }
-    while (t_output_p != 1) {
-        err = pthread_cond_wait(&t_output_c, &t_output_m);
+    while (out_ctx->t_output_p != 1) {
+        err = pthread_cond_wait(&(out_ctx->t_output_c), &(out_ctx->t_output_m));
         if (err != 0) {
             fprintf(stderr, "%s: error waiting on output start condition for stats thread\n", strerror(err));
             exit(255);
         }
     }
-    err = pthread_mutex_unlock(&t_output_m);
+    err = pthread_mutex_unlock(&(out_ctx->t_output_m));
     if (err != 0) {
         fprintf(stderr, "%s: error unlocking output start mutex for stats thread\n", strerror(err));
         exit(255);
     }
+
+    /* This output thread uses a "tournament tree" algorithm
+     * to perform a k-way merge of the lockless queues.
+     *
+     * https://en.wikipedia.org/wiki/Tournament_sort
+     * https://www.geeksforgeeks.org/tournament-tree-and-binary-heap/
+     * https://en.wikipedia.org/wiki/Priority_queue
+     *
+     * The actual algorithm is virtually identical to a priority queue
+     * with the caveat that instead of swapping elements in an array
+     * the priority queue just tracks a tree if of the "winning" queue
+     * index.  In this algorithm "winning" is the oldest message.
+     *
+     * This algorithm is very efficient because it leaves messages in
+     * the lockless queue until they are ready to be sent to output
+     * intsead of making copies of messages and throwing them in a
+     * priority queue.
+     *
+     * One "gotcha" about the usual k-way merge with a tournament tree
+     * is that we're reading messages out of the lockless queues in
+     * real-time as the queues are being filled.  This means not all
+     * queues will always have a message in them which means we can't
+     * really run the tournament properly because we don't know the
+     * timestamp of the next message that queue will have when a
+     * message finally arrives.
+     *
+     * To avoid things getting out-of-order the output thread won't
+     * run a tournament until either 1) all queues have a message in
+     * them, or 2) one of the queues has a message older than
+     * LLQ_MAX_AGE (5 seconds by default).
+     *
+     * This means that as long as no queue pauses for more than 5
+     * seconds the k-way merge will be perfectly in-order.  If a queue
+     * does pause for more than 5 seconds only messages older than 5
+     * seconds will be flushed.
+     *
+     * The other big assumetion is that each lockless queue is in
+     * perfect order.  Testing shows that rarely, packets can be
+     * out-of-order by a few microseconds in a lockless queue.  This
+     * may be the fault of tiny clock abnormalities, could be machine
+     * dependant, or ethernet card dependant.  The exact situations
+     * where packets can be recieved out of cronological order aren't
+     * known (to me anyways).
+     */
 
     struct tourn_tree t_tree;
     t_tree.qnum = t_queues.qnum;
@@ -262,17 +354,27 @@ void *output_thread_func(void *arg) {
             run_tourn_for_queue(&t_tree, q);
         }
 
+        /* This loop runs the tournament as long as the tree
+         * isn't "stalled".  A stalled tree means at least
+         * one of the lockless queues is currenty empty.
+         */
+
         int wq; /* winning queue */
         while (t_tree.stalled == 0) {
-            wq = t_tree.tree[0];
+            wq = t_tree.tree[0]; /* the root node is always the winning queue */
 
             struct llq_msg *wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
             if (wmsg->used == 1) {
-                fwrite(wmsg->buf, wmsg->len, 1, stdout);
+                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->out_jf.file);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
                 wmsg->used = 0;
+
+                /* Handle rotating file if needed */
+                if (output_json_file_needs_rotation(out_ctx->out_jf)) {
+                    output_json_file_rotate(&(out_ctx->out_jf));
+                }
 
                 t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
 
@@ -295,6 +397,11 @@ void *output_thread_func(void *arg) {
         /* This is the time we compare against to flush */
         old_ts.tv_sec -= LLQ_MAX_AGE;
 
+        /* This loop runs the tournament even though the tree is stalled
+         * but only pull messages out of queues that are older than
+         * LLQ_MAX_AGE (currently set to 5 seconds).
+         */
+
         int old_done = 0;
         while (old_done == 0) {
             wq = t_tree.tree[0];
@@ -312,11 +419,16 @@ void *output_thread_func(void *arg) {
                 break;
             } else if (time_less(&(wmsg->ts), &old_ts) == 1) {
                 //fprintf(stderr, "DEBUG: writing old message from queue %d\n", wq);
-                fwrite(wmsg->buf, wmsg->len, 1, stdout);
+                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->out_jf.file);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
                 wmsg->used = 0;
+
+                /* Handle rotating file if needed */
+                if (output_json_file_needs_rotation(out_ctx->out_jf)) {
+                    output_json_file_rotate(&(out_ctx->out_jf));
+                }
 
                 t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
 
@@ -326,11 +438,21 @@ void *output_thread_func(void *arg) {
             }
         }
 
+        /* This sleep slows us down so we don't spin the CPU.
+         * We probably could afford to call fflush() here
+         * the first time instead of sleeping and only sleep
+         * if we really aren't recieving any messages on
+         * any queues.
+         */
         struct timespec sleep_ts;
         sleep_ts.tv_sec = 0;
         sleep_ts.tv_nsec = 1000;
         nanosleep(&sleep_ts, NULL);
     } /* End all_output_flushed == 0 meaning we got a signal to stop */
+
+    if (fclose(out_ctx->out_jf.file) != 0) {
+        perror("could not close json file");
+    }
 
     return NULL;
 }
@@ -508,8 +630,23 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
             /*
              * create subdirectory into which each thread will write its output
              */
-            create_subdirectory(outdir, create_subdir_mode_do_not_overwrite);
+            // TODO: figure out what to do here in all cases
+            //create_subdirectory(outdir, create_subdir_mode_do_not_overwrite);
         }
+
+
+        // TODO: the following loop starts up a thread for each file
+        // however we first need to initialize the lockeless queues
+        // and to do that we need to know how many threads there will
+        // be.  We probably have to do two loops, #1 to count the number
+        // of threads/queues we need, and then #2 to actually start up
+        // threads.
+
+        // TODO: init the lockeless queues and output context and start the
+        // output thread and then signal the output thread's wait condition
+        // to let it know it can start.  This is exactly like how
+        // af_packet_v3.c has to signal the output thread after the other
+        // threads are started.
 
         /*
          * loop over all files in directory
@@ -556,6 +693,10 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
             delete tc[i].pkt_processor;
         }
 
+        // TODO: tell the output thread it can stop here
+        // or, make sure there is a catch-all output thread stop
+        // somewhere eles
+
     } else {
 
         /*
@@ -568,12 +709,21 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
             return status;
         }
 
+        // TODO: we also have to make this part output-thread-aware-
+        // and use the lockless queue and such.
+
+        // TODO: the pcap_file_processing_thread_func() is also going to
+        // have to signal the output thread that it can stop waiting
+
         pcap_file_processing_thread_func(&tc);
         //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
         bytes_written = tc.pkt_processor->bytes_written;
         packets_written = tc.pkt_processor->packets_written;
         pcap_file_close(&(tc.rf));
         delete tc.pkt_processor;
+
+        // TODO: signal the output thread it can stop
+        // or make sure it happens somewhere else
     }
 
     nano_seconds = get_clocktime_after(&before, &after);
@@ -943,6 +1093,9 @@ int main(int argc, char *argv[]) {
     /* init random number generator */
     srand(time(0));
 
+    // TODO: this output thread variable can probably be done away with
+    // once we are using an output thread for everything
+
     int outthread = 0; /* Let's us know we made an output thread and it needs stopping */
     pthread_t output_thread;
     if (cfg.capture_interface) {
@@ -953,9 +1106,39 @@ int main(int argc, char *argv[]) {
         }
         ring_limits_init(&rl, cfg.buffer_fraction);
 
+        // TODO: the making of the thread queues and the output context
+        // and output thread also need to be done in the case of
+        // processing a pcap file || directory of pcap files
+        // We probably want to move this code outside
+        // of if (cfg.capture_interface) { however
+        // that means that the pcap code also needs
+        // to be able to send messages over a lockless queue
+        // to the output thread and that hasn't been done yet
+
         /* make the thread queues */
         init_t_queues(cfg.num_threads);
-        int err = pthread_create(&output_thread, NULL, output_thread_func, NULL);
+
+        /* init the output context */
+        if (pthread_cond_init(&(out_ctx.t_output_c), NULL) != 0) {
+            perror("Unabe to initialize output condition");
+        }
+        if (pthread_mutex_init(&(out_ctx.t_output_m), NULL) != 0) {
+            perror("Unabe to initialize output mutex");
+        }
+        out_ctx.t_output_p = 0;
+
+        out_ctx.out_jf.file = NULL;
+        out_ctx.out_jf.max_records = cfg.rotate;
+        out_ctx.out_jf.record_countdown = 0;
+        out_ctx.out_jf.outfile_name = cfg.fingerprint_filename;
+        out_ctx.out_jf.file_num = 0;
+        out_ctx.out_jf.mode = cfg.mode;
+
+        //fprintf(stderr, "DEBUG: fingerprint filename: %s\n", cfg.fingerprint_filename);
+        //fprintf(stderr, "DEBUG: max records: %ld\n", out_ctx.out_jf.max_records);
+
+        /* Start the output thread */
+        int err = pthread_create(&output_thread, NULL, output_thread_func, &out_ctx);
         if (err != 0) {
             perror("error creating output thread");
         }
@@ -965,6 +1148,7 @@ int main(int argc, char *argv[]) {
 
     } else if (cfg.read_filename) {
 
+        // TODO: make me output thread aware!
         open_and_dispatch(&cfg);
     }
 
@@ -972,6 +1156,8 @@ int main(int argc, char *argv[]) {
         analysis_finalize();
     }
 
+    // TODO: figure out if we leave this here or we rely on other parts of the code
+    // to signal the output thread it can stop.
     if (outthread == 1) {
         fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
         sig_stop_output = 1;
