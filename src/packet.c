@@ -564,6 +564,109 @@ void flow_key_set_from_packet(struct flow_key *k,
     default:
         ;
     }
+}
 
+uint64_t flowhash(uint8_t *packet, size_t length) {
+    struct flow_key k = { none, { 0, 0, 0, 0, 0 } };
 
+    flow_key_set_from_packet(&k, packet, length);
+
+    /*
+     *   low_addr = src_ip if (strcmp(src_ip, dst_ip) < 0, dst_ip otherwise
+     *   hi_addr = dst_ip if (strcmp(src_ip, dst_ip) < 0, src_ip otherwise
+     *   low_port = src_ip if (strcmp(src_port, dst_port) < 0, dst_port otherwise
+     *   hi_port = dst_ip if (strcmp(src_port, dst_port) < 0, src_port otherwise
+     *   hash_input = src_ip || dst_ip || protocol || src_port || dst_port  (for protocol = 0x06 and protocol = 0x11)
+     *   hash_input = src_ip || dst_ip || protocol                          (otherwise)
+     *   flow_key_hash = // some non cryptographic hash function of flow_key
+     *   flowhash = flow_key_hash[0:4] || time[0:2]
+     */
+#if 0
+    void *low_addr = NULL;
+    void *hi_addr = NULL;
+    void *low_port = NULL;
+    void *hi_port = NULL;
+    uint8_t hash_input[37];
+    uint8_t *tmp = hash_input;
+    if (k.type == ipv4) {
+        if (strcmp(&k.value.v4.src_addr, &k.value.v4.dst_addr) < 0) {
+            low_addr = &k.value.v4.src_addr;
+            hi_addr = &k.value.v4.dst_addr;
+        } else {
+            low_addr = &k.value.v4.dst_addr;
+            hi_addr = &k.value.v4.src_addr;
+        }
+        memcpy(tmp, low_addr, sizeof(k.value.v4.src_addr));
+        tmp += sizeof(k.value.v4.src_addr);
+        memcpy(tmp, hi_addr, sizeof(k.value.v4.src_addr));
+        tmp += sizeof(k.value.v4.src_addr);
+    } else {
+        if (strcmp(k.value.v6.src_addr, k.value.v6.dst_addr) < 0) {
+            low_addr = &k.value.v6.src_addr;
+            hi_addr = &k.value.v6.dst_addr;
+        } else {
+            low_addr = &k.value.v6.dst_addr;
+            hi_addr = &k.value.v6.src_addr;
+        }
+        memcpy(tmp, low_addr, sizeof(k.value.v6.src_addr));
+        tmp += sizeof(k.value.v6.src_addr);
+        memcpy(tmp, hi_addr, sizeof(k.value.v6.src_addr));
+        tmp += sizeof(k.value.v6.src_addr);
+    }
+    if (k.protocol == 0x06 || k.protocol == 0x11) {
+        if (k.type == ipv4) {
+            if (strcmp(k.value.v4.src_port, k.value.v4.dst_port) < 0) {
+                low_addr = &k.value.v4.src_port;
+                hi_addr = &k.value.v4.dst_port;
+            } else {
+                low_addr = &k.value.v4.dst_port;
+                hi_addr = &k.value.v4.src_port;
+            }
+            memcpy(tmp, low_addr, sizeof(k.value.v4.src_port));
+            tmp += sizeof(k.value.v4.src_port);
+            memcpy(tmp, hi_addr, sizeof(k.value.v4.src_port));
+            tmp += sizeof(k.value.v4.src_port);
+        } else {
+            if (strcmp(k.value.v6.src_port, k.value.v6.dst_port) < 0) {
+                low_addr = &k.value.v6.src_port;
+                hi_addr = &k.value.v6.dst_port;
+            } else {
+                low_addr = &k.value.v6.dst_port;
+                hi_addr = &k.value.v6.src_port;
+            }
+            memcpy(tmp, low_port, sizeof(k.value.v6.src_port));
+            tmp += sizeof(k.value.v6.src_port);
+            memcpy(tmp, hi_port, sizeof(k.value.v6.src_port));
+            tmp += sizeof(k.value.v6.src_port);
+        }
+    }
+    return tmp;
+
+#else
+
+    uint64_t x = 0;
+    if (k.type == ipv4) {
+        uint32_t sa = k.value.v4.src_addr;
+        uint32_t da = k.value.v4.dst_addr;
+        uint16_t sp = k.value.v4.src_port;
+        uint16_t dp = k.value.v4.dst_port;
+        x = ((sp + dp) << 16) | (sp - dp);
+        x *= 65537;
+        x += (sa + da);
+        x *= 65537;
+    } else {
+        uint64_t *sa_p = (uint64_t *)&k.value.v6.src_addr;
+        uint64_t *da_p = (uint64_t *)&k.value.v6.dst_addr;
+        uint16_t sp = k.value.v6.src_port;
+        uint16_t dp = k.value.v6.dst_port;
+        x = ((sp + dp) << 16) | (sp - dp);
+        x *= 65537;
+        x += sa_p[0] + da_p[0];
+        x *= 65537;
+        x += sa_p[1] + da_p[1];
+        x *= 65537;
+    }
+    return x;
+
+#endif
 }
