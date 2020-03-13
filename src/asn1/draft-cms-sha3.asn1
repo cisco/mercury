@@ -1,0 +1,36 @@
+-- Draft Housley      Using SHA3 with the CMS
+
+      sigAlgs OBJECT IDENTIFIER ::= { joint-iso-itu-t(2) country(16)
+          us(840) organization(1) gov(101) csor(3) nistAlgorithm(4) 3 }
+
+      id-rsassa-pkcs1-v1_5-with-sha3-224 OBJECT IDENTIFIER ::= { sigAlgs 13 }
+
+      id-rsassa-pkcs1-v1_5-with-sha3-256 OBJECT IDENTIFIER ::= { sigAlgs 14 }
+
+      id-rsassa-pkcs1-v1_5-with-sha3-384 OBJECT IDENTIFIER ::= { sigAlgs 15 }
+
+      id-rsassa-pkcs1-v1_5-with-sha3-512 OBJECT IDENTIFIER ::= { sigAlgs 16 }
+
+
+      sigAlgs OBJECT IDENTIFIER ::= { joint-iso-itu-t(2) country(16)
+          us(840) organization(1) gov(101) csor(3) nistAlgorithm(4) 3 }
+
+      id-ecdsa-with-sha3-224 OBJECT IDENTIFIER ::= { sigAlgs 9 }
+
+      id-ecdsa-with-sha3-256 OBJECT IDENTIFIER ::= { sigAlgs 10 }
+
+      id-ecdsa-with-sha3-384 OBJECT IDENTIFIER ::= { sigAlgs 11 }
+
+      id-ecdsa-with-sha3-512 OBJECT IDENTIFIER ::= { sigAlgs 12 }
+
+
+      hashAlgs OBJECT IDENTIFIER ::= { joint-iso-itu-t(2) country(16)
+          us(840) organization(1) gov(101) csor(3) nistAlgorithm(4) 2 }
+
+      id-hmacWithSHA3-224 OBJECT IDENTIFIER ::= { hashAlgs 13 }
+
+      id-hmacWithSHA3-256 OBJECT IDENTIFIER ::= { hashAlgs 14 }
+
+      id-hmacWithSHA3-384 OBJECT IDENTIFIER ::= { hashAlgs 15 }
+
+      id-hmacWithSHA3-512 OBJECT IDENTIFIER ::= { hashAlgs 16 }
