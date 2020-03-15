@@ -897,18 +897,77 @@ struct rsa_public_key {
     }
 };
 
+/*
+   From RFC 5480:
+
+   The subjectPublicKey from SubjectPublicKeyInfo is the ECC public key.
+   ECC public keys have the following syntax:
+
+     ECPoint ::= OCTET STRING
+
+   Implementations of Elliptic Curve Cryptography according to this
+   document MUST support the uncompressed form and MAY support the
+   compressed form of the ECC public key.  The hybrid form of the ECC
+   public key from [X9.62] MUST NOT be used.  As specified in [SEC1]:
+
+      o The elliptic curve public key (a value of type ECPoint that is
+        an OCTET STRING) is mapped to a subjectPublicKey (a value of
+        type BIT STRING) as follows: the most significant bit of the
+        OCTET STRING value becomes the most significant bit of the BIT
+        STRING value, and so on; the least significant bit of the OCTET
+        STRING becomes the least significant bit of the BIT STRING.
+        Conversion routines are found in Sections 2.3.1 and 2.3.2 of
+        [SEC1].
+
+      o The first octet of the OCTET STRING indicates whether the key is
+        compressed or uncompressed.  The uncompressed form is indicated
+        by 0x04 and the compressed form is indicated by either 0x02 or
+        0x03 (see 2.3.3 in [SEC1]).  The public key MUST be rejected if
+        any other value is included in the first octet.
+ */
 
 struct ec_public_key {
-    struct tlv tmp;
+    struct parser d;
+    // struct tlv tmp;   // TBD: ec public key is *not* ASN.1 formatted
 
-    ec_public_key(struct parser *p) : tmp{} {
-        tmp.parse(p);
+    ec_public_key(struct parser *p) : d{} {
+        d = *p;
     }
     void print_as_json(FILE *f, const char *name, bool comma) {
         if (comma) {
             fprintf(f, ",");
         }
-        tmp.print_as_json(f, name);
+        fprintf(f, "\"%s\":{", name);
+        ssize_t data_length = d.data_end - d.data;
+        const uint8_t *data = d.data;
+        if (data && data_length) {
+            if (data[0] == 0x04) {
+                data++;
+                data_length--;
+                fprintf(f, "\"x\":\"");
+                fprintf_raw_as_hex(f, data, data_length/2);
+                fprintf(f, "\"");
+                data += data_length/2;
+                fprintf(f, ",\"y\":\"");
+                fprintf_raw_as_hex(f, data, data_length/2);
+                fprintf(f, "\"");
+            } else if (data[0] == 0x02) {
+                data++;
+                data_length--;
+                fprintf(f, "\"x\":\"");
+                fprintf_raw_as_hex(f, data, data_length);
+                fprintf(f, "\"");
+                fprintf(f, ",\"y\":\"00\"");
+            } else if (data[0] == 0x03) {
+                data++;
+                data_length--;
+                fprintf(f, "\"x\":\"");
+                fprintf_raw_as_hex(f, data, data_length);
+                fprintf(f, "\"");
+                fprintf(f, ",\"y\":\"01\"");
+            }
+        }
+        fprintf(f, "}");
     }
 };
 
@@ -992,6 +1051,7 @@ struct subject_public_key_info {
             pub_key.print_as_json(f, "subject_public_key", true);
 
         } else if (strcmp(algorithm.type(), "id-ecPublicKey") == 0) {
+            subject_public_key.remove_bitstring_encoding();
             struct ec_public_key pub_key(&subject_public_key.value);
             pub_key.print_as_json(f, "subject_public_key", true);
 
