@@ -24,6 +24,9 @@ void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
     const unsigned char *x = (const unsigned char *)data;
     const unsigned char *end = x + len;
 
+    if (x == NULL) {
+        return;
+    }
     while (x < end) {
         fprintf(f, "%02x", *x++);
     }
