@@ -182,7 +182,7 @@ struct basic_constraints {
         if (ca.length) {  // Check value as well as length!
             ca_str = "true";
         }
-        fprintf(f, ",{\"BasicConstraints\":{\"ca\":%s,\"pathLenConstraint\":%u}}", ca_str, length);
+        fprintf(f, "\"basic_constraints\":{\"ca\":%s,\"path_len_constraint\":%u}", ca_str, length);
     }
 };
 
@@ -208,7 +208,7 @@ struct ext_key_usage {
     }
 
     void print_as_json(FILE *f) {
-        fprintf(f, ",{\"ext_key_usage\":[");
+        fprintf(f, "\"ext_key_usage\":[");
         bool first = true;
         for (auto &x : key_purpose_id) {
             const char *oid_string = parser_get_oid_string(&x.value);
@@ -226,7 +226,7 @@ struct ext_key_usage {
             }
 
         }
-        fprintf(f, "]}");
+        fprintf(f, "]");
     }
 };
 
@@ -257,7 +257,7 @@ struct key_usage {
     void parse(struct parser *p) {
         bit_string.parse(p, tlv::BIT_STRING);
     }
-    void print_as_json(FILE *f, const char *name, bool comma=false) {
+    void print_as_json(FILE *f, const char *name) {
         char *flags[10] = {
             (char *)"digital_signature",
             (char *)"non_repudiation",
@@ -270,10 +270,8 @@ struct key_usage {
             (char *)"decipher_only",
             NULL
         };
-        fprintf(f, comma ? ",{" : "{");
         //bit_string.print_as_json_bitstring(f, "key_usage" );
         bit_string.print_as_json_bitstring_flags(f, "key_usage", flags);
-        fprintf(f, "}");
     }
 };
 
@@ -430,7 +428,7 @@ struct private_key_usage_period {
         }
     }
     void print_as_json(FILE *f, const char *name, bool comma=false) {
-        fprintf(f, comma ? ",{\"%s\":[" : "\"%s\":[", name);
+        fprintf(f, comma ? "\"%s\":[" : "\"%s\":[", name);
         const char *c = "";
         if (notBefore.is_not_null()) {
             fprintf(f, "{");
@@ -445,7 +443,7 @@ struct private_key_usage_period {
             //fprintf_json_utctime(f, "notAfter", notAfter.value.data, notAfter.value.data_end - notAfter.value.data);
             fprintf(f, "}");
         }
-        fprintf(f, "]}");
+        fprintf(f, "]");
     }
 
 };
@@ -487,6 +485,7 @@ struct general_name {
     }
     void parse(struct parser *p, uint8_t expected_tag=0x00) {
         explicit_tag.parse(p, expected_tag);
+        //explicit_tag.fprint(stderr, "explicit_tag");
     }
     void print_as_json(FILE *f) {
         if (explicit_tag.tag == otherName) {
@@ -543,7 +542,7 @@ struct subject_alt_name {
     }
 
     void print_as_json(FILE *f, const char *name) {
-        fprintf(f, ",{\"%s\":[", name);
+        fprintf(f, "\"%s\":[", name);
 #if 0
         bool first = true;
         for (auto &x : names) {
@@ -563,7 +562,7 @@ struct subject_alt_name {
             comma = ",";
         }
 
-        fprintf(f, "]}");
+        fprintf(f, "]");
     }
 };
 
@@ -703,7 +702,9 @@ struct authority_key_identifier {
                 key_identifier = tmp;
 
             } else if (tmp.tag == tlv::explicit_tag_constructed(1)) {
+                // cert_issuer.parse(&tmp.value);
                 cert_issuer.explicit_tag = tmp;
+                // tmp.fprint(stderr, "cert_issuer");
 
             } else if (tmp.tag == tlv::explicit_tag(2)) {
                 cert_serial_number = tmp;
@@ -712,7 +713,7 @@ struct authority_key_identifier {
     }
 
     void print_as_json(FILE *f) {
-        fprintf(f, ",{\"authority_key_identifier\":{");
+        fprintf(f, "\"authority_key_identifier\":{");
         bool comma = false;
         if (key_identifier.is_not_null()) {
             key_identifier.print_as_json_hex(f, "key_identifier");
@@ -726,7 +727,7 @@ struct authority_key_identifier {
         if (cert_serial_number.is_not_null()) {
             cert_serial_number.print_as_json_hex(f, "cert_serial_number", comma);
         }
-        fprintf(f, "}}");
+        fprintf(f, "}");
     }
 };
 
@@ -934,8 +935,8 @@ struct algorithm_identifier {
         }
     }
     void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
-        fprintf(f, "%s\"%s\":", pre, name);
-        fprintf(f, "{\"algorithm\":\"%s\"", parser_get_oid_string(&algorithm.value));
+        fprintf(f, "%s\"%s\":{", pre, name);
+        algorithm.print_as_json_oid(f, "algorithm");
         if (parameters.is_not_null()) {
             fprintf(f, ",");
             if (parameters.tag == tlv::OBJECT_IDENTIFIER) {
@@ -999,6 +1000,80 @@ struct subject_public_key_info {
         fprintf(f, "}");
     }
 };
+
+
+/*
+   id-pe-authorityInfoAccess OBJECT IDENTIFIER ::= { id-pe 1 }
+
+   AuthorityInfoAccessSyntax  ::=
+           SEQUENCE SIZE (1..MAX) OF AccessDescription
+
+   AccessDescription  ::=  SEQUENCE {
+           accessMethod          OBJECT IDENTIFIER,
+           accessLocation        GeneralName  }
+
+   id-ad OBJECT IDENTIFIER ::= { id-pkix 48 }
+
+   id-ad-caIssuers OBJECT IDENTIFIER ::= { id-ad 2 }
+
+   id-ad-ocsp OBJECT IDENTIFIER ::= { id-ad 1 }
+
+ */
+
+struct access_description {
+    struct constructed_tlv sequence;
+    struct tlv access_method;            // object identifier
+    struct general_name access_location;
+
+    access_description() : sequence{}, access_method{}, access_location{} {}
+    access_description(struct constructed_tlv &x) : sequence{}, access_method{}, access_location{} {
+        parse(x);
+    }
+   void parse(struct constructed_tlv &x) {
+        sequence.parse(x);
+        // sequence.fprint(stderr, "sequence");
+        access_method.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
+        // access_method.fprint(stderr, "access_method");
+        access_location.parse(&sequence.value);
+    }
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+        fprintf(f, "%s", pre);
+        if (access_method.is_not_null()) {
+            access_method.print_as_json(f, name);
+        }
+        if (access_location.explicit_tag.is_not_null()) {
+            fprintf(f, ",\"access_method\":");
+            access_location.print_as_json(f);  // TBD: remove unneeded {}
+        }
+        fprintf(f, "%s", post);
+    }
+};
+
+struct authority_info_access_syntax {
+    struct constructed_tlv sequence;
+
+    authority_info_access_syntax(struct parser *p) : sequence{} {
+        parse(p);
+    }
+    void parse(struct parser *p) {
+        sequence.parse(p, tlv::SEQUENCE);
+    }
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+        fprintf(f, "%s\"%s\":[", pre, name);
+
+        const char *comma = "{";
+        struct access_description ad;
+        while (parser_get_data_length(&sequence.value) > 0) {
+            ad.parse(sequence);
+            ad.print_as_json(f, "access_description", comma, "}");
+            // break; // TBD: FIXME
+            comma = ",{";
+        }
+
+        fprintf(f, "]%s", post);
+    }
+};
+
 
 /*
    id-ce-SignedCertificateTimestampList OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 11129 2 4 2 }
@@ -1194,7 +1269,7 @@ struct x509_cert {
                 if (xtn.sequence.is_constructed()) {
                     const char *true_str = "true";
                     const char *false_str = "false";
-                    const char *oid_string = NULL;
+                    const char *oid_string = "uknown_oid";
                     const char *critical_str = false_str;
                     //xtn.extnID.fprint(stdout, "extnID");
                     if (xtn.extnID.tag == tlv::OBJECT_IDENTIFIER) {
@@ -1205,63 +1280,79 @@ struct x509_cert {
                         //xtn.critical.fprint(stdout, "critical");
                         critical_str = true_str;
                     }
-                    //xtn.extnValue.fprint(stdout, "extnValue");
-                    fprintf(stdout, "%s{\"%s\":\"", comma, oid_string);
-                    fprintf_raw_as_hex(stdout, xtn.extnValue.value.data, xtn.extnValue.value.data_end - xtn.extnValue.value.data);
-                    fprintf(stdout, "\",\"critical\":%s}", critical_str);
-                    comma = ",";
 
                     // new stuff
+                    fprintf(stdout, "%s{", comma); // open extension object
                     if (oid_string && strcmp("id-ce-SignedCertificateTimestampList", oid_string) == 0) {
                         struct signed_certificate_timestamp_list x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "signed_certificate_timestamp_list", ",{", "}");
+                        x.print_as_json(stdout, "signed_certificate_timestamp_list");
                     }
-                    if (oid_string && strcmp("id-ce-nameConstraints", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-nameConstraints", oid_string) == 0) {
                         struct name_constraints x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "name_constraints", ",{", "}");
+                        x.print_as_json(stdout, "name_constraints");
                     }
-                    if (oid_string && strcmp("id-ce-cRLDistributionPoints", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-cRLDistributionPoints", oid_string) == 0) {
                         struct crl_distribution_points x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "crl_distribution_points", ",{", "}");
+                        x.print_as_json(stdout, "crl_distribution_points");
                     }
-                    if (oid_string && strcmp("id-ce-certificatePolicies", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-certificatePolicies", oid_string) == 0) {
                         struct certificate_policies x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "certificate_policies", ",{", "}");
+                        x.print_as_json(stdout, "certificate_policies");
                     }
-                    if (oid_string && strcmp("id-ce-privateKeyUsagePeriod", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-privateKeyUsagePeriod", oid_string) == 0) {
                         struct private_key_usage_period x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "private_key_usage_period", true);
+                        x.print_as_json(stdout, "private_key_usage_period");
                     }
-                    if (oid_string && strcmp("id-ce-basicConstraints", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-basicConstraints", oid_string) == 0) {
                         struct basic_constraints x(&xtn.extnValue.value);
                         x.print_as_json(stdout);
                     }
-                    if (oid_string && strcmp("id-ce-keyUsage", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-keyUsage", oid_string) == 0) {
                         struct key_usage x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "key_usage", true);
+                        x.print_as_json(stdout, "key_usage");
                     }
-                    if (oid_string && strcmp("id-ce-extKeyUsage", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-extKeyUsage", oid_string) == 0) {
                         struct ext_key_usage x(&xtn.extnValue.value);
                         x.print_as_json(stdout);
                     }
-                    if (oid_string && strcmp("id-ce-subjectAltName", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-subjectAltName", oid_string) == 0) {
                         struct subject_alt_name x(&xtn.extnValue.value);
                         x.print_as_json(stdout, "subject_alt_name");
                     }
-                    if (oid_string && strcmp("id-ce-issuerAltName", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-issuerAltName", oid_string) == 0) {
                         struct subject_alt_name x(&xtn.extnValue.value);
                         x.print_as_json(stdout, "issuer_alt_name");
                     }
-                    if (oid_string && strcmp("id-ce-authorityKeyIdentifier", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-authorityKeyIdentifier", oid_string) == 0) {
                         struct authority_key_identifier x(&xtn.extnValue.value);
                         x.print_as_json(stdout);
                     }
-                    if (oid_string && strcmp("id-ce-subjectKeyIdentifier", oid_string) == 0) {
+                    else if (oid_string && strcmp("id-ce-subjectKeyIdentifier", oid_string) == 0) {
                         struct tlv x(&xtn.extnValue.value);
-                        fprintf(stdout, ",{");
                         x.print_as_json_hex(stdout, "subject_key_identifier");
+                    }
+                    else if (oid_string && strcmp("id-pe-authorityInfoAccess", oid_string) == 0) {
+                        struct authority_info_access_syntax x(&xtn.extnValue.value);
+                        x.print_as_json(stdout, "authority_info_access");
+                    }
+                    else if (oid_string && strcmp("NetscapeCertificateComment", oid_string) == 0) {
+                        struct tlv x(&xtn.extnValue.value);
+                        x.print_as_json(stdout, "netscape_certificate_comment");
+                    }
+                    else if (oid_string && strcmp("NetscapeCertType", oid_string) == 0) {
+                        struct tlv x(&xtn.extnValue.value);
+                        x.print_as_json_hex(stdout, "netscape_cert_type");
+                    } else {
+                        struct tlv x(&xtn.extnValue.value);
+                        fprintf(stdout, "\"unsupported\":{");
+                        xtn.extnID.print_as_json_oid(stdout, "oid");
+                        x.print_as_json_hex(stdout, "value", true);
                         fprintf(stdout, "}");
                     }
+                    fprintf(stdout, ",\"critical\":%s", critical_str);
+                    fprintf(stdout, "}"); // close extension object
+                    comma = ",";
+
                 }
             }
             fprintf(stdout, "]");  // closing extensions JSON array
@@ -1431,6 +1522,83 @@ struct x509_cert_prefix {
     }
 
 };
+
+
+/*
+
+  Certificate Fingerprinting Notes
+
+  From RFC 2986:
+
+     A certification authority ... constructs an X.509 certificate
+     from the [subject] distinguished name and public key, the issuer
+     name, and the certification authority's choice of serial number,
+     validity period, and signature algorithm.  If the certification
+     request contains any PKCS #9 attributes, the certification
+     authority may also use the values in these attributes as well as
+     other information known to the certification authority to
+     construct X.509 certificate extensions.
+
+  From RFC 5280:
+
+     Conforming CAs MUST support the key identifiers, basic
+     constraints, key usage, and certificate policies extensions.  If
+     the CA issues certificates with an empty sequence for the subject
+     field, the CA MUST support the subject alternative name
+     extension.  Support for the remaining extensions is OPTIONAL.
+     Conforming CAs MAY support extensions that are not identified
+     within this specification; certificate issuers are cautioned that
+     marking such extensions as critical may inhibit interoperability.
+     At a minimum, applications conforming to this profile MUST
+     recognize the following extensions: key usage, certificate
+     policies, subject alternative name, basic constraints, name
+     constraints, policy constraints, extended key usage, and inhibit
+     anyPolicy.  In addition, applications conforming to this profile
+     SHOULD recognize the authority and subject key identifier
+     and policy mappings extensions.
+
+
+    Data Feature         Source
+    ----------------------------------------------------
+    version              CA
+    serialNumber         CA
+    signature            CA
+    issuer               CA
+    validity             CA
+    subject              Subject
+    subjectPublicKeyInfo Subject
+    extensions           CA or Subject (see below)
+
+    Extensions                      Source
+    ---------------------------------------------------
+    authorityKeyIdentifier          CA
+    basicConstraints                CA
+    certificateIssuer               CA
+    certificatePolicies             CA
+    cRLDistributionPoints           CA
+    cRLNumber                       CA
+    cRLReasons                      CA
+    deltaCRLIndicator               CA
+    extKeyUsage                     Subject?
+    freshestCRL
+    holdInstructionCode
+    inhibitAnyPolicy
+    invalidityDate
+    issuerAltName
+    issuingDistributionPoint
+    keyUsage                        CA?
+    nameConstraints
+    policyConstraints
+    policyMappings
+    privateKeyUsagePeriod
+    SignedCertificateTimestampList  ??
+    subjectAltName                  Subject
+    subjectDirectoryAttributes      Subject
+    subjectKeyIdentifier            Subject
+
+ */
+
+
 
 
 #endif /* X509_H */

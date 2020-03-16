@@ -457,11 +457,11 @@ void dump_oid_dict_sorted() {
     vector<pair<string, vector<uint32_t>>> ordered_dict(oid_dict.begin(), oid_dict.end());
     sort(ordered_dict.begin(), ordered_dict.end(), pair_cmp());
 
-    cout << "oid_dict[] = {\n";
+    cout << "std::unordered_map<std::string, std::string> oid_dict = {\n";
     for (pair <string, vector<uint32_t>> x : ordered_dict) {
         cout << "\t{ " << oid_to_hex_array(x.second) << ", \"" <<  x.first << "\" },\n";
     }
-    cout << "}\n";
+    cout << "};\n";
 }
 
 int main(int argc, char *argv[]) {
