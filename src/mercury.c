@@ -34,7 +34,7 @@ int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
 
 struct output_context out_ctx;
 
-#define output_json_file_needs_rotation(ojf) (--((ojf).record_countdown) <= 0)
+#define output_json_file_needs_rotation(ojf) (--((ojf).record_countdown) == 0)
 
 void init_t_queues(int n) {
     t_queues.qnum = n;
