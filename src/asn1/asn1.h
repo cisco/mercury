@@ -285,6 +285,9 @@ void hex_string_print_as_oid(FILE *f, const char *c, size_t length) {
 }
 
 void raw_string_print_as_oid(FILE *f, const uint8_t *raw, size_t length) {
+    if (raw == NULL) {
+        return;  // error: invalid input
+    }
     uint32_t component = *raw;
     uint32_t div = component / 40;
     uint32_t rem = component - (div * 40);
