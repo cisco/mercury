@@ -19,26 +19,31 @@ class HTTP(Protocol):
 
         # configuration
         HTTP.all_headers = False
+        HTTP.all_headers_and_data = False
         if config == None or 'http' not in config:
-            HTTP.case_insensitive_static_headers = set([b'upgrade-insecure-requests',b'dnt',b'accept-language',b'connection',
-                                                        b'x-requested-with',b'accept-encoding',b'content-length',b'accept',
-                                                        b'viewport-width',b'intervention',b'dpr',b'cache-control'])
-            HTTP.case_sensitive_static_headers = set([b'content-type',b'origin'])
+            HTTP.static_names = set([b'accept-charset',b'authorization',b'content-type',b'cookie',b'host',b'if-modified-since',
+                                     b'if-none-match',b'if-range',b'if-unmodified-since',b'keep-alive',b'origin',b'pragma',
+                                     b'proxy-connection',b'range',b'referer',b'sec-websocket-extensions',b'sec-websocket-key',
+                                     b'sec-websocket-version',b'upgrade',b'ua-cpu',b'user-agent',b'x-flash-version',
+                                     b'x-p2p-peerdist',b'x-p2p-peerdistex'])
+            HTTP.static_names_and_values = set([b'upgrade-insecure-requests',b'dnt',b'accept-language',b'connection',
+                                                b'x-requested-with',b'accept-encoding',b'content-length',b'accept',
+                                                b'viewport-width',b'intervention',b'dpr',b'cache-control'])
             HTTP.headers_data = [0,2]
-            HTTP.contextual_data = {b'user-agent':'user_agent',b'host':'host',b'x-forwarded-for':'x_forwarded_for'}
+            HTTP.contextual_data = {b'user-agent':'user_agent',b'host':'host',b'x-forwarded-for':'x_forwarded_for',b'uri':'uri'}
         else:
-            HTTP.case_insensitive_static_headers = set([])
-            HTTP.case_sensitive_static_headers = set([])
+            HTTP.static_names = set([])
+            HTTP.static_names_and_values = set([])
             HTTP.headers_data = []
             HTTP.contextual_data = {}
-            if 'case_insensitive_static_headers' in config['http']:
-                if config['http']['case_insensitive_static_headers'] == ['*']:
+            if 'static_names' in config['http']:
+                if config['http']['static_names'] == ['*']:
                     HTTP.all_headers = True
-                HTTP.case_insensitive_static_headers = set(map(lambda x: x.lower().encode(), config['http']['case_insensitive_static_headers']))
-            if 'case_sensitive_static_headers' in config['http']:
-                if config['http']['case_sensitive_static_headers'] == ['*']:
-                    HTTP.all_headers = True
-                HTTP.case_sensitive_static_headers = set(map(lambda x: x.encode(), config['http']['case_sensitive_static_headers']))
+                HTTP.static_names = set(map(lambda x: x.encode(), config['http']['static_names']))
+            if 'static_names_and_values' in config['http']:
+                if config['http']['static_names_and_values'] == ['*']:
+                    HTTP.all_headers_and_data = True
+                HTTP.static_names_and_values = set(map(lambda x: x.encode(), config['http']['static_names_and_values']))
             if 'preamble' in config['http']:
                 if 'method' in config['http']['preamble']:
                     HTTP.headers_data.append(0)
@@ -67,6 +72,63 @@ class HTTP(Protocol):
 
     @staticmethod
     def fingerprint(data, offset, data_len):
+        t_ = data[offset:].split(b'\x0d\x0a', 1)
+        request = t_[0].split()
+        if len(request) < 3:
+            return None, None
+
+        c = []
+        for rh in HTTP.headers_data:
+            c.append('(%s)' % request[rh].hex())
+
+        if len(t_) == 1:
+            return ''.join(c), None
+
+        http_ah  = HTTP.all_headers
+        http_ahd = HTTP.all_headers_and_data
+        http_sn  = HTTP.static_names
+        http_snv = HTTP.static_names_and_values
+        http_ctx = HTTP.contextual_data
+        context = []
+        if b'uri' in http_ctx:
+            try:
+                context.append({'name':'uri', 'data':request[1].decode()})
+            except UnicodeDecodeError:
+                context.append({'name':'uri', 'data':request[1].hex()})
+        headers = t_[1].split(b'\x0d\x0a')
+        for h_ in headers:
+            if h_ == b'':
+                break
+            t0_ = h_.split(b'\x3a\x20',1)[0]
+            t0_lower = t0_.lower()
+
+            h_c = ''
+            if http_ahd:
+                h_c = h_.hex()
+            elif t0_lower in http_snv:
+                h_c = h_.hex()
+            elif t0_lower in http_sn:
+                h_c = t0_.hex()
+            elif http_ah:
+                h_c = t0_.hex()
+
+            if h_c != '':
+                c.append('(%s)' % h_c)
+            if t0_lower in http_ctx:
+                if b'\x3a\x20' in h_:
+                    try:
+                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].decode()})
+                    except UnicodeDecodeError:
+                        context.append({'name':http_ctx[t0_lower], 'data':h_.split(b'\x3a\x20',1)[1].hex()})
+                else:
+                    context.append({'name':http_ctx[t0_lower], 'data':''})
+
+        return ''.join(c), context
+
+
+
+    @staticmethod
+    def fingerprint_old(data, offset, data_len):
         t_ = data[offset:].split(b'\x0d\x0a', 1)
         request = t_[0].split()
         if len(request) < 3:
