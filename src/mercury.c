@@ -244,6 +244,7 @@ enum status output_json_file_rotate(struct output_json_file *ojf) {
             return status;
         }
     } else {
+        ojf->max_records = UINT64_MAX;
         strncpy(outfile, ojf->outfile_name, MAX_FILENAME - 1);
     }
 
