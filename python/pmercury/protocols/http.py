@@ -4,6 +4,7 @@
 """
 
 import os
+import ast
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -126,7 +127,6 @@ class HTTP(Protocol):
         return ''.join(c), context
 
 
-
     @staticmethod
     def fingerprint_old(data, offset, data_len):
         t_ = data[offset:].split(b'\x0d\x0a', 1)
@@ -174,6 +174,38 @@ class HTTP(Protocol):
                     context.append({'name':http_ctx[t0_lower], 'data':''})
 
         return ''.join(c), context
+
+
+    def normalize_str_repr(self, str_repr):
+        fp_str = str_repr.replace(')(','","').replace('(','["').replace(')','"]')
+        t_ = ast.literal_eval(fp_str)
+
+        c = [f'({t_[0]})', f'({t_[1]})']
+        http_ah  = HTTP.all_headers
+        http_ahd = HTTP.all_headers_and_data
+        http_sn  = HTTP.static_names
+        http_snv = HTTP.static_names_and_values
+        http_ctx = HTTP.contextual_data
+        for h in t_[2:]:
+            b_str = bytes.fromhex(h)
+            t0_ = b_str.split(b'\x3a\x20',1)[0]
+            t0_lower = t0_.lower()
+
+            h_c = ''
+            if http_ahd:
+                h_c = b_str.hex()
+            elif t0_lower in http_snv:
+                h_c = b_str.hex()
+            elif t0_lower in http_sn:
+                h_c = t0_.hex()
+            elif http_ah:
+                h_c = t0_.hex()
+
+            if h_c != '':
+                c.append(f'({h_c})')
+
+        return ''.join(c)
+
 
 
     def get_human_readable(self, fp_str_):
