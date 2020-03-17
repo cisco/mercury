@@ -259,7 +259,6 @@ enum status output_json_file_rotate(struct output_json_file *ojf) {
     return status_ok;
 }
 
-
 void *output_thread_func(void *arg) {
 
     struct output_context *out_ctx = (struct output_context *)arg;
@@ -451,6 +450,9 @@ void *output_thread_func(void *arg) {
         nanosleep(&sleep_ts, NULL);
     } /* End all_output_flushed == 0 meaning we got a signal to stop */
 
+    if (t_tree.tree) {
+        free(t_tree.tree);
+    }
     if (fclose(out_ctx->out_jf.file) != 0) {
         perror("could not close json file");
     }
@@ -458,6 +460,41 @@ void *output_thread_func(void *arg) {
     return NULL;
 }
 
+
+int output_thread_init(pthread_t &output_thread, struct output_context &out_ctx, const struct mercury_config &cfg) {
+
+    /* make the thread queues */
+    init_t_queues(cfg.num_threads);
+
+    /* init the output context */
+    if (pthread_cond_init(&(out_ctx.t_output_c), NULL) != 0) {
+        perror("Unabe to initialize output condition");
+        return -1;
+    }
+    if (pthread_mutex_init(&(out_ctx.t_output_m), NULL) != 0) {
+        perror("Unabe to initialize output mutex");
+        return -1;
+    }
+    out_ctx.t_output_p = 0;
+
+    out_ctx.out_jf.file = NULL;
+    out_ctx.out_jf.max_records = cfg.rotate;
+    out_ctx.out_jf.record_countdown = 0;
+    out_ctx.out_jf.outfile_name = cfg.fingerprint_filename;
+    out_ctx.out_jf.file_num = 0;
+    out_ctx.out_jf.mode = cfg.mode;
+
+    //fprintf(stderr, "DEBUG: fingerprint filename: %s\n", cfg.fingerprint_filename);
+    //fprintf(stderr, "DEBUG: max records: %ld\n", out_ctx.out_jf.max_records);
+
+    /* Start the output thread */
+    int err = pthread_create(&output_thread, NULL, output_thread_func, &out_ctx);
+    if (err != 0) {
+        perror("error creating output thread");
+        return -1;
+    }
+    return 0;
+}
 
 #define TWO_TO_THE_N(N) (unsigned int)1 << (N)
 
@@ -715,6 +752,14 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 
         // TODO: the pcap_file_processing_thread_func() is also going to
         // have to signal the output thread that it can stop waiting
+
+        /* Wake up output thread so it's polling the queues waiting for data */
+        out_ctx.t_output_p = 1;
+        int err = pthread_cond_broadcast(&(out_ctx.t_output_c)); /* Wake up output */
+        if (err != 0) {
+            printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
+            exit(255);
+        }
 
         pcap_file_processing_thread_func(&tc);
         //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
@@ -1116,32 +1161,9 @@ int main(int argc, char *argv[]) {
         // to be able to send messages over a lockless queue
         // to the output thread and that hasn't been done yet
 
-        /* make the thread queues */
-        init_t_queues(cfg.num_threads);
-
-        /* init the output context */
-        if (pthread_cond_init(&(out_ctx.t_output_c), NULL) != 0) {
-            perror("Unabe to initialize output condition");
-        }
-        if (pthread_mutex_init(&(out_ctx.t_output_m), NULL) != 0) {
-            perror("Unabe to initialize output mutex");
-        }
-        out_ctx.t_output_p = 0;
-
-        out_ctx.out_jf.file = NULL;
-        out_ctx.out_jf.max_records = cfg.rotate;
-        out_ctx.out_jf.record_countdown = 0;
-        out_ctx.out_jf.outfile_name = cfg.fingerprint_filename;
-        out_ctx.out_jf.file_num = 0;
-        out_ctx.out_jf.mode = cfg.mode;
-
-        //fprintf(stderr, "DEBUG: fingerprint filename: %s\n", cfg.fingerprint_filename);
-        //fprintf(stderr, "DEBUG: max records: %ld\n", out_ctx.out_jf.max_records);
-
-        /* Start the output thread */
-        int err = pthread_create(&output_thread, NULL, output_thread_func, &out_ctx);
-        if (err != 0) {
-            perror("error creating output thread");
+        if (output_thread_init(output_thread, out_ctx, cfg) != 0) {
+            perror("Unable to initialize output thread\n");
+            return EXIT_FAILURE;
         }
         outthread = 1;
 
@@ -1150,6 +1172,15 @@ int main(int argc, char *argv[]) {
     } else if (cfg.read_filename) {
 
         // TODO: make me output thread aware!
+        if (cfg.fingerprint_filename) {
+
+            if (output_thread_init(output_thread, out_ctx, cfg) != 0) {
+                perror("Unable to initialize output thread\n");
+                return EXIT_FAILURE;
+            }
+            outthread = 1;
+        }
+
         open_and_dispatch(&cfg);
     }
 
