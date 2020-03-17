@@ -1,21 +1,68 @@
 ---
+#http:
+#  case_insensitive_static_headers:
+#    - upgrade-insecure-requests
+#    - dnt
+#    - accept-language
+#    - connection
+#    - x-requested-with
+#    - accept-encoding
+#    - content-length
+#    - accept
+#    - viewport-width
+#    - intervention
+#    - dpr
+#    - cache-control
+#  case_sensitive_static_headers:
+#    - content-type
+#    - origin
+#  preamble:
+#    - method
+#    - version
+#  context:
+#    - user-agent
+#    - host
+#    - x-forwarded-for
+
 http:
-  case_insensitive_static_headers:
-    - upgrade-insecure-requests
-    - dnt
-    - accept-language
-    - connection
-    - x-requested-with
-    - accept-encoding
-    - content-length
-    - accept
-    - viewport-width
-    - intervention
-    - dpr
-    - cache-control
-  case_sensitive_static_headers:
+  static_names:
+    - accept-charset
+    - authorization
     - content-type
+    - cookie
+    - host
+    - if-modified-since
+    - if-none-match
+    - if-range
+    - if-unmodified-since
+    - keep-alive
     - origin
+    - pragma
+    - proxy-connection
+    - range
+    - referer
+    - sec-websocket-extensions
+    - sec-websocket-key
+    - sec-websocket-version
+    - upgrade
+    - ua-cpu
+    - user-agent
+    - x-flash-version
+    - x-p2p-peerdist
+    - x-p2p-peerdistex
+  static_names_and_values:
+    - accept
+    - accept-encoding
+    - accept-language
+    - cache-control
+    - connection
+    - content-length
+    - dnt
+    - dpr
+    - intervention
+    - upgrade-insecure-requests
+    - viewport-width
+    - x-requested-with
   preamble:
     - method
     - version
@@ -23,6 +70,8 @@ http:
     - user-agent
     - host
     - x-forwarded-for
+    - via
+    - uri
 
 http_server:
   static_names:
