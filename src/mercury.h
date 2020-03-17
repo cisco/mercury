@@ -68,6 +68,8 @@ struct mercury_config {
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0  }
+
 #define LLQ_MSG_SIZE 16384   /* The number of bytes allowed for each message in the lockless queue */
 #define LLQ_DEPTH    2048    /* The number of "buckets" (queue messages) allowed */
 #define LLQ_MAX_AGE  5       /* Maximum age (in seconds) messages are allowed to sit in a queue */
@@ -128,8 +130,6 @@ struct tourn_tree {
     int stalled;
 };
 
-
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0  }
 
 enum create_subdir_mode {
     create_subdir_mode_do_not_overwrite = 0,
