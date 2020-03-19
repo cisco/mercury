@@ -26,10 +26,9 @@ class HTTP(Protocol):
                                      b'if-none-match',b'if-range',b'if-unmodified-since',b'keep-alive',b'origin',b'pragma',
                                      b'proxy-connection',b'range',b'referer',b'sec-websocket-extensions',b'sec-websocket-key',
                                      b'sec-websocket-version',b'upgrade',b'ua-cpu',b'user-agent',b'x-flash-version',
-                                     b'x-p2p-peerdist',b'x-p2p-peerdistex'])
+                                     b'x-p2p-peerdist',b'x-p2p-peerdistex',b'cache-control',b'content-length'])
             HTTP.static_names_and_values = set([b'upgrade-insecure-requests',b'dnt',b'accept-language',b'connection',
-                                                b'x-requested-with',b'accept-encoding',b'content-length',b'accept',
-                                                b'viewport-width',b'intervention',b'dpr',b'cache-control'])
+                                                b'x-requested-with',b'accept-encoding',b'accept',b'dpr'])
             HTTP.headers_data = [0,2]
             HTTP.contextual_data = {b'user-agent':'user_agent',b'host':'host',b'x-forwarded-for':'x_forwarded_for',b'uri':'uri'}
         else:
