@@ -28,6 +28,8 @@ http:
   static_names:
     - accept-charset
     - authorization
+    - cache-control
+    - content-length
     - content-type
     - cookie
     - host
@@ -54,14 +56,10 @@ http:
     - accept
     - accept-encoding
     - accept-language
-    - cache-control
     - connection
-    - content-length
     - dnt
     - dpr
-    - intervention
     - upgrade-insecure-requests
-    - viewport-width
     - x-requested-with
   preamble:
     - method
