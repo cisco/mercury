@@ -26,7 +26,7 @@ Microsoft Edge,microsoft edge helper,msedge.exe,microsoft edge beta,microsoft ed
 
 Vivaldi,vivaldi.exe,vivaldi helper,vivaldi
 
-Adobe Creative Suite,creative cloud.exe,adobe_licensing_helper.exe,adobegcclient.exe,adobe_licutil.exe,setup.exe,core sync,creative cloud,setup,adobegcclient,adobe_licensing_helper,install,coresync.exe,adobecollabsync.exe,adobe captivate,adobe connect,adobe dimension,adobe dimension helper,adobe_ccxprocess.node,after effects,adobearm.exe,adobecaptivate.exe,adoberesourcesynchronizer,adobe xd,adobe illustrator,xd_set-up.exe
+Adobe Creative Suite,creative cloud.exe,adobe_licensing_helper.exe,adobegcclient.exe,adobe_licutil.exe,setup.exe,core sync,creative cloud,setup,adobegcclient,adobe_licensing_helper,install,coresync.exe,adobecollabsync.exe,adobe captivate,adobe connect,adobe dimension,adobe dimension helper,adobe_ccxprocess.node,after effects,adobearm.exe,adobecaptivate.exe,adoberesourcesynchronizer,adobe xd,adobe illustrator,xd_set-up.exe,acrobat_dc_set-up.exe,agsservice
 
 Adobe Acrobat,acrocef.exe,acrocef,rdrcef.exe,acrobat.exe,acrord32.exe,acrobat update helper,adobereader,adobeacrobat,aasiapp,aasiapp.execrobat updater,acroext,acroext.exe,adobe reader updater helper
 
@@ -62,7 +62,7 @@ Access,msaccess.exe,microsoft access
 
 Microsoft Teams,teams,teams.exe,microsoft teams helper
 
-Microsoft Telemetry,speechmodeldownload.exe,compattelrunner.exe,wermgr.exe,devicecensus.exe,dsregcmd.exe,sihclient.exe,wmiprvse.exe,speechruntime.exe,updatenotificationmgr.exe,devicecensus.exe
+Microsoft Telemetry,speechmodeldownload.exe,compattelrunner.exe,wermgr.exe,devicecensus.exe,dsregcmd.exe,sihclient.exe,wmiprvse.exe,speechruntime.exe,updatenotificationmgr.exe,devicecensus.exe,usocoreworker.exe
 
 Microsoft Desktop,microsoft.photos.exe,microsoft.notes.exe,winstore.app.exe,microsoft.msn.news.exe,todo.exe,video.ui.exe,
 
@@ -253,7 +253,7 @@ Zoom,zoom.us,zoom.exe,zoomassistant,zoomphone
 
 Standard Notes,standard notes,standard notes.exe
 
-BitDefender,bdagentd,bdcoreissues,bdupddaemon,bdldaemon,productagentservice.exe,bdcloner.exe,bdservicehost.exe,bdvpnservice.exe,vsserv.exe
+BitDefender,bdagentd,bdcoreissues,bdupddaemon,bdldaemon,productagentservice.exe,bdcloner.exe,bdservicehost.exe,bdvpnservice.exe,vsserv.exe,vulnerability.scan.exe
 
 Binance,binance,binance.exe
 
@@ -804,3 +804,7 @@ Zeplin,zeplin,zeplin.exe
 Zwift,zwiftapp,zwiftlauncher-osx
 
 PBI Desktop,pbidesktop.exe,microsoft.powerbi.enterprisegateway.exe
+
+Rakuten,rakuten cash back button,rakuten ebates cash back button
+
+Avid Link,avid link,avid link.exe
