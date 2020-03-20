@@ -114,6 +114,24 @@ int append_putc(char *dstr, int *doff, int dlen, int *trunc,
     }
 }
 
+int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, const void *s, ssize_t length) {
+    const uint8_t *src = (const uint8_t *)s;
+
+    /* Check to make sure the offset isn't already longer than the length */
+    if (*doff >= dlen) {
+        *trunc = 1;
+        return 0;
+    }
+
+    if (*doff < dlen - length) {   // TBD: over/under flow?
+        memcpy(dstr + *doff, src, length);
+        *doff = *doff + length;
+        return length;
+    } else {
+        *trunc = 1;
+        return 0;
+    }
+}
 
 int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
                       const uint8_t *data, unsigned int len) {

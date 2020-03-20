@@ -65,6 +65,8 @@ int append_json_base64_string(char *dstr, int *doff, int dlen, int *trunc,
                               const unsigned char *data,
                               size_t input_length);
 
+int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, const void *src, ssize_t length);
+
 void fprintf_json_base64_string(FILE *file, const unsigned char *data, size_t input_length);
 
 void printf_raw_as_hex(const uint8_t *data, unsigned int len);

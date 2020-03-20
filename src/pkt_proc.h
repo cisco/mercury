@@ -129,6 +129,32 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     }
 };
 
+/*
+ * struct pkt_proc_pcap_writer represents a packet processing object
+ * that writes out packets in PCAP file format.
+ */
+struct pkt_proc_pcap_writer_llq : public pkt_proc {
+    struct ll_queue *llq;
+
+    pkt_proc_pcap_writer_llq(struct ll_queue *llq_ptr) {
+        fprintf(stderr, "note: executing function %s with arg %p\n", __func__, (void *)llq_ptr);
+        llq = llq_ptr;
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) override {
+        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
+
+        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
+            return;  /* random packet drop configured, and this packet got selected to be discarded */
+        }
+        pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+    }
+
+    void flush() {
+    }
+
+};
+
 
 /*
  * struct pkt_proc_pcap_writer represents a packet processing object
@@ -215,6 +241,47 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
                 perror("warning: could not flush pcap file\n");
             }
         }
+    }
+
+};
+
+/*
+ * struct pkt_proc_filter_pcap_writer represents a packet processing
+ * object that first filters packets, then writes tem out in PCAP file
+ * format.
+ */
+struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
+    struct ll_queue *llq;
+
+    /*
+     * packet_filter_threshold is a (somewhat arbitrary) threshold used in
+     * the packet metadata filter; it will probably get eliminated soon,
+     * in favor of extractor::proto_state::state, but for now it remains
+     */
+    unsigned int packet_filter_threshold = 8;
+
+    pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr) {
+        fprintf(stderr, "note: executing function %s with arg %p\n", __func__, (void *)llq_ptr);
+        llq = llq_ptr;
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) override {
+        uint8_t *packet = eth;
+        unsigned int length = pi->len;
+
+        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
+
+        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
+            return;  /* random packet drop configured, and this packet got selected to be discarded */
+        }
+
+        struct packet_filter pf;
+        if (packet_filter_apply(&pf, packet, length)) {
+            pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+        }
+    }
+
+    void flush() override {
     }
 
 };
