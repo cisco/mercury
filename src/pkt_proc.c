@@ -52,13 +52,29 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                 /*
                  * write only packet metadata (TLS clientHellos, TCP SYNs, ...) to capture file
                  */
-                return new pkt_proc_filter_pcap_writer(outfile, cfg->flags);
+                // return new pkt_proc_filter_pcap_writer(outfile, cfg->flags);
+                unsigned int qnum = 0;
+                if (fileset_id != NULL) {
+                    int ret = sscanf(fileset_id, "%x", &qnum); /* /me dies a little inside */
+                    if (ret != 1) {
+                        fprintf(stderr, "Parsing thread fileset_id string failed!\n");
+                    }
+                }
+                return new pkt_proc_filter_pcap_writer_llq(&(t_queues.queue[qnum]));
 
             } else {
                 /*
                  * write all packets to capture file
                  */
-                return new pkt_proc_pcap_writer(outfile, cfg->flags);
+                // return new pkt_proc_pcap_writer(outfile, cfg->flags);
+                unsigned int qnum = 0;
+                if (fileset_id != NULL) {
+                    int ret = sscanf(fileset_id, "%x", &qnum); /* /me dies a little inside */
+                    if (ret != 1) {
+                        fprintf(stderr, "Parsing thread fileset_id string failed!\n");
+                    }
+                }
+                return new pkt_proc_pcap_writer_llq(&(t_queues.queue[qnum]));
 
             }
 
@@ -90,6 +106,7 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                     fprintf(stderr, "Parsing thread fileset_id string failed!\n");
                 }
             }
+            fprintf(stderr, "note: initializing llq JSON output\n");
             return new pkt_proc_json_writer_llq(&(t_queues.queue[qnum]));
 
         } else {

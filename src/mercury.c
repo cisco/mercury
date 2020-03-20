@@ -29,12 +29,13 @@
 #include "signal_handling.h"
 #include "config.h"
 
+
 struct thread_queues t_queues;
 int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
 
 struct output_context out_ctx;
 
-#define output_json_file_needs_rotation(ojf) (--((ojf).record_countdown) == 0)
+#define output_file_needs_rotation(ojf) (--((ojf)->record_countdown) == 0)
 
 void init_t_queues(int n) {
     t_queues.qnum = n;
@@ -212,8 +213,7 @@ void debug_print_tour_tree(struct tourn_tree *t_tree) {
     fprintf(stderr, "\n");
 }
 
-
-enum status output_json_file_rotate(struct output_json_file *ojf) {
+enum status output_file_rotate(struct output_context *ojf) {
     char outfile[MAX_FILENAME];
 
     if (ojf->file) {
@@ -253,6 +253,13 @@ enum status output_json_file_rotate(struct output_json_file *ojf) {
         perror("error: could not open fingerprint output file");
         return status_err;
     }
+    if (ojf->type == pcap) {
+        enum status status = write_pcap_file_header(ojf->file);
+        if (status) {
+            perror("error: could not write pcap file header");
+            return status_err;
+        }
+    }
 
     ojf->record_countdown = ojf->max_records;
 
@@ -263,7 +270,7 @@ void *output_thread_func(void *arg) {
 
     struct output_context *out_ctx = (struct output_context *)arg;
 
-    output_json_file_rotate(&(out_ctx->out_jf));
+    output_file_rotate(out_ctx);
 
     int err;
     err = pthread_mutex_lock(&(out_ctx->t_output_m));
@@ -365,15 +372,15 @@ void *output_thread_func(void *arg) {
 
             struct llq_msg *wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
             if (wmsg->used == 1) {
-                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->out_jf.file);
+                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
                 wmsg->used = 0;
 
                 /* Handle rotating file if needed */
-                if (output_json_file_needs_rotation(out_ctx->out_jf)) {
-                    output_json_file_rotate(&(out_ctx->out_jf));
+                if (output_file_needs_rotation(out_ctx)) {
+                    output_file_rotate(out_ctx);
                 }
 
                 t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
@@ -419,15 +426,15 @@ void *output_thread_func(void *arg) {
                 break;
             } else if (time_less(&(wmsg->ts), &old_ts) == 1) {
                 //fprintf(stderr, "DEBUG: writing old message from queue %d\n", wq);
-                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->out_jf.file);
+                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
                 wmsg->used = 0;
 
                 /* Handle rotating file if needed */
-                if (output_json_file_needs_rotation(out_ctx->out_jf)) {
-                    output_json_file_rotate(&(out_ctx->out_jf));
+                if (output_file_needs_rotation(out_ctx)) {
+                    output_file_rotate(out_ctx);
                 }
 
                 t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
@@ -453,7 +460,7 @@ void *output_thread_func(void *arg) {
     if (t_tree.tree) {
         free(t_tree.tree);
     }
-    if (fclose(out_ctx->out_jf.file) != 0) {
+    if (fclose(out_ctx->file) != 0) {
         perror("could not close json file");
     }
 
@@ -477,12 +484,19 @@ int output_thread_init(pthread_t &output_thread, struct output_context &out_ctx,
     }
     out_ctx.t_output_p = 0;
 
-    out_ctx.out_jf.file = NULL;
-    out_ctx.out_jf.max_records = cfg.rotate;
-    out_ctx.out_jf.record_countdown = 0;
-    out_ctx.out_jf.outfile_name = cfg.fingerprint_filename;
-    out_ctx.out_jf.file_num = 0;
-    out_ctx.out_jf.mode = cfg.mode;
+    out_ctx.file = NULL;
+    out_ctx.max_records = cfg.rotate;
+    out_ctx.record_countdown = 0;
+    if (cfg.fingerprint_filename) {
+        out_ctx.outfile_name = cfg.fingerprint_filename;
+        out_ctx.type = json;
+
+    } else if (cfg.write_filename) {
+        out_ctx.outfile_name = cfg.write_filename;
+        out_ctx.type = pcap;
+    }
+    out_ctx.file_num = 0;
+    out_ctx.mode = cfg.mode;
 
     //fprintf(stderr, "DEBUG: fingerprint filename: %s\n", cfg.fingerprint_filename);
     //fprintf(stderr, "DEBUG: max records: %ld\n", out_ctx.out_jf.max_records);
@@ -744,6 +758,7 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 
         enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
         if (status != status_ok) {
+            perror("could not initialize pcap reader thread context");
             return status;
         }
 
@@ -761,12 +776,21 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
             exit(255);
         }
 
+#if 0
         pcap_file_processing_thread_func(&tc);
+#else
+        err = pthread_create(&(tc.tid), NULL, pcap_file_processing_thread_func, &tc);
+        if (err) {
+            printf("%s: error creating file reader thread\n", strerror(err));
+            exit(255);
+        }
+        pthread_join(tc.tid, NULL);
+#endif
         //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
         bytes_written = tc.pkt_processor->bytes_written;
         packets_written = tc.pkt_processor->packets_written;
         pcap_file_close(&(tc.rf));
-        delete tc.pkt_processor;
+        delete tc.pkt_processor; // TBD: eliminate naked delete - DAM
 
         // TODO: signal the output thread it can stop
         // or make sure it happens somewhere else
@@ -1171,14 +1195,15 @@ int main(int argc, char *argv[]) {
 
     } else if (cfg.read_filename) {
 
+        if (output_thread_init(output_thread, out_ctx, cfg) != 0) {
+            perror("Unable to initialize output thread\n");
+            return EXIT_FAILURE;
+        }
+        outthread = 1;
+
         // TODO: make me output thread aware!
         if (cfg.fingerprint_filename) {
-
-            if (output_thread_init(output_thread, out_ctx, cfg) != 0) {
-                perror("Unable to initialize output thread\n");
-                return EXIT_FAILURE;
-            }
-            outthread = 1;
+            ;
         }
 
         open_and_dispatch(&cfg);
