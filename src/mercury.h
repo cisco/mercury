@@ -74,21 +74,9 @@ struct mercury_config {
 #define LLQ_DEPTH    2048    /* The number of "buckets" (queue messages) allowed */
 #define LLQ_MAX_AGE  5       /* Maximum age (in seconds) messages are allowed to sit in a queue */
 
-enum file_type { json, pcap };
+enum file_type { unknown=0, json, pcap };
 
 struct output_file {
-    FILE *file;
-    int64_t record_countdown;
-    int64_t max_records;
-    uint32_t file_num;
-    char *outfile_name;
-    const char *mode;
-    enum file_type type;
-};
-
-
-struct output_context {
-    //    struct output_file out_jf;
     FILE *file;
     int64_t record_countdown;
     int64_t max_records;
@@ -102,7 +90,7 @@ struct output_context {
 };
 
 extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
-extern struct output_context out_ctx;
+//extern struct output_file out_ctx;
 //extern int t_output_p;
 //extern pthread_cond_t t_output_c;
 
