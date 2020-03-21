@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <mqueue.h>
 #include <pthread.h>
+#include <stdio.h>
 
 #define MAX_FILENAME 256
 
@@ -89,51 +90,11 @@ struct output_file {
     pthread_mutex_t t_output_m;
 };
 
-extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
+//extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
 //extern struct output_file out_ctx;
 //extern int t_output_p;
 //extern pthread_cond_t t_output_c;
 
-
-/* The message object suitable for the std::priority_queue */
-struct llq_msg {
-    volatile int used; /* The flag that says if this object is actually in use (if not, it's available) */
-    char buf[LLQ_MSG_SIZE];
-    ssize_t len;
-    struct timespec ts;
-};
-
-
-/* a "lockless" queue */
-struct ll_queue {
-    int qnum;  /* This is the queue number and is only needed for debugging */
-    int ridx;  /* The read index */
-    int widx;  /* The write index */
-    struct llq_msg msgs[LLQ_DEPTH];
-};
-
-
-struct thread_queues {
-    int qnum;             /* The number of queues that have been allocated */
-    int qidx;             /* The index of the first free queue */
-    struct ll_queue *queue;      /* The actual queue datastructure */
-};
-
-
-struct tourn_tree {
-    int qnum;
-    int qp2;
-    int *tree;
-    int stalled;
-};
-
-
-enum create_subdir_mode {
-    create_subdir_mode_do_not_overwrite = 0,
-    create_subdir_mode_overwrite = 1
-};
-
-void create_subdirectory(const char *outdir, enum create_subdir_mode mode);
 
 enum status filename_append(char dst[MAX_FILENAME],
 			    const char *src,

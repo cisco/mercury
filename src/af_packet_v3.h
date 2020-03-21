@@ -89,10 +89,9 @@ struct thread_storage {
 };
 
 
-int af_packet_bind_and_dispatch(//const char *if_name,
-				//packet_callback_t p_callback,
-				struct mercury_config *cfg,
-				const struct ring_limits *rlp);
+int af_packet_bind_and_dispatch(struct mercury_config *cfg,
+                                const struct ring_limits *rlp,
+                                struct output_file *out_ctx);
 
 void ring_limits_init(struct ring_limits *rl, float frac);
 

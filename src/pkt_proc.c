@@ -13,6 +13,7 @@
 #include "rnd_pkt_drop.h"
 #include "pkt_proc.h"
 #include "mercury.h"
+#include "llq.h"
 
 extern struct thread_queues t_queues;
 

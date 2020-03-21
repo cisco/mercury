@@ -28,6 +28,7 @@
 #include "pkt_proc.h"
 #include "signal_handling.h"
 #include "utils.h"
+#include "llq.h"
 
 /*
  * constants used in file format
