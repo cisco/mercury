@@ -15,6 +15,7 @@
 #include "ept.h"
 #include "utils.h"
 #include "analysis.h"
+#include "llq.h"
 
 #define json_file_needs_rotation(jf) (--((jf)->record_countdown) == 0)
 #define SNI_HDR_LEN 9

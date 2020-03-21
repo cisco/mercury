@@ -701,10 +701,9 @@ void *packet_capture_thread_func(void *arg)  {
   return NULL;
 }
 
-extern struct output_file out_ctx;
-
 int af_packet_bind_and_dispatch(struct mercury_config *cfg,
-				const struct ring_limits *rlp) {
+                                const struct ring_limits *rlp,
+                                struct output_file *out_ctx) {
   int err;
   int num_threads = cfg->num_threads;
   int fanout_arg = ((getpid() & 0xffff) | (rlp->af_fanout_type << 16));
@@ -844,20 +843,6 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
       fprintf(stderr, "dropped root privileges\n");
   }
 
-  if (num_threads > 1) {
-
-      // TODO: figure out what to do here
-
-      /*
-       * create subdirectory into which each thread will write its output
-       */
-      //char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
-      //enum create_subdir_mode mode = cfg->rotate ? create_subdir_mode_overwrite : create_subdir_mode_do_not_overwrite;
-
-      //create_subdirectory(outdir, mode);
-  }
-
-
   // TODO: eventually this entire fileset_id business can
   // be removed since the output thread is handling files
   /*
@@ -905,8 +890,8 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   }
 
   /* Wake up output thread so it's polling the queues waiting for data */
-  out_ctx.t_output_p = 1;
-  err = pthread_cond_broadcast(&(out_ctx.t_output_c)); /* Wake up output */
+  out_ctx->t_output_p = 1;
+  err = pthread_cond_broadcast(&(out_ctx->t_output_c)); /* Wake up output */
   if (err != 0) {
       printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
       exit(255);
