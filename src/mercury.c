@@ -85,13 +85,13 @@ struct pcap_reader_thread_context {
 enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_thread_context *tc,
                                                         struct mercury_config *cfg,
                                                         int tnum,
-                                                        char *fileset_id) {
+                                                        struct ll_queue *llq) {
     char input_filename[MAX_FILENAME];
     tc->tnum = tnum;
 	tc->loop_count = cfg->loop_count;
     enum status status;
 
-    tc->pkt_processor = pkt_proc_new_from_config(cfg, tnum, fileset_id);
+    tc->pkt_processor = pkt_proc_new_from_config(cfg, tnum, llq);
     if (tc->pkt_processor == NULL) {
         printf("error: could not initialize frame handler\n");
         return status_err;
@@ -99,7 +99,7 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
 
     // if cfg->use_test_packet is on, read_filename will be NULL
     if (cfg->read_filename != NULL) {
-        status = filename_append(input_filename, cfg->read_filename, "/", fileset_id);
+        status = filename_append(input_filename, cfg->read_filename, "/", NULL);
         if (status) {
             return status;
         }
@@ -148,8 +148,7 @@ inline uint64_t get_clocktime_after (struct timespec *before,
     return nano_sec;
 }
 
-enum status open_and_dispatch(struct mercury_config *cfg) {
-    struct stat statbuf;
+enum status open_and_dispatch(struct mercury_config *cfg, struct ll_queue *llq) {
     enum status status;
     struct timespec before, after;
 	u_int64_t nano_seconds = 0;
@@ -158,146 +157,43 @@ enum status open_and_dispatch(struct mercury_config *cfg) {
 
     get_clocktime_before(&before); // get timestamp before we start processing
 
-    if (cfg->read_filename && stat(cfg->read_filename, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
-        DIR *dir = opendir(cfg->read_filename);
-        struct dirent *dirent;
+    struct pcap_reader_thread_context tc;
 
-        /*
-         * read_filename is a directory containing capture files created by separate threads
-         */
+    status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, llq);
+    if (status != status_ok) {
+        perror("could not initialize pcap reader thread context");
+        return status;
+    }
 
-        /*
-         * count number of files in fileset
-         */
-        int num_files = 0;
-        while ((dirent = readdir(dir)) != NULL) {
+    // TODO: the pcap_file_processing_thread_func() is also going to
+    // have to signal the output thread that it can stop waiting
 
-            char input_filename[MAX_FILENAME];
-            filename_append(input_filename, cfg->read_filename, "/", dirent->d_name);
-            if (stat(input_filename, &statbuf) == 0) {
-                if (S_ISREG(statbuf.st_mode)) {
-
-                    num_files++;
-                }
-            }
-        }
-
-        /*
-         * set up thread contexts
-         */
-        struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)malloc(num_files * sizeof(struct pcap_reader_thread_context));
-        if (!tc) {
-            perror("could not allocate memory for thread storage array\n");
-        }
-
-        // TODO: the following loop starts up a thread for each file
-        // however we first need to initialize the lockeless queues
-        // and to do that we need to know how many threads there will
-        // be.  We probably have to do two loops, #1 to count the number
-        // of threads/queues we need, and then #2 to actually start up
-        // threads.
-
-        // TODO: init the lockeless queues and output context and start the
-        // output thread and then signal the output thread's wait condition
-        // to let it know it can start.  This is exactly like how
-        // af_packet_v3.c has to signal the output thread after the other
-        // threads are started.
-
-        /*
-         * loop over all files in directory
-         */
-        rewinddir(dir);
-        int tnum = 0;
-        while ((dirent = readdir(dir)) != NULL) {
-
-            char input_filename[MAX_FILENAME];
-            filename_append(input_filename, cfg->read_filename, "/", dirent->d_name);
-            if (stat(input_filename, &statbuf) == 0) {
-                if (S_ISREG(statbuf.st_mode)) {
-
-                    status = pcap_reader_thread_context_init_from_config(&tc[tnum], cfg, tnum, dirent->d_name);
-                    if (status) {
-                        perror("could not initialize pcap reader thread context");
-                        return status;
-                    }
-
-                    int err = pthread_create(&(tc[tnum].tid), NULL, pcap_file_processing_thread_func, &tc[tnum]);
-                    tnum++;
-                    if (err) {
-                        printf("%s: error creating file reader thread\n", strerror(err));
-                        exit(255);
-                    }
-
-                }
-
-            } else {
-                perror("stat");
-            }
-
-        }
-
-        if (tnum != num_files) {
-            printf("warning: num_files (%d) != tnum (%d)\n", num_files, tnum);
-        }
-
-        for (int i = 0; i < tnum; i++) {
-            pthread_join(tc[i].tid, NULL);
-            //        struct pkt_proc_stats pkt_stats = tc[i].pkt_processor->get_stats();
-            bytes_written += tc[i].pkt_processor->bytes_written;
-            packets_written += tc[i].pkt_processor->packets_written;
-            delete tc[i].pkt_processor;
-        }
-
-        // TODO: tell the output thread it can stop here
-        // or, make sure there is a catch-all output thread stop
-        // somewhere eles
-
-    } else {
-
-        /*
-         * we have a single capture file, not a directory of capture files
-         */
-        struct pcap_reader_thread_context tc;
-
-        enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
-        if (status != status_ok) {
-            perror("could not initialize pcap reader thread context");
-            return status;
-        }
-
-        // TODO: we also have to make this part output-thread-aware-
-        // and use the lockless queue and such.
-
-        // TODO: the pcap_file_processing_thread_func() is also going to
-        // have to signal the output thread that it can stop waiting
-
-        /* Wake up output thread so it's polling the queues waiting for data */
-        out_ctx.t_output_p = 1;
-        int err = pthread_cond_broadcast(&(out_ctx.t_output_c)); /* Wake up output */
-        if (err != 0) {
-            printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
-            exit(255);
-        }
+    /* Wake up output thread so it's polling the queues waiting for data */
+    out_ctx.t_output_p = 1;
+    int err = pthread_cond_broadcast(&(out_ctx.t_output_c)); /* Wake up output */
+    if (err != 0) {
+        printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
+        exit(255);
+    }
 
 #if 0
-        pcap_file_processing_thread_func(&tc);
+    pcap_file_processing_thread_func(&tc);
 #else
-        err = pthread_create(&(tc.tid), NULL, pcap_file_processing_thread_func, &tc);
-        if (err) {
-            printf("%s: error creating file reader thread\n", strerror(err));
-            exit(255);
-        }
-        pthread_join(tc.tid, NULL);
-#endif
-        //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
-        bytes_written = tc.pkt_processor->bytes_written;
-        packets_written = tc.pkt_processor->packets_written;
-        pcap_file_close(&(tc.rf));
-        delete tc.pkt_processor; // TBD: eliminate naked delete - DAM
-
-        // TODO: signal the output thread it can stop
-        // or make sure it happens somewhere else
+    err = pthread_create(&(tc.tid), NULL, pcap_file_processing_thread_func, &tc);
+    if (err) {
+        printf("%s: error creating file reader thread\n", strerror(err));
+        exit(255);
     }
+    pthread_join(tc.tid, NULL);
+#endif
+    //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
+    bytes_written = tc.pkt_processor->bytes_written;
+    packets_written = tc.pkt_processor->packets_written;
+    pcap_file_close(&(tc.rf));
+    delete tc.pkt_processor; // TBD: eliminate naked delete - DAM
+
+    // TODO: signal the output thread it can stop
+    // or make sure it happens somewhere else
 
     nano_seconds = get_clocktime_after(&before, &after);
     double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
@@ -656,7 +552,6 @@ int main(int argc, char *argv[]) {
     }
 
     /* process packets */
-
     int num_cpus = get_nprocs();  // would get_nprocs_conf() be more appropriate?
     if (cfg.num_threads == -1) {
         cfg.num_threads = num_cpus;
@@ -675,15 +570,6 @@ int main(int argc, char *argv[]) {
         }
         ring_limits_init(&rl, cfg.buffer_fraction);
 
-        // TODO: the making of the thread queues and the output context
-        // and output thread also need to be done in the case of
-        // processing a pcap file || directory of pcap files
-        // We probably want to move this code outside
-        // of if (cfg.capture_interface) { however
-        // that means that the pcap code also needs
-        // to be able to send messages over a lockless queue
-        // to the output thread and that hasn't been done yet
-
         if (output_thread_init(output_thread, out_ctx, cfg) != 0) {
             perror("Unable to initialize output thread\n");
             return EXIT_FAILURE;
@@ -698,12 +584,7 @@ int main(int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
 
-        // TODO: make me output thread aware!
-        if (cfg.fingerprint_filename) {
-            ;
-        }
-
-        open_and_dispatch(&cfg);
+        open_and_dispatch(&cfg, &t_queues.queue[0]);
     }
 
     if (cfg.analysis) {
@@ -715,7 +596,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
     sig_stop_output = 1;
     pthread_join(output_thread, NULL);
-    destroy_thread_queues();
+    destroy_thread_queues(&t_queues);
 
     return 0;
 }

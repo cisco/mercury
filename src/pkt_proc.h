@@ -311,6 +311,6 @@ struct pkt_proc_dumper : public pkt_proc {
  */
 struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                                           int tnum,
-                                          char *fileset_id);
+                                          struct ll_queue *llq);
 
 #endif /* PKT_PROC_H */

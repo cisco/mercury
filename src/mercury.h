@@ -88,6 +88,7 @@ struct output_file {
     int t_output_p;
     pthread_cond_t t_output_c;
     pthread_mutex_t t_output_m;
+    struct thread_queues *qs;
 };
 
 //extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
