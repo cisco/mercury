@@ -13,31 +13,31 @@ extern int sig_stop_output;            // defined in mercury.h
 
 #define output_file_needs_rotation(ojf) (--((ojf)->record_countdown) == 0)
 
-void init_t_queues(int n) {
-    t_queues.qnum = n;
-    t_queues.queue = (struct ll_queue *)calloc(n, sizeof(struct ll_queue));
+void init_t_queues(struct thread_queues *tqs, int n) {
+    tqs->qnum = n;
+    tqs->queue = (struct ll_queue *)calloc(n, sizeof(struct ll_queue));
 
-    if (t_queues.queue == NULL) {
+    if (tqs->queue == NULL) {
         fprintf(stderr, "Failed to allocate memory for thread queues\n");
         exit(255);
     }
 
     for (int i = 0; i < n; i++) {
-        t_queues.queue[i].qnum = i; /* only needed for debug output */
-        t_queues.queue[i].ridx = 0;
-        t_queues.queue[i].widx = 0;
+        tqs->queue[i].qnum = i; /* only needed for debug output */
+        tqs->queue[i].ridx = 0;
+        tqs->queue[i].widx = 0;
 
         for (int j = 0; j < LLQ_DEPTH; j++) {
-            t_queues.queue[i].msgs[j].used = 0;
+            tqs->queue[i].msgs[j].used = 0;
         }
     }
 }
 
 
-void destroy_thread_queues() {
-    free(t_queues.queue);
-    t_queues.queue = NULL;
-    t_queues.qnum = 0;
+void destroy_thread_queues(struct thread_queues *tqs) {
+    free(tqs->queue);
+    tqs->queue = NULL;
+    tqs->qnum = 0;
 }
 
 
@@ -450,7 +450,8 @@ void *output_thread_func(void *arg) {
 int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, const struct mercury_config &cfg) {
 
     /* make the thread queues */
-    init_t_queues(cfg.num_threads);
+    init_t_queues(&t_queues, cfg.num_threads);
+    out_ctx.qs = &t_queues;
 
     /* init the output context */
     if (pthread_cond_init(&(out_ctx.t_output_c), NULL) != 0) {

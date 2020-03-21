@@ -35,6 +35,7 @@
 #include "signal_handling.h"
 #include "utils.h"
 #include "rnd_pkt_drop.h"
+#include "llq.h"
 
 /*
  * == Signal handling ==
@@ -843,24 +844,12 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
       fprintf(stderr, "dropped root privileges\n");
   }
 
-  // TODO: eventually this entire fileset_id business can
-  // be removed since the output thread is handling files
   /*
-   * initialze frame handlers 
+   * initialze frame handlers
    */
   for (int thread = 0; thread < num_threads; thread++) {
-      char *fileset_id = NULL;
-      char hexname[MAX_HEX];
-      
-      if (num_threads > 1) {
-	  /*
-	   * use thread number as a fileset file identifier (filename = short hex number)
-	   */
-	  snprintf(hexname, MAX_HEX, "%x", thread);
-	  fileset_id = hexname;
-      }
 
-      tstor[thread].pkt_processor = pkt_proc_new_from_config(cfg, thread, fileset_id);
+      tstor[thread].pkt_processor = pkt_proc_new_from_config(cfg, thread, &out_ctx->qs->queue[thread]);
       if (tstor[thread].pkt_processor == NULL) {
           printf("error: could not initialize frame handler\n");
           return status_err;

@@ -12,8 +12,7 @@
 
 void init_t_queues(int n);
 
-
-void destroy_thread_queues();
+void destroy_thread_queues(struct thread_queues *tqs);
 
 void *output_thread_func(void *arg);
 
