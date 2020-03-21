@@ -701,6 +701,7 @@ void *packet_capture_thread_func(void *arg)  {
   return NULL;
 }
 
+extern struct output_file out_ctx;
 
 int af_packet_bind_and_dispatch(struct mercury_config *cfg,
 				const struct ring_limits *rlp) {

@@ -33,7 +33,7 @@
 struct thread_queues t_queues;
 int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
 
-struct output_context out_ctx;
+struct output_file out_ctx;
 
 #define output_file_needs_rotation(ojf) (--((ojf)->record_countdown) == 0)
 
@@ -213,7 +213,7 @@ void debug_print_tour_tree(struct tourn_tree *t_tree) {
     fprintf(stderr, "\n");
 }
 
-enum status output_file_rotate(struct output_context *ojf) {
+enum status output_file_rotate(struct output_file *ojf) {
     char outfile[MAX_FILENAME];
 
     if (ojf->file) {
@@ -268,9 +268,7 @@ enum status output_file_rotate(struct output_context *ojf) {
 
 void *output_thread_func(void *arg) {
 
-    struct output_context *out_ctx = (struct output_context *)arg;
-
-    output_file_rotate(out_ctx);
+    struct output_file *out_ctx = (struct output_file *)arg;
 
     int err;
     err = pthread_mutex_lock(&(out_ctx->t_output_m));
@@ -290,6 +288,11 @@ void *output_thread_func(void *arg) {
         fprintf(stderr, "%s: error unlocking output start mutex for stats thread\n", strerror(err));
         exit(255);
     }
+
+    // note: we wait until we get an output start condition before we
+    // open any output files, so that drop_privileges() can be called
+    // before file creation
+    output_file_rotate(out_ctx);
 
     /* This output thread uses a "tournament tree" algorithm
      * to perform a k-way merge of the lockless queues.
@@ -468,7 +471,7 @@ void *output_thread_func(void *arg) {
 }
 
 
-int output_thread_init(pthread_t &output_thread, struct output_context &out_ctx, const struct mercury_config &cfg) {
+int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, const struct mercury_config &cfg) {
 
     /* make the thread queues */
     init_t_queues(cfg.num_threads);
@@ -494,6 +497,8 @@ int output_thread_init(pthread_t &output_thread, struct output_context &out_ctx,
     } else if (cfg.write_filename) {
         out_ctx.outfile_name = cfg.write_filename;
         out_ctx.type = pcap;
+    } else {
+        out_ctx.type = unknown;
     }
     out_ctx.file_num = 0;
     out_ctx.mode = cfg.mode;
@@ -1163,10 +1168,6 @@ int main(int argc, char *argv[]) {
     /* init random number generator */
     srand(time(0));
 
-    // TODO: this output thread variable can probably be done away with
-    // once we are using an output thread for everything
-
-    int outthread = 0; /* Let's us know we made an output thread and it needs stopping */
     pthread_t output_thread;
     if (cfg.capture_interface) {
         struct ring_limits rl;
@@ -1189,7 +1190,6 @@ int main(int argc, char *argv[]) {
             perror("Unable to initialize output thread\n");
             return EXIT_FAILURE;
         }
-        outthread = 1;
 
         af_packet_bind_and_dispatch(&cfg, &rl);
 
@@ -1199,7 +1199,6 @@ int main(int argc, char *argv[]) {
             perror("Unable to initialize output thread\n");
             return EXIT_FAILURE;
         }
-        outthread = 1;
 
         // TODO: make me output thread aware!
         if (cfg.fingerprint_filename) {
@@ -1215,12 +1214,10 @@ int main(int argc, char *argv[]) {
 
     // TODO: figure out if we leave this here or we rely on other parts of the code
     // to signal the output thread it can stop.
-    if (outthread == 1) {
-        fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
-        sig_stop_output = 1;
-        pthread_join(output_thread, NULL);
-        destroy_thread_queues();
-    }
+    fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
+    sig_stop_output = 1;
+    pthread_join(output_thread, NULL);
+    destroy_thread_queues();
 
     return 0;
 }
