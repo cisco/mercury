@@ -5,6 +5,10 @@
 #ifndef LLQ_H
 #define LLQ_H
 
+#define LLQ_MSG_SIZE 16384   /* The number of bytes allowed for each message in the lockless queue */
+#define LLQ_DEPTH    2048    /* The number of "buckets" (queue messages) allowed */
+#define LLQ_MAX_AGE  5       /* Maximum age (in seconds) messages are allowed to sit in a queue */
+
 /* The message object suitable for the std::priority_queue */
 struct llq_msg {
     volatile int used; /* The flag that says if this object is actually in use (if not, it's available) */

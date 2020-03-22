@@ -7,6 +7,7 @@
 #include <string.h>
 #include "output.h"
 #include "pcap_file_io.h"  // for write_pcap_file_header()
+#include "utils.h"
 
 extern struct thread_queues t_queues;  // defined in mercury.c
 extern int sig_stop_output;            // defined in mercury.h

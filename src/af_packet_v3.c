@@ -35,7 +35,7 @@
 #include "signal_handling.h"
 #include "utils.h"
 #include "rnd_pkt_drop.h"
-#include "llq.h"
+#include "output.h"
 
 /*
  * == Signal handling ==

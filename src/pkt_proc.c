@@ -12,7 +12,7 @@
 #include "packet.h"
 #include "rnd_pkt_drop.h"
 #include "pkt_proc.h"
-#include "mercury.h"
+#include "utils.h"
 #include "llq.h"
 
 extern struct thread_queues t_queues;
@@ -48,30 +48,21 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                 /*
                  * write only packet metadata (TLS clientHellos, TCP SYNs, ...) to capture file
                  */
-                // return new pkt_proc_filter_pcap_writer(outfile, cfg->flags);
                 return new pkt_proc_filter_pcap_writer_llq(llq);
 
             } else {
                 /*
                  * write all packets to capture file
                  */
-                // return new pkt_proc_pcap_writer(outfile, cfg->flags);
                 return new pkt_proc_pcap_writer_llq(llq);
 
             }
-
-            // TODO: eventually this entire branch can probably be removed
-            // since the output thread is doing it now
 
         } else if (cfg->fingerprint_filename) {
             /*
              * write fingerprints into output file
              */
 
-            /* This is a mess right now because we no longer deal with output file names
-             * and instead are dealing with a queue.  We don't pass a file handle or file
-             * name and instead must pass a pointer to a lockless queue
-             */
             return new pkt_proc_json_writer_llq(llq);
 
         } else {

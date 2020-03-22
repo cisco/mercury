@@ -16,7 +16,6 @@
 #include <inttypes.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <mqueue.h>
 #include <pthread.h>
 #include <stdio.h>
 
@@ -71,40 +70,5 @@ struct mercury_config {
 
 #define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0  }
 
-#define LLQ_MSG_SIZE 16384   /* The number of bytes allowed for each message in the lockless queue */
-#define LLQ_DEPTH    2048    /* The number of "buckets" (queue messages) allowed */
-#define LLQ_MAX_AGE  5       /* Maximum age (in seconds) messages are allowed to sit in a queue */
-
-enum file_type { unknown=0, json, pcap };
-
-struct output_file {
-    FILE *file;
-    int64_t record_countdown;
-    int64_t max_records;
-    uint32_t file_num;
-    char *outfile_name;
-    const char *mode;
-    enum file_type type;
-    int t_output_p;
-    pthread_cond_t t_output_c;
-    pthread_mutex_t t_output_m;
-    struct thread_queues *qs;
-};
-
-//extern int sig_stop_output;    /* Watched by the output thread to know when to terminate */
-//extern struct output_file out_ctx;
-//extern int t_output_p;
-//extern pthread_cond_t t_output_c;
-
-
-enum status filename_append(char dst[MAX_FILENAME],
-			    const char *src,
-			    const char *delim,
-			    const char *tail);
-
-void get_clocktime_before (struct timespec *before);
-uint64_t get_clocktime_after (struct timespec *before, struct timespec *after);
-
-mqd_t open_thread_queue(const char *qid);
 
 #endif /* MERCURY_H */
