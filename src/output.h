@@ -22,15 +22,14 @@ struct output_file {
     int t_output_p;
     pthread_cond_t t_output_c;
     pthread_mutex_t t_output_m;
-    struct thread_queues *qs;
+    struct thread_queues qs;
+    int sig_stop_output = 0;
 };
-
-void init_t_queues(int n);
-
-void destroy_thread_queues(struct thread_queues *tqs);
 
 void *output_thread_func(void *arg);
 
 int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, const struct mercury_config &cfg);
+
+void output_thread_finalize(pthread_t output_thread, struct output_file *out_file);
 
 #endif /* OUTPUT_H */

@@ -9,12 +9,9 @@
 #include "pcap_file_io.h"  // for write_pcap_file_header()
 #include "utils.h"
 
-extern struct thread_queues t_queues;  // defined in mercury.c
-extern int sig_stop_output;            // defined in mercury.h
-
 #define output_file_needs_rotation(ojf) (--((ojf)->record_countdown) == 0)
 
-void init_t_queues(struct thread_queues *tqs, int n) {
+void thread_queues_init(struct thread_queues *tqs, int n) {
     tqs->qnum = n;
     tqs->queue = (struct ll_queue *)calloc(n, sizeof(struct ll_queue));
 
@@ -35,7 +32,7 @@ void init_t_queues(struct thread_queues *tqs, int n) {
 }
 
 
-void destroy_thread_queues(struct thread_queues *tqs) {
+void thread_queues_free(struct thread_queues *tqs) {
     free(tqs->queue);
     tqs->queue = NULL;
     tqs->qnum = 0;
@@ -51,7 +48,7 @@ int time_less(struct timespec *tsl, struct timespec *tsr) {
     }
 }
 
-int queue_less(int ql, int qr, struct tourn_tree *t_tree) {
+int queue_less(int ql, int qr, struct tourn_tree *t_tree, const struct thread_queues *tqs) {
 
     /* returns 1 if the time of ql < qr and 0 otherwise
      * Also sets t_tree->stalled = 1 if needed.
@@ -74,14 +71,14 @@ int queue_less(int ql, int qr, struct tourn_tree *t_tree) {
      * we could short-circuit logic before realizing one of the
      * queues was stalled
      */
-    if ((ql >= 0) && (ql < t_queues.qnum)) {
-        ql_used = t_queues.queue[ql].msgs[t_queues.queue[ql].ridx].used;
+    if ((ql >= 0) && (ql < tqs->qnum)) {
+        ql_used = tqs->queue[ql].msgs[tqs->queue[ql].ridx].used;
         if (ql_used == 0) {
             t_tree->stalled = 1;
         }
     }
-    if ((qr >= 0) && (qr < t_queues.qnum)) {
-        qr_used = t_queues.queue[qr].msgs[t_queues.queue[qr].ridx].used;
+    if ((qr >= 0) && (qr < tqs->qnum)) {
+        qr_used = tqs->queue[qr].msgs[tqs->queue[qr].ridx].used;
         if (qr_used == 0) {
             t_tree->stalled = 1;
         }
@@ -110,9 +107,9 @@ int queue_less(int ql, int qr, struct tourn_tree *t_tree) {
      * in the tournament (and any real queue compared to a -1 queue
      * automatically "wins").
      */
-    if (ql >= t_queues.qnum) {
+    if (ql >= tqs->qnum) {
         return 0;
-    } else if (qr >= t_queues.qnum) {
+    } else if (qr >= tqs->qnum) {
         return 1;
     }
 
@@ -122,17 +119,17 @@ int queue_less(int ql, int qr, struct tourn_tree *t_tree) {
     } else if (qr_used == 0) {
         return 1;
     } else {
-        struct timespec *tsl = &(t_queues.queue[ql].msgs[t_queues.queue[ql].ridx].ts);
-        struct timespec *tsr = &(t_queues.queue[qr].msgs[t_queues.queue[qr].ridx].ts);
+        struct timespec *tsl = &(tqs->queue[ql].msgs[tqs->queue[ql].ridx].ts);
+        struct timespec *tsr = &(tqs->queue[qr].msgs[tqs->queue[qr].ridx].ts);
 
         return time_less(tsl, tsr);
     }
 }
 
 
-int lesser_queue(int ql, int qr, struct tourn_tree *t_tree) {
+int lesser_queue(int ql, int qr, struct tourn_tree *t_tree, const struct thread_queues *tqs) {
 
-    if (queue_less(ql, qr, t_tree) == 1) {
+    if (queue_less(ql, qr, t_tree, tqs) == 1) {
         return ql;
     } else {
         return qr;
@@ -140,7 +137,7 @@ int lesser_queue(int ql, int qr, struct tourn_tree *t_tree) {
 }
 
 
-void run_tourn_for_queue(struct tourn_tree *t_tree, int q) {
+void run_tourn_for_queue(struct tourn_tree *t_tree, int q, const struct thread_queues *tqs) {
 
     /*
      * The leaf index in the tree for a particular queue
@@ -154,7 +151,7 @@ void run_tourn_for_queue(struct tourn_tree *t_tree, int q) {
     int qr = ql + 1;                  /* the odd q is (r)ight */
     int lidx = ((ql + t_tree->qp2) - 1) / 2;
 
-    t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree);
+    t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree, tqs);
 
     /* This "walks" back up the tree to the root node (0) */
     while (lidx > 0) {
@@ -163,12 +160,12 @@ void run_tourn_for_queue(struct tourn_tree *t_tree, int q) {
         qr = t_tree->tree[(lidx * 2) + 2]; /* (r)ight child queue */
 
         /* Run the tournament between ql and qr */
-        t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree);
+        t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree, tqs);
     }
 }
 
 
-void debug_print_tour_tree(struct tourn_tree *t_tree) {
+void debug_print_tour_tree(struct tourn_tree *t_tree, const struct thread_queues *tqs) {
 
     fprintf(stderr, "Tourn Tree size: %d\n", (t_tree->qp2 - 1));
     int i = 0;
@@ -183,7 +180,7 @@ void debug_print_tour_tree(struct tourn_tree *t_tree) {
 
     fprintf(stderr, "Ready queues:\n");
     for (int q = 0; q < t_tree->qnum; q++) {
-        if (t_queues.queue[q].msgs[t_queues.queue[q].ridx].used == 1) {
+        if (tqs->queue[q].msgs[tqs->queue[q].ridx].used == 1) {
             fprintf(stderr, "%d ", q);
         }
     }
@@ -316,7 +313,7 @@ void *output_thread_func(void *arg) {
      */
 
     struct tourn_tree t_tree;
-    t_tree.qnum = t_queues.qnum;
+    t_tree.qnum = out_ctx->qs.qnum;
     t_tree.qp2 = 2; /* This is the smallest power of 2 >= the number of queues */
     while (t_tree.qp2 < t_tree.qnum) {
         t_tree.qp2 *= 2;
@@ -338,7 +335,7 @@ void *output_thread_func(void *arg) {
          * for the pair.
          */
         for (int q = 0; q < t_tree.qp2; q += 2) {
-            run_tourn_for_queue(&t_tree, q);
+            run_tourn_for_queue(&t_tree, q, &out_ctx->qs);
         }
 
         /* This loop runs the tournament as long as the tree
@@ -350,7 +347,7 @@ void *output_thread_func(void *arg) {
         while (t_tree.stalled == 0) {
             wq = t_tree.tree[0]; /* the root node is always the winning queue */
 
-            struct llq_msg *wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
+            struct llq_msg *wmsg = &(out_ctx->qs.queue[wq].msgs[out_ctx->qs.queue[wq].ridx]);
             if (wmsg->used == 1) {
                 fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
 
@@ -363,9 +360,9 @@ void *output_thread_func(void *arg) {
                     output_file_rotate(out_ctx);
                 }
 
-                t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
+                out_ctx->qs.queue[wq].ridx = (out_ctx->qs.queue[wq].ridx + 1) % LLQ_DEPTH;
 
-                run_tourn_for_queue(&t_tree, wq);
+                run_tourn_for_queue(&t_tree, wq, &out_ctx->qs);
             }
             else {
                 break;
@@ -393,13 +390,13 @@ void *output_thread_func(void *arg) {
         while (old_done == 0) {
             wq = t_tree.tree[0];
 
-            struct llq_msg *wmsg = &(t_queues.queue[wq].msgs[t_queues.queue[wq].ridx]);
+            struct llq_msg *wmsg = &(out_ctx->qs.queue[wq].msgs[out_ctx->qs.queue[wq].ridx]);
             if (wmsg->used == 0) {
                 /* Even the top queue has nothing so we can just stop now */
                 old_done = 1;
 
                 /* This is how we detect no more output is coming */
-                if (sig_stop_output != 0) {
+                if (out_ctx->sig_stop_output != 0) {
                     all_output_flushed = 1;
                 }
 
@@ -417,9 +414,9 @@ void *output_thread_func(void *arg) {
                     output_file_rotate(out_ctx);
                 }
 
-                t_queues.queue[wq].ridx = (t_queues.queue[wq].ridx + 1) % LLQ_DEPTH;
+                out_ctx->qs.queue[wq].ridx = (out_ctx->qs.queue[wq].ridx + 1) % LLQ_DEPTH;
 
-                run_tourn_for_queue(&t_tree, wq);
+                run_tourn_for_queue(&t_tree, wq, &out_ctx->qs);
             } else {
                 old_done = 1;
             }
@@ -451,8 +448,7 @@ void *output_thread_func(void *arg) {
 int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, const struct mercury_config &cfg) {
 
     /* make the thread queues */
-    init_t_queues(&t_queues, cfg.num_threads);
-    out_ctx.qs = &t_queues;
+    thread_queues_init(&out_ctx.qs, cfg.num_threads);
 
     /* init the output context */
     if (pthread_cond_init(&(out_ctx.t_output_c), NULL) != 0) {
@@ -477,6 +473,7 @@ int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, co
         out_ctx.type = pcap;
     } else {
         out_ctx.type = unknown;
+        return -1; // error: unknown output file type
     }
     out_ctx.file_num = 0;
     out_ctx.mode = cfg.mode;
@@ -491,4 +488,10 @@ int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, co
         return -1;
     }
     return 0;
+}
+
+void output_thread_finalize(pthread_t output_thread, struct output_file *out_file) {
+    out_file->sig_stop_output = 1;
+    pthread_join(output_thread, NULL);
+    thread_queues_free(&out_file->qs);
 }

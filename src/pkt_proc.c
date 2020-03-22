@@ -15,8 +15,6 @@
 #include "utils.h"
 #include "llq.h"
 
-extern struct thread_queues t_queues;
-
 /*
  * packet_filter_threshold is a (somewhat arbitrary) threshold used in
  * the packet metadata filter; it will probably get eliminated soon,

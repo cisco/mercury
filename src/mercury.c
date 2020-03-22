@@ -30,16 +30,7 @@
 #include "output.h"
 #include "utils.h"
 
-
-struct thread_queues t_queues;
-int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
-
-struct output_file out_ctx;
-
-#define TWO_TO_THE_N(N) (unsigned int)1 << (N)
-
 #define FLAGS_CLOBBER (O_TRUNC)
-
 
 /*
  * struct pcap_reader_thread_context holds thread-specific information
@@ -85,6 +76,11 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
     return status_ok;
 }
 
+void pcap_reader_thread_context_finalize(struct pcap_reader_thread_context *tc) {
+    pcap_file_close(&(tc->rf));
+    delete tc->pkt_processor;
+}
+
 void *pcap_file_processing_thread_func(void *userdata) {
     struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
     enum status status;
@@ -98,7 +94,7 @@ void *pcap_file_processing_thread_func(void *userdata) {
     return NULL;
 }
 
-enum status open_and_dispatch(struct mercury_config *cfg, struct ll_queue *llq) {
+enum status open_and_dispatch(struct mercury_config *cfg, struct output_file *of) {
     enum status status;
     struct timer t;
 	u_int64_t nano_seconds = 0;
@@ -109,15 +105,15 @@ enum status open_and_dispatch(struct mercury_config *cfg, struct ll_queue *llq) 
 
     struct pcap_reader_thread_context tc;
 
-    status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, llq);
+    status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, &of->qs.queue[0]);
     if (status != status_ok) {
         perror("could not initialize pcap reader thread context");
         return status;
     }
 
     /* Wake up output thread so it's polling the queues waiting for data */
-    out_ctx.t_output_p = 1;
-    int err = pthread_cond_broadcast(&(out_ctx.t_output_c)); /* Wake up output */
+    of->t_output_p = 1;
+    int err = pthread_cond_broadcast(&(of->t_output_c)); /* Wake up output */
     if (err != 0) {
         printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
         exit(255);
@@ -136,11 +132,7 @@ enum status open_and_dispatch(struct mercury_config *cfg, struct ll_queue *llq) 
     //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
     bytes_written = tc.pkt_processor->bytes_written;
     packets_written = tc.pkt_processor->packets_written;
-    pcap_file_close(&(tc.rf));
-    delete tc.pkt_processor; // TBD: eliminate naked delete - DAM
-
-    // TODO: signal the output thread it can stop
-    // or make sure it happens somewhere else
+    pcap_reader_thread_context_finalize(&tc);
 
     nano_seconds = timer_stop(&t);
     double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
@@ -509,6 +501,7 @@ int main(int argc, char *argv[]) {
     srand(time(0));
 
     pthread_t output_thread;
+    struct output_file out_file;
     if (cfg.capture_interface) {
         struct ring_limits rl;
 
@@ -517,33 +510,29 @@ int main(int argc, char *argv[]) {
         }
         ring_limits_init(&rl, cfg.buffer_fraction);
 
-        if (output_thread_init(output_thread, out_ctx, cfg) != 0) {
+        if (output_thread_init(output_thread, out_file, cfg) != 0) {
             perror("Unable to initialize output thread\n");
             return EXIT_FAILURE;
         }
 
-        af_packet_bind_and_dispatch(&cfg, &rl, &out_ctx);
+        af_packet_bind_and_dispatch(&cfg, &rl, &out_file);
 
     } else if (cfg.read_filename) {
 
-        if (output_thread_init(output_thread, out_ctx, cfg) != 0) {
+        if (output_thread_init(output_thread, out_file, cfg) != 0) {
             perror("Unable to initialize output thread\n");
             return EXIT_FAILURE;
         }
 
-        open_and_dispatch(&cfg, &t_queues.queue[0]); // TBD: pass all queues
+        open_and_dispatch(&cfg, &out_file);
     }
 
     if (cfg.analysis) {
         analysis_finalize();
     }
 
-    // TODO: figure out if we leave this here or we rely on other parts of the code
-    // to signal the output thread it can stop.
     fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
-    sig_stop_output = 1;
-    pthread_join(output_thread, NULL);
-    destroy_thread_queues(&t_queues);
+    output_thread_finalize(output_thread, &out_file);
 
     return 0;
 }

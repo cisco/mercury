@@ -47,14 +47,14 @@
  * sig_close_flag and the packet worker threads will watch
  * sig_close_workers.
  */
-extern int sig_close_flag; /* Watched by the stats tracking thread, defined in mercury.c */
+extern int sig_close_flag; /* Watched by the stats tracking thread, defined in signal_handling.c */
 static int sig_close_workers = 0; /* Packet proccessing var */
 
 static double time_elapsed(struct timespec *ts) {
 
     double time_s;
     time_s = ts->tv_sec + (ts->tv_nsec / 1000000000.0);
-    
+
     if (clock_gettime(CLOCK_REALTIME, ts) != 0) {
 	perror("Unable to get clock time for elapsed calculation");
 	return NAN;
@@ -849,7 +849,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
    */
   for (int thread = 0; thread < num_threads; thread++) {
 
-      tstor[thread].pkt_processor = pkt_proc_new_from_config(cfg, thread, &out_ctx->qs->queue[thread]);
+      tstor[thread].pkt_processor = pkt_proc_new_from_config(cfg, thread, &out_ctx->qs.queue[thread]);
       if (tstor[thread].pkt_processor == NULL) {
           printf("error: could not initialize frame handler\n");
           return status_err;
