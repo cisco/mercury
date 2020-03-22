@@ -14,7 +14,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
-#include <time.h>
 #include <sys/sysinfo.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
