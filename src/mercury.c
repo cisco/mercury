@@ -29,6 +29,7 @@
 #include "signal_handling.h"
 #include "config.h"
 #include "output.h"
+#include "utils.h"
 
 
 struct thread_queues t_queues;
@@ -40,33 +41,6 @@ struct output_file out_ctx;
 
 #define FLAGS_CLOBBER (O_TRUNC)
 
-enum status filename_append(char dst[MAX_FILENAME],
-                            const char *src,
-                            const char *delim,
-                            const char *tail) {
-
-    if (tail) {
-
-        /*
-         * filename = directory || '/' || thread_num
-         */
-        if (strnlen(src, MAX_FILENAME) + strlen(tail) + 1 > MAX_FILENAME) {
-            return status_err; /* filename too long */
-        }
-        strncpy(dst, src, MAX_FILENAME);
-        strcat(dst, delim);
-        strcat(dst, tail);
-
-    } else {
-
-        if (strnlen(src, MAX_FILENAME) >= MAX_FILENAME) {
-            return status_err; /* filename too long */
-        }
-        strncpy(dst, src, MAX_FILENAME);
-
-    }
-    return status_ok;
-}
 
 /*
  * struct pcap_reader_thread_context holds thread-specific information
@@ -125,37 +99,14 @@ void *pcap_file_processing_thread_func(void *userdata) {
     return NULL;
 }
 
-#define BILLION 1000000000L
-
-inline void get_clocktime_before (struct timespec *before) {
-    if (clock_gettime(CLOCK_REALTIME, before) != 0) {
-        // failed to get clock time, set the uninitialized struct to zero
-        bzero(before, sizeof(struct timespec));
-        perror("error: could not get clock time before fwrite file header\n");
-    }
-}
-
-inline uint64_t get_clocktime_after (struct timespec *before,
-                                     struct timespec *after) {
-    uint64_t nano_sec = 0;
-    if (clock_gettime(CLOCK_REALTIME, after) != 0) {
-        perror("error: could not get clock time after fwrite file header\n");
-    } else {
-        // It is assumed that if this call is successful, the previous call is also successful.
-        // We got clock time after writting, now compute the time difference in nano seconds
-        nano_sec += (BILLION * (after->tv_sec - before->tv_sec)) + (after->tv_nsec - before->tv_nsec);
-    }
-    return nano_sec;
-}
-
 enum status open_and_dispatch(struct mercury_config *cfg, struct ll_queue *llq) {
     enum status status;
-    struct timespec before, after;
+    struct timer t;
 	u_int64_t nano_seconds = 0;
 	u_int64_t bytes_written = 0;
 	u_int64_t packets_written = 0;
 
-    get_clocktime_before(&before); // get timestamp before we start processing
+    timer_start(&t); // get timestamp before we start processing
 
     struct pcap_reader_thread_context tc;
 
@@ -164,9 +115,6 @@ enum status open_and_dispatch(struct mercury_config *cfg, struct ll_queue *llq) 
         perror("could not initialize pcap reader thread context");
         return status;
     }
-
-    // TODO: the pcap_file_processing_thread_func() is also going to
-    // have to signal the output thread that it can stop waiting
 
     /* Wake up output thread so it's polling the queues waiting for data */
     out_ctx.t_output_p = 1;
@@ -195,7 +143,7 @@ enum status open_and_dispatch(struct mercury_config *cfg, struct ll_queue *llq) 
     // TODO: signal the output thread it can stop
     // or make sure it happens somewhere else
 
-    nano_seconds = get_clocktime_after(&before, &after);
+    nano_seconds = timer_stop(&t);
     double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
 
     if (cfg->write_filename && cfg->verbosity) {
@@ -584,7 +532,7 @@ int main(int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
 
-        open_and_dispatch(&cfg, &t_queues.queue[0]);
+        open_and_dispatch(&cfg, &t_queues.queue[0]); // TBD: pass all queues
     }
 
     if (cfg.analysis) {

@@ -5,6 +5,8 @@
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
+#ifndef UTILS_H
+#define UTILS_H
 
 #include "pcap_file_io.h"
 
@@ -17,7 +19,7 @@ void packet_handler_printf(uint8_t *ignore,
 			   const uint8_t *packet);
 
 
-enum status hex_to_raw(const void *output,
+size_t hex_to_raw(const void *output,
 		       size_t output_buf_len,
 		       const char *null_terminated_hex_string);
 
@@ -81,3 +83,19 @@ void get_readable_number_float(double power,
                                double input,
                                double *num_output,
                                char **str_output);
+
+
+enum status filename_append(char dst[MAX_FILENAME],
+			    const char *src,
+			    const char *delim,
+			    const char *tail);
+
+struct timer {
+    struct timespec before;
+    struct timespec after;
+};
+
+void timer_start(struct timer *t);
+uint64_t timer_stop(struct timer *t);
+
+#endif /* UTILS_H */

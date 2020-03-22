@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include "mercury.h"
 #include "pcap_file_io.h"
+#include "utils.h"
 
 
 /* append_snprintf
@@ -728,4 +729,54 @@ void get_readable_number_float(double power,
     *num_output = input;
     *str_output = readable_number_suffix[index];
 
+}
+
+enum status filename_append(char dst[MAX_FILENAME],
+                            const char *src,
+                            const char *delim,
+                            const char *tail) {
+
+    if (tail) {
+
+        /*
+         * filename = directory || '/' || thread_num
+         */
+        if (strnlen(src, MAX_FILENAME) + strlen(tail) + 1 > MAX_FILENAME) {
+            return status_err; /* filename too long */
+        }
+        strncpy(dst, src, MAX_FILENAME);
+        strcat(dst, delim);
+        strcat(dst, tail);
+
+    } else {
+
+        if (strnlen(src, MAX_FILENAME) >= MAX_FILENAME) {
+            return status_err; /* filename too long */
+        }
+        strncpy(dst, src, MAX_FILENAME);
+
+    }
+    return status_ok;
+}
+
+void timer_start(struct timer *t) {
+    if (clock_gettime(CLOCK_REALTIME, &t->before) != 0) {
+        // failed to get clock time, set the uninitialized struct to zero
+        bzero(&t->before, sizeof(struct timespec));
+        perror("error: could not get clock time before fwrite file header\n");
+    }
+}
+
+#define BILLION 1000000000L
+
+uint64_t timer_stop(struct timer *t) {
+    uint64_t nano_sec = 0;
+    if (clock_gettime(CLOCK_REALTIME, &t->after) != 0) {
+        perror("error: could not get clock time after fwrite file header\n");
+    } else {
+        // It is assumed that if this call is successful, the previous call is also successful.
+        // We got clock time after writting, now compute the time difference in nano seconds
+        nano_sec += (BILLION * (t->after.tv_sec - t->before.tv_sec)) + (t->after.tv_nsec - t->before.tv_nsec);
+    }
+    return nano_sec;
 }

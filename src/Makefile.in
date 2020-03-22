@@ -32,8 +32,8 @@ CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += $(OPTFLAGS)
 
-MERC   = mercury.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c utils.c analysis.c rnd_pkt_drop.c signal_handling.c config.c addr.c output.c
-MERC_H = af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h utils.h analysis.h rnd_pkt_drop.h signal_handling.h config.h addr.h tcp.h match.h llq.h output.h
+MERC   = mercury.c af_packet_v3.c json_file_io.c pcap_file_io.c pkt_proc.c analysis.c rnd_pkt_drop.c signal_handling.c config.c addr.c output.c
+MERC_H = af_packet_v3.h json_file_io.h mercury.h pcap_file_io.h pkt_proc.h analysis.h rnd_pkt_drop.h signal_handling.h config.h addr.h tcp.h match.h llq.h output.h
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
@@ -58,8 +58,8 @@ setcap: mercury
 
 # libmerc performs selective packet parsing and fingerprint extraction
 #
-LIBMERC     = extractor.c ept.c packet.c udp.c $(PYANALYSIS)
-LIBMERC_H   = eth.h extractor.h ept.h proto_identify.h packet.h udp.h
+LIBMERC     = extractor.c ept.c packet.c udp.c $(PYANALYSIS) utils.c
+LIBMERC_H   = eth.h extractor.h ept.h proto_identify.h packet.h udp.h utils.h
 LIBMERC_OBJ = $(LIBMERC:%.c=%.o)
 
 # implicit rule for building object files
