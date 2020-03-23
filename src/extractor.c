@@ -1294,32 +1294,37 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
     unsigned char sp[1] = { ' ' };
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
-    keyword_t case_insensitive_static_headers[13] = {
-        // keyword_init("user-agent"),
-        keyword_init("upgrade-insecure-requests"),
-        keyword_init("dnt"),
-        keyword_init("accept-language"),
-        keyword_init("connection"),
-        keyword_init("x-requested-with"),
-        keyword_init("accept-encoding"),
-        keyword_init("content-length"),
+    keyword_t http_static_name_and_value[] = {
         keyword_init("accept"),
-        keyword_init("viewport-width"),
-        keyword_init("intervention"),
+        keyword_init("accept-encoding"),
+        keyword_init("connection"),
+        keyword_init("dnt"),
         keyword_init("dpr"),
+        keyword_init("upgrade-insecure-requests"),
+        keyword_init("x-requested-with"),
+        keyword_init("")
+    };
+    keyword_t http_static_name[] = {
+        keyword_init("accept-charset"),
+        keyword_init("accept-language"),
+        keyword_init("authorization"),
         keyword_init("cache-control"),
+        keyword_init("host"),
+        keyword_init("if-modified-since"),
+        keyword_init("keep-alive"),
+        keyword_init("user-agent"),
+        keyword_init("x-flash-version"),
+        keyword_init("x-p2p-peerdist"),
         keyword_init("")
     };
-    keyword_t case_sensitive_static_headers[3] = {
-        keyword_init("content-type"),
-        keyword_init("origin"),
-        keyword_init("")
+    keyword_matcher_t matcher_http_static_name_and_value = {
+        http_static_name_and_value, /* case insensitive */
+        NULL                        /* case sensitive   */
     };
-    keyword_matcher_t static_header_keywords = {
-        case_insensitive_static_headers,
-        case_sensitive_static_headers
+    keyword_matcher_t matcher_http_static_name = {
+        http_static_name,           /* case insensitive */
+        NULL                        /* case sensitive   */
     };
-
     extractor_debug("%s: processing packet\n", __func__);
 
 #if 0
@@ -1358,37 +1363,42 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
     }
 
     while (parser_get_data_length(p) > 0) {
-	if (parser_match(p, crlf, sizeof(crlf), NULL) == status_ok) {
-	    break;  /* at end of headers */
-	}
-	if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
-	    return extractor_get_output_length(x);   
-	}
-	if (extractor_keyword_match_last_capture(x, &static_header_keywords) == status_ok) {
-	    if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
-		return extractor_get_output_length(x);
-	    }
-	} else {
-	    const uint8_t *user_agent_string = NULL;
-	    if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher) == status_ok) {
-	        /* store user agent value */
-            if (parser_skip_upto_delim(p, csp, sizeof(csp)) == status_err) {
+        if (parser_match(p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+        if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
+            return extractor_get_output_length(x);
+        }
+        if (extractor_keyword_match_last_capture(x, &matcher_http_static_name_and_value) == status_ok) {
+            if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
                 return extractor_get_output_length(x);
             }
-            user_agent_string = p->data;
-	    }
-	    if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
-		return extractor_get_output_length(x);
-	    }
-	    if (user_agent_string) {
-            size_t ua_len = p->data - user_agent_string;
-            ua_len = ua_len > sizeof(crlf) ? ua_len - sizeof(crlf) : 0;
-            packet_data_set(&x->packet_data,
-                            packet_data_type_http_user_agent,
-                            ua_len,
-                            user_agent_string);
-	    }
-	}
+        } else {
+            const uint8_t *user_agent_string = NULL;
+            if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher) == status_ok) {
+                /* store user agent value */
+                if (parser_skip_upto_delim(p, csp, sizeof(csp)) == status_err) {
+                    return extractor_get_output_length(x);
+                }
+                user_agent_string = p->data;
+            }
+
+            if (extractor_keyword_match_last_capture(x, &matcher_http_static_name) != status_ok) {
+                extractor_delete_last_capture(x);
+            }
+
+            if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
+                return extractor_get_output_length(x);
+            }
+            if (user_agent_string) {
+                size_t ua_len = p->data - user_agent_string;
+                ua_len = ua_len > sizeof(crlf) ? ua_len - sizeof(crlf) : 0;
+                packet_data_set(&x->packet_data,
+                                packet_data_type_http_user_agent,
+                                ua_len,
+                                user_agent_string);
+            }
+        }
     }
 
     extractor_debug("%s: http DONE\n", __func__);
