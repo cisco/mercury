@@ -11,7 +11,7 @@
 #include <regex>
 #include <unordered_map>
 #include <map>
-
+#include <set>
 
 void oid_print(std::vector<uint32_t> oid, const char *label) {
 
@@ -232,6 +232,8 @@ struct oid_assignment {
 };
 
 std::unordered_map<std::string, std::vector<uint32_t>> oid_dict;
+std::unordered_map<std::string, std::string> oid_to_keyword_dict;
+std::set<std::string> keywords;
 
 void parse_asn1_line(std::list<std::string> &tokens) {
     using namespace std;
@@ -369,11 +371,21 @@ void parse_asn1_line(std::list<std::string> &tokens) {
         t++;
     }
 
+    if (keywords.count(assignment.name) == 0) {
+        keywords.insert(assignment.name);
+    } else {
+        cerr << "keyword " << assignment.name << " is already in use" << endl;
+    }
     // cout << "assignment: " << assignment.name << "\t" << assignment.type << endl;
+    if (oid_dict.find(assignment.name) != oid_dict.end()) {
+        cerr << "name " << assignment.name << " is already in dictionary" << endl;
+    }
     oid_dict[assignment.name] = assignment.asn_notation;
     if (assignment.type == type_other) {
-        // cout << "assigning synonym " << assignment.name << "\n";
+        cerr << "assigning synonym " << assignment.name << "\n";
     }
+    oid_to_keyword_dict[oid_to_hex_string(assignment.asn_notation)] = assignment.name;
+
     //for (auto x : assignment.asn_notation) {
     //     cout << x << '.';
     //}
@@ -589,5 +601,8 @@ int main(int argc, char *argv[]) {
     dump_oid_dict_sorted();
     // verify_oid_dict();
 
+    //    for (auto &x : oid_to_keyword_dict) {
+    //    cout << x.first << "\t" << x.second << endl;
+    //}
     return 0;
 }
