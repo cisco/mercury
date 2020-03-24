@@ -104,7 +104,7 @@ std::vector<uint8_t> oid_to_raw_string(std::vector<uint32_t> oid) {
 
         std::vector<uint8_t> v;
         if (tmp == 0) {
-            v.push_back(rem);
+            v.push_back(0);
         } else {
             while (tmp > 0) {
                 div = tmp/128;
@@ -185,11 +185,6 @@ void output_oid(std::vector<uint32_t> oid, const char *delimiter) {
     std::cout << oid[i] << '\n';
 }
 
-
-//struct oid {
-//    std::vector<uint32_t> asn1_notation;
-//    std::string name;
-//};
 
 enum token_type {
   token_unknown,
@@ -379,6 +374,10 @@ void parse_asn1_line(std::list<std::string> &tokens) {
     if (assignment.type == type_other) {
         // cout << "assigning synonym " << assignment.name << "\n";
     }
+    //for (auto x : assignment.asn_notation) {
+    //     cout << x << '.';
+    //}
+    cout << endl;
 }
 
 int paren_balance(const char *s) {
@@ -464,19 +463,48 @@ void dump_oid_dict_sorted() {
     cout << "};\n";
 }
 
+void verify_oid_dict() {
+    using namespace std;
+
+    struct pair_cmp {
+        inline bool operator() (const pair<string, vector<uint32_t>> &s1, const pair<string, vector<uint32_t>> &s2) {
+            return (s1.second < s2.second);
+        }
+    };
+    vector<pair<string, vector<uint32_t>>> ordered_dict(oid_dict.begin(), oid_dict.end());
+    sort(ordered_dict.begin(), ordered_dict.end(), pair_cmp());
+
+    for (pair <string, vector<uint32_t>> x : ordered_dict) {
+        string s = oid_to_hex_string(x.second);
+        vector<uint32_t> v = hex_string_to_oid(s);
+        if (v != x.second) {
+
+            cout << "error with oid " << oid_to_hex_string(x.second) << "\n";
+
+            auto iv = v.begin();
+            auto ix = x.second.begin();
+
+            while (iv != v.end() || ix != x.second.end()) {
+                if (iv != v.end()) {
+                    cout << "v: " << *iv;
+                    if (*iv != *ix) {
+                        cout << "\t***";
+                    }
+                    cout << endl;
+                    iv++;
+                }
+                if (ix != x.second.end()) {
+                    cout << "x: " << *ix << endl;
+                    ix++;
+                }
+            }
+        }
+    }
+
+}
+
 int main(int argc, char *argv[]) {
     using namespace std;
-    // struct oid all_oids[] =
-    //     {
-    //      { { 1, 2, 840, 113549 },  "RSA Data Security, Inc." },
-    //      { { 2, 5, 4, 3 }, "id-at-commonName" },
-    //      { { 0, 9, 2342, 19200300, 100, 1, 25 }, "id-domainComponent" }
-    //     };
-    //
-    //for (auto oid: all_oids) {
-    //    oid_print(oid.asn1_notation, "oid");
-    //    cout << oid_to_hex_string(oid.asn1_notation) << "\t" << oid.name << endl;
-    //}
 
 #if 0
     auto unknown_oids =
@@ -559,6 +587,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     dump_oid_dict_sorted();
+    // verify_oid_dict();
 
     return 0;
 }

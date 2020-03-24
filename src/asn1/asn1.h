@@ -316,7 +316,7 @@ void raw_string_print_as_oid(FILE *f, const uint8_t *raw, size_t length) {
 const char *oid_empty_string = "";
 const char *parser_get_oid_string(struct parser *p) {
     std::string s = p->get_string();
-    const char *tmp = s.c_str();    // TBD: refactor to eliminate string allocation
+    //const char *tmp = s.c_str();    // TBD: refactor to eliminate string allocation
     auto pair = oid_dict.find(s);
     if (pair == oid_dict.end()) {
         return oid_empty_string;
