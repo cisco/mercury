@@ -988,15 +988,15 @@ struct algorithm_identifier {
     }
     void parse(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
+        // sequence.fprint(stderr, "algorithm_identifier");
         algorithm.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
         if (parser_get_data_length(&sequence.value) > 0) {
             parameters.parse(&sequence.value);
         }
     }
     void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
-        fprintf(f, "%s\"%s\":", pre, name);
-        fprintf(f, "{\"algorithm\":\"%s\"", parser_get_oid_string(&algorithm.value));
-//        algorithm.print_as_json_oid(stderr, "\nalgorithm");
+        fprintf(f, "%s\"%s\":{", pre, name);
+        algorithm.print_as_json_oid(stdout, "algorithm");
         if (parameters.is_not_null()) {
             fprintf(f, ",");
             if (parameters.tag == tlv::OBJECT_IDENTIFIER) {

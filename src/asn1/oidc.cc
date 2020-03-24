@@ -377,7 +377,7 @@ void parse_asn1_line(std::list<std::string> &tokens) {
     //for (auto x : assignment.asn_notation) {
     //     cout << x << '.';
     //}
-    cout << endl;
+    //cout << endl;
 }
 
 int paren_balance(const char *s) {
