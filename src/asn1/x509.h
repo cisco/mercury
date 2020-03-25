@@ -996,7 +996,7 @@ struct algorithm_identifier {
     }
     void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
         fprintf(f, "%s\"%s\":{", pre, name);
-        algorithm.print_as_json_oid(stdout, "algorithm");
+        algorithm.print_as_json_oid(f, "algorithm");
         if (parameters.is_not_null()) {
             fprintf(f, ",");
             if (parameters.tag == tlv::OBJECT_IDENTIFIER) {

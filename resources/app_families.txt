@@ -12,11 +12,11 @@ Slack,slack,slack.exe,slack helper
 
 Spotify,spotify helper,spotify.exe,spotify
 
-Adobe Tools,creative cloud.exe,adobe_licensing_helper.exe,adobegcclient.exe,adobe_licutil.exe,setup.exe,core sync,creative cloud,setup,adobegcclient,adobe_licensing_helper,install,coresync.exe,adobecollabsync.exe,adobe captivate,adobe connect,adobe dimension,adobe dimension helper,adobe_ccxprocess.node,after effects,adobearm.exe,adobecaptivate.exe,adoberesourcesynchronizer,adobe xd,adobe illustrator,acrocef.exe,acrocef,rdrcef.exe,acrobat.exe,acrord32.exe,acrobat update helper,adobereader,adobeacrobat,aasiapp,aasiapp.execrobat updater,acroext,acroext.exe,adobe reader updater helper,adobe desktop service.exe,adobe desktop service,adobe lightroom classic,adobe lightroom,adobe lightroom helper,adobe bridge 2019,adobe bridge 2020,adobe photoshop 2020,adobe photoshop cc 2019,adobe premiere pro 2020,adobe premiere rush,adobe photoshop cc 2017,adobe photoshop elements 2019.exe,adobe premiere elements 2019.exe,adobe premiere pro cc 2019,adobe indesign cc 2019,flash player.exe,flashplayer.exe,flashplayerplugin_32_0_0_293.exe,flashplayerplugin_32_0_0_303.exe,flashplayerplugin_32_0_0_321.exe,flashplayerupdateservice.exe,adobe flash player install manager,xd_set-up.exe
+Adobe Tools,creative cloud.exe,adobe_licensing_helper.exe,adobegcclient.exe,adobe_licutil.exe,setup.exe,core sync,creative cloud,setup,adobegcclient,adobe_licensing_helper,install,coresync.exe,adobecollabsync.exe,adobe captivate,adobe connect,adobe dimension,adobe dimension helper,adobe_ccxprocess.node,after effects,adobearm.exe,adobecaptivate.exe,adoberesourcesynchronizer,adobe xd,adobe illustrator,acrocef.exe,acrocef,rdrcef.exe,acrobat.exe,acrord32.exe,acrobat update helper,adobereader,adobeacrobat,aasiapp,aasiapp.execrobat updater,acroext,acroext.exe,adobe reader updater helper,adobe desktop service.exe,adobe desktop service,adobe lightroom classic,adobe lightroom,adobe lightroom helper,adobe bridge 2019,adobe bridge 2020,adobe photoshop 2020,adobe photoshop cc 2019,adobe premiere pro 2020,adobe premiere rush,adobe photoshop cc 2017,adobe photoshop elements 2019.exe,adobe premiere elements 2019.exe,adobe premiere pro cc 2019,adobe indesign cc 2019,flash player.exe,flashplayer.exe,flashplayerplugin_32_0_0_293.exe,flashplayerplugin_32_0_0_303.exe,flashplayerplugin_32_0_0_321.exe,flashplayerupdateservice.exe,adobe flash player install manager,xd_set-up.exe,acrobat_dc_set-up.exe,agsservice
 
 Microsoft Office,officeclicktorun.exe,officec2rclient.exe,olicenseheartbeat.exe,msoia.exe,msosync.exe,office365servicev2,sdxhelper.exe,localbridge.exe,microsoft au daemon,office.exe,officehubtaskhost.exe,winproj.exe,onenoteim.exe,onenote.exe,microsoft onenote,onenote importer (preview),excel.exe,microsoft excel,outlook.exe,x1outlookservice64.exe,microsoft outlook,veraoutlook,powerpnt.exe,microsoft powerpoint,verapowerpoint,winword.exe,microsoft word,onedrive.exe,onedrive,onedrivestandaloneupdater,onedrivestandaloneupdater.exe,filecoauth.exe,onedrivesetup.exe,visio.exe,microsoft visio,msaccess.exe,microsoft access,teams,teams.exe,microsoft teams helper,microsoft update assistant,microsoft to do,appleoutlookdavconfig64.exe,skype helper,skype,skype.exe,skype for business,skypeapp.exe,skype meetings app.exe,skype for business web app,skypeforlinux,skypehost.exe,lync.exe,msoasb.exe
 
-Microsoft System,speechmodeldownload.exe,compattelrunner.exe,wermgr.exe,devicecensus.exe,dsregcmd.exe,sihclient.exe,wmiprvse.exe,speechruntime.exe,microsoft.photos.exe,winstore.app.exe,todo.exe,video.ui.exe,microsoft autoupdate,updatenotificationmgr.exe,devicecensus.exe
+Microsoft System,speechmodeldownload.exe,compattelrunner.exe,wermgr.exe,devicecensus.exe,dsregcmd.exe,sihclient.exe,wmiprvse.exe,speechruntime.exe,microsoft.photos.exe,winstore.app.exe,todo.exe,video.ui.exe,microsoft autoupdate,updatenotificationmgr.exe,devicecensus.exe,usocoreworker.exe
 
 Cisco Webex,ciscojabber.exe,webex teams,cisco webex meetings,cisco jabber,ciscosparkhelper,ciscocollabhost.exe,ptmeetingshost.exe,meeting center,event center,ptoneclk.exe,atmgr.exe,ptsrv.exe,ptupdate.exe,ciscowebexstart.exe,userguidanceclient.exe,webex productivity tools,cisco spark,spark-windows-mercury.exe,cisco webex device connector.exe,cisco webex start,spark-windows-media.exe,sparkwindows.exe,webex.exe,webexapplauncher.exe,webexstudio helper
 
@@ -200,7 +200,7 @@ Zoom,zoom.us,zoom.exe,zoomassistant,zoomphone
 
 Standard Notes,standard notes,standard notes.exe
 
-BitDefender,bdagentd,bdcoreissues,bdupddaemon,bdldaemon,productagentservice.exe,bdcloner.exe,bdservicehost.exe,bdvpnservice.exe,vsserv.exe
+BitDefender,bdagentd,bdcoreissues,bdupddaemon,bdldaemon,productagentservice.exe,bdcloner.exe,bdservicehost.exe,bdvpnservice.exe,vsserv.exe,vulnerability.scan.exe
 
 Binance,binance,binance.exe
 
@@ -751,3 +751,7 @@ Zeplin,zeplin,zeplin.exe
 Zwift,zwiftapp,zwiftlauncher-osx
 
 PBI Desktop,pbidesktop.exe,microsoft.powerbi.enterprisegateway.exe
+
+Rakuten,rakuten cash back button,rakuten ebates cash back button
+
+Avid Link,avid link,avid link.exe
