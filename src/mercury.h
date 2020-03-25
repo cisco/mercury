@@ -10,19 +10,12 @@
 #ifndef MERCURY_H
 #define MERCURY_H
 
-#include <stdint.h>
-#include <time.h>
-#include <stdbool.h>
 #include <inttypes.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <pthread.h>
 #include <stdio.h>
 
 #define MAX_FILENAME 256
 
 #define MAX_HEX 16
-#define BILLION 1000000000L
 
 #ifdef DEBUG
     #define debug_print_int(X)  printf("%s:\t%d:\t%s():\t%s:\t%ld\n", __FILE__, __LINE__, __func__, #X, (unsigned long)(X))

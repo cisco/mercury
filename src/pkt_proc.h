@@ -11,8 +11,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
-#include <errno.h>
-#include <string.h>
 #include "pcap_file_io.h"
 #include "json_file_io.h"
 #include "extractor.h"

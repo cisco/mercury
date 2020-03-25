@@ -15,6 +15,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <stdlib.h>
+#include <time.h>
 #include "mercury.h"
 #include "pcap_file_io.h"
 #include "utils.h"
