@@ -303,7 +303,7 @@ void *output_thread_func(void *arg) {
      * does pause for more than 5 seconds only messages older than 5
      * seconds will be flushed.
      *
-     * The other big assumetion is that each lockless queue is in
+     * The other big assumption is that each lockless queue is in
      * perfect order.  Testing shows that rarely, packets can be
      * out-of-order by a few microseconds in a lockless queue.  This
      * may be the fault of tiny clock abnormalities, could be machine
@@ -333,6 +333,14 @@ void *output_thread_func(void *arg) {
          * works on pairs: {0,1}, {2,3}, {3,4}, etc.
          * Passing a q from either pair runs the tournament
          * for the pair.
+         *
+         * Doing the loop like this is O(n log n) because
+         * the upper portion of the tree is being traversed over
+         * and over for each call to a pair.
+         * If this loop ever becomes a performance issue (perhaps
+         * in the case of thousands of queues) it can be done
+         * more efficiently in O(log n) time by rebuilding the
+         * tree row-by-row instead of bottom-to-top a pair-at-a-time.
          */
         for (int q = 0; q < t_tree.qp2; q += 2) {
             run_tourn_for_queue(&t_tree, q, &out_ctx->qs);
