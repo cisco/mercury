@@ -258,7 +258,7 @@ struct pem_file_reader : public file_reader {
 //#include <thread>
 
 void usage(const char *progname) {
-    fprintf(stdout, "%s: --input <infile> [--prefix] [--prefix-as-hex] [--pem] [--filter weak]\n", progname);
+    fprintf(stdout, "%s: --input <infile> [--prefix] [--prefix-as-hex] [--pem] [--json] [--filter weak]\n", progname);
     exit(EXIT_FAILURE);
 }
 
