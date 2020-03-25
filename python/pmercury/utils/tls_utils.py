@@ -182,7 +182,7 @@ def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
     if ext_type == '000a': # supported_groups
         degreased_ext_value += data[offset:offset+2]
         for i in range(2,ext_length,2):
-            if data[offset+i] in grease_single_int_ and data[offset+i] == data[offset+i+1]:
+            if len(data) >= offset+i+1 and data[offset+i] in grease_single_int_ and data[offset+i] == data[offset+i+1]:
                 degreased_ext_value += b'\x0a\x0a'
             else:
                 degreased_ext_value += data[offset+i:offset+i+2]
@@ -190,7 +190,7 @@ def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
     elif ext_type == b'002b': # supported_versions
         degreased_ext_value += data[offset:offset+1]
         for i in range(1,ext_length,2):
-            if data[offset+i] in grease_single_int_ and data[offset+i] == data[offset+i+1]:
+            if len(data) >= offset+i+1 and data[offset+i] in grease_single_int_ and data[offset+i] == data[offset+i+1]:
                 degreased_ext_value += b'\x0a\x0a'
             else:
                 degreased_ext_value += data[offset+i:offset+i+2]

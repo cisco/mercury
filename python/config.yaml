@@ -1,21 +1,24 @@
 ---
 http:
-  case_insensitive_static_headers:
-    - upgrade-insecure-requests
-    - dnt
+  static_names:
+    - accept-charset
     - accept-language
-    - connection
-    - x-requested-with
-    - accept-encoding
-    - content-length
-    - accept
-    - viewport-width
-    - intervention
-    - dpr
+    - authorization
     - cache-control
-  case_sensitive_static_headers:
-    - content-type
-    - origin
+    - host
+    - if-modified-since
+    - keep-alive
+    - user-agent
+    - x-flash-version
+    - x-p2p-peerdist
+  static_names_and_values:
+    - accept
+    - accept-encoding
+    - connection
+    - dnt
+    - dpr
+    - upgrade-insecure-requests
+    - x-requested-with
   preamble:
     - method
     - version
@@ -23,6 +26,8 @@ http:
     - user-agent
     - host
     - x-forwarded-for
+    - via
+    - uri
 
 http_server:
   static_names:

@@ -9,9 +9,11 @@
 #include <getopt.h>
 #include <string>
 #include <unordered_map>
+#include <string>
 
 #include "x509.h"
 #include "base64.h"
+#include "../rapidjson/document.h"
 
 void print_as_ascii_with_dots(const void *string, size_t len) {
     const char *s = (const char *)string;
@@ -39,7 +41,7 @@ void sha256_hash(const void *buffer,
                  unsigned int len) {
     int i;
     MHASH td;
-    unsigned char hash[32]; 
+    unsigned char hash[32];
 
     hashid hash_type = MHASH_SHA1;
     td = mhash_init(hash_type);
@@ -66,6 +68,64 @@ void sha256_hash(const void *buffer,
 struct file_reader {
     virtual ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) = 0;
     // virtual ~file_reader();
+};
+
+
+using namespace rapidjson;
+
+struct json_file_reader : public file_reader {
+    FILE *stream;
+    char *line = NULL;
+    unsigned int line_number = 0;
+
+    json_file_reader(const char *infile) : stream{NULL}, line{NULL} {
+        stream = fopen(infile, "r");
+        if (stream == NULL) {
+            fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+    ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
+        line_number++;
+        size_t len = 0;
+        size_t cert_len = 0;
+        ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
+        if (nread == -1) {
+            free(line);
+            return 0;
+        }
+
+        //        fprintf(stdout, "%s\n", line);
+
+        Document document;
+        if (document.ParseInsitu(line).HasParseError()) {
+            fprintf(stderr, "error parsing JSON\n");
+            return -1;
+        } else {
+            Value::MemberIterator tls_iterator = document.FindMember("tls");
+            if (tls_iterator == document.MemberEnd()) {
+                return 0; // no tls info
+            }
+            const Value &certs = document["tls"]["server_certs"];
+            if (!certs.IsArray()) {
+                return 0; // no certificates
+            }
+
+            for (auto& c : certs.GetArray()) {
+                // printf("%s ", c.GetString());
+
+                std::string s = c.GetString();
+                cert_len = base64::decode(outbuf, outbuf_len, s.c_str(), s.size());
+                break; // just process first cert for now
+            }
+
+        }
+
+        return cert_len;
+    }
+    ~json_file_reader() {
+        fclose(stream);
+    }
 };
 
 struct base64_file_reader : public file_reader {
@@ -208,6 +268,7 @@ int main(int argc, char *argv[]) {
     bool prefix = false;
     bool prefix_as_hex = false;
     bool input_is_pem = false;
+    bool input_is_json = false;
     //const char *outfile = NULL;
 
     // parse arguments
@@ -220,6 +281,7 @@ int main(int argc, char *argv[]) {
              case_prefix,
              case_prefix_as_hex,
              case_pem,
+             case_json,
              case_filter
         };
         static struct option long_options[] = {
@@ -227,6 +289,7 @@ int main(int argc, char *argv[]) {
              {"prefix",         no_argument,       NULL,  case_prefix        },
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"pem",            no_argument,       NULL,  case_pem           },
+             {"json",           no_argument,       NULL,  case_json          },
              {"filter",         required_argument, NULL,  case_filter        },
              {0,                0,                 0,     0                  }
         };
@@ -263,6 +326,13 @@ int main(int argc, char *argv[]) {
             }
             input_is_pem = true;
             break;
+        case case_json:
+            if (optarg) {
+                fprintf(stderr, "error: option 'json' does not accept an argument\n");
+                usage(argv[0]);
+            }
+            input_is_json = true;
+            break;
         case case_filter:
             if (!optarg) {
                 fprintf(stderr, "error: option 'filter' requires an argument\n");
@@ -289,6 +359,8 @@ int main(int argc, char *argv[]) {
     struct file_reader *reader = NULL;
     if (input_is_pem) {
         reader = new pem_file_reader(infile);
+    } else if (input_is_json) {
+        reader = new json_file_reader(infile);
     } else {
         reader = new base64_file_reader(infile);
     }

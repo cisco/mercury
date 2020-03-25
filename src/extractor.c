@@ -1600,32 +1600,37 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
     unsigned char sp[1] = { ' ' };
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
-    keyword_t case_insensitive_static_headers[13] = {
-        // keyword_init("user-agent"),
-        keyword_init("upgrade-insecure-requests"),
-        keyword_init("dnt"),
-        keyword_init("accept-language"),
-        keyword_init("connection"),
-        keyword_init("x-requested-with"),
-        keyword_init("accept-encoding"),
-        keyword_init("content-length"),
+    keyword_t http_static_name_and_value[] = {
         keyword_init("accept"),
-        keyword_init("viewport-width"),
-        keyword_init("intervention"),
+        keyword_init("accept-encoding"),
+        keyword_init("connection"),
+        keyword_init("dnt"),
         keyword_init("dpr"),
+        keyword_init("upgrade-insecure-requests"),
+        keyword_init("x-requested-with"),
+        keyword_init("")
+    };
+    keyword_t http_static_name[] = {
+        keyword_init("accept-charset"),
+        keyword_init("accept-language"),
+        keyword_init("authorization"),
         keyword_init("cache-control"),
+        keyword_init("host"),
+        keyword_init("if-modified-since"),
+        keyword_init("keep-alive"),
+        keyword_init("user-agent"),
+        keyword_init("x-flash-version"),
+        keyword_init("x-p2p-peerdist"),
         keyword_init("")
     };
-    keyword_t case_sensitive_static_headers[3] = {
-        keyword_init("content-type"),
-        keyword_init("origin"),
-        keyword_init("")
+    keyword_matcher_t matcher_http_static_name_and_value = {
+        http_static_name_and_value, /* case insensitive */
+        NULL                        /* case sensitive   */
     };
-    keyword_matcher_t static_header_keywords = {
-        case_insensitive_static_headers,
-        case_sensitive_static_headers
+    keyword_matcher_t matcher_http_static_name = {
+        http_static_name,           /* case insensitive */
+        NULL                        /* case sensitive   */
     };
-
     extractor_debug("%s: processing packet\n", __func__);
 
 #if 0
@@ -1664,37 +1669,42 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
     }
 
     while (parser_get_data_length(p) > 0) {
-	if (parser_match(p, crlf, sizeof(crlf), NULL) == status_ok) {
-	    break;  /* at end of headers */
-	}
-	if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
-	    return extractor_get_output_length(x);   
-	}
-	if (extractor_keyword_match_last_capture(x, &static_header_keywords) == status_ok) {
-	    if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
-		return extractor_get_output_length(x);
-	    }
-	} else {
-	    const uint8_t *user_agent_string = NULL;
-	    if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher) == status_ok) {
-	        /* store user agent value */
-            if (parser_skip_upto_delim(p, csp, sizeof(csp)) == status_err) {
+        if (parser_match(p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+        if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
+            return extractor_get_output_length(x);
+        }
+        if (extractor_keyword_match_last_capture(x, &matcher_http_static_name_and_value) == status_ok) {
+            if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
                 return extractor_get_output_length(x);
             }
-            user_agent_string = p->data;
-	    }
-	    if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
-		return extractor_get_output_length(x);
-	    }
-	    if (user_agent_string) {
-            size_t ua_len = p->data - user_agent_string;
-            ua_len = ua_len > sizeof(crlf) ? ua_len - sizeof(crlf) : 0;
-            packet_data_set(&x->packet_data,
-                            packet_data_type_http_user_agent,
-                            ua_len,
-                            user_agent_string);
-	    }
-	}
+        } else {
+            const uint8_t *user_agent_string = NULL;
+            if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher) == status_ok) {
+                /* store user agent value */
+                if (parser_skip_upto_delim(p, csp, sizeof(csp)) == status_err) {
+                    return extractor_get_output_length(x);
+                }
+                user_agent_string = p->data;
+            }
+
+            if (extractor_keyword_match_last_capture(x, &matcher_http_static_name) != status_ok) {
+                extractor_delete_last_capture(x);
+            }
+
+            if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
+                return extractor_get_output_length(x);
+            }
+            if (user_agent_string) {
+                size_t ua_len = p->data - user_agent_string;
+                ua_len = ua_len > sizeof(crlf) ? ua_len - sizeof(crlf) : 0;
+                packet_data_set(&x->packet_data,
+                                packet_data_type_http_user_agent,
+                                ua_len,
+                                user_agent_string);
+            }
+        }
     }
 
     extractor_debug("%s: http DONE\n", __func__);
@@ -1709,62 +1719,59 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
  */
 
 keyword_t http_server_static_name[] = {
-    keyword_init("AppEx-Activity-Id"),
-    keyword_init("CDNUUID"),
-    keyword_init("CF-RAY"),
-    keyword_init("Content-Range"),
-    keyword_init("Content-Type"),
-    keyword_init("Date"),
-    keyword_init("ETag"),
-    keyword_init("Expires"),
-    keyword_init("FLOW_CONTEXT"),
-    keyword_init("MS-CV"),
-    keyword_init("MSRegion"),
-    keyword_init("MS-RequestId"),
+    keyword_init("appex-activity-id"),
+    keyword_init("cdnuuid"),
+    keyword_init("cf-ray"),
+    keyword_init("content-range"),
+    keyword_init("content-type"),
+    keyword_init("date"),
+    keyword_init("etag"),
+    keyword_init("expires"),
+    keyword_init("flow_context"),
+    keyword_init("ms-cv"),
+    keyword_init("msregion"),
+    keyword_init("ms-requestid"),
     keyword_init("request-id"),
-    keyword_init("Vary"),
-    keyword_init("X-Amz-Cf-Pop"),
+    keyword_init("vary"),
+    keyword_init("x-amz-cf-pop"),
     keyword_init("x-amz-request-id"),
-    keyword_init("X-Azure-Ref-OriginShield"),
-    keyword_init("X-Cache"),
-    keyword_init("X-Cache-Hits"),
+    keyword_init("x-azure-ref-originshield"),
+    keyword_init("x-cache"),
+    keyword_init("x-cache-hits"),
     keyword_init("x-ccc"),
-    keyword_init("X-CCC"),
-    keyword_init("X-Diagnostic-S"),
-    keyword_init("X-FEServer"),
-    keyword_init("X-HW"),
-    keyword_init("X-MSEdge-Ref"),
-    keyword_init("X-OCSP-Responder-ID"),
-    keyword_init("X-RequestId"),
-    keyword_init("X-Served-By"),
-    keyword_init("X-Timer"),
-    keyword_init("X-Trace-Context"),
+    keyword_init("x-diagnostic-s"),
+    keyword_init("x-feserver"),
+    keyword_init("x-hw"),
+    keyword_init("x-msedge-ref"),
+    keyword_init("x-ocsp-responder-id"),
+    keyword_init("x-requestid"),
+    keyword_init("x-served-by"),
+    keyword_init("x-timer"),
+    keyword_init("x-trace-context"),
     keyword_init("")
 };
 
 keyword_t http_server_static_name_and_value[] = {
-    keyword_init("Access-Control-Allow-Credentials"),
-    keyword_init("Access-Control-Allow-Headers"),
-    keyword_init("Access-Control-Allow-Methods"),
-    keyword_init("Access-Control-Expose-Headers"),
-    keyword_init("Cache-control"),
-    keyword_init("Cache-Control"),
+    keyword_init("access-control-allow-credentials"),
+    keyword_init("access-control-allow-headers"),
+    keyword_init("access-control-allow-methods"),
+    keyword_init("access-control-expose-headers"),
+    keyword_init("cache-control"),
     keyword_init("code"),
-    keyword_init("Connection"),
-    keyword_init("Content-Language"),
+    keyword_init("connection"),
+    keyword_init("content-language"),
     keyword_init("content-transfer-encoding"),
-    keyword_init("P3P"),
-    keyword_init("Pragma"),
+    keyword_init("p3p"),
+    keyword_init("pragma"),
     keyword_init("reason"),
-    keyword_init("Server"),
-    keyword_init("Strict-Transport-Security"),
+    keyword_init("server"),
+    keyword_init("strict-transport-security"),
     keyword_init("version"),
-    keyword_init("X-AspNetMvc-Version"),
-    keyword_init("X-AspNet-Version"),
+    keyword_init("x-aspnetmvc-version"),
+    keyword_init("x-aspnet-version"),
     keyword_init("x-cid"),
-    keyword_init("X-CID"),
     keyword_init("x-ms-version"),
-    keyword_init("X-Xss-Protection"),
+    keyword_init("x-xss-protection"),
     keyword_init("")
 };
 keyword_matcher_t matcher_http_server_static_name_and_value = {

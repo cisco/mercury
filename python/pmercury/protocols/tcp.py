@@ -89,11 +89,11 @@ class TCP():
 
 
     @staticmethod
-    def fingerprint(data, offset, data_len):
+    def fingerprint(data, offset, app_offset, data_len):
         c = [f'({data[offset+14]:02x}{data[offset+15]:02x})']
 
         offset += 20
-        while offset < data_len:
+        while offset < app_offset and offset + 1 < data_len:
             kind   = data[offset]
             length = data[offset+1]
             if kind == 0 or kind == 1: # End of Options / NOP
