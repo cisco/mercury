@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <pthread.h>
+#include <thread>
 
 #include "mercury.h"
 #include "pcap_file_io.h"
@@ -36,15 +37,13 @@ char mercury_help[] =
     "   [-t or --threads] [num_threads | cpu] # set number of threads\n"
     "   [-u or --user] u                      # set UID and GID to those of user u\n"
     "   [-d or --directory] d                 # set working directory to d\n"
-    "--read OPTIONS\n"
-    "   [-m or --multiple] count              # loop over read_file count >= 1 times\n"
     "GENERAL OPTIONS\n"
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   [-s or --select]                      # select only packets with metadata\n"
     "   [-l or --limit] l                     # rotate JSON files after l records\n"
     "   [-v or --verbose]                     # additional information sent to stdout\n"
-    "   [-p or --loop] loop_count             # loop count >= 1 for the read_file\n"
+    //  "   [-p or --loop] loop_count             # loop count >= 1 for the read_file\n"
     //  "   [--adaptive]                          # adaptively accept or skip packets for pcap file\n"
     "   [-h or --help]                        # extended help, with examples\n";
 
@@ -58,9 +57,7 @@ char mercury_extended_help[] =
     "   processors.  \"[-b or --buffer] b\" sets the total size of all ring buffers to\n"
     "   (b * PHYS_MEM) where b is a decimal number between 0.0 and 1.0 and PHYS_MEM\n"
     "   is the available memory; USE b < 0.1 EXCEPT WHEN THERE ARE GIGABYTES OF SPARE\n"
-    "   RAM to avoid OS failure due to memory starvation.  When multiple threads are\n"
-    "   configured, the output is a *file set*: a directory into which each thread\n"
-    "   writes its own file; all packets in a flow are written to the same file.\n"
+    "   RAM to avoid OS failure due to memory starvation.\n"
     "\n"
     "   \"[-f or --fingerprint] f\" writes a JSON record for each fingerprint observed,\n"
     "   which incorporates the flow key and the time of observation, into the file or\n"
@@ -71,11 +68,7 @@ char mercury_extended_help[] =
     "   With [-s or --select], packets are filtered so that only ones with\n"
     "   fingerprint metadata are written.\n"
     "\n"
-    "   \"[r or --read] r\" reads packets from the file or file set r, in PCAP format.\n"
-    "   A single worker thread is used to process each input file; if r is a file set\n"
-    "   then the output will be a file set as well.  With \"[-m or --multiple] m\", the\n"
-    "   input file or file set is read and processed m times in sequence; this is\n"
-    "   useful for testing.\n"
+    "   \"[r or --read] r\" reads packets from the file r, in PCAP format.\n"
     "\n"
     "   \"[-u or --user] u\" sets the UID and GID to those of user u; output file(s)\n"
     "   are owned by this user.  With \"[-l or --limit] l\", each JSON output file has\n"
@@ -136,8 +129,8 @@ int main(int argc, char *argv[]) {
             { "help",        no_argument,       NULL, 'h' },
             { "select",      optional_argument, NULL, 's' },
             { "verbose",     no_argument,       NULL, 'v' },
-            { "loop",        required_argument, NULL, 'p' },
-            { "adaptive",    no_argument,       NULL,  0  },
+            // { "loop",        required_argument, NULL, 'p' },
+            // { "adaptive",    no_argument,       NULL,  0  },
             { NULL,          0,                 0,     0  }
         };
         c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
@@ -365,8 +358,8 @@ int main(int argc, char *argv[]) {
     }
 
     /* process packets */
-    int num_cpus = get_nprocs();  // would get_nprocs_conf() be more appropriate?
     if (cfg.num_threads == -1) {
+        int num_cpus = std::thread::hardware_concurrency();
         cfg.num_threads = num_cpus;
         printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
     }
