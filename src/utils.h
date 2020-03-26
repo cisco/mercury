@@ -8,7 +8,6 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "pcap_file_io.h"
 
 void packet_handler_null(uint8_t *ignore,
 			 const struct pcap_pkthdr *pcap_pkthdr,
