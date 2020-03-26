@@ -122,7 +122,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
         json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
     }
 
-    void flush() {
+    void flush() override {
 
     }
 };
@@ -148,7 +148,7 @@ struct pkt_proc_pcap_writer_llq : public pkt_proc {
         pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
 
-    void flush() {
+    void flush() override {
     }
 
 };
