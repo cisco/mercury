@@ -183,9 +183,11 @@ enum status pcap_file_open(struct pcap_file *f,
 	}
 
 	// set the file advisory for the read file
+#ifdef POSIX_FADV_SEQUENTIAL
 	if (posix_fadvise(f->fd, 0, 0, POSIX_FADV_SEQUENTIAL) != 0) {
 	    printf("%s: Could not set file advisory for read file %s\n", strerror(errno), fname);
 	}
+#endif
 
 	// set file i/o buffer
 	set_file_io_buffer(f, fname);
