@@ -8,6 +8,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <time.h>
+#include "mercury.h"
 
 void packet_handler_null(uint8_t *ignore,
 			 const struct pcap_pkthdr *pcap_pkthdr,
