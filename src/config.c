@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <errno.h>
-#include <sys/sysinfo.h>
+#include <thread>
 #include "config.h"
 
 char *command_get_argument(const char *command, char *line) {
@@ -99,7 +99,7 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg, char *l
 
     } else if ((arg = command_get_argument("threads=", line)) != NULL) {
         if (strcmp("cpu", arg) == 0) {
-            cfg->num_threads = get_nprocs();
+            cfg->num_threads = std::thread::hardware_concurrency();
         } else {
             cfg->num_threads = strtoul(arg, NULL, 10);
         }
