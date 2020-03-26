@@ -43,6 +43,8 @@ class Validation:
         else:
             self.out_file_pointer = open(output, 'w')
         self.categories = categories
+        if proc_list != None:
+            self.categories.append('proc')
         self.top = top
         self.blacklist = blacklist
         self.malware_ctx = None
@@ -231,8 +233,8 @@ class Validation:
                 for p_ in fp_['process_info']:
                     if 'process' not in p_:
                         p_['process'] = p_['filename']
-                    if self.proc_list != None and p_['process'].lower() not in self.proc_list:
-                        continue
+#                    if self.proc_list != None and p_['process'].lower() not in self.proc_list:
+#                        continue
                     p_['process'] = clean_proc_name(p_['process'])
                     if is_proc_malware(p_, fp_malware_):
                         new_procs.extend(clean_malware_proc(p_))
@@ -242,8 +244,8 @@ class Validation:
 
 
                 for p_ in fp_['process_info']:
-                    if self.proc_list != None and p_['process'].lower() not in self.proc_list:
-                        continue
+#                    if self.proc_list != None and p_['process'].lower() not in self.proc_list:
+#                        continue
                     proc = p_['process']
                     sha256 = p_['sha256']
 
@@ -275,7 +277,7 @@ class Validation:
 #                        data[fp_str+proc].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
 #                                                  server_name,x_['count'],None,app_cats))
                         data[key_].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
-                                           server_name,x_['count'],None,app_cats))
+                                           server_name,x_['count'],None,app_cats,self.proc_list))
 
                         if len(data[key_]) > 5000:
                             key_ += 1
@@ -345,6 +347,7 @@ def get_results(data):
         cnt         = d_[9]
         os_         = d_[10]
         app_cats    = d_[11]
+        target_proc = d_[12]
         protocol    = 6
         ts          = 0.00
 
@@ -370,10 +373,20 @@ def get_results(data):
         o_['count'] = cnt
         o_['fp_str'] = str_repr
         o_['score'] = pi_['score']
+
         o_['ground_truth']   = {'process': proc, 'sha256': sha256, 'server_name': server_name, 'dst_ip': dst_ip}
         o_['ground_truth']['categories'] = {'malware': app_cats['malware'], app_cat: True}
+        if target_proc != None:
+            o_['ground_truth']['categories']['proc'] = False
+            if proc in target_proc:
+                o_['ground_truth']['categories']['proc'] = True
+
         o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256'], 'probable_processes': r_['probable_processes']}
         o_['inferred_truth']['categories'] = {}
+        if target_proc != None:
+            o_['inferred_truth']['categories']['proc'] = False
+            if pi_['process'] in target_proc:
+                o_['inferred_truth']['categories']['proc'] = True
         o_['inferred_truth']['categories'][pi_['category']] = True
         if 'malware' in pi_:
             o_['inferred_truth']['categories']['malware'] = pi_['malware']
@@ -578,13 +591,15 @@ def process_result(x_):
             r_gproc5  = r['count'] if gproc_gt == gproc_nf5 else 0
 
 #        if oproc_gt != oproc_nf:
-        if gproc_gt != gproc_nf:
-            verbose_out.write('%i,%s,%s,%s,%s,%f,%s,%s\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['ground_truth']['server_name'],
-                                                             r['ground_truth']['dst_ip'], r['score'],sha_gt,r['fp_str']))
-            verbose_out.flush()
+#        if gproc_gt != gproc_nf:
+#            verbose_out.write('%i,%s,%s,%s,%s,%f,%s,%s\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['ground_truth']['server_name'],
+#                                                             r['ground_truth']['dst_ip'], r['score'],sha_gt,r['fp_str']))
+#            verbose_out.flush()
 
         r_cats = []
         for c in cats:
+            if c == '':
+                continue
             c_gt = False
             c_nf = False
             if c in r['ground_truth']['categories']:
@@ -601,12 +616,12 @@ def process_result(x_):
             r_cats.append([r['count'], r_cat_a, r_cat_tp, r_cat_tn, r_cat_fp, r_cat_fn])
 
 #            if c_gt == False and c_nf == True:
-#            if c_gt == True and c_nf == False:
+            if c_gt == True and c_nf == False:
 #            if c_gt == False and c_nf == False:
 #                verbose_out.write('%s\n' % (sha_gt))
-#                verbose_out.write('%i,%s,%s,%s,%s,%f,%s,%s\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['ground_truth']['server_name'],
-#                                                                 r['ground_truth']['dst_ip'], r['score'],sha_gt,r['fp_str']))
-#                verbose_out.flush()
+                verbose_out.write('%i,%s,%s,%s,%s,%f,%s,%s\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['ground_truth']['server_name'],
+                                                                 r['ground_truth']['dst_ip'], r['score'],sha_gt,r['fp_str']))
+                verbose_out.flush()
 
 
         results.append((r['count'], r_proc, r_gproc, r_sha, r_proc2, r_gproc2, r_proc3, r_gproc3, r_proc4, r_gproc4, r_proc5, r_gproc5, r_cats))
