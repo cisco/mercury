@@ -67,7 +67,7 @@ void sha256_hash(const void *buffer,
 
 struct file_reader {
     virtual ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) = 0;
-    // virtual ~file_reader();
+    virtual ~file_reader() = default;
 };
 
 
@@ -84,6 +84,7 @@ struct json_file_reader : public file_reader {
             fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
             exit(EXIT_FAILURE);
         }
+        fprintf(stderr, "opened JSON file\n");
     }
     ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
         line_number++;
@@ -92,6 +93,7 @@ struct json_file_reader : public file_reader {
         ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
         if (nread == -1) {
             free(line);
+            fprintf(stderr, "error: could not read JSON file\n");
             return 0;
         }
 
@@ -104,10 +106,12 @@ struct json_file_reader : public file_reader {
         } else {
             Value::MemberIterator tls_iterator = document.FindMember("tls");
             if (tls_iterator == document.MemberEnd()) {
-                return 0; // no tls info
+                fprintf(stderr, "warning: no \"tls\" object in JSON file\n");
+               return 0; // no tls info
             }
             const Value &certs = document["tls"]["server_certs"];
             if (!certs.IsArray()) {
+                fprintf(stderr, "warning: no \"tls\"[\"server_certs\"] object in JSON file\n");
                 return 0; // no certificates
             }
 
@@ -123,6 +127,8 @@ struct json_file_reader : public file_reader {
 
         return cert_len;
     }
+
+
     ~json_file_reader() {
         fclose(stream);
     }
@@ -166,7 +172,7 @@ struct base64_file_reader : public file_reader {
         if (cert_len < 0) {
             fprintf(stderr, "error: base64 decoding failure on line %u around character %zd\n", line_number, -cert_len);
             const char opening_line[] = "-----BEGIN CERTIFICATE-----";
-            if (nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) == 0) {
+            if ((size_t)nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) == 0) {
                 fprintf(stderr, "input seems to be in PEM format; try --pem\n");
             }
         }
@@ -174,7 +180,6 @@ struct base64_file_reader : public file_reader {
         return cert_len;
     }
     ~base64_file_reader() {
-        free(line);
         fclose(stream);
     }
 };
@@ -205,9 +210,9 @@ struct pem_file_reader : public file_reader {
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
             return 0;  // empty line; assue we are done with certificates
         }
-        if (nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) != 0) {
+        if ((size_t)nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) != 0) {
             const char *pem = "-----BEGIN";
-            if (nread >= sizeof(pem)-1 && strncmp(line, pem, sizeof(pem)-1) == 0) {
+            if ((size_t)nread >= sizeof(pem)-1 && strncmp(line, pem, sizeof(pem)-1) == 0) {
                 fprintf(stderr, "error: PEM data does not contain a certificate (encapsulated text %zd)\n", cert_number);
             } else {
                 fprintf(stderr, "error: not in PEM format, or missing opening line in certificate %zd\n", cert_number);
@@ -230,7 +235,7 @@ struct pem_file_reader : public file_reader {
             if (nread == 65) {
                 advance = nread-1;
             } else {
-                if (nread >= sizeof(closing_line)-1 && strncmp(line, closing_line, sizeof(closing_line)-1) == 0) {
+                if ((size_t)nread >= sizeof(closing_line)-1 && strncmp(line, closing_line, sizeof(closing_line)-1) == 0) {
                     break;
                 } else {
                     advance = nread;
@@ -273,7 +278,6 @@ int main(int argc, char *argv[]) {
 
     // parse arguments
     while (1) {
-        int this_option_optind = optind ? optind : 1;
         int option_index = 0;
         enum arg_type {
              case_input,
@@ -393,9 +397,6 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-
-    //        cert_dict[key] = cert;
-    // fprintf(stderr, "loaded %lu certs\n", cert_dict.size());
 
     delete reader;
 

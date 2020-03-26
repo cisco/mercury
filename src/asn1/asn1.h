@@ -200,7 +200,7 @@ int utctime_to_generalized_time(uint8_t *gt, size_t gt_len, const uint8_t *utc_t
 struct json_file {
     FILE *f;
     char epilog[32];
-    int epilog_length;
+    unsigned int epilog_length;
 
     json_file(FILE *f) : f{f}, epilog{}, epilog_length{0} { }
 
@@ -577,7 +577,7 @@ struct tlv {
     }
 
     inline bool is_constructed() {
-        return tag && 0x20;
+        return tag & 0x20;
         // return (tag >> 5) & 1;
     }
 

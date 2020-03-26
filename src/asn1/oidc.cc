@@ -176,7 +176,7 @@ void output_oid(std::vector<uint32_t> oid, const char *delimiter) {
     if (oid.size() < 1) {
         return;    // nothing to output
     }
-    auto i = 0;
+    unsigned int i = 0;
     for (   ; i < oid.size() - 1; i++) {
         std::cout << oid[i] << delimiter;
     }
