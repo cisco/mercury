@@ -118,7 +118,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
         llq = llq_ptr;
     }
 
-    void apply(struct packet_info *pi, uint8_t *eth) {
+    void apply(struct packet_info *pi, uint8_t *eth) override {
         json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
     }
 
