@@ -137,6 +137,7 @@ enum status pcap_file_open(struct pcap_file *f,
         set_file_io_buffer(f, fname);
 
         // set the file advisory for the read file
+#ifdef POSIX_FADV_SEQUENTIAL
         if (posix_fadvise(f->fd, 0, 0, POSIX_FADV_SEQUENTIAL) != 0) {
             printf("%s: Could not set file advisory for pcap file %s\n", strerror(errno), fname);
         }
@@ -148,6 +149,7 @@ enum status pcap_file_open(struct pcap_file *f,
         } else {
             f->allocated_size = PRE_ALLOCATE_DISK_SPACE;  // initial allocation
         }
+#endif
 
         enum status status = write_pcap_file_header(f->file_ptr);
         if (status) {
@@ -260,6 +262,7 @@ enum status pcap_file_write_packet_direct(struct pcap_file *f,
     f->bytes_written += length + sizeof(struct pcap_packet_hdr);
     f->packets_written++;
 
+#ifdef FALLOC_FL_KEEP_SIZE
     if ((f->allocated_size > 0) && (f->allocated_size - f->bytes_written) <= ONE_MB) {
         // need to allocate more
         if (fallocate(f->fd, FALLOC_FL_KEEP_SIZE, f->bytes_written, PRE_ALLOCATE_DISK_SPACE) != 0) {
@@ -268,6 +271,7 @@ enum status pcap_file_write_packet_direct(struct pcap_file *f,
             f->allocated_size = f->bytes_written + PRE_ALLOCATE_DISK_SPACE;  // increase allocation
         }
     }
+#endif
 
     return status_ok;
 }
