@@ -339,7 +339,7 @@ void *output_thread_func(void *arg) {
          * and over for each call to a pair.
          * If this loop ever becomes a performance issue (perhaps
          * in the case of thousands of queues) it can be done
-         * more efficiently in O(log n) time by rebuilding the
+         * more efficiently in O(n) time by rebuilding the
          * tree row-by-row instead of bottom-to-top a pair-at-a-time.
          */
         for (int q = 0; q < t_tree.qp2; q += 2) {
