@@ -10,6 +10,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include "mercury.h"
