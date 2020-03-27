@@ -46,8 +46,6 @@ struct ring_limits {
 };
 
 
-typedef void (*packet_callback_t)(const struct packet_info *,
-				  const uint8_t *);
 /*
  * Our stats tracking function will get a pointer to a struct
  * that has the info it needs to track stats for each thread
