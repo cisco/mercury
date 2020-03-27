@@ -382,7 +382,10 @@ int main(int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
 
-        af_packet_bind_and_dispatch(&cfg, &rl, &out_file);
+        if (af_packet_bind_and_dispatch(&cfg, &rl, &out_file) != status_ok) {
+            fprintf(stderr, "Bind and dispatch failed\n");
+            return EXIT_FAILURE;
+        }
 
     } else if (cfg.read_filename) {
 
