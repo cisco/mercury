@@ -370,19 +370,16 @@ int main(int argc, char *argv[]) {
     pthread_t output_thread;
     struct output_file out_file;
     if (cfg.capture_interface) {
-        struct ring_limits rl;
-
         if (cfg.verbosity) {
             printf("initializing interface %s\n", cfg.capture_interface);
         }
-        ring_limits_init(&rl, cfg.buffer_fraction);
 
         if (output_thread_init(output_thread, out_file, cfg) != 0) {
             perror("Unable to initialize output thread\n");
             return EXIT_FAILURE;
         }
 
-        if (af_packet_bind_and_dispatch(&cfg, &rl, &out_file) != status_ok) {
+        if (af_packet_bind_and_dispatch(&cfg, &out_file) != status_ok) {
             fprintf(stderr, "Bind and dispatch failed\n");
             return EXIT_FAILURE;
         }
