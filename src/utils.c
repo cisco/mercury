@@ -369,7 +369,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
         if (uid == 0) {
             const char *sudo_uid = getenv("SUDO_UID");
             if (sudo_uid == NULL) {
-                printf("environment variable `SUDO_UID` not found\n");
+                fprintf(stderr, "error: environment variable `SUDO_UID` not found; cannot set user to '%s'\n", username);
                 return status_err;
             }
             errno = 0;
@@ -384,7 +384,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
         if (gid == 0) {
             const char *sudo_gid = getenv("SUDO_GID");
             if (sudo_gid == NULL) {
-                printf("environment variable SUDO_GID not found\n");
+                fprintf(stderr, "error: environment variable `SUDO_GID` not found; cannot set user to '%s'\n", username);
                 return status_err;
             }
             errno = 0;
@@ -397,7 +397,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
 
         new_username = getenv("SUDO_USER");
         if (new_username == NULL) {
-            printf("environment variable `SUDO_USER` not found\n");
+            fprintf(stderr, "error: environment variable `SUDO_USER` not found; cannot set user to '%s'\n", username);
             return status_err;
         }
 
@@ -409,7 +409,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
             gid = userdata->pw_gid;
             uid = userdata->pw_uid;
         } else {
-            printf("%s: could not find user '%.32s'", strerror(errno), username);
+            fprintf(stderr, "error: could not find user '%.32s'\n", username);
             return status_err;
         }
     }
