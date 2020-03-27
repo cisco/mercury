@@ -501,9 +501,8 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
   struct stats_tracking *statst = thread_stor->statst;
   double *block_streak_hist = thread_stor->block_streak_hist;
   pthread_mutex_t *bstreak_m = &(thread_stor->bstreak_m);
-  //packet_callback_t p_callback = thread_stor->p_callback;
   struct pkt_proc *pkt_processor = thread_stor->pkt_processor;
-  
+
   /* We got the clean start all clear so we can get started but
    * while we were waiting our socket was filling up with packets
    * and drops were accumulating so we need to return everything to
