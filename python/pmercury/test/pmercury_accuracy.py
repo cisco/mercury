@@ -43,8 +43,6 @@ class Validation:
         else:
             self.out_file_pointer = open(output, 'w')
         self.categories = categories
-        if proc_list != None:
-            self.categories.append('proc')
         self.top = top
         self.blacklist = blacklist
         self.malware_ctx = None
@@ -56,7 +54,13 @@ class Validation:
 
         self.proc_list = None
         if proc_list != None:
-            self.proc_list = set(proc_list.split(','))
+            self.proc_list = []
+            t_ = proc_list.split(';')
+            for s in t_:
+                if s != '':
+                    tmp_proc_list = s.split(',')
+                    self.categories.append(tmp_proc_list[0])
+                    self.proc_list.append(tmp_proc_list)
 
         # read in application categories
         app_cat_file = 'application_categories.json.gz'
@@ -201,7 +205,7 @@ class Validation:
             if src not in data:
                 data[src] = []
 
-            data[src].append((src,src_port,proc,sha256,type_,fp_str,dst_ip,dst_port,server_name,1,os_,app_cats))
+            data[src].append((src,src_port,proc,sha256,type_,fp_str,dst_ip,dst_port,server_name,1,os_,app_cats, self.proc_list))
 
         print('time to read data:\t%0.2f' % (time.time()-start))
 
@@ -319,7 +323,7 @@ class Validation:
 #                data[fp_str].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
 #                                     server_name,x_['count'],None,app_cats))
                 data[key_].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
-                                   server_name,x_['count'],None,app_cats))
+                                   server_name,x_['count'],None,app_cats,None))
 
                 if len(data[key_]) > 5000:
                     key_ += 1
@@ -377,16 +381,18 @@ def get_results(data):
         o_['ground_truth']   = {'process': proc, 'sha256': sha256, 'server_name': server_name, 'dst_ip': dst_ip}
         o_['ground_truth']['categories'] = {'malware': app_cats['malware'], app_cat: True}
         if target_proc != None:
-            o_['ground_truth']['categories']['proc'] = False
-            if proc in target_proc:
-                o_['ground_truth']['categories']['proc'] = True
+            for test_proc in target_proc:
+                o_['ground_truth']['categories'][test_proc[0]] = False
+                if proc in test_proc:
+                    o_['ground_truth']['categories'][test_proc[0]] = True
 
         o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256'], 'probable_processes': r_['probable_processes']}
         o_['inferred_truth']['categories'] = {}
         if target_proc != None:
-            o_['inferred_truth']['categories']['proc'] = False
-            if pi_['process'] in target_proc:
-                o_['inferred_truth']['categories']['proc'] = True
+            for test_proc in target_proc:
+                o_['inferred_truth']['categories'][test_proc[0]] = False
+                if pi_['process'] in test_proc:
+                    o_['inferred_truth']['categories'][test_proc[0]] = True
         o_['inferred_truth']['categories'][pi_['category']] = True
         if 'malware' in pi_:
             o_['inferred_truth']['categories']['malware'] = pi_['malware']
@@ -449,6 +455,7 @@ def get_results_top(data):
         server_name = d_[8]
         cnt         = d_[9]
         app_cats    = d_[11]
+        target_proc = d_[12]
 
         fp_ = fingerprinter.get_database_entry(str_repr, type_)
         if fp_ == None:
@@ -474,8 +481,19 @@ def get_results_top(data):
         o_['score'] = 0.0
         o_['ground_truth']   = {'process': proc, 'sha256': sha256, 'server_name': server_name, 'dst_ip': dst_ip}
         o_['ground_truth']['categories'] = {'malware': app_cats['malware'], app_cat: True}
+        if target_proc != None:
+            for test_proc in target_proc:
+                o_['ground_truth']['categories'][test_proc[0]] = False
+                if proc in test_proc:
+                    o_['ground_truth']['categories'][test_proc[0]] = True
+
         o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256s']}
         o_['inferred_truth']['categories'] = {}
+        if target_proc != None:
+            for test_proc in target_proc:
+                o_['inferred_truth']['categories'][test_proc[0]] = False
+                if pi_['process'] in test_proc:
+                    o_['inferred_truth']['categories'][test_proc[0]] = True
         o_['inferred_truth']['categories'][pi_['application_category']] = True
         if 'malware' in pi_:
             o_['inferred_truth']['categories']['malware'] = pi_['malware']
