@@ -22,6 +22,14 @@
 #include "signal_handling.h"
 #include "config.h"
 #include "output.h"
+#include "license.h"
+#include "version.h"
+
+struct semantic_version mercury_version(2,0,0);
+
+void print_license() {
+    printf("%s\n", license_string);
+}
 
 char mercury_help[] =
     "%s INPUT [OUTPUT] [OPTIONS]:\n"
@@ -41,10 +49,12 @@ char mercury_help[] =
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   [-s or --select]                      # select only packets with metadata\n"
-    "   [-l or --limit] l                     # rotate JSON files after l records\n"
+    "   [-l or --limit] l                     # rotate output file after l records\n"
     "   [-v or --verbose]                     # additional information sent to stdout\n"
     //  "   [-p or --loop] loop_count             # loop count >= 1 for the read_file\n"
     //  "   [--adaptive]                          # adaptively accept or skip packets for pcap file\n"
+    "   --license                             # write license information to stdout\n"
+    "   --version                             # write version information to stdout\n"
     "   [-h or --help]                        # extended help, with examples\n";
 
 char mercury_extended_help[] =
@@ -60,26 +70,49 @@ char mercury_extended_help[] =
     "   RAM to avoid OS failure due to memory starvation.\n"
     "\n"
     "   \"[-f or --fingerprint] f\" writes a JSON record for each fingerprint observed,\n"
-    "   which incorporates the flow key and the time of observation, into the file or\n"
-    "   file set f.  With [-a or --analysis], fingerprints and destinations are\n"
-    "   analyzed and the results are included in the JSON output.\n"
+    "   which incorporates the flow key and the time of observation, into the file f.\n"
+    "   With [-a or --analysis], fingerprints and destinations are analyzed and the\n"
+    "   results are included in the JSON output.\n"
     "\n"
-    "   \"[-w or --write] w\" writes packets to the file or file set w, in PCAP format.\n"
-    "   With [-s or --select], packets are filtered so that only ones with\n"
-    "   fingerprint metadata are written.\n"
+    "   \"[-w or --write] w\" writes packets to the file w, in PCAP format.  With the\n"
+    "   option [-s or --select], packets are filtered so that only ones with\n"
+    "   fingerprint  metadata are written.\n"
     "\n"
     "   \"[r or --read] r\" reads packets from the file r, in PCAP format.\n"
     "\n"
-    "   \"[-u or --user] u\" sets the UID and GID to those of user u; output file(s)\n"
-    "   are owned by this user.  With \"[-l or --limit] l\", each JSON output file has\n"
-    "   at most l records; output files are rotated, and filenames include a sequence\n"
-    "   number.\n"
+    "   \"[-u or --user] u\" sets the UID and GID to those of user u, so that\n"
+    "   output file(s) are owned by this user.  If this option is not set, then\n"
+    "   the UID is set to SUDO_UID, so that privileges are dropped to those of\n"
+    "   the user that invoked sudo.  A system account with username mercury is\n"
+    "   created for use with a mercury daemon.\n"
+    "\n"
+    "   \"[-d or --directory] d\" sets the working directory to d, so that all output\n"
+    "   files are written into that location.  When capturing at a high data rate, a\n"
+    "   a high performance filesystem and disk should be used, and NFS partitions\n"
+    "   should be avoided.\n"
+    "\n"
+    "   \"--config c\" reads configuration information from the file c.\n"
+    "\n"
+    "   [-a or --analysis] performs analysis and reports results in the \"analysis\"\n"
+    "   object in the JSON records.   This option only works with the option\n"
+    "   [-f or --fingerprint].\n"
+    "\n"
+    "   \"[-l or --limit] l\" rotates output files so that each file has at most\n"
+    "   l records or packets; filenames include a sequence number, date and time.\n"
     "\n"
     "   [-v or --verbose] writes additional information to the standard output,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
     "\n"
+    "   --license and --version write their information to stdout, then halt.\n"
+    "\n"
+    "\n"
     "   [-h or --help] writes this extended help message to stdout.\n"
+    "\n"
+    "SYSTEM\n"
+    "   Resource files used in analysis: " DEFAULT_RESOURCE_DIR "\n"    // can be set via ./configure
+    "   Systemd service output:          /usr/local/var/mercury\n"
+    "   Systemd service configuration    /etc/mercury/mercury.cfg\n"
     "\n"
     "EXAMPLES\n"
     "   mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap\n"
@@ -112,9 +145,12 @@ int main(int argc, char *argv[]) {
     int num_inputs = 0;  // we need to have one and only one input
 
     while(1) {
+        enum opt { config=1, version=2, license=3 };
         int opt_idx = 0;
         static struct option long_opts[] = {
-            { "config",      required_argument, NULL, 1   },
+            { "config",      required_argument, NULL, config  },
+            { "version",     no_argument,       NULL, version },
+            { "license",     no_argument,       NULL, license },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -138,13 +174,21 @@ int main(int argc, char *argv[]) {
             break;
         }
         switch(c) {
-        case 1:
+        case config:
             if (optarg) {
                 mercury_config_read_from_file(&cfg, optarg);
                 num_inputs++;
             } else {
                 usage(argv[0], "error: option config requires filename argument", extended_help_off);
             }
+            break;
+        case version:
+            mercury_version.print(stdout);
+            return EXIT_SUCCESS;
+            break;
+        case license:
+            print_license();
+            return EXIT_SUCCESS;
             break;
         case 'r':
             if (optarg) {
