@@ -27,10 +27,6 @@
 
 struct semantic_version mercury_version(2,0,0);
 
-void print_license() {
-    printf("%s\n", license_string);
-}
-
 char mercury_help[] =
     "%s INPUT [OUTPUT] [OPTIONS]:\n"
     "INPUT\n"
@@ -187,7 +183,7 @@ int main(int argc, char *argv[]) {
             return EXIT_SUCCESS;
             break;
         case license:
-            print_license();
+            printf("%s\n", license_string);
             return EXIT_SUCCESS;
             break;
         case 'r':
