@@ -49,8 +49,7 @@ If multiple compile time options are used, then they must be passed to make toge
 
 ### Running mercury
 ```
-mercury: packet metadata capture and analysis
-./src/mercury INPUT [OUTPUT] [OPTIONS]:
+mercury INPUT [OUTPUT] [OPTIONS]:
 INPUT
    [-c or --capture] capture_interface   # capture packets from interface
    [-r or --read] read_file              # read packets from file
@@ -63,55 +62,78 @@ OUTPUT
    [-t or --threads] [num_threads | cpu] # set number of threads
    [-u or --user] u                      # set UID and GID to those of user u
    [-d or --directory] d                 # set working directory to d
---read OPTIONS
-   [-m or --multiple] count              # loop over read_file count >= 1 times
 GENERAL OPTIONS
+   --config c                            # read configuration from file c
    [-a or --analysis]                    # analyze fingerprints
    [-s or --select]                      # select only packets with metadata
-   [-l or --limit] l                     # rotate JSON files after l records
+   [-l or --limit] l                     # rotate output file after l records
    [-v or --verbose]                     # additional information sent to stdout
-   [-p or --loop] loop_count             # loop count >= 1 for the read_file
+   --license                             # write license information to stdout
+   --version                             # write version information to stdout
    [-h or --help]                        # extended help, with examples
 ```
 
-### Details
-
+### DETAILS
    **[-c or --capture] c** captures packets from interface c with Linux AF_PACKET
    using a separate ring buffer for each worker thread.  **[-t or --thread] t**
    sets the number of worker threads to t, if t is a positive integer; if t is
-   "cpu", then the number of threads will be set to the number of available
+   **cpu**, then the number of threads will be set to the number of available
    processors.  **[-b or --buffer] b** sets the total size of all ring buffers to
    (b * PHYS_MEM) where b is a decimal number between 0.0 and 1.0 and PHYS_MEM
    is the available memory; USE b < 0.1 EXCEPT WHEN THERE ARE GIGABYTES OF SPARE
-   RAM to avoid OS failure due to memory starvation.  When multiple threads are
-   configured, the output is a *file set*: a directory into which each thread
-   writes its own file; all packets in a flow are written to the same file.
+   RAM to avoid OS failure due to memory starvation.
 
    **[-f or --fingerprint] f** writes a JSON record for each fingerprint observed,
-   which incorporates the flow key and the time of observation, into the file or
-   file set f.  With **[-a or --analysis]**, fingerprints and destinations are
-   analyzed and the results are included in the JSON output.  The analysis output
-   is documented [in the pmercury README](python/README.md).
+   which incorporates the flow key and the time of observation, into the file f.
+   With [-a or --analysis], fingerprints and destinations are analyzed and the
+   results are included in the JSON output.
 
-   **[-w or --write] w** writes packets to the file or file set w, in PCAP format.
-   With **[-s or --select]**, packets are filtered so that only ones with
-   fingerprint metadata are written.
+   **[-w or --write] w** writes packets to the file w, in PCAP format.  With the
+   option [-s or --select], packets are filtered so that only ones with
+   fingerprint  metadata are written.
 
-   **[r or --read] r** reads packets from the file or file set r, in PCAP format.
-   A single worker thread is used to process each input file; if r is a file set
-   then the output will be a file set as well.  With **[-m or --multiple] m**, the
-   input file or file set is read and processed m times in sequence; this is
-   useful for testing.
+   **[r or --read] r** reads packets from the file r, in PCAP format.
 
-   **[-u or --user] u** sets the UID and GID to those of user u; output file(s)
-   are owned by this user.  With **[-l or --limit] l**, each JSON output file has
-   at most l records; output files are rotated, and filenames include a sequence
-   number.
+   **[-u or --user] u** sets the UID and GID to those of user u, so that
+   output file(s) are owned by this user.  If this option is not set, then
+   the UID is set to SUDO_UID, so that privileges are dropped to those of
+   the user that invoked sudo.  A system account with username mercury is
+   created for use with a mercury daemon.
 
-   **[-h or --help]** writes this extended help message to stdout.
+   **[-d or --directory] d** sets the working directory to d, so that all output
+   files are written into that location.  When capturing at a high data rate, a
+   a high performance filesystem and disk should be used, and NFS partitions
+   should be avoided.
 
-### Examples
-```bash
+   **--config c** reads configuration information from the file c.
+
+   [-a or --analysis] performs analysis and reports results in the **analysis**
+   object in the JSON records.   This option only works with the option
+   [-f or --fingerprint].
+
+   **[-l or --limit] l** rotates output files so that each file has at most
+   l records or packets; filenames include a sequence number, date and time.
+
+   [-v or --verbose] writes additional information to the standard output,
+   including the packet count, byte count, elapsed time and processing rate, as
+   well as information about threads and files.
+
+   --license and --version write their information to stdout, then halt.
+
+   [-h or --help] writes this extended help message to stdout.
+
+
+### SYSTEM
+The directories used by the default install are as follows.  Run **mercury --help** to
+see if the directories on your system differ.
+```
+   Resource files used in analysis: /usr/local/share/mercury
+   Systemd service output:          /usr/local/var/mercury
+   Systemd service configuration    /etc/mercury/mercury.cfg
+```
+
+### EXAMPLES
+```
    mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap
    mercury -c eth0 -w foo.pcap -t cpu    # as above, with one thread per CPU
    mercury -c eth0 -w foo.mcap -t cpu -s # as above, selecting packet metadata
@@ -124,9 +146,23 @@ GENERAL OPTIONS
 Mercury is intended for defensive network monitoring and security research and forensics.  Researchers, administrators, penetration testers, and security operations teams can use these tools to protect networks, detect vulnerabilities, and benefit the broader community through improved awareness and defensive posture. As with any packet monitoring tool, Mercury could potentially be misused. **Do not run it on any network of which you are not the owner or the administrator**.
 
 ## Credits
-Mercury was developed by David McGrew, Brandon Enright, Blake Anderson, Shekhar Acharya, and Adam Weller, with input from Brian Long, Bill Hudson, and others.  Pmercury was developed by Blake Anderson, with input from the others.  
+Mercury was developed by David McGrew, Brandon Enright, Blake Anderson, Lucas Messenger, Adam Weller and Shekhar Acharya with input from Brian Long, Bill Hudson, and others.  Pmercury was developed by Blake Anderson, with input from the others.
 
 ## Acknowledgments
-This software includes GeoLite2 data created by MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com).
+
+This package includes GeoLite2 data created by MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com).
 
 We make use of Mozilla's [Public Suffix List](https://publicsuffix.org/list/) which is subject to the terms of the [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/).
+
+This package directly incorporates some software made by other
+developers, to make the package easier to build, deploy, and run.  We
+are grateful to the copyright holders for making their excellent
+software available under licensing terms that allow its
+redistribution.
+   * RapidJSON
+   [https://github.com/cisco/mercury/src/rapidjson/license.txt](src/rapidjson/license.txt);
+   this package is Copyright 2015 THL A29 Limited, a Tencent company,
+   and Milo Yip.
+   * lctrie [https://github.com/cisco/mercury/src/lctrie](src/lctrie);
+   this package is copyright 2016-2017 Charles Stewart
+   <chuckination_at_gmail_dot_com>

@@ -19,3 +19,14 @@ def process_cert(bytes cert, bytes fname):
     cdef FILE* out_file = fopen(fname, 'a')
     x.print_as_json(out_file)
     fclose(out_file)
+
+def parse_cert(bytes cert, bytes fname):
+    cdef unsigned int len_ = len(cert)
+    cdef x509_cert x
+
+    cdef char* c_string_ref = cert
+    x.parse(<const void*>c_string_ref, len_)
+
+    #cdef char *c_string_ref = output_buffer
+    #x.sprint_as_json(output_buffer)
+

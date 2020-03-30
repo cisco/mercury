@@ -10,6 +10,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include "mercury.h"
@@ -77,4 +78,17 @@ enum status pcap_file_close(struct pcap_file *f);
 enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                                              struct pkt_proc *pkt_processor,
                                              int loop_count);
+
+/*
+ * start of serialized output code - first cut
+ */
+
+void pcap_queue_write(struct ll_queue *llq,
+                      uint8_t *packet,
+                      size_t length,
+                      unsigned int sec,
+                      unsigned int nsec);
+
+enum status write_pcap_file_header(FILE *f);
+
 #endif /* PCAP_FILE_IO_H */

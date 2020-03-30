@@ -15,8 +15,10 @@
 #include <pwd.h>
 #include <grp.h>
 #include <stdlib.h>
+#include <time.h>
 #include "mercury.h"
 #include "pcap_file_io.h"
+#include "utils.h"
 
 
 /* append_snprintf
@@ -114,6 +116,24 @@ int append_putc(char *dstr, int *doff, int dlen, int *trunc,
     }
 }
 
+int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, const void *s, ssize_t length) {
+    const uint8_t *src = (const uint8_t *)s;
+
+    /* Check to make sure the offset isn't already longer than the length */
+    if (*doff >= dlen) {
+        *trunc = 1;
+        return 0;
+    }
+
+    if (*doff < dlen - length) {   // TBD: over/under flow?
+        memcpy(dstr + *doff, src, length);
+        *doff = *doff + length;
+        return length;
+    } else {
+        *trunc = 1;
+        return 0;
+    }
+}
 
 int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
                       const uint8_t *data, unsigned int len) {
@@ -349,7 +369,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
         if (uid == 0) {
             const char *sudo_uid = getenv("SUDO_UID");
             if (sudo_uid == NULL) {
-                printf("environment variable `SUDO_UID` not found\n");
+                fprintf(stderr, "error: environment variable `SUDO_UID` not found; cannot set user to '%s'\n", username);
                 return status_err;
             }
             errno = 0;
@@ -364,7 +384,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
         if (gid == 0) {
             const char *sudo_gid = getenv("SUDO_GID");
             if (sudo_gid == NULL) {
-                printf("environment variable SUDO_GID not found\n");
+                fprintf(stderr, "error: environment variable `SUDO_GID` not found; cannot set user to '%s'\n", username);
                 return status_err;
             }
             errno = 0;
@@ -377,7 +397,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
 
         new_username = getenv("SUDO_USER");
         if (new_username == NULL) {
-            printf("environment variable `SUDO_USER` not found\n");
+            fprintf(stderr, "error: environment variable `SUDO_USER` not found; cannot set user to '%s'\n", username);
             return status_err;
         }
 
@@ -389,7 +409,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
             gid = userdata->pw_gid;
             uid = userdata->pw_uid;
         } else {
-            printf("%s: could not find user '%.32s'", strerror(errno), username);
+            fprintf(stderr, "error: could not find user '%.32s'\n", username);
             return status_err;
         }
     }
@@ -710,4 +730,54 @@ void get_readable_number_float(double power,
     *num_output = input;
     *str_output = readable_number_suffix[index];
 
+}
+
+enum status filename_append(char dst[MAX_FILENAME],
+                            const char *src,
+                            const char *delim,
+                            const char *tail) {
+
+    if (tail) {
+
+        /*
+         * filename = directory || '/' || thread_num
+         */
+        if (strnlen(src, MAX_FILENAME) + strlen(tail) + 1 > MAX_FILENAME) {
+            return status_err; /* filename too long */
+        }
+        strncpy(dst, src, MAX_FILENAME);
+        strcat(dst, delim);
+        strcat(dst, tail);
+
+    } else {
+
+        if (strnlen(src, MAX_FILENAME) >= MAX_FILENAME) {
+            return status_err; /* filename too long */
+        }
+        strncpy(dst, src, MAX_FILENAME);
+
+    }
+    return status_ok;
+}
+
+void timer_start(struct timer *t) {
+    if (clock_gettime(CLOCK_REALTIME, &t->before) != 0) {
+        // failed to get clock time, set the uninitialized struct to zero
+        bzero(&t->before, sizeof(struct timespec));
+        perror("error: could not get clock time before fwrite file header\n");
+    }
+}
+
+#define BILLION 1000000000L
+
+uint64_t timer_stop(struct timer *t) {
+    uint64_t nano_sec = 0;
+    if (clock_gettime(CLOCK_REALTIME, &t->after) != 0) {
+        perror("error: could not get clock time after fwrite file header\n");
+    } else {
+        // It is assumed that if this call is successful, the previous call is also successful.
+        // We got clock time after writting, now compute the time difference in nano seconds
+        nano_sec += (BILLION * (t->after.tv_sec - t->before.tv_sec)) + (t->after.tv_nsec - t->before.tv_nsec);
+    }
+    return nano_sec;
 }

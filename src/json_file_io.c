@@ -15,6 +15,7 @@
 #include "ept.h"
 #include "utils.h"
 #include "analysis.h"
+#include "llq.h"
 
 #define json_file_needs_rotation(jf) (--((jf)->record_countdown) == 0)
 #define SNI_HDR_LEN 9
@@ -277,8 +278,8 @@ void json_file_write(struct json_file *jf,
                      unsigned int nsec) {
 
     struct timespec ts;
-    char obuf[MQ_MAX_SIZE];
-    int olen = MQ_MAX_SIZE;
+    char obuf[LLQ_MSG_SIZE];
+    int olen = LLQ_MSG_SIZE;
     int ooff = 0;
     int trunc = 0;
 
@@ -301,37 +302,53 @@ void json_file_write(struct json_file *jf,
 }
 
 
-void json_queue_write(mqd_t jq,
+void json_queue_write(struct ll_queue *llq,
                       uint8_t *packet,
                       size_t length,
                       unsigned int sec,
                       unsigned int nsec) {
 
-    struct timespec ts;
-    char obuf[MQ_MAX_SIZE];
-    int olen = MQ_MAX_SIZE - sizeof(struct timespec);
-    int ooff = sizeof(struct timespec);
-    int trunc = 0;
+    if (llq->msgs[llq->widx].used == 0) {
 
-    ts.tv_sec = sec;
-    ts.tv_nsec = nsec;
+        //char obuf[LLQ_MSG_SIZE];
+        int olen = LLQ_MSG_SIZE;
+        int ooff = 0;
+        int trunc = 0;
 
-    /* prepend struct timespec into message */
-    memcpy(obuf, &ts, sizeof(struct timespec));
-    obuf[sizeof(struct timespec)] = '\0';
+        llq->msgs[llq->widx].ts.tv_sec = sec;
+        llq->msgs[llq->widx].ts.tv_nsec = nsec;
 
-    int r = append_packet_json(&(obuf[0]), &ooff, olen, &trunc,
-                              packet, length, &ts);
 
-    if ((trunc == 0) && (r > 0)) {
-        //fwrite(obuf, r, 1, jf->file);
-        int ret = mq_send(jq, obuf, r + sizeof(struct timespec), 0);
+        //obuf[sizeof(struct timespec)] = '\0';
+        llq->msgs[llq->widx].buf[0] = '\0';
 
-        if (ret != 0) {
-            perror("Unable to send json message over queue");
+        int r = append_packet_json(llq->msgs[llq->widx].buf, &ooff, olen, &trunc,
+                                   packet, length, &(llq->msgs[llq->widx].ts));
 
-            fprintf(stderr, "Queue file handle number: %d\n", jq);
+        if ((trunc == 0) && (r > 0)) {
+
+            llq->msgs[llq->widx].len = r;
+
+            //fprintf(stderr, "DEBUG: sent a message!\n");
+            __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
+            llq->msgs[llq->widx].used = 1;
+
+            /* fprintf(stderr, "DEBUG QUEUE %d packet time: %ld.%09ld\n", */
+            /*         llq->qnum, */
+            /*         llq->msgs[llq->widx].ts.tv_sec, */
+            /*         llq->msgs[llq->widx].ts.tv_nsec); */
+
+            //llq->next_write();
+            llq->widx = (llq->widx + 1) % LLQ_DEPTH;
         }
+    }
+    else {
+        //fprintf(stderr, "DEBUG: queue bucket used!\n");
+
+        // TODO: this is where we'd update an output drop counter
+        // but currently this spot in the code doesn't have access to
+        // any thread stats pointer or similar and I don't want
+        // to update a global variable in this location.
     }
 
 }
