@@ -2,6 +2,9 @@
  * version.h
  *
  * a class for handling semantic versioning
+ *
+ * Copyright (c) 2020 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef SEMANTIC_VERSION
