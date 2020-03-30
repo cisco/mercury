@@ -11,7 +11,7 @@
 #include <regex>
 #include <unordered_map>
 #include <map>
-
+#include <set>
 
 void oid_print(std::vector<uint32_t> oid, const char *label) {
 
@@ -26,7 +26,7 @@ void oid_print(std::vector<uint32_t> oid, const char *label) {
         } else {
             first = false;
         }
-        printf(" %u", i);
+        printf(" %d", i);
     }
     printf(" }\n");
 }
@@ -99,16 +99,14 @@ std::vector<uint8_t> oid_to_raw_string(std::vector<uint32_t> oid) {
     raw.push_back(40 * oid[0] + oid[1]);
     for (size_t i = 2; i < oid.size(); i++) {
         uint32_t tmp = oid[i];
-        uint32_t div;
-        uint32_t rem;
 
         std::vector<uint8_t> v;
         if (tmp == 0) {
-            v.push_back(rem);
+            v.push_back(0);
         } else {
             while (tmp > 0) {
-                div = tmp/128;
-                rem = tmp - div * 128;
+                uint32_t div = tmp/128;
+                uint32_t rem = tmp - div * 128;
                 v.push_back(rem);
                 tmp = div;
             }
@@ -130,11 +128,11 @@ std::vector<uint8_t> oid_to_raw_string(std::vector<uint32_t> oid) {
     return raw;
 }
 
-std::string oid_to_hex_string(std::vector<uint32_t> oid) {
+std::string oid_to_hex_string(const std::vector<uint32_t> &oid) {
     return raw_to_hex_string(oid_to_raw_string(oid));
 }
 
-std::string oid_to_hex_array(std::vector<uint32_t> oid) {
+std::string oid_to_hex_array(const std::vector<uint32_t> &oid) {
     return raw_to_hex_array(oid_to_raw_string(oid));
 }
 
@@ -178,18 +176,13 @@ void output_oid(std::vector<uint32_t> oid, const char *delimiter) {
     if (oid.size() < 1) {
         return;    // nothing to output
     }
-    auto i = 0;
+    unsigned int i = 0;
     for (   ; i < oid.size() - 1; i++) {
         std::cout << oid[i] << delimiter;
     }
     std::cout << oid[i] << '\n';
 }
 
-
-//struct oid {
-//    std::vector<uint32_t> asn1_notation;
-//    std::string name;
-//};
 
 enum token_type {
   token_unknown,
@@ -231,12 +224,80 @@ enum assignment_type {
 
 struct oid_assignment {
     std::string name;
-    // std::list<std::string>
     enum assignment_type type;
     std::vector<uint32_t> asn_notation;
 };
 
-std::unordered_map<std::string, std::vector<uint32_t>> oid_dict;
+struct oid_set {
+    std::unordered_map<std::string, std::vector<uint32_t>> oid_dict;
+    std::unordered_map<std::string, std::string> keyword_dict;
+    std::unordered_map<std::string, std::string> synonym;
+    std::multiset<std::string> keywords;
+
+    void dump_oid_dict_sorted();
+    void verify_oid_dict();
+    std::vector<uint32_t> get_vector_from_keyword(const std::string &keyword) {
+        auto x = oid_dict.find(keyword);
+        if (x != oid_dict.end()) {
+            return x->second;
+        }
+        auto syn = synonym.find(keyword);
+        if (syn != synonym.end()) {
+            return oid_dict[syn->second];
+        }
+        std::cerr << "error: unknown OID keyword '" << keyword << "'\n";
+        throw "parse error";
+    }
+
+    void add_oid(const std::string &name,
+                 const std::vector<uint32_t> &v,
+                 enum assignment_type type) {
+
+        // if 'v' is already in use as an OID, don't add anything to
+        // the OID set, but instead create a synonym
+        //
+        std::string oid_hex_string = oid_to_hex_string(v);
+        if (keyword_dict.find(oid_hex_string) != keyword_dict.end()) {
+            std::cerr << "note: OID ";
+            bool not_first = 0;
+            for (auto &c : v) {
+                if (not_first) {
+                    std::cerr << '.';
+                } else {
+                    not_first = 1;
+                }
+                std::cerr << c;
+            }
+            std::cerr << " is already in the OID set with keyword " << name;
+            if (keyword_dict[oid_hex_string] != name) {
+                std::cerr << " creating synonym";
+                synonym[name] = keyword_dict[oid_hex_string];
+            }
+            std::cerr << std::endl;
+
+            return;
+        }
+
+        // if 'name' is already in use as a keyword, then append a
+        // distinct number
+        //
+        auto count = keywords.count(name);
+        std::string k(name);
+        keywords.insert(name);
+        if (count != 0) {
+            std::cerr << "note: keyword " << name << " is already in use, appending [" << count << "]" << std::endl;
+            k.append("[").append(std::to_string(count)).append("]");
+        }
+        // cout << "assignment: " << name << "\t" << type << endl;
+        oid_dict[k] = v;
+        if (type == type_other) {
+            std::cerr << "assigning synonym " << name << "\n";
+        }
+        keyword_dict[oid_to_hex_string(v)] = k;
+    }
+};
+
+struct oid_set oid_set;
 
 void parse_asn1_line(std::list<std::string> &tokens) {
     using namespace std;
@@ -292,12 +353,12 @@ void parse_asn1_line(std::list<std::string> &tokens) {
         cout << "error: expected string, got '" << *t << "'\n";
         throw "parse error";
     }
-    t++;
+    ++t;
 
     string category_name;
     if (type(*t) == token_str) {
         if (*t == "OBJECT") {
-            t++;
+            ++t;
             if (type(*t) == token_str && *t == "IDENTIFIER") {
                 assignment.type = type_oid;
             }
@@ -307,9 +368,9 @@ void parse_asn1_line(std::list<std::string> &tokens) {
         }
     } else if (type(*t) == token_assignment) {
 
-        t++;
+        ++t;
         if (type(*t) == token_str && *t == "OBJECT")  {
-            t++;
+            ++t;
             if (type(*t) == token_str && *t == "IDENTIFIER") {
                 assignment.type = type_oid;
             } else {
@@ -326,19 +387,19 @@ void parse_asn1_line(std::list<std::string> &tokens) {
         cout << "error: expected OBJECT IDENTIFIER or ::=, got '" << *t << "'\n";
         throw "parse error";
     }
-    t++;
+    ++t;
 
     if (type(*t) != token_assignment) {
         cout << "error: expected '::=', got '" << *t << "'\n";
         throw "parse error";
     }
-    t++;
+    ++t;
 
     if (type(*t) != token_lbrace) {
         cout << "error: expected '{', got '" << *t << "'\n";
         throw "parse error";
     }
-    t++;
+    ++t;
 
     while (type(*t) != token_rbrace) {
 
@@ -355,14 +416,8 @@ void parse_asn1_line(std::list<std::string> &tokens) {
 
             } else {
 
-                auto x = oid_dict.find(*t);
-                if (x == oid_dict.end()) {
-                    cerr << "error: unknown OID '" << *t << "'\n";
-                    throw "parse error";
-                }
-                // cout << "found " << x->first << endl;
-
-                for (auto component: x->second) {
+                std::vector<uint32_t> x = oid_set.get_vector_from_keyword(*t);
+                for (uint32_t &component: x) {
                     assignment.asn_notation.push_back(component);
                 }
             }
@@ -371,14 +426,10 @@ void parse_asn1_line(std::list<std::string> &tokens) {
             assignment.asn_notation.push_back(stoi(*t));
         }
 
-        t++;
+        ++t;
     }
 
-    // cout << "assignment: " << assignment.name << "\t" << assignment.type << endl;
-    oid_dict[assignment.name] = assignment.asn_notation;
-    if (assignment.type == type_other) {
-        // cout << "assigning synonym " << assignment.name << "\n";
-    }
+    oid_set.add_oid(assignment.name, assignment.asn_notation, assignment.type);
 }
 
 int paren_balance(const char *s) {
@@ -446,7 +497,7 @@ void parse_asn1_file(const char *filename) {
 
 }
 
-void dump_oid_dict_sorted() {
+void oid_set::dump_oid_dict_sorted() {
     using namespace std;
 
     struct pair_cmp {
@@ -464,19 +515,48 @@ void dump_oid_dict_sorted() {
     cout << "};\n";
 }
 
+void oid_set::verify_oid_dict() {
+    using namespace std;
+
+    struct pair_cmp {
+        inline bool operator() (const pair<string, vector<uint32_t>> &s1, const pair<string, vector<uint32_t>> &s2) {
+            return (s1.second < s2.second);
+        }
+    };
+    vector<pair<string, vector<uint32_t>>> ordered_dict(oid_dict.begin(), oid_dict.end());
+    sort(ordered_dict.begin(), ordered_dict.end(), pair_cmp());
+
+    for (pair <string, vector<uint32_t>> x : ordered_dict) {
+        string s = oid_to_hex_string(x.second);
+        vector<uint32_t> v = hex_string_to_oid(s);
+        if (v != x.second) {
+
+            cout << "error with oid " << oid_to_hex_string(x.second) << "\n";
+
+            auto iv = v.begin();
+            auto ix = x.second.begin();
+
+            while (iv != v.end() || ix != x.second.end()) {
+                if (iv != v.end()) {
+                    cout << "v: " << *iv;
+                    if (*iv != *ix) {
+                        cout << "\t***";
+                    }
+                    cout << endl;
+                    iv++;
+                }
+                if (ix != x.second.end()) {
+                    cout << "x: " << *ix << endl;
+                    ix++;
+                }
+            }
+        }
+    }
+
+}
+
 int main(int argc, char *argv[]) {
     using namespace std;
-    // struct oid all_oids[] =
-    //     {
-    //      { { 1, 2, 840, 113549 },  "RSA Data Security, Inc." },
-    //      { { 2, 5, 4, 3 }, "id-at-commonName" },
-    //      { { 0, 9, 2342, 19200300, 100, 1, 25 }, "id-domainComponent" }
-    //     };
-    //
-    //for (auto oid: all_oids) {
-    //    oid_print(oid.asn1_notation, "oid");
-    //    cout << oid_to_hex_string(oid.asn1_notation) << "\t" << oid.name << endl;
-    //}
 
 #if 0
     auto unknown_oids =
@@ -558,7 +638,11 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-    dump_oid_dict_sorted();
+    oid_set.dump_oid_dict_sorted();
+    // oid_set.verify_oid_dict();
 
+    //    for (auto &x : oid_set.keyword_dict) {
+    //        cout << x.first << "\t" << x.second << endl;
+    //    }
     return 0;
 }

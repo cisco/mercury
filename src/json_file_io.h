@@ -28,7 +28,7 @@ void json_file_write(struct json_file *jf,
 		     unsigned int sec,
 		     unsigned int usec);
 
-void json_queue_write(mqd_t jq,
+void json_queue_write(struct ll_queue *llq,
 		     uint8_t *packet,
 		     size_t length,
 		     unsigned int sec,

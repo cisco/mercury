@@ -85,7 +85,6 @@ struct name {
 
         RDNsequence.parse(p, tlv::SEQUENCE, "RDNsequence");
 
-        const char *comma = "";
         while (parser_get_data_length(&RDNsequence.value) > 0) {
 
             while (parser_get_data_length(&RDNsequence.value) > 0) {
@@ -99,11 +98,7 @@ struct name {
                     while (parser_get_data_length(&r.sequence.value) > 0) {
                         r.attribute_type.parse(&r.sequence.value, 0, "attribute_type");
                         if (r.attribute_type.tag == 0x06) {
-                            const char *unknown_oid = "unknown_oid";
-                            const char *oid_string = unknown_oid;
 
-                            oid_string = parser_get_oid_string(&r.attribute_type.value);
-                            // get string associated with OID
                             r.attribute_value.parse(&r.sequence.value, 0, "attribute_value");
                         } else {
                             fprintf(stderr, "warning: got unexpected type %02x\n", r.attribute_type.tag);
@@ -897,18 +892,77 @@ struct rsa_public_key {
     }
 };
 
+/*
+   From RFC 5480:
+
+   The subjectPublicKey from SubjectPublicKeyInfo is the ECC public key.
+   ECC public keys have the following syntax:
+
+     ECPoint ::= OCTET STRING
+
+   Implementations of Elliptic Curve Cryptography according to this
+   document MUST support the uncompressed form and MAY support the
+   compressed form of the ECC public key.  The hybrid form of the ECC
+   public key from [X9.62] MUST NOT be used.  As specified in [SEC1]:
+
+      o The elliptic curve public key (a value of type ECPoint that is
+        an OCTET STRING) is mapped to a subjectPublicKey (a value of
+        type BIT STRING) as follows: the most significant bit of the
+        OCTET STRING value becomes the most significant bit of the BIT
+        STRING value, and so on; the least significant bit of the OCTET
+        STRING becomes the least significant bit of the BIT STRING.
+        Conversion routines are found in Sections 2.3.1 and 2.3.2 of
+        [SEC1].
+
+      o The first octet of the OCTET STRING indicates whether the key is
+        compressed or uncompressed.  The uncompressed form is indicated
+        by 0x04 and the compressed form is indicated by either 0x02 or
+        0x03 (see 2.3.3 in [SEC1]).  The public key MUST be rejected if
+        any other value is included in the first octet.
+ */
 
 struct ec_public_key {
-    struct tlv tmp;
+    struct parser d;
+    // struct tlv tmp;   // TBD: ec public key is *not* ASN.1 formatted
 
-    ec_public_key(struct parser *p) : tmp{} {
-        tmp.parse(p);
+    ec_public_key(struct parser *p) : d{} {
+        d = *p;
     }
     void print_as_json(FILE *f, const char *name, bool comma) {
         if (comma) {
             fprintf(f, ",");
         }
-        tmp.print_as_json(f, name);
+        fprintf(f, "\"%s\":{", name);
+        ssize_t data_length = d.data_end - d.data;
+        const uint8_t *data = d.data;
+        if (data && data_length) {
+            if (data[0] == 0x04) {
+                data++;
+                data_length--;
+                fprintf(f, "\"x\":\"");
+                fprintf_raw_as_hex(f, data, data_length/2);
+                fprintf(f, "\"");
+                data += data_length/2;
+                fprintf(f, ",\"y\":\"");
+                fprintf_raw_as_hex(f, data, data_length/2);
+                fprintf(f, "\"");
+            } else if (data[0] == 0x02) {
+                data++;
+                data_length--;
+                fprintf(f, "\"x\":\"");
+                fprintf_raw_as_hex(f, data, data_length);
+                fprintf(f, "\"");
+                fprintf(f, ",\"y\":\"00\"");
+            } else if (data[0] == 0x03) {
+                data++;
+                data_length--;
+                fprintf(f, "\"x\":\"");
+                fprintf_raw_as_hex(f, data, data_length);
+                fprintf(f, "\"");
+                fprintf(f, ",\"y\":\"01\"");
+            }
+        }
+        fprintf(f, "}");
     }
 };
 
@@ -921,6 +975,7 @@ struct ec_public_key {
 struct algorithm_identifier {
     struct tlv sequence;
     struct tlv algorithm;
+    struct tlv null;
     struct tlv parameters;
 
     algorithm_identifier() : sequence{}, algorithm{}, parameters{} {}
@@ -930,6 +985,9 @@ struct algorithm_identifier {
     void parse(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
         algorithm.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
+        if (parser_get_data_length(&sequence.value) > 0) {
+            null.parse(&sequence.value, tlv::NULL_TAG);
+        }
         if (parser_get_data_length(&sequence.value) > 0) {
             parameters.parse(&sequence.value);
         }
@@ -991,6 +1049,7 @@ struct subject_public_key_info {
             pub_key.print_as_json(f, "subject_public_key", true);
 
         } else if (strcmp(algorithm.type(), "id-ecPublicKey") == 0) {
+            subject_public_key.remove_bitstring_encoding();
             struct ec_public_key pub_key(&subject_public_key.value);
             pub_key.print_as_json(f, "subject_public_key", true);
 
@@ -1221,15 +1280,9 @@ struct x509_cert {
         while (parser_get_data_length(&extensions.value) > 0) {
             extension.push_back(&extensions.value);
             struct extension &ext = extension.back();
-            //ext.sequence.fprint(stdout, "XXX extension");
 
             if (ext.sequence.is_constructed()) {
-                const char *oid_string = NULL;
                 ext.extnID.parse(&ext.sequence.value, 0, "extnID");
-                if (ext.extnID.tag == 0x06) {
-                    oid_string = parser_get_oid_string(&ext.extnID.value);
-                }
-
                 ext.extnValue.parse(&ext.sequence.value, 0, "extnValue");
                 if (ext.extnValue.tag == 0x01) {
                     // fprintf(stderr, "found boolean\n");
@@ -1260,7 +1313,7 @@ struct x509_cert {
         subjectPublicKeyInfo.print_as_json(f, "subject_public_key_info");
 
         if (extension.size() > 0) {
-            fprintf(stdout, ",\"extensions\":[");  // open JSON array for extensions
+            fprintf(f, ",\"extensions\":[");  // open JSON array for extensions
 
             const char *comma = "";
             for (auto &xtn : extension) {
@@ -1282,83 +1335,82 @@ struct x509_cert {
                     }
 
                     // new stuff
-                    fprintf(stdout, "%s{", comma); // open extension object
+                    fprintf(f, "%s{", comma); // open extension object
                     if (oid_string && strcmp("id-ce-SignedCertificateTimestampList", oid_string) == 0) {
                         struct signed_certificate_timestamp_list x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "signed_certificate_timestamp_list");
+                        x.print_as_json(f, "signed_certificate_timestamp_list");
                     }
                     else if (oid_string && strcmp("id-ce-nameConstraints", oid_string) == 0) {
                         struct name_constraints x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "name_constraints");
+                        x.print_as_json(f, "name_constraints");
                     }
                     else if (oid_string && strcmp("id-ce-cRLDistributionPoints", oid_string) == 0) {
                         struct crl_distribution_points x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "crl_distribution_points");
+                        x.print_as_json(f, "crl_distribution_points");
                     }
                     else if (oid_string && strcmp("id-ce-certificatePolicies", oid_string) == 0) {
                         struct certificate_policies x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "certificate_policies");
+                        x.print_as_json(f, "certificate_policies");
                     }
                     else if (oid_string && strcmp("id-ce-privateKeyUsagePeriod", oid_string) == 0) {
                         struct private_key_usage_period x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "private_key_usage_period");
+                        x.print_as_json(f, "private_key_usage_period");
                     }
                     else if (oid_string && strcmp("id-ce-basicConstraints", oid_string) == 0) {
                         struct basic_constraints x(&xtn.extnValue.value);
-                        x.print_as_json(stdout);
+                        x.print_as_json(f);
                     }
                     else if (oid_string && strcmp("id-ce-keyUsage", oid_string) == 0) {
                         struct key_usage x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "key_usage");
+                        x.print_as_json(f, "key_usage");
                     }
                     else if (oid_string && strcmp("id-ce-extKeyUsage", oid_string) == 0) {
                         struct ext_key_usage x(&xtn.extnValue.value);
-                        x.print_as_json(stdout);
+                        x.print_as_json(f);
                     }
                     else if (oid_string && strcmp("id-ce-subjectAltName", oid_string) == 0) {
                         struct subject_alt_name x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "subject_alt_name");
+                        x.print_as_json(f, "subject_alt_name");
                     }
                     else if (oid_string && strcmp("id-ce-issuerAltName", oid_string) == 0) {
                         struct subject_alt_name x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "issuer_alt_name");
+                        x.print_as_json(f, "issuer_alt_name");
                     }
                     else if (oid_string && strcmp("id-ce-authorityKeyIdentifier", oid_string) == 0) {
                         struct authority_key_identifier x(&xtn.extnValue.value);
-                        x.print_as_json(stdout);
+                        x.print_as_json(f);
                     }
                     else if (oid_string && strcmp("id-ce-subjectKeyIdentifier", oid_string) == 0) {
                         struct tlv x(&xtn.extnValue.value);
-                        x.print_as_json_hex(stdout, "subject_key_identifier");
+                        x.print_as_json_hex(f, "subject_key_identifier");
                     }
                     else if (oid_string && strcmp("id-pe-authorityInfoAccess", oid_string) == 0) {
                         struct authority_info_access_syntax x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "authority_info_access");
+                        x.print_as_json(f, "authority_info_access");
                     }
                     else if (oid_string && strcmp("NetscapeCertificateComment", oid_string) == 0) {
                         struct tlv x(&xtn.extnValue.value);
-                        x.print_as_json(stdout, "netscape_certificate_comment");
+                        x.print_as_json(f, "netscape_certificate_comment");
                     }
                     else if (oid_string && strcmp("NetscapeCertType", oid_string) == 0) {
                         struct tlv x(&xtn.extnValue.value);
-                        x.print_as_json_hex(stdout, "netscape_cert_type");
+                        x.print_as_json_hex(f, "netscape_cert_type");
                     } else {
                         struct tlv x(&xtn.extnValue.value);
-                        fprintf(stdout, "\"unsupported\":{");
-                        xtn.extnID.print_as_json_oid(stdout, "oid");
-                        x.print_as_json_hex(stdout, "value", true);
-                        fprintf(stdout, "}");
+                        fprintf(f, "\"unsupported\":{");
+                        xtn.extnID.print_as_json_oid(f, "oid");
+                        x.print_as_json_hex(f, "value", true);
+                        fprintf(f, "}");
                     }
-                    fprintf(stdout, ",\"critical\":%s", critical_str);
-                    fprintf(stdout, "}"); // close extension object
+                    fprintf(f, ",\"critical\":%s", critical_str);
+                    fprintf(f, "}"); // close extension object
                     comma = ",";
 
                 }
             }
-            fprintf(stdout, "]");  // closing extensions JSON array
+            fprintf(f, "]");  // closing extensions JSON array
         }
 
-        //        fprintf(f, ",\"signature_algorithm\":");
         signature_algorithm.print_as_json(f, "signature_algorithm", ",");
         fprintf(f, ",");
         signature.remove_bitstring_encoding();
@@ -1435,6 +1487,9 @@ struct x509_cert {
         time_t t = time(NULL);
         struct tm *tt = localtime(&t);
         size_t retval = strftime(time_str, sizeof(time_str), "%y%m%d%H%M%SZ", tt);
+        if (retval == 0) {
+            return true;  // error: can't get current time
+        }
 
         struct tlv tmp;
         tmp.set(tlv::UTCTime, time_str, sizeof(time_str));

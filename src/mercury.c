@@ -7,536 +7,25 @@
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-#include "utils.h"
 #include <stdio.h>
-#include <string.h>
-#include <signal.h>
 #include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
-#include <time.h>
-#include <sys/sysinfo.h>
-#include <sys/types.h>
-#include <sys/syscall.h>
 #include <pthread.h>
-#include <dirent.h>
-
-#include <queue>
-//#include <vector>
+#include <thread>
 
 #include "mercury.h"
 #include "pcap_file_io.h"
 #include "af_packet_v3.h"
+#include "pcap_reader.h"
 #include "analysis.h"
-#include "rnd_pkt_drop.h"
 #include "signal_handling.h"
 #include "config.h"
-
-struct thread_queues thread_queues;
-int sig_stop_output = 0; /* Extern defined in mercury.h for global visibility */
-int t_output_p = 0;
-pthread_cond_t t_output_c  = PTHREAD_COND_INITIALIZER;
-pthread_mutex_t t_output_m = PTHREAD_MUTEX_INITIALIZER;
-
-
-struct msg {
-    char buf[MQ_MAX_SIZE];
-    ssize_t len;
-
-    double age(struct timespec *cur_ts) {
-        struct timespec our_ts;
-        memcpy(&our_ts, buf, sizeof(struct timespec));
-
-        return ((double)cur_ts->tv_sec + ((double)cur_ts->tv_nsec / 1000000000.0)) -
-            ((double)our_ts.tv_sec + ((double)our_ts.tv_nsec / 1000000000.0));
-    }
-
-    friend bool operator < (const msg& lhs, const msg& rhs);
-};
-
-
-/* This is the "greater" operator which defined as the < operation
- * which keeps the lowest time (priority) at the top of our pq */
-bool operator < (const msg& rhs, const msg& lhs) {
-    struct timespec tsl, tsr;
-    memcpy(&tsl, lhs.buf, sizeof(struct timespec));
-    memcpy(&tsr, rhs.buf, sizeof(struct timespec));
-
-    return ((tsl.tv_sec < tsr.tv_sec) || ((tsl.tv_sec == tsr.tv_sec) && (tsl.tv_nsec < tsr.tv_nsec)));
-}
-
-
-void init_thread_queues(int n) {
-    thread_queues.qnum = n;
-    thread_queues.qidx = 0;
-    thread_queues.queue = (mqd_t *)calloc(n, sizeof(mqd_t));
-    thread_queues.queue_name = (char **)calloc(n, sizeof(char *));
-    thread_queues.pqfd = (struct pollfd*)calloc(n, sizeof(struct pollfd));
-    thread_queues.pid = getpid();
-
-    if ((thread_queues.queue == NULL) ||
-        (thread_queues.queue_name == NULL) ||
-        (thread_queues.pqfd == NULL)) {
-        fprintf(stderr, "Failed to allocate memory for thread queues\n");
-        exit(255);
-    }
-
-    for (int i = 0; i < n; i++) {
-        thread_queues.queue[i] = -1;
-        thread_queues.queue_name[i] = NULL;
-    }
-}
-
-
-void destroy_thread_queues() {
-
-    for (int i = 0; i < thread_queues.qidx; i++) {
-
-        int ret = mq_close(thread_queues.queue[i]);
-        if (ret != 0) {
-            perror("Unable to close thread queue");
-        }
-
-        ret = mq_unlink(thread_queues.queue_name[i]);
-        if (ret != 0) {
-            perror("Unable to unlink thread queue");
-        }
-
-        free(thread_queues.queue_name[i]);
-    }
-
-    free(thread_queues.queue);
-    free(thread_queues.queue_name);
-    thread_queues.queue = NULL;
-    thread_queues.queue_name = NULL;
-    thread_queues.qnum = 0;
-    thread_queues.qidx = 0;
-    thread_queues.pid = -1;
-}
-
-
-mqd_t open_thread_queue(const char *qid) {
-
-    if (thread_queues.qidx >= thread_queues.qnum) {
-        fprintf(stderr, "Unable to open queue %s: no free room in thread_queue list\n", qid);
-        return -1;
-    }
-
-    char qname[256];
-    snprintf(qname, 255, "/mercury_%d_%s", thread_queues.pid, qid);
-    qname[255] = '\0';
-
-    char *qnamep = strndup(qname, 255);
-    if (qnamep == NULL) {
-        perror("Unable to duplicate queue name string");
-        return -1;
-    }
-
-    struct mq_attr mattr;
-    memset(&mattr, 0, sizeof(mattr));
-    mattr.mq_maxmsg = MQ_QUEUE_DEPTH;
-    mattr.mq_msgsize = MQ_MAX_SIZE;
-
-    mqd_t tq = mq_open(qnamep, O_CREAT | O_RDWR | O_NONBLOCK, S_IRUSR | S_IWUSR, &mattr);
-    if (tq == -1) {
-        perror("Failed to open queue");
-        fprintf(stderr, "Queue named %s failed to open\n", qnamep);
-        free(qnamep);
-        return -1;
-    }
-
-    /* If somehow this queue has messages in it left over from a previous
-     * run we should loop through and flush them out */
-    int ret = mq_getattr(tq, &mattr);
-    if (ret < 0) {
-        perror("Failed to get queue attributes");
-        free(qnamep);
-        return -1;
-    }
-    for (int i = 0; i < mattr.mq_curmsgs; i++) {
-        char buf[MQ_MAX_SIZE];
-        ret = mq_receive(tq, buf, MQ_MAX_SIZE, NULL);
-        if (ret < 0) {
-            perror("Failed to get (flush) stale message in queue");
-            free(qnamep);
-            return -1;
-        }
-    }
-
-    thread_queues.queue[thread_queues.qidx] = tq;
-    thread_queues.queue_name[thread_queues.qidx] = qnamep;
-    thread_queues.pqfd[thread_queues.qidx].fd = tq;
-    thread_queues.pqfd[thread_queues.qidx].events = POLLIN | POLLERR;
-    thread_queues.pqfd[thread_queues.qidx].revents = 0;
-    thread_queues.qidx += 1;
-
-    return tq;
-}
-
-void *output_thread_func(void *arg) {
-
-    (void)arg;
-
-    std::priority_queue<struct msg> pq;
-
-    int err;
-    err = pthread_mutex_lock(&t_output_m);
-    if (err != 0) {
-        fprintf(stderr, "%s: error locking output start mutex for stats thread\n", strerror(err));
-        exit(255);
-    }
-    while (t_output_p != 1) {
-        err = pthread_cond_wait(&t_output_c, &t_output_m);
-        if (err != 0) {
-            fprintf(stderr, "%s: error waiting on output start condition for stats thread\n", strerror(err));
-            exit(255);
-        }
-    }
-    err = pthread_mutex_unlock(&t_output_m);
-    if (err != 0) {
-        fprintf(stderr, "%s: error unlocking output start mutex for stats thread\n", strerror(err));
-        exit(255);
-    }
-
-    int polret;
-    int ret;
-    ssize_t mqlen;
-    struct msg mq_msg;
-    struct mq_attr mattr;
-    memset(&mattr, 0, sizeof(mattr));
-
-    while (sig_stop_output == 0) {
-
-        polret = poll(thread_queues.pqfd, thread_queues.qidx, 1000);
-        if (polret < 0) {
-            perror("poll returned error");
-        } else if (polret == 0) {
-            /* This was a timeout meaning we just aren't getting any
-             * output at the moment. This isn't an error and there isn't
-             * anything special for us to do here.
-             */
-        } else if (polret > 0) {
-            /* Now we need to loop through the pqfd struct list looking for POLIN events */
-            for (int q = 0; q < thread_queues.qidx; q++) {
-                if ((thread_queues.pqfd[q].revents & POLLIN) != 0) {
-                    /* we have data on this queue */
-
-                    ret = mq_getattr(thread_queues.queue[q], &mattr);
-                    if (ret < 0) {
-                        perror("Failed to get queue attributes");
-                    }
-                    for (int m = 0; m < mattr.mq_curmsgs; m++) {
-
-                        mqlen = mq_receive(thread_queues.queue[q], mq_msg.buf, MQ_MAX_SIZE, NULL);
-                        mq_msg.len = mqlen;
-                        if (mqlen < 0) {
-                            perror("Failed to receive message in queue");
-                        }
-                        else if (mqlen < (ssize_t)sizeof(struct timespec)) {
-                            fprintf(stderr, "Received message smaller than the required struct timespec");
-                        }
-                        else {
-                            /* Enqueue this message so we can do proper msg ordering */
-                            pq.push(mq_msg);
-                        }
-                    }
-
-                }
-            }
-        } /* end poll found messages ready */
-
-        /* Flush queue until it's below our target limit */
-        while (pq.size() > MQ_PQ_LIMIT) {
-            mq_msg = pq.top();
-            fwrite(&(mq_msg.buf[sizeof(struct timespec)]), mq_msg.len - sizeof(struct timespec), 1, stdout);
-            pq.pop();
-        }
-
-        /* Flush queue whenever the top message is too old */
-        struct timespec cur_ts;
-        if (clock_gettime(CLOCK_REALTIME, &cur_ts) != 0) {
-            perror("Unable to get current time");
-        }
-
-        int age_done = 0;
-        while ((age_done == 0) && (pq.size() > 0)) {
-
-            mq_msg = pq.top();
-            if (mq_msg.age(&cur_ts) > MQ_PQ_MAX_AGE) {
-                fwrite(&(mq_msg.buf[sizeof(struct timespec)]), mq_msg.len - sizeof(struct timespec), 1, stdout);
-                pq.pop();
-            }
-            else {
-                age_done = 1;
-            }
-        }
-    }
-
-    /* Flush the entire priority queue when we're about to exit */
-    while (pq.size() > 0) {
-
-        mq_msg = pq.top();
-        fwrite(&(mq_msg.buf[sizeof(struct timespec)]), mq_msg.len - sizeof(struct timespec), 1, stdout);
-        pq.pop();
-    }
-
-    return NULL;
-}
-
-
-#define TWO_TO_THE_N(N) (unsigned int)1 << (N)
-
-#define FLAGS_CLOBBER (O_TRUNC)
-
-enum status filename_append(char dst[MAX_FILENAME],
-                            const char *src,
-                            const char *delim,
-                            const char *tail) {
-
-    if (tail) {
-
-        /*
-         * filename = directory || '/' || thread_num
-         */
-        if (strnlen(src, MAX_FILENAME) + strlen(tail) + 1 > MAX_FILENAME) {
-            return status_err; /* filename too long */
-        }
-        strncpy(dst, src, MAX_FILENAME);
-        strcat(dst, delim);
-        strcat(dst, tail);
-
-    } else {
-
-        if (strnlen(src, MAX_FILENAME) >= MAX_FILENAME) {
-            return status_err; /* filename too long */
-        }
-        strncpy(dst, src, MAX_FILENAME);
-
-    }
-    return status_ok;
-}
-
-void create_subdirectory(const char *outdir,
-                         enum create_subdir_mode mode) {
-    printf("creating output directory %s\n", outdir);
-    if (mkdir(outdir, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
-        if (errno == EEXIST && mode == create_subdir_mode_overwrite) {
-            printf("warning: directory %s exists; new data will be written into it\n", outdir);
-        } else {
-            printf("error %s: could not create directory %s\n", strerror(errno), outdir);
-            exit(255);
-        }
-    }
-}
-
-/*
- * struct pcap_reader_thread_context holds thread-specific information
- * for a pcap-file-reading thread; it is a sister to struct
- * thread_context, which has the equivalent role for network capture
- * threads
- */
-struct pcap_reader_thread_context {
-    struct pkt_proc *pkt_processor;
-    int tnum;                 /* Thread Number */
-    pthread_t tid;            /* Thread ID */
-    struct pcap_file rf;
-    int loop_count;           /* loop count */
-};
-
-enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_thread_context *tc,
-                                                        struct mercury_config *cfg,
-                                                        int tnum,
-                                                        char *fileset_id) {
-    char input_filename[MAX_FILENAME];
-    tc->tnum = tnum;
-	tc->loop_count = cfg->loop_count;
-    enum status status;
-
-    tc->pkt_processor = pkt_proc_new_from_config(cfg, tnum, fileset_id);
-    if (tc->pkt_processor == NULL) {
-        printf("error: could not initialize frame handler\n");
-        return status_err;
-    }
-
-    // if cfg->use_test_packet is on, read_filename will be NULL
-    if (cfg->read_filename != NULL) {
-        status = filename_append(input_filename, cfg->read_filename, "/", fileset_id);
-        if (status) {
-            return status;
-        }
-        status = pcap_file_open(&tc->rf, input_filename, io_direction_reader, cfg->flags);
-        if (status) {
-            printf("%s: could not open pcap input file %s\n", strerror(errno), cfg->read_filename);
-            return status;
-        }
-    }
-    return status_ok;
-}
-
-void *pcap_file_processing_thread_func(void *userdata) {
-    struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
-    enum status status;
-
-    status = pcap_file_dispatch_pkt_processor(&tc->rf, tc->pkt_processor, tc->loop_count);
-    if (status) {
-        printf("error in pcap file dispatch (code: %d)\n", (int)status);
-        return NULL;
-    }
-
-    return NULL;
-}
-
-#define BILLION 1000000000L
-
-inline void get_clocktime_before (struct timespec *before) {
-    if (clock_gettime(CLOCK_REALTIME, before) != 0) {
-        // failed to get clock time, set the uninitialized struct to zero
-        bzero(before, sizeof(struct timespec));
-        perror("error: could not get clock time before fwrite file header\n");
-    }
-}
-
-inline uint64_t get_clocktime_after (struct timespec *before,
-                                     struct timespec *after) {
-    uint64_t nano_sec = 0;
-    if (clock_gettime(CLOCK_REALTIME, after) != 0) {
-        perror("error: could not get clock time after fwrite file header\n");
-    } else {
-        // It is assumed that if this call is successful, the previous call is also successful.
-        // We got clock time after writting, now compute the time difference in nano seconds
-        nano_sec += (BILLION * (after->tv_sec - before->tv_sec)) + (after->tv_nsec - before->tv_nsec);
-    }
-    return nano_sec;
-}
-
-enum status open_and_dispatch(struct mercury_config *cfg) {
-    struct stat statbuf;
-    enum status status;
-    struct timespec before, after;
-	u_int64_t nano_seconds = 0;
-	u_int64_t bytes_written = 0;
-	u_int64_t packets_written = 0;
-
-    get_clocktime_before(&before); // get timestamp before we start processing
-
-    if (cfg->read_filename && stat(cfg->read_filename, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
-        DIR *dir = opendir(cfg->read_filename);
-        struct dirent *dirent;
-
-        /*
-         * read_filename is a directory containing capture files created by separate threads
-         */
-
-        /*
-         * count number of files in fileset
-         */
-        int num_files = 0;
-        while ((dirent = readdir(dir)) != NULL) {
-
-            char input_filename[MAX_FILENAME];
-            filename_append(input_filename, cfg->read_filename, "/", dirent->d_name);
-            if (stat(input_filename, &statbuf) == 0) {
-                if (S_ISREG(statbuf.st_mode)) {
-
-                    num_files++;
-                }
-            }
-        }
-
-        /*
-         * set up thread contexts
-         */
-        struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)malloc(num_files * sizeof(struct pcap_reader_thread_context));
-        if (!tc) {
-            perror("could not allocate memory for thread storage array\n");
-        }
-
-        char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
-        if (outdir) {
-            /*
-             * create subdirectory into which each thread will write its output
-             */
-            create_subdirectory(outdir, create_subdir_mode_do_not_overwrite);
-        }
-
-        /*
-         * loop over all files in directory
-         */
-        rewinddir(dir);
-        int tnum = 0;
-        while ((dirent = readdir(dir)) != NULL) {
-
-            char input_filename[MAX_FILENAME];
-            filename_append(input_filename, cfg->read_filename, "/", dirent->d_name);
-            if (stat(input_filename, &statbuf) == 0) {
-                if (S_ISREG(statbuf.st_mode)) {
-
-                    status = pcap_reader_thread_context_init_from_config(&tc[tnum], cfg, tnum, dirent->d_name);
-                    if (status) {
-                        perror("could not initialize pcap reader thread context");
-                        return status;
-                    }
-
-                    int err = pthread_create(&(tc[tnum].tid), NULL, pcap_file_processing_thread_func, &tc[tnum]);
-                    tnum++;
-                    if (err) {
-                        printf("%s: error creating file reader thread\n", strerror(err));
-                        exit(255);
-                    }
-
-                }
-
-            } else {
-                perror("stat");
-            }
-
-        }
-
-        if (tnum != num_files) {
-            printf("warning: num_files (%d) != tnum (%d)\n", num_files, tnum);
-        }
-
-        for (int i = 0; i < tnum; i++) {
-            pthread_join(tc[i].tid, NULL);
-            //        struct pkt_proc_stats pkt_stats = tc[i].pkt_processor->get_stats();
-            bytes_written += tc[i].pkt_processor->bytes_written;
-            packets_written += tc[i].pkt_processor->packets_written;
-            delete tc[i].pkt_processor;
-        }
-
-    } else {
-
-        /*
-         * we have a single capture file, not a directory of capture files
-         */
-        struct pcap_reader_thread_context tc;
-
-        enum status status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, NULL);
-        if (status != status_ok) {
-            return status;
-        }
-
-        pcap_file_processing_thread_func(&tc);
-        //    struct pkt_proc_stats pkt_stats = tc.pkt_processor->get_stats();
-        bytes_written = tc.pkt_processor->bytes_written;
-        packets_written = tc.pkt_processor->packets_written;
-        pcap_file_close(&(tc.rf));
-        delete tc.pkt_processor;
-    }
-
-    nano_seconds = get_clocktime_after(&before, &after);
-    double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
-
-    if (cfg->write_filename && cfg->verbosity) {
-        printf("For all files, packets written: %" PRIu64 ", bytes written: %" PRIu64 ", nano sec: %" PRIu64 ", bytes per second: %.4e\n",
-               packets_written, bytes_written, nano_seconds, byte_rate);
-    }
-
-    return status_ok;
-}
-
-
-#define EXIT_ERR 255
+#include "output.h"
+#include "license.h"
+#include "version.h"
+
+struct semantic_version mercury_version(2,0,0);
 
 char mercury_help[] =
     "%s INPUT [OUTPUT] [OPTIONS]:\n"
@@ -552,16 +41,16 @@ char mercury_help[] =
     "   [-t or --threads] [num_threads | cpu] # set number of threads\n"
     "   [-u or --user] u                      # set UID and GID to those of user u\n"
     "   [-d or --directory] d                 # set working directory to d\n"
-    "--read OPTIONS\n"
-    "   [-m or --multiple] count              # loop over read_file count >= 1 times\n"
     "GENERAL OPTIONS\n"
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   [-s or --select]                      # select only packets with metadata\n"
-    "   [-l or --limit] l                     # rotate JSON files after l records\n"
+    "   [-l or --limit] l                     # rotate output file after l records\n"
     "   [-v or --verbose]                     # additional information sent to stdout\n"
-    "   [-p or --loop] loop_count             # loop count >= 1 for the read_file\n"
+    //  "   [-p or --loop] loop_count             # loop count >= 1 for the read_file\n"
     //  "   [--adaptive]                          # adaptively accept or skip packets for pcap file\n"
+    "   --license                             # write license information to stdout\n"
+    "   --version                             # write version information to stdout\n"
     "   [-h or --help]                        # extended help, with examples\n";
 
 char mercury_extended_help[] =
@@ -574,35 +63,51 @@ char mercury_extended_help[] =
     "   processors.  \"[-b or --buffer] b\" sets the total size of all ring buffers to\n"
     "   (b * PHYS_MEM) where b is a decimal number between 0.0 and 1.0 and PHYS_MEM\n"
     "   is the available memory; USE b < 0.1 EXCEPT WHEN THERE ARE GIGABYTES OF SPARE\n"
-    "   RAM to avoid OS failure due to memory starvation.  When multiple threads are\n"
-    "   configured, the output is a *file set*: a directory into which each thread\n"
-    "   writes its own file; all packets in a flow are written to the same file.\n"
+    "   RAM to avoid OS failure due to memory starvation.\n"
     "\n"
     "   \"[-f or --fingerprint] f\" writes a JSON record for each fingerprint observed,\n"
-    "   which incorporates the flow key and the time of observation, into the file or\n"
-    "   file set f.  With [-a or --analysis], fingerprints and destinations are\n"
-    "   analyzed and the results are included in the JSON output.\n"
+    "   which incorporates the flow key and the time of observation, into the file f.\n"
+    "   With [-a or --analysis], fingerprints and destinations are analyzed and the\n"
+    "   results are included in the JSON output.\n"
     "\n"
-    "   \"[-w or --write] w\" writes packets to the file or file set w, in PCAP format.\n"
-    "   With [-s or --select], packets are filtered so that only ones with\n"
-    "   fingerprint metadata are written.\n"
+    "   \"[-w or --write] w\" writes packets to the file w, in PCAP format.  With the\n"
+    "   option [-s or --select], packets are filtered so that only ones with\n"
+    "   fingerprint  metadata are written.\n"
     "\n"
-    "   \"[r or --read] r\" reads packets from the file or file set r, in PCAP format.\n"
-    "   A single worker thread is used to process each input file; if r is a file set\n"
-    "   then the output will be a file set as well.  With \"[-m or --multiple] m\", the\n"
-    "   input file or file set is read and processed m times in sequence; this is\n"
-    "   useful for testing.\n"
+    "   \"[r or --read] r\" reads packets from the file r, in PCAP format.\n"
     "\n"
-    "   \"[-u or --user] u\" sets the UID and GID to those of user u; output file(s)\n"
-    "   are owned by this user.  With \"[-l or --limit] l\", each JSON output file has\n"
-    "   at most l records; output files are rotated, and filenames include a sequence\n"
-    "   number.\n"
+    "   \"[-u or --user] u\" sets the UID and GID to those of user u, so that\n"
+    "   output file(s) are owned by this user.  If this option is not set, then\n"
+    "   the UID is set to SUDO_UID, so that privileges are dropped to those of\n"
+    "   the user that invoked sudo.  A system account with username mercury is\n"
+    "   created for use with a mercury daemon.\n"
+    "\n"
+    "   \"[-d or --directory] d\" sets the working directory to d, so that all output\n"
+    "   files are written into that location.  When capturing at a high data rate, a\n"
+    "   a high performance filesystem and disk should be used, and NFS partitions\n"
+    "   should be avoided.\n"
+    "\n"
+    "   \"--config c\" reads configuration information from the file c.\n"
+    "\n"
+    "   [-a or --analysis] performs analysis and reports results in the \"analysis\"\n"
+    "   object in the JSON records.   This option only works with the option\n"
+    "   [-f or --fingerprint].\n"
+    "\n"
+    "   \"[-l or --limit] l\" rotates output files so that each file has at most\n"
+    "   l records or packets; filenames include a sequence number, date and time.\n"
     "\n"
     "   [-v or --verbose] writes additional information to the standard output,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
     "\n"
+    "   --license and --version write their information to stdout, then halt.\n"
+    "\n"
     "   [-h or --help] writes this extended help message to stdout.\n"
+    "\n"
+    "SYSTEM\n"
+    "   Resource files used in analysis: " DEFAULT_RESOURCE_DIR "\n"    // can be set via ./configure
+    "   Systemd service output:          /usr/local/var/mercury\n"
+    "   Systemd service configuration    /etc/mercury/mercury.cfg\n"
     "\n"
     "EXAMPLES\n"
     "   mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap\n"
@@ -626,7 +131,7 @@ void usage(const char *progname, const char *err_string, enum extended_help exte
     if (extended_help) {
         printf("%s", mercury_extended_help);
     }
-    exit(EXIT_ERR);
+    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
@@ -635,9 +140,12 @@ int main(int argc, char *argv[]) {
     int num_inputs = 0;  // we need to have one and only one input
 
     while(1) {
+        enum opt { config=1, version=2, license=3 };
         int opt_idx = 0;
         static struct option long_opts[] = {
-            { "config",      required_argument, NULL, 1   },
+            { "config",      required_argument, NULL, config  },
+            { "version",     no_argument,       NULL, version },
+            { "license",     no_argument,       NULL, license },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -652,8 +160,8 @@ int main(int argc, char *argv[]) {
             { "help",        no_argument,       NULL, 'h' },
             { "select",      optional_argument, NULL, 's' },
             { "verbose",     no_argument,       NULL, 'v' },
-            { "loop",        required_argument, NULL, 'p' },
-            { "adaptive",    no_argument,       NULL,  0  },
+            // { "loop",        required_argument, NULL, 'p' },
+            // { "adaptive",    no_argument,       NULL,  0  },
             { NULL,          0,                 0,     0  }
         };
         c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
@@ -661,13 +169,21 @@ int main(int argc, char *argv[]) {
             break;
         }
         switch(c) {
-        case 1:
+        case config:
             if (optarg) {
                 mercury_config_read_from_file(&cfg, optarg);
                 num_inputs++;
             } else {
                 usage(argv[0], "error: option config requires filename argument", extended_help_off);
             }
+            break;
+        case version:
+            mercury_version.print(stdout);
+            return EXIT_SUCCESS;
+            break;
+        case license:
+            printf("%s\n", license_string);
+            return EXIT_SUCCESS;
             break;
         case 'r':
             if (optarg) {
@@ -721,7 +237,7 @@ int main(int argc, char *argv[]) {
                 /*
                  * remove 'exclusive' and add 'truncate' flags, to cause file writes to overwrite files if need be
                  */
-                cfg.flags = FLAGS_CLOBBER;
+                cfg.flags = O_TRUNC;
                 /*
                  * set file mode similarly
                  */
@@ -881,50 +397,48 @@ int main(int argc, char *argv[]) {
     }
 
     /* process packets */
-
-    int num_cpus = get_nprocs();  // would get_nprocs_conf() be more appropriate?
     if (cfg.num_threads == -1) {
+        int num_cpus = std::thread::hardware_concurrency();
         cfg.num_threads = num_cpus;
         printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
     }
 
-    /* make the thread queues */
-    /* DISABLED IPC PORTION -- for merging into trunk */
-    /* init_thread_queues(cfg.num_threads); */
-    /* pthread_t output_thread; */
-    /* int err = pthread_create(&output_thread, NULL, output_thread_func, NULL); */
-    /* if (err != 0) { */
-    /*     perror("error creating output thread"); */
-    /* } */
-
     /* init random number generator */
     srand(time(0));
 
+    pthread_t output_thread;
+    struct output_file out_file;
     if (cfg.capture_interface) {
-        struct ring_limits rl;
-
         if (cfg.verbosity) {
             printf("initializing interface %s\n", cfg.capture_interface);
         }
-        ring_limits_init(&rl, cfg.buffer_fraction);
 
-        af_packet_bind_and_dispatch(&cfg, &rl);
+        if (output_thread_init(output_thread, out_file, cfg) != 0) {
+            perror("Unable to initialize output thread\n");
+            return EXIT_FAILURE;
+        }
+
+        if (af_packet_bind_and_dispatch(&cfg, &out_file) != status_ok) {
+            fprintf(stderr, "Bind and dispatch failed\n");
+            return EXIT_FAILURE;
+        }
 
     } else if (cfg.read_filename) {
 
-        open_and_dispatch(&cfg);
+        if (output_thread_init(output_thread, out_file, cfg) != 0) {
+            perror("Unable to initialize output thread\n");
+            return EXIT_FAILURE;
+        }
 
+        open_and_dispatch(&cfg, &out_file);
     }
 
     if (cfg.analysis) {
         analysis_finalize();
     }
 
-    /* DISABLED IPC PORTION -- for merging into trunk */
-    /* fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n"); */
-    /* sig_stop_output = 1; */
-    /* pthread_join(output_thread, NULL); */
-    /* destroy_thread_queues(); */
+    fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
+    output_thread_finalize(output_thread, &out_file);
 
     return 0;
 }

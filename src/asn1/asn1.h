@@ -24,6 +24,9 @@ void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
     const unsigned char *x = (const unsigned char *)data;
     const unsigned char *end = x + len;
 
+    if (x == NULL) {
+        return;
+    }
     while (x < end) {
         fprintf(f, "%02x", *x++);
     }
@@ -197,7 +200,7 @@ int utctime_to_generalized_time(uint8_t *gt, size_t gt_len, const uint8_t *utc_t
 struct json_file {
     FILE *f;
     char epilog[32];
-    int epilog_length;
+    unsigned int epilog_length;
 
     json_file(FILE *f) : f{f}, epilog{}, epilog_length{0} { }
 
@@ -313,7 +316,7 @@ void raw_string_print_as_oid(FILE *f, const uint8_t *raw, size_t length) {
 const char *oid_empty_string = "";
 const char *parser_get_oid_string(struct parser *p) {
     std::string s = p->get_string();
-    const char *tmp = s.c_str();    // TBD: refactor to eliminate string allocation
+    //const char *tmp = s.c_str();    // TBD: refactor to eliminate string allocation
     auto pair = oid_dict.find(s);
     if (pair == oid_dict.end()) {
         return oid_empty_string;
@@ -574,7 +577,7 @@ struct tlv {
     }
 
     inline bool is_constructed() {
-        return tag && 0x20;
+        return tag & 0x20;
         // return (tag >> 5) & 1;
     }
 
