@@ -99,11 +99,15 @@ int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
     return r;
 }
 
-
-int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
+int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
                        size_t length,
                        struct timespec *ts) {
+
+    char *dstr = buf.dstr;
+    int *doff = &buf.doff;
+    int dlen = buf.dlen;
+    int *trunc = &buf.trunc;
 
     extern unsigned int packet_filter_threshold;
 
@@ -279,16 +283,18 @@ void json_file_write(struct json_file *jf,
 
     struct timespec ts;
     char obuf[LLQ_MSG_SIZE];
-    int olen = LLQ_MSG_SIZE;
-    int ooff = 0;
+    //int olen = LLQ_MSG_SIZE;
+    //int ooff = 0;
     int trunc = 0;
 
     ts.tv_sec = sec;
     ts.tv_nsec = nsec;
 
     obuf[0] = '\0';
-    int r = append_packet_json(&(obuf[0]), &ooff, olen, &trunc,
-                              packet, length, &ts);
+    struct buffer_stream buf(obuf, LLQ_MSG_SIZE);
+        int r = append_packet_json(buf, packet, length, &ts);
+    //    int r = append_packet_json(&(obuf[0]), &ooff, olen, &trunc,
+    //                          packet, length, &ts);
 
     if ((trunc == 0) && (r > 0)) {
         fwrite(obuf, r, 1, jf->file);
@@ -311,9 +317,9 @@ void json_queue_write(struct ll_queue *llq,
     if (llq->msgs[llq->widx].used == 0) {
 
         //char obuf[LLQ_MSG_SIZE];
-        int olen = LLQ_MSG_SIZE;
-        int ooff = 0;
-        int trunc = 0;
+        // int olen = LLQ_MSG_SIZE;
+        // int ooff = 0;
+        // int trunc = 0;
 
         llq->msgs[llq->widx].ts.tv_sec = sec;
         llq->msgs[llq->widx].ts.tv_nsec = nsec;
@@ -322,10 +328,12 @@ void json_queue_write(struct ll_queue *llq,
         //obuf[sizeof(struct timespec)] = '\0';
         llq->msgs[llq->widx].buf[0] = '\0';
 
-        int r = append_packet_json(llq->msgs[llq->widx].buf, &ooff, olen, &trunc,
-                                   packet, length, &(llq->msgs[llq->widx].ts));
+        struct buffer_stream buf(llq->msgs[llq->widx].buf, LLQ_MSG_SIZE);
+        int r = append_packet_json(buf, packet, length, &(llq->msgs[llq->widx].ts));
+        //        int r = append_packet_json(llq->msgs[llq->widx].buf, &ooff, olen, &trunc,
+        //                           packet, length, &(llq->msgs[llq->widx].ts));
 
-        if ((trunc == 0) && (r > 0)) {
+        if ((buf.trunc == 0) && (r > 0)) {
 
             llq->msgs[llq->widx].len = r;
 
