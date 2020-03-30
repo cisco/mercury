@@ -190,6 +190,11 @@ void debug_print_tour_tree(struct tourn_tree *t_tree, const struct thread_queues
 enum status output_file_rotate(struct output_file *ojf) {
     char outfile[MAX_FILENAME];
 
+    if (ojf->type == file_type_stdout) {
+        ojf->file = stdout;
+        return status_ok;
+    }
+
     if (ojf->file) {
         // printf("rotating output file\n");
 
@@ -227,7 +232,7 @@ enum status output_file_rotate(struct output_file *ojf) {
         perror("error: could not open fingerprint output file");
         return status_err;
     }
-    if (ojf->type == pcap) {
+    if (ojf->type == file_type_pcap) {
         enum status status = write_pcap_file_header(ojf->file);
         if (status) {
             perror("error: could not write pcap file header");
@@ -474,14 +479,13 @@ int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, co
     out_ctx.record_countdown = 0;
     if (cfg.fingerprint_filename) {
         out_ctx.outfile_name = cfg.fingerprint_filename;
-        out_ctx.type = json;
+        out_ctx.type = file_type_json;
 
     } else if (cfg.write_filename) {
         out_ctx.outfile_name = cfg.write_filename;
-        out_ctx.type = pcap;
+        out_ctx.type = file_type_pcap;
     } else {
-        out_ctx.type = unknown;
-        return -1; // error: unknown output file type
+        out_ctx.type = file_type_stdout;  // default output type
     }
     out_ctx.file_num = 0;
     out_ctx.mode = cfg.mode;
