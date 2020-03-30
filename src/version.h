@@ -27,7 +27,7 @@ struct semantic_version {
         fprintf(f, "%u.%u.%u\n", major, minor, patchlevel);
     }
     bool is_less_than(struct semantic_version v) {
-        if (v.major < major || v.minor < minor || v.patchlevel < patchlevel) {
+        if (major < v.major || minor < v.minor || patchlevel < v.patchlevel) {
             return true;
         }
         return false;
