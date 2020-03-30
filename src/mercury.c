@@ -156,7 +156,6 @@ int main(int argc, char *argv[]) {
             { "buffer",      required_argument, NULL, 'b' },
             { "limit",       required_argument, NULL, 'l' },
             { "user",        required_argument, NULL, 'u' },
-            { "multiple",    required_argument, NULL, 'm' },
             { "help",        no_argument,       NULL, 'h' },
             { "select",      optional_argument, NULL, 's' },
             { "verbose",     no_argument,       NULL, 'v' },
