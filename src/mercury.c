@@ -414,7 +414,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (output_thread_init(output_thread, out_file, cfg) != 0) {
-            perror("Unable to initialize output thread\n");
+            fprintf(stderr, "Unable to initialize output thread\n");
             return EXIT_FAILURE;
         }
 
@@ -426,7 +426,7 @@ int main(int argc, char *argv[]) {
     } else if (cfg.read_filename) {
 
         if (output_thread_init(output_thread, out_file, cfg) != 0) {
-            perror("Unable to initialize output thread\n");
+            fprintf(stderr, "Unable to initialize output thread\n");
             return EXIT_FAILURE;
         }
 
