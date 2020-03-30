@@ -9,7 +9,12 @@
 #include "mercury.h"
 #include "llq.h"
 
-enum file_type { unknown=0, json, pcap };
+enum file_type {
+   file_type_unknown=0,
+   file_type_json,
+   file_type_pcap,
+   file_type_stdout
+};
 
 struct output_file {
     FILE *file;
