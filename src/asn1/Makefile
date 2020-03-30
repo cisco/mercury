@@ -19,8 +19,8 @@ CFLAGS = --std=c++11 -Wall -Wno-narrowing -O2 $(OPTFLAGS) # -DASN1_DEBUG=1
 .PHONY: all
 all: cert-analyze oidc oid.h
 
-cert-analyze: cert-analyze.cc x509.h asn1.h oid.h
-	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../parser.c # -lmhash
+cert-analyze: cert-analyze.cc x509.h asn1.h oid.h ../utils.h
+	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../parser.c ../utils.c # -lmhash
 
 oidc: oidc.cc
 	$(CXX) $(CFLAGS) -o oidc oidc.cc
