@@ -103,3 +103,18 @@ cert_extensions_private = {
     '17': 'id-pe-noSecrecyAfforded',
 }
 
+oid_mapping = {
+    '2b06010401d679020402': 'id-ce-SignedCertificateTimestampList'
+}
+
+cert_general_name_types = {
+    0: 'otherName',
+    1: 'rfc822Name',
+    2: 'dNSName',
+    3: 'x400Address',
+    4: 'directoryName',
+    5: 'ediPartyName',
+    6: 'uniformResourceIdentifier',
+    7: 'iPAddress',
+    8: 'registeredID',
+}

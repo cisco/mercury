@@ -118,7 +118,7 @@ Yandex Disk,yandexdisk2.exe,yandex.disk.2
 
 Docker,docker desktop.exe,docker,docker desktop installer.exe,docker-darwin-amd64,docker-machine,docker-machine.exe,docker-slim,dockerd,dockerd.exe
 
-NordVPN,nordvpn ike,nordpass-background-app,nordvpn.exe
+NordVPN,nordvpn ike,nordpass-background-app,nordvpn.exe,nordvpn,nordvpn-service.exe
 
 Norton Security,nortonsecurity.exe
 
