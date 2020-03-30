@@ -453,7 +453,7 @@ struct tlv {
         parser_skip(p, length);
 
 #ifdef ASN1_DEBUG
-        fprint(stderr, tlv_name);
+        fprint_tlv(stderr, tlv_name);
 #endif
     }
 
@@ -553,7 +553,7 @@ struct tlv {
         "BMPString"
     };
 
-    void fprint(FILE *f, const char *tlv_name) {
+    void fprint_tlv(FILE *f, const char *tlv_name) {
         // return;  // return;
         if (value.data) {
             uint8_t tag_class = tag >> 6;
