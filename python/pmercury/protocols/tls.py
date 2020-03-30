@@ -321,6 +321,15 @@ class TLS():
             'classes_port_port': 0.00623,
             'classes_port_applications': 0.00528,
         }
+#        weights = {
+#            'classes_hostname_tlds': 1.0,
+#            'classes_hostname_domains': 1.0,
+#            'classes_hostname_sni': 1.0,
+#            'classes_ip_ip': 1.0,
+#            'classes_ip_as': 1.0,
+#            'classes_port_port': 1.0,
+#            'classes_port_applications': 1.0,
+#        }
         for f_name, f_value in features:
             if f_value == 'None':
                 continue

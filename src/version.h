@@ -2,6 +2,9 @@
  * version.h
  *
  * a class for handling semantic versioning
+ *
+ * Copyright (c) 2020 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef SEMANTIC_VERSION
@@ -24,7 +27,7 @@ struct semantic_version {
         fprintf(f, "%u.%u.%u\n", major, minor, patchlevel);
     }
     bool is_less_than(struct semantic_version v) {
-        if (v.major < major || v.minor < minor || v.patchlevel < patchlevel) {
+        if (major < v.major || minor < v.minor || patchlevel < v.patchlevel) {
             return true;
         }
         return false;
