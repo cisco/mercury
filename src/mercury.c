@@ -156,7 +156,6 @@ int main(int argc, char *argv[]) {
             { "buffer",      required_argument, NULL, 'b' },
             { "limit",       required_argument, NULL, 'l' },
             { "user",        required_argument, NULL, 'u' },
-            { "multiple",    required_argument, NULL, 'm' },
             { "help",        no_argument,       NULL, 'h' },
             { "select",      optional_argument, NULL, 's' },
             { "verbose",     no_argument,       NULL, 'v' },
@@ -396,11 +395,13 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "%s: error while setting up signal handlers\n", strerror(errno));
     }
 
-    /* process packets */
+    /* set the number of threads, if needed */
     if (cfg.num_threads == -1) {
         int num_cpus = std::thread::hardware_concurrency();
         cfg.num_threads = num_cpus;
-        printf("found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
+        if (cfg.verbosity) {
+            fprintf(stderr, "found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
+        }
     }
 
     /* init random number generator */
@@ -410,23 +411,23 @@ int main(int argc, char *argv[]) {
     struct output_file out_file;
     if (cfg.capture_interface) {
         if (cfg.verbosity) {
-            printf("initializing interface %s\n", cfg.capture_interface);
+            fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
 
         if (output_thread_init(output_thread, out_file, cfg) != 0) {
-            perror("Unable to initialize output thread\n");
+            fprintf(stderr, "error: unable to initialize output thread\n");
             return EXIT_FAILURE;
         }
 
         if (af_packet_bind_and_dispatch(&cfg, &out_file) != status_ok) {
-            fprintf(stderr, "Bind and dispatch failed\n");
+            fprintf(stderr, "error: bind and dispatch failed\n");
             return EXIT_FAILURE;
         }
 
     } else if (cfg.read_filename) {
 
         if (output_thread_init(output_thread, out_file, cfg) != 0) {
-            perror("Unable to initialize output thread\n");
+            fprintf(stderr, "error: unable to initialize output thread\n");
             return EXIT_FAILURE;
         }
 
@@ -437,7 +438,9 @@ int main(int argc, char *argv[]) {
         analysis_finalize();
     }
 
-    fprintf(stderr, "Stopping output thread and flushing queued output to disk.\n");
+    if (cfg.verbosity) {
+        fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
+    }
     output_thread_finalize(output_thread, &out_file);
 
     return 0;

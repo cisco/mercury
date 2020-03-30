@@ -73,6 +73,7 @@ struct stats_tracking {
   int *t_start_p;             /* The clean start predicate */
   pthread_cond_t *t_start_c;  /* The clean start condition */
   pthread_mutex_t *t_start_m; /* The clean start mutex */
+  int verbosity;
 };
 
 /*
@@ -369,18 +370,20 @@ void *stats_thread_func(void *statst_arg) {
       r_ebips_s = &(space[0]);
     }
 
-    fprintf(stderr,
-	    "Stats: "
-	    "%7.03f%s Packets/s; Data Rate %7.03f%s bytes/s; "
-	    "Ethernet Rate (est.) %7.03f%s bits/s; "
-	    "Socket Packets %7.03f%s; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
-	    "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantaneous rbuf %4.1f%%\n",
-	    r_pps, r_pps_s, r_byps, r_byps_s,
-	    r_ebips, r_ebips_s,
-	    r_spps, r_spps_s, sdps, sfps,
-	    (tot_rusage / (statst->num_threads)) * 100.0, worst_rusage * 100.0,
-	    worst_i_rusage * 100.0);
- 
+    if (statst->verbosity) {
+        fprintf(stderr,
+                "Stats: "
+                "%7.03f%s Packets/s; Data Rate %7.03f%s bytes/s; "
+                "Ethernet Rate (est.) %7.03f%s bits/s; "
+                "Socket Packets %7.03f%s; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
+                "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantaneous rbuf %4.1f%%\n",
+                r_pps, r_pps_s, r_byps, r_byps_s,
+                r_ebips, r_ebips_s,
+                r_spps, r_spps_s, sdps, sfps,
+                (tot_rusage / (statst->num_threads)) * 100.0, worst_rusage * 100.0,
+                worst_i_rusage * 100.0);
+    }
+
     duration++;
     if (get_percent_accept() > 0) {
         /* check socket drops and update accept percentage only when percent accept > 0 */
@@ -792,6 +795,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   statst.t_start_p = &t_start_p;
   statst.t_start_c = &t_start_c;
   statst.t_start_m = &t_start_m;
+  statst.verbosity = cfg->verbosity;
 
   struct thread_storage *tstor;  // Holds the array of struct thread_storage, one for each thread
   tstor = (struct thread_storage *)malloc(num_threads * sizeof(struct thread_storage));
