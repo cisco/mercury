@@ -102,7 +102,6 @@ char mercury_extended_help[] =
     "\n"
     "   --license and --version write their information to stdout, then halt.\n"
     "\n"
-    "\n"
     "   [-h or --help] writes this extended help message to stdout.\n"
     "\n"
     "SYSTEM\n"

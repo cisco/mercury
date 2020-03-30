@@ -49,8 +49,7 @@ If multiple compile time options are used, then they must be passed to make toge
 
 ### Running mercury
 ```
-mercury: packet metadata capture and analysis
-./mercury INPUT [OUTPUT] [OPTIONS]:
+mercury INPUT [OUTPUT] [OPTIONS]:
 INPUT
    [-c or --capture] capture_interface   # capture packets from interface
    [-r or --read] read_file              # read packets from file
@@ -69,6 +68,8 @@ GENERAL OPTIONS
    [-s or --select]                      # select only packets with metadata
    [-l or --limit] l                     # rotate output file after l records
    [-v or --verbose]                     # additional information sent to stdout
+   --license                             # write license information to stdout
+   --version                             # write version information to stdout
    [-h or --help]                        # extended help, with examples
 ```
 
@@ -117,21 +118,29 @@ GENERAL OPTIONS
    including the packet count, byte count, elapsed time and processing rate, as
    well as information about threads and files.
 
+   --license and --version write their information to stdout, then halt.
+
    [-h or --help] writes this extended help message to stdout.
 
+
 ### SYSTEM
+The directories used by the default install are as follows.  Run **mercury --help** to
+see if the directories on your system differ.
+```
    Resource files used in analysis: /usr/local/share/mercury
    Systemd service output:          /usr/local/var/mercury
    Systemd service configuration    /etc/mercury/mercury.cfg
+```
 
 ### EXAMPLES
+```
    mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap
    mercury -c eth0 -w foo.pcap -t cpu    # as above, with one thread per CPU
    mercury -c eth0 -w foo.mcap -t cpu -s # as above, selecting packet metadata
    mercury -r foo.mcap -f foo.json       # read foo.mcap, write fingerprints
    mercury -r foo.mcap -f foo.json -a    # as above, with fingerprint analysis
    mercury -c eth0 -t cpu -f foo.json -a # capture and analyze fingerprints
-
+```
 
 ## Ethics
 Mercury is intended for defensive network monitoring and security research and forensics.  Researchers, administrators, penetration testers, and security operations teams can use these tools to protect networks, detect vulnerabilities, and benefit the broader community through improved awareness and defensive posture. As with any packet monitoring tool, Mercury could potentially be misused. **Do not run it on any network of which you are not the owner or the administrator**.
@@ -141,6 +150,19 @@ Mercury was developed by David McGrew, Brandon Enright, Blake Anderson, Lucas Me
 
 ## Acknowledgments
 
-This software includes GeoLite2 data created by MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com).
+This package includes GeoLite2 data created by MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com).
 
 We make use of Mozilla's [Public Suffix List](https://publicsuffix.org/list/) which is subject to the terms of the [Mozilla Public License, v. 2.0](https://mozilla.org/MPL/2.0/).
+
+This package directly incorporates some software made by other
+developers, to make the package easier to build, deploy, and run.  We
+are grateful to the copyright holders for making their excellent
+software available under licensing terms that allow its
+redistribution.
+   * RapidJSON
+   [https://github.com/cisco/mercury/src/rapidjson/license.txt](src/rapidjson/license.txt);
+   this package is Copyright 2015 THL A29 Limited, a Tencent company,
+   and Milo Yip.
+   * lctrie [https://github.com/cisco/mercury/src/lctrie](src/lctrie);
+   this package is copyright 2016-2017 Charles Stewart
+   <chuckination_at_gmail_dot_com>
