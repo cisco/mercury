@@ -431,7 +431,9 @@ int main(int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
 
-        open_and_dispatch(&cfg, &out_file);
+        if (open_and_dispatch(&cfg, &out_file) != status_ok) {
+            return EXIT_FAILURE;
+        }
     }
 
     if (cfg.analysis) {
