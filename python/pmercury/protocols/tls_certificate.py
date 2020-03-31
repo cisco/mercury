@@ -120,7 +120,11 @@ class TLS_Certificate(Protocol):
     def cert_parser(self, cert):
         out_ = {}
 
-        offset = 10
+        # parse to cert data
+        _, _, cert, _ = self.parse_tlv(cert, 0)
+        _, _, cert, _ = self.parse_tlv(cert, 0)
+
+        offset = 2
 
         # parse version
         _, _, value, offset = self.parse_tlv(cert, offset)
@@ -129,6 +133,9 @@ class TLS_Certificate(Protocol):
         value = value.hex()
         if value in cert_versions:
             value = cert_versions[value]
+        else:
+            offset = 0
+            value = cert_versions['02']
         out_['version'] = value
 
         # parse serial number
