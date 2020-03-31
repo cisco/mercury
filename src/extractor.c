@@ -646,9 +646,9 @@ enum status extractor_delete_last_capture(struct extractor *x) {
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |                    Acknowledgment Number                      |
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |  Data |           |U|A|P|R|S|F|                               |
- *  | Offset| Reserved  |R|C|S|S|Y|I|            Window             |
- *  |       |           |G|K|H|T|N|N|                               |
+ *  |  Data |       |C|E|U|A|P|R|S|F|                               |
+ *  | Offset| Rsrvd |W|C|R|C|S|S|Y|I|            Window             |
+ *  |       |       |R|E|G|K|H|T|N|N|                               |
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |           Checksum            |         Urgent Pointer        |
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -684,7 +684,14 @@ enum status extractor_delete_last_capture(struct extractor *x) {
 #define TCP_OPT_MSS     2
 #define TCP_OPT_WS      3
 
+#define TCP_FIN      0x01
 #define TCP_SYN      0x02
+#define TCP_RST      0x04
+#define TCP_PSH      0x08
+#define TCP_ACK      0x10
+#define TCP_URG      0x20
+#define TCP_ECE      0x40
+#define TCP_CWR      0x80
 
 #define TCP_FIXED_HDR_LEN 20
 
@@ -723,16 +730,20 @@ unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) 
     if (parser_read_uint(p, L_tcp_flags, &flags) == status_err) {
         return 0;
     }
-    if (flags != TCP_SYN) {
-	/*
-	 * process the TCP Data payload 
-	 */
-	if (parser_skip_to(p, data + tcp_offrsv_get_length(offrsv)) == status_err) {
-	    return 0;
-	}
-	return parser_extractor_process_tcp_data(p, x);
+    if ((flags & TCP_SYN) == 0) {
+        /*
+         * process the TCP Data payload
+         */
+        if (parser_skip_to(p, data + tcp_offrsv_get_length(offrsv)) == status_err) {
+            return 0;
+        }
+        return parser_extractor_process_tcp_data(p, x);
 
     }
+    if (flags & TCP_ACK) {
+        return 0;   // we ignore SYN/ACK packets
+    }
+
     if (parser_skip(p, L_tcp_flags) == status_err) {
 	return 0;
     }
@@ -2317,17 +2328,28 @@ unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
     if (parser_skip(p, ETH_ADDR_LEN * 2) == status_err) {
         return 0;
     }
-    if (parser_read_uint(p, sizeof(uint16_t), ethertype) == status_err) {
+    if (parser_read_and_skip_uint(p, sizeof(uint16_t), ethertype) == status_err) {
         return 0;
     }
-    if (parser_skip(p, sizeof(uint16_t)) == status_err) {
-        return 0;
+    if (*ethertype == ETH_TYPE_1AD) {
+        if (parser_skip(p, sizeof(uint16_t)) == status_err) { // TCI
+            return 0;
+        }
+        if (parser_read_and_skip_uint(p, sizeof(uint16_t), ethertype) == status_err) {
+            return 0;
+        }
+    }
+    if (*ethertype == ETH_TYPE_VLAN) {
+        if (parser_skip(p, sizeof(uint16_t)) == status_err) { // TCI
+            return 0;
+        }
+        if (parser_read_and_skip_uint(p, sizeof(uint16_t), ethertype) == status_err) {
+            return 0;
+        }
     }
 
     return 0;  /* we don't extract any data, but this is not a failure */
 }
-
-#include <net/ethernet.h>
 
 unsigned int packet_filter_process_packet(struct packet_filter *pf) {
     size_t transport_proto = 0;
@@ -2336,10 +2358,10 @@ unsigned int packet_filter_process_packet(struct packet_filter *pf) {
 
     parser_process_eth(&pf->p, &ethertype);
     switch(ethertype) {
-    case ETHERTYPE_IP:
+    case ETH_TYPE_IP:
         parser_process_ipv4(&pf->p, &transport_proto, &k);
         break;
-    case ETHERTYPE_IPV6:
+    case ETH_TYPE_IPV6:
         parser_process_ipv6(&pf->p, &transport_proto, &k);
         break;
     default:
@@ -2380,7 +2402,7 @@ unsigned int parser_process_tcp(struct parser *p) {
     if (parser_read_uint(p, L_tcp_flags, &flags) == status_err) {
         return 0;
     }
-    if (flags != TCP_SYN) {
+    if ((flags & TCP_SYN) == 0) {
         /*
          * skip over TCP options, then process the TCP Data payload
          */
@@ -2392,7 +2414,7 @@ unsigned int parser_process_tcp(struct parser *p) {
         extractor_init(&x, extractor_buffer, 2048);
         return parser_extractor_process_tcp_data(p, &x);
 
-    } else if (flags == TCP_SYN) {
+    } else if ((flags & (TCP_SYN|TCP_ACK)) == TCP_SYN) {
         return 100;
     }
     return 0;
@@ -2405,10 +2427,10 @@ unsigned int parser_process_packet(struct parser *p) {
 
     parser_process_eth(p, &ethertype);
     switch(ethertype) {
-    case ETHERTYPE_IP:
+    case ETH_TYPE_IP:
         parser_process_ipv4(p, &transport_proto, &k);
         break;
-    case ETHERTYPE_IPV6:
+    case ETH_TYPE_IPV6:
         parser_process_ipv6(p, &transport_proto, &k);
         break;
     default:
