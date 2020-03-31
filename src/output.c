@@ -271,7 +271,10 @@ void *output_thread_func(void *arg) {
     // note: we wait until we get an output start condition before we
     // open any output files, so that drop_privileges() can be called
     // before file creation
-    output_file_rotate(out_ctx);
+    enum status status = output_file_rotate(out_ctx);
+    if (status != status_ok) {
+        exit(EXIT_FAILURE);
+    }
 
     /* This output thread uses a "tournament tree" algorithm
      * to perform a k-way merge of the lockless queues.
