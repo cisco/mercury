@@ -128,11 +128,12 @@ class TLS_Certificate(Protocol):
 
         # parse version
         _, _, value, offset = self.parse_tlv(cert, offset)
-        if offset == None:
-            return out_
-        value = value.hex()
-        if value in cert_versions:
-            value = cert_versions[value]
+        if value != None:
+            if value.hex() in cert_versions:
+                value = cert_versions[value.hex()]
+            else:
+                offset = 0
+                value = cert_versions['02']
         else:
             offset = 0
             value = cert_versions['02']
@@ -144,10 +145,11 @@ class TLS_Certificate(Protocol):
             return out_
         out_['serial_number'] = value.hex()
 
-        # skip signature
+        # parse signature
         _, _, value, offset = self.parse_tlv(cert, offset)
         if offset == None:
             return out_
+        out_['algorithm_identifier'] = self.parse_signature_algorithm(value)
 
         # parse issuer
         _, _, value, offset = self.parse_tlv(cert, offset)
@@ -197,6 +199,25 @@ class TLS_Certificate(Protocol):
         return out_
 
 
+    def parse_signature_algorithm(self, val_):
+        _, _, alg_, offset = self.parse_tlv(val_, 0)
+        if offset == None:
+            return val_
+        alg_ = alg_.hex()
+        if alg_ in oid_mapping:
+            alg_ = oid_mapping[alg_]
+
+        out_ = {}
+        out_['algorithm'] = alg_
+
+        _, _, params_, offset = self.parse_tlv(val_, offset)
+        if offset == None:
+            return out_
+        out_['parameters'] = params_.hex()
+
+        return out_
+
+
     def parse_subject_alt_name(self, val_):
         _, _, sans_, offset = self.parse_tlv(val_, 0)
         if offset == None:
@@ -218,6 +239,34 @@ class TLS_Certificate(Protocol):
         return san_arr
 
 
+    def parse_key_usage(self, val_):
+        _, _, val_, offset = self.parse_tlv(val_, 0)
+        if offset == None or len(val_) < 2:
+            return ''
+
+        padding = val_[0]
+        value = []
+        if val_[1] & 0x80:
+            value.append('digitalSignature')
+        if val_[1] & 0x40:
+            value.append('contentCommitment')
+        if val_[1] & 0x20:
+            value.append('keyEncipherment')
+        if val_[1] & 0x10:
+            value.append('dataEncipherment')
+        if val_[1] & 0x08:
+            value.append('keyAgreement')
+        if val_[1] & 0x04:
+            value.append('keyCertSign')
+        if val_[1] & 0x02:
+            value.append('cRLSign')
+        if val_[1] & 0x01:
+            value.append('encipherOnly')
+        if len(val_) > 2 and val_[2] & 0x80:
+            value.append('decipherOnly')
+
+        return {'padding': padding, 'value': value}
+
     def parse_ext(self, data):
         offset = 0
         _, _, id_, offset = self.parse_tlv(data, offset)
@@ -226,6 +275,11 @@ class TLS_Certificate(Protocol):
         _, _, val_, offset = self.parse_tlv(data, offset)
         if offset == None:
             return None
+
+        critical = False
+        if val_.hex() == 'ff':
+            critical = True
+            _, _, val_, offset = self.parse_tlv(data, offset)
 
         id_ = id_.hex()
         if id_.startswith('551d') and len(id_) == 6 and id_[4:6] in cert_extensions:
@@ -238,12 +292,14 @@ class TLS_Certificate(Protocol):
         out_val_ = ''
         if id_ == 'id-ce-subjectAltName':
             out_val_ = self.parse_subject_alt_name(val_)
+        elif id_ == 'id-ce-keyUsage':
+            out_val_ = self.parse_key_usage(val_)
 
 
         if out_val_ == '':
             out_val_ = val_.hex()
 
-        return {id_: out_val_}
+        return {id_: out_val_, 'critical': critical}
 
 
     def parse_validity(self, data):
@@ -310,11 +366,14 @@ class TLS_Certificate(Protocol):
 
 
     def parse_tlv(self, data, offset):
-        if len(data) < offset+3:
+        if len(data) < offset+2:
             return None, None, None, None
 
         tag_ = data[offset]
         len_ = data[offset+1]
+
+        if len_ == 0:
+            return tag_, len_, b'', offset+2
         if len_ >= 128:
             num_octets = len_ - 128
             if num_octets <= 0:
