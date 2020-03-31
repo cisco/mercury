@@ -177,7 +177,7 @@ class TLS_Certificate(Protocol):
         if offset == None:
             return out_
         _, _, cert_ext, _ = self.parse_tlv(cert_ext_outer, 0)
-        if offset == None:
+        if cert_ext == None:
             return out_
 
 
