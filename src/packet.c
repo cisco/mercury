@@ -34,9 +34,6 @@ void eth_skip(uint8_t **packet, size_t *length, uint16_t *ether_type) {
         *packet += sizeof(struct eth_dot1ad_tag);
         *length -= sizeof(struct eth_dot1ad_tag);
 
-        fprintf(stderr, "inner_tci:  %04x\n", eth_dot1ad_tag->inner_tci);
-        fprintf(stderr, "ether_type: %04x\n", eth_dot1ad_tag->ether_type);
-
     }
     if (ntohs(*ether_type) == ETH_TYPE_VLAN) {
         /*
