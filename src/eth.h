@@ -18,16 +18,12 @@ struct eth_hdr {
   uint16_t ether_type;
 } __attribute__ ((__packed__));
 
-struct eth_dot1q_hdr {
-    struct eth_hdr eth_hdr;  /* eth_hdr.ether_type == ETH_TYPE_VLAN */
+struct eth_dot1q_tag {
     uint16_t tci;
     uint16_t ether_type;
 } __attribute__ ((__packed__));
 
-struct eth_dot1ad_hdr {
-    struct eth_hdr eth_hdr;  /* eth_hdr.ether_type == ETH_TYPE_1AD  */
-    uint16_t outer_tci;
-    uint16_t inner_tpid;     /* inner_tpid == ETH_TYPE_VLAN         */
+struct eth_dot1ad_tag {
     uint16_t inner_tci;
     uint16_t ether_type;
 } __attribute__ ((__packed__));

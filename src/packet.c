@@ -19,35 +19,34 @@ void eth_skip(uint8_t **packet, size_t *length, uint16_t *ether_type) {
     struct eth_hdr *eth_hdr = (struct eth_hdr *) *packet;
     *ether_type = eth_hdr->ether_type;
 
+    *packet += sizeof(struct eth_hdr);
+    *length -= sizeof(struct eth_hdr);
+
     /*
      * handle 802.1q and 802.1ad (q-in-q) frames
      */
-    if (*ether_type == ETH_TYPE_VLAN) {
-        struct eth_dot1q_hdr *eth_dot1q_hdr = (struct eth_dot1q_hdr *)eth_hdr;
-        *ether_type = eth_dot1q_hdr->ether_type;
+    if (ntohs(*ether_type) == ETH_TYPE_1AD) {
+        /*
+         * 802.1ad (q-in-q)
+         */
+        struct eth_dot1ad_tag *eth_dot1ad_tag = (struct eth_dot1ad_tag *)*packet;
+        *ether_type = eth_dot1ad_tag->ether_type;
+        *packet += sizeof(struct eth_dot1ad_tag);
+        *length -= sizeof(struct eth_dot1ad_tag);
 
-        if (*ether_type == ETH_TYPE_VLAN) {
-            /*
-             * 802.1ad (q-in-q)
-             */
-            struct eth_dot1ad_hdr *eth_dot1ad_hdr = (struct eth_dot1ad_hdr *)eth_hdr;
-            *ether_type = eth_dot1ad_hdr->ether_type;
-            *packet += sizeof(struct eth_dot1ad_hdr);
-            *length -= sizeof(struct eth_dot1ad_hdr);
+        fprintf(stderr, "inner_tci:  %04x\n", eth_dot1ad_tag->inner_tci);
+        fprintf(stderr, "ether_type: %04x\n", eth_dot1ad_tag->ether_type);
 
-        } else {
-            /*
-             * 802.1q
-             */
-            *packet += sizeof(struct eth_dot1q_hdr);
-            *length -= sizeof(struct eth_dot1q_hdr);
+    }
+    if (ntohs(*ether_type) == ETH_TYPE_VLAN) {
+        /*
+         * 802.1q
+         */
+        struct eth_dot1q_tag *eth_dot1q_tag = (struct eth_dot1q_tag *)*packet;
+        *ether_type = eth_dot1q_tag->ether_type;
+        *packet += sizeof(struct eth_dot1q_tag);
+        *length -= sizeof(struct eth_dot1q_tag);
 
-        }
-
-    } else {
-
-        *packet += sizeof(struct eth_hdr);
-        *length -= sizeof(struct eth_hdr);
     }
 
 }
@@ -98,7 +97,7 @@ void packet_fprintf(FILE *f, uint8_t *packet, size_t length, unsigned int sec, u
 
     eth_skip(&packet, &length, &ether_type);
 
-    switch(ether_type) {
+    switch(ntohs(ether_type)) {
     case ETH_TYPE_IP:
         if (length < 40) {
             fprintf(f, "ipv4/[tcp,udp] packet too short (length: %zu)\n", length);
@@ -334,7 +333,7 @@ void packet_fprintf_flow_key(FILE *f, uint8_t *packet, size_t length) {
 
     eth_skip(&packet, &length, &ether_type);
 
-    switch(ether_type) {
+    switch(ntohs(ether_type)) {
     case ETH_TYPE_IP:
         if (length < sizeof(struct ipv4_hdr)) {
             // fprintf(f, "ipv4/[tcp,udp] packet too short\n");
@@ -363,7 +362,7 @@ int append_packet_flow_key(char *dstr, int *doff, int dlen, int *trunc,
     eth_skip(&packet, &length, &ether_type);
 
     int r = 0;
-    switch(ether_type) {
+    switch(ntohs(ether_type)) {
     case ETH_TYPE_IP:
         if (length < sizeof(struct ipv4_hdr)) {
             // fprintf(f, "ipv4/[tcp,udp] packet too short\n");
