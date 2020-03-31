@@ -135,7 +135,6 @@ struct pkt_proc_pcap_writer_llq : public pkt_proc {
     struct ll_queue *llq;
 
     pkt_proc_pcap_writer_llq(struct ll_queue *llq_ptr) {
-        fprintf(stderr, "note: executing function %s with arg %p\n", __func__, (void *)llq_ptr);
         llq = llq_ptr;
     }
 
@@ -259,7 +258,6 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     unsigned int packet_filter_threshold = 8;
 
     pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr) {
-        fprintf(stderr, "note: executing function %s with arg %p\n", __func__, (void *)llq_ptr);
         llq = llq_ptr;
     }
 
