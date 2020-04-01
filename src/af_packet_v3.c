@@ -995,7 +995,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
 	  "%" PRIu64 " socket queue freezes\n",
 	  statst.received_packets, statst.received_bytes, statst.socket_packets, statst.socket_drops, statst.socket_freezes);
 
-  return 0;
+  return status_ok;
 }
 
 #define RING_LIMITS_DEFAULT_FRAC 0.01
