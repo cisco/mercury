@@ -418,7 +418,7 @@ int main(int argc, char *argv[]) {
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
-        if (af_packet_bind_and_dispatch(&cfg, &out_file) != status_ok) {
+        if (bind_and_dispatch(&cfg, &out_file) != status_ok) {
             fprintf(stderr, "error: bind and dispatch failed\n");
             return EXIT_FAILURE;
         }

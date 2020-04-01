@@ -11,7 +11,7 @@
 #include "mercury.h"
 #include "output.h"
 
-int af_packet_bind_and_dispatch(struct mercury_config *cfg,
-                                struct output_file *out_ctx);
+enum status bind_and_dispatch(struct mercury_config *cfg,
+			      struct output_file *out_ctx);
 
 #endif /* AF_PACKET_V3 */

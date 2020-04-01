@@ -22,6 +22,7 @@ datarootdir = @datarootdir@/mercury
 python      = @PY@
 have_py3    = @PYTHON3@
 have_pip3   = @PIP3@
+have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 CXX      = @CXX@
@@ -35,7 +36,11 @@ CFLAGS += $(OPTFLAGS)
 # MERC and MERC_H hold the core source and header files, respectively
 #
 MERC   =  mercury.c
+ifeq ($(have_tpkt3),yes)
 MERC   += af_packet_v3.c
+else
+MERC   += capture.c
+endif
 MERC   += config.c
 MERC   += json_file_io.c
 MERC   += output.c
