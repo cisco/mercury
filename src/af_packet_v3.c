@@ -768,8 +768,8 @@ void *packet_capture_thread_func(void *arg)  {
   return NULL;
 }
 
-int af_packet_bind_and_dispatch(struct mercury_config *cfg,
-                                struct output_file *out_ctx) {
+enum status bind_and_dispatch(struct mercury_config *cfg,
+			      struct output_file *out_ctx) {
   /* initialize the ring limits from the configuration */
   struct ring_limits rl;
   ring_limits_init(&rl, cfg->buffer_fraction);
