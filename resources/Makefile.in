@@ -33,8 +33,8 @@ install-nonroot:
 
 .PHONY: uninstall
 uninstall:
-	rm -rf $(localstatedir) 
-	rm -rf $(datarootdir) 
+	rm -rf $(localstatedir)
+#	rm -rf $(datarootdir)    # some users will want to retain data after 'uninstall'
 
 .PHONY: distclean
 distclean:
