@@ -409,27 +409,20 @@ int main(int argc, char *argv[]) {
 
     pthread_t output_thread;
     struct output_file out_file;
+    if (output_thread_init(output_thread, out_file, cfg) != 0) {
+        fprintf(stderr, "error: unable to initialize output thread\n");
+        return EXIT_FAILURE;
+    }
     if (cfg.capture_interface) {
+
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
-
-        if (output_thread_init(output_thread, out_file, cfg) != 0) {
-            fprintf(stderr, "error: unable to initialize output thread\n");
-            return EXIT_FAILURE;
-        }
-
         if (af_packet_bind_and_dispatch(&cfg, &out_file) != status_ok) {
             fprintf(stderr, "error: bind and dispatch failed\n");
             return EXIT_FAILURE;
         }
-
     } else if (cfg.read_filename) {
-
-        if (output_thread_init(output_thread, out_file, cfg) != 0) {
-            fprintf(stderr, "error: unable to initialize output thread\n");
-            return EXIT_FAILURE;
-        }
 
         if (open_and_dispatch(&cfg, &out_file) != status_ok) {
             return EXIT_FAILURE;
