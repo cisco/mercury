@@ -47,8 +47,6 @@ char mercury_help[] =
     "   [-s or --select]                      # select only packets with metadata\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   [-v or --verbose]                     # additional information sent to stdout\n"
-    //  "   [-p or --loop] loop_count             # loop count >= 1 for the read_file\n"
-    //  "   [--adaptive]                          # adaptively accept or skip packets for pcap file\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
     "   [-h or --help]                        # extended help, with examples\n";
@@ -150,7 +148,7 @@ int main(int argc, char *argv[]) {
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
             { "capture",     required_argument, NULL, 'c' },
-            { "fingerprint", required_argument, NULL, 'f' },
+            { "fingerprint", optional_argument, NULL, 'f' },
             { "analysis",    no_argument,       NULL, 'a' },
             { "threads",     required_argument, NULL, 't' },
             { "buffer",      required_argument, NULL, 'b' },
@@ -163,7 +161,7 @@ int main(int argc, char *argv[]) {
             // { "adaptive",    no_argument,       NULL,  0  },
             { NULL,          0,                 0,     0  }
         };
-        c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
+        c = getopt_long(argc, argv, "r:w:c:f::t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
         if (c < 0) {
             break;
         }
@@ -219,7 +217,7 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 cfg.fingerprint_filename = optarg;
             } else {
-                usage(argv[0], "error: option f or fingerprint requires filename argument", extended_help_off);
+                cfg.fingerprint_filename = stdout_string();
             }
             break;
         case 'a':

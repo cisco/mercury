@@ -37,4 +37,6 @@ int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, co
 
 void output_thread_finalize(pthread_t output_thread, struct output_file *out_file);
 
+char *stdout_string();
+
 #endif /* OUTPUT_H */
