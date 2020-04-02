@@ -264,6 +264,8 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
     r += append_timestamp(dstr, doff, dlen, trunc,
                           ts);
 
+    //    r += append_snprintf(dstr, doff, dlen, trunc, ",\"flowhash\":\"%016lx\"", flowhash(key, ts->tv_sec));
+
     r += append_strncpy(dstr, doff, dlen, trunc,
                                 "}\n");
 
