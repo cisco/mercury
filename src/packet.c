@@ -577,18 +577,18 @@ void flow_key_set_from_packet(struct flow_key *k,
 
 uint64_t flowhash(const struct flow_key &k, uint32_t time_in_sec) {
 
-    uint64_t x = 0;
+    uint64_t x;
     if (k.type == ipv4) {
         uint32_t sa = k.value.v4.src_addr;
         uint32_t da = k.value.v4.dst_addr;
         uint16_t sp = k.value.v4.src_port;
         uint16_t dp = k.value.v4.dst_port;
         uint8_t  pr = k.value.v4.protocol;
-        x += pr;
+        x = pr;
         x *= multiplier;
-        x += (sp + dp);
+        x += ((uint64_t) sp + dp);
         x *= multiplier;
-        x += (sa + da);
+        x += ((uint64_t) sa + da);
         x *= multiplier;
     } else {
         uint64_t *sa_p = (uint64_t *)&k.value.v6.src_addr;
@@ -596,13 +596,13 @@ uint64_t flowhash(const struct flow_key &k, uint32_t time_in_sec) {
         uint16_t sp = k.value.v6.src_port;
         uint16_t dp = k.value.v6.dst_port;
         uint8_t  pr = k.value.v6.protocol;
-        x += pr;
+        x = pr;
         x *= multiplier;
-        x = (sp + dp);
+        x += ((uint64_t) sp + dp);
         x *= multiplier;
-        x += sa_p[0] + da_p[0];
+        x += (uint64_t) sa_p[0] + da_p[0];
         x *= multiplier;
-        x += sa_p[1] + da_p[1];
+        x += (uint64_t) sa_p[1] + da_p[1];
         x *= multiplier;
     }
 
