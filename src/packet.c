@@ -584,6 +584,35 @@ uint64_t flowhash(const struct flow_key &k, uint32_t time_in_sec) {
         uint16_t sp = k.value.v4.src_port;
         uint16_t dp = k.value.v4.dst_port;
         uint8_t  pr = k.value.v4.protocol;
+        x = ((uint64_t) sp * da) + ((uint64_t) dp * sa);
+        x *= multiplier;
+        x += sa + da + sp + dp + pr;
+        x *= multiplier;
+    } else {
+        uint64_t *sa = (uint64_t *)&k.value.v6.src_addr;
+        uint64_t *da = (uint64_t *)&k.value.v6.dst_addr;
+        uint16_t sp = k.value.v6.src_port;
+        uint16_t dp = k.value.v6.dst_port;
+        uint8_t  pr = k.value.v6.protocol;
+        x = ((uint64_t) sp * da[0] * da[1]) + ((uint64_t) dp * sa[0] * sa[1]);
+        x *= multiplier;
+        x += sa[0] + sa[1] + da[0] + da[1] + sp + dp + pr;
+        x *= multiplier;
+    }
+
+    return (0xffffffffff000000L & x) | (0x00ffffff & time_in_sec);
+
+}
+
+uint64_t flowhash_old(const struct flow_key &k, uint32_t time_in_sec) {
+
+    uint64_t x;
+    if (k.type == ipv4) {
+        uint32_t sa = k.value.v4.src_addr;
+        uint32_t da = k.value.v4.dst_addr;
+        uint16_t sp = k.value.v4.src_port;
+        uint16_t dp = k.value.v4.dst_port;
+        uint8_t  pr = k.value.v4.protocol;
         x = pr;
         x *= multiplier;
         x += ((uint64_t) sp + dp);
