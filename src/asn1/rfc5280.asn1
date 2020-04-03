@@ -1,0 +1,170 @@
+id-pkix  OBJECT IDENTIFIER  ::=  {
+        iso(1) identified-organization(3) dod(6) internet(1)
+        security(5) mechanisms(5) pkix(7) }
+
+-- PKIX arcs
+
+id-pe OBJECT IDENTIFIER ::= { id-pkix 1 }
+        -- arc for private certificate extensions
+id-qt OBJECT IDENTIFIER ::= { id-pkix 2 }
+        -- arc for policy qualifier types
+id-kp OBJECT IDENTIFIER ::= { id-pkix 3 }
+        -- arc for extended key purpose OIDS
+id-ad OBJECT IDENTIFIER ::= { id-pkix 48 }
+        -- arc for access descriptors
+
+-- policyQualifierIds for Internet policy qualifiers
+
+id-qt-cps      OBJECT IDENTIFIER ::=  { id-qt 1 }
+      -- OID for CPS qualifier
+id-qt-unotice  OBJECT IDENTIFIER ::=  { id-qt 2 }
+      -- OID for user notice qualifier
+
+-- access descriptor definitions
+
+id-ad-ocsp         OBJECT IDENTIFIER ::= { id-ad 1 }
+id-ad-caIssuers    OBJECT IDENTIFIER ::= { id-ad 2 }
+id-ad-timeStamping OBJECT IDENTIFIER ::= { id-ad 3 }
+id-ad-caRepository OBJECT IDENTIFIER ::= { id-ad 5 }
+
+-- attribute data types
+
+-- Arc for standard naming attributes
+
+id-at OBJECT IDENTIFIER ::= { joint-iso-ccitt(2) ds(5) 4 }
+
+-- Naming attributes of type X520name
+
+-- Legacy attributes
+
+pkcs-9 OBJECT IDENTIFIER ::=  { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 9 }
+
+id-emailAddress      AttributeType ::= { pkcs-9 1 }
+
+id-ce OBJECT IDENTIFIER  ::=  { joint-iso-ccitt(2) ds(5) 29 }
+
+-- authority key identifier OID 
+
+id-ce-authorityKeyIdentifier OBJECT IDENTIFIER ::=  { id-ce 35 }
+
+-- subject key identifier OID 
+
+id-ce-subjectKeyIdentifier OBJECT IDENTIFIER ::=  { id-ce 14 }
+
+-- key usage extension OID
+
+id-ce-keyUsage OBJECT IDENTIFIER ::=  { id-ce 15 }
+
+-- private key usage period extension OID
+
+id-ce-privateKeyUsagePeriod OBJECT IDENTIFIER ::=  { id-ce 16 }
+
+-- certificate policies extension OID
+
+id-ce-certificatePolicies OBJECT IDENTIFIER ::=  { id-ce 32 }
+
+anyPolicy OBJECT IDENTIFIER ::= { id-ce-certificatePolicies 0 }
+
+-- policy mapping extension OID
+
+id-ce-policyMappings OBJECT IDENTIFIER ::=  { id-ce 33 }
+
+-- subject alternative name extension OID
+   
+id-ce-subjectAltName OBJECT IDENTIFIER ::=  { id-ce 17 }
+
+SubjectAltName ::= GeneralNames
+
+-- issuer alternative name extension OID
+
+id-ce-issuerAltName OBJECT IDENTIFIER ::=  { id-ce 18 }
+
+id-ce-subjectDirectoryAttributes OBJECT IDENTIFIER ::=  { id-ce 9 }
+
+-- basic constraints extension OID
+
+id-ce-basicConstraints OBJECT IDENTIFIER ::=  { id-ce 19 }
+
+-- name constraints extension OID
+
+id-ce-nameConstraints OBJECT IDENTIFIER ::=  { id-ce 30 }
+
+-- policy constraints extension OID
+
+id-ce-policyConstraints OBJECT IDENTIFIER ::=  { id-ce 36 }
+
+-- CRL distribution points extension OID and syntax
+
+id-ce-cRLDistributionPoints     OBJECT IDENTIFIER  ::=  { id-ce 31 }
+
+-- extended key usage extension OID
+
+id-ce-extKeyUsage OBJECT IDENTIFIER ::= { id-ce 37 }
+
+-- permit unspecified key uses
+
+anyExtendedKeyUsage OBJECT IDENTIFIER ::= { id-ce-extKeyUsage 0 }
+
+-- extended key purpose OIDs
+
+id-kp-serverAuth             OBJECT IDENTIFIER ::= { id-kp 1 }
+id-kp-clientAuth             OBJECT IDENTIFIER ::= { id-kp 2 }
+id-kp-codeSigning            OBJECT IDENTIFIER ::= { id-kp 3 }
+id-kp-emailProtection        OBJECT IDENTIFIER ::= { id-kp 4 }
+id-kp-timeStamping           OBJECT IDENTIFIER ::= { id-kp 8 }
+id-kp-OCSPSigning            OBJECT IDENTIFIER ::= { id-kp 9 }
+
+-- inhibit any policy OID
+
+id-ce-inhibitAnyPolicy OBJECT IDENTIFIER ::=  { id-ce 54 }
+
+-- freshest (delta)CRL extension OID
+
+id-ce-freshestCRL OBJECT IDENTIFIER ::=  { id-ce 46 }
+
+-- authority info access
+
+id-pe-authorityInfoAccess OBJECT IDENTIFIER ::= { id-pe 1 }
+
+-- subject info access
+
+id-pe-subjectInfoAccess OBJECT IDENTIFIER ::= { id-pe 11 }
+
+-- CRL number extension OID
+
+id-ce-cRLNumber OBJECT IDENTIFIER ::= { id-ce 20 }
+
+-- issuing distribution point extension OID
+
+id-ce-issuingDistributionPoint OBJECT IDENTIFIER ::= { id-ce 28 }
+
+id-ce-deltaCRLIndicator OBJECT IDENTIFIER ::= { id-ce 27 }
+
+-- reason code extension OID
+
+id-ce-cRLReasons OBJECT IDENTIFIER ::= { id-ce 21 }
+
+-- certificate issuer CRL entry extension OID
+
+id-ce-certificateIssuer OBJECT IDENTIFIER ::= { id-ce 29 }
+
+-- hold instruction extension OID
+
+id-ce-holdInstructionCode OBJECT IDENTIFIER ::= { id-ce 23 }
+
+-- ANSI x9 arc holdinstruction arc
+
+holdInstruction OBJECT IDENTIFIER ::= { joint-iso-itu-t(2) member-body(2) us(840) x9cm(10040) 2 }
+
+-- ANSI X9 holdinstructions
+--
+id-holdinstruction-none OBJECT IDENTIFIER  ::= { holdInstruction 1 } -- deprecated
+
+id-holdinstruction-callissuer OBJECT IDENTIFIER ::= { holdInstruction 2 }
+
+id-holdinstruction-reject OBJECT IDENTIFIER ::= { holdInstruction 3 }
+
+-- invalidity date CRL entry extension OID
+
+id-ce-invalidityDate OBJECT IDENTIFIER ::= { id-ce 24 }
+

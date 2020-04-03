@@ -1,0 +1,374 @@
+-- Internet-Draft PKIX: GOST R 34.10-2012, GOST R 34.11-2012  February 2020
+
+--   The ASN.1 object identifier used to identify GOST R 34.10-2012
+--   signature algorithm with 256-bit key length and GOST R 34.11-2012
+--   hash function with 256-bit hash code is:
+
+   id-tc26-signwithdigest-gost3410-12-256 OBJECT IDENTIFIER ::= {
+           iso(1) member-body(2) ru(643) rosstandart(7) tc26(1)
+           algorithms(1) signwithdigest(3) gost3410-12-256(2) }
+
+--   GOST R 34.10-2012 signature algorithm with 256-bit key length
+--   generates a digital signature in the form of two 256-bit numbers, r
+--   and s.  Its octet string representation consists of 64 octets, where
+--   the first 32 octets contain the big-endian representation of s and
+--   the second 32 octets contain the big-endian representation of r.
+
+--   The ASN.1 object identifier used to identify GOST R 34.10-2012
+--   signature algorithm with 512-bit key length and GOST R 34.11-2012
+--   hash function with 512-bit hash code is:
+
+   id-tc26-signwithdigest-gost3410-12-512 OBJECT IDENTIFIER ::= {
+           iso(1) member-body(2) ru(643) rosstandart(7) tc26(1)
+           algorithms(1) signwithdigest(3) gost3410-12-512(3) }
+
+--   GOST R 34.10-2012 signature algorithm with 512-bit key length
+--   generates a digital signature in the form of two 512-bit numbers, r
+--   and s.  Its octet string representation consists of 128 octets, where
+--   the first 64 octets contain the big-endian representation of s and
+--   the second 64 octets contain the big-endian representation of r.
+
+--   When either of these OID is used as the algorithm field in an
+--   AlgorithmIdentifier structure, the encoding MUST omit the parameters
+--   field.
+
+--   The described definition of a signature value is directly usable in
+--   CMS [RFC5652], where such values are represented as octet strings.
+--   However, signature values in certificates and CRLs [RFC5280] are
+--   represented as bit strings, and thus the octet string representation
+--   must be converted.
+
+--   To convert an octet string signature value to a bit string, the most
+--   significant bit of the first octet of the signature value SHALL
+--   become the first bit of the bit string, and so on through the least
+--   significant bit of the last octet of the signature value, which SHALL
+--   become the last bit of the bit string.
+
+--   The ASN.1 object identifier used to identify GOST R 34.11-2012 hash
+--   function with 256-bit hash code is:
+
+   id-tc26-digest-gost3411-12-256 OBJECT IDENTIFIER ::= {
+           iso(1) member-body(2) ru(643) rosstandart(7) tc26(1)
+           algorithms(1) digest(2) gost3411-12-256(2) }
+
+--   The ASN.1 object identifier used to identify GOST R 34.11-2012 hash
+--   function with 512-bit hash code is:
+
+   id-tc26-digest-gost3411-12-512 OBJECT IDENTIFIER ::= {
+           iso(1) member-body(2) ru(643) rosstandart(7) tc26(1)
+           algorithms(1) digest(2) gost3411-12-512(3) }
+
+--   When either of these OID is used as the algorithm field in an
+--   AlgorithmIdentifier structure, the encoding MUST omit the parameters
+--   field.
+
+--   GOST R 34.10-2012 public keys with 256 bits private key length are
+--   identified by the following OID:
+
+   id-tc26-gost3410-12-256 OBJECT IDENTIFIER ::= {
+           iso(1) member-body(2) ru(643) rosstandart(7) tc26(1)
+           algorithms(1) sign(1) gost3410-12-256(1) }
+
+--   GOST R 34.10-2012 public keys with 512 bits private key length are
+--   identified by the following OID:
+
+   id-tc26-gost3410-12-512 OBJECT IDENTIFIER ::= {
+           iso(1) member-body(2) ru(643) rosstandart(7) tc26(1)
+           algorithms(1) sign(1) gost3410-12-512(2) }
+
+--   When either of these identifiers appears as algorithm field in
+--   SubjectPublicKeyInfo.algorithm.algorithm field, parameters field MUST
+--   have the following structure:
+
+--   GostR3410-2012-PublicKeyParameters ::= SEQUENCE  {
+--           publicKeyParamSet OBJECT IDENTIFIER,
+--           digestParamSet OBJECT IDENTIFIER OPTIONAL
+--       }
+--
+-- where:
+--
+--   o  "publicKeyParamSet" - public key parameters identifier for GOST R
+--      34.10-2012 (see Sections 5.1 and 5.2 of [RFC7836] or Appendix B)
+--      or GOST R 34.10-2001 (see Section 8.4 of [RFC4357]) parameters.
+--
+--   o  "digestParamSet" - parameter identifier for corresponding GOST R
+--      34.11-2012 (See Section 3).
+--
+--   The field digestParamSet:
+--
+--   o  SHOULD be omitted if GOST R 34.10-2012 signature algorithm is used
+--      with 512-bit key length;
+--
+--   o  MUST be present and must be equal to "id-tc26-digest-
+--      gost3411-12-256" if one of the following values is used as
+--      "publicKeyParamSet":
+--
+--      *  "id-GostR3410-2001-CryptoPro-A-ParamSet",
+--
+--      *  "id-GostR3410-2001-CryptoPro-B-ParamSet",
+--
+--      *  "id-GostR3410-2001-CryptoPro-C-ParamSet",
+--
+--      *  "id-GostR3410-2001-CryptoPro-XchA-ParamSet",
+--
+--      *  "id-GostR3410-2001-CryptoPro-XchB-ParamSet";
+--
+--   o  SHOULD be omitted if publicKeyParamSet is equal to:
+--
+--      *  "id-tc26-gost-3410-2012-256-paramSetA";
+--
+--   o  MUST be omitted if one of the following values is used as
+--      publicKeyParamSet:
+--
+--      *  "id-tc26-gost-3410-2012-256-paramSetB",
+--
+--      *  "id-tc26-gost-3410-2012-256-paramSetC",
+--
+--      *  "id-tc26-gost-3410-2012-256-paramSetD".
+--
+--   The GOST R 34.10-2012 public key MUST be ASN.1 DER encoded as an
+--   OCTET STRING.  This encoding SHALL be used as the content (i.e., the
+--   value) of the subjectPublicKey field (a BIT STRING) of
+--   SubjectPublicKeyInfo structure.
+--
+--   GostR3410-2012-256-PublicKey ::= OCTET STRING (64),
+--   GostR3410-2012-512-PublicKey ::= OCTET STRING (128).
+--
+--   "GostR3410-2012-256-PublicKey" MUST contain 64 octets, where the
+--   first 32 octets contain the little-endian representation of "x" and
+--   the second 32 octets contains the little-endian representation of "y"
+--   coordinates of the public key.
+--
+--   "GostR3410-2012-512-PublicKey" MUST contain 128 octets, where the
+--   first 64 octets contain the little-endian representation of "x" and
+--   the second 64 octets contains the little-endian representation of "y"
+--   coordinates of the public key.
+
+--   If the KeyUsage extension is present in a certificate with GOST R
+--   34.10-2012 public key, the following values MAY be present:
+--
+--   o  "digitalSignature" (0),
+--
+--   o  "contentCommitment" (1),
+--
+--   o  "keyAgreement" (4),
+--
+--   o  "keyCertSign" (5),
+--
+--   o  "cRLSign" (6),
+--
+--   o  "encipherOnly" (7),
+--
+--   o  "decipherOnly" (8).
+--
+--   Note that "contentCommitment" was named "nonRepudiation" in previous
+--   versions of X.509.
+--
+--   If the key is going to be used for key agreement, flag "keyAgreement"
+--   MUST be present in "KeyUsage" extension with "encipherOnly" and
+--   "decipherOnly" flags being optional.  However flags "encipherOnly"
+--   and "decipherOnly" flags MUST NOT be present simultaneously.
+--
+
+--   This section defines additional object identifiers (OIDs) for use in
+--   qualified certificates for checking digital signatures.
+--
+--   Distinguished Name additions
+--
+--   OGRN is the main state registration number of juridical entities.
+--
+--   OGRN ::= NUMERIC STRING 13
+--
+--   Corresponding OID is "1.2.643.100.1".
+--
+--   SNILS is the individual insurance account number.
+--
+--   SNILS ::= NUMERIC STRING 11
+--
+--   Corresponding OID is "1.2.643.100.3".
+--
+--   OGRNIP is the main state registration number of individual
+--   enterpreneurs.
+--
+--   OGRNIP ::= NUMERIC STRING 15
+--
+--   Corresponding OID is "1.2.643.100.5".
+--
+--   INN is the individual taxpayer number (ITN).
+--
+--   INN ::= NUMERIC STRING 12
+--
+--   Corresponding OID is "1.2.643.3.131.1.1".
+--
+-- 5.2.  Certificate policies
+--
+--   Russian national regulation body for cryptography defines several
+--   security levels of cryptographic tools.  Depending on the class of
+--   cryptographic token used by certificate owner the following OIDs must
+--   be included into certificate policies.  Certificate should include
+--   OIDs starting from the lowest one (KC1) up to the strongest
+--   applicable.
+--
+--   o  "1.2.643.100.113.1" - class KC1,
+--
+--   o  "1.2.643.100.113.2" - class KC2,
+--
+--   o  "1.2.643.100.113.3" - class KC3,
+--
+--   o  "1.2.643.100.113.4" - class KB1,
+--
+--   o  "1.2.643.100.113.5" - class KB2,
+--
+--   o  "1.2.643.100.113.6" - class KA1.
+--
+-- 5.3.  Subject Sign Tool
+--
+--   To denote the token or software type used by certificate owner
+--   following non-critical "SubjectSignTool" extension with OID
+--   "1.2.643.100.111" should be included.  It is defined as
+--
+--   SubjectSignTool ::= UTF8String SIZE(1..200) .
+--
+-- 5.4.  Issuer Sign Tool
+--
+--   To denote the tools used to generate key pair and tools used by CA to
+--   sign certificate following non-critical "IssuerSignTool" extension
+--   with OID "1.2.643.100.112" should be included.  It is defined as
+--
+--   IssuerSignTool ::= SEQUENCE {
+--     signTool     UTF8String SIZE(1..200),
+--     cATool       UTF8String SIZE(1..200),
+--     signToolCert UTF8String SIZE(1..100),
+--     cAToolCert   UTF8String SIZE(1..100) },
+--
+--   where:
+--
+--   o  "signTool" identifies tools used to create key pair,
+--
+--   o  "cATool" identifies tools used by certificate authority,
+--
+--   o  "signToolCert" and "cAToolCert" contain the notice of respective
+--      tools conformance to Russian federal law on digital signature.
+--
+-- 6.  Historical Considerations
+--
+--   Note that for the significant period of time there were no documents
+--   describing "GostR3410-2012-PublicKeyParameters".  Several old
+--   implementations have used "GostR3410-2001-PublicKeyParameters"
+--   instead.  These implementations will return an error if
+--   "digestParamSet" field is not included into public key parameters.
+--   Thus an implementation wishing to collaborate with old
+--   implementations might want to include "digestParamSet" equal to "id-
+--   tc26-digest-gost3411-12-512" if one of the following values is used
+--   as "publicKeyParamSet":
+--
+--   o  "id-tc26-gost-3410-12-512-paramSetA",
+--
+--   o  "id-tc26-gost-3410-12-512-paramSetB".
+--
+--
+--
+-- Appendix A.  GostR3410-2012-PKISyntax
+--
+--  GostR3410-2012-PKISyntax
+--      { iso(1) member-body(2) ru(643) rosstandart(7)
+--        tc26(1) modules(0) gostR3411-2012-PKISyntax(2) }
+--
+--  DEFINITIONS ::=
+--  BEGIN
+--  -- EXPORTS All --
+--
+--      -- ASN.1 TC 26 root
+--      id-tc26 OBJECT IDENTIFIER ::=
+--          { iso(1) member-body(2) ru(643) rosstandart(7) tc26(1) }
+--
+--      -- Signature algorithm
+--      id-tc26-sign OBJECT IDENTIFIER ::=
+--      { id-tc26 algorithms(1) sign(1) }
+--
+--      -- Signature algorithm parameters
+--      id-tc26-sign-constants OBJECT IDENTIFIER ::=
+--      { id-tc26 constants(2) sign(1) }
+--
+--      -- GOST R 34.10-2012 / 256 bits signature algorithm parameters
+--      id-tc26-gost-3410-2012-256-constants OBJECT IDENTIFIER ::=
+--      { id-tc26-sign-constants gost-3410-2012-256(1) }
+--
+--      -- GOST R 34.10-2012 / 512 bits signature algorithm parameters
+--      id-tc26-gost-3410-2012-512-constants OBJECT IDENTIFIER ::=
+--      { id-tc26-sign-constants gost-3410-2012-512(2) }
+--
+--      -- GOST R 34.10-2012 / 256 bits signature algorithm
+--      id-tc26-gost3410-2012-256 OBJECT IDENTIFIER ::=
+--      { id-tc26-sign gost3410-2012-256(1) }
+--
+--      -- GOST R 34.10-2012 / 512 bits signature algorithm
+--      id-tc26-gost3410-2012-512 OBJECT IDENTIFIER ::=
+--      { id-tc26-sign gost3410-2012-512(2) }
+--
+--      -- Signature & hash algorithm GOST R 34.10-2012 / 256 bits
+--      -- with GOST R 34.11-2012
+--      id-tc26-signwithdigest-gost3410-2012-256 OBJECT IDENTIFIER ::=
+--      { id-tc26-signwithdigest gost3410-2012-256(2) }
+--
+--      -- Signature & hash algorithm GOST R 34.10-2012 / 512 bits
+--      -- with GOST R 34.11-2012
+--      id-tc26-signwithdigest-gost3410-2012-512 OBJECT IDENTIFIER ::=
+--      { id-tc26-signwithdigest gost3410-2012-512(3) }
+--
+--      -- GOST R 34.10-2012 / 256 bits Signature algorithm parameters ID:
+--      --  "Set A"
+--      id-tc26-gost-3410-2012-256-paramSetA OBJECT IDENTIFIER ::=
+--      { id-tc26-gost-3410-2012-256-constants paramSetA(1) }
+--
+--      -- GOST R 34.10-2012 / 256 bits signature algorithm parameters ID:
+--      --  "Set B"
+--      id-tc26-gost-3410-2012-256-paramSetB OBJECT IDENTIFIER ::=
+--      { id-tc26-gost-3410-2012-256-constants paramSetB(2) }
+--
+--      -- GOST R 34.10-2012 / 256 bits signature algorithm parameters ID:
+--      --  "Set C"
+--      id-tc26-gost-3410-2012-256-paramSetC OBJECT IDENTIFIER ::=
+--      { id-tc26-gost-3410-2012-256-constants paramSetC(3) }
+--
+--      -- GOST R 34.10-2012 / 256 bits signature algorithm parameters ID:
+--      --  "Set D"
+--      id-tc26-gost-3410-2012-256-paramSetD OBJECT IDENTIFIER ::=
+--      { id-tc26-gost-3410-2012-256-constants paramSetD(4) }
+--
+--      -- GOST R 34.10-2012 / 512 bits signature algorithm parameters ID:
+--      --  "Test set"
+--      id-tc26-gost-3410-2012-512-paramSetTest OBJECT IDENTIFIER ::=
+--      { id-tc26-gost-3410-2012-512-constants paramSetTest(0) }
+--
+--      -- GOST R 34.10-2012 / 512 bits signature algorithm parameters ID:
+--      --  "Set A"
+--      id-tc26-gost-3410-2012-512-paramSetA OBJECT IDENTIFIER ::=
+--      { id-tc26-gost-3410-2012-512-constants paramSetA(1) }
+--
+--      -- GOST R 34.10-2012 / 512 bits signature algorithm parameters ID:
+--      --  "Set B"
+--      id-tc26-gost-3410-2012-512-paramSetB OBJECT IDENTIFIER ::=
+--      { id-tc26-gost-3410-2012-512-constants paramSetB(2) }
+--
+--      -- GOST R 34.10-2012 / 512 bits signature algorithm parameters ID:
+--      --  "Set C"
+--      id-tc26-gost-3410-2012-512-paramSetC OBJECT IDENTIFIER ::=
+--      { id-tc26-gost-3410-2012-512-constants paramSetC(3) }
+--
+--      -- Public key GOST R 34.10-2012 / 256 bits
+--      GostR3410-2012-256-PublicKey ::= OCTET STRING (SIZE (64))
+--      -- Public key GOST R 34.10-2012 / 512 bits
+--      GostR3410-2012-512-PublicKey ::= OCTET STRING (SIZE (128))
+--      -- Public key GOST R 34.10-2012
+--      GostR3410-PublicKey ::= OCTET STRING (SIZE (64 | 128))
+--
+--      -- Public key parameters GOST R 34.10-2012
+--      GostR3410-2012-PublicKeyParameters ::=
+--          SEQUENCE {
+--              publicKeyParamSet OBJECT IDENTIFIER,
+--              digestParamSet OBJECT IDENTIFIER OPTIONAL
+--              }
+--
+--  END -- GostR3410-2012-PKISyntax
+

@@ -646,9 +646,9 @@ enum status extractor_delete_last_capture(struct extractor *x) {
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |                    Acknowledgment Number                      |
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |  Data |           |U|A|P|R|S|F|                               |
- *  | Offset| Reserved  |R|C|S|S|Y|I|            Window             |
- *  |       |           |G|K|H|T|N|N|                               |
+ *  |  Data |       |C|E|U|A|P|R|S|F|                               |
+ *  | Offset| Rsrvd |W|C|R|C|S|S|Y|I|            Window             |
+ *  |       |       |R|E|G|K|H|T|N|N|                               |
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |           Checksum            |         Urgent Pointer        |
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -684,7 +684,14 @@ enum status extractor_delete_last_capture(struct extractor *x) {
 #define TCP_OPT_MSS     2
 #define TCP_OPT_WS      3
 
+#define TCP_FIN      0x01
 #define TCP_SYN      0x02
+#define TCP_RST      0x04
+#define TCP_PSH      0x08
+#define TCP_ACK      0x10
+#define TCP_URG      0x20
+#define TCP_ECE      0x40
+#define TCP_CWR      0x80
 
 #define TCP_FIXED_HDR_LEN 20
 
@@ -723,16 +730,20 @@ unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) 
     if (parser_read_uint(p, L_tcp_flags, &flags) == status_err) {
         return 0;
     }
-    if (flags != TCP_SYN) {
-	/*
-	 * process the TCP Data payload 
-	 */
-	if (parser_skip_to(p, data + tcp_offrsv_get_length(offrsv)) == status_err) {
-	    return 0;
-	}
-	return parser_extractor_process_tcp_data(p, x);
+    if ((flags & TCP_SYN) == 0) {
+        /*
+         * process the TCP Data payload
+         */
+        if (parser_skip_to(p, data + tcp_offrsv_get_length(offrsv)) == status_err) {
+            return 0;
+        }
+        return parser_extractor_process_tcp_data(p, x);
 
     }
+    if (flags & TCP_ACK) {
+        return 0;   // we ignore SYN/ACK packets
+    }
+
     if (parser_skip(p, L_tcp_flags) == status_err) {
 	return 0;
     }
@@ -1274,6 +1285,52 @@ void extract_certificates(FILE *file, const unsigned char *data, size_t data_len
     }
 }
 
+
+int append_extract_certificates(char *dstr, int *doff, int dlen, int *trunc,
+                                const unsigned char *data, size_t data_len) {
+    size_t tmp_len;
+    struct parser cert_list;
+    int cert_num = 0;
+
+    parser_init(&cert_list, data, data_len);
+
+    int r = 0;
+
+    while (parser_get_data_length(&cert_list) > 0) {
+        /* get certificate length */
+        if (parser_read_and_skip_uint(&cert_list, L_CertificateLength, &tmp_len) == status_err) {
+	        return r;
+        }
+
+        if (tmp_len > (unsigned)parser_get_data_length(&cert_list)) {
+            tmp_len = parser_get_data_length(&cert_list); /* truncate */
+        }
+
+        if (tmp_len == 0) {
+            return r; /* don't bother printing out a partial cert if it has a length of zero */
+        }
+
+        if (cert_num > 0) {
+            r += append_putc(dstr, doff, dlen, trunc,
+                             ','); /* print separating comma */
+        }
+
+        r += append_json_base64_string(dstr, doff, dlen, trunc,
+                                       cert_list.data, tmp_len);
+
+        /*
+         * skip over certificate data
+         */
+        if (parser_skip(&cert_list, tmp_len) == status_err) {
+	        return r;
+        }
+        cert_num++;
+    }
+
+    return r;
+}
+
+
 enum status parser_extractor_process_tls_server_hello(struct parser *record, struct extractor *x) {
     size_t tmp_len;
     size_t tmp_type;
@@ -1503,7 +1560,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
 unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct extractor *x) {
 
-    extractor_debug("%s: Processing server certificate at the begining, len = %lu, output len = %lu\n",
+    extractor_debug("%s: Processing server certificate at the beginning, len = %lu, output len = %lu\n",
             __func__, parser_get_data_length(p), extractor_get_output_length(x));
 
     int skip_len = (L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType + L_CertificateLength);
@@ -1554,32 +1611,37 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
     unsigned char sp[1] = { ' ' };
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
-    keyword_t case_insensitive_static_headers[13] = {
-        // keyword_init("user-agent"),
-        keyword_init("upgrade-insecure-requests"),
-        keyword_init("dnt"),
-        keyword_init("accept-language"),
-        keyword_init("connection"),
-        keyword_init("x-requested-with"),
-        keyword_init("accept-encoding"),
-        keyword_init("content-length"),
+    keyword_t http_static_name_and_value[] = {
         keyword_init("accept"),
-        keyword_init("viewport-width"),
-        keyword_init("intervention"),
+        keyword_init("accept-encoding"),
+        keyword_init("connection"),
+        keyword_init("dnt"),
         keyword_init("dpr"),
+        keyword_init("upgrade-insecure-requests"),
+        keyword_init("x-requested-with"),
+        keyword_init("")
+    };
+    keyword_t http_static_name[] = {
+        keyword_init("accept-charset"),
+        keyword_init("accept-language"),
+        keyword_init("authorization"),
         keyword_init("cache-control"),
+        keyword_init("host"),
+        keyword_init("if-modified-since"),
+        keyword_init("keep-alive"),
+        keyword_init("user-agent"),
+        keyword_init("x-flash-version"),
+        keyword_init("x-p2p-peerdist"),
         keyword_init("")
     };
-    keyword_t case_sensitive_static_headers[3] = {
-        keyword_init("content-type"),
-        keyword_init("origin"),
-        keyword_init("")
+    keyword_matcher_t matcher_http_static_name_and_value = {
+        http_static_name_and_value, /* case insensitive */
+        NULL                        /* case sensitive   */
     };
-    keyword_matcher_t static_header_keywords = {
-        case_insensitive_static_headers,
-        case_sensitive_static_headers
+    keyword_matcher_t matcher_http_static_name = {
+        http_static_name,           /* case insensitive */
+        NULL                        /* case sensitive   */
     };
-
     extractor_debug("%s: processing packet\n", __func__);
 
 #if 0
@@ -1618,37 +1680,42 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
     }
 
     while (parser_get_data_length(p) > 0) {
-	if (parser_match(p, crlf, sizeof(crlf), NULL) == status_ok) {
-	    break;  /* at end of headers */
-	}
-	if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
-	    return extractor_get_output_length(x);   
-	}
-	if (extractor_keyword_match_last_capture(x, &static_header_keywords) == status_ok) {
-	    if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
-		return extractor_get_output_length(x);
-	    }
-	} else {
-	    const uint8_t *user_agent_string = NULL;
-	    if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher) == status_ok) {
-	        /* store user agent value */
-            if (parser_skip_upto_delim(p, csp, sizeof(csp)) == status_err) {
+        if (parser_match(p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+        if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
+            return extractor_get_output_length(x);
+        }
+        if (extractor_keyword_match_last_capture(x, &matcher_http_static_name_and_value) == status_ok) {
+            if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
                 return extractor_get_output_length(x);
             }
-            user_agent_string = p->data;
-	    }
-	    if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
-		return extractor_get_output_length(x);
-	    }
-	    if (user_agent_string) {
-            size_t ua_len = p->data - user_agent_string;
-            ua_len = ua_len > sizeof(crlf) ? ua_len - sizeof(crlf) : 0;
-            packet_data_set(&x->packet_data,
-                            packet_data_type_http_user_agent,
-                            ua_len,
-                            user_agent_string);
-	    }
-	}
+        } else {
+            const uint8_t *user_agent_string = NULL;
+            if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher) == status_ok) {
+                /* store user agent value */
+                if (parser_skip_upto_delim(p, csp, sizeof(csp)) == status_err) {
+                    return extractor_get_output_length(x);
+                }
+                user_agent_string = p->data;
+            }
+
+            if (extractor_keyword_match_last_capture(x, &matcher_http_static_name) != status_ok) {
+                extractor_delete_last_capture(x);
+            }
+
+            if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
+                return extractor_get_output_length(x);
+            }
+            if (user_agent_string) {
+                size_t ua_len = p->data - user_agent_string;
+                ua_len = ua_len > sizeof(crlf) ? ua_len - sizeof(crlf) : 0;
+                packet_data_set(&x->packet_data,
+                                packet_data_type_http_user_agent,
+                                ua_len,
+                                user_agent_string);
+            }
+        }
     }
 
     extractor_debug("%s: http DONE\n", __func__);
@@ -1663,62 +1730,59 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
  */
 
 keyword_t http_server_static_name[] = {
-    keyword_init("AppEx-Activity-Id"),
-    keyword_init("CDNUUID"),
-    keyword_init("CF-RAY"),
-    keyword_init("Content-Range"),
-    keyword_init("Content-Type"),
-    keyword_init("Date"),
-    keyword_init("ETag"),
-    keyword_init("Expires"),
-    keyword_init("FLOW_CONTEXT"),
-    keyword_init("MS-CV"),
-    keyword_init("MSRegion"),
-    keyword_init("MS-RequestId"),
+    keyword_init("appex-activity-id"),
+    keyword_init("cdnuuid"),
+    keyword_init("cf-ray"),
+    keyword_init("content-range"),
+    keyword_init("content-type"),
+    keyword_init("date"),
+    keyword_init("etag"),
+    keyword_init("expires"),
+    keyword_init("flow_context"),
+    keyword_init("ms-cv"),
+    keyword_init("msregion"),
+    keyword_init("ms-requestid"),
     keyword_init("request-id"),
-    keyword_init("Vary"),
-    keyword_init("X-Amz-Cf-Pop"),
+    keyword_init("vary"),
+    keyword_init("x-amz-cf-pop"),
     keyword_init("x-amz-request-id"),
-    keyword_init("X-Azure-Ref-OriginShield"),
-    keyword_init("X-Cache"),
-    keyword_init("X-Cache-Hits"),
+    keyword_init("x-azure-ref-originshield"),
+    keyword_init("x-cache"),
+    keyword_init("x-cache-hits"),
     keyword_init("x-ccc"),
-    keyword_init("X-CCC"),
-    keyword_init("X-Diagnostic-S"),
-    keyword_init("X-FEServer"),
-    keyword_init("X-HW"),
-    keyword_init("X-MSEdge-Ref"),
-    keyword_init("X-OCSP-Responder-ID"),
-    keyword_init("X-RequestId"),
-    keyword_init("X-Served-By"),
-    keyword_init("X-Timer"),
-    keyword_init("X-Trace-Context"),
+    keyword_init("x-diagnostic-s"),
+    keyword_init("x-feserver"),
+    keyword_init("x-hw"),
+    keyword_init("x-msedge-ref"),
+    keyword_init("x-ocsp-responder-id"),
+    keyword_init("x-requestid"),
+    keyword_init("x-served-by"),
+    keyword_init("x-timer"),
+    keyword_init("x-trace-context"),
     keyword_init("")
 };
 
 keyword_t http_server_static_name_and_value[] = {
-    keyword_init("Access-Control-Allow-Credentials"),
-    keyword_init("Access-Control-Allow-Headers"),
-    keyword_init("Access-Control-Allow-Methods"),
-    keyword_init("Access-Control-Expose-Headers"),
-    keyword_init("Cache-control"),
-    keyword_init("Cache-Control"),
+    keyword_init("access-control-allow-credentials"),
+    keyword_init("access-control-allow-headers"),
+    keyword_init("access-control-allow-methods"),
+    keyword_init("access-control-expose-headers"),
+    keyword_init("cache-control"),
     keyword_init("code"),
-    keyword_init("Connection"),
-    keyword_init("Content-Language"),
+    keyword_init("connection"),
+    keyword_init("content-language"),
     keyword_init("content-transfer-encoding"),
-    keyword_init("P3P"),
-    keyword_init("Pragma"),
+    keyword_init("p3p"),
+    keyword_init("pragma"),
     keyword_init("reason"),
-    keyword_init("Server"),
-    keyword_init("Strict-Transport-Security"),
+    keyword_init("server"),
+    keyword_init("strict-transport-security"),
     keyword_init("version"),
-    keyword_init("X-AspNetMvc-Version"),
-    keyword_init("X-AspNet-Version"),
+    keyword_init("x-aspnetmvc-version"),
+    keyword_init("x-aspnet-version"),
     keyword_init("x-cid"),
-    keyword_init("X-CID"),
     keyword_init("x-ms-version"),
-    keyword_init("X-Xss-Protection"),
+    keyword_init("x-xss-protection"),
     keyword_init("")
 };
 keyword_matcher_t matcher_http_server_static_name_and_value = {
@@ -2264,17 +2328,28 @@ unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
     if (parser_skip(p, ETH_ADDR_LEN * 2) == status_err) {
         return 0;
     }
-    if (parser_read_uint(p, sizeof(uint16_t), ethertype) == status_err) {
+    if (parser_read_and_skip_uint(p, sizeof(uint16_t), ethertype) == status_err) {
         return 0;
     }
-    if (parser_skip(p, sizeof(uint16_t)) == status_err) {
-        return 0;
+    if (*ethertype == ETH_TYPE_1AD) {
+        if (parser_skip(p, sizeof(uint16_t)) == status_err) { // TCI
+            return 0;
+        }
+        if (parser_read_and_skip_uint(p, sizeof(uint16_t), ethertype) == status_err) {
+            return 0;
+        }
+    }
+    if (*ethertype == ETH_TYPE_VLAN) {
+        if (parser_skip(p, sizeof(uint16_t)) == status_err) { // TCI
+            return 0;
+        }
+        if (parser_read_and_skip_uint(p, sizeof(uint16_t), ethertype) == status_err) {
+            return 0;
+        }
     }
 
     return 0;  /* we don't extract any data, but this is not a failure */
 }
-
-#include <net/ethernet.h>
 
 unsigned int packet_filter_process_packet(struct packet_filter *pf) {
     size_t transport_proto = 0;
@@ -2283,10 +2358,10 @@ unsigned int packet_filter_process_packet(struct packet_filter *pf) {
 
     parser_process_eth(&pf->p, &ethertype);
     switch(ethertype) {
-    case ETHERTYPE_IP:
+    case ETH_TYPE_IP:
         parser_process_ipv4(&pf->p, &transport_proto, &k);
         break;
-    case ETHERTYPE_IPV6:
+    case ETH_TYPE_IPV6:
         parser_process_ipv6(&pf->p, &transport_proto, &k);
         break;
     default:
@@ -2327,7 +2402,7 @@ unsigned int parser_process_tcp(struct parser *p) {
     if (parser_read_uint(p, L_tcp_flags, &flags) == status_err) {
         return 0;
     }
-    if (flags != TCP_SYN) {
+    if ((flags & TCP_SYN) == 0) {
         /*
          * skip over TCP options, then process the TCP Data payload
          */
@@ -2339,7 +2414,7 @@ unsigned int parser_process_tcp(struct parser *p) {
         extractor_init(&x, extractor_buffer, 2048);
         return parser_extractor_process_tcp_data(p, &x);
 
-    } else if (flags == TCP_SYN) {
+    } else if ((flags & (TCP_SYN|TCP_ACK)) == TCP_SYN) {
         return 100;
     }
     return 0;
@@ -2352,10 +2427,10 @@ unsigned int parser_process_packet(struct parser *p) {
 
     parser_process_eth(p, &ethertype);
     switch(ethertype) {
-    case ETHERTYPE_IP:
+    case ETH_TYPE_IP:
         parser_process_ipv4(p, &transport_proto, &k);
         break;
-    case ETHERTYPE_IPV6:
+    case ETH_TYPE_IPV6:
         parser_process_ipv6(p, &transport_proto, &k);
         break;
     default:

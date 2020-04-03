@@ -1,24 +1,21 @@
 /*
  * mercury.h
- * 
+ *
  * main header file for mercury packet metadata capture and analysis
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef MERCURY_H
 #define MERCURY_H
 
-#include <stdint.h>
-#include <time.h>
-#include <stdbool.h>
 #include <inttypes.h>
+#include <stdio.h>
 
 #define MAX_FILENAME 256
 
 #define MAX_HEX 16
-#define BILLION 1000000000L
 
 #ifdef DEBUG
     #define debug_print_int(X)  printf("%s:\t%d:\t%s():\t%s:\t%ld\n", __FILE__, __LINE__, __func__, #X, (unsigned long)(X))
@@ -26,9 +23,9 @@
     #define debug_print_ptr(X)  printf("%s:\t%d:\t%s():\t%s:\t%p\n",  __FILE__, __LINE__, __func__, #X, (void *)(X))
     #define debug_print_u8_array(X)  printf("%s:\t%d:\t%s():\t%s:\t%02x%02x%02x%02x\n",  __FILE__, __LINE__, __func__, #X, ((unsigned char *)X)[0], ((unsigned char *)X)[1], ((unsigned char *)X)[2], ((unsigned char *)X)[3])
 #else
-    #define debug_print_int(X)  
-    #define debug_print_uint(X) 
-    #define debug_print_ptr(X)  
+    #define debug_print_int(X)
+    #define debug_print_uint(X)
+    #define debug_print_ptr(X)
     #define debug_print_u8_array(X)
 #endif
 
@@ -65,21 +62,6 @@ struct mercury_config {
 };
 
 #define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0  }
-
-enum create_subdir_mode {
-    create_subdir_mode_do_not_overwrite = 0,
-    create_subdir_mode_overwrite = 1    
-};
-
-void create_subdirectory(const char *outdir, enum create_subdir_mode mode);
-
-enum status filename_append(char dst[MAX_FILENAME],
-			    const char *src,
-			    const char *delim,
-			    const char *tail);
-
-void get_clocktime_before (struct timespec *before);
-uint64_t get_clocktime_after (struct timespec *before, struct timespec *after);
 
 
 #endif /* MERCURY_H */

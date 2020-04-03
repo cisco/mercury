@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <locale.h>
 #include "addr.h"
 
 #if defined(__cplusplus)

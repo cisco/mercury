@@ -55,4 +55,9 @@ void packet_fprintf(FILE *f, uint8_t *packet, size_t length, unsigned int sec, u
 
 void packet_fprintf_flow_key(FILE *f, uint8_t *packet, size_t length);
 
+int append_packet_flow_key(char *dstr, int *doff, int dlen, int *trunc,
+                           uint8_t *packet, size_t length);
+
+uint64_t flowhash(const struct flow_key &k, uint32_t time_in_sec);
+
 #endif /* PACKET_H */

@@ -9,10 +9,12 @@ import os
 import sys
 import json
 import functools
+from collections import OrderedDict
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from pmercury.protocols.protocol import Protocol
+from pmercury.utils.pmercury_utils import *
 
 MAX_CACHED_RESULTS = 2**24
 
@@ -26,6 +28,7 @@ cdef class TCP:
 
 
     def load_database(self, fp_database):
+        fp_database = find_resource_path(fp_database)
         if fp_database == None:
             return
 
@@ -35,13 +38,24 @@ cdef class TCP:
             import gzip
             for line in gzip.open(fp_database, 'r'):
                 fp_ = json.loads(line)
-                fp_['str_repr'] = fp_['str_repr'].encode()
+                fp_['os_info'] = self.clean_os_entry(fp_['os_info'])
                 self.fp_db[fp_['str_repr']] = fp_
         ELSE:
             for line in os.popen('zcat %s' % (fp_database)):
                 fp_ = json.loads(line)
-                fp_['str_repr'] = fp_['str_repr'].encode()
+                fp_['os_info'] = self.clean_os_entry(fp_['os_info'])
                 self.fp_db[fp_['str_repr']] = fp_
+
+
+    def clean_os_entry(self, os_info):
+        tmp_os = []
+        for k in os_info:
+            tmp_os.append((os_info[k],k))
+        tmp_os.sort(reverse=True)
+        os_info = OrderedDict({})
+        for c,k in tmp_os:
+            os_info[k] = c
+        return os_info
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
@@ -53,7 +67,7 @@ cdef class TCP:
         r_ = []
         os_info = fp_['os_info']
         fp_tc   = fp_['total_count']
-        for k in os_info.keys():
+        for k in os_info:
             r_.append({'os': k, 'score': os_info[k]})
 
         out_ = {'os':r_[0]['os'], 'score':r_[0]['score']}
@@ -106,6 +120,6 @@ cdef class TCP:
         return None
 
 
-    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=5):
+    def proc_identify(self, fp_str_, context_, dst_ip, dst_port, list_procs=0, endpoint=None, approx=True, debug=None):
         return None
 

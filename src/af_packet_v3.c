@@ -35,6 +35,72 @@
 #include "signal_handling.h"
 #include "utils.h"
 #include "rnd_pkt_drop.h"
+#include "output.h"
+#include "pkt_proc.h"
+
+/*
+ * The thread_storage, stats_tracking, and ring_limits structs are
+ * local to this file.
+ */
+
+/* The struct that describes the limits on allocating ring memory */
+struct ring_limits {
+  uint64_t af_desired_memory;
+  uint32_t af_ring_limit;
+  uint32_t af_framesize;
+  uint32_t af_blocksize;
+  uint32_t af_min_blocksize;
+  uint32_t af_target_blocks;
+  uint32_t af_min_blocks;
+  uint32_t af_blocktimeout;
+  int af_fanout_type;
+};
+
+
+/*
+ * Our stats tracking function will get a pointer to a struct
+ * that has the info it needs to track stats for each thread
+ * and a place to store those stats
+ */
+struct stats_tracking {
+  struct thread_storage *tstor;
+  int num_threads;
+  uint64_t received_packets;
+  uint64_t received_bytes;
+  uint64_t socket_packets;
+  uint64_t socket_drops;
+  uint64_t socket_freezes;
+  int *t_start_p;             /* The clean start predicate */
+  pthread_cond_t *t_start_c;  /* The clean start condition */
+  pthread_mutex_t *t_start_m; /* The clean start mutex */
+  int verbosity;
+};
+
+/*
+ * struct thread_storage stores information about each thread
+ * including its thread id and socket file handle
+ */
+struct thread_storage {
+  struct pkt_proc *pkt_processor;
+  int tnum;                 /* Thread Number */
+  pthread_t tid;            /* Thread ID */
+  pthread_attr_t thread_attributes;
+  int sockfd;               /* Socket owned by this thread */
+  const char *if_name;      /* The name of the interface to bind the socket to */
+  uint8_t *mapped_buffer;   /* The pointer to the mmap()'d region */
+  struct tpacket_block_desc **block_header; /* The pointer to each block in the mmap()'d region */
+  struct tpacket_req3 ring_params; /* The ring allocation params to setsockopt() */
+  struct stats_tracking *statst;   /* A pointer to the struct with the stats counters */
+  double *block_streak_hist;  /* The block streak histogram */
+  pthread_mutex_t bstreak_m;  /* The block streak mutex */
+  int *t_start_p;             /* The clean start predicate */
+  pthread_cond_t *t_start_c;  /* The clean start condition */
+  pthread_mutex_t *t_start_m; /* The clean start mutex */
+};
+
+
+
+void ring_limits_init(struct ring_limits *rl, float frac);  // defined below
 
 /*
  * == Signal handling ==
@@ -46,14 +112,14 @@
  * sig_close_flag and the packet worker threads will watch
  * sig_close_workers.
  */
-extern int sig_close_flag; /* Watched by the stats tracking thread, defined in mercury.c */
+extern int sig_close_flag; /* Watched by the stats tracking thread, defined in signal_handling.c */
 static int sig_close_workers = 0; /* Packet proccessing var */
 
 static double time_elapsed(struct timespec *ts) {
 
     double time_s;
     time_s = ts->tv_sec + (ts->tv_nsec / 1000000000.0);
-    
+
     if (clock_gettime(CLOCK_REALTIME, ts) != 0) {
 	perror("Unable to get clock time for elapsed calculation");
 	return NAN;
@@ -91,18 +157,24 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
 
   pkt_hdr = (struct tpacket3_hdr *) ((uint8_t *) block_hdr + block_hdr->hdr.bh1.offset_to_first_pkt);
   for (i = 0; i < num_pkts; ++i) {
-    byte_count += pkt_hdr->tp_snaplen;
+
+      /* The tp_snaplen value is the actual number of bytes of this packet
+       * that made it into the ringbuffer block.
+       * tp_len is the skb length which in special circumstances
+       * could be more (because of extra headers from the ethernet card, truncation, etc.)
+       */
+      byte_count += pkt_hdr->tp_snaplen;
 
     /* Grab the times */
     pi.ts.tv_sec = pkt_hdr->tp_sec;
     pi.ts.tv_nsec = pkt_hdr->tp_nsec;
 
     pi.caplen = pkt_hdr->tp_snaplen;
-    pi.len = pkt_hdr->tp_snaplen; // Is this right??
+    pi.len = pkt_hdr->tp_snaplen;
 
     uint8_t *eth = (uint8_t *)pkt_hdr + pkt_hdr->tp_mac;
     pkt_processor->apply(&pi, eth);
-    
+
     pkt_hdr = (struct tpacket3_hdr *) ((uint8_t *)pkt_hdr + pkt_hdr->tp_next_offset);
   }
 
@@ -196,7 +268,7 @@ void *stats_thread_func(void *statst_arg) {
     /* Now go grab the socket and streak statistics */
     double tot_rusage = 0;   /* Sum of all threads rusage */
     double worst_rusage = 0; /* Worst average rbuffer usage */
-    double worst_i_rusage = 0; /* Worst instantanious rbuffer usage */
+    double worst_i_rusage = 0; /* Worst instantaneous rbuffer usage */
     for (int thread = 0; thread < statst->num_threads; thread++) {
       af_packet_stats(statst->tstor[thread].sockfd, statst);
 
@@ -298,18 +370,20 @@ void *stats_thread_func(void *statst_arg) {
       r_ebips_s = &(space[0]);
     }
 
-    fprintf(stderr,
-	    "Stats: "
-	    "%7.03f%s Packets/s; Data Rate %7.03f%s bytes/s; "
-	    "Ethernet Rate (est.) %7.03f%s bits/s; "
-	    "Socket Packets %7.03f%s; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
-	    "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantanious rbuf %4.1f%%\n",
-	    r_pps, r_pps_s, r_byps, r_byps_s,
-	    r_ebips, r_ebips_s,
-	    r_spps, r_spps_s, sdps, sfps,
-	    (tot_rusage / (statst->num_threads)) * 100.0, worst_rusage * 100.0,
-	    worst_i_rusage * 100.0);
- 
+    if (statst->verbosity) {
+        fprintf(stderr,
+                "Stats: "
+                "%7.03f%s Packets/s; Data Rate %7.03f%s bytes/s; "
+                "Ethernet Rate (est.) %7.03f%s bits/s; "
+                "Socket Packets %7.03f%s; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
+                "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantaneous rbuf %4.1f%%\n",
+                r_pps, r_pps_s, r_byps, r_byps_s,
+                r_ebips, r_ebips_s,
+                r_spps, r_spps_s, sdps, sfps,
+                (tot_rusage / (statst->num_threads)) * 100.0, worst_rusage * 100.0,
+                worst_i_rusage * 100.0);
+    }
+
     duration++;
     if (get_percent_accept() > 0) {
         /* check socket drops and update accept percentage only when percent accept > 0 */
@@ -494,9 +568,8 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
   struct stats_tracking *statst = thread_stor->statst;
   double *block_streak_hist = thread_stor->block_streak_hist;
   pthread_mutex_t *bstreak_m = &(thread_stor->bstreak_m);
-  //packet_callback_t p_callback = thread_stor->p_callback;
   struct pkt_proc *pkt_processor = thread_stor->pkt_processor;
-  
+
   /* We got the clean start all clear so we can get started but
    * while we were waiting our socket was filling up with packets
    * and drops were accumulating so we need to return everything to
@@ -695,12 +768,15 @@ void *packet_capture_thread_func(void *arg)  {
   return NULL;
 }
 
+enum status bind_and_dispatch(struct mercury_config *cfg,
+			      struct output_file *out_ctx) {
+  /* initialize the ring limits from the configuration */
+  struct ring_limits rl;
+  ring_limits_init(&rl, cfg->buffer_fraction);
 
-int af_packet_bind_and_dispatch(struct mercury_config *cfg,
-				const struct ring_limits *rlp) {
   int err;
   int num_threads = cfg->num_threads;
-  int fanout_arg = ((getpid() & 0xffff) | (rlp->af_fanout_type << 16));
+  int fanout_arg = ((getpid() & 0xffff) | (rl.af_fanout_type << 16));
 
   /* We need all our threads to get a clean start at the same time or
    * else some threads will start working before other threads are ready
@@ -719,6 +795,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   statst.t_start_p = &t_start_p;
   statst.t_start_c = &t_start_c;
   statst.t_start_m = &t_start_m;
+  statst.verbosity = cfg->verbosity;
 
   struct thread_storage *tstor;  // Holds the array of struct thread_storage, one for each thread
   tstor = (struct thread_storage *)malloc(num_threads * sizeof(struct thread_storage));
@@ -730,46 +807,46 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   /* Now that we know how many threads we will have, we need
    * to figure out what our ring parameters will be */
   uint32_t thread_ring_size;
-  if (rlp->af_desired_memory / num_threads > rlp->af_ring_limit) {
-    thread_ring_size = rlp->af_ring_limit;
-    fprintf(stderr, "Notice: desired memory exceedes %x memory for %d threads\n", rlp->af_ring_limit, num_threads);
+  if (rl.af_desired_memory / num_threads > rl.af_ring_limit) {
+    thread_ring_size = rl.af_ring_limit;
+    fprintf(stderr, "Notice: desired memory exceeds %x memory for %d threads\n", rl.af_ring_limit, num_threads);
   } else {
-    thread_ring_size = rlp->af_desired_memory / num_threads;
+    thread_ring_size = rl.af_desired_memory / num_threads;
   }
 
   /* If the number of blocks is fewer than our target
    * decrease the block size to increase the block count
    */
-  uint32_t thread_ring_blocksize = rlp->af_blocksize;
-  while (((thread_ring_blocksize >> 1) >= rlp->af_min_blocksize) &&
-	 (thread_ring_size / thread_ring_blocksize < rlp->af_target_blocks)) {
+  uint32_t thread_ring_blocksize = rl.af_blocksize;
+  while (((thread_ring_blocksize >> 1) >= rl.af_min_blocksize) &&
+	 (thread_ring_size / thread_ring_blocksize < rl.af_target_blocks)) {
     thread_ring_blocksize >>= 1; /* Halve the blocksize */
   }
   uint32_t thread_ring_blockcount = thread_ring_size / thread_ring_blocksize;
-  if (thread_ring_blockcount < rlp->af_min_blocks) {
-    fprintf(stderr, "Error: only able to allocate %u blocks per thread (minimum %u)\n", thread_ring_blockcount, rlp->af_min_blocks);
+  if (thread_ring_blockcount < rl.af_min_blocks) {
+    fprintf(stderr, "Error: only able to allocate %u blocks per thread (minimum %u)\n", thread_ring_blockcount, rl.af_min_blocks);
     exit(255);
   }
 
   /* blocks must be a multiple of the framesize */
-  if (thread_ring_blocksize % rlp->af_framesize != 0) {
-    fprintf(stderr, "Error: computed thread blocksize (%u) is not a multiple of the framesize (%u)\n", thread_ring_blocksize, rlp->af_framesize);
+  if (thread_ring_blocksize % rl.af_framesize != 0) {
+    fprintf(stderr, "Error: computed thread blocksize (%u) is not a multiple of the framesize (%u)\n", thread_ring_blocksize, rl.af_framesize);
     exit(255);
   }
 
-  if ((uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize < rlp->af_desired_memory) {
+  if ((uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize < rl.af_desired_memory) {
     fprintf(stderr, "Notice: requested memory %" PRIu64 " will be less than desired memory %" PRIu64 "\n",
-	    (uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize, rlp->af_desired_memory);
+	    (uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize, rl.af_desired_memory);
   }
 
   /* Fill out the ring request struct */
   struct tpacket_req3 thread_ring_req;
   memset(&thread_ring_req, 0, sizeof(thread_ring_req));
   thread_ring_req.tp_block_size = thread_ring_blocksize;
-  thread_ring_req.tp_frame_size = rlp->af_framesize;
+  thread_ring_req.tp_frame_size = rl.af_framesize;
   thread_ring_req.tp_block_nr = thread_ring_blockcount;
-  thread_ring_req.tp_frame_nr = (thread_ring_blocksize * thread_ring_blockcount) / rlp->af_framesize;
-  thread_ring_req.tp_retire_blk_tov = rlp->af_blocktimeout;
+  thread_ring_req.tp_frame_nr = (thread_ring_blocksize * thread_ring_blockcount) / rl.af_framesize;
+  thread_ring_req.tp_retire_blk_tov = rl.af_blocktimeout;
   thread_ring_req.tp_feature_req_word = TP_FT_REQ_FILL_RXHASH;
   
   /* Get all the thread storage ready and allocate the sockets */
@@ -832,37 +909,17 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
     return status_err;
   }
   if (cfg->user) {
-      printf("running as user %s\n", cfg->user);
+      fprintf(stderr, "running as user %s\n", cfg->user);
   } else {
-      printf("dropped root privileges\n");
-  }
-
-  if (num_threads > 1) {
-      
-      /*
-       * create subdirectory into which each thread will write its output
-       */
-      char *outdir = cfg->fingerprint_filename ? cfg->fingerprint_filename : cfg->write_filename;
-      enum create_subdir_mode mode = cfg->rotate ? create_subdir_mode_overwrite : create_subdir_mode_do_not_overwrite;
-      create_subdirectory(outdir, mode);
+      fprintf(stderr, "dropped root privileges\n");
   }
 
   /*
-   * initialze frame handlers 
+   * initialze frame handlers
    */
   for (int thread = 0; thread < num_threads; thread++) {
-      char *fileset_id = NULL;
-      char hexname[MAX_HEX];
-      
-      if (num_threads > 1) {
-	  /*
-	   * use thread number as a fileset file identifier (filename = short hex number)
-	   */
-	  snprintf(hexname, MAX_HEX, "%x", thread);
-	  fileset_id = hexname;
-      }
 
-      tstor[thread].pkt_processor = pkt_proc_new_from_config(cfg, thread, fileset_id);
+      tstor[thread].pkt_processor = pkt_proc_new_from_config(cfg, thread, &out_ctx->qs.queue[thread]);
       if (tstor[thread].pkt_processor == NULL) {
           printf("error: could not initialize frame handler\n");
           return status_err;
@@ -891,11 +948,19 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
     }
   }
 
+  /* Wake up output thread so it's polling the queues waiting for data */
+  out_ctx->t_output_p = 1;
+  err = pthread_cond_broadcast(&(out_ctx->t_output_c)); /* Wake up output */
+  if (err != 0) {
+      printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
+      exit(255);
+  }
+
   /* At this point all threads are started but they're waiting on
      the clean start condition
   */
   t_start_p = 1;
-  err = pthread_cond_broadcast(&(t_start_c)); // Wake up all the waiting threads
+  err = pthread_cond_broadcast(&t_start_c); // Wake up all the waiting threads
   if (err != 0) {
     printf("%s: error broadcasting all clear on clean start condition\n", strerror(err));
     exit(255);
@@ -930,7 +995,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
 	  "%" PRIu64 " socket queue freezes\n",
 	  statst.received_packets, statst.received_bytes, statst.socket_packets, statst.socket_drops, statst.socket_freezes);
 
-  return 0;
+  return status_ok;
 }
 
 #define RING_LIMITS_DEFAULT_FRAC 0.01
@@ -940,11 +1005,18 @@ void ring_limits_init(struct ring_limits *rl, float frac) {
     if (frac < 0.0 || frac > 1.0 ) { /* sanity check */
 	frac = RING_LIMITS_DEFAULT_FRAC;
     }
-    
+
     /* This is the only parameter you should need to change */
     rl->af_desired_memory = (uint64_t) sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;
     //rl->af_desired_memory = 128 * (uint64_t)(1 << 30);  /* 8 GiB */
-    printf("mem: %" PRIu64 "\tfrac: %f\n", rl->af_desired_memory, frac); 
+    fprintf(stderr, "mem: %" PRIu64 "\tfrac: %f\n", rl->af_desired_memory, frac);
+
+    /* Note that with TPACKET_V3 the tp_frame_size value is effectively
+     * ignored because packets are packed together tightly
+     * to fill up a block.  There are still some restrictions
+     * but for the most part changing it won't have any effect
+     * and setting it small won't actually truncate any frames.
+     */
 
     /* Don't change any of the following parameters without good reason */
     rl->af_ring_limit     = 0xffffffff;      /* setsockopt() can't allocate more than this so don't even try */

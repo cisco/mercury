@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include "analysis.h"
 #include "ept.h"
+#include "utils.h"
 
 #include <pthread.h>
 #include <iostream>
@@ -182,6 +183,8 @@ void flow_key_sprintf_dst_addr(const struct flow_key *key,
                  MAX_DST_ADDR_LEN,
                  "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
                  d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+    } else {
+        dst_addr_str[0] = '\0'; // make sure that string is null-terminated
     }
 }
 
@@ -255,60 +258,66 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
     bool max_mal = false;
     bool sec_mal = false;
 
-    long double base_prior = -27.63102;
-    long double prior      = -13.81551;
-
     rapidjson::Value proc;
     fp_tc = fp["total_count"].GetInt();
+
+    long double base_prior;
+    long double proc_prior = log(.1);
+    rapidjson::Value::ConstMemberIterator itr;
 
     const rapidjson::Value& procs = fp["process_info"];
     for (rapidjson::SizeType i = 0; i < procs.Size(); i++) {
         p_count = procs[i]["count"].GetInt();
         prob_process_given_fp = (long double)p_count/fp_tc;
 
+        base_prior = log(1.0/fp_tc);
+        itr = procs[i].FindMember("domain_mean");
+        if ((itr != procs[i].MemberEnd()) && (procs[i]["domain_mean"].GetFloat() < 0.5)) {
+            base_prior = log(.1/fp_tc);
+        }
 
         score = log(prob_process_given_fp);
-        score = fmax(score, base_prior);
+        score = fmax(score, proc_prior);
 
-        rapidjson::Value::ConstMemberIterator itr = procs[i]["classes_ip_as"].FindMember(asn.c_str());
+        itr = procs[i]["classes_ip_as"].FindMember(asn.c_str());
         if (itr != procs[i]["classes_ip_as"].MemberEnd()) {
             tmp_value = procs[i]["classes_ip_as"][asn.c_str()].GetInt();
-            score += fmax(log((long double)tmp_value/p_count), prior);
+            score += log((long double)tmp_value/fp_tc)*0.13924;
         } else {
-            score += base_prior;
+            score += base_prior*0.13924;
         }
 
         itr = procs[i]["classes_hostname_domains"].FindMember(domain.c_str());
         if (itr != procs[i]["classes_hostname_domains"].MemberEnd()) {
             tmp_value = procs[i]["classes_hostname_domains"][domain.c_str()].GetInt();
-            score += fmax(log((long double)tmp_value/p_count), prior);
+            score += log((long double)tmp_value/fp_tc)*0.15590;
         } else {
-            score += base_prior;
+            score += base_prior*0.15590;
         }
 
         itr = procs[i]["classes_port_applications"].FindMember(port_app.c_str());
         if (itr != procs[i]["classes_port_applications"].MemberEnd()) {
             tmp_value = procs[i]["classes_port_applications"][port_app.c_str()].GetInt();
-            score += fmax(log((long double)tmp_value/p_count), prior);
+            score += log((long double)tmp_value/fp_tc)*0.00528;
         } else {
-            score += base_prior;
+            score += base_prior*0.00528;
         }
 
         if (EXTENDED_FP_METADATA) {
             itr = procs[i]["classes_ip_ip"].FindMember(dst_ip_str.c_str());
             if (itr != procs[i]["classes_ip_ip"].MemberEnd()) {
                 tmp_value = procs[i]["classes_ip_ip"][dst_ip_str.c_str()].GetInt();
-                score += fmax(log((long double)tmp_value/p_count), prior);
+                score += log((long double)tmp_value/fp_tc)*0.56735;
             } else {
-                score += base_prior;
+                score += base_prior*0.56735;
             }
 
             itr = procs[i]["classes_hostname_sni"].FindMember(server_name_str.c_str());
             if (itr != procs[i]["classes_hostname_sni"].MemberEnd()) {
                 tmp_value = procs[i]["classes_hostname_sni"][server_name_str.c_str()].GetInt();
-                score += fmax(log((long double)tmp_value/p_count), prior);
+                score += log((long double)tmp_value/fp_tc)*0.96941;
             } else {
-                score += base_prior;
+                score += base_prior*0.96941;
             }
         }
 
@@ -429,4 +438,53 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
         }
         */
     }
+}
+
+
+int append_analysis_from_extractor_and_flow_key(char *dstr, int *doff, int dlen, int *trunc,
+                                                const struct extractor *x,
+                                                const struct flow_key *key) {
+    char* results;
+
+    if (analysis_cfg == analysis_off) {
+        return 0; // do not perform any analysis
+    }
+
+    int r = 0;
+
+    if (x->fingerprint_type == fingerprint_type_tls) {
+        int ret_value;
+        char dst_ip[MAX_DST_ADDR_LEN];
+        unsigned char fp_str[MAX_FP_STR_LEN];
+        char server_name[MAX_SNI_LEN];
+        uint16_t dst_port = flow_key_get_dst_port(key);
+
+        uint8_t *extractor_buffer = x->output_start;
+        size_t bytes_extracted = extractor_get_output_length(x);
+        sprintf_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted, fp_str, MAX_FP_STR_LEN); // should check return result
+        flow_key_sprintf_dst_addr(key, dst_ip);
+        if (x->packet_data.type == packet_data_type_tls_sni) {
+            size_t sni_len = x->packet_data.length - SNI_HEADER_LEN;
+            sni_len = sni_len > MAX_SNI_LEN-1 ? MAX_SNI_LEN-1 : sni_len;
+            memcpy(server_name, x->packet_data.value + SNI_HEADER_LEN, sni_len);
+            server_name[sni_len] = 0; // null termination
+        }
+
+        ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
+        if (ret_value == -1) {
+            return r;
+        }
+        //fprintf(file, "%s,", results);
+
+        r += append_strncpy(dstr, doff, dlen, trunc,
+                            results);
+        r += append_putc(dstr, doff, dlen, trunc,
+                          ',');
+
+        free(results);
+
+
+    }
+
+    return r;
 }

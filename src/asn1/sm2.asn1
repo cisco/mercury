@@ -1,0 +1,56 @@
+-- GM SSL - retrived from http://gmssl.org/docs/oid.html on March 9, 2020
+--
+-- The standard GM/T 0006-2012 Cryptographic Application Identifier
+-- Criterion Specification defines a collection of OIDs, listed in the
+-- following table. While this collect lacks many OIDs required by
+-- typical applications, such as the combination of block cipher with
+-- operation modes. The GmSSL follows the GM/T 0006 specification and
+-- add more OIDs if required. 
+
+ISO                                   OBJECT IDENTIFIER ::= { 1 2	                }
+China                                 OBJECT IDENTIFIER ::= { 1 2 156	            }
+OSCCA                                 OBJECT IDENTIFIER ::= { 1 2 156 197	        }
+GM_Standard_Committee                 OBJECT IDENTIFIER ::= { 1 2 156 10197	        }
+Cryptographic_Algorithm               OBJECT IDENTIFIER ::= { 1 2 156 10197 1	    }
+Block_Cipher                          OBJECT IDENTIFIER ::= { 1 2 156 10197 1 100	}
+SM1_Block_Cipher                      OBJECT IDENTIFIER ::= { 1 2 156 10197 1 102	}
+SSF33_Block_Cipher                    OBJECT IDENTIFIER ::= { 1 2 156 10197 1 103	}
+SM4_Block_Cipher                      OBJECT IDENTIFIER ::= { 1 2 156 10197 1 104	}
+Stream_Cipher                         OBJECT IDENTIFIER ::= { 1 2 156 10197 1 200	}
+ZUC_Stream_Cipher                     OBJECT IDENTIFIER ::= { 1 2 156 10197 1 201	}
+Public_Key_Cryptography               OBJECT IDENTIFIER ::= { 1 2 156 10197 1 300	}
+SM2_Elliptic_Curve_Cryptography       OBJECT IDENTIFIER ::= { 1 2 156 10197 1 301	}
+SM2-1_Digital_Siganture_Algorithm     OBJECT IDENTIFIER ::= { 1 2 156 10197 1 301 1	}
+SM2-2_Key_Exchange_Protocol           OBJECT IDENTIFIER ::= { 1 2 156 10197 1 301 2 }
+SM2-3_Public_Key_Encryption           OBJECT IDENTIFIER ::= { 1 2 156 10197 1 301 3	}
+SM9_Identity-Based_Cryptography       OBJECT IDENTIFIER ::= { 1 2 156 10197 1 302	}
+SM9-1_Digital_Signature_Algorithm     OBJECT IDENTIFIER ::= { 1 2 156 10197 1 302 1	}
+SM9-2_Key_Exchange_Protocol           OBJECT IDENTIFIER ::= { 1 2 156 10197 1 302 2	}
+SM9-3_Public_Key_Encryptio            OBJECT IDENTIFIER ::= { 1 2 156 10197 1 302 3	}
+Hash_Algorithm                        OBJECT IDENTIFIER ::= { 1 2 156 10197 1 400   }
+SM3_Hash_Algorithm                    OBJECT IDENTIFIER ::= { 1 2 156 10197 1 401   }
+SM3_Hash_Without_Key                  OBJECT IDENTIFIER ::= { 1 2 156 10197 1 401 1	}
+SM3_Hash_With_Key                     OBJECT IDENTIFIER ::= { 1 2 156 10197 1 401 2	}
+Digest_Signing                        OBJECT IDENTIFIER ::= { 1 2 156 10197 1 500	}
+SM2_Signing_with_SM3                  OBJECT IDENTIFIER ::= { 1 2 156 10197 1 501	}
+RSA_Signing_with_SM3                  OBJECT IDENTIFIER ::= { 1 2 156 10197 1 504	}
+Certificate_Authority                 OBJECT IDENTIFIER ::= { 1 2 156 10197 4 3	    }
+Standard_Class                        OBJECT IDENTIFIER ::= { 1 2 156 10197 6	    }
+Fundatation_Class                     OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1	    }
+Algorithm_Class                       OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 1	}
+ZUC_Standard                          OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 1 1	}
+SM4_Standard                          OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 1 2	}
+SM2_Standard                          OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 1 3	}
+SM3_Standard                          OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 1 4	}
+ID_Class                              OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 2	}
+Crypto_ID                             OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 2 1	}
+Operation_Modes                       OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 3	}
+Security_Mechanism                    OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 4	}
+SM2_Specificate                       OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 4 1	}
+SM2_Cryptographic_Message_Syntax      OBJECT IDENTIFIER ::= { 1 2 156 10197 6 1 4 2	}
+Device_Class                          OBJECT IDENTIFIER ::= { 1 2 156 10197 6 2	    }
+Service_Class                         OBJECT IDENTIFIER ::= { 1 2 156 10197 6 3	    }
+Infrastructure                        OBJECT IDENTIFIER ::= { 1 2 156 10197 6 4	    }
+Testing_Class                         OBJECT IDENTIFIER ::= { 1 2 156 10197 6 5	    }
+Random_Testing_Class                  OBJECT IDENTIFIER ::= { 1 2 156 10197 6 5 1	}
+Management_Class                      OBJECT IDENTIFIER ::= { 1 2 156 10197 6 6	    }

@@ -1,0 +1,200 @@
+-- Internet Engineering Task Force (IETF)                         S. Turner
+-- Request for Comments: 5754                                          IECA
+-- Updates: 3370                                               January 2010
+-- Category: Standards Track
+--
+--      Using SHA2 Algorithms with Cryptographic Message Syntax
+--
+-- This document describes the conventions for using the Secure Hash
+-- Algorithm (SHA) message digest algorithms (SHA-224, SHA-256, SHA-384,
+-- SHA-512) with the Cryptographic Message Syntax (CMS).  It also
+-- describes the conventions for using these algorithms with the CMS and
+-- the Digital Signature Algorithm (DSA), Rivest Shamir Adleman (RSA),
+-- and Elliptic Curve DSA (ECDSA) signature algorithms.  Further, it
+-- provides SMIMECapabilities attribute values for each algorithm.
+
+
+--   In the CMS, the various algorithm identifiers use the
+--   AlgorithmIdentifier syntax, which is included here for convenience:
+--
+--     AlgorithmIdentifier  ::=  SEQUENCE  {
+--        algorithm   OBJECT IDENTIFIER,
+--        parameters  ANY DEFINED BY algorithm OPTIONAL  }
+--
+--   This document also specifies the SMIMECapabilities attribute values
+--   [RFC5751] for each algorithm.  The values provided are for the
+--   SMIMECapability field, which is included here for convenience:
+--
+--      SMIMECapability ::= SEQUENCE {
+--        capabilityID  OBJECT IDENTIFIER,
+--        parameters    ANY DEFINED BY capabilityID OPTIONAL }
+--
+--
+--   The AlgorithmIdentifier parameters field is OPTIONAL.
+--   Implementations MUST accept SHA2 AlgorithmIdentifiers with absent
+--   parameters.  Implementations MUST accept SHA2 AlgorithmIdentifiers
+--   with NULL parameters.  Implementations MUST generate SHA2
+--   AlgorithmIdentifiers with absent parameters.
+--
+--   NOTE: There are two possible encodings for the AlgorithmIdentifier
+--   parameters field associated with these object identifiers.  The two
+--   alternatives arise from the loss of the OPTIONAL associated with the
+--   algorithm identifier parameters when the 1988 syntax for
+--   AlgorithmIdentifier was translated into the 1997 syntax.  Later, the
+--   OPTIONAL was recovered via a defect report, but by then many people
+--   thought that algorithm parameters were mandatory.  Because of this
+--   history, some implementations encode parameters as a NULL element
+--   while others omit them entirely.  The correct encoding is to omit the
+--   parameters field; however, when some uses of these algorithms were
+--   defined, it was done using the NULL parameters rather than absent
+--   parameters.  For example, PKCS#1 [RFC3447] requires that the padding
+--   used for RSA signatures (EMSA-PKCS1-v1_5) MUST use SHA2
+--   AlgorithmIdentifiers with NULL parameters (to clarify, the
+--   requirement "MUST generate SHA2 AlgorithmIdentifiers with absent
+--   parameters" in the previous paragraph does not apply to this
+--   padding).
+
+     id-sha224 OBJECT IDENTIFIER ::= {
+       joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+       csor(3) nistalgorithm(4) hashalgs(2) 4 }
+
+--   The SMIMECapabilities attribute value indicates support for SHA-224
+--   in a SEQUENCE with the capabilityID field containing the object
+--   identifier id-sha224 with absent parameters.  The DER encoding for
+--   this SMIMECapability is:
+--
+--      id-sha224: 30 0b 06 09 60 86 48 01 65 03 04 02 04
+
+     id-sha256 OBJECT IDENTIFIER ::= {
+        joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+        csor(3) nistalgorithm(4) hashalgs(2) 1 }
+
+--   The SMIMECapabilities attribute value indicates support for SHA-256
+--   in a SEQUENCE with the capabilityID field containing the object
+--   identifier id-sha256 with absent parameters.  The DER encoding for
+--   this SMIMECapability value is:
+--
+--      id-sha256: 30 0b 06 09 60 86 48 01 65 03 04 02 01
+
+     id-sha384 OBJECT IDENTIFIER ::= {
+        joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+        csor(3) nistalgorithm(4) hashalgs(2) 2 }
+
+--   The SMIMECapabilities attribute value indicates support for SHA-384
+--   in a SEQUENCE with the capabilityID field containing the object
+--   identifier id-sha384 with absent parameters.  The DER encoding for
+--   this SMIMECapability value is:
+--
+--      id-sha384: 30 0b 06 09 60 86 48 01 65 03 04 02 02
+
+      id-sha512 OBJECT IDENTIFIER ::= {
+        joint-iso-itu-t(2) country(16) us(840) organization(1) gov(101)
+        csor(3) nistalgorithm(4) hashalgs(2) 3 }
+
+--   The SMIMECapabilities attribute value indicates support for SHA-384
+--   in a SEQUENCE with the capabilityID field containing the object
+--   identifier id-sha384 with absent parameters.  The DER encoding for
+--   this SMIMECapability value is:
+--
+--      id-sha512: 30 0b 06 09 60 86 48 01 65 03 04 02 03
+
+-- DSA Algorithms
+
+      id-dsa-with-sha224 OBJECT IDENTIFIER ::=  {
+        joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+        csor(3) algorithms(4) id-dsa-with-sha2(3) 1 }
+
+      id-dsa-with-sha256 OBJECT IDENTIFIER ::=  {
+        joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+        csor(3) algorithms(4) id-dsa-with-sha2(3) 2 }
+
+--   When either of these algorithm identifiers is used, the
+--   AlgorithmIdentifier parameters field MUST be absent.
+
+--   The SMIMECapabilities attribute value indicates support for one of
+--   the DSA signature algorithms in a SEQUENCE with the capabilityID
+--   field containing the object identifier id-dsa-with-sha* (where * is
+--   224 or 256) with absent parameters.  The DER encodings for these
+--   SMIMECapability values are:
+--
+--      id-dsa-with-sha224: 30 0b 06 09 60 86 48 01 65 03 04 03 01
+--
+--      id-dsa-with-sha256: 30 0b 06 09 60 86 48 01 65 03 04 03 02
+
+
+--  RSA Algorithms
+
+      sha224WithRSAEncryption OBJECT IDENTIFIER ::= { iso(1)
+        member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1) 14 }
+
+      sha256WithRSAEncryption  OBJECT IDENTIFIER  ::=  { iso(1)
+        member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1) 11 }
+
+      sha384WithRSAEncryption  OBJECT IDENTIFIER  ::=  { iso(1)
+        member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1) 12 }
+
+      sha512WithRSAEncryption  OBJECT IDENTIFIER  ::=  { iso(1)
+        member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1) 13 }
+
+--   When any of these four object identifiers appears within an
+--   AlgorithmIdentifier, the parameters MUST be NULL.  Implementations
+--   MUST accept the parameters being absent as well as present.
+
+--   The SMIMECapabilities attribute value indicates support for one of
+--   the DSA signature algorithms in a SEQUENCE with the capabilityID
+--   field containing the object identifier sha*WithRSAEncryption (where *
+--   is 224, 256, 384, or 512) with NULL parameters.  The DER encodings
+--   for these SMIMECapability values are:
+--
+--      sha224WithRSAEncryption: 30 0d 06 09 2a 86 48 86 f7 0d 01 01 0e
+--                               05 00
+--
+--      sha256WithRSAEncryption: 30 0d 06 09 2a 86 48 86 f7 0d 01 01 0b
+--                               05 00
+--
+--      sha384WithRSAEncryption: 30 0d 06 09 2a 86 48 86 f7 0d 01 01 Oc
+--                               05 00
+--
+--      sha512WithRSAEncryption: 30 0d 06 09 2a 86 48 86 f7 0d 01 01 0d
+--                               05 00
+
+-- ECDSA Algorithms
+--
+--   [RFC5753], Section 2.1, specifies the conventions for ECDSA with
+--   SHA-* (where * is 1, 224, 256, 384, or 512) public key algorithm
+--   identifiers, parameters, public keys, and signature values.  The
+--   object identifiers, which are included below for convenience, are
+--   taken from [RFC5758].
+
+      ecdsa-with-SHA224 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+        us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 1 }
+
+      ecdsa-with-SHA256 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+        us(840)ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 2 }
+
+      ecdsa-with-SHA384 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+        us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 3 }
+
+      ecdsa-with-SHA512 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+        us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 4 }
+
+--   When any of these four object identifiers appears within an
+--   AlgorithmIdentifier, the parameters field MUST be absent.  That is,
+--   the AlgorithmIdentifier SHALL be a SEQUENCE of one component: the OID
+--   ecdsa-with-SHA224, ecdsa-with-SHA256, ecdsa-with-SHA384, or ecdsa-
+--   with-SHA512.
+
+--   The SMIMECapabilities attribute value indicates support for one of
+--   the ECDSA signature algorithms in a SEQUENCE with the capabilityID
+--   field containing the object identifier ecdsa-with-SHA1* (where * is
+--   224, 256, 384, or 512) with absent parameters.  The DER encodings for
+--   these SMIMECapability values are:
+--
+--      ecdsa-with-SHA224: 30 0a 06 08 2a 86 48 ce 3d 04 03 01
+--
+--      ecdsa-with-SHA256: 30 0a 06 08 2a 86 48 ce 3d 04 03 02
+--
+--      ecdsa-with-SHA384: 30 0a 06 08 2a 86 48 ce 3d 04 03 03
+--
+--      ecdsa-with-SHA512: 30 0a 06 08 2a 86 48 ce 3d 04 03 04
+

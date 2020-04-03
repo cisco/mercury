@@ -1,0 +1,16 @@
+config.*
+Makefile
+src/Makefile
+test/Makefile
+src/*.o
+src/lctrie/.d/
+src/lctrie/*.o
+src/lctrie/*.a
+src/*.a
+src/.#*
+src/mercury
+python/pmercury/protocols/*.pyr*
+python/pmercury/protocols/.#*
+python/pmercury/utils/.#*
+*.deb
+*.rpm

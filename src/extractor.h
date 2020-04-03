@@ -295,6 +295,9 @@ unsigned int parser_process_tls_server(struct parser *p);
 
 void extract_certificates(FILE *file, const unsigned char *data, size_t data_len);
 
+int append_extract_certificates(char *dstr, int *doff, int dlen, int *trunc,
+                                const unsigned char *data, size_t data_len);
+
 enum status parser_read_and_skip_uint(struct parser *p,
                                       unsigned int num_bytes,
                                       size_t *output);

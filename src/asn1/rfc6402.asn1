@@ -1,0 +1,389 @@
+-- A.1.  1988 ASN.1 Module
+--
+--   This section contains the updated ASN.1 module for [RFC5272].  This
+--   module replaces the module in Appendix A of that document.  Although
+--   a 2008 ASN.1 module is provided, this remains the normative module as
+--   per the policy of the PKIX working group.
+
+     id-pkix OBJECT IDENTIFIER  ::= { iso(1) identified-organization(3)
+         dod(6) internet(1) security(5) mechanisms(5) pkix(7) }
+
+    id-cmc OBJECT IDENTIFIER ::= { id-pkix 7 }   -- CMC controls
+    id-cct OBJECT IDENTIFIER ::= { id-pkix 12 }  -- CMC content types
+
+    -- The following controls have the type OCTET STRING
+
+    id-cmc-identityProof OBJECT IDENTIFIER ::= { id-cmc 3 }
+    id-cmc-dataReturn OBJECT IDENTIFIER ::= { id-cmc 4 }
+    id-cmc-regInfo OBJECT IDENTIFIER ::= { id-cmc 18 }
+    id-cmc-responseInfo OBJECT IDENTIFIER ::= { id-cmc 19 }
+    id-cmc-queryPending OBJECT IDENTIFIER ::= { id-cmc 21 }
+    id-cmc-popLinkRandom OBJECT IDENTIFIER ::= { id-cmc 22 }
+    id-cmc-popLinkWitness OBJECT IDENTIFIER ::= { id-cmc 23 }
+
+    -- The following controls have the type UTF8String
+
+    id-cmc-identification OBJECT IDENTIFIER ::= { id-cmc 2 }
+
+    -- The following controls have the type INTEGER
+
+    id-cmc-transactionId OBJECT IDENTIFIER ::= { id-cmc 5 }
+
+    -- The following controls have the type OCTET STRING
+
+    id-cmc-senderNonce OBJECT IDENTIFIER ::= { id-cmc 6 }
+    id-cmc-recipientNonce OBJECT IDENTIFIER ::= { id-cmc 7 }
+
+    -- This is the content type used for a request message
+    --     in the protocol
+
+    id-cct-PKIData OBJECT IDENTIFIER ::= { id-cct 2  }
+
+--    PKIData ::= SEQUENCE {
+--        controlSequence    SEQUENCE SIZE(0..MAX) OF TaggedAttribute,
+--        reqSequence        SEQUENCE SIZE(0..MAX) OF TaggedRequest,
+--        cmsSequence        SEQUENCE SIZE(0..MAX) OF TaggedContentInfo,
+--        otherMsgSequence   SEQUENCE SIZE(0..MAX) OF OtherMsg
+--    }
+--
+--     bodyIdMax INTEGER ::= 4294967295
+--
+--     BodyPartID ::= INTEGER(0..bodyIdMax)
+--
+--    TaggedAttribute ::= SEQUENCE {
+--        bodyPartID         BodyPartID,
+--        attrType           OBJECT IDENTIFIER,
+--        attrValues         SET OF AttributeValue
+--    }
+--
+--     AttributeValue ::= ANY
+--
+--     TaggedRequest ::= CHOICE {
+--         tcr               [0] TaggedCertificationRequest,
+--         crm               [1] CertReqMsg,
+--         orm               [2] SEQUENCE {
+--             bodyPartID            BodyPartID,
+--             requestMessageType    OBJECT IDENTIFIER,
+--             requestMessageValue   ANY DEFINED BY requestMessageType
+--         }
+--     }
+--
+--     TaggedCertificationRequest ::= SEQUENCE {
+--         bodyPartID            BodyPartID,
+--         certificationRequest  CertificationRequest
+--     }
+--
+--     CertificationRequest ::= SEQUENCE {
+--       certificationRequestInfo  SEQUENCE {
+--         version                   INTEGER,
+--         subject                   Name,
+--         subjectPublicKeyInfo      SEQUENCE {
+--           algorithm                 AlgorithmIdentifier,
+--           subjectPublicKey          BIT STRING },
+--         attributes                [0] IMPLICIT SET OF Attribute },
+--       signatureAlgorithm        AlgorithmIdentifier,
+--       signature                 BIT STRING
+--     }
+--
+--    TaggedContentInfo ::= SEQUENCE {
+--        bodyPartID              BodyPartID,
+--        contentInfo             ContentInfo
+--    }
+--
+--    OtherMsg ::= SEQUENCE {
+--        bodyPartID        BodyPartID,
+--        otherMsgType      OBJECT IDENTIFIER,
+--        otherMsgValue     ANY DEFINED BY otherMsgType }
+
+    --  This defines the response message in the protocol
+    id-cct-PKIResponse OBJECT IDENTIFIER ::= { id-cct 3 }
+
+--    ResponseBody ::= PKIResponse
+--
+--    PKIResponse ::= SEQUENCE {
+--        controlSequence   SEQUENCE SIZE(0..MAX) OF TaggedAttribute,
+--        cmsSequence       SEQUENCE SIZE(0..MAX) OF TaggedContentInfo,
+--        otherMsgSequence  SEQUENCE SIZE(0..MAX) OF OtherMsg
+--
+--    }
+--
+    -- Used to return status state in a response
+
+    id-cmc-statusInfo OBJECT IDENTIFIER ::= { id-cmc 1 }
+
+--    CMCStatusInfo ::= SEQUENCE {
+--        cMCStatus       CMCStatus,
+--        bodyList        SEQUENCE SIZE (1..MAX) OF BodyPartID,
+--        statusString    UTF8String OPTIONAL,
+--        otherInfo        CHOICE {
+--          failInfo         CMCFailInfo,
+--          pendInfo         PendInfo } OPTIONAL
+--    }
+--
+--    PendInfo ::= SEQUENCE {
+--        pendToken        OCTET STRING,
+--        pendTime         GeneralizedTime
+--    }
+--
+--    CMCStatus ::= INTEGER {
+--        success         (0),
+--        failed          (2),
+--        pending         (3),
+--        noSupport       (4),
+--        confirmRequired (5),
+--        popRequired     (6),
+--        partial                (7)
+--    }
+--
+--    -- Note:
+--    -- The spelling of unsupportedExt is corrected in this version.
+--    -- In RFC 2797, it was unsuportedExt.
+--
+--    CMCFailInfo ::= INTEGER {
+--        badAlg          (0),
+--        badMessageCheck (1),
+--        badRequest      (2),
+--        badTime         (3),
+--        badCertId       (4),
+--        unsupportedExt  (5),
+--        mustArchiveKeys (6),
+--        badIdentity     (7),
+--        popRequired     (8),
+--        popFailed       (9),
+--        noKeyReuse      (10),
+--        internalCAError (11),
+--        tryLater        (12),
+--        authDataFail    (13)
+--    }
+
+    -- Used for RAs to add extensions to certification requests
+    id-cmc-addExtensions OBJECT IDENTIFIER ::= { id-cmc 8 }
+
+--    AddExtensions ::= SEQUENCE {
+--        pkiDataReference    BodyPartID,
+--        certReferences      SEQUENCE OF BodyPartID,
+--        extensions          SEQUENCE OF Extension
+--    }
+
+
+    id-cmc-encryptedPOP OBJECT IDENTIFIER ::= { id-cmc 9 }
+    id-cmc-decryptedPOP OBJECT IDENTIFIER ::= { id-cmc 10 }
+
+--    EncryptedPOP ::= SEQUENCE {
+--        request       TaggedRequest,
+--        cms             ContentInfo,
+--        thePOPAlgID     AlgorithmIdentifier,
+--        witnessAlgID    AlgorithmIdentifier,
+--        witness         OCTET STRING
+--    }
+--
+--    DecryptedPOP ::= SEQUENCE {
+--        bodyPartID      BodyPartID,
+--        thePOPAlgID     AlgorithmIdentifier,
+--        thePOP          OCTET STRING
+--    }
+--
+
+    id-cmc-lraPOPWitness OBJECT IDENTIFIER ::= { id-cmc 11 }
+
+--     LraPopWitness ::= SEQUENCE {
+--         pkiDataBodyid   BodyPartID,
+--         bodyIds         SEQUENCE OF BodyPartID
+--     }
+
+    --
+    id-cmc-getCert OBJECT IDENTIFIER ::= { id-cmc 15 }
+
+--    GetCert ::= SEQUENCE {
+--        issuerName      GeneralName,
+--        serialNumber    INTEGER }
+
+    id-cmc-getCRL OBJECT IDENTIFIER ::= { id-cmc 16 }
+
+--    GetCRL ::= SEQUENCE {
+--        issuerName    Name,
+--        cRLName       GeneralName OPTIONAL,
+--        time          GeneralizedTime OPTIONAL,
+--        reasons       ReasonFlags OPTIONAL }
+
+    id-cmc-revokeRequest OBJECT IDENTIFIER ::= { id-cmc 17 }
+
+--    RevokeRequest ::= SEQUENCE {
+--        issuerName            Name,
+--        serialNumber          INTEGER,
+--        reason                CRLReason,
+--        invalidityDate        GeneralizedTime OPTIONAL,
+--        passphrase            OCTET STRING OPTIONAL,
+--        comment               UTF8String OPTIONAL }
+
+    id-cmc-confirmCertAcceptance OBJECT IDENTIFIER ::= { id-cmc 24 }
+
+--    CMCCertId ::= IssuerAndSerialNumber
+
+    -- The following is used to request V3 extensions be added to a
+    -- certificate
+
+    id-ExtensionReq OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+         us(840) rsadsi(113549) pkcs(1) pkcs-9(9) 14 }
+
+--    ExtensionReq ::= SEQUENCE SIZE (1..MAX) OF Extension
+
+    -- The following exists to allow Diffie-Hellman Certification
+    -- Request Messages to be well-formed
+
+    id-alg-noSignature OBJECT IDENTIFIER ::= { id-pkix id-alg(6) 2 }
+
+--    NoSignatureValue ::= OCTET STRING
+
+    --  Unauthenticated attribute to carry removable data.
+    --    This could be used in an update of "CMC Extensions: Server
+    --    Side Key Generation and Key Escrow" (February 2005) and in
+    --    other documents.
+
+    id-aa OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840)
+          rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) id-aa(2) }
+    id-aa-cmc-unsignedData OBJECT IDENTIFIER ::= { id-aa 34 }
+
+--    CMCUnsignedData ::= SEQUENCE {
+--        bodyPartPath        BodyPartPath,
+--        identifier          OBJECT IDENTIFIER,
+--        content             ANY DEFINED BY identifier
+--    }
+
+    --  Replaces CMC Status Info
+    --
+
+    id-cmc-statusInfoV2 OBJECT IDENTIFIER ::= { id-cmc 25 }
+
+--    CMCStatusInfoV2 ::= SEQUENCE {
+--       cMCStatus             CMCStatus,
+--       bodyList              SEQUENCE SIZE (1..MAX) OF
+--                                      BodyPartReference,
+--       statusString          UTF8String OPTIONAL,
+--       otherInfo             CHOICE {
+--         failInfo               CMCFailInfo,
+--         pendInfo               PendInfo,
+--         extendedFailInfo       SEQUENCE {
+--            failInfoOID            OBJECT IDENTIFIER,
+--            failInfoValue          AttributeValue
+--         }
+--       } OPTIONAL
+--    }
+--
+--    BodyPartReference ::= CHOICE {
+--       bodyPartID           BodyPartID,
+--       bodyPartPath         BodyPartPath
+--    }
+--
+--    BodyPartPath ::= SEQUENCE SIZE (1..MAX) OF BodyPartID
+--
+--    --  Allow for distribution of trust anchors
+--    --
+
+    id-cmc-trustedAnchors OBJECT IDENTIFIER ::= { id-cmc 26 }
+
+
+--    PublishTrustAnchors ::= SEQUENCE {
+--        seqNumber      INTEGER,
+--        hashAlgorithm  AlgorithmIdentifier,
+--        anchorHashes     SEQUENCE OF OCTET STRING
+--    }
+
+    id-cmc-authData OBJECT IDENTIFIER ::= { id-cmc 27 }
+
+--    AuthPublish ::= BodyPartID
+
+    --   These two items use BodyPartList
+    id-cmc-batchRequests OBJECT IDENTIFIER ::= { id-cmc 28 }
+    id-cmc-batchResponses OBJECT IDENTIFIER ::= { id-cmc 29 }
+
+--    BodyPartList ::= SEQUENCE SIZE (1..MAX) OF BodyPartID
+
+    --
+    id-cmc-publishCert OBJECT IDENTIFIER ::= { id-cmc 30 }
+
+--    CMCPublicationInfo ::= SEQUENCE {
+--        hashAlg                      AlgorithmIdentifier,
+--        certHashes                   SEQUENCE OF OCTET STRING,
+--        pubInfo                          PKIPublicationInfo
+--    }
+
+    id-cmc-modCertTemplate OBJECT IDENTIFIER ::= { id-cmc 31 }
+
+--    ModCertTemplate ::= SEQUENCE {
+--        pkiDataReference             BodyPartPath,
+--        certReferences               BodyPartList,
+--        replace                      BOOLEAN DEFAULT TRUE,
+--        certTemplate                 CertTemplate
+--    }
+
+    -- Inform follow-on servers that one or more controls have already
+    -- been processed
+
+    id-cmc-controlProcessed OBJECT IDENTIFIER ::= { id-cmc 32 }
+
+--    ControlsProcessed ::= SEQUENCE {
+--        bodyList        SEQUENCE SIZE(1..MAX) OF BodyPartReference
+--    }
+
+    --  Identity Proof control w/ algorithm agility
+
+    id-cmc-identityProofV2 OBJECT IDENTIFIER ::= { id-cmc 34 }
+
+--    IdentifyProofV2 ::= SEQUENCE {
+--        proofAlgID       AlgorithmIdentifier,
+--        macAlgId         AlgorithmIdentifier,
+--        witness          OCTET STRING
+--    }
+
+    id-cmc-popLinkWitnessV2 OBJECT IDENTIFIER ::= { id-cmc 33 }
+
+--    PopLinkWitnessV2 ::= SEQUENCE {
+--        keyGenAlgorithm   AlgorithmIdentifier,
+--        macAlgorithm      AlgorithmIdentifier,
+--        witness           OCTET STRING
+--    }
+
+    --
+
+    id-cmc-raIdentityWitness OBJECT IDENTIFIER ::= { id-cmc 35 }
+
+
+    --
+    --  Allow for an End-Entity to request a change in name.
+    --  This item is added to RegControlSet in CRMF.
+    --
+
+    id-cmc-changeSubjectName OBJECT IDENTIFIER ::= { id-cmc 36 }
+
+--    ChangeSubjectName ::= SEQUENCE {
+--        subject             Name OPTIONAL,
+--        subjectAlt          GeneralNames OPTIONAL
+--    }
+    -- (WITH COMPONENTS {..., subject PRESENT} |
+    --  WITH COMPONENTS {..., subjectAlt PRESENT} )
+
+    --
+    --  Embedded response from a third party for processing
+    --
+
+    id-cmc-responseBody OBJECT IDENTIFIER ::= { id-cmc 37 }
+
+    --
+    --  Key purpose identifiers are in the Extended Key Usage extension
+    --
+
+    -- id-ad and id-kp are borrowed from RFC5280
+    id-ad OBJECT IDENTIFIER ::= { id-pkix 48 }
+    id-kp OBJECT IDENTIFIER ::= { id-pkix 3 }
+
+    id-kp-cmcCA OBJECT IDENTIFIER ::= { id-kp 27 }
+    id-kp-cmcRA OBJECT IDENTIFIER ::= { id-kp 28 }
+    id-kp-cmcArchive OBJECT IDENTIFIER ::= { id-kp 28 }
+
+    --
+    --  Subject Information Access identifier
+    --
+
+    id-ad-cmc OBJECT IDENTIFIER ::= { id-ad 12 }
+

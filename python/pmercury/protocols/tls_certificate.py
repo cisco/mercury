@@ -120,7 +120,11 @@ class TLS_Certificate(Protocol):
     def cert_parser(self, cert):
         out_ = {}
 
-        offset = 10
+        # parse to cert data
+        _, _, cert, _ = self.parse_tlv(cert, 0)
+        _, _, cert, _ = self.parse_tlv(cert, 0)
+
+        offset = 2
 
         # parse version
         _, _, value, offset = self.parse_tlv(cert, offset)
@@ -129,6 +133,9 @@ class TLS_Certificate(Protocol):
         value = value.hex()
         if value in cert_versions:
             value = cert_versions[value]
+        else:
+            offset = 0
+            value = cert_versions['02']
         out_['version'] = value
 
         # parse serial number
@@ -170,7 +177,7 @@ class TLS_Certificate(Protocol):
         if offset == None:
             return out_
         _, _, cert_ext, _ = self.parse_tlv(cert_ext_outer, 0)
-        if offset == None:
+        if cert_ext == None:
             return out_
 
 
@@ -190,6 +197,27 @@ class TLS_Certificate(Protocol):
         return out_
 
 
+    def parse_subject_alt_name(self, val_):
+        _, _, sans_, offset = self.parse_tlv(val_, 0)
+        if offset == None:
+            return ''
+
+        san_arr = []
+        tag_, _, san_, offset = self.parse_tlv(sans_, 0)
+        while offset != None:
+            general_name_type = tag_ - 128
+            general_name = 'Unknown'
+            if general_name_type in cert_general_name_types:
+                general_name = cert_general_name_types[general_name_type]
+            try:
+                san_arr.append(f'{general_name}: {san_.decode()}')
+            except:
+                san_arr.append(f'{general_name}: {san_.hex()}')
+            tag_, _, san_, offset = self.parse_tlv(sans_, offset)
+
+        return san_arr
+
+
     def parse_ext(self, data):
         offset = 0
         _, _, id_, offset = self.parse_tlv(data, offset)
@@ -202,30 +230,20 @@ class TLS_Certificate(Protocol):
         id_ = id_.hex()
         if id_.startswith('551d') and len(id_) == 6 and id_[4:6] in cert_extensions:
             id_ = cert_extensions[id_[4:6]]
-        if id_.startswith('2b060105050701') and len(id_) == 16 and id_[14:16] in cert_extensions_private:
+        elif id_.startswith('2b060105050701') and len(id_) == 16 and id_[14:16] in cert_extensions_private:
             id_ = cert_extensions_private[id_[14:16]]
+        elif id_ in oid_mapping:
+            id_ = oid_mapping[id_]
 
         out_val_ = ''
         if id_ == 'id-ce-subjectAltName':
-            _, _, sans_, offset = self.parse_tlv(val_, 0)
-            if offset == None:
-                return {id_: ''}
+            out_val_ = self.parse_subject_alt_name(val_)
 
-            san_arr = []
-            _, _, san_, offset = self.parse_tlv(sans_, 0)
-            while offset != None:
-                try:
-                    san_arr.append(san_.decode())
-                except:
-                    san_arr.append(san_.hex())
-                _, _, san_, offset = self.parse_tlv(sans_, offset)
 
-            out_val_ = san_arr
+        if out_val_ == '':
+            out_val_ = val_.hex()
 
         return {id_: out_val_}
-
-
-
 
 
     def parse_validity(self, data):
@@ -281,7 +299,7 @@ class TLS_Certificate(Protocol):
         len_   = len(data)
 
         items = []
-        _, _, value, offset = self.parse_tlv(data, offset)
+        tag_, _, value, offset = self.parse_tlv(data, offset)
         while offset != None:
             item_ = self.parse_rdn_sequence_item(value)
             if item_ != None:
