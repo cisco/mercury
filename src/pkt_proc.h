@@ -11,8 +11,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
-#include <errno.h>
-#include <string.h>
 #include "pcap_file_io.h"
 #include "json_file_io.h"
 #include "extractor.h"
@@ -49,6 +47,9 @@ struct pkt_proc {
 
 
 
+// TODO: I believe the entire struct can be removed now that
+// we're using the lockless queues
+
 /*
  * struct pkt_proc_json_writer represents a packet processing object
  * that writes out a JSON representation of fingerprints, metadata,
@@ -71,6 +72,7 @@ struct pkt_proc_json_writer : public pkt_proc {
                          const char *mode,
                          uint64_t max_records) {
 
+        // TODO: this can be cleaned up / removed once the output thread is doing everything
         enum status status = json_file_init(&json_file, outfile_name, mode, max_records);
         if (status) {
             throw "could not initialize JSON output file";
@@ -78,7 +80,7 @@ struct pkt_proc_json_writer : public pkt_proc {
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
-        json_file_write(&json_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+        json_file_write(&json_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
     }
 
     void flush() override {
@@ -89,6 +91,65 @@ struct pkt_proc_json_writer : public pkt_proc {
             }
         }
     }
+};
+
+
+/*
+ * struct pkt_proc_json_writer_llq represents a packet processing object
+ * that writes out a JSON representation of fingerprints, metadata,
+ * flow keys, and event time to a queue that is then written to a file
+ * by a dedicated output thread.
+ */
+struct pkt_proc_json_writer_llq : public pkt_proc {
+    struct ll_queue *llq;
+
+    /*
+     * pkt_proc_json_writer(outfile_name, mode, max_records)
+     * initializes object to write a single JSON line containing the
+     * flow key, time, fingerprints, and metadata to the output file
+     * with the path outfile_name and mode passed as arguments; that
+     * file is opened by this invocation, with that mode.  If
+     * max_records is nonzero, then it defines the maximum number of
+     * records (lines) per file; after that limit is reached, file
+     * rotation will take place.
+     */
+    pkt_proc_json_writer_llq(struct ll_queue *llq_ptr) {
+
+        llq = llq_ptr;
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) override {
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
+    }
+
+    void flush() override {
+
+    }
+};
+
+/*
+ * struct pkt_proc_pcap_writer represents a packet processing object
+ * that writes out packets in PCAP file format.
+ */
+struct pkt_proc_pcap_writer_llq : public pkt_proc {
+    struct ll_queue *llq;
+
+    pkt_proc_pcap_writer_llq(struct ll_queue *llq_ptr) {
+        llq = llq_ptr;
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) override {
+        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
+
+        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
+            return;  /* random packet drop configured, and this packet got selected to be discarded */
+        }
+        pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+    }
+
+    void flush() override {
+    }
+
 };
 
 
@@ -182,6 +243,46 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
 };
 
 /*
+ * struct pkt_proc_filter_pcap_writer represents a packet processing
+ * object that first filters packets, then writes tem out in PCAP file
+ * format.
+ */
+struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
+    struct ll_queue *llq;
+
+    /*
+     * packet_filter_threshold is a (somewhat arbitrary) threshold used in
+     * the packet metadata filter; it will probably get eliminated soon,
+     * in favor of extractor::proto_state::state, but for now it remains
+     */
+    unsigned int packet_filter_threshold = 8;
+
+    pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr) {
+        llq = llq_ptr;
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) override {
+        uint8_t *packet = eth;
+        unsigned int length = pi->len;
+
+        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
+
+        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
+            return;  /* random packet drop configured, and this packet got selected to be discarded */
+        }
+
+        struct packet_filter pf;
+        if (packet_filter_apply(&pf, packet, length)) {
+            pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+        }
+    }
+
+    void flush() override {
+    }
+
+};
+
+/*
  * pkt_proc_dumper writes a JSON object summarizing each packet to
  * stdout
  */
@@ -206,6 +307,6 @@ struct pkt_proc_dumper : public pkt_proc {
  */
 struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                                           int tnum,
-                                          char *fileset_id);
+                                          struct ll_queue *llq);
 
 #endif /* PKT_PROC_H */

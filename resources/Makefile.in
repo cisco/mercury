@@ -1,6 +1,12 @@
 # makefile for mercury resources installation
 #
 
+# definitions for colorized output
+COLOR_RED    = "\033[0;31m"
+COLOR_GREEN  = "\033[0;32m"
+COLOR_YELLOW = "\033[0;33m"
+COLOR_OFF    = "\033[0m"
+
 srcdir = .
 
 INSTALL = /usr/bin/install -c
@@ -33,8 +39,9 @@ install-nonroot:
 
 .PHONY: uninstall
 uninstall:
-	rm -rf $(localstatedir) 
-	rm -rf $(datarootdir) 
+	rm -rf $(localstatedir)
+	@echo $(COLOR_GREEN) "mercury capture data is still in place; to remove, use rm -rf $(datarootdir)" $(COLOR_OFF)
+#	rm -rf $(datarootdir)    # some users will want to retain data after 'uninstall'
 
 .PHONY: distclean
 distclean:

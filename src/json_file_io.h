@@ -28,6 +28,12 @@ void json_file_write(struct json_file *jf,
 		     unsigned int sec,
 		     unsigned int usec);
 
+void json_queue_write(struct ll_queue *llq,
+		     uint8_t *packet,
+		     size_t length,
+		     unsigned int sec,
+		     unsigned int usec);
+
 enum status json_file_init(struct json_file *js,
 			   const char *outfile_name,
 			   const char *mode,

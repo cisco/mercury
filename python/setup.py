@@ -12,25 +12,9 @@ def readme():
         return f.read()
 
 
-ext_libs = []
-if sys.platform[0:3] == "win":
-    ext_libs.append("Ws2_32")
-
-ext_modules = [
-    Extension("pmercury.utils.packet_proc", ["pmercury/utils/packet_proc.pyx"], libraries=ext_libs),
-    Extension("pmercury.utils.tls_utils", ["pmercury/utils/tls_utils.pyx"]),
-    Extension("pmercury.protocols.tcp", ["pmercury/protocols/tcp.pyx"]),
-    Extension("pmercury.protocols.tls", ["pmercury/protocols/tls.pyx"], libraries=ext_libs),
-    Extension("pmercury.protocols.tls_server", ["pmercury/protocols/tls_server.pyx"], libraries=ext_libs),
-    Extension("pmercury.protocols.dtls", ["pmercury/protocols/dtls.pyx"], libraries=ext_libs),
-    Extension("pmercury.protocols.dtls_server", ["pmercury/protocols/dtls_server.pyx"], libraries=ext_libs),
-    Extension("pmercury.protocols.http", ["pmercury/protocols/http.pyx"]),
-    Extension("pmercury.protocols.http_server", ["pmercury/protocols/http_server.pyx"]),
-]
-
 setuptools.setup(
     name='pmercury',
-    version='0.4.3.24',
+    version='0.5.0.25',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -57,13 +41,20 @@ setuptools.setup(
     data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in','config.yaml']),
                 ('pmercury/resources', ['../resources/fingerprint_db.json.gz',
                                         '../resources/app_families.txt',
+                                        '../resources/app_families_strict.txt',
                                         '../resources/transition_probs.csv.gz',
                                         '../resources/implementation_date_cs.json.gz',
                                         '../resources/public_suffix_list.dat.gz',
                                         '../resources/implementation_date_ext.json.gz',
-                                        '../resources/pyasn.db']
+                                        '../resources/pyasn.db',
+                                        '../resources/domain_indicators.json.gz',
+                                        '../resources/fingerprint_db_tcp.json.gz']),
+                ('pmercury/resources/equivalence-classes', ['../resources/equivalence-classes/eqv_class_ip_as.json.gz',
+                                                            '../resources/equivalence-classes/eqv_class_ip.json.gz',
+                                                            '../resources/equivalence-classes/eqv_class_port_applications.json.gz',
+                                                            '../resources/equivalence-classes/eqv_class_port.json.gz',
+                                                            '../resources/equivalence-classes/eqv_class_sni.json.gz']
     )],
-    ext_modules=ext_modules,
     include_package_data=True,
     zip_safe=False
 )

@@ -5,7 +5,8 @@ AC_USE_SYSTEM_EXTENSIONS
 #AC_PROG_CC
 AC_PROG_CXX
 AC_CHECK_HEADERS([linux/if_packet.h])
-AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[],[AC_MSG_FAILURE([Linux AF_PACKET's TPACKET V3 is required, but not available])],[[#include <linux/if_packet.h>]])
+AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[AC_SUBST(HAVE_TPACKET_V3,yes)],[AC_MSG_WARN([Linux AF_PACKET's TPACKET V3 is not available])],[[#include <linux/if_packet.h>]])
+#AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[],[AC_MSG_FAILURE([Linux AF_PACKET's TPACKET V3 is required, but not available])],[[#include <linux/if_packet.h>]])
 AC_CHECK_FUNCS([gettimeofday])
 AC_CHECK_FUNCS([memset]) 
 AC_CHECK_FUNCS([mkdir]) 

@@ -28,6 +28,7 @@
 #include "pkt_proc.h"
 #include "signal_handling.h"
 #include "utils.h"
+#include "llq.h"
 
 /*
  * constants used in file format
@@ -56,7 +57,7 @@ struct pcap_packet_hdr {
     uint32_t ts_usec;        /* timestamp microseconds */
     uint32_t incl_len;       /* number of octets of packet saved in file */
     uint32_t orig_len;       /* actual length of packet */
-};
+};  // TBD: pack structure
 
 #define ONE_KB (1024)
 #define ONE_MB (1024 * ONE_KB)
@@ -82,12 +83,30 @@ static inline void set_file_io_buffer(struct pcap_file *f, const char *fname) {
     }
 }
 
+enum status write_pcap_file_header(FILE *f) {
+    struct pcap_file_hdr file_header;
+    file_header.magic_number = magic;
+    file_header.version_major = 2;
+    file_header.version_minor = 4;
+    file_header.thiszone = 0;     /* no GMT correction for now */
+    file_header.sigfigs = 0;      /* we don't claim sigfigs for now */
+    file_header.snaplen = 65535;
+    file_header.network = 1;      /* ethernet */
+
+    size_t items_written = fwrite(&file_header, sizeof(file_header), 1, f);
+    if (items_written == 0) {
+        perror("error writing pcap file header");
+        return status_err;
+    }
+    return status_ok;
+}
+
 enum status pcap_file_open(struct pcap_file *f,
                const char *fname,
                enum io_direction dir,
                int flags) {
     struct pcap_file_hdr file_header;
-    ssize_t items_written, items_read;
+    ssize_t items_read;
 
     switch(dir) {
     case io_direction_reader:
@@ -97,7 +116,7 @@ enum status pcap_file_open(struct pcap_file *f,
         f->flags = O_WRONLY;
         break;
     default:
-        printf("error: unsuppored flag, other flags=0x%x\n", flags);
+        printf("error: unsupported flag, other flags=0x%x\n", flags);
         return status_err; /* unsupported flags */
     }
 
@@ -118,6 +137,7 @@ enum status pcap_file_open(struct pcap_file *f,
         set_file_io_buffer(f, fname);
 
         // set the file advisory for the read file
+#ifdef POSIX_FADV_SEQUENTIAL
         if (posix_fadvise(f->fd, 0, 0, POSIX_FADV_SEQUENTIAL) != 0) {
             printf("%s: Could not set file advisory for pcap file %s\n", strerror(errno), fname);
         }
@@ -129,31 +149,23 @@ enum status pcap_file_open(struct pcap_file *f,
         } else {
             f->allocated_size = PRE_ALLOCATE_DISK_SPACE;  // initial allocation
         }
+#endif
 
-    /* write pcap file header */
-    file_header.magic_number = magic;
-    file_header.version_major = 2;
-    file_header.version_minor = 4;
-    file_header.thiszone = 0;     /* no GMT correction for now */
-    file_header.sigfigs = 0;      /* we don't claim sigfigs for now */
-    file_header.snaplen = 65535;
-    file_header.network = 1;      /* ethernet */
-
-    items_written = fwrite(&file_header, sizeof(file_header), 1, f->file_ptr);
-    if (items_written == 0) {
-        perror("error writing pcap file header");
-        fclose(f->file_ptr);
-        f->file_ptr = NULL;
-        if (f->buffer != NULL) {
-            free(f->buffer);
-            f->buffer = NULL;
+        enum status status = write_pcap_file_header(f->file_ptr);
+        if (status) {
+            perror("error writing pcap file header");
+            fclose(f->file_ptr);
+            f->file_ptr = NULL;
+            if (f->buffer != NULL) {
+                free(f->buffer);
+                f->buffer = NULL;
+            }
+            return status_err;
         }
-        return status_err;
-    }
-    
-    // initialize packets and bytes written
-    f->bytes_written = sizeof(file_header);
-    f->packets_written = 0;
+
+        // initialize packets and bytes written
+        f->bytes_written = sizeof(file_header);
+        f->packets_written = 0;
 
     } else { /* O_RDONLY */
 
@@ -171,9 +183,11 @@ enum status pcap_file_open(struct pcap_file *f,
 	}
 
 	// set the file advisory for the read file
+#ifdef POSIX_FADV_SEQUENTIAL
 	if (posix_fadvise(f->fd, 0, 0, POSIX_FADV_SEQUENTIAL) != 0) {
 	    printf("%s: Could not set file advisory for read file %s\n", strerror(errno), fname);
 	}
+#endif
 
 	// set file i/o buffer
 	set_file_io_buffer(f, fname);
@@ -250,6 +264,7 @@ enum status pcap_file_write_packet_direct(struct pcap_file *f,
     f->bytes_written += length + sizeof(struct pcap_packet_hdr);
     f->packets_written++;
 
+#ifdef FALLOC_FL_KEEP_SIZE
     if ((f->allocated_size > 0) && (f->allocated_size - f->bytes_written) <= ONE_MB) {
         // need to allocate more
         if (fallocate(f->fd, FALLOC_FL_KEEP_SIZE, f->bytes_written, PRE_ALLOCATE_DISK_SPACE) != 0) {
@@ -258,6 +273,7 @@ enum status pcap_file_write_packet_direct(struct pcap_file *f,
             f->allocated_size = f->bytes_written + PRE_ALLOCATE_DISK_SPACE;  // increase allocation
         }
     }
+#endif
 
     return status_ok;
 }
@@ -491,5 +507,71 @@ uint8_t *get_test_packet(struct pcap_pkthdr *pkthdr) {
     pkthdr->len    = sizeof(pkt_large);
 
     return pkt_large;
+}
+
+/*
+ * start of serialized output code - first cut
+ */
+
+void pcap_queue_write(struct ll_queue *llq,
+                      uint8_t *packet,
+                      size_t length,
+                      unsigned int sec,
+                      unsigned int nsec) {
+
+    if (llq->msgs[llq->widx].used == 0) {
+
+        //char obuf[LLQ_MSG_SIZE];
+        int olen = LLQ_MSG_SIZE;
+        int ooff = 0;
+        int trunc = 0;
+
+        llq->msgs[llq->widx].ts.tv_sec = sec;
+        llq->msgs[llq->widx].ts.tv_nsec = nsec;
+
+        //obuf[sizeof(struct timespec)] = '\0';
+        llq->msgs[llq->widx].buf[0] = '\0';
+
+        if (packet && !length) {
+            fprintf(stderr, "warning: attempt to write an empty packet\n");
+        }
+
+        /* note: we never perform byteswap when writing */
+        struct pcap_packet_hdr packet_hdr;
+        packet_hdr.ts_sec = sec;
+        packet_hdr.ts_usec = nsec;
+        packet_hdr.incl_len = length;
+        packet_hdr.orig_len = length;
+
+        // write the packet header
+        int r = append_memcpy(llq->msgs[llq->widx].buf, &ooff, olen, &trunc, &packet_hdr, sizeof(packet_hdr));
+
+        // write the packet
+        r += append_memcpy(llq->msgs[llq->widx].buf, &ooff, olen, &trunc, packet, length);
+
+        // f->bytes_written += length + sizeof(struct pcap_packet_hdr);
+        // f->packets_written++;
+
+        if ((trunc == 0) && (r > 0)) {
+
+            llq->msgs[llq->widx].len = r;
+
+            //fprintf(stderr, "DEBUG: sent a message!\n");
+            __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
+            llq->msgs[llq->widx].used = 1;
+
+            //llq->next_write();
+            llq->widx = (llq->widx + 1) % LLQ_DEPTH;
+        }
+    }
+    else {
+        //fprintf(stderr, "DEBUG: queue bucket used!\n");
+
+        // TODO: this is where we'd update an output drop counter
+        // but currently this spot in the code doesn't have access to
+        // any thread stats pointer or similar and I don't want
+        // to update a global variable in this location.
+    }
+
 }
 

@@ -1,15 +1,6 @@
 include ../resources/*
+include ../resources/equivalence-classes/*
 include ../LICENSE
 include README.md
 include config.yaml
 include requirements.txt
-include pmercury/utils/packet_proc.pyx
-include pmercury/utils/tls_utils.pyx
-include pmercury/protocols/tcp.pyx
-include pmercury/protocols/tls.pyx
-include pmercury/protocols/tls_server.pyx
-include pmercury/protocols/dtls.pyx
-include pmercury/protocols/dtls_server.pyx
-include pmercury/protocols/http.pyx
-include pmercury/protocols/http_server.pyx
-

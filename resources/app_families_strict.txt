@@ -1,0 +1,810 @@
+Chrome,google chrome helper,chrome.exe,chromium helper,google chrome,chrome,chromium
+
+Firefox,firefox.exe,firefox,firefox-esr,firefox-bin,firefox-esr (deleted)
+
+Waterfox,waterfox.exe,waterfox
+
+Seamonkey,seamonkey,seamonkey.exe
+
+Safari,com.apple.safari.safebrowsing.service,safari,com.apple.safari.searchhelper,com.apple.webkit.networking,com.apple.geod,safaridavclient,safariappextension,safariextension
+
+Internet Explorer,microsoftedgecp.exe,iexplore.exe,searchui.exe,microsoftedgesh.exe,microsoftedge.exe,mshta.exe,msfeedssync.exe,smartscreen.exe
+
+Thunderbird,thunderbird,thunderbird.exe,thunderbird-bin
+
+Slack,slack,slack.exe,slack helper
+
+Skype,skype helper,skype,skype.exe,skype for business,skypeapp.exe,skype meetings app.exe,skype for business web app,skypeforlinux,skypehost.exe,lync.exe
+
+Brave,brave browser helper,brave.exe,brave,brave browser,braveupdate.exe
+
+Spotify,spotify helper,spotify.exe,spotify
+
+Opera,opera helper,opera.exe,opera_autoupdate,opera,opera neon
+
+Microsoft Edge,microsoft edge helper,msedge.exe,microsoft edge beta,microsoft edge,microsoft edge dev,microsoft edge canary
+
+Vivaldi,vivaldi.exe,vivaldi helper,vivaldi
+
+Adobe Creative Suite,creative cloud.exe,adobe_licensing_helper.exe,adobegcclient.exe,adobe_licutil.exe,setup.exe,core sync,creative cloud,setup,adobegcclient,adobe_licensing_helper,install,coresync.exe,adobecollabsync.exe,adobe captivate,adobe connect,adobe dimension,adobe dimension helper,adobe_ccxprocess.node,after effects,adobearm.exe,adobecaptivate.exe,adoberesourcesynchronizer,adobe xd,adobe illustrator,xd_set-up.exe,acrobat_dc_set-up.exe,agsservice
+
+Adobe Acrobat,acrocef.exe,acrocef,rdrcef.exe,acrobat.exe,acrord32.exe,acrobat update helper,adobereader,adobeacrobat,aasiapp,aasiapp.execrobat updater,acroext,acroext.exe,adobe reader updater helper
+
+Adobe Desktop,adobe desktop service.exe,adobe desktop service
+
+Adobe Lightroom,adobe lightroom classic,adobe lightroom,adobe lightroom helper
+
+Adobe Bridge,adobe bridge 2019,adobe bridge 2020
+
+Adobe Photoshop,adobe photoshop 2020,adobe photoshop cc 2019,adobe premiere pro 2020,adobe premiere rush,adobe photoshop cc 2017,adobe photoshop elements 2019.exe,adobe premiere elements 2019.exe,adobe premiere pro cc 2019
+
+Adobe Indesign,dobe indesign cc 2019
+
+Adobe Flash Player,flash player.exe,flashplayer.exe,flashplayerplugin_32_0_0_293.exe,flashplayerplugin_32_0_0_303.exe,flashplayerplugin_32_0_0_321.exe,flashplayerupdateservice.exe,adobe flash player install manager
+
+Microsoft Office,officeclicktorun.exe,officec2rclient.exe,olicenseheartbeat.exe,msoia.exe,msosync.exe,office365servicev2,sdxhelper.exe,localbridge.exe,microsoft au daemon,office.exe,officehubtaskhost.exe,winproj.exe,msoasb.exe
+
+OneNote,onenoteim.exe,onenote.exe,microsoft onenote,onenote importer (preview)
+
+Excel,excel.exe,microsoft excel
+
+Outlook,outlook.exe,x1outlookservice64.exe,microsoft outlook,veraoutlook,appleoutlookdavconfig64.exe
+
+Powerpoint,powerpnt.exe,microsoft powerpoint,verapowerpoint
+
+Word,winword.exe,microsoft word
+
+OneDrive,onedrive.exe,onedrive,onedrivestandaloneupdater,onedrivestandaloneupdater.exe,filecoauth.exe,onedrivesetup.exe
+
+Visio,visio.exe,microsoft visio
+
+Access,msaccess.exe,microsoft access
+
+Microsoft Teams,teams,teams.exe,microsoft teams helper
+
+Microsoft Telemetry,speechmodeldownload.exe,compattelrunner.exe,wermgr.exe,devicecensus.exe,dsregcmd.exe,sihclient.exe,wmiprvse.exe,speechruntime.exe,updatenotificationmgr.exe,devicecensus.exe,usocoreworker.exe
+
+Microsoft Desktop,microsoft.photos.exe,microsoft.notes.exe,winstore.app.exe,microsoft.msn.news.exe,todo.exe,video.ui.exe,
+
+Cisco Webex,ciscojabber.exe,webex teams,cisco webex meetings,cisco jabber,ciscosparkhelper,ciscocollabhost.exe,ptmeetingshost.exe,meeting center,event center,ptoneclk.exe,atmgr.exe,ptsrv.exe,ptupdate.exe,ciscowebexstart.exe,userguidanceclient.exe,webex productivity tools,cisco spark,spark-windows-mercury.exe,cisco webex device connector.exe,cisco webex start,spark-windows-media.exe,sparkwindows.exe,webex.exe,webexapplauncher.exe,webexstudio helper
+
+Cisco AMP,sfc.exe,ampdaemon
+
+Cisco AnyConnect,anyconnect.exe,acwebsecagent,acwebsecagent.exe,cisco anyconnect secure mobility client,vpnagent.exe,vpnagentd
+
+Cisco Stealthwatch,cisco stealthwatch v7.1.1.exe,cisco stealthwatch v7.1.2.exe,cisco stealthwatch v7.2.0.exe
+
+Cisco Catalog,cisco cx catalog.exe,cisco cx catalog,cisco 3d interactive catalog
+
+
+iCloud,music,itunes,notes,tv,calendaragent,mail,news,cloudphotosd,itunes.exe,iclouddrive.exe,icloudphotos.exe
+
+iCloud System,commerce,accountsd,ssistantd,parsecd,softwareupdated,touristd,securityuploadd,appstoreagent,com.apple.sbd,findmydeviced,app store,nsurlsessiond,cloudd,syncdefaultsd,fmfd,passd,locationd,sharingd,rapportd,helpd,syspolicyd,adprivacyd,imtransferagent,parsec-fbf,akd,rtcreportingd,studentd,findmy,remindd,searchpartyuseragent,apsd,familycircled,searchpartyd,exchangesyncd,amplibraryagent,spotlight,mobileactivationd,appleiedav.exe,applechromedav.exe,com.apple.icloudhelper,spotlightnethelper,nbagent
+
+PDF Reader,pdf reader pro lite,pdf professional,pdf reader pro,pdf reader
+
+Sophos,sophos home,sophosautoupdate,mcsclient.exe,sophoseventmonitor,sophosmcsagentd,sophosmessagerouter
+
+GeoComply,geocomplyupdate.exe,geocomplyupdate
+
+GoPro,goproshareservice,goproidservice,gopro quik,gopro quik.exe,goproanalyticsservice.exe,goproidservice.exe,gopromediaservice,gopromediaservice.exe,gopromusicservice.exe,gopropushnotificationservice,gopropushnotificationservice.exe,goproupdateservice,goproupdateservice.exe
+
+Discord,discord,discord.exe,discordptb.exe
+
+Clockify,clockify desktop
+
+Autodesk,autodesk fusion 360,acsettingsync.exe,acwebbrowser.exe,adexmtsv,adexmtsv.exe
+
+AnyDesk,anydesk,anydesk.exe
+
+AnyDo,any.do,anydo
+
+AoW,aow3,aow3launcher
+
+AdGuard,adguardsvc.exe,adguard for safari,adguard
+
+Python,python,python.exe,pythonw.exe,python2.7,python2.7.exe,python3,python3.exe,python3.6,python3.6m.exe,python3.7,python3.8
+
+Python Dev,pycharm,pycharm.exe,pycharm64.exe,idea,idea.exe,idea64.exe,webstorm,webstorm64.exe
+
+Ryver,ryver,ryver.exe
+
+Grammarly,grammarlyforwindows.exe,grammarly,grammarly safari extension,grammarlyaddinsetup6.7.189.exe
+
+Net.DownloadHelper,net.downloadhelper.coapp-mac-64,net.downloadhelper.coapp-win-64.exe
+
+Git,git-remote-http,git-remote-https,git-lfs,git-remote-https.exe,gitkraken,gitkraken.exe,gitlab-runner
+
+Kite,kite,kited.exe
+
+Jabra Direct,jabra direct,jabra app service,jabra-direct.exe
+
+GoTo Meeting,g2mupdate,g2ac_comm.exe,g2comm.exe,g2mcomm.exe,g2mupdate.exe,g2mvideoconference.exe,g2viewer.exe,goto opener,gotoassist customer,gotomeeting,gotomeetingwinstore.exe,gotomypc viewer
+
+Electron,electron,electron helper
+
+Abstract,abstract
+
+Trello,trello
+
+Twitter,tweetbot,twitterrific,twitter
+
+WeatherBug,weatherbug,weatherbug.exe
+
+WhatsApp,whatsapp,whatsapp.exe
+
+DashLane,dashlaneagent,p72e3gc48.com.dashlane.dashlaneagent,dashlane,dashlanepluginservice,dashlanepluginmasservice,dashlane.exe,dashlaneplugin.exe
+
+OriginWeb,origin.exe,originwebhelperservice.exe,originclient
+
+Private Internet Access,pia-service.exe,pia-daemon
+
+Notion,notion,notion.exe
+
+Microsoft Update,microsoft update assistant,microsoft autoupdate
+
+PRL Client,prl_client_app,prl_updater_ctl,prl_pm_service
+
+Microsoft Remote Desktop,microsoft remote desktop,microsoft remote desktop beta
+
+Amazon Photos,amazonphotos.exe,amazon photos,amazon photos installer
+
+Amazon Music,amazon music.exe,amazon music,amazon music helper,amazonmusicinstaller.exe,amazon music autoupdater.exe
+
+Anaxi,anaxi,anaxi.exe
+
+Antidote,antidote 9,antidote.exe
+
+Synergy-Service,synergy-service,synergy-service.exe
+
+MatterMost,mattermost,mattermost.exe
+
+SnagIt,snagit 2019,snagithelper2019,snagiteditor.exe
+
+TurboTax,turbotax 2016,turbotax 2017,turbotax 2019,turbotax.exe,turbotax 2018,intuitupdater.exe,intuitupdateservice.exe
+
+BusyCal,n4ra379gbw.com.busymac.busycal3.alarm,busycal
+
+Shutterfly,create with shutterfly,shutterfly desktop uploader
+
+Yandex Disk,yandexdisk2.exe,yandex.disk.2
+
+Docker,docker desktop.exe,docker,docker desktop installer.exe,docker-darwin-amd64,docker-machine,docker-machine.exe,docker-slim,dockerd,dockerd.exe
+
+NordVPN,nordvpn ike,nordpass-background-app,nordvpn.exe,nordvpn,nordvpn-service.exe
+
+Norton Security,nortonsecurity.exe
+
+Ruby,ruby,ruby.exe,rubymine,rubymine64.exe
+
+Java,javaapplicationstub,java,java updater,java.exe,javacpl.exe,javaw.exe,jdev64w.exe,jucheck.exe,javasetup8u241.exe,jre-8u241-windows-au.exe
+
+Kite,kiteservice.exe,kitehelper,kite,kited
+
+Duo,duo device health,duo device health.exe,duo-sso,duo-sso_darwin_amd64,duoconnect,duomaccertifier
+
+Software Vulnerability Management,svmscan_macos,svmscan.exe
+
+OmniSoftware,com.omnigroup.omnisoftwareupdate.osucheckservice,omnipresence,omnifocus,com.omnigroup.omnisoftwareupdate.osucheckservice.macappstore,omnigraffle,omnipeek.exe
+
+Box,box.desktop.updateservice.exe,box local com service.exe,box edit.exe,boxsync.exe,boxui.exe,box edit,box sync,box,box.exe,box autoupdater,box local com server,boxeditfinderextension,box notes,box notes.exe,boxcryptor,boxcryptor.exe
+
+Brackets,brackets,brackets-node,brackets.exe
+
+WeBull,webull,webull.exe
+
+NWJS,nwjs helper,nw.exe,nwjs
+
+MongoDB,mongodb compass helper,mongodb compass community helper,mongodb compass,mongod,mongodbcompass.exe,mongodbcompassbeta.exe,mongodb compass community
+
+Signal,signal,signal.exe,signal helper (renderer)
+
+Code,code - insiders helper (renderer),code helper (renderer),code - insiders.exe,code helper,code - insiders helper,code.exe
+
+Pulse SMS,pulse sms,pulse sms.exe
+
+Postman,postman,postman.exe,postmancanary,postmancanary.exe
+
+Google Drive,backup and sync,googledrivesync.exe,google~1.exe,googledrivefs.exe,google drive file stream
+
+Airmail,airmail,airmail beta,airmail 3
+
+AIOMoji,aiomoji,aiomoji helper (renderer)
+
+AirTame,airtame,airtame.exe
+
+Visual Studio,visualstudio,vs_installershell.exe,vs_setup_bootstrapper.exe,vshost-clr2.exe,vshost32-clr2.exe,vsixautoupdate.exe
+
+Viber,viber,viber.exe
+
+Tabnine,tabnine
+
+Wunderlist,wunderlist,wunderlisthelper,wunderlist.exe,wundermail.client.exe
+
+Github Desktop,github desktop,githubdesktop.exe
+
+Quicken,quickbooks,quicken,quicken 2016,quicken 2017,quicken willmaker plus 2019
+
+Deezer,deezer,deezer.exe
+
+Tidal,tidal,tidal helper
+
+Atom,atom,atom helper,atom beta,atom nightly helper,atom.exe
+
+JetBrains,jetbrains-toolbox,jetbrains-toolbox.exe
+
+Kindle,kindle,kindle.exe,kindlepreviewerupdater
+
+Fantastical,fantastical,fantastical 2
+
+Zoho,zoho workdrive,zohodocs.exe,zoho meeting
+
+DropBox,dropboxupdate.exe,dropbox,dropbox.exe,dropbox109,dropboxclient_86.4.146.exe,dropboxmacupdate
+
+Sublime,sublime text,sublime text 2,sublime_text.exe
+
+Twitch,twitchagent,twitch
+
+Evernote,evernote.exe,evernote,evernote preview.exe,evernotehelper,evernotenw.exe
+
+Plex,plex.exe,plex,plex media server.exe,plex media server,plexscripthost.exe,plex dlna server,plex dlna server.exe,plex media player,plex script host,plexmediaplayer.exe,
+
+Zoom,zoom.us,zoom.exe,zoomassistant,zoomphone
+
+Standard Notes,standard notes,standard notes.exe
+
+BitDefender,bdagentd,bdcoreissues,bdupddaemon,bdldaemon,productagentservice.exe,bdcloner.exe,bdservicehost.exe,bdvpnservice.exe,vsserv.exe,vulnerability.scan.exe
+
+Binance,binance,binance.exe
+
+BitTorrent,bittorrent,bittorrentie.exe,qbittorrent
+
+Blizzard Browser,blizzardbrowser,blizzardbrowser.exe
+
+BlueJeans,bluejeans,bluejeans media,bluejeans media worker,bluejeans.exe,bluejeansmenu
+
+BlueStacks,bluestacks,bluestacks.exe,bluestacksinstaller.exe,hd-player.exe
+
+Bomgar,bomgar-rep,bomgar-rep.exe,bomgar-scc.exe
+
+Boom,boom 2,boom 3d
+
+Atomic Wallet,atomic wallet,atomic wallet.exe,atomic wallet helper
+
+Authy Desktop,authy desktop,authy desktop.exe
+
+Avast,avastbrowser.exe,avastbrowserupdate.exe,avastsvc.exe,avastui.exe
+
+AVG,avg cleaner,avgbrowser.exe,avgbrowserupdate.exe,avggmsd,avgsetupx.exe,avgsvc.exe,avgui.exe
+
+Avira,avira safe shopping.exe,avira.softwareupdater.servicehost.exe
+
+AWS,aws,aws-events,aws-iam-authenticator,aws-vault,awskinesistap.exe
+
+Baidu,baiduim,baidunetdisk.exe,baidunetdisk_mac,baidunetdiskhost.exe
+
+Balenaetcher,balenaetcher,balenaetcher helper (renderer),balenaetcher.exe
+
+Battle.Net,battle.net,battle.net.exe,agent.exe
+
+Lenovo IMController,lenovo.modern.imcontroller.pluginhost.device.exe,lenovo.modern.imcontroller.pluginhost.companionapp.exe,lenovo.modern.imcontroller.exe,lenovovantageservice.exe,tvsukernel.exe,lsbupdater.exe
+
+Weather Service,weatherservice_iosmac,weatherservice
+
+CEPHTML Engine,cephtmlengine helper,cephtmlengine.exe,cephtmlengine
+
+Bark,bark,bark.exe
+
+Tableau,tableau.exe,tableau,tabcrashreporter.exe,tableau prep builder,tableau prep builder.exe,tableau public,tableau reader
+
+4K Video Downloader,4kvideodownloader,4kvideodownloader.exe
+
+Paprika Recipe Manager,paprika recipe manager,paprika recipe manager 3
+
+Epic Games,epicgameslauncher.exe,fortniteclient-mac-shipping,epicgameslauncher-mac-shipping,fortniteclient-win64-shipping.exe
+
+ExpressVPN,expressvpnd,expressvpnd.exe
+
+Bria,bria 5,bria4.exe
+
+BrowserCore,browsercore,browsercore32.exe,browsercore64.exe
+
+BurpSuite,burpsuitecommunity.exe,burpsuitepro.exe
+
+BZTrans,bztrans_thread00,bztrans_thread01,bztrans_thread02,bztrans_thread03,bztrans_thread05,bztrans_thread06,bztransmit
+
+Caprine,caprine,caprine helper
+
+Carbon Copy,ccc stats service,carbon copy cloner
+
+CCleaner,ccleaner64.exe,ccloud,ccsetup563.exe,ccstudio.exe,ccsvchst.exe
+
+Citrix,citrix receiver updater,citrix viewer,citrix workspace,citrix workspace updater,citrixreceiverupdater.exe
+
+Civilization 6,civ6_exe,civ6_metal_exe
+
+CleanMy,cleanmydrive 2,cleanmymac,cleanmymac 3,cleanmymac 3 menu,cleanmymac x,cleanmymac x menu,cleanmymac x updater
+
+Clickup,clickup,clickup.exe
+
+Client,client,client.exe
+
+CLion,clion,clion64.exe
+
+ClipGrab,clipgrab,clipgrab.exe
+
+Cloud-Drive,cloud-backup-auto-updater,cloud-backup-auto-updater.exe,cloud-backup-daemon,cloud-backup-daemon.exe,cloud-backup-ui,cloud-backup-ui.exe,cloud-drive-auto-updater,cloud-drive-auto-updater.exe,cloud-drive-daemon,cloud-drive-daemon.exe,cloud-drive-ui,cloud-drive-ui.exe
+
+Communicator,communicator,communicator.exe
+
+Cubase,cubase le ai elements 9,cubase le ai elements 10
+
+Curl,curl,curl.exe
+
+Cypress,cypress,cypress.exe
+
+Dart,dart,dart.exe
+
+DataGrip,datagrip,datagrip64.exe
+
+DirMgr,dirmngr,dirmngr.exe
+
+Dish Anywhere Player,dishanywhereplayer,dishanywhereplayer.exe
+
+Dreamweaver,dreamweaver,dreamweaver.exe
+
+DS Access Service,dsaccessservice,dsaccessservice.exe
+
+Duet,duet,duet.exe
+
+Eagle,eagle,eagle.exe
+
+Eclipse,eclipse-inst.exe,eclipse.exe,eclipsec.exe
+
+Egnyte,egnyte webedit,egnytedesktopsync,egnytedrive.exe,egnytedrivefs,egnytesyncservice
+
+Ekahau,ekahau pro (high dpi).exe,ekahau pro.exe,ekahau site survey.exe
+
+Elmedia,elmedia player,elmedia video player
+
+Emacs,emacs,emacs-26.3,emacs-x86_64-10_10,emacs-x86_64-10_14,emacs.exe
+
+Endnote,endnote x8,endnote x9
+
+Enpass,enpass,enpass.exe
+
+Eternal,eternal,eternal.exe
+
+EU Download,eu4.exe,eudownload.exe,eudownloader.exe
+
+Eve,evelauncher,evelauncher.exe
+
+Evolution,evolution,evolution-addressbook-factory-subprocess,evolution-calendar-factory,evolution-calendar-factory-subprocess,evolution-source-registry
+
+Exercism,exercism,exercism.exe
+
+Exodus,exodus helper,exodus.exe
+
+F5 VPN,f5 vpn
+
+Facebook Gameroom,facebookgameroom.exe
+
+Fiddler,fiddler.exe,fiddler.webui
+
+Figma,figma,figma.exe
+
+Filemaker,filemaker pro 18 advanced,filemaker pro 18 advanced.exe,filemaker pro advanced,filemaker pro advanced.exe
+
+Filezilla,filezilla,filezilla server.exe,filezilla.exe,filezilla_3.45.1_win32_sponsored-setup.exe,filezilla_3.45.1_win64_sponsored-setup.exe,filezilla_3.46.1_win64_sponsored-setup.exe,filezilla_3.46.2_win32_sponsored-setup.exe,filezilla_3.46.2_win64_sponsored-setup.exe,filezilla_3.46.3_win64_sponsored-setup.exe,filezi~1.exe
+
+Final Draft,final draft 10,final draft 11
+
+Find IT Server,finditserver,finditserver.exe
+
+Fing,fing.exe,fingagent.exe
+
+Fitbit,fitbit connect,fitbit connect menubar helper
+
+Flux,flux,flux.exe
+
+FM,fm,fm.exe,fmplugin.exe
+
+Forti VPN,fortitray.exe,forticlientagent
+
+Franz,franz,franz.exe
+
+Galaxy Client,galaxyclient.exe,galaxycommunication,galaxycommunication.exe,galaxyupdater,galaxyupdater.exe
+
+Gamebar,gamebar.exe,gamebarpresencewriter.exe
+
+Garmin,garmin express,garmin express service
+
+Go,go,go for gmail,go for instagram,go-agent,go.exe,goland,goland64.exe,goloader,goloader.exe
+
+Google Earth,google earth,googleearth.exe
+
+Google Play,google play music desktop player,google play music desktop player.exe
+
+Google Update,googleupdate.exe,googlesoftwareupdateagent
+
+Grambler,gramblr.exe,gramblr
+
+Grafana,grafana-server,grafana-server.exe
+
+GroupMe,groupme,groupmeuwa.exe
+
+GS-Server,gs-server,gs-server.exe
+
+Hamachi,hamachi-2-ui.exe,hamachi-2.exe
+
+Harvest,harvest,harvesterx64.exe
+
+Hearthstone,hearthstone,hearthstone.exe
+
+Helm,helm,helm-v2.13.1,helm.exe,helm2.14,helm3,helms3
+
+Hola,hola-setup-core.exe
+
+HTTPd,httpd,httpd.exe
+
+iMazing,imazing,imazing mini,imazing.exe
+
+Insomnia,insomnia,insomnia helper,insomnia.exe
+
+Insync,insync,insync.exe,insyncupgrade,insyncupgrade.exe
+
+iPass,ipass,ipass open mobile
+
+IPVanish VPN,ipvanish vpn
+
+iVPN,ivpn agent
+
+Join Me,join.me,join.me.exe
+
+JP Naver,jp.naver.line.mac.mediaservice,jp.naver.line.mac.seekpreviewservice
+
+Jump,jump desktop,jumpconnect,jumpconnect.exe
+
+JX,jx,jxbrowser,jxbrowser-chromium.exe
+
+Kakao,kakaotalk,kakaotalk.exe
+
+Kasey,kaseya.adminendpoint,kaseya.agentendpoint,kaseyaendpoint.exe,kaseyaliveconnect
+
+kbfs,kbfs,kbfsdokan.exe
+
+Keybase,keybase,keybase.exe
+
+Kitematic,kitematic (beta) helper,kitematic.exe
+
+Kobo,kobo,kobo.exe
+
+Kodi,kodi,kodi.exe
+
+Komodo,komodo,komodo-bin,komodo.exe
+
+Kube,kubectl,kubectl.1.13,kubectl.1.14
+
+LAClient,laclient,laclient.exe
+
+League Client,leagueclient,leagueclient.exe
+
+Leap Frog,leapd,leapfrog connect 2,leapfrogconnect,leapfrogconnect2.exe
+
+Lens,lens,lens helper (renderer)
+
+LGHub,lghub_agent,lghub_agent.exe,lghub_updater,lghub_updater.exe
+
+Line,line,line 6 updater,line.exe,lineapp.exe,lineupdater.exe
+
+LMI,lmi_instantchat_srv.exe,lmi_rescue.exe,lmi_rescue_srv.exe,lmiignition.exe
+
+Loader,loader,loader.exe
+
+Logi,logi_analytics_client,logi_analytics_client.exe
+
+LogMeIn,logmein client,logmein hamachi menubar,logmein.exe,support-logmeinrescue,support-logmeinrescueinstantchat
+
+LogTransport,logtransport2,logtransport2.exe
+
+Loom,loom,loom.exe
+
+Mahjong,mahjong deluxe free.exe,mahjong.exe
+
+MailPlane,mailplane,mailplane 3
+
+Maps,maps,maps.exe
+
+Masvc,masvc,masvc.exe
+
+Matlab,matlab,matlab.exe,matlabwindow,matlabwindow.exe
+
+McAfee,mcafee safe connect.exe,mcafeeendpointproductremoval_19.11.0.64.exe,mcscript_inuse.exe,mcshield.exe,mcuicnt.exe,mcupdate.exe,mcupdatemgr.exe
+
+Mega,megaclient,megasync.exe
+
+Menutab,menutab for facebook,menutab pro for facebook
+
+Messenger,messenger,messenger.exe
+
+Mezzanine,mezzanine,mezzanine.exe
+
+Microsoft Mashup,microsoft.mashup.container.netfx40.exe,microsoft.mashup.container.netfx45.exe
+
+MightyText,mightytext,mightytext.exe
+
+Minecraft,minecraftserver.exe,minecrafttexture.exe,minecrafttexture.zip.exe
+
+Minikube,minikube,minikube.exe
+
+Miro,miro,miro - formerly realtimeboard,miro - formerly realtimeboard.exe
+
+Movavi,movavi photo editor free 1,movavi screen recorder 10,movavi screen recorder studio 10,movavi video converter 19 premium,movavi video converter 20 premium,movavistatistics,movavistatistics.exe
+
+MusixMatch,musixmatch,musixmatch.exe
+
+MyHarmony,myharmony,myharmony helper eh,myharmony.exe
+
+MySQL,mysql,mysqldump,mysqlworkbench,mysqlworkbench.exe
+
+Neo4j,neo4j desktop,neoloadgui.exe
+
+Neon,neon,neon.exe
+
+Nessus,nessusd,nessusd.exe
+
+Net SVC,net_svc,net_svc.exe
+
+NetBeans,netbeans.exe,netbeans64.exe
+
+NetSession,netsession_mac
+
+Nexi,nexi helper,nexi.exe
+
+NextCloud,nextcloud,nextcloud.exe
+
+NGrok,ngrok,ngrok.exe
+
+Node,node,node-webkit,nodedv3.exe
+
+Norton VPN,norton secure vpn,norton secure vpn.exe
+
+Nvidia Telemetry,nvalt,nvbackend.exe,nvcontainer.exe,nvdisplay.container.exe,nvidia web helper.exe,nvprofileupdater64.exe,nvtelemetrycontainer.exe
+
+NXClient,nxclient,nxclient.bin,nxon.exe,nxplayer
+
+OnVue,onvue,onvue.exe
+
+OpenConnect,openconnect,openconnect-gui.exe
+
+OS Buddy,osbuddy64(1).exe,osbuddy64.exe
+
+OVF Tool,ovftool,ovftool.exe
+
+OwnCloud,owncloud,owncloud.exe
+
+Oxygen Author,oxygenauthor19.0.exe,oxygenauthor19.1.exe,oxygenauthor20.1.exe
+
+Packet Tracer,packettracer6.exe,packettracer7,packettracer7.exe
+
+Pandora,pandora,pandora.exe
+
+PANGPS,pangpa.exe,pangps,pangps.exe
+
+Paradox,paradox launcher,paradox launcher.exe
+
+Perl,perl,perl5.18
+
+PHP,php,php-fpm,php-win.exe,php.exe,phpstorm,phpstorm.exe,phpstorm64.exe
+
+PingID,pingid.exe,pingsender,pingsender.exe
+
+Plantronics,plantronics hub,plthub.exe
+
+Plugin-Container,plugin-container,plugin-container.exe,plugin_host,plugin_host.exe,pluginhost.exe
+
+Pokemon,pokemon trading card game online,pokemon trading card game online.exe,pokemonshowdown.exe
+
+Poker Stars,pokerstars,pokerstars.exe,pokerstars.net
+
+Polar Bookshelf,polar bookshelf helper,polar bookshelf.exe
+
+Popcorn Time,popcorn-time.exe,popcorntime
+
+PostBox,postbox,postbox-bin
+
+PRTG,prtg probe.exe,prtg server.exe,prtgdesktop.exe
+
+Psiphon,psiphon-tunnel-core.exe,psiphon3-meek.exe
+
+QQ,qq,qq.exe,qqapp.exe,qqbrowser.exe,qqmusic.exe
+
+Quip,quip,quip.exe,quiplash
+
+Rakuten,rakuten ebates cash back button,rakuten express cash back extensions
+
+Rambox,rambox helper,rambox.exe,ramboxpro
+
+REGUI,regui1.0,regui4.0
+
+RekordBox,rekordbox,rekordbox.exe
+
+Remote PC,remotepchelper,remotepcservice.exe,remotepcsuite,remotepcview
+
+Remoting Host,remoting_host.exe,remoting_me2me_host
+
+Republic Anywhere,republic anywhere,republic anywhere.exe
+
+RescueTime,rescuetime,rescuetime.exe
+
+Ring Central,ring.exe,ringcentral meetings,ringcentralmeetings.exe
+
+Riot,riot,riotclientservices,riotclientservices.exe,riotclientux,riotclientux.exe
+
+Roblox,robloxplayer,robloxplayerbeta.exe,robloxplayerlauncher.exe,robloxstudio,robloxstudiobeta.exe
+
+RoboForm,robo3t.exe,roboform,roboform-extension,roboformsafariextensionservice,roboformservice
+
+Rocket Chat,rocket.chat,rocket.chat.exe
+
+RP VOIP,rpvoip,rpvoip.exe
+
+RuneLite,runelite,runelite.exe
+
+Samsung Magician,samsungmagician.exe,samsungportablessd,samsungportablessd.exe
+
+Sandisk,sandisksecureaccessv3.01_win.exe,sandisksecureaccessv3.1_win.exe,sandisksecureaccessv3_mac,sandisksecureaccessv3_win.exe
+
+Shadow,shadow,shadow beta,shadow tactics,shadow.exe
+
+Shift,shift,shift.exe,shiftit
+
+Signiant,signiantclient.exe,signiantuser.exe
+
+Sketch,sketch,sketchpacks,sketchup,sketchup.exe
+
+Skitch,skitch,skitch.exe
+
+Sky,sky,sky go
+
+Sling,slingplayer desktop.exe,slingplayer.exe,slingplayerforweb helper eh,slingplayerforweb.exe
+
+Sniper,sniper ops 3d,sniper.png
+
+SoapUI,soapui-5.4.0-eb.exe,soapui-5.4.0.exe,soapui-5.5.0.exe
+
+Sonos,sonos,sonos.exe
+
+SplashTop,splashtop for rmm,splashtop personal
+
+Splice,splice,splice helper,splice.exe,splice.helper.exe
+
+Splunk,splunkd,splunkd.exe
+
+SQL Developer,sqldeveloper.exe,sqldeveloper64.exe,sqldeveloper64w.exe
+
+SRT Helper,srt_helper,srt_helper.exe
+
+Station,station,station helper (renderer),station.exe
+
+Steam,steam.exe,steam_osx
+
+Stellaris,stellaris,stellaris.exe
+
+SVN,svn,svn.exe
+
+Sync Thing,syncthing,syncthing.exe
+
+Synology,synology chat,synology chat.exe,synology-note-station.exe,synologysurveillancestationclient.exe
+
+TableTop Simulator,tabletop simulator,tabletop simulator.exe
+
+Tab Proto Srv,tabprotosrv,tabprotosrv.exe
+
+Tanium,taniumclient,taniumclient.exe
+
+TE Agent,te-agent,te-agent.exe,te-updater,te-user-agent
+
+Team Viewer,teamviewer,teamviewer.exe,teamviewerqs
+
+Telegram,telegram,telegram.exe
+
+Terraform,terraform,terraform-0.11.14,terraform-0.11.7,terraform-0.12.16,terraform-provider-aws,terraform-provider-azuread_v0.7.0_x4,terraform-provider-azurerm_v1.36.1_x4,terraform-provider-azurerm_v1.37.0_x4,terraform-provider-azurerm_v1.38.0_x4,terraform-provider-azurerm_v1.39.0_x4,terraform-provider-azurerm_v1.40.0_x4,terraform-provider-azurerm_v1.41.0_x4,terraform-provider-datadog_v2.5.0_x4,terraform-provider-dme,terraform-provider-docker,terraform-provider-google_v2.20.1_x4,terraform-provider-google_v3.0.0_x5,terraform-provider-google_v3.3.0_x5,terraform-provider-helm_v0.10.4_x4,terraform-provider-kubernetes_v1.10.0_x4,terraform-provider-kubernetes_v1.7.0_x4,terraform-provider-kubernetes_v1.8.1_x4,terraform-provider-kubernetes_v1.9.0_x4,terraform-provider-openstack_v1.25.0_x4,terraform-provider-pagerduty_v1.4.2_x4,terraform-provider-sl,terraform-provider-terraform_v1.0.1_x4,terraform-provider-terraform_v1.0.2_x4,terraform-provider-vault_v2.5.0_x4,terraform-provider-vault_v2.7.0_x4,terraform-provider-vsphere_v1.13.0_x4,terraform-provider-vsphere_v1.14.0_x4,terraform0.11.14,terraform0.12.16,terraform_0.11.14,terraform_0.12.16,terraform_8_7
+
+TET,tet-main.exe,tet_controller.exe
+
+Text Editor,texteditor 1.1.exe,texteditor 1.2.exe
+
+The Jackbox Party Pack,the jackbox party pack 3.exe,the jackbox party pack 5.exe,the jackbox party pack 6,the jackbox party pack 6.exe
+
+Things,things,things3
+
+TI Connect,ti connect ce.exe,ti-nspire cx student software.exe
+
+Todoist,todoist,todoist.exe,todoist.helper.exe,todoist.universal.exe,todoisttoday
+
+Toggle Desktop,toggldesktop,toggldesktop.exe
+
+TomTom,tomtom home,tomtom mydrive connect,tomtom mysports connect.exe,tomtom sports connect,tomtomhome.exe,tomtomhomeruntime.exe
+
+Toolkit,toolkit,toolkit.exe
+
+Tor,tor (Generic DMZ Traffic),tor-0.3.5.8-darwin-brave-0,tor-0.3.5.8-win32-brave-0,tor.exe,tor.real
+
+Trac SRV Wrapper,tracsrvwrapper,tracsrvwrapper.exe
+
+Trainer Road,trainerroad helper,trainerroad.exe
+
+Tresorit,tresorit,tresorit.exe
+
+Trillian,trillian,trillian.exe
+
+True Image,true_image,trueimage.exe,trueimaged,trueimagemonitor.exe
+
+Tune In,tunein,tunein.exe
+
+Typora,typora,typora.exe
+
+UI Path,uipath.service.host.exe,uipath.service.userhost.exe
+
+Unity,unity,unity hub,unitybugreporter
+
+Ultrasurf,u.exe,uran.exe
+
+uTorrent,utorrent web,utorrent.exe,utorrentie.exe
+
+VNC Viewer,vnc-viewer-6.0.2-windows-64bit.exe,vnc-viewer-6.0.3-windows-64bit.exe,vnc-viewer-6.1.0-windows-64bit.exe,vnc-viewer-6.1.1-windows-64bit.exe,vnc-viewer-6.18.907-windows-64bit.exe,vnc-viewer-6.19.325-windows-32bit.exe,vnclicensewiz,vncserver,vncserver.exe,vncviewer,vncviewer.exe
+
+VPN,vpn,vpn.exe
+
+VPN Downloader,vpndownloader,vpndownloader.exe
+
+VSD Viewer,vsd viewer,vsd viewer pro
+
+Vypr VPN,vyprvpn.exe,vyprvpnservice.exe
+
+WalkMe,walkme,walkme.exe,walkmeextension
+
+WD Discovery,wd discovery,wd discovery.exe,wd sync service,wdsync,wdsync.exe
+
+Weather Dock Free,weather dock free,weather widget free
+
+Weatherman,weatherman,weatherman lite
+
+WebShots,webshots,webshots.exe
+
+WebWorks,webworks.epublisherdesigner.exe,webworks.epublisherexpress.exe
+
+WeChat,wechat.exe,wechatapp.exe,wechatstore.exe,wechatwebdevtools helper
+
+Wget,wget,wget.exe,wgettoo.exe
+
+WinZip Smart Monitor,winzip smart monitor service.exe,winzipsmartmonitor.exe
+
+Wire,wire,wire helper (renderer)
+
+WorkBench,workbench.exe,workbench.service.exe
+
+WorkFlowy,workflowy,workflowy.exe
+
+Workspaces,workspaceinstall,workspaceinstall_el,workspaces,workspaces.exe
+
+World of Warcraft,world of warcraft,world of warcraft classic,wow.exe,wowclassic.exe
+
+X-Lite,x-lite,x-lite.exe
+
+XNIP,xnip,xniphelper
+
+Yousician,yousician,yousician launcher
+
+Youtube Download,youtube download,youtubedownloaderhd.exe
+
+Zeplin,zeplin,zeplin.exe
+
+Zwift,zwiftapp,zwiftlauncher-osx
+
+PBI Desktop,pbidesktop.exe,microsoft.powerbi.enterprisegateway.exe
+
+Rakuten,rakuten cash back button,rakuten ebates cash back button
+
+Avid Link,avid link,avid link.exe

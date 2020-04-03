@@ -190,7 +190,7 @@ cdef class TLS():
         return  ''.join(c), context
 
 
-    def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0, endpoint=None):
+    def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0, endpoint=None, approx=True):
         server_name = None
         # extract server_name field from context object
         if context_ != None and 'server_name' in context_:
@@ -198,6 +198,8 @@ cdef class TLS():
 
         # fingerprint approximate matching if necessary
         if fp_str_ not in self.fp_db:
+            if not approx:
+                return {'process': 'Unknown', 'score': 0.0, 'malware': 0, 'p_malware': 0.0, 'category': 'Unknown'}
             lit_fp = eval_fp_str(fp_str_)
             approx_str_ = self.find_approx_match(lit_fp)
             if approx_str_ == None:
@@ -228,7 +230,7 @@ cdef class TLS():
         domain, tld = get_tld_info(server_name)
         asn = get_asn_info(dest_addr)
         port_app = get_port_application(dest_port)
-        features = [asn, domain, port_app, dest_addr, str(server_name)]
+        features = [asn, domain, port_app, dest_addr, str(server_name), dest_port]
 
         # compute and sort scores for each process in the fingerprint
         fp_tc = fp_['total_count']
@@ -279,14 +281,23 @@ cdef class TLS():
         cdef uint64_t p_count     = p_['count']
         cdef double prob_process_given_fp = log(p_count/fp_tc_)
 
-        cdef double base_prior_ = -27.63102 # log(1e-12)
-        cdef double proc_prior_ = -11.51293 # log(1e-5)
-        cdef double prior_      = -13.81551 # log(1e-6)
+#        cdef double base_prior_ = -23.02585 # log(1e-10)
+        cdef double base_prior_ = -26.02585 # log(1e-10)
+        cdef double proc_prior_ = -16.11810 # log(1e-7)
+#        cdef double proc_prior_ = -11.51293 # log(1e-5)
+#        cdef double prior_      = -13.81551 # log(1e-6)
+        cdef double prior_      = -16.81551 # log(1e-6)
 
+        if 'domain_mean' in p_ and p_['domain_mean'] < 5.0:
+            base_prior_ = -25.32844 # log(1e-11)
+
+#        cdef double score_ = 5*prob_process_given_fp if prob_process_given_fp > proc_prior_ else 5*proc_prior_
         cdef double score_ = prob_process_given_fp if prob_process_given_fp > proc_prior_ else proc_prior_
+#        cdef double score_ = prob_process_given_fp if prob_process_given_fp > base_prior_ else base_prior_
         cdef double tmp_, trans_prob, prev_proc_prior
 
-        if endpoint != None and endpoint.prev_flow != None and 'analysis' in endpoint.prev_flow:
+        if (endpoint != None and endpoint.prev_flow != None and
+            'analysis' in endpoint.prev_flow and 'probable_processes' in endpoint.prev_flow['analysis']):
             trans_prob = sum([pp_['score']*self.transition_probs[pp_['process']][cur_proc]
                               for pp_ in endpoint.prev_flow['analysis']['probable_processes']
                               if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
@@ -295,33 +306,51 @@ cdef class TLS():
                 prev_proc_prior = log(trans_prob)
             score_ += base_prior_ if base_prior_> prev_proc_prior else prev_proc_prior
 
+        if endpoint != None and 'os_info' in p_:
+            os_info = endpoint.get_os()
+            if len(os_info) > 0:
+                k = next(iter(os_info.keys()))
+                if k in p_['os_info']:
+                    tmp_    = log((p_['os_info'][k]/p_count)*p_['os_info'][k]/fp_tc_)
+                    score_ += tmp_ if tmp_ > prior_ else prior_
+                else:
+                    score_ += base_prior_
+
         try:
-            tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
+            tmp_ = log((p_['classes_ip_as'][features[0]]/p_count)*p_['classes_ip_as'][features[0]]/fp_tc_)
+#            tmp_ = log(p_['classes_ip_as'][features[0]]/fp_tc_)
+#            tmp_ = log(p_['classes_ip_as'][features[0]]/p_count)
             score_ += tmp_ if tmp_ > prior_ else prior_
         except KeyError:
             score_ += base_prior_
 
         try:
-            tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
+            tmp_ = log((p_['classes_hostname_domains'][features[1]]/p_count)*p_['classes_hostname_domains'][features[1]]/fp_tc_)
+#            tmp_ = log(p_['classes_hostname_domains'][features[1]]/fp_tc_)
+#            tmp_ = log(p_['classes_hostname_domains'][features[1]]/p_count)
             score_ += tmp_ if tmp_ > prior_ else prior_
         except KeyError:
             score_ += base_prior_
 
-        try:
-            tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
-            score_ += tmp_ if tmp_ > prior_ else prior_
-        except KeyError:
-            score_ += base_prior_
+#        try:
+#            tmp_ = log(p_['classes_port_applications'][features[2]]/p_count)
+#            score_ += tmp_ if tmp_ > prior_ else prior_
+#        except KeyError:
+#            score_ += base_prior_
 
         if self.EXTENDED_FP_METADATA:
             try:
-                tmp_ = log(p_['classes_ip_ip'][features[3]]/p_count)
+                tmp_ = log((p_['classes_ip_ip'][features[3]]/p_count)*p_['classes_ip_ip'][features[3]]/fp_tc_)
+#                tmp_ = log(p_['classes_ip_ip'][features[3]]/fp_tc_)
+#                tmp_ = log(p_['classes_ip_ip'][features[3]]/p_count)
                 score_ += tmp_ if tmp_ > prior_ else prior_
             except KeyError:
                 score_ += base_prior_
 
             try:
-                tmp_ = log(p_['classes_hostname_sni'][features[4]]/p_count)
+                tmp_ = log((p_['classes_hostname_sni'][features[4]]/p_count)*p_['classes_hostname_sni'][features[4]]/fp_tc_)
+#                tmp_ = log(p_['classes_hostname_sni'][features[4]]/fp_tc_)
+#                tmp_ = log(p_['classes_hostname_sni'][features[4]]/p_count)
                 score_ += tmp_ if tmp_ > prior_ else prior_
             except KeyError:
                 score_ += base_prior_
@@ -432,3 +461,7 @@ cdef class TLS():
             fp_h['extensions'] = get_ext_from_str(lit_fp[2])
 
         return fp_h
+
+    @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
+    def os_identify(self, fp_str_, list_oses=0):
+        return None

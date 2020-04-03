@@ -1,0 +1,63 @@
+-- RFC 8702
+--
+--   Two object identifiers for SHAKE128 and SHAKE256 hash functions are
+--   defined in [shake-nist-oids], and we include them here for
+--   convenience.
+
+     id-shake128 OBJECT IDENTIFIER ::= { joint-iso-itu-t(2)
+          country(16) us(840) organization(1) gov(101) csor(3)
+          nistAlgorithm(4) 2 11 }
+
+     id-shake256 OBJECT IDENTIFIER ::= { joint-iso-itu-t(2)
+          country(16) us(840) organization(1) gov(101) csor(3)
+          nistAlgorithm(4) 2 12 }
+
+--   In this specification, when using the id-shake128 or id-shake256
+--   algorithm identifiers, the parameters MUST be absent.  That is, the
+--   identifier SHALL be a SEQUENCE of one component, the OID.
+
+--   [RFC8692] defines two identifiers for RSASSA-PSS signatures using
+--   SHAKEs, which we include here for convenience.
+
+     id-RSASSA-PSS-SHAKE128  OBJECT IDENTIFIER  ::=  { iso(1)
+               identified-organization(3) dod(6) internet(1)
+               security(5) mechanisms(5) pkix(7) algorithms(6) 30 }
+
+     id-RSASSA-PSS-SHAKE256  OBJECT IDENTIFIER  ::=  { iso(1)
+               identified-organization(3) dod(6) internet(1)
+               security(5) mechanisms(5) pkix(7) algorithms(6) 31 }
+
+--   The same RSASSA-PSS algorithm identifiers can be used for identifying
+--   public keys and signatures.
+--
+--   [RFC8692] also defines two algorithm identifiers of ECDSA signatures
+--   using SHAKEs, which we include here for convenience.
+
+     id-ecdsa-with-shake128 OBJECT IDENTIFIER  ::=  { iso(1)
+               identified-organization(3) dod(6) internet(1)
+               security(5) mechanisms(5) pkix(7) algorithms(6) 32 }
+
+     id-ecdsa-with-shake256 OBJECT IDENTIFIER  ::=  { iso(1)
+               identified-organization(3) dod(6) internet(1)
+               security(5) mechanisms(5) pkix(7) algorithms(6) 33 }
+
+--   The parameters for the four RSASSA-PSS and ECDSA identifiers MUST be
+--   absent.  That is, each identifier SHALL be a SEQUENCE of one
+--   component, the OID.
+
+--   In [shake-nist-oids], the National Institute of Standards and
+--   Technology (NIST) defines two object identifiers for Keccak message
+--   authentication codes (KMACs) using SHAKE128 and SHAKE256, and we
+--   include them here for convenience.
+
+      id-KmacWithSHAKE128 OBJECT IDENTIFIER ::= { joint-iso-itu-t(2)
+          country(16) us(840) organization(1) gov(101) csor(3)
+          nistAlgorithm(4) 2 19 }
+
+      id-KmacWithSHAKE256 OBJECT IDENTIFIER ::= { joint-iso-itu-t(2)
+          country(16) us(840) organization(1) gov(101) csor(3)
+          nistAlgorithm(4) 2 20 }
+
+--   The parameters for id-KmacWithSHAKE128 and id-KmacWithSHAKE256 are
+--   OPTIONAL.
+
