@@ -145,7 +145,6 @@ bool option_is_valid(const char *opt) {
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     int c;
-    int num_inputs = 0;  // we need to have one and only one input
 
     while(1) {
         enum opt { config=1, version=2, license=3 };
@@ -177,7 +176,6 @@ int main(int argc, char *argv[]) {
         case config:
             if (option_is_valid(optarg)) {
                 mercury_config_read_from_file(&cfg, optarg);
-                num_inputs++;
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
@@ -193,7 +191,6 @@ int main(int argc, char *argv[]) {
         case 'r':
             if (option_is_valid(optarg)) {
                 cfg.read_filename = optarg;
-                num_inputs++;
             } else {
                 usage(argv[0], "option r or read requires filename argument", extended_help_off);
             }
@@ -208,7 +205,6 @@ int main(int argc, char *argv[]) {
         case 'd':
             if (option_is_valid(optarg)) {
                 cfg.working_dir = optarg;
-                num_inputs++;
             } else {
                 usage(argv[0], "option d or directory requires working directory argument", extended_help_off);
             }
@@ -216,7 +212,6 @@ int main(int argc, char *argv[]) {
         case 'c':
             if (option_is_valid(optarg)) {
                 cfg.capture_interface = optarg;
-                num_inputs++;
             } else {
                 usage(argv[0], "option c or capture requires interface argument", extended_help_off);
             }
@@ -275,8 +270,7 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option T or test does not use an argument", extended_help_off);
             } else {
                 cfg.use_test_packet = 1;
-                num_inputs++;
-            }
+             }
             break;
         case 't':
             if (option_is_valid(optarg)) {
@@ -367,10 +361,10 @@ int main(int argc, char *argv[]) {
         usage(argv[0], "unrecognized options", extended_help_off);
     }
 
-    if (num_inputs == 0) {
+    if (cfg.read_filename == NULL && cfg.capture_interface == NULL) {
         usage(argv[0], "neither read [r] nor capture [c] specified on command line", extended_help_off);
     }
-    if (num_inputs > 1) {
+    if (cfg.read_filename != NULL && cfg.capture_interface != NULL) {
         usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
