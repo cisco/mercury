@@ -135,7 +135,7 @@ struct buffer_stream {
 
         /* Check for truncation */
         if (r >= dlen - doff) {
-            fprintf(stderr, "Truncation occurred in substr_snprintf(...). Space available: %u; needed: %d\n",
+            fprintf(stderr, "Truncation occurred in substr_snprintf(...). Space available: %d; needed: %d\n",
                     dlen - doff, r);
 
             doff = dlen;
