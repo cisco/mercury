@@ -49,8 +49,8 @@ void enable_all_signals(void) {
   sigset_t signal_set;
   sigfillset(&signal_set);
   if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL) != 0) {
-      fprintf(stderr, "%s: error by pthread_sigmask unblocking signals for stats thread id = %lu\n", 
-              strerror(errno), pthread_self());
+      fprintf(stderr, "%s: error in pthread_sigmask unblocking signals\n", 
+              strerror(errno));
   }
 }
 
@@ -61,7 +61,7 @@ void disable_all_signals(void) {
   sigset_t signal_set;
   sigfillset(&signal_set);
   if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
-      fprintf(stderr, "%s: error by pthread_sigmask blocking signals for thread id = %lu\n", 
-              strerror(errno), pthread_self());
+      fprintf(stderr, "%s: error in pthread_sigmask blocking signals\n", 
+              strerror(errno));
   }
 }
