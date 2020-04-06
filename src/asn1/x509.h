@@ -55,16 +55,16 @@ struct attribute {
         set.parse(p);
     }
 
-    void print_as_json(FILE *f) {
+    void print_as_json(FILE *f, const char *comma="") {
         const char *unknown_oid = "unknown_oid";
         const char *oid_string = unknown_oid;
 
         if (attribute_type.length == 0 || attribute_value.length == 0) {
-            fprintf(f, "{}");  // print empty object to ensure proper JSON formatting
+            fprintf(f, "%s{}", comma);  // print empty object to ensure proper JSON formatting
             return;
         }
         oid_string = parser_get_oid_string(&attribute_type.value);
-        fprintf(f, "{");
+        fprintf(f, "%s{", comma);
         if (oid_string != unknown_oid) {
             attribute_value.print_as_json_escaped_string(f, oid_string);
         } else {
@@ -77,52 +77,35 @@ struct attribute {
 
 struct name {
     struct tlv RDNsequence;
-    std::vector<struct attribute> rdn;
 
-    name() : RDNsequence{}, rdn{} {}
-
+    name() : RDNsequence{} {}
     void parse(struct parser *p, const char *label=NULL) {
-
         RDNsequence.parse(p, tlv::SEQUENCE, "RDNsequence");
+    }
+    void print_as_json(FILE *f, const char *name) {
 
-        while (parser_get_data_length(&RDNsequence.value) > 0) {
+        fprintf(f, ",\"%s\":[", name);  // open JSON array
+        const char *comma = "";
+        struct constructed_tlv tmp = RDNsequence;
+        while (tmp.is_not_empty()) {
+            struct attribute r(&tmp.value);
+            r.sequence.parse(&r.set.value);
 
-            while (parser_get_data_length(&RDNsequence.value) > 0) {
-                rdn.push_back(&RDNsequence.value);
-
-                struct attribute &r = rdn.back();
-
-                r.sequence.parse(&r.set.value);
-
-                if (r.sequence.is_constructed()) {
-                    while (parser_get_data_length(&r.sequence.value) > 0) {
-                        r.attribute_type.parse(&r.sequence.value, 0, "attribute_type");
-                        if (r.attribute_type.tag == 0x06) {
-
-                            r.attribute_value.parse(&r.sequence.value, 0, "attribute_value");
-                        } else {
-                            fprintf(stderr, "warning: got unexpected type %02x\n", r.attribute_type.tag);
-                        }
+            if (r.sequence.is_constructed()) {
+                while (parser_get_data_length(&r.sequence.value) > 0) {
+                    r.attribute_type.parse(&r.sequence.value, 0, "attribute_type");
+                    if (r.attribute_type.tag == 0x06) {
+                        r.attribute_value.parse(&r.sequence.value, 0, "attribute_value");
+                    } else {
+                        fprintf(stderr, "warning: got unexpected type %02x\n", r.attribute_type.tag);
                     }
                 }
             }
+            r.print_as_json(f, comma);
+            comma = ",";
         }
-    }
+        fprintf(f, "]");               //  close JSON array
 
-    void print_as_json(FILE *f, const char *name) {
-        if (rdn.size() > 0) {
-            fprintf(f, ",\"%s\":[", name);  // open JSON array
-            bool first = true;
-            for (auto &a : rdn) {
-                if (first) {
-                    first = false;
-                } else {
-                    fprintf(f, ",");
-                }
-                a.print_as_json(f);
-            }
-            fprintf(f, "]");               //  close JSON array
-        }
     }
 };
 
@@ -170,21 +153,24 @@ struct basic_constraints {
 
 struct ext_key_usage {
     struct constructed_tlv sequence;
-    std::vector<struct tlv> key_purpose_id;
+    // std::vector<struct tlv> key_purpose_id;
 
     ext_key_usage(struct parser *p) : sequence{} {
         sequence.parse(p, 0, "ext_key_usage.sequence");
-        while (parser_get_data_length(&sequence.value) > 0) {
-            key_purpose_id.push_back(&sequence.value);
-            // sequence.fprint(stdout, "ext_key_usage.key_purpose_id");
-        }
+        //        while (parser_get_data_length(&sequence.value) > 0) {
+        //  key_purpose_id.push_back(&sequence.value);
+        //    // sequence.fprint(stdout, "ext_key_usage.key_purpose_id");
+        //}
     }
 
     void print_as_json(FILE *f) {
         fprintf(f, "\"ext_key_usage\":[");
         bool first = true;
-        for (auto &x : key_purpose_id) {
-            const char *oid_string = parser_get_oid_string(&x.value);
+        //        for (auto &x : key_purpose_id) {
+        struct parser p = sequence.value;
+        while (parser_get_data_length(&p) > 0) {
+            struct tlv key_purpose_id(&p);
+            const char *oid_string = parser_get_oid_string(&key_purpose_id.value);
             if (first) {
                 first = false;
             } else {
@@ -194,7 +180,7 @@ struct ext_key_usage {
                 fprintf(f, "\"%s\"", oid_string);
             } else {
                 fprintf(f, "\"");
-                raw_string_print_as_oid(f, x.value.data, x.value.data_end - x.value.data);
+                raw_string_print_as_oid(f, key_purpose_id.value.data, key_purpose_id.value.data_end - key_purpose_id.value.data);
                 fprintf(f, "\"");
             }
 
@@ -959,7 +945,7 @@ struct extension {
     struct tlv critical; // boolean default false
     struct tlv extnValue;
 
-    extension(struct parser *p) : sequence{p}, extnID{}, critical{}, extnValue{} {
+    extension(struct parser &p) : sequence{&p}, extnID{}, critical{}, extnValue{} {
         if (sequence.is_constructed()) {
             extnID.parse(&sequence.value, 0, "extnID");
             extnValue.parse(&sequence.value, 0, "extnValue");
@@ -1396,8 +1382,9 @@ struct x509_cert {
 
         fprintf(f, ",\"extensions\":[");  // open JSON array for extensions
         const char *comma = "";
-        while (parser_get_data_length(&extensions.value) > 0) {
-            struct extension xtn(&extensions.value);
+        struct constructed_tlv tmp = extensions;
+        while (tmp.is_not_empty()) {
+            struct extension xtn(tmp.value);
             xtn.print_as_json(f, comma);
             comma = ",";
         }
