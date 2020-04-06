@@ -314,7 +314,7 @@ void raw_string_print_as_oid(FILE *f, const uint8_t *raw, size_t length) {
 }
 
 const char *oid_empty_string = "";
-const char *parser_get_oid_string(struct parser *p) {
+const char *parser_get_oid_string(const struct parser *p) {
     std::string s = p->get_string();
     //const char *tmp = s.c_str();    // TBD: refactor to eliminate string allocation
     auto pair = oid_dict.find(s);
@@ -388,10 +388,10 @@ struct tlv {
         BMP_STRING		  = 0x1e
     };
 
-    bool is_not_null() {
+    bool is_not_null() const {
         return value.data;
     }
-    bool is_null() {
+    bool is_null() const {
         return (value.data == NULL);
     }
     uint8_t get_little_tag() { return tag & 0x1f; }
@@ -415,8 +415,9 @@ struct tlv {
 
         if (parser_get_data_length(p) < 2) {
             fprintf(stderr, "error: incomplete data (%ld bytes)\n", p->data_end - p->data);
-            //throw "error initializing tlv";
+            p->data = p->data_end;  // parser is no longer good for reading
             return;  // leave tlv uninitialized, but don't throw an exception
+            // throw "error initializing tlv";
         }
         // set tag
         tag = p->data[0];
@@ -440,10 +441,12 @@ struct tlv {
             size_t num_octets_in_length = length - 128;
             if (num_octets_in_length < 0) {
                 fprintf(stderr, "error: invalid length field\n");
+                p->data = p->data_end;  // parser is no longer good for reading
                 // throw "error initializing tlv";
             }
             if (parser_read_and_skip_uint(p, num_octets_in_length, &length) == status_err) {
                 fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, parser_get_data_length(p));
+                p->data = p->data_end;  // parser is no longer good for reading
                 // throw "error initializing tlv";
             }
         }
@@ -581,7 +584,7 @@ struct tlv {
         // return (tag >> 5) & 1;
     }
 
-    void print_as_json_hex(FILE *f, const char *name, bool comma=false) {
+    void print_as_json_hex(FILE *f, const char *name, bool comma=false) const {
         const char *format_string = "\"%s\":\"";
         if (comma) {
             format_string = ",\"%s\":\"";
@@ -592,7 +595,7 @@ struct tlv {
         }
         fprintf(f, "\"");
     }
-    void print_as_json_oid(FILE *f, const char *name, bool comma=false) {
+    void print_as_json_oid(FILE *f, const char *name, bool comma=false) const {
         const char *format_string = "\"%s\":";
         if (comma) {
             format_string = ",\"%s\":";
@@ -609,21 +612,21 @@ struct tlv {
         }
 
     }
-    void print_as_json_utctime(FILE *f, const char *name) {
+    void print_as_json_utctime(FILE *f, const char *name) const {
         fprintf_json_utctime(f, name, value.data, value.data_end - value.data);
     }
-    void print_as_json_generalized_time(FILE *f, const char *name) {
+    void print_as_json_generalized_time(FILE *f, const char *name) const {
         fprintf_json_generalized_time(f, name, value.data, value.data_end - value.data);
     }
-    void print_as_json_escaped_string(FILE *f, const char *name) {
+    void print_as_json_escaped_string(FILE *f, const char *name) const {
         fprintf_json_string_escaped(f, name, value.data, value.data_end - value.data);
     }
-    void print_as_json_ip_address(FILE *f, const char *name) {
+    void print_as_json_ip_address(FILE *f, const char *name) const {
         fprintf(f, "{\"%s\":\"", name);
         fprintf_ip_address(f, value.data, value.data_end - value.data);
         fprintf(f, "\"}");
     }
-    void print_as_json_bitstring(FILE *f, const char *name, bool comma=false) {
+    void print_as_json_bitstring(FILE *f, const char *name, bool comma=false) const {
         const char *format_string = "\"%s\":[";
         if (comma) {
             format_string = ",\"%s\":[";
@@ -650,7 +653,7 @@ struct tlv {
         }
         fprintf(f, "]");
     }
-    void print_as_json_bitstring_flags(FILE *f, const char *name, char * const *flags, bool comma=false) {
+    void print_as_json_bitstring_flags(FILE *f, const char *name, char * const *flags, bool comma=false) const {
         const char *format_string = "\"%s\":[";
         if (comma) {
             format_string = ",\"%s\":[";
@@ -689,7 +692,7 @@ struct tlv {
         fprintf(f, "]");
     }
 
-    void print_as_json(FILE *f, const char *name) {
+    void print_as_json(FILE *f, const char *name) const {
         switch(tag) {
         case tlv::UTCTime:
             print_as_json_utctime(f, name);
@@ -753,6 +756,7 @@ struct tlv {
         value.data = (const uint8_t *)data;
         value.data_end = (const uint8_t *)data + len;
     }
+
 };
 
 
@@ -762,35 +766,29 @@ struct tlv {
  */
 
 struct constructed_tlv : public tlv {
-    bool clean;
 
-    constructed_tlv() : tlv{}, clean{false} {}
-    constructed_tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tlv{}, clean{false} {
+    constructed_tlv() : tlv{} {}
+    constructed_tlv(struct tlv x) : tlv{x} {}
+    constructed_tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tlv{} {
         constructed_tlv::parse(p, expected_tag, tlv_name);
     }
-    constructed_tlv(struct constructed_tlv &c, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tlv{}, clean{false} {
+    constructed_tlv(struct constructed_tlv &c, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tlv{} {
         constructed_tlv::parse(c, expected_tag, tlv_name);
     }
 
     void parse(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
         tlv::parse(p, expected_tag, tlv_name);
-        if (tlv::is_not_null()) {
-            clean = true;
-        }
     }
     void parse(struct constructed_tlv &c, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
         tlv::parse(&c.value, expected_tag, tlv_name);
-        if (tlv::is_not_null()) {
-            clean = true;
-        }
+    }
+    bool is_not_empty() {
+        return value.data < value.data_end;
     }
 };
 
 void tlv::parse(struct constructed_tlv &c, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
-    if (c.clean) {
-        tlv::parse(&c.value, expected_tag, tlv_name);
-        c.clean = (value.data != NULL);
-    }
+    tlv::parse(&c.value, expected_tag, tlv_name);
 }
 
 tlv::tlv(struct constructed_tlv &c, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
