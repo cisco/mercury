@@ -113,11 +113,11 @@ struct basic_constraints {
     //    basic_constraints(struct parser *p) : sequence{p}, ca{&sequence.value}, path_len_constraint{&sequence.value} {}
     basic_constraints(struct parser *p) : sequence{}, ca{}, path_len_constraint{} {
         sequence.parse(p);
-        if (parser_get_data_length(&sequence.value) > 0) {
-            ca.parse(&sequence.value, 0x01);  // default false boolean
+        if (sequence.value.is_not_empty()) {
+            ca.parse(&sequence.value, tlv::BOOLEAN);  // default false boolean
         }
-        if (parser_get_data_length(&sequence.value) > 0) {
-            path_len_constraint.parse(&sequence.value, 0x02); // integer 0..MAX optional
+        if (sequence.value.is_not_empty()) {
+            path_len_constraint.parse(&sequence.value, tlv::INTEGER); // integer 0..MAX optional
         }
     }
 
@@ -142,13 +142,13 @@ struct basic_constraints {
  */
 
 struct ext_key_usage {
-    struct constructed_tlv sequence;
+    struct tlv sequence;
 
     ext_key_usage(struct parser *p) : sequence{} {
         sequence.parse(p, 0, "ext_key_usage.sequence");
     }
 
-    void print_as_json(FILE *f) {
+    void print_as_json(FILE *f) const {
         fprintf(f, "\"ext_key_usage\":[");
         bool first = true;
         struct parser p = sequence.value;
@@ -281,7 +281,7 @@ struct policy_qualifier_info {
     void parse(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
         qualifier_id.parse(&sequence.value); // tlv::OBJECT_IDENTIFIER);
-        if (parser_get_data_length(&sequence.value) > 0) {
+        if (sequence.value.is_not_empty()) {
             qualifier.parse(&sequence.value);
         }
     }
@@ -304,7 +304,7 @@ struct policy_information {
     policy_information(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
         policy_identifier.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
-        if (parser_get_data_length(&sequence.value) > 0) {
+        if (sequence.value.is_not_empty()) {
             policy_qualifiers.parse(&sequence.value, tlv::SEQUENCE);
         }
     }
@@ -330,7 +330,7 @@ struct certificate_policies {
     void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
         fprintf(f, "%s\"%s\":[", pre, name);
         const char *c = "{";
-        while (parser_get_data_length(&sequence.value) > 0) {
+        while (sequence.value.is_not_empty()) {
             struct policy_information pi(&sequence.value);
             pi.print_as_json(f, "policy_information", c, "}");
             c = ",{";
@@ -359,7 +359,7 @@ struct private_key_usage_period {
     }
     void parse(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
-        while (parser_get_data_length(&sequence.value) > 0) {
+        while (sequence.value.is_not_empty()) {
             struct tlv tmp(&sequence.value);
             if (tmp.tag == tlv::explicit_tag(0)) {
                 notBefore = tmp;
@@ -375,14 +375,12 @@ struct private_key_usage_period {
         if (notBefore.is_not_null()) {
             fprintf(f, "{");
             notBefore.print_as_json_generalized_time(f, "not_before");
-            //fprintf_json_utctime(f, "notBefore", notBefore.value.data, notBefore.value.data_end - notBefore.value.data);
             fprintf(f, "}");
             c = ",";
         }
         if (notAfter.is_not_null()) {
             fprintf(f, "%s{", c);
             notAfter.print_as_json_generalized_time(f, "not_after");
-            //fprintf_json_utctime(f, "notAfter", notAfter.value.data, notAfter.value.data_end - notAfter.value.data);
             fprintf(f, "}");
         }
         fprintf(f, "]");
@@ -567,7 +565,7 @@ struct distribution_point {
     distribution_point(struct parser *p) : sequence{p} { }
     void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
         fprintf(f, "%s\"%s\":[", pre, name);
-        while (parser_get_data_length(&sequence.value) > 0) {
+        while (sequence.value.is_not_empty()) {
             struct tlv tmp(&sequence.value);
             if (tmp.tag == tlv::explicit_tag_constructed(0)) {
                 distribution_point_name.parse(&tmp.value);
@@ -586,7 +584,7 @@ struct crl_distribution_points {
     void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
         fprintf(f, "%s\"%s\":[", pre, name);
         const char *comma = "{";
-        while (parser_get_data_length(&sequence.value) > 0) {
+        while (sequence.value.is_not_empty()) {
             struct distribution_point dp(&sequence.value);
             dp.print_as_json(f, "crl_distribution_point", comma, "}");
             comma = ",{";
@@ -621,7 +619,7 @@ struct authority_key_identifier {
 
     void parse(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
-        while (parser_get_data_length(&sequence.value) > 0) {
+        while (sequence.value.is_not_empty()) {
             struct tlv tmp(&sequence.value);
 
             if (tmp.tag == tlv::explicit_tag(0)) {
@@ -683,7 +681,7 @@ struct general_subtree {
     general_subtree(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
         base.parse(&sequence.value);
-        while (parser_get_data_length(&sequence.value) > 0) {
+        while (sequence.value.is_not_empty()) {
             struct tlv tmp(&sequence.value);
             // tmp.fprint(stderr, "general_subtree.sequence.tmp");
             if (tmp.tag == tag_minimum) {
@@ -718,7 +716,7 @@ struct name_constraints {
 
     name_constraints(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
-        while (parser_get_data_length(&sequence.value) > 0) {
+        while (sequence.value.is_not_empty()) {
             struct tlv tmp(&sequence.value);
             if (tmp.tag == permittedSubtrees) {
                 permitted_subtrees = tmp;
@@ -838,15 +836,15 @@ struct signed_certificate_timestamp_list {
  */
 
 struct access_description {
-    struct constructed_tlv sequence;
+    struct tlv sequence;
     struct tlv access_method;            // object identifier
     struct general_name access_location;
 
     access_description() : sequence{}, access_method{}, access_location{} {}
-    access_description(struct constructed_tlv &x) : sequence{}, access_method{}, access_location{} {
+    access_description(struct parser *x) : sequence{}, access_method{}, access_location{} {
         parse(x);
     }
-   void parse(struct constructed_tlv &x) {
+   void parse(struct parser *x) {
         sequence.parse(x);
         // sequence.fprint(stderr, "sequence");
         access_method.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
@@ -867,7 +865,7 @@ struct access_description {
 };
 
 struct authority_info_access_syntax {
-    struct constructed_tlv sequence;
+    struct tlv sequence;
 
     authority_info_access_syntax(struct parser *p) : sequence{} {
         parse(p);
@@ -875,13 +873,14 @@ struct authority_info_access_syntax {
     void parse(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
     }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s\"%s\":[", pre, name);
 
         const char *comma = "{";
         struct access_description ad;
-        while (parser_get_data_length(&sequence.value) > 0) {
-            ad.parse(sequence);
+        struct parser tlv_sequence = sequence.value;
+        while (tlv_sequence.is_not_empty()) {
+            ad.parse(&tlv_sequence);
             ad.print_as_json(f, "access_description", comma, "}");
             // break; // TBD: FIXME
             comma = ",{";
@@ -916,8 +915,7 @@ struct extension {
         if (sequence.is_constructed()) {
             extnID.parse(&sequence.value, 0, "extnID");
             extnValue.parse(&sequence.value, 0, "extnValue");
-            if (extnValue.tag == 0x01) {
-                // fprintf(stderr, "found boolean\n");
+            if (extnValue.tag == tlv::BOOLEAN) {
                 critical = extnValue;
                 extnValue.parse(&sequence.value, 0, "critical");
             }
@@ -1139,10 +1137,10 @@ struct algorithm_identifier {
     void parse(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
         algorithm.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
-        if (parser_get_data_length(&sequence.value) > 0) {
+        if (sequence.value.is_not_empty()) {
             null.parse(&sequence.value, tlv::NULL_TAG);
         }
-        if (parser_get_data_length(&sequence.value) > 0) {
+        if (sequence.value.is_not_empty()) {
             parameters.parse(&sequence.value);
         }
     }
@@ -1315,12 +1313,12 @@ struct x509_cert {
         // parse subjectPublicKeyInfo
         subjectPublicKeyInfo.parse(&tbs_certificate.value);
 
-        if (parser_get_data_length(&tbs_certificate.value) == 0) {
+        if (tbs_certificate.value.is_not_empty() == false) {
             return;    // optional extensions are not present
         }
 
         // parse extensions
-        explicitly_tagged_extensions.parse(&tbs_certificate.value, 0xa3);
+        explicitly_tagged_extensions.parse(&tbs_certificate.value, tlv::explicit_tag_constructed(3));
         if (explicitly_tagged_extensions.is_not_null()) {
             extensions.parse(&explicitly_tagged_extensions.value, 0, "explicitly tagged extensions");
         } else {
@@ -1328,7 +1326,7 @@ struct x509_cert {
         }
 
         // tbs_certificate should be out of data now
-        if (parser_get_data_length(&tbs_certificate.value) != 0) {
+        if (tbs_certificate.value.is_not_empty()) {
             fprintf(stderr, "warning: tbs_certificate has trailing data\n");
         }
 
@@ -1466,17 +1464,17 @@ struct x509_cert_prefix {
         data = (const uint8_t *)buffer;
         parser_init(&p, (const unsigned char *)buffer, len);
 
-        struct constructed_tlv certificate(&p, tlv::SEQUENCE, "certificate");
+        struct tlv certificate(&p, tlv::SEQUENCE, "certificate");
 
-        struct constructed_tlv tbs_certificate(certificate, tlv::SEQUENCE, "tbs_certificate");
+        struct tlv tbs_certificate(&certificate.value, tlv::SEQUENCE, "tbs_certificate");
 
         // parse (implicit or explicit) version
-        struct constructed_tlv explicitly_tagged_version(tbs_certificate, tlv::explicit_tag_constructed(0), "version_tag");
+        struct tlv explicitly_tagged_version(&tbs_certificate.value, tlv::explicit_tag_constructed(0), "version_tag");
         if (explicitly_tagged_version.is_not_null()) {
-            version.parse(explicitly_tagged_version, tlv::INTEGER, "version");
+            version.parse(&explicitly_tagged_version.value, tlv::INTEGER, "version");
 
         } else {
-            struct tlv version_or_serial_number(tbs_certificate, tlv::INTEGER, "version_or_serial_number");
+            struct tlv version_or_serial_number(&tbs_certificate.value, tlv::INTEGER, "version_or_serial_number");
             if (version_or_serial_number.length ==1 && version_or_serial_number.value.data[0] < 3) {
                 version = version_or_serial_number;
             } else {
@@ -1485,13 +1483,13 @@ struct x509_cert_prefix {
             }
         }
         if (serial_number.is_null()) {
-            serial_number.parse(tbs_certificate, tlv::INTEGER, "serial number");
+            serial_number.parse(&tbs_certificate.value, tlv::INTEGER, "serial number");
         }
 
-        struct tlv algorithm_identifier(tbs_certificate, 0, "algorithm_identifier");
+        struct tlv algorithm_identifier(&tbs_certificate.value, 0, "algorithm_identifier");
 
         // parse issuer
-        issuer.parse(tbs_certificate);
+        issuer.parse(&tbs_certificate.value);
         if (issuer.is_not_null()) {
             data_end = tbs_certificate.value.data;  // found the end of the issuer, so set data_end
         } else {

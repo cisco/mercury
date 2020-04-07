@@ -460,9 +460,6 @@ struct tlv {
 #endif
     }
 
-    tlv(struct constructed_tlv &c, uint8_t expected_tag, const char *tlv_name);
-    void parse(struct constructed_tlv &c, uint8_t expected_tag, const char *tlv_name);
-
     void remove_bitstring_encoding() {
         size_t first_octet = 0;
         parser_read_and_skip_uint(&value, 1, &first_octet);
@@ -758,42 +755,5 @@ struct tlv {
     }
 
 };
-
-
-/*
- * struct constructed : public tlv is a special TLV for SEQUENCE or
- * SET, whose value element can hold multiple other TLVs
- */
-
-struct constructed_tlv : public tlv {
-
-    constructed_tlv() : tlv{} {}
-    constructed_tlv(struct tlv x) : tlv{x} {}
-    constructed_tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tlv{} {
-        constructed_tlv::parse(p, expected_tag, tlv_name);
-    }
-    constructed_tlv(struct constructed_tlv &c, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tlv{} {
-        constructed_tlv::parse(c, expected_tag, tlv_name);
-    }
-
-    void parse(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
-        tlv::parse(p, expected_tag, tlv_name);
-    }
-    void parse(struct constructed_tlv &c, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
-        tlv::parse(&c.value, expected_tag, tlv_name);
-    }
-    bool is_not_empty() {
-        return value.data < value.data_end;
-    }
-};
-
-void tlv::parse(struct constructed_tlv &c, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
-    tlv::parse(&c.value, expected_tag, tlv_name);
-}
-
-tlv::tlv(struct constructed_tlv &c, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
-    tlv::parse(c, expected_tag, tlv_name);
-}
-
 
 #endif /* ASN1_H */
