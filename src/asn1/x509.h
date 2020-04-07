@@ -1436,6 +1436,15 @@ struct x509_cert {
         return false;
     }
 
+    bool is_nonconformant() {
+        const char *sig_alg_type = signature_algorithm.type();
+        const char *tbs_sig_alg_type = algorithm_identifier.type();
+        if (sig_alg_type && tbs_sig_alg_type && strcmp(sig_alg_type, tbs_sig_alg_type) != 0) {
+            return true;
+        }
+        return false;
+    }
+
     bool is_not_currently_valid() const {
         char time_str[16];
         time_t t = time(NULL);
