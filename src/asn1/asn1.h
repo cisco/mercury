@@ -394,7 +394,7 @@ struct tlv {
     bool is_null() const {
         return (value.data == NULL);
     }
-    uint8_t get_little_tag() { return tag & 0x1f; }
+    uint8_t get_little_tag() const { return tag & 0x1f; }
     tlv() {
         // initialize to null/zero
         tag = 0;
@@ -414,8 +414,8 @@ struct tlv {
     void parse(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
 
         if (parser_get_data_length(p) < 2) {
-            fprintf(stderr, "error: incomplete data (%ld bytes)\n", p->data_end - p->data);
-            p->data = p->data_end;  // parser is no longer good for reading
+            fprintf(stderr, "error: incomplete data (only %ld bytes)\n", p->data_end - p->data);
+            p->set_empty();  // parser is no longer good for reading
             return;  // leave tlv uninitialized, but don't throw an exception
             // throw "error initializing tlv";
         }
@@ -441,12 +441,12 @@ struct tlv {
             size_t num_octets_in_length = length - 128;
             if (num_octets_in_length < 0) {
                 fprintf(stderr, "error: invalid length field\n");
-                p->data = p->data_end;  // parser is no longer good for reading
+                p->set_empty();  // parser is no longer good for reading
                 // throw "error initializing tlv";
             }
             if (parser_read_and_skip_uint(p, num_octets_in_length, &length) == status_err) {
                 fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, parser_get_data_length(p));
-                p->data = p->data_end;  // parser is no longer good for reading
+                p->set_empty();  // parser is no longer good for reading
                 // throw "error initializing tlv";
             }
         }
@@ -553,7 +553,7 @@ struct tlv {
         "BMPString"
     };
 
-    void fprint(FILE *f, const char *tlv_name) {
+    void fprint(FILE *f, const char *tlv_name) const {
         // return;  // return;
         if (value.data) {
             uint8_t tag_class = tag >> 6;
@@ -576,7 +576,7 @@ struct tlv {
         }
     }
 
-    inline bool is_constructed() {
+    inline bool is_constructed() const {
         return tag & 0x20;
         // return (tag >> 5) & 1;
     }
@@ -716,7 +716,7 @@ struct tlv {
         }
     }
 
-    int time_cmp(const struct tlv &t) {
+    int time_cmp(const struct tlv &t) const {
         ssize_t l1 = value.data_end - value.data;
         ssize_t l2 = t.value.data_end - t.value.data;
         ssize_t min = l1 < l2 ? l1 : l2;
