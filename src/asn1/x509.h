@@ -57,7 +57,7 @@ struct attribute {
         attribute_value.parse(&sequence.value, 0, "attribute_value");
     }
 
-    void print_as_json(FILE *f, const char *comma="") {
+    void print_as_json(FILE *f, const char *comma="") const {
         const char *unknown_oid = "unknown_oid";
         const char *oid_string = unknown_oid;
 
@@ -84,7 +84,7 @@ struct name {
     void parse(struct parser *p, const char *label=NULL) {
         RDNsequence.parse(p, tlv::SEQUENCE, "RDNsequence");
     }
-    void print_as_json(FILE *f, const char *name) {
+    void print_as_json(FILE *f, const char *name) const {
 
         fprintf(f, ",\"%s\":[", name);  // open JSON array
         const char *comma = "";
@@ -121,7 +121,7 @@ struct basic_constraints {
         }
     }
 
-    void print_as_json(FILE *f) {
+    void print_as_json(FILE *f) const {
         const char *ca_str = "false";  // default
         unsigned int length = 0;   // default
         // TBD: report actual non-default data
@@ -200,7 +200,7 @@ struct key_usage {
     void parse(struct parser *p) {
         bit_string.parse(p, tlv::BIT_STRING);
     }
-    void print_as_json(FILE *f, const char *name) {
+    void print_as_json(FILE *f, const char *name) const {
         char *flags[10] = {
             (char *)"digital_signature",
             (char *)"non_repudiation",
@@ -213,7 +213,6 @@ struct key_usage {
             (char *)"decipher_only",
             NULL
         };
-        //bit_string.print_as_json_bitstring(f, "key_usage" );
         bit_string.print_as_json_bitstring_flags(f, "key_usage", flags);
     }
 };
@@ -285,7 +284,7 @@ struct policy_qualifier_info {
             qualifier.parse(&sequence.value);
         }
     }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s\"%s\":{", pre, name);
         qualifier_id.print_as_json_oid(f, "qualifier_id");
         fprintf(f, ",");
@@ -297,18 +296,18 @@ struct policy_qualifier_info {
 
 struct policy_information {
     struct tlv sequence;
-    struct tlv policy_identifier;
-    struct tlv policy_qualifiers;
 
-    policy_information() : sequence{}, policy_identifier{}, policy_qualifiers{} {}
+    policy_information() : sequence{} {}
     policy_information(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
-        policy_identifier.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
-        if (sequence.value.is_not_empty()) {
-            policy_qualifiers.parse(&sequence.value, tlv::SEQUENCE);
-        }
     }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
+        struct parser tlv_sequence = sequence.value;
+        struct tlv policy_identifier(&tlv_sequence, tlv::OBJECT_IDENTIFIER);
+        struct tlv policy_qualifiers;
+        if (tlv_sequence.is_not_empty()) {
+            policy_qualifiers.parse(&tlv_sequence, tlv::SEQUENCE);
+        }
         fprintf(f, "%s\"%s\":[", pre, name);
         fprintf(f, "{");
         policy_identifier.print_as_json_oid(f, "policy_identifier");
@@ -327,11 +326,12 @@ struct certificate_policies {
     certificate_policies(struct parser *p) : sequence{} { //, policy_information{} {
         sequence.parse(p, tlv::SEQUENCE);
     }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s\"%s\":[", pre, name);
         const char *c = "{";
-        while (sequence.value.is_not_empty()) {
-            struct policy_information pi(&sequence.value);
+        struct parser tlv_sequence = sequence.value;
+        while (tlv_sequence.is_not_empty()) {
+            struct policy_information pi(&tlv_sequence);
             pi.print_as_json(f, "policy_information", c, "}");
             c = ",{";
         }
@@ -369,7 +369,7 @@ struct private_key_usage_period {
             }
         }
     }
-    void print_as_json(FILE *f, const char *name, bool comma=false) {
+    void print_as_json(FILE *f, const char *name, bool comma=false) const {
         fprintf(f, comma ? "\"%s\":[" : "\"%s\":[", name);
         const char *c = "";
         if (notBefore.is_not_null()) {
@@ -427,10 +427,11 @@ struct general_name {
         explicit_tag.parse(p, expected_tag);
         //explicit_tag.fprint(stderr, "explicit_tag");
     }
-    void print_as_json(FILE *f) {
+    void print_as_json(FILE *f) const {
         if (explicit_tag.tag == otherName) {
-            struct tlv type_id(&explicit_tag.value, tlv::OBJECT_IDENTIFIER);
-            struct tlv value(&explicit_tag.value, 0);
+            struct parser tlv_sequence = explicit_tag.value;
+            struct tlv type_id(&tlv_sequence, tlv::OBJECT_IDENTIFIER);
+            struct tlv value(&tlv_sequence, 0);
             fprintf(f, "{\"other_name\":{");
             type_id.print_as_json_oid(f, "type_id");
             value.print_as_json_hex(f, "value", true);
@@ -475,7 +476,7 @@ struct subject_alt_name {
         // sequence.fprint(stdout, "subject_alt_name.names");
     }
 
-    void print_as_json(FILE *f, const char *name) {
+    void print_as_json(FILE *f, const char *name) const {
         fprintf(f, "\"%s\":[", name);
         const char *comma = "";
         struct parser tlv_sequence = sequence.value;
@@ -538,7 +539,7 @@ struct distribution_point_name {
             name_relative_to_crl_issuer.parse(&tmp.value);
         }
     }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         if (full_name.explicit_tag.is_not_null()) {
             fprintf(f, "%s\"%s\":{", pre, name);
             fprintf(f, "\"full_name\":");
@@ -555,20 +556,20 @@ struct distribution_point_name {
 
 struct distribution_point {
     struct tlv sequence;
-    struct distribution_point_name distribution_point_name;
-    struct tlv reasons;
-    struct tlv crl_issuer;
-
+    // struct tlv reasons;
+    // struct tlv crl_issuer;
+    //
     // note: reasons and issuer have not been implemented; no certs
     // for testing are available
 
     distribution_point(struct parser *p) : sequence{p} { }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s\"%s\":[", pre, name);
-        while (sequence.value.is_not_empty()) {
-            struct tlv tmp(&sequence.value);
+        struct parser tlv_sequence = sequence.value;
+        while (tlv_sequence.is_not_empty()) {
+            struct tlv tmp(&tlv_sequence);
             if (tmp.tag == tlv::explicit_tag_constructed(0)) {
-                distribution_point_name.parse(&tmp.value);
+                struct distribution_point_name distribution_point_name(&tmp.value);
                 distribution_point_name.print_as_json(f, "distribution_point_name", "{", "}");
             }
         }
@@ -581,11 +582,12 @@ struct crl_distribution_points {
 
     crl_distribution_points(struct parser *p) : sequence{p} {  }
 
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s\"%s\":[", pre, name);
         const char *comma = "{";
-        while (sequence.value.is_not_empty()) {
-            struct distribution_point dp(&sequence.value);
+        struct parser tlv_sequence = sequence.value;
+        while (tlv_sequence.is_not_empty()) {
+            struct distribution_point dp(&tlv_sequence);
             dp.print_as_json(f, "crl_distribution_point", comma, "}");
             comma = ",{";
         }
@@ -636,7 +638,7 @@ struct authority_key_identifier {
         }
     }
 
-    void print_as_json(FILE *f) {
+    void print_as_json(FILE *f) const {
         fprintf(f, "\"authority_key_identifier\":{");
         bool comma = false;
         if (key_identifier.is_not_null()) {
@@ -692,7 +694,7 @@ struct general_subtree {
             }
         }
     }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s\"%s\":", pre, name);
         base.print_as_json(f);
         if (minimum.is_not_null()) {
@@ -727,10 +729,11 @@ struct name_constraints {
         }
     }
 
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s\"%s\":{", pre, name);
         if (permitted_subtrees.is_not_null()) {
-            general_subtree subtree(&permitted_subtrees.value);
+            struct parser tmp = permitted_subtrees.value;  // to avoid modifying permitted_subtrees
+            general_subtree subtree(&tmp);
             subtree.print_as_json(f, "permitted_subtree");
         }
         fprintf(f, "}%s", post);
@@ -772,7 +775,7 @@ struct validity {
         notBefore.parse(&sequence.value, 0, "validity.notBefore"); // tlv::UTCTime or tlv::GeneralizedTime
         notAfter.parse(&sequence.value, 0, "validity.notAfter");   // tlv::UTCTime or tlv::GeneralizedTime
     }
-    void print_as_json(FILE *f) {
+    void print_as_json(FILE *f) const {
         fprintf(f, ",\"validity\":[");
         fprintf(f, "{");
         notBefore.print_as_json(f, "notBefore");
@@ -809,7 +812,7 @@ struct signed_certificate_timestamp_list {
     signed_certificate_timestamp_list(struct parser *p) {
         serialized_sct.parse(p);
     }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s", pre);
         serialized_sct.print_as_json_hex(f, name);
         fprintf(f, "%s", post);
@@ -851,7 +854,7 @@ struct access_description {
         // access_method.fprint(stderr, "access_method");
         access_location.parse(&sequence.value);
     }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s", pre);
         if (access_method.is_not_null()) {
             access_method.print_as_json(f, name);
@@ -920,9 +923,13 @@ struct extension {
                 extnValue.parse(&sequence.value, 0, "critical");
             }
         }
+        if (extnValue.value.is_not_empty() == false) {
+            p.set_empty();
+        }
+        // TBD: if parsing fails, propagate failue upwards
     }
 
-    void print_as_json(FILE *f, const char *comma) {
+    void print_as_json(FILE *f, const char *comma) const {
         if (sequence.is_constructed()) {
             const char *true_str = "true";
             const char *false_str = "false";
@@ -936,67 +943,68 @@ struct extension {
             }
 
             fprintf(f, "%s{", comma); // open extension object
+            struct parser value = extnValue.value;
             if (oid_string && strcmp("id-ce-SignedCertificateTimestampList", oid_string) == 0) {
-                struct signed_certificate_timestamp_list x(&extnValue.value);
+                struct signed_certificate_timestamp_list x(&value);
                 x.print_as_json(f, "signed_certificate_timestamp_list");
             }
             else if (oid_string && strcmp("id-ce-nameConstraints", oid_string) == 0) {
-                struct name_constraints x(&extnValue.value);
+                struct name_constraints x(&value);
                 x.print_as_json(f, "name_constraints");
             }
             else if (oid_string && strcmp("id-ce-cRLDistributionPoints", oid_string) == 0) {
-                struct crl_distribution_points x(&extnValue.value);
+                struct crl_distribution_points x(&value);
                 x.print_as_json(f, "crl_distribution_points");
             }
             else if (oid_string && strcmp("id-ce-certificatePolicies", oid_string) == 0) {
-                struct certificate_policies x(&extnValue.value);
+                struct certificate_policies x(&value);
                 x.print_as_json(f, "certificate_policies");
             }
             else if (oid_string && strcmp("id-ce-privateKeyUsagePeriod", oid_string) == 0) {
-                struct private_key_usage_period x(&extnValue.value);
+                struct private_key_usage_period x(&value);
                 x.print_as_json(f, "private_key_usage_period");
             }
             else if (oid_string && strcmp("id-ce-basicConstraints", oid_string) == 0) {
-                struct basic_constraints x(&extnValue.value);
+                struct basic_constraints x(&value);
                 x.print_as_json(f);
             }
             else if (oid_string && strcmp("id-ce-keyUsage", oid_string) == 0) {
-                struct key_usage x(&extnValue.value);
+                struct key_usage x(&value);
                 x.print_as_json(f, "key_usage");
             }
             else if (oid_string && strcmp("id-ce-extKeyUsage", oid_string) == 0) {
-                struct ext_key_usage x(&extnValue.value);
+                struct ext_key_usage x(&value);
                 x.print_as_json(f);
             }
             else if (oid_string && strcmp("id-ce-subjectAltName", oid_string) == 0) {
-                struct subject_alt_name x(&extnValue.value);
+                struct subject_alt_name x(&value);
                 x.print_as_json(f, "subject_alt_name");
             }
             else if (oid_string && strcmp("id-ce-issuerAltName", oid_string) == 0) {
-                struct subject_alt_name x(&extnValue.value);
+                struct subject_alt_name x(&value);
                 x.print_as_json(f, "issuer_alt_name");
             }
             else if (oid_string && strcmp("id-ce-authorityKeyIdentifier", oid_string) == 0) {
-                struct authority_key_identifier x(&extnValue.value);
+                struct authority_key_identifier x(&value);
                 x.print_as_json(f);
             }
             else if (oid_string && strcmp("id-ce-subjectKeyIdentifier", oid_string) == 0) {
-                struct tlv x(&extnValue.value);
+                struct tlv x(&value);
                 x.print_as_json_hex(f, "subject_key_identifier");
             }
             else if (oid_string && strcmp("id-pe-authorityInfoAccess", oid_string) == 0) {
-                struct authority_info_access_syntax x(&extnValue.value);
+                struct authority_info_access_syntax x(&value);
                 x.print_as_json(f, "authority_info_access");
             }
             else if (oid_string && strcmp("NetscapeCertificateComment", oid_string) == 0) {
-                struct tlv x(&extnValue.value);
+                struct tlv x(&value);
                 x.print_as_json(f, "netscape_certificate_comment");
             }
             else if (oid_string && strcmp("NetscapeCertType", oid_string) == 0) {
-                struct tlv x(&extnValue.value);
+                struct tlv x(&value);
                 x.print_as_json_hex(f, "netscape_cert_type");
             } else {
-                struct tlv x(&extnValue.value);
+                struct tlv x(&value);
                 fprintf(f, "\"unsupported\":{");
                 extnID.print_as_json_oid(f, "oid");
                 x.print_as_json_hex(f, "value", true);
@@ -1034,7 +1042,7 @@ struct rsa_public_key {
         exponent.parse(&sequence.value, tlv::INTEGER);
     }
 
-    void print_as_json(FILE *f, const char *name, bool comma=false) {
+    void print_as_json(FILE *f, const char *name, bool comma=false) const {
         fprintf(f, comma ? ",\"%s\":{" : "\"%s\":{", name);
         if (modulus.is_not_null() && exponent.is_not_null()) {
             modulus.print_as_json_hex(f, "modulus", false);
@@ -1080,7 +1088,7 @@ struct ec_public_key {
     ec_public_key(struct parser *p) : d{} {
         d = *p;
     }
-    void print_as_json(FILE *f, const char *name, bool comma) {
+    void print_as_json(FILE *f, const char *name, bool comma) const {
         if (comma) {
             fprintf(f, ",");
         }
@@ -1144,7 +1152,7 @@ struct algorithm_identifier {
             parameters.parse(&sequence.value);
         }
     }
-    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") {
+    void print_as_json(FILE *f, const char *name, const char *pre="", const char *post="") const {
         fprintf(f, "%s\"%s\":{", pre, name);
         algorithm.print_as_json_oid(f, "algorithm");
         if (parameters.is_not_null()) {
@@ -1157,13 +1165,13 @@ struct algorithm_identifier {
         }
         fprintf(f, "}%s", post);
     }
-    const char *type() {
+    const char *type() const {
         if (algorithm.is_not_null()) {
             return parser_get_oid_string(&algorithm.value);
         }
         return NULL;
     }
-    const char *get_parameters() {
+    const char *get_parameters() const {
         if (parameters.is_not_null()) {
             return parser_get_oid_string(&parameters.value);
         }
@@ -1192,17 +1200,18 @@ struct subject_public_key_info {
         algorithm.parse(&sequence.value);
         subject_public_key.parse(&sequence.value, tlv::BIT_STRING);
     }
-    void print_as_json(FILE *f, const char *name) {
+    void print_as_json(FILE *f, const char *name) const {
         fprintf(f, ",\"%s\":{", name);
         algorithm.print_as_json(f, "algorithm_identifier");
+        struct tlv tmp_key = subject_public_key;
         if (strcmp(algorithm.type(), "rsaEncryption") == 0) {
-            subject_public_key.remove_bitstring_encoding();
-            struct rsa_public_key pub_key(&subject_public_key.value);
+            tmp_key.remove_bitstring_encoding();
+            struct rsa_public_key pub_key(&tmp_key.value);
             pub_key.print_as_json(f, "subject_public_key", true);
 
         } else if (strcmp(algorithm.type(), "id-ecPublicKey") == 0) {
-            subject_public_key.remove_bitstring_encoding();
-            struct ec_public_key pub_key(&subject_public_key.value);
+            tmp_key.remove_bitstring_encoding();
+            struct ec_public_key pub_key(&tmp_key.value);
             pub_key.print_as_json(f, "subject_public_key", true);
 
         } else {
@@ -1335,7 +1344,7 @@ struct x509_cert {
 
     }
 
-    void print_as_json(FILE *f) {
+    void print_as_json(FILE *f) const {
 
         fprintf(f, "{");   // open JSON object
         serial_number.print_as_json_hex(f, "serial_number");
@@ -1357,13 +1366,14 @@ struct x509_cert {
 
         signature_algorithm.print_as_json(f, "signature_algorithm", ",");
         fprintf(f, ",");
-        signature.remove_bitstring_encoding();
-        signature.print_as_json_hex(f, "signature");
+        struct tlv tmp_sig = signature;        // to avoid modifying signature
+        tmp_sig.remove_bitstring_encoding();
+        tmp_sig.print_as_json_hex(f, "signature");
         fprintf(f, "}\n"); // close JSON line
 
     }
 
-    bool is_weak(bool unsigned_is_weak=false) {
+    bool is_weak(bool unsigned_is_weak=false) const {
 
         const char *alg_type = subjectPublicKeyInfo.algorithm.type();
         if (strcmp(alg_type, "rsaEncryption") == 0) {
@@ -1426,7 +1436,7 @@ struct x509_cert {
         return false;
     }
 
-    bool is_not_currently_valid() {
+    bool is_not_currently_valid() const {
         char time_str[16];
         time_t t = time(NULL);
         struct tm *tt = localtime(&t);
@@ -1497,14 +1507,14 @@ struct x509_cert_prefix {
         }
     }
 
-    size_t get_length() {
+    size_t get_length() const {
         if (issuer.is_null()) {
             return 0;
         }
         return data_end - data;
     }
 
-    void print_as_json(FILE *f) {
+    void print_as_json(FILE *f) const {
         fprintf(f, "{");   // open JSON object
         serial_number.print_as_json_hex(f, "serial_number");
         fprintf(f, ",");
@@ -1512,7 +1522,7 @@ struct x509_cert_prefix {
         fprintf(f, "}\n"); // close JSON line
     }
 
-    void print_as_json_hex(FILE *f) {
+    void print_as_json_hex(FILE *f) const {
         fprintf(f, "{\"cert_prefix\":\"");   // open JSON object
         if (data && data_end) {
             fprintf_raw_as_hex(f, data, data_end - data);
