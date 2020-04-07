@@ -5,6 +5,8 @@
 #ifndef ASN1_H
 #define ASN1_H
 
+#include "../utils.h"
+
 /*
  * utility functions
  */
@@ -32,6 +34,8 @@ void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
     }
 }
 
+#ifndef UTILS_H
+
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
@@ -53,6 +57,8 @@ void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, 
     fprintf(f, "\"");
 
 }
+
+#endif /* #ifndef UTILS_H */
 
 void fprintf_json_char_escaped(FILE *f, char x) {
     if (x < 0x20) {                   /* escape control characters   */
@@ -456,7 +462,7 @@ struct tlv {
         parser_skip(p, length);
 
 #ifdef ASN1_DEBUG
-        fprint(stderr, tlv_name);
+        fprint_tlv(stderr, tlv_name);
 #endif
     }
 
@@ -553,7 +559,7 @@ struct tlv {
         "BMPString"
     };
 
-    void fprint(FILE *f, const char *tlv_name) const {
+    void fprint_tlv(FILE *f, const char *tlv_name) {
         // return;  // return;
         if (value.data) {
             uint8_t tag_class = tag >> 6;
@@ -581,7 +587,48 @@ struct tlv {
         // return (tag >> 5) & 1;
     }
 
-    void print_as_json_hex(FILE *f, const char *name, bool comma=false) const {
+    int time_cmp(const struct tlv &t) {
+        ssize_t l1 = value.data_end - value.data;
+        ssize_t l2 = t.value.data_end - t.value.data;
+        ssize_t min = l1 < l2 ? l1 : l2;
+        if (min == 0) {
+            return 0;
+        }
+        // fprintf(stderr, "comparing %zd bytes of times\nl1: %.*s\nl2: %.*s\n", min, l1, value.data, l2, t.value.data);
+
+        const uint8_t *d1 = value.data;
+        const uint8_t *d2 = t.value.data;
+        uint8_t gt1[15];
+        if (tag == tlv::UTCTime) {
+            d1 = gt1;
+            utc_to_generalized_time(gt1, value.data);
+        } else if (tag != tlv::GeneralizedTime) {
+            return 0; // error; attempt to compare non-time value
+        }
+        uint8_t gt2[15];
+        if (t.tag == tlv::UTCTime) {
+            d2 = gt2;
+            utc_to_generalized_time(gt2, t.value.data);
+        } else if (tag != tlv::GeneralizedTime) {
+            return 0; // error; attempt to compare non-time value
+        }
+
+        if (d1 && d2) {
+            return memcmp((const char *)d1, (const char *)d2, min);
+        }
+        return 0;
+    }
+    void set(enum tag type, const void *data, size_t len) {
+        tag = type;
+        length = len;
+        value.data = (const uint8_t *)data;
+        value.data_end = (const uint8_t *)data + len;
+    }
+
+    /*
+     * functions for printing to a FILE *
+     */
+    void print_as_json_hex(FILE *f, const char *name, bool comma=false) {
         const char *format_string = "\"%s\":\"";
         if (comma) {
             format_string = ",\"%s\":\"";
@@ -716,42 +763,145 @@ struct tlv {
         }
     }
 
-    int time_cmp(const struct tlv &t) const {
-        ssize_t l1 = value.data_end - value.data;
-        ssize_t l2 = t.value.data_end - t.value.data;
-        ssize_t min = l1 < l2 ? l1 : l2;
-        if (min == 0) {
-            return 0;
+    /*
+     * functions for printing to a buffer_stream
+     */
+    void print_as_json_hex(struct buffer_stream &buf, const char *name, bool comma=false) {
+        const char *format_string = "\"%s\":\"";
+        if (comma) {
+            format_string = ",\"%s\":\"";
         }
-        // fprintf(stderr, "comparing %zd bytes of times\nl1: %.*s\nl2: %.*s\n", min, l1, value.data, l2, t.value.data);
-
-        const uint8_t *d1 = value.data;
-        const uint8_t *d2 = t.value.data;
-        uint8_t gt1[15];
-        if (tag == tlv::UTCTime) {
-            d1 = gt1;
-            utc_to_generalized_time(gt1, value.data);
-        } else if (tag != tlv::GeneralizedTime) {
-            return 0; // error; attempt to compare non-time value
+        buf.snprintf(format_string, name);
+        if (value.data && value.data_end) {
+            buf.raw_as_hex(value.data, value.data_end - value.data);
         }
-        uint8_t gt2[15];
-        if (t.tag == tlv::UTCTime) {
-            d2 = gt2;
-            utc_to_generalized_time(gt2, t.value.data);
-        } else if (tag != tlv::GeneralizedTime) {
-            return 0; // error; attempt to compare non-time value
-        }
-
-        if (d1 && d2) {
-            return memcmp((const char *)d1, (const char *)d2, min);
-        }
-        return 0;
+        buf.snprintf("\"");
     }
-    void set(enum tag type, const void *data, size_t len) {
-        tag = type;
-        length = len;
-        value.data = (const uint8_t *)data;
-        value.data_end = (const uint8_t *)data + len;
+
+#if 0
+    void print_as_json_oid(stuct buffer_stream &buf, const char *name, bool comma=false) {
+        const char *format_string = "\"%s\":";
+        if (comma) {
+            format_string = ",\"%s\":";
+        }
+        fprintf(f, format_string, name);
+
+        const char *output = parser_get_oid_string(&value);
+        if (output != oid_empty_string) {
+            fprintf(f, "\"%s\"", output);
+        } else {
+            fprintf(f, "\"");
+            raw_string_print_as_oid(f, value.data, value.data_end - value.data);
+            fprintf(f, "\"");
+        }
+
+    }
+
+    void print_as_json_utctime(FILE *f, const char *name) {
+        fprintf_json_utctime(f, name, value.data, value.data_end - value.data);
+    }
+    void print_as_json_generalized_time(FILE *f, const char *name) {
+        fprintf_json_generalized_time(f, name, value.data, value.data_end - value.data);
+    }
+    void print_as_json_escaped_string(FILE *f, const char *name) {
+        fprintf_json_string_escaped(f, name, value.data, value.data_end - value.data);
+    }
+    void print_as_json_ip_address(FILE *f, const char *name) {
+        fprintf(f, "{\"%s\":\"", name);
+        fprintf_ip_address(f, value.data, value.data_end - value.data);
+        fprintf(f, "\"}");
+    }
+    void print_as_json_bitstring(FILE *f, const char *name, bool comma=false) {
+        const char *format_string = "\"%s\":[";
+        if (comma) {
+            format_string = ",\"%s\":[";
+        }
+        fprintf(f, format_string, name);
+        if (value.data) {
+            struct parser p = value;
+            size_t number_of_unused_bits;
+            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            const char *comma = "";
+            while (p.data < p.data_end-1) {
+                for (uint8_t x = 0x80; x > 0; x=x>>1) {
+                    fprintf(f, "%s%c", comma, x & *p.data ? '1' : '0');
+                    comma = ",";
+                }
+                p.data++;
+            }
+            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
+            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
+                fprintf(f, "%s%c", comma, x & *p.data ? '1' : '0');
+                comma = ",";
+            }
+
+        }
+        fprintf(f, "]");
+    }
+    void print_as_json_bitstring_flags(FILE *f, const char *name, char * const *flags, bool comma=false) {
+        const char *format_string = "\"%s\":[";
+        if (comma) {
+            format_string = ",\"%s\":[";
+        }
+        fprintf(f, format_string, name);
+        if (value.data) {
+            struct parser p = value;
+            char *const *tmp = flags;
+            size_t number_of_unused_bits;
+            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            const char *comma = "";
+            while (p.data < p.data_end-1) {
+                for (uint8_t x = 0x80; x > 0; x=x>>1) {
+                    if (x & *p.data) {
+                        fprintf(f, "%s\"%s\"", comma, *tmp);
+                        comma = ",";
+                    }
+                    if (*tmp) {
+                        tmp++;
+                    }
+                }
+                p.data++;
+            }
+            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
+            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
+                if (x & *p.data) {
+                    fprintf(f, "%s\"%s\"", comma, *tmp);
+                    comma = ",";
+                }
+                if (*tmp) {
+                    tmp++;
+                }
+            }
+
+        }
+        fprintf(f, "]");
+    }
+
+    void print_as_json(FILE *f, const char *name) {
+        switch(tag) {
+        case tlv::UTCTime:
+            print_as_json_utctime(f, name);
+            break;
+        case tlv::GeneralizedTime:
+            print_as_json_generalized_time(f, name);
+            break;
+        case tlv::OBJECT_IDENTIFIER:
+            print_as_json_oid(f, name);
+            break;
+        case tlv::PRINTABLE_STRING:
+        case tlv::T61String:
+        case tlv::VIDEOTEX_STRING:
+        case tlv::IA5String:
+        case tlv::GraphicString:
+        case tlv::VisibleString:
+            print_as_json_escaped_string(f, name);
+            break;
+        case tlv::BIT_STRING:
+            print_as_json_bitstring(f, name);
+            break;
+        default:
+            print_as_json_hex(f, name);  // handle unexpected type
+        }
     }
 
 };
