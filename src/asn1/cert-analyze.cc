@@ -253,7 +253,6 @@ struct pem_file_reader : public file_reader {
         return cert_len;
     }
     ~pem_file_reader() {
-        free(line);
         fclose(stream);
     }
 };
