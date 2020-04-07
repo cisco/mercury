@@ -203,12 +203,12 @@ int utctime_to_generalized_time(uint8_t *gt, size_t gt_len, const uint8_t *utc_t
 }
 
 
-struct json_file {
+struct json_writer {
     FILE *f;
     char epilog[32];
     unsigned int epilog_length;
 
-    json_file(FILE *f) : f{f}, epilog{}, epilog_length{0} { }
+    json_writer(FILE *f) : f{f}, epilog{}, epilog_length{0} { }
 
     void open_array() {
         if (epilog_length >= sizeof(epilog)-1) {
@@ -584,10 +584,9 @@ struct tlv {
 
     inline bool is_constructed() const {
         return tag & 0x20;
-        // return (tag >> 5) & 1;
     }
 
-    int time_cmp(const struct tlv &t) {
+    int time_cmp(const struct tlv &t) const {
         ssize_t l1 = value.data_end - value.data;
         ssize_t l2 = t.value.data_end - t.value.data;
         ssize_t min = l1 < l2 ? l1 : l2;
@@ -628,7 +627,7 @@ struct tlv {
     /*
      * functions for printing to a FILE *
      */
-    void print_as_json_hex(FILE *f, const char *name, bool comma=false) {
+    void print_as_json_hex(FILE *f, const char *name, bool comma=false) const {
         const char *format_string = "\"%s\":\"";
         if (comma) {
             format_string = ",\"%s\":\"";
@@ -779,20 +778,20 @@ struct tlv {
     }
 
 #if 0
-    void print_as_json_oid(stuct buffer_stream &buf, const char *name, bool comma=false) {
+    void print_as_json_oid(struct buffer_stream &buf, const char *name, bool comma=false) {
         const char *format_string = "\"%s\":";
         if (comma) {
             format_string = ",\"%s\":";
         }
-        fprintf(f, format_string, name);
+        buf.snprintf(format_string, name);
 
         const char *output = parser_get_oid_string(&value);
         if (output != oid_empty_string) {
-            fprintf(f, "\"%s\"", output);
+            buf.snprintf("\"%s\"", output);
         } else {
-            fprintf(f, "\"");
+            buf.snprintf(f, "\"");
             raw_string_print_as_oid(f, value.data, value.data_end - value.data);
-            fprintf(f, "\"");
+            buf.snrintf("\"");
         }
 
     }
@@ -904,6 +903,7 @@ struct tlv {
         }
     }
 
+#endif // 0
 };
 
 #endif /* ASN1_H */

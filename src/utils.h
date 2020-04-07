@@ -12,7 +12,6 @@
 #include <stdarg.h>
 #include "mercury.h"
 #include "ept.h"
-#include "extractor.h"
 #include "packet.h"
 #include "analysis.h"
 

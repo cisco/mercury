@@ -9,7 +9,6 @@
 #define ANALYSIS_H
 
 #include <stdio.h>
-#include "extractor.h"
 #include "pkt_proc.h"
 #include "packet.h"
 #include "addr.h"
