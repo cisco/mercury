@@ -7,7 +7,6 @@
 #define X509_H
 
 #include <stdio.h>
-#include <vector>
 #include <unordered_set>
 #include "oid.h"    // oid dictionary
 
@@ -53,6 +52,9 @@ struct attribute {
     }
     void parse(struct parser *p) {
         set.parse(p);
+        sequence.parse(&set.value, tlv::SEQUENCE);
+        attribute_type.parse(&sequence.value, tlv::OBJECT_IDENTIFIER, "attribute_type");
+        attribute_value.parse(&sequence.value, 0, "attribute_value");
     }
 
     void print_as_json(FILE *f, const char *comma="") {
@@ -86,22 +88,10 @@ struct name {
 
         fprintf(f, ",\"%s\":[", name);  // open JSON array
         const char *comma = "";
-        struct constructed_tlv tmp = RDNsequence;
-        while (tmp.is_not_empty()) {
-            struct attribute r(&tmp.value);
-            r.sequence.parse(&r.set.value);
-
-            if (r.sequence.is_constructed()) {
-                while (parser_get_data_length(&r.sequence.value) > 0) {
-                    r.attribute_type.parse(&r.sequence.value, 0, "attribute_type");
-                    if (r.attribute_type.tag == 0x06) {
-                        r.attribute_value.parse(&r.sequence.value, 0, "attribute_value");
-                    } else {
-                        fprintf(stderr, "warning: got unexpected type %02x\n", r.attribute_type.tag);
-                    }
-                }
-            }
-            r.print_as_json(f, comma);
+        struct parser tlv_sequence = RDNsequence.value;
+        while (tlv_sequence.is_not_empty()) {
+            struct attribute attr(&tlv_sequence);
+            attr.print_as_json(f, comma);
             comma = ",";
         }
         fprintf(f, "]");               //  close JSON array
@@ -153,22 +143,16 @@ struct basic_constraints {
 
 struct ext_key_usage {
     struct constructed_tlv sequence;
-    // std::vector<struct tlv> key_purpose_id;
 
     ext_key_usage(struct parser *p) : sequence{} {
         sequence.parse(p, 0, "ext_key_usage.sequence");
-        //        while (parser_get_data_length(&sequence.value) > 0) {
-        //  key_purpose_id.push_back(&sequence.value);
-        //    // sequence.fprint(stdout, "ext_key_usage.key_purpose_id");
-        //}
     }
 
     void print_as_json(FILE *f) {
         fprintf(f, "\"ext_key_usage\":[");
         bool first = true;
-        //        for (auto &x : key_purpose_id) {
         struct parser p = sequence.value;
-        while (parser_get_data_length(&p) > 0) {
+        while (p.is_not_empty()) {
             struct tlv key_purpose_id(&p);
             const char *oid_string = parser_get_oid_string(&key_purpose_id.value);
             if (first) {
@@ -339,7 +323,6 @@ struct policy_information {
 
 struct certificate_policies {
     struct tlv sequence;
-    //    std::vector<struct policy_information> policy_information;
 
     certificate_policies(struct parser *p) : sequence{} { //, policy_information{} {
         sequence.parse(p, tlv::SEQUENCE);
@@ -489,33 +472,17 @@ struct general_name {
 
 struct subject_alt_name {
     struct tlv sequence;
-    std::vector <struct general_name> names;
 
-    subject_alt_name(struct parser *p) : sequence{p}, names{} {
+    subject_alt_name(struct parser *p) : sequence{p} {
         // sequence.fprint(stdout, "subject_alt_name.names");
-#if 0
-        while (parser_get_data_length(&sequence.value) > 0) {
-            names.push_back(&sequence.value);
-        }
-#endif
     }
 
     void print_as_json(FILE *f, const char *name) {
         fprintf(f, "\"%s\":[", name);
-#if 0
-        bool first = true;
-        for (auto &x : names) {
-            if (first) {
-                first = false;
-            } else {
-                fprintf(f, ",");
-            }
-            x.print_as_json(f);
-        }
-#endif
         const char *comma = "";
-        while (parser_get_data_length(&sequence.value) > 0) {
-            struct general_name general_name(&sequence.value);
+        struct parser tlv_sequence = sequence.value;
+        while (tlv_sequence.is_not_empty()) {
+            struct general_name general_name(&tlv_sequence);
             fprintf(f, "%s", comma);
             general_name.print_as_json(f);
             comma = ",";
@@ -1382,9 +1349,9 @@ struct x509_cert {
 
         fprintf(f, ",\"extensions\":[");  // open JSON array for extensions
         const char *comma = "";
-        struct constructed_tlv tmp = extensions;
-        while (tmp.is_not_empty()) {
-            struct extension xtn(tmp.value);
+        struct parser tlv_sequence = extensions.value;
+        while (tlv_sequence.is_not_empty()) {
+            struct extension xtn(tlv_sequence);
             xtn.print_as_json(f, comma);
             comma = ",";
         }
