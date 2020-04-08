@@ -47,6 +47,11 @@ void sha256_hash(const void *buffer,
 
 #endif
 
+struct buffer {
+    void *data;
+    size_t length;
+};
+
 // file reading
 
 struct file_reader {
@@ -59,59 +64,64 @@ using namespace rapidjson;
 
 struct json_file_reader : public file_reader {
     FILE *stream;
-    char *line = NULL;
     unsigned int line_number = 0;
 
-    json_file_reader(const char *infile) : stream{NULL}, line{NULL} {
+    json_file_reader(const char *infile) : stream{NULL} {
         stream = fopen(infile, "r");
         if (stream == NULL) {
             fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
             exit(EXIT_FAILURE);
         }
-        fprintf(stderr, "opened JSON file\n");
+        //fprintf(stderr, "opened JSON file\n");
     }
     ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
         line_number++;
         size_t len = 0;
         size_t cert_len = 0;
-        ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
-        if (nread == -1) {
-            free(line);
-            fprintf(stderr, "error: could not read JSON file\n");
-            return 0;
-        }
+        char *line = NULL;
 
-        //        fprintf(stdout, "%s\n", line);
-
-        Document document;
-        if (document.ParseInsitu(line).HasParseError()) {
-            fprintf(stderr, "error parsing JSON\n");
-            return -1;
-        } else {
-            Value::MemberIterator tls_iterator = document.FindMember("tls");
-            if (tls_iterator == document.MemberEnd()) {
-                fprintf(stderr, "warning: no \"tls\" object in JSON file\n");
-               return 0; // no tls info
+        while (1) {
+            ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
+            if (nread == -1) {
+                free(line);
+                fprintf(stderr, "error: could not read JSON line\n");
+                return 0;
             }
-            const Value &certs = document["tls"]["server_certs"];
-            if (!certs.IsArray()) {
-                fprintf(stderr, "warning: no \"tls\"[\"server_certs\"] object in JSON file\n");
-                return 0; // no certificates
+            // fprintf(stdout, "line: %s", line);
+
+            Document document;
+            document.ParseInsitu(line);
+            if (document.HasParseError()) {
+                fprintf(stderr, "error parsing JSON\n");
+                return -1;
             }
+            if (document.HasMember("tls")) {
+                const Value &tls_object = document["tls"];
+                if (!tls_object.IsObject()) {
+                    fprintf(stderr, "warning: no \"tls\" object in JSON line\n");
 
-            for (auto& c : certs.GetArray()) {
-                // printf("%s ", c.GetString());
-
-                std::string s = c.GetString();
-                cert_len = base64::decode(outbuf, outbuf_len, s.c_str(), s.size());
-                break; // just process first cert for now
+                } else if (tls_object.HasMember("server_certs")) {
+                    //fprintf(stderr, "found server_certs\n");
+                    const Value &server_certs_array = tls_object["server_certs"];
+                    if (!server_certs_array.IsArray()) {
+                        fprintf(stderr, "warning: no \"server_certs\" in \"tls\" object\n");
+                    } else {
+                        for (auto& c : server_certs_array.GetArray()) {
+                            // fprintf(stderr, "%s ", c.GetString());
+                            std::string s = c.GetString();
+                            cert_len = base64::decode(outbuf, outbuf_len, s.c_str(), s.size());
+                            break; // just process first cert for now
+                        }
+                        free(line);
+                        return cert_len;
+                    }
+                }
             }
-
+            //free(line);
         }
 
         return cert_len;
     }
-
 
     ~json_file_reader() {
         fclose(stream);
@@ -158,6 +168,9 @@ struct base64_file_reader : public file_reader {
             const char opening_line[] = "-----BEGIN CERTIFICATE-----";
             if ((size_t)nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) == 0) {
                 fprintf(stderr, "input seems to be in PEM format; try --pem\n");
+            }
+            if (nread > 0 && line[0] == '{') {
+                fprintf(stderr, "input may be in JSON format; try --json\n");
             }
         }
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
