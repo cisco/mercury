@@ -15,22 +15,6 @@
 #include "base64.h"
 #include "../rapidjson/document.h"
 
-void print_as_ascii_with_dots(const void *string, size_t len) {
-    const char *s = (const char *)string;
-    for (size_t i=0; i < len; i++) {
-        if (isprint(s[i])) {
-            printf("%c", s[i]);
-        } else {
-            printf(".");
-        }
-    }
-    printf("\n");
-}
-
-void fprintf_parser_as_string(FILE *f, struct parser *p) {
-    fprintf(f, "%.*s", (int) (p->data_end - p->data), p->data);
-}
-
 
 // set to 1 to include hashing
 #define HAVE_MHASH 0

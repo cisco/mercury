@@ -84,9 +84,9 @@ struct name {
     void parse(struct parser *p, const char *label=NULL) {
         RDNsequence.parse(p, tlv::SEQUENCE, "RDNsequence");
     }
-    void print_as_json(FILE *f, const char *name) const {
+    void print_as_json(FILE *f, const char *name, const char *pre=",") const {
 
-        fprintf(f, ",\"%s\":[", name);  // open JSON array
+        fprintf(f, "%s\"%s\":[", pre, name);  // open JSON array
         const char *comma = "";
         struct parser tlv_sequence = RDNsequence.value;
         while (tlv_sequence.is_not_empty()) {
@@ -450,18 +450,24 @@ struct general_name {
             fprintf(f, "}");
         } else if (explicit_tag.tag == iPAddress) {
             explicit_tag.print_as_json_ip_address(f, "ip_address");
+        } else if (explicit_tag.tag == directoryName) {
+            struct parser tmp = explicit_tag.value;
+            struct name n;
+            n.parse(&tmp);
+            n.print_as_json(f, "directory_name");
         } else {
-            fprintf(f, "{\"SAN explicit tag\": \"%02x\"}", explicit_tag.tag);
-            // fprintf_raw_as_hex(f, explicit_tag.value.data, (int) (explicit_tag.value.data_end - explicit_tag.value.data));
+            fprintf(f, "{\"explicit_tag\": \"%02x\",\"value\":\"", explicit_tag.tag);
+            fprintf_raw_as_hex(f, explicit_tag.value.data, (int) (explicit_tag.value.data_end - explicit_tag.value.data));
+            fprintf(f, "\"}");
         }
     }
     enum tag {
         otherName                 = tlv::explicit_tag_constructed(0),
         rfc822Name                = tlv::explicit_tag(1),
         dNSName                   = tlv::explicit_tag(2),
-        x400Address               = tlv::explicit_tag(3),
-        directoryName             = tlv::explicit_tag(4),
-        ediPartyName              = tlv::explicit_tag(5),
+        x400Address               = tlv::explicit_tag_constructed(3),
+        directoryName             = tlv::explicit_tag_constructed(4),
+        ediPartyName              = tlv::explicit_tag_constructed(5),
         uniformResourceIdentifier = tlv::explicit_tag(6),
         iPAddress                 = tlv::explicit_tag(7),
         registeredID              = tlv::explicit_tag(8)
@@ -611,7 +617,7 @@ struct crl_distribution_points {
 struct authority_key_identifier {
     struct tlv sequence;
     struct tlv key_identifier;
-    struct general_name cert_issuer;
+    struct tlv cert_issuer;   // sequence of general_name
     struct tlv cert_serial_number;
 
     authority_key_identifier() : sequence{}, key_identifier{}, cert_issuer{}, cert_serial_number{} {}
@@ -628,9 +634,7 @@ struct authority_key_identifier {
                 key_identifier = tmp;
 
             } else if (tmp.tag == tlv::explicit_tag_constructed(1)) {
-                // cert_issuer.parse(&tmp.value);
-                cert_issuer.explicit_tag = tmp;
-                // tmp.fprint(stderr, "cert_issuer");
+                cert_issuer.parse(&tmp.value);
 
             } else if (tmp.tag == tlv::explicit_tag(2)) {
                 cert_serial_number = tmp;
@@ -645,9 +649,12 @@ struct authority_key_identifier {
             key_identifier.print_as_json_hex(f, "key_identifier");
             comma = true;
         }
-        if (cert_issuer.explicit_tag.is_not_null()) {
-            fprintf(f, comma ? ",\"cert_issuer\":" : "\"cert_issuer\":" );
-            cert_issuer.print_as_json(f);
+        if (cert_issuer.is_not_null()) {
+            fprintf(f, comma ? "," : "" );
+            struct parser tlv_sequence = cert_issuer.value; // avoid modifying cert_issuer
+            struct name n;
+            n.parse(&tlv_sequence);
+            n.print_as_json(f, "cert_issuer", "");
             comma = true;
         }
         if (cert_serial_number.is_not_null()) {
