@@ -26,7 +26,7 @@
 #include "license.h"
 #include "version.h"
 
-struct semantic_version mercury_version(2,0,0);
+struct semantic_version mercury_version(2,0,1);
 
 char mercury_help[] =
     "%s INPUT [OUTPUT] [OPTIONS]:\n"
