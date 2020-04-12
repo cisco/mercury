@@ -5,7 +5,7 @@
 #ifndef ASN1_H
 #define ASN1_H
 
-#include "../utils.h"
+#include "json_object.hh"
 
 /*
  * utility functions
@@ -76,6 +76,28 @@ void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, 
 
 #endif /* #ifndef UTILS_H */
 
+void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len) {
+    const unsigned char *x = data;
+    const unsigned char *end = data + len;
+
+    buf.snprintf("\"%s\":\"", key);
+    while (x < end) {
+        if (*x < 0x20) {                   /* escape control characters   */
+            buf.snprintf("\\u%04x", *x);
+        } else if (*x > 0x7f) {            /* escape non-ASCII characters */
+            buf.snprintf("\\u%04x", *x);
+        } else {
+            if (*x == '"' || *x == '\\') { /* escape special characters   */
+                buf.snprintf("\\");
+            }
+            buf.snprintf("%c", *x);
+        }
+        x++;
+    }
+    buf.snprintf("\"");
+
+}
+
 void fprintf_json_char_escaped(FILE *f, char x) {
     if (x < 0x20) {                   /* escape control characters   */
         fprintf(f, "\\u%04x", x);
@@ -89,6 +111,19 @@ void fprintf_json_char_escaped(FILE *f, char x) {
     }
 }
 
+void fprintf_json_char_escaped(struct buffer_stream &buf, char x) {
+    if (x < 0x20) {                   /* escape control characters   */
+        buf.snprintf("\\u%04x", x);
+    } else if (x > 0x7f) {            /* escape non-ASCII characters */
+        buf.snprintf("\\u%04x", x);
+    } else {
+        if (x == '"' || x == '\\') { /* escape special characters   */
+            buf.snprintf("\\");
+        }
+        buf.snprintf("%c", x);
+    }
+}
+
 void fprintf_ip_address(FILE *f, const uint8_t *buffer, size_t length) {
     const uint8_t *b = buffer;
     if (length == 4) {
@@ -98,6 +133,18 @@ void fprintf_ip_address(FILE *f, const uint8_t *buffer, size_t length) {
                 b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]);
     } else {
         fprintf(f, "malformed (length: %zu)", length);
+    }
+}
+
+void fprintf_ip_address(struct buffer_stream &buf, const uint8_t *buffer, size_t length) {
+    const uint8_t *b = buffer;
+    if (length == 4) {
+        buf.snprintf("%u.%u.%u.%u", b[0], b[1], b[2], b[3]);
+    } else if (length == 16) {
+        buf.snprintf("%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
+                b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]);
+    } else {
+        buf.snprintf("malformed (length: %zu)", length);
     }
 }
 
@@ -175,6 +222,81 @@ void fprintf_json_generalized_time(FILE *f, const char *key, const uint8_t *data
     fprintf_json_char_escaped(f, data[13]);
 
     fprintf(f, "\"");
+}
+
+/*
+ * UTCTime (Coordinated Universal Time) consists of 13 bytes that
+ * encode the Greenwich Mean Time in the format YYMMDDhhmmssZ.  For
+ * instance, the bytes 17 0d 31 35 31 30 32 38 31 38 35 32 31 32 5a
+ * encode the string "151028185212Z", which represents the time
+ * "2015-10-28 18:52:12"
+ */
+void fprintf_json_utctime(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len) {
+
+    buf.snprintf("\"%s\":\"", key);
+    if (len != 13) {
+        buf.snprintf("malformed\"");
+        return;
+    }
+    if (data[0] < '5') {
+        buf.snprintf("20");
+    } else {
+       buf.snprintf("19");
+    }
+    fprintf_json_char_escaped(buf, data[0]);
+    fprintf_json_char_escaped(buf, data[1]);
+    buf.putc('-');
+    fprintf_json_char_escaped(buf, data[2]);
+    fprintf_json_char_escaped(buf, data[3]);
+    buf.putc('-');
+    fprintf_json_char_escaped(buf, data[4]);
+    fprintf_json_char_escaped(buf, data[5]);
+    buf.putc(' ');
+    fprintf_json_char_escaped(buf, data[6]);
+    fprintf_json_char_escaped(buf, data[7]);
+    buf.putc(':');
+    fprintf_json_char_escaped(buf, data[8]);
+    fprintf_json_char_escaped(buf, data[9]);
+    buf.putc(':');
+    fprintf_json_char_escaped(buf, data[10]);
+    fprintf_json_char_escaped(buf, data[11]);
+    buf.putc('\"');
+}
+
+/*
+ *  For the purposes of [RFC 5280], GeneralizedTime values MUST be
+ *  expressed in Greenwich Mean Time (Zulu) and MUST include seconds
+ *  (i.e., times are YYYYMMDDHHMMSSZ), even where the number of
+ *  seconds is zero.
+ */
+void fprintf_json_generalized_time(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len) {
+
+    buf.snprintf("\"%s\":\"", key);
+    if (len != 15) {
+        buf.snprintf("malformed (length %u)\"", len);
+        return;
+    }
+    fprintf_json_char_escaped(buf, data[0]);
+    fprintf_json_char_escaped(buf, data[1]);
+    fprintf_json_char_escaped(buf, data[2]);
+    fprintf_json_char_escaped(buf, data[3]);
+    buf.snprintf("-");
+    fprintf_json_char_escaped(buf, data[4]);
+    fprintf_json_char_escaped(buf, data[5]);
+    buf.snprintf("-");
+    fprintf_json_char_escaped(buf, data[6]);
+    fprintf_json_char_escaped(buf, data[7]);
+    buf.snprintf(" ");
+    fprintf_json_char_escaped(buf, data[8]);
+    fprintf_json_char_escaped(buf, data[9]);
+    buf.snprintf(":");
+    fprintf_json_char_escaped(buf, data[10]);
+    fprintf_json_char_escaped(buf, data[11]);
+    buf.snprintf(":");
+    fprintf_json_char_escaped(buf, data[12]);
+    fprintf_json_char_escaped(buf, data[13]);
+
+    buf.snprintf("\"");
 }
 
 /*
@@ -330,6 +452,32 @@ void raw_string_print_as_oid(FILE *f, const uint8_t *raw, size_t length) {
         } else {
             component = component * 128 + tmp;
             fprintf(f, ".%u", component);
+            component = 0;
+        }
+    }
+}
+
+void raw_string_print_as_oid(struct buffer_stream &buf, const uint8_t *raw, size_t length) {
+    if (raw == NULL) {
+        return;  // error: invalid input
+    }
+    uint32_t component = *raw;
+    uint32_t div = component / 40;
+    uint32_t rem = component - (div * 40);
+    if (div > 2 || rem > 39) {
+        return; // error: invalid input
+    }
+    buf.snprintf("%u.%u", div, rem);
+
+    raw++;
+    component = 0;
+    for (unsigned int i=1; i<length; i++) {
+        uint8_t tmp = *raw++;
+        if (tmp & 0x80) {
+            component = component * 128 + (tmp & 0x7f);
+        } else {
+            component = component * 128 + tmp;
+            buf.snprintf(".%u", component);
             component = 0;
         }
     }
@@ -779,9 +927,9 @@ struct tlv {
     }
 
     /*
-     * functions for printing to a buffer_stream
+     * functions for json serialization to a buffer_stream
      */
-    void print_as_json_hex(struct buffer_stream &buf, const char *name, bool comma=false) {
+    void print_as_json_hex(struct buffer_stream &buf, const char *name, bool comma=false) const {
         const char *format_string = "\"%s\":\"";
         if (comma) {
             format_string = ",\"%s\":\"";
@@ -793,8 +941,7 @@ struct tlv {
         buf.snprintf("\"");
     }
 
-#if 0
-    void print_as_json_oid(struct buffer_stream &buf, const char *name, bool comma=false) {
+    void print_as_json_oid(struct buffer_stream &buf, const char *name, bool comma=false) const {
         const char *format_string = "\"%s\":";
         if (comma) {
             format_string = ",\"%s\":";
@@ -805,33 +952,34 @@ struct tlv {
         if (output != oid_empty_string) {
             buf.snprintf("\"%s\"", output);
         } else {
-            buf.snprintf(f, "\"");
-            raw_string_print_as_oid(f, value.data, value.data_end - value.data);
-            buf.snrintf("\"");
+            buf.snprintf("\"");
+            raw_string_print_as_oid(buf, value.data, value.data_end - value.data);
+            buf.snprintf("\"");
         }
 
     }
+    void print_as_json_utctime(struct buffer_stream &buf, const char *name) const {
+        fprintf_json_utctime(buf, name, value.data, value.data_end - value.data);
+    }
+    void print_as_json_generalized_time(struct buffer_stream &buf, const char *name) const {
+        fprintf_json_generalized_time(buf, name, value.data, value.data_end - value.data);
+    }
+    void print_as_json_escaped_string(struct buffer_stream &buf, const char *name) const {
+        fprintf_json_string_escaped(buf, name, value.data, value.data_end - value.data);
+    }
 
-    void print_as_json_utctime(FILE *f, const char *name) {
-        fprintf_json_utctime(f, name, value.data, value.data_end - value.data);
+    void print_as_json_ip_address(struct buffer_stream &buf, const char *name) const {
+        buf.snprintf("{\"%s\":\"", name);
+        fprintf_ip_address(buf, value.data, value.data_end - value.data);
+        buf.snprintf("\"}");
     }
-    void print_as_json_generalized_time(FILE *f, const char *name) {
-        fprintf_json_generalized_time(f, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_escaped_string(FILE *f, const char *name) {
-        fprintf_json_string_escaped(f, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_ip_address(FILE *f, const char *name) {
-        fprintf(f, "{\"%s\":\"", name);
-        fprintf_ip_address(f, value.data, value.data_end - value.data);
-        fprintf(f, "\"}");
-    }
-    void print_as_json_bitstring(FILE *f, const char *name, bool comma=false) {
+
+    void print_as_json_bitstring(struct buffer_stream &buf, const char *name, bool comma=false) const {
         const char *format_string = "\"%s\":[";
         if (comma) {
             format_string = ",\"%s\":[";
         }
-        fprintf(f, format_string, name);
+        buf.snprintf(format_string, name);
         if (value.data) {
             struct parser p = value;
             size_t number_of_unused_bits;
@@ -839,26 +987,27 @@ struct tlv {
             const char *comma = "";
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
-                    fprintf(f, "%s%c", comma, x & *p.data ? '1' : '0');
+                    buf.snprintf("%s%c", comma, x & *p.data ? '1' : '0');
                     comma = ",";
                 }
                 p.data++;
             }
             uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
             for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                fprintf(f, "%s%c", comma, x & *p.data ? '1' : '0');
+                buf.snprintf("%s%c", comma, x & *p.data ? '1' : '0');
                 comma = ",";
             }
 
         }
-        fprintf(f, "]");
+        buf.putc(']');
     }
-    void print_as_json_bitstring_flags(FILE *f, const char *name, char * const *flags, bool comma=false) {
+
+    void print_as_json_bitstring_flags(struct buffer_stream &buf, const char *name, char * const *flags, bool comma=false) const {
         const char *format_string = "\"%s\":[";
         if (comma) {
             format_string = ",\"%s\":[";
         }
-        fprintf(f, format_string, name);
+        buf.snprintf(format_string, name);
         if (value.data) {
             struct parser p = value;
             char *const *tmp = flags;
@@ -868,7 +1017,7 @@ struct tlv {
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
                     if (x & *p.data) {
-                        fprintf(f, "%s\"%s\"", comma, *tmp);
+                        buf.snprintf("%s\"%s\"", comma, *tmp);
                         comma = ",";
                     }
                     if (*tmp) {
@@ -880,7 +1029,7 @@ struct tlv {
             uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
             for (uint8_t x = 0x80; x > terminus; x=x>>1) {
                 if (x & *p.data) {
-                    fprintf(f, "%s\"%s\"", comma, *tmp);
+                    buf.snprintf("%s\"%s\"", comma, *tmp);
                     comma = ",";
                 }
                 if (*tmp) {
@@ -889,19 +1038,19 @@ struct tlv {
             }
 
         }
-        fprintf(f, "]");
+        buf.putc(']');
     }
 
-    void print_as_json(FILE *f, const char *name) {
+    void print_as_json(struct buffer_stream &b, const char *name) const {
         switch(tag) {
         case tlv::UTCTime:
-            print_as_json_utctime(f, name);
+            print_as_json_utctime(b, name);
             break;
         case tlv::GeneralizedTime:
-            print_as_json_generalized_time(f, name);
+            print_as_json_generalized_time(b, name);
             break;
         case tlv::OBJECT_IDENTIFIER:
-            print_as_json_oid(f, name);
+            print_as_json_oid(b, name);
             break;
         case tlv::PRINTABLE_STRING:
         case tlv::T61String:
@@ -909,17 +1058,15 @@ struct tlv {
         case tlv::IA5String:
         case tlv::GraphicString:
         case tlv::VisibleString:
-            print_as_json_escaped_string(f, name);
+            print_as_json_escaped_string(b, name);
             break;
         case tlv::BIT_STRING:
-            print_as_json_bitstring(f, name);
+            print_as_json_bitstring(b, name);
             break;
         default:
-            print_as_json_hex(f, name);  // handle unexpected type
+            print_as_json_hex(b, name);  // handle unexpected type
         }
     }
-
-#endif // 0
 };
 
 #endif /* ASN1_H */

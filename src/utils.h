@@ -117,6 +117,14 @@ struct buffer_stream {
 
     buffer_stream(char *dstr, int dlen) : dstr{dstr}, doff{0}, dlen{dlen}, trunc{0} {};
 
+    size_t write(FILE *f) {
+        return fwrite(dstr, 1, doff, f);
+    }
+    size_t write_line(FILE *f) {
+        putc('\n');
+        return write(f);
+    }
+
     size_t length() { return doff; }
 
     int snprintf(const char *fmt, ...) {
@@ -148,6 +156,10 @@ struct buffer_stream {
     }
 
     void strncpy(const char *sstr) {
+        append_strncpy(dstr, &doff, dlen, &trunc, sstr);
+    }
+
+    void puts(const char *sstr) {
         append_strncpy(dstr, &doff, dlen, &trunc, sstr);
     }
 
@@ -200,6 +212,5 @@ struct buffer_stream {
     }
 
 };
-
 
 #endif /* UTILS_H */
