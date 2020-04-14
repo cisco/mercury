@@ -494,7 +494,93 @@ const char *parser_get_oid_string(const struct parser *p) {
     return pair->second.c_str();;
 }
 
+/*
+ * json_object extensions for printing to TLVs
+ */
 
+struct json_object_asn1 : public json_object {
+    json_object_asn1(struct buffer_stream *buf) : json_object(buf) {}
+    json_object_asn1(struct json_object &object, const char *name) : json_object(object, name) {
+        //fprintf(stderr, "json_object_asn1 constructor\n");
+    }
+    json_object_asn1(struct json_object &object) : json_object(object) {
+        //fprintf(stderr, "json_object_asn1 constructor\n");
+    }
+    json_object_asn1(struct json_array &array);
+
+    void print_key_oid(const char *k, const struct parser &value) {
+        const char *output = parser_get_oid_string(&value);
+        if (output != oid_empty_string) {
+            b->snprintf("%c\"%s\":\"%s\"", comma, k, output);
+        } else {
+            b->snprintf("%c\"%s\":\"", comma, k);
+            if (value.data && value.data_end) {
+                raw_string_print_as_oid(*b, value.data, value.data_end - value.data);
+            }
+            b->putc('\"');
+        }
+        comma = ',';
+    }
+
+    void print_key_bitstring_flags(const char *name, const struct parser &value, char * const *flags) {
+        struct json_array a{*this, name};
+        if (value.data) {
+            struct parser p = value;
+            char *const *tmp = flags;
+            size_t number_of_unused_bits;
+            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            while (p.data < p.data_end-1) {
+                for (uint8_t x = 0x80; x > 0; x=x>>1) {
+                    if (x & *p.data) {
+                        a.print_string(*tmp);
+                    }
+                    if (*tmp) {
+                        tmp++;
+                    }
+                }
+                p.data++;
+            }
+            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
+            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
+                if (x & *p.data) {
+                    a.print_string(*tmp);
+                }
+                if (*tmp) {
+                    tmp++;
+                }
+            }
+
+        }
+        a.close();
+        comma = ',';
+    }
+
+    void print_key_escaped_string(const char *k, const struct parser &value) {
+        b->putc(comma);
+        fprintf_json_string_escaped(*b, k, value.data, value.data_end - value.data);
+        comma = ',';
+    }
+};
+
+json_object_asn1::json_object_asn1(struct json_array &array) : json_object(array) { }
+
+struct json_array_asn1 : public json_array {
+    json_array_asn1(struct buffer_stream *b) : json_array(b) { }
+    json_array_asn1(struct json_object &object, const char *name) : json_array(object, name) { }
+    void print_oid(const struct parser &value) {
+        const char *output = parser_get_oid_string(&value);
+        if (output != oid_empty_string) {
+            b->snprintf("%c\"%s\"", comma, output);
+        } else {
+            b->snprintf("%c\"", comma);
+            if (value.data && value.data_end) {
+                raw_string_print_as_oid(*b, value.data, value.data_end - value.data);
+            }
+            b->putc('\"');
+        }
+        comma = ',';
+    }
+};
 
 /*
  * struct tlv holds the tag, length, and (pointers to the beginning
@@ -1067,6 +1153,95 @@ struct tlv {
             print_as_json_hex(b, name);  // handle unexpected type
         }
     }
+
+    /*
+     * functions for json_object serialization
+     */
+    void print_as_json_hex(struct json_object &o, const char *name) const {
+        o.print_key_hex(name, value);
+    }
+
+    void print_as_json_oid(struct json_object_asn1 &o, const char *name) const {
+        o.print_key_oid(name, value);
+    }
+
+    void print_as_json_escaped_string(struct json_object_asn1 &o, const char *name) const {
+        o.print_key_escaped_string(name, value);
+    }
+
+    void print_as_json_utctime(struct json_object &o, const char *name) const {
+        fprintf_json_utctime(*o.b, name, value.data, value.data_end - value.data);
+    }
+
+    void print_as_json_generalized_time(struct json_object &o, const char *name) const {
+        fprintf_json_generalized_time(*o.b, name, value.data, value.data_end - value.data);
+    }
+    void print_as_json_ip_address(struct json_object_asn1 &o, const char *name) const {
+        o.b->snprintf("%c\"%s\":\"", o.comma, name);
+        fprintf_ip_address(*o.b, value.data, value.data_end - value.data);
+        o.b->putc('\"');
+        o.comma = ',';
+    }
+
+    void print_as_json_bitstring(struct json_object &o, const char *name, bool comma=false) const {
+        const char *format_string = "\"%s\":[";
+        if (comma) {
+            format_string = ",\"%s\":[";
+        }
+        o.b->snprintf(format_string, name);
+        if (value.data) {
+            struct parser p = value;
+            size_t number_of_unused_bits;
+            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            const char *comma = "";
+            while (p.data < p.data_end-1) {
+                for (uint8_t x = 0x80; x > 0; x=x>>1) {
+                    o.b->snprintf("%s%c", comma, x & *p.data ? '1' : '0');
+                    comma = ",";
+                }
+                p.data++;
+            }
+            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
+            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
+                o.b->snprintf("%s%c", comma, x & *p.data ? '1' : '0');
+                comma = ",";
+            }
+
+        }
+        o.b->putc(']');
+    }
+
+    void print_as_json_bitstring_flags(struct json_object_asn1 &o, const char *name, char * const *flags) const {
+        o.print_key_bitstring_flags(name, value, flags);
+    }
+
+    void print_as_json(struct json_object &o, const char *name) const {
+        switch(tag) {
+        case tlv::UTCTime:
+            print_as_json_utctime(*o.b, name);
+            break;
+        case tlv::GeneralizedTime:
+            print_as_json_generalized_time(*o.b, name);
+            break;
+        case tlv::OBJECT_IDENTIFIER:
+            print_as_json_oid(*o.b, name);
+            break;
+        case tlv::PRINTABLE_STRING:
+        case tlv::T61String:
+        case tlv::VIDEOTEX_STRING:
+        case tlv::IA5String:
+        case tlv::GraphicString:
+        case tlv::VisibleString:
+            print_as_json_escaped_string(*o.b, name);
+            break;
+        case tlv::BIT_STRING:
+            print_as_json_bitstring(*o.b, name);
+            break;
+        default:
+            print_as_json_hex(o, name);  // handle unexpected type
+        }
+    }
+
 };
 
 #endif /* ASN1_H */
