@@ -196,14 +196,14 @@ struct basic_constraints {
     }
 
     void print_as_json(struct json_object_asn1 &o) const {
-        const char *ca_str = "false";  // default
+        bool ca_flag = false;  // default
         unsigned int length = 0;   // default
         // TBD: report actual non-default data
         if (ca.length) {  // Check value as well as length!
-            ca_str = "true";
+            ca_flag = true;
         }
         struct json_object_asn1 bc{o, "basic_constraints"};
-        bc.print_key_string("ca", ca_str);
+        bc.print_key_bool("ca", ca_flag);
         bc.print_key_uint("path_len_constraint", length);
         bc.close();
     }
@@ -1672,17 +1672,14 @@ struct extension {
 
     void print_as_json(struct json_object_asn1 &o) const {
         if (sequence.is_constructed()) {
-            const char *true_str = "true";
-            const char *false_str = "false";
             const char *oid_string = "uknown_oid";
-            const char *critical_str = false_str;
+            bool critical_flag = false;
             if (extnID.tag == tlv::OBJECT_IDENTIFIER) {
                 oid_string = parser_get_oid_string(&extnID.value);
             }
             if (critical.tag == tlv::BOOLEAN) {
-                critical_str = true_str;
+                critical_flag = true;
             }
-
             struct parser value = extnValue.value;
             if (oid_string && strcmp("id-ce-SignedCertificateTimestampList", oid_string) == 0) {
                 struct signed_certificate_timestamp_list x(&value);
@@ -1750,7 +1747,7 @@ struct extension {
                 x.print_as_json_hex(unsprt, "value");
                 unsprt.close();
             }
-            o.print_key_string("critical", critical_str);
+            o.print_key_bool("critical", critical_flag);
         }
     }
 
