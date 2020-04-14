@@ -7,7 +7,7 @@ cdef extern from "../x509.h":
     cdef struct x509_cert:
         void parse(const void *buffer, unsigned int len)
         void print_as_json(FILE *f)
-
+        string get_json_string()
 
 def process_cert(bytes cert, bytes fname):
     cdef unsigned int len_ = len(cert)
@@ -27,6 +27,5 @@ def parse_cert(bytes cert, bytes fname):
     cdef char* c_string_ref = cert
     x.parse(<const void*>c_string_ref, len_)
 
-    #cdef char *c_string_ref = output_buffer
-    #x.sprint_as_json(output_buffer)
+    print x.get_json_string()
 

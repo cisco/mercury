@@ -6,5 +6,6 @@ b64_cert = 'MIIJRDCCCCygAwIBAgIRAO7eZWDNNcCvAgAAAABZcbcwDQYJKoZIhvcNAQELBQAwQjEL
 cert = b64decode(b64_cert)
 
 fname = b'cert_output.json'
-process_cert(cert, fname)
+#process_cert(cert, fname)
 
+parse_cert(cert, fname)

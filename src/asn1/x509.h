@@ -2224,37 +2224,18 @@ struct x509_cert {
 
     }
 
+    std::string get_json_string() const {
+        char buffer[8192*8];
+        struct buffer_stream buf(buffer, sizeof(buffer));
+        print_as_json(buf);
+        std::string tmp_str(buffer, buf.length());
+        return tmp_str;
+    }
     void print_as_json(FILE *f) const {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
         print_as_json(buf);
         buf.write_line(f);
-#if 0
-        fprintf(f, "{");   // open JSON object
-        serial_number.print_as_json_hex(f, "serial_number");
-        algorithm_identifier.print_as_json(f, "algorithm_identifier", ",");
-        issuer.print_as_json(f, "issuer");
-        validity.print_as_json(f);
-        subject.print_as_json(f, "subject");
-        subjectPublicKeyInfo.print_as_json(f, "subject_public_key_info");
-
-        fprintf(f, ",\"extensions\":[");  // open JSON array for extensions
-        const char *comma = "";
-        struct parser tlv_sequence = extensions.value;
-        while (tlv_sequence.is_not_empty()) {
-            struct extension xtn(tlv_sequence);
-            xtn.print_as_json(f, comma);
-            comma = ",";
-        }
-        fprintf(f, "]");  // closing extensions JSON array
-
-        signature_algorithm.print_as_json(f, "signature_algorithm", ",");
-        fprintf(f, ",");
-        struct tlv tmp_sig = signature;        // to avoid modifying signature
-        tmp_sig.remove_bitstring_encoding();
-        tmp_sig.print_as_json_hex(f, "signature");
-        fprintf(f, "}\n"); // close JSON line
-#endif  // 0
     }
     void print_as_json(struct buffer_stream &buf) const {
 
