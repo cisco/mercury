@@ -340,48 +340,6 @@ int utctime_to_generalized_time(uint8_t *gt, size_t gt_len, const uint8_t *utc_t
     return 0;
 }
 
-
-struct json_writer {
-    FILE *f;
-    char epilog[32];
-    unsigned int epilog_length;
-
-    json_writer(FILE *f) : f{f}, epilog{}, epilog_length{0} { }
-
-    void open_array() {
-        if (epilog_length >= sizeof(epilog)-1) {
-            throw "error: json_file epilog stack at upper limit\n";
-        }
-        epilog[epilog_length++] = ']';
-        fputc('[', f);
-    }
-    void close_array() {
-        if (epilog_length == 0) {
-            throw "error: json_file stack empty\n";
-        }
-        epilog[epilog_length--] = '\0';
-        fputc(']', f);
-    }
-    void open_object() {
-        if (epilog_length >= sizeof(epilog)-1) {
-            throw "error: json_file epilog stack at upper limit\n";
-        }
-        epilog[epilog_length++] = '}';
-        fputc('{', f);
-    }
-    void close_object() {
-        if (epilog_length == 0) {
-            throw "error: json_file stack empty\n";
-        }
-        epilog[epilog_length--] = '\0';
-        fputc('}', f);
-    }
-    void close_all() {
-        fprintf(f, "%.*s", epilog_length, epilog);
-        epilog_length = 0;
-    }
-};
-
 inline uint8_t hex_to_raw(const char *hex) {
     int value = 0;
     if(*hex >= '0' && *hex <= '9') {
@@ -670,10 +628,13 @@ struct tlv {
     void parse(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
 
         if (parser_get_data_length(p) < 2) {
-            fprintf(stderr, "error: incomplete data (only %ld bytes)\n", p->data_end - p->data);
+            fprintf(stderr, "error: incomplete data (only %ld bytes in %s)\n", p->data_end - p->data, tlv_name ? tlv_name : "unknown TLV");
             p->set_empty();  // parser is no longer good for reading
+#ifndef THROW
             return;  // leave tlv uninitialized, but don't throw an exception
-            // throw "error initializing tlv";
+#else
+            throw "error initializing tlv";
+#endif
         }
         // set tag
         tag = p->data[0];
@@ -698,12 +659,18 @@ struct tlv {
             if (num_octets_in_length < 0) {
                 fprintf(stderr, "error: invalid length field\n");
                 p->set_empty();  // parser is no longer good for reading
-                // throw "error initializing tlv";
+#ifndef THROW
+#else
+                throw "error initializing tlv";
+#endif
             }
             if (parser_read_and_skip_uint(p, num_octets_in_length, &length) == status_err) {
                 fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, parser_get_data_length(p));
                 p->set_empty();  // parser is no longer good for reading
-                // throw "error initializing tlv";
+#ifndef THROW
+#else
+                throw "error initializing tlv";
+#endif
             }
         }
 

@@ -1484,10 +1484,10 @@ struct extension {
     extension(struct parser &p) : sequence{&p}, extnID{}, critical{}, extnValue{} {
         if (sequence.is_constructed()) {
             extnID.parse(&sequence.value, 0, "extnID");
-            extnValue.parse(&sequence.value, 0, "extnValue");
+            extnValue.parse(&sequence.value, 0, "critical or extnValue");
             if (extnValue.tag == tlv::BOOLEAN) {
                 critical = extnValue;
-                extnValue.parse(&sequence.value, 0, "critical");
+                extnValue.parse(&sequence.value, 0, "extnValue");
             }
         }
         if (extnValue.value.is_not_empty() == false) {

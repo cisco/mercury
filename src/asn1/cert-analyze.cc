@@ -59,6 +59,36 @@ struct file_reader {
     virtual ~file_reader() = default;
 };
 
+struct der_file_reader : public file_reader {
+    FILE *stream;
+    bool done = false;
+
+    der_file_reader(const char *infile) {
+        stream = fopen(infile, "r");
+        if (stream == NULL) {
+            fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+    ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
+        if (done) {
+            return 0;
+        }
+        fseek(stream, 0, SEEK_END);
+        size_t file_length = ftell(stream);
+        fseek(stream, 0, SEEK_SET);
+
+        if (file_length > outbuf_len) {
+            return 0; // not enough room in output buffer
+        }
+        fread(outbuf, 1, file_length, stream);
+        done = true;
+        return file_length;
+    }
+    ~der_file_reader() {
+        fclose(stream);
+    };
+};
 
 using namespace rapidjson;
 
@@ -254,6 +284,23 @@ struct pem_file_reader : public file_reader {
     }
 };
 
+struct der_file_writer {
+    FILE *stream;
+
+    der_file_writer(const char *outfile) {
+        stream = fopen(outfile, "w");
+        if (stream == NULL) {
+            fprintf(stderr, "error: could not open file %s (%s)\n", outfile, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+    size_t write_cert(uint8_t *outbuf, size_t outbuf_len) {
+        return fwrite(outbuf, 1, outbuf_len, stream);
+    }
+    ~der_file_writer() {
+        fclose(stream);
+    };
+};
 
 // std::unordered_map<std::string, std::string> cert_dict;
 //#include <thread>
@@ -266,10 +313,12 @@ void usage(const char *progname) {
 int main(int argc, char *argv[]) {
     const char *infile = NULL;
     const char *filter = NULL;
+    const char *logfile = NULL;
     bool prefix = false;
     bool prefix_as_hex = false;
     bool input_is_pem = false;
     bool input_is_json = false;
+    bool input_is_der = false;
     //const char *outfile = NULL;
 
     // parse arguments
@@ -282,7 +331,9 @@ int main(int argc, char *argv[]) {
              case_prefix_as_hex,
              case_pem,
              case_json,
-             case_filter
+             case_der,
+             case_filter,
+             case_log_bad_certs
         };
         static struct option long_options[] = {
              {"input",          required_argument, NULL,  case_input         },
@@ -290,7 +341,9 @@ int main(int argc, char *argv[]) {
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"pem",            no_argument,       NULL,  case_pem           },
              {"json",           no_argument,       NULL,  case_json          },
+             {"der",            no_argument,       NULL,  case_der           },
              {"filter",         required_argument, NULL,  case_filter        },
+             {"log-malformed",  required_argument, NULL,  case_log_bad_certs },
              {0,                0,                 0,     0                  }
         };
 
@@ -333,12 +386,26 @@ int main(int argc, char *argv[]) {
             }
             input_is_json = true;
             break;
+        case case_der:
+            if (optarg) {
+                fprintf(stderr, "error: option 'der' does not accept an argument\n");
+                usage(argv[0]);
+            }
+            input_is_der = true;
+            break;
         case case_filter:
             if (!optarg) {
                 fprintf(stderr, "error: option 'filter' requires an argument\n");
                 usage(argv[0]);
             }
             filter=optarg;
+            break;
+        case case_log_bad_certs:
+            if (!optarg) {
+                fprintf(stderr, "error: option 'log-bad-certs' needs an argument\n");
+                usage(argv[0]);
+            }
+            logfile = optarg;
             break;
         case case_output:
             break;
@@ -361,11 +428,14 @@ int main(int argc, char *argv[]) {
         reader = new pem_file_reader(infile);
     } else if (input_is_json) {
         reader = new json_file_reader(infile);
+    } else if (input_is_der) {
+        reader = new der_file_reader(infile);
     } else {
         reader = new base64_file_reader(infile);
     }
 
-    uint8_t cert_buf[8*8192];
+    unsigned int log_index = 0;
+    uint8_t cert_buf[256 * 1024];
     ssize_t cert_len = 1;
     while ((cert_len = reader->get_cert(cert_buf, sizeof(cert_buf))) > 0) {
 
@@ -385,12 +455,26 @@ int main(int argc, char *argv[]) {
 
         } else {
             // parse certificate, then print as JSON
+            char buffer[256*1024];
+            struct buffer_stream buf(buffer, sizeof(buffer));
             struct x509_cert c;
-            c.parse(cert_buf, cert_len);
-
-            if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak() || c.is_nonconformant()) {
-                c.print_as_json(stdout);
+            try {
+                c.parse(cert_buf, cert_len);
+                if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak() || c.is_nonconformant()) {
+                    c.print_as_json(buf);
+                }
+            } catch (const char *s) {
+                fprintf(stderr, "caught exception: %s\n", s);
+                if (logfile) {
+                    std::string filename(logfile);
+                    filename.append(std::to_string(log_index++));
+                    filename.append(".der");
+                    der_file_writer der_file(filename.c_str());
+                    der_file.write_cert(cert_buf, cert_len);
+                    //c.print_as_json(buf);
+                }
             }
+            buf.write_line(stdout);
         }
     }
 
