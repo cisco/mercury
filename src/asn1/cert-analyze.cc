@@ -47,11 +47,6 @@ void sha256_hash(const void *buffer,
 
 #endif
 
-struct buffer {
-    void *data;
-    size_t length;
-};
-
 // file reading
 
 struct file_reader {
@@ -79,9 +74,17 @@ struct der_file_reader : public file_reader {
         fseek(stream, 0, SEEK_SET);
 
         if (file_length > outbuf_len) {
-            return 0; // not enough room in output buffer
+            fprintf(stderr, "error: certificate too large for buffer\n");
+            return -1;
         }
-        fread(outbuf, 1, file_length, stream);
+        if (fread(outbuf, 1, file_length, stream) != file_length) {
+            fprintf(stderr, "error: could not read entire certificate\n");
+            return -1;
+        }
+        if (tlv::is_der_format(outbuf, file_length) != true) {
+            fprintf(stderr, "error: input is not in DER format\n");
+            return -1;
+        }
         done = true;
         return file_length;
     }
@@ -102,7 +105,6 @@ struct json_file_reader : public file_reader {
             fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
             exit(EXIT_FAILURE);
         }
-        //fprintf(stderr, "opened JSON file\n");
     }
     ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
         line_number++;
@@ -294,8 +296,12 @@ struct der_file_writer {
             exit(EXIT_FAILURE);
         }
     }
-    size_t write_cert(uint8_t *outbuf, size_t outbuf_len) {
-        return fwrite(outbuf, 1, outbuf_len, stream);
+    ssize_t write_cert(uint8_t *outbuf, size_t outbuf_len) {
+        size_t bytes_written = fwrite(outbuf, 1, outbuf_len, stream);
+        if (bytes_written == outbuf_len) {
+            return bytes_written;
+        }
+        return -bytes_written; // indicate error with negative return value
     }
     ~der_file_writer() {
         fclose(stream);
@@ -306,7 +312,24 @@ struct der_file_writer {
 //#include <thread>
 
 void usage(const char *progname) {
-    fprintf(stdout, "%s: --input <infile> [--prefix] [--prefix-as-hex] [--pem] [--json] [--filter weak]\n", progname);
+    const char *help_message =
+        "usage: %s: --input <infile> [INPUT OPTIONS] [OUTPUT OPTIONS]\n"
+        "   --input <infile> reads certificate(s) from <infile> in base64 format\n"
+        "INPUT\n"
+        "   --pem            input file is in PEM format\n"
+        "   --der            input file is in DER format\n"
+        "   --json           input file is in JSON format\n"
+        "OUTPUT\n"
+        "   no option        output certificate(s) as JSON\n"
+        "   --prefix         output only the certificate prefix\n"
+        "   --prefix-as-hex  output only the certificate prefix as hexadecimal\n"
+        "   --log-malformed <outfile> write malformed certs to <outfile> in DER format\n"
+        "   --filter <spec>  output only certificates matching <spec>:\n"
+        "            weak\n"
+        "OTHER\n"
+        "   --help           print this message\n";
+
+    fprintf(stdout, help_message, progname);
     exit(EXIT_FAILURE);
 }
 
@@ -333,17 +356,19 @@ int main(int argc, char *argv[]) {
              case_json,
              case_der,
              case_filter,
-             case_log_bad_certs
+             case_log_malformed,
+             case_help
         };
         static struct option long_options[] = {
              {"input",          required_argument, NULL,  case_input         },
-             {"prefix",         no_argument,       NULL,  case_prefix        },
-             {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"pem",            no_argument,       NULL,  case_pem           },
              {"json",           no_argument,       NULL,  case_json          },
              {"der",            no_argument,       NULL,  case_der           },
+             {"prefix",         no_argument,       NULL,  case_prefix        },
+             {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"filter",         required_argument, NULL,  case_filter        },
-             {"log-malformed",  required_argument, NULL,  case_log_bad_certs },
+             {"log-malformed",  required_argument, NULL,  case_log_malformed },
+             {"help",           no_argument,       NULL,  case_help          },
              {0,                0,                 0,     0                  }
         };
 
@@ -398,20 +423,38 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "error: option 'filter' requires an argument\n");
                 usage(argv[0]);
             }
+            if (strcmp("weak", optarg) != 0) {
+                fprintf(stderr, "error: unrecognized filter option '%s'\n", optarg);
+                usage(argv[0]);
+            }
             filter=optarg;
             break;
-        case case_log_bad_certs:
+        case case_log_malformed:
             if (!optarg) {
-                fprintf(stderr, "error: option 'log-bad-certs' needs an argument\n");
+                fprintf(stderr, "error: option 'log-malformed' needs an argument\n");
                 usage(argv[0]);
             }
             logfile = optarg;
+            break;
+        case case_help:
+            if (optarg) {
+                fprintf(stderr, "error: option 'help' does not accept an argument\n");
+            }
+            usage(argv[0]);
             break;
         case case_output:
             break;
         default:
             ;
         }
+    }
+   if (optind < argc) {
+        printf("error: unrecognized options string(s): ");
+        while (optind < argc) {
+            printf("%s ", argv[optind++]);
+        }
+        printf("\n");
+        usage(argv[0]);
     }
 
     if (!infile) {
@@ -470,7 +513,9 @@ int main(int argc, char *argv[]) {
                     filename.append(std::to_string(log_index++));
                     filename.append(".der");
                     der_file_writer der_file(filename.c_str());
-                    der_file.write_cert(cert_buf, cert_len);
+                    if (der_file.write_cert(cert_buf, cert_len) < 0) {
+                        fprintf(stderr, "error: could not write certificate %s to file\n", filename.c_str());
+                    }
                     //c.print_as_json(buf);
                 }
             }

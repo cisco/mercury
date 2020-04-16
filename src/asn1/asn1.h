@@ -803,6 +803,19 @@ struct tlv {
         return tag & 0x20;
     }
 
+    // is_der_format(data, length) is a spot-check to provide
+    // early detection of malformed input, not a complete check
+    //
+    static bool is_der_format(const void *data, size_t length) {
+        uint8_t *d = (uint8_t *)data;
+        struct parser p{d, d + length};
+        struct tlv test(&p, tlv::SEQUENCE);
+        if (test.is_null() || test.length > (length - 2)) {
+            return false;
+        }
+        return true;
+    }
+
     int time_cmp(const struct tlv &t) const {
         ssize_t l1 = value.data_end - value.data;
         ssize_t l2 = t.value.data_end - t.value.data;
