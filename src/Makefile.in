@@ -29,7 +29,7 @@ CXX      = @CXX@
 CFLAGS  = --std=c++11
 CFLAGS += -O2
 # CFLAGS += -march=x86-64 -mtune=generic
-CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
+CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += $(OPTFLAGS)
 
@@ -177,7 +177,7 @@ uninstall:
 .PHONY: gprof
 gprof:
 	make clean
-	$(CXX) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc 
+	$(CXX) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(LIBMERC)
@@ -186,5 +186,23 @@ cppcheck: $(MERC) $(LIBMERC)
 .PHONY: test
 test: mercury
 	cd ../test && $(MAKE)
+
+major=$(shell cat ../VERSION | grep -o "^[0-9]*")
+minor=$(shell cat ../VERSION | grep -o "\.[0-9]*\." | grep -o "[0-9]*")
+patch=$(shell cat ../VERSION | grep -o "[0-9]*$$")
+version=$(major).$(minor).$(patch)
+MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+.PHONY: increment-patchlevel increment-minor-version increment-major-version
+increment-patchlevel:
+	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../VERSION
+	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
+
+increment-minor-version:
+	echo $(major).$(shell expr $(minor) + 1).$(patch) > ../VERSION
+	git tag -a $(major).$(shell expr $(minor) + 1).$(patch) -m "\"minor version increment\""
+
+increment-major-version:
+	echo $(shell expr $(major) + 1).$(minor).$(patch) > ../VERSION
+	git tag -a $(shell expr $(major) + 1).$(minor).$(patch) -m "\"major version increment\""
 
 # EOF
