@@ -12,34 +12,34 @@ struct json_object {
     buffer_stream *b;
     char comma = ' ';
     json_object(struct buffer_stream *buf) : b{buf} {
-        b->putc('{');
+        b->write_char('{');
     }
     json_object(struct json_object &object, const char *name) : b{object.b} {
         //fprintf(stderr, "json_object constructor (name: %s, comma: %c)\n", name, comma);
-        b->putc(object.comma);
-        b->putc('\"');
+        b->write_char(object.comma);
+        b->write_char('\"');
         b->puts(name);
         b->puts("\":{");
         object.comma = ',';
     }
     json_object(struct json_object &object) : b{object.b} {
         //fprintf(stderr, "json_object constructor (comma: %c)\n", comma);
-        b->putc(object.comma);
-        b->putc('{');
+        b->write_char(object.comma);
+        b->write_char('{');
         object.comma = ',';
     }
     json_object(struct json_array &array);
     void reinit(struct json_array &array);
     void close() {
-        b->putc('}');
+        b->write_char('}');
     }
     void print_key_string(const char *k, const char *v) {
-        b->putc(comma);
-        b->putc('\"');
+        b->write_char(comma);
+        b->write_char('\"');
         b->puts(k);
         b->puts("\":\"");
         b->puts(v);
-        b->putc('\"');
+        b->write_char('\"');
         comma = ',';
     }
     void print_key_bool(const char *k, bool x) {
@@ -67,7 +67,7 @@ struct json_object {
         if (value.data && value.data_end) {
             b->raw_as_hex(value.data, value.data_end - value.data);
         }
-        b->putc('\"');
+        b->write_char('\"');
         comma = ',';
     }
 
@@ -77,17 +77,17 @@ struct json_array {
     buffer_stream *b;
     char comma = ' ';
     json_array(struct buffer_stream *buf) : b{buf} {
-        b->putc('[');
+        b->write_char('[');
     }
     json_array(struct json_object &object, const char *name) : b{object.b} {
-        b->putc(object.comma);
-        b->putc('\"');
+        b->write_char(object.comma);
+        b->write_char('\"');
         b->puts(name);
         b->puts("\":[");
         object.comma = ',';
     }
     void close() {
-        b->putc(']');
+        b->write_char(']');
     }
     void print_bool(bool x) {
         b->snprintf("%c%s", comma, x ? "true" : "false");
@@ -110,10 +110,10 @@ struct json_array {
         comma = ',';
     }
     void print_string(const char *s) {
-        b->putc(comma);
-        b->putc('\"');
+        b->write_char(comma);
+        b->write_char('\"');
         b->puts(s);
-        b->putc('\"');
+        b->write_char('\"');
         comma = ',';
     }
 };
@@ -124,9 +124,9 @@ json_object::json_object(struct json_array &array) : b{array.b} {
 }
 
 void json_object::reinit(struct json_array &array) {
-    b->putc('}');
-    b->putc(',');
-    b->putc('{');
+    b->write_char('}');
+    b->write_char(',');
+    b->write_char('{');
     comma = ' ';
     array.comma = ',';
 }
