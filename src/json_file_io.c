@@ -16,6 +16,8 @@
 #include "utils.h"
 #include "analysis.h"
 #include "llq.h"
+#include "buffer_stream.h"
+
 
 #define json_file_needs_rotation(jf) (--((jf)->record_countdown) == 0)
 #define SNI_HDR_LEN 9
@@ -116,44 +118,44 @@ int append_packet_json(struct buffer_stream &buf,
         switch(pf.x.fingerprint_type) {
         case fingerprint_type_dhcp_client:
             buf.strncpy("\"fingerprints\":{\"dhcp\":\"");
-            buf.write_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted);
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
             buf.strncpy("\"},");
             break;
         case fingerprint_type_tls:
             buf.strncpy("\"fingerprints\":{\"tls\":\"");
-            buf.write_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted);
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
             buf.strncpy("\"},");
             break;
         case fingerprint_type_tcp:
             buf.strncpy("\"fingerprints\":{\"tcp\":\"");
-            buf.write_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted);
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
             buf.strncpy("\"},");
             break;
         case fingerprint_type_http:
             buf.strncpy("\"fingerprints\":{\"http\":\"");
-            buf.write_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted);
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
             buf.strncpy("\"},");
             buf.snprintf("\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
             break;
         case fingerprint_type_http_server:
             buf.strncpy("\"fingerprints\":{\"http_server\":\"");
-            buf.write_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted);
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
             buf.strncpy("\"},");
             buf.snprintf("\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
             break;
         case fingerprint_type_tls_server:
             buf.strncpy("\"fingerprints\":{\"tls_server\":\"");
-            buf.write_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted);
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
             buf.strncpy("\"},");
             break;
         case fingerprint_type_dtls:
             buf.strncpy("\"fingerprints\":{\"dtls\":\"");
-            buf.write_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted);
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
             buf.strncpy("\"},");
             break;
         case fingerprint_type_dtls_server:
             buf.strncpy("\"fingerprints\":{\"dtls_server\":\"");
-            buf.write_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted);
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
             buf.strncpy("\"},");
             break;
         default:
@@ -179,7 +181,7 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         /* print the certificates in base64 format */
         buf.strncpy("\"tls\":{\"server_certs\":[");
-        buf.write_extract_certificates(pf.x.packet_data.value, pf.x.packet_data.length);
+        write_extract_certificates(buf, pf.x.packet_data.value, pf.x.packet_data.length);
         buf.strncpy("]},");
     }
     if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
@@ -196,9 +198,9 @@ int append_packet_json(struct buffer_stream &buf,
     struct flow_key key = flow_key_init();
     flow_key_set_from_packet(&key, packet, length);
 
-    buf.write_analysis_from_extractor_and_flow_key(&pf.x, &key);
+    write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
 
-    buf.write_packet_flow_key(packet, length);
+    write_packet_flow_key(buf, packet, length);
 
     buf.write_timestamp(ts);
 
@@ -218,9 +220,6 @@ void json_file_write(struct json_file *jf,
 
     struct timespec ts;
     char obuf[LLQ_MSG_SIZE];
-    //int olen = LLQ_MSG_SIZE;
-    //int ooff = 0;
-    int trunc = 0;
 
     ts.tv_sec = sec;
     ts.tv_nsec = nsec;
@@ -230,15 +229,13 @@ void json_file_write(struct json_file *jf,
     append_packet_json(buf, packet, length, &ts);
     int r = buf.length();
 
-    if ((trunc == 0) && (r > 0)) {
+    if ((buf.trunc == 0) && (r > 0)) {
         fwrite(obuf, r, 1, jf->file);
 
         if (json_file_needs_rotation(jf)) {
             json_file_rotate(jf);
         }
-
     }
-
 }
 
 

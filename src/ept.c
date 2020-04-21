@@ -83,7 +83,7 @@ enum status element_init(struct element *e,
     uint16_t tmp = decode_uint16(data);
     uint16_t length = (tmp & LENGTH_MASK);
     if (length + sizeof(uint16_t) > max_length) {
-        fprintf(stderr, "element_init length: %04d\tmax_length: %04d\n", length, max_length);
+        fprintf(stderr, "element_init length: %04d\tmax_length: %04u\n", length, max_length);
         return status_err;
     }
     if (tmp & PARENT_NODE_INDICATOR) {
@@ -224,22 +224,6 @@ void element_fprintf(FILE *f, const struct element *e) {
     fprintf_raw_as_hex(f, e->data, e->length);
     fprintf(f, ")");
 }
-
-
-int append_element(char *dstr, int *doff, int dlen, int *trunc,
-                   const struct element *e) {
-
-    int r;
-    r = append_putc(dstr, doff, dlen, trunc,
-                    '(');
-    r += append_raw_as_hex(dstr, doff, dlen, trunc,
-                           e->data, e->length);
-    r += append_putc(dstr, doff, dlen, trunc,
-                     ')');
-
-    return r;
-}
-
 
 void element_printf(const struct element *e) {
     element_fprintf(stdout, e);
@@ -462,49 +446,44 @@ enum status fprintf_binary_ept_as_paren_ept(FILE *f,
     return status_ok;
 }
 
+void write_element(struct buffer_stream &buf, const struct element *e) {
+    buf.putc('(');
+    buf.raw_as_hex(e->data, e->length);
+    buf.putc(')');
+}
 
-int append_binary_ept_as_paren_ept(char *dstr, int *doff, int dlen, int *trunc,
-                                           const unsigned char *data,
-                                           unsigned int length) {
+void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data, unsigned int length) {
 
     struct element_iterator ei;
 
     if (element_iterator_init(&ei, data, length) == iterator_status_done) {
-        return 0;
+        return;
     }
 
-    int r = 0;
     unsigned int last_depth = ei.depth;
     do {
 
         if (ei.element.type == ept_node_type_empty_list) {
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "()");
+            buf.strncpy("()");
         }
         if (ei.element.type == ept_node_type_string) {
             if (ei.depth > last_depth) {
-                r += append_putc(dstr, doff, dlen, trunc,
-                                 '(');
+                buf.putc('(');
             }
             if (ei.depth < last_depth) {
-                r += append_putc(dstr, doff, dlen, trunc,
-                                 ')');
+                buf.putc(')');
             }
-            r += append_element(dstr, doff, dlen, trunc,
-                                &ei.element);
+            write_element(buf, &ei.element);
         }
         last_depth = ei.depth;
 
-    } while ((element_iterator_advance(&ei) != iterator_status_done) && (*trunc == 0));
+    } while ((element_iterator_advance(&ei) != iterator_status_done) && (buf.trunc == 0));
 
     if (ei.depth < last_depth) {
-        r += append_putc(dstr, doff, dlen, trunc,
-                         ')');
+        buf.putc(')');
     }
 
-    return r;
 }
-
 
 enum status binary_ept_print_as_tls(uint8_t *data,
                                     size_t length) {

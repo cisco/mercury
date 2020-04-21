@@ -27,7 +27,7 @@ CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(dat
 
 CXX      = @CXX@
 CFLAGS  = --std=c++11
-CFLAGS += -O2
+CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
@@ -174,10 +174,14 @@ uninstall:
 	rm -f $(bindir)/mercury
 	rm -rf $(localstatedir)
 
-.PHONY: gprof
-gprof:
-	make clean
-	$(CXX) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc
+#  To build mercury for profiling using gprof, run
+#
+#     make clean
+#     make OPTFLAGS="-pg"
+#
+#  ... to first remove all of the normally-built components, and then
+#  build all of them with gprof instrumentation.  See 'man gprof' for
+#  further informataion.
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(LIBMERC)
