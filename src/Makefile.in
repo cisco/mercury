@@ -192,7 +192,7 @@ test: mercury
 	cd ../test && $(MAKE)
 
 major=$(shell cat ../VERSION | grep -o "^[0-9]*")
-minor=$(shell cat ../VERSION | grep -o "\.[0-9]*\." | grep -o "[0-9]*")
+minor=$(subst .,,$(shell cat ../VERSION | grep -o "\.[0-9]*\."))
 patch=$(shell cat ../VERSION | grep -o "[0-9]*$$")
 version=$(major).$(minor).$(patch)
 MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
