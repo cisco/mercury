@@ -108,7 +108,7 @@ int append_packet_json(struct buffer_stream &buf,
         return 0;
     }
 
-    buf.putc('{');
+    buf.write_char('{');
 
     /*
      * output fingerprint (if any)
