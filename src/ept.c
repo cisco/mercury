@@ -447,9 +447,9 @@ enum status fprintf_binary_ept_as_paren_ept(FILE *f,
 }
 
 void write_element(struct buffer_stream &buf, const struct element *e) {
-    buf.putc('(');
+    buf.write_char('(');
     buf.raw_as_hex(e->data, e->length);
-    buf.putc(')');
+    buf.write_char(')');
 }
 
 void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data, unsigned int length) {
@@ -468,10 +468,10 @@ void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data
         }
         if (ei.element.type == ept_node_type_string) {
             if (ei.depth > last_depth) {
-                buf.putc('(');
+                buf.write_char('(');
             }
             if (ei.depth < last_depth) {
-                buf.putc(')');
+                buf.write_char(')');
             }
             write_element(buf, &ei.element);
         }
@@ -480,7 +480,7 @@ void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data
     } while ((element_iterator_advance(&ei) != iterator_status_done) && (buf.trunc == 0));
 
     if (ei.depth < last_depth) {
-        buf.putc(')');
+        buf.write_char(')');
     }
 
 }

@@ -1271,7 +1271,7 @@ void write_extract_certificates(buffer_stream &buf, const unsigned char *data, s
         }
 
         if (cert_num > 0) {
-            buf.putc(','); /* print separating comma */
+            buf.write_char(','); /* print separating comma */
         }
 
          buf.json_base64_string(cert_list.data, tmp_len);

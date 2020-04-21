@@ -474,7 +474,7 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
         //fprintf(file, "%s,", results);
 
         buf.strncpy(results);
-        buf.putc(',');
+        buf.write_char(',');
 
         free(results);
 
