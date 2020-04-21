@@ -381,7 +381,7 @@ struct buffer_stream {
         append_strncpy(dstr, &doff, dlen, &trunc, sstr);
     }
 
-    void putc(char schr) {
+    void (putc)(char schr) {
         append_putc(dstr, &doff, dlen, &trunc, schr);
     }
 
