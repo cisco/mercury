@@ -339,7 +339,7 @@ struct buffer_stream {
         return fwrite(dstr, 1, doff, f);
     }
     size_t write_line(FILE *f) {
-        putc('\n');
+        buffer_stream::putc('\n');
         return write(f);
     }
 
