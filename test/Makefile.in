@@ -201,6 +201,7 @@ endif
 	rm -f tmp.json
 	$(MERCURY) -c dummy0 $(DROP_ROOT) -f tmp.json & echo $$! > mercury.PID
 	tcpreplay -t -i dummy0 data/top-https.pcap
+	sleep 2
 	while kill `cat mercury.PID`; do echo "waiting for mercury dummy capture process to halt"; sleep 1; done
 	bash -c "diff  <( jq . tmp.json | grep -v event_start) <( jq . data/top-https.json | grep -v event_start )"
 ifeq ($(have_jsonschema),yes)
