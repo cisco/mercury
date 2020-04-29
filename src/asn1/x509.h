@@ -1334,6 +1334,7 @@ struct x509_cert {
     void print_as_json(struct buffer_stream &buf) const {
 
         struct json_object_asn1 o{&buf};
+        version.print_as_json_hex(o, "version");
         serial_number.print_as_json_hex(o, "serial_number");
         signature_identifier.print_as_json(o, "signature_identifier");
         issuer.print_as_json(o, "issuer");
@@ -1453,18 +1454,18 @@ struct x509_cert {
 };
 
 struct x509_cert_prefix {
+    struct tlv version;
     struct tlv serial_number;
     struct name issuer;
     struct parser prefix;
 
-    x509_cert_prefix() : serial_number{}, issuer{}, prefix{NULL, NULL} {   }
+    x509_cert_prefix() : version{}, serial_number{}, issuer{}, prefix{NULL, NULL} {   }
 
     x509_cert_prefix(const void *buffer, unsigned int len) : serial_number{}, issuer{}, prefix{NULL, NULL} {
         parse(buffer, len);
     }
 
     void parse(const void *buffer, unsigned int len) {
-        struct tlv version;
 
         struct parser p;
         prefix.data = (const uint8_t *)buffer;
@@ -1512,6 +1513,7 @@ struct x509_cert_prefix {
 
     void print_as_json(struct buffer_stream &buf) const {
         json_object_asn1 o{&buf};
+        o.print_key_hex("version", version.value);
         o.print_key_hex("serial_number", serial_number.value);
         issuer.print_as_json(o, "issuer");
         o.close();
