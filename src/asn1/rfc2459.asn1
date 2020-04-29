@@ -72,6 +72,83 @@ id-qt-unotice  OBJECT IDENTIFIER ::=  { id-qt 2 }
 id-ad-ocsp      OBJECT IDENTIFIER ::= { id-ad 1 }
 id-ad-caIssuers OBJECT IDENTIFIER ::= { id-ad 2 }
 
+-- Object identifier assignments for ISO certificate extensions --
+id-ce   OBJECT IDENTIFIER       ::=     { joint-iso-ccitt(2) ds(5) 29 }
+
+id-ce-subjectDirectoryAttributes   OBJECT IDENTIFIER ::= { id-ce 9  }
+id-ce-subjectKeyIdentifier         OBJECT IDENTIFIER ::= { id-ce 14 }
+id-ce-keyUsage                     OBJECT IDENTIFIER ::= { id-ce 15 }
+id-ce-privateKeyUsagePeriod        OBJECT IDENTIFIER ::= { id-ce 16 }
+id-ce-subjectAltName               OBJECT IDENTIFIER ::= { id-ce 17 }
+id-ce-issuerAltName                OBJECT IDENTIFIER ::= { id-ce 18 }
+id-ce-basicConstraints             OBJECT IDENTIFIER ::= { id-ce 19 }
+id-ce-cRLNumber                    OBJECT IDENTIFIER ::= { id-ce 20 }
+id-ce-reasonCode                   OBJECT IDENTIFIER ::= { id-ce 21 }
+id-ce-instructionCode              OBJECT IDENTIFIER ::= { id-ce 23 }
+id-ce-invalidityDate               OBJECT IDENTIFIER ::= { id-ce 24 }
+id-ce-deltaCRLIndicator            OBJECT IDENTIFIER ::= { id-ce 27 }
+id-ce-issuingDistributionPoint     OBJECT IDENTIFIER ::= { id-ce 28 }
+id-ce-certificateIssuer            OBJECT IDENTIFIER ::= { id-ce 29 }
+id-ce-nameConstraints              OBJECT IDENTIFIER ::= { id-ce 30 }
+id-ce-cRLDistributionPoints        OBJECT IDENTIFIER ::= { id-ce 31 }
+id-ce-certificatePolicies          OBJECT IDENTIFIER ::= { id-ce 32 }
+id-ce-policyMappings               OBJECT IDENTIFIER ::= { id-ce 33 }
+id-ce-policyConstraints            OBJECT IDENTIFIER ::= { id-ce 36 }
+id-ce-authorityKeyIdentifier       OBJECT IDENTIFIER ::= { id-ce 35 }
+id-ce-extKeyUsage                  OBJECT IDENTIFIER ::= { id-ce 37 }
+
+
+-- ExtKeyUsageSyntax ::= SEQUENCE SIZE (1..MAX) OF KeyPurposeId
+-- KeyPurposeId ::= OBJECT IDENTIFIER
+
+-- extended key purpose OIDs
+id-kp-serverAuth      OBJECT IDENTIFIER ::= { id-kp 1 }
+id-kp-clientAuth      OBJECT IDENTIFIER ::= { id-kp 2 }
+id-kp-codeSigning     OBJECT IDENTIFIER ::= { id-kp 3 }
+id-kp-emailProtection OBJECT IDENTIFIER ::= { id-kp 4 }
+id-kp-ipsecEndSystem  OBJECT IDENTIFIER ::= { id-kp 5 }
+id-kp-ipsecTunnel     OBJECT IDENTIFIER ::= { id-kp 6 }
+id-kp-ipsecUser       OBJECT IDENTIFIER ::= { id-kp 7 }
+id-kp-timeStamping    OBJECT IDENTIFIER ::= { id-kp 8 }
+
+-- Legacy attributes
+
+-- pkcs9email ATTRIBUTE ::= {
+--        WITH SYNTAX                     PHGString,
+--        ID                              emailAddress }
+--
+-- PHGString ::= IA5String (SIZE(1..ub-emailaddress-length))
+
+pkcs-9 OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 9 }
+
+emailAddress OBJECT IDENTIFIER ::= { pkcs-9 1 }
+
+
+--   The hold instruction code is a non-critical CRL entry extension that
+--   provides a registered instruction identifier which indicates the
+--   action to be taken after encountering a certificate that has been
+--   placed on hold.
+
+   id-ce-holdInstructionCode OBJECT IDENTIFIER ::= { id-ce 23 }
+
+-- holdinstructions described in this specification, from ANSI x9
+-- ANSI x9 arc holdinstruction arc
+
+holdInstruction OBJECT IDENTIFIER ::= { joint-iso-ccitt(2) member-body(2) us(840) x9cm(10040) 2 }
+
+-- ANSI X9 holdinstructions referenced by this standard
+
+id-holdinstruction-none OBJECT IDENTIFIER ::= { holdInstruction 1 }
+id-holdinstruction-callissuer OBJECT IDENTIFIER ::= { holdInstruction 2 }
+id-holdinstruction-reject OBJECT IDENTIFIER ::= { holdInstruction 3 }
+
+-- policyQualifierIds for Internet policy qualifiers
+
+   id-qt          OBJECT IDENTIFIER ::=  { id-pkix 2 }
+   id-qt-cps      OBJECT IDENTIFIER ::=  { id-qt 1 }
+   id-qt-unotice  OBJECT IDENTIFIER ::=  { id-qt 2 }
+
+
 -- attribute data types --
 --
 -- Attribute       ::=     SEQUENCE {
