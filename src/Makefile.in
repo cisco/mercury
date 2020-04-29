@@ -31,6 +31,7 @@ CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
+CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 CFLAGS += $(OPTFLAGS)
 
 # MERC and MERC_H hold the core source and header files, respectively

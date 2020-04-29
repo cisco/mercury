@@ -1510,26 +1510,32 @@ struct x509_cert_prefix {
         return prefix.data_end - prefix.data;
     }
 
+    void print_as_json(struct buffer_stream &buf) const {
+        json_object_asn1 o{&buf};
+        o.print_key_hex("serial_number", serial_number.value);
+        issuer.print_as_json(o, "issuer");
+        o.close();
+    }
     void print_as_json(FILE *f) const {
         char buffer[8192];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        {
-            json_object_asn1 o{&buf};
-            o.print_key_hex("serial_number", serial_number.value);
-            issuer.print_as_json(o, "issuer");
-            o.close();
-        }
+        print_as_json(buf);
         buf.write_line(f);
     }
-
+    void print_as_json_base64(struct buffer_stream &buf) const {
+        json_object o{&buf};
+        o.print_key_base64("cert_prefix", prefix);
+        o.close();
+    }
+    void print_as_json_hex(struct buffer_stream &buf) const {
+        json_object o{&buf};
+        o.print_key_hex("cert_prefix", prefix);
+        o.close();
+    }
     void print_as_json_hex(FILE *f) const {
         char buffer[8192];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        {
-            json_object o{&buf};
-            o.print_key_hex("cert_prefix", prefix);
-            o.close();
-        }
+        print_as_json_hex(buf);
         buf.write_line(f);
     }
 

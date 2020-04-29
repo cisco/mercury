@@ -114,7 +114,7 @@ void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, con
 
 }
 
-void fprintf_json_char_escaped(FILE *f, char x) {
+void fprintf_json_char_escaped(FILE *f, unsigned char x) {
     if (x < 0x20) {                   /* escape control characters   */
         fprintf(f, "\\u%04x", x);
     } else if (x > 0x7f) {            /* escape non-ASCII characters */
@@ -127,7 +127,7 @@ void fprintf_json_char_escaped(FILE *f, char x) {
     }
 }
 
-void fprintf_json_char_escaped(struct buffer_stream &buf, char x) {
+void fprintf_json_char_escaped(struct buffer_stream &buf, unsigned char x) {
     if (x < 0x20) {                   /* escape control characters   */
         buf.snprintf("\\u%04x", x);
     } else if (x > 0x7f) {            /* escape non-ASCII characters */

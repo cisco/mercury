@@ -251,8 +251,8 @@ static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 
 
 static inline int append_json_base64_string(char *dstr, int *doff, int dlen, int *trunc,
-                              const unsigned char *data,
-                              size_t input_length) {
+                                            const unsigned char *data,
+                                            size_t input_length) {
 
     *trunc = 0;
     int r = 0;

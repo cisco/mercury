@@ -70,6 +70,13 @@ struct json_object {
         b->write_char('\"');
         comma = ',';
     }
+    void print_key_base64(const char *k, const struct parser &value) {
+        b->snprintf("%c\"%s\":", comma, k);
+        if (value.data && value.data_end) {
+            b->json_base64_string(value.data, value.data_end - value.data); // prints quoted string
+        }
+        comma = ',';
+    }
 
 };
 
