@@ -5,7 +5,23 @@
 #ifndef ASN1_H
 #define ASN1_H
 
+#include "../parser.h"
 #include "json_object.hh"
+
+namespace std {
+
+    template <>  struct hash<struct parser>  {
+        std::size_t operator()(const struct parser& p) const {
+            size_t x = 5381;
+            const uint8_t *tmp = p.data;
+            while (tmp < p.data_end) {
+                x = (33 * x) + *tmp;
+            }
+            return x;
+        }
+    };
+}
+
 
 /*
  * utility functions
@@ -491,7 +507,9 @@ struct json_object_asn1 : public json_object {
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
                     if (x & *p.data) {
-                        a.print_string(*tmp);
+                        if (*tmp) {
+                            a.print_string(*tmp);
+                        }         // note: we don't report excess length
                     }
                     if (*tmp) {
                         tmp++;
@@ -502,7 +520,9 @@ struct json_object_asn1 : public json_object {
             uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
             for (uint8_t x = 0x80; x > terminus; x=x>>1) {
                 if (x & *p.data) {
-                    a.print_string(*tmp);
+                    if (*tmp) {
+                        a.print_string(*tmp);
+                    }         // note: we don't report excess length
                 }
                 if (*tmp) {
                     tmp++;
@@ -651,6 +671,7 @@ struct tlv {
     constexpr static unsigned char explicit_tag_constructed(unsigned char tag) {
         return 0xa0 + tag;  // warning: tag must be between 0 and 31 inclusive
     }
+
     enum tag {
         END_OF_CONTENT	  = 0x00,
         BOOLEAN	          = 0x01,
@@ -699,17 +720,31 @@ struct tlv {
         value.data = NULL;
         value.data_end = NULL;
     }
-    tlv(const tlv &r) {
+    tlv(const tlv &r) : tag{0}, length{0}, value{NULL, NULL} {
         tag = r.tag;
         length = r.length;
         value.data = r.value.data;
         value.data_end = r.value.data_end;
     }
-    tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
+    void operator=(const tlv &r) {
+        tag = r.tag;
+        length = r.length;
+        value.data = r.value.data;
+        value.data_end = r.value.data_end;
+    }
+    tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tag{0}, length{0}, value{NULL, NULL} {
         parse(p, expected_tag, tlv_name);
     }
     void parse(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
 
+        if (p->data == NULL) {
+            fprintf(stderr, "error: NULL data in %s\n", tlv_name ? tlv_name : "unknown TLV");
+#ifndef THROW
+            return;  // leave tlv uninitialized, but don't throw an exception
+#else
+            throw "error initializing tlv";
+#endif
+        }
         if (parser_get_data_length(p) < 2) {
             fprintf(stderr, "error: incomplete data (only %ld bytes in %s)\n", p->data_end - p->data, tlv_name ? tlv_name : "unknown TLV");
             p->set_empty();  // parser is no longer good for reading
@@ -719,26 +754,19 @@ struct tlv {
             throw "error initializing tlv";
 #endif
         }
+
+        if (expected_tag && p->data[0] != expected_tag) {
+            return;  // unexpected type
+        }
         // set tag
         tag = p->data[0];
         length = p->data[1];
-
-        if (expected_tag) {
-            if (tag != expected_tag) {
-                // initialize to zero to indicate we don't match expected type
-                tag = 0;
-                length = 0;
-                value.data = NULL;
-                value.data_end = NULL;
-                return;
-            }
-        }
 
         parser_skip(p, 2);
 
         // set length
         if (length >= 128) {
-            size_t num_octets_in_length = length - 128;
+            ssize_t num_octets_in_length = length - 128;  // note: signed to avoid underflow
             if (num_octets_in_length < 0) {
                 fprintf(stderr, "error: invalid length field\n");
                 p->set_empty();  // parser is no longer good for reading
@@ -774,7 +802,7 @@ struct tlv {
         }
     }
     /*
-     * fprintf(f, name) prints the ASN1 TLV
+     * fprintf_tlv(f, name) prints the ASN1 TLV details to f
      *
      * Tag notation: (Tag Class:Constructed:Tag Number)
      *
@@ -825,42 +853,41 @@ struct tlv {
      * RELATIVE-OID-IRI		   36	24 *** LONG FORM TAG NUMBER ***
      */
 
-    const char *type[32] = {
-        "End-of-Content",
-        "BOOLEAN",
-        "INTEGER",
-        "BIT STRING",
-        "OCTET STRING",
-        "NULL",
-        "OBJECT IDENTIFIER",
-        "Object Descriptor",
-        "EXTERNAL",
-        "REAL (float)",
-        "ENUMERATED",
-        "EMBEDDED PDV",
-        "UTF8String",
-        "RELATIVE-OID",
-        "TIME",
-        "Reserved",
-        "SEQUENCE, SEQUENCE OF",
-        "SET and SET OF",
-        "NumericString",
-        "PrintableString",
-        "T61String",
-        "VideotexString",
-        "IA5String",
-        "UTCTime",
-        "GeneralizedTime",
-        "GraphicString",
-        "VisibleString",
-        "GeneralString",
-        "UniversalString",
-        "CHARACTER STRING",
-        "BMPString"
-    };
-
     void fprint_tlv(FILE *f, const char *tlv_name) const {
-        // return;  // return;
+        const char *type[32] = {
+            "End-of-Content",
+            "BOOLEAN",
+            "INTEGER",
+            "BIT STRING",
+            "OCTET STRING",
+            "NULL",
+            "OBJECT IDENTIFIER",
+            "Object Descriptor",
+            "EXTERNAL",
+            "REAL (float)",
+            "ENUMERATED",
+            "EMBEDDED PDV",
+            "UTF8String",
+            "RELATIVE-OID",
+            "TIME",
+            "Reserved",
+            "SEQUENCE, SEQUENCE OF",
+            "SET and SET OF",
+            "NumericString",
+            "PrintableString",
+            "T61String",
+            "VideotexString",
+            "IA5String",
+            "UTCTime",
+            "GeneralizedTime",
+            "GraphicString",
+            "VisibleString",
+            "GeneralString",
+            "UniversalString",
+            "CHARACTER STRING",
+            "BMPString"
+        };
+
         if (value.data) {
             uint8_t tag_class = tag >> 6;
             uint8_t constructed = (tag >> 5) & 1;
@@ -930,7 +957,7 @@ struct tlv {
         }
         return 0;
     }
-    void set(enum tag type, const void *data, size_t len) {
+    void set(enum tlv::tag type, const void *data, size_t len) {
         tag = type;
         length = len;
         value.data = (const uint8_t *)data;

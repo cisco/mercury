@@ -37,5 +37,14 @@ clean:
 distclean: clean
 	rm -rf oid-list
 
+# fuzz testing with american fuzzy lop
+#
+FUZZ_CMD =
+.PHONY: fuzz-test
+fuzz-test:
+	@echo "running fuzz test with afl-g++"
+	rm -f cert-analyze && $(MAKE) CXX=afl-g++ CC=afl-gcc
+	mv cert-analyze ./afl-cert-analyze
+	afl-fuzz -i afl_data -o afl_findings ./afl-cert-analyze --input @@ $(FUZZ_CMD)
 
 # EOF

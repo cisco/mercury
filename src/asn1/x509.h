@@ -271,7 +271,7 @@ struct policy_qualifier_info {
             qualifier.parse(&sequence.value);
         }
     }
-    void print_as_json(struct json_object_asn1 &o, const char *name, const char *pre="", const char *post="") const {
+    void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct json_object_asn1 q{o, name};
         qualifier_id.print_as_json_oid(q, "qualifier_id");
         qualifier.print_as_json_escaped_string(q, "qualifier");
@@ -286,6 +286,7 @@ struct policy_information {
     policy_information() : sequence{} {}
     policy_information(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
+        if (sequence.is_null()) { p->set_null(); } // handle unexpected data
     }
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct parser tlv_sequence = sequence.value;
@@ -349,9 +350,10 @@ struct private_key_usage_period {
             struct tlv tmp(&sequence.value);
             if (tmp.tag == tlv::explicit_tag(0)) {
                 notBefore = tmp;
-            }
-            if (tmp.tag == tlv::explicit_tag(1)) {
+            } else if (tmp.tag == tlv::explicit_tag(1)) {
                 notAfter = tmp;
+            } else {
+                p->set_null();  // handle unexpected data
             }
         }
     }
@@ -1123,8 +1125,8 @@ struct algorithm_identifier {
         }
     }
 
-    void print_as_json(struct json_object &o, const char *name, const char *pre="", const char *post="") const {
-        json_object_asn1 alg_id(o, "algorithm_identifier");
+    void print_as_json(struct json_object &o, const char *name) const {
+        json_object_asn1 alg_id(o, name);
         algorithm.print_as_json_oid(alg_id, "algorithm");
         if (parameters.is_not_null()) {
             if (parameters.tag == tlv::OBJECT_IDENTIFIER) {
@@ -1140,7 +1142,7 @@ struct algorithm_identifier {
         if (algorithm.is_not_null()) {
             return parser_get_oid_string(&algorithm.value);
         }
-        return NULL;
+        return "";
     }
 
     const char *get_parameters() const {
@@ -1227,7 +1229,7 @@ struct x509_cert {
     struct tlv explicitly_tagged_version;
     struct tlv version;
     struct tlv serial_number;
-    struct algorithm_identifier algorithm_identifier; // note: confusingly called 'signature' in RFC5280
+    struct algorithm_identifier signature_identifier; // note: confusingly called 'signature' in RFC5280
     struct name issuer;
     struct validity validity;
     struct name subject;
@@ -1243,7 +1245,7 @@ struct x509_cert {
           explicitly_tagged_version{},
           version{},
           serial_number{},
-          algorithm_identifier{},
+          signature_identifier{},
           issuer{},
           validity{},
           subject{},
@@ -1269,7 +1271,7 @@ struct x509_cert {
         } else {
 
             struct tlv version_or_serial_number(&tbs_certificate.value, tlv::INTEGER, "version_or_serial_number");
-            if (version_or_serial_number.length ==1 && version_or_serial_number.value.data[0] < 3) {
+            if (version_or_serial_number.is_not_null() && version_or_serial_number.length == 1 && version_or_serial_number.value.data[0] < 3) {
                 version = version_or_serial_number;
             } else {
                 serial_number = version_or_serial_number;
@@ -1280,7 +1282,7 @@ struct x509_cert {
             serial_number.parse(&tbs_certificate.value, tlv::INTEGER, "serial number");
         }
 
-        algorithm_identifier.parse(&tbs_certificate.value);
+        signature_identifier.parse(&tbs_certificate.value);
 
         // parse issuer
         issuer.parse(&tbs_certificate.value, "issuer");
@@ -1333,7 +1335,7 @@ struct x509_cert {
 
         struct json_object_asn1 o{&buf};
         serial_number.print_as_json_hex(o, "serial_number");
-        algorithm_identifier.print_as_json(o, "algorithm_identifier", ",");
+        signature_identifier.print_as_json(o, "signature_identifier");
         issuer.print_as_json(o, "issuer");
         validity.print_as_json(o);
         subject.print_as_json(o, "subject");
@@ -1349,8 +1351,7 @@ struct x509_cert {
         }
         extensions_array.close();
 
-        signature_algorithm.print_as_json(o, "signature_algorithm", ",");
-        //   buf.snprintf(",");
+        signature_algorithm.print_as_json(o, "signature_algorithm");
         struct tlv tmp_sig = signature;        // to avoid modifying signature
         tmp_sig.remove_bitstring_encoding();
         tmp_sig.print_as_json_hex(o, "signature");
@@ -1422,7 +1423,7 @@ struct x509_cert {
 
     bool is_nonconformant() {
         const char *sig_alg_type = signature_algorithm.type();
-        const char *tbs_sig_alg_type = algorithm_identifier.type();
+        const char *tbs_sig_alg_type = signature_identifier.type();
         if (sig_alg_type && tbs_sig_alg_type && strcmp(sig_alg_type, tbs_sig_alg_type) != 0) {
             return true;
         }
@@ -1447,6 +1448,8 @@ struct x509_cert {
         }
         return true;
     }
+
+
 };
 
 struct x509_cert_prefix {

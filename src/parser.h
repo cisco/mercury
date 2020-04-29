@@ -31,8 +31,13 @@ struct parser {
 
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
     bool is_not_null() const { return data == NULL; }
-    bool is_not_empty() const { return data < data_end; }
+    bool is_not_empty() const { return data != NULL && data < data_end; }
     void set_empty() { data = data_end; }
+    void set_null() { data = data_end = NULL; }
+    ssize_t length() const { return data_end - data; }
+    bool operator==(const parser &p) const {
+        return (length() == p.length()) && memcmp(data, p.data, length());
+    }
 };
 
 /*
