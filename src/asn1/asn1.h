@@ -502,7 +502,7 @@ struct json_object_asn1 : public json_object {
         if (value.data) {
             struct parser p = value;
             char *const *tmp = flags;
-            size_t number_of_unused_bits;
+            size_t number_of_unused_bits = 0;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
@@ -1283,7 +1283,7 @@ struct tlv {
         o.b->snprintf(format_string, name);
         if (value.data) {
             struct parser p = value;
-            size_t number_of_unused_bits;
+            size_t number_of_unused_bits = 0;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
             while (p.data < p.data_end-1) {
