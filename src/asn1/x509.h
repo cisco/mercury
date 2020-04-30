@@ -75,7 +75,7 @@ struct name {
 
     name() : RDNsequence{} {}
     void parse(struct parser *p, const char *label=NULL) {
-        RDNsequence.parse(p, tlv::SEQUENCE, "RDNsequence");
+        RDNsequence.parse(p, tlv::SEQUENCE, label);
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
@@ -200,7 +200,7 @@ struct key_usage {
             (char *)"decipher_only",
             NULL
         };
-        bit_string.print_as_json_bitstring_flags(o, "key_usage", flags);
+        bit_string.print_as_json_bitstring_flags(o, name, flags);
     }
 };
 
