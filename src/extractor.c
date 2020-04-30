@@ -1275,7 +1275,9 @@ void write_extract_certificates(struct buffer_stream &buf, const unsigned char *
             buf.write_char(','); /* print separating comma */
         }
 
-         buf.json_base64_string(cert_list.data, tmp_len);
+        buf.write_char('\"');
+        buf.raw_as_base64(cert_list.data, tmp_len);
+        buf.write_char('\"');
 
         /*
          * skip over certificate data
