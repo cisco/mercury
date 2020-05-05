@@ -503,8 +503,9 @@ int main(int argc, char *argv[]) {
             struct x509_cert c;
             try {
                 c.parse(cert_buf, cert_len);
-                if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak() || c.is_nonconformant()) {
+                if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak() || c.is_nonconformant() || c.is_self_issued()) {
                     c.print_as_json(buf);
+                    buf.write_line(stdout);
                 }
             } catch (const char *s) {
                 fprintf(stderr, "caught exception: %s\n", s);
@@ -519,7 +520,6 @@ int main(int argc, char *argv[]) {
                     //c.print_as_json(buf);
                 }
             }
-            buf.write_line(stdout);
         }
     }
 

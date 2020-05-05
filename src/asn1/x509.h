@@ -68,6 +68,10 @@ struct attribute {
             attribute_value.print_as_json_hex(o, unknown_oid);
         }
     }
+
+    bool matches(const struct attribute &r) {
+        return attribute_type == r.attribute_type && attribute_value == r.attribute_value;
+    }
 };
 
 struct name {
@@ -89,6 +93,21 @@ struct name {
             attr_obj.close();
         }
         array.close();
+    }
+
+    bool matches(const struct name &r) const {
+        struct parser tlv_sequence = RDNsequence.value;
+        struct parser tlv_sequence_r = r.RDNsequence.value;
+        while (tlv_sequence.is_not_empty() && tlv_sequence_r.is_not_empty()) {
+            struct attribute attr(&tlv_sequence);
+            struct attribute attr_r(&tlv_sequence_r);
+            if (attr.matches(attr_r)) {
+                ;
+            } else {
+                return false;
+            }
+        }
+        return true;
     }
 };
 
@@ -770,7 +789,14 @@ struct validity {
         obj.close();
         array.close();
     }
-    bool contains(const uint8_t gt, size_t len) {
+    bool contains(const char *time_str, size_t time_str_len) const {
+        struct tlv tmp;
+        tmp.set(tlv::UTCTime, time_str, time_str_len);
+        if (notBefore.time_cmp(tmp) <= 0) {
+            if (notAfter.time_cmp(tmp) >= 0) {
+                return true;
+            }
+        }
         return false;
     }
 };
@@ -1359,6 +1385,10 @@ struct x509_cert {
         o.close();
     }
 
+    bool is_self_issued() const {
+        return issuer.matches(subject);
+    }
+
     bool is_weak(bool unsigned_is_weak=false) const {
 
         const char *alg_type = subjectPublicKeyInfo.algorithm.type();
@@ -1440,17 +1470,8 @@ struct x509_cert {
             return true;  // error: can't get current time
         }
 
-        struct tlv tmp;
-        tmp.set(tlv::UTCTime, time_str, sizeof(time_str));
-        if (validity.notBefore.time_cmp(tmp) <= 0) {
-            if (validity.notAfter.time_cmp(tmp) >= 0) {
-                return false;
-            }
-        }
-        return true;
+        return !validity.contains(time_str, sizeof(time_str));
     }
-
-
 };
 
 struct x509_cert_prefix {

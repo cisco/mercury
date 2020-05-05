@@ -665,6 +665,10 @@ struct tlv {
     size_t length;
     struct parser value;
 
+    bool operator == (const struct tlv &r) {
+        return tag == r.tag && length == r.length && value == r.value;
+    }
+
     constexpr static unsigned char explicit_tag(unsigned char tag) {
         return 0x80 + tag;  // warning: tag must be between 0 and 31 inclusive
     }
