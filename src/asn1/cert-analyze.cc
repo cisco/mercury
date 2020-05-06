@@ -482,6 +482,9 @@ int main(int argc, char *argv[]) {
     ssize_t cert_len = 1;
     while ((cert_len = reader->get_cert(cert_buf, sizeof(cert_buf))) > 0) {
 
+        // fprintf_raw_as_hex(stderr, cert_buf, cert_len);
+        // fprintf(stderr, "\n");
+
         //  sha256_hash(cert_buf, cert_len);
 
         if (prefix || prefix_as_hex) {

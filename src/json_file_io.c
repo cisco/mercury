@@ -181,9 +181,9 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         /* print the certificates in base64 format */
         buf.strncpy("\"tls\":{\"server_certs\":[");
-        //write_extract_certificates(buf, pf.x.packet_data.value, pf.x.packet_data.length);
+        write_extract_certificates(buf, pf.x.packet_data.value, pf.x.packet_data.length);
         //write_extract_cert_prefix(buf, pf.x.packet_data.value, pf.x.packet_data.length);
-        write_extract_cert_full(buf, pf.x.packet_data.value, pf.x.packet_data.length);
+        //write_extract_cert_full(buf, pf.x.packet_data.value, pf.x.packet_data.length);
         buf.strncpy("]},");
     }
     if (pf.x.packet_data.type == packet_data_type_dtls_sni) {

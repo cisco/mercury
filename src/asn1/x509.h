@@ -430,7 +430,7 @@ struct general_name {
     }
     void parse(struct parser *p, uint8_t expected_tag=0x00) {
         explicit_tag.parse(p, expected_tag);
-        //explicit_tag.fprint(stderr, "explicit_tag");
+        // explicit_tag.fprint_tlv(stderr, "explicit_tag");
     }
     void print_as_json(struct json_object_asn1 &o) const {
         if (explicit_tag.tag == otherName) {
@@ -859,10 +859,19 @@ struct access_description {
     }
    void parse(struct parser *x) {
         sequence.parse(x);
+        if (sequence.is_null()) {
+            x->set_null();
+        }
         // sequence.fprint(stderr, "sequence");
-        access_method.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
+        access_method.parse(&sequence.value, tlv::OBJECT_IDENTIFIER, "access_method");
+        if (access_method.is_null()) {
+            x->set_null();
+        }
         // access_method.fprint(stderr, "access_method");
         access_location.parse(&sequence.value);
+        if (access_location.explicit_tag.is_null()) {
+            x->set_null();
+        }
     }
 
     void print_as_json(struct json_object_asn1 &o) const {
@@ -1337,6 +1346,9 @@ struct x509_cert {
         // tbs_certificate should be out of data now
         if (tbs_certificate.value.is_not_empty()) {
             fprintf(stderr, "warning: tbs_certificate has trailing data\n");
+            struct parser tmp = tbs_certificate.value;
+            struct tlv tmp_tlv(&tmp, 0, "tbs_certificate trailing data");
+            //            tmp_tlv.fprint_tlv(stderr, "tbs_certificate trailing data");
         }
 
         signature_algorithm.parse(&certificate.value);

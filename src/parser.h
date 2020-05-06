@@ -36,7 +36,7 @@ struct parser {
     void set_null() { data = data_end = NULL; }
     ssize_t length() const { return data_end - data; }
     bool operator==(const parser &p) const {
-        return (length() == p.length()) && memcmp(data, p.data, length());
+        return (length() == p.length()) && memcmp(data, p.data, length()) == 0;
     }
 };
 

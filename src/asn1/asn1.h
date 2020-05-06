@@ -9,7 +9,6 @@
 #include "json_object.hh"
 
 namespace std {
-
     template <>  struct hash<struct parser>  {
         std::size_t operator()(const struct parser& p) const {
             size_t x = 5381;
@@ -381,7 +380,7 @@ inline uint8_t hex_to_raw(const char *hex) {
 
 void hex_string_print_as_oid(FILE *f, const char *c, size_t length) {
     if (length & 1) {
-        return;  // error: odd number of characters in hex string 
+        return;  // error: odd number of characters in hex string
     }
     uint32_t component = hex_to_raw(c);
     uint32_t div = component / 40;
@@ -739,27 +738,33 @@ struct tlv {
     tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tag{0}, length{0}, value{NULL, NULL} {
         parse(p, expected_tag, tlv_name);
     }
+    void handle_parse_error(const char *msg, const char *tlv_name) {
+#ifdef TLV_ERR_INFO
+        fprintf(stderr, "%s in %s\n", msg, tlv_name ? tlv_name : "unknown TLV");
+#else
+        (void)msg;
+        (void)tlv_name;
+#endif
+#ifdef THROW
+        throw msg;
+#endif
+    }
     void parse(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
 
         if (p->data == NULL) {
-            fprintf(stderr, "error: NULL data in %s\n", tlv_name ? tlv_name : "unknown TLV");
-#ifndef THROW
-            return;  // leave tlv uninitialized, but don't throw an exception
-#else
-            throw "error initializing tlv";
-#endif
+            handle_parse_error("warning: NULL data", tlv_name ? tlv_name : "unknown TLV");
         }
         if (parser_get_data_length(p) < 2) {
-            fprintf(stderr, "error: incomplete data (only %ld bytes in %s)\n", p->data_end - p->data, tlv_name ? tlv_name : "unknown TLV");
             p->set_empty();  // parser is no longer good for reading
-#ifndef THROW
-            return;  // leave tlv uninitialized, but don't throw an exception
-#else
-            throw "error initializing tlv";
-#endif
+            // fprintf(stderr, "error: incomplete data (only %ld bytes in %s)\n", p->data_end - p->data, tlv_name ? tlv_name : "unknown TLV");
+            handle_parse_error("warning: incomplete data", tlv_name);
+            return;  // leave tlv uninitialized
         }
 
         if (expected_tag && p->data[0] != expected_tag) {
+            // fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
+            // p->set_empty();  // TODO: do we want this?  parser is no longer good for reading
+            handle_parse_error("note: unexpected type", tlv_name);
             return;  // unexpected type
         }
         // set tag
@@ -772,26 +777,24 @@ struct tlv {
         if (length >= 128) {
             ssize_t num_octets_in_length = length - 128;  // note: signed to avoid underflow
             if (num_octets_in_length < 0) {
-                fprintf(stderr, "error: invalid length field\n");
                 p->set_empty();  // parser is no longer good for reading
-#ifndef THROW
-#else
-                throw "error initializing tlv";
-#endif
+                handle_parse_error("error: invalid length field", tlv_name);
+                return;
             }
             if (parser_read_and_skip_uint(p, num_octets_in_length, &length) == status_err) {
-                fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, parser_get_data_length(p));
                 p->set_empty();  // parser is no longer good for reading
-#ifndef THROW
-#else
-                throw "error initializing tlv";
-#endif
+                // fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, parser_get_data_length(p));
+                handle_parse_error("warning: could not read length", tlv_name);
+                return;
             }
         }
 
         // set value
         parser_init_from_outer_parser(&value, p, length);
-        parser_skip(p, length);
+        if (parser_skip(p, length) == status_err) {
+            p->set_empty();   // parser is no longer good for reading
+            handle_parse_error("warning: value field is truncated", tlv_name);
+        }
 
 #ifdef ASN1_DEBUG
         fprint_tlv(stderr, tlv_name);
