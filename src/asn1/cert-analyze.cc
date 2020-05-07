@@ -116,7 +116,6 @@ struct json_file_reader : public file_reader {
             ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
             if (nread == -1) {
                 free(line);
-                fprintf(stderr, "error: could not read JSON line\n");
                 return 0;
             }
             // fprintf(stdout, "line: %s", line);
@@ -505,11 +504,23 @@ int main(int argc, char *argv[]) {
             struct buffer_stream buf(buffer, sizeof(buffer));
             struct x509_cert c;
             try {
+#define TRUNC_TESTXXX
+#ifndef TRUNC_TEST
                 c.parse(cert_buf, cert_len);
                 if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak() || c.is_nonconformant() || c.is_self_issued()) {
                     c.print_as_json(buf);
                     buf.write_line(stdout);
                 }
+#else
+                for (ssize_t trunc_len=0; trunc_len <= cert_len; trunc_len++) {
+                    fprintf(stdout, "{ \"trunc_len\": %zd }\n", trunc_len);
+                    buf = { buffer, sizeof(buffer) };
+                    struct x509_cert cc;
+                    cc.parse(cert_buf, trunc_len);
+                    cc.print_as_json(buf);
+                    buf.write_line(stdout);
+                }
+#endif
             } catch (const char *s) {
                 fprintf(stderr, "caught exception: %s\n", s);
                 if (logfile) {

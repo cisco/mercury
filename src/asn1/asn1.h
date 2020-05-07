@@ -1258,28 +1258,34 @@ struct tlv {
      */
     void print_as_json_hex(struct json_object &o, const char *name) const {
         o.print_key_hex(name, value);
+        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
     }
 
     void print_as_json_oid(struct json_object_asn1 &o, const char *name) const {
         o.print_key_oid(name, value);
+        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
     }
 
     void print_as_json_escaped_string(struct json_object_asn1 &o, const char *name) const {
         o.print_key_escaped_string(name, value);
+        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
     }
 
     void print_as_json_utctime(struct json_object_asn1 &o, const char *name) const {
         o.print_key_utctime(name, value.data, value.data_end - value.data);
+        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
     }
 
     void print_as_json_generalized_time(struct json_object_asn1 &o, const char *name) const {
         o.print_key_generalized_time(name, value.data, value.data_end - value.data);
+        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
     }
     void print_as_json_ip_address(struct json_object_asn1 &o, const char *name) const {
         o.b->snprintf("%c\"%s\":\"", o.comma, name);
         fprintf_ip_address(*o.b, value.data, value.data_end - value.data);
         o.b->write_char('\"');
         o.comma = ',';
+        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
     }
 
     void print_as_json_bitstring(struct json_object &o, const char *name, bool comma=false) const {
@@ -1308,10 +1314,12 @@ struct tlv {
 
         }
         o.b->write_char(']');
+        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
     }
 
     void print_as_json_bitstring_flags(struct json_object_asn1 &o, const char *name, char * const *flags) const {
         o.print_key_bitstring_flags(name, value, flags);
+        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {

@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 #include <unordered_set>
-#include "oid.h"    // oid dictionary
+#include "oid_list.h"    // oid dictionary
 
 #include "../mercury.h"
 #include "../parser.h"
@@ -783,9 +783,9 @@ struct validity {
     void print_as_json(struct json_object_asn1 &o) const {
         struct json_array array{o, "validity"};
         struct json_object_asn1 obj{array};
-        notBefore.print_as_json(obj, "notBefore");
+        notBefore.print_as_json(obj, "not_before");
         obj.reinit(array);
-        notAfter.print_as_json(obj, "notAfter");
+        notAfter.print_as_json(obj, "not_after");
         obj.close();
         array.close();
     }
