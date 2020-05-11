@@ -1066,8 +1066,18 @@ struct rsa_public_key {
         if (modulus.is_not_null() && exponent.is_not_null()) {
             modulus.print_as_json_hex(pub_key, "modulus");
             exponent.print_as_json_hex(pub_key, "exponent");
+            pub_key.print_key_uint("bits_in_modulus", bits_in_modulus());    // TBD: do we really want to report metadata here?
+            pub_key.print_key_uint("bits_in_exponent", bits_in_exponent());  // TBD: do we really want to report metadata here?
         }
         pub_key.close();
+    }
+
+    unsigned int bits_in_modulus() const {
+        return modulus.value.bits_in_data();
+    }
+
+    unsigned int bits_in_exponent() const {
+        return exponent.value.bits_in_data();
     }
 };
 
@@ -1135,8 +1145,14 @@ struct ec_public_key {
                 pub_key.print_key_string("y", "01");
             }
         }
+        pub_key.print_key_uint("bits_in_key", bits_in_key());    // TBD: do we really want to report metadata here?
         pub_key.close();
     }
+
+    unsigned int bits_in_key() const {
+        return (d.length() - 1)*4;
+    }
+
 };
 
 /*
@@ -1368,7 +1384,7 @@ struct x509_cert {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
         print_as_json(buf);
-        std::string tmp_str(buffer, buf.length());
+        std::string tmp_str(buffer, buf.length()); // TBD: move?
         return tmp_str;
     }
     void print_as_json(FILE *f) const {
@@ -1422,6 +1438,8 @@ struct x509_cert {
             tmp_sig.remove_bitstring_encoding();
             tmp_sig.print_as_json_hex(o, "signature");
         }
+        report_metadata(o);
+        report_violations(o);
         o.close();
     }
 
@@ -1436,18 +1454,41 @@ struct x509_cert {
             struct tlv tmp_key = subjectPublicKeyInfo.subject_public_key;  // make copy to leave original intact
             tmp_key.remove_bitstring_encoding();
             struct rsa_public_key pub_key(&tmp_key.value);
-            unsigned int bits_in_key = (pub_key.modulus.length-1)*8;  // we should check integer formatting, but instead we assume a leading 0x00
-            if (bits_in_key < 2048) {
+            if (pub_key.bits_in_modulus() < 2048) {
                 return true;
             }
-            unsigned int bytes_in_exponent = pub_key.exponent.length; // TBD: make proper
-            if (bytes_in_exponent < 3) {
+            if (pub_key.bits_in_exponent() < 17) {
                 return true;
             }
         }
         if (strcmp(alg_type, "id-ecPublicKey") == 0) {
+            std::unordered_map<std::string, unsigned int> parameters_strength {
+                { "secp192r1", 96 },
+                { "secp224r1", 112 },
+                { "prime192v1", 96, },
+                { "prime192v2", 96 },
+                { "prime192v3", 96 },
+                { "prime239v1", 112 },
+                { "prime239v2", 112 },
+                { "prime239v3", 112 },
+                { "brainpoolP160r1", 80 },
+                { "brainpoolP160t1", 80 },
+                { "brainpoolP192r1", 96 },
+                { "brainpoolP192t1", 96 },
+                { "brainpoolP224r1", 112 },
+                { "brainpoolP224t1", 112 },
+                { "prime256v1", 128 }
+            };
             const char *parameters = subjectPublicKeyInfo.algorithm.get_parameters();
-            std::unordered_set<std::string> weak_parameters {
+            if (parameters != NULL) {
+                const auto &p = parameters_strength.find(parameters);
+                if (p != parameters_strength.end() && p->second < 128) {
+                    return true;
+                }
+            }
+
+            // old code
+            std::unordered_set<std::string> weak_ec_parameters {
               "secp192r1",
               "secp224r1",
               "prime192v1",
@@ -1464,7 +1505,7 @@ struct x509_cert {
               "brainpoolP224t1",
               // "prime256v1"
             };
-            if (parameters == NULL || weak_parameters.find(parameters) != weak_parameters.end()) {
+            if (parameters == NULL || weak_ec_parameters.find(parameters) != weak_ec_parameters.end()) {
                 return true;
             }
         }
@@ -1511,6 +1552,27 @@ struct x509_cert {
         }
 
         return !validity.contains(time_str, sizeof(time_str));
+    }
+
+    void report_metadata(struct json_object_asn1 &o) const {
+        struct json_object_asn1 metadata{o, "metadata"};
+        metadata.close();
+    }
+    void report_violations(struct json_object_asn1 &o) const {
+        struct json_array_asn1 violations{o, "violations"};
+        if (is_not_currently_valid()) {
+            violations.print_string("invalid");
+        }
+        if (is_self_issued()) {
+            violations.print_string("self_issued");
+        }
+        if (is_weak()) {
+            violations.print_string("weak_crypto");
+        }
+        if (is_weak()) {
+            violations.print_string("nonconformant_crypto");
+        }
+        violations.close();
     }
 };
 
