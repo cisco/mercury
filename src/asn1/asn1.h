@@ -457,7 +457,7 @@ void raw_string_print_as_oid(struct buffer_stream &buf, const uint8_t *raw, size
     }
 }
 
-const char *oid_empty_string = "";
+static const char *oid_empty_string = "";
 const char *parser_get_oid_string(const struct parser *p) {
     std::string s = p->get_string();
     //const char *tmp = s.c_str();    // TBD: refactor to eliminate string allocation
@@ -575,6 +575,7 @@ struct json_object_asn1 : public json_object {
         b->write_char(':');
         fprintf_json_char_escaped(*b, data[10]);
         fprintf_json_char_escaped(*b, data[11]);
+        fprintf_json_char_escaped(*b, data[12]);
         b->write_char('\"');
     }
 
@@ -610,6 +611,7 @@ struct json_object_asn1 : public json_object {
         b->write_char(':');
         fprintf_json_char_escaped(*b, data[12]);
         fprintf_json_char_escaped(*b, data[13]);
+        fprintf_json_char_escaped(*b, data[14]);
         b->write_char('\"');
     }
 
@@ -1258,34 +1260,34 @@ struct tlv {
      */
     void print_as_json_hex(struct json_object &o, const char *name) const {
         o.print_key_hex(name, value);
-        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_oid(struct json_object_asn1 &o, const char *name) const {
         o.print_key_oid(name, value);
-        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_escaped_string(struct json_object_asn1 &o, const char *name) const {
         o.print_key_escaped_string(name, value);
-        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_utctime(struct json_object_asn1 &o, const char *name) const {
         o.print_key_utctime(name, value.data, value.data_end - value.data);
-        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_generalized_time(struct json_object_asn1 &o, const char *name) const {
         o.print_key_generalized_time(name, value.data, value.data_end - value.data);
-        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
     void print_as_json_ip_address(struct json_object_asn1 &o, const char *name) const {
         o.b->snprintf("%c\"%s\":\"", o.comma, name);
         fprintf_ip_address(*o.b, value.data, value.data_end - value.data);
         o.b->write_char('\"');
         o.comma = ',';
-        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_bitstring(struct json_object &o, const char *name, bool comma=false) const {
@@ -1314,12 +1316,12 @@ struct tlv {
 
         }
         o.b->write_char(']');
-        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_bitstring_flags(struct json_object_asn1 &o, const char *name, char * const *flags) const {
         o.print_key_bitstring_flags(name, value, flags);
-        if ((unsigned)value.length() != length) { o.print_key_bool("truncated", true); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {

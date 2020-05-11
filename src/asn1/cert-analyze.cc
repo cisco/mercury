@@ -504,7 +504,7 @@ int main(int argc, char *argv[]) {
             struct buffer_stream buf(buffer, sizeof(buffer));
             struct x509_cert c;
             try {
-#define TRUNC_TESTXXX
+#define NO_TRUNC_TEST
 #ifndef TRUNC_TEST
                 c.parse(cert_buf, cert_len);
                 if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak() || c.is_nonconformant() || c.is_self_issued()) {
