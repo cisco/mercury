@@ -2043,10 +2043,6 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
 
 unsigned int parser_extractor_process_ssh_kex(struct parser *p, struct extractor *x) {
     size_t packet_length, padding_length, payload, tmp;
-    unsigned char lf[] = {
-        '\n'    /* CRLF is required by RFC, but leagcy clients use just LF */
-    };
-    unsigned char sp[] = { ' ' };
 
     extractor_debug("%s: processing packet\n", __func__)
     x->fingerprint_type = fingerprint_type_ssh_kex;
@@ -2179,11 +2175,9 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
     }
 	break;
     case SSH_PORT:
-        fprintf(stderr, "got ssh\n");
         return parser_extractor_process_ssh(p, x);
         break;
     case SSH_KEX:
-        fprintf(stderr, "got ssh kex\n");
         return parser_extractor_process_ssh_kex(p, x);
         break;
     default:

@@ -69,7 +69,7 @@
  * set QUOTED_ASCII to 1 for readable output like "(\"GET\")"; set it
  * to 0 for hex output like "(474554)"
  */
-#define QUOTED_ASCII 1
+#define QUOTED_ASCII 0
 
 #define PARENT_NODE_INDICATOR 0x8000
 #define LENGTH_MASK           0x7fff
@@ -90,7 +90,7 @@ void fprintf_binary_ept_as_tls_json(FILE *f,
 				    const unsigned char *data,
 				    unsigned int len);
 
-void write_binary_ept_as_paren_ept(struct buffer_stream &buf, const unsigned char *data, unsigned int length);
+void write_binary_ept_as_paren_ept(struct buffer_stream &buf, const unsigned char *data, unsigned int length, bool quoted=false);
 
 size_t sprintf_binary_ept_as_paren_ept(uint8_t *data,
 				       size_t length,
