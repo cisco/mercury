@@ -50,7 +50,9 @@ enum fingerprint_type {
     fingerprint_type_http_server = 6,
     fingerprint_type_dhcp_client = 7,
     fingerprint_type_dtls        = 8,
-    fingerprint_type_dtls_server = 9
+    fingerprint_type_dtls_server = 9,
+    fingerprint_type_ssh         = 10,
+    fingerprint_type_ssh_kex     = 11
 };
 
 #define PROTO_UNKNOWN 65535

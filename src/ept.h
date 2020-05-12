@@ -69,7 +69,7 @@
  * set QUOTED_ASCII to 1 for readable output like "(\"GET\")"; set it
  * to 0 for hex output like "(474554)"
  */
-#define QUOTED_ASCII 0
+#define QUOTED_ASCII 1
 
 #define PARENT_NODE_INDICATOR 0x8000
 #define LENGTH_MASK           0x7fff

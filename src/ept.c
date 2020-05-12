@@ -448,7 +448,11 @@ enum status fprintf_binary_ept_as_paren_ept(FILE *f,
 
 void write_element(struct buffer_stream &buf, const struct element *e) {
     buf.write_char('(');
-    buf.raw_as_hex(e->data, e->length);
+    if (QUOTED_ASCII && string_is_printable(e->data, e->length)) {
+        buf.memcpy(e->data, e->length);
+    } else {
+        buf.raw_as_hex(e->data, e->length);
+    }
     buf.write_char(')');
 }
 
