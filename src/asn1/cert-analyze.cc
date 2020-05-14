@@ -325,6 +325,7 @@ void usage(const char *progname) {
         "   --log-malformed <outfile> write malformed certs to <outfile> in DER format\n"
         "   --filter <spec>  output only certificates matching <spec>:\n"
         "            weak\n"
+        "   --trunc-test     parse every possible truncation of certificates\n"
         "OTHER\n"
         "   --help           print this message\n";
 
@@ -341,6 +342,7 @@ int main(int argc, char *argv[]) {
     bool input_is_pem = false;
     bool input_is_json = false;
     bool input_is_der = false;
+    bool trunc_test = false;
     //const char *outfile = NULL;
 
     // parse arguments
@@ -356,7 +358,8 @@ int main(int argc, char *argv[]) {
              case_der,
              case_filter,
              case_log_malformed,
-             case_help
+             case_trunc_test,
+             case_help,
         };
         static struct option long_options[] = {
              {"input",          required_argument, NULL,  case_input         },
@@ -367,6 +370,7 @@ int main(int argc, char *argv[]) {
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"filter",         required_argument, NULL,  case_filter        },
              {"log-malformed",  required_argument, NULL,  case_log_malformed },
+             {"trunc-test",     no_argument,       NULL,  case_trunc_test    },
              {"help",           no_argument,       NULL,  case_help          },
              {0,                0,                 0,     0                  }
         };
@@ -434,6 +438,13 @@ int main(int argc, char *argv[]) {
                 usage(argv[0]);
             }
             logfile = optarg;
+            break;
+        case case_trunc_test:
+            if (optarg) {
+                fprintf(stderr, "error: option 'trunc-test' does not accept an argument\n");
+                usage(argv[0]);
+            }
+            trunc_test = true;
             break;
         case case_help:
             if (optarg) {
@@ -504,23 +515,31 @@ int main(int argc, char *argv[]) {
             struct buffer_stream buf(buffer, sizeof(buffer));
             struct x509_cert c;
             try {
-#define NO_TRUNC_TEST
-#ifndef TRUNC_TEST
-                c.parse(cert_buf, cert_len);
-                if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak() || c.is_nonconformant() || c.is_self_issued()) {
-                    c.print_as_json(buf);
-                    buf.write_line(stdout);
+                if (trunc_test) {
+
+                    for (ssize_t trunc_len=0; trunc_len <= cert_len; trunc_len++) {
+                        fprintf(stdout, "{ \"trunc_len\": %zd }\n", trunc_len);
+                        buf = { buffer, sizeof(buffer) };
+                        struct x509_cert cc;
+                        cc.parse(cert_buf, trunc_len);
+                        cc.print_as_json(buf);
+                        buf.write_line(stdout);
+                    }
+
+                } else {
+
+                    c.parse(cert_buf, cert_len);
+                    if ((filter == NULL)
+                        || c.is_not_currently_valid()
+                        || c.subject_key_is_weak()
+                        || c.signature_is_weak()
+                        || c.is_nonconformant()
+                        || c.is_self_issued()) {
+                        c.print_as_json(buf);
+                        buf.write_line(stdout);
+                    }
+
                 }
-#else
-                for (ssize_t trunc_len=0; trunc_len <= cert_len; trunc_len++) {
-                    fprintf(stdout, "{ \"trunc_len\": %zd }\n", trunc_len);
-                    buf = { buffer, sizeof(buffer) };
-                    struct x509_cert cc;
-                    cc.parse(cert_buf, trunc_len);
-                    cc.print_as_json(buf);
-                    buf.write_line(stdout);
-                }
-#endif
             } catch (const char *s) {
                 fprintf(stderr, "caught exception: %s\n", s);
                 if (logfile) {
