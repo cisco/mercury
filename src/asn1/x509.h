@@ -1627,6 +1627,9 @@ struct x509_cert {
     }
 
     bool is_nonconformant() const {
+        if (signature_algorithm.algorithm.is_null() || signature_identifier.algorithm.is_null()) {
+            return false;  // missing data
+        }
         const char *sig_alg_type = signature_algorithm.type();
         const char *tbs_sig_alg_type = signature_identifier.type();
         if (sig_alg_type && tbs_sig_alg_type && strcmp(sig_alg_type, tbs_sig_alg_type) != 0) {
