@@ -1290,7 +1290,9 @@ struct subject_public_key_info {
             pub_key.print_as_json(alg_id, "subject_public_key");
 
         } else {
-            subject_public_key.print_as_json_hex(alg_id, "subject_public_key");
+            struct json_object_asn1 key{alg_id, "subject_public_key"};
+            subject_public_key.print_as_json_hex(key, "key");
+            key.close();
         }
         alg_id.close();
     }
