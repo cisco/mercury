@@ -807,7 +807,11 @@ struct tlv {
         size_t first_octet = 0;
         parser_read_and_skip_uint(&value, 1, &first_octet);
         if (first_octet) {
-            throw "error removing bitstring encoding";
+            // throw "error removing bitstring encoding";
+            value.set_null();
+        }
+        if (length > 0) {
+            length = length - 1;
         }
     }
     /*
