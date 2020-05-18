@@ -468,6 +468,15 @@ const char *parser_get_oid_string(const struct parser *p) {
     return pair->second.c_str();;
 }
 
+enum oid parser_get_oid_enum(const struct parser *p) {
+    std::string s = p->get_string();
+    auto pair = oid_to_enum.find(s);
+    if (pair == oid_to_enum.end()) {
+        return oid::unknown;
+    }
+    return pair->second;;
+}
+
 /*
  * json_object extensions for printing to TLVs
  */

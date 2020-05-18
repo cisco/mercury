@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <map>
 #include <set>
+#include <algorithm>
+
 
 void oid_print(std::vector<uint32_t> oid, const char *label) {
 
@@ -235,6 +237,7 @@ struct oid_set {
     std::multiset<std::string> keywords;
 
     void dump_oid_dict_sorted();
+    void dump_oid_enum_dict_sorted();
     void verify_oid_dict();
     std::vector<uint32_t> get_vector_from_keyword(const std::string &keyword) {
         auto x = oid_dict.find(keyword);
@@ -515,6 +518,46 @@ void oid_set::dump_oid_dict_sorted() {
     cout << "};\n";
 }
 
+void oid_set::dump_oid_enum_dict_sorted() {
+    using namespace std;
+
+    struct pair_cmp {
+        inline bool operator() (const pair<string, vector<uint32_t>> &s1, const pair<string, vector<uint32_t>> &s2) {
+            return (s1.second < s2.second);
+        }
+    };
+    vector<pair<string, vector<uint32_t>>> ordered_dict(oid_dict.begin(), oid_dict.end());
+    sort(ordered_dict.begin(), ordered_dict.end(), pair_cmp());
+
+    cout << "std::unordered_map<std::string, std::string> oid_dict = {\n";
+    for (pair <string, vector<uint32_t>> x : ordered_dict) {
+        cout << "\t{ " << oid_to_hex_array(x.second) << ", \"" <<  x.first << "\" },\n";
+    }
+    cout << "};\n";
+
+    cout << "enum oid {\n";
+    unsigned int oid_num = 0;
+    cout << "\t" << "unknown" << " = " <<  oid_num++ << ",\n";
+    for (pair <string, vector<uint32_t>> x : ordered_dict) {
+        std::string tmp_string(x.first);
+        std::replace(tmp_string.begin(), tmp_string.end(), '-', '_');
+        std::replace(tmp_string.begin(), tmp_string.end(), '[', '_');
+        std::replace(tmp_string.begin(), tmp_string.end(), ']', '_');
+        cout << "\t" << tmp_string << " = " <<  oid_num++ << ",\n";
+    }
+    cout << "};\n";
+
+    cout << "std::unordered_map<std::string, enum oid> oid_to_enum = {\n";
+    for (pair <string, vector<uint32_t>> x : ordered_dict) {
+        std::string tmp_string(x.first);
+        std::replace(tmp_string.begin(), tmp_string.end(), '-', '_');
+        std::replace(tmp_string.begin(), tmp_string.end(), '[', '_');
+        std::replace(tmp_string.begin(), tmp_string.end(), ']', '_');
+        cout << "\t{ " << oid_to_hex_array(x.second) << ", " <<  tmp_string << " },\n";
+    }
+    cout << "};\n";
+}
+
 void oid_set::verify_oid_dict() {
     using namespace std;
 
@@ -638,7 +681,7 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-    oid_set.dump_oid_dict_sorted();
+    oid_set.dump_oid_enum_dict_sorted();
     // oid_set.verify_oid_dict();
 
     //    for (auto &x : oid_set.keyword_dict) {
