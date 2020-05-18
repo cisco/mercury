@@ -14,7 +14,7 @@ from distutils.extension import Extension
 # "-std=c++11" is needed due to c++11 dependency
 
 setup(ext_modules=[Extension("cert_analyze",
-                             sources=['cert_analyze.pyx','../../parser.c'],
+                             sources=['cert_analyze.pyx','../../parser.c','../../utils.c'],
                              language="c++",
                              extra_compile_args=["-std=c++11","-Wno-narrowing"],
                              extra_link_args=["-std=c++11"])

@@ -49,6 +49,18 @@ def pkt_proc(double ts, bytes data):
         ip_length = 20
         ip_offset = 16
         protocol  = buf[25]
+    elif buf[12] == 0x81 and buf[13] == 0x00: # IPv4 (hack for 802.1Q Virtual LAN)
+        if buf[16] == 0x08 and buf[17] == 0x00: # IPv4
+            ip_length = 20
+            ip_offset = 18
+            protocol  = buf[27]
+        elif buf[16] == 0x86 and buf[17] == 0xdd: # IPv6
+            ip_type   = 6
+            ip_length = 40
+            ip_offset = 18
+            protocol  = buf[24]
+        else:
+            return None
     else: # currently skip other types
         return None
 

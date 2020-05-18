@@ -157,4 +157,14 @@ endif
 format:
 	./utils/indent_files.sh src/*.{c,h} src/python-inference/*.py python/*.py python/*/*.py python/*/*/*.py
 
+.PHONY: increment-patchlevel increment-minor-version increment-major-version
+increment-patchlevel:
+	cd src; make increment-patchlevel
+
+increment-minor-version:
+	cd src; make increment-minor-version
+
+increment-major-version:
+	cd src; make increment-major-version
+
 # EOF

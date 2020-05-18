@@ -629,6 +629,7 @@ HAVE_JSONSCHEMA
 PYTHON3
 PY
 LIBOBJS
+HAVE_TPACKET_V3
 ac_ct_CXX
 CXXFLAGS
 CXX
@@ -3907,14 +3908,14 @@ done
 ac_fn_c_check_member "$LINENO" "struct tpacket_req3" "tp_block_size" "ac_cv_member_struct_tpacket_req3_tp_block_size" "#include <linux/if_packet.h>
 "
 if test "x$ac_cv_member_struct_tpacket_req3_tp_block_size" = xyes; then :
+  HAVE_TPACKET_V3=yes
 
 else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Linux AF_PACKET's TPACKET V3 is required, but not available
-See \`config.log' for more details" "$LINENO" 5; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Linux AF_PACKET's TPACKET V3 is not available" >&5
+$as_echo "$as_me: WARNING: Linux AF_PACKET's TPACKET V3 is not available" >&2;}
 fi
 
+#AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[],[AC_MSG_FAILURE([Linux AF_PACKET's TPACKET V3 is required, but not available])],[[#include <linux/if_packet.h>]])
 for ac_func in gettimeofday
 do :
   ac_fn_c_check_func "$LINENO" "gettimeofday" "ac_cv_func_gettimeofday"

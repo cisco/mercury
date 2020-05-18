@@ -29,6 +29,7 @@
 #include "signal_handling.h"
 #include "utils.h"
 #include "llq.h"
+#include "buffer_stream.h"
 
 /*
  * constants used in file format

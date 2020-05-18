@@ -22,20 +22,25 @@ datarootdir = @datarootdir@/mercury
 python      = @PY@
 have_py3    = @PYTHON3@
 have_pip3   = @PIP3@
+have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 CXX      = @CXX@
 CFLAGS  = --std=c++11
-CFLAGS += -O2
+CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
-CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
+CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += $(OPTFLAGS)
 
 # MERC and MERC_H hold the core source and header files, respectively
 #
 MERC   =  mercury.c
+ifeq ($(have_tpkt3),yes)
 MERC   += af_packet_v3.c
+else
+MERC   += capture.c
+endif
 MERC   += config.c
 MERC   += json_file_io.c
 MERC   += output.c
@@ -74,6 +79,7 @@ LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
 LIBMERC_H   += analysis.h
+LIBMERC_H   += buffer_stream.h
 LIBMERC_H   += ept.h
 LIBMERC_H   += eth.h
 LIBMERC_H   += extractor.h
@@ -169,10 +175,14 @@ uninstall:
 	rm -f $(bindir)/mercury
 	rm -rf $(localstatedir)
 
-.PHONY: gprof
-gprof:
-	make clean
-	$(CXX) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc 
+#  To build mercury for profiling using gprof, run
+#
+#     make clean
+#     make OPTFLAGS="-pg"
+#
+#  ... to first remove all of the normally-built components, and then
+#  build all of them with gprof instrumentation.  See 'man gprof' for
+#  further informataion.
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(LIBMERC)
@@ -181,5 +191,23 @@ cppcheck: $(MERC) $(LIBMERC)
 .PHONY: test
 test: mercury
 	cd ../test && $(MAKE)
+
+major=$(shell cat ../VERSION | grep -o "^[0-9]*")
+minor=$(subst .,,$(shell cat ../VERSION | grep -o "\.[0-9]*\."))
+patch=$(shell cat ../VERSION | grep -o "[0-9]*$$")
+version=$(major).$(minor).$(patch)
+MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+.PHONY: increment-patchlevel increment-minor-version increment-major-version
+increment-patchlevel:
+	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../VERSION
+	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
+
+increment-minor-version:
+	echo $(major).$(shell expr $(minor) + 1).$(patch) > ../VERSION
+	git tag -a $(major).$(shell expr $(minor) + 1).$(patch) -m "\"minor version increment\""
+
+increment-major-version:
+	echo $(shell expr $(major) + 1).$(minor).$(patch) > ../VERSION
+	git tag -a $(shell expr $(major) + 1).$(minor).$(patch) -m "\"major version increment\""
 
 # EOF

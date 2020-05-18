@@ -768,8 +768,8 @@ void *packet_capture_thread_func(void *arg)  {
   return NULL;
 }
 
-int af_packet_bind_and_dispatch(struct mercury_config *cfg,
-                                struct output_file *out_ctx) {
+enum status bind_and_dispatch(struct mercury_config *cfg,
+			      struct output_file *out_ctx) {
   /* initialize the ring limits from the configuration */
   struct ring_limits rl;
   ring_limits_init(&rl, cfg->buffer_fraction);
@@ -995,7 +995,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
 	  "%" PRIu64 " socket queue freezes\n",
 	  statst.received_packets, statst.received_bytes, statst.socket_packets, statst.socket_drops, statst.socket_freezes);
 
-  return 0;
+  return status_ok;
 }
 
 #define RING_LIMITS_DEFAULT_FRAC 0.01

@@ -11,8 +11,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>      /* for FILE */
+#include "parser.h"
 #include "mercury.h"
 #include "tcp.h"
+//#include "buffer_stream.h"
 
 
 /*
@@ -103,11 +105,6 @@ struct extractor {
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
     struct packet_data packet_data;     /* data of interest in packt */
-};
-
-struct parser {
-    const unsigned char *data;          /* data being parsed/copied  */
-    const unsigned char *data_end;      /* end of data buffer        */
 };
 
 /*
@@ -295,8 +292,7 @@ unsigned int parser_process_tls_server(struct parser *p);
 
 void extract_certificates(FILE *file, const unsigned char *data, size_t data_len);
 
-int append_extract_certificates(char *dstr, int *doff, int dlen, int *trunc,
-                                const unsigned char *data, size_t data_len);
+void write_extract_certificates(struct buffer_stream &buf, const unsigned char *data, size_t data_len);
 
 enum status parser_read_and_skip_uint(struct parser *p,
                                       unsigned int num_bytes,

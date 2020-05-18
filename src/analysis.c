@@ -7,10 +7,6 @@
 
 
 #include <arpa/inet.h>
-#include "analysis.h"
-#include "ept.h"
-#include "utils.h"
-
 #include <pthread.h>
 #include <iostream>
 #include <fstream>
@@ -20,6 +16,10 @@
 #include <zlib.h>
 #include <vector>
 #include <algorithm>
+
+#include "analysis.h"
+#include "ept.h"
+#include "utils.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -183,6 +183,8 @@ void flow_key_sprintf_dst_addr(const struct flow_key *key,
                  MAX_DST_ADDR_LEN,
                  "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
                  d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+    } else {
+        dst_addr_str[0] = '\0'; // make sure that string is null-terminated
     }
 }
 
@@ -438,17 +440,14 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
     }
 }
 
-
-int append_analysis_from_extractor_and_flow_key(char *dstr, int *doff, int dlen, int *trunc,
+void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
                                                 const struct extractor *x,
                                                 const struct flow_key *key) {
     char* results;
 
     if (analysis_cfg == analysis_off) {
-        return 0; // do not perform any analysis
+        return; // do not perform any analysis
     }
-
-    int r = 0;
 
     if (x->fingerprint_type == fingerprint_type_tls) {
         int ret_value;
@@ -470,19 +469,15 @@ int append_analysis_from_extractor_and_flow_key(char *dstr, int *doff, int dlen,
 
         ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
         if (ret_value == -1) {
-            return r;
+            return;
         }
         //fprintf(file, "%s,", results);
 
-        r += append_strncpy(dstr, doff, dlen, trunc,
-                            results);
-        r += append_putc(dstr, doff, dlen, trunc,
-                          ',');
+        buf.strncpy(results);
+        buf.write_char(',');
 
         free(results);
 
-
     }
 
-    return r;
 }

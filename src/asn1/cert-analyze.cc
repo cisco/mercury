@@ -15,22 +15,6 @@
 #include "base64.h"
 #include "../rapidjson/document.h"
 
-void print_as_ascii_with_dots(const void *string, size_t len) {
-    const char *s = (const char *)string;
-    for (size_t i=0; i < len; i++) {
-        if (isprint(s[i])) {
-            printf("%c", s[i]);
-        } else {
-            printf(".");
-        }
-    }
-    printf("\n");
-}
-
-void fprintf_parser_as_string(FILE *f, struct parser *p) {
-    fprintf(f, "%.*s", (int) (p->data_end - p->data), p->data);
-}
-
 
 // set to 1 to include hashing
 #define HAVE_MHASH 0
@@ -70,64 +54,106 @@ struct file_reader {
     virtual ~file_reader() = default;
 };
 
-
-using namespace rapidjson;
-
-struct json_file_reader : public file_reader {
+struct der_file_reader : public file_reader {
     FILE *stream;
-    char *line = NULL;
-    unsigned int line_number = 0;
+    bool done = false;
 
-    json_file_reader(const char *infile) : stream{NULL}, line{NULL} {
+    der_file_reader(const char *infile) {
         stream = fopen(infile, "r");
         if (stream == NULL) {
             fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
             exit(EXIT_FAILURE);
         }
-        fprintf(stderr, "opened JSON file\n");
+    }
+    ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
+        if (done) {
+            return 0;
+        }
+        fseek(stream, 0, SEEK_END);
+        size_t file_length = ftell(stream);
+        fseek(stream, 0, SEEK_SET);
+
+        if (file_length > outbuf_len) {
+            fprintf(stderr, "error: certificate too large for buffer\n");
+            return -1;
+        }
+        if (fread(outbuf, 1, file_length, stream) != file_length) {
+            fprintf(stderr, "error: could not read entire certificate\n");
+            return -1;
+        }
+        if (tlv::is_der_format(outbuf, file_length) != true) {
+            fprintf(stderr, "error: input is not in DER format\n");
+            return -1;
+        }
+        done = true;
+        return file_length;
+    }
+    ~der_file_reader() {
+        fclose(stream);
+    };
+};
+
+using namespace rapidjson;
+
+struct json_file_reader : public file_reader {
+    FILE *stream;
+    unsigned int line_number = 0;
+
+    json_file_reader(const char *infile) : stream{NULL} {
+        stream = fopen(infile, "r");
+        if (stream == NULL) {
+            fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
     }
     ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
         line_number++;
         size_t len = 0;
         size_t cert_len = 0;
-        ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
-        if (nread == -1) {
-            free(line);
-            fprintf(stderr, "error: could not read JSON file\n");
-            return 0;
-        }
+        char *line = NULL;
 
-        //        fprintf(stdout, "%s\n", line);
-
-        Document document;
-        if (document.ParseInsitu(line).HasParseError()) {
-            fprintf(stderr, "error parsing JSON\n");
-            return -1;
-        } else {
-            Value::MemberIterator tls_iterator = document.FindMember("tls");
-            if (tls_iterator == document.MemberEnd()) {
-                fprintf(stderr, "warning: no \"tls\" object in JSON file\n");
-               return 0; // no tls info
+        while (1) {
+            ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
+            if (nread == -1) {
+                free(line);
+                fprintf(stderr, "error: could not read JSON line\n");
+                return 0;
             }
-            const Value &certs = document["tls"]["server_certs"];
-            if (!certs.IsArray()) {
-                fprintf(stderr, "warning: no \"tls\"[\"server_certs\"] object in JSON file\n");
-                return 0; // no certificates
+            // fprintf(stdout, "line: %s", line);
+
+            Document document;
+            document.ParseInsitu(line);
+            if (document.HasParseError()) {
+                fprintf(stderr, "error parsing JSON\n");
+                return -1;
             }
+            if (document.HasMember("tls")) {
+                const Value &tls_object = document["tls"];
+                if (!tls_object.IsObject()) {
+                    fprintf(stderr, "warning: no \"tls\" object in JSON line\n");
 
-            for (auto& c : certs.GetArray()) {
-                // printf("%s ", c.GetString());
-
-                std::string s = c.GetString();
-                cert_len = base64::decode(outbuf, outbuf_len, s.c_str(), s.size());
-                break; // just process first cert for now
+                } else if (tls_object.HasMember("server_certs")) {
+                    //fprintf(stderr, "found server_certs\n");
+                    const Value &server_certs_array = tls_object["server_certs"];
+                    if (!server_certs_array.IsArray()) {
+                        fprintf(stderr, "warning: no \"server_certs\" in \"tls\" object\n");
+                    } else {
+                        for (auto& c : server_certs_array.GetArray()) {
+                            // fprintf(stderr, "%s ", c.GetString());
+                            std::string s = c.GetString();
+                            cert_len = base64::decode(outbuf, outbuf_len, s.c_str(), s.size());
+                            break; // just process first cert for now
+                        }
+                        free(line);
+                        return cert_len;
+                    }
+                }
             }
-
+            //free(line);
         }
 
         return cert_len;
     }
-
 
     ~json_file_reader() {
         fclose(stream);
@@ -174,6 +200,9 @@ struct base64_file_reader : public file_reader {
             const char opening_line[] = "-----BEGIN CERTIFICATE-----";
             if ((size_t)nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) == 0) {
                 fprintf(stderr, "input seems to be in PEM format; try --pem\n");
+            }
+            if (nread > 0 && line[0] == '{') {
+                fprintf(stderr, "input may be in JSON format; try --json\n");
             }
         }
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
@@ -253,27 +282,66 @@ struct pem_file_reader : public file_reader {
         return cert_len;
     }
     ~pem_file_reader() {
-        free(line);
         fclose(stream);
     }
 };
 
+struct der_file_writer {
+    FILE *stream;
+
+    der_file_writer(const char *outfile) {
+        stream = fopen(outfile, "w");
+        if (stream == NULL) {
+            fprintf(stderr, "error: could not open file %s (%s)\n", outfile, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+    ssize_t write_cert(uint8_t *outbuf, size_t outbuf_len) {
+        size_t bytes_written = fwrite(outbuf, 1, outbuf_len, stream);
+        if (bytes_written == outbuf_len) {
+            return bytes_written;
+        }
+        return -bytes_written; // indicate error with negative return value
+    }
+    ~der_file_writer() {
+        fclose(stream);
+    };
+};
 
 // std::unordered_map<std::string, std::string> cert_dict;
 //#include <thread>
 
 void usage(const char *progname) {
-    fprintf(stdout, "%s: --input <infile> [--prefix] [--prefix-as-hex] [--pem] [--json] [--filter weak]\n", progname);
+    const char *help_message =
+        "usage: %s: --input <infile> [INPUT OPTIONS] [OUTPUT OPTIONS]\n"
+        "   --input <infile> reads certificate(s) from <infile> in base64 format\n"
+        "INPUT\n"
+        "   --pem            input file is in PEM format\n"
+        "   --der            input file is in DER format\n"
+        "   --json           input file is in JSON format\n"
+        "OUTPUT\n"
+        "   no option        output certificate(s) as JSON\n"
+        "   --prefix         output only the certificate prefix\n"
+        "   --prefix-as-hex  output only the certificate prefix as hexadecimal\n"
+        "   --log-malformed <outfile> write malformed certs to <outfile> in DER format\n"
+        "   --filter <spec>  output only certificates matching <spec>:\n"
+        "            weak\n"
+        "OTHER\n"
+        "   --help           print this message\n";
+
+    fprintf(stdout, help_message, progname);
     exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
     const char *infile = NULL;
     const char *filter = NULL;
+    const char *logfile = NULL;
     bool prefix = false;
     bool prefix_as_hex = false;
     bool input_is_pem = false;
     bool input_is_json = false;
+    bool input_is_der = false;
     //const char *outfile = NULL;
 
     // parse arguments
@@ -286,15 +354,21 @@ int main(int argc, char *argv[]) {
              case_prefix_as_hex,
              case_pem,
              case_json,
-             case_filter
+             case_der,
+             case_filter,
+             case_log_malformed,
+             case_help
         };
         static struct option long_options[] = {
              {"input",          required_argument, NULL,  case_input         },
-             {"prefix",         no_argument,       NULL,  case_prefix        },
-             {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"pem",            no_argument,       NULL,  case_pem           },
              {"json",           no_argument,       NULL,  case_json          },
+             {"der",            no_argument,       NULL,  case_der           },
+             {"prefix",         no_argument,       NULL,  case_prefix        },
+             {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"filter",         required_argument, NULL,  case_filter        },
+             {"log-malformed",  required_argument, NULL,  case_log_malformed },
+             {"help",           no_argument,       NULL,  case_help          },
              {0,                0,                 0,     0                  }
         };
 
@@ -337,18 +411,50 @@ int main(int argc, char *argv[]) {
             }
             input_is_json = true;
             break;
+        case case_der:
+            if (optarg) {
+                fprintf(stderr, "error: option 'der' does not accept an argument\n");
+                usage(argv[0]);
+            }
+            input_is_der = true;
+            break;
         case case_filter:
             if (!optarg) {
                 fprintf(stderr, "error: option 'filter' requires an argument\n");
                 usage(argv[0]);
             }
+            if (strcmp("weak", optarg) != 0) {
+                fprintf(stderr, "error: unrecognized filter option '%s'\n", optarg);
+                usage(argv[0]);
+            }
             filter=optarg;
+            break;
+        case case_log_malformed:
+            if (!optarg) {
+                fprintf(stderr, "error: option 'log-malformed' needs an argument\n");
+                usage(argv[0]);
+            }
+            logfile = optarg;
+            break;
+        case case_help:
+            if (optarg) {
+                fprintf(stderr, "error: option 'help' does not accept an argument\n");
+            }
+            usage(argv[0]);
             break;
         case case_output:
             break;
         default:
             ;
         }
+    }
+   if (optind < argc) {
+        printf("error: unrecognized options string(s): ");
+        while (optind < argc) {
+            printf("%s ", argv[optind++]);
+        }
+        printf("\n");
+        usage(argv[0]);
     }
 
     if (!infile) {
@@ -365,11 +471,14 @@ int main(int argc, char *argv[]) {
         reader = new pem_file_reader(infile);
     } else if (input_is_json) {
         reader = new json_file_reader(infile);
+    } else if (input_is_der) {
+        reader = new der_file_reader(infile);
     } else {
         reader = new base64_file_reader(infile);
     }
 
-    uint8_t cert_buf[8*8192];
+    unsigned int log_index = 0;
+    uint8_t cert_buf[256 * 1024];
     ssize_t cert_len = 1;
     while ((cert_len = reader->get_cert(cert_buf, sizeof(cert_buf))) > 0) {
 
@@ -389,12 +498,28 @@ int main(int argc, char *argv[]) {
 
         } else {
             // parse certificate, then print as JSON
+            char buffer[256*1024];
+            struct buffer_stream buf(buffer, sizeof(buffer));
             struct x509_cert c;
-            c.parse(cert_buf, cert_len);
-
-            if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak()) {
-                c.print_as_json(stdout);
+            try {
+                c.parse(cert_buf, cert_len);
+                if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak() || c.is_nonconformant()) {
+                    c.print_as_json(buf);
+                }
+            } catch (const char *s) {
+                fprintf(stderr, "caught exception: %s\n", s);
+                if (logfile) {
+                    std::string filename(logfile);
+                    filename.append(std::to_string(log_index++));
+                    filename.append(".der");
+                    der_file_writer der_file(filename.c_str());
+                    if (der_file.write_cert(cert_buf, cert_len) < 0) {
+                        fprintf(stderr, "error: could not write certificate %s to file\n", filename.c_str());
+                    }
+                    //c.print_as_json(buf);
+                }
             }
+            buf.write_line(stdout);
         }
     }
 
