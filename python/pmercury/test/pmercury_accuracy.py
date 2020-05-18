@@ -27,10 +27,10 @@ for line in open(app_families_file, 'r'):
 
 app_families_strict_file = '../../../resources/app_families_strict.txt'
 app_families_strict = {}
-#for line in open(app_families_strict_file, 'r'):
-#    tokens = line.strip().split(',')
-#    for i in range(1, len(tokens)):
-#        app_families_strict[tokens[i]] = tokens[0]
+for line in open(app_families_strict_file, 'r'):
+    tokens = line.strip().split(',')
+    for i in range(1, len(tokens)):
+        app_families_strict[tokens[i]] = tokens[0]
 
 fp_sni_blacklist = set([])
 
@@ -224,12 +224,6 @@ class Validation:
                 fp_str = fp_['str_repr']
             else:
                 fp_str = fp_['md5']
-#            if fp_str in schannel_fps:
-#                fp_str = 'schannel'
-
-#            if fp_str != '(0301)(c014c013c00ac0090035002f00380032000a001300050004)((0000)(000a00080006001900170018)(000b00020100)(ff01))':
-#            if fp_str != '(0303)(c02cc030009fcca9cca8ccaac02bc02f009ec024c028006bc023c0270067c00ac0140039c009c0130033009d009c003d003c0035002f00ff)((000b000403000102)(000a000a0008001d001700190018)(0023)(000d0020001e060106020603050105020503040104020403030103020303020102020203)(0016)(0017))':
-#                continue
 
             if 'process_info' in fp_:
                 new_procs = []
@@ -237,8 +231,6 @@ class Validation:
                 for p_ in fp_['process_info']:
                     if 'process' not in p_:
                         p_['process'] = p_['filename']
-#                    if self.proc_list != None and p_['process'].lower() not in self.proc_list:
-#                        continue
                     p_['process'] = clean_proc_name(p_['process'])
                     if is_proc_malware(p_, fp_malware_):
                         new_procs.extend(clean_malware_proc(p_))
@@ -248,13 +240,23 @@ class Validation:
 
 
                 for p_ in fp_['process_info']:
-#                    if self.proc_list != None and p_['process'].lower() not in self.proc_list:
-#                        continue
                     proc = p_['process']
                     sha256 = p_['sha256']
 
                     if p_['process'] in uninformative_proc_names:
                         continue
+
+
+
+                    # uncomment to classify non-top processes
+#                    pn = proc
+#                    pn = app_families[pn] if pn in app_families else pn
+#                    if pn in ['Chromium','Firefox','Safari','Internet Explorer','Adobe Tools',
+#                              'Microsoft Office','Cisco Webex','Cisco AMP','iCloud','Box']:
+#                        continue
+
+
+
 
                     app_cat = None
                     if proc in self.app_cat_data:
@@ -270,16 +272,11 @@ class Validation:
                             if c == app_cat:
                                 app_cats[c] = True
 
-#                    if fp_str+proc not in data:
-#                        data[fp_str+proc] = []
-
                     for x_ in p_['dst_info']:
                         dst_x       = x_['dst'].split(')')
                         dst_ip      = dst_x[0][1:]
                         dst_port    = int(dst_x[1][1:])
                         server_name = dst_x[2][1:]
-#                        data[fp_str+proc].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
-#                                                  server_name,x_['count'],None,app_cats))
                         data[key_].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
                                            server_name,x_['count'],None,app_cats,self.proc_list))
 
@@ -315,7 +312,11 @@ class Validation:
 #            if fp_str not in data:
 #                data[fp_str] = []
 
-            for x_ in fp_['dmz_dst_info']:
+            dst_info_key = 'dmz_dst_info'
+            if dst_info_key not in fp_:
+                dst_info_key = 'dst_info'
+
+            for x_ in fp_[dst_info_key]:
                 dst_x       = x_['dst'].split(')')
                 dst_ip      = dst_x[0][1:]
                 dst_port    = int(dst_x[1][1:])
@@ -323,7 +324,7 @@ class Validation:
 #                data[fp_str].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
 #                                     server_name,x_['count'],None,app_cats))
                 data[key_].append((None,None,proc,sha256,'tls',fp_str,dst_ip,dst_port,
-                                   server_name,x_['count'],None,app_cats,None))
+                                   server_name,x_['count'],None,app_cats,self.proc_list))
 
                 if len(data[key_]) > 5000:
                     key_ += 1
@@ -355,18 +356,31 @@ def get_results(data):
         protocol    = 6
         ts          = 0.00
 
-#        fp_ = fingerprinter.get_database_entry(str_repr, type_)
-#        if fp_ == None:
+#        if '()(' in str_repr:
 #            continue
+
+        # uncomment to get results for only approximate matches
+#        if str_repr in fingerprinter.parsers['tls'].fp_db and 'approx_str' not in fingerprinter.parsers['tls'].fp_db[str_repr]:
+#            continue
+
+        # uncomment to get results without approximate matches
+        fp_ = fingerprinter.get_database_entry(str_repr, type_)
+        if fp_ == None or 'approx_str' in fp_:
+            continue
 
         flow = fingerprinter.process_csv(type_, str_repr, src_ip, dst_ip, src_port, dst_port,
                                          protocol, ts, {'server_name': server_name})
+
         if 'analysis' not in flow:
             continue
         r_ = flow['analysis']
         if 'probable_processes' not in r_:
             continue
         pi_ = r_['probable_processes'][0]
+
+        # uncomment to ignore lower scores
+#        if pi_['score'] < 0.99:
+#            continue
 
         app_cat = 'None'
         for k in app_cats:
@@ -386,7 +400,7 @@ def get_results(data):
                 if proc in test_proc:
                     o_['ground_truth']['categories'][test_proc[0]] = True
 
-        o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256'], 'probable_processes': r_['probable_processes']}
+        o_['inferred_truth'] = {'process': pi_['process'].lower(), 'sha256': pi_['sha256'], 'probable_processes': r_['probable_processes']}
         o_['inferred_truth']['categories'] = {}
         if target_proc != None:
             for test_proc in target_proc:
@@ -487,7 +501,7 @@ def get_results_top(data):
                 if proc in test_proc:
                     o_['ground_truth']['categories'][test_proc[0]] = True
 
-        o_['inferred_truth'] = {'process': pi_['process'], 'sha256': pi_['sha256s']}
+        o_['inferred_truth'] = {'process': pi_['process'].lower(), 'sha256': pi_['sha256s']}
         o_['inferred_truth']['categories'] = {}
         if target_proc != None:
             for test_proc in target_proc:
@@ -608,6 +622,11 @@ def process_result(x_):
         if r_gproc == 0 and r_gproc2 == 0 and r_gproc3 == 0 and r_gproc4 == 0:
             r_gproc5  = r['count'] if gproc_gt == gproc_nf5 else 0
 
+
+#        if oproc_gt != oproc_nf:
+#            verbose_out.write('%i,%s,%s,%f\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['score']))
+
+#        verbose_out.write('%i,%s,%s,%f\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['score']))
 #        if oproc_gt != oproc_nf:
 #        if gproc_gt != gproc_nf:
 #            verbose_out.write('%i,%s,%s,%s,%s,%f,%s,%s\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['ground_truth']['server_name'],
@@ -633,13 +652,20 @@ def process_result(x_):
 
             r_cats.append([r['count'], r_cat_a, r_cat_tp, r_cat_tn, r_cat_fp, r_cat_fn])
 
-#            if c_gt == False and c_nf == True:
-            if c_gt == True and c_nf == False:
-#            if c_gt == False and c_nf == False:
-#                verbose_out.write('%s\n' % (sha_gt))
+
+#            if c_gt == True or c_nf == True:
+            if c_gt != c_nf:
                 verbose_out.write('%i,%s,%s,%s,%s,%f,%s,%s\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['ground_truth']['server_name'],
                                                                  r['ground_truth']['dst_ip'], r['score'],sha_gt,r['fp_str']))
+#                verbose_out.write('%i,%s,%s,%f\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['score']))
                 verbose_out.flush()
+#            if c_gt == False and c_nf == True:
+#            if c_gt == True and c_nf == False:
+#            if c_gt == False and c_nf == False:
+#                verbose_out.write('%s\n' % (sha_gt))
+#                verbose_out.write('%i,%s,%s,%s,%s,%f,%s,%s\n' % (count, tmp_oproc_gt.replace(',',''), tmp_oproc_nf, r['ground_truth']['server_name'],
+#                                                                 r['ground_truth']['dst_ip'], r['score'],sha_gt,r['fp_str']))
+#                verbose_out.flush()
 
 
         results.append((r['count'], r_proc, r_gproc, r_sha, r_proc2, r_gproc2, r_proc3, r_gproc3, r_proc4, r_gproc4, r_proc5, r_gproc5, r_cats))
