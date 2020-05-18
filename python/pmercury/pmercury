@@ -74,7 +74,7 @@ class Fingerprinter:
         self.parsers['http_server']  = HTTP_Server(None, config)
         self.parsers['server_certs'] = TLS_Certificate()
         self.parsers['dhcp']         = DHCP(None, config)
-        self.parsers['iquic']        = DHCP(None, config)
+        self.parsers['iquic']        = IQUIC()
 
         self.contextual_data = ['tls','http','http_server','dhcp']
 
