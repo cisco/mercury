@@ -410,7 +410,7 @@ class Fingerprinter:
 
 
     def write_record(self, flow_repr):
-        if flow_repr['fingerprints'] == {}:
+        if 'fingerprints' in flow_repr and flow_repr['fingerprints'] == {}:
             del flow_repr['fingerprints']
 
         try:
