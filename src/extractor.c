@@ -2602,29 +2602,50 @@ enum status proto_ident_config(const char *config_string) {
         return status_ok;
     }
     if (strncmp("http", config_string, sizeof("http")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        bzero(ssh_kex_mask,                  sizeof(ssh_kex_mask));
+        bzero(ssh_mask,                      sizeof(ssh_mask));
+        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
+        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
         select_tcp_syn = 0;
         return status_ok;
     }
     if (strncmp("tls", config_string, sizeof("tls")) == 0) {
         bzero(http_client_mask, sizeof(http_client_mask));
         bzero(http_server_mask, sizeof(http_server_mask));
+        bzero(ssh_kex_mask,     sizeof(ssh_kex_mask));
+        bzero(ssh_mask,         sizeof(ssh_mask));
+        select_tcp_syn = 0;
+        return status_ok;
+    }
+    if (strncmp("ssh", config_string, sizeof("ssh")) == 0) {
+        bzero(http_client_mask,              sizeof(http_client_mask));
+        bzero(http_server_mask,              sizeof(http_server_mask));
+        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
+        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
         select_tcp_syn = 0;
         return status_ok;
     }
     if (strncmp("tcp.message", config_string, sizeof("tcp.message")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
+        bzero(http_client_mask,              sizeof(http_client_mask));
+        bzero(http_server_mask,              sizeof(http_server_mask));
+        bzero(ssh_kex_mask,                  sizeof(ssh_kex_mask));
+        bzero(ssh_mask,                      sizeof(ssh_mask));
+        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
+        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
         select_tcp_syn = 0;
         tcp_message_filter_cutoff = 1;
         return status_ok;
     }
     if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
+        bzero(http_client_mask,              sizeof(http_client_mask));
+        bzero(http_server_mask,              sizeof(http_server_mask));
+        bzero(ssh_kex_mask,                  sizeof(ssh_kex_mask));
+        bzero(ssh_mask,                      sizeof(ssh_mask));
+        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
+        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
+        select_tcp_syn = 1;
         return status_ok;
     }
+    fprintf(stderr, "error: unrecognized filter command \"%s\"\n", config_string);
     return status_err;
 }

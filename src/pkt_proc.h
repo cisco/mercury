@@ -249,6 +249,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
  */
 struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     struct ll_queue *llq;
+    struct packet_filter pf;
 
     /*
      * packet_filter_threshold is a (somewhat arbitrary) threshold used in
@@ -257,8 +258,11 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
      */
     unsigned int packet_filter_threshold = 8;
 
-    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr) {
+    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, const char *filter) {
         llq = llq_ptr;
+        if (packet_filter_init(&pf, filter) == status_err) {
+            throw "could not initialize packet filter";
+        }
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
@@ -271,7 +275,6 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
             return;  /* random packet drop configured, and this packet got selected to be discarded */
         }
 
-        struct packet_filter pf;
         if (packet_filter_apply(&pf, packet, length)) {
             pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
         }

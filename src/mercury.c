@@ -50,7 +50,7 @@ char mercury_help[] =
     "GENERAL OPTIONS\n"
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
-    "   [-s or --select]                      # select only packets with metadata\n"
+    "   [-s or --select] filter               # select only metadata (see --help)\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   [-v or --verbose]                     # additional information sent to stdout\n"
     "   --license                             # write license information to stdout\n"
@@ -79,6 +79,16 @@ char mercury_extended_help[] =
     "   fingerprint  metadata are written.\n"
     "\n"
     "   \"[r or --read] r\" reads packets from the file r, in PCAP format.\n"
+    "\n"
+    "   \"[-s or --select] f\" selects packets according to the metadata filter f, which\n"
+    "   is one of the following strings:\n"
+    "      tls           TLS clientHello, serverHello, and certificates\n"
+    "      http          HTTP request and response\n"
+    "      ssh           SSH handshake and KEX\n"
+    "      tcp           TCP headers\n"
+    "      tcp.message   TCP initial message\n"
+    "      all           all of the above\n"
+    "      <no option>   all of the above\n"
     "\n"
     "   \"[-u or --user] u\" sets the UID and GID to those of user u, so that\n"
     "   output file(s) are owned by this user.  If this option is not set, then\n"
@@ -174,7 +184,7 @@ int main(int argc, char *argv[]) {
             { "verbose",     no_argument,       NULL, 'v' },
             { NULL,          0,                 0,     0  }
         };
-        c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:soham:vp:d:", long_opts, &opt_idx);
+        c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:s::oham:vp:d:", long_opts, &opt_idx);
         if (c < 0) {
             break;
         }
@@ -255,11 +265,12 @@ int main(int argc, char *argv[]) {
             }
             break;
         case 's':
-            if (option_is_valid(optarg)) {
-                if (optarg[0] != '=' || optarg[1] == 0) {
-                    usage(argv[0], "option s or select has the form s=\"packet filter config string\"", extended_help_off);
+            if (optarg) {
+                if (option_is_valid(optarg)) {
+                    cfg.packet_filter_cfg = optarg;
+                } else {
+                    usage(argv[0], "option s or select has the form -s\"filter\" or --select=\"filter\"", extended_help_off);
                 }
-                cfg.packet_filter_cfg = optarg+1;
             }
             cfg.filter = 1;
             break;
