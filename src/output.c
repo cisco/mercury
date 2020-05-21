@@ -379,6 +379,7 @@ void *output_thread_func(void *arg) {
     while (all_output_flushed == 0) {
 
         /* Bring the tree up-to-date */
+        t_tree.stalled = 0;
         run_tourn_for_entire_tree(&t_tree, &out_ctx->qs);
         //for (int q = 0; q < t_tree.qp2; q += 2) {
         //run_tourn_for_queue(&t_tree, q, &out_ctx->qs);
