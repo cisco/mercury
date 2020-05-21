@@ -102,6 +102,7 @@ struct pkt_proc_json_writer : public pkt_proc {
  */
 struct pkt_proc_json_writer_llq : public pkt_proc {
     struct ll_queue *llq;
+    // struct tcp_reassembler reassembler;
 
     /*
      * pkt_proc_json_writer(outfile_name, mode, max_records)
@@ -113,7 +114,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
      * records (lines) per file; after that limit is reached, file
      * rotation will take place.
      */
-    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr) {
+    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr) { //: reassembler{} {
 
         llq = llq_ptr;
     }
