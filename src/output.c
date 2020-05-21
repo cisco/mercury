@@ -172,6 +172,39 @@ void run_tourn_for_queue(struct tourn_tree *t_tree, int q, const struct thread_q
 }
 
 
+
+void run_tourn_for_entire_tree(struct tourn_tree *t_tree, const struct thread_queues *tqs) {
+
+    /* We can run the tournament faster for the entire tree by
+     * visiting each index in the tree once rather than running
+     * the tournament for each queue because that will re-visit
+     * the top of the tree over and over.
+     */
+
+    int ql, qr, lidx;
+
+    /* First run the tournament for each pair to fill in the bottom
+     * row of the tree
+     */
+    for (ql = 0; ql < tqs->qnum; ql += 2) {
+        qr = ql + 1;
+        lidx = ((ql + t_tree->qp2) - 1) / 2;
+
+        t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree, tqs);
+    }
+
+    /* Now we can run through each tree index once */
+    for (lidx = ((t_tree->qp2 - 1) - 1) / 2; lidx >= 0; lidx--) {
+        ql = t_tree->tree[(lidx * 2) + 1]; /* (l)eft child queue */
+        qr = t_tree->tree[(lidx * 2) + 2]; /* (r)ight child queue */
+
+        t_tree->tree[lidx] = lesser_queue(ql, qr, t_tree, tqs);
+    }
+
+
+}
+
+
 void debug_print_tour_tree(struct tourn_tree *t_tree, const struct thread_queues *tqs) {
 
     fprintf(stderr, "Tourn Tree size: %d\n", (t_tree->qp2 - 1));
@@ -338,28 +371,18 @@ void *output_thread_func(void *arg) {
         fprintf(stderr, "Failed to allocate enough memory for the tournament tree\n");
         exit(255);
     }
+    for (int i = 0; i < (t_tree.qp2 - 1); i++) {
+        t_tree.tree[i] = -1;
+    }
 
     int all_output_flushed = 0;
     while (all_output_flushed == 0) {
 
-        /* run the tournament for every queue */
-        t_tree.stalled = 0;
-        /* Every other works here because the tournament
-         * works on pairs: {0,1}, {2,3}, {3,4}, etc.
-         * Passing a q from either pair runs the tournament
-         * for the pair.
-         *
-         * Doing the loop like this is O(n log n) because
-         * the upper portion of the tree is being traversed over
-         * and over for each call to a pair.
-         * If this loop ever becomes a performance issue (perhaps
-         * in the case of thousands of queues) it can be done
-         * more efficiently in O(n) time by rebuilding the
-         * tree row-by-row instead of bottom-to-top a pair-at-a-time.
-         */
-        for (int q = 0; q < t_tree.qp2; q += 2) {
-            run_tourn_for_queue(&t_tree, q, &out_ctx->qs);
-        }
+        /* Bring the tree up-to-date */
+        run_tourn_for_entire_tree(&t_tree, &out_ctx->qs);
+        //for (int q = 0; q < t_tree.qp2; q += 2) {
+        //run_tourn_for_queue(&t_tree, q, &out_ctx->qs);
+        //}
 
         /* This loop runs the tournament as long as the tree
          * isn't "stalled".  A stalled tree means at least
@@ -372,7 +395,7 @@ void *output_thread_func(void *arg) {
 
             struct llq_msg *wmsg = &(out_ctx->qs.queue[wq].msgs[out_ctx->qs.queue[wq].ridx]);
             if (wmsg->used == 1) {
-                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
+                //fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
@@ -426,7 +449,7 @@ void *output_thread_func(void *arg) {
                 break;
             } else if (time_less(&(wmsg->ts), &old_ts) == 1) {
                 //fprintf(stderr, "DEBUG: writing old message from queue %d\n", wq);
-                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
+                //fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
