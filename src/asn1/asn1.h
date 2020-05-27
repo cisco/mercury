@@ -99,8 +99,45 @@ void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, con
     while (x < end) {
         if (*x < 0x20) {                   /* escape control characters   */
             buf.snprintf("\\u%04x", *x);
-        } else if (*x > 0x7f) {            /* escape non-ASCII characters */
-            buf.snprintf("\\u%04x", *x);
+        } else if (*x >= 0x80) {           /* escape non-ASCII characters */
+
+            uint32_t codepoint = 0;
+            if (*x >= 0xc0) {
+
+                if (*x >= 0xe0) {
+                    if (*x >= 0xf0) {
+                        codepoint = (*x++ & 0x07);
+                        codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                        codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                        codepoint = (*x   & 0x3f) | (codepoint << 6);
+
+                    } else {
+                        codepoint = (*x++ & 0x0F);
+                        codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                        codepoint = (*x   & 0x3f) | (codepoint << 6);
+                    }
+
+                } else {
+                    codepoint = ((*x++ & 0x1f) << 6);
+                    codepoint |= *x & 0x3f;
+                }
+
+            } else {
+                codepoint = *x & 0x7f;
+            }
+            if (codepoint < 0x10000) {
+                // basic multilingual plane
+                buf.snprintf("\\u%04x", codepoint);
+
+            } else {
+                // surrogate pair
+                codepoint -= 0x10000;
+                uint32_t hi = (codepoint >> 10) + 0xd800;
+                uint32_t lo = (codepoint & 0x3ff) + 0xdc00;
+                buf.snprintf("\\u%04x", hi);
+                buf.snprintf("\\u%04x", lo);
+            }
+
         } else {
             if (*x == '"' || *x == '\\') { /* escape special characters   */
                 buf.snprintf("\\");
