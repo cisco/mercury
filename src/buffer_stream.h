@@ -288,7 +288,10 @@ static inline int append_json_base64_string(char *dstr, int *doff, int dlen, int
                               const unsigned char *data,
                               size_t input_length) {
 
-    *trunc = 0;
+    if (*trunc == 1) {
+        return 0;
+    }
+
     int r = 0;
     size_t i = 0;
     size_t rem = input_length % 3; /* so it can be 0, 1 or 2 */
