@@ -19,6 +19,10 @@
 static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
                                   const char *fmt, ...) {
 
+    if (*trunc == 1) {
+        return 0;
+    }
+
     /* Check to make sure the offset isn't already longer than the length */
     if (*doff >= dlen) {
         *trunc = 1;
@@ -35,6 +39,8 @@ static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
         fprintf(stderr, "Truncation occurred in substr_snprintf(...). Space available: %d; needed: %d\n",
                 dlen - *doff, r);
 
+        r = (dlen - *doff) - 1;
+
         *doff = dlen;
         *trunc = 1;
     } else {
@@ -47,6 +53,10 @@ static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
 
 static inline int append_strncpy(char *dstr, int *doff, int dlen, int *trunc,
                    const char *sstr) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
 
     /* Check to make sure the offset isn't already longer than the length */
     if (*doff >= dlen) {
@@ -82,6 +92,10 @@ static inline int append_strncpy(char *dstr, int *doff, int dlen, int *trunc,
 static inline int append_putc(char *dstr, int *doff, int dlen, int *trunc,
                 char schr) {
 
+    if (*trunc == 1) {
+        return 0;
+    }
+
     /* Check to make sure the offset isn't already longer than the length */
     if (*doff >= dlen) {
         *trunc = 1;
@@ -106,6 +120,10 @@ static inline int append_putc(char *dstr, int *doff, int dlen, int *trunc,
 static inline int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, const void *s, ssize_t length) {
     const uint8_t *src = (const uint8_t *)s;
 
+    if (*trunc == 1) {
+        return 0;
+    }
+
     /* Check to make sure the offset isn't already longer than the length */
     if (*doff >= dlen) {
         *trunc = 1;
@@ -124,7 +142,11 @@ static inline int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, con
 
 static inline int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
                       const uint8_t *data, unsigned int len) {
-    *trunc = 0;
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
     int r = 0;
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
         r += append_snprintf(dstr, doff, dlen, trunc,
@@ -137,7 +159,11 @@ static inline int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
 
 static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *trunc,
                                   const char *key, const uint8_t *data, unsigned int len) {
-    *trunc = 0;
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
     int r = 0;
 
     r += append_snprintf(dstr, doff, dlen, trunc,
@@ -154,7 +180,11 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
 
 static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *trunc,
                                   const uint8_t *data, unsigned int len) {
-    *trunc = 0;
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
     int r = 0;
 
     r += append_putc(dstr, doff, dlen, trunc,
@@ -170,7 +200,11 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
 
 static inline int append_json_string_escaped(char *dstr, int *doff, int dlen, int *trunc,
                                              const char *key, const uint8_t *data, unsigned int len) {
-    *trunc = 0;
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
     int r = 0;
 
     r += append_snprintf(dstr, doff, dlen, trunc,
@@ -347,6 +381,10 @@ struct buffer_stream {
 
     int snprintf(const char *fmt, ...) {
 
+        if (trunc == 1) {
+            return 0;
+        }
+
         /* Check to make sure the offset isn't already longer than the length */
         if (doff >= dlen) {
             trunc = 1;
@@ -362,6 +400,11 @@ struct buffer_stream {
         if (r >= dlen - doff) {
             fprintf(stderr, "Truncation occurred in substr_snprintf(...). Space available: %d; needed: %d\n",
                     dlen - doff, r);
+
+            r = (dlen - doff) - 1;
+            if (r < 0) {
+                r = 0;
+            }
 
             doff = dlen;
             trunc = 1;
