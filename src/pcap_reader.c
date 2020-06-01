@@ -2,7 +2,7 @@
  * pcap_reader.c
  */
 
-#include <sys/errno.h>
+#include <errno.h>
 #include "pcap_reader.h"
 #include "output.h"
 #include "pkt_proc.h"
