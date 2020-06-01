@@ -1,5 +1,5 @@
 """
- Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
+65;5802;1c Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
 
@@ -14,7 +14,7 @@ def readme():
 
 setuptools.setup(
     name='pmercury',
-    version='0.5.1.33',
+    version='0.5.1.34',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
