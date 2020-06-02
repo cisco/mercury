@@ -232,6 +232,7 @@ struct oid_assignment {
 
 struct oid_set {
     std::unordered_map<std::string, std::vector<uint32_t>> oid_dict;
+    std::unordered_map<std::string, std::vector<uint32_t>> nonterminal_oid_dict;
     std::unordered_map<std::string, std::string> keyword_dict;
     std::unordered_map<std::string, std::string> synonym;
     std::multiset<std::string> keywords;
@@ -297,6 +298,32 @@ struct oid_set {
             std::cerr << "assigning synonym " << name << "\n";
         }
         keyword_dict[oid_to_hex_string(v)] = k;
+    }
+
+    void remove_nonterminals() {
+        for (std::pair <std::string, std::vector<uint32_t>> x : oid_dict) {
+            std::vector<uint32_t> v = x.second;
+            //std::cout << s << std::endl;
+            while (1) {
+                v.erase(v.end() - 1);
+                if (v.empty()) {
+                    break;
+                }
+                std::string oid_hex_string = oid_to_hex_string(v);
+                const auto &o = keyword_dict.find(oid_hex_string);
+                if (o != keyword_dict.end()) {
+                    //std::cout << "found in dict" << std::endl;
+                    //nonterminal_oid_dict.insert(o);
+                    keyword_dict.erase(o);
+                }
+
+                // for (auto &c : v) {
+                //    std::cout << c << ' ';
+                //}
+                std::cout << '\n';
+            }
+        }
+
     }
 };
 
@@ -681,6 +708,7 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
+    oid_set.remove_nonterminals();
     oid_set.dump_oid_enum_dict_sorted();
     // oid_set.verify_oid_dict();
 
