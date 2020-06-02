@@ -289,7 +289,7 @@ void fprintf_json_base64_string(FILE *file,
     size_t len = input_length - rem; /* always a multiple of 3 */
     uint32_t oct_a, oct_b, oct_c, trip;
 
-    FPUTC('\"', file);
+    fputc('"', file);
     while (i < len) {
 
         oct_a = data[i++];
@@ -298,10 +298,10 @@ void fprintf_json_base64_string(FILE *file,
 
         trip = (oct_a << 0x10) + (oct_b << 0x08) + oct_c;
 
-        FPUTC(encoding_table[(trip >> (3 * 6)) & 0x3F], file);
-        FPUTC(encoding_table[(trip >> (2 * 6)) & 0x3F], file);
-        FPUTC(encoding_table[(trip >> (1 * 6)) & 0x3F], file);
-        FPUTC(encoding_table[(trip >> (0 * 6)) & 0x3F], file);
+        fputc(encoding_table[(trip >> (3 * 6)) & 0x3F], file);
+        fputc(encoding_table[(trip >> (2 * 6)) & 0x3F], file);
+        fputc(encoding_table[(trip >> (1 * 6)) & 0x3F], file);
+        fputc(encoding_table[(trip >> (0 * 6)) & 0x3F], file);
     }
 
     if (rem > 0) {
@@ -320,19 +320,19 @@ void fprintf_json_base64_string(FILE *file,
         if (rem == 1) {
             /* This one byte spans 2 bytes in encoded_data */
             /* Pad the last 2 bytes */
-            FPUTC(encoding_table[(trip >> (3 * 6)) & 0x3F], file);
-            FPUTC(encoding_table[(trip >> (2 * 6)) & 0x3F], file);
+            fputc(encoding_table[(trip >> (3 * 6)) & 0x3F], file);
+            fputc(encoding_table[(trip >> (2 * 6)) & 0x3F], file);
             fprintf(file, "==");
         } else if (rem == 2) {
             /* These two bytes span 3 bytes in encoded_data */
             /* Pad the remaining last byte */
-            FPUTC(encoding_table[(trip >> (3 * 6)) & 0x3F], file);
-            FPUTC(encoding_table[(trip >> (2 * 6)) & 0x3F], file);
-            FPUTC(encoding_table[(trip >> (1 * 6)) & 0x3F], file);
+            fputc(encoding_table[(trip >> (3 * 6)) & 0x3F], file);
+            fputc(encoding_table[(trip >> (2 * 6)) & 0x3F], file);
+            fputc(encoding_table[(trip >> (1 * 6)) & 0x3F], file);
             fprintf(file, "=");
         }
     }
-    FPUTC('\"', file);
+    fputc('\"', file);
 }
 
 

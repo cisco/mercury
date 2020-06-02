@@ -134,14 +134,16 @@ int append_packet_json(struct buffer_stream &buf,
         case fingerprint_type_http:
             buf.strncpy("\"fingerprints\":{\"http\":\"");
             write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
-            buf.strncpy("\"},");
-            buf.snprintf("\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            buf.strncpy("\"},\"complete\":\"");
+            (pf.x.proto_state.state == state_done) ? buf.strncpy("yes") : buf.strncpy("no");
+            buf.strncpy("\",");
             break;
         case fingerprint_type_http_server:
             buf.strncpy("\"fingerprints\":{\"http_server\":\"");
             write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
-            buf.strncpy("\"},");
-            buf.snprintf("\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            buf.strncpy("\"},\"complete\":\"");
+            (pf.x.proto_state.state == state_done) ? buf.strncpy("yes") : buf.strncpy("no");
+            buf.strncpy("\",");
             break;
         case fingerprint_type_tls_server:
             buf.strncpy("\"fingerprints\":{\"tls_server\":\"");

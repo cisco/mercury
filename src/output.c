@@ -396,7 +396,7 @@ void *output_thread_func(void *arg) {
 
             struct llq_msg *wmsg = &(out_ctx->qs.queue[wq].msgs[out_ctx->qs.queue[wq].ridx]);
             if (wmsg->used == 1) {
-                //fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
+                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
@@ -450,7 +450,7 @@ void *output_thread_func(void *arg) {
                 break;
             } else if (time_less(&(wmsg->ts), &old_ts) == 1) {
                 //fprintf(stderr, "DEBUG: writing old message from queue %d\n", wq);
-                //fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
+                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
@@ -477,7 +477,7 @@ void *output_thread_func(void *arg) {
          */
         struct timespec sleep_ts;
         sleep_ts.tv_sec = 0;
-        sleep_ts.tv_nsec = 1000;
+        sleep_ts.tv_nsec = 10000;
         nanosleep(&sleep_ts, NULL);
     } /* End all_output_flushed == 0 meaning we got a signal to stop */
 

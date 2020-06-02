@@ -179,8 +179,9 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
     char outs[3];
     outs[2] = '\0';
 
-    r += append_snprintf(dstr, doff, dlen, trunc,
-                         "\"%s\":\"0x", key);
+    r += append_putc(dstr, doff, dlen, trunc, '"');
+    r += append_strncpy(dstr, doff, dlen, trunc, key);
+    r += append_strncpy(dstr, doff, dlen, trunc, "\":\"0x");
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
         outs[0] = hex_table[(data[i] & 0xf0) >> 8];
         outs[1] = hex_table[data[i] & 0x0f];
@@ -218,6 +219,61 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
     return r;
 }
 
+
+static inline int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
+                                   struct timespec *ts) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[10 + 1 + 6 + 1]; /* 10 sec digits, 1 decimal, 6 usec, 1 null */
+
+    /* First we convert the seconds to a string which requires
+     * that we identify and skip leading zeros */
+    int i = 0; /* outs index */
+    int leadin = 1; /* We're still getting leading zeros */
+
+    uint64_t secs = ts->tv_sec;
+    for (int p = 1000000000; p >= 1; p /= 10) {
+        int d = secs / p;
+        secs %= p;
+
+        if ((d == 0) && (leadin == 1)) {
+            continue;
+        }
+
+        leadin = 0;
+        outs[i] = '0' + d;
+        i++;
+    }
+
+    /* Now store the decimal point */
+    outs[i] = '.';
+    i++;
+
+    /* And finally we write the decimal digits which should have leading zeros */
+    uint64_t usecs = ts->tv_nsec / 1000;
+    for (int p = 100000; p >= 1; p /= 10) {
+        int d = usecs / p;
+        usecs %= p;
+
+        outs[i] = '0' + d;
+        i++;
+    }
+
+    /* And finally store the null */
+    outs[i] = '\0';
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        outs);
+
+    return r;
+}
+
+
+
 static inline int append_json_string_escaped(char *dstr, int *doff, int dlen, int *trunc,
                                              const char *key, const uint8_t *data, unsigned int len) {
 
@@ -227,16 +283,19 @@ static inline int append_json_string_escaped(char *dstr, int *doff, int dlen, in
 
     int r = 0;
 
-    r += append_snprintf(dstr, doff, dlen, trunc,
-                         "\"%s\":\"", key);
+    r += append_putc(dstr, doff, dlen, trunc, '"');
+    r += append_strncpy(dstr, doff, dlen, trunc, key);
+    r += append_strncpy(dstr, doff, dlen, trunc, "\":\"");
 
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        if (data[i] < 0x20) {                   /* escape control characters   */
-            r += append_snprintf(dstr, doff, dlen, trunc,
-                                 "\\u%04x", data[i]);
-        } else if (data[i] > 0x7f) {            /* escape non-ASCII characters */
-            r += append_snprintf(dstr, doff, dlen, trunc,
-                                 "\\u%04x", data[i]);
+        if ((data[i] < 0x20) || /* escape control characters   */
+            (data[i] > 0x7f)) { /* escape non-ASCII characters */
+            r += append_strncpy(dstr, doff, dlen, trunc,
+                                "\\u00");
+            r += append_putc(dstr, doff, dlen, trunc,
+                             hex_table[(data[i] & 0xf0) >> 8]);
+            r += append_putc(dstr, doff, dlen, trunc,
+                             hex_table[data[i] & 0x0f]);
         } else {
             if (data[i] == '"' || data[i] == '\\') { /* escape special characters   */
                 r += append_putc(dstr, doff, dlen, trunc,
@@ -471,7 +530,8 @@ struct buffer_stream {
     }
 
     void write_timestamp(struct timespec *ts) {
-        append_snprintf(dstr, &doff, dlen, &trunc, ",\"event_start\":%u.%06u", ts->tv_sec, ts->tv_nsec / 1000);
+        append_strncpy(dstr, &doff, dlen, &trunc, ",\"event_start\":");
+        append_timestamp(dstr, &doff, dlen, &trunc, ts);
     }
 
 
