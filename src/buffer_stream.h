@@ -239,7 +239,7 @@ static inline int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
     int leadin = 1; /* We're still getting leading zeros */
 
     uint64_t secs = ts->tv_sec;
-    for (int p = 1000000000; p >= 1; p /= 10) {
+    for (int p = 1000000000; p >= 10; p /= 10) {
         int d = secs / p;
         secs %= p;
 
@@ -251,6 +251,9 @@ static inline int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
         outs[i] = '0' + d;
         i++;
     }
+    /* Store the final digit which can be 0 */
+    outs[i] = '0' + secs;
+    i++;
 
     /* Now store the decimal point */
     outs[i] = '.';
