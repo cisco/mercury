@@ -140,6 +140,11 @@ static inline int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, con
     }
 }
 
+static char hex_table[] = {'0', '1', '2', '3',
+                           '4', '5', '6', '7',
+                           '8', '9', 'a', 'b',
+                           'c', 'd', 'e', 'f'};
+
 static inline int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
                       const uint8_t *data, unsigned int len) {
 
@@ -148,9 +153,15 @@ static inline int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
     }
 
     int r = 0;
+    char outs[3];
+    outs[2] = '\0';
+
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        r += append_snprintf(dstr, doff, dlen, trunc,
-                             "%02x", data[i]);
+        outs[0] = hex_table[(data[i] & 0xf0) >> 8];
+        outs[1] = hex_table[data[i] & 0x0f];
+
+        r += append_strncpy(dstr, doff, dlen, trunc,
+                            outs);
     }
 
     return r;
@@ -165,18 +176,22 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
     }
 
     int r = 0;
+    char outs[3];
+    outs[2] = '\0';
 
     r += append_snprintf(dstr, doff, dlen, trunc,
                          "\"%s\":\"0x", key);
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        r += append_snprintf(dstr, doff, dlen, trunc,
-                             "%02x", data[i]);
+        outs[0] = hex_table[(data[i] & 0xf0) >> 8];
+        outs[1] = hex_table[data[i] & 0x0f];
+
+        r += append_strncpy(dstr, doff, dlen, trunc,
+                            outs);
     }
     r += append_putc(dstr, doff, dlen, trunc, '"');
 
     return r;
 }
-
 
 static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *trunc,
                                   const uint8_t *data, unsigned int len) {
@@ -186,12 +201,17 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
     }
 
     int r = 0;
+    char outs[3];
+    outs[2] = '\0';
 
     r += append_putc(dstr, doff, dlen, trunc,
                      '"');
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        r += append_snprintf(dstr, doff, dlen, trunc,
-                             "%02x", data[i]);
+        outs[0] = hex_table[(data[i] & 0xf0) >> 8];
+        outs[1] = hex_table[data[i] & 0x0f];
+
+        r += append_strncpy(dstr, doff, dlen, trunc,
+                            outs);
     }
     r += append_putc(dstr, doff, dlen, trunc, '"');
 
@@ -267,12 +287,6 @@ static inline int append_json_string(char *dstr, int *doff, int dlen, int *trunc
     return r;
 }
 
-/* macro for fputc */
-#define FPUTC(C, F)                                     \
-    if (fputc((int)C, F) == EOF) {                      \
-        perror("Error while printing base64 char\n");   \
-        return;                                         \
-    }
 
 static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
@@ -297,6 +311,8 @@ static inline int append_json_base64_string(char *dstr, int *doff, int dlen, int
     size_t rem = input_length % 3; /* so it can be 0, 1 or 2 */
     size_t len = input_length - rem; /* always a multiple of 3 */
     uint32_t oct_a, oct_b, oct_c, trip;
+    char outs[5];
+    outs[4] = '\0';
 
     r += append_putc(dstr, doff, dlen, trunc,
                 '"');
@@ -308,14 +324,13 @@ static inline int append_json_base64_string(char *dstr, int *doff, int dlen, int
 
         trip = (oct_a << 0x10) + (oct_b << 0x08) + oct_c;
 
-        r += append_putc(dstr, doff, dlen, trunc,
-                         encoding_table[(trip >> (3 * 6)) & 0x3F]);
-        r += append_putc(dstr, doff, dlen, trunc,
-                         encoding_table[(trip >> (2 * 6)) & 0x3F]);
-        r += append_putc(dstr, doff, dlen, trunc,
-                         encoding_table[(trip >> (1 * 6)) & 0x3F]);
-        r += append_putc(dstr, doff, dlen, trunc,
-                         encoding_table[(trip >> (0 * 6)) & 0x3F]);
+        outs[0] = encoding_table[(trip >> (3 * 6)) & 0x3F];
+        outs[1] = encoding_table[(trip >> (2 * 6)) & 0x3F];
+        outs[2] = encoding_table[(trip >> (1 * 6)) & 0x3F];
+        outs[3] = encoding_table[(trip >> (0 * 6)) & 0x3F];
+
+        r += append_strncpy(dstr, doff, dlen, trunc,
+                            outs);
     }
 
     if (rem > 0) {
