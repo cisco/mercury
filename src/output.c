@@ -194,7 +194,7 @@ void run_tourn_for_entire_tree(struct tourn_tree *t_tree, const struct thread_qu
     }
 
     /* Now we can run through each tree index once */
-    for (lidx = ((t_tree->qp2 - 1) - 1) / 2; lidx >= 0; lidx--) {
+    for (lidx = (t_tree->qp2 / 2) - 2; lidx >= 0; lidx--) {
         ql = t_tree->tree[(lidx * 2) + 1]; /* (l)eft child queue */
         qr = t_tree->tree[(lidx * 2) + 2]; /* (r)ight child queue */
 
