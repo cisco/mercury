@@ -40,6 +40,9 @@ static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
                 dlen - *doff, r);
 
         r = (dlen - *doff) - 1;
+        if (r < 0) {
+            r = 0;
+        }
 
         *doff = dlen;
         *trunc = 1;
