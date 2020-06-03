@@ -160,7 +160,7 @@ static inline int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
     outs[2] = '\0';
 
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        outs[0] = hex_table[(data[i] & 0xf0) >> 8];
+        outs[0] = hex_table[(data[i] & 0xf0) >> 4];
         outs[1] = hex_table[data[i] & 0x0f];
 
         r += append_strncpy(dstr, doff, dlen, trunc,
@@ -186,7 +186,7 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
     r += append_strncpy(dstr, doff, dlen, trunc, key);
     r += append_strncpy(dstr, doff, dlen, trunc, "\":\"0x");
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        outs[0] = hex_table[(data[i] & 0xf0) >> 8];
+        outs[0] = hex_table[(data[i] & 0xf0) >> 4];
         outs[1] = hex_table[data[i] & 0x0f];
 
         r += append_strncpy(dstr, doff, dlen, trunc,
@@ -211,7 +211,7 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
     r += append_putc(dstr, doff, dlen, trunc,
                      '"');
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        outs[0] = hex_table[(data[i] & 0xf0) >> 8];
+        outs[0] = hex_table[(data[i] & 0xf0) >> 4];
         outs[1] = hex_table[data[i] & 0x0f];
 
         r += append_strncpy(dstr, doff, dlen, trunc,
@@ -279,6 +279,193 @@ static inline int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
 }
 
 
+static inline int append_uint8(char *dstr, int *doff, int dlen, int *trunc,
+                               uint8_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[3 + 1]; /* 3 digits + null */
+
+    int i = 0; /* outs index */
+    int leadin = 1; /* We're still getting leading zeros */
+
+    for (int p = 100; p >= 10; p /= 10) {
+        int d = n / p;
+        n %= p;
+
+        if ((d == 0) && (leadin == 1)) {
+            continue;
+        }
+
+        leadin = 0;
+        outs[i] = '0' + d;
+        i++;
+    }
+    /* Store the final digit which can be 0 */
+    outs[i] = '0' + n;
+    i++;
+
+    /* Now store the null */
+    outs[i] = '\0';;
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        outs);
+
+    return r;
+}
+
+
+static inline int append_uint16(char *dstr, int *doff, int dlen, int *trunc,
+                                uint16_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[5 + 1]; /* 5 digits + null */
+
+    int i = 0; /* outs index */
+    int leadin = 1; /* We're still getting leading zeros */
+
+    for (int p = 10000; p >= 10; p /= 10) {
+        int d = n / p;
+        n %= p;
+
+        if ((d == 0) && (leadin == 1)) {
+            continue;
+        }
+
+        leadin = 0;
+        outs[i] = '0' + d;
+        i++;
+    }
+    /* Store the final digit which can be 0 */
+    outs[i] = '0' + n;
+    i++;
+
+    /* Now store the null */
+    outs[i] = '\0';;
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        outs);
+
+    return r;
+}
+
+
+static inline int append_uint16_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint16_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[5]; /* 4 hex chars + null */
+    outs[4] = '\0';
+
+
+    outs[0] = hex_table[(n & 0xf000) >> 12];
+    outs[1] = hex_table[(n & 0x0f00) >> 8];
+    outs[2] = hex_table[(n & 0x00f0) >> 4];
+    outs[3] = hex_table[n & 0x000f];
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        outs);
+
+    return r;
+}
+
+
+static inline int append_ipv6_addr(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint8_t *v6) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[(4 * 8) + (1 * 7) + 1]; /* 8 groups of 4 hex chars; 7 colons; 1 null */
+
+    outs[0] = hex_table[(v6[0] & 0xf0) >> 4];
+    outs[1] = hex_table[v6[0] & 0x0f];
+    outs[2] = hex_table[(v6[1] & 0xf0) >> 4];
+    outs[3] = hex_table[v6[1] & 0x0f];
+    outs[4] = ':';
+    outs[5] = hex_table[(v6[2] & 0xf0) >> 4];
+    outs[6] = hex_table[v6[2] & 0x0f];
+    outs[7] = hex_table[(v6[3] & 0xf0) >> 4];
+    outs[8] = hex_table[v6[3] & 0x0f];
+    outs[9] = ':';
+    outs[10] = hex_table[(v6[4] & 0xf0) >> 4];
+    outs[11] = hex_table[v6[4] & 0x0f];
+    outs[12] = hex_table[(v6[5] & 0xf0) >> 4];
+    outs[13] = hex_table[v6[5] & 0x0f];
+    outs[14] = ':';
+    outs[15] = hex_table[(v6[6] & 0xf0) >> 4];
+    outs[16] = hex_table[v6[6] & 0x0f];
+    outs[17] = hex_table[(v6[7] & 0xf0) >> 4];
+    outs[18] = hex_table[v6[7] & 0x0f];
+    outs[19] = ':';
+    outs[20] = hex_table[(v6[8] & 0xf0) >> 4];
+    outs[21] = hex_table[v6[8] & 0x0f];
+    outs[22] = hex_table[(v6[9] & 0xf0) >> 4];
+    outs[23] = hex_table[v6[9] & 0x0f];
+    outs[24] = ':';
+    outs[25] = hex_table[(v6[10] & 0xf0) >> 4];
+    outs[26] = hex_table[v6[10] & 0x0f];
+    outs[27] = hex_table[(v6[11] & 0xf0) >> 4];
+    outs[28] = hex_table[v6[11] & 0x0f];
+    outs[29] = ':';
+    outs[30] = hex_table[(v6[12] & 0xf0) >> 4];
+    outs[31] = hex_table[v6[12] & 0x0f];
+    outs[32] = hex_table[(v6[13] & 0xf0) >> 4];
+    outs[33] = hex_table[v6[13] & 0x0f];
+    outs[34] = ':';
+    outs[35] = hex_table[(v6[14] & 0xf0) >> 4];
+    outs[36] = hex_table[v6[14] & 0x0f];
+    outs[37] = hex_table[(v6[15] & 0xf0) >> 4];
+    outs[38] = hex_table[v6[15] & 0x0f];
+    outs[39] = '\0';
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        outs);
+
+    return r;
+}
+
+
+static inline int append_ipv4_addr(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint8_t *v4) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      v4[0]);
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '.');
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      v4[1]);
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '.');
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      v4[2]);
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '.');
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      v4[3]);
+
+    return r;
+}
+
 
 static inline int append_json_string_escaped(char *dstr, int *doff, int dlen, int *trunc,
                                              const char *key, const uint8_t *data, unsigned int len) {
@@ -299,7 +486,7 @@ static inline int append_json_string_escaped(char *dstr, int *doff, int dlen, in
             r += append_strncpy(dstr, doff, dlen, trunc,
                                 "\\u00");
             r += append_putc(dstr, doff, dlen, trunc,
-                             hex_table[(data[i] & 0xf0) >> 8]);
+                             hex_table[(data[i] & 0xf0) >> 4]);
             r += append_putc(dstr, doff, dlen, trunc,
                              hex_table[data[i] & 0x0f]);
         } else {
@@ -538,6 +725,26 @@ struct buffer_stream {
     void write_timestamp(struct timespec *ts) {
         append_strncpy(dstr, &doff, dlen, &trunc, ",\"event_start\":");
         append_timestamp(dstr, &doff, dlen, &trunc, ts);
+    }
+
+    void write_uint8(uint8_t n) {
+        append_uint8(dstr, &doff, dlen, &trunc, n);
+    }
+
+    void write_uint16(uint16_t n) {
+        append_uint16(dstr, &doff, dlen, &trunc, n);
+    }
+
+    void write_hex_uint16(uint16_t n) {
+        append_uint16_hex(dstr, &doff, dlen, &trunc, n);
+    }
+
+    void write_ipv6_addr(uint8_t *v6) {
+        append_ipv6_addr(dstr, &doff, dlen, &trunc, v6);
+    }
+
+    void write_ipv4_addr(uint8_t *v4) {
+        append_ipv4_addr(dstr, &doff, dlen, &trunc, v4);
     }
 
 

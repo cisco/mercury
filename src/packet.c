@@ -212,19 +212,68 @@ int append_ipv4_packet_flow_key(char *dstr, int *doff, int dlen, int *trunc,
     const char *json_format = "\"src_ip\":\"%u.%u.%u.%u\",\"dst_ip\":\"%u.%u.%u.%u\",\"protocol\":%u,\"src_port\":%u,\"dst_port\":%u";
 
     int r = 0;
-    r += append_snprintf(dstr, doff, dlen, trunc,
-                         json_format,
-                         src_addr_char[0],
-                         src_addr_char[1],
-                         src_addr_char[2],
-                         src_addr_char[3],
-                         dst_addr_char[0],
-                         dst_addr_char[1],
-                         dst_addr_char[2],
-                         dst_addr_char[3],
-                         *protocol,
-                         ntohs(*src_port),
-                         ntohs(*dst_port));
+    /* r += append_snprintf(dstr, doff, dlen, trunc, */
+    /*                      json_format, */
+    /*                      src_addr_char[0], */
+    /*                      src_addr_char[1], */
+    /*                      src_addr_char[2], */
+    /*                      src_addr_char[3], */
+    /*                      dst_addr_char[0], */
+    /*                      dst_addr_char[1], */
+    /*                      dst_addr_char[2], */
+    /*                      dst_addr_char[3], */
+    /*                      *protocol, */
+    /*                      ntohs(*src_port), */
+    /*                      ntohs(*dst_port)); */
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        "\"src_ip\":\"");
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      src_addr_char[0]);
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '.');
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      src_addr_char[1]);
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '.');
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      src_addr_char[2]);
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '.');
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      src_addr_char[3]);
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        "\",\"dst_ip\":\"");
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      dst_addr_char[0]);
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '.');
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      dst_addr_char[1]);
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '.');
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      dst_addr_char[2]);
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '.');
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      dst_addr_char[3]);
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        "\",\"protocol\":");
+    r += append_uint8(dstr, doff, dlen, trunc,
+                      *protocol);
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        ",\"src_port\":");
+    r += append_uint16(dstr, doff, dlen, trunc,
+                       ntohs(*src_port));
+
+    r += append_strncpy(dstr, doff, dlen, trunc,
+                        ",\"dst_port\":");
+    r += append_uint16(dstr, doff, dlen, trunc,
+                       ntohs(*dst_port));
 
     return r;
 }
@@ -400,20 +449,35 @@ void write_ipv4_packet_flow_key(struct buffer_stream &buf, const uint8_t *packet
     uint16_t *dst_port = src_port + 1;
 
     const char *format __attribute__((unused)) = "\t%u.%u.%u.%u,%u.%u.%u.%u,%u,%u\n";
-    const char *json_format = "\"src_ip\":\"%u.%u.%u.%u\",\"dst_ip\":\"%u.%u.%u.%u\",\"protocol\":%u,\"src_port\":%u,\"dst_port\":%u";
+    /*const char *json_format = "\"src_ip\":\"%u.%u.%u.%u\",\"dst_ip\":\"%u.%u.%u.%u\",\"protocol\":%u,\"src_port\":%u,\"dst_port\":%u";*/
 
-    buf.snprintf(json_format,
-                 src_addr_char[0],
-                 src_addr_char[1],
-                 src_addr_char[2],
-                 src_addr_char[3],
-                 dst_addr_char[0],
-                 dst_addr_char[1],
-                 dst_addr_char[2],
-                 dst_addr_char[3],
-                 *protocol,
-                 ntohs(*src_port),
-                 ntohs(*dst_port));
+    /* buf.snprintf(json_format, */
+    /*              src_addr_char[0], */
+    /*              src_addr_char[1], */
+    /*              src_addr_char[2], */
+    /*              src_addr_char[3], */
+    /*              dst_addr_char[0], */
+    /*              dst_addr_char[1], */
+    /*              dst_addr_char[2], */
+    /*              dst_addr_char[3], */
+    /*              *protocol, */
+    /*              ntohs(*src_port), */
+    /*              ntohs(*dst_port)); */
+
+    buf.strncpy("\"src_ip\":\"");
+    buf.write_ipv4_addr(src_addr_char);
+
+    buf.strncpy("\",\"dst_ip\":\"");
+    buf.write_ipv4_addr(dst_addr_char);
+
+    buf.strncpy("\",\"protocol\":");
+    buf.write_uint8(*protocol);
+
+    buf.strncpy(",\"src_port\":");
+    buf.write_uint16(ntohs(*src_port));
+
+    buf.strncpy(",\"dst_port\":");
+    buf.write_uint16(ntohs(*dst_port));
 
 }
 
@@ -423,10 +487,10 @@ void write_ipv6_packet_flow_key(struct buffer_stream &buf, const uint8_t *packet
     uint8_t *s = ipv6_hdr->source_address;
     uint8_t *d = ipv6_hdr->destination_address;
 
-    const char *v6_json_format =
+    /*const char *v6_json_format =
         "\"src_ip\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
         "\"dst_ip\":\"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\","
-        "\"protocol\":%u,\"src_port\":%u,\"dst_port\":%u";
+        "\"protocol\":%u,\"src_port\":%u,\"dst_port\":%u";*/
 
     packet += sizeof(struct ipv6_hdr);
 
@@ -456,10 +520,25 @@ void write_ipv6_packet_flow_key(struct buffer_stream &buf, const uint8_t *packet
     }
     struct ports *ports = (struct ports *)packet;
 
-    buf.snprintf(v6_json_format,
-                 s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15],
-                 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15],
-                 ipv6_hdr->next_header, ntohs(ports->source), ntohs(ports->destination));
+    /* buf.snprintf(v6_json_format, */
+    /*              s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15], */
+    /*              d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15], */
+    /*              ipv6_hdr->next_header, ntohs(ports->source), ntohs(ports->destination)); */
+
+    buf.strncpy("\"src_ip\":\"");
+    buf.write_ipv6_addr(s);
+
+    buf.strncpy("\",\"dst_ip\":\"");
+    buf.write_ipv6_addr(d);
+
+    buf.strncpy("\",\"protocol\":");
+    buf.write_uint8(ipv6_hdr->next_header);
+
+    buf.strncpy(",\"src_port\":");
+    buf.write_uint16(ntohs(ports->source));
+
+    buf.strncpy(",\"dst_port\":");
+    buf.write_uint16(ntohs(ports->destination));
 }
 
 void write_packet_flow_key(struct buffer_stream &buf, uint8_t *packet, size_t length) {
