@@ -477,7 +477,7 @@ void *output_thread_func(void *arg) {
          */
         struct timespec sleep_ts;
         sleep_ts.tv_sec = 0;
-        sleep_ts.tv_nsec = 10000;
+        sleep_ts.tv_nsec = 1000000;
         nanosleep(&sleep_ts, NULL);
     } /* End all_output_flushed == 0 meaning we got a signal to stop */
 
