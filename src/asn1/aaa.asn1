@@ -48,3 +48,11 @@
       x121_address                 OBJECT IDENTIFIER ::= { 2 5 4 24 }
       x500_unique_identifier       OBJECT IDENTIFIER ::= { 2 5 4 45 }
 
+      jurisdiction_of_incorporation_locality_name	       OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 311 60 2 1 1 } -- 2b0601040182373c020101
+      jurisdiction_of_incorporation_state_or_province_name OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 311 60 2 1 2 } -- 2b0601040182373c020102
+      jurisdiction_of_incorporation_country_name 	       OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 311 60 2 1 3 } -- 2b0601040182373c020103
+      key_usage                    OBJECT IDENTIFIER ::= { joint-iso-ccitt(2) ds(5) 29 15 }
+      subject_alt_name             OBJECT IDENTIFIER ::= { joint-iso-ccitt(2) ds(5) 29 17 }
+      ext_key_usage                OBJECT IDENTIFIER ::= { joint-iso-ccitt(2) ds(5) 29 37 }
+      email_address                OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 1 }
+      pseudonym                    OBJECT IDENTIFIER ::= { joint-iso-ccitt(2) ds(5) 4 65 }

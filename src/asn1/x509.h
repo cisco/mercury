@@ -989,15 +989,15 @@ struct extension {
                 struct basic_constraints x(&value);
                 x.print_as_json(o, "basic_constraints");
             }
-            else if (oid_type == oid::id_ce_keyUsage) {
+            else if (oid_type == oid::key_usage) {
                 struct key_usage x(&value);
                 x.print_as_json(o, "key_usage");
             }
-            else if (oid_type == oid::id_ce_extKeyUsage) {
+            else if (oid_type == oid::ext_key_usage) {
                 struct ext_key_usage x(&value);
                 x.print_as_json(o, "ext_key_usage");
             }
-            else if (oid_type == oid::id_ce_subjectAltName) {
+            else if (oid_type == oid::subject_alt_name) {
                 struct subject_alt_name x(&value);
                 x.print_as_json(o, "subject_alt_name");
             }

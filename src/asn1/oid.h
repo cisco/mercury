@@ -1,3815 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 std::unordered_map<std::string, std::string> oid_dict = {
 	{ {0x04,0x00,0x8f,0x7a,0x01,0x04}, "ETSI_EV_CPS" },
 	{ {0x04,0x00,0x8f,0x7a,0x01,0x05}, "ETSI_EV_CPS[1]" },
@@ -3871,7 +59,7 @@ std::unordered_map<std::string, std::string> oid_dict = {
 	{ {0x2a,0x85,0x03,0x07,0x01,0x01,0x02,0x03}, "id-tc26-digest-gost3411-12-512" },
 	{ {0x2a,0x85,0x03,0x07,0x01,0x01,0x03,0x02}, "id-tc26-signwithdigest-gost3410-12-256" },
 	{ {0x2a,0x85,0x03,0x07,0x01,0x01,0x03,0x03}, "id-tc26-signwithdigest-gost3410-12-512" },
-	{ {0x2a,0x86,0x48,0x04,0x03,0x02}, "ecdsa-with-SHA256" },
+	{ {0x2a,0x86,0x48,0x04,0x03,0x02}, "ecdsa-with-SHA256[1]" },
 	{ {0x2a,0x86,0x48,0xce,0x38,0x04,0x01}, "id-dsa" },
 	{ {0x2a,0x86,0x48,0xce,0x38,0x04,0x03}, "id-dsa-with-sha1" },
 	{ {0x2a,0x86,0x48,0xce,0x3d}, "ansi-X9-62" },
@@ -3884,17 +72,68 @@ std::unordered_map<std::string, std::string> oid_dict = {
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x01,0x02,0x03,0x03}, "ppBasis" },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x02}, "id-publicKeyType" },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x02,0x01}, "id-ecPublicKey" },
-	{ {0x2a,0x86,0x48,0xce,0x3d,0x03}, "ellipticCurve[1]" },
-	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x01}, "secp192r1" },
-	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x07}, "secp256r1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03}, "ellipticCurve" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00}, "c-TwoCurve" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x01}, "c2pnb163v1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x02}, "c2pnb163v2" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x03}, "c2pnb163v3" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x04}, "c2pnb176w1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x05}, "c2tnb191v1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x06}, "c2tnb191v2" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x07}, "c2tnb191v3" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x08}, "c2onb191v4" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x09}, "c2onb191v5" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0a}, "c2pnb208w1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0b}, "c2tnb239v1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0c}, "c2tnb239v2" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0d}, "c2tnb239v3" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0e}, "c2onb239v4" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0f}, "c2onb239v5" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x10}, "c2pnb272w1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x11}, "c2pnb304w1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x12}, "c2tnb359v1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x13}, "c2pnb368w1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x14}, "c2tnb431r1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01}, "primeCurve" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x01}, "prime192v1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x02}, "prime192v2" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x03}, "prime192v3" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x04}, "prime239v1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x05}, "prime239v2" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x06}, "prime239v3" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x07}, "prime256v1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x08}, "brainpoolP256t1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x09}, "brainpoolP320r1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0a}, "brainpoolP320t1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0b}, "brainpoolP384r1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0c}, "brainpoolP384t1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0d}, "brainpoolP512r1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0e}, "brainpoolP512t1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x02}, "sect163r1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x03}, "sect239k1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x0a}, "secp256k1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x0f}, "sect163r2[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x10}, "sect283k1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x11}, "sect283r1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x1a}, "sect233k1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x1b}, "sect233r1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x1f}, "secp192k1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x20}, "secp224k1" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x21}, "secp224r1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x22}, "secp384r1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x23}, "secp521r1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x24}, "sect409k1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x25}, "sect409r1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x26}, "sect571k1[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x27}, "sect571r1[1]" },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04}, "id-ecSigType" },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x01}, "ecdsa-with-SHA1" },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x01}, "ecdsa-with-SHA224" },
-	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x02}, "ecdsa-with-SHA256[1]" },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x02}, "ecdsa-with-SHA256" },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x03}, "ecdsa-with-SHA384" },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x04}, "ecdsa-with-SHA512" },
 	{ {0x2a,0x86,0x48,0xce,0x3e,0x02,0x01}, "dhpublicnumber" },
-	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01}, "pkcs-1" },
+	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01}, "email_address" },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01}, "rsaEncryption" },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x02}, "md2WithRSAEncryption" },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x04}, "md5WithRSAEncryption" },
@@ -3911,7 +150,7 @@ std::unordered_map<std::string, std::string> oid_dict = {
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x10}, "sha512-256WithRSAEncryption" },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09}, "pkcs-9" },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x00}, "pkcs-9-mo" },
-	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x01}, "id-emailAddress" },
+	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x01}, "emailAddress" },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x02}, "pkcs-9-at-unstructuredName" },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x03}, "pkcs-9-at-contentType" },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x04}, "pkcs-9-at-messageDigest" },
@@ -4072,9 +311,9 @@ std::unordered_map<std::string, std::string> oid_dict = {
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x2c,0x03,0x03}, "szOID_PEERNET_GROUPING_ROLES" },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x2c,0x03,0x05}, "szOID_PEERNET_GROUPING_CLASSIFIERS" },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x01,0x01}, "OID_ROOT_PROGRAM_FLAGS_BITSTRING" },
-	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x01}, "jurisdictionOfIncorporationLocalityName" },
-	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x02}, "jurisdictionOfIncorporationStateOrProvinceName" },
-	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x03}, "jurisdictionOfIncorporationCountryName" },
+	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x01}, "jurisdiction_of_incorporation_locality_name" },
+	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x02}, "jurisdiction_of_incorporation_state_or_province_name" },
+	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x03}, "jurisdiction_of_incorporation_country_name" },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x54,0x01,0x01}, "driveEncryption" },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x58}, "szOID_CAPICOM" },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x58,0x01}, "szOID_CAPICOM_VERSION" },
@@ -4167,7 +406,6 @@ std::unordered_map<std::string, std::string> oid_dict = {
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x07,0x24}, "id-cmc-changeSubjectName" },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x07,0x25}, "id-cmc-responseBody" },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x08}, "id-on" },
-	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x08,0x07}, "id-on-dnsSRV" },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x08,0x09}, "id-on-SmtpUTF8Mailbox" },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x09}, "ietf-at" },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x09,0x01}, "pkcs-9-at-dateOfBirth" },
@@ -4203,60 +441,20 @@ std::unordered_map<std::string, std::string> oid_dict = {
 	{ {0x2b,0x0e,0x03,0x02,0x1a}, "id-sha1" },
 	{ {0x2b,0x0e,0x03,0x02,0x1d}, "sha-1WithRSAEncryption" },
 	{ {0x2b,0x24,0x03,0x03,0x02,0x08}, "ecStdCurvesAndGeneration" },
-	{ {0x2b,0x24,0x03,0x03,0x02,0x08,0x01}, "ellipticCurve[2]" },
+	{ {0x2b,0x24,0x03,0x03,0x02,0x08,0x01}, "ellipticCurve[1]" },
 	{ {0x2b,0x65}, "id-edwards-curve-algs" },
 	{ {0x2b,0x65,0x6e}, "id-X25519" },
 	{ {0x2b,0x65,0x6f}, "id-X448" },
 	{ {0x2b,0x65,0x70}, "id-Ed25519" },
 	{ {0x2b,0x65,0x71}, "id-Ed448" },
 	{ {0x2b,0x81,0x04}, "certicom-arc" },
-	{ {0x2b,0x81,0x04,0x00}, "ellipticCurve" },
-	{ {0x2b,0x81,0x04,0x00,0x00}, "c-TwoCurve" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x01}, "c2pnb163v1" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x02}, "c2pnb163v2" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x03}, "c2pnb163v3" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x04}, "c2pnb176w1" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x05}, "c2tnb191v1" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x06}, "c2tnb191v2" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x07}, "c2tnb191v3" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x08}, "c2onb191v4" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x09}, "c2onb191v5" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0a}, "c2pnb208w1" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0b}, "c2tnb239v1" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0c}, "c2tnb239v2" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0d}, "c2tnb239v3" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0e}, "c2onb239v4" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0f}, "c2onb239v5" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x10}, "c2pnb272w1" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x11}, "c2pnb304w1" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x12}, "c2tnb359v1" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x13}, "c2pnb368w1" },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x14}, "c2tnb431r1" },
+	{ {0x2b,0x81,0x04,0x00}, "ellipticCurve[2]" },
 	{ {0x2b,0x81,0x04,0x00,0x01}, "sect163k1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x01}, "prime192v1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x02}, "prime192v2" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x03}, "prime192v3" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x04}, "prime239v1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x05}, "prime239v2" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x06}, "prime239v3" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x07}, "prime256v1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x08}, "brainpoolP256t1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x09}, "brainpoolP320r1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0a}, "brainpoolP320t1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0b}, "brainpoolP384r1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0c}, "brainpoolP384t1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0d}, "brainpoolP512r1" },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0e}, "brainpoolP512t1" },
-	{ {0x2b,0x81,0x04,0x00,0x02}, "sect163r1" },
-	{ {0x2b,0x81,0x04,0x00,0x03}, "sect239k1" },
-	{ {0x2b,0x81,0x04,0x00,0x0a}, "secp256k1" },
 	{ {0x2b,0x81,0x04,0x00,0x0f}, "sect163r2" },
 	{ {0x2b,0x81,0x04,0x00,0x10}, "sect283k1" },
 	{ {0x2b,0x81,0x04,0x00,0x11}, "sect283r1" },
 	{ {0x2b,0x81,0x04,0x00,0x1a}, "sect233k1" },
 	{ {0x2b,0x81,0x04,0x00,0x1b}, "sect233r1" },
-	{ {0x2b,0x81,0x04,0x00,0x1f}, "secp192k1" },
-	{ {0x2b,0x81,0x04,0x00,0x20}, "secp224k1" },
 	{ {0x2b,0x81,0x04,0x00,0x21}, "secp224r1" },
 	{ {0x2b,0x81,0x04,0x00,0x22}, "secp384r1" },
 	{ {0x2b,0x81,0x04,0x00,0x23}, "secp521r1" },
@@ -4313,20 +511,20 @@ std::unordered_map<std::string, std::string> oid_dict = {
 	{ {0x55,0x04,0x31}, "distinguished_name" },
 	{ {0x55,0x04,0x32}, "unique_member" },
 	{ {0x55,0x04,0x33}, "house_identifier" },
-	{ {0x55,0x04,0x41}, "id-at-pseudonym" },
+	{ {0x55,0x04,0x41}, "pseudonym" },
 	{ {0x55,0x1d}, "id-ce" },
 	{ {0x55,0x1d,0x01}, "DeprecatedAuthorityKeyIdentifier" },
 	{ {0x55,0x1d,0x07}, "DeprecatedSubjectAltName" },
 	{ {0x55,0x1d,0x09}, "id-ce-subjectDirectoryAttributes" },
 	{ {0x55,0x1d,0x0e}, "id-ce-subjectKeyIdentifier" },
-	{ {0x55,0x1d,0x0f}, "id-ce-keyUsage" },
+	{ {0x55,0x1d,0x0f}, "key_usage" },
 	{ {0x55,0x1d,0x10}, "id-ce-privateKeyUsagePeriod" },
-	{ {0x55,0x1d,0x11}, "id-ce-subjectAltName" },
+	{ {0x55,0x1d,0x11}, "subject_alt_name" },
 	{ {0x55,0x1d,0x12}, "id-ce-issuerAltName" },
 	{ {0x55,0x1d,0x13}, "id-ce-basicConstraints" },
 	{ {0x55,0x1d,0x14}, "id-ce-cRLNumber" },
-	{ {0x55,0x1d,0x15}, "id-ce-cRLReasons" },
-	{ {0x55,0x1d,0x17}, "id-ce-holdInstructionCode" },
+	{ {0x55,0x1d,0x15}, "id-ce-reasonCode" },
+	{ {0x55,0x1d,0x17}, "id-ce-instructionCode" },
 	{ {0x55,0x1d,0x18}, "id-ce-invalidityDate" },
 	{ {0x55,0x1d,0x1b}, "id-ce-deltaCRLIndicator" },
 	{ {0x55,0x1d,0x1c}, "id-ce-issuingDistributionPoint" },
@@ -4339,7 +537,7 @@ std::unordered_map<std::string, std::string> oid_dict = {
 	{ {0x55,0x1d,0x22}, "DeprecatedpolicyConstraints" },
 	{ {0x55,0x1d,0x23}, "id-ce-authorityKeyIdentifier" },
 	{ {0x55,0x1d,0x24}, "id-ce-policyConstraints" },
-	{ {0x55,0x1d,0x25}, "id-ce-extKeyUsage" },
+	{ {0x55,0x1d,0x25}, "ext_key_usage" },
 	{ {0x55,0x1d,0x25,0x00}, "anyExtendedKeyUsage" },
 	{ {0x55,0x1d,0x2e}, "id-ce-freshestCRL" },
 	{ {0x55,0x1d,0x36}, "id-ce-inhibitAnyPolicy" },
@@ -4454,7 +652,7 @@ enum oid {
 	id_tc26_digest_gost3411_12_512 = 58,
 	id_tc26_signwithdigest_gost3410_12_256 = 59,
 	id_tc26_signwithdigest_gost3410_12_512 = 60,
-	ecdsa_with_SHA256 = 61,
+	ecdsa_with_SHA256_1_ = 61,
 	id_dsa = 62,
 	id_dsa_with_sha1 = 63,
 	ansi_X9_62 = 64,
@@ -4467,513 +665,523 @@ enum oid {
 	ppBasis = 71,
 	id_publicKeyType = 72,
 	id_ecPublicKey = 73,
-	ellipticCurve_1_ = 74,
-	secp192r1 = 75,
-	secp256r1 = 76,
-	id_ecSigType = 77,
-	ecdsa_with_SHA1 = 78,
-	ecdsa_with_SHA224 = 79,
-	ecdsa_with_SHA256_1_ = 80,
-	ecdsa_with_SHA384 = 81,
-	ecdsa_with_SHA512 = 82,
-	dhpublicnumber = 83,
-	pkcs_1 = 84,
-	rsaEncryption = 85,
-	md2WithRSAEncryption = 86,
-	md5WithRSAEncryption = 87,
-	sha1WithRSAEncryption = 88,
-	id_RSAES_OAEP = 89,
-	id_mgf1 = 90,
-	id_pSpecified = 91,
-	id_RSASSA_PSS = 92,
-	sha256WithRSAEncryption = 93,
-	sha384WithRSAEncryption = 94,
-	sha512WithRSAEncryption = 95,
-	sha224WithRSAEncryption = 96,
-	sha512_224WithRSAEncryption = 97,
-	sha512_256WithRSAEncryption = 98,
-	pkcs_9 = 99,
-	pkcs_9_mo = 100,
-	id_emailAddress = 101,
-	pkcs_9_at_unstructuredName = 102,
-	pkcs_9_at_contentType = 103,
-	pkcs_9_at_messageDigest = 104,
-	pkcs_9_at_signingTime = 105,
-	pkcs_9_at_counterSignature = 106,
-	pkcs_9_at_challengePassword = 107,
-	pkcs_9_at_unstructuredAddress = 108,
-	pkcs_9_at_extendedCertificateAttributes = 109,
-	pkcs_9_at_signingDescription = 110,
-	pkcs_9_at_extensionRequest = 111,
-	pkcs_9_at_smimeCapabilities = 112,
-	smime = 113,
-	id_aa = 114,
-	id_aa_cmc_unsignedData = 115,
-	pkcs_9_at_friendlyName = 116,
-	pkcs_9_at_localKeyId = 117,
-	certTypes = 118,
-	crlTypes = 119,
-	pkcs_9_oc = 120,
-	pkcs_9_oc_pkcsEntity = 121,
-	pkcs_9_oc_naturalPerson = 122,
-	pkcs_9_at = 123,
-	pkcs_9_at_pkcs15Token = 124,
-	pkcs_9_at_encryptedPrivateKeyInfo = 125,
-	pkcs_9_at_randomNonce = 126,
-	pkcs_9_at_sequenceNumber = 127,
-	pkcs_9_at_pkcs7PDU = 128,
-	pkcs_9_sx = 129,
-	pkcs_9_sx_pkcs9String = 130,
-	pkcs_9_sx_signingTime = 131,
-	pkcs_9_mr = 132,
-	pkcs_9_mr_caseIgnoreMatch = 133,
-	pkcs_9_mr_signingTimeMatch = 134,
-	md2 = 135,
-	md5 = 136,
-	id_md5 = 137,
-	SPC_INDIRECT_DATA_OBJID = 138,
-	SPC_SP_AGENCY_INFO_OBJID = 139,
-	SPC_STATEMENT_TYPE_OBJID = 140,
-	SPC_SP_OPUS_INFO_OBJID = 141,
-	SPC_CERT_EXTENSIONS_OBJID = 142,
-	SPC_PE_IMAGE_DATA_OBJID = 143,
-	SPC_RAW_FILE_DATA_OBJID = 144,
-	SPC_STRUCTURED_STORAGE_DATA_OBJID = 145,
-	SPC_JAVA_CLASS_DATA_OBJID = 146,
-	SPC_INDIVIDUAL_SP_KEY_PURPOSE_OBJID = 147,
-	SPC_COMMERCIAL_SP_KEY_PURPOSE_OBJID = 148,
-	SPC_CAB_DATA_OBJID = 149,
-	SPC_MINIMAL_CRITERIA_OBJID = 150,
-	SPC_FINANCIAL_CRITERIA_OBJID = 151,
-	SPC_LINK_OBJID = 152,
-	SPC_HASH_INFO_OBJID = 153,
-	SPC_SIPINFO_OBJID = 154,
-	szOID_TRUSTED_CODESIGNING_CA_LIST = 155,
-	szOID_TRUSTED_CLIENT_AUTH_CA_LIST = 156,
-	szOID_TRUSTED_SERVER_AUTH_CA_LIST = 157,
-	SPC_TIME_STAMP_REQUEST_OBJID = 158,
-	OID_CTL = 159,
-	szOID_SORTED_CTL = 160,
-	szOID_NEXT_UPDATE_LOCATION = 161,
-	szOID_KP_CTL_USAGE_SIGNING = 162,
-	szOID_KP_TIME_STAMP_SIGNING = 163,
-	szOID_SERVER_GATED_CRYPTO = 164,
-	szOID_SERIALIZED = 165,
-	szOID_EFS_CRYPTO = 166,
-	szOID_EFS_RECOVERY = 167,
-	szOID_WHQL_CRYPTO = 168,
-	szOID_NT5_CRYPTO = 169,
-	szOID_OEM_WHQL_CRYPTO = 170,
-	szOID_EMBEDDED_NT_CRYPTO = 171,
-	OID_ROOT_LIST_SIGNER = 172,
-	szOID_KP_QUALIFIED_SUBORDINATION = 173,
-	szOID_KP_KEY_RECOVERY = 174,
-	szOID_KP_DOCUMENT_SIGNING = 175,
-	szOID_KP_LIFETIME_SIGNING = 176,
-	szOID_KP_MOBILE_DEVICE_SOFTWARE = 177,
-	szOID_YESNO_TRUST_ATTR = 178,
-	szOID_DRM = 179,
-	szOID_DRM_INDIVIDUALIZATION = 180,
-	szOID_LICENSES = 181,
-	szOID_LICENSE_SERVER = 182,
-	szOID_MICROSOFT_RDN_PREFIX = 183,
-	szOID_KEYID_RDN = 184,
-	szOID_REMOVE_CERTIFICATE = 185,
-	szOID_CROSS_CERT_DIST_POINTS = 186,
-	szOID_CMC_ADD_ATTRIBUTES = 187,
-	szOID_CERT_PROP_ID_PREFIX = 188,
-	OID_CERT_PROP_ID_METAEKUS = 189,
-	CERT_FRIENDLY_NAME_PROP_ID = 190,
-	OID_CERT_KEY_IDENTIFIER_PROP_ID = 191,
-	OID_CERT_SUBJECT_NAME_MD5_HASH_PROP_ID = 192,
-	CERT_ROOT_PROGRAM_CERT_POLICIES_PROP_ID = 193,
-	OID_CERT_PROP_ID_PREFIX_98 = 194,
-	OID_CERT_PROP_ID_PREFIX_105 = 195,
-	szOID_ANY_APPLICATION_POLICY = 196,
-	szOID_CATALOG_LIST = 197,
-	szOID_CATALOG_LIST_MEMBER = 198,
-	CAT_NAMEVALUE_OBJID = 199,
-	CAT_MEMBERINFO_OBJID = 200,
-	szOID_RENEWAL_CERTIFICATE = 201,
-	szOID_ENROLLMENT_NAME_VALUE_PAIR = 202,
-	szOID_ENROLLMENT_CSP_PROVIDER = 203,
-	szOID_OS_VERSION = 204,
-	szOID_MICROSOFT_Encryption_Key_Preference = 205,
-	szOID_LOCAL_MACHINE_KEYSET = 206,
-	szOID_PKIX_LICENSE_INFO = 207,
-	szOID_PKIX_MANUFACTURER = 208,
-	szOID_PKIX_MANUFACTURER_MS_SPECIFIC = 209,
-	szOID_PKIX_HYDRA_CERT_VERSION = 210,
-	szOID_PKIX_LICENSED_PRODUCT_INFO = 211,
-	szOID_PKIX_MS_LICENSE_SERVER_INFO = 212,
-	szOID_PKIS_PRODUCT_SPECIFIC_OID = 213,
-	szOID_PKIS_TLSERVER_SPK_OID = 214,
-	szOID_AUTO_ENROLL_CTL_USAGE = 215,
-	szOID_ENROLL_CERTTYPE_EXTENSION = 216,
-	szOID_ENROLLMENT_AGENT = 217,
-	szOID_KP_SMARTCARD_LOGON = 218,
-	szOID_NT_PRINCIPAL_NAME = 219,
-	szOID_CERT_MANIFOLD = 220,
-	szOID_CERTSRV_CA_VERSION = 221,
-	szOID_CERTSRV_PREVIOUS_CERT_HASH = 222,
-	szOID_CRL_VIRTUAL_BASE = 223,
-	szOID_CRL_NEXT_PUBLISH = 224,
-	szOID_KP_CA_EXCHANGE = 225,
-	szOID_KP_KEY_RECOVERY_AGENT = 226,
-	szOID_CERTIFICATE_TEMPLATE = 227,
-	szOID_ENTERPRISE_OID_ROOT = 228,
-	szOID_RDN_DUMMY_SIGNER = 229,
-	szOID_APPLICATION_CERT_POLICIES = 230,
-	szOID_APPLICATION_POLICY_MAPPINGS = 231,
-	szOID_APPLICATION_POLICY_CONSTRAINTS = 232,
-	szOID_ARCHIVED_KEY_ATTR = 233,
-	szOID_CRL_SELF_CDP = 234,
-	szOID_REQUIRE_CERT_CHAIN_POLICY = 235,
-	szOID_ARCHIVED_KEY_CERT_HASH = 236,
-	szOID_ISSUED_CERT_HASH = 237,
-	szOID_DS_EMAIL_REPLICATION = 238,
-	szOID_REQUEST_CLIENT_INFO = 239,
-	szOID_ENCRYPTED_KEY_HASH = 240,
-	szOID_CERTSRV_CROSSCA_VERSION = 241,
-	szOID_NTDS_REPLICATION = 242,
-	szOID_IIS_VIRTUAL_SERVER = 243,
-	szOID_PRODUCT_UPDATE = 244,
-	szOID_PEERNET_CERT_TYPE = 245,
-	szOID_PEERNET_PEERNAME = 246,
-	szOID_PEERNET_CLASSIFIER = 247,
-	szOID_PEERNET_CERT_VERSION = 248,
-	szOID_PEERNET_PNRP = 249,
-	szOID_PEERNET_PNRP_ADDRESS = 250,
-	szOID_PEERNET_PNRP_FLAGS = 251,
-	szOID_PEERNET_PNRP_PAYLOAD = 252,
-	szOID_PEERNET_PNRP_ID = 253,
-	szOID_PEERNET_IDENTITY = 254,
-	szOID_PEERNET_IDENTITY_FLAGS = 255,
-	szOID_PEERNET_GROUPING = 256,
-	szOID_PEERNET_GROUPING_PEERNAME = 257,
-	szOID_PEERNET_GROUPING_FLAGS = 258,
-	szOID_PEERNET_GROUPING_ROLES = 259,
-	szOID_PEERNET_GROUPING_CLASSIFIERS = 260,
-	OID_ROOT_PROGRAM_FLAGS_BITSTRING = 261,
-	jurisdictionOfIncorporationLocalityName = 262,
-	jurisdictionOfIncorporationStateOrProvinceName = 263,
-	jurisdictionOfIncorporationCountryName = 264,
-	driveEncryption = 265,
-	szOID_CAPICOM = 266,
-	szOID_CAPICOM_VERSION = 267,
-	szOID_CAPICOM_ATTRIBUTE = 268,
-	szOID_CAPICOM_DOCUMENT_NAME = 269,
-	szOID_CAPICOM_DOCUMENT_DESCRIPTION = 270,
-	szOID_CAPICOM_ENCRYPTED_DATA = 271,
-	szOID_CAPICOM_ENCRYPTED_CONTENT = 272,
-	Network_Solutions__EV_CPS = 273,
-	GlobalSign_EV_CPS = 274,
-	D_TRUST_EV_CPS = 275,
-	Verizon_Business_EV_CPS = 276,
-	Comodo_Group_EV_CPS = 277,
-	T_Systems_EV_CPS = 278,
-	QuoVadis_EV_CPS = 279,
-	id_ce_SignedCertificateTimestampList = 280,
-	id_ad_ocsp_SignedCertificateTimestampList = 281,
-	Firmaprofesional_EV_CPS = 282,
-	GeoTrust_EV_CPS = 283,
-	Izenpe_EV_CPS = 284,
-	Camerfirma_EV_CPS_1_ = 285,
-	Camerfirma_EV_CPS = 286,
-	OpenTrust_DocuSign_France_EV_CPS = 287,
-	StartCom_Certification_Authority_EV_CPS_1_ = 288,
-	StartCom_Certification_Authority_EV_CPS = 289,
-	AffirmTrust_EV_CPS = 290,
-	AffirmTrust_EV_CPS_1_ = 291,
-	AffirmTrust_EV_CPS_2_ = 292,
-	AffirmTrust_EV_CPS_3_ = 293,
-	WoSign_EV_CPS = 294,
-	id_pkix = 295,
-	id_pe = 296,
-	id_pe_authorityInfoAccess = 297,
-	id_pe_biometricInfo = 298,
-	id_pe_qcStatements = 299,
-	id_pe_subjectInfoAccess = 300,
-	id_pe_logotype = 301,
-	id_qt = 302,
-	id_qt_cps = 303,
-	id_qt_unotice = 304,
-	id_kp = 305,
-	id_kp_serverAuth = 306,
-	id_kp_clientAuth = 307,
-	id_kp_codeSigning = 308,
-	id_kp_emailProtection = 309,
-	id_kp_ipsecEndSystem = 310,
-	id_kp_ipsecTunnel = 311,
-	id_kp_ipsecUser = 312,
-	id_kp_timeStamping = 313,
-	id_kp_OCSPSigning = 314,
-	id_kp_cmcCA = 315,
-	id_kp_cmcRA = 316,
-	id_alg_noSignature = 317,
-	id_RSASSA_PSS_SHAKE128 = 318,
-	id_RSASSA_PSS_SHAKE256 = 319,
-	id_ecdsa_with_shake128 = 320,
-	id_ecdsa_with_shake256 = 321,
-	id_cmc = 322,
-	id_cmc_statusInfo = 323,
-	id_cmc_identification = 324,
-	id_cmc_identityProof = 325,
-	id_cmc_dataReturn = 326,
-	id_cmc_transactionId = 327,
-	id_cmc_senderNonce = 328,
-	id_cmc_recipientNonce = 329,
-	id_cmc_addExtensions = 330,
-	id_cmc_encryptedPOP = 331,
-	id_cmc_decryptedPOP = 332,
-	id_cmc_lraPOPWitness = 333,
-	id_cmc_getCert = 334,
-	id_cmc_getCRL = 335,
-	id_cmc_revokeRequest = 336,
-	id_cmc_regInfo = 337,
-	id_cmc_responseInfo = 338,
-	id_cmc_queryPending = 339,
-	id_cmc_popLinkRandom = 340,
-	id_cmc_popLinkWitness = 341,
-	id_cmc_confirmCertAcceptance = 342,
-	id_cmc_statusInfoV2 = 343,
-	id_cmc_trustedAnchors = 344,
-	id_cmc_authData = 345,
-	id_cmc_batchRequests = 346,
-	id_cmc_batchResponses = 347,
-	id_cmc_publishCert = 348,
-	id_cmc_modCertTemplate = 349,
-	id_cmc_controlProcessed = 350,
-	id_cmc_popLinkWitnessV2 = 351,
-	id_cmc_identityProofV2 = 352,
-	id_cmc_raIdentityWitness = 353,
-	id_cmc_changeSubjectName = 354,
-	id_cmc_responseBody = 355,
-	id_on = 356,
-	id_on_dnsSRV = 357,
-	id_on_SmtpUTF8Mailbox = 358,
-	ietf_at = 359,
-	pkcs_9_at_dateOfBirth = 360,
-	pkcs_9_at_placeOfBirth = 361,
-	pkcs_9_at_gender = 362,
-	pkcs_9_at_countryOfCitizenship = 363,
-	pkcs_9_at_countryOfResidence = 364,
-	id_qcs = 365,
-	id_qcs_pkixQCSyntax_v1 = 366,
-	id_qcs_pkixQCSyntax_v2 = 367,
-	id_cct = 368,
-	id_cct_PKIData = 369,
-	id_cct_PKIResponse = 370,
-	id_logo = 371,
-	id_logo_loyalty = 372,
-	id_logo_background = 373,
-	id_ad = 374,
-	id_ad_ocsp = 375,
-	id_pkix_ocsp_basic = 376,
-	id_pkix_ocsp_nonce = 377,
-	id_pkix_ocsp_crl = 378,
-	id_pkix_ocsp_response = 379,
-	id_pkix_ocsp_nocheck = 380,
-	id_pkix_ocsp_archive_cutoff = 381,
-	id_pkix_ocsp_service_locator = 382,
-	id_pkix_ocsp_pref_sig_algs = 383,
-	id_pkix_ocsp_extended_revoke = 384,
-	id_ad_caIssuers = 385,
-	id_ad_timeStamping = 386,
-	id_ad_caRepository = 387,
-	id_ad_cmc = 388,
-	id_sha_with_rsa_signature = 389,
-	id_sha1 = 390,
-	sha_1WithRSAEncryption = 391,
-	ecStdCurvesAndGeneration = 392,
-	ellipticCurve_2_ = 393,
-	id_edwards_curve_algs = 394,
-	id_X25519 = 395,
-	id_X448 = 396,
-	id_Ed25519 = 397,
-	id_Ed448 = 398,
-	certicom_arc = 399,
-	ellipticCurve = 400,
-	c_TwoCurve = 401,
-	c2pnb163v1 = 402,
-	c2pnb163v2 = 403,
-	c2pnb163v3 = 404,
-	c2pnb176w1 = 405,
-	c2tnb191v1 = 406,
-	c2tnb191v2 = 407,
-	c2tnb191v3 = 408,
-	c2onb191v4 = 409,
-	c2onb191v5 = 410,
-	c2pnb208w1 = 411,
-	c2tnb239v1 = 412,
-	c2tnb239v2 = 413,
-	c2tnb239v3 = 414,
-	c2onb239v4 = 415,
-	c2onb239v5 = 416,
-	c2pnb272w1 = 417,
-	c2pnb304w1 = 418,
-	c2tnb359v1 = 419,
-	c2pnb368w1 = 420,
-	c2tnb431r1 = 421,
-	sect163k1 = 422,
-	prime192v1 = 423,
-	prime192v2 = 424,
-	prime192v3 = 425,
-	prime239v1 = 426,
-	prime239v2 = 427,
-	prime239v3 = 428,
-	prime256v1 = 429,
-	brainpoolP256t1 = 430,
-	brainpoolP320r1 = 431,
-	brainpoolP320t1 = 432,
-	brainpoolP384r1 = 433,
-	brainpoolP384t1 = 434,
-	brainpoolP512r1 = 435,
-	brainpoolP512t1 = 436,
-	sect163r1 = 437,
-	sect239k1 = 438,
-	secp256k1 = 439,
-	sect163r2 = 440,
-	sect283k1 = 441,
-	sect283r1 = 442,
-	sect233k1 = 443,
-	sect233r1 = 444,
-	secp192k1 = 445,
-	secp224k1 = 446,
-	secp224r1 = 447,
-	secp384r1 = 448,
-	secp521r1 = 449,
-	sect409k1 = 450,
-	sect409r1 = 451,
-	sect571k1 = 452,
-	sect571r1 = 453,
-	id_ecDH = 454,
-	id_ecMQV = 455,
-	Actalis_EV_CPS = 456,
-	holdInstruction = 457,
-	id_holdinstruction_none = 458,
-	id_holdinstruction_callissuer = 459,
-	id_holdinstruction_reject = 460,
-	id_at = 461,
-	common_name = 462,
-	surname = 463,
-	serial_number = 464,
-	country_name = 465,
-	locality_name = 466,
-	state_or_province_name = 467,
-	street = 468,
-	organization_name = 469,
-	organizational_unit_name = 470,
-	title = 471,
-	description = 472,
-	search_guide = 473,
-	business_category = 474,
-	postal_address = 475,
-	postal_code = 476,
-	post_office_box = 477,
-	physical_delivery_office_name = 478,
-	telephone_number = 479,
-	telex_number = 480,
-	teletex_terminal_identifier = 481,
-	facsimile_telephone_number = 482,
-	x121_address = 483,
-	international_isdn_number = 484,
-	registered_address = 485,
-	destination_indicator = 486,
-	preferred_delivery_method = 487,
-	member = 488,
-	owner = 489,
-	role_occupant = 490,
-	see_also = 491,
-	user_password = 492,
-	name = 493,
-	given_name = 494,
-	initials = 495,
-	generation_qualifier = 496,
-	x500_unique_identifier = 497,
-	dn_qualifier = 498,
-	enhanced_search_guide = 499,
-	distinguished_name = 500,
-	unique_member = 501,
-	house_identifier = 502,
-	id_at_pseudonym = 503,
-	id_ce = 504,
-	DeprecatedAuthorityKeyIdentifier = 505,
-	DeprecatedSubjectAltName = 506,
-	id_ce_subjectDirectoryAttributes = 507,
-	id_ce_subjectKeyIdentifier = 508,
-	id_ce_keyUsage = 509,
-	id_ce_privateKeyUsagePeriod = 510,
-	id_ce_subjectAltName = 511,
-	id_ce_issuerAltName = 512,
-	id_ce_basicConstraints = 513,
-	id_ce_cRLNumber = 514,
-	id_ce_cRLReasons = 515,
-	id_ce_holdInstructionCode = 516,
-	id_ce_invalidityDate = 517,
-	id_ce_deltaCRLIndicator = 518,
-	id_ce_issuingDistributionPoint = 519,
-	id_ce_certificateIssuer = 520,
-	id_ce_nameConstraints = 521,
-	id_ce_cRLDistributionPoints = 522,
-	id_ce_certificatePolicies = 523,
-	anyPolicy = 524,
-	id_ce_policyMappings = 525,
-	DeprecatedpolicyConstraints = 526,
-	id_ce_authorityKeyIdentifier = 527,
-	id_ce_policyConstraints = 528,
-	id_ce_extKeyUsage = 529,
-	anyExtendedKeyUsage = 530,
-	id_ce_freshestCRL = 531,
-	id_ce_inhibitAnyPolicy = 532,
-	DigiNotar_EV_CPS = 533,
-	Logius_PKIoverheid_EV_CPS = 534,
-	Buypass_EV_CPS = 535,
-	Swisscom_EV_CPS = 536,
-	SwissSign_EV_CPS = 537,
-	Kamu_Sertifikasyon_Merkezi_EV_CPS = 538,
-	E_Tugra_EV_CPS = 539,
-	id_keyExchangeAlgorithm = 540,
-	hashAlgs = 541,
-	id_sha256 = 542,
-	id_sha384 = 543,
-	id_sha512 = 544,
-	id_sha224 = 545,
-	id_shake128 = 546,
-	id_shake256 = 547,
-	id_hmacWithSHA3_224 = 548,
-	id_hmacWithSHA3_256 = 549,
-	id_hmacWithSHA3_384 = 550,
-	id_hmacWithSHA3_512 = 551,
-	id_KmacWithSHAKE128 = 552,
-	id_KmacWithSHAKE256 = 553,
-	sigAlgs = 554,
-	id_dsa_with_sha224 = 555,
-	id_dsa_with_sha256 = 556,
-	id_ecdsa_with_sha3_224 = 557,
-	id_ecdsa_with_sha3_256 = 558,
-	id_ecdsa_with_sha3_384 = 559,
-	id_ecdsa_with_sha3_512 = 560,
-	id_rsassa_pkcs1_v1_5_with_sha3_224 = 561,
-	id_rsassa_pkcs1_v1_5_with_sha3_256 = 562,
-	id_rsassa_pkcs1_v1_5_with_sha3_384 = 563,
-	id_rsassa_pkcs1_v1_5_with_sha3_512 = 564,
-	NetscapeCertificateExtension = 565,
-	NetscapeCertType = 566,
-	RevocationURL = 567,
-	CaRevocationURL = 568,
-	SSLServerName = 569,
-	NetscapeCertificateComment = 570,
-	pkcs_9_at_userPKCS12 = 571,
-	Symantec_EV_CPS = 572,
-	Thawte_EV_CPS = 573,
-	Entrust_EV_CPS = 574,
-	Wells_Fargo_EV_CPS = 575,
-	Trustwave_EV_CPS = 576,
-	DigiCert_EV_CPS_1_ = 577,
-	DigiCert_EV_CPS = 578,
-	Go_Daddy_EV_CPS = 579,
-	Starfield_Technologies_EV_CPS = 580,
+	ellipticCurve = 74,
+	c_TwoCurve = 75,
+	c2pnb163v1 = 76,
+	c2pnb163v2 = 77,
+	c2pnb163v3 = 78,
+	c2pnb176w1 = 79,
+	c2tnb191v1 = 80,
+	c2tnb191v2 = 81,
+	c2tnb191v3 = 82,
+	c2onb191v4 = 83,
+	c2onb191v5 = 84,
+	c2pnb208w1 = 85,
+	c2tnb239v1 = 86,
+	c2tnb239v2 = 87,
+	c2tnb239v3 = 88,
+	c2onb239v4 = 89,
+	c2onb239v5 = 90,
+	c2pnb272w1 = 91,
+	c2pnb304w1 = 92,
+	c2tnb359v1 = 93,
+	c2pnb368w1 = 94,
+	c2tnb431r1 = 95,
+	primeCurve = 96,
+	prime192v1 = 97,
+	prime192v2 = 98,
+	prime192v3 = 99,
+	prime239v1 = 100,
+	prime239v2 = 101,
+	prime239v3 = 102,
+	prime256v1 = 103,
+	brainpoolP256t1 = 104,
+	brainpoolP320r1 = 105,
+	brainpoolP320t1 = 106,
+	brainpoolP384r1 = 107,
+	brainpoolP384t1 = 108,
+	brainpoolP512r1 = 109,
+	brainpoolP512t1 = 110,
+	sect163r1 = 111,
+	sect239k1 = 112,
+	secp256k1 = 113,
+	sect163r2_1_ = 114,
+	sect283k1_1_ = 115,
+	sect283r1_1_ = 116,
+	sect233k1_1_ = 117,
+	sect233r1_1_ = 118,
+	secp192k1 = 119,
+	secp224k1 = 120,
+	secp224r1_1_ = 121,
+	secp384r1_1_ = 122,
+	secp521r1_1_ = 123,
+	sect409k1_1_ = 124,
+	sect409r1_1_ = 125,
+	sect571k1_1_ = 126,
+	sect571r1_1_ = 127,
+	id_ecSigType = 128,
+	ecdsa_with_SHA1 = 129,
+	ecdsa_with_SHA224 = 130,
+	ecdsa_with_SHA256 = 131,
+	ecdsa_with_SHA384 = 132,
+	ecdsa_with_SHA512 = 133,
+	dhpublicnumber = 134,
+	email_address = 135,
+	rsaEncryption = 136,
+	md2WithRSAEncryption = 137,
+	md5WithRSAEncryption = 138,
+	sha1WithRSAEncryption = 139,
+	id_RSAES_OAEP = 140,
+	id_mgf1 = 141,
+	id_pSpecified = 142,
+	id_RSASSA_PSS = 143,
+	sha256WithRSAEncryption = 144,
+	sha384WithRSAEncryption = 145,
+	sha512WithRSAEncryption = 146,
+	sha224WithRSAEncryption = 147,
+	sha512_224WithRSAEncryption = 148,
+	sha512_256WithRSAEncryption = 149,
+	pkcs_9 = 150,
+	pkcs_9_mo = 151,
+	emailAddress = 152,
+	pkcs_9_at_unstructuredName = 153,
+	pkcs_9_at_contentType = 154,
+	pkcs_9_at_messageDigest = 155,
+	pkcs_9_at_signingTime = 156,
+	pkcs_9_at_counterSignature = 157,
+	pkcs_9_at_challengePassword = 158,
+	pkcs_9_at_unstructuredAddress = 159,
+	pkcs_9_at_extendedCertificateAttributes = 160,
+	pkcs_9_at_signingDescription = 161,
+	pkcs_9_at_extensionRequest = 162,
+	pkcs_9_at_smimeCapabilities = 163,
+	smime = 164,
+	id_aa = 165,
+	id_aa_cmc_unsignedData = 166,
+	pkcs_9_at_friendlyName = 167,
+	pkcs_9_at_localKeyId = 168,
+	certTypes = 169,
+	crlTypes = 170,
+	pkcs_9_oc = 171,
+	pkcs_9_oc_pkcsEntity = 172,
+	pkcs_9_oc_naturalPerson = 173,
+	pkcs_9_at = 174,
+	pkcs_9_at_pkcs15Token = 175,
+	pkcs_9_at_encryptedPrivateKeyInfo = 176,
+	pkcs_9_at_randomNonce = 177,
+	pkcs_9_at_sequenceNumber = 178,
+	pkcs_9_at_pkcs7PDU = 179,
+	pkcs_9_sx = 180,
+	pkcs_9_sx_pkcs9String = 181,
+	pkcs_9_sx_signingTime = 182,
+	pkcs_9_mr = 183,
+	pkcs_9_mr_caseIgnoreMatch = 184,
+	pkcs_9_mr_signingTimeMatch = 185,
+	md2 = 186,
+	md5 = 187,
+	id_md5 = 188,
+	SPC_INDIRECT_DATA_OBJID = 189,
+	SPC_SP_AGENCY_INFO_OBJID = 190,
+	SPC_STATEMENT_TYPE_OBJID = 191,
+	SPC_SP_OPUS_INFO_OBJID = 192,
+	SPC_CERT_EXTENSIONS_OBJID = 193,
+	SPC_PE_IMAGE_DATA_OBJID = 194,
+	SPC_RAW_FILE_DATA_OBJID = 195,
+	SPC_STRUCTURED_STORAGE_DATA_OBJID = 196,
+	SPC_JAVA_CLASS_DATA_OBJID = 197,
+	SPC_INDIVIDUAL_SP_KEY_PURPOSE_OBJID = 198,
+	SPC_COMMERCIAL_SP_KEY_PURPOSE_OBJID = 199,
+	SPC_CAB_DATA_OBJID = 200,
+	SPC_MINIMAL_CRITERIA_OBJID = 201,
+	SPC_FINANCIAL_CRITERIA_OBJID = 202,
+	SPC_LINK_OBJID = 203,
+	SPC_HASH_INFO_OBJID = 204,
+	SPC_SIPINFO_OBJID = 205,
+	szOID_TRUSTED_CODESIGNING_CA_LIST = 206,
+	szOID_TRUSTED_CLIENT_AUTH_CA_LIST = 207,
+	szOID_TRUSTED_SERVER_AUTH_CA_LIST = 208,
+	SPC_TIME_STAMP_REQUEST_OBJID = 209,
+	OID_CTL = 210,
+	szOID_SORTED_CTL = 211,
+	szOID_NEXT_UPDATE_LOCATION = 212,
+	szOID_KP_CTL_USAGE_SIGNING = 213,
+	szOID_KP_TIME_STAMP_SIGNING = 214,
+	szOID_SERVER_GATED_CRYPTO = 215,
+	szOID_SERIALIZED = 216,
+	szOID_EFS_CRYPTO = 217,
+	szOID_EFS_RECOVERY = 218,
+	szOID_WHQL_CRYPTO = 219,
+	szOID_NT5_CRYPTO = 220,
+	szOID_OEM_WHQL_CRYPTO = 221,
+	szOID_EMBEDDED_NT_CRYPTO = 222,
+	OID_ROOT_LIST_SIGNER = 223,
+	szOID_KP_QUALIFIED_SUBORDINATION = 224,
+	szOID_KP_KEY_RECOVERY = 225,
+	szOID_KP_DOCUMENT_SIGNING = 226,
+	szOID_KP_LIFETIME_SIGNING = 227,
+	szOID_KP_MOBILE_DEVICE_SOFTWARE = 228,
+	szOID_YESNO_TRUST_ATTR = 229,
+	szOID_DRM = 230,
+	szOID_DRM_INDIVIDUALIZATION = 231,
+	szOID_LICENSES = 232,
+	szOID_LICENSE_SERVER = 233,
+	szOID_MICROSOFT_RDN_PREFIX = 234,
+	szOID_KEYID_RDN = 235,
+	szOID_REMOVE_CERTIFICATE = 236,
+	szOID_CROSS_CERT_DIST_POINTS = 237,
+	szOID_CMC_ADD_ATTRIBUTES = 238,
+	szOID_CERT_PROP_ID_PREFIX = 239,
+	OID_CERT_PROP_ID_METAEKUS = 240,
+	CERT_FRIENDLY_NAME_PROP_ID = 241,
+	OID_CERT_KEY_IDENTIFIER_PROP_ID = 242,
+	OID_CERT_SUBJECT_NAME_MD5_HASH_PROP_ID = 243,
+	CERT_ROOT_PROGRAM_CERT_POLICIES_PROP_ID = 244,
+	OID_CERT_PROP_ID_PREFIX_98 = 245,
+	OID_CERT_PROP_ID_PREFIX_105 = 246,
+	szOID_ANY_APPLICATION_POLICY = 247,
+	szOID_CATALOG_LIST = 248,
+	szOID_CATALOG_LIST_MEMBER = 249,
+	CAT_NAMEVALUE_OBJID = 250,
+	CAT_MEMBERINFO_OBJID = 251,
+	szOID_RENEWAL_CERTIFICATE = 252,
+	szOID_ENROLLMENT_NAME_VALUE_PAIR = 253,
+	szOID_ENROLLMENT_CSP_PROVIDER = 254,
+	szOID_OS_VERSION = 255,
+	szOID_MICROSOFT_Encryption_Key_Preference = 256,
+	szOID_LOCAL_MACHINE_KEYSET = 257,
+	szOID_PKIX_LICENSE_INFO = 258,
+	szOID_PKIX_MANUFACTURER = 259,
+	szOID_PKIX_MANUFACTURER_MS_SPECIFIC = 260,
+	szOID_PKIX_HYDRA_CERT_VERSION = 261,
+	szOID_PKIX_LICENSED_PRODUCT_INFO = 262,
+	szOID_PKIX_MS_LICENSE_SERVER_INFO = 263,
+	szOID_PKIS_PRODUCT_SPECIFIC_OID = 264,
+	szOID_PKIS_TLSERVER_SPK_OID = 265,
+	szOID_AUTO_ENROLL_CTL_USAGE = 266,
+	szOID_ENROLL_CERTTYPE_EXTENSION = 267,
+	szOID_ENROLLMENT_AGENT = 268,
+	szOID_KP_SMARTCARD_LOGON = 269,
+	szOID_NT_PRINCIPAL_NAME = 270,
+	szOID_CERT_MANIFOLD = 271,
+	szOID_CERTSRV_CA_VERSION = 272,
+	szOID_CERTSRV_PREVIOUS_CERT_HASH = 273,
+	szOID_CRL_VIRTUAL_BASE = 274,
+	szOID_CRL_NEXT_PUBLISH = 275,
+	szOID_KP_CA_EXCHANGE = 276,
+	szOID_KP_KEY_RECOVERY_AGENT = 277,
+	szOID_CERTIFICATE_TEMPLATE = 278,
+	szOID_ENTERPRISE_OID_ROOT = 279,
+	szOID_RDN_DUMMY_SIGNER = 280,
+	szOID_APPLICATION_CERT_POLICIES = 281,
+	szOID_APPLICATION_POLICY_MAPPINGS = 282,
+	szOID_APPLICATION_POLICY_CONSTRAINTS = 283,
+	szOID_ARCHIVED_KEY_ATTR = 284,
+	szOID_CRL_SELF_CDP = 285,
+	szOID_REQUIRE_CERT_CHAIN_POLICY = 286,
+	szOID_ARCHIVED_KEY_CERT_HASH = 287,
+	szOID_ISSUED_CERT_HASH = 288,
+	szOID_DS_EMAIL_REPLICATION = 289,
+	szOID_REQUEST_CLIENT_INFO = 290,
+	szOID_ENCRYPTED_KEY_HASH = 291,
+	szOID_CERTSRV_CROSSCA_VERSION = 292,
+	szOID_NTDS_REPLICATION = 293,
+	szOID_IIS_VIRTUAL_SERVER = 294,
+	szOID_PRODUCT_UPDATE = 295,
+	szOID_PEERNET_CERT_TYPE = 296,
+	szOID_PEERNET_PEERNAME = 297,
+	szOID_PEERNET_CLASSIFIER = 298,
+	szOID_PEERNET_CERT_VERSION = 299,
+	szOID_PEERNET_PNRP = 300,
+	szOID_PEERNET_PNRP_ADDRESS = 301,
+	szOID_PEERNET_PNRP_FLAGS = 302,
+	szOID_PEERNET_PNRP_PAYLOAD = 303,
+	szOID_PEERNET_PNRP_ID = 304,
+	szOID_PEERNET_IDENTITY = 305,
+	szOID_PEERNET_IDENTITY_FLAGS = 306,
+	szOID_PEERNET_GROUPING = 307,
+	szOID_PEERNET_GROUPING_PEERNAME = 308,
+	szOID_PEERNET_GROUPING_FLAGS = 309,
+	szOID_PEERNET_GROUPING_ROLES = 310,
+	szOID_PEERNET_GROUPING_CLASSIFIERS = 311,
+	OID_ROOT_PROGRAM_FLAGS_BITSTRING = 312,
+	jurisdiction_of_incorporation_locality_name = 313,
+	jurisdiction_of_incorporation_state_or_province_name = 314,
+	jurisdiction_of_incorporation_country_name = 315,
+	driveEncryption = 316,
+	szOID_CAPICOM = 317,
+	szOID_CAPICOM_VERSION = 318,
+	szOID_CAPICOM_ATTRIBUTE = 319,
+	szOID_CAPICOM_DOCUMENT_NAME = 320,
+	szOID_CAPICOM_DOCUMENT_DESCRIPTION = 321,
+	szOID_CAPICOM_ENCRYPTED_DATA = 322,
+	szOID_CAPICOM_ENCRYPTED_CONTENT = 323,
+	Network_Solutions__EV_CPS = 324,
+	GlobalSign_EV_CPS = 325,
+	D_TRUST_EV_CPS = 326,
+	Verizon_Business_EV_CPS = 327,
+	Comodo_Group_EV_CPS = 328,
+	T_Systems_EV_CPS = 329,
+	QuoVadis_EV_CPS = 330,
+	id_ce_SignedCertificateTimestampList = 331,
+	id_ad_ocsp_SignedCertificateTimestampList = 332,
+	Firmaprofesional_EV_CPS = 333,
+	GeoTrust_EV_CPS = 334,
+	Izenpe_EV_CPS = 335,
+	Camerfirma_EV_CPS_1_ = 336,
+	Camerfirma_EV_CPS = 337,
+	OpenTrust_DocuSign_France_EV_CPS = 338,
+	StartCom_Certification_Authority_EV_CPS_1_ = 339,
+	StartCom_Certification_Authority_EV_CPS = 340,
+	AffirmTrust_EV_CPS = 341,
+	AffirmTrust_EV_CPS_1_ = 342,
+	AffirmTrust_EV_CPS_2_ = 343,
+	AffirmTrust_EV_CPS_3_ = 344,
+	WoSign_EV_CPS = 345,
+	id_pkix = 346,
+	id_pe = 347,
+	id_pe_authorityInfoAccess = 348,
+	id_pe_biometricInfo = 349,
+	id_pe_qcStatements = 350,
+	id_pe_subjectInfoAccess = 351,
+	id_pe_logotype = 352,
+	id_qt = 353,
+	id_qt_cps = 354,
+	id_qt_unotice = 355,
+	id_kp = 356,
+	id_kp_serverAuth = 357,
+	id_kp_clientAuth = 358,
+	id_kp_codeSigning = 359,
+	id_kp_emailProtection = 360,
+	id_kp_ipsecEndSystem = 361,
+	id_kp_ipsecTunnel = 362,
+	id_kp_ipsecUser = 363,
+	id_kp_timeStamping = 364,
+	id_kp_OCSPSigning = 365,
+	id_kp_cmcCA = 366,
+	id_kp_cmcRA = 367,
+	id_alg_noSignature = 368,
+	id_RSASSA_PSS_SHAKE128 = 369,
+	id_RSASSA_PSS_SHAKE256 = 370,
+	id_ecdsa_with_shake128 = 371,
+	id_ecdsa_with_shake256 = 372,
+	id_cmc = 373,
+	id_cmc_statusInfo = 374,
+	id_cmc_identification = 375,
+	id_cmc_identityProof = 376,
+	id_cmc_dataReturn = 377,
+	id_cmc_transactionId = 378,
+	id_cmc_senderNonce = 379,
+	id_cmc_recipientNonce = 380,
+	id_cmc_addExtensions = 381,
+	id_cmc_encryptedPOP = 382,
+	id_cmc_decryptedPOP = 383,
+	id_cmc_lraPOPWitness = 384,
+	id_cmc_getCert = 385,
+	id_cmc_getCRL = 386,
+	id_cmc_revokeRequest = 387,
+	id_cmc_regInfo = 388,
+	id_cmc_responseInfo = 389,
+	id_cmc_queryPending = 390,
+	id_cmc_popLinkRandom = 391,
+	id_cmc_popLinkWitness = 392,
+	id_cmc_confirmCertAcceptance = 393,
+	id_cmc_statusInfoV2 = 394,
+	id_cmc_trustedAnchors = 395,
+	id_cmc_authData = 396,
+	id_cmc_batchRequests = 397,
+	id_cmc_batchResponses = 398,
+	id_cmc_publishCert = 399,
+	id_cmc_modCertTemplate = 400,
+	id_cmc_controlProcessed = 401,
+	id_cmc_popLinkWitnessV2 = 402,
+	id_cmc_identityProofV2 = 403,
+	id_cmc_raIdentityWitness = 404,
+	id_cmc_changeSubjectName = 405,
+	id_cmc_responseBody = 406,
+	id_on = 407,
+	id_on_SmtpUTF8Mailbox = 408,
+	ietf_at = 409,
+	pkcs_9_at_dateOfBirth = 410,
+	pkcs_9_at_placeOfBirth = 411,
+	pkcs_9_at_gender = 412,
+	pkcs_9_at_countryOfCitizenship = 413,
+	pkcs_9_at_countryOfResidence = 414,
+	id_qcs = 415,
+	id_qcs_pkixQCSyntax_v1 = 416,
+	id_qcs_pkixQCSyntax_v2 = 417,
+	id_cct = 418,
+	id_cct_PKIData = 419,
+	id_cct_PKIResponse = 420,
+	id_logo = 421,
+	id_logo_loyalty = 422,
+	id_logo_background = 423,
+	id_ad = 424,
+	id_ad_ocsp = 425,
+	id_pkix_ocsp_basic = 426,
+	id_pkix_ocsp_nonce = 427,
+	id_pkix_ocsp_crl = 428,
+	id_pkix_ocsp_response = 429,
+	id_pkix_ocsp_nocheck = 430,
+	id_pkix_ocsp_archive_cutoff = 431,
+	id_pkix_ocsp_service_locator = 432,
+	id_pkix_ocsp_pref_sig_algs = 433,
+	id_pkix_ocsp_extended_revoke = 434,
+	id_ad_caIssuers = 435,
+	id_ad_timeStamping = 436,
+	id_ad_caRepository = 437,
+	id_ad_cmc = 438,
+	id_sha_with_rsa_signature = 439,
+	id_sha1 = 440,
+	sha_1WithRSAEncryption = 441,
+	ecStdCurvesAndGeneration = 442,
+	ellipticCurve_1_ = 443,
+	id_edwards_curve_algs = 444,
+	id_X25519 = 445,
+	id_X448 = 446,
+	id_Ed25519 = 447,
+	id_Ed448 = 448,
+	certicom_arc = 449,
+	ellipticCurve_2_ = 450,
+	sect163k1 = 451,
+	sect163r2 = 452,
+	sect283k1 = 453,
+	sect283r1 = 454,
+	sect233k1 = 455,
+	sect233r1 = 456,
+	secp224r1 = 457,
+	secp384r1 = 458,
+	secp521r1 = 459,
+	sect409k1 = 460,
+	sect409r1 = 461,
+	sect571k1 = 462,
+	sect571r1 = 463,
+	id_ecDH = 464,
+	id_ecMQV = 465,
+	Actalis_EV_CPS = 466,
+	holdInstruction = 467,
+	id_holdinstruction_none = 468,
+	id_holdinstruction_callissuer = 469,
+	id_holdinstruction_reject = 470,
+	id_at = 471,
+	common_name = 472,
+	surname = 473,
+	serial_number = 474,
+	country_name = 475,
+	locality_name = 476,
+	state_or_province_name = 477,
+	street = 478,
+	organization_name = 479,
+	organizational_unit_name = 480,
+	title = 481,
+	description = 482,
+	search_guide = 483,
+	business_category = 484,
+	postal_address = 485,
+	postal_code = 486,
+	post_office_box = 487,
+	physical_delivery_office_name = 488,
+	telephone_number = 489,
+	telex_number = 490,
+	teletex_terminal_identifier = 491,
+	facsimile_telephone_number = 492,
+	x121_address = 493,
+	international_isdn_number = 494,
+	registered_address = 495,
+	destination_indicator = 496,
+	preferred_delivery_method = 497,
+	member = 498,
+	owner = 499,
+	role_occupant = 500,
+	see_also = 501,
+	user_password = 502,
+	name = 503,
+	given_name = 504,
+	initials = 505,
+	generation_qualifier = 506,
+	x500_unique_identifier = 507,
+	dn_qualifier = 508,
+	enhanced_search_guide = 509,
+	distinguished_name = 510,
+	unique_member = 511,
+	house_identifier = 512,
+	pseudonym = 513,
+	id_ce = 514,
+	DeprecatedAuthorityKeyIdentifier = 515,
+	DeprecatedSubjectAltName = 516,
+	id_ce_subjectDirectoryAttributes = 517,
+	id_ce_subjectKeyIdentifier = 518,
+	key_usage = 519,
+	id_ce_privateKeyUsagePeriod = 520,
+	subject_alt_name = 521,
+	id_ce_issuerAltName = 522,
+	id_ce_basicConstraints = 523,
+	id_ce_cRLNumber = 524,
+	id_ce_reasonCode = 525,
+	id_ce_instructionCode = 526,
+	id_ce_invalidityDate = 527,
+	id_ce_deltaCRLIndicator = 528,
+	id_ce_issuingDistributionPoint = 529,
+	id_ce_certificateIssuer = 530,
+	id_ce_nameConstraints = 531,
+	id_ce_cRLDistributionPoints = 532,
+	id_ce_certificatePolicies = 533,
+	anyPolicy = 534,
+	id_ce_policyMappings = 535,
+	DeprecatedpolicyConstraints = 536,
+	id_ce_authorityKeyIdentifier = 537,
+	id_ce_policyConstraints = 538,
+	ext_key_usage = 539,
+	anyExtendedKeyUsage = 540,
+	id_ce_freshestCRL = 541,
+	id_ce_inhibitAnyPolicy = 542,
+	DigiNotar_EV_CPS = 543,
+	Logius_PKIoverheid_EV_CPS = 544,
+	Buypass_EV_CPS = 545,
+	Swisscom_EV_CPS = 546,
+	SwissSign_EV_CPS = 547,
+	Kamu_Sertifikasyon_Merkezi_EV_CPS = 548,
+	E_Tugra_EV_CPS = 549,
+	id_keyExchangeAlgorithm = 550,
+	hashAlgs = 551,
+	id_sha256 = 552,
+	id_sha384 = 553,
+	id_sha512 = 554,
+	id_sha224 = 555,
+	id_shake128 = 556,
+	id_shake256 = 557,
+	id_hmacWithSHA3_224 = 558,
+	id_hmacWithSHA3_256 = 559,
+	id_hmacWithSHA3_384 = 560,
+	id_hmacWithSHA3_512 = 561,
+	id_KmacWithSHAKE128 = 562,
+	id_KmacWithSHAKE256 = 563,
+	sigAlgs = 564,
+	id_dsa_with_sha224 = 565,
+	id_dsa_with_sha256 = 566,
+	id_ecdsa_with_sha3_224 = 567,
+	id_ecdsa_with_sha3_256 = 568,
+	id_ecdsa_with_sha3_384 = 569,
+	id_ecdsa_with_sha3_512 = 570,
+	id_rsassa_pkcs1_v1_5_with_sha3_224 = 571,
+	id_rsassa_pkcs1_v1_5_with_sha3_256 = 572,
+	id_rsassa_pkcs1_v1_5_with_sha3_384 = 573,
+	id_rsassa_pkcs1_v1_5_with_sha3_512 = 574,
+	NetscapeCertificateExtension = 575,
+	NetscapeCertType = 576,
+	RevocationURL = 577,
+	CaRevocationURL = 578,
+	SSLServerName = 579,
+	NetscapeCertificateComment = 580,
+	pkcs_9_at_userPKCS12 = 581,
+	Symantec_EV_CPS = 582,
+	Thawte_EV_CPS = 583,
+	Entrust_EV_CPS = 584,
+	Wells_Fargo_EV_CPS = 585,
+	Trustwave_EV_CPS = 586,
+	DigiCert_EV_CPS_1_ = 587,
+	DigiCert_EV_CPS = 588,
+	Go_Daddy_EV_CPS = 589,
+	Starfield_Technologies_EV_CPS = 590,
 };
 std::unordered_map<std::string, enum oid> oid_to_enum = {
 	{ {0x04,0x00,0x8f,0x7a,0x01,0x04}, ETSI_EV_CPS },
@@ -5036,7 +1244,7 @@ std::unordered_map<std::string, enum oid> oid_to_enum = {
 	{ {0x2a,0x85,0x03,0x07,0x01,0x01,0x02,0x03}, id_tc26_digest_gost3411_12_512 },
 	{ {0x2a,0x85,0x03,0x07,0x01,0x01,0x03,0x02}, id_tc26_signwithdigest_gost3410_12_256 },
 	{ {0x2a,0x85,0x03,0x07,0x01,0x01,0x03,0x03}, id_tc26_signwithdigest_gost3410_12_512 },
-	{ {0x2a,0x86,0x48,0x04,0x03,0x02}, ecdsa_with_SHA256 },
+	{ {0x2a,0x86,0x48,0x04,0x03,0x02}, ecdsa_with_SHA256_1_ },
 	{ {0x2a,0x86,0x48,0xce,0x38,0x04,0x01}, id_dsa },
 	{ {0x2a,0x86,0x48,0xce,0x38,0x04,0x03}, id_dsa_with_sha1 },
 	{ {0x2a,0x86,0x48,0xce,0x3d}, ansi_X9_62 },
@@ -5049,17 +1257,68 @@ std::unordered_map<std::string, enum oid> oid_to_enum = {
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x01,0x02,0x03,0x03}, ppBasis },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x02}, id_publicKeyType },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x02,0x01}, id_ecPublicKey },
-	{ {0x2a,0x86,0x48,0xce,0x3d,0x03}, ellipticCurve_1_ },
-	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x01}, secp192r1 },
-	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x07}, secp256r1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03}, ellipticCurve },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00}, c_TwoCurve },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x01}, c2pnb163v1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x02}, c2pnb163v2 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x03}, c2pnb163v3 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x04}, c2pnb176w1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x05}, c2tnb191v1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x06}, c2tnb191v2 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x07}, c2tnb191v3 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x08}, c2onb191v4 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x09}, c2onb191v5 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0a}, c2pnb208w1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0b}, c2tnb239v1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0c}, c2tnb239v2 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0d}, c2tnb239v3 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0e}, c2onb239v4 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x0f}, c2onb239v5 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x10}, c2pnb272w1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x11}, c2pnb304w1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x12}, c2tnb359v1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x13}, c2pnb368w1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x00,0x14}, c2tnb431r1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01}, primeCurve },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x01}, prime192v1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x02}, prime192v2 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x03}, prime192v3 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x04}, prime239v1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x05}, prime239v2 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x06}, prime239v3 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x07}, prime256v1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x08}, brainpoolP256t1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x09}, brainpoolP320r1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0a}, brainpoolP320t1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0b}, brainpoolP384r1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0c}, brainpoolP384t1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0d}, brainpoolP512r1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x0e}, brainpoolP512t1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x02}, sect163r1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x03}, sect239k1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x0a}, secp256k1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x0f}, sect163r2_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x10}, sect283k1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x11}, sect283r1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x1a}, sect233k1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x1b}, sect233r1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x1f}, secp192k1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x20}, secp224k1 },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x21}, secp224r1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x22}, secp384r1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x23}, secp521r1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x24}, sect409k1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x25}, sect409r1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x26}, sect571k1_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x03,0x27}, sect571r1_1_ },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04}, id_ecSigType },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x01}, ecdsa_with_SHA1 },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x01}, ecdsa_with_SHA224 },
-	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x02}, ecdsa_with_SHA256_1_ },
+	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x02}, ecdsa_with_SHA256 },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x03}, ecdsa_with_SHA384 },
 	{ {0x2a,0x86,0x48,0xce,0x3d,0x04,0x03,0x04}, ecdsa_with_SHA512 },
 	{ {0x2a,0x86,0x48,0xce,0x3e,0x02,0x01}, dhpublicnumber },
-	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01}, pkcs_1 },
+	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01}, email_address },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01}, rsaEncryption },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x02}, md2WithRSAEncryption },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x04}, md5WithRSAEncryption },
@@ -5076,7 +1335,7 @@ std::unordered_map<std::string, enum oid> oid_to_enum = {
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x10}, sha512_256WithRSAEncryption },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09}, pkcs_9 },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x00}, pkcs_9_mo },
-	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x01}, id_emailAddress },
+	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x01}, emailAddress },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x02}, pkcs_9_at_unstructuredName },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x03}, pkcs_9_at_contentType },
 	{ {0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x09,0x04}, pkcs_9_at_messageDigest },
@@ -5237,9 +1496,9 @@ std::unordered_map<std::string, enum oid> oid_to_enum = {
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x2c,0x03,0x03}, szOID_PEERNET_GROUPING_ROLES },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x2c,0x03,0x05}, szOID_PEERNET_GROUPING_CLASSIFIERS },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x01,0x01}, OID_ROOT_PROGRAM_FLAGS_BITSTRING },
-	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x01}, jurisdictionOfIncorporationLocalityName },
-	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x02}, jurisdictionOfIncorporationStateOrProvinceName },
-	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x03}, jurisdictionOfIncorporationCountryName },
+	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x01}, jurisdiction_of_incorporation_locality_name },
+	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x02}, jurisdiction_of_incorporation_state_or_province_name },
+	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x3c,0x02,0x01,0x03}, jurisdiction_of_incorporation_country_name },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x54,0x01,0x01}, driveEncryption },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x58}, szOID_CAPICOM },
 	{ {0x2b,0x06,0x01,0x04,0x01,0x82,0x37,0x58,0x01}, szOID_CAPICOM_VERSION },
@@ -5332,7 +1591,6 @@ std::unordered_map<std::string, enum oid> oid_to_enum = {
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x07,0x24}, id_cmc_changeSubjectName },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x07,0x25}, id_cmc_responseBody },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x08}, id_on },
-	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x08,0x07}, id_on_dnsSRV },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x08,0x09}, id_on_SmtpUTF8Mailbox },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x09}, ietf_at },
 	{ {0x2b,0x06,0x01,0x05,0x05,0x07,0x09,0x01}, pkcs_9_at_dateOfBirth },
@@ -5368,60 +1626,20 @@ std::unordered_map<std::string, enum oid> oid_to_enum = {
 	{ {0x2b,0x0e,0x03,0x02,0x1a}, id_sha1 },
 	{ {0x2b,0x0e,0x03,0x02,0x1d}, sha_1WithRSAEncryption },
 	{ {0x2b,0x24,0x03,0x03,0x02,0x08}, ecStdCurvesAndGeneration },
-	{ {0x2b,0x24,0x03,0x03,0x02,0x08,0x01}, ellipticCurve_2_ },
+	{ {0x2b,0x24,0x03,0x03,0x02,0x08,0x01}, ellipticCurve_1_ },
 	{ {0x2b,0x65}, id_edwards_curve_algs },
 	{ {0x2b,0x65,0x6e}, id_X25519 },
 	{ {0x2b,0x65,0x6f}, id_X448 },
 	{ {0x2b,0x65,0x70}, id_Ed25519 },
 	{ {0x2b,0x65,0x71}, id_Ed448 },
 	{ {0x2b,0x81,0x04}, certicom_arc },
-	{ {0x2b,0x81,0x04,0x00}, ellipticCurve },
-	{ {0x2b,0x81,0x04,0x00,0x00}, c_TwoCurve },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x01}, c2pnb163v1 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x02}, c2pnb163v2 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x03}, c2pnb163v3 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x04}, c2pnb176w1 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x05}, c2tnb191v1 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x06}, c2tnb191v2 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x07}, c2tnb191v3 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x08}, c2onb191v4 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x09}, c2onb191v5 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0a}, c2pnb208w1 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0b}, c2tnb239v1 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0c}, c2tnb239v2 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0d}, c2tnb239v3 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0e}, c2onb239v4 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x0f}, c2onb239v5 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x10}, c2pnb272w1 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x11}, c2pnb304w1 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x12}, c2tnb359v1 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x13}, c2pnb368w1 },
-	{ {0x2b,0x81,0x04,0x00,0x00,0x14}, c2tnb431r1 },
+	{ {0x2b,0x81,0x04,0x00}, ellipticCurve_2_ },
 	{ {0x2b,0x81,0x04,0x00,0x01}, sect163k1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x01}, prime192v1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x02}, prime192v2 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x03}, prime192v3 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x04}, prime239v1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x05}, prime239v2 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x06}, prime239v3 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x07}, prime256v1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x08}, brainpoolP256t1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x09}, brainpoolP320r1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0a}, brainpoolP320t1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0b}, brainpoolP384r1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0c}, brainpoolP384t1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0d}, brainpoolP512r1 },
-	{ {0x2b,0x81,0x04,0x00,0x01,0x0e}, brainpoolP512t1 },
-	{ {0x2b,0x81,0x04,0x00,0x02}, sect163r1 },
-	{ {0x2b,0x81,0x04,0x00,0x03}, sect239k1 },
-	{ {0x2b,0x81,0x04,0x00,0x0a}, secp256k1 },
 	{ {0x2b,0x81,0x04,0x00,0x0f}, sect163r2 },
 	{ {0x2b,0x81,0x04,0x00,0x10}, sect283k1 },
 	{ {0x2b,0x81,0x04,0x00,0x11}, sect283r1 },
 	{ {0x2b,0x81,0x04,0x00,0x1a}, sect233k1 },
 	{ {0x2b,0x81,0x04,0x00,0x1b}, sect233r1 },
-	{ {0x2b,0x81,0x04,0x00,0x1f}, secp192k1 },
-	{ {0x2b,0x81,0x04,0x00,0x20}, secp224k1 },
 	{ {0x2b,0x81,0x04,0x00,0x21}, secp224r1 },
 	{ {0x2b,0x81,0x04,0x00,0x22}, secp384r1 },
 	{ {0x2b,0x81,0x04,0x00,0x23}, secp521r1 },
@@ -5478,20 +1696,20 @@ std::unordered_map<std::string, enum oid> oid_to_enum = {
 	{ {0x55,0x04,0x31}, distinguished_name },
 	{ {0x55,0x04,0x32}, unique_member },
 	{ {0x55,0x04,0x33}, house_identifier },
-	{ {0x55,0x04,0x41}, id_at_pseudonym },
+	{ {0x55,0x04,0x41}, pseudonym },
 	{ {0x55,0x1d}, id_ce },
 	{ {0x55,0x1d,0x01}, DeprecatedAuthorityKeyIdentifier },
 	{ {0x55,0x1d,0x07}, DeprecatedSubjectAltName },
 	{ {0x55,0x1d,0x09}, id_ce_subjectDirectoryAttributes },
 	{ {0x55,0x1d,0x0e}, id_ce_subjectKeyIdentifier },
-	{ {0x55,0x1d,0x0f}, id_ce_keyUsage },
+	{ {0x55,0x1d,0x0f}, key_usage },
 	{ {0x55,0x1d,0x10}, id_ce_privateKeyUsagePeriod },
-	{ {0x55,0x1d,0x11}, id_ce_subjectAltName },
+	{ {0x55,0x1d,0x11}, subject_alt_name },
 	{ {0x55,0x1d,0x12}, id_ce_issuerAltName },
 	{ {0x55,0x1d,0x13}, id_ce_basicConstraints },
 	{ {0x55,0x1d,0x14}, id_ce_cRLNumber },
-	{ {0x55,0x1d,0x15}, id_ce_cRLReasons },
-	{ {0x55,0x1d,0x17}, id_ce_holdInstructionCode },
+	{ {0x55,0x1d,0x15}, id_ce_reasonCode },
+	{ {0x55,0x1d,0x17}, id_ce_instructionCode },
 	{ {0x55,0x1d,0x18}, id_ce_invalidityDate },
 	{ {0x55,0x1d,0x1b}, id_ce_deltaCRLIndicator },
 	{ {0x55,0x1d,0x1c}, id_ce_issuingDistributionPoint },
@@ -5504,7 +1722,7 @@ std::unordered_map<std::string, enum oid> oid_to_enum = {
 	{ {0x55,0x1d,0x22}, DeprecatedpolicyConstraints },
 	{ {0x55,0x1d,0x23}, id_ce_authorityKeyIdentifier },
 	{ {0x55,0x1d,0x24}, id_ce_policyConstraints },
-	{ {0x55,0x1d,0x25}, id_ce_extKeyUsage },
+	{ {0x55,0x1d,0x25}, ext_key_usage },
 	{ {0x55,0x1d,0x25,0x00}, anyExtendedKeyUsage },
 	{ {0x55,0x1d,0x2e}, id_ce_freshestCRL },
 	{ {0x55,0x1d,0x36}, id_ce_inhibitAnyPolicy },

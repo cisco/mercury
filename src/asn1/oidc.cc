@@ -320,7 +320,7 @@ struct oid_set {
                 // for (auto &c : v) {
                 //    std::cout << c << ' ';
                 //}
-                std::cout << '\n';
+                //std::cout << '\n';
             }
         }
 
