@@ -10,6 +10,24 @@
 
 #include "utils.h"
 
+
+/* append_null(...)
+ * This is a special append function because all other append_...() functions
+ * leave room for a null in the buffer but don't actually put a null there.
+ * Provided the buffer isn't zero in size this function should always be able
+ * to put a null into the buffer even if the truncation flag is already set.
+ */
+static inline void append_null(char *dstr, int *doff, int dlen, int *trunc) {
+
+    /* Check to make sure the offset isn't already longer than the length */
+    if (*doff >= dlen) {
+        *trunc = 1;
+    }
+
+    dstr[*doff] = '\0';
+}
+
+
 /* append_snprintf
  * takes the base address of a string, the offset in the string, total length, and a truncation flag
  * and stores the desired snprintf() content at that offset.
@@ -74,15 +92,13 @@ static inline int append_strncpy(char *dstr, int *doff, int dlen, int *trunc,
             dstr[*doff + i] = sstr[i];
             i++;
         } else {
-            dstr[*doff + i] = sstr[i];
             gn = 1;
             break;
         }
     }
 
-    /* Always put a null even when truncating */
+    /* Detect truncation */
     if (gn != 1) {
-        dstr[*doff + i] = '\0';
         *trunc = 1;
     }
 
@@ -108,14 +124,9 @@ static inline int append_putc(char *dstr, int *doff, int dlen, int *trunc,
     if (*doff < dlen - 1) {
         dstr[*doff] = schr;
         *doff = *doff + 1;
-        dstr[*doff] = '\0';
-
         return 1;
     } else {
         *trunc = 1;
-        /* Always put a null even when truncating */
-        dstr[*doff] = '\0';
-
         return 0;
     }
 }
@@ -133,7 +144,7 @@ static inline int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, con
         return 0;
     }
 
-    if (*doff < dlen - length) {   // TBD: over/under flow?
+    if (*doff < (dlen - 1) - length) {   // TBD: over/under flow?
         memcpy(dstr + *doff, src, length);
         *doff = *doff + length;
         return length;
@@ -149,25 +160,25 @@ static char hex_table[] = {'0', '1', '2', '3',
                            'c', 'd', 'e', 'f'};
 
 static inline int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
-                      const uint8_t *data, unsigned int len) {
+                                    const uint8_t *data, unsigned int len) {
 
     if (*trunc == 1) {
         return 0;
     }
 
     int r = 0;
-    char outb[64]; /* A local buffer of up to 64 hex chars at a time */
+    char outb[256]; /* A local buffer of up to 256 hex chars at a time */
     int oi = 0;    /* The index into the output buffer */
 
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
         outb[oi]     = hex_table[(data[i] & 0xf0) >> 4];
         outb[oi + 1] = hex_table[data[i] & 0x0f];
 
-        if (oi < 62) {
+        if (oi < 254) {
             oi += 2;
         } else {
             r += append_memcpy(dstr, doff, dlen, trunc,
-                               outb, 64);
+                               outb, 256);
             oi = 0;
         }
     }
@@ -182,51 +193,37 @@ static inline int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
 
 
 static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *trunc,
-                                  const char *key, const uint8_t *data, unsigned int len) {
+                                         const char *key, const uint8_t *data, unsigned int len) {
 
     if (*trunc == 1) {
         return 0;
     }
 
     int r = 0;
-    char outs[3];
-    outs[2] = '\0';
 
     r += append_putc(dstr, doff, dlen, trunc, '"');
     r += append_strncpy(dstr, doff, dlen, trunc, key);
     r += append_strncpy(dstr, doff, dlen, trunc, "\":\"0x");
-    for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        outs[0] = hex_table[(data[i] & 0xf0) >> 4];
-        outs[1] = hex_table[data[i] & 0x0f];
-
-        r += append_strncpy(dstr, doff, dlen, trunc,
-                            outs);
-    }
+    r += append_raw_as_hex(dstr, doff, dlen, trunc,
+                           data, len);
     r += append_putc(dstr, doff, dlen, trunc, '"');
 
     return r;
 }
 
 static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *trunc,
-                                  const uint8_t *data, unsigned int len) {
+                                         const uint8_t *data, unsigned int len) {
 
     if (*trunc == 1) {
         return 0;
     }
 
     int r = 0;
-    char outs[3];
-    outs[2] = '\0';
 
     r += append_putc(dstr, doff, dlen, trunc,
                      '"');
-    for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        outs[0] = hex_table[(data[i] & 0xf0) >> 4];
-        outs[1] = hex_table[data[i] & 0x0f];
-
-        r += append_strncpy(dstr, doff, dlen, trunc,
-                            outs);
-    }
+    r += append_raw_as_hex(dstr, doff, dlen, trunc,
+                           data, len);
     r += append_putc(dstr, doff, dlen, trunc, '"');
 
     return r;
@@ -241,7 +238,7 @@ static inline int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
     }
 
     int r = 0;
-    char outs[10 + 1 + 6 + 1]; /* 10 sec digits, 1 decimal, 6 usec, 1 null */
+    char outs[10 + 1 + 6]; /* 10 sec digits, 1 decimal, 6 usec */
 
     /* First we convert the seconds to a string which requires
      * that we identify and skip leading zeros */
@@ -279,11 +276,8 @@ static inline int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
         i++;
     }
 
-    /* And finally store the null */
-    outs[i] = '\0';
-
-    r += append_strncpy(dstr, doff, dlen, trunc,
-                        outs);
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, i);
 
     return r;
 }
@@ -297,7 +291,7 @@ static inline int append_uint8(char *dstr, int *doff, int dlen, int *trunc,
     }
 
     int r = 0;
-    char outs[3 + 1]; /* 3 digits + null */
+    char outs[3]; /* 3 digits */
 
     int i = 0; /* outs index */
     int leadin = 1; /* We're still getting leading zeros */
@@ -318,11 +312,8 @@ static inline int append_uint8(char *dstr, int *doff, int dlen, int *trunc,
     outs[i] = '0' + n;
     i++;
 
-    /* Now store the null */
-    outs[i] = '\0';;
-
-    r += append_strncpy(dstr, doff, dlen, trunc,
-                        outs);
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, i);
 
     return r;
 }
@@ -336,7 +327,7 @@ static inline int append_uint16(char *dstr, int *doff, int dlen, int *trunc,
     }
 
     int r = 0;
-    char outs[5 + 1]; /* 5 digits + null */
+    char outs[5]; /* 5 digits */
 
     int i = 0; /* outs index */
     int leadin = 1; /* We're still getting leading zeros */
@@ -357,11 +348,8 @@ static inline int append_uint16(char *dstr, int *doff, int dlen, int *trunc,
     outs[i] = '0' + n;
     i++;
 
-    /* Now store the null */
-    outs[i] = '\0';;
-
-    r += append_strncpy(dstr, doff, dlen, trunc,
-                        outs);
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, i);
 
     return r;
 }
@@ -375,17 +363,15 @@ static inline int append_uint16_hex(char *dstr, int *doff, int dlen, int *trunc,
     }
 
     int r = 0;
-    char outs[5]; /* 4 hex chars + null */
-    outs[4] = '\0';
-
+    char outs[4]; /* 4 hex chars */
 
     outs[0] = hex_table[(n & 0xf000) >> 12];
     outs[1] = hex_table[(n & 0x0f00) >> 8];
     outs[2] = hex_table[(n & 0x00f0) >> 4];
     outs[3] = hex_table[n & 0x000f];
 
-    r += append_strncpy(dstr, doff, dlen, trunc,
-                        outs);
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 4);
 
     return r;
 }
@@ -399,7 +385,7 @@ static inline int append_ipv6_addr(char *dstr, int *doff, int dlen, int *trunc,
     }
 
     int r = 0;
-    char outs[(4 * 8) + (1 * 7) + 1]; /* 8 groups of 4 hex chars; 7 colons; 1 null */
+    char outs[(4 * 8) + (1 * 7)]; /* 8 groups of 4 hex chars; 7 colons */
 
     outs[0] = hex_table[(v6[0] & 0xf0) >> 4];
     outs[1] = hex_table[v6[0] & 0x0f];
@@ -440,10 +426,9 @@ static inline int append_ipv6_addr(char *dstr, int *doff, int dlen, int *trunc,
     outs[36] = hex_table[v6[14] & 0x0f];
     outs[37] = hex_table[(v6[15] & 0xf0) >> 4];
     outs[38] = hex_table[v6[15] & 0x0f];
-    outs[39] = '\0';
 
-    r += append_strncpy(dstr, doff, dlen, trunc,
-                        outs);
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 39);
 
     return r;
 }
@@ -573,8 +558,9 @@ static inline int append_json_base64_string(char *dstr, int *doff, int dlen, int
     size_t rem = input_length % 3; /* so it can be 0, 1 or 2 */
     size_t len = input_length - rem; /* always a multiple of 3 */
     uint32_t oct_a, oct_b, oct_c, trip;
-    char outs[5];
-    outs[4] = '\0';
+
+    char outb[256]; /* A local buffer of up to 256 hex chars at a time */
+    int oi = 0;    /* The index into the output buffer */
 
     r += append_putc(dstr, doff, dlen, trunc,
                 '"');
@@ -586,13 +572,27 @@ static inline int append_json_base64_string(char *dstr, int *doff, int dlen, int
 
         trip = (oct_a << 0x10) + (oct_b << 0x08) + oct_c;
 
-        outs[0] = encoding_table[(trip >> (3 * 6)) & 0x3F];
-        outs[1] = encoding_table[(trip >> (2 * 6)) & 0x3F];
-        outs[2] = encoding_table[(trip >> (1 * 6)) & 0x3F];
-        outs[3] = encoding_table[(trip >> (0 * 6)) & 0x3F];
+        outb[oi]     = encoding_table[(trip >> (3 * 6)) & 0x3F];
+        outb[oi + 1] = encoding_table[(trip >> (2 * 6)) & 0x3F];
+        outb[oi + 2] = encoding_table[(trip >> (1 * 6)) & 0x3F];
+        outb[oi + 3] = encoding_table[(trip >> (0 * 6)) & 0x3F];
 
-        r += append_strncpy(dstr, doff, dlen, trunc,
-                            outs);
+        if (oi < 252) {
+            oi += 4;
+        } else {
+            r += append_memcpy(dstr, doff, dlen, trunc,
+                               outb, 256);
+            oi = 0;
+
+            if (*trunc == 1) {
+                return r;
+            }
+        }
+    }
+
+    if (oi > 0) {
+        r += append_memcpy(dstr, doff, dlen, trunc,
+                           outb, oi);
     }
 
     if (rem > 0) {
@@ -658,6 +658,10 @@ struct buffer_stream {
     }
 
     size_t length() { return doff; }
+
+    void add_null() {
+        append_null(dstr, &doff, dlen, &trunc);
+    }
 
     int snprintf(const char *fmt, ...) {
 
