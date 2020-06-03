@@ -156,15 +156,25 @@ static inline int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
     }
 
     int r = 0;
-    char outs[3];
-    outs[2] = '\0';
+    char outb[64]; /* A local buffer of up to 64 hex chars at a time */
+    int oi = 0;    /* The index into the output buffer */
 
     for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
-        outs[0] = hex_table[(data[i] & 0xf0) >> 4];
-        outs[1] = hex_table[data[i] & 0x0f];
+        outb[oi]     = hex_table[(data[i] & 0xf0) >> 4];
+        outb[oi + 1] = hex_table[data[i] & 0x0f];
 
-        r += append_strncpy(dstr, doff, dlen, trunc,
-                            outs);
+        if (oi < 62) {
+            oi += 2;
+        } else {
+            r += append_memcpy(dstr, doff, dlen, trunc,
+                               outb, 64);
+            oi = 0;
+        }
+    }
+
+    if (oi > 0) {
+        r += append_memcpy(dstr, doff, dlen, trunc,
+                           outb, oi);
     }
 
     return r;
