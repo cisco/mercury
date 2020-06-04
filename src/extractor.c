@@ -184,7 +184,7 @@ void extractor_init(struct extractor *x,
                     unsigned char *output,
                     unsigned int output_len) {
 
-    bzero(output, output_len); /* initialize the output buffer */
+    //bzero(output, output_len); /* initialize the output buffer */
     x->proto_state.proto = PROTO_UNKNOWN;
     x->proto_state.dir = DIR_UNKNOWN;
     x->proto_state.state = state_start;
@@ -2449,28 +2449,28 @@ enum status proto_ident_config(const char *config_string) {
         return status_ok;
     }
     if (strncmp("http", config_string, sizeof("http")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        //bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
         select_tcp_syn = 0;
         return status_ok;
     }
     if (strncmp("tls", config_string, sizeof("tls")) == 0) {
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
+        //bzero(http_client_mask, sizeof(http_client_mask));
+        //bzero(http_server_mask, sizeof(http_server_mask));
         select_tcp_syn = 0;
         return status_ok;
     }
     if (strncmp("tcp.message", config_string, sizeof("tcp.message")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
+        //bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        //bzero(http_client_mask, sizeof(http_client_mask));
+        //bzero(http_server_mask, sizeof(http_server_mask));
         select_tcp_syn = 0;
         tcp_message_filter_cutoff = 1;
         return status_ok;
     }
     if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
+        //bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        //bzero(http_client_mask, sizeof(http_client_mask));
+        //bzero(http_server_mask, sizeof(http_server_mask));
         return status_ok;
     }
     return status_err;
