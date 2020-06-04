@@ -127,8 +127,12 @@ void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, con
             }
             if (codepoint < 0x10000) {
                 // basic multilingual plane
-                buf.snprintf("\\u%04x", codepoint);
-
+                if (codepoint < 0xd800) {
+                    buf.snprintf("\\u%04x", codepoint);
+                } else {
+                    // error: invalid or private codepoint
+                    buf.snprintf("\\ue000", codepoint); // indicate error with private use codepoint
+                }
             } else {
                 // surrogate pair
                 codepoint -= 0x10000;
