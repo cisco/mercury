@@ -29,6 +29,7 @@ struct eth_dot1ad_tag {
 } __attribute__ ((__packed__));
 
 #define MPLS_HDR_LEN 4
+#define MPLS_BOTTOM_OF_STACK 0x100
 
 /*
  * big-endian ETHERTYPE definitions
