@@ -193,6 +193,15 @@ int append_packet_json(struct buffer_stream &buf,
             buf.strncpy("},");
         }
     }
+    if (pf.x.packet_data.type == packet_data_type_dns_server) {
+        if (pf.x.packet_data.length >= SNI_HDR_LEN) {
+            buf.strncpy("\"dns\":");
+            buf.write_char('\"');
+            buf.raw_as_base64(pf.x.packet_data.value, pf.x.packet_data.length);
+            buf.write_char('\"');
+            buf.write_char(',');
+        }
+    }
 
     /*
      * output flow key, analysis (if it's configured), and the timestamp

@@ -30,6 +30,7 @@
 #define DHCP_CLIENT_PORT  67
 #define DHCP_SERVER_PORT  68
 #define DTLS_PORT         99
+#define DNS_PORT          53
 
 /**
  * \brief Protocol Inference container

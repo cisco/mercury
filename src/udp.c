@@ -58,6 +58,27 @@ struct pi_container dhcp_client = {
     DHCP_CLIENT_PORT
 };
 
+/*
+ * dns server
+ */
+unsigned char dns_server_mask[] = {
+    0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0xff, 0x00
+};
+unsigned char dns_server_value[] = {
+    0x00, 0x00, 0x81, 0x80, 0x00, 0x00, 0x00, 0x00
+};
+struct pi_container dns_server = {
+    DIR_SERVER,
+    DNS_PORT
+};
+
+unsigned char dummy_mask[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, 0x00
+};
+unsigned char dummy_value[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                               unsigned int len) {
 
@@ -92,6 +113,11 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                          dtls_server_hello_mask,
                                          dtls_server_hello_value)) {
         return &dtls_server;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         dns_server_mask,
+                                         dns_server_value)) {
+        return &dns_server;
     }
 
     return NULL;
@@ -179,6 +205,7 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
 unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x);
 unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extractor *x);
 unsigned int parser_extractor_process_dhcp(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x);
 
 unsigned int parser_extractor_process_udp_data(struct parser *p, struct extractor *x) {
     const struct pi_container *pi;
@@ -207,6 +234,10 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         break;
     case SSH_PORT:
         return parser_extractor_process_ssh(p, x);
+        break;
+    case DNS_PORT:
+        // TODO: remove comment to enable DNS processing
+        // return parser_extractor_process_dns(p, x);
         break;
     default:
         ;
