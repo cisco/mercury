@@ -196,10 +196,10 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_dns_server) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
             buf.strncpy("\"dns\":");
-            write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, buf);
-//            buf.write_char('\"');
-//            buf.raw_as_base64(pf.x.packet_data.value, pf.x.packet_data.length);
-//            buf.write_char('\"');
+            //            write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, buf);
+            buf.write_char('\"');
+            buf.raw_as_base64(pf.x.packet_data.value, pf.x.packet_data.length);
+            buf.write_char('\"');
             buf.write_char(',');
         }
     }
