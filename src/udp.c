@@ -237,7 +237,7 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         break;
     case DNS_PORT:
         // TODO: remove comment to enable DNS processing
-        // return parser_extractor_process_dns(p, x);
+        return parser_extractor_process_dns(p, x);
         break;
     default:
         ;

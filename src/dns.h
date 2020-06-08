@@ -13,8 +13,6 @@
 #ifndef DNS_H
 #define DNS_H
 
-#include <pcap.h>
-#include "output.h"
 
 /** usage string */
 #define dns_usage "  dns=1                      report DNS response information\n"
@@ -56,5 +54,7 @@ void dns_update(dns_t *dns,
 
 /** main entry point for DNS unit testing */
 //void dns_unit_test(void);
+
+void write_dns_server_data(const uint8_t *data, size_t length, struct buffer_stream &buf);
 
 #endif /* DNS_H */
