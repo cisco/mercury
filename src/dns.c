@@ -115,23 +115,15 @@
 
 #if CPU_IS_BIG_ENDIAN
 
-#ifdef WIN32
-
-#define PACKED
-#pragma pack(push,1)
-
- /** DNS header structure */
+/** DNS header structure */
 typedef struct {
-        uint16_t id;
-        uint16_t flags;
-        uint16_t qdcount;
-        uint16_t ancount;
-        uint16_t nscount;
-        uint16_t arcount;
-} PACKED dns_hdr;
-
-#pragma pack(pop)
-#undef PACKED
+    uint16_t id;
+    uint16_t flags;
+    uint16_t qdcount;
+    uint16_t ancount;
+    uint16_t nscount;
+    uint16_t arcount;
+} __attribute__((__packed__)) dns_hdr;
 
 #else
 
@@ -146,42 +138,6 @@ typedef struct {
 } __attribute__((__packed__)) dns_hdr;
 
 #endif
-
-#else
-
-/** DNS header structure */
-typedef struct {
-    uint16_t id;
-    uint16_t flags;
-    uint16_t qdcount;
-    uint16_t ancount;
-    uint16_t nscount;
-    uint16_t arcount;
-} __attribute__((__packed__)) dns_hdr;
-
-#endif
-
-#ifdef WIN32
-
-#define PACKED
-#pragma pack(push,1)
-
-typedef struct {
-        uint16_t qtype;
-        uint16_t qclass;
-} PACKED dns_question;
-
-typedef struct {
-        uint16_t type;
-        uint16_t rclass;
-        uint32_t ttl;
-        uint16_t rdlength;
-} PACKED dns_rr;
-
-#pragma pack(pop)
-#undef PACKED
-
-#else
 
 typedef struct {
     uint16_t qtype;
@@ -195,7 +151,6 @@ typedef struct {
     uint16_t rdlength;
 } __attribute__((__packed__)) dns_rr;
 
-#endif
 
 /** DNS Type */
 enum dns_type {

@@ -181,9 +181,9 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         /* print the certificates in base64 format */
         buf.strncpy("\"tls\":{\"server_certs\":[");
-        write_extract_certificates(buf, pf.x.packet_data.value, pf.x.packet_data.length);
+        //write_extract_certificates(buf, pf.x.packet_data.value, pf.x.packet_data.length);
         //write_extract_cert_prefix(buf, pf.x.packet_data.value, pf.x.packet_data.length);
-        //write_extract_cert_full(buf, pf.x.packet_data.value, pf.x.packet_data.length);
+        write_extract_cert_full(buf, pf.x.packet_data.value, pf.x.packet_data.length);
         buf.strncpy("]},");
     }
     if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
@@ -196,10 +196,11 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_dns_server) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
             buf.strncpy("\"dns\":");
-            //            write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, buf);
-            buf.write_char('\"');
+            // write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, buf);
+            buf.strncpy("{\"base64\":\"");
             buf.raw_as_base64(pf.x.packet_data.value, pf.x.packet_data.length);
             buf.write_char('\"');
+            buf.write_char('}');
             buf.write_char(',');
         }
     }
