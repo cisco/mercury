@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <unordered_set>
+#include <list>
 #include "oid.h"    // oid dictionary
 
 #include "../mercury.h"
@@ -1300,6 +1301,63 @@ struct subject_public_key_info {
     }
 };
 
+static std::unordered_set <enum oid> ecdsa_algorithms {
+    oid::ecdsa_with_SHA256,
+    oid::ecdsa_with_SHA1,
+    oid::ecdsa_with_SHA224,
+    oid::ecdsa_with_SHA256_1_,
+    oid::ecdsa_with_SHA384,
+    oid::ecdsa_with_SHA512,
+    oid::id_ecdsa_with_shake128,
+    oid::id_ecdsa_with_shake256,
+    oid::id_ecdsa_with_sha3_224,
+    oid::id_ecdsa_with_sha3_256,
+    oid::id_ecdsa_with_sha3_384,
+    oid::id_ecdsa_with_sha3_512
+};
+
+//  std::unordered_map<std::string, unsigned int> parameters_strength {
+//  { "secp192r1", 96 },
+//  { "secp224r1", 112 },
+//  { "prime192v1", 96, },
+//  { "prime192v2", 96 },
+//  { "prime192v3", 96 },
+//  { "prime239v1", 112 },
+//  { "prime239v2", 112 },
+//  { "prime239v3", 112 },
+//  { "brainpoolP160r1", 80 },
+//  { "brainpoolP160t1", 80 },
+//  { "brainpoolP192r1", 96 },
+//  { "brainpoolP192t1", 96 },
+//  { "brainpoolP224r1", 112 },
+//  { "brainpoolP224t1", 112 },
+//  { "prime256v1", 128 }
+// };
+// if (parameters != NULL) {
+//     const auto &p = parameters_strength.find(parameters);
+//     if (p != parameters_strength.end() && p->second < 128) {
+//         return true;
+//     }
+//  }
+
+// std::unordered_set<std::string> weak_ec_parameters {
+//  "secp192r1",
+//  "secp224r1",
+//  "prime192v1",
+//  "prime192v2",
+//    "prime192v3",
+//    "prime239v1",
+//    "prime239v2",
+//    "prime239v3"
+//  "brainpoolP160r1",
+//  "brainpoolP160t1",
+//  "brainpoolP192r1",
+//  "brainpoolP192t1",
+//  "brainpoolP224r1",
+//  "brainpoolP224t1",
+//  // "prime256v1"
+// };
+
 
 /*
  * X509/PKIX Certificate Format (see RFCs 5280 and 1422)
@@ -1438,7 +1496,7 @@ struct x509_cert {
         print_as_json(buf);
         buf.write_line(f);
     }
-    void print_as_json(struct buffer_stream &buf) const {
+    void print_as_json(struct buffer_stream &buf, std::list<struct x509_cert> trusted_certs={}) const {
 
         struct json_object_asn1 o{&buf};
         if (!version.is_null()) {
@@ -1479,26 +1537,11 @@ struct x509_cert {
             signature_algorithm.print_as_json(o, "signature_algorithm");
         }
         if (!signature.is_null()) {
-            std::unordered_set <enum oid> ecdsa_algorithms {
-                ecdsa_with_SHA256,
-                ecdsa_with_SHA1,
-                ecdsa_with_SHA224,
-                ecdsa_with_SHA256_1_,
-                ecdsa_with_SHA384,
-                ecdsa_with_SHA512,
-                id_ecdsa_with_shake128,
-                id_ecdsa_with_shake256,
-                id_ecdsa_with_sha3_224,
-                id_ecdsa_with_sha3_256,
-                id_ecdsa_with_sha3_384,
-                id_ecdsa_with_sha3_512
-            };
 
             enum oid alg_oid = signature_algorithm.type();
             if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
                 struct tlv tmp_sig = signature;
                 tmp_sig.remove_bitstring_encoding();
-                //struct parser p = signature.value;
                 struct ecdsa_signature sig{&tmp_sig.value};
                 sig.print_as_json(o, "signature");
                 o.print_key_uint("bits_in_signature", sig.bits_in_signature());
@@ -1506,12 +1549,26 @@ struct x509_cert {
                 struct tlv tmp_sig = signature;        // to avoid modifying signature
                 tmp_sig.remove_bitstring_encoding();
                 tmp_sig.print_as_json_hex(o, "signature");
-                //                o.print_key_uint("bits_in_signature", tmp_sig.length*8); // note: we used encoded length, not actual length
                 o.print_key_uint("bits_in_signature", tmp_sig.value.bits_in_data());
             }
         }
-        report_violations(o);
+        report_violations(o, trusted_certs);
         o.close();
+    }
+
+    unsigned int bits_in_signature() const {
+        enum oid alg_oid = signature_algorithm.type();
+        if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
+            struct tlv tmp_sig = signature;
+            tmp_sig.remove_bitstring_encoding();
+            struct ecdsa_signature sig{&tmp_sig.value};
+            return sig.bits_in_signature();
+        } else {
+            struct tlv tmp_sig = signature;
+            tmp_sig.remove_bitstring_encoding();  // assume RSA
+            return tmp_sig.value.bits_in_data();
+        }
+        return 0;
     }
 
     bool is_self_issued() const {
@@ -1538,54 +1595,13 @@ struct x509_cert {
                 return true;
             }
         } else if (alg_type == id_ecPublicKey) {
-            const char *parameters = subjectPublicKeyInfo.algorithm.get_parameters();
-            //  std::unordered_map<std::string, unsigned int> parameters_strength {
-            //  { "secp192r1", 96 },
-            //  { "secp224r1", 112 },
-            //  { "prime192v1", 96, },
-            //  { "prime192v2", 96 },
-            //  { "prime192v3", 96 },
-            //  { "prime239v1", 112 },
-            //  { "prime239v2", 112 },
-            //  { "prime239v3", 112 },
-            //  { "brainpoolP160r1", 80 },
-            //  { "brainpoolP160t1", 80 },
-            //  { "brainpoolP192r1", 96 },
-            //  { "brainpoolP192t1", 96 },
-            //  { "brainpoolP224r1", 112 },
-            //  { "brainpoolP224t1", 112 },
-            //  { "prime256v1", 128 }
-            // };
-            // if (parameters != NULL) {
-            //     const auto &p = parameters_strength.find(parameters);
-            //     if (p != parameters_strength.end() && p->second < 128) {
-            //         return true;
-            //     }
-            //  }
-
-            // std::unordered_set<std::string> weak_ec_parameters {
-            //  "secp192r1",
-            //  "secp224r1",
-            //  "prime192v1",
-            //  "prime192v2",
-            //    "prime192v3",
-            //    "prime239v1",
-            //    "prime239v2",
-            //    "prime239v3"
-            //  "brainpoolP160r1",
-            //  "brainpoolP160t1",
-            //  "brainpoolP192r1",
-            //  "brainpoolP192t1",
-            //  "brainpoolP224r1",
-            //  "brainpoolP224t1",
-            //  // "prime256v1"
-            // };
-            std::unordered_set<std::string> strong_ec_parameters {
-                "secp256r1",
-                "secp384r1",
-                "secp521r1"
+            enum oid parameters = subjectPublicKeyInfo.algorithm.type();
+            std::unordered_set<enum oid> strong_ec_parameters {
+                oid::prime256v1, // oid::secp256r1
+                oid::secp384r1,
+                oid::secp521r1
             };
-            if (parameters == NULL || strong_ec_parameters.find(parameters) == strong_ec_parameters.end()) {
+            if (strong_ec_parameters.find(parameters) == strong_ec_parameters.end()) {
                 return true;
             }
         } else if (alg_type == id_Ed25519) {
@@ -1600,37 +1616,29 @@ struct x509_cert {
 
     bool signature_is_weak(bool unsigned_is_weak=false) const {
 
-        std::unordered_map<std::string, unsigned int> strong_sig_algs{
+        std::unordered_map<enum oid, unsigned int> strong_sig_algs{
             // { "rsaEncryption", 2048 },
-            { "sha256WithRSAEncryption", 2048 },
-            { "sha384WithRSAEncryption", 2048 },
-            { "sha512WithRSAEncryption", 2048 },
-            { "ecdsa-with-SHA256", 256 },
-            { "ecdsa-with-SHA1", 256 }
+            { oid::sha256WithRSAEncryption, 2048 },
+            { oid::sha384WithRSAEncryption, 2048 },
+            { oid::sha512WithRSAEncryption, 2048 },
+            { oid::ecdsa_with_SHA256, 256 },
+            { oid::ecdsa_with_SHA1, 256 }
         };
 
         enum oid sig_alg_type = signature_algorithm.type();
-        std::unordered_set<enum oid> weak_sig_algs= {
-            oid::rsaEncryption,
-            oid::md2WithRSAEncryption,
-            oid::md5WithRSAEncryption,
-            oid::sha_1WithRSAEncryption,
-            oid::sha1WithRSAEncryption,
-            oid::sha224WithRSAEncryption
-            // "sha256WithRSAEncryption",
-            // "sha384WithRSAEncryption",
-            // "sha512WithRSAEncryption"
-        };
         if (sig_alg_type == unknown) {
-            if (unsigned_is_weak) {  // TBD: check trusted roots to see if this is one
-                return true;
+            if (!unsigned_is_weak) {
+                return false;
             }
         } else {
-            if (weak_sig_algs.find(sig_alg_type) != weak_sig_algs.end()) {
-                return true;
+            std::unordered_map<enum oid, unsigned int>::const_iterator a = strong_sig_algs.find(sig_alg_type);
+            if (a != strong_sig_algs.end()) {
+                if (a->second >= bits_in_signature()) {
+                    return false;
+                }
             }
         }
-        return false;
+        return true;
     }
 
     bool is_nonconformant() const {
@@ -1657,20 +1665,37 @@ struct x509_cert {
         return !validity.contains(time_str, sizeof(time_str));
     }
 
-    void report_violations(struct json_object_asn1 &o) const {
+    bool is_trusted(std::list<struct x509_cert> trusted_certs) const {
+        if (trusted_certs.empty()) {
+            return true; // no trust list provided, so don't perform check
+        }
+        for (auto &c : trusted_certs) {
+            if (c.issuer.matches(issuer)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void report_violations(struct json_object_asn1 &o,
+                           std::list<struct x509_cert> trusted_certs) const {
         bool not_currently_valid = is_not_currently_valid();
         bool self_issued = is_self_issued();
         bool weak_subject_key = subject_key_is_weak();
         bool weak_signature = signature_is_weak();
         bool nonconformant = is_nonconformant();
+        bool trusted = is_trusted(trusted_certs);
 
-        if (not_currently_valid || self_issued || weak_subject_key || weak_signature || nonconformant) {
+        if (not_currently_valid || self_issued || weak_subject_key || weak_signature || nonconformant || !trusted) {
             struct json_array_asn1 violations{o, "violations"};
             if (not_currently_valid) {
                 violations.print_string("invalid");
             }
-            if (self_issued) {
-                violations.print_string("self_issued");
+            if (!trusted) {
+                violations.print_string("untrusted_issuer");
+                if (self_issued) {
+                    violations.print_string("self_issued");
+                }
             }
             if (weak_subject_key) {
                 violations.print_string("weak_subject_key");
@@ -1684,6 +1709,7 @@ struct x509_cert {
             violations.close();
         }
     }
+
 };
 
 struct x509_cert_prefix {
@@ -1775,7 +1801,6 @@ struct x509_cert_prefix {
     }
 
 };
-
 
 /*
 

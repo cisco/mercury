@@ -274,7 +274,7 @@ struct oid_set {
             }
             std::cerr << " is already in the OID set with keyword " << name;
             if (keyword_dict[oid_hex_string] != name) {
-                std::cerr << " creating synonym";
+                std::cerr << " creating synonym for " << keyword_dict[oid_hex_string];
                 synonym[name] = keyword_dict[oid_hex_string];
             }
             std::cerr << std::endl;
@@ -570,7 +570,19 @@ void oid_set::dump_oid_enum_dict_sorted() {
         std::replace(tmp_string.begin(), tmp_string.end(), '-', '_');
         std::replace(tmp_string.begin(), tmp_string.end(), '[', '_');
         std::replace(tmp_string.begin(), tmp_string.end(), ']', '_');
-        cout << "\t" << tmp_string << " = " <<  oid_num++ << ",\n";
+        cout << "\t" << tmp_string << " = " <<  oid_num << ",\n";
+
+        //const auto &syn = synonym.find(x.first);
+        //if (syn != synonym.end()) {
+        //    std::cerr << syn->second << " is a synonym for " << x.first << std::endl;
+        //    std::string tmp_string2(syn->second);
+        //    std::replace(tmp_string2.begin(), tmp_string2.end(), '-', '_');
+        //    std::replace(tmp_string2.begin(), tmp_string2.end(), '[', '_');
+        //    std::replace(tmp_string2.begin(), tmp_string2.end(), ']', '_');
+        //    cout << "\t" << tmp_string2 << " = " <<  oid_num << ",\n";
+        //}
+
+        oid_num++;
     }
     cout << "};\n";
 
