@@ -1115,7 +1115,7 @@ struct ec_public_key {
     struct parser d;
     // struct tlv tmp;   // TBD: ec public key is *not* ASN.1 formatted
 
-    ec_public_key(struct parser *p) : d{} {
+        ec_public_key(struct parser *p) : d{NULL, NULL} {
         d = *p;
     }
 
@@ -1301,7 +1301,7 @@ struct subject_public_key_info {
     }
 };
 
-static std::unordered_set <enum oid> ecdsa_algorithms {
+static std::unordered_set <unsigned int> ecdsa_algorithms {
     oid::ecdsa_with_SHA256,
     oid::ecdsa_with_SHA1,
     oid::ecdsa_with_SHA224,
@@ -1596,7 +1596,7 @@ struct x509_cert {
             }
         } else if (alg_type == id_ecPublicKey) {
             enum oid parameters = subjectPublicKeyInfo.algorithm.type();
-            std::unordered_set<enum oid> strong_ec_parameters {
+            std::unordered_set<unsigned int> strong_ec_parameters {
                 oid::prime256v1, // oid::secp256r1
                 oid::secp384r1,
                 oid::secp521r1
@@ -1616,7 +1616,7 @@ struct x509_cert {
 
     bool signature_is_weak(bool unsigned_is_weak=false) const {
 
-        std::unordered_map<enum oid, unsigned int> strong_sig_algs{
+        std::unordered_map<unsigned int, unsigned int> strong_sig_algs{
             // { "rsaEncryption", 2048 },
             { oid::sha256WithRSAEncryption, 2048 },
             { oid::sha384WithRSAEncryption, 2048 },
@@ -1631,7 +1631,7 @@ struct x509_cert {
                 return false;
             }
         } else {
-            std::unordered_map<enum oid, unsigned int>::const_iterator a = strong_sig_algs.find(sig_alg_type);
+            std::unordered_map<unsigned int, unsigned int>::const_iterator a = strong_sig_algs.find(sig_alg_type);
             if (a != strong_sig_algs.end()) {
                 if (a->second >= bits_in_signature()) {
                     return false;
