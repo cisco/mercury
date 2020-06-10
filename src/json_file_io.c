@@ -194,15 +194,22 @@ int append_packet_json(struct buffer_stream &buf,
         }
     }
     if (pf.x.packet_data.type == packet_data_type_dns_server) {
-        if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-            buf.strncpy("\"dns\":");
-            // write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, buf);
-            buf.strncpy("{\"base64\":\"");
-            buf.raw_as_base64(pf.x.packet_data.value, pf.x.packet_data.length);
-            buf.write_char('\"');
-            buf.write_char('}');
-            buf.write_char(',');
-        }
+        buf.strncpy("\"dns\":");
+        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, buf);
+        //buf.strncpy("{\"base64\":\"");
+        //buf.raw_as_base64(pf.x.packet_data.value, pf.x.packet_data.length);
+        //buf.write_char('\"');
+        //buf.write_char('}');
+        buf.write_char(',');
+    }
+    if (pf.x.packet_data.type == packet_data_type_wireguard) {
+        buf.strncpy("\"wireguard\":");
+        buf.strncpy("{\"sender_index\":\"");
+        uint32_t tmp = ntohl(*(const uint32_t *)pf.x.packet_data.value);
+        buf.raw_as_hex((const uint8_t *)&tmp, pf.x.packet_data.length);
+        buf.write_char('\"');
+        buf.write_char('}');
+        buf.write_char(',');
     }
 
     /*

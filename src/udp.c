@@ -72,12 +72,20 @@ struct pi_container dns_server = {
     DNS_PORT
 };
 
-unsigned char dummy_mask[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, 0x00
+/*
+ * wireguard
+ */
+unsigned char wireguard_mask[] = {
+    0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00
 };
-unsigned char dummy_value[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+unsigned char wireguard_value[] = {
+    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
+struct pi_container wireguard = {
+    DIR_CLIENT,
+    WIREGUARD_PORT
+};
+
 
 const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                               unsigned int len) {
@@ -118,6 +126,11 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                          dns_server_mask,
                                          dns_server_value)) {
         return &dns_server;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         wireguard_mask,
+                                         wireguard_value)) {
+        return &wireguard;
     }
 
     return NULL;
@@ -206,6 +219,7 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
 unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extractor *x);
 unsigned int parser_extractor_process_dhcp(struct parser *p, struct extractor *x);
 unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_wireguard(struct parser *p, struct extractor *x);
 
 unsigned int parser_extractor_process_udp_data(struct parser *p, struct extractor *x) {
     const struct pi_container *pi;
@@ -236,8 +250,10 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         return parser_extractor_process_ssh(p, x);
         break;
     case DNS_PORT:
-        // TODO: remove comment to enable DNS processing
         return parser_extractor_process_dns(p, x);
+        break;
+    case WIREGUARD_PORT:
+        return parser_extractor_process_wireguard(p, x);
         break;
     default:
         ;
@@ -834,4 +850,36 @@ unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extra
 
 }
 
+
+
+/*
+ * wireguard
+ */
+
+struct wireguard_handshake_initiation {
+    uint8_t  message_type;                       // 1
+    uint8_t  reserved_zero[3];                   // { 0, 0, 0 }
+    uint32_t sender_index;                       // random
+    uint8_t  unencrypted_ephemeral[32];          // random
+    uint8_t  encrypted_static[32 + 16];          // random
+    uint8_t  encrypted_timestamp[12 + 16];       // random
+    uint8_t  mac1[16];                           // random
+    uint8_t  mac2[16];                           // random or { 0, 0, ... }
+};
+
+
+unsigned int parser_extractor_process_wireguard(struct parser *p, struct extractor *x) {
+    struct wireguard_handshake_initiation *whi = (struct wireguard_handshake_initiation *)p->data;
+
+    extractor_debug("%s: processing packet\n", __func__);
+
+    if (p->length() < (int)sizeof(struct wireguard_handshake_initiation)) {
+        return 0;   // not wireguard
+    }
+
+    // set sender_index as packet_data
+    packet_data_set(&x->packet_data, packet_data_type_wireguard, sizeof(uint32_t), (const uint8_t *)&whi->sender_index);
+
+    return 0;
+}
 

@@ -32,7 +32,8 @@ enum packet_data_type {
     packet_data_type_http_user_agent = 2,
     packet_data_type_tls_cert        = 3,
     packet_data_type_dtls_sni        = 4,
-    packet_data_type_dns_server      = 5
+    packet_data_type_dns_server      = 5,
+    packet_data_type_wireguard       = 6
 };
 
 struct packet_data {
