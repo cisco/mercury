@@ -1246,11 +1246,11 @@ struct algorithm_identifier {
         return oid::unknown;
     }
 
-    const char *get_parameters() const {
+    enum oid get_parameters() const {
         if (parameters.is_not_null()) {
-            return parser_get_oid_string(&parameters.value);
+            return parser_get_oid_enum(&parameters.value);
         }
-        return NULL;
+        return oid::unknown;
     }
 };
 
@@ -1595,7 +1595,7 @@ struct x509_cert {
                 return true;
             }
         } else if (alg_type == id_ecPublicKey) {
-            enum oid parameters = subjectPublicKeyInfo.algorithm.type();
+            enum oid parameters = subjectPublicKeyInfo.algorithm.get_parameters();
             std::unordered_set<unsigned int> strong_ec_parameters {
                 oid::prime256v1, // oid::secp256r1
                 oid::secp384r1,
