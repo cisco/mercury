@@ -54,7 +54,6 @@ struct file_reader {
     virtual ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) = 0;
     virtual ~file_reader() = default;
     void get_cert_list(std::list<struct x509_cert> &list_of_certs, uint8_t *cb, size_t cb_len) {
-        //        std::list<struct x509_cert> list_of_certs;
         ssize_t cert_len = 1;
         while ((cert_len = get_cert(cb, cb_len)) > 0) {
             struct x509_cert c;
@@ -63,7 +62,6 @@ struct file_reader {
             cb += cert_len;
             cb_len -= cert_len;
         }
-        //return list_of_certs;
     }
 };
 
@@ -558,7 +556,7 @@ int main(int argc, char *argv[]) {
                         buf = { buffer, sizeof(buffer) };
                         struct x509_cert cc;
                         cc.parse(cert_buf, trunc_len);
-                        cc.print_as_json(buf);
+                        cc.print_as_json(buf, trusted_certs);
                         buf.write_line(stdout);
                     }
 
@@ -572,7 +570,7 @@ int main(int argc, char *argv[]) {
                         || c.is_nonconformant()
                         || c.is_self_issued()
                         || !c.is_trusted(trusted_certs)) {
-                        c.print_as_json(buf);
+                        c.print_as_json(buf, trusted_certs);
                         buf.write_line(stdout);
                     }
 

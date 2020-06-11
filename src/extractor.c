@@ -1403,7 +1403,7 @@ void write_extract_cert_full(struct buffer_stream &buf, const unsigned char *dat
         //buf.json_base64_string(cert_list.data, tmp_len);
         struct x509_cert c;
         c.parse(cert_list.data, tmp_len);
-        c.print_as_json(buf);
+        c.print_as_json(buf, {});
 
         break; // only report first certificate for now
     }

@@ -1486,17 +1486,17 @@ struct x509_cert {
     std::string get_json_string() const {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        print_as_json(buf);
+        print_as_json(buf, {});
         std::string tmp_str(buffer, buf.length()); // TBD: move?
         return tmp_str;
     }
     void print_as_json(FILE *f) const {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        print_as_json(buf);
+        print_as_json(buf, {});
         buf.write_line(f);
     }
-    void print_as_json(struct buffer_stream &buf, std::list<struct x509_cert> trusted_certs={}) const {
+    void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs) const {
 
         struct json_object_asn1 o{&buf};
         if (!version.is_null()) {
@@ -1665,7 +1665,7 @@ struct x509_cert {
         return !validity.contains(time_str, sizeof(time_str));
     }
 
-    bool is_trusted(std::list<struct x509_cert> trusted_certs) const {
+    bool is_trusted(const std::list<struct x509_cert> &trusted_certs) const {
         if (trusted_certs.empty()) {
             return true; // no trust list provided, so don't perform check
         }
@@ -1678,7 +1678,7 @@ struct x509_cert {
     }
 
     void report_violations(struct json_object_asn1 &o,
-                           std::list<struct x509_cert> trusted_certs) const {
+                           const std::list<struct x509_cert> &trusted_certs) const {
         bool not_currently_valid = is_not_currently_valid();
         bool self_issued = is_self_issued();
         bool weak_subject_key = subject_key_is_weak();
@@ -1693,9 +1693,9 @@ struct x509_cert {
             }
             if (!trusted) {
                 violations.print_string("untrusted_issuer");
-                if (self_issued) {
-                    violations.print_string("self_issued");
-                }
+            }
+            if (self_issued) {
+                violations.print_string("self_issued");
             }
             if (weak_subject_key) {
                 violations.print_string("weak_subject_key");
