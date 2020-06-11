@@ -378,6 +378,8 @@ size_t packet_filter_extract(struct packet_filter *pf,
                              uint8_t *packet,
                              size_t length);
 
+unsigned int packet_filter_process_packet(struct packet_filter *pf);
+
 typedef unsigned int (*parser_extractor_func)(struct parser *p, struct extractor *x);
 
 #define proto_ident_mask_len 8

@@ -9,6 +9,30 @@
 #include "proto_identify.h"
 #include "ept.h"
 
+#define VXLAN_PORT 4789
+/*
+ *  VXLAN Header:
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |R|R|R|R|I|R|R|R|            Reserved                           |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                VXLAN Network Identifier (VNI) |   Reserved    |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+#define VXLAN_HDR_LEN 8
+
+unsigned int packet_filter_process_vxlan(struct packet_filter *pf) {
+    struct parser *p = &pf->p;
+    if (parser_skip(p, VXLAN_HDR_LEN) != status_ok) {
+        return 0;
+    }
+    /*
+     * note: we ignore the VXLAN Network Identifier for now, which
+     * makes little difference as long as they are all identical
+     */
+    return packet_filter_process_packet(pf);
+}
+
 
 /* DTLS Client */
 unsigned char dtls_client_hello_mask[] = {
@@ -185,7 +209,11 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
     const unsigned char *d = p->data;
 #endif
 
-    if (parser_skip(p, L_udp_src_port + L_udp_dst_port) == status_err) {
+    if (parser_skip(p, L_udp_src_port) == status_err) {
+        return 0;
+    }
+    size_t dst_port;
+    if (parser_read_and_skip_uint(p, L_udp_dst_port, &dst_port) == status_err) {
         return 0;
     }
     size_t udp_length;
@@ -206,7 +234,10 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
     if ((unsigned int)parser_get_data_length(p) != udp_length - 8) {
       parser_set_data_length(p, udp_length - 8);
     }
-    
+
+    if (dst_port == VXLAN_PORT) {
+        return packet_filter_process_vxlan(pf);
+    }
     /*
      * process the UDP Data payload
      */
@@ -882,4 +913,6 @@ unsigned int parser_extractor_process_wireguard(struct parser *p, struct extract
 
     return 0;
 }
+
+
 
