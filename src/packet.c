@@ -46,6 +46,15 @@ void eth_skip(uint8_t **packet, size_t *length, uint16_t *ether_type) {
         *length -= sizeof(struct eth_dot1q_tag);
 
     }
+    if (ntohs(*ether_type) == ETH_TYPE_MPLS) {
+        /*
+         * MPLS
+         */
+        *ether_type = htons(ETH_TYPE_IP);  // assume IPv4
+        *packet += MPLS_HDR_LEN;
+        *length -= MPLS_HDR_LEN;
+
+    }
 
 }
 

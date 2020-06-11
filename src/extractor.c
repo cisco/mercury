@@ -2304,6 +2304,16 @@ unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
             return 0;
         }
     }
+    if (*ethertype == ETH_TYPE_MPLS) {
+        size_t mpls_label = 0;
+
+        while (!(mpls_label & MPLS_BOTTOM_OF_STACK)) {
+            if (parser_read_and_skip_uint(p, sizeof(uint32_t), &mpls_label) == status_err) {
+                return 0;
+            }
+        }
+        *ethertype = ETH_TYPE_IP;   // assume IPv4 for now
+    }
 
     return 0;  /* we don't extract any data, but this is not a failure */
 }
