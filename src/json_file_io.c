@@ -158,6 +158,16 @@ int append_packet_json(struct buffer_stream &buf,
             write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted);
             buf.strncpy("\"},");
             break;
+        case fingerprint_type_ssh:
+            buf.strncpy("\"fingerprints\":{\"ssh\":\"");
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted, true);
+            buf.strncpy("\"},");
+            break;
+        case fingerprint_type_ssh_kex:
+            buf.strncpy("\"fingerprints\":{\"ssh_kex\":\"");
+            write_binary_ept_as_paren_ept(buf, extractor_buffer, bytes_extracted, true);
+            buf.strncpy("\"},");
+            break;
         default:
             ;    /* no fingerprint; do nothing */
         }

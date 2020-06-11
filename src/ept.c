@@ -452,7 +452,17 @@ void write_element(struct buffer_stream &buf, const struct element *e) {
     buf.write_char(')');
 }
 
-void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data, unsigned int length) {
+void write_element_quoted(struct buffer_stream &buf, const struct element *e, bool quoted=false) {
+    buf.write_char('(');
+    if (quoted && string_is_printable(e->data, e->length)) {
+        buf.memcpy(e->data, e->length);
+    } else {
+        buf.raw_as_hex(e->data, e->length);
+    }
+    buf.write_char(')');
+}
+
+void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data, unsigned int length, bool quoted) {
 
     struct element_iterator ei;
 
@@ -473,7 +483,7 @@ void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data
             if (ei.depth < last_depth) {
                 buf.write_char(')');
             }
-            write_element(buf, &ei.element);
+            write_element_quoted(buf, &ei.element, quoted);
         }
         last_depth = ei.depth;
 

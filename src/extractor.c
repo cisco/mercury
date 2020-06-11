@@ -123,6 +123,42 @@ struct pi_container http_server = {
     HTTP_PORT
 };
 
+/* SSH matching value: "SSH-2." */
+
+unsigned char ssh_mask[] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00
+};
+
+unsigned char ssh_value[] = {
+    'S', 'S', 'H', '-', '2', '.', 0x00, 0x00
+};
+
+struct pi_container ssh = {
+    DIR_CLIENT,
+    SSH_PORT
+};
+
+/* SSH KEX matching value */
+
+unsigned char ssh_kex_mask[] = {
+    0xff, 0xff, 0xf0, 0x00, // packet length
+    0x00,                   // padding length
+    0xff,                   // KEX code
+    0x00, 0x00              // ...
+};
+
+unsigned char ssh_kex_value[] = {
+    0x00, 0x00, 0x00, 0x00, // packet length
+    0x00,                   // padding length
+    0x14,                   // KEX code
+    0x00, 0x00              // ...
+};
+
+struct pi_container ssh_kex = {
+    DIR_CLIENT,
+    SSH_KEX
+};
+
 const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
                                               unsigned int len) {
 
@@ -158,6 +194,16 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
                                          http_server_mask,
                                          http_server_value)) {
         return &http_server;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         ssh_mask,
+                                         ssh_value)) {
+        return &ssh;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         ssh_kex_mask,
+                                         ssh_kex_value)) {
+        return &ssh_kex;
     }
     return NULL;
 }
@@ -1930,7 +1976,7 @@ enum ssh_state {
 
 unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x) {
     size_t packet_length, padding_length, payload, tmp;
-    uint16_t ssh_proto_number = htons(SSH_PORT);
+    // uint16_t ssh_proto_number = htons(SSH_PORT);
     const unsigned char ssh_first_packet[] = {
         'S', 'S', 'H', '-', '2', '.', '0', '-'
     };
@@ -1939,19 +1985,20 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
     };
     unsigned char sp[] = { ' ' };
 
-    extractor_debug("%s: processing packet\n", __func__);
+    extractor_debug("%s: processing packet\n", __func__)
+    x->fingerprint_type = fingerprint_type_ssh;
 
     if (parser_match(p, ssh_first_packet, sizeof(ssh_first_packet), NULL) == status_ok) {
 
-	/* first packet */
-	if (parser_find_delim(p, sp, sizeof(sp)) < 0) {  
-	    /* dir == DIR_SERVER; skip this packet as we are only interested in clients */
-	    // return 0;
-	}
-
-        if (extractor_write_to_output(x, (unsigned char *)&ssh_proto_number, sizeof(ssh_proto_number)) == status_err) {
-            return 0;
+        /* first packet */
+        if (parser_find_delim(p, sp, sizeof(sp)) < 0) {  
+            /* dir == DIR_SERVER; skip this packet as we are only interested in clients */
+            // return 0;
         }
+
+    //if (extractor_write_to_output(x, (unsigned char *)&ssh_proto_number, sizeof(ssh_proto_number)) == status_err) {
+    //       return 0;
+    //  }
         if (parser_extractor_copy_upto_delim(p, x, lf, sizeof(lf)) == status_err) {
             return extractor_get_output_length(x);
         }
@@ -1968,9 +2015,9 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
             return extractor_get_output_length(x);
         }
 
-    }
+    } else {
 
-    if (x->proto_state.state == ssh_state_got_first_msg) {
+        //    if (x->proto_state.state == ssh_state_got_first_msg) {
 
         /* parse as if second (KEX) packet */
 
@@ -2071,6 +2118,109 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
     return extractor_get_output_length(x);
 }
 
+unsigned int parser_extractor_process_ssh_kex(struct parser *p, struct extractor *x) {
+    size_t packet_length, padding_length, payload, tmp;
+
+    extractor_debug("%s: processing packet\n", __func__)
+    x->fingerprint_type = fingerprint_type_ssh_kex;
+
+    /* parse as if second (KEX) packet */
+
+    extractor_debug("%s: parsing KEX\n", __func__);
+
+    if (parser_read_uint(p, L_ssh_packet_length, &packet_length) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(p, L_ssh_packet_length) == status_err) {
+        goto bail;
+    }
+    if (parser_read_uint(p, L_ssh_padding_length, &padding_length) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(p, L_ssh_padding_length) == status_err) {
+        goto bail;
+    }
+    if (parser_read_uint(p, L_ssh_payload, &payload) == status_err) {
+        goto bail;
+    }
+    if (payload != 0x14) { /* KEX_INIT */
+        goto bail;
+    }
+    if (parser_skip(p, L_ssh_payload) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(p, L_ssh_cookie) == status_err) {
+        goto bail;
+    }
+
+    if (parser_read_and_skip_uint(p, L_ssh_kex_algo_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_ssh_server_host_key_algos_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_ssh_enc_algos_client_to_server_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_ssh_enc_algos_server_to_client_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_ssh_mac_algos_client_to_server_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_ssh_mac_algos_server_to_client_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_ssh_comp_algos_client_to_server_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_ssh_comp_algos_server_to_client_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_ssh_languages_client_to_server_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_read_and_skip_uint(p, L_ssh_languages_server_to_client_len, &tmp) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(p, x, tmp) == status_err) {
+        goto bail;
+    }
+
+    extractor_debug("%s: done parsing KEX (output length: %td)\n", __func__, extractor_get_output_length(x));
+
+    x->proto_state.state = state_done;
+
+ bail:
+    return extractor_get_output_length(x);
+}
 
 
 unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x) {
@@ -2103,6 +2253,9 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
 	break;
     case SSH_PORT:
         return parser_extractor_process_ssh(p, x);
+        break;
+    case SSH_KEX:
+        return parser_extractor_process_ssh_kex(p, x);
         break;
     default:
         ;
@@ -2526,29 +2679,50 @@ enum status proto_ident_config(const char *config_string) {
         return status_ok;
     }
     if (strncmp("http", config_string, sizeof("http")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
+        bzero(ssh_kex_mask,                  sizeof(ssh_kex_mask));
+        bzero(ssh_mask,                      sizeof(ssh_mask));
+        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
+        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
         select_tcp_syn = 0;
         return status_ok;
     }
     if (strncmp("tls", config_string, sizeof("tls")) == 0) {
         bzero(http_client_mask, sizeof(http_client_mask));
         bzero(http_server_mask, sizeof(http_server_mask));
+        bzero(ssh_kex_mask,     sizeof(ssh_kex_mask));
+        bzero(ssh_mask,         sizeof(ssh_mask));
+        select_tcp_syn = 0;
+        return status_ok;
+    }
+    if (strncmp("ssh", config_string, sizeof("ssh")) == 0) {
+        bzero(http_client_mask,              sizeof(http_client_mask));
+        bzero(http_server_mask,              sizeof(http_server_mask));
+        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
+        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
         select_tcp_syn = 0;
         return status_ok;
     }
     if (strncmp("tcp.message", config_string, sizeof("tcp.message")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
+        bzero(http_client_mask,              sizeof(http_client_mask));
+        bzero(http_server_mask,              sizeof(http_server_mask));
+        bzero(ssh_kex_mask,                  sizeof(ssh_kex_mask));
+        bzero(ssh_mask,                      sizeof(ssh_mask));
+        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
+        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
         select_tcp_syn = 0;
         tcp_message_filter_cutoff = 1;
         return status_ok;
     }
     if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
+        bzero(http_client_mask,              sizeof(http_client_mask));
+        bzero(http_server_mask,              sizeof(http_server_mask));
+        bzero(ssh_kex_mask,                  sizeof(ssh_kex_mask));
+        bzero(ssh_mask,                      sizeof(ssh_mask));
+        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
+        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
+        select_tcp_syn = 1;
         return status_ok;
     }
+    fprintf(stderr, "error: unrecognized filter command \"%s\"\n", config_string);
     return status_err;
 }
