@@ -9,6 +9,8 @@
 #include <ctype.h>    /* for tolower()  */
 #include <stdio.h>
 #include <arpa/inet.h>  /* for htons()  */
+#include <algorithm>
+#include <map>
 
 #include "ept.h"
 #include "extractor.h"
@@ -2538,27 +2540,26 @@ unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
     return 0;  /* we don't extract any data, but this is not a failure */
 }
 
-unsigned int packet_filter_process_packet(struct packet_filter *pf) {
+unsigned int packet_filter_process_packet(struct packet_filter *pf, struct key *k) {
     size_t transport_proto = 0;
     size_t ethertype = 0;
-    struct key k;
 
     parser_process_eth(&pf->p, &ethertype);
     switch(ethertype) {
     case ETH_TYPE_IP:
-        parser_process_ipv4(&pf->p, &transport_proto, &k);
+        parser_process_ipv4(&pf->p, &transport_proto, k);
         break;
     case ETH_TYPE_IPV6:
-        parser_process_ipv6(&pf->p, &transport_proto, &k);
+        parser_process_ipv6(&pf->p, &transport_proto, k);
         break;
     default:
         ;
     }
     if (transport_proto == 6) {
-        return packet_filter_process_tcp(pf, &k);
+        return packet_filter_process_tcp(pf, k);
 
     } else if (transport_proto == 17) {
-        return packet_filter_process_udp(pf, &k);
+        return packet_filter_process_udp(pf, k);
     }
 
     return 0;
@@ -2649,17 +2650,17 @@ enum status packet_filter_init(struct packet_filter *pf, const char *config_stri
     return status_ok;
 }
 
-size_t packet_filter_extract(struct packet_filter *pf, uint8_t *packet, size_t length) {
+size_t packet_filter_extract(struct packet_filter *pf, struct key *k, uint8_t *packet, size_t length) {
 
     extractor_init(&pf->x, pf->extractor_buffer, sizeof(packet_filter::extractor_buffer));
     parser_init(&pf->p, (unsigned char *)packet, length);
-    return packet_filter_process_packet(pf);
+    return packet_filter_process_packet(pf, k);
 }
 
 bool packet_filter_apply(struct packet_filter *pf, uint8_t *packet, size_t length) {
     extern unsigned int packet_filter_threshold;
-
-    size_t bytes_extracted = packet_filter_extract(pf, packet, length);
+    struct key k;
+    size_t bytes_extracted = packet_filter_extract(pf, &k, packet, length);
     if (bytes_extracted > packet_filter_threshold) {
         return true;
     }
@@ -2670,59 +2671,86 @@ bool packet_filter_apply(struct packet_filter *pf, uint8_t *packet, size_t lengt
  * configuration for protocol identification
  */
 
-enum status proto_ident_config(const char *config_string) {
+extern unsigned char dhcp_client_mask[8];  /* udp.c */
+extern unsigned char dns_server_mask[8];   /* udp.c */
+extern unsigned char wireguard_mask[8];    /* udp.c */
 
+
+enum status proto_ident_config(const char *config_string) {
     if (config_string == NULL) {
+        return status_ok;    /* use the default configuration */
+    }
+
+    std::map<std::string, bool> protocols{
+        { "all",         false },
+        { "dhcp",        false },
+        { "dns",         false },
+        { "dtls",        false },
+        { "http",        false },
+        { "ssh",         false },
+        { "tcp",         false },
+        { "tcp.message", false },
+        { "tls",         false },
+        { "wireguard",   false },
+    };
+
+    std::string s{config_string};
+    std::string delim{","};
+    size_t pos = 0;
+    std::string token;
+    while ((pos = s.find(delim)) != std::string::npos) {
+        token = s.substr(0, pos);
+        token.erase(std::remove_if(token.begin(), token.end(), isspace), token.end());
+        s.erase(0, pos + delim.length());
+
+        auto pair = protocols.find(token);
+        if (pair != protocols.end()) {
+            pair->second = true;
+        } else {
+            fprintf(stderr, "error: unrecognized filter command \"%s\"\n", token.c_str());
+            return status_err;
+        }
+    }
+    token = s.substr(0, pos);
+    s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
+    auto pair = protocols.find(token);
+    if (pair != protocols.end()) {
+        pair->second = true;
+    } else {
+        fprintf(stderr, "error: unrecognized filter command \"%s\"\n", token.c_str());
+        return status_err;
+    }
+
+    if (protocols["all"] == true) {
         return status_ok;
     }
-    if (strncmp("all", config_string, sizeof("all")) == 0) {
-        return status_ok;
+    if (protocols["dhcp"] == false) {
+        bzero(dhcp_client_mask, sizeof(dhcp_client_mask));
     }
-    if (strncmp("http", config_string, sizeof("http")) == 0) {
-        bzero(ssh_kex_mask,                  sizeof(ssh_kex_mask));
-        bzero(ssh_mask,                      sizeof(ssh_mask));
-        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
-        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
-        select_tcp_syn = 0;
-        return status_ok;
+    if (protocols["dns"] == false) {
+        bzero(dns_server_mask, sizeof(dns_server_mask));
     }
-    if (strncmp("tls", config_string, sizeof("tls")) == 0) {
+    if (protocols["http"] == false) {
         bzero(http_client_mask, sizeof(http_client_mask));
         bzero(http_server_mask, sizeof(http_server_mask));
-        bzero(ssh_kex_mask,     sizeof(ssh_kex_mask));
-        bzero(ssh_mask,         sizeof(ssh_mask));
-        select_tcp_syn = 0;
-        return status_ok;
     }
-    if (strncmp("ssh", config_string, sizeof("ssh")) == 0) {
-        bzero(http_client_mask,              sizeof(http_client_mask));
-        bzero(http_server_mask,              sizeof(http_server_mask));
-        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
-        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
-        select_tcp_syn = 0;
-        return status_ok;
+    if (protocols["ssh"] == false) {
+        bzero(ssh_kex_mask, sizeof(ssh_kex_mask));
+        bzero(ssh_mask, sizeof(ssh_mask));
     }
-    if (strncmp("tcp.message", config_string, sizeof("tcp.message")) == 0) {
-        bzero(http_client_mask,              sizeof(http_client_mask));
-        bzero(http_server_mask,              sizeof(http_server_mask));
-        bzero(ssh_kex_mask,                  sizeof(ssh_kex_mask));
-        bzero(ssh_mask,                      sizeof(ssh_mask));
-        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
-        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
+    if (protocols["tcp"] == false) {
+        select_tcp_syn = 0;
+    }
+    if (protocols["tcp.message"] == true) {
         select_tcp_syn = 0;
         tcp_message_filter_cutoff = 1;
-        return status_ok;
     }
-    if (strncmp("tcp", config_string, sizeof("tcp")) == 0) {
-        bzero(http_client_mask,              sizeof(http_client_mask));
-        bzero(http_server_mask,              sizeof(http_server_mask));
-        bzero(ssh_kex_mask,                  sizeof(ssh_kex_mask));
-        bzero(ssh_mask,                      sizeof(ssh_mask));
-        bzero(tls_client_hello_mask,         sizeof(tls_client_hello_mask));
+    if (protocols["tls"] == false) {
+        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
         bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
-        select_tcp_syn = 1;
-        return status_ok;
     }
-    fprintf(stderr, "error: unrecognized filter command \"%s\"\n", config_string);
-    return status_err;
+    if (protocols["wireguard"] == false) {
+        bzero(wireguard_mask, sizeof(wireguard_mask));
+    }
+    return status_ok;
 }

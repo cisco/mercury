@@ -375,10 +375,11 @@ bool packet_filter_apply(struct packet_filter *pf,
 			 size_t length);
 
 size_t packet_filter_extract(struct packet_filter *pf,
+                             struct key *k,
                              uint8_t *packet,
                              size_t length);
 
-unsigned int packet_filter_process_packet(struct packet_filter *pf);
+unsigned int packet_filter_process_packet(struct packet_filter *pf, struct key *k);
 
 typedef unsigned int (*parser_extractor_func)(struct parser *p, struct extractor *x);
 

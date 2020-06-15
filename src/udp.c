@@ -21,7 +21,7 @@
 
 #define VXLAN_HDR_LEN 8
 
-unsigned int packet_filter_process_vxlan(struct packet_filter *pf) {
+unsigned int packet_filter_process_vxlan(struct packet_filter *pf, struct key *k) {
     struct parser *p = &pf->p;
     if (parser_skip(p, VXLAN_HDR_LEN) != status_ok) {
         return 0;
@@ -30,7 +30,7 @@ unsigned int packet_filter_process_vxlan(struct packet_filter *pf) {
      * note: we ignore the VXLAN Network Identifier for now, which
      * makes little difference as long as they are all identical
      */
-    return packet_filter_process_packet(pf);
+    return packet_filter_process_packet(pf, k);
 }
 
 
@@ -236,7 +236,7 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
     }
 
     if (dst_port == VXLAN_PORT) {
-        return packet_filter_process_vxlan(pf);
+        return packet_filter_process_vxlan(pf, k);
     }
     /*
      * process the UDP Data payload
@@ -281,7 +281,8 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         return parser_extractor_process_ssh(p, x);
         break;
     case DNS_PORT:
-        return parser_extractor_process_dns(p, x);
+        // TODO: remove comment to enable DNS data capture
+        // return parser_extractor_process_dns(p, x);
         break;
     case WIREGUARD_PORT:
         return parser_extractor_process_wireguard(p, x);

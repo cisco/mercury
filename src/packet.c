@@ -571,7 +571,7 @@ void client_hello_data_features_set_from_packet(struct client_hello_data_feature
 #define SIZEOF_TCP_HDR 20
 
 void ipv4_flow_key_set_from_packet(struct ipv4_flow_key *key,
-                                   uint8_t *packet,
+                                   const uint8_t *packet,
                                    size_t length) {
     uint32_t *ip = (uint32_t *)packet;
     uint8_t uint32s_in_header = (((uint8_t *)packet)[0] & 0x0f);
@@ -591,7 +591,7 @@ void ipv4_flow_key_set_from_packet(struct ipv4_flow_key *key,
 }
 
 void ipv6_flow_key_set_from_packet(struct ipv6_flow_key *key,
-                                   uint8_t *packet,
+                                   const uint8_t *packet,
                                    size_t length) {
 
     if (length < sizeof(struct ipv6_hdr)) {
@@ -599,7 +599,7 @@ void ipv6_flow_key_set_from_packet(struct ipv6_flow_key *key,
     }
     struct ipv6_hdr *ipv6_hdr = (struct ipv6_hdr *)packet;
 
-    uint8_t *last_possible_header_extension = packet + length - sizeof(struct ipv6_header_extension);
+    const uint8_t *last_possible_header_extension = packet + length - sizeof(struct ipv6_header_extension);
 
     if (length < sizeof(struct ipv6_hdr)) {
         return;
@@ -661,6 +661,22 @@ void flow_key_set_from_packet(struct flow_key *k,
         break;
     default:
         ;
+    }
+}
+
+void flow_key_set_from_ip_packet(struct flow_key *k,
+                                 const uint8_t *ip_packet,
+                                 size_t length) {
+
+    // determine IP version from first four bits
+    uint8_t version = *ip_packet & 0xf0;
+    if (version == 0x40) { // IPv4
+        k->type = ipv4;
+        ipv4_flow_key_set_from_packet(&k->value.v4, ip_packet, length);
+
+    } else {               // assume IPv6
+        k->type = ipv6;
+        ipv6_flow_key_set_from_packet(&k->value.v6, ip_packet, length);
     }
 }
 
