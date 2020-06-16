@@ -51,6 +51,10 @@ void flow_key_set_from_packet(struct flow_key *k,
 			      uint8_t *packet,
 			      size_t length);
 
+void flow_key_set_from_ip_packet(struct flow_key *k,
+                                 const uint8_t *ip_packet,
+                                 size_t length);
+
 void packet_fprintf(FILE *f, uint8_t *packet, size_t length, unsigned int sec, unsigned int usec);
 
 void packet_fprintf_flow_key(FILE *f, uint8_t *packet, size_t length);

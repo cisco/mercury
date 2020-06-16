@@ -14,7 +14,7 @@ bindir = ${exec_prefix}/bin
 localstatedir = ${prefix}/var/mercury
 datarootdir = ${prefix}/share/mercury
 
-CFLAGS = --std=c++11 -Wall -Wno-narrowing -O2 $(OPTFLAGS) # -DASN1_DEBUG=1
+CFLAGS = --std=c++11 -Wall -Wpedantic -Wextra -Wno-narrowing -O2 $(OPTFLAGS) # -DASN1_DEBUG=1
 
 .PHONY: all
 all: cert-analyze oidc oid.h
@@ -26,7 +26,7 @@ oidc: oidc.cc
 	$(CXX) $(CFLAGS) -o oidc oidc.cc
 
 oid.h: oidc $(wildcard *.asn1)
-	./oidc $(wildcard *.asn1) > oid.h
+	./oidc $(sort $(wildcard *.asn1)) > oid.h
 
 .PHONY: clean 
 clean:

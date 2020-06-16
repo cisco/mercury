@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <unordered_set>
+#include <list>
 #include "oid.h"    // oid dictionary
 
 #include "../mercury.h"
@@ -58,15 +59,21 @@ struct attribute {
     }
 
     void print_as_json(struct json_object_asn1 &o) const {
-        const char *unknown_oid = "unknown_oid";
-        const char *oid_string = unknown_oid;
-
-        oid_string = parser_get_oid_string(&attribute_type.value);
-        if (oid_string != unknown_oid) {
-            attribute_value.print_as_json_escaped_string(o, oid_string);
-        } else {
-            attribute_value.print_as_json_hex(o, unknown_oid);
+        if (attribute_type.is_not_null()) {
+            const char *oid_string = parser_get_oid_string(&attribute_type.value);
+            if (oid_string != oid_empty_string) {
+                attribute_value.print_as_json_escaped_string(o, oid_string);
+            } else {
+                attribute_type.print_as_json_oid(o, "attribute_type");
+                if (attribute_value.is_not_null()) {
+                    attribute_value.print_as_json_hex(o, "attribute_value");
+                }
+            }
         }
+    }
+
+    bool matches(const struct attribute &r) {
+        return attribute_type == r.attribute_type && attribute_value == r.attribute_value;
     }
 };
 
@@ -75,7 +82,7 @@ struct name {
 
     name() : RDNsequence{} {}
     void parse(struct parser *p, const char *label=NULL) {
-        RDNsequence.parse(p, tlv::SEQUENCE, "RDNsequence");
+        RDNsequence.parse(p, tlv::SEQUENCE, label);
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
@@ -89,6 +96,21 @@ struct name {
             attr_obj.close();
         }
         array.close();
+    }
+
+    bool matches(const struct name &r) const {
+        struct parser tlv_sequence = RDNsequence.value;
+        struct parser tlv_sequence_r = r.RDNsequence.value;
+        while (tlv_sequence.is_not_empty() && tlv_sequence_r.is_not_empty()) {
+            struct attribute attr(&tlv_sequence);
+            struct attribute attr_r(&tlv_sequence_r);
+            if (attr.matches(attr_r)) {
+                ;
+            } else {
+                return false;
+            }
+        }
+        return true;
     }
 };
 
@@ -113,14 +135,14 @@ struct basic_constraints {
         }
     }
 
-    void print_as_json(struct json_object_asn1 &o) const {
+    void print_as_json(struct json_object_asn1 &o, const char *name) const {
         bool ca_flag = false;  // default
         unsigned int length = 0;   // default
         // TBD: report actual non-default data
         if (ca.length) {  // Check value as well as length!
             ca_flag = true;
         }
-        struct json_object_asn1 bc{o, "basic_constraints"};
+        struct json_object_asn1 bc{o, name};
         bc.print_key_bool("ca", ca_flag);
         bc.print_key_uint("path_len_constraint", length);
         bc.close();
@@ -143,8 +165,8 @@ struct ext_key_usage {
         sequence.parse(p, 0, "ext_key_usage.sequence");
     }
 
-    void print_as_json(struct json_object_asn1 &o) const {
-        struct json_array_asn1 a{o, "ext_key_usage"};
+    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+        struct json_array_asn1 a{o, name};
         struct parser p = sequence.value;
         while (p.is_not_empty()) {
             struct tlv key_purpose_id(&p);
@@ -200,7 +222,7 @@ struct key_usage {
             (char *)"decipher_only",
             NULL
         };
-        bit_string.print_as_json_bitstring_flags(o, "key_usage", flags);
+        bit_string.print_as_json_bitstring_flags(o, name, flags);
     }
 };
 
@@ -411,7 +433,7 @@ struct general_name {
     }
     void parse(struct parser *p, uint8_t expected_tag=0x00) {
         explicit_tag.parse(p, expected_tag);
-        //explicit_tag.fprint(stderr, "explicit_tag");
+        // explicit_tag.fprint_tlv(stderr, "explicit_tag");
     }
     void print_as_json(struct json_object_asn1 &o) const {
         if (explicit_tag.tag == otherName) {
@@ -623,8 +645,8 @@ struct authority_key_identifier {
         }
     }
 
-    void print_as_json(struct json_object_asn1 &o) const {
-        struct json_object_asn1 aki{o, "authority_key_identifier"};
+    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+        struct json_object_asn1 aki{o, name};
         if (key_identifier.is_not_null()) {
             key_identifier.print_as_json_hex(aki, "key_identifier");
         }
@@ -764,13 +786,24 @@ struct validity {
     void print_as_json(struct json_object_asn1 &o) const {
         struct json_array array{o, "validity"};
         struct json_object_asn1 obj{array};
-        notBefore.print_as_json(obj, "notBefore");
-        obj.reinit(array);
-        notAfter.print_as_json(obj, "notAfter");
+        if (notBefore.is_not_null()) {
+            notBefore.print_as_json(obj, "not_before");
+        }
+        if (notAfter.is_not_null()) {
+            obj.reinit(array);
+            notAfter.print_as_json(obj, "not_after");
+        }
         obj.close();
         array.close();
     }
-    bool contains(const uint8_t gt, size_t len) {
+    bool contains(const char *time_str, size_t time_str_len) const {
+        struct tlv tmp;
+        tmp.set(tlv::UTCTime, time_str, time_str_len);
+        if (notBefore.time_cmp(tmp) <= 0) {
+            if (notAfter.time_cmp(tmp) >= 0) {
+                return true;
+            }
+        }
         return false;
     }
 };
@@ -833,10 +866,19 @@ struct access_description {
     }
    void parse(struct parser *x) {
         sequence.parse(x);
+        if (sequence.is_null()) {
+            x->set_null();
+        }
         // sequence.fprint(stderr, "sequence");
-        access_method.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
+        access_method.parse(&sequence.value, tlv::OBJECT_IDENTIFIER, "access_method");
+        if (access_method.is_null()) {
+            x->set_null();
+        }
         // access_method.fprint(stderr, "access_method");
         access_location.parse(&sequence.value);
+        if (access_location.explicit_tag.is_null()) {
+            x->set_null();
+        }
     }
 
     void print_as_json(struct json_object_asn1 &o) const {
@@ -915,72 +957,72 @@ struct extension {
 
     void print_as_json(struct json_object_asn1 &o) const {
         if (sequence.is_constructed()) {
-            const char *oid_string = "uknown_oid";
+            enum oid oid_type = oid::unknown;
             bool critical_flag = false;
             if (extnID.tag == tlv::OBJECT_IDENTIFIER) {
-                oid_string = parser_get_oid_string(&extnID.value);
+                oid_type = parser_get_oid_enum(&extnID.value);
             }
             if (critical.tag == tlv::BOOLEAN) {
                 critical_flag = true;
             }
             struct parser value = extnValue.value;
-            if (oid_string && strcmp("id-ce-SignedCertificateTimestampList", oid_string) == 0) {
+            if (oid_type == oid::id_ce_SignedCertificateTimestampList) {
                 struct signed_certificate_timestamp_list x(&value);
                 x.print_as_json(o, "signed_certificate_timestamp_list");
             }
-            else if (oid_string && strcmp("id-ce-nameConstraints", oid_string) == 0) {
+            else if (oid_type == oid::id_ce_nameConstraints) {
                 struct name_constraints x(&value);
                 x.print_as_json(o, "name_constraints");
             }
-            else if (oid_string && strcmp("id-ce-cRLDistributionPoints", oid_string) == 0) {
+            else if (oid_type == oid::id_ce_cRLDistributionPoints) {
                 struct crl_distribution_points x(&value);
                 x.print_as_json(o, "crl_distribution_points");
             }
-            else if (oid_string && strcmp("id-ce-certificatePolicies", oid_string) == 0) {
+            else if (oid_type == oid::id_ce_certificatePolicies) {
                 struct certificate_policies x(&value);
                 x.print_as_json(o, "certificate_policies");
             }
-            else if (oid_string && strcmp("id-ce-privateKeyUsagePeriod", oid_string) == 0) {
+            else if (oid_type == oid::id_ce_privateKeyUsagePeriod) {
                 struct private_key_usage_period x(&value);
                 x.print_as_json(o, "private_key_usage_period");
             }
-            else if (oid_string && strcmp("id-ce-basicConstraints", oid_string) == 0) {
+            else if (oid_type == oid::id_ce_basicConstraints) {
                 struct basic_constraints x(&value);
-                x.print_as_json(o);
+                x.print_as_json(o, "basic_constraints");
             }
-            else if (oid_string && strcmp("id-ce-keyUsage", oid_string) == 0) {
+            else if (oid_type == oid::key_usage) {
                 struct key_usage x(&value);
                 x.print_as_json(o, "key_usage");
             }
-            else if (oid_string && strcmp("id-ce-extKeyUsage", oid_string) == 0) {
+            else if (oid_type == oid::ext_key_usage) {
                 struct ext_key_usage x(&value);
-                x.print_as_json(o);
+                x.print_as_json(o, "ext_key_usage");
             }
-            else if (oid_string && strcmp("id-ce-subjectAltName", oid_string) == 0) {
+            else if (oid_type == oid::subject_alt_name) {
                 struct subject_alt_name x(&value);
                 x.print_as_json(o, "subject_alt_name");
             }
-            else if (oid_string && strcmp("id-ce-issuerAltName", oid_string) == 0) {
+            else if (oid_type == oid::id_ce_issuerAltName) {
                 struct subject_alt_name x(&value);
                 x.print_as_json(o, "issuer_alt_name");
             }
-            else if (oid_string && strcmp("id-ce-authorityKeyIdentifier", oid_string) == 0) {
+            else if (oid_type == oid::id_ce_authorityKeyIdentifier) {
                 struct authority_key_identifier x(&value);
-                x.print_as_json(o);
+                x.print_as_json(o, "authority_key_identifier");
             }
-            else if (oid_string && strcmp("id-ce-subjectKeyIdentifier", oid_string) == 0) {
+            else if (oid_type == oid::id_ce_subjectKeyIdentifier) {
                 struct tlv x(&value);
                 x.print_as_json_hex(o, "subject_key_identifier");
             }
-            else if (oid_string && strcmp("id-pe-authorityInfoAccess", oid_string) == 0) {
+            else if (oid_type == oid::id_pe_authorityInfoAccess) {
                 struct authority_info_access_syntax x(&value);
                 x.print_as_json(o, "authority_info_access");
             }
-            else if (oid_string && strcmp("NetscapeCertificateComment", oid_string) == 0) {
+            else if (oid_type == oid::NetscapeCertificateComment) {
                 struct tlv x(&value);
                 x.print_as_json_escaped_string(o, "netscape_certificate_comment");
             }
-            else if (oid_string && strcmp("NetscapeCertType", oid_string) == 0) {
+            else if (oid_type  == oid::NetscapeCertType) {
                 struct tlv x(&value);
                 x.print_as_json_hex(o, "netscape_cert_type");
             } else {
@@ -1025,8 +1067,18 @@ struct rsa_public_key {
         if (modulus.is_not_null() && exponent.is_not_null()) {
             modulus.print_as_json_hex(pub_key, "modulus");
             exponent.print_as_json_hex(pub_key, "exponent");
+            pub_key.print_key_uint("bits_in_modulus", bits_in_modulus());    // TBD: do we really want to report metadata here?
+            pub_key.print_key_uint("bits_in_exponent", bits_in_exponent());  // TBD: do we really want to report metadata here?
         }
         pub_key.close();
+    }
+
+    unsigned int bits_in_modulus() const {
+        return modulus.value.bits_in_data();
+    }
+
+    unsigned int bits_in_exponent() const {
+        return exponent.value.bits_in_data();
     }
 };
 
@@ -1063,7 +1115,7 @@ struct ec_public_key {
     struct parser d;
     // struct tlv tmp;   // TBD: ec public key is *not* ASN.1 formatted
 
-    ec_public_key(struct parser *p) : d{} {
+        ec_public_key(struct parser *p) : d{NULL, NULL} {
         d = *p;
     }
 
@@ -1094,9 +1146,56 @@ struct ec_public_key {
                 pub_key.print_key_string("y", "01");
             }
         }
+        pub_key.print_key_uint("bits_in_key", bits_in_key());    // TBD: do we really want to report metadata here?
         pub_key.close();
     }
+
+    unsigned int bits_in_key() const {
+        return (d.length() - 1)*4;
+    }
+
 };
+
+/*
+ * from SEC1 v1.2
+ *   ECDSA-Sig-Value ::= SEQUENCE {
+ *         r INTEGER,
+ *         s INTEGER,
+ *        a INTEGER OPTIONAL,
+ *        y CHOICE { b BOOLEAN, f FieldElement } OPTIONAL
+ *   }
+ *
+ */
+
+struct ecdsa_signature {
+    struct tlv sequence;
+    struct tlv r;
+    struct tlv s;
+
+    ecdsa_signature(struct parser *p) : sequence{} {
+        parse(p);
+    }
+    void parse(struct parser *p) {
+        sequence.parse(p, tlv::SEQUENCE);
+        r.parse(&sequence.value, tlv::INTEGER);
+        s.parse(&sequence.value, tlv::INTEGER);
+    }
+    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+        struct json_object_asn1 sig{o, name};
+        r.print_as_json_hex(sig, "r");
+        s.print_as_json_hex(sig, "s");
+        sig.close();
+    }
+    unsigned int bits_in_signature() {
+        unsigned int r_bits = r.value.bits_in_data();
+        unsigned int s_bits = s.value.bits_in_data();
+        if (r_bits > s_bits) {
+            return r_bits;
+        }
+        return s_bits;
+    }
+};
+
 
 /*
  *  AlgorithmIdentifier  ::=  SEQUENCE  {
@@ -1126,30 +1225,32 @@ struct algorithm_identifier {
     }
 
     void print_as_json(struct json_object &o, const char *name) const {
-        json_object_asn1 alg_id(o, name);
-        algorithm.print_as_json_oid(alg_id, "algorithm");
-        if (parameters.is_not_null()) {
-            if (parameters.tag == tlv::OBJECT_IDENTIFIER) {
-                parameters.print_as_json_oid(alg_id, "parameters");
-            } else {
-                parameters.print_as_json_hex(alg_id, "parameters");
-            }
-        }
-        alg_id.close();
-    }
-
-    const char *type() const {
         if (algorithm.is_not_null()) {
-            return parser_get_oid_string(&algorithm.value);
+            json_object_asn1 alg_id(o, name);
+            algorithm.print_as_json_oid(alg_id, "algorithm");
+            if (parameters.is_not_null()) {
+                if (parameters.tag == tlv::OBJECT_IDENTIFIER) {
+                    parameters.print_as_json_oid(alg_id, "parameters");
+                } else {
+                    parameters.print_as_json_hex(alg_id, "parameters");
+                }
+            }
+            alg_id.close();
         }
-        return "";
     }
 
-    const char *get_parameters() const {
-        if (parameters.is_not_null()) {
-            return parser_get_oid_string(&parameters.value);
+    enum oid type() const {
+        if (algorithm.is_not_null()) {
+            return parser_get_oid_enum(&algorithm.value);
         }
-        return NULL;
+        return oid::unknown;
+    }
+
+    enum oid get_parameters() const {
+        if (parameters.is_not_null()) {
+            return parser_get_oid_enum(&parameters.value);
+        }
+        return oid::unknown;
     }
 };
 
@@ -1179,22 +1280,83 @@ struct subject_public_key_info {
         struct json_object_asn1 alg_id{o, name};
         algorithm.print_as_json(alg_id, "algorithm_identifier");
         struct tlv tmp_key = subject_public_key;
-        if (strcmp(algorithm.type(), "rsaEncryption") == 0) {
+
+        if (algorithm.type() == oid::rsaEncryption) {
             tmp_key.remove_bitstring_encoding();
             struct rsa_public_key pub_key(&tmp_key.value);
             pub_key.print_as_json(alg_id, "subject_public_key");
 
-        } else if (strcmp(algorithm.type(), "id-ecPublicKey") == 0) {
+        } else if (algorithm.type() == oid::id_ecPublicKey) {
             tmp_key.remove_bitstring_encoding();
             struct ec_public_key pub_key(&tmp_key.value);
             pub_key.print_as_json(alg_id, "subject_public_key");
 
         } else {
-            subject_public_key.print_as_json_hex(alg_id, "subject_public_key");
+            struct json_object_asn1 key{alg_id, "subject_public_key"};
+            subject_public_key.print_as_json_hex(key, "key");
+            key.print_key_uint("bits_in_key", subject_public_key.value.bits_in_data());
+            key.close();
         }
         alg_id.close();
     }
 };
+
+static std::unordered_set <unsigned int> ecdsa_algorithms {
+    oid::ecdsa_with_SHA256,
+    oid::ecdsa_with_SHA1,
+    oid::ecdsa_with_SHA224,
+    oid::ecdsa_with_SHA256_1_,
+    oid::ecdsa_with_SHA384,
+    oid::ecdsa_with_SHA512,
+    oid::id_ecdsa_with_shake128,
+    oid::id_ecdsa_with_shake256,
+    oid::id_ecdsa_with_sha3_224,
+    oid::id_ecdsa_with_sha3_256,
+    oid::id_ecdsa_with_sha3_384,
+    oid::id_ecdsa_with_sha3_512
+};
+
+//  std::unordered_map<std::string, unsigned int> parameters_strength {
+//  { "secp192r1", 96 },
+//  { "secp224r1", 112 },
+//  { "prime192v1", 96, },
+//  { "prime192v2", 96 },
+//  { "prime192v3", 96 },
+//  { "prime239v1", 112 },
+//  { "prime239v2", 112 },
+//  { "prime239v3", 112 },
+//  { "brainpoolP160r1", 80 },
+//  { "brainpoolP160t1", 80 },
+//  { "brainpoolP192r1", 96 },
+//  { "brainpoolP192t1", 96 },
+//  { "brainpoolP224r1", 112 },
+//  { "brainpoolP224t1", 112 },
+//  { "prime256v1", 128 }
+// };
+// if (parameters != NULL) {
+//     const auto &p = parameters_strength.find(parameters);
+//     if (p != parameters_strength.end() && p->second < 128) {
+//         return true;
+//     }
+//  }
+
+// std::unordered_set<std::string> weak_ec_parameters {
+//  "secp192r1",
+//  "secp224r1",
+//  "prime192v1",
+//  "prime192v2",
+//    "prime192v3",
+//    "prime239v1",
+//    "prime239v2",
+//    "prime239v3"
+//  "brainpoolP160r1",
+//  "brainpoolP160t1",
+//  "brainpoolP192r1",
+//  "brainpoolP192t1",
+//  "brainpoolP224r1",
+//  "brainpoolP224t1",
+//  // "prime256v1"
+// };
 
 
 /*
@@ -1311,6 +1473,9 @@ struct x509_cert {
         // tbs_certificate should be out of data now
         if (tbs_certificate.value.is_not_empty()) {
             fprintf(stderr, "warning: tbs_certificate has trailing data\n");
+            struct parser tmp = tbs_certificate.value;
+            struct tlv tmp_tlv(&tmp, 0, "tbs_certificate trailing data");
+            //            tmp_tlv.fprint_tlv(stderr, "tbs_certificate trailing data");
         }
 
         signature_algorithm.parse(&certificate.value);
@@ -1321,110 +1486,168 @@ struct x509_cert {
     std::string get_json_string() const {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        print_as_json(buf);
-        std::string tmp_str(buffer, buf.length());
+        print_as_json(buf, {});
+        std::string tmp_str(buffer, buf.length()); // TBD: move?
         return tmp_str;
     }
     void print_as_json(FILE *f) const {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        print_as_json(buf);
+        print_as_json(buf, {});
         buf.write_line(f);
     }
-    void print_as_json(struct buffer_stream &buf) const {
+    void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs) const {
 
         struct json_object_asn1 o{&buf};
-        serial_number.print_as_json_hex(o, "serial_number");
-        signature_identifier.print_as_json(o, "signature_identifier");
-        issuer.print_as_json(o, "issuer");
-        validity.print_as_json(o);
-        subject.print_as_json(o, "subject");
-        subjectPublicKeyInfo.print_as_json(o, "subject_public_key_info");
-
-        struct json_array extensions_array{o, "extensions"};
-        struct parser tlv_sequence = extensions.value;
-        while (tlv_sequence.is_not_empty()) {
-            struct extension xtn(tlv_sequence);
-            struct json_object_asn1 wrapper{extensions_array};
-            xtn.print_as_json(wrapper);
-            wrapper.close();
+        if (!version.is_null()) {
+            version.print_as_json_hex(o, "version");
         }
-        extensions_array.close();
+        if (!serial_number.is_null()) {
+            serial_number.print_as_json_hex(o, "serial_number");
+        }
+        if (!signature_identifier.sequence.is_null()) {
+            signature_identifier.print_as_json(o, "signature_identifier");
+        }
+        if (!issuer.RDNsequence.is_null()) {
+            issuer.print_as_json(o, "issuer");
+        }
+        if (!validity.sequence.is_null()) {
+            validity.print_as_json(o);
+        }
+        if (!subject.RDNsequence.is_null()) {
+            subject.print_as_json(o, "subject");
+        }
+        if (!subjectPublicKeyInfo.sequence.is_null()) {
+            subjectPublicKeyInfo.print_as_json(o, "subject_public_key_info");
+        }
 
-        signature_algorithm.print_as_json(o, "signature_algorithm");
-        struct tlv tmp_sig = signature;        // to avoid modifying signature
-        tmp_sig.remove_bitstring_encoding();
-        tmp_sig.print_as_json_hex(o, "signature");
+        if (!extensions.is_null()) {
+            struct json_array extensions_array{o, "extensions"};
+            struct parser tlv_sequence = extensions.value;
+            while (tlv_sequence.is_not_empty()) {
+                struct extension xtn(tlv_sequence);
+                struct json_object_asn1 wrapper{extensions_array};
+                xtn.print_as_json(wrapper);
+                wrapper.close();
+            }
+            extensions_array.close();
+        }
+
+        if (!signature_algorithm.sequence.is_null()) {
+            signature_algorithm.print_as_json(o, "signature_algorithm");
+        }
+        if (!signature.is_null()) {
+
+            enum oid alg_oid = signature_algorithm.type();
+            if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
+                struct tlv tmp_sig = signature;
+                tmp_sig.remove_bitstring_encoding();
+                struct ecdsa_signature sig{&tmp_sig.value};
+                sig.print_as_json(o, "signature");
+                o.print_key_uint("bits_in_signature", sig.bits_in_signature());
+            } else {
+                struct tlv tmp_sig = signature;        // to avoid modifying signature
+                tmp_sig.remove_bitstring_encoding();
+                tmp_sig.print_as_json_hex(o, "signature");
+                o.print_key_uint("bits_in_signature", tmp_sig.value.bits_in_data());
+            }
+        }
+        report_violations(o, trusted_certs);
         o.close();
     }
 
-    bool is_weak(bool unsigned_is_weak=false) const {
+    unsigned int bits_in_signature() const {
+        enum oid alg_oid = signature_algorithm.type();
+        if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
+            struct tlv tmp_sig = signature;
+            tmp_sig.remove_bitstring_encoding();
+            struct ecdsa_signature sig{&tmp_sig.value};
+            return sig.bits_in_signature();
+        } else {
+            struct tlv tmp_sig = signature;
+            tmp_sig.remove_bitstring_encoding();  // assume RSA
+            return tmp_sig.value.bits_in_data();
+        }
+        return 0;
+    }
 
-        const char *alg_type = subjectPublicKeyInfo.algorithm.type();
-        if (strcmp(alg_type, "rsaEncryption") == 0) {
+    bool is_self_issued() const {
+        if (issuer.RDNsequence.is_null() || subject.RDNsequence.is_null()) {
+            return false;  // missing data
+        }
+        return issuer.matches(subject);
+    }
+
+    bool subject_key_is_weak() const {
+        if (subjectPublicKeyInfo.algorithm.algorithm.is_null()) {  // TBD: is_not_truncated() would be better
+            return false;  // missing data
+        }
+
+        enum oid alg_type = subjectPublicKeyInfo.algorithm.type();
+        if (alg_type == rsaEncryption) {
             struct tlv tmp_key = subjectPublicKeyInfo.subject_public_key;  // make copy to leave original intact
             tmp_key.remove_bitstring_encoding();
             struct rsa_public_key pub_key(&tmp_key.value);
-            unsigned int bits_in_key = (pub_key.modulus.length-1)*8;  // we should check integer formatting, but instead we assume a leading 0x00
-            if (bits_in_key < 2048) {
+            if (pub_key.bits_in_modulus() < 2048) {
                 return true;
             }
-            unsigned int bytes_in_exponent = pub_key.exponent.length; // TBD: make proper
-            if (bytes_in_exponent < 3) {
+            if (pub_key.bits_in_exponent() < 17) {
                 return true;
             }
-        }
-        if (strcmp(alg_type, "id-ecPublicKey") == 0) {
-            const char *parameters = subjectPublicKeyInfo.algorithm.get_parameters();
-            std::unordered_set<std::string> weak_parameters {
-              "secp192r1",
-              "secp224r1",
-              "prime192v1",
-              "prime192v2",
-              "prime192v3",
-              "prime239v1",
-              "prime239v2",
-              "prime239v3"
-              "brainpoolP160r1",
-              "brainpoolP160t1",
-              "brainpoolP192r1",
-              "brainpoolP192t1",
-              "brainpoolP224r1",
-              "brainpoolP224t1",
-              // "prime256v1"
+        } else if (alg_type == id_ecPublicKey) {
+            enum oid parameters = subjectPublicKeyInfo.algorithm.get_parameters();
+            std::unordered_set<unsigned int> strong_ec_parameters {
+                oid::prime256v1, // oid::secp256r1
+                oid::secp384r1,
+                oid::secp521r1
             };
-            if (parameters == NULL || weak_parameters.find(parameters) != weak_parameters.end()) {
+            if (strong_ec_parameters.find(parameters) == strong_ec_parameters.end()) {
                 return true;
             }
-        }
-        const char *sig_alg_type = signature_algorithm.type();
-        std::unordered_set<std::string> weak_sig_algs= {
-            "rsaEncryption",
-            "md2WithRSAEncryption",
-            "md5WithRSAEncryption",
-            "sha-1WithRSAEncryption",
-            "sha1WithRSAEncryption",
-            "sha224WithRSAEncryption"
-            // "sha256WithRSAEncryption",
-            // "sha384WithRSAEncryption",
-            // "sha512WithRSAEncryption"
-        };
-        if (sig_alg_type == NULL) {
-            if (unsigned_is_weak) {  // TBD: check trusted roots to see if this is one
-                return true;
-            }
+        } else if (alg_type == id_Ed25519) {
+            ;
+        } else if (alg_type == id_Ed448) {
+            ;
         } else {
-            if (weak_sig_algs.find(sig_alg_type) != weak_sig_algs.end()) {
-                return true;
-            }
+            return true; // uknown subject public key type 
         }
         return false;
     }
 
-    bool is_nonconformant() {
-        const char *sig_alg_type = signature_algorithm.type();
-        const char *tbs_sig_alg_type = signature_identifier.type();
-        if (sig_alg_type && tbs_sig_alg_type && strcmp(sig_alg_type, tbs_sig_alg_type) != 0) {
+    bool signature_is_weak(bool unsigned_is_weak=false) const {
+
+        std::unordered_map<unsigned int, unsigned int> strong_sig_algs{
+            // { "rsaEncryption", 2048 },
+            { oid::sha256WithRSAEncryption, 2048 },
+            { oid::sha384WithRSAEncryption, 2048 },
+            { oid::sha512WithRSAEncryption, 2048 },
+            { oid::ecdsa_with_SHA256, 256 },
+            { oid::ecdsa_with_SHA1, 256 }
+        };
+
+        enum oid sig_alg_type = signature_algorithm.type();
+        if (sig_alg_type == unknown) {
+            if (!unsigned_is_weak) {
+                return false;
+            }
+        } else {
+            std::unordered_map<unsigned int, unsigned int>::const_iterator a = strong_sig_algs.find(sig_alg_type);
+            if (a != strong_sig_algs.end()) {
+                if (a->second >= bits_in_signature()) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool is_nonconformant() const {
+        if (signature_algorithm.algorithm.is_null() || signature_identifier.algorithm.is_null()) {
+            return false;  // missing data
+        }
+        enum oid sig_alg_type = signature_algorithm.type();
+        enum oid tbs_sig_alg_type = signature_identifier.type();
+        if (sig_alg_type != tbs_sig_alg_type) {
             return true;
         }
         return false;
@@ -1439,32 +1662,69 @@ struct x509_cert {
             return true;  // error: can't get current time
         }
 
-        struct tlv tmp;
-        tmp.set(tlv::UTCTime, time_str, sizeof(time_str));
-        if (validity.notBefore.time_cmp(tmp) <= 0) {
-            if (validity.notAfter.time_cmp(tmp) >= 0) {
-                return false;
-            }
-        }
-        return true;
+        return !validity.contains(time_str, sizeof(time_str));
     }
 
+    bool is_trusted(const std::list<struct x509_cert> &trusted_certs) const {
+        if (trusted_certs.empty()) {
+            return true; // no trust list provided, so don't perform check
+        }
+        for (auto &c : trusted_certs) {
+            if (c.issuer.matches(issuer)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void report_violations(struct json_object_asn1 &o,
+                           const std::list<struct x509_cert> &trusted_certs) const {
+        bool not_currently_valid = is_not_currently_valid();
+        bool self_issued = is_self_issued();
+        bool weak_subject_key = subject_key_is_weak();
+        bool weak_signature = signature_is_weak();
+        bool nonconformant = is_nonconformant();
+        bool trusted = is_trusted(trusted_certs);
+
+        if (not_currently_valid || self_issued || weak_subject_key || weak_signature || nonconformant || !trusted) {
+            struct json_array_asn1 violations{o, "violations"};
+            if (not_currently_valid) {
+                violations.print_string("invalid");
+            }
+            if (!trusted) {
+                violations.print_string("untrusted_issuer");
+            }
+            if (self_issued) {
+                violations.print_string("self_issued");
+            }
+            if (weak_subject_key) {
+                violations.print_string("weak_subject_key");
+            }
+            if (weak_signature) {
+                violations.print_string("weak_signature");
+            }
+            if (nonconformant) {
+                violations.print_string("nonconformant");
+            }
+            violations.close();
+        }
+    }
 
 };
 
 struct x509_cert_prefix {
+    struct tlv version;
     struct tlv serial_number;
     struct name issuer;
     struct parser prefix;
 
-    x509_cert_prefix() : serial_number{}, issuer{}, prefix{NULL, NULL} {   }
+    x509_cert_prefix() : version{}, serial_number{}, issuer{}, prefix{NULL, NULL} {   }
 
     x509_cert_prefix(const void *buffer, unsigned int len) : serial_number{}, issuer{}, prefix{NULL, NULL} {
         parse(buffer, len);
     }
 
     void parse(const void *buffer, unsigned int len) {
-        struct tlv version;
 
         struct parser p;
         prefix.data = (const uint8_t *)buffer;
@@ -1510,31 +1770,37 @@ struct x509_cert_prefix {
         return prefix.data_end - prefix.data;
     }
 
+    void print_as_json(struct buffer_stream &buf) const {
+        json_object_asn1 o{&buf};
+        o.print_key_hex("version", version.value);
+        o.print_key_hex("serial_number", serial_number.value);
+        issuer.print_as_json(o, "issuer");
+        o.close();
+    }
     void print_as_json(FILE *f) const {
         char buffer[8192];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        {
-            json_object_asn1 o{&buf};
-            o.print_key_hex("serial_number", serial_number.value);
-            issuer.print_as_json(o, "issuer");
-            o.close();
-        }
+        print_as_json(buf);
         buf.write_line(f);
     }
-
+    void print_as_json_base64(struct buffer_stream &buf) const {
+        json_object o{&buf};
+        o.print_key_base64("cert_prefix", prefix);
+        o.close();
+    }
+    void print_as_json_hex(struct buffer_stream &buf) const {
+        json_object o{&buf};
+        o.print_key_hex("cert_prefix", prefix);
+        o.close();
+    }
     void print_as_json_hex(FILE *f) const {
         char buffer[8192];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        {
-            json_object o{&buf};
-            o.print_key_hex("cert_prefix", prefix);
-            o.close();
-        }
+        print_as_json_hex(buf);
         buf.write_line(f);
     }
 
 };
-
 
 /*
 

@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <map>
 #include <set>
+#include <algorithm>
+
 
 void oid_print(std::vector<uint32_t> oid, const char *label) {
 
@@ -230,11 +232,13 @@ struct oid_assignment {
 
 struct oid_set {
     std::unordered_map<std::string, std::vector<uint32_t>> oid_dict;
+    std::unordered_map<std::string, std::vector<uint32_t>> nonterminal_oid_dict;
     std::unordered_map<std::string, std::string> keyword_dict;
     std::unordered_map<std::string, std::string> synonym;
     std::multiset<std::string> keywords;
 
     void dump_oid_dict_sorted();
+    void dump_oid_enum_dict_sorted();
     void verify_oid_dict();
     std::vector<uint32_t> get_vector_from_keyword(const std::string &keyword) {
         auto x = oid_dict.find(keyword);
@@ -270,7 +274,7 @@ struct oid_set {
             }
             std::cerr << " is already in the OID set with keyword " << name;
             if (keyword_dict[oid_hex_string] != name) {
-                std::cerr << " creating synonym";
+                std::cerr << " creating synonym for " << keyword_dict[oid_hex_string];
                 synonym[name] = keyword_dict[oid_hex_string];
             }
             std::cerr << std::endl;
@@ -294,6 +298,32 @@ struct oid_set {
             std::cerr << "assigning synonym " << name << "\n";
         }
         keyword_dict[oid_to_hex_string(v)] = k;
+    }
+
+    void remove_nonterminals() {
+        for (std::pair <std::string, std::vector<uint32_t>> x : oid_dict) {
+            std::vector<uint32_t> v = x.second;
+            //std::cout << s << std::endl;
+            while (1) {
+                v.erase(v.end() - 1);
+                if (v.empty()) {
+                    break;
+                }
+                std::string oid_hex_string = oid_to_hex_string(v);
+                const auto &o = keyword_dict.find(oid_hex_string);
+                if (o != keyword_dict.end()) {
+                    //std::cout << "found in dict" << std::endl;
+                    //nonterminal_oid_dict.insert(o);
+                    keyword_dict.erase(o);
+                }
+
+                // for (auto &c : v) {
+                //    std::cout << c << ' ';
+                //}
+                //std::cout << '\n';
+            }
+        }
+
     }
 };
 
@@ -515,6 +545,58 @@ void oid_set::dump_oid_dict_sorted() {
     cout << "};\n";
 }
 
+void oid_set::dump_oid_enum_dict_sorted() {
+    using namespace std;
+
+    struct pair_cmp {
+        inline bool operator() (const pair<string, vector<uint32_t>> &s1, const pair<string, vector<uint32_t>> &s2) {
+            return (s1.second < s2.second);
+        }
+    };
+    vector<pair<string, vector<uint32_t>>> ordered_dict(oid_dict.begin(), oid_dict.end());
+    sort(ordered_dict.begin(), ordered_dict.end(), pair_cmp());
+
+    cout << "std::unordered_map<std::string, std::string> oid_dict = {\n";
+    for (pair <string, vector<uint32_t>> x : ordered_dict) {
+        cout << "\t{ " << oid_to_hex_array(x.second) << ", \"" <<  x.first << "\" },\n";
+    }
+    cout << "};\n";
+
+    cout << "enum oid {\n";
+    unsigned int oid_num = 0;
+    cout << "\t" << "unknown" << " = " <<  oid_num++ << ",\n";
+    for (pair <string, vector<uint32_t>> x : ordered_dict) {
+        std::string tmp_string(x.first);
+        std::replace(tmp_string.begin(), tmp_string.end(), '-', '_');
+        std::replace(tmp_string.begin(), tmp_string.end(), '[', '_');
+        std::replace(tmp_string.begin(), tmp_string.end(), ']', '_');
+        cout << "\t" << tmp_string << " = " <<  oid_num << ",\n";
+
+        //const auto &syn = synonym.find(x.first);
+        //if (syn != synonym.end()) {
+        //    std::cerr << syn->second << " is a synonym for " << x.first << std::endl;
+        //    std::string tmp_string2(syn->second);
+        //    std::replace(tmp_string2.begin(), tmp_string2.end(), '-', '_');
+        //    std::replace(tmp_string2.begin(), tmp_string2.end(), '[', '_');
+        //    std::replace(tmp_string2.begin(), tmp_string2.end(), ']', '_');
+        //    cout << "\t" << tmp_string2 << " = " <<  oid_num << ",\n";
+        //}
+
+        oid_num++;
+    }
+    cout << "};\n";
+
+    cout << "std::unordered_map<std::string, enum oid> oid_to_enum = {\n";
+    for (pair <string, vector<uint32_t>> x : ordered_dict) {
+        std::string tmp_string(x.first);
+        std::replace(tmp_string.begin(), tmp_string.end(), '-', '_');
+        std::replace(tmp_string.begin(), tmp_string.end(), '[', '_');
+        std::replace(tmp_string.begin(), tmp_string.end(), ']', '_');
+        cout << "\t{ " << oid_to_hex_array(x.second) << ", " <<  tmp_string << " },\n";
+    }
+    cout << "};\n";
+}
+
 void oid_set::verify_oid_dict() {
     using namespace std;
 
@@ -638,7 +720,8 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-    oid_set.dump_oid_dict_sorted();
+    oid_set.remove_nonterminals();
+    oid_set.dump_oid_enum_dict_sorted();
     // oid_set.verify_oid_dict();
 
     //    for (auto &x : oid_set.keyword_dict) {

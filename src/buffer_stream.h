@@ -545,9 +545,9 @@ static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 '4', '5', '6', '7', '8', '9', '+', '/'};
 
 
-static inline int append_json_base64_string(char *dstr, int *doff, int dlen, int *trunc,
-                              const unsigned char *data,
-                              size_t input_length) {
+static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *trunc,
+                                       const unsigned char *data,
+                                       size_t input_length) {
 
     if (*trunc == 1) {
         return 0;
@@ -630,8 +630,8 @@ static inline int append_json_base64_string(char *dstr, int *doff, int dlen, int
                              '=');
         }
     }
-    r += append_putc(dstr, doff, dlen, trunc,
-                     '"');
+    //    r += append_putc(dstr, doff, dlen, trunc,
+    //                 '"');
 
     return r;
 }
@@ -728,8 +728,8 @@ struct buffer_stream {
         append_raw_as_hex(dstr, &doff, dlen, &trunc, data, len);
     }
 
-    void json_base64_string(const unsigned char *data, size_t input_length) {
-        append_json_base64_string(dstr, &doff, dlen, &trunc, data, input_length);
+    void raw_as_base64(const unsigned char *data, size_t input_length) {
+        append_raw_as_base64(dstr, &doff, dlen, &trunc, data, input_length);
     }
 
     void memcpy(const void *src, ssize_t length) {

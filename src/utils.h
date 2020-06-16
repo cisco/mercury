@@ -27,42 +27,6 @@ size_t hex_to_raw(const void *output,
 		       size_t output_buf_len,
 		       const char *null_terminated_hex_string);
 
-#if 0
-
-int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
-                    const char *fmt, ...);
-
-int append_strncpy(char *dstr, int *doff, int dlen, int *trunc,
-                   const char *sstr);
-
-
-int append_putc(char *dstr, int *doff, int dlen, int *trunc,
-                char schr);
-
-int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, const void *src, ssize_t length);
-
-int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
-                      const uint8_t *data, unsigned int len);
-
-int append_json_hex_string(char *dstr, int *doff, int dlen, int *trunc,
-                           const uint8_t *data, unsigned int len);
-
-int append_json_hex_string(char *dstr, int *doff, int dlen, int *trunc,
-                           const char *key, const uint8_t *data, unsigned int len);
-
-int append_json_string(char *dstr, int *doff, int dlen, int *trunc,
-                       const char *key, const uint8_t *data, unsigned int len);
-
-int append_json_base64_string(char *dstr, int *doff, int dlen, int *trunc,
-                              const unsigned char *data,
-                              size_t input_length);
-
-int append_json_string_escaped(char *dstr, int *doff, int dlen, int *trunc,
-                               const char *key, const uint8_t *data, unsigned int len);
-
-#endif
-
-
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
 
 

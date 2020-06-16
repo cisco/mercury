@@ -9,7 +9,6 @@
 #include "json_object.hh"
 
 namespace std {
-
     template <>  struct hash<struct parser>  {
         std::size_t operator()(const struct parser& p) const {
             size_t x = 5381;
@@ -100,8 +99,49 @@ void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, con
     while (x < end) {
         if (*x < 0x20) {                   /* escape control characters   */
             buf.snprintf("\\u%04x", *x);
-        } else if (*x > 0x7f) {            /* escape non-ASCII characters */
-            buf.snprintf("\\u%04x", *x);
+        } else if (*x >= 0x80) {           /* escape non-ASCII characters */
+
+            uint32_t codepoint = 0;
+            if (*x >= 0xc0) {
+
+                if (*x >= 0xe0) {
+                    if (*x >= 0xf0) {
+                        codepoint = (*x++ & 0x07);
+                        codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                        codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                        codepoint = (*x   & 0x3f) | (codepoint << 6);
+
+                    } else {
+                        codepoint = (*x++ & 0x0F);
+                        codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                        codepoint = (*x   & 0x3f) | (codepoint << 6);
+                    }
+
+                } else {
+                    codepoint = ((*x++ & 0x1f) << 6);
+                    codepoint |= *x & 0x3f;
+                }
+
+            } else {
+                codepoint = *x & 0x7f;
+            }
+            if (codepoint < 0x10000) {
+                // basic multilingual plane
+                if (codepoint < 0xd800) {
+                    buf.snprintf("\\u%04x", codepoint);
+                } else {
+                    // error: invalid or private codepoint
+                    buf.snprintf("\\ue000", codepoint); // indicate error with private use codepoint
+                }
+            } else {
+                // surrogate pair
+                codepoint -= 0x10000;
+                uint32_t hi = (codepoint >> 10) + 0xd800;
+                uint32_t lo = (codepoint & 0x3ff) + 0xdc00;
+                buf.snprintf("\\u%04x", hi);
+                buf.snprintf("\\u%04x", lo);
+            }
+
         } else {
             if (*x == '"' || *x == '\\') { /* escape special characters   */
                 buf.snprintf("\\");
@@ -114,7 +154,7 @@ void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, con
 
 }
 
-void fprintf_json_char_escaped(FILE *f, char x) {
+void fprintf_json_char_escaped(FILE *f, unsigned char x) {
     if (x < 0x20) {                   /* escape control characters   */
         fprintf(f, "\\u%04x", x);
     } else if (x > 0x7f) {            /* escape non-ASCII characters */
@@ -127,7 +167,7 @@ void fprintf_json_char_escaped(FILE *f, char x) {
     }
 }
 
-void fprintf_json_char_escaped(struct buffer_stream &buf, char x) {
+void fprintf_json_char_escaped(struct buffer_stream &buf, unsigned char x) {
     if (x < 0x20) {                   /* escape control characters   */
         buf.snprintf("\\u%04x", x);
     } else if (x > 0x7f) {            /* escape non-ASCII characters */
@@ -381,7 +421,7 @@ inline uint8_t hex_to_raw(const char *hex) {
 
 void hex_string_print_as_oid(FILE *f, const char *c, size_t length) {
     if (length & 1) {
-        return;  // error: odd number of characters in hex string 
+        return;  // error: odd number of characters in hex string
     }
     uint32_t component = hex_to_raw(c);
     uint32_t div = component / 40;
@@ -458,7 +498,7 @@ void raw_string_print_as_oid(struct buffer_stream &buf, const uint8_t *raw, size
     }
 }
 
-const char *oid_empty_string = "";
+static const char *oid_empty_string = "";
 const char *parser_get_oid_string(const struct parser *p) {
     std::string s = p->get_string();
     //const char *tmp = s.c_str();    // TBD: refactor to eliminate string allocation
@@ -467,6 +507,15 @@ const char *parser_get_oid_string(const struct parser *p) {
         return oid_empty_string;
     }
     return pair->second.c_str();;
+}
+
+enum oid parser_get_oid_enum(const struct parser *p) {
+    std::string s = p->get_string();
+    auto pair = oid_to_enum.find(s);
+    if (pair == oid_to_enum.end()) {
+        return oid::unknown;
+    }
+    return pair->second;;
 }
 
 /*
@@ -502,7 +551,7 @@ struct json_object_asn1 : public json_object {
         if (value.data) {
             struct parser p = value;
             char *const *tmp = flags;
-            size_t number_of_unused_bits;
+            size_t number_of_unused_bits = 0;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
@@ -576,6 +625,7 @@ struct json_object_asn1 : public json_object {
         b->write_char(':');
         fprintf_json_char_escaped(*b, data[10]);
         fprintf_json_char_escaped(*b, data[11]);
+        fprintf_json_char_escaped(*b, data[12]);
         b->write_char('\"');
     }
 
@@ -611,6 +661,7 @@ struct json_object_asn1 : public json_object {
         b->write_char(':');
         fprintf_json_char_escaped(*b, data[12]);
         fprintf_json_char_escaped(*b, data[13]);
+        fprintf_json_char_escaped(*b, data[14]);
         b->write_char('\"');
     }
 
@@ -664,6 +715,10 @@ struct tlv {
     unsigned char tag;
     size_t length;
     struct parser value;
+
+    bool operator == (const struct tlv &r) {
+        return tag == r.tag && length == r.length && value == r.value;
+    }
 
     constexpr static unsigned char explicit_tag(unsigned char tag) {
         return 0x80 + tag;  // warning: tag must be between 0 and 31 inclusive
@@ -735,27 +790,33 @@ struct tlv {
     tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tag{0}, length{0}, value{NULL, NULL} {
         parse(p, expected_tag, tlv_name);
     }
+    void handle_parse_error(const char *msg, const char *tlv_name) {
+#ifdef TLV_ERR_INFO
+        fprintf(stderr, "%s in %s\n", msg, tlv_name ? tlv_name : "unknown TLV");
+#else
+        (void)msg;
+        (void)tlv_name;
+#endif
+#ifdef THROW
+        throw msg;
+#endif
+    }
     void parse(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
 
         if (p->data == NULL) {
-            fprintf(stderr, "error: NULL data in %s\n", tlv_name ? tlv_name : "unknown TLV");
-#ifndef THROW
-            return;  // leave tlv uninitialized, but don't throw an exception
-#else
-            throw "error initializing tlv";
-#endif
+            handle_parse_error("warning: NULL data", tlv_name ? tlv_name : "unknown TLV");
         }
         if (parser_get_data_length(p) < 2) {
-            fprintf(stderr, "error: incomplete data (only %ld bytes in %s)\n", p->data_end - p->data, tlv_name ? tlv_name : "unknown TLV");
             p->set_empty();  // parser is no longer good for reading
-#ifndef THROW
-            return;  // leave tlv uninitialized, but don't throw an exception
-#else
-            throw "error initializing tlv";
-#endif
+            // fprintf(stderr, "error: incomplete data (only %ld bytes in %s)\n", p->data_end - p->data, tlv_name ? tlv_name : "unknown TLV");
+            handle_parse_error("warning: incomplete data", tlv_name);
+            return;  // leave tlv uninitialized
         }
 
         if (expected_tag && p->data[0] != expected_tag) {
+            // fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
+            // p->set_empty();  // TODO: do we want this?  parser is no longer good for reading
+            handle_parse_error("note: unexpected type", tlv_name);
             return;  // unexpected type
         }
         // set tag
@@ -768,26 +829,24 @@ struct tlv {
         if (length >= 128) {
             ssize_t num_octets_in_length = length - 128;  // note: signed to avoid underflow
             if (num_octets_in_length < 0) {
-                fprintf(stderr, "error: invalid length field\n");
                 p->set_empty();  // parser is no longer good for reading
-#ifndef THROW
-#else
-                throw "error initializing tlv";
-#endif
+                handle_parse_error("error: invalid length field", tlv_name);
+                return;
             }
             if (parser_read_and_skip_uint(p, num_octets_in_length, &length) == status_err) {
-                fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, parser_get_data_length(p));
                 p->set_empty();  // parser is no longer good for reading
-#ifndef THROW
-#else
-                throw "error initializing tlv";
-#endif
+                // fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, parser_get_data_length(p));
+                handle_parse_error("warning: could not read length", tlv_name);
+                return;
             }
         }
 
         // set value
         parser_init_from_outer_parser(&value, p, length);
-        parser_skip(p, length);
+        if (parser_skip(p, length) == status_err) {
+            p->set_empty();   // parser is no longer good for reading
+            handle_parse_error("warning: value field is truncated", tlv_name);
+        }
 
 #ifdef ASN1_DEBUG
         fprint_tlv(stderr, tlv_name);
@@ -798,7 +857,11 @@ struct tlv {
         size_t first_octet = 0;
         parser_read_and_skip_uint(&value, 1, &first_octet);
         if (first_octet) {
-            throw "error removing bitstring encoding";
+            // throw "error removing bitstring encoding";
+            value.set_null();
+        }
+        if (length > 0) {
+            length = length - 1;
         }
     }
     /*
@@ -1251,28 +1314,34 @@ struct tlv {
      */
     void print_as_json_hex(struct json_object &o, const char *name) const {
         o.print_key_hex(name, value);
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_oid(struct json_object_asn1 &o, const char *name) const {
         o.print_key_oid(name, value);
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_escaped_string(struct json_object_asn1 &o, const char *name) const {
         o.print_key_escaped_string(name, value);
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_utctime(struct json_object_asn1 &o, const char *name) const {
         o.print_key_utctime(name, value.data, value.data_end - value.data);
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_generalized_time(struct json_object_asn1 &o, const char *name) const {
         o.print_key_generalized_time(name, value.data, value.data_end - value.data);
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
     void print_as_json_ip_address(struct json_object_asn1 &o, const char *name) const {
         o.b->snprintf("%c\"%s\":\"", o.comma, name);
         fprintf_ip_address(*o.b, value.data, value.data_end - value.data);
         o.b->write_char('\"');
         o.comma = ',';
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_bitstring(struct json_object &o, const char *name, bool comma=false) const {
@@ -1283,7 +1352,7 @@ struct tlv {
         o.b->snprintf(format_string, name);
         if (value.data) {
             struct parser p = value;
-            size_t number_of_unused_bits;
+            size_t number_of_unused_bits = 0;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
             while (p.data < p.data_end-1) {
@@ -1301,10 +1370,12 @@ struct tlv {
 
         }
         o.b->write_char(']');
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_bitstring_flags(struct json_object_asn1 &o, const char *name, char * const *flags) const {
         o.print_key_bitstring_flags(name, value, flags);
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {

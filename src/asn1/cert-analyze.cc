@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <string>
+#include <list>
 
 #include "x509.h"
 #include "base64.h"
@@ -52,6 +53,16 @@ void sha256_hash(const void *buffer,
 struct file_reader {
     virtual ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) = 0;
     virtual ~file_reader() = default;
+    void get_cert_list(std::list<struct x509_cert> &list_of_certs, uint8_t *cb, size_t cb_len) {
+        ssize_t cert_len = 1;
+        while ((cert_len = get_cert(cb, cb_len)) > 0) {
+            struct x509_cert c;
+            c.parse(cb, cert_len);
+            list_of_certs.push_back(c);
+            cb += cert_len;
+            cb_len -= cert_len;
+        }
+    }
 };
 
 struct der_file_reader : public file_reader {
@@ -116,7 +127,6 @@ struct json_file_reader : public file_reader {
             ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
             if (nread == -1) {
                 free(line);
-                fprintf(stderr, "error: could not read JSON line\n");
                 return 0;
             }
             // fprintf(stdout, "line: %s", line);
@@ -326,7 +336,9 @@ void usage(const char *progname) {
         "   --log-malformed <outfile> write malformed certs to <outfile> in DER format\n"
         "   --filter <spec>  output only certificates matching <spec>:\n"
         "            weak\n"
+        "   --trunc-test     parse every possible truncation of certificates\n"
         "OTHER\n"
+        "   --trust <roots>  trust certificates in <roots>\n"
         "   --help           print this message\n";
 
     fprintf(stdout, help_message, progname);
@@ -337,11 +349,13 @@ int main(int argc, char *argv[]) {
     const char *infile = NULL;
     const char *filter = NULL;
     const char *logfile = NULL;
+    const char *trust = NULL;
     bool prefix = false;
     bool prefix_as_hex = false;
     bool input_is_pem = false;
     bool input_is_json = false;
     bool input_is_der = false;
+    bool trunc_test = false;
     //const char *outfile = NULL;
 
     // parse arguments
@@ -357,7 +371,9 @@ int main(int argc, char *argv[]) {
              case_der,
              case_filter,
              case_log_malformed,
-             case_help
+             case_trunc_test,
+             case_trust,
+             case_help,
         };
         static struct option long_options[] = {
              {"input",          required_argument, NULL,  case_input         },
@@ -368,6 +384,8 @@ int main(int argc, char *argv[]) {
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"filter",         required_argument, NULL,  case_filter        },
              {"log-malformed",  required_argument, NULL,  case_log_malformed },
+             {"trunc-test",     no_argument,       NULL,  case_trunc_test    },
+             {"trust",          required_argument, NULL,  case_trust         },
              {"help",           no_argument,       NULL,  case_help          },
              {0,                0,                 0,     0                  }
         };
@@ -436,6 +454,20 @@ int main(int argc, char *argv[]) {
             }
             logfile = optarg;
             break;
+        case case_trunc_test:
+            if (optarg) {
+                fprintf(stderr, "error: option 'trunc-test' does not accept an argument\n");
+                usage(argv[0]);
+            }
+            trunc_test = true;
+            break;
+        case case_trust:
+            if (!optarg) {
+                fprintf(stderr, "error: option 'trust' needs an argument\n");
+                usage(argv[0]);
+            }
+            trust = optarg;
+            break;
         case case_help:
             if (optarg) {
                 fprintf(stderr, "error: option 'help' does not accept an argument\n");
@@ -477,10 +509,25 @@ int main(int argc, char *argv[]) {
         reader = new base64_file_reader(infile);
     }
 
+    std::list<struct x509_cert> trusted_certs;
+    uint8_t trusted_cert_buf[256 * 1024];
+    uint8_t *cb = trusted_cert_buf;
+    size_t cb_len = sizeof(trusted_cert_buf);
+    if (trust) {
+        struct file_reader *reader = new pem_file_reader(trust);
+        reader->get_cert_list(trusted_certs, cb, cb_len);
+        // for (auto &c : trusted_certs) {
+        //    c.print_as_json(stdout);
+        // }
+    }
+
     unsigned int log_index = 0;
     uint8_t cert_buf[256 * 1024];
     ssize_t cert_len = 1;
     while ((cert_len = reader->get_cert(cert_buf, sizeof(cert_buf))) > 0) {
+
+        // fprintf_raw_as_hex(stderr, cert_buf, cert_len);
+        // fprintf(stderr, "\n");
 
         //  sha256_hash(cert_buf, cert_len);
 
@@ -502,9 +549,31 @@ int main(int argc, char *argv[]) {
             struct buffer_stream buf(buffer, sizeof(buffer));
             struct x509_cert c;
             try {
-                c.parse(cert_buf, cert_len);
-                if ((filter == NULL) || c.is_not_currently_valid() || c.is_weak() || c.is_nonconformant()) {
-                    c.print_as_json(buf);
+                if (trunc_test) {
+
+                    for (ssize_t trunc_len=0; trunc_len <= cert_len; trunc_len++) {
+                        fprintf(stdout, "{ \"trunc_len\": %zd }\n", trunc_len);
+                        buf = { buffer, sizeof(buffer) };
+                        struct x509_cert cc;
+                        cc.parse(cert_buf, trunc_len);
+                        cc.print_as_json(buf, trusted_certs);
+                        buf.write_line(stdout);
+                    }
+
+                } else {
+
+                    c.parse(cert_buf, cert_len);
+                    if ((filter == NULL)
+                        || c.is_not_currently_valid()
+                        || c.subject_key_is_weak()
+                        || c.signature_is_weak()
+                        || c.is_nonconformant()
+                        || c.is_self_issued()
+                        || !c.is_trusted(trusted_certs)) {
+                        c.print_as_json(buf, trusted_certs);
+                        buf.write_line(stdout);
+                    }
+
                 }
             } catch (const char *s) {
                 fprintf(stderr, "caught exception: %s\n", s);
@@ -519,7 +588,6 @@ int main(int argc, char *argv[]) {
                     //c.print_as_json(buf);
                 }
             }
-            buf.write_line(stdout);
         }
     }
 

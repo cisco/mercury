@@ -36,7 +36,21 @@ struct parser {
     void set_null() { data = data_end = NULL; }
     ssize_t length() const { return data_end - data; }
     bool operator==(const parser &p) const {
-        return (length() == p.length()) && memcmp(data, p.data, length());
+        return (length() == p.length()) && memcmp(data, p.data, length()) == 0;
+    }
+    unsigned int bits_in_data() const {                  // for use with (ASN1) integers
+        unsigned int bits = (data_end - data) * 8;
+        const unsigned char *d = data;
+        while (d < data_end) {
+            for (unsigned char c = 0x80; c > 0; c=c>>1) {
+                if (*d & c) {
+                    return bits;
+                }
+                bits--;
+            }
+            d++;
+        }
+        return bits;
     }
 };
 

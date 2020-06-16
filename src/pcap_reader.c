@@ -71,7 +71,9 @@ enum status open_and_dispatch(struct mercury_config *cfg, struct output_file *of
 
     status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, &of->qs.queue[0]);
     if (status != status_ok) {
-        perror("could not initialize pcap reader thread context");
+        if (errno) {
+            perror("could not initialize pcap reader thread context");
+        }
         return status;
     }
 

@@ -9,6 +9,7 @@
 --                      Schema for User Applications
 --
 
+
       businessCategory             OBJECT IDENTIFIER ::= {  2 5 4 15 }
       c                            OBJECT IDENTIFIER ::= {  2 5 4 6 }
       cn                           OBJECT IDENTIFIER ::= {  2 5 4 3 }

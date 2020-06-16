@@ -46,7 +46,7 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                 /*
                  * write only packet metadata (TLS clientHellos, TCP SYNs, ...) to capture file
                  */
-                return new pkt_proc_filter_pcap_writer_llq(llq);
+                return new pkt_proc_filter_pcap_writer_llq(llq, cfg->packet_filter_cfg);
 
             } else {
                 /*
@@ -61,7 +61,7 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
              * write fingerprints into output file
              */
 
-            return new pkt_proc_json_writer_llq(llq);
+            return new pkt_proc_json_writer_llq(llq, cfg->packet_filter_cfg);
 
         } else {
             /*

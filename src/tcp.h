@@ -291,4 +291,65 @@ struct tcp_initial_message_filter {
 
 };
 
+/*
+ * partial tcp reassembly
+ *
+ * strategy:
+ *
+ *    - pre-allocated storage array to hold reassembled packets
+ *    - maximum length 4096 bytes
+ *    - flow key maps to array entry
+ *
+ *    - copy_packet(packet, packet_length, additional_bytes_needed)
+ *    - check_packet(packet, packet_length)
+ */
+
+struct tcp_buffer {
+    tcp_buffer() : k{}, seq_end{}, data{} { };
+    struct key k;
+    uint32_t seq_end;
+    uint8_t data[8192 - sizeof(struct key) - sizeof(seq_end)];
+    static const size_t array_length = 8192;
+};
+
+struct tcp_reassembler {
+    struct tcp_buffer buffer[8192];
+
+    tcp_reassembler() : buffer{} {  }
+
+    void copy_packet(struct key &k, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
+
+        k.src_port = tcp->src_port;
+        k.dst_port = tcp->dst_port;
+        size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
+        (void)data_length;
+
+        std::hash<struct key> hasher;
+        size_t h = hasher(k) % tcp_buffer::array_length;
+        buffer[h].k = k;
+        buffer[h].seq_end = tcp->seq + bytes_needed;
+        fprintf(stderr, "inserted flow key\n");
+
+    }
+
+    bool check_packet(struct key &k, const struct tcp_header *tcp, size_t length) {
+
+        k.src_port = tcp->src_port;
+        k.dst_port = tcp->dst_port;
+        size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
+        (void)data_length;
+
+        std::hash<struct key> hasher;
+        size_t h = hasher(k) % tcp_buffer::array_length;
+        if (k == buffer[h].k) {
+            fprintf(stderr, "found flow key\n");
+        } else {
+            ;
+        }
+
+        return true;
+    }
+
+};
+
 #endif /* MERC_TCP_H */

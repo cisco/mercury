@@ -31,6 +31,7 @@ CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
+CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 CFLAGS += $(OPTFLAGS)
 
 # MERC and MERC_H hold the core source and header files, respectively
@@ -69,6 +70,7 @@ MERC_H += signal_handling.h
 #
 LIBMERC     = analysis.c
 LIBMERC     += addr.c
+LIBMERC     += dns.c
 LIBMERC     += extractor.c
 LIBMERC     += ept.c
 LIBMERC     += packet.c
@@ -80,6 +82,7 @@ LIBMERC     += $(PYANALYSIS)
 LIBMERC_H   =  addr.h
 LIBMERC_H   += analysis.h
 LIBMERC_H   += buffer_stream.h
+LIBMERC_H   += dns.h
 LIBMERC_H   += ept.h
 LIBMERC_H   += eth.h
 LIBMERC_H   += extractor.h
@@ -113,7 +116,7 @@ setcap: mercury
 
 # implicit rule for building object files
 #
-%.o: %.c
+%.o: %.c %.h
 #	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
 	$(CXX) $(CFLAGS) -c $<
 
