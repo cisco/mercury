@@ -8,6 +8,7 @@
 #ifndef BUFFER_STREAM_H
 #define BUFFER_STREAM_H
 
+#include <string.h>  /* for memcpy() */
 #include "utils.h"
 
 
@@ -378,7 +379,7 @@ static inline int append_uint16_hex(char *dstr, int *doff, int dlen, int *trunc,
 
 
 static inline int append_ipv6_addr(char *dstr, int *doff, int dlen, int *trunc,
-                                    uint8_t *v6) {
+                                    const uint8_t *v6) {
 
     if (*trunc == 1) {
         return 0;
@@ -435,7 +436,7 @@ static inline int append_ipv6_addr(char *dstr, int *doff, int dlen, int *trunc,
 
 
 static inline int append_ipv4_addr(char *dstr, int *doff, int dlen, int *trunc,
-                                    uint8_t *v4) {
+                                   const uint8_t *v4) {
 
     if (*trunc == 1) {
         return 0;
@@ -630,8 +631,8 @@ static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *tru
                              '=');
         }
     }
-    //    r += append_putc(dstr, doff, dlen, trunc,
-    //                 '"');
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '"');
 
     return r;
 }
@@ -753,11 +754,11 @@ struct buffer_stream {
         append_uint16_hex(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_ipv6_addr(uint8_t *v6) {
+    void write_ipv6_addr(const uint8_t *v6) {
         append_ipv6_addr(dstr, &doff, dlen, &trunc, v6);
     }
 
-    void write_ipv4_addr(uint8_t *v4) {
+    void write_ipv4_addr(const uint8_t *v4) {
         append_ipv4_addr(dstr, &doff, dlen, &trunc, v4);
     }
 

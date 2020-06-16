@@ -6,7 +6,7 @@
 #define ASN1_H
 
 #include "../parser.h"
-#include "json_object.hh"
+#include "../json_object.hh"
 
 namespace std {
     template <>  struct hash<struct parser>  {

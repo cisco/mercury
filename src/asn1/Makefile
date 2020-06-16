@@ -19,7 +19,7 @@ CFLAGS = --std=c++11 -Wall -Wpedantic -Wextra -Wno-narrowing -O2 $(OPTFLAGS) # -
 .PHONY: all
 all: cert-analyze oidc oid.h
 
-cert-analyze: cert-analyze.cc x509.h asn1.h oid.h ../utils.h json_object.hh
+cert-analyze: cert-analyze.cc x509.h asn1.h oid.h ../utils.h ../json_object.hh
 	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../parser.c ../utils.c # -lmhash
 
 oidc: oidc.cc

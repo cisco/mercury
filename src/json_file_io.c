@@ -90,6 +90,39 @@ void fprintf_timestamp(FILE *f, unsigned int sec, unsigned int usec) {
     fprintf(f, ",\"event_start\":%u.%06u", sec, usec); // not sure why usec has fewer than 6 digits, but appears to work
 }
 
+
+void write_flow_key(struct buffer_stream &buf, const struct key &k) {
+    if (k.ip_vers == 6) {
+        const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
+        buf.strncpy("\"src_ip\":\"");
+        buf.write_ipv6_addr(s);
+
+        const uint8_t *d = (const uint8_t *)&k.addr.ipv6.dst;
+        buf.strncpy("\",\"dst_ip\":\"");
+        buf.write_ipv6_addr(d);
+
+    } else {
+
+        const uint8_t *s = (const uint8_t *)&k.addr.ipv4.src;
+        buf.strncpy("\"src_ip\":\"");
+        buf.write_ipv4_addr(s);
+
+        const uint8_t *d = (const uint8_t *)&k.addr.ipv4.dst;
+        buf.strncpy("\",\"dst_ip\":\"");
+        buf.write_ipv4_addr(d);
+    }
+
+    buf.strncpy("\",\"protocol\":");
+    buf.write_uint8(k.protocol);
+
+    buf.strncpy(",\"src_port\":");
+    buf.write_uint16(k.src_port);
+
+    buf.strncpy(",\"dst_port\":");
+    buf.write_uint16(k.dst_port);
+
+}
+
 int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
                        size_t length,
@@ -233,7 +266,7 @@ int append_packet_json(struct buffer_stream &buf,
 
     write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
 
-    write_packet_flow_key(buf, packet, length);
+    write_flow_key(buf, k);
 
     buf.write_timestamp(ts);
 

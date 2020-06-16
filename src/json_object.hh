@@ -1,11 +1,11 @@
 #ifndef JSON_OBJECT_HH
 
 #include <stdio.h>
-#include "../utils.h"
+#include "buffer_stream.h"
 
 /*
  * json_object and json_array serialize JSON objects and arrays,
- * respectively, into a buffer 
+ * respectively, into a buffer
  */
 
 struct json_object {
@@ -43,11 +43,22 @@ struct json_object {
         comma = ',';
     }
     void print_key_bool(const char *k, bool x) {
-        b->snprintf("%c\"%s\":%s", comma, k, x ? "true" : "false");
+        b->write_char(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        if (x) {
+            b->puts("true");
+        } else {
+            b->puts("false");
+        }
         comma = ',';
     }
     void print_key_null(const char *k) {
-        b->snprintf("%c\"%s\":null", comma, k);
+        b->write_char(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":null");
         comma = ',';
     }
     void print_key_uint(const char *k, unsigned long int u) {
@@ -63,7 +74,10 @@ struct json_object {
         comma = ',';
     }
     void print_key_hex(const char *k, const struct parser &value) {
-        b->snprintf("%c\"%s\":\"", comma, k);
+        b->write_char(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":\"");
         if (value.data && value.data_end) {
             b->raw_as_hex(value.data, value.data_end - value.data);
         }
@@ -71,7 +85,10 @@ struct json_object {
         comma = ',';
     }
     void print_key_base64(const char *k, const struct parser &value) {
-        b->snprintf("%c\"%s\":\"", comma, k);
+        b->write_char(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":\"");
         if (value.data && value.data_end) {
             b->raw_as_base64(value.data, value.data_end - value.data); 
         }
@@ -98,23 +115,32 @@ struct json_array {
         b->write_char(']');
     }
     void print_bool(bool x) {
-        b->snprintf("%c%s", comma, x ? "true" : "false");
+        b->write_char(comma);
+        if (x) {
+            b->puts("true");
+        } else {
+            b->puts("false");
+        }
         comma = ',';
     }
     void print_null() {
-        b->snprintf("%cnull", comma);
+        b->write_char(comma);
+        b->puts("null");
         comma = ',';
     }
     void print_key_uint(unsigned long int u) {
-        b->snprintf("%c%lu", comma, u);
+        b->write_char(comma);
+        b->snprintf("%lu", u);
         comma = ',';
     }
     void print_int(long int i) {
-        b->snprintf("%c%ld", comma, i);
+        b->write_char(comma);
+        b->snprintf("%ld", i);
         comma = ',';
     }
     void print_float(double d) {
-        b->snprintf("%c%f", comma, d);
+        b->write_char(comma);
+        b->snprintf("%f", d);
         comma = ',';
     }
     void print_string(const char *s) {
@@ -127,7 +153,8 @@ struct json_array {
 };
 
 json_object::json_object(struct json_array &array) : b{array.b} {
-    b->snprintf("%c{", array.comma);
+    b->write_char(array.comma);
+    b->write_char('{');
     array.comma = ',';
 }
 
@@ -139,7 +166,7 @@ void json_object::reinit(struct json_array &array) {
     array.comma = ',';
 }
 
-
+#ifdef USE_JSON_FILE_OBJECT
 /*
  * json_file_object and json_file_array serialize JSON objects and
  * arrays, respectively, into a FILE.
@@ -220,5 +247,7 @@ json_file_object::json_file_object(struct json_file_array &array) : f{array.f} {
     fprintf(f, "%c{", array.comma);
     array.comma = ',';
 }
+
+#endif // USE_JSON_FILE_OBJECT
 
 #endif // JSON_OBJECT_HH

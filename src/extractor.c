@@ -768,7 +768,16 @@ unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) 
         return pf->tcp_init_msg_filter->apply(*k, tcp, parser_get_data_length(p));
     }
 
-    if (parser_skip(p, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack) == status_err) {
+    size_t tmp;
+    if (parser_read_and_skip_uint(p, L_src_port, &tmp) == status_err) {
+        return 0;
+    }
+    k->src_port = tmp;
+    if (parser_read_and_skip_uint(p, L_dst_port, &tmp) == status_err) {
+        return 0;
+    }
+    k->dst_port = tmp;
+    if (parser_skip(p, L_tcp_seq + L_tcp_ack) == status_err) {
         return 0;
     }
     if (parser_read_uint(p, L_tcp_offrsv, &offrsv) == status_err) {
@@ -1323,9 +1332,7 @@ void write_extract_certificates(struct buffer_stream &buf, const unsigned char *
             buf.write_char(','); /* print separating comma */
         }
 
-        buf.write_char('\"');
         buf.raw_as_base64(cert_list.data, tmp_len);
-        buf.write_char('\"');
 
         /*
          * skip over certificate data
@@ -2341,19 +2348,17 @@ unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol, s
     if (parser_skip(p, L_ip_hdr_cksum) == status_err) {
         return 0;
     }
-    size_t src_addr, dst_addr;
-    if (parser_read_and_skip_uint(p, L_ip_src_addr, &src_addr) == status_err) {
+    if (parser_read_and_skip_byte_string(p, L_ip_src_addr, (uint8_t *)&k->addr.ipv4.src) == status_err) {
         return 0;
     }
-    if (parser_read_and_skip_uint(p, L_ip_dst_addr, &dst_addr) == status_err) {
+    if (parser_read_and_skip_byte_string(p, L_ip_dst_addr, (uint8_t *)&k->addr.ipv4.dst) == status_err) {
         return 0;
     }
     if (parser_skip_to(p, transport_data) == status_err) {
         return 0;
     }
-    k->ip_vers = 4;
-    k->addr.ipv4.src = src_addr;
-    k->addr.ipv4.dst = dst_addr;
+    k->ip_vers = 4;  // ipv4
+    k->protocol = 6; // tcp
 
     return 0;  /* we don't extract any data, but this is not a failure */
 }
@@ -2461,7 +2466,8 @@ unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol, s
     if (parser_read_and_skip_byte_string(p, L_ipv6_destination_address, (uint8_t *)&k->addr.ipv6.dst) == status_err) {
         return 0;
     }
-    k->ip_vers = 6;
+    k->ip_vers = 6;  // ipv6
+    k->protocol = 6; // tcp
 
     /* loop over extensions headers until we find an upper layer protocol */
     unsigned int not_done = 1;
