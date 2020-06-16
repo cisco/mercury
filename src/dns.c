@@ -738,6 +738,5 @@ void write_dns_server_data(const uint8_t *data, size_t length, struct buffer_str
     struct json_object o{&buf};
     struct parser p{data, data+length};
     o.print_key_base64("base64", p);
-    //    buf.raw_as_base64(data, length);
     o.close();
 }
