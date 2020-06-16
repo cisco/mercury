@@ -88,11 +88,10 @@ struct json_object {
         b->write_char(comma);
         b->write_char('\"');
         b->puts(k);
-        b->puts("\":\"");
+        b->puts("\":");
         if (value.data && value.data_end) {
             b->raw_as_base64(value.data, value.data_end - value.data); 
         }
-        b->write_char('\"');
         comma = ',';
     }
 
@@ -152,13 +151,13 @@ struct json_array {
     }
 };
 
-json_object::json_object(struct json_array &array) : b{array.b} {
+inline json_object::json_object(struct json_array &array) : b{array.b} {
     b->write_char(array.comma);
     b->write_char('{');
     array.comma = ',';
 }
 
-void json_object::reinit(struct json_array &array) {
+inline void json_object::reinit(struct json_array &array) {
     b->write_char('}');
     b->write_char(',');
     b->write_char('{');

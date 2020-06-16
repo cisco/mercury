@@ -282,7 +282,7 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         break;
     case DNS_PORT:
         // TODO: remove comment to enable DNS data capture
-        // return parser_extractor_process_dns(p, x);
+        return parser_extractor_process_dns(p, x);
         break;
     case WIREGUARD_PORT:
         return parser_extractor_process_wireguard(p, x);

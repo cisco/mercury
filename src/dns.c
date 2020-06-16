@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include "dns.h"
 #include "buffer_stream.h"
+#include "json_object.hh"
 #include "parser.h"
 #include "extractor.h"
 
@@ -615,9 +616,9 @@ static void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct buffe
             buf.snprintf("\"malformed\":%d", len);
             return;
         }
-        buf.snprintf("\"%cn\":\"%s\",", qr, name + 1);
+        buf.snprintf("\"%cname\":\"%s\",", qr, name + 1);
     }
-    buf.snprintf("\"rc\":%u,\"rr\":[", flags_rcode);
+    buf.snprintf("\"rcode\":%u,\"rr\":[", flags_rcode);
 
     ancount = ntohs(rh->ancount); 
     comma = 0;
@@ -733,5 +734,10 @@ unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x)
 }
 
 void write_dns_server_data(const uint8_t *data, size_t length, struct buffer_stream &buf) {
-    dns_print_packet((const char *)data, length, buf);
+    //dns_print_packet((const char *)data, length, buf);
+    struct json_object o{&buf};
+    struct parser p{data, data+length};
+    o.print_key_base64("base64", p);
+    //    buf.raw_as_base64(data, length);
+    o.close();
 }
