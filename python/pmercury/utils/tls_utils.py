@@ -35,10 +35,11 @@ if os.name == 'nt':
         imp_date_ext_data = json.loads(line)
         break
 else:
-    for line in os.popen('zcat %s' % (imp_date_cs_file)):
+    cmd = 'gzcat' if sys.platform == 'darwin' else 'zcat'
+    for line in os.popen(cmd + ' %s' % (imp_date_cs_file)):
         imp_date_cs_data = json.loads(line)
         break
-    for line in os.popen('zcat %s' % (imp_date_ext_file)):
+    for line in os.popen(cmd + ' %s' % (imp_date_ext_file)):
         imp_date_ext_data = json.loads(line)
         break
 
