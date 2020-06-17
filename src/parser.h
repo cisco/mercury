@@ -30,6 +30,7 @@ struct parser {
     const unsigned char *data_end;      /* end of data buffer        */
 
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
+    const std::basic_string<uint8_t> get_bytestring() const { std::basic_string<uint8_t> s((uint8_t *)data, (int) (data_end - data)); return s;  }
     bool is_not_null() const { return data == NULL; }
     bool is_not_empty() const { return data != NULL && data < data_end; }
     void set_empty() { data = data_end; }

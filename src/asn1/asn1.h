@@ -500,22 +500,21 @@ void raw_string_print_as_oid(struct buffer_stream &buf, const uint8_t *raw, size
 
 static const char *oid_empty_string = "";
 const char *parser_get_oid_string(const struct parser *p) {
-    std::string s = p->get_string();
-    //const char *tmp = s.c_str();    // TBD: refactor to eliminate string allocation
+    std::basic_string<uint8_t> s = p->get_bytestring();
     auto pair = oid_dict.find(s);
     if (pair == oid_dict.end()) {
         return oid_empty_string;
     }
-    return pair->second.c_str();;
+    return pair->second.c_str();
 }
 
 enum oid parser_get_oid_enum(const struct parser *p) {
-    std::string s = p->get_string();
+    std::basic_string<uint8_t> s = p->get_bytestring();
     auto pair = oid_to_enum.find(s);
     if (pair == oid_to_enum.end()) {
         return oid::unknown;
     }
-    return pair->second;;
+    return pair->second;
 }
 
 /*
@@ -1403,6 +1402,11 @@ struct tlv {
         default:
             print_as_json_hex(o, name);  // handle unexpected type
         }
+    }
+
+    void print_tag_as_json_hex(struct json_object &o, const char *name) const {
+        parser p{&tag, &tag+1};
+        o.print_key_hex(name, p);
     }
 
 };

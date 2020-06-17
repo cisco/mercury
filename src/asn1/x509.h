@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <unordered_set>
 #include <list>
+#include "bytestring.h"
 #include "oid.h"    // oid dictionary
 
 #include "../mercury.h"
@@ -1708,6 +1709,65 @@ struct x509_cert {
             }
             violations.close();
         }
+    }
+
+    void print_skeleton_as_json(struct buffer_stream &buf) const {
+
+        struct json_object_asn1 o{&buf};
+        if (!version.is_null()) {
+            version.print_tag_as_json_hex(o, "version");
+        }
+        if (!serial_number.is_null()) {
+            serial_number.print_as_json_hex(o, "serial_number");
+        }
+        if (!signature_identifier.sequence.is_null()) {
+            signature_identifier.print_as_json(o, "signature_identifier");
+        }
+        if (!issuer.RDNsequence.is_null()) {
+            issuer.print_as_json(o, "issuer");
+        }
+        if (!validity.sequence.is_null()) {
+            validity.print_as_json(o);
+        }
+        if (!subject.RDNsequence.is_null()) {
+            subject.print_as_json(o, "subject");
+        }
+        if (!subjectPublicKeyInfo.sequence.is_null()) {
+            subjectPublicKeyInfo.print_as_json(o, "subject_public_key_info");
+        }
+
+        if (!extensions.is_null()) {
+            struct json_array extensions_array{o, "extensions"};
+            struct parser tlv_sequence = extensions.value;
+            while (tlv_sequence.is_not_empty()) {
+                struct extension xtn(tlv_sequence);
+                struct json_object_asn1 wrapper{extensions_array};
+                xtn.print_as_json(wrapper);
+                wrapper.close();
+            }
+            extensions_array.close();
+        }
+
+        if (!signature_algorithm.sequence.is_null()) {
+            signature_algorithm.print_as_json(o, "signature_algorithm");
+        }
+        if (!signature.is_null()) {
+
+            enum oid alg_oid = signature_algorithm.type();
+            if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
+                struct tlv tmp_sig = signature;
+                tmp_sig.remove_bitstring_encoding();
+                struct ecdsa_signature sig{&tmp_sig.value};
+                sig.print_as_json(o, "signature");
+                o.print_key_uint("bits_in_signature", sig.bits_in_signature());
+            } else {
+                struct tlv tmp_sig = signature;        // to avoid modifying signature
+                tmp_sig.remove_bitstring_encoding();
+                tmp_sig.print_as_json_hex(o, "signature");
+                o.print_key_uint("bits_in_signature", tmp_sig.value.bits_in_data());
+            }
+        }
+        o.close();
     }
 
 };
