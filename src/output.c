@@ -31,9 +31,14 @@ void thread_queues_init(struct thread_queues *tqs, int n) {
         tqs->queue[i].qnum = i; /* only needed for debug output */
         tqs->queue[i].ridx = 0;
         tqs->queue[i].widx = 0;
+        tqs->queue[i].jwidx = 0;
 
         for (int j = 0; j < LLQ_DEPTH; j++) {
             tqs->queue[i].msgs[j].used = 0;
+        }
+
+        for (int j = 0; j < LLQ_DEPTH_JUMBO; j++) {
+            tqs->queue[i].jmsgs[j].used = 0;
         }
     }
 }
@@ -402,8 +407,10 @@ void *output_thread_func(void *arg) {
                 } else {
                     /* Here we need to write jumbo output instead */
                     struct llq_msg_jumbo *jwmsg = &(out_ctx->qs.queue[wq].jmsgs[wmsg->jidx]);
+
                     fwrite(jwmsg->buf, wmsg->len, 1, out_ctx->file);
 
+                    __sync_synchronize();
                     /* Now clear the used flag on the jumbo message buffer */
                     jwmsg->used = 0;
                 }
@@ -460,7 +467,19 @@ void *output_thread_func(void *arg) {
                 break;
             } else if (time_less(&(wmsg->ts), &old_ts) == 1) {
                 //fprintf(stderr, "DEBUG: writing old message from queue %d\n", wq);
-                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
+
+                if (wmsg->jumbo == 0) {
+                    fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
+                } else {
+                    /* Here we need to write jumbo output instead */
+                    struct llq_msg_jumbo *jwmsg = &(out_ctx->qs.queue[wq].jmsgs[wmsg->jidx]);
+
+                    fwrite(jwmsg->buf, wmsg->len, 1, out_ctx->file);
+
+                    __sync_synchronize();
+                    /* Now clear the used flag on the jumbo message buffer */
+                    jwmsg->used = 0;
+                }
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
