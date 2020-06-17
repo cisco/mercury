@@ -188,7 +188,7 @@ def degrease_ext_data(data, offset, ext_type, ext_length, ext_value):
             else:
                 degreased_ext_value += data[offset+i:offset+i+2]
         return degreased_ext_value
-    elif ext_type == b'002b': # supported_versions
+    elif ext_type == '002b': # supported_versions
         degreased_ext_value += data[offset:offset+1]
         for i in range(1,ext_length,2):
             if len(data) >= offset+i+1 and data[offset+i] in grease_single_int_ and data[offset+i] == data[offset+i+1]:
