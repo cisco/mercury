@@ -26,7 +26,8 @@ if os.name == 'nt':
         tlds.add(line.decode())
 else:
     public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
-    for line in os.popen('zcat %s' % (public_suffix_file_raw)):
+    cmd = 'gzcat' if sys.platform == 'darwin' else 'zcat'
+    for line in os.popen(cmd + ' %s' % (public_suffix_file_raw)):
         line = line.strip()
         if line.startswith('//') or line == '':
             continue
