@@ -79,6 +79,12 @@ mercury_schema = {
                          'p_malware': {'type': 'number'},
                      },
                      "additionalProperties": False
+             },
+        'dns': {'type': 'object',
+                     'properties': {
+                         'base64':   {'type': 'string'},
+                     },
+                     "additionalProperties": False
              }
     },
     'required': ['src_ip','dst_ip','src_port','dst_port','protocol','event_start'],
