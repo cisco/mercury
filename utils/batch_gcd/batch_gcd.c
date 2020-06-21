@@ -157,12 +157,12 @@ void listmul(struct numlist *d, struct numlist *s) {
         mpz_mul(d->num[i], s->num[i * 2], s->num[(i * 2) + 1]);
     }
 
-    /* Either copy of mul the last single / pair */
+    /* Either copy or mul the last single / pair */
     if ((s->len & 1) == 0) {
         /* even source len so mul */
         mpz_mul(d->num[d->len - 1], s->num[s->len - 1], s->num[s->len - 2]);
     } else {
-        /* even source len so copy */
+        /* odd source len so copy */
         mpz_set(d->num[d->len - 1], s->num[s->len - 1]);
     }
 }
@@ -218,12 +218,12 @@ void threaded_listmul(struct numlist *d, struct numlist *s, int num_threads) {
     }
 
 
-    /* Either copy of mul the last single / pair */
+    /* Either copy or mul the last single / pair */
     if ((s->len & 1) == 0) {
         /* even source len so mul */
         mpz_mul(d->num[d->len - 1], s->num[s->len - 1], s->num[s->len - 2]);
     } else {
-        /* even source len so copy */
+        /* odd source len so copy */
         mpz_set(d->num[d->len - 1], s->num[s->len - 1]);
     }
 
