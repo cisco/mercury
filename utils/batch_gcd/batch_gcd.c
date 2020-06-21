@@ -421,19 +421,12 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
     /*freenumlist(ptree->level[ptree->height - 1]);
       ptree->level[ptree->height - 1] = NULL;*/
 
-    mpz_t sq;
-    mpz_init(sq);
     for (size_t up = 2; up <= ptree->height; up++) {
         struct numlist *Xlist = ptree->level[ptree->height - up];
 
         newRlist = makenumlist(Xlist->len);
-
-        /*void threaded_listsqmod(struct numlist *X, struct numlist *R, struct numlist *nR, int num_threads) {*/
-        /* for (size_t i = 0; i < Xlist->len; i++) { */
-        /*     mpz_mul(sq, Xlist->num[i], Xlist->num[i]); */
-        /*     mpz_mod(newRlist->num[i], Rlist->num[i / 2], sq); */
-        /* } */
         threaded_listsqmod(Xlist, Rlist, newRlist, 4);
+
         if (up != 2) {
             freenumlist(Rlist);
         }
@@ -442,16 +435,8 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
         /*freenumlist(Xlist);
           ptree->level[ptree->height - up] = NULL;*/
     }
-    mpz_clear(sq);
 
     struct numlist *gcdlist = makenumlist(nlist->len);
-    /* mpz_t d; */
-    /* mpz_init(d); */
-    /* for (size_t i = 0; i < gcdlist->len; i++) { */
-    /*     mpz_divexact(d, Rlist->num[i], nlist->num[i]); */
-    /*     mpz_gcd(gcdlist->num[i], d, nlist->num[i]); */
-    /* } */
-    /* mpz_clear(d); */
     threaded_listdivgcd(gcdlist, Rlist, nlist, 4);
 
     freenumlist(Rlist);
