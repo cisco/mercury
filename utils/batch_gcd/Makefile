@@ -1,0 +1,18 @@
+CC=gcc
+
+CFLAGS=-Wall -Wextra -pedantic -march=native -O3 -flto
+LIBS=-lgmp -lpthread
+
+main: batch_gcd
+
+batch_gcd: batch_gcd.o
+	$(CC) $(CFLAGS) $(LIBS) -o batch_gcd batch_gcd.o
+
+batch_gcd.o: batch_gcd.c
+	$(CC) $(CFLAGS) -c batch_gcd.c
+
+clean:
+	rm -f batch_gcd
+	rm -f *.o
+	rm -f *~
+	rm -f \#*
