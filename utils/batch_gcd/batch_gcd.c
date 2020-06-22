@@ -421,6 +421,7 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
     /*freenumlist(ptree->level[ptree->height - 1]);
       ptree->level[ptree->height - 1] = NULL;*/
 
+    int needfree = 0;
     for (size_t up = 2; up <= ptree->height; up++) {
         struct numlist *Xlist = ptree->level[ptree->height - up];
 
@@ -431,6 +432,7 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
             freenumlist(Rlist);
         }
         Rlist = newRlist;
+        needfree = 1;
 
         /*freenumlist(Xlist);
           ptree->level[ptree->height - up] = NULL;*/
@@ -439,7 +441,9 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
     struct numlist *gcdlist = makenumlist(nlist->len);
     threaded_listdivgcd(gcdlist, Rlist, nlist, 4);
 
-    freenumlist(Rlist);
+    if (needfree == 1) {
+        freenumlist(Rlist);
+    }
     freeprodtree(ptree);
 
     return gcdlist;
