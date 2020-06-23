@@ -462,7 +462,44 @@ void write_element_quoted(struct buffer_stream &buf, const struct element *e, bo
     buf.write_char(')');
 }
 
-void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data, unsigned int length, bool quoted) {
+void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data, unsigned int data_length, bool quoted) {
+
+    while (data_length > sizeof(uint16_t)) {
+
+        // decode data element and print as hex string or list, depending on type
+        enum ept_node_type type = ept_node_type_none;
+        if (data_length < sizeof(uint16_t)) {
+            return;
+        }
+        uint16_t tmp = decode_uint16(data);
+        uint16_t length = (tmp & LENGTH_MASK);
+        data += sizeof(uint16_t);
+        data_length -= sizeof(uint16_t);
+        if (length > data_length) {
+            return;
+        }
+        if (tmp & PARENT_NODE_INDICATOR) {
+            type = ept_node_type_list;
+        } else {
+            type = ept_node_type_string;
+        }
+
+        if (type == ept_node_type_string) {
+            buf.write_char('(');
+            buf.raw_as_hex(data, length);
+            buf.write_char(')');
+        }
+        if (type == ept_node_type_list) {
+            buf.write_char('(');
+            write_binary_ept_as_paren_ept(buf, data, length, quoted);
+            buf.write_char(')');
+        }
+        data += length;
+        data_length -= length;
+    }
+}
+
+void write_binary_ept_as_paren_ept_old(buffer_stream &buf, const unsigned char *data, unsigned int length, bool quoted) {
 
     struct element_iterator ei;
 
@@ -494,6 +531,8 @@ void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data
     }
 
 }
+
+
 
 enum status binary_ept_print_as_tls(uint8_t *data,
                                     size_t length) {
