@@ -909,7 +909,7 @@ unsigned int parser_extractor_process_wireguard(struct parser *p, struct extract
 
     extractor_debug("%s: processing packet\n", __func__);
 
-    if (p->length() < (int)sizeof(struct wireguard_handshake_initiation)) {
+    if (p->length() != sizeof(struct wireguard_handshake_initiation)) {
         return 0;   // not wireguard
     }
 
