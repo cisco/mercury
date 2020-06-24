@@ -26,17 +26,22 @@ uint16_t decode_uint16 (const void *x) {
     return y;
 }
 
-unsigned int string_is_printable(const unsigned char *x,
+inline bool string_is_printable(const unsigned char *x,
                                  size_t len) {
+
+    if (len == 0) {
+        return false;  // by convention, zero length strings are non-printable
+    }
+
     const unsigned char *end = x + len;
 
     while (x < end) {
         if (!isprint(*x)) {
-            return 0;
+            return false;
         }
         x++;
     }
-    return 1;
+    return true;
 }
 
 /* output functions */
@@ -486,7 +491,13 @@ void write_binary_ept_as_paren_ept(buffer_stream &buf, const unsigned char *data
 
         if (type == ept_node_type_string) {
             buf.write_char('(');
-            buf.raw_as_hex(data, length);
+            if (quoted && string_is_printable(data, length)) {
+                buf.write_char('\'');
+                buf.memcpy(data, length);
+                buf.write_char('\'');
+            } else {
+                buf.raw_as_hex(data, length);
+            }
             buf.write_char(')');
         }
         if (type == ept_node_type_list) {
