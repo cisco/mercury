@@ -550,7 +550,7 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
     return dns_ok;
 }
 
-static void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct buffer_stream &buf) {
+void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct buffer_stream &buf) {
     enum dns_err err = dns_ok;
     const dns_hdr *rh = NULL;
     const dns_question *question = NULL;

@@ -200,7 +200,6 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
 unsigned int parser_extractor_process_udp_data(struct parser *p, struct extractor *x);
 
 unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) {
-    (void)k;    // ignore flow key for now
     struct parser *p = &pf->p;
     struct extractor *x = &pf->x;
 
@@ -209,7 +208,8 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
     const unsigned char *d = p->data;
 #endif
 
-    if (parser_skip(p, L_udp_src_port) == status_err) {
+    size_t src_port;
+    if (parser_read_and_skip_uint(p, L_udp_src_port, &src_port) == status_err) {
         return 0;
     }
     size_t dst_port;
@@ -226,6 +226,10 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
 
     extractor_debug("%s: udp header: %02x%02x%02x%02x%02x%02x%02x%02x\n", __func__,
                     d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
+
+    k->dst_port = dst_port;
+    k->src_port = src_port;
+    k->protocol = 17;
 
     /* handle the udp length field */
     if (udp_length < 8) {
@@ -905,7 +909,7 @@ unsigned int parser_extractor_process_wireguard(struct parser *p, struct extract
 
     extractor_debug("%s: processing packet\n", __func__);
 
-    if (p->length() < (int)sizeof(struct wireguard_handshake_initiation)) {
+    if (p->length() != sizeof(struct wireguard_handshake_initiation)) {
         return 0;   // not wireguard
     }
 

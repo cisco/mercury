@@ -88,6 +88,7 @@ LIBMERC_H   += eth.h
 LIBMERC_H   += extractor.h
 LIBMERC_H   += proto_identify.h
 LIBMERC_H   += packet.h
+LIBMERC_H   += parser.h
 LIBMERC_H   += pkt_proc.h
 LIBMERC_H   += tcp.h
 LIBMERC_H   += udp.h
