@@ -3,6 +3,7 @@
 #
 # USAGE:
 #
+#   "make IFNAME=<ifname>" to perform all tests
 #   "make comp" to compare test cases
 #   "make clean" to remove test files
 #
@@ -70,8 +71,8 @@ JSON_TEST_FILES = $(notdir $(wildcard ./data/*.json))
 JSON_COMP_FILES = $(JSON_TEST_FILES:%.json=%.json-comp)
 
 
-.PHONY: all
-all: comp analysis cert-check memcheck dummy-capture
+.PHONY: all clean
+all: clean comp analysis cert-check memcheck dummy-capture
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
