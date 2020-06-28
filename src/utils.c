@@ -32,17 +32,6 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
     }
 }
 
-void fprintf_json_hex_string(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-
-    fprintf(f, "\"%s\":\"0x", key);
-    while (x < end) {
-        fprintf(f, "%02x", *x++);
-    }
-    fprintf(f, "\"");
-}
-
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
@@ -63,20 +52,6 @@ void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, 
     }
     fprintf(f, "\"");
 }
-
-
-
-
-
-void fprintf_json_string(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
-
-    if (string_is_nonascii(data, len) || string_starts_with_0x(data, len)) {
-        fprintf_json_hex_string(f, key, data, len);
-    } else {
-        fprintf_json_string_escaped(f, key, data, len);
-    }
-}
-
 
 size_t hex_to_raw(const void *output,
                   size_t output_buf_len,
@@ -100,31 +75,6 @@ size_t hex_to_raw(const void *output,
 }
 
 
-void packet_handler_printf(uint8_t *ignore,
-                           const struct pcap_pkthdr *pcap_pkthdr,
-                           const uint8_t *packet) {
-
-    (void)ignore;
-
-    printf("--------------------------------\npacket\ntimestamp: %u.%u\nlength: %u\n",
-           (unsigned int)pcap_pkthdr->ts.tv_sec,
-           (unsigned int)pcap_pkthdr->ts.tv_usec,
-           pcap_pkthdr->caplen);
-    fprintf_raw_as_hex(stdout, packet, pcap_pkthdr->caplen);
-    printf("\n");
-
-}
-
-
-void packet_handler_null(uint8_t *ignore,
-                         const struct pcap_pkthdr *pcap_pkthdr,
-                         const uint8_t *packet) {
-
-    (void)ignore;
-    (void)pcap_pkthdr;
-    (void)packet;
-
-}
 
 
 /*
@@ -270,71 +220,6 @@ int copy_string_into_buffer(char *dst, size_t dst_len, const char *src, size_t m
 }
 
 
-/*
- * fprintf_json_base64_string(file, data, input_length)
- *
- * file         - file pointer to the output file
- * data         - pointer to start of data
- * input_length - number of bytes of data
- *
- * return value:
- *       void
- */
-void fprintf_json_base64_string(FILE *file,
-                                const unsigned char *data,
-                                size_t input_length) {
-
-    size_t i = 0;
-    size_t rem = input_length % 3; /* so it can be 0, 1 or 2 */
-    size_t len = input_length - rem; /* always a multiple of 3 */
-    uint32_t oct_a, oct_b, oct_c, trip;
-
-    fputc('"', file);
-    while (i < len) {
-
-        oct_a = data[i++];
-        oct_b = data[i++];
-        oct_c = data[i++];
-
-        trip = (oct_a << 0x10) + (oct_b << 0x08) + oct_c;
-
-        fputc(encoding_table[(trip >> (3 * 6)) & 0x3F], file);
-        fputc(encoding_table[(trip >> (2 * 6)) & 0x3F], file);
-        fputc(encoding_table[(trip >> (1 * 6)) & 0x3F], file);
-        fputc(encoding_table[(trip >> (0 * 6)) & 0x3F], file);
-    }
-
-    if (rem > 0) {
-        oct_a = data[i++];
-        oct_b = (i < input_length)? data[i++] : 0;
-        oct_c = (i < input_length)? data[i++] : 0;
-
-        trip = (oct_a << 0x10) + (oct_b << 0x08) + oct_c;
-
-        /**
-         * if remainder is zero, we are done.
-         * if remainder is 1, we need to get one more byte from data.
-         * if remainder is 2, we need to get two more bytes from data.
-         * Afterwards, we need to pad the encoded_data with '=' appropriately.
-         */
-        if (rem == 1) {
-            /* This one byte spans 2 bytes in encoded_data */
-            /* Pad the last 2 bytes */
-            fputc(encoding_table[(trip >> (3 * 6)) & 0x3F], file);
-            fputc(encoding_table[(trip >> (2 * 6)) & 0x3F], file);
-            fprintf(file, "==");
-        } else if (rem == 2) {
-            /* These two bytes span 3 bytes in encoded_data */
-            /* Pad the remaining last byte */
-            fputc(encoding_table[(trip >> (3 * 6)) & 0x3F], file);
-            fputc(encoding_table[(trip >> (2 * 6)) & 0x3F], file);
-            fputc(encoding_table[(trip >> (1 * 6)) & 0x3F], file);
-            fprintf(file, "=");
-        }
-    }
-    fputc('\"', file);
-}
-
 
 void fprintf_json_hex_string(FILE *file,
                              const unsigned char *data,
@@ -346,32 +231,6 @@ void fprintf_json_hex_string(FILE *file,
         fprintf(file, "%02x", *x++);
     }
     fprintf(file, "\"");
-}
-/*
- * printf_raw_as_hex(data, len)
- *
- * data   - pointer to start of data
- * len    - number of bytes of data
- *
- * return value:
- *       void
- */
-
-void printf_raw_as_hex(const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    printf("\n  Len = %u\n", len);
-    if (len > 128) {
-        len = 128;
-    }
-    const unsigned char *end = data + len;
-    int i;
-
-    for (x = data; x < end; ) {
-        for (i=0; i < 16 && x < end; i++) {
-            printf(" %02x", *x++);
-        }
-        printf("\n");
-    }
 }
 
 #define MAX_READABLE_SUFFIX 9

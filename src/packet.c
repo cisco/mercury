@@ -417,32 +417,6 @@ void ipv6_packet_fprintf_flow_key(FILE *f, uint8_t *packet) {
 
 
 
-void packet_fprintf_flow_key(FILE *f, uint8_t *packet, size_t length) {
-    uint16_t ether_type;
-
-    eth_skip(&packet, &length, &ether_type);
-
-    switch(ntohs(ether_type)) {
-    case ETH_TYPE_IP:
-        if (length < sizeof(struct ipv4_hdr)) {
-            // fprintf(f, "ipv4/[tcp,udp] packet too short\n");
-            return;
-        }
-        ipv4_packet_fprintf_flow_key(f, packet);
-        break;
-    case ETH_TYPE_IPV6:
-        if (length < sizeof(struct ipv6_hdr)) {
-            // fprintf(f, "ipv6 packet too short\n");
-            return;
-        }
-        ipv6_packet_fprintf_flow_key(f, packet);
-        break;
-    default:
-        // fprintf(f, "not an ip packet (ethertype: %04x)\n", htons(ether_type));
-        break;
-    }
-
-}
 
 void write_ipv4_packet_flow_key(struct buffer_stream &buf, const uint8_t *packet) {
 
