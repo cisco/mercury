@@ -118,6 +118,30 @@ void write_flow_key(struct buffer_stream &buf, const struct key &k) {
 
 }
 
+void write_flow_key(struct json_object &o, const struct key &k) {
+    if (k.ip_vers == 6) {
+        const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
+        o.print_key_ipv6_addr("src_ip", s);
+
+        const uint8_t *d = (const uint8_t *)&k.addr.ipv6.dst;
+        o.print_key_ipv6_addr("dst_ip", d);
+
+    } else {
+
+        const uint8_t *s = (const uint8_t *)&k.addr.ipv4.src;
+        o.print_key_ipv4_addr("src_ip", s);
+
+        const uint8_t *d = (const uint8_t *)&k.addr.ipv4.dst;
+        o.print_key_ipv4_addr("dst_ip", d);
+
+    }
+
+    o.print_key_uint8("protocol", k.protocol);
+    o.print_key_uint16("src_port", k.src_port);
+    o.print_key_uint16("dst_port", k.dst_port);
+
+}
+
 int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
                        size_t length,
@@ -137,7 +161,8 @@ int append_packet_json(struct buffer_stream &buf,
         return 0;
     }
 
-    buf.write_char('{');
+    // buf.write_char('{');
+    struct json_object record{&buf};
 
     /*
      * output fingerprint (if any)
@@ -147,88 +172,74 @@ int append_packet_json(struct buffer_stream &buf,
         switch(pf.x.fingerprint_type) {
         case fingerprint_type_dhcp_client:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("dhcp", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
             }
             break;
         case fingerprint_type_tls:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("tls", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
             }
             break;
         case fingerprint_type_tcp:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("tcp", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
             }
             break;
         case fingerprint_type_http:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("http", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
-                buf.strncpy("\"complete\":\"");
-                (pf.x.proto_state.state == state_done) ? buf.strncpy("yes\"") : buf.strncpy("no\"");
-                buf.puts(",");
+                record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
             }
             break;
         case fingerprint_type_http_server:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("http_server", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
-                buf.strncpy("\"complete\":\"");
-                (pf.x.proto_state.state == state_done) ? buf.strncpy("yes\"") : buf.strncpy("no\"");
-                buf.puts(",");
+                record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
             }
             break;
         case fingerprint_type_tls_server:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("tls_server", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
             }
             break;
         case fingerprint_type_dtls:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("dtls", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
             }
             break;
         case fingerprint_type_dtls_server:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("dtls_server", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
             }
             break;
         case fingerprint_type_ssh:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("ssh", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
             }
             break;
         case fingerprint_type_ssh_kex:
             {
-                struct json_object fps{&buf, "fingerprints"};
+                struct json_object fps{record, "fingerprints"};
                 fps.print_key_ept("ssh_kex", extractor_buffer, bytes_extracted);
                 fps.close();
-                buf.puts(",");
             }
             break;
         default:
@@ -240,50 +251,45 @@ int append_packet_json(struct buffer_stream &buf,
      * output packet_data (if any)
      */
     if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
-        struct json_object http{&buf, "http"};
+        struct json_object http{record, "http"};
         http.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
         http.close();
-        buf.strncpy(",");
     }
     if (pf.x.packet_data.type == packet_data_type_tls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-            struct json_object tls{&buf, "tls"};
+            struct json_object tls{record, "tls"};
             tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
             tls.close();
-            buf.strncpy(",");
         }
     }
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
-        //        struct json_object tls{&buf, "tls"};
+        //        struct json_object tls{record, "tls"};
         /* print the certificates in base64 format */
-        buf.strncpy("\"tls\":{\"server_certs\":[");
+        buf.strncpy(",\"tls\":{\"server_certs\":[");
         write_extract_certificates(buf, pf.x.packet_data.value, pf.x.packet_data.length);
         //write_extract_cert_prefix(buf, pf.x.packet_data.value, pf.x.packet_data.length);
         //write_extract_cert_full(buf, pf.x.packet_data.value, pf.x.packet_data.length);
-        buf.strncpy("]},");
+        buf.strncpy("]}");
     }
     if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-            struct json_object dtls{&buf, "dtls"};
+            struct json_object dtls{record, "dtls"};
             dtls.print_key_json_string("server_name", pf.x.packet_data.value  + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
             dtls.close();
-            buf.strncpy(",");
         }
     }
     if (pf.x.packet_data.type == packet_data_type_dns_server) {
-        struct json_object dns{&buf, "dns"};
-        dns.print_key_base64("base64", { pf.x.packet_data.value, pf.x.packet_data.length });
+        struct json_object dns{record, "dns"};
+        dns.print_key_base64("base64", { pf.x.packet_data.value, pf.x.packet_data.value + pf.x.packet_data.length });
         dns.close();
         // write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, buf);
-        buf.write_char(',');
     }
     if (pf.x.packet_data.type == packet_data_type_wireguard && pf.x.packet_data.length == sizeof(uint32_t)) {
-        struct json_object wg{&buf, "wireguard"};
+        struct json_object wg{record, "wireguard"};
         uint32_t tmp = ntohl(*(const uint32_t *)pf.x.packet_data.value);
-        struct parser si{(uint8_t *)&tmp, sizeof(uint32_t)};
+        struct parser si{(uint8_t *)&tmp, (uint8_t *)&tmp + sizeof(uint32_t)};
         wg.print_key_hex("sender_index", si);
         wg.close();
-        buf.write_char(',');
     }
 
     /*
@@ -294,9 +300,9 @@ int append_packet_json(struct buffer_stream &buf,
 
     write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
 
-    write_flow_key(buf, k);
+    write_flow_key(record, k);
 
-    buf.write_timestamp(ts);
+    record.print_key_timestamp("event_start", ts);
 
     //    buf.snprintf(dstr, doff, dlen, trunc, ",\"flowhash\":\"%016lx\"", flowhash(key, ts->tv_sec));
 

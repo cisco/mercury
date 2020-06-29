@@ -738,7 +738,6 @@ struct buffer_stream {
     }
 
     void write_timestamp(struct timespec *ts) {
-        append_strncpy(dstr, &doff, dlen, &trunc, ",\"event_start\":");
         append_timestamp(dstr, &doff, dlen, &trunc, ts);
     }
 

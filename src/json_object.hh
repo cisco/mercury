@@ -27,14 +27,12 @@ struct json_object {
         b->puts("\":{");
     }
     json_object(struct json_object &object, const char *name) : b{object.b} {
-        //fprintf(stderr, "json_object constructor (name: %s, comma: %c)\n", name, comma);
         write_comma(object.comma);
         b->write_char('\"');
         b->puts(name);
         b->puts("\":{");
     }
     json_object(struct json_object &object) : b{object.b} {
-        //fprintf(stderr, "json_object constructor (comma: %c)\n", comma);
         write_comma(object.comma);
         b->write_char('{');
     }
@@ -72,6 +70,22 @@ struct json_object {
         b->puts(k);
         b->puts("\":null");
     }
+    void print_key_uint8(const char *k, uint8_t u) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->write_char('\"');
+        b->write_char(':');
+        b->write_uint8(u);
+    }
+    void print_key_uint16(const char *k, uint16_t u) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->write_char('\"');
+        b->write_char(':');
+        b->write_uint16(u);
+    }
     void print_key_uint(const char *k, unsigned long int u) {
         write_comma(comma);
         b->snprintf("\"%s\":%lu", k, u);
@@ -104,11 +118,37 @@ struct json_object {
         }
     }
     void print_key_ept(const char *k, const uint8_t *buf, size_t buf_len) {
+        write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":");
         b->write_char('\"');
         write_binary_ept_as_paren_ept(*b, buf, buf_len);
+        b->write_char('\"');
+    }
+    void print_key_timestamp(const char *k, struct timespec *ts) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        b->write_timestamp(ts);
+    }
+    void print_key_ipv4_addr(const char *k, const uint8_t *a) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        b->write_char('\"');
+        b->write_ipv4_addr(a);
+        b->write_char('\"');
+    }
+    void print_key_ipv6_addr(const char *k, const uint8_t *a) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        b->write_char('\"');
+        b->write_ipv6_addr(a);
         b->write_char('\"');
     }
 };
