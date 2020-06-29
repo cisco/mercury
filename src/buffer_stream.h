@@ -762,24 +762,6 @@ struct buffer_stream {
         append_ipv4_addr(dstr, &doff, dlen, &trunc, v4);
     }
 
-
-#if 0
-    void write_extract_certificates(const unsigned char *data, size_t data_len) {
-        append_extract_certificates(dstr, &doff, dlen, &trunc, data, data_len);
-    }
-
-    void write_binary_ept_as_paren_ept(const unsigned char *data, unsigned int length) {
-        append_binary_ept_as_paren_ept(dstr, &doff, dlen, &trunc, data, length);
-    }
-    void write_packet_flow_key(uint8_t *packet, size_t length) {
-        append_packet_flow_key(dstr, &doff, dlen, &trunc, packet, length);
-    }
-    void write_analysis_from_extractor_and_flow_key(const struct extractor *x, const struct flow_key *key) {
-        append_analysis_from_extractor_and_flow_key(dstr, &doff, dlen, &trunc, x, key);
-    }
-#endif // 0
-
-
 };
 
 #endif /* BUFFER_STREAM_H */

@@ -533,16 +533,16 @@ struct json_object_asn1 : public json_object {
 
     void print_key_oid(const char *k, const struct parser &value) {
         const char *output = parser_get_oid_string(&value);
+        write_comma(comma);
         if (output != oid_empty_string) {
-            b->snprintf("%c\"%s\":\"%s\"", comma, k, output);
+            b->snprintf("\"%s\":\"%s\"", k, output);
         } else {
-            b->snprintf("%c\"%s\":\"", comma, k);
+            b->snprintf("\"%s\":\"", k);
             if (value.data && value.data_end) {
                 raw_string_print_as_oid(*b, value.data, value.data_end - value.data);
             }
             b->write_char('\"');
         }
-        comma = ',';
     }
 
     void print_key_bitstring_flags(const char *name, const struct parser &value, char * const *flags) {
@@ -579,13 +579,12 @@ struct json_object_asn1 : public json_object {
 
         }
         a.close();
-        comma = ',';
+        comma = true;
     }
 
     void print_key_escaped_string(const char *k, const struct parser &value) {
-        b->write_char(comma);
+        write_comma(comma);
         fprintf_json_string_escaped(*b, k, value.data, value.data_end - value.data);
-        comma = ',';
     }
 
     /*
@@ -596,8 +595,8 @@ struct json_object_asn1 : public json_object {
      * "2015-10-28 18:52:12"
      */
     void print_key_utctime(const char *key, const uint8_t *data, unsigned int len) {
-        b->snprintf("%c\"%s\":\"", comma, key);
-        comma = ',';
+        write_comma(comma);
+        b->snprintf("\"%s\":\"", key);
         if (len != 13) {
             b->snprintf("malformed\"");
             return;
@@ -635,8 +634,8 @@ struct json_object_asn1 : public json_object {
      *  seconds is zero.
      */
     void print_key_generalized_time(const char *key, const uint8_t *data, unsigned int len) {
-        b->snprintf("%c\"%s\":\"", comma, key);
-        comma = ',';
+        write_comma(comma);
+        b->snprintf("\"%s\":\"", key);
         if (len != 15) {
             b->snprintf("malformed (length %u)\"", len);
             return;
@@ -665,10 +664,10 @@ struct json_object_asn1 : public json_object {
     }
 
     void print_key_ip_address(const char *name, const parser &value) {
-        b->snprintf("%c\"%s\":\"", comma, name);
+        write_comma(comma);
+        b->snprintf("\"%s\":\"", name);
         fprintf_ip_address(*b, value.data, value.data_end - value.data);
         b->write_char('\"');
-        comma = ',';
     }
 
 };
@@ -680,16 +679,16 @@ struct json_array_asn1 : public json_array {
     explicit json_array_asn1(struct json_object &object, const char *name) : json_array(object, name) { }
     void print_oid(const struct parser &value) {
         const char *output = parser_get_oid_string(&value);
+        write_comma(comma);
         if (output != oid_empty_string) {
-            b->snprintf("%c\"%s\"", comma, output);
+            b->snprintf("\"%s\"", output);
         } else {
-            b->snprintf("%c\"", comma);
+            b->write_char('\"');
             if (value.data && value.data_end) {
                 raw_string_print_as_oid(*b, value.data, value.data_end - value.data);
             }
             b->write_char('\"');
         }
-        comma = ',';
     }
 };
 
@@ -1336,7 +1335,8 @@ struct tlv {
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
     void print_as_json_ip_address(struct json_object_asn1 &o, const char *name) const {
-        o.b->snprintf("%c\"%s\":\"", o.comma, name);
+        o.write_comma(o.comma);
+        o.b->snprintf("\"%s\":\"", name);
         fprintf_ip_address(*o.b, value.data, value.data_end - value.data);
         o.b->write_char('\"');
         o.comma = ',';
