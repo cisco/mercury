@@ -232,7 +232,7 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
 
 
 static inline int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
-                                   struct timespec *ts) {
+                                   const struct timespec *ts) {
 
     if (*trunc == 1) {
         return 0;
@@ -737,7 +737,7 @@ struct buffer_stream {
         append_memcpy(dstr, &doff, dlen, &trunc, src, length);
     }
 
-    void write_timestamp(struct timespec *ts) {
+    void write_timestamp(const struct timespec *ts) {
         append_timestamp(dstr, &doff, dlen, &trunc, ts);
     }
 
@@ -761,6 +761,14 @@ struct buffer_stream {
         append_ipv4_addr(dstr, &doff, dlen, &trunc, v4);
     }
 
+};
+
+struct timestamp_writer {
+    const struct timespec *tmp;
+    timestamp_writer(const struct timespec *ts) : tmp{ts} {}
+    void operator()(struct buffer_stream *b) {
+        b->write_timestamp(tmp);
+    }
 };
 
 #endif /* BUFFER_STREAM_H */

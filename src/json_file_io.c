@@ -303,6 +303,7 @@ int append_packet_json(struct buffer_stream &buf,
     write_flow_key(record, k);
 
     record.print_key_timestamp("event_start", ts);
+    // struct timestamp_writer t{ts}; record.print_key_value("event_start", t);
 
     //    buf.snprintf(dstr, doff, dlen, trunc, ",\"flowhash\":\"%016lx\"", flowhash(key, ts->tv_sec));
 
