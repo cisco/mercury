@@ -13,7 +13,6 @@
 #include "buffer_stream.h"
 #include "json_object.hh"
 #include "parser.h"
-#include "extractor.h"
 
 
 /**
@@ -723,14 +722,12 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct buffer_strea
     return;
 }
 
-unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x) {
-
-    extractor_debug("%s: processing packet\n", __func__);
-
-    // set entire DNS packet as packet_data
-    packet_data_set(&x->packet_data, packet_data_type_dns_server, p->length(), p->data);
-
-    return 0;
+std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len) {
+    char buffer[8192*8];
+    struct buffer_stream buf(buffer, sizeof(buffer));
+    dns_print_packet(dns_pkt, pkt_len, buf);
+    std::string tmp_str(buffer, buf.length());
+    return tmp_str;
 }
 
 void write_dns_server_data(const uint8_t *data, size_t length, struct buffer_stream &buf) {

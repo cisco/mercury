@@ -13,9 +13,13 @@
 #ifndef DNS_H
 #define DNS_H
 
+#include <string>
+
 /** maximum DNS name length */
 #define MAX_DNS_NAME_LEN 256
 
 void write_dns_server_data(const uint8_t *data, size_t length, struct buffer_stream &buf);
+
+std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len);
 
 #endif /* DNS_H */
