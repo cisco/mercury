@@ -6,7 +6,7 @@ LIBS=-lgmp -lpthread
 main: batch_gcd
 
 batch_gcd: batch_gcd.o
-	$(CC) $(CFLAGS) $(LIBS) -o batch_gcd batch_gcd.o
+	$(CC) $(CFLAGS) -o batch_gcd batch_gcd.o -Bdynamic $(LIBS)
 
 batch_gcd.o: batch_gcd.c
 	$(CC) $(CFLAGS) -c batch_gcd.c
