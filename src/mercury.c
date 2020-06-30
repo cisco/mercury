@@ -52,6 +52,7 @@ char mercury_help[] =
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   [-s or --select] filter               # select only metadata (see --help)\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
+    "   --no-base64                           # output full certs and DNS, not base64\n"
     "   [-v or --verbose]                     # additional information sent to stdout\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
@@ -114,6 +115,9 @@ char mercury_extended_help[] =
     "   \"[-l or --limit] l\" rotates output files so that each file has at most\n"
     "   l records or packets; filenames include a sequence number, date and time.\n"
     "\n"
+    "   --no-base64 writes out certificates and DNS responses in detail; otherwise,\n"
+    "   that data is output in base64.\n"
+    "\n"
     "   [-v or --verbose] writes additional information to the standard output,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
@@ -162,16 +166,19 @@ bool option_is_valid(const char *opt) {
     return true;
 }
 
+bool base64_output = true;  /* output certs and DNS as base64  */
+
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
 
     while(1) {
-        enum opt { config=1, version=2, license=3 };
+        enum opt { config=1, version=2, license=3, nobase64=4 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
             { "version",     no_argument,       NULL, version },
             { "license",     no_argument,       NULL, license },
+            { "no-base64",   no_argument,       NULL, nobase64 },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -206,6 +213,13 @@ int main(int argc, char *argv[]) {
         case license:
             printf("%s\n", license_string);
             return EXIT_SUCCESS;
+            break;
+        case nobase64:
+            if (optarg) {
+                usage(argv[0], "option nobase64 does not use an argument", extended_help_off);
+            } else {
+                base64_output = false;
+            }
             break;
         case 'r':
             if (option_is_valid(optarg)) {
@@ -269,6 +283,9 @@ int main(int argc, char *argv[]) {
             break;
         case 's':
             if (optarg) {
+                if (cfg.packet_filter_cfg != NULL) {
+                    usage(argv[0], "option s or select used more than once", extended_help_off);
+                }
                 if (option_is_valid(optarg)) {
                     cfg.packet_filter_cfg = optarg;
                 } else {
