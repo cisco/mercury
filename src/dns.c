@@ -466,9 +466,6 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
     enum dns_err err;
     uint16_t rclass = ntohs(rr->rclass);
     uint16_t type = ntohs(rr->type);
-    char ipv4_addr[INET_ADDRSTRLEN];
-    char ipv6_addr[INET6_ADDRSTRLEN];
-    char name[DNS_OUTNAME_LEN];
 
     if (rclass == class_IN) {
         if (type == type_A) {
@@ -478,6 +475,7 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
             if (err != dns_ok) {
                 return err;
             }
+            char ipv4_addr[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, addr, ipv4_addr, INET_ADDRSTRLEN);
             buf.snprintf("\"a\":\"%s\"", ipv4_addr);
         } else if (type == type_AAAA) {
@@ -487,10 +485,12 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
             if (err != dns_ok) {
                 return err;
             }
+            char ipv6_addr[INET6_ADDRSTRLEN];
             inet_ntop(AF_INET6, addr, ipv6_addr, INET6_ADDRSTRLEN);
             buf.snprintf("\"aaaa\":\"%s\"", ipv6_addr);
         } else if (type == type_SOA  || type == type_PTR || type == type_CNAME || type == type_NS || type == type_MX) {
             const char *tname;
+            char name[DNS_OUTNAME_LEN];
 
             /* mail exchange has a 2-byte preference before the name */
             if (type == type_MX) {

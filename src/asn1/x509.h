@@ -49,7 +49,7 @@ struct attribute {
     struct tlv attribute_value;
 
     attribute() : set{}, sequence{}, attribute_type{}, attribute_value{} { }
-    attribute(struct parser *p) : set{}, sequence{}, attribute_type{}, attribute_value{} {
+    explicit attribute(struct parser *p) : set{}, sequence{}, attribute_type{}, attribute_value{} {
         parse(p);
     }
     void parse(struct parser *p) {
@@ -126,7 +126,7 @@ struct basic_constraints {
     struct tlv path_len_constraint;
 
     //    basic_constraints(struct parser *p) : sequence{p}, ca{&sequence.value}, path_len_constraint{&sequence.value} {}
-    basic_constraints(struct parser *p) : sequence{}, ca{}, path_len_constraint{} {
+    explicit basic_constraints(struct parser *p) : sequence{}, ca{}, path_len_constraint{} {
         sequence.parse(p);
         if (sequence.value.is_not_empty()) {
             ca.parse(&sequence.value, tlv::BOOLEAN);  // default false boolean
@@ -284,7 +284,7 @@ struct policy_qualifier_info {
     struct tlv qualifier;      // cPSuri (IA5String) or userNotice
 
     policy_qualifier_info() : sequence{}, qualifier_id{}, qualifier{} {}
-    policy_qualifier_info(struct parser *p) : sequence{}, qualifier_id{}, qualifier{} {
+    explicit policy_qualifier_info(struct parser *p) : sequence{}, qualifier_id{}, qualifier{} {
         parse(p);
     }
     void parse(struct parser *p) {
@@ -307,7 +307,7 @@ struct policy_information {
     struct tlv sequence;
 
     policy_information() : sequence{} {}
-    policy_information(struct parser *p) {
+    explicit policy_information(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
         if (sequence.is_null()) { p->set_null(); } // handle unexpected data
     }
@@ -333,7 +333,7 @@ struct policy_information {
 struct certificate_policies {
     struct tlv sequence;
 
-    certificate_policies(struct parser *p) : sequence{} { //, policy_information{} {
+    explicit certificate_policies(struct parser *p) : sequence{} { //, policy_information{} {
         sequence.parse(p, tlv::SEQUENCE);
     }
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
@@ -364,7 +364,7 @@ struct private_key_usage_period {
     struct tlv notAfter;
 
     private_key_usage_period() : sequence{}, notBefore{}, notAfter{} {   }
-    private_key_usage_period(struct parser *p) : sequence{}, notBefore{}, notAfter{} {
+    explicit private_key_usage_period(struct parser *p) : sequence{}, notBefore{}, notAfter{} {
         parse(p);
     }
     void parse(struct parser *p) {
@@ -429,7 +429,7 @@ struct general_name {
     struct tlv explicit_tag;
 
     general_name() : explicit_tag{} {}
-    general_name(struct parser *p) {
+    explicit general_name(struct parser *p) {
         parse(p);
     }
     void parse(struct parser *p, uint8_t expected_tag=0x00) {
@@ -480,7 +480,7 @@ struct general_name {
 struct subject_alt_name {
     struct tlv sequence;
 
-    subject_alt_name(struct parser *p) : sequence{p} {
+    explicit subject_alt_name(struct parser *p) : sequence{p} {
         // sequence.fprint(stdout, "subject_alt_name.names");
     }
 
@@ -533,7 +533,7 @@ struct distribution_point_name {
     // been found
 
     distribution_point_name() : explicit_tag{}, full_name{} {}
-    distribution_point_name(struct parser *p) {
+    explicit distribution_point_name(struct parser *p) {
         parse(p);
     }
     void parse(struct parser *p) {
@@ -569,7 +569,7 @@ struct distribution_point {
     // note: reasons and issuer have not been implemented; no certs
     // for testing are available
 
-    distribution_point(struct parser *p) : sequence{p} { }
+    explicit distribution_point(struct parser *p) : sequence{p} { }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct json_array a{o, name};
@@ -590,7 +590,7 @@ struct distribution_point {
 struct crl_distribution_points {
     struct tlv sequence;
 
-    crl_distribution_points(struct parser *p) : sequence{p} {  }
+    explicit crl_distribution_points(struct parser *p) : sequence{p} {  }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct json_array a{o, name};
@@ -625,7 +625,7 @@ struct authority_key_identifier {
     struct tlv cert_serial_number;
 
     authority_key_identifier() : sequence{}, key_identifier{}, cert_issuer{}, cert_serial_number{} {}
-    authority_key_identifier(struct parser *p) : sequence{}, key_identifier{}, cert_issuer{}, cert_serial_number{} {
+    explicit authority_key_identifier(struct parser *p) : sequence{}, key_identifier{}, cert_issuer{}, cert_serial_number{} {
         parse(p);
     }
 
@@ -687,7 +687,7 @@ struct general_subtree {
     struct tlv minimum;
     struct tlv maximum;
 
-    general_subtree(struct parser *p) {
+    explicit general_subtree(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
         base.parse(&sequence.value);
         while (sequence.value.is_not_empty()) {
@@ -724,7 +724,7 @@ struct name_constraints {
     struct tlv permitted_subtrees; // sequence of general_subtree
     struct tlv excluded_subtrees;  // sequence of general_subtree
 
-    name_constraints(struct parser *p) {
+    explicit name_constraints(struct parser *p) {
         sequence.parse(p, tlv::SEQUENCE);
         while (sequence.value.is_not_empty()) {
             struct tlv tmp(&sequence.value);
@@ -828,7 +828,7 @@ struct signed_certificate_timestamp_list {
 
     // for now, we don't parse the TLS-style formatting
 
-    signed_certificate_timestamp_list(struct parser *p) {
+    explicit signed_certificate_timestamp_list(struct parser *p) {
         serialized_sct.parse(p);
     }
 
@@ -862,7 +862,7 @@ struct access_description {
     struct general_name access_location;
 
     access_description() : sequence{}, access_method{}, access_location{} {}
-    access_description(struct parser *x) : sequence{}, access_method{}, access_location{} {
+    explicit access_description(struct parser *x) : sequence{}, access_method{}, access_location{} {
         parse(x);
     }
    void parse(struct parser *x) {
@@ -897,7 +897,7 @@ struct access_description {
 struct authority_info_access_syntax {
     struct tlv sequence;
 
-    authority_info_access_syntax(struct parser *p) : sequence{} {
+    explicit authority_info_access_syntax(struct parser *p) : sequence{} {
         parse(p);
     }
     void parse(struct parser *p) {
@@ -941,7 +941,7 @@ struct extension {
     struct tlv critical; // boolean default false
     struct tlv extnValue;
 
-    extension(struct parser &p) : sequence{&p}, extnID{}, critical{}, extnValue{} {
+    explicit extension(struct parser &p) : sequence{&p}, extnID{}, critical{}, extnValue{} {
         if (sequence.is_constructed()) {
             extnID.parse(&sequence.value, 0, "extnID");
             extnValue.parse(&sequence.value, 0, "critical or extnValue");
@@ -1053,7 +1053,7 @@ struct rsa_public_key {
     struct tlv exponent;
 
     rsa_public_key() : sequence{}, modulus{}, exponent{} {}
-    rsa_public_key(struct parser *p) : sequence{}, modulus{}, exponent{} {
+    explicit rsa_public_key(struct parser *p) : sequence{}, modulus{}, exponent{} {
         parse(p);
     }
 
@@ -1116,7 +1116,7 @@ struct ec_public_key {
     struct parser d;
     // struct tlv tmp;   // TBD: ec public key is *not* ASN.1 formatted
 
-        ec_public_key(struct parser *p) : d{NULL, NULL} {
+    explicit ec_public_key(struct parser *p) : d{NULL, NULL} {
         d = *p;
     }
 
@@ -1173,7 +1173,7 @@ struct ecdsa_signature {
     struct tlv r;
     struct tlv s;
 
-    ecdsa_signature(struct parser *p) : sequence{} {
+    explicit ecdsa_signature(struct parser *p) : sequence{} {
         parse(p);
     }
     void parse(struct parser *p) {
@@ -1211,7 +1211,7 @@ struct algorithm_identifier {
     struct tlv parameters;
 
     algorithm_identifier() : sequence{}, algorithm{}, parameters{} {}
-    algorithm_identifier(struct parser *p) : sequence{}, algorithm{}, parameters{} {
+    explicit algorithm_identifier(struct parser *p) : sequence{}, algorithm{}, parameters{} {
         parse(p);
     }
     void parse(struct parser *p) {
@@ -1268,7 +1268,7 @@ struct subject_public_key_info {
     struct tlv subject_public_key;
 
     subject_public_key_info() : sequence{}, algorithm{}, subject_public_key{} {}
-    subject_public_key_info(struct parser *p) : sequence{}, algorithm{}, subject_public_key{} {
+    explicit subject_public_key_info(struct parser *p) : sequence{}, algorithm{}, subject_public_key{} {
         parse(p);
     }
     void parse(struct parser *p) {

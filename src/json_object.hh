@@ -11,7 +11,7 @@
 struct json_object {
     buffer_stream *b;
     char comma = ' ';
-    json_object(struct buffer_stream *buf) : b{buf} {
+    explicit json_object(struct buffer_stream *buf) : b{buf} {
         b->write_char('{');
     }
     json_object(struct json_object &object, const char *name) : b{object.b} {
@@ -28,7 +28,7 @@ struct json_object {
         b->write_char('{');
         object.comma = ',';
     }
-    json_object(struct json_array &array);
+    explicit json_object(struct json_array &array);
     void reinit(struct json_array &array);
     void close() {
         b->write_char('}');
@@ -100,7 +100,7 @@ struct json_object {
 struct json_array {
     buffer_stream *b;
     char comma = ' ';
-    json_array(struct buffer_stream *buf) : b{buf} {
+    explicit json_array(struct buffer_stream *buf) : b{buf} {
         b->write_char('[');
     }
     json_array(struct json_object &object, const char *name) : b{object.b} {
@@ -174,7 +174,7 @@ inline void json_object::reinit(struct json_array &array) {
 struct json_file_object {
     FILE *f;
     char comma = ' ';
-    json_file_object(FILE *file) : f{file} {
+    explicit json_file_object(FILE *file) : f{file} {
         fputc('{', f);
     }
     json_file_object(struct json_file_object &object, const char *name) : f{object.f} {
@@ -184,7 +184,7 @@ struct json_file_object {
         fputs("\":{", f);
         object.comma = ',';
     }
-    json_file_object(struct json_file_array &array);
+    explicit json_file_object(struct json_file_array &array);
     void close() {
         fputc('}', f);
     }
@@ -214,7 +214,7 @@ struct json_file_object {
 struct json_file_array {
     FILE *f;
     char comma = ' ';
-    json_file_array(FILE *file) : f{file} {
+    explicit json_file_array(FILE *file) : f{file} {
         fputc('[', f);
     }
     json_file_array(struct json_file_object &object, const char *name) : f{object.f} {

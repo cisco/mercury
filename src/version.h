@@ -20,7 +20,7 @@ struct semantic_version {
         minor = min;
         patchlevel = patch;
     }
-    semantic_version(const char *version_string) {
+    explicit semantic_version(const char *version_string) {
         sscanf(version_string, "%u.%u.%u", &major, &minor, &patchlevel);
     }
     void print(FILE *f) {

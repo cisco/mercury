@@ -54,12 +54,12 @@ void utc_to_generalized_time(uint8_t gt[15], const uint8_t utc[13]) {
 }
 
 void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
+    if (data == NULL) {
+        return;
+    }
     const unsigned char *x = (const unsigned char *)data;
     const unsigned char *end = x + len;
 
-    if (x == NULL) {
-        return;
-    }
     while (x < end) {
         fprintf(f, "%02x", *x++);
     }
@@ -522,14 +522,14 @@ enum oid parser_get_oid_enum(const struct parser *p) {
  */
 
 struct json_object_asn1 : public json_object {
-    json_object_asn1(struct buffer_stream *buf) : json_object(buf) {}
+    explicit json_object_asn1(struct buffer_stream *buf) : json_object(buf) {}
     json_object_asn1(struct json_object &object, const char *name) : json_object(object, name) {
         //fprintf(stderr, "json_object_asn1 constructor\n");
     }
-    json_object_asn1(struct json_object &object) : json_object(object) {
+    explicit json_object_asn1(struct json_object &object) : json_object(object) {
         //fprintf(stderr, "json_object_asn1 constructor\n");
     }
-    json_object_asn1(struct json_array &array);
+    explicit json_object_asn1(struct json_array &array);
 
     void print_key_oid(const char *k, const struct parser &value) {
         const char *output = parser_get_oid_string(&value);
@@ -676,8 +676,8 @@ struct json_object_asn1 : public json_object {
 json_object_asn1::json_object_asn1(struct json_array &array) : json_object(array) { }
 
 struct json_array_asn1 : public json_array {
-    json_array_asn1(struct buffer_stream *b) : json_array(b) { }
-    json_array_asn1(struct json_object &object, const char *name) : json_array(object, name) { }
+    explicit json_array_asn1(struct buffer_stream *b) : json_array(b) { }
+    explicit json_array_asn1(struct json_object &object, const char *name) : json_array(object, name) { }
     void print_oid(const struct parser &value) {
         const char *output = parser_get_oid_string(&value);
         if (output != oid_empty_string) {
@@ -786,7 +786,7 @@ struct tlv {
         value.data = r.value.data;
         value.data_end = r.value.data_end;
     }
-    tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tag{0}, length{0}, value{NULL, NULL} {
+    explicit tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tag{0}, length{0}, value{NULL, NULL} {
         parse(p, expected_tag, tlv_name);
     }
     void handle_parse_error(const char *msg, const char *tlv_name) {

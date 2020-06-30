@@ -85,12 +85,6 @@ enum status json_file_init(struct json_file *jf,
     return json_file_rotate(jf);
 }
 
-void fprintf_timestamp(FILE *f, unsigned int sec, unsigned int usec) {
-
-    fprintf(f, ",\"event_start\":%u.%06u", sec, usec); // not sure why usec has fewer than 6 digits, but appears to work
-}
-
-
 void write_flow_key(struct buffer_stream &buf, const struct key &k) {
     if (k.ip_vers == 6) {
         const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;

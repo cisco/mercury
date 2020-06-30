@@ -164,7 +164,6 @@ bool option_is_valid(const char *opt) {
 
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
-    int c;
 
     while(1) {
         enum opt { config=1, version=2, license=3 };
@@ -188,7 +187,7 @@ int main(int argc, char *argv[]) {
             { "verbose",     no_argument,       NULL, 'v' },
             { NULL,          0,                 0,     0  }
         };
-        c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:s::oham:vp:d:", long_opts, &opt_idx);
+        int c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:s::oham:vp:d:", long_opts, &opt_idx);
         if (c < 0) {
             break;
         }

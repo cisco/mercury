@@ -381,22 +381,6 @@ enum status parser_extractor_copy(struct parser *p,
     return status_err;
 }
 
-enum status extractor_write_to_output(struct extractor *x,
-                                      const unsigned char *data,
-                                      unsigned int len) {
-
-    if (x->output + len + 2 <= x->output_end) {
-        x->last_capture = NULL;
-        encode_uint16(x->output, len);
-        x->output += 2;
-        memcpy(x->output, data, len);
-        x->output += len;
-        return status_ok;
-    }
-    extractor_debug("%s: error\n", __func__);
-    return status_err;
-}
-
 
 enum status extractor_reserve(struct extractor *x,
                               unsigned char **data,
@@ -1160,113 +1144,6 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
 
 }
 
-/*
- * The function parser_process_tls processes a TLS packet.  The
- * parser MUST have previously been initialized with its data
- * pointer set to the initial octet of the TCP header of the TLS
- * packet.
- */
-unsigned int parser_process_tls(struct parser *p) {
-    size_t tmp_len;
-    struct parser ext_parser;
-    extractor_debug("%s: processing packet\n", __func__);
-
-    /*
-     * verify that we are looking at a TLS ClientHello
-     */
-    if (parser_match(p,
-                     tls_client_hello_value,
-                     L_ContentType +    L_ProtocolVersion + L_RecordLength + L_HandshakeType,
-                     tls_client_hello_mask) == status_err) {
-        return 0; /* not a clientHello */
-    }
-
-    /*
-     * skip over initial fields
-     */
-    if (parser_skip(p, L_HandshakeLength) == status_err) {
-        return 0;
-    }
-
-    /*
-     * copy clientHello.ProtocolVersion
-     */
-    if (parser_skip(p, L_ProtocolVersion) == status_err) {
-        goto bail;
-    }
-
-    /*
-     * skip over Random
-     */
-    if (parser_skip(p, L_Random) == status_err) {
-        goto bail;
-    }
-
-    /* skip over SessionID and SessionIDLen */
-    if (parser_read_uint(p, L_SessionIDLength, &tmp_len) == status_err) {
-        goto bail;
-    }
-    if (parser_skip(p, tmp_len + L_SessionIDLength) == status_err) {
-        goto bail;
-    }
-
-    /* copy ciphersuite offer vector */
-    if (parser_read_uint(p, L_CipherSuiteVectorLength, &tmp_len) == status_err) {
-        goto bail;
-    }
-    if (parser_skip(p, L_CipherSuiteVectorLength) == status_err) {
-        goto bail;
-    }
-    if (parser_skip(p, tmp_len) == status_err) {
-        goto bail;
-    }
-
-    /* skip over compression methods */
-    if (parser_read_uint(p, L_CompressionMethodsLength, &tmp_len) == status_err) {
-        goto bail;
-    }
-    if (parser_skip(p, tmp_len + L_CompressionMethodsLength) == status_err) {
-        goto bail;
-    }
-
-    /*
-     * parse extensions vector
-     */
-    /*  extensions length */
-    if (parser_read_and_skip_uint(p, L_ExtensionsVectorLength, &tmp_len)) {
-        return status_err;
-    }
-    parser_init_from_outer_parser(&ext_parser, p, tmp_len);
-    while (parser_get_data_length(&ext_parser) > 0) {
-        size_t tmp_type;
-
-        if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
-            break;
-        }
-
-        if (parser_skip(&ext_parser, L_ExtensionType) == status_err) {
-            break;
-        }
-
-        if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
-            break;
-        }
-
-        if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
-            break;
-        }
-    }
-
-    return 100; /* indicate success */
-
- bail:
-    /*
-     * handle possible packet parsing errors
-     */
-    extractor_debug("%s: warning: TLS clientHello processing did not fully complete\n", __func__);
-    return 0;   /* indicate failure */
-
-}
 
 /*
  * field lengths used in serverHello parsing
@@ -1366,7 +1243,7 @@ void write_extract_cert_prefix(struct buffer_stream &buf, const unsigned char *d
             return; /* don't bother printing out a partial cert if it has a length of zero */
         }
 
-        if (cert_num > 0) {
+        if (cert_num++ > 0) {
             buf.write_char(','); /* print separating comma */
         }
 
@@ -1405,7 +1282,7 @@ void write_extract_cert_full(struct buffer_stream &buf, const unsigned char *dat
             return; /* don't bother printing out a partial cert if it has a length of zero */
         }
 
-        if (cert_num > 0) {
+        if (cert_num++ > 0) {
             buf.write_char(','); /* print separating comma */
         }
 
@@ -2621,29 +2498,6 @@ unsigned int parser_process_tcp(struct parser *p) {
     } else if ((flags & (TCP_SYN|TCP_ACK)) == TCP_SYN) {
         return 100;
     }
-    return 0;
-}
-
-unsigned int parser_process_packet(struct parser *p) {
-    size_t transport_proto = 0;
-    size_t ethertype = 0;
-    struct key k;
-
-    parser_process_eth(p, &ethertype);
-    switch(ethertype) {
-    case ETH_TYPE_IP:
-        parser_process_ipv4(p, &transport_proto, &k);
-        break;
-    case ETH_TYPE_IPV6:
-        parser_process_ipv6(p, &transport_proto, &k);
-        break;
-    default:
-        ;
-    }
-    if (transport_proto == 6) {
-        return parser_process_tcp(p);
-    }
-
     return 0;
 }
 
