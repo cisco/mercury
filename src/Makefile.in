@@ -205,14 +205,14 @@ MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
 	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../VERSION
-	echo git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
+	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
 
 increment-minor-version:
 	echo $(major).$(shell expr $(minor) + 1).0 > ../VERSION
-	echo git tag -a $(major).$(shell expr $(minor) + 1).0 -m "\"minor version increment\""
+	git tag -a $(major).$(shell expr $(minor) + 1).0 -m "\"minor version increment\""
 
 increment-major-version:
 	echo $(shell expr $(major) + 1).0.0 > ../VERSION
-	echo git tag -a $(shell expr $(major) + 1).0.0 -m "\"major version increment\""
+	git tag -a $(shell expr $(major) + 1).0.0 -m "\"major version increment\""
 
 # EOF
