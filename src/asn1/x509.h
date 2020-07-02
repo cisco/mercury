@@ -1498,8 +1498,12 @@ struct x509_cert {
         buf.write_line(f);
     }
     void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs) const {
-
         struct json_object_asn1 o{&buf};
+        print_as_json(o, trusted_certs);
+        o.close();
+    }
+    void print_as_json(struct json_object_asn1 &o, const std::list<struct x509_cert> &trusted_certs) const {
+
         if (!version.is_null()) {
             version.print_as_json_hex(o, "version");
         }
@@ -1554,7 +1558,6 @@ struct x509_cert {
             }
         }
         report_violations(o, trusted_certs);
-        o.close();
     }
 
     unsigned int bits_in_signature() const {

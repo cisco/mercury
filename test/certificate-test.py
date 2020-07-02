@@ -50,7 +50,7 @@ def process_json(json_file):
                     if max_certs < len(cert_list):
                         max_certs = len(cert_list)
                     for c in cert_list:
-                        pem_str = get_PEM_string(c)
+                        pem_str = get_PEM_string(c['base64'])
                         cert_count += 1
                         cert = get_certificate(pem_str)
                         if (cert == None):

@@ -296,11 +296,11 @@ unsigned int parser_process_tls_server(struct parser *p);
 
 void extract_certificates(FILE *file, const unsigned char *data, size_t data_len);
 
-void write_extract_certificates(struct buffer_stream &buf, const unsigned char *data, size_t data_len);
+void write_extract_certificates(struct json_array &buf, const unsigned char *data, size_t data_len);
 
 void write_extract_cert_prefix(struct buffer_stream &buf, const unsigned char *data, size_t data_len);
 
-void write_extract_cert_full(struct buffer_stream &buf, const unsigned char *data, size_t data_len);
+void write_extract_cert_full(struct json_array &a, const unsigned char *data, size_t data_len);
 
 enum status parser_read_and_skip_uint(struct parser *p,
                                       unsigned int num_bytes,

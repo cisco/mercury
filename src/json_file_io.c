@@ -266,18 +266,14 @@ int append_packet_json(struct buffer_stream &buf,
     }
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         struct json_object tls{record, "tls"};
-        /* print the certificates in base64 format */
-        //        buf.strncpy("\"tls\":{\"server_certs\":[");
         struct json_array server_certs{tls, "server_certs"};
         if (base64_output) {
-            write_extract_certificates(*server_certs.b, pf.x.packet_data.value, pf.x.packet_data.length);
+            write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
         } else {
-            write_extract_cert_full(*server_certs.b, pf.x.packet_data.value, pf.x.packet_data.length);
-            //write_extract_cert_prefix(buf, pf.x.packet_data.value, pf.x.packet_data.length);
+            write_extract_cert_full(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
         }
         server_certs.close();
         tls.close();
-        //        buf.strncpy("]},");
     }
     if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {

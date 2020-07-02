@@ -23,6 +23,7 @@
 #include "match.h"
 #include "buffer_stream.h"
 #include "asn1/x509.h"
+#include "json_object.hh"
 
 /*
  * The extractor_debug macro is useful for debugging (but quite verbose)
@@ -1184,11 +1185,9 @@ enum status parser_extractor_process_certificate(struct parser *p, struct extrac
  * Extract and print binary certificate(s) as base64 encoded string(s).
  */
 
-void write_extract_certificates(struct buffer_stream &buf, const unsigned char *data, size_t data_len) {
+void write_extract_certificates(struct json_array &a, const unsigned char *data, size_t data_len) {
     size_t tmp_len;
     struct parser cert_list;
-    int cert_num = 0;
-
     parser_init(&cert_list, data, data_len);
 
     while (parser_get_data_length(&cert_list) > 0) {
@@ -1205,28 +1204,24 @@ void write_extract_certificates(struct buffer_stream &buf, const unsigned char *
             return; /* don't bother printing out a partial cert if it has a length of zero */
         }
 
-        if (cert_num > 0) {
-            buf.write_char(','); /* print separating comma */
-        }
-
-        buf.raw_as_base64(cert_list.data, tmp_len);
+        struct json_object o{a};
+        struct parser cert_parser{cert_list.data, cert_list.data + tmp_len};
+        o.print_key_base64("base64", cert_parser);
+        o.close();
 
         /*
-         * skip over certificate data
+         * advance parser over certificate data
          */
         if (parser_skip(&cert_list, tmp_len) == status_err) {
 	        return;
         }
-        cert_num++;
     }
 
 }
 
-void write_extract_cert_prefix(struct buffer_stream &buf, const unsigned char *data, size_t data_len) {
+void write_extract_cert_full(struct json_array &a, const unsigned char *data, size_t data_len) {
     size_t tmp_len;
     struct parser cert_list;
-    int cert_num = 0;
-
     parser_init(&cert_list, data, data_len);
 
     while (parser_get_data_length(&cert_list) > 0) {
@@ -1243,53 +1238,13 @@ void write_extract_cert_prefix(struct buffer_stream &buf, const unsigned char *d
             return; /* don't bother printing out a partial cert if it has a length of zero */
         }
 
-        if (cert_num++ > 0) {
-            buf.write_char(','); /* print separating comma */
-        }
-
-        //buf.json_base64_string(cert_list.data, tmp_len);
-        struct x509_cert_prefix p;
-        p.parse(cert_list.data, tmp_len);
-        if (false) {
-            p.print_as_json(buf);
-        } else {
-            p.print_as_json_base64(buf);
-        }
-
-         break; // only report first certificate for now
-    }
-
-}
-
-void write_extract_cert_full(struct buffer_stream &buf, const unsigned char *data, size_t data_len) {
-    size_t tmp_len;
-    struct parser cert_list;
-    int cert_num = 0;
-
-    parser_init(&cert_list, data, data_len);
-
-    while (parser_get_data_length(&cert_list) > 0) {
-        /* get certificate length */
-        if (parser_read_and_skip_uint(&cert_list, L_CertificateLength, &tmp_len) == status_err) {
-	        return;
-        }
-
-        if (tmp_len > (unsigned)parser_get_data_length(&cert_list)) {
-            tmp_len = parser_get_data_length(&cert_list); /* truncate */
-        }
-
-        if (tmp_len == 0) {
-            return; /* don't bother printing out a partial cert if it has a length of zero */
-        }
-
-        if (cert_num++ > 0) {
-            buf.write_char(','); /* print separating comma */
-        }
-
-        //buf.json_base64_string(cert_list.data, tmp_len);
+        struct json_object o{a};
+        struct json_object_asn1 cert{o, "cert"};
         struct x509_cert c;
         c.parse(cert_list.data, tmp_len);
-        c.print_as_json(buf, {});
+        c.print_as_json(cert, {});
+        cert.close();
+        o.close();
 
         break; // only report first certificate for now
     }

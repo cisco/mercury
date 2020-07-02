@@ -201,7 +201,7 @@ struct json_array {
         write_comma(comma);
         b->puts("null");
     }
-    void print_key_uint(unsigned long int u) {
+    void print_uint(unsigned long int u) {
         write_comma(comma);
         b->snprintf("%lu", u);
     }
@@ -218,6 +218,15 @@ struct json_array {
         b->write_char('\"');
         b->puts(s);
         b->write_char('\"');
+    }
+    void print_base64(const uint8_t *data, size_t length) {
+        write_comma(comma);
+        if (data) {
+            b->raw_as_base64(data, length);
+        } else {
+            b->write_char('\"');
+            b->write_char('\"');
+        }
     }
 };
 
