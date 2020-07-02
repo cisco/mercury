@@ -13,12 +13,13 @@ from collections import defaultdict, OrderedDict
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.abspath(__file__))+'/../')
 from pmercury.utils.pmercury_utils import *
-
+from pmercury.utils.os_detection import *
 
 strong_domains_file = find_resource_path('resources/domain_indicators.json.gz')
 with gzip.open(strong_domains_file) as in_:
     strong_domains = json.loads(in_.readline())
 
+os_model = OSDetection()
 
 class Endpoint:
 
@@ -57,14 +58,8 @@ class Endpoint:
                 self.strong_procs.add(strong_domains[server_name])
 
     def get_os(self):
-        tmp_os = []
-        for k in self.os_info:
-            tmp_os.append((self.os_info[k]/self.prot_count['tcp'], k))
-        tmp_os.sort(reverse=True)
-        os_info = OrderedDict({})
-        for c,k in tmp_os:
-            os_info[k] = c
-        return os_info
+        global os_model
+        return os_model.classify(self.summary)
 
 
 
@@ -94,7 +89,9 @@ class Endpoints:
             o_ = {}
             o_['identifier'] = id_
             o_['fingerprints'] = self.endpoints[id_].summary
-            o_['os_info']      = self.endpoints[id_].get_os()
+            tmp_os = self.endpoints[id_].get_os()
+            if tmp_os != None:
+                o_['os_info'] = tmp_os
 
             out.write(json.dumps(o_) + '\n')
 
