@@ -14,6 +14,11 @@ struct json_object {
     explicit json_object(struct buffer_stream *buf) : b{buf} {
         b->write_char('{');
     }
+    explicit json_object(struct buffer_stream *buf, const char *name) : b{buf} {
+        b->write_char('\"');
+        b->puts(name);
+        b->puts("\":{");
+    }
     json_object(struct json_object &object, const char *name) : b{object.b} {
         //fprintf(stderr, "json_object constructor (name: %s, comma: %c)\n", name, comma);
         b->write_char(object.comma);

@@ -117,6 +117,8 @@ void write_flow_key(struct buffer_stream &buf, const struct key &k) {
 
 }
 
+extern bool base64_output;  /* defined in mercury.c */
+
 int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
                        size_t length,
@@ -221,9 +223,12 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         /* print the certificates in base64 format */
         buf.strncpy("\"tls\":{\"server_certs\":[");
-        write_extract_certificates(buf, pf.x.packet_data.value, pf.x.packet_data.length);
-        //write_extract_cert_prefix(buf, pf.x.packet_data.value, pf.x.packet_data.length);
-        //write_extract_cert_full(buf, pf.x.packet_data.value, pf.x.packet_data.length);
+        if (base64_output) {
+            write_extract_certificates(buf, pf.x.packet_data.value, pf.x.packet_data.length);
+        } else {
+            write_extract_cert_full(buf, pf.x.packet_data.value, pf.x.packet_data.length);
+            //write_extract_cert_prefix(buf, pf.x.packet_data.value, pf.x.packet_data.length);
+        }
         buf.strncpy("]},");
     }
     if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
@@ -235,11 +240,7 @@ int append_packet_json(struct buffer_stream &buf,
     }
     if (pf.x.packet_data.type == packet_data_type_dns_server) {
         buf.strncpy("\"dns\":");
-        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, buf);
-        //buf.strncpy("{\"base64\":\"");
-        //buf.raw_as_base64(pf.x.packet_data.value, pf.x.packet_data.length);
-        //buf.write_char('\"');
-        //buf.write_char('}');
+        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, buf, base64_output);
         buf.write_char(',');
     }
     if (pf.x.packet_data.type == packet_data_type_wireguard) {
