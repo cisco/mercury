@@ -14,7 +14,7 @@
 #define DNS_H
 
 #include <string>
-#include "json_object.hh"
+#include "json_object.h"
 
 /** maximum DNS name length */
 #define MAX_DNS_NAME_LEN 256

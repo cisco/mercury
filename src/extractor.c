@@ -23,7 +23,7 @@
 #include "match.h"
 #include "buffer_stream.h"
 #include "asn1/x509.h"
-#include "json_object.hh"
+#include "json_object.h"
 
 /*
  * The extractor_debug macro is useful for debugging (but quite verbose)
