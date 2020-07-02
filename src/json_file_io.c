@@ -10,7 +10,7 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include "json_file_io.h"
-#include "json_object.hh"
+#include "json_object.h"
 #include "extractor.h"
 #include "packet.h"
 #include "ept.h"
