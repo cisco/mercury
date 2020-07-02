@@ -56,6 +56,7 @@ MERC_H += version.h
 MERC_H += af_packet_v3.h
 MERC_H += config.h
 MERC_H += json_file_io.h
+MERC_H += json_object.h
 MERC_H += llq.h
 MERC_H += match.h
 MERC_H += output.h
@@ -204,14 +205,14 @@ MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
 	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../VERSION
-	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
+	echo git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
 
 increment-minor-version:
-	echo $(major).$(shell expr $(minor) + 1).$(patch) > ../VERSION
-	git tag -a $(major).$(shell expr $(minor) + 1).$(patch) -m "\"minor version increment\""
+	echo $(major).$(shell expr $(minor) + 1).0 > ../VERSION
+	echo git tag -a $(major).$(shell expr $(minor) + 1).0 -m "\"minor version increment\""
 
 increment-major-version:
-	echo $(shell expr $(major) + 1).$(minor).$(patch) > ../VERSION
-	git tag -a $(shell expr $(major) + 1).$(minor).$(patch) -m "\"major version increment\""
+	echo $(shell expr $(major) + 1).0.0 > ../VERSION
+	echo git tag -a $(shell expr $(major) + 1).0.0 -m "\"major version increment\""
 
 # EOF
