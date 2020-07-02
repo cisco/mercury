@@ -475,8 +475,6 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
             }
             char ipv4_addr[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, addr, ipv4_addr, INET_ADDRSTRLEN);
-            //buf.snprintf("\"a\":\"%s\"", ipv4_addr);
-            //o.print_key_ipv4_addr("a", addr);
             o.print_key_string("rrtype", "A");
             o.print_key_string("rdata", ipv4_addr);
 
@@ -489,8 +487,6 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
             }
             char ipv6_addr[INET6_ADDRSTRLEN];
             inet_ntop(AF_INET6, addr, ipv6_addr, INET6_ADDRSTRLEN);
-            //buf.snprintf("\"aaaa\":\"%s\"", ipv6_addr);
-            //o.print_key_string("aaaa", ipv6_addr);
             o.print_key_string("rrtype", "AAAA");
             o.print_key_string("rdata", ipv6_addr);
 
@@ -520,8 +516,6 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
             } else {
                 tname = "CNAME";
             }
-            // buf.snprintf("\"%s\":\"%s\"", tname, name + 1);
-            //o.print_key_string(tname, name + 1);
             o.print_key_string("rrtype", tname);
             o.print_key_string("rrname", name + 1);
 
@@ -534,7 +528,6 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
             }
 
         } else if (type == type_TXT) {
-            //  buf.snprintf("\"txt\":\"%s\"", "NYI"); // TODO: get rid of Not Yet Implemented
             o.print_key_string("txt", "NYI");
 
         } else {
@@ -542,7 +535,6 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
             if (err != dns_ok) {
                 return err;
             }
-            //buf.snprintf("\"type\":\"%x\",\"class\":\"%x\",\"rdlength\":%u", type, rclass, ntohs(rr->rdlength));
             o.print_key_uint("type", type);
             o.print_key_uint("class", rclass);
             o.print_key_uint("rdlength", ntohs(rr->rdlength));
@@ -558,7 +550,6 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
         if (err != dns_ok) {
             return err;
         }
-        //buf.snprintf("\"type\":\"%x\",\"class\":\"%x\",\"rdlength\":%u", type, rclass, ntohs(rr->rdlength));
         o.print_key_uint("type", type);
         o.print_key_uint("class", rclass);
         o.print_key_uint("rdlength", ntohs(rr->rdlength));
@@ -572,8 +563,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
     const dns_hdr *rh = NULL;
     const dns_question *question = NULL;
     const dns_rr *rr;
-    //    int len = 0;
-    //    const char *r = NULL;
     uint8_t flags_rcode = 0;
     uint16_t qdcount = 0, ancount = 0, nscount = 0, arcount = 0;
     ssize_t rdlength = 0;
@@ -637,7 +626,7 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
     }
     o.print_key_uint("opcode", opcode);
     o.print_key_uint("rcode", flags_rcode);
-    o.print_key_uint("opcode", flags);
+    o.print_key_uint("flags", flags);
 
     struct json_array rarray{o, "answer"};
 

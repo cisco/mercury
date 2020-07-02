@@ -45,55 +45,6 @@ struct pkt_proc {
     size_t packets_written = 0;
 };
 
-
-
-// TODO: I believe the entire struct can be removed now that
-// we're using the lockless queues
-
-/*
- * struct pkt_proc_json_writer represents a packet processing object
- * that writes out a JSON representation of fingerprints, metadata,
- * flow keys, and event time.
- */
-struct pkt_proc_json_writer : public pkt_proc {
-    struct json_file json_file;
-
-    /*
-     * pkt_proc_json_writer(outfile_name, mode, max_records)
-     * initializes object to write a single JSON line containing the
-     * flow key, time, fingerprints, and metadata to the output file
-     * with the path outfile_name and mode passed as arguments; that
-     * file is opened by this invocation, with that mode.  If
-     * max_records is nonzero, then it defines the maximum number of
-     * records (lines) per file; after that limit is reached, file
-     * rotation will take place.
-     */
-    pkt_proc_json_writer(const char *outfile_name,
-                         const char *mode,
-                         uint64_t max_records) {
-
-        // TODO: this can be cleaned up / removed once the output thread is doing everything
-        enum status status = json_file_init(&json_file, outfile_name, mode, max_records);
-        if (status) {
-            throw "could not initialize JSON output file";
-        }
-    }
-
-    void apply(struct packet_info *pi, uint8_t *eth) override {
-        json_file_write(&json_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
-    }
-
-    void flush() override {
-        FILE *file_ptr = json_file.file;
-        if (file_ptr != NULL) {
-            if (fflush(file_ptr) != 0) {
-                perror("warning: could not flush json file\n");
-            }
-        }
-    }
-};
-
-
 /*
  * struct pkt_proc_json_writer_llq represents a packet processing object
  * that writes out a JSON representation of fingerprints, metadata,
