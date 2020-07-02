@@ -454,10 +454,6 @@ static enum dns_err dns_header_parse_mxname (const dns_hdr *hdr, const char **na
 /*
  * dns_rdata_print(rh, rr, r, len, output) prints the RDATA field at
  * location *r
- *
- * note: if this function returns a value other than dns_ok, then it
- * has not printed any output; this fact is important to ensure
- * correct JSON formatting
  */
 static enum dns_err
 dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *len, struct json_object &o) {
@@ -528,7 +524,8 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
             }
 
         } else if (type == type_TXT) {
-            o.print_key_string("txt", "NYI");
+            const uint8_t *txt_rdata = (const uint8_t *)*r;
+            o.print_key_json_string("txt", txt_rdata, ntohs(rr->rdlength));
 
         } else {
             err = data_advance(r, len, ntohs(rr->rdlength));
