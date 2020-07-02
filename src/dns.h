@@ -14,11 +14,12 @@
 #define DNS_H
 
 #include <string>
+#include "json_object.hh"
 
 /** maximum DNS name length */
 #define MAX_DNS_NAME_LEN 256
 
-void write_dns_server_data(const uint8_t *data, size_t length, struct buffer_stream &buf, bool base64_output);
+void write_dns_server_data(const uint8_t *data, size_t length, struct json_object &o, bool base64_output);
 
 std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len);
 

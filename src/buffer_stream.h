@@ -232,7 +232,7 @@ static inline int append_json_hex_string(char *dstr, int *doff, int dlen, int *t
 
 
 static inline int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
-                                   struct timespec *ts) {
+                                   const struct timespec *ts) {
 
     if (*trunc == 1) {
         return 0;
@@ -737,8 +737,7 @@ struct buffer_stream {
         append_memcpy(dstr, &doff, dlen, &trunc, src, length);
     }
 
-    void write_timestamp(struct timespec *ts) {
-        append_strncpy(dstr, &doff, dlen, &trunc, ",\"event_start\":");
+    void write_timestamp(const struct timespec *ts) {
         append_timestamp(dstr, &doff, dlen, &trunc, ts);
     }
 
@@ -762,24 +761,14 @@ struct buffer_stream {
         append_ipv4_addr(dstr, &doff, dlen, &trunc, v4);
     }
 
+};
 
-#if 0
-    void write_extract_certificates(const unsigned char *data, size_t data_len) {
-        append_extract_certificates(dstr, &doff, dlen, &trunc, data, data_len);
+struct timestamp_writer {
+    const struct timespec *tmp;
+    timestamp_writer(const struct timespec *ts) : tmp{ts} {}
+    void operator()(struct buffer_stream *b) {
+        b->write_timestamp(tmp);
     }
-
-    void write_binary_ept_as_paren_ept(const unsigned char *data, unsigned int length) {
-        append_binary_ept_as_paren_ept(dstr, &doff, dlen, &trunc, data, length);
-    }
-    void write_packet_flow_key(uint8_t *packet, size_t length) {
-        append_packet_flow_key(dstr, &doff, dlen, &trunc, packet, length);
-    }
-    void write_analysis_from_extractor_and_flow_key(const struct extractor *x, const struct flow_key *key) {
-        append_analysis_from_extractor_and_flow_key(dstr, &doff, dlen, &trunc, x, key);
-    }
-#endif // 0
-
-
 };
 
 #endif /* BUFFER_STREAM_H */

@@ -568,7 +568,7 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
     return dns_ok;
 }
 
-void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf) {
+void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object &outer) {
     enum dns_err err = dns_ok;
     const dns_hdr *rh = NULL;
     const dns_question *question = NULL;
@@ -578,7 +578,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
     uint8_t flags_rcode = 0;
     uint16_t qdcount = 0, ancount = 0, nscount = 0, arcount = 0;
     ssize_t rdlength = 0;
-    unsigned comma = 0;
     char name[DNS_OUTNAME_LEN];
 
     /*
@@ -591,12 +590,9 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
      *                struct dns_rr
      *                rr_data
      */
-    //buf.strncpy("{");
-    struct json_object outer{&buf};
     struct json_object o{outer, "response"};
 
     if (pkt_len < (ssize_t) sizeof(dns_hdr)) {
-        //buf.snprintf("\"malformed\":%d", pkt_len);
         o.print_key_uint("malformed", pkt_len);
         o.close();
       return;
@@ -615,7 +611,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
     qdcount = ntohs(rh->qdcount);
     if (qdcount > 1) {
         err = dns_err_too_many;
-        //buf.snprintf("\"malformed\":%d", len);
         o.print_key_uint("malformed", len);
         o.close();
         outer.close();
@@ -627,7 +622,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
         /* parse question name and struct */
         err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1), 0);
         if (err != dns_ok) {
-            //buf.snprintf("\"malformed\":%d", len);
             o.print_key_uint("malformed", len);
             o.close();
             outer.close();
@@ -635,16 +629,13 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
         }
         err = dns_question_parse(&question, &r, &len);
         if (err != dns_ok) {
-            //buf.snprintf("\"malformed\":%d", len);
             o.print_key_uint("malformed", len);
             o.close();
             outer.close();
             return;
         }
-        // buf.snprintf("\"%cname\":\"%s\",", qr, name + 1);
         o.print_key_string("qname", name+1);
     }
-    //buf.snprintf("\"rcode\":%u,\"rr\":[", flags_rcode);
     o.print_key_uint("opcode", opcode);
     o.print_key_uint("rcode", flags_rcode);
     o.print_key_uint("opcode", flags);
@@ -652,19 +643,13 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
     struct json_array rarray{o, "answer"};
 
     ancount = ntohs(rh->ancount);
-    comma = 0;
     memset(name, 0x00, DNS_OUTNAME_LEN);
     while (ancount-- > 0) {
-        if (comma++) {
-            //buf.snprintf(",");
-        }
-        //buf.snprintf("{");
         struct json_object robj{rarray};
 
         /* parse rr name, struct, and rdata */
         err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1), 0);
         if (err != dns_ok) {
-            //buf.snprintf("\"malformed\":%d", len);
             robj.print_key_uint("malformed", len);
             robj.close();
             rarray.close();
@@ -674,7 +659,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
         }
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
         if (err) {
-            //buf.snprintf("\"malformed\":%d", len);
             robj.print_key_uint("malformed", len);
             robj.close();
             rarray.close();
@@ -684,7 +668,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
         }
         err = dns_rdata_print(rh, rr, &r, &rdlength, robj);
         if (err) {
-            //buf.snprintf("\"malformed\":%d}]}", len);
             robj.print_key_uint("malformed", len);
             robj.close();
             rarray.close();
@@ -697,7 +680,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
             r += (rdlength - 1);
             rdlength = 1;
         }
-        //buf.snprintf(",\"ttl\":%u}", ntohl(rr->ttl));
         robj.print_key_uint("ttl", ntohl(rr->ttl));
         robj.close();
     }
@@ -711,16 +693,11 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
     }
     memset(name, 0x00, DNS_OUTNAME_LEN);
     while (nscount-- > 0) {
-        if (comma++) {
-            //buf.snprintf(",");
-        }
-        //        buf.snprintf("{");
         struct json_object robj{authority};
 
         /* parse rr name, struct, and rdata */
         err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1), 0);
         if (err != dns_ok) {
-            //buf.snprintf("\"malformed\":%d", len);
             robj.print_key_uint("malformed", len);
             robj.close();
             authority.close();
@@ -730,7 +707,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
         }
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
         if (err) {
-            //buf.snprintf("\"malformed\":%d", len);
             robj.print_key_uint("malformed", len);
             robj.close();
             authority.close();
@@ -740,7 +716,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
         }
         err = dns_rdata_print(rh, rr, &r, &rdlength, robj);
         if (err) {
-            //buf.snprintf("\"malformed\":%d}]}", len);
             robj.print_key_uint("malformed", len);
             robj.close();
             authority.close();
@@ -753,7 +728,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
             r += (rdlength - 1);
             rdlength = 1;
         }
-        //buf.snprintf(",\"ttl\":%u}", ntohl(rr->ttl));
         robj.print_key_uint("ttl", ntohl(rr->ttl));
         robj.close();
     }
@@ -767,16 +741,11 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
     }
     memset(name, 0x00, DNS_OUTNAME_LEN);
     while (arcount-- > 0) {
-        if (comma++) {
-            // buf.snprintf(",");
-        }
-        // buf.snprintf("{");
         struct json_object robj{additional};
 
         /* parse rr name, struct, and rdata */
         err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1), 0);
         if (err != dns_ok) {
-            //buf.snprintf("\"malformed\":%d", len);
             robj.print_key_uint("malformed", len);
             robj.close();
             additional.close();
@@ -786,7 +755,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
         }
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
         if (err) {
-            //buf.snprintf("\"malformed\":%d", len);
             robj.print_key_uint("malformed", len);
             robj.close();
             additional.close();
@@ -796,7 +764,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
         }
         err = dns_rdata_print(rh, rr, &r, &rdlength, robj);
         if (err) {
-            //buf.snprintf("\"malformed\":%d}]}", len);
             robj.print_key_uint("malformed", len);
             robj.close();
             additional.close();
@@ -809,14 +776,11 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
             r += (rdlength - 1);
             rdlength = 1;
         }
-        //buf.snprintf(",\"ttl\":%u}", ntohl(rr->ttl));
         robj.print_key_uint("ttl", ntohl(rr->ttl));
         robj.close();
     }
-    //buf.snprintf("]}");
     additional.close();
     o.close();
-    outer.close();
 
     return;
 }
@@ -824,19 +788,18 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, buffer_stream &buf)
 std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len) {
     char buffer[8192*8];
     struct buffer_stream buf(buffer, sizeof(buffer));
-    dns_print_packet(dns_pkt, pkt_len, buf);
+    struct json_object dns{&buf};
+    dns_print_packet(dns_pkt, pkt_len, dns);
     std::string tmp_str(buffer, buf.length());
     return tmp_str;
 }
 
-void write_dns_server_data(const uint8_t *data, size_t length, struct buffer_stream &buf, bool output_base64) {
+void write_dns_server_data(const uint8_t *data, size_t length, struct json_object &dns_object, bool output_base64) {
     if (output_base64) {
-        struct json_object o{&buf};
         struct parser p{data, data+length};
-        o.print_key_base64("base64", p);
-        o.close();
+        dns_object.print_key_base64("base64", p);
     } else {
-        dns_print_packet((const char *)data, length, buf);
+        dns_print_packet((const char *)data, length, dns_object);
     }
     return;
 }

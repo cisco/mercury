@@ -1,4 +1,11 @@
+/*
+ * json_object.hh
+ *
+ * Copyright (c) 2020 Cisco Systems, Inc. All rights reserved.
+ * License at https://github.com/cisco/mercury/blob/master/LICENSE
+ */
 #ifndef JSON_OBJECT_HH
+#define JSON_OBJECT_HH
 
 #include <stdio.h>
 #include "buffer_stream.h"
@@ -10,7 +17,14 @@
 
 struct json_object {
     buffer_stream *b;
-    char comma = ' ';
+    bool comma = false;
+    void write_comma(bool &c) {
+        if (c) {
+            b->write_char(',');
+        } else {
+            c = true;
+        }
+    }
     explicit json_object(struct buffer_stream *buf) : b{buf} {
         b->write_char('{');
     }
@@ -20,35 +34,34 @@ struct json_object {
         b->puts("\":{");
     }
     json_object(struct json_object &object, const char *name) : b{object.b} {
-        //fprintf(stderr, "json_object constructor (name: %s, comma: %c)\n", name, comma);
-        b->write_char(object.comma);
+        write_comma(object.comma);
         b->write_char('\"');
         b->puts(name);
         b->puts("\":{");
-        object.comma = ',';
     }
     json_object(struct json_object &object) : b{object.b} {
-        //fprintf(stderr, "json_object constructor (comma: %c)\n", comma);
-        b->write_char(object.comma);
+        write_comma(object.comma);
         b->write_char('{');
-        object.comma = ',';
     }
     explicit json_object(struct json_array &array);
     void reinit(struct json_array &array);
     void close() {
         b->write_char('}');
     }
+    void print_key_json_string(const char *k, const uint8_t *v, size_t length) {
+        write_comma(comma);
+        b->json_string_escaped(k, v, length);
+    }
     void print_key_string(const char *k, const char *v) {
-        b->write_char(comma);
+        write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":\"");
         b->puts(v);
         b->write_char('\"');
-        comma = ',';
     }
     void print_key_bool(const char *k, bool x) {
-        b->write_char(comma);
+        write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":");
@@ -57,29 +70,43 @@ struct json_object {
         } else {
             b->puts("false");
         }
-        comma = ',';
     }
     void print_key_null(const char *k) {
-        b->write_char(comma);
+        write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":null");
-        comma = ',';
+    }
+    void print_key_uint8(const char *k, uint8_t u) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->write_char('\"');
+        b->write_char(':');
+        b->write_uint8(u);
+    }
+    void print_key_uint16(const char *k, uint16_t u) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->write_char('\"');
+        b->write_char(':');
+        b->write_uint16(u);
     }
     void print_key_uint(const char *k, unsigned long int u) {
-        b->snprintf("%c\"%s\":%lu", comma, k, u);
-        comma = ',';
+        write_comma(comma);
+        b->snprintf("\"%s\":%lu", k, u);
     }
     void print_key_int(const char *k, long int i) {
-        b->snprintf("%c\"%s\":%ld", comma, k, i);
-        comma = ',';
+        write_comma(comma);
+        b->snprintf("\"%s\":%ld", k, i);
     }
     void print_key_float(const char *k, double d) {
-        b->snprintf("%c\"%s\":%f", comma, k, d);
-        comma = ',';
+        write_comma(comma);
+        b->snprintf("\"%s\":%f", k, d);
     }
     void print_key_hex(const char *k, const struct parser &value) {
-        b->write_char(comma);
+        write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":\"");
@@ -87,87 +114,124 @@ struct json_object {
             b->raw_as_hex(value.data, value.data_end - value.data);
         }
         b->write_char('\"');
-        comma = ',';
     }
     void print_key_base64(const char *k, const struct parser &value) {
-        b->write_char(comma);
+        write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":");
         if (value.data && value.data_end) {
             b->raw_as_base64(value.data, value.data_end - value.data); 
         }
-        comma = ',';
     }
-
+    void print_key_ept(const char *k, const uint8_t *buf, size_t buf_len) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        b->write_char('\"');
+        write_binary_ept_as_paren_ept(*b, buf, buf_len);
+        b->write_char('\"');
+    }
+    void print_key_timestamp(const char *k, struct timespec *ts) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        b->write_timestamp(ts);
+    }
+    template <typename T> void print_key_value(const char *k, T &w) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        w(b);
+    }
+    void print_key_ipv4_addr(const char *k, const uint8_t *a) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        b->write_char('\"');
+        b->write_ipv4_addr(a);
+        b->write_char('\"');
+    }
+    void print_key_ipv6_addr(const char *k, const uint8_t *a) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        b->write_char('\"');
+        b->write_ipv6_addr(a);
+        b->write_char('\"');
+    }
 };
 
 struct json_array {
     buffer_stream *b;
-    char comma = ' ';
+    bool comma = false;
+    void write_comma(bool &c) {
+        if (c) {
+            b->write_char(',');
+        } else {
+            c = true;
+        }
+    }
     explicit json_array(struct buffer_stream *buf) : b{buf} {
         b->write_char('[');
     }
     json_array(struct json_object &object, const char *name) : b{object.b} {
-        b->write_char(object.comma);
+        write_comma(object.comma);
         b->write_char('\"');
         b->puts(name);
         b->puts("\":[");
-        object.comma = ',';
     }
     void close() {
         b->write_char(']');
     }
     void print_bool(bool x) {
-        b->write_char(comma);
+        write_comma(comma);
         if (x) {
             b->puts("true");
         } else {
             b->puts("false");
         }
-        comma = ',';
     }
     void print_null() {
-        b->write_char(comma);
+        write_comma(comma);
         b->puts("null");
-        comma = ',';
     }
     void print_key_uint(unsigned long int u) {
-        b->write_char(comma);
+        write_comma(comma);
         b->snprintf("%lu", u);
-        comma = ',';
     }
     void print_int(long int i) {
-        b->write_char(comma);
+        write_comma(comma);
         b->snprintf("%ld", i);
-        comma = ',';
     }
     void print_float(double d) {
-        b->write_char(comma);
+        write_comma(comma);
         b->snprintf("%f", d);
-        comma = ',';
     }
     void print_string(const char *s) {
-        b->write_char(comma);
+        write_comma(comma);
         b->write_char('\"');
         b->puts(s);
         b->write_char('\"');
-        comma = ',';
     }
 };
 
 inline json_object::json_object(struct json_array &array) : b{array.b} {
-    b->write_char(array.comma);
+    write_comma(array.comma);
     b->write_char('{');
-    array.comma = ',';
 }
 
 inline void json_object::reinit(struct json_array &array) {
     b->write_char('}');
     b->write_char(',');
     b->write_char('{');
-    comma = ' ';
-    array.comma = ',';
+    comma = false;
+    array.comma = true;
 }
 
 #ifdef USE_JSON_FILE_OBJECT
