@@ -598,7 +598,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
         err = dns_err_too_many;
         o.print_key_uint("malformed", len);
         o.close();
-        outer.close();
         return;
     }
 
@@ -609,14 +608,12 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
         if (err != dns_ok) {
             o.print_key_uint("malformed", len);
             o.close();
-            outer.close();
             return;
         }
         err = dns_question_parse(&question, &r, &len);
         if (err != dns_ok) {
             o.print_key_uint("malformed", len);
             o.close();
-            outer.close();
             return;
         }
         o.print_key_string("qname", name+1);
@@ -639,7 +636,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
             robj.close();
             rarray.close();
             o.close();
-            outer.close();
             return;
         }
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
@@ -648,7 +644,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
             robj.close();
             rarray.close();
             o.close();
-            outer.close();
             return;
         }
         err = dns_rdata_print(rh, rr, &r, &rdlength, robj);
@@ -657,7 +652,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
             robj.close();
             rarray.close();
             o.close();
-            outer.close();
             return;
         }
         len -= rdlength;
@@ -687,7 +681,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
             robj.close();
             authority.close();
             o.close();
-            outer.close();
             return;
         }
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
@@ -696,7 +689,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
             robj.close();
             authority.close();
             o.close();
-            outer.close();
             return;
         }
         err = dns_rdata_print(rh, rr, &r, &rdlength, robj);
@@ -705,7 +697,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
             robj.close();
             authority.close();
             o.close();
-            outer.close();
             return;
         }
         len -= rdlength;
@@ -735,7 +726,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
             robj.close();
             additional.close();
             o.close();
-            outer.close();
             return;
         }
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
@@ -744,7 +734,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
             robj.close();
             additional.close();
             o.close();
-            outer.close();
             return;
         }
         err = dns_rdata_print(rh, rr, &r, &rdlength, robj);
@@ -753,7 +742,6 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
             robj.close();
             additional.close();
             o.close();
-            outer.close();
             return;
         }
         len -= rdlength;
