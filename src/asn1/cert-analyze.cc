@@ -70,10 +70,14 @@ struct der_file_reader : public file_reader {
     bool done = false;
 
     der_file_reader(const char *infile) {
-        stream = fopen(infile, "r");
-        if (stream == NULL) {
-            fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
-            exit(EXIT_FAILURE);
+        if (infile == NULL) {
+            stream = stdin;
+        } else {
+            stream = fopen(infile, "r");
+            if (stream == NULL) {
+                fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
+                exit(EXIT_FAILURE);
+            }
         }
     }
     ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
@@ -111,10 +115,14 @@ struct json_file_reader : public file_reader {
     unsigned int line_number = 0;
 
     json_file_reader(const char *infile) : stream{NULL} {
-        stream = fopen(infile, "r");
-        if (stream == NULL) {
-            fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
-            exit(EXIT_FAILURE);
+        if (infile == NULL) {
+            stream = stdin;
+        } else {
+            stream = fopen(infile, "r");
+            if (stream == NULL) {
+                fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
+                exit(EXIT_FAILURE);
+            }
         }
     }
     ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
@@ -176,10 +184,14 @@ struct base64_file_reader : public file_reader {
     unsigned int line_number = 0;
 
     base64_file_reader(const char *infile) : stream{NULL}, line{NULL} {
-        stream = fopen(infile, "r");
-        if (stream == NULL) {
-            fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
-            exit(EXIT_FAILURE);
+        if (infile == NULL) {
+            stream = stdin;
+        } else {
+            stream = fopen(infile, "r");
+            if (stream == NULL) {
+                fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
+                exit(EXIT_FAILURE);
+            }
         }
     }
     ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
@@ -229,10 +241,14 @@ struct pem_file_reader : public file_reader {
     size_t cert_number;
 
     pem_file_reader(const char *infile) : stream{NULL}, line{NULL}, cert_number{0} {
-        stream = fopen(infile, "r");
-        if (stream == NULL) {
-            fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
-            exit(EXIT_FAILURE);
+        if (infile == NULL) {
+            stream = stdin;
+        } else {
+            stream = fopen(infile, "r");
+            if (stream == NULL) {
+                fprintf(stderr, "error: could not open file %s (%s)\n", infile, strerror(errno));
+                exit(EXIT_FAILURE);
+            }
         }
     }
     ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
@@ -323,8 +339,9 @@ struct der_file_writer {
 
 void usage(const char *progname) {
     const char *help_message =
-        "usage: %s: --input <infile> [INPUT OPTIONS] [OUTPUT OPTIONS]\n"
+        "usage: %s: [--input <infile>] [INPUT OPTIONS] [OUTPUT OPTIONS]\n"
         "   --input <infile> reads certificate(s) from <infile> in base64 format\n"
+        "   otherwise, certificates are read from standard input\n"
         "INPUT\n"
         "   --pem            input file is in PEM format\n"
         "   --der            input file is in DER format\n"
@@ -486,11 +503,6 @@ int main(int argc, char *argv[]) {
             printf("%s ", argv[optind++]);
         }
         printf("\n");
-        usage(argv[0]);
-    }
-
-    if (!infile) {
-        fprintf(stderr, "error: no input file specified\n");
         usage(argv[0]);
     }
 

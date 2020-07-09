@@ -1619,6 +1619,7 @@ struct x509_cert {
     }
 
     bool signature_is_weak(bool unsigned_is_weak=false) const {
+        unsigned int threshold = 16;  // number of leading zero bits accepted
 
         std::unordered_map<unsigned int, unsigned int> strong_sig_algs{
             // { "rsaEncryption", 2048 },
@@ -1637,7 +1638,7 @@ struct x509_cert {
         } else {
             std::unordered_map<unsigned int, unsigned int>::const_iterator a = strong_sig_algs.find(sig_alg_type);
             if (a != strong_sig_algs.end()) {
-                if (a->second >= bits_in_signature()) {
+                if (bits_in_signature() + threshold >= a->second) {
                     return false;
                 }
             }
