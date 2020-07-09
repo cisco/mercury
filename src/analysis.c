@@ -450,7 +450,6 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
     }
 
     if (x->fingerprint_type == fingerprint_type_tls) {
-        buf.write_char(',');
 
         int ret_value;
         char dst_ip[MAX_DST_ADDR_LEN];
@@ -475,6 +474,7 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
         }
         //fprintf(file, "%s,", results);
 
+        buf.write_char(',');
         buf.strncpy(results);
 
         free(results);
