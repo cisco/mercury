@@ -118,7 +118,11 @@ void write_flow_key(struct buffer_stream &buf, const struct key &k) {
 
 }
 
-extern bool base64_output;  /* defined in mercury.c */
+/*
+ * global configuration variables, defined in mercury.c
+ */
+extern bool dns_json_output;    /* output DNS as JSON              */
+extern bool certs_json_output;  /* output certificates as JSON     */
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
@@ -267,7 +271,7 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         struct json_object tls{record, "tls"};
         struct json_array server_certs{tls, "server_certs"};
-        if (base64_output) {
+        if (!certs_json_output) {
             write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
         } else {
             write_extract_cert_full(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
@@ -284,7 +288,7 @@ int append_packet_json(struct buffer_stream &buf,
     }
     if (pf.x.packet_data.type == packet_data_type_dns_server) {
         struct json_object dns{record, "dns"};
-        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, dns, base64_output);
+        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, dns, !dns_json_output);
         dns.close();
     }
     if (pf.x.packet_data.type == packet_data_type_wireguard && pf.x.packet_data.length == sizeof(uint32_t)) {

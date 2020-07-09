@@ -52,7 +52,8 @@ char mercury_help[] =
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   [-s or --select] filter               # select only metadata (see --help)\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
-    "   --no-base64                           # output full certs and DNS, not base64\n"
+    "   --dns-json                            # output DNS as JSON, not base64\n"
+    "   --certs-json                          # output certs as JSON, not base64\n"
     "   [-v or --verbose]                     # additional information sent to stdout\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
@@ -166,19 +167,21 @@ bool option_is_valid(const char *opt) {
     return true;
 }
 
-bool base64_output = true;  /* output certs and DNS as base64  */
+bool dns_json_output   = false;  /* output DNS as JSON              */
+bool certs_json_output = false;  /* output certificates as JSON     */
 
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
 
     while(1) {
-        enum opt { config=1, version=2, license=3, nobase64=4 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
             { "version",     no_argument,       NULL, version },
             { "license",     no_argument,       NULL, license },
-            { "no-base64",   no_argument,       NULL, nobase64 },
+            { "dns-json",    no_argument,       NULL, dns_json },
+            { "certs-json",  no_argument,       NULL, certs_json },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -214,11 +217,18 @@ int main(int argc, char *argv[]) {
             printf("%s\n", license_string);
             return EXIT_SUCCESS;
             break;
-        case nobase64:
+        case dns_json:
             if (optarg) {
-                usage(argv[0], "option nobase64 does not use an argument", extended_help_off);
+                usage(argv[0], "option dns-json does not use an argument", extended_help_off);
             } else {
-                base64_output = false;
+                dns_json_output = true;
+            }
+            break;
+        case certs_json:
+            if (optarg) {
+                usage(argv[0], "option certs-json does not use an argument", extended_help_off);
+            } else {
+                certs_json_output = true;
             }
             break;
         case 'r':

@@ -524,8 +524,15 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, const char **r, ssize_t *l
             }
 
         } else if (type == type_TXT) {
+
+            o.print_key_string("rrtype", "txt");
             const uint8_t *txt_rdata = (const uint8_t *)*r;
-            o.print_key_json_string("txt", txt_rdata, ntohs(rr->rdlength));
+            o.print_key_json_string("rdata", txt_rdata, ntohs(rr->rdlength));
+
+            err = data_advance(r, len, ntohs(rr->rdlength));
+            if (err != dns_ok) {
+                return err;
+            }
 
         } else {
             err = data_advance(r, len, ntohs(rr->rdlength));
