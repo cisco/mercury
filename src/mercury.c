@@ -39,9 +39,9 @@ char mercury_help[] =
     "   [-c or --capture] capture_interface   # capture packets from interface\n"
     "   [-r or --read] read_file              # read packets from file\n"
     "OUTPUT\n"
-    "   [-f or --fingerprint] json_file_name  # write fingerprints to JSON file\n"
+    "   [-f or --fingerprint] json_file_name  # write JSON fingerprints to file\n"
     "   [-w or --write] pcap_file_name        # write packets to PCAP/MCAP file\n"
-    "   no output option                      # write JSON packet summary to stdout\n"
+    "   no output option                      # write JSON fingerprints to stdout\n"
     "--capture OPTIONS\n"
     "   [-b or --buffer] b                    # set RX_RING size to (b * PHYS_MEM)\n"
     "   [-t or --threads] [num_threads | cpu] # set number of threads\n"
@@ -54,7 +54,7 @@ char mercury_help[] =
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
     "   --certs-json                          # output certs as JSON, not base64\n"
-    "   [-v or --verbose]                     # additional information sent to stdout\n"
+    "   [-v or --verbose]                     # additional information sent to stderr\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
     "   [-h or --help]                        # extended help, with examples\n";
@@ -119,7 +119,7 @@ char mercury_extended_help[] =
     "   --no-base64 writes out certificates and DNS responses in detail; otherwise,\n"
     "   that data is output in base64.\n"
     "\n"
-    "   [-v or --verbose] writes additional information to the standard output,\n"
+    "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
     "\n"
@@ -261,13 +261,9 @@ int main(int argc, char *argv[]) {
             break;
         case 'f':
             if (option_is_valid(optarg)) {
-                if (strcmp("stdout", optarg) == 0) {
-                    cfg.fingerprint_filename = stdout_string();
-                } else {
-                    cfg.fingerprint_filename = optarg;
-                }
+                cfg.fingerprint_filename = optarg;
             } else {
-                usage(argv[0], "option f or fingerprint requires filename argument or 'stdout'", extended_help_off);
+                usage(argv[0], "option f or fingerprint requires filename argument", extended_help_off);
             }
             break;
         case 'a':

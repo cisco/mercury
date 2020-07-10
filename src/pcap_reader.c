@@ -104,7 +104,7 @@ enum status open_and_dispatch(struct mercury_config *cfg, struct output_file *of
     double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
 
     if (cfg->write_filename && cfg->verbosity) {
-        printf("For all files, packets written: %" PRIu64 ", bytes written: %" PRIu64 ", nano sec: %" PRIu64 ", bytes per second: %.4e\n",
+        fprintf(stderr, "For all files, packets written: %" PRIu64 ", bytes written: %" PRIu64 ", nano sec: %" PRIu64 ", bytes per second: %.4e\n",
                packets_written, bytes_written, nano_seconds, byte_rate);
     }
 
