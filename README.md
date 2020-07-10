@@ -3,6 +3,15 @@
 
 This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application, which is described [here](python/README.md).
 
+---
+
+## Version 2.1.0
+* TLS certificates can optionally be output in detail as a JSON object, with the **--certs-json** command.
+* Experimental: DNS responses can optionally be output in detail as a JSON object, with the **--dns-json** command.   The JSON schema used with this feature is likely to change.
+* The --select (or -s) command now accepts an optional argument that specifies one or more protocols to select.  The argument --select=tls,dns causes mercury to process only TLS and DNS packets, for instance.
+* Added support for VXLAN and MPLS
+* Per-packet output is no longer supported
+
 # Contents
 
 * [Building and installing mercury](#building-and-installing-mercury)
