@@ -3,7 +3,6 @@
 
 This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application, which is described [here](python/README.md).
 
----
 
 ## Version 2.1.0
 * TLS certificates can optionally be output in detail as a JSON object, with the **--certs-json** command.
