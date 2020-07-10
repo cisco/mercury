@@ -146,7 +146,7 @@ GENERAL OPTIONS
 
    **[-d or --directory] d** sets the working directory to d, so that all output
    files are written into that location.  When capturing at a high data rate, a
-   a high performance filesystem and disk should be used, and NFS partitions
+   high performance filesystem and disk should be used, and NFS partitions
    should be avoided.
 
    **--config c** reads configuration information from the file c.
