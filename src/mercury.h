@@ -61,7 +61,7 @@ struct mercury_config {
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0  }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0 }
 
 
 #endif /* MERCURY_H */

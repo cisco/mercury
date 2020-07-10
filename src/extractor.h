@@ -11,8 +11,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>      /* for FILE */
+#include "parser.h"
 #include "mercury.h"
 #include "tcp.h"
+//#include "buffer_stream.h"
 
 
 /*
@@ -29,7 +31,9 @@ enum packet_data_type {
     packet_data_type_tls_sni         = 1,
     packet_data_type_http_user_agent = 2,
     packet_data_type_tls_cert        = 3,
-    packet_data_type_dtls_sni
+    packet_data_type_dtls_sni        = 4,
+    packet_data_type_dns_server      = 5,
+    packet_data_type_wireguard       = 6
 };
 
 struct packet_data {
@@ -48,7 +52,9 @@ enum fingerprint_type {
     fingerprint_type_http_server = 6,
     fingerprint_type_dhcp_client = 7,
     fingerprint_type_dtls        = 8,
-    fingerprint_type_dtls_server = 9
+    fingerprint_type_dtls_server = 9,
+    fingerprint_type_ssh         = 10,
+    fingerprint_type_ssh_kex     = 11
 };
 
 #define PROTO_UNKNOWN 65535
@@ -103,11 +109,6 @@ struct extractor {
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
     struct packet_data packet_data;     /* data of interest in packt */
-};
-
-struct parser {
-    const unsigned char *data;          /* data being parsed/copied  */
-    const unsigned char *data_end;      /* end of data buffer        */
 };
 
 /*
@@ -295,8 +296,11 @@ unsigned int parser_process_tls_server(struct parser *p);
 
 void extract_certificates(FILE *file, const unsigned char *data, size_t data_len);
 
-int append_extract_certificates(char *dstr, int *doff, int dlen, int *trunc,
-                                const unsigned char *data, size_t data_len);
+void write_extract_certificates(struct json_array &buf, const unsigned char *data, size_t data_len);
+
+void write_extract_cert_prefix(struct buffer_stream &buf, const unsigned char *data, size_t data_len);
+
+void write_extract_cert_full(struct json_array &a, const unsigned char *data, size_t data_len);
 
 enum status parser_read_and_skip_uint(struct parser *p,
                                       unsigned int num_bytes,
@@ -371,8 +375,11 @@ bool packet_filter_apply(struct packet_filter *pf,
 			 size_t length);
 
 size_t packet_filter_extract(struct packet_filter *pf,
+                             struct key *k,
                              uint8_t *packet,
                              size_t length);
+
+unsigned int packet_filter_process_packet(struct packet_filter *pf, struct key *k);
 
 typedef unsigned int (*parser_extractor_func)(struct parser *p, struct extractor *x);
 

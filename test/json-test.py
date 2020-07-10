@@ -39,8 +39,13 @@ mercury_schema = {
                     'server_name': {'type': 'string'},
                     'server_certs': {'type': 'array',
                                      'items': {
-                                         'type': 'string'
-                                     }},
+                                         'type': 'object',
+                                         'properties': {
+                                             'base64': { 'type': 'string'},
+                                             'cert': { ' type': 'object' }
+                                         }
+                                     }
+                    },
                 },
                 "additionalProperties": False
             },
@@ -77,6 +82,13 @@ mercury_schema = {
                          'score':     {'type': 'number'},
                          'malware':   {'type': 'number'},
                          'p_malware': {'type': 'number'},
+                     },
+                     "additionalProperties": False
+             },
+        'dns': {'type': 'object',
+                     'properties': {
+                         'base64':   {'type': 'string'},
+                         'response': {'type': 'object'},
                      },
                      "additionalProperties": False
              }

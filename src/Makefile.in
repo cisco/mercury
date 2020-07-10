@@ -27,10 +27,11 @@ CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(dat
 
 CXX      = @CXX@
 CFLAGS  = --std=c++11
-CFLAGS += -O2
+CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
-CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) 
+CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
+CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 CFLAGS += $(OPTFLAGS)
 
 # MERC and MERC_H hold the core source and header files, respectively
@@ -55,6 +56,7 @@ MERC_H += version.h
 MERC_H += af_packet_v3.h
 MERC_H += config.h
 MERC_H += json_file_io.h
+MERC_H += json_object.h
 MERC_H += llq.h
 MERC_H += match.h
 MERC_H += output.h
@@ -69,6 +71,7 @@ MERC_H += signal_handling.h
 #
 LIBMERC     = analysis.c
 LIBMERC     += addr.c
+LIBMERC     += dns.c
 LIBMERC     += extractor.c
 LIBMERC     += ept.c
 LIBMERC     += packet.c
@@ -79,11 +82,14 @@ LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
 LIBMERC_H   += analysis.h
+LIBMERC_H   += buffer_stream.h
+LIBMERC_H   += dns.h
 LIBMERC_H   += ept.h
 LIBMERC_H   += eth.h
 LIBMERC_H   += extractor.h
 LIBMERC_H   += proto_identify.h
 LIBMERC_H   += packet.h
+LIBMERC_H   += parser.h
 LIBMERC_H   += pkt_proc.h
 LIBMERC_H   += tcp.h
 LIBMERC_H   += udp.h
@@ -112,7 +118,7 @@ setcap: mercury
 
 # implicit rule for building object files
 #
-%.o: %.c
+%.o: %.c %.h
 #	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
 	$(CXX) $(CFLAGS) -c $<
 
@@ -174,17 +180,39 @@ uninstall:
 	rm -f $(bindir)/mercury
 	rm -rf $(localstatedir)
 
-.PHONY: gprof
-gprof:
-	make clean
-	$(CXX) $(CFLAGS) -pg -o mercury $(MERC) -lpthread -L. -lmerc 
+#  To build mercury for profiling using gprof, run
+#
+#     make clean
+#     make OPTFLAGS="-pg"
+#
+#  ... to first remove all of the normally-built components, and then
+#  build all of them with gprof instrumentation.  See 'man gprof' for
+#  further informataion.
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(LIBMERC)
-	cppcheck --language=c++ --std=c++11 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^
+	cppcheck --language=c++ --std=c++11 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
 
 .PHONY: test
 test: mercury
 	cd ../test && $(MAKE)
+
+major=$(shell cat ../VERSION | grep -o "^[0-9]*")
+minor=$(subst .,,$(shell cat ../VERSION | grep -o "\.[0-9]*\."))
+patch=$(shell cat ../VERSION | grep -o "[0-9]*$$")
+version=$(major).$(minor).$(patch)
+MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+.PHONY: increment-patchlevel increment-minor-version increment-major-version
+increment-patchlevel:
+	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../VERSION
+	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
+
+increment-minor-version:
+	echo $(major).$(shell expr $(minor) + 1).0 > ../VERSION
+	git tag -a $(major).$(shell expr $(minor) + 1).0 -m "\"minor version increment\""
+
+increment-major-version:
+	echo $(shell expr $(major) + 1).0.0 > ../VERSION
+	git tag -a $(shell expr $(major) + 1).0.0 -m "\"major version increment\""
 
 # EOF

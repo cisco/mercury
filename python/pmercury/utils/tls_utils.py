@@ -360,13 +360,13 @@ def get_tls_params(fp_):
 
 def get_sequence(fp_):
     seq = []
-    cs_ = fp_[1][0]
+    cs_ = fp_[1]
     for i in range(0,len(cs_),4):
         seq.append(cs_[i:i+4])
     ext_ = []
     if len(fp_) > 2 and fp_[2] != ['']:
         for t_ext_ in fp_[2]:
-            seq.append('ext_' + t_ext_[0][0:4] + '::' + t_ext_[0][4:])
+            seq.append('ext_' + t_ext_[0:4] + '::' + t_ext_[4:])
     return seq
 
 

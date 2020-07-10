@@ -2,7 +2,7 @@
  * pcap_reader.c
  */
 
-#include <sys/errno.h>
+#include <errno.h>
 #include "pcap_reader.h"
 #include "output.h"
 #include "pkt_proc.h"
@@ -71,7 +71,9 @@ enum status open_and_dispatch(struct mercury_config *cfg, struct output_file *of
 
     status = pcap_reader_thread_context_init_from_config(&tc, cfg, 0, &of->qs.queue[0]);
     if (status != status_ok) {
-        perror("could not initialize pcap reader thread context");
+        if (errno) {
+            perror("could not initialize pcap reader thread context");
+        }
         return status;
     }
 
@@ -102,7 +104,7 @@ enum status open_and_dispatch(struct mercury_config *cfg, struct output_file *of
     double byte_rate = ((double)bytes_written * BILLION) / (double)nano_seconds;
 
     if (cfg->write_filename && cfg->verbosity) {
-        printf("For all files, packets written: %" PRIu64 ", bytes written: %" PRIu64 ", nano sec: %" PRIu64 ", bytes per second: %.4e\n",
+        fprintf(stderr, "For all files, packets written: %" PRIu64 ", bytes written: %" PRIu64 ", nano sec: %" PRIu64 ", bytes per second: %.4e\n",
                packets_written, bytes_written, nano_seconds, byte_rate);
     }
 

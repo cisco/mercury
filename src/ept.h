@@ -11,6 +11,7 @@
 #include <stdio.h> 
 #include <stdint.h>
 #include "mercury.h"
+#include "buffer_stream.h"
 
 /**
  * Encoded Parse Tree (EPT) 
@@ -89,9 +90,7 @@ void fprintf_binary_ept_as_tls_json(FILE *f,
 				    const unsigned char *data,
 				    unsigned int len);
 
-int append_binary_ept_as_paren_ept(char *dstr, int *doff, int dlen, int *trunc,
-                                   const unsigned char *data,
-                                   unsigned int length);
+void write_binary_ept_as_paren_ept(struct buffer_stream &buf, const unsigned char *data, unsigned int length, bool quoted=false);
 
 size_t sprintf_binary_ept_as_paren_ept(uint8_t *data,
 				       size_t length,

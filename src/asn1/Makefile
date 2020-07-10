@@ -14,19 +14,19 @@ bindir = ${exec_prefix}/bin
 localstatedir = ${prefix}/var/mercury
 datarootdir = ${prefix}/share/mercury
 
-CFLAGS = --std=c++11 -Wall -Wno-narrowing -O2 $(OPTFLAGS) # -DASN1_DEBUG=1
+CFLAGS = --std=c++11 -Wall -Wpedantic -Wextra -O2 $(OPTFLAGS) # -DASN1_DEBUG=1
 
 .PHONY: all
 all: cert-analyze oidc oid.h
 
-cert-analyze: cert-analyze.cc x509.h asn1.h oid.h
-	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../parser.c # -lmhash
+cert-analyze: cert-analyze.cc x509.h asn1.h oid.h ../utils.h ../json_object.h
+	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../parser.c ../utils.c # -lmhash
 
 oidc: oidc.cc
 	$(CXX) $(CFLAGS) -o oidc oidc.cc
 
 oid.h: oidc $(wildcard *.asn1)
-	./oidc $(wildcard *.asn1) > oid.h
+	./oidc $(sort $(wildcard *.asn1)) > oid.h
 
 .PHONY: clean 
 clean:
@@ -37,5 +37,14 @@ clean:
 distclean: clean
 	rm -rf oid-list
 
+# fuzz testing with american fuzzy lop
+#
+FUZZ_CMD =
+.PHONY: fuzz-test
+fuzz-test:
+	@echo "running fuzz test with afl-g++"
+	rm -f cert-analyze && $(MAKE) CXX=afl-g++ CC=afl-gcc
+	mv cert-analyze ./afl-cert-analyze
+	afl-fuzz -i afl_data -o afl_findings ./afl-cert-analyze --input @@ $(FUZZ_CMD)
 
 # EOF

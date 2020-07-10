@@ -104,8 +104,11 @@ cert_extensions_private = {
 }
 
 oid_mapping = {
-    '2b06010401d679020402': 'id-ce-SignedCertificateTimestampList'
+    '2b06010401d679020402': 'id-ce-SignedCertificateTimestampList',
+    '2a864886f70d01010b': 'sha256WithRSAEncryption'
 }
+
+
 
 cert_general_name_types = {
     0: 'otherName',

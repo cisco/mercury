@@ -3,6 +3,7 @@
 #
 # USAGE:
 #
+#   "make IFNAME=<ifname>" to perform all tests
 #   "make comp" to compare test cases
 #   "make clean" to remove test files
 #
@@ -70,8 +71,8 @@ JSON_TEST_FILES = $(notdir $(wildcard ./data/*.json))
 JSON_COMP_FILES = $(JSON_TEST_FILES:%.json=%.json-comp)
 
 
-.PHONY: all
-all: comp analysis cert-check memcheck dummy-capture
+.PHONY: all clean
+all: clean comp analysis cert-check memcheck dummy-capture
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
@@ -194,12 +195,14 @@ ifeq ($(do_dummy_capture),yes)
 	@echo "running dummy interface capture test"
 	ip link add dummy0 type dummy || true
 	ip link set dev dummy0 up || true
-ifneq ($(shell ip link show dummy0 2&> /dev/null; echo $$?),0)
+ifneq ($(shell ip link show dummy0 > /dev/null 2>&1; echo $$?),0)
 	@echo $(COLOR_RED) "error: network interface dummy0 unavailable (create with 'sudo ip link add dummy0 type dummy', for instance)" $(COLOR_OFF)
 	@/bin/false
 endif
 	rm -f tmp.json
+	rm -f mercury.PID
 	$(MERCURY) -c dummy0 $(DROP_ROOT) -f tmp.json & echo $$! > mercury.PID
+	sleep 2
 	tcpreplay -t -i dummy0 data/top-https.pcap
 	while kill `cat mercury.PID`; do echo "waiting for mercury dummy capture process to halt"; sleep 1; done
 	bash -c "diff  <( jq . tmp.json | grep -v event_start) <( jq . data/top-https.json | grep -v event_start )"

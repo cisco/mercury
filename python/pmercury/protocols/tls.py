@@ -5,6 +5,7 @@
 
 import os
 import sys
+import copy
 import json
 import math
 import operator
@@ -198,7 +199,7 @@ class TLS():
                     return {'process': 'Unknown', 'score': 0.0, 'malware': 0, 'p_malware': 0.0, 'category': 'Unknown'}
                 else:
                     return {'process': 'Unknown', 'score': 0.0, 'category': 'Unknown'}
-            self.fp_db[fp_str_] = self.fp_db[approx_str_]
+            self.fp_db[fp_str_] = copy.deepcopy(self.fp_db[approx_str_])
             self.fp_db[fp_str_]['approx_str'] = approx_str_
 
         # perform process identification given the fingerprint string and destination information
@@ -276,7 +277,7 @@ class TLS():
         proc_prior_ = math.log(.1) # -3.0 # log(1e-7)
 
         if 'domain_mean' in p_ and p_['domain_mean'] < 0.5:
-            base_prior_ = math.log(.1/fp_tc_) # -27.63102 # log(1e-12)
+            base_prior_ = math.log(.5/fp_tc_) # -27.63102 # log(1e-12)
 
         score_ = prob_process_given_fp if prob_process_given_fp > proc_prior_ else proc_prior_
 
@@ -315,9 +316,9 @@ class TLS():
                 score_ += math.log(.1)
 
         weights = {
+            'classes_hostname_sni': 0.96941,
             'classes_hostname_tlds': 0.01153,
             'classes_hostname_domains': 0.15590,
-            'classes_hostname_sni': 0.96941,
             'classes_ip_ip': 0.56735,
             'classes_ip_as': 0.13924,
             'classes_port_port': 0.00623,
@@ -356,7 +357,6 @@ class TLS():
             return {'score':math.exp(score_), 'process':cur_proc, 'sha256':p_['sha256'], 'category':app_cat}
 
 
-    @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)
     def get_database_entry(self, fp_str, approx_fp_str):
         fp_str_ = fp_str
         if approx_fp_str != None:
@@ -381,8 +381,11 @@ class TLS():
         tls_params_ = get_tls_params(tls_features)
 
         t_sim_set = []
-        approx_matches_set = self.find_approximate_matches_set(tls_params_, fp_str, source_filter, key_filter)
-        for _,k in approx_matches_set:
+#        approx_matches_set = self.find_approximate_matches_set(tls_params_, fp_str, source_filter, key_filter)
+#        for _,k in approx_matches_set:
+        for k in self.fp_db.keys():
+#            if self.fp_db[k]['total_count'] < 10000:
+#                continue
             tmp_lit_fp = eval_fp_str(self.fp_db[k]['str_repr'])
             test_ = get_sequence(tmp_lit_fp)
             score_ = self.aligner.align(target_, test_)
@@ -391,10 +394,17 @@ class TLS():
         t_sim_set.sort()
         if len(t_sim_set) == 0:
             return None
-        if t_sim_set[0][0] < 0.1:
-            return t_sim_set[0][1]
-        else:
-            return None
+
+#        print(tls_features)
+#        print(target_)
+#        print(t_sim_set[0:10])
+#        1/0
+
+        return t_sim_set[0][1]
+#        if t_sim_set[0][0] < 0.1:
+#            return t_sim_set[0][1]
+#        else:
+#            return None
 
 
     def find_approximate_matches_set(self, tls_params, fp_str=None, source_filter=None, key_filter=None):
@@ -402,6 +412,8 @@ class TLS():
         p0_ = set(tls_params[0])
         p1_ = set(tls_params[1])
         for k in self.fp_db.keys():
+            if self.fp_db[k]['total_count'] < 1000:
+                continue
             k = k
             if source_filter != None and source_filter not in self.fp_db[k]['source']:
                 continue
@@ -419,7 +431,7 @@ class TLS():
             t_scores.append((s_, k))
         t_scores.sort()
         t_scores.reverse()
-        return t_scores[0:10]
+        return t_scores#[0:100]
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)

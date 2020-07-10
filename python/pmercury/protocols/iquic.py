@@ -27,6 +27,11 @@ class IQUIC(Protocol):
         22: {'salt': bytes.fromhex('7fbcdb0e7c66bbe9193a96cd21519ebd7a02644a')},
         23: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
         24: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+        25: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+        26: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+        27: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+        28: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+        29: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
     }
     SAMPLE_SIZE = 16
 

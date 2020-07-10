@@ -39,14 +39,14 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                 throw "error in filename";
             }
             if (cfg->verbosity) {
-                printf("initializing thread function %x with filename %s\n", pid, outfile);
+                fprintf(stderr, "initializing thread function %x with filename %s\n", pid, outfile);
             }
 
             if (cfg->filter) {
                 /*
                  * write only packet metadata (TLS clientHellos, TCP SYNs, ...) to capture file
                  */
-                return new pkt_proc_filter_pcap_writer_llq(llq);
+                return new pkt_proc_filter_pcap_writer_llq(llq, cfg->packet_filter_cfg);
 
             } else {
                 /*
@@ -56,20 +56,16 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
 
             }
 
-        } else if (cfg->fingerprint_filename) {
+        } else {
             /*
              * write fingerprints into output file
              */
 
-            return new pkt_proc_json_writer_llq(llq);
-
-        } else {
-            /*
-             * default: dump JSON-formatted packet info to stdout
-             */
-            return new pkt_proc_dumper();
+            return new pkt_proc_json_writer_llq(llq, cfg->packet_filter_cfg);
 
         }
+        // note: we no longer have a 'packet dumper' option
+        //    return new pkt_proc_dumper();
 
     }
     catch (const char *s) {

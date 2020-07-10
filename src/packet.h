@@ -51,12 +51,15 @@ void flow_key_set_from_packet(struct flow_key *k,
 			      uint8_t *packet,
 			      size_t length);
 
+void flow_key_set_from_ip_packet(struct flow_key *k,
+                                 const uint8_t *ip_packet,
+                                 size_t length);
+
 void packet_fprintf(FILE *f, uint8_t *packet, size_t length, unsigned int sec, unsigned int usec);
 
 void packet_fprintf_flow_key(FILE *f, uint8_t *packet, size_t length);
 
-int append_packet_flow_key(char *dstr, int *doff, int dlen, int *trunc,
-                           uint8_t *packet, size_t length);
+void write_packet_flow_key(struct buffer_stream &buf, uint8_t *packet, size_t length);
 
 uint64_t flowhash(const struct flow_key &k, uint32_t time_in_sec);
 

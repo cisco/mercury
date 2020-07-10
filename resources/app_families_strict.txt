@@ -26,7 +26,7 @@ Microsoft Edge,microsoft edge helper,msedge.exe,microsoft edge beta,microsoft ed
 
 Vivaldi,vivaldi.exe,vivaldi helper,vivaldi
 
-Adobe Creative Suite,creative cloud.exe,adobe_licensing_helper.exe,adobegcclient.exe,adobe_licutil.exe,setup.exe,core sync,creative cloud,setup,adobegcclient,adobe_licensing_helper,install,coresync.exe,adobecollabsync.exe,adobe captivate,adobe connect,adobe dimension,adobe dimension helper,adobe_ccxprocess.node,after effects,adobearm.exe,adobecaptivate.exe,adoberesourcesynchronizer,adobe xd,adobe illustrator,xd_set-up.exe,acrobat_dc_set-up.exe,agsservice
+Adobe Creative Suite,creative cloud.exe,adobe_licensing_helper.exe,adobegcclient.exe,adobe_licutil.exe,setup.exe,core sync,creative cloud,setup,adobegcclient,adobe_licensing_helper,install,coresync.exe,adobecollabsync.exe,adobe captivate,adobe connect,adobe dimension,adobe dimension helper,adobe_ccxprocess.node,after effects,adobearm.exe,adobecaptivate.exe,adoberesourcesynchronizer,adobe xd,adobe illustrator,xd_set-up.exe,acrobat_dc_set-up.exe,agsservice,adobe cef helper.exe
 
 Adobe Acrobat,acrocef.exe,acrocef,rdrcef.exe,acrobat.exe,acrord32.exe,acrobat update helper,adobereader,adobeacrobat,aasiapp,aasiapp.execrobat updater,acroext,acroext.exe,adobe reader updater helper
 
@@ -70,12 +70,11 @@ Cisco Webex,ciscojabber.exe,webex teams,cisco webex meetings,cisco jabber,ciscos
 
 Cisco AMP,sfc.exe,ampdaemon
 
-Cisco AnyConnect,anyconnect.exe,acwebsecagent,acwebsecagent.exe,cisco anyconnect secure mobility client,vpnagent.exe,vpnagentd
+Cisco AnyConnect,anyconnect.exe,acwebsecagent,acwebsecagent.exe,cisco anyconnect secure mobility client,vpnagent.exe,vpnagentd,vpndownloader,vpndownloader.exe,vpnui.exe,cscan.exe
 
 Cisco Stealthwatch,cisco stealthwatch v7.1.1.exe,cisco stealthwatch v7.1.2.exe,cisco stealthwatch v7.2.0.exe
 
 Cisco Catalog,cisco cx catalog.exe,cisco cx catalog,cisco 3d interactive catalog
-
 
 iCloud,music,itunes,notes,tv,calendaragent,mail,news,cloudphotosd,itunes.exe,iclouddrive.exe,icloudphotos.exe
 
@@ -105,7 +104,11 @@ AdGuard,adguardsvc.exe,adguard for safari,adguard
 
 Python,python,python.exe,pythonw.exe,python2.7,python2.7.exe,python3,python3.exe,python3.6,python3.6m.exe,python3.7,python3.8
 
-Python Dev,pycharm,pycharm.exe,pycharm64.exe,idea,idea.exe,idea64.exe,webstorm,webstorm64.exe
+Python Dev,pycharm,pycharm.exe,pycharm64.exe,webstorm,webstorm64.exe
+
+Ruby,ruby,ruby.exe,rubymine,rubymine64.exe
+
+Java,javaapplicationstub,java,java updater,java.exe,javacpl.exe,javaw.exe,jdev64w.exe,jucheck.exe,javasetup8u241.exe,jre-8u241-windows-au.exe,idea,idea.exe,idea64.exe,jp2launcher.exe
 
 Ryver,ryver,ryver.exe
 
@@ -261,9 +264,9 @@ BitTorrent,bittorrent,bittorrentie.exe,qbittorrent
 
 Blizzard Browser,blizzardbrowser,blizzardbrowser.exe
 
-BlueJeans,bluejeans,bluejeans media,bluejeans media worker,bluejeans.exe,bluejeansmenu
+BlueJeans,bluejeans,bluejeans media,bluejeans media worker,bluejeans.exe,bluejeansmenu,cephtmlengine helper,cephtmlengine.exe,cephtmlengine
 
-BlueStacks,bluestacks,bluestacks.exe,bluestacksinstaller.exe,hd-player.exe
+Android Emulator,bluestacks,bluestacks.exe,bluestacksinstaller.exe,hd-player.exe,memuheadless.exe,nemuheadless,nemuheadless.exe
 
 Bomgar,bomgar-rep,bomgar-rep.exe,bomgar-scc.exe
 
@@ -290,8 +293,6 @@ Battle.Net,battle.net,battle.net.exe,agent.exe
 Lenovo IMController,lenovo.modern.imcontroller.pluginhost.device.exe,lenovo.modern.imcontroller.pluginhost.companionapp.exe,lenovo.modern.imcontroller.exe,lenovovantageservice.exe,tvsukernel.exe,lsbupdater.exe
 
 Weather Service,weatherservice_iosmac,weatherservice
-
-CEPHTML Engine,cephtmlengine helper,cephtmlengine.exe,cephtmlengine
 
 Bark,bark,bark.exe
 
@@ -593,7 +594,7 @@ PANGPS,pangpa.exe,pangps,pangps.exe
 
 Paradox,paradox launcher,paradox launcher.exe
 
-Perl,perl,perl5.18
+Perl,perl,perl5.18,perl.exe
 
 PHP,php,php-fpm,php-win.exe,php.exe,phpstorm,phpstorm.exe,phpstorm64.exe
 
@@ -675,6 +676,8 @@ SoapUI,soapui-5.4.0-eb.exe,soapui-5.4.0.exe,soapui-5.5.0.exe
 
 Sonos,sonos,sonos.exe
 
+SpiderOakOne,spideroakone,srstreamerdaemon
+
 SplashTop,splashtop for rmm,splashtop personal
 
 Splice,splice,splice helper,splice.exe,splice.helper.exe
@@ -690,6 +693,8 @@ Station,station,station helper (renderer),station.exe
 Steam,steam.exe,steam_osx
 
 Stellaris,stellaris,stellaris.exe
+
+Sunloginclient,sunloginclient,sunloginclient.exe
 
 SVN,svn,svn.exe
 
@@ -757,8 +762,6 @@ VNC Viewer,vnc-viewer-6.0.2-windows-64bit.exe,vnc-viewer-6.0.3-windows-64bit.exe
 
 VPN,vpn,vpn.exe
 
-VPN Downloader,vpndownloader,vpndownloader.exe
-
 VSD Viewer,vsd viewer,vsd viewer pro
 
 Vypr VPN,vyprvpn.exe,vyprvpnservice.exe
@@ -808,3 +811,5 @@ PBI Desktop,pbidesktop.exe,microsoft.powerbi.enterprisegateway.exe
 Rakuten,rakuten cash back button,rakuten ebates cash back button
 
 Avid Link,avid link,avid link.exe
+
+Prezi,prezi.next.exe,prezi.classic.exe

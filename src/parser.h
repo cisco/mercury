@@ -24,15 +24,37 @@
 #define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
-#include <iostream>
 struct parser {
     const unsigned char *data;          /* data being parsed/copied  */
     const unsigned char *data_end;      /* end of data buffer        */
 
+    //parser() : data{NULL}, data_end{NULL} {}
+    //parser(const unsigned char *d, const unsigned char *e) : data{d}, data_end{e} {}
+    //parser(const unsigned char *d, size_t length) : data{d}, data_end{d+length} {}
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
+    const std::basic_string<uint8_t> get_bytestring() const { std::basic_string<uint8_t> s((uint8_t *)data, (int) (data_end - data)); return s;  }
     bool is_not_null() const { return data == NULL; }
-    bool is_not_empty() const { return data < data_end; }
+    bool is_not_empty() const { return data != NULL && data < data_end; }
     void set_empty() { data = data_end; }
+    void set_null() { data = data_end = NULL; }
+    ssize_t length() const { return data_end - data; }
+    bool operator==(const parser &p) const {
+        return (length() == p.length()) && memcmp(data, p.data, length()) == 0;
+    }
+    unsigned int bits_in_data() const {                  // for use with (ASN1) integers
+        unsigned int bits = (data_end - data) * 8;
+        const unsigned char *d = data;
+        while (d < data_end) {
+            for (unsigned char c = 0x80; c > 0; c=c>>1) {
+                if (*d & c) {
+                    return bits;
+                }
+                bits--;
+            }
+            d++;
+        }
+        return bits;
+    }
 };
 
 /*

@@ -122,6 +122,12 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg, char *l
         cfg->packet_filter_cfg = strdup(arg);
         return status_ok;
 
+    } else if ((arg = command_get_argument("dns-json", line)) != NULL) {
+        return status_ok;
+
+    } else if ((arg = command_get_argument("certs-json", line)) != NULL) {
+        return status_ok;
+
     } else {
         if (line[0] == '#') { /* comment line */
             return status_ok;

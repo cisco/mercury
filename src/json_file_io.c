@@ -10,12 +10,15 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include "json_file_io.h"
+#include "json_object.h"
 #include "extractor.h"
 #include "packet.h"
 #include "ept.h"
 #include "utils.h"
 #include "analysis.h"
 #include "llq.h"
+#include "buffer_stream.h"
+#include "dns.h"
 
 #define json_file_needs_rotation(jf) (--((jf)->record_countdown) == 0)
 #define SNI_HDR_LEN 9
@@ -83,24 +86,69 @@ enum status json_file_init(struct json_file *jf,
     return json_file_rotate(jf);
 }
 
-void fprintf_timestamp(FILE *f, unsigned int sec, unsigned int usec) {
+void write_flow_key(struct buffer_stream &buf, const struct key &k) {
+    if (k.ip_vers == 6) {
+        const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
+        buf.strncpy("\"src_ip\":\"");
+        buf.write_ipv6_addr(s);
 
-    fprintf(f, ",\"event_start\":%u.%06u", sec, usec); // not sure why usec has fewer than 6 digits, but appears to work
+        const uint8_t *d = (const uint8_t *)&k.addr.ipv6.dst;
+        buf.strncpy("\",\"dst_ip\":\"");
+        buf.write_ipv6_addr(d);
+
+    } else {
+
+        const uint8_t *s = (const uint8_t *)&k.addr.ipv4.src;
+        buf.strncpy("\"src_ip\":\"");
+        buf.write_ipv4_addr(s);
+
+        const uint8_t *d = (const uint8_t *)&k.addr.ipv4.dst;
+        buf.strncpy("\",\"dst_ip\":\"");
+        buf.write_ipv4_addr(d);
+    }
+
+    buf.strncpy("\",\"protocol\":");
+    buf.write_uint8(k.protocol);
+
+    buf.strncpy(",\"src_port\":");
+    buf.write_uint16(k.src_port);
+
+    buf.strncpy(",\"dst_port\":");
+    buf.write_uint16(k.dst_port);
+
 }
 
+/*
+ * global configuration variables, defined in mercury.c
+ */
+extern bool dns_json_output;    /* output DNS as JSON              */
+extern bool certs_json_output;  /* output certificates as JSON     */
 
-int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
-                     struct timespec *ts) {
+void write_flow_key(struct json_object &o, const struct key &k) {
+    if (k.ip_vers == 6) {
+        const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
+        o.print_key_ipv6_addr("src_ip", s);
 
-    int r;
+        const uint8_t *d = (const uint8_t *)&k.addr.ipv6.dst;
+        o.print_key_ipv6_addr("dst_ip", d);
 
-    r = append_snprintf(dstr, doff, dlen, trunc, ",\"event_start\":%u.%06u", ts->tv_sec, ts->tv_nsec / 1000);
+    } else {
 
-    return r;
+        const uint8_t *s = (const uint8_t *)&k.addr.ipv4.src;
+        o.print_key_ipv4_addr("src_ip", s);
+
+        const uint8_t *d = (const uint8_t *)&k.addr.ipv4.dst;
+        o.print_key_ipv4_addr("dst_ip", d);
+
+    }
+
+    o.print_key_uint8("protocol", k.protocol);
+    o.print_key_uint16("src_port", k.src_port);
+    o.print_key_uint16("dst_port", k.dst_port);
+
 }
 
-
-int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
+int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
                        size_t length,
                        struct timespec *ts) {
@@ -113,15 +161,14 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
     /*
      * apply packet filter to packet; return if no fingerprints or metadata found
      */
-    size_t bytes_extracted = packet_filter_extract(&pf, packet, length);
+    struct key k;
+    size_t bytes_extracted = packet_filter_extract(&pf, &k, packet, length);
     if (bytes_extracted <= packet_filter_threshold && pf.x.packet_data.type == packet_data_type_none) {
         return 0;
     }
 
-    int r = 0;
-
-    r += append_putc(dstr, doff, dlen, trunc,
-                     '{');
+    // buf.write_char('{');
+    struct json_object record{&buf};
 
     /*
      * output fingerprint (if any)
@@ -130,72 +177,76 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
         uint8_t *extractor_buffer = pf.x.output_start;
         switch(pf.x.fingerprint_type) {
         case fingerprint_type_dhcp_client:
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"fingerprints\":{\"dhcp\":\"");
-            r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
-                                                extractor_buffer, bytes_extracted);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"},");
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("dhcp", extractor_buffer, bytes_extracted);
+                fps.close();
+            }
             break;
         case fingerprint_type_tls:
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"fingerprints\":{\"tls\":\"");
-            r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
-                                                extractor_buffer, bytes_extracted);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"},");
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("tls", extractor_buffer, bytes_extracted);
+                fps.close();
+            }
             break;
         case fingerprint_type_tcp:
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"fingerprints\":{\"tcp\":\"");
-            r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
-                                                extractor_buffer, bytes_extracted);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"},");
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("tcp", extractor_buffer, bytes_extracted);
+                fps.close();
+            }
             break;
         case fingerprint_type_http:
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"fingerprints\":{\"http\":\"");
-            r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
-                                                extractor_buffer, bytes_extracted);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"},");
-            r += append_snprintf(dstr, doff, dlen, trunc,
-                                 "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("http", extractor_buffer, bytes_extracted);
+                fps.close();
+                record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            }
             break;
         case fingerprint_type_http_server:
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"fingerprints\":{\"http_server\":\"");
-            r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
-                                                extractor_buffer, bytes_extracted);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"},");
-            r += append_snprintf(dstr, doff, dlen, trunc,
-                                 "\"complete\":\"%s\",", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("http_server", extractor_buffer, bytes_extracted);
+                fps.close();
+                record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            }
             break;
         case fingerprint_type_tls_server:
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"fingerprints\":{\"tls_server\":\"");
-            r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
-                                                extractor_buffer, bytes_extracted);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"},");
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("tls_server", extractor_buffer, bytes_extracted);
+                fps.close();
+            }
             break;
         case fingerprint_type_dtls:
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"fingerprints\":{\"dtls\":\"");
-            r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
-                                                extractor_buffer, bytes_extracted);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"},");
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("dtls", extractor_buffer, bytes_extracted);
+                fps.close();
+            }
             break;
         case fingerprint_type_dtls_server:
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"fingerprints\":{\"dtls_server\":\"");
-            r += append_binary_ept_as_paren_ept(dstr, doff, dlen, trunc,
-                                                extractor_buffer, bytes_extracted);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"},");
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("dtls_server", extractor_buffer, bytes_extracted);
+                fps.close();
+            }
+            break;
+        case fingerprint_type_ssh:
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("ssh", extractor_buffer, bytes_extracted);
+                fps.close();
+            }
+            break;
+        case fingerprint_type_ssh_kex:
+            {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("ssh_kex", extractor_buffer, bytes_extracted);
+                fps.close();
+            }
             break;
         default:
             ;    /* no fingerprint; do nothing */
@@ -206,47 +257,46 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
      * output packet_data (if any)
      */
     if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
-        r += append_strncpy(dstr, doff, dlen, trunc,
-                            "\"http\":{");
-        r += append_json_string(dstr, doff, dlen, trunc,
-                                "user_agent",
-                                pf.x.packet_data.value,
-                                pf.x.packet_data.length);
-        r += append_strncpy(dstr, doff, dlen, trunc,
-                            "},");
+        struct json_object http{record, "http"};
+        http.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
+        http.close();
     }
     if (pf.x.packet_data.type == packet_data_type_tls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                            "\"tls\":{");
-            r += append_json_string(dstr, doff, dlen, trunc,
-                                    "server_name",
-                                    pf.x.packet_data.value  + SNI_HDR_LEN,
-                                    pf.x.packet_data.length - SNI_HDR_LEN);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "},");
+            struct json_object tls{record, "tls"};
+            tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
+            tls.close();
         }
     }
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
-        /* print the certificates in base64 format */
-        r += append_strncpy(dstr, doff, dlen, trunc,
-                            "\"tls\":{\"server_certs\":[");
-        r += append_extract_certificates(dstr, doff, dlen, trunc,
-                                         pf.x.packet_data.value, pf.x.packet_data.length);
-        r += append_strncpy(dstr, doff, dlen, trunc,
-                            "]},");
+        struct json_object tls{record, "tls"};
+        struct json_array server_certs{tls, "server_certs"};
+        if (!certs_json_output) {
+            write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
+        } else {
+            write_extract_cert_full(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
+        }
+        server_certs.close();
+        tls.close();
     }
     if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "\"dtls\":{");
-            r += append_json_string(dstr, doff, dlen, trunc,
-                                    "server_name",
-                                    pf.x.packet_data.value  + SNI_HDR_LEN,
-                                    pf.x.packet_data.length - SNI_HDR_LEN);
-            r += append_strncpy(dstr, doff, dlen, trunc,
-                                "},");
+            struct json_object dtls{record, "dtls"};
+            dtls.print_key_json_string("server_name", pf.x.packet_data.value  + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
+            dtls.close();
         }
+    }
+    if (pf.x.packet_data.type == packet_data_type_dns_server) {
+        struct json_object dns{record, "dns"};
+        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, dns, !dns_json_output);
+        dns.close();
+    }
+    if (pf.x.packet_data.type == packet_data_type_wireguard && pf.x.packet_data.length == sizeof(uint32_t)) {
+        struct json_object wg{record, "wireguard"};
+        uint32_t tmp = ntohl(*(const uint32_t *)pf.x.packet_data.value);
+        struct parser si{(uint8_t *)&tmp, (uint8_t *)&tmp + sizeof(uint32_t)};
+        wg.print_key_hex("sender_index", si);
+        wg.close();
     }
 
     /*
@@ -255,21 +305,18 @@ int append_packet_json(char *dstr, int *doff, int dlen, int *trunc,
     struct flow_key key = flow_key_init();
     flow_key_set_from_packet(&key, packet, length);
 
-    r += append_analysis_from_extractor_and_flow_key(dstr, doff, dlen, trunc,
-                                                 &pf.x, &key);
+    write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
 
-    r += append_packet_flow_key(dstr, doff, dlen, trunc,
-                                packet, length);
+    write_flow_key(record, k);
 
-    r += append_timestamp(dstr, doff, dlen, trunc,
-                          ts);
+    record.print_key_timestamp("event_start", ts);
+    // struct timestamp_writer t{ts}; record.print_key_value("event_start", t);
 
-    //    r += append_snprintf(dstr, doff, dlen, trunc, ",\"flowhash\":\"%016lx\"", flowhash(key, ts->tv_sec));
+    //    buf.snprintf(dstr, doff, dlen, trunc, ",\"flowhash\":\"%016lx\"", flowhash(key, ts->tv_sec));
 
-    r += append_strncpy(dstr, doff, dlen, trunc,
-                                "}\n");
+    buf.strncpy("}\n");
 
-    return r;
+    return buf.length();
 }
 
 
@@ -281,26 +328,22 @@ void json_file_write(struct json_file *jf,
 
     struct timespec ts;
     char obuf[LLQ_MSG_SIZE];
-    int olen = LLQ_MSG_SIZE;
-    int ooff = 0;
-    int trunc = 0;
 
     ts.tv_sec = sec;
     ts.tv_nsec = nsec;
 
     obuf[0] = '\0';
-    int r = append_packet_json(&(obuf[0]), &ooff, olen, &trunc,
-                              packet, length, &ts);
+    struct buffer_stream buf(obuf, LLQ_MSG_SIZE);
+    append_packet_json(buf, packet, length, &ts);
+    int r = buf.length();
 
-    if ((trunc == 0) && (r > 0)) {
+    if ((buf.trunc == 0) && (r > 0)) {
         fwrite(obuf, r, 1, jf->file);
 
         if (json_file_needs_rotation(jf)) {
             json_file_rotate(jf);
         }
-
     }
-
 }
 
 
@@ -313,9 +356,9 @@ void json_queue_write(struct ll_queue *llq,
     if (llq->msgs[llq->widx].used == 0) {
 
         //char obuf[LLQ_MSG_SIZE];
-        int olen = LLQ_MSG_SIZE;
-        int ooff = 0;
-        int trunc = 0;
+        // int olen = LLQ_MSG_SIZE;
+        // int ooff = 0;
+        // int trunc = 0;
 
         llq->msgs[llq->widx].ts.tv_sec = sec;
         llq->msgs[llq->widx].ts.tv_nsec = nsec;
@@ -324,10 +367,10 @@ void json_queue_write(struct ll_queue *llq,
         //obuf[sizeof(struct timespec)] = '\0';
         llq->msgs[llq->widx].buf[0] = '\0';
 
-        int r = append_packet_json(llq->msgs[llq->widx].buf, &ooff, olen, &trunc,
-                                   packet, length, &(llq->msgs[llq->widx].ts));
-
-        if ((trunc == 0) && (r > 0)) {
+        struct buffer_stream buf(llq->msgs[llq->widx].buf, LLQ_MSG_SIZE);
+        append_packet_json(buf, packet, length, &(llq->msgs[llq->widx].ts));
+        int r = buf.length();
+        if ((buf.trunc == 0) && (r > 0)) {
 
             llq->msgs[llq->widx].len = r;
 

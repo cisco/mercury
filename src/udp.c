@@ -9,6 +9,30 @@
 #include "proto_identify.h"
 #include "ept.h"
 
+#define VXLAN_PORT 4789
+/*
+ *  VXLAN Header:
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |R|R|R|R|I|R|R|R|            Reserved                           |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                VXLAN Network Identifier (VNI) |   Reserved    |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+#define VXLAN_HDR_LEN 8
+
+unsigned int packet_filter_process_vxlan(struct packet_filter *pf, struct key *k) {
+    struct parser *p = &pf->p;
+    if (parser_skip(p, VXLAN_HDR_LEN) != status_ok) {
+        return 0;
+    }
+    /*
+     * note: we ignore the VXLAN Network Identifier for now, which
+     * makes little difference as long as they are all identical
+     */
+    return packet_filter_process_packet(pf, k);
+}
+
 
 /* DTLS Client */
 unsigned char dtls_client_hello_mask[] = {
@@ -58,6 +82,35 @@ struct pi_container dhcp_client = {
     DHCP_CLIENT_PORT
 };
 
+/*
+ * dns server
+ */
+unsigned char dns_server_mask[] = {
+    0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0xff, 0x00
+};
+unsigned char dns_server_value[] = {
+    0x00, 0x00, 0x81, 0x80, 0x00, 0x00, 0x00, 0x00
+};
+struct pi_container dns_server = {
+    DIR_SERVER,
+    DNS_PORT
+};
+
+/*
+ * wireguard
+ */
+unsigned char wireguard_mask[] = {
+    0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00
+};
+unsigned char wireguard_value[] = {
+    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+struct pi_container wireguard = {
+    DIR_CLIENT,
+    WIREGUARD_PORT
+};
+
+
 const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                               unsigned int len) {
 
@@ -92,6 +145,16 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                          dtls_server_hello_mask,
                                          dtls_server_hello_value)) {
         return &dtls_server;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         dns_server_mask,
+                                         dns_server_value)) {
+        return &dns_server;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         wireguard_mask,
+                                         wireguard_value)) {
+        return &wireguard;
     }
 
     return NULL;
@@ -137,7 +200,6 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
 unsigned int parser_extractor_process_udp_data(struct parser *p, struct extractor *x);
 
 unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) {
-    (void)k;    // ignore flow key for now
     struct parser *p = &pf->p;
     struct extractor *x = &pf->x;
 
@@ -146,7 +208,12 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
     const unsigned char *d = p->data;
 #endif
 
-    if (parser_skip(p, L_udp_src_port + L_udp_dst_port) == status_err) {
+    size_t src_port;
+    if (parser_read_and_skip_uint(p, L_udp_src_port, &src_port) == status_err) {
+        return 0;
+    }
+    size_t dst_port;
+    if (parser_read_and_skip_uint(p, L_udp_dst_port, &dst_port) == status_err) {
         return 0;
     }
     size_t udp_length;
@@ -160,6 +227,10 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
     extractor_debug("%s: udp header: %02x%02x%02x%02x%02x%02x%02x%02x\n", __func__,
                     d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
 
+    k->dst_port = dst_port;
+    k->src_port = src_port;
+    k->protocol = 17;
+
     /* handle the udp length field */
     if (udp_length < 8) {
       return 0; /* error: header claims that packet is shorter than header */
@@ -167,7 +238,10 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
     if ((unsigned int)parser_get_data_length(p) != udp_length - 8) {
       parser_set_data_length(p, udp_length - 8);
     }
-    
+
+    if (dst_port == VXLAN_PORT) {
+        return packet_filter_process_vxlan(pf, k);
+    }
     /*
      * process the UDP Data payload
      */
@@ -179,6 +253,8 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
 unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x);
 unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extractor *x);
 unsigned int parser_extractor_process_dhcp(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_wireguard(struct parser *p, struct extractor *x);
 
 unsigned int parser_extractor_process_udp_data(struct parser *p, struct extractor *x) {
     const struct pi_container *pi;
@@ -207,6 +283,12 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         break;
     case SSH_PORT:
         return parser_extractor_process_ssh(p, x);
+        break;
+    case DNS_PORT:
+        return parser_extractor_process_dns(p, x);
+        break;
+    case WIREGUARD_PORT:
+        return parser_extractor_process_wireguard(p, x);
         break;
     default:
         ;
@@ -802,5 +884,53 @@ unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extra
     return 0;
 
 }
+
+
+/*
+ * dns parser_extractor_process function
+ */
+
+unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x) {
+
+    extractor_debug("%s: processing packet\n", __func__);
+
+    // set entire DNS packet as packet_data
+    packet_data_set(&x->packet_data, packet_data_type_dns_server, p->length(), p->data);
+
+    return 0;
+}
+
+
+/*
+ * wireguard
+ */
+
+struct wireguard_handshake_initiation {
+    uint8_t  message_type;                       // 1
+    uint8_t  reserved_zero[3];                   // { 0, 0, 0 }
+    uint32_t sender_index;                       // random
+    uint8_t  unencrypted_ephemeral[32];          // random
+    uint8_t  encrypted_static[32 + 16];          // random
+    uint8_t  encrypted_timestamp[12 + 16];       // random
+    uint8_t  mac1[16];                           // random
+    uint8_t  mac2[16];                           // random or { 0, 0, ... }
+};
+
+
+unsigned int parser_extractor_process_wireguard(struct parser *p, struct extractor *x) {
+    struct wireguard_handshake_initiation *whi = (struct wireguard_handshake_initiation *)p->data;
+
+    extractor_debug("%s: processing packet\n", __func__);
+
+    if (p->length() != sizeof(struct wireguard_handshake_initiation)) {
+        return 0;   // not wireguard
+    }
+
+    // set sender_index as packet_data
+    packet_data_set(&x->packet_data, packet_data_type_wireguard, sizeof(uint32_t), (const uint8_t *)&whi->sender_index);
+
+    return 0;
+}
+
 
 
