@@ -491,6 +491,9 @@ int main(int argc, char *argv[]) {
             }
             usage(argv[0]);
             break;
+        case '?':
+            usage(argv[0]);
+            break;
         case case_output:
             break;
         default:
