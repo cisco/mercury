@@ -1,5 +1,5 @@
 """
- Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
+65;5802;1c Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  License at https://github.com/cisco/mercury/blob/master/LICENSE
 """
 
@@ -14,7 +14,7 @@ def readme():
 
 setuptools.setup(
     name='pmercury',
-    version='0.5.1.26',
+    version='0.5.2.39',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -38,8 +38,8 @@ setuptools.setup(
         'pyyaml',
     ],
     scripts=['pmercury/pmercury'],
-    data_files=[('pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in','config.yaml']),
-                ('pmercury/resources', ['../resources/fingerprint_db.json.gz',
+    data_files=[('/pmercury', ['../LICENSE','README.md','requirements.txt','MANIFEST.in','config.yaml']),
+                ('/pmercury/resources', ['../resources/fingerprint_db.json.gz',
                                         '../resources/app_families.txt',
                                         '../resources/app_families_strict.txt',
                                         '../resources/transition_probs.csv.gz',
@@ -49,7 +49,7 @@ setuptools.setup(
                                         '../resources/pyasn.db',
                                         '../resources/domain_indicators.json.gz',
                                         '../resources/fingerprint_db_tcp.json.gz']),
-                ('pmercury/resources/equivalence-classes', ['../resources/equivalence-classes/eqv_class_ip_as.json.gz',
+                ('/pmercury/resources/equivalence-classes', ['../resources/equivalence-classes/eqv_class_ip_as.json.gz',
                                                             '../resources/equivalence-classes/eqv_class_ip.json.gz',
                                                             '../resources/equivalence-classes/eqv_class_port_applications.json.gz',
                                                             '../resources/equivalence-classes/eqv_class_port.json.gz',

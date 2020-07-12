@@ -37,7 +37,8 @@ class TCP():
                 fp_['os_info'] = self.clean_os_entry(fp_['os_info'])
                 self.fp_db[fp_['str_repr']] = fp_
         else:
-            for line in os.popen('zcat %s' % (fp_database)):
+            cmd = 'gzcat' if sys.platform == 'darwin' else 'zcat'
+            for line in os.popen(cmd + ' %s' % (fp_database)):
                 fp_ = json.loads(line)
                 fp_['os_info'] = self.clean_os_entry(fp_['os_info'])
                 self.fp_db[fp_['str_repr']] = fp_

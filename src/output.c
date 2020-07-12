@@ -10,12 +10,6 @@
 #include "utils.h"
 
 
-char *stdout_string_constant = (char *)"stdout";
-
-char *stdout_string() {
-    return stdout_string_constant;
-}
-
 #define output_file_needs_rotation(ojf) (--((ojf)->record_countdown) == 0)
 
 void thread_queues_init(struct thread_queues *tqs, int n) {
@@ -512,12 +506,8 @@ int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, co
     out_ctx.max_records = cfg.rotate;
     out_ctx.record_countdown = 0;
     if (cfg.fingerprint_filename) {
-        if (cfg.fingerprint_filename == stdout_string()) {
-            out_ctx.type = file_type_stdout;
-        } else {
-            out_ctx.outfile_name = cfg.fingerprint_filename;
-            out_ctx.type = file_type_json;
-        }
+        out_ctx.outfile_name = cfg.fingerprint_filename;
+        out_ctx.type = file_type_json;
     } else if (cfg.write_filename) {
         out_ctx.outfile_name = cfg.write_filename;
         out_ctx.type = file_type_pcap;

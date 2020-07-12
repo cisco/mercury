@@ -52,7 +52,8 @@ class TLS():
         else:
             transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
             self.transition_probs = {}
-            for line in os.popen('zcat %s' % (transition_probs_file), mode='r', buffering=8192*256):
+            cmd = 'gzcat' if sys.platform == 'darwin' else 'zcat'
+            for line in os.popen(cmd + ' %s' % (transition_probs_file), mode='r', buffering=8192*256):
                 t_ = line.strip().split(',')
                 if t_[1] not in self.transition_probs:
                     self.transition_probs[t_[1]] = {}
@@ -78,7 +79,8 @@ class TLS():
                 fp_ = json.loads(line_win)
                 self.fp_db[fp_['str_repr']] = fp_
         else:
-            for line in os.popen('zcat %s' % (fp_database), mode='r', buffering=8192*256):
+            cmd = 'gzcat' if sys.platform == 'darwin' else 'zcat'
+            for line in os.popen(cmd + ' %s' % (fp_database), mode='r', buffering=8192*256):
                 fp_ = json.loads(line)
                 self.fp_db[fp_['str_repr']] = fp_
         if 'malware' not in self.fp_db[fp_['str_repr']]['process_info'][0]:
