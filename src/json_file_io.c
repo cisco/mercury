@@ -153,6 +153,8 @@ int append_packet_json(struct buffer_stream &buf,
                        size_t length,
                        struct timespec *ts) {
 
+    bool metadata = false; // this is just to avoid having to re-create all of the test cases for now
+
     extern unsigned int packet_filter_threshold;
 
     struct packet_filter pf;
@@ -167,7 +169,6 @@ int append_packet_json(struct buffer_stream &buf,
         return 0;
     }
 
-    // buf.write_char('{');
     struct json_object record{&buf};
 
     /*
@@ -265,11 +266,21 @@ int append_packet_json(struct buffer_stream &buf,
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
             struct json_object tls{record, "tls"};
             tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
+            if (metadata) {
+                struct tls_client_hello hello;
+                hello.parse(pf.x.tcp_data, NULL);
+                tls.print_key_hex("client_random", hello.random);
+            }
             tls.close();
         }
     }
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         struct json_object tls{record, "tls"};
+        if (metadata) {
+            struct tls_server_hello hello;
+            hello.parse(pf.x.tcp_data, NULL);
+            tls.print_key_hex("server_random", hello.random);
+        }
         struct json_array server_certs{tls, "server_certs"};
         if (!certs_json_output) {
             write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);

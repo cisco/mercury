@@ -38,6 +38,14 @@ struct parser {
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = NULL; }
     ssize_t length() const { return data_end - data; }
+    void parse(struct parser &r, size_t num_bytes) {
+        if (r.length() < (ssize_t)num_bytes) {
+            r.set_null();
+        }
+        data = r.data;
+        data_end = r.data + num_bytes;
+        r.data += num_bytes;
+    }
     bool operator==(const parser &p) const {
         return (length() == p.length()) && memcmp(data, p.data, length()) == 0;
     }

@@ -109,6 +109,7 @@ struct extractor {
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
     struct packet_data packet_data;     /* data of interest in packt */
+    struct parser tcp_data;             // NEW
 };
 
 /*
@@ -417,5 +418,31 @@ unsigned int u64_compare_masked_data_to_value(const void *data,
 
 ptrdiff_t parser_get_data_length(struct parser *p);
 
+
+// new packet metadata catpure
+
+struct tls_client_hello {
+    struct parser protocol_version;
+    struct parser random;
+    struct parser ciphersuite_vector;
+    struct parser extensions;
+
+    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, extensions{NULL, NULL} {}
+    void parse(struct parser &p, struct extractor *x);
+
+};
+
+struct tls_server_hello {
+    struct parser protocol_version;
+    struct parser random;
+    struct parser ciphersuite_vector;
+    struct parser extensions;
+
+    tls_server_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, extensions{NULL, NULL} {}
+
+    void parse(struct parser &p, struct extractor *x);
+
+    enum status parse_tls_server_hello(struct parser &p, struct extractor *x);
+};
 
 #endif /* EXTRACTOR_H */

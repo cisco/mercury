@@ -246,6 +246,8 @@ void extractor_init(struct extractor *x,
     x->last_capture = NULL;
 
     packet_data_init(&x->packet_data);
+    x->tcp_data.data = NULL;
+    x->tcp_data.data_end = NULL;
 }
 
 void parser_init(struct parser *p,
@@ -2065,6 +2067,8 @@ unsigned int parser_extractor_process_ssh_kex(struct parser *p, struct extractor
 
 
 unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x) {
+
+    x->tcp_data = *p;
     const struct pi_container *pi;
     struct pi_container dummy = { 0, 0 };
     pi = proto_identify_tcp(p->data, parser_get_data_length(p));
@@ -2578,4 +2582,368 @@ enum status proto_ident_config(const char *config_string) {
         bzero(wireguard_mask, sizeof(wireguard_mask));
     }
     return status_ok;
+}
+
+
+// new packet metadata catpure
+
+void tls_client_hello::parse(struct parser &p, struct extractor *x) {
+    size_t tmp_len;
+    struct parser ext_parser;
+    const uint8_t *sni_data = NULL;
+    size_t sni_length = 0;
+    unsigned char *ext_len_slot = NULL;
+
+    extractor_debug("%s: processing packet\n", __func__);
+
+    /*
+     * verify that we are looking at a TLS ClientHello
+     */
+    if (parser_match(&p,
+                     tls_client_hello_value,
+                     L_ContentType +    L_ProtocolVersion + L_RecordLength + L_HandshakeType,
+                     tls_client_hello_mask) == status_err) {
+        return; /* not a clientHello */
+    }
+
+    /*
+     * skip over initial fields
+     */
+    if (parser_skip(&p, L_HandshakeLength) == status_err) {
+        return;
+    }
+
+    // parse clientHello.ProtocolVersion
+    protocol_version.parse(p, L_ProtocolVersion);
+
+    // parse clientHello.Random
+    random.parse(p, L_Random);
+
+    /* skip over SessionID and SessionIDLen */
+    if (parser_read_uint(&p, L_SessionIDLength, &tmp_len) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(&p, tmp_len + L_SessionIDLength) == status_err) {
+        goto bail;
+    }
+
+    // parse clientHello.Ciphersuites
+    ciphersuite_vector.parse(p, L_CipherSuiteVectorLength);
+
+    return; // TODO: extend this function
+
+    /* copy ciphersuite offer vector */
+    if (parser_read_uint(&p, L_CipherSuiteVectorLength, &tmp_len) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(&p, L_CipherSuiteVectorLength) == status_err) {
+        goto bail;
+    }
+    if (parser_extractor_copy(&p, x, tmp_len) == status_err) {
+        goto bail;
+    }
+    degrease_octet_string(x->last_capture + 2, tmp_len);
+
+    /* skip over compression methods */
+    if (parser_read_uint(&p, L_CompressionMethodsLength, &tmp_len) == status_err) {
+        goto bail;
+    }
+    if (parser_skip(&p, tmp_len + L_CompressionMethodsLength) == status_err) {
+        goto bail;
+    }
+
+    /*
+     * parse extensions vector
+     */
+    /*
+     * reserve slot in output for length of extracted extensions
+     */
+    if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
+        goto bail;
+    }
+
+    /*  extensions length */
+    if (parser_read_and_skip_uint(&p, L_ExtensionsVectorLength, &tmp_len)) {
+        goto bail;
+    }
+    parser_init_from_outer_parser(&ext_parser, &p, tmp_len);
+    while (parser_get_data_length(&ext_parser) > 0) {
+        size_t tmp_type;
+
+        if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+            break;
+        }
+        if (tmp_type == type_sni) {
+            /*
+             * grab Server Name Indication so that we can report it separately
+             */
+            sni_data = ext_parser.data;
+        }
+
+        if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err) {
+            break;
+        }
+        /* degrease extracted type code */
+        degrease_octet_string(x->last_capture + 2, L_ExtensionType);
+
+        if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+            break;
+        }
+        if (tmp_type == type_sni) {
+            /*
+             * grab Server Name Indication length
+             */
+            sni_length = tmp_len + L_ExtensionLength + L_ExtensionType;
+            if (sni_data + sni_length > p.data_end) {
+                sni_length = p.data_end - sni_data;   /* trim to fit in packet */
+            }
+        }
+
+        if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err) {
+            if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err) {
+                break;
+            }
+            if (tmp_type == type_supported_groups) {
+                degrease_octet_string(x->last_capture + 2 + L_ExtensionLength + L_ExtensionType + L_NamedGroupListLen,
+                                      tmp_len - L_NamedGroupListLen);
+            }
+            if (tmp_type == type_supported_versions) {
+                degrease_octet_string(x->last_capture + 2 + L_ExtensionLength + L_ExtensionType + L_ProtocolVersionListLen,
+                                      tmp_len - L_ProtocolVersionListLen);
+            }
+
+        } else {
+
+            if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
+                break;
+            }
+        }
+    }
+
+    /*
+     * write the length of the extracted extensions into the reserved slot
+     */
+    //size_t ext_len_value = (x->output - ext_len_slot) | PARENT_NODE_INDICATOR;
+    encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
+
+    if (sni_data) {
+        packet_data_set(&x->packet_data, packet_data_type_tls_sni, sni_length, sni_data);
+    }
+
+    x->proto_state.state = state_done;
+
+    return; // extractor_get_output_length(x);
+
+ bail:
+    /*
+     * handle possible packet parsing errors
+     */
+    extractor_debug("%s: warning: TLS clientHello processing did not fully complete\n", __func__);
+    return; // extractor_get_output_length(x);
+
+}
+
+void tls_server_hello::parse(struct parser &p, struct extractor *x) {
+    size_t tmp_len;
+    size_t tmp_type;
+
+    extractor_debug("%s: processing packet with %td bytes\n", __func__, p->data_end - p->data);
+
+    /*
+     * verify that we are looking at a TLS record
+     */
+    if (parser_read_and_skip_uint(&p, L_ContentType, &tmp_type) == status_err) {
+        goto bail;
+    }
+    if (tmp_type != 0x16) {
+        goto bail;    /* not a handshake record */
+    }
+    if (parser_skip(&p, L_ProtocolVersion) == status_err) {
+	    goto bail;
+    }
+    if (parser_read_and_skip_uint(&p, L_RecordLength, &tmp_len) == status_err) {
+      goto bail;
+    }
+    extractor_debug("%s: got a record\n", __func__);
+    struct parser record;
+    parser_init_from_outer_parser(&record, &p, tmp_len);
+
+    if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
+	    goto bail;
+    }
+    if (tmp_type != 0x02) {
+        goto bail;     /* not a serverHello */
+    }
+
+    if (parser_read_and_skip_uint(&record, L_HandshakeLength, &tmp_len) == status_err) {
+	    goto bail;
+    }
+    extractor_debug("%s: got a handshake\n", __func__);
+    struct parser handshake;
+    parser_init_from_outer_parser(&handshake, &record, tmp_len);
+    if (parse_tls_server_hello(handshake, NULL) != status_ok) {
+        goto bail;
+    }
+    parser_pop(&handshake, &record);
+
+    if (parser_get_data_length(&record) > 0) {
+
+        extractor_debug("%s: expecting another handshake structure\n", __func__);
+        size_t tmp_type;
+        if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
+            goto bail;
+        }
+        if (tmp_type != 11) { /* certificate */
+            goto done;
+        }
+        if (parser_skip(&record, L_HandshakeLength) == status_err) {
+            goto done;
+        }
+        if (parser_extractor_process_certificate(&record, x) == status_err) {
+            goto done;
+        }
+    }
+    parser_pop(&record, &p);
+
+    extractor_debug("%s: outermost parser has %td bytes\n", __func__, p->data_end - p->data);
+
+    /* process data as a new record */
+    if (parser_get_data_length(&p) > 0) {
+
+        extractor_debug("%s: expecting another record\n", __func__);
+
+        if (parser_read_and_skip_uint(&p, L_ContentType, &tmp_type) == status_err) {
+            goto done;
+        }
+        if (tmp_type != 0x16) {
+            goto done;    /* not a handshake record */
+        }
+        if (parser_skip(&p, L_ProtocolVersion) == status_err) {
+            goto done;
+        }
+        if (parser_read_and_skip_uint(&p, L_RecordLength, &tmp_len) == status_err) {
+            goto done;
+        }
+        struct parser record;
+        parser_init_from_outer_parser(&record, &p, tmp_len);
+
+        extractor_debug("%s: new record has %td bytes\n", __func__, record.data_end - record.data);
+
+        size_t tmp_type;
+        if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
+            goto done;
+        }
+        if (tmp_type == 11) { /* certificate */
+            if (parser_skip(&record, L_HandshakeLength) == status_err) {
+                goto done;
+            }
+            // TODO: properly parse cert
+            //            if (parser_extractor_process_certificate(&record, x) == status_err) {
+            //    goto done;
+            // }
+        }
+    }
+
+ done:
+
+    return; // extractor_get_output_length(x);
+
+ bail:
+    /*
+     * handle possible packet parsing errors
+     */
+    extractor_debug("%s: warning: TLS serverHello processing did not fully complete\n", __func__);
+    return; // 0;
+
+}
+
+enum status tls_server_hello::parse_tls_server_hello(struct parser &record, struct extractor *x) {
+    size_t tmp_len;
+    size_t tmp_type;
+    unsigned char *ext_len_slot = NULL;
+
+    extractor_debug("%s: processing server_hello with %td bytes\n", __func__, record.data_end - record.data);
+
+    protocol_version.parse(record, L_ProtocolVersion);
+    random.parse(record, L_Random);
+
+    /* skip over SessionID and SessionIDLen */
+    if (parser_read_uint(&record, L_SessionIDLength, &tmp_len) == status_err) {
+	    goto bail;
+    }
+    if (parser_skip(&record, tmp_len + L_SessionIDLength) == status_err) {
+	    goto bail;
+    }
+
+    ciphersuite_vector.parse(record, L_CipherSuite);
+
+    return status_ok;
+
+    /* skip over compression method */
+    if (parser_skip(&record, L_CompressionMethod) == status_err) {
+	    goto bail;
+    }
+
+    /*
+     * reserve slot in output for length of extracted extensions
+     */
+    if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
+        goto bail;
+    }
+
+    /*
+     * parse extensions vector (if present)
+     */
+    if (parser_get_data_length(&record) > 0) {
+
+        extractor_debug("%s: parsing extensions vector\n", __func__);
+
+        /*  extensions length */
+        if (parser_read_and_skip_uint(&record, L_ExtensionsVectorLength, &tmp_len)) {
+            goto bail;
+        }
+
+        struct parser ext_parser;
+        parser_init_from_outer_parser(&ext_parser, &record, tmp_len);
+
+        while (parser_get_data_length(&ext_parser) > 0)  {
+
+            if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+                break;
+            }
+            if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err) {
+                break;
+            }
+            if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+                break;
+            }
+            if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err)  {
+                if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err)  {
+                    break;
+                }
+            }
+            else {
+                if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
+                    break;
+                }
+            }
+        }
+
+        extractor_debug("%s: ext_parser has %td bytes\n", __func__, ext_parser.data_end - ext_parser.data);
+
+        parser_pop(&ext_parser, &record);
+
+        extractor_debug("%s: record has %td bytes\n", __func__, record.data_end - record.data);
+
+    } 
+
+    /*
+     * write the length of the extracted extensions (if any) into the reserved slot
+     */
+    encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
+
+    return status_ok;
+
+ bail:
+    return status_err;
 }
