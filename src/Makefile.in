@@ -29,7 +29,7 @@ CXX      = @CXX@
 CFLAGS  = --std=c++11
 CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
-CFLAGS += -Wall -Wpedantic -Wextra $(CDEFS) $(MSV)
+CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 CFLAGS += $(OPTFLAGS)
