@@ -153,7 +153,7 @@ int append_packet_json(struct buffer_stream &buf,
                        size_t length,
                        struct timespec *ts) {
 
-    bool metadata = true; // this is just to avoid having to re-create all of the test cases for now
+    bool metadata = false; // this is just to avoid having to re-create all of the test cases for now
 
     extern unsigned int packet_filter_threshold;
 
