@@ -153,7 +153,7 @@ int append_packet_json(struct buffer_stream &buf,
                        size_t length,
                        struct timespec *ts) {
 
-    bool metadata = false; // this is just to avoid having to re-create all of the test cases for now
+    bool metadata = true; // this is just to avoid having to re-create all of the test cases for now
 
     extern unsigned int packet_filter_threshold;
 
@@ -265,11 +265,19 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_tls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
             struct json_object tls{record, "tls"};
-            tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
             if (metadata) {
                 struct tls_client_hello hello;
-                hello.parse(pf.x.tcp_data, NULL);
+                hello.parse(pf.x.transport_data);
+                tls.print_key_hex("version", hello.protocol_version);
                 tls.print_key_hex("client_random", hello.random);
+                tls.print_key_hex("session_id", hello.session_id);
+                tls.print_key_hex("ciphersuite_vector", hello.ciphersuite_vector);
+                tls.print_key_hex("compression_methods", hello.compression_methods);
+                //tls.print_key_hex("extensions", hello.extensions);
+                //hello.extensions.print(tls, "extensions");
+                hello.extensions.print_server_name(tls, "server_name");
+            } else {
+                tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
             }
             tls.close();
         }
@@ -278,7 +286,7 @@ int append_packet_json(struct buffer_stream &buf,
         struct json_object tls{record, "tls"};
         if (metadata) {
             struct tls_server_hello hello;
-            hello.parse(pf.x.tcp_data, NULL);
+            hello.parse(pf.x.transport_data, NULL);
             tls.print_key_hex("server_random", hello.random);
         }
         struct json_array server_certs{tls, "server_certs"};
