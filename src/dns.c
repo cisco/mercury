@@ -770,6 +770,7 @@ std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len) {
     struct buffer_stream buf(buffer, sizeof(buffer));
     struct json_object dns{&buf};
     dns_print_packet(dns_pkt, pkt_len, dns);
+    dns.close();
     std::string tmp_str(buffer, buf.length());
     return tmp_str;
 }
