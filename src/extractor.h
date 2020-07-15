@@ -11,10 +11,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>      /* for FILE */
+#include <list>
 #include "parser.h"
 #include "mercury.h"
 #include "tcp.h"
-//#include "buffer_stream.h"
 
 
 /*
@@ -467,6 +467,28 @@ struct tls_server_hello {
     void parse(struct parser &p, struct extractor *x);
 
     enum status parse_tls_server_hello(struct parser &p, struct extractor *x);
+};
+
+struct http_headers : public parser {
+
+    http_headers() : parser{NULL, NULL} {}
+
+    void print_host(struct json_object &o, const char *key) const;
+    void print_matching_name(struct json_object &o, const char *key, struct parser &name) const;
+    void print_matching_names(struct json_object &o, const char *key, std::list<struct parser> &name) const;
+    void print_matching_names(struct json_object &o, std::list<std::pair<struct parser, std::string>> &name_list) const;
+};
+
+struct http_request {
+    struct parser method;
+    struct parser uri;
+    struct parser protocol;
+    struct http_headers headers;
+
+    http_request() : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL} {}
+
+    void parse(struct parser &p);
+
 };
 
 #endif /* EXTRACTOR_H */

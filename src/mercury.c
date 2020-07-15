@@ -54,6 +54,7 @@ char mercury_help[] =
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
     "   --certs-json                          # output certs as JSON, not base64\n"
+    "   --metadata                            # output more protocol metadata in JSON\n"
     "   [-v or --verbose]                     # additional information sent to stderr\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
@@ -78,7 +79,7 @@ char mercury_extended_help[] =
     "\n"
     "   \"[-w or --write] w\" writes packets to the file w, in PCAP format.  With the\n"
     "   option [-s or --select], packets are filtered so that only ones with\n"
-    "   fingerprint  metadata are written.\n"
+    "   fingerprint metadata are written.\n"
     "\n"
     "   \"[r or --read] r\" reads packets from the file r, in PCAP format.\n"
     "\n"
@@ -121,6 +122,8 @@ char mercury_extended_help[] =
     "\n"
     "   --certs-json writes out certificates as JSON objects; otherwise,\n"
    "    that data is output in base64 format, as a string with the key \"base64\".\n"
+    "\n"
+    "   --metadata writes out additional metadata into the protocol JSON objects.\n"
     "\n"
     "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
@@ -172,12 +175,13 @@ bool option_is_valid(const char *opt) {
 
 bool dns_json_output   = false;  /* output DNS as JSON              */
 bool certs_json_output = false;  /* output certificates as JSON     */
+bool metadata_output   = false;  /* output lots of metadata         */
 
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -185,6 +189,7 @@ int main(int argc, char *argv[]) {
             { "license",     no_argument,       NULL, license },
             { "dns-json",    no_argument,       NULL, dns_json },
             { "certs-json",  no_argument,       NULL, certs_json },
+            { "metadata",    no_argument,       NULL, metadata },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -232,6 +237,13 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option certs-json does not use an argument", extended_help_off);
             } else {
                 certs_json_output = true;
+            }
+            break;
+        case metadata:
+            if (optarg) {
+                usage(argv[0], "option metadata does not use an argument", extended_help_off);
+            } else {
+                metadata_output = true;
             }
             break;
         case 'r':

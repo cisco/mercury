@@ -74,7 +74,7 @@ typedef struct keyword_matcher {
 #define match_all_keywords NULL
 
 enum status keyword_matcher_check(const keyword_matcher_t *keywords,
-                                  unsigned char *string,
+                                  const unsigned char *string,
                                   size_t len) {
     keyword_t *k;
     size_t i;

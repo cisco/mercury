@@ -148,13 +148,12 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 
 }
 
+extern bool metadata_output; // defined in mercury.c
+
 int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
                        size_t length,
                        struct timespec *ts) {
-
-    bool metadata = false; // this is just to avoid having to re-create all of the test cases for now
-
     extern unsigned int packet_filter_threshold;
 
     struct packet_filter pf;
@@ -259,13 +258,39 @@ int append_packet_json(struct buffer_stream &buf,
      */
     if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
         struct json_object http{record, "http"};
-        http.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
+        if (metadata_output) {
+            struct http_request request;
+            request.parse(pf.x.transport_data);
+            http.print_key_json_string("method", request.method.data, request.method.length());
+            http.print_key_json_string("uri", request.uri.data, request.uri.length());
+            http.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
+            // http.print_key_json_string("headers", request.headers.data, request.headers.length());
+            // request.headers.print_host(http, "host");
+
+            // construct a list of header names to be printed out,
+            // then run that list against all headers and print the
+            // values corresponding to each of the matching names
+            //
+            uint8_t ua[] = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
+            struct parser user_agent{ua, ua+sizeof(ua)};
+            std::pair<struct parser, std::string> user_agent_name{user_agent, "user_agent"};
+
+            uint8_t h[] = { 'h', 'o', 's', 't', ':', ' ' };
+            struct parser host{h, h+sizeof(h)};
+            std::pair<struct parser, std::string> host_name{host, "host"};
+
+            std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name};
+            request.headers.print_matching_names(http, names_to_print);
+
+        } else {
+            http.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
+        }
         http.close();
     }
     if (pf.x.packet_data.type == packet_data_type_tls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
             struct json_object tls{record, "tls"};
-            if (metadata) {
+            if (metadata_output) {
                 struct tls_client_hello hello;
                 hello.parse(pf.x.transport_data);
                 tls.print_key_hex("version", hello.protocol_version);
@@ -284,7 +309,7 @@ int append_packet_json(struct buffer_stream &buf,
     }
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         struct json_object tls{record, "tls"};
-        if (metadata) {
+        if (metadata_output) {
             struct tls_server_hello hello;
             hello.parse(pf.x.transport_data, NULL);
             tls.print_key_hex("server_random", hello.random);
