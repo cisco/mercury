@@ -279,7 +279,15 @@ int append_packet_json(struct buffer_stream &buf,
             struct parser host{h, h+sizeof(h)};
             std::pair<struct parser, std::string> host_name{host, "host"};
 
-            std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name};
+            uint8_t xff[] = { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' };
+            struct parser xff_parser{xff, xff+sizeof(xff)};
+            std::pair<struct parser, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
+
+            uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
+            struct parser v_parser{v, v+sizeof(v)};
+            std::pair<struct parser, std::string> via{v_parser, "via"};
+
+            std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via};
             request.headers.print_matching_names(http, names_to_print);
 
         } else {
