@@ -2574,6 +2574,7 @@ enum status proto_ident_config(const char *config_string) {
     }
     if (protocols["http"] == false) {
         bzero(http_client_mask, sizeof(http_client_mask));
+        bzero(http_client_post_mask, sizeof(http_client_post_mask));
         bzero(http_server_mask, sizeof(http_server_mask));
     }
     if (protocols["ssh"] == false) {
