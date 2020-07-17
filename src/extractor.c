@@ -106,6 +106,14 @@ unsigned char http_client_value[] = {
     0x47, 0x45, 0x54, 0x20, 0x00, 0x00, 0x00, 0x00
 };
 
+unsigned char http_client_post_mask[] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00
+};
+
+unsigned char http_client_post_value[] = {
+    'P', 'O', 'S', 'T', ' ', 0x00, 0x00, 0x00
+};
+
 struct pi_container http_client = {
     DIR_CLIENT,
     HTTP_PORT
@@ -191,6 +199,11 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
     if (u32_compare_masked_data_to_value(tcp_data,
 					 http_client_mask,
 					 http_client_value)) {
+	return &http_client;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+					 http_client_post_mask,
+					 http_client_post_value)) {
 	return &http_client;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
