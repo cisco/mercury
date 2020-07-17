@@ -320,7 +320,9 @@ int append_packet_json(struct buffer_stream &buf,
         if (metadata_output) {
             struct tls_server_hello hello;
             hello.parse(pf.x.transport_data, NULL);
-            tls.print_key_hex("server_random", hello.random);
+            if (hello.random.is_not_empty()) {
+                tls.print_key_hex("server_random", hello.random);
+            }
         }
         struct json_array server_certs{tls, "server_certs"};
         if (!certs_json_output) {
