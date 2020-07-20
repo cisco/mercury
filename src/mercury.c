@@ -428,9 +428,6 @@ int main(int argc, char *argv[]) {
     if (cfg.fingerprint_filename && cfg.write_filename) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
     }
-    if (cfg.num_threads != 1 && cfg.fingerprint_filename == NULL && cfg.write_filename == NULL) {
-        usage(argv[0], "multiple threads [t] requested, but neither fingerprint [f] no write [w] specified on command line", extended_help_off);
-    }
 
     if (cfg.analysis) {
         if (analysis_init() == -1) {
