@@ -1145,6 +1145,8 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
 
     if (sni_data) {
         packet_data_set(&x->packet_data, packet_data_type_tls_sni, sni_length, sni_data);
+    } else {
+        x->packet_data.type = packet_data_type_tls_no_sni;
     }
 
     x->proto_state.state = state_done;
@@ -1650,6 +1652,8 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
                                 packet_data_type_http_user_agent,
                                 ua_len,
                                 user_agent_string);
+            } else {
+                x->packet_data.type = packet_data_type_http_user_agent;
             }
         }
     }

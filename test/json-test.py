@@ -60,9 +60,14 @@ mercury_schema = {
             },
         'http': {'type': 'object',
                  'properties': {
-                     'host':            {'type': 'string'},
-                     'user_agent':      {'type': 'string'},
-                     'x-forwarded-for': {'type': 'string'}
+                     'request': {
+                         'type': 'object',
+                         'properties': {
+                             'host':            {'type': 'string'},
+                             'user_agent':      {'type': 'string'},
+                             'x-forwarded-for': {'type': 'string'}
+                             }
+                         }
                  },
                  "additionalProperties": False
              },
