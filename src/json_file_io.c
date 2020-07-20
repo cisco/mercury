@@ -258,8 +258,8 @@ int append_packet_json(struct buffer_stream &buf,
      */
     if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
         struct json_object http{record, "http"};
+        struct json_object http_request{http, "request"};
         if (metadata_output) {
-            struct json_object http_request{http, "request"};
             struct http_request request;
             request.parse(pf.x.transport_data);
             http_request.print_key_json_string("method", request.method.data, request.method.length());
@@ -290,18 +290,18 @@ int append_packet_json(struct buffer_stream &buf,
 
             std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via};
             request.headers.print_matching_names(http_request, names_to_print);
-            http_request.close();
 
         } else {
-            http.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
+            http_request.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
         }
+        http_request.close();
         http.close();
     }
     if (pf.x.packet_data.type == packet_data_type_tls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
             struct json_object tls{record, "tls"};
+            struct json_object tls_client{tls, "client"};
             if (metadata_output) {
-                struct json_object tls_client{tls, "client"};
                 struct tls_client_hello hello;
                 hello.parse(pf.x.transport_data);
                 tls_client.print_key_hex("version", hello.protocol_version);
@@ -312,10 +312,10 @@ int append_packet_json(struct buffer_stream &buf,
                 //tls.print_key_hex("extensions", hello.extensions);
                 //hello.extensions.print(tls, "extensions");
                 hello.extensions.print_server_name(tls_client, "server_name");
-                tls_client.close();
                     } else {
-                tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
+                tls_client.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
             }
+            tls_client.close();
             tls.close();
         }
     }

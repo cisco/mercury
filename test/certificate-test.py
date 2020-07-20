@@ -44,23 +44,24 @@ def process_json(json_file):
         for line in f:
             a = json.loads(line)
             if 'tls' in a:
-                if 'server_certs' in a['tls']:
-                    cert_list = a['tls']['server_certs']
-                    # compute maximum certificates present in a packet
-                    if max_certs < len(cert_list):
-                        max_certs = len(cert_list)
-                    for c in cert_list:
-                        pem_str = get_PEM_string(c['base64'])
-                        cert_count += 1
-                        cert = get_certificate(pem_str)
-                        if (cert == None):
-                            bad_cert += 1
-                        else:
-                            good_cert += 1
-                            #ofilename = "cert" + str(cert_count) + ".pem"
-                            #with open(ofilename, "w") as ofile:
-                            #    ofile.write(pem_str)
-                            #print("cert_name {}, cert.serial_number {}\n".format(ofilename, cert.serial_number))
+                if 'server' in a['tls']:
+                    if 'certs' in a['tls']['server']:
+                        cert_list = a['tls']['server']['certs']
+                        # compute maximum certificates present in a packet
+                        if max_certs < len(cert_list):
+                            max_certs = len(cert_list)
+                        for c in cert_list:
+                            pem_str = get_PEM_string(c['base64'])
+                            cert_count += 1
+                            cert = get_certificate(pem_str)
+                            if (cert == None):
+                                bad_cert += 1
+                            else:
+                                good_cert += 1
+                                #ofilename = "cert" + str(cert_count) + ".pem"
+                                #with open(ofilename, "w") as ofile:
+                                #    ofile.write(pem_str)
+                                #print("cert_name {}, cert.serial_number {}\n".format(ofilename, cert.serial_number))
 
     return cert_count, good_cert, bad_cert, max_certs
 
