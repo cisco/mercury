@@ -338,8 +338,9 @@ int main(int argc, char *argv[]) {
                 }
                 errno = 0;
                 cfg.num_threads = strtol(optarg, NULL, 10);
-                if (errno) {
-                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                if (cfg.num_threads == 0 || errno) {
+                    printf("error: could not convert argument \"%s\" to a non-negative number\n", optarg);
+                    usage(argv[0], "option t or threads requires a numeric argument", extended_help_off);
                 }
             } else {
                 usage(argv[0], "option t or threads requires a numeric argument", extended_help_off);
