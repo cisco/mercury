@@ -106,6 +106,14 @@ unsigned char http_client_value[] = {
     0x47, 0x45, 0x54, 0x20, 0x00, 0x00, 0x00, 0x00
 };
 
+unsigned char http_client_post_mask[] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00
+};
+
+unsigned char http_client_post_value[] = {
+    'P', 'O', 'S', 'T', ' ', 0x00, 0x00, 0x00
+};
+
 struct pi_container http_client = {
     DIR_CLIENT,
     HTTP_PORT
@@ -194,6 +202,11 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
 	return &http_client;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
+					 http_client_post_mask,
+					 http_client_post_value)) {
+	return &http_client;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
                                          http_server_mask,
                                          http_server_value)) {
         return &http_server;
@@ -246,6 +259,8 @@ void extractor_init(struct extractor *x,
     x->last_capture = NULL;
 
     packet_data_init(&x->packet_data);
+    x->transport_data.data = NULL;
+    x->transport_data.data_end = NULL;
 }
 
 void parser_init(struct parser *p,
@@ -331,7 +346,7 @@ enum status parser_read_and_skip_uint(struct parser *p,
                                       unsigned int num_bytes,
                                       size_t *output) {
 
-    if (p->data + num_bytes <= p->data_end) {
+    if (p->data && p->data + num_bytes <= p->data_end) {
         size_t tmp = 0;
         const unsigned char *c;
 
@@ -2065,6 +2080,8 @@ unsigned int parser_extractor_process_ssh_kex(struct parser *p, struct extractor
 
 
 unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x) {
+
+    x->transport_data = *p;
     const struct pi_container *pi;
     struct pi_container dummy = { 0, 0 };
     pi = proto_identify_tcp(p->data, parser_get_data_length(p));
@@ -2557,6 +2574,7 @@ enum status proto_ident_config(const char *config_string) {
     }
     if (protocols["http"] == false) {
         bzero(http_client_mask, sizeof(http_client_mask));
+        bzero(http_client_post_mask, sizeof(http_client_post_mask));
         bzero(http_server_mask, sizeof(http_server_mask));
     }
     if (protocols["ssh"] == false) {
@@ -2578,4 +2596,460 @@ enum status proto_ident_config(const char *config_string) {
         bzero(wireguard_mask, sizeof(wireguard_mask));
     }
     return status_ok;
+}
+
+
+// new packet metadata catpure
+
+void tls_extensions::print(struct json_object &o, const char *key) const {
+
+    struct parser ext_parser{this->data, this->data_end};
+
+    struct json_array array{o, key};
+
+    while (parser_get_data_length(&ext_parser) > 0) {
+        size_t tmp_len = 0;
+        size_t tmp_type;
+
+        const uint8_t *data = ext_parser.data;
+        if (parser_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+            break;
+        }
+        if (parser_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+            break;
+        }
+        if (parser_skip(&ext_parser, tmp_len) == status_err) {
+            break;
+        }
+
+        struct parser ext{data, ext_parser.data};
+        array.print_hex(ext);
+
+    }
+
+    array.close();
+}
+
+void tls_extensions::print_server_name(struct json_object &o, const char *key) const {
+
+    struct parser ext_parser{this->data, this->data_end};
+
+    while (parser_get_data_length(&ext_parser) > 0) {
+        size_t tmp_len = 0;
+        size_t tmp_type;
+
+        const uint8_t *data = ext_parser.data;
+        if (parser_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+            break;
+        }
+        if (parser_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+            break;
+        }
+        if (parser_skip(&ext_parser, tmp_len) == status_err) {
+            break;
+        }
+
+        if (tmp_type == type_sni) {
+            struct parser ext{data, ext_parser.data};
+            //            tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
+            o.print_key_json_string(key, ext.data + SNI_HDR_LEN, ext.length() - SNI_HDR_LEN);
+        }
+    }
+
+}
+
+void tls_client_hello::parse(struct parser &p) {
+    size_t tmp_len;
+
+    extractor_debug("%s: processing packet\n", __func__);
+
+    /*
+     * verify that we are looking at a TLS ClientHello
+     */
+    if (parser_match(&p,
+                     tls_client_hello_value,
+                     L_ContentType +    L_ProtocolVersion + L_RecordLength + L_HandshakeType,
+                     tls_client_hello_mask) == status_err) {
+        return; /* not a clientHello */
+    }
+
+    /*
+     * skip over initial fields
+     */
+    if (parser_skip(&p, L_HandshakeLength) == status_err) {
+        return;
+    }
+
+    // parse clientHello.ProtocolVersion
+    protocol_version.parse(p, L_ProtocolVersion);
+
+    // parse clientHello.Random
+    random.parse(p, L_Random);
+
+    // parse SessionID
+    if (parser_read_and_skip_uint(&p, L_SessionIDLength, &tmp_len) == status_err) {
+        goto bail;
+    }
+    session_id.parse(p, tmp_len);
+
+    // parse clientHello.Ciphersuites
+    if (parser_read_and_skip_uint(&p, L_CipherSuiteVectorLength, &tmp_len)) {
+        goto bail;
+    }
+    ciphersuite_vector.parse(p, tmp_len);
+    // degrease_octet_string(x->last_capture + 2, tmp_len);
+
+    // parse compression methods
+    if (parser_read_and_skip_uint(&p, L_CompressionMethodsLength, &tmp_len) == status_err) {
+        goto bail;
+    }
+    compression_methods.parse(p, tmp_len);
+
+    // parse extensions vector
+    if (parser_read_and_skip_uint(&p, L_ExtensionsVectorLength, &tmp_len)) {
+        goto bail;
+    }
+    extensions.parse(p, tmp_len);
+
+    return; 
+
+ bail:
+    /*
+     * handle possible packet parsing errors
+     */
+    extractor_debug("%s: warning: TLS clientHello processing did not fully complete\n", __func__);
+    return; // extractor_get_output_length(x);
+
+}
+
+void tls_server_hello::parse(struct parser &p, struct extractor *x) {
+    size_t tmp_len;
+    size_t tmp_type;
+
+    extractor_debug("%s: processing packet with %td bytes\n", __func__, p->data_end - p->data);
+
+    /*
+     * verify that we are looking at a TLS record
+     */
+    if (parser_read_and_skip_uint(&p, L_ContentType, &tmp_type) == status_err) {
+        goto bail;
+    }
+    if (tmp_type != 0x16) {
+        goto bail;    /* not a handshake record */
+    }
+    if (parser_skip(&p, L_ProtocolVersion) == status_err) {
+	    goto bail;
+    }
+    if (parser_read_and_skip_uint(&p, L_RecordLength, &tmp_len) == status_err) {
+      goto bail;
+    }
+    extractor_debug("%s: got a record\n", __func__);
+    struct parser record;
+    parser_init_from_outer_parser(&record, &p, tmp_len);
+
+    if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
+	    goto bail;
+    }
+    if (tmp_type != 0x02) {
+        goto bail;     /* not a serverHello */
+    }
+
+    if (parser_read_and_skip_uint(&record, L_HandshakeLength, &tmp_len) == status_err) {
+	    goto bail;
+    }
+    extractor_debug("%s: got a handshake\n", __func__);
+    struct parser handshake;
+    parser_init_from_outer_parser(&handshake, &record, tmp_len);
+    if (parse_tls_server_hello(handshake, NULL) != status_ok) {
+        goto bail;
+    }
+    parser_pop(&handshake, &record);
+
+    if (parser_get_data_length(&record) > 0) {
+
+        extractor_debug("%s: expecting another handshake structure\n", __func__);
+        size_t tmp_type;
+        if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
+            goto bail;
+        }
+        if (tmp_type != 11) { /* certificate */
+            goto done;
+        }
+        if (parser_skip(&record, L_HandshakeLength) == status_err) {
+            goto done;
+        }
+        if (parser_extractor_process_certificate(&record, x) == status_err) {
+            goto done;
+        }
+    }
+    parser_pop(&record, &p);
+
+    extractor_debug("%s: outermost parser has %td bytes\n", __func__, p->data_end - p->data);
+
+    /* process data as a new record */
+    if (parser_get_data_length(&p) > 0) {
+
+        extractor_debug("%s: expecting another record\n", __func__);
+
+        if (parser_read_and_skip_uint(&p, L_ContentType, &tmp_type) == status_err) {
+            goto done;
+        }
+        if (tmp_type != 0x16) {
+            goto done;    /* not a handshake record */
+        }
+        if (parser_skip(&p, L_ProtocolVersion) == status_err) {
+            goto done;
+        }
+        if (parser_read_and_skip_uint(&p, L_RecordLength, &tmp_len) == status_err) {
+            goto done;
+        }
+        struct parser record;
+        parser_init_from_outer_parser(&record, &p, tmp_len);
+
+        extractor_debug("%s: new record has %td bytes\n", __func__, record.data_end - record.data);
+
+        size_t tmp_type;
+        if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
+            goto done;
+        }
+        if (tmp_type == 11) { /* certificate */
+            if (parser_skip(&record, L_HandshakeLength) == status_err) {
+                goto done;
+            }
+            // TODO: properly parse cert
+            //            if (parser_extractor_process_certificate(&record, x) == status_err) {
+            //    goto done;
+            // }
+        }
+    }
+
+ done:
+
+    return; // extractor_get_output_length(x);
+
+ bail:
+    /*
+     * handle possible packet parsing errors
+     */
+    extractor_debug("%s: warning: TLS serverHello processing did not fully complete\n", __func__);
+    return; // 0;
+
+}
+
+enum status tls_server_hello::parse_tls_server_hello(struct parser &record, struct extractor *x) {
+    size_t tmp_len;
+    size_t tmp_type;
+    unsigned char *ext_len_slot = NULL;
+
+    extractor_debug("%s: processing server_hello with %td bytes\n", __func__, record.data_end - record.data);
+
+    protocol_version.parse(record, L_ProtocolVersion);
+    random.parse(record, L_Random);
+
+    /* skip over SessionID and SessionIDLen */
+    if (parser_read_uint(&record, L_SessionIDLength, &tmp_len) == status_err) {
+	    goto bail;
+    }
+    if (parser_skip(&record, tmp_len + L_SessionIDLength) == status_err) {
+	    goto bail;
+    }
+
+    ciphersuite_vector.parse(record, L_CipherSuite);
+
+    return status_ok;
+
+    /* skip over compression method */
+    if (parser_skip(&record, L_CompressionMethod) == status_err) {
+	    goto bail;
+    }
+
+    /*
+     * reserve slot in output for length of extracted extensions
+     */
+    if (extractor_reserve(x, &ext_len_slot, sizeof(uint16_t))) {
+        goto bail;
+    }
+
+    /*
+     * parse extensions vector (if present)
+     */
+    if (parser_get_data_length(&record) > 0) {
+
+        extractor_debug("%s: parsing extensions vector\n", __func__);
+
+        /*  extensions length */
+        if (parser_read_and_skip_uint(&record, L_ExtensionsVectorLength, &tmp_len)) {
+            goto bail;
+        }
+
+        struct parser ext_parser;
+        parser_init_from_outer_parser(&ext_parser, &record, tmp_len);
+
+        while (parser_get_data_length(&ext_parser) > 0)  {
+
+            if (parser_read_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+                break;
+            }
+            if (parser_extractor_copy(&ext_parser, x, L_ExtensionType) == status_err) {
+                break;
+            }
+            if (parser_read_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+                break;
+            }
+            if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err)  {
+                if (parser_extractor_copy_append(&ext_parser, x, tmp_len + L_ExtensionLength) == status_err)  {
+                    break;
+                }
+            }
+            else {
+                if (parser_skip(&ext_parser, tmp_len + L_ExtensionLength) == status_err) {
+                    break;
+                }
+            }
+        }
+
+        extractor_debug("%s: ext_parser has %td bytes\n", __func__, ext_parser.data_end - ext_parser.data);
+
+        parser_pop(&ext_parser, &record);
+
+        extractor_debug("%s: record has %td bytes\n", __func__, record.data_end - record.data);
+
+    }
+
+    /*
+     * write the length of the extracted extensions (if any) into the reserved slot
+     */
+    encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
+
+    return status_ok;
+
+ bail:
+    return status_err;
+}
+
+void http_request::parse(struct parser &p) {
+    unsigned char crlf[2] = { '\r', '\n' };
+
+    /* process request line */
+    method.parse_up_to_delim(p, ' ');
+    p.skip(1);
+    uri.parse_up_to_delim(p, ' ');
+    p.skip(1);
+    protocol.parse_up_to_delim(p, '\r');
+    p.skip(2);
+
+    headers.data = p.data;
+    while (parser_get_data_length(&p) > 0) {
+        if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+        if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            break;
+        }
+    }
+    headers.data_end = p.data;
+
+    return;
+}
+
+void http_headers::print_host(struct json_object &o, const char *key) const {
+    unsigned char crlf[2] = { '\r', '\n' };
+    unsigned char csp[2] = { ':', ' ' };
+
+    struct parser p{this->data, this->data_end};
+
+    while (parser_get_data_length(&p) > 0) {
+        if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+
+        struct parser keyword{p.data, NULL};
+        if (parser_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
+            return;
+        }
+        keyword.data_end = p.data;
+        bool print_value = false;
+
+        uint8_t h[] = { 'h', 'o', 's', 't', ':', ' ' };
+        struct parser host{h, h+sizeof(h)};
+        if (host.case_insensitive_match(keyword)) {
+            print_value = true;
+        }
+        const uint8_t *value_start = p.data;
+        if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            return;
+        }
+        const uint8_t *value_end = p.data - 2;
+        if (print_value) {
+            o.print_key_json_string(key, value_start, value_end - value_start);
+            break;
+        }
+    }
+}
+
+void http_headers::print_matching_name(struct json_object &o, const char *key, struct parser &name) const {
+    unsigned char crlf[2] = { '\r', '\n' };
+    unsigned char csp[2] = { ':', ' ' };
+
+    struct parser p{this->data, this->data_end};
+
+    while (parser_get_data_length(&p) > 0) {
+        if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+
+        struct parser keyword{p.data, NULL};
+        if (parser_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
+            return;
+        }
+        keyword.data_end = p.data;
+        bool print_value = false;
+
+        if (name.case_insensitive_match(keyword)) {
+            print_value = true;
+        }
+        const uint8_t *value_start = p.data;
+        if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            return;
+        }
+        const uint8_t *value_end = p.data - 2;
+        if (print_value) {
+            o.print_key_json_string(key, value_start, value_end - value_start);
+            break;
+        }
+    }
+}
+
+void http_headers::print_matching_names(struct json_object &o, std::list<std::pair<struct parser, std::string>> &name_list) const {
+    unsigned char crlf[2] = { '\r', '\n' };
+    unsigned char csp[2] = { ':', ' ' };
+
+    struct parser p{this->data, this->data_end};
+
+    while (parser_get_data_length(&p) > 0) {
+        if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+
+        struct parser keyword{p.data, NULL};
+        if (parser_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
+            return;
+        }
+        keyword.data_end = p.data;
+        const char *header_name = NULL;
+
+        for (const auto &name : name_list) {
+            if (name.first.case_insensitive_match(keyword)) {
+                header_name = (const char *)name.second.c_str();
+            }
+        }
+        const uint8_t *value_start = p.data;
+        if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            return;
+        }
+        const uint8_t *value_end = p.data - 2;
+        if (header_name) {
+            o.print_key_json_string(header_name, value_start, value_end - value_start);
+        }
+    }
 }

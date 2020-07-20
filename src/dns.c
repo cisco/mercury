@@ -21,14 +21,6 @@
  *
  * \remarks
  * \verbatim
- * implementation strategy: store and print out DNS responses,
- * including NAME, RCODE, and addresses.  Queries need not be
- * stored/printed, since the responses repeat the "question" before
- * giving the "answer".
- *
- * IPv4 addresses are read from the RR fields that appear in RDATA;
- * they are indicated by RR.TYPE == A (1) and RR.CLASS == IN (1).
- *
  *
  * DNS packet formats (from RFC 1035)
  *
