@@ -24,6 +24,13 @@
 #define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
+inline uint8_t lowercase(uint8_t x) {
+    if (x >= 'A' && x <= 'Z') {
+        return x + ('a' - 'A');
+    }
+    return x;
+}
+
 struct parser {
     const unsigned char *data;          /* data being parsed/copied  */
     const unsigned char *data_end;      /* end of data buffer        */
@@ -38,6 +45,44 @@ struct parser {
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = NULL; }
     ssize_t length() const { return data_end - data; }
+    void parse(struct parser &r, size_t num_bytes) {
+        if (r.length() < (ssize_t)num_bytes) {
+            r.set_null();
+        }
+        data = r.data;
+        data_end = r.data + num_bytes;
+        r.data += num_bytes;
+    }
+    void parse_up_to_delim(struct parser &r, uint8_t delim) {
+        data = r.data;
+        while (r.data <= r.data_end) {
+            if (*r.data == delim) { // found delimeter
+                data_end = r.data;
+                return;
+            }
+            r.data++;
+        }
+    }
+    void skip(size_t length) {
+        data += length;
+        if (data > data_end) {
+            data = data_end;
+        }
+    }
+    bool case_insensitive_match(const struct parser r) const {
+        if (length() != r.length()) {
+            return false;
+        } else {
+            const uint8_t *tmp_l = data;
+            const uint8_t *tmp_r = r.data;
+            while (tmp_l < data_end) {
+                if (*tmp_l++ != lowercase(*tmp_r++)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
     bool operator==(const parser &p) const {
         return (length() == p.length()) && memcmp(data, p.data, length()) == 0;
     }

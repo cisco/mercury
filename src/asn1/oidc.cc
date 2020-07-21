@@ -22,7 +22,7 @@ void oid_print(std::vector<uint32_t> oid, const char *label) {
     }
     bool first = true;
     printf("{");
-    for (const int& i : oid) {
+    for (const uint32_t &i : oid) {
         if (!first) {
             printf(",");
         } else {

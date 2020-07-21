@@ -36,8 +36,15 @@ mercury_schema = {
         },
         'tls': {'type': 'object',
                 'properties': {
-                    'server_name': {'type': 'string'},
-                    'server_certs': {'type': 'array',
+                    'client': {
+                        'type': 'object',
+                        'properties': {
+                            'server_name': {'type': 'string'}
+                        }
+                    },
+                    'server': {
+                        'properties': {
+                            'certs': {'type': 'array',
                                      'items': {
                                          'type': 'object',
                                          'properties': {
@@ -45,15 +52,22 @@ mercury_schema = {
                                              'cert': { ' type': 'object' }
                                          }
                                      }
-                    },
+                            }
+                        }
+                    }
                 },
                 "additionalProperties": False
             },
         'http': {'type': 'object',
                  'properties': {
-                     'host':            {'type': 'string'},
-                     'user_agent':      {'type': 'string'},
-                     'x-forwarded-for': {'type': 'string'}
+                     'request': {
+                         'type': 'object',
+                         'properties': {
+                             'host':            {'type': 'string'},
+                             'user_agent':      {'type': 'string'},
+                             'x-forwarded-for': {'type': 'string'}
+                             }
+                         }
                  },
                  "additionalProperties": False
              },

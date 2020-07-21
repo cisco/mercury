@@ -21,14 +21,6 @@
  *
  * \remarks
  * \verbatim
- * implementation strategy: store and print out DNS responses,
- * including NAME, RCODE, and addresses.  Queries need not be
- * stored/printed, since the responses repeat the "question" before
- * giving the "answer".
- *
- * IPv4 addresses are read from the RR fields that appear in RDATA;
- * they are indicated by RR.TYPE == A (1) and RR.CLASS == IN (1).
- *
  *
  * DNS packet formats (from RFC 1035)
  *
@@ -770,6 +762,7 @@ std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len) {
     struct buffer_stream buf(buffer, sizeof(buffer));
     struct json_object dns{&buf};
     dns_print_packet(dns_pkt, pkt_len, dns);
+    dns.close();
     std::string tmp_str(buffer, buf.length());
     return tmp_str;
 }

@@ -227,6 +227,14 @@ struct json_array {
             b->write_char('\"');
         }
     }
+    void print_hex(const struct parser &value) {
+        write_comma(comma);
+        b->write_char('\"');
+        if (value.data && value.data_end) {
+            b->raw_as_hex(value.data, value.data_end - value.data);
+        }
+        b->write_char('\"');
+    }
 };
 
 inline json_object::json_object(struct json_array &array) : b{array.b} {
