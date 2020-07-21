@@ -253,6 +253,26 @@ int append_packet_json(struct buffer_stream &buf,
         }
     }
 
+    // construct a list of http header names to be printed out
+    //
+    uint8_t ua[] = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
+    struct parser user_agent{ua, ua+sizeof(ua)};
+    std::pair<struct parser, std::string> user_agent_name{user_agent, "user_agent"};
+
+    uint8_t h[] = { 'h', 'o', 's', 't', ':', ' ' };
+    struct parser host{h, h+sizeof(h)};
+    std::pair<struct parser, std::string> host_name{host, "host"};
+
+    uint8_t xff[] = { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' };
+    struct parser xff_parser{xff, xff+sizeof(xff)};
+    std::pair<struct parser, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
+
+    uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
+    struct parser v_parser{v, v+sizeof(v)};
+    std::pair<struct parser, std::string> via{v_parser, "via"};
+
+    std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via};
+
     /*
      * output packet_data (if any)
      */
@@ -268,27 +288,10 @@ int append_packet_json(struct buffer_stream &buf,
             // http.print_key_json_string("headers", request.headers.data, request.headers.length());
             // request.headers.print_host(http, "host");
 
-            // construct a list of header names to be printed out,
-            // then run that list against all headers and print the
-            // values corresponding to each of the matching names
+            // run the list of http headers to be printed out against
+            // all headers, and print the values corresponding to each
+            // of the matching names
             //
-            uint8_t ua[] = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
-            struct parser user_agent{ua, ua+sizeof(ua)};
-            std::pair<struct parser, std::string> user_agent_name{user_agent, "user_agent"};
-
-            uint8_t h[] = { 'h', 'o', 's', 't', ':', ' ' };
-            struct parser host{h, h+sizeof(h)};
-            std::pair<struct parser, std::string> host_name{host, "host"};
-
-            uint8_t xff[] = { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' };
-            struct parser xff_parser{xff, xff+sizeof(xff)};
-            std::pair<struct parser, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
-
-            uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
-            struct parser v_parser{v, v+sizeof(v)};
-            std::pair<struct parser, std::string> via{v_parser, "via"};
-
-            std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via};
             request.headers.print_matching_names(http_request, names_to_print);
 
         } else {
@@ -296,6 +299,27 @@ int append_packet_json(struct buffer_stream &buf,
         }
         http_request.close();
         http.close();
+    }
+    if (pf.x.packet_data.type == packet_data_type_http_no_user_agent) {
+        if (metadata_output) {
+            struct json_object http{record, "http"};
+            struct json_object http_request{http, "request"};
+            struct http_request request;
+            request.parse(pf.x.transport_data);
+            http_request.print_key_json_string("method", request.method.data, request.method.length());
+            http_request.print_key_json_string("uri", request.uri.data, request.uri.length());
+            http_request.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
+            // http.print_key_json_string("headers", request.headers.data, request.headers.length());
+            // request.headers.print_host(http, "host");
+
+            // run the list of http headers to be printed out against
+            // all headers, and print the values corresponding to each
+            // of the matching names
+            //
+            request.headers.print_matching_names(http_request, names_to_print);
+            http_request.close();
+            http.close();
+        }
     }
     if (pf.x.packet_data.type == packet_data_type_tls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
@@ -315,6 +339,24 @@ int append_packet_json(struct buffer_stream &buf,
                     } else {
                 tls_client.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
             }
+            tls_client.close();
+            tls.close();
+        }
+    }
+    if (pf.x.packet_data.type == packet_data_type_tls_no_sni) {
+        if (metadata_output) {
+            struct json_object tls{record, "tls"};
+            struct json_object tls_client{tls, "client"};
+            struct tls_client_hello hello;
+            hello.parse(pf.x.transport_data);
+            tls_client.print_key_hex("version", hello.protocol_version);
+            tls_client.print_key_hex("random", hello.random);
+            tls_client.print_key_hex("session_id", hello.session_id);
+            tls_client.print_key_hex("cipher_suites", hello.ciphersuite_vector);
+            tls_client.print_key_hex("compression_methods", hello.compression_methods);
+            //tls.print_key_hex("extensions", hello.extensions);
+            //hello.extensions.print(tls, "extensions");
+            hello.extensions.print_server_name(tls_client, "server_name");
             tls_client.close();
             tls.close();
         }
