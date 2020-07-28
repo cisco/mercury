@@ -123,6 +123,7 @@ void write_flow_key(struct buffer_stream &buf, const struct key &k) {
  */
 extern bool dns_json_output;    /* output DNS as JSON              */
 extern bool certs_json_output;  /* output certificates as JSON     */
+extern bool do_analysis;        /* write analysis{} JSON object    */
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
@@ -404,10 +405,11 @@ int append_packet_json(struct buffer_stream &buf,
     /*
      * output flow key, analysis (if it's configured), and the timestamp
      */
-    struct flow_key key = flow_key_init();
-    flow_key_set_from_packet(&key, packet, length);
-
-    write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
+    if (do_analysis) {
+        struct flow_key key = flow_key_init();
+        flow_key_set_from_packet(&key, packet, length);
+        write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
+    }
 
     write_flow_key(record, k);
 

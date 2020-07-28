@@ -14,9 +14,7 @@
 #include "addr.h"
 #include "buffer_stream.h"
 
-enum analysis_cfg { analysis_off = 0, analysis_on = 1 };
-
-int analysis_init();
+int analysis_init(int verbosity);
 
 int analysis_finalize();
 

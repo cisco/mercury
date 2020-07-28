@@ -45,8 +45,8 @@ struct mercury_config {
     char *fingerprint_filename;     /* base name of fingerprint file to write, if any */
     char *capture_interface;        /* base name of interface to capture from, if any */
     char *working_dir;              /* working directory                              */
-    int filter;                     /* indicates that packets should be filtered      */
-    int analysis;                   /* indicates that fingerprints should be analyzed */
+    bool filter;                    /* indicates that packets should be filtered      */
+    bool analysis;                  /* indicates that fingerprints should be analyzed */
     int flags;                      /* flags for open()                               */
     char *mode;                     /* mode for fopen()                               */
     int fanout_group;               /* identifies fanout group used by sockets        */
@@ -61,7 +61,7 @@ struct mercury_config {
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
 };
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, 0, 0, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0 }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, false, false, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0 }
 
 
 #endif /* MERCURY_H */

@@ -41,10 +41,8 @@ std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,
                                                           {9000,"tor"},    {9001,"tor"},     {9002,"tor"},
                                                           {9101,"tor"}};
 
-enum analysis_cfg analysis_cfg = analysis_off;
 bool MALWARE_DB = true;
 bool EXTENDED_FP_METADATA = true;
-
 
 
 int gzgetline(gzFile f, std::vector<char>& v) {
@@ -73,6 +71,9 @@ int database_init(const char *resource_file) {
     rapidjson::Document::AllocatorType& allocator = fp_db.GetAllocator();
 
     gzFile in_file = gzopen(resource_file, "r");
+    if (in_file == NULL) {
+        return -1;
+    }
     std::vector<char> line;
     while (gzgetline(in_file, line)) {
         std::string line_str(line.begin(), line.end());
@@ -116,8 +117,7 @@ void cache_finalize() {
 #define DEFAULT_RESOURCE_DIR "/usr/local/var/mercury"
 #endif
 
-int analysis_init() {
-    analysis_cfg = analysis_on;
+int analysis_init(int verbosity) {
 
 //    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
 //       printf("\n mutex init has failed\n");
@@ -145,18 +145,21 @@ int analysis_init() {
             strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
             retcode = database_init(resource_file_name);
             if (retcode == 0) {
+                if (verbosity > 0) {
+                    fprintf(stderr, "initialized analysis module with resource directory %s\n", resource_dir_list[index]);
+                }
                 return 0;
             }
         }
 
         index++;  /* try next directory in the list */
     }
+    fprintf(stderr, "warning: could not initialize analysis module\n");
     return -1;
 }
 
 
 int analysis_finalize() {
-    analysis_cfg = analysis_off;
 
     addr_finalize();
     database_finalize();
@@ -232,10 +235,18 @@ std::string get_domain_name(char* server_name) {
     return out_domain;
 }
 
+// #include <iostream> // for debugging
+// #include "rapidjson/writer.h"
+// print out fp_db for debugging
+// rapidjson::StringBuffer buffer;
+// rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+// fp_db.Accept(writer);
+// std::cerr << buffer.GetString() << std::endl;
 
 int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
     rapidjson::Value::ConstMemberIterator matcher = fp_db.FindMember(fp_str);
     if (matcher == fp_db.MemberEnd()) {
+
         return -1;
     }
     rapidjson::Value& fp = fp_db[fp_str];
@@ -379,10 +390,6 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
 						  const struct flow_key *key) {
     char* results;
 
-    if (analysis_cfg == analysis_off) {
-        return; // do not perform any analysis
-    }
-
     if (x->fingerprint_type == fingerprint_type_tls) {
         int ret_value;
         char dst_ip[MAX_DST_ADDR_LEN];
@@ -444,10 +451,6 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
                                                 const struct extractor *x,
                                                 const struct flow_key *key) {
     char* results;
-
-    if (analysis_cfg == analysis_off) {
-        return; // do not perform any analysis
-    }
 
     if (x->fingerprint_type == fingerprint_type_tls) {
 

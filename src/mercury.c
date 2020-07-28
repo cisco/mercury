@@ -176,6 +176,7 @@ bool option_is_valid(const char *opt) {
 bool dns_json_output   = false;  /* output DNS as JSON              */
 bool certs_json_output = false;  /* output certificates as JSON     */
 bool metadata_output   = false;  /* output lots of metadata         */
+bool do_analysis       = false;  /* write analysys{} JSON object    */
 
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
@@ -285,7 +286,7 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 usage(argv[0], "option a or analysis does not use an argument", extended_help_off);
             } else {
-                cfg.analysis = analysis_on;
+                cfg.analysis = true;
             }
             break;
         case 'o':
@@ -431,9 +432,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (cfg.analysis) {
-        if (analysis_init() == -1) {
+        if (analysis_init(cfg.verbosity) == -1) {
             return EXIT_FAILURE;  /* analysis engine could not be initialized */
         };
+        do_analysis = true;
     }
 
     /*

@@ -24,7 +24,7 @@ char *command_get_argument(const char *command, char *line) {
     return NULL;
 }
 
-enum status argument_parse_as_boolean(const char *arg, int *variable_to_set) {
+enum status argument_parse_as_boolean(const char *arg, bool *variable_to_set) {
     if (arg[0] == '1') {
         *variable_to_set = 1;
         return status_ok;
