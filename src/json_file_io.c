@@ -124,6 +124,7 @@ void write_flow_key(struct buffer_stream &buf, const struct key &k) {
 extern bool dns_json_output;    /* output DNS as JSON              */
 extern bool certs_json_output;  /* output certificates as JSON     */
 extern bool do_analysis;        /* write analysis{} JSON object    */
+extern bool metadata_output;    /* output rich metadata            */
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
@@ -148,8 +149,6 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     o.print_key_uint16("dst_port", k.dst_port);
 
 }
-
-extern bool metadata_output; // defined in mercury.c
 
 int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
