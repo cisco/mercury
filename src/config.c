@@ -12,13 +12,6 @@
 #include <thread>
 #include "config.h"
 
-/*
- * global configuration variables, defined in mercury.c
- */
-extern bool dns_json_output;    /* output DNS as JSON              */
-extern bool certs_json_output;  /* output certificates as JSON     */
-extern bool metadata_output;    /* output rich metadata            */
-
 char *command_get_argument(const char *command, char *line) {
     if (strncmp(command, line, strlen(command)-1) == 0) {
         char *arg = line + strlen(command);
@@ -130,15 +123,15 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg, char *l
         return status_ok;
 
     } else if ((arg = command_get_argument("dns-json", line)) != NULL) {
-        dns_json_output = true;
+        global_vars.dns_json_output = true;
         return status_ok;
 
     } else if ((arg = command_get_argument("certs-json", line)) != NULL) {
-        certs_json_output = true;
+        global_vars.certs_json_output = true;
         return status_ok;
 
     } else if ((arg = command_get_argument("metadata", line)) != NULL) {
-        metadata_output = true;
+        global_vars.metadata_output = true;
         return status_ok;
 
     } else {

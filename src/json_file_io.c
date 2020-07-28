@@ -118,14 +118,6 @@ void write_flow_key(struct buffer_stream &buf, const struct key &k) {
 
 }
 
-/*
- * global configuration variables, defined in mercury.c
- */
-extern bool dns_json_output;    /* output DNS as JSON              */
-extern bool certs_json_output;  /* output certificates as JSON     */
-extern bool do_analysis;        /* write analysis{} JSON object    */
-extern bool metadata_output;    /* output rich metadata            */
-
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
         const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
@@ -279,7 +271,7 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
         struct json_object http{record, "http"};
         struct json_object http_request{http, "request"};
-        if (metadata_output) {
+        if (global_vars.metadata_output) {
             struct http_request request;
             request.parse(pf.x.transport_data);
             http_request.print_key_json_string("method", request.method.data, request.method.length());
@@ -301,7 +293,7 @@ int append_packet_json(struct buffer_stream &buf,
         http.close();
     }
     if (pf.x.packet_data.type == packet_data_type_http_no_user_agent) {
-        if (metadata_output) {
+        if (global_vars.metadata_output) {
             struct json_object http{record, "http"};
             struct json_object http_request{http, "request"};
             struct http_request request;
@@ -325,7 +317,7 @@ int append_packet_json(struct buffer_stream &buf,
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
             struct json_object tls{record, "tls"};
             struct json_object tls_client{tls, "client"};
-            if (metadata_output) {
+            if (global_vars.metadata_output) {
                 struct tls_client_hello hello;
                 hello.parse(pf.x.transport_data);
                 tls_client.print_key_hex("version", hello.protocol_version);
@@ -344,7 +336,7 @@ int append_packet_json(struct buffer_stream &buf,
         }
     }
     if (pf.x.packet_data.type == packet_data_type_tls_no_sni) {
-        if (metadata_output) {
+        if (global_vars.metadata_output) {
             struct json_object tls{record, "tls"};
             struct json_object tls_client{tls, "client"};
             struct tls_client_hello hello;
@@ -364,7 +356,7 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         struct json_object tls{record, "tls"};
         struct json_object tls_server{tls, "server"};
-        if (metadata_output) {
+        if (global_vars.metadata_output) {
             struct tls_server_hello hello;
             hello.parse(pf.x.transport_data, NULL);
             if (hello.random.is_not_empty()) {
@@ -372,7 +364,7 @@ int append_packet_json(struct buffer_stream &buf,
             }
         }
         struct json_array server_certs{tls_server, "certs"};
-        if (!certs_json_output) {
+        if (!global_vars.certs_json_output) {
             write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
         } else {
             write_extract_cert_full(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
@@ -390,7 +382,7 @@ int append_packet_json(struct buffer_stream &buf,
     }
     if (pf.x.packet_data.type == packet_data_type_dns_server) {
         struct json_object dns{record, "dns"};
-        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, dns, !dns_json_output);
+        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, dns, !global_vars.dns_json_output);
         dns.close();
     }
     if (pf.x.packet_data.type == packet_data_type_wireguard && pf.x.packet_data.length == sizeof(uint32_t)) {
@@ -404,7 +396,7 @@ int append_packet_json(struct buffer_stream &buf,
     /*
      * output flow key, analysis (if it's configured), and the timestamp
      */
-    if (do_analysis) {
+    if (global_vars.do_analysis) {
         struct flow_key key = flow_key_init();
         flow_key_set_from_packet(&key, packet, length);
         write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
