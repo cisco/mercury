@@ -12,6 +12,8 @@
 #include <thread>
 #include "config.h"
 
+struct global_variables global_vars;
+
 char *command_get_argument(const char *command, char *line) {
     if (strncmp(command, line, strlen(command)-1) == 0) {
         char *arg = line + strlen(command);

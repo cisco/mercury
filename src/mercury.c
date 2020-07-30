@@ -173,6 +173,8 @@ bool option_is_valid(const char *opt) {
     return true;
 }
 
+extern struct global_variables global_vars;  /* defined in config.c */
+
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
 

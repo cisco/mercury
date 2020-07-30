@@ -20,6 +20,8 @@
 #include "buffer_stream.h"
 #include "dns.h"
 
+extern struct global_variables global_vars; /* defined in config.c */
+
 #define json_file_needs_rotation(jf) (--((jf)->record_countdown) == 0)
 #define SNI_HDR_LEN 9
 #define FP_BUF_LEN 2048
@@ -358,7 +360,7 @@ int append_packet_json(struct buffer_stream &buf,
         struct json_object tls_server{tls, "server"};
         if (global_vars.metadata_output) {
             struct tls_server_hello hello;
-            hello.parse(pf.x.transport_data, NULL);
+            hello.parse(pf.x.transport_data);
             if (hello.random.is_not_empty()) {
                 tls_server.print_key_hex("random", hello.random);
             }

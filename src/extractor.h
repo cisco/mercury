@@ -466,9 +466,9 @@ struct tls_server_hello {
 
     tls_server_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, extensions{NULL, NULL} {}
 
-    void parse(struct parser &p, struct extractor *x);
+    void parse(struct parser &p);
 
-    enum status parse_tls_server_hello(struct parser &p, struct extractor *x);
+    enum status parse_tls_server_hello(struct parser &p);
 };
 
 struct http_headers : public parser {
