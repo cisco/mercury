@@ -330,6 +330,7 @@ int append_packet_json(struct buffer_stream &buf,
                 //tls.print_key_hex("extensions", hello.extensions);
                 //hello.extensions.print(tls, "extensions");
                 hello.extensions.print_server_name(tls_client, "server_name");
+                hello.extensions.print_session_ticket(tls_client, "session_ticket");
                     } else {
                 tls_client.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
             }

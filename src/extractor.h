@@ -442,6 +442,8 @@ struct tls_extensions : public parser {
     void print(struct json_object &o, const char *key) const;
 
     void print_server_name(struct json_object &o, const char *key) const;
+
+    void print_session_ticket(struct json_object &o, const char *key) const;
 };
 
 
