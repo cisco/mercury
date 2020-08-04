@@ -1084,6 +1084,68 @@ struct rsa_public_key {
 };
 
 /*
+  From RFC 3279:
+
+   The Digital Signature Algorithm (DSA) is defined in the Digital
+   Signature Standard (DSS) [FIPS 186].  The DSA OID supported by this
+   profile is:
+
+      id-dsa OBJECT IDENTIFIER ::= {
+           iso(1) member-body(2) us(840) x9-57(10040) x9cm(4) 1 }
+
+   The id-dsa algorithm syntax includes optional domain parameters.
+   These parameters are commonly referred to as p, q, and g.  When
+   omitted, the parameters component MUST be omitted entirely.  That is,
+   the AlgorithmIdentifier MUST be a SEQUENCE of one component: the
+   OBJECT IDENTIFIER id-dsa.
+
+   If the DSA domain parameters are present in the subjectPublicKeyInfo
+   AlgorithmIdentifier, the parameters are included using the following
+   ASN.1 structure:
+
+      Dss-Parms  ::=  SEQUENCE  {
+          p             INTEGER,
+          q             INTEGER,
+          g             INTEGER  }
+
+   The DSA public key MUST be ASN.1 DER encoded as an INTEGER; this
+   encoding shall be used as the contents (i.e., the value) of the
+   subjectPublicKey component (a BIT STRING) of the SubjectPublicKeyInfo
+   data element.
+
+      DSAPublicKey ::= INTEGER -- public key, Y
+
+ */
+
+struct dsa_parameters {
+    //    struct tlv sequence;
+    struct tlv pp;
+    struct tlv qq;
+    struct tlv gg;
+
+    dsa_parameters(struct parser *p) : pp{}, qq{}, gg{} {
+        parse(p);
+    }
+
+    void parse(struct parser *p) {
+        //        sequence.parse(p, tlv::SEQUENCE);
+        pp.parse(p, tlv::INTEGER);
+        qq.parse(p, tlv::INTEGER);
+        gg.parse(p, tlv::INTEGER);
+    }
+
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object dsa_params{o, name};
+        dsa_params.print_key_hex("p", pp.value);
+        dsa_params.print_key_hex("q", qq.value);
+        dsa_params.print_key_hex("g", gg.value);
+        dsa_params.close();
+    }
+};
+
+
+
+/*
    From RFC 5480:
 
    The subjectPublicKey from SubjectPublicKeyInfo is the ECC public key.
@@ -1230,9 +1292,21 @@ struct algorithm_identifier {
             json_object_asn1 alg_id(o, name);
             algorithm.print_as_json_oid(alg_id, "algorithm");
             if (parameters.is_not_null()) {
+
                 if (parameters.tag == tlv::OBJECT_IDENTIFIER) {
+                    // ECC parameters typically consist of OIDs
                     parameters.print_as_json_oid(alg_id, "parameters");
+
+                } else if (parameters.tag == tlv::SEQUENCE) {
+                    if (parser_get_oid_enum(&algorithm.value) == oid::id_dsa) {
+                        // DSA parameters consist of a SEQUENCE of three integers
+                        struct tlv tmp = parameters;
+                        struct dsa_parameters dsa(&tmp.value);
+                        dsa.print_as_json(o, "dsa_parameters");
+                    }
+
                 } else {
+                    // if anything else shows up here, print it as a hex string
                     parameters.print_as_json_hex(alg_id, "parameters");
                 }
             }
@@ -1266,15 +1340,22 @@ struct subject_public_key_info {
     struct tlv sequence;
     struct algorithm_identifier algorithm;
     struct tlv subject_public_key;
+    bool complete;
 
     subject_public_key_info() : sequence{}, algorithm{}, subject_public_key{} {}
-    explicit subject_public_key_info(struct parser *p) : sequence{}, algorithm{}, subject_public_key{} {
+    explicit subject_public_key_info(struct parser *p) : sequence{}, algorithm{}, subject_public_key{}, complete{false} {
         parse(p);
     }
     void parse(struct parser *p) {
         sequence.parse(p);
+        if (sequence.is_complete()) {
+            complete = true;
+        }
         algorithm.parse(&sequence.value);
         subject_public_key.parse(&sequence.value, tlv::BIT_STRING);
+        if (!subject_public_key.is_complete()) {
+            complete = false;
+        }
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
@@ -1473,7 +1554,9 @@ struct x509_cert {
 
         // tbs_certificate should be out of data now
         if (tbs_certificate.value.is_not_empty()) {
-            fprintf(stderr, "warning: tbs_certificate has trailing data\n");
+            // TBD: we should probably report this data, but not sure how
+
+            // fprintf(stderr, "warning: tbs_certificate has trailing data\n");
             struct parser tmp = tbs_certificate.value;
             struct tlv tmp_tlv(&tmp, 0, "tbs_certificate trailing data");
             //            tmp_tlv.fprint_tlv(stderr, "tbs_certificate trailing data");
@@ -1541,7 +1624,7 @@ struct x509_cert {
         if (!signature_algorithm.sequence.is_null()) {
             signature_algorithm.print_as_json(o, "signature_algorithm");
         }
-        if (!signature.is_null()) {
+        if (!signature.value.is_not_readable()) {
 
             enum oid alg_oid = signature_algorithm.type();
             if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
@@ -1583,7 +1666,7 @@ struct x509_cert {
     }
 
     bool subject_key_is_weak() const {
-        if (subjectPublicKeyInfo.algorithm.algorithm.is_null()) {  // TBD: is_not_truncated() would be better
+        if (subjectPublicKeyInfo.complete == false) {
             return false;  // missing data
         }
 
@@ -1608,6 +1691,10 @@ struct x509_cert {
             if (strong_ec_parameters.find(parameters) == strong_ec_parameters.end()) {
                 return true;
             }
+        } else if (alg_type == id_dsa) {
+            if (subjectPublicKeyInfo.subject_public_key.value.bits_in_data() < 2048) {
+                return true;
+            }
         } else if (alg_type == id_Ed25519) {
             ;
         } else if (alg_type == id_Ed448) {
@@ -1619,40 +1706,87 @@ struct x509_cert {
     }
 
     bool signature_is_weak(bool unsigned_is_weak=false) const {
-        unsigned int threshold = 16;  // number of leading zero bits accepted
 
-        std::unordered_map<unsigned int, unsigned int> strong_sig_algs{
-            // { "rsaEncryption", 2048 },
-            { oid::sha256WithRSAEncryption, 2048 },
-            { oid::sha384WithRSAEncryption, 2048 },
-            { oid::sha512WithRSAEncryption, 2048 },
-            { oid::ecdsa_with_SHA256, 256 },
-            { oid::ecdsa_with_SHA1, 256 }
-        };
+        if (signature_algorithm.parameters.is_truncated()) {
+            fprintf(stdout, "truncated signature_algorithm\n");
+            return false;   // missing data
+        }
 
-        enum oid sig_alg_type = signature_algorithm.type();
-        if (sig_alg_type == unknown) {
-            if (!unsigned_is_weak) {
-                return false;
+        if (!signature.is_null()) {
+            std::unordered_map<unsigned int, unsigned int> strong_ecdsa_algs{
+                { oid::ecdsa_with_SHA256, 256 },
+                { oid::ecdsa_with_SHA1, 256 }
+            };
+
+            enum oid alg_oid = signature_algorithm.type();
+            std::unordered_map<unsigned int, unsigned int>::const_iterator ecdsa_alg = strong_ecdsa_algs.find(alg_oid);
+            if (ecdsa_alg != strong_ecdsa_algs.end()) {
+
+                struct tlv tmp_sig = signature;
+                tmp_sig.remove_bitstring_encoding();
+                if (tmp_sig.is_truncated()){
+                    return false;  // missing data
+                }
+                if (tmp_sig.value.is_not_readable()){
+                    return false;  // missing data
+                }
+                struct ecdsa_signature sig{&tmp_sig.value};
+                if (sig.sequence.is_truncated()) {
+                    return false;  // missing data
+                }
+                if (sig.bits_in_signature() != ecdsa_alg->second) {
+                    return true;
+                }
+
             }
-        } else {
-            std::unordered_map<unsigned int, unsigned int>::const_iterator a = strong_sig_algs.find(sig_alg_type);
-            if (a != strong_sig_algs.end()) {
-                if (bits_in_signature() + threshold >= a->second) {
-                    return false;
+
+            std::unordered_map<unsigned int, unsigned int> strong_rsa_algs{
+                // { "rsaEncryption", 2048 },
+                { oid::sha256WithRSAEncryption, 2048 },
+                { oid::sha384WithRSAEncryption, 2048 },
+                { oid::sha512WithRSAEncryption, 2048 },
+            };
+            unsigned int rsa_threshold = 32;
+
+            std::unordered_map<unsigned int, unsigned int>::const_iterator rsa_alg = strong_rsa_algs.find(alg_oid);
+            if (rsa_alg != strong_rsa_algs.end()) {
+                if (signature.is_null()) {
+                    return false;  // missing data
+                }
+                struct tlv tmp_sig = signature;        // to avoid modifying signature
+                if (tmp_sig.is_truncated()){
+                    return false;  // missing data
+                }
+                if (tmp_sig.value.is_not_readable()){
+                    return false;  // missing data
+                }
+                tmp_sig.remove_bitstring_encoding();
+                if (tmp_sig.value.bits_in_data() + rsa_threshold < rsa_alg->second) {
+                    return true;
                 }
             }
+            return false;
         }
-        return true;
+        if (unsigned_is_weak) {
+            return true;
+        }
+        return false;
+
     }
 
     bool is_nonconformant() const {
         if (signature_algorithm.algorithm.is_null() || signature_identifier.algorithm.is_null()) {
             return false;  // missing data
         }
+        if (signature_algorithm.algorithm.is_truncated() || signature_identifier.algorithm.is_truncated()) {
+            return false;  // missing data
+        }
         enum oid sig_alg_type = signature_algorithm.type();
         enum oid tbs_sig_alg_type = signature_identifier.type();
         if (sig_alg_type != tbs_sig_alg_type) {
+            if (sig_alg_type == oid::unknown) {
+                return false;  // assume missing data (TBD: ?)
+            }
             return true;
         }
         return false;

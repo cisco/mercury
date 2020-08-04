@@ -765,6 +765,12 @@ struct tlv {
     bool is_null() const {
         return (value.data == NULL);
     }
+    bool is_truncated() const {
+        return value.data != NULL && value.length() != (ssize_t) length;
+    }
+    bool is_complete() const {
+        return value.data != NULL && value.length() == (ssize_t) length;
+    }
     uint8_t get_little_tag() const { return tag & 0x1f; }
     tlv() {
         // initialize to null/zero
