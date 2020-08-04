@@ -1259,7 +1259,7 @@ void write_extract_cert_full(struct json_array &a, const unsigned char *data, si
         struct json_object_asn1 cert{o, "cert"};
         struct x509_cert c;
         c.parse(cert_list.data, tmp_len);
-        c.print_as_json(cert, {});
+        c.print_as_json(cert, {}, NULL);
         cert.close();
         o.close();
 
