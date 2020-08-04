@@ -353,6 +353,7 @@ void usage(const char *progname) {
         "   --log-malformed <outfile> write malformed certs to <outfile> in DER format\n"
         "   --filter <spec>  output only certificates matching <spec>:\n"
         "            weak\n"
+        "   --key-group      identify duplicate keys with key_group number\n"
         "   --trunc-test     parse every possible truncation of certificates\n"
         "OTHER\n"
         "   --trust <roots>  trust certificates in <roots>\n"
@@ -372,6 +373,7 @@ int main(int argc, char *argv[]) {
     bool input_is_pem = false;
     bool input_is_json = false;
     bool input_is_der = false;
+    bool key_group = false;
     bool trunc_test = false;
     //const char *outfile = NULL;
 
@@ -388,6 +390,7 @@ int main(int argc, char *argv[]) {
              case_der,
              case_filter,
              case_log_malformed,
+             case_key_group,
              case_trunc_test,
              case_trust,
              case_help,
@@ -401,6 +404,7 @@ int main(int argc, char *argv[]) {
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"filter",         required_argument, NULL,  case_filter        },
              {"log-malformed",  required_argument, NULL,  case_log_malformed },
+             {"key-group",      no_argument,       NULL,  case_key_group     },
              {"trunc-test",     no_argument,       NULL,  case_trunc_test    },
              {"trust",          required_argument, NULL,  case_trust         },
              {"help",           no_argument,       NULL,  case_help          },
@@ -471,6 +475,13 @@ int main(int argc, char *argv[]) {
             }
             logfile = optarg;
             break;
+        case case_key_group:
+            if (optarg) {
+                fprintf(stderr, "error: option 'key-group' does not accept an argument\n");
+                usage(argv[0]);
+            }
+            key_group = true;
+            break;
         case case_trunc_test:
             if (optarg) {
                 fprintf(stderr, "error: option 'trunc-test' does not accept an argument\n");
@@ -524,6 +535,12 @@ int main(int argc, char *argv[]) {
         reader = new base64_file_reader(infile);
     }
 
+    static struct dictionary *kg = NULL;
+    static struct dictionary key_group_dict;
+    if (key_group) {
+        kg = &key_group_dict;
+    }
+
     std::list<struct x509_cert> trusted_certs;
     uint8_t trusted_cert_buf[256 * 1024];
     uint8_t *cb = trusted_cert_buf;
@@ -571,7 +588,7 @@ int main(int argc, char *argv[]) {
                         buf = { buffer, sizeof(buffer) };
                         struct x509_cert cc;
                         cc.parse(cert_buf, trunc_len);
-                        cc.print_as_json(buf, trusted_certs);
+                        cc.print_as_json(buf, trusted_certs, kg);
                         buf.write_line(stdout);
                     }
 
@@ -585,7 +602,7 @@ int main(int argc, char *argv[]) {
                         || c.is_nonconformant()
                         || c.is_self_issued()
                         || !c.is_trusted(trusted_certs)) {
-                        c.print_as_json(buf, trusted_certs);
+                        c.print_as_json(buf, trusted_certs, kg);
                         buf.write_line(stdout);
                     }
 

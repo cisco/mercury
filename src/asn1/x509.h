@@ -15,6 +15,7 @@
 #include "../mercury.h"
 #include "../parser.h"
 #include "asn1.h"
+#include "dict.h"
 
 /*
    Name ::= CHOICE { -- only one possibility for now --
@@ -1570,22 +1571,22 @@ struct x509_cert {
     std::string get_json_string() const {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        print_as_json(buf, {});
+        print_as_json(buf, {}, NULL);
         std::string tmp_str(buffer, buf.length()); // TBD: move?
         return tmp_str;
     }
     void print_as_json(FILE *f) const {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        print_as_json(buf, {});
+        print_as_json(buf, {}, NULL);
         buf.write_line(f);
     }
-    void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs) const {
+    void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group) const {
         struct json_object_asn1 o{&buf};
-        print_as_json(o, trusted_certs);
+        print_as_json(o, trusted_certs, key_group);
         o.close();
     }
-    void print_as_json(struct json_object_asn1 &o, const std::list<struct x509_cert> &trusted_certs) const {
+    void print_as_json(struct json_object_asn1 &o, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group) const {
 
         if (!version.is_null()) {
             version.print_as_json_hex(o, "version");
@@ -1641,6 +1642,7 @@ struct x509_cert {
             }
         }
         report_violations(o, trusted_certs);
+        report_key_group(o, key_group);
     }
 
     unsigned int bits_in_signature() const {
@@ -1814,6 +1816,14 @@ struct x509_cert {
             }
         }
         return false;
+    }
+
+    void report_key_group(struct json_object_asn1 &o, struct dictionary *d) const {
+        if (d) {
+            std::basic_string<uint8_t> s = subjectPublicKeyInfo.subject_public_key.value.get_bytestring();
+            unsigned int g = d->get(s);
+            o.print_key_uint("key_group", g);
+        }
     }
 
     void report_violations(struct json_object_asn1 &o,
