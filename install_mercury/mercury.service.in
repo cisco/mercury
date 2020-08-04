@@ -9,6 +9,7 @@ WorkingDirectory=@prefix@/var/mercury/
 ExecStart=@prefix@/bin/mercury --config /etc/mercury/mercury.cfg
 StandardOutput=file:/var/log/mercury.log
 StandardError=file:/var/log/mercury.log
+Restart=always
 
 [Install]
 WantedBy=multi-user.target

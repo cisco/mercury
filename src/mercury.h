@@ -80,6 +80,4 @@ struct global_variables {
     bool do_analysis;       /* write analysys{} JSON object    */
 };
 
-static struct global_variables global_vars;
-
 #endif /* MERCURY_H */
