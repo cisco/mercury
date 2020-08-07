@@ -423,6 +423,28 @@ ptrdiff_t parser_get_data_length(struct parser *p);
 
 // new packet metadata catpure
 
+struct tls_security_assessment {
+    bool weak_version_offered;
+    bool weak_ciphersuite_offered;
+    bool weak_elliptic_curve_offered;
+    bool weak_version_used;
+    bool weak_ciphersuite_used;
+    bool weak_elliptic_curve_used;
+    bool weak_key_size_used;
+
+    tls_security_assessment() :
+        weak_version_offered{false},
+        weak_ciphersuite_offered{false},
+        weak_elliptic_curve_offered{false},
+        weak_version_used{false},
+        weak_ciphersuite_used{false},
+        weak_elliptic_curve_used{false},
+        weak_key_size_used{false}
+    {  }
+
+    void print(struct json_object &o, const char *key);
+};
+
 #define L_ExtensionType            2
 #define L_ExtensionLength          2
 
@@ -456,6 +478,7 @@ struct tls_client_hello {
     tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, session_id{NULL, NULL}, extensions{NULL, NULL} {}
     void parse(struct parser &p);
 
+    struct tls_security_assessment security_assesment();
 };
 
 struct tls_server_hello {

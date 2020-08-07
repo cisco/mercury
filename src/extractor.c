@@ -2605,6 +2605,21 @@ enum status proto_ident_config(const char *config_string) {
 
 // new packet metadata catpure
 
+void tls_security_assessment::print(struct json_object &o, const char *key) {
+    struct json_array a{o, key};
+    if (weak_version_offered) {
+        a.print_string("weak_version_offered");
+    }
+    if (weak_ciphersuite_offered) {
+        a.print_string("weak_ciphersuite_offered");
+    }
+}
+
+struct tls_security_assessment tls_client_hello::security_assesment() {
+    struct tls_security_assessment a;
+    return a;
+}
+
 void tls_extensions::print(struct json_object &o, const char *key) const {
 
     struct parser ext_parser{this->data, this->data_end};
