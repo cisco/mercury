@@ -937,6 +937,7 @@ void degrease_octet_string(void *data, ssize_t len) {
 #define type_sni                0x0000
 #define type_supported_groups   0x000a
 #define type_supported_versions 0x002b
+#define type_session_ticket     0x0023
 
 uint16_t old_static_extension_types[7] __attribute__((unused)) = {
 	5,         /* status_request                         */
@@ -2672,6 +2673,43 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
             struct parser ext{data, ext_parser.data};
             //            tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
             o.print_key_json_string(key, ext.data + SNI_HDR_LEN, ext.length() - SNI_HDR_LEN);
+        }
+    }
+
+}
+
+void tls_extensions::print_session_ticket(struct json_object &o, const char *key) const {
+
+    struct parser ext_parser{this->data, this->data_end};
+
+    while (parser_get_data_length(&ext_parser) > 0) {
+        size_t tmp_len = 0;
+        size_t tmp_type;
+
+        const uint8_t *data = ext_parser.data;
+        if (parser_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+            break;
+        }
+        if (parser_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+            break;
+        }
+        if (parser_skip(&ext_parser, tmp_len) == status_err) {
+            break;
+        }
+
+        if (tmp_type == type_session_ticket) {
+
+            // possible format, as per https://tools.ietf.org/html/rfc5077#section-4
+            //
+            // struct {
+            //    opaque key_name[16];
+            //    opaque iv[16];
+            //    opaque encrypted_state<0..2^16-1>;
+            //    opaque mac[32];
+            // } ticket;
+
+            struct parser ext{data + L_ExtensionType + L_ExtensionLength, ext_parser.data};
+            o.print_key_hex(key, ext);
         }
     }
 
