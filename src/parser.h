@@ -101,6 +101,17 @@ struct parser {
         }
         return bits;
     }
+
+    bool read_uint16(uint16_t *output) {
+        if (length() > (int)sizeof(uint16_t)) {
+            uint16_t *tmp = (uint16_t *)data;
+            *output = ntohs(*tmp);
+            data += sizeof(uint16_t);
+            return true;
+        }
+        return false;
+    }
+
 };
 
 /*

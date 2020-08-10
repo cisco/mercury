@@ -466,6 +466,8 @@ struct tls_extensions : public parser {
     void print_server_name(struct json_object &o, const char *key) const;
 
     void print_session_ticket(struct json_object &o, const char *key) const;
+
+    void fingerprint(struct buffer_stream &b) const;
 };
 
 
@@ -479,6 +481,8 @@ struct tls_client_hello {
 
     tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, session_id{NULL, NULL}, extensions{NULL, NULL} {}
     void parse(struct parser &p);
+
+    void fingerprint(json_object &o, const char *key) const;
 
     struct tls_security_assessment security_assesment();
 };

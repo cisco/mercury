@@ -2678,6 +2678,49 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
 
 }
 
+struct tls_extension {
+    uint16_t type;
+    uint16_t length;
+    struct parser value;
+
+    tls_extension(struct parser &p) : type{0}, length{0}, value{NULL, NULL} {
+
+        if (p.read_uint16(&type) == false) { return; }
+        if (p.read_uint16(&length) == false) { return; }
+        if (length <= p.length()) {
+            value.data = p.data;
+            value.data_end = value.data + length;
+            p.data += length;
+        }
+    }
+};
+
+void tls_extensions::fingerprint(struct buffer_stream &b) const {
+
+    struct parser ext_parser{this->data, this->data_end};
+
+    while (parser_get_data_length(&ext_parser) > 0) {
+
+        const uint8_t *start_of_extension = ext_parser.data;
+        tls_extension x{ext_parser};
+        const uint8_t *end_of_extension = ext_parser.data;
+        if (x.value.data == NULL) {
+            break;
+        }
+        if (uint16_match(x.type, static_extension_types, num_static_extension_types) == true) {
+            b.write_char('(');
+            b.raw_as_hex(start_of_extension, end_of_extension - start_of_extension);
+            b.write_char(')');
+        } else {
+            b.write_char('(');
+            b.raw_as_hex(start_of_extension, L_ExtensionType);
+            b.write_char(')');
+        }
+
+    }
+
+}
+
 void tls_extensions::print_session_ticket(struct json_object &o, const char *key) const {
 
     struct parser ext_parser{this->data, this->data_end};
@@ -2778,6 +2821,34 @@ void tls_client_hello::parse(struct parser &p) {
     return; // extractor_get_output_length(x);
 
 }
+
+void tls_client_hello::fingerprint(json_object &o, const char *key) const {
+
+    char fp_buffer[2048];
+    struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
+
+    /*
+     * copy clientHello.ProtocolVersion
+     */
+    buf.write_char('(');
+    buf.raw_as_hex(protocol_version.data, protocol_version.length());
+    buf.write_char(')');
+
+    /* copy ciphersuite offer vector */
+    buf.write_char('(');
+    buf.raw_as_hex(ciphersuite_vector.data, ciphersuite_vector.length());  /* TBD: degrease */
+    buf.write_char(')');
+
+    /*
+     * copy extensions vector
+     */
+    buf.write_char('(');
+    extensions.fingerprint(buf);
+    buf.write_char(')');
+
+    o.print_key_string(key, fp_buffer);
+}
+
 
 void tls_server_hello::parse(struct parser &p) {
     size_t tmp_len;
