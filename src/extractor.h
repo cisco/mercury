@@ -15,6 +15,7 @@
 #include "parser.h"
 #include "mercury.h"
 #include "tcp.h"
+#include "proto_identify.h"
 
 
 /*
@@ -112,6 +113,7 @@ struct extractor {
     unsigned char *last_capture;        /* last cap in output stream */
     struct packet_data packet_data;     /* data of interest in packt */
     struct parser transport_data;       // NEW
+    enum msg_type msg_type;             // NEW
 };
 
 /*
@@ -480,9 +482,12 @@ struct tls_client_hello {
     struct tls_extensions extensions;
 
     tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, session_id{NULL, NULL}, extensions{NULL, NULL} {}
+
     void parse(struct parser &p);
 
     void fingerprint(json_object &o, const char *key) const;
+
+    static void write_json(struct parser &data, struct json_object &record);
 
     struct tls_security_assessment security_assesment();
 };
@@ -519,6 +524,8 @@ struct http_request {
     http_request() : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL} {}
 
     void parse(struct parser &p);
+
+    static void write_json(struct parser data, struct json_object &record);
 
 };
 

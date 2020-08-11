@@ -261,6 +261,7 @@ void extractor_init(struct extractor *x,
     packet_data_init(&x->packet_data);
     x->transport_data.data = NULL;
     x->transport_data.data_end = NULL;
+    x->msg_type = msg_type_unknown;
 }
 
 void parser_init(struct parser *p,
@@ -2087,10 +2088,9 @@ unsigned int parser_extractor_process_ssh_kex(struct parser *p, struct extractor
 unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x) {
 
     x->transport_data = *p;
-    const struct pi_container *pi;
     struct pi_container dummy = { 0, 0 };
+    const struct pi_container *pi;
     pi = proto_identify_tcp(p->data, parser_get_data_length(p));
-
     if (pi == NULL) {
         pi = &dummy;
     }
@@ -2098,26 +2098,33 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
     switch(pi->app) {
     case HTTP_PORT:
         if (pi->dir == DIR_CLIENT) {
+            x->msg_type = msg_type_http_request;
             return parser_extractor_process_http(p, x);
         } else {
+            x->msg_type = msg_type_http_response;
             return parser_extractor_process_http_server(p, x);
         }
         break;
     case HTTPS_PORT:
 	if (pi->dir == DIR_CLIENT) {
-	    return parser_extractor_process_tls(p, x);
+        x->msg_type = msg_type_tls_client_hello;
+        return parser_extractor_process_tls(p, x);
 	} else if (pi->dir == DIR_SERVER) {
         /* we have Server Hello and possibly Server Certificate */
+        x->msg_type = msg_type_tls_server_hello;
 	    return parser_extractor_process_tls_server(p, x);
 	} else if (pi->dir == DIR_UNKNOWN) {
         /* we have Server Certificate only */
+        x->msg_type = msg_type_tls_certificate;
 	    return parser_extractor_process_tls_server_cert(p, x);
     }
 	break;
     case SSH_PORT:
+        x->msg_type = msg_type_ssh;
         return parser_extractor_process_ssh(p, x);
         break;
     case SSH_KEX:
+        x->msg_type = msg_type_ssh_kex;
         return parser_extractor_process_ssh_kex(p, x);
         break;
     default:
@@ -2822,6 +2829,25 @@ void tls_client_hello::parse(struct parser &p) {
 
 }
 
+void tls_client_hello::write_json(struct parser &data, struct json_object &record) {
+    struct json_object tls{record, "tls"};
+    struct json_object tls_client{tls, "client"};
+    struct tls_client_hello hello;
+    hello.parse(data);
+    tls_client.print_key_hex("version", hello.protocol_version);
+    tls_client.print_key_hex("random", hello.random);
+    tls_client.print_key_hex("session_id", hello.session_id);
+    tls_client.print_key_hex("cipher_suites", hello.ciphersuite_vector);
+    tls_client.print_key_hex("compression_methods", hello.compression_methods);
+    //tls.print_key_hex("extensions", hello.extensions);
+    //hello.extensions.print(tls, "extensions");
+    hello.extensions.print_server_name(tls_client, "server_name");
+    hello.extensions.print_session_ticket(tls_client, "session_ticket");
+    hello.fingerprint(tls_client, "fingerprint");
+    tls_client.close();
+    tls.close();
+}
+
 void tls_client_hello::fingerprint(json_object &o, const char *key) const {
 
     char fp_buffer[2048];
@@ -2845,7 +2871,8 @@ void tls_client_hello::fingerprint(json_object &o, const char *key) const {
     buf.write_char('(');
     extensions.fingerprint(buf);
     buf.write_char(')');
-
+    buf.write_char('\0');
+    
     o.print_key_string(key, fp_buffer);
 }
 
@@ -3052,5 +3079,104 @@ void http_headers::print_matching_names(struct json_object &o, std::list<std::pa
         if (header_name) {
             o.print_key_json_string(header_name, value_start, value_end - value_start);
         }
+    }
+}
+
+// write_json is a static http_request member function
+//
+void http_request::write_json(struct parser data, struct json_object &record) {
+
+    // construct a list of http header names to be printed out
+    //
+    uint8_t ua[] = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
+    struct parser user_agent{ua, ua+sizeof(ua)};
+    std::pair<struct parser, std::string> user_agent_name{user_agent, "user_agent"};
+
+    uint8_t h[] = { 'h', 'o', 's', 't', ':', ' ' };
+    struct parser host{h, h+sizeof(h)};
+    std::pair<struct parser, std::string> host_name{host, "host"};
+
+    uint8_t xff[] = { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' };
+    struct parser xff_parser{xff, xff+sizeof(xff)};
+    std::pair<struct parser, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
+
+    uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
+    struct parser v_parser{v, v+sizeof(v)};
+    std::pair<struct parser, std::string> via{v_parser, "via"};
+
+    std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via};
+
+    struct json_object http{record, "http"};
+    struct json_object http_request{http, "request"};
+    struct http_request request;
+    request.parse(data);
+    http_request.print_key_json_string("method", request.method.data, request.method.length());
+    http_request.print_key_json_string("uri", request.uri.data, request.uri.length());
+    http_request.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
+    // http.print_key_json_string("headers", request.headers.data, request.headers.length());
+    // request.headers.print_host(http, "host");
+
+    // run the list of http headers to be printed out against
+    // all headers, and print the values corresponding to each
+    // of the matching names
+    //
+    request.headers.print_matching_names(http_request, names_to_print);
+
+    http_request.close();
+    http.close();
+
+}
+
+typedef void (write_json_func)(struct parser data, struct json_object &record);
+
+void tcp_data_write_json(const uint8_t *tcp_data,
+                         unsigned int len) {
+
+    if (len < sizeof(tls_client_hello_mask)) {
+        return;
+    }
+
+    // debug_print_u8_array(tcp_data);
+
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         tls_client_hello_mask,
+                                         tls_client_hello_value)) {
+        //http_request::write_json(data,  // TBD TBD TBD
+        return; 
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         tls_server_hello_mask,
+                                         tls_server_hello_value)) {
+        //        return &https_server;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+					 tls_server_cert_mask,
+					 tls_server_cert_value)) {
+        //return &https_server_cert;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+					 http_client_mask,
+					 http_client_value)) {
+        //return &http_client;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+					 http_client_post_mask,
+					 http_client_post_value)) {
+        //return &http_client;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         http_server_mask,
+                                         http_server_value)) {
+        //return &http_server;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         ssh_mask,
+                                         ssh_value)) {
+        //return &ssh;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         ssh_kex_mask,
+                                         ssh_kex_value)) {
+        //return &ssh_kex;
     }
 }

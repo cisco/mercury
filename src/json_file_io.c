@@ -19,6 +19,7 @@
 #include "llq.h"
 #include "buffer_stream.h"
 #include "dns.h"
+#include "proto_identify.h"
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -270,94 +271,38 @@ int append_packet_json(struct buffer_stream &buf,
     /*
      * output packet_data (if any)
      */
-    if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
-        struct json_object http{record, "http"};
-        struct json_object http_request{http, "request"};
-        if (global_vars.metadata_output) {
-            struct http_request request;
-            request.parse(pf.x.transport_data);
-            http_request.print_key_json_string("method", request.method.data, request.method.length());
-            http_request.print_key_json_string("uri", request.uri.data, request.uri.length());
-            http_request.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
-            // http.print_key_json_string("headers", request.headers.data, request.headers.length());
-            // request.headers.print_host(http, "host");
-
-            // run the list of http headers to be printed out against
-            // all headers, and print the values corresponding to each
-            // of the matching names
-            //
-            request.headers.print_matching_names(http_request, names_to_print);
-
-        } else {
-            http_request.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
+    if (global_vars.metadata_output) {
+        switch(pf.x.msg_type) {
+        case msg_type_http_request:
+            http_request::write_json(pf.x.transport_data, record);
+            break;
+        case msg_type_tls_client_hello:
+            tls_client_hello::write_json(pf.x.transport_data, record);
+            break;
+        default:
+            break;
         }
-        http_request.close();
-        http.close();
-    }
-    if (pf.x.packet_data.type == packet_data_type_http_no_user_agent) {
-        if (global_vars.metadata_output) {
+
+    } else {
+
+        if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
             struct json_object http{record, "http"};
             struct json_object http_request{http, "request"};
-            struct http_request request;
-            request.parse(pf.x.transport_data);
-            http_request.print_key_json_string("method", request.method.data, request.method.length());
-            http_request.print_key_json_string("uri", request.uri.data, request.uri.length());
-            http_request.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
-            // http.print_key_json_string("headers", request.headers.data, request.headers.length());
-            // request.headers.print_host(http, "host");
-
-            // run the list of http headers to be printed out against
-            // all headers, and print the values corresponding to each
-            // of the matching names
-            //
-            request.headers.print_matching_names(http_request, names_to_print);
+            http_request.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
             http_request.close();
             http.close();
         }
-    }
-    if (pf.x.packet_data.type == packet_data_type_tls_sni) {
-        if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-            struct json_object tls{record, "tls"};
-            struct json_object tls_client{tls, "client"};
-            if (global_vars.metadata_output) {
-                struct tls_client_hello hello;
-                hello.parse(pf.x.transport_data);
-                tls_client.print_key_hex("version", hello.protocol_version);
-                tls_client.print_key_hex("random", hello.random);
-                tls_client.print_key_hex("session_id", hello.session_id);
-                tls_client.print_key_hex("cipher_suites", hello.ciphersuite_vector);
-                tls_client.print_key_hex("compression_methods", hello.compression_methods);
-                //tls.print_key_hex("extensions", hello.extensions);
-                //hello.extensions.print(tls, "extensions");
-                hello.extensions.print_server_name(tls_client, "server_name");
-                hello.extensions.print_session_ticket(tls_client, "session_ticket");
-                hello.fingerprint(tls_client, "fingerprint");
-            } else {
+        if (pf.x.packet_data.type == packet_data_type_tls_sni) {
+            if (pf.x.packet_data.length >= SNI_HDR_LEN) {
+                struct json_object tls{record, "tls"};
+                struct json_object tls_client{tls, "client"};
                 tls_client.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
+                tls_client.close();
+                tls.close();
             }
-            tls_client.close();
-            tls.close();
         }
     }
-    if (pf.x.packet_data.type == packet_data_type_tls_no_sni) {
-        if (global_vars.metadata_output) {
-            struct json_object tls{record, "tls"};
-            struct json_object tls_client{tls, "client"};
-            struct tls_client_hello hello;
-            hello.parse(pf.x.transport_data);
-            tls_client.print_key_hex("version", hello.protocol_version);
-            tls_client.print_key_hex("random", hello.random);
-            tls_client.print_key_hex("session_id", hello.session_id);
-            tls_client.print_key_hex("cipher_suites", hello.ciphersuite_vector);
-            tls_client.print_key_hex("compression_methods", hello.compression_methods);
-            //tls.print_key_hex("extensions", hello.extensions);
-            //hello.extensions.print(tls, "extensions");
-            hello.extensions.print_server_name(tls_client, "server_name");
-            hello.extensions.print_session_ticket(tls_client, "session_ticket");
-            tls_client.close();
-            tls.close();
-        }
-    }
+
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         struct json_object tls{record, "tls"};
         struct json_object tls_server{tls, "server"};
