@@ -26,7 +26,7 @@ have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 CXX      = @CXX@
-CFLAGS  = --std=c++17
+CFLAGS  = --std=c++11
 CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
