@@ -20,6 +20,8 @@
 #include "buffer_stream.h"
 #include "dns.h"
 #include "proto_identify.h"
+#include "tls.h"
+#include "http.h"
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -145,6 +147,8 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 
 }
 
+#include <variant>
+
 int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
                        size_t length,
@@ -248,30 +252,11 @@ int append_packet_json(struct buffer_stream &buf,
         }
     }
 
-    // construct a list of http header names to be printed out
-    //
-    uint8_t ua[] = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
-    struct parser user_agent{ua, ua+sizeof(ua)};
-    std::pair<struct parser, std::string> user_agent_name{user_agent, "user_agent"};
+    //    std::variant<http_request, tls_client_hello> message;
 
-    uint8_t h[] = { 'h', 'o', 's', 't', ':', ' ' };
-    struct parser host{h, h+sizeof(h)};
-    std::pair<struct parser, std::string> host_name{host, "host"};
-
-    uint8_t xff[] = { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' };
-    struct parser xff_parser{xff, xff+sizeof(xff)};
-    std::pair<struct parser, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
-
-    uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
-    struct parser v_parser{v, v+sizeof(v)};
-    std::pair<struct parser, std::string> via{v_parser, "via"};
-
-    std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via};
-
-    /*
-     * output packet_data (if any)
-     */
     if (global_vars.metadata_output) {
+
+        // output metadata
         switch(pf.x.msg_type) {
         case msg_type_http_request:
             http_request::write_json(pf.x.transport_data, record);
@@ -279,12 +264,30 @@ int append_packet_json(struct buffer_stream &buf,
         case msg_type_tls_client_hello:
             tls_client_hello::write_json(pf.x.transport_data, record);
             break;
-        default:
+        case msg_type_tls_server_hello:
+            break;
+        case msg_type_http_response:
+            http_response::write_json(pf.x.transport_data, record);
+            break;
+        case msg_type_tls_certificate:
+        case msg_type_ssh:
+        case msg_type_ssh_kex:
+        case msg_type_dns:
+        case msg_type_dhcp:
+        case msg_type_dtls_client_hello:
+        case msg_type_dtls_server_hello:
+        case msg_type_dtls_certificate:
+        case msg_type_wireguard:
+        case msg_type_unknown:
+            // not yet supported
             break;
         }
 
     } else {
 
+        /*
+         * output packet_data (if any)
+         */
         if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
             struct json_object http{record, "http"};
             struct json_object http_request{http, "request"};
