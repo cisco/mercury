@@ -154,7 +154,11 @@ void http_request::write_json(struct parser data, struct json_object &record) {
     struct parser v_parser{v, v+sizeof(v)};
     std::pair<struct parser, std::string> via{v_parser, "via"};
 
-    std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via};
+    uint8_t u[] = { 'u', 'p', 'g', 'r', 'a', 'd', 'e', ':', ' ' };
+    struct parser u_parser{u, u+sizeof(u)};
+    std::pair<struct parser, std::string> upgrade_pair{u_parser, "upgrade"};
+
+    std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via, upgrade_pair};
 
     struct json_object http{record, "http"};
     struct json_object http_request{http, "request"};
