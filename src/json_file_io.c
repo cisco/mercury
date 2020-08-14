@@ -147,8 +147,6 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 
 }
 
-#include <variant>
-
 int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
                        size_t length,
@@ -251,8 +249,6 @@ int append_packet_json(struct buffer_stream &buf,
             ;    /* no fingerprint; do nothing */
         }
     }
-
-    //    std::variant<http_request, tls_client_hello> message;
 
     if (global_vars.metadata_output) {
 

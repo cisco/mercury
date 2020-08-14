@@ -212,21 +212,21 @@ void http_response::write_json(struct parser data, struct json_object &record) {
     //
     uint8_t ct[] = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 't', 'y', 'p', 'e', ':', ' ' };
     struct parser content_type{ct, ct+sizeof(ct)};
-    std::pair<struct parser, std::string> content_type_name{content_type, "content_type"};
+    std::pair<struct parser, std::string> content_type_pair{content_type, "content_type"};
 
     uint8_t cl[] = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 'l', 'e', 'n', 'g', 't', 'h', ':', ' ' };
     struct parser content_length{cl, cl+sizeof(cl)};
-    std::pair<struct parser, std::string> content_length_name{content_length, "content_length"};
+    std::pair<struct parser, std::string> content_length_pair{content_length, "content_length"};
 
-    uint8_t xff[] = { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' };
-    struct parser xff_parser{xff, xff+sizeof(xff)};
-    std::pair<struct parser, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
+    uint8_t srv[] = { 's', 'e', 'r', 'v', 'e', 'r', ':', ' ' };
+    struct parser server{srv, srv+sizeof(srv)};
+    std::pair<struct parser, std::string> server_pair{server, "server"};
 
     uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
     struct parser v_parser{v, v+sizeof(v)};
-    std::pair<struct parser, std::string> via{v_parser, "via"};
+    std::pair<struct parser, std::string> via_pair{v_parser, "via"};
 
-    std::list<std::pair<struct parser, std::string>> names_to_print{content_type_name, content_length_name, x_forwarded_for, via};
+    std::list<std::pair<struct parser, std::string>> names_to_print{server_pair, content_type_pair, content_length_pair, via_pair};
 
     struct json_object http{record, "http"};
     struct json_object http_response{http, "response"};
