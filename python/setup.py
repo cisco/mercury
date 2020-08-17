@@ -14,7 +14,7 @@ def readme():
 
 setuptools.setup(
     name='pmercury',
-    version='0.5.2.44',
+    version='0.5.2.45',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -48,7 +48,11 @@ setuptools.setup(
                                         '../resources/implementation_date_ext.json.gz',
                                         '../resources/pyasn.db',
                                         '../resources/domain_indicators.json.gz',
-                                        '../resources/fingerprint_db_tcp.json.gz']),
+                                        '../resources/fingerprint_db_tcp.json.gz',
+                                        '../resources/fingerprint-db-tcp-os.json.gz',
+                                        '../resources/fingerprint-db-tls-os.json.gz',
+                                        '../resources/fingerprint-db-http-os.json.gz',
+                                        '../resources/os_detection_model.json']),
                 ('/pmercury/resources/equivalence-classes', ['../resources/equivalence-classes/eqv_class_ip_as.json.gz',
                                                             '../resources/equivalence-classes/eqv_class_ip.json.gz',
                                                             '../resources/equivalence-classes/eqv_class_port_applications.json.gz',
