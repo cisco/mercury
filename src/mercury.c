@@ -254,7 +254,6 @@ int main(int argc, char *argv[]) {
         case 'w':
             if (option_is_valid(optarg)) {
                 cfg.write_filename = optarg;
-                cfg.output_block = true;
             } else {
                 usage(argv[0], "option w or write requires filename argument", extended_help_off);
             }
@@ -427,6 +426,10 @@ int main(int argc, char *argv[]) {
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
+    }
+
+    if (cfg.write_filename && cfg.read_filename) {
+        cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
     }
 
     if (cfg.analysis) {
