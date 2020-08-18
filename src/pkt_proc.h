@@ -88,8 +88,9 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
  */
 struct pkt_proc_pcap_writer_llq : public pkt_proc {
     struct ll_queue *llq;
+    bool block;
 
-    explicit pkt_proc_pcap_writer_llq(struct ll_queue *llq_ptr) {
+    explicit pkt_proc_pcap_writer_llq(struct ll_queue *llq_ptr, bool blocking) : block{blocking} {
         llq = llq_ptr;
     }
 
@@ -99,7 +100,7 @@ struct pkt_proc_pcap_writer_llq : public pkt_proc {
         if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
             return;  /* random packet drop configured, and this packet got selected to be discarded */
         }
-        pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+        pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000, block);
     }
 
     void flush() override {
@@ -205,7 +206,8 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
 struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     struct ll_queue *llq;
     struct packet_filter pf;
-
+    bool block;
+    
     /*
      * packet_filter_threshold is a (somewhat arbitrary) threshold used in
      * the packet metadata filter; it will probably get eliminated soon,
@@ -213,7 +215,7 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
      */
     unsigned int packet_filter_threshold = 8;
 
-    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, const char *filter) {
+    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) : block{blocking} {
         llq = llq_ptr;
         if (packet_filter_init(&pf, filter) == status_err) {
             throw "could not initialize packet filter";
@@ -231,7 +233,7 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
         }
 
         if (packet_filter_apply(&pf, packet, length)) {
-            pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+            pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000, block);
         }
     }
 

@@ -59,9 +59,10 @@ struct mercury_config {
     char *packet_filter_cfg;        /* packet filter configuration string             */
     int use_test_packet;            /* use test packet to write output file           */
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
+    bool output_block;              /* use blocking output                            */
 };
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, false, false, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0 }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, false, false, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0, false }
 
 /*
  * struct global_variables holds all of mercury's global variables.

@@ -46,13 +46,13 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                 /*
                  * write only packet metadata (TLS clientHellos, TCP SYNs, ...) to capture file
                  */
-                return new pkt_proc_filter_pcap_writer_llq(llq, cfg->packet_filter_cfg);
+                return new pkt_proc_filter_pcap_writer_llq(llq, cfg->packet_filter_cfg, cfg->output_block);
 
             } else {
                 /*
                  * write all packets to capture file
                  */
-                return new pkt_proc_pcap_writer_llq(llq);
+                return new pkt_proc_pcap_writer_llq(llq, cfg->output_block);
 
             }
 

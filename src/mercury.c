@@ -254,6 +254,7 @@ int main(int argc, char *argv[]) {
         case 'w':
             if (option_is_valid(optarg)) {
                 cfg.write_filename = optarg;
+                cfg.output_block = true;
             } else {
                 usage(argv[0], "option w or write requires filename argument", extended_help_off);
             }
