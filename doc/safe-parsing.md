@@ -1,6 +1,5 @@
-Safe Selective Parsing of Truncated Certificates and Other Network Data
-David McGrew
-August 5, 2020
+## Safe Selective Parsing of Truncated Certificates and Other Network Data
+### David McGrew, August 18, 2020
 
 
 One of the biggest challenges in network data collection and analysis
@@ -9,30 +8,32 @@ flexibility.  Network data formats are complex, and packet data is
 often truncated, and too often misformatted.  In mercury and
 cert-analyze, bounds checking is enforced through structured
 programming, with data structures and functions that provide
-efficiency and flexibility.  This note explains our approach in more
-detail.
+efficiency and flexibility.  This note explains that approach in more
+detail (and it is a work in progress).
 
 Network packets occupy contiguous regions of memory.  A substring of a
 packet can be identified by a pair of pointers indicating its start
 and its end.  Thus our fundamental data type is
 
+```c++
    struct datum {
       uint8_t *start;
       uint8_t *end;
    };
+```
 
-Roughly speaking, our strategy is to use a struct datum in every place
+Roughly speaking, our strategy is to use a `struct datum` in every place
 where a naked pointer would otherwise be used, so that the extent of
 the data is always known, and to provide access to data strings only
 through functions that provide appropriate checking.
 
-A datum is in one of the following states:
+A datum is in one of the states `null`, `readable`, or `empty`
 
-   start         end                         description
-   -------------------------------------------------------
-   NULL          NULL                        null
-   non-NULL      non-NULL, end > start       readable
-   non-NULL      non-NULL, end == start      empty
+   start      |   end                     |    State
+   -----------|---------------------------|-----------------
+   NULL       |   NULL                    |    null
+   non-NULL   |   non-NULL, end > start   |    readable
+   non-NULL   |   non-NULL, end == start  |    empty
 
 A readable datum is not necessarily complete, in the sense that it
 might contain data that has been truncated, such as the first ten
@@ -59,6 +60,7 @@ struct datum elements to it.  A **top-level** parsing is one that
 assigns an entire byte string to one or more elements.  For instance,
 an http_request is represented as
 
+```c++
     struct http_request {
         struct datum method;
         struct datum uri;
@@ -70,11 +72,12 @@ an http_request is represented as
         void parse(struct datum &data_buffer);
 
     };
+```
 
-The member function parse() takes a (reference to) a datum as input,
-and assigns the start and end pointers for the method, uri, protocol,
-and headers.  A struct http_request object must have a scope that does
-not exceed that of the data_buffer.
+The member function `parse()` takes a (reference to) a datum as input,
+parses that data and advances the start pointer, and assigns the start
+and end pointers for the method, uri, protocol, and headers.  A `struct http_request`
+object must have a scope that does not exceed that of the `data_buffer`.
 
 An HTTP request contains a variable number of headers; in the example
 above, 'struct headers' represents all of them.  Accessing an
