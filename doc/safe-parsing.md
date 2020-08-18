@@ -1,5 +1,5 @@
 ## Safe Selective Parsing of Truncated Certificates and Other Network Data
-### David McGrew, August 18, 2020
+#### David McGrew, August 18, 2020
 
 
 One of the biggest challenges in network data collection and analysis
