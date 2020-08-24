@@ -14,7 +14,7 @@ def readme():
 
 setuptools.setup(
     name='pmercury',
-    version='0.5.2.45',
+    version='0.5.2.46',
     description='Python tool for network (TLS, etc.) fingerprinting',
     long_description=readme(),
     long_description_content_type="text/markdown",
