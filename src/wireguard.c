@@ -12,13 +12,11 @@ unsigned int parser_extractor_process_wireguard(struct parser *p, struct extract
     extractor_debug("%s: processing packet\n", __func__);
 
     if (p->length() != sizeof(struct wireguard_handshake_initiation)) {
-        return 0;   // not wireguard
+        return 0;   // not wireguard handshake initial message
     }
 
     // set sender_index as packet_data
     packet_data_set(&x->packet_data, packet_data_type_wireguard, sizeof(uint32_t), (const uint8_t *)&whi->sender_index);
-
-    x->msg_type = msg_type_wireguard;
 
     return 0;
 }

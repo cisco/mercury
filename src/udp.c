@@ -262,6 +262,8 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
 
     extractor_debug("%s: parser has %td bytes\n", __func__, p->data_end - p->data);
 
+    x->transport_data = *p;
+
     pi = proto_identify_udp(p->data, parser_get_data_length(p));
 
     if (pi == NULL) {
@@ -288,6 +290,7 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         return parser_extractor_process_dns(p, x);
         break;
     case WIREGUARD_PORT:
+        x->msg_type = msg_type_wireguard;
         return parser_extractor_process_wireguard(p, x);
         break;
     default:

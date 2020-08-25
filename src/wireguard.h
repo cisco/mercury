@@ -26,6 +26,7 @@ struct wireguard_handshake_init {
 
     void parse(struct parser &p) {
         if (p.length() != sizeof(struct wireguard_handshake_initiation)) {
+            // fprintf(stderr, "%s: wrong size (got %zu, expected %zu)\n", __func__, p.length(), sizeof(struct wireguard_handshake_initiation));
             return;
         }
         p.skip(sizeof(wireguard_handshake_initiation::message_type) +

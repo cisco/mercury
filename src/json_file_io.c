@@ -341,15 +341,6 @@ int append_packet_json(struct buffer_stream &buf,
         write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, dns, !global_vars.dns_json_output);
         dns.close();
     }
-#if 0
-    if (pf.x.packet_data.type == packet_data_type_wireguard && pf.x.packet_data.length == sizeof(uint32_t)) {
-        struct json_object wg{record, "wireguard"};
-        uint32_t tmp = ntohl(*(const uint32_t *)pf.x.packet_data.value);
-        struct parser si{(uint8_t *)&tmp, (uint8_t *)&tmp + sizeof(uint32_t)};
-        wg.print_key_hex("sender_index", si);
-        wg.close();
-    }
-#endif // 0
 
     /*
      * output flow key, analysis (if it's configured), and the timestamp
