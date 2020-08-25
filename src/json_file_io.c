@@ -173,81 +173,49 @@ int append_packet_json(struct buffer_stream &buf,
      */
     if (bytes_extracted > packet_filter_threshold) {
         uint8_t *extractor_buffer = pf.x.output_start;
+        struct json_object fps{record, "fingerprints"};
         switch(pf.x.fingerprint_type) {
         case fingerprint_type_dhcp_client:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("dhcp", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("dhcp", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_tls:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("tls", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("tls", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_tcp:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("tcp", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("tcp", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_http:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("http", extractor_buffer, bytes_extracted);
-                fps.close();
-                record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
-            }
+            fps.print_key_ept("http", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_http_server:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("http_server", extractor_buffer, bytes_extracted);
-                fps.close();
-                record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
-            }
+            fps.print_key_ept("http_server", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_tls_server:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("tls_server", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("tls_server", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_dtls:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("dtls", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("dtls", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_dtls_server:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("dtls_server", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("dtls_server", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_ssh:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("ssh", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("ssh", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_ssh_kex:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("ssh_kex", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("ssh_kex", extractor_buffer, bytes_extracted);
             break;
         default:
             ;    /* no fingerprint; do nothing */
+        }
+        fps.close();
+
+        switch(pf.x.fingerprint_type) {
+        case fingerprint_type_http:
+        case fingerprint_type_http_server:
+            record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+        default:
+            ;
         }
     }
 
@@ -274,6 +242,27 @@ int append_packet_json(struct buffer_stream &buf,
             }
             break;
         case msg_type_tls_certificate:
+            {
+                struct json_object tls{record, "tls"};
+                struct json_object tls_server{tls, "server"};
+                if (global_vars.metadata_output) {
+                    struct tls_server_hello hello;
+                    hello.parse(pf.x.transport_data);
+                    if (hello.random.is_not_empty()) {
+                        tls_server.print_key_hex("random", hello.random);
+                    }
+                }
+                struct json_array server_certs{tls_server, "certs"};
+                if (!global_vars.certs_json_output) {
+                    write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
+                } else {
+                    write_extract_cert_full(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
+                }
+                server_certs.close();
+                tls_server.close();
+                tls.close();
+            }
+            break;
         case msg_type_ssh:
         case msg_type_ssh_kex:
         case msg_type_dns:
@@ -312,13 +301,6 @@ int append_packet_json(struct buffer_stream &buf,
     if (pf.x.packet_data.type == packet_data_type_tls_cert) {
         struct json_object tls{record, "tls"};
         struct json_object tls_server{tls, "server"};
-        if (global_vars.metadata_output) {
-            struct tls_server_hello hello;
-            hello.parse(pf.x.transport_data);
-            if (hello.random.is_not_empty()) {
-                tls_server.print_key_hex("random", hello.random);
-            }
-        }
         struct json_array server_certs{tls_server, "certs"};
         if (!global_vars.certs_json_output) {
             write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
