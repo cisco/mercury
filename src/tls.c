@@ -440,9 +440,61 @@ enum status tls_server_hello::parse_tls_server_hello(struct parser &record) {
 
     ciphersuite_vector.parse(record, L_CipherSuite);
 
+    compression_method.parse(record, L_CompressionMethod);
+
+    // parse extensions vector
+    if (parser_read_and_skip_uint(&record, L_ExtensionsVectorLength, &tmp_len)) {
+        return status_ok;  // could differentiate between err/ok
+    }
+    extensions.parse(record, tmp_len);
+
     return status_ok;
 
  bail:
     return status_err;
 }
 
+void tls_server_hello::fingerprint(json_object &o, const char *key) const {
+
+    char fp_buffer[2048];
+    struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
+
+    /*
+     * copy serverHello.ProtocolVersion
+     */
+    buf.write_char('(');
+    buf.raw_as_hex(protocol_version.data, protocol_version.length());
+    buf.write_char(')');
+
+    /* copy ciphersuite offer vector */
+    buf.write_char('(');
+    buf.raw_as_hex(ciphersuite_vector.data, ciphersuite_vector.length());  /* TBD: degrease */
+    buf.write_char(')');
+
+    /*
+     * copy extensions vector
+     */
+    buf.write_char('(');
+    extensions.fingerprint(buf);
+    buf.write_char(')');
+    buf.write_char('\0');
+
+    o.print_key_string(key, fp_buffer);
+}
+
+void tls_server_hello::write_json(struct json_object &record) const {
+    struct json_object tls{record, "tls"};
+    struct json_object tls_server{tls, "server"};
+    tls_server.print_key_hex("version", protocol_version);
+    tls_server.print_key_hex("random", random);
+    //tls_server.print_key_hex("session_id", session_id);
+    //tls_server.print_key_hex("cipher_suites", ciphersuite_vector);
+    tls_server.print_key_hex("compression_method", compression_method);
+    //tls.print_key_hex("extensions", hello.extensions);
+    //hello.extensions.print(tls, "extensions");
+    extensions.print_server_name(tls_server, "server_name");
+    extensions.print_session_ticket(tls_server, "session_ticket");
+    fingerprint(tls_server, "fingerprint"); // TBD: FIX!
+    tls_server.close();
+    tls.close();
+}

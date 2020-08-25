@@ -231,6 +231,11 @@ int append_packet_json(struct buffer_stream &buf,
             tls_client_hello::write_json(pf.x.transport_data, record);
             break;
         case msg_type_tls_server_hello:
+            {
+                struct tls_server_hello hello;
+                hello.parse(pf.x.transport_data);
+                hello.write_json(record);
+            }
             break;
         case msg_type_http_response:
             http_response::write_json(pf.x.transport_data, record);
@@ -246,13 +251,6 @@ int append_packet_json(struct buffer_stream &buf,
             {
                 struct json_object tls{record, "tls"};
                 struct json_object tls_server{tls, "server"};
-                if (global_vars.metadata_output) {
-                    struct tls_server_hello hello;
-                    hello.parse(pf.x.transport_data);
-                    if (hello.random.is_not_empty()) {
-                        tls_server.print_key_hex("random", hello.random);
-                    }
-                }
                 struct json_array server_certs{tls_server, "certs"};
                 if (!global_vars.certs_json_output) {
                     write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);

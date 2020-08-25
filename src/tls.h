@@ -22,6 +22,11 @@ struct tls_security_assessment {
     void print(struct json_object &o, const char *key);
 };
 
+
+struct tls_record {
+    
+};
+
 #define L_ExtensionType            2
 #define L_ExtensionLength          2
 
@@ -73,11 +78,18 @@ struct tls_server_hello {
     struct parser protocol_version;
     struct parser random;
     struct parser ciphersuite_vector;
-    struct parser extensions;
+    struct parser compression_method;
+    struct tls_extensions extensions;
 
     tls_server_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, extensions{NULL, NULL} {}
 
     void parse(struct parser &p);
 
+    void fingerprint(json_object &o, const char *key) const;
+
     enum status parse_tls_server_hello(struct parser &p);
+
+    void write_json(struct json_object &record) const;
+
 };
+

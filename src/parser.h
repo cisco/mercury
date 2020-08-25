@@ -103,7 +103,6 @@ struct parser {
     }
 
     bool read_uint16(uint16_t *output) {
-        fprintf(stderr, "length: %zu\n", length());
         if (length() >= (int)sizeof(uint16_t)) {
             uint16_t *tmp = (uint16_t *)data;
             *output = ntohs(*tmp);
