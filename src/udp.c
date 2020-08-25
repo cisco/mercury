@@ -901,36 +901,3 @@ unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x)
 }
 
 
-/*
- * wireguard
- */
-
-struct wireguard_handshake_initiation {
-    uint8_t  message_type;                       // 1
-    uint8_t  reserved_zero[3];                   // { 0, 0, 0 }
-    uint32_t sender_index;                       // random
-    uint8_t  unencrypted_ephemeral[32];          // random
-    uint8_t  encrypted_static[32 + 16];          // random
-    uint8_t  encrypted_timestamp[12 + 16];       // random
-    uint8_t  mac1[16];                           // random
-    uint8_t  mac2[16];                           // random or { 0, 0, ... }
-};
-
-
-unsigned int parser_extractor_process_wireguard(struct parser *p, struct extractor *x) {
-    struct wireguard_handshake_initiation *whi = (struct wireguard_handshake_initiation *)p->data;
-
-    extractor_debug("%s: processing packet\n", __func__);
-
-    if (p->length() != sizeof(struct wireguard_handshake_initiation)) {
-        return 0;   // not wireguard
-    }
-
-    // set sender_index as packet_data
-    packet_data_set(&x->packet_data, packet_data_type_wireguard, sizeof(uint32_t), (const uint8_t *)&whi->sender_index);
-
-    return 0;
-}
-
-
-
