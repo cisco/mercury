@@ -64,6 +64,8 @@ struct tls_client_hello {
 
     static void write_json(struct parser &data, struct json_object &record);
 
+    void write_json(struct json_object &record) const;
+
     struct tls_security_assessment security_assesment();
 };
 

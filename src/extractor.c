@@ -2106,19 +2106,19 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
         }
         break;
     case HTTPS_PORT:
-	if (pi->dir == DIR_CLIENT) {
-        x->msg_type = msg_type_tls_client_hello;
-        return parser_extractor_process_tls(p, x);
-	} else if (pi->dir == DIR_SERVER) {
-        /* we have Server Hello and possibly Server Certificate */
-        x->msg_type = msg_type_tls_server_hello;
-	    return parser_extractor_process_tls_server(p, x);
-	} else if (pi->dir == DIR_UNKNOWN) {
-        /* we have Server Certificate only */
-        x->msg_type = msg_type_tls_certificate;
-	    return parser_extractor_process_tls_server_cert(p, x);
-    }
-	break;
+        if (pi->dir == DIR_CLIENT) {
+            x->msg_type = msg_type_tls_client_hello;
+            return parser_extractor_process_tls(p, x);
+        } else if (pi->dir == DIR_SERVER) {
+            /* we have Server Hello and possibly Server Certificate */
+            x->msg_type = msg_type_tls_server_hello;
+            return parser_extractor_process_tls_server(p, x);
+        } else if (pi->dir == DIR_UNKNOWN) {
+            /* we have Server Certificate only */
+            x->msg_type = msg_type_tls_certificate;
+            return parser_extractor_process_tls_server_cert(p, x);
+        }
+        break;
     case SSH_PORT:
         x->msg_type = msg_type_ssh;
         return parser_extractor_process_ssh(p, x);

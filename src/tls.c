@@ -255,21 +255,32 @@ void tls_client_hello::parse(struct parser &p) {
     /*
      * skip over initial fields
      */
-    if (parser_skip(&p, L_HandshakeLength) == status_err) {
+    if (parser_skip(&p, L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType +  L_HandshakeLength) == status_err) {
         return;
     }
 
     // parse clientHello.ProtocolVersion
     protocol_version.parse(p, L_ProtocolVersion);
 
+#if 0
     // sanity check protocol version
+    uint8_t v10_value[]{ 0x30, 0x02 };
+    struct parser v10{v10_value, v10_value + sizeof(v10_value)};
+    if (protocol_version == v10) {
+        fprintf(stderr, "%s: found version 1.0\n", __func__);
+
+    }
     uint16_t version;
     if (protocol_version.read_uint16(&version) == false) {
+        fprintf(stderr, "%s: early return A\n", __func__);
         return;
     }
     if (version < 0x0300 || version > 0x0303) {
+        fprintf(stderr, "version: %04x\n", htons(version));
+        fprintf(stderr, "%s: early return B\n", __func__);
         return;
     }
+#endif // 0
 
     // parse clientHello.Random
     random.parse(p, L_Random);
@@ -303,23 +314,29 @@ void tls_client_hello::parse(struct parser &p) {
 
 }
 
-void tls_client_hello::write_json(struct parser &data, struct json_object &record) {
+void tls_client_hello::write_json(struct json_object &record) const {
     struct json_object tls{record, "tls"};
     struct json_object tls_client{tls, "client"};
-    struct tls_client_hello hello;
-    hello.parse(data);
-    tls_client.print_key_hex("version", hello.protocol_version);
-    tls_client.print_key_hex("random", hello.random);
-    tls_client.print_key_hex("session_id", hello.session_id);
-    tls_client.print_key_hex("cipher_suites", hello.ciphersuite_vector);
-    tls_client.print_key_hex("compression_methods", hello.compression_methods);
+    tls_client.print_key_hex("version", protocol_version);
+    tls_client.print_key_hex("random", random);
+    tls_client.print_key_hex("session_id", session_id);
+    tls_client.print_key_hex("cipher_suites", ciphersuite_vector);
+    tls_client.print_key_hex("compression_methods", compression_methods);
     //tls.print_key_hex("extensions", hello.extensions);
     //hello.extensions.print(tls, "extensions");
-    hello.extensions.print_server_name(tls_client, "server_name");
-    hello.extensions.print_session_ticket(tls_client, "session_ticket");
-    hello.fingerprint(tls_client, "fingerprint"); // TBD: FIX!
+    extensions.print_server_name(tls_client, "server_name");
+    extensions.print_session_ticket(tls_client, "session_ticket");
+    fingerprint(tls_client, "fingerprint"); // TBD: FIX!
     tls_client.close();
     tls.close();
+}
+
+// static function
+//
+void tls_client_hello::write_json(struct parser &data, struct json_object &record) {
+    struct tls_client_hello hello;
+    hello.parse(data);
+    hello.write_json(record);
 }
 
 void tls_client_hello::fingerprint(json_object &o, const char *key) const {
