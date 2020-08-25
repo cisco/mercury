@@ -80,6 +80,7 @@ LIBMERC     += pkt_proc.c
 LIBMERC     += tls.c
 LIBMERC     += udp.c
 LIBMERC     += utils.c
+LIBMERC     += wireguard.c
 LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
@@ -98,6 +99,7 @@ LIBMERC_H   += tcp.h
 LIBMERC_H   += tls.h
 LIBMERC_H   += udp.h
 LIBMERC_H   += utils.h
+LIBMERC_H   += wireguard.h
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c

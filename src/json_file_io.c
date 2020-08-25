@@ -22,6 +22,7 @@
 #include "proto_identify.h"
 #include "tls.h"
 #include "http.h"
+#include "wireguard.h"
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -266,6 +267,13 @@ int append_packet_json(struct buffer_stream &buf,
         case msg_type_http_response:
             http_response::write_json(pf.x.transport_data, record);
             break;
+        case msg_type_wireguard:
+            {
+                wireguard_handshake_init wg;
+                wg.parse(pf.x.transport_data);
+                wg.write_json(record);
+            }
+            break;
         case msg_type_tls_certificate:
         case msg_type_ssh:
         case msg_type_ssh_kex:
@@ -274,7 +282,6 @@ int append_packet_json(struct buffer_stream &buf,
         case msg_type_dtls_client_hello:
         case msg_type_dtls_server_hello:
         case msg_type_dtls_certificate:
-        case msg_type_wireguard:
         case msg_type_unknown:
             // not yet supported
             break;
@@ -334,13 +341,6 @@ int append_packet_json(struct buffer_stream &buf,
         struct json_object dns{record, "dns"};
         write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, dns, !global_vars.dns_json_output);
         dns.close();
-    }
-    if (pf.x.packet_data.type == packet_data_type_wireguard && pf.x.packet_data.length == sizeof(uint32_t)) {
-        struct json_object wg{record, "wireguard"};
-        uint32_t tmp = ntohl(*(const uint32_t *)pf.x.packet_data.value);
-        struct parser si{(uint8_t *)&tmp, (uint8_t *)&tmp + sizeof(uint32_t)};
-        wg.print_key_hex("sender_index", si);
-        wg.close();
     }
 
     /*
