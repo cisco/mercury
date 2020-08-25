@@ -258,6 +258,7 @@ int append_packet_json(struct buffer_stream &buf,
             http_request::write_json(pf.x.transport_data, record);
             break;
         case msg_type_tls_client_hello:
+            //  record.print_key_hex("tlsdata", pf.x.transport_data);
             tls_client_hello::write_json(pf.x.transport_data, record);
             break;
         case msg_type_tls_server_hello:
