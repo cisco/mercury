@@ -2115,9 +2115,11 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
             return parser_extractor_process_tls_server(p, x);
         } else if (pi->dir == DIR_UNKNOWN) {
             /* we have Server Certificate only */
+            fprintf(stderr, "FFFFFFFFF\n");
             x->msg_type = msg_type_tls_certificate;
             return parser_extractor_process_tls_server_cert(p, x);
         }
+        fprintf(stderr, "GGGGGG\n");
         break;
     case SSH_PORT:
         x->msg_type = msg_type_ssh;

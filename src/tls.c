@@ -391,7 +391,7 @@ void tls_server_hello::parse(struct parser &p) {
     }
     extractor_debug("%s: got a record\n", __func__);
     struct parser record;
-    parser_init_from_outer_parser(&record, &p, tmp_len);
+    record.init_from_outer_parser(&p, tmp_len);
 
     if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
 	    goto bail;
@@ -409,7 +409,7 @@ void tls_server_hello::parse(struct parser &p) {
     if (parse_tls_server_hello(handshake) != status_ok) {
         goto bail;
     }
-    parser_pop(&handshake, &record);
+    //    parser_pop(&handshake, &record);
 
     return;
 
@@ -482,19 +482,15 @@ void tls_server_hello::fingerprint(json_object &o, const char *key) const {
     o.print_key_string(key, fp_buffer);
 }
 
-void tls_server_hello::write_json(struct json_object &record) const {
-    struct json_object tls{record, "tls"};
-    struct json_object tls_server{tls, "server"};
-    tls_server.print_key_hex("version", protocol_version);
-    tls_server.print_key_hex("random", random);
-    //tls_server.print_key_hex("session_id", session_id);
-    //tls_server.print_key_hex("cipher_suites", ciphersuite_vector);
-    tls_server.print_key_hex("compression_method", compression_method);
-    //tls.print_key_hex("extensions", hello.extensions);
-    //hello.extensions.print(tls, "extensions");
-    extensions.print_server_name(tls_server, "server_name");
-    extensions.print_session_ticket(tls_server, "session_ticket");
-    fingerprint(tls_server, "fingerprint"); // TBD: FIX!
-    tls_server.close();
-    tls.close();
+void tls_server_hello::write_json(struct json_object &o) const {
+    o.print_key_hex("version", protocol_version);
+    o.print_key_hex("random", random);
+    //o.print_key_hex("session_id", session_id);
+    //o.print_key_hex("cipher_suites", ciphersuite_vector);
+    o.print_key_hex("compression_method", compression_method);
+    //o.print_key_hex("extensions", hello.extensions);
+    //hello.extensions.print(o, "extensions");
+    extensions.print_server_name(o, "server_name");
+    extensions.print_session_ticket(o, "session_ticket");
+    fingerprint(o, "fingerprint"); // TBD: FIX!
 }

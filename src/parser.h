@@ -102,6 +102,20 @@ struct parser {
         return bits;
     }
 
+    // read_uint8() reads a uint8_t in network byte order, and advances the data pointer
+    //
+    bool read_uint8(uint8_t *output) {
+        if (data_end > data) {
+            *output = *data;
+            data += 1;
+            return true;
+        }
+        *output = 0;
+        return false;
+    }
+
+    // read_uint16() reads a uint16_t in network byte order, and advances the data pointer
+    //
     bool read_uint16(uint16_t *output) {
         if (length() >= (int)sizeof(uint16_t)) {
             uint16_t *tmp = (uint16_t *)data;
@@ -109,7 +123,37 @@ struct parser {
             data += sizeof(uint16_t);
             return true;
         }
+        *output = 0;
         return false;
+    }
+
+    // read_uint() reads a length num_bytes uint in network byte order, and advances the data pointer
+    //
+    bool read_uint(size_t *output, unsigned int num_bytes) {
+
+        if (data + num_bytes <= data_end) {
+            size_t tmp = 0;
+            const unsigned char *c;
+
+            for (c = data; c < data + num_bytes; c++) {
+                tmp = (tmp << 8) + *c;
+            }
+            *output = tmp;
+            data = c;
+            extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
+            return true;
+        }
+        *output = 0;
+        return false;
+    }
+
+    void init_from_outer_parser(struct parser *outer,
+                                unsigned int data_len) {
+        const unsigned char *inner_data_end = outer->data + data_len;
+
+        data = outer->data;
+        data_end = inner_data_end > outer->data_end ? outer->data_end : inner_data_end;
+        outer->data = data_end; // PROVISIONAL; NEW APPROACH
     }
 
 };

@@ -233,8 +233,28 @@ int append_packet_json(struct buffer_stream &buf,
         case msg_type_tls_server_hello:
             {
                 struct tls_server_hello hello;
+                //record.print_key_hex("pre", pf.x.transport_data);
                 hello.parse(pf.x.transport_data);
-                hello.write_json(record);
+                struct json_object tls{record, "tls"};
+                struct json_object tls_server{tls, "server"};
+                hello.write_json(tls_server);
+                tls_server.close();
+                tls.close();
+
+                //record.print_key_hex("post", pf.x.transport_data);
+
+                struct tls_record rec;
+                struct tls_handshake handshake;
+                rec.parse(pf.x.transport_data);
+                handshake.parse(rec.fragment);
+                //record.print_key_hex("handshake", handshake.body);
+                struct tls_server_certificate cert;
+                cert.parse(handshake.body);
+                //record.print_key_hex("cert", cert.certificate_list);
+                struct json_array server_certs{record, "tls_certs"};
+                cert.write_json(server_certs);
+                server_certs.close();
+
             }
             break;
         case msg_type_http_response:
@@ -249,9 +269,20 @@ int append_packet_json(struct buffer_stream &buf,
             break;
         case msg_type_tls_certificate:
             {
+                fprintf(stderr, "got cert\n");
                 struct json_object tls{record, "tls"};
                 struct json_object tls_server{tls, "server"};
                 struct json_array server_certs{tls_server, "certs"};
+
+                struct tls_record rec;
+                struct tls_handshake handshake;
+                struct tls_server_certificate certificate;
+                tls_server.print_key_hex("tlsdata", pf.x.transport_data);
+                rec.parse(pf.x.transport_data);
+                handshake.parse(rec.fragment);
+                certificate.parse(handshake.body);
+                certificate.write_json(server_certs);
+
                 if (!global_vars.certs_json_output) {
                     write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
                 } else {

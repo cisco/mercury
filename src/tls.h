@@ -23,8 +23,181 @@ struct tls_security_assessment {
 };
 
 
+/*
+ *
+ * From RFC 8446 (TLSv1.3):
+ *
+ *     uint16 ProtocolVersion;
+ *
+ *     enum {
+ *         invalid(0),
+ *         change_cipher_spec(20),
+ *         alert(21),
+ *         handshake(22),
+ *         application_data(23),
+ *         (255)
+ *     } ContentType;
+ *
+ *     struct {
+ *         ContentType type;
+ *         ProtocolVersion legacy_record_version;
+ *         uint16 length;
+ *         opaque fragment[TLSPlaintext.length];
+ *     } TLSPlaintext;
+ *
+ *
+ *      struct {
+ *         opaque content[TLSPlaintext.length];
+ *         ContentType type;
+ *         uint8 zeros[length_of_padding];
+ *     } TLSInnerPlaintext;
+ *
+ *     struct {
+ *         ContentType opaque_type = application_data;     // 23
+ *         ProtocolVersion legacy_record_version = 0x0303; // TLS v1.2
+ *         uint16 length;
+ *         opaque encrypted_record[TLSCiphertext.length];
+ *     } TLSCiphertext;
+ *
+ *     enum {
+ *         client_hello(1),
+ *         server_hello(2),
+ *         new_session_ticket(4),
+ *         end_of_early_data(5),
+ *         encrypted_extensions(8),
+ *         certificate(11),
+ *         certificate_request(13),
+ *         certificate_verify(15),
+ *         finished(20),
+ *         key_update(24),
+ *         message_hash(254),
+ *         (255)
+ *     } HandshakeType;
+ *
+ *     struct {
+ *         HandshakeType msg_type;     // handshake type
+ *         uint24 length;              // remaining bytes in message
+ *         select (Handshake.msg_type) {
+ *             case client_hello:          ClientHello;
+ *             case server_hello:          ServerHello;
+ *             case end_of_early_data:     EndOfEarlyData;
+ *             case encrypted_extensions:  EncryptedExtensions;
+ *             case certificate_request:   CertificateRequest;
+ *             case certificate:           Certificate;
+ *             case certificate_verify:    CertificateVerify;
+ *             case finished:              Finished;
+ *             case new_session_ticket:    NewSessionTicket;
+ *             case key_update:            KeyUpdate;
+ *         };
+ *     } Handshake;
+ */
+
+/*
+ * field lengths
+ */
+#define L_CipherSuite              2
+#define L_CompressionMethod        1
+#define L_HandshakeLength          3
+#define L_CertificateLength        3
+#define L_CertificateListLength    3
+
 struct tls_record {
-    
+    uint8_t  content_type;
+    uint16_t protocol_version;
+    uint16_t length;
+    struct parser fragment;
+
+    tls_record() : content_type{0}, protocol_version{0}, length{0}, fragment{NULL, NULL} {}
+
+    void parse(struct parser &d) {
+        if (d.length() < (int)(sizeof(content_type) + sizeof(protocol_version) + sizeof(length))) {
+            return;
+        }
+        d.read_uint8(&content_type);
+        d.read_uint16(&protocol_version);
+        d.read_uint16(&length);
+        fragment.init_from_outer_parser(&d, length);
+    }
+};
+
+struct tls_handshake {
+    uint8_t  msg_type;
+    uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
+    struct parser body;
+
+    tls_handshake() : msg_type{0}, length{0}, body{NULL, NULL} {}
+
+    void parse(struct parser &d) {
+        if (d.length() < (int)(4)) {
+            return;
+        }
+        d.read_uint8(&msg_type);
+        size_t tmp;
+        d.read_uint(&tmp, L_HandshakeLength);
+        length = tmp;
+        body.init_from_outer_parser(&d, length);
+    }
+};
+
+/*
+ * From RFC 5246 (TLSv1.2)
+ *
+ *     opaque ASN.1Cert<1..2^24-1>;
+ *
+ *     struct {
+ *         ASN.1Cert certificate_list<0..2^24-1>;
+ *     } Certificate;
+ *
+ */
+
+struct tls_server_certificate {
+    uint32_t length; // note: only 24 bits on the wire (L_CertificateListLength)
+    struct parser certificate_list;
+
+    tls_server_certificate() : length{0}, certificate_list{NULL, NULL} {}
+
+    void parse(struct parser &d) {
+        size_t tmp = 0;
+        if (d.read_uint(&tmp, L_CertificateListLength) == false) {
+            return;
+        }
+        length = tmp;
+        certificate_list.init_from_outer_parser(&d, length);
+    }
+
+    void write_json(struct json_array &a) const {
+
+        struct parser tmp_cert_list = certificate_list;
+        while (parser_get_data_length(&tmp_cert_list) > 0) {
+
+            /* get certificate length */
+            size_t tmp_len;
+            if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
+                return;
+            }
+
+            if (tmp_len > (unsigned)parser_get_data_length(&tmp_cert_list)) {
+                tmp_len = parser_get_data_length(&tmp_cert_list); /* truncate */
+            }
+
+            if (tmp_len == 0) {
+                return; /* don't bother printing out a partial cert if it has a length of zero */
+            }
+
+            struct json_object o{a};
+            struct parser cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
+            o.print_key_base64("base64", cert_parser);
+            o.close();
+
+            /*
+             * advance parser over certificate data
+             */
+            if (parser_skip(&tmp_cert_list, tmp_len) == status_err) {
+                return;
+            }
+        }
+    }
+
 };
 
 #define L_ExtensionType            2
