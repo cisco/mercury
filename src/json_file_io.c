@@ -231,31 +231,87 @@ int append_packet_json(struct buffer_stream &buf,
             tls_client_hello::write_json(pf.x.transport_data, record);
             break;
         case msg_type_tls_server_hello:
+        case msg_type_tls_certificate:
             {
-                struct tls_server_hello hello;
-                //record.print_key_hex("pre", pf.x.transport_data);
-                hello.parse(pf.x.transport_data);
+                struct tls_record rec;
+                rec.parse(pf.x.transport_data);
+                struct tls_handshake handshake;
+                handshake.parse(rec.fragment);
                 struct json_object tls{record, "tls"};
                 struct json_object tls_server{tls, "server"};
-                hello.write_json(tls_server);
+                if (handshake.msg_type == handshake_type::server_hello) {
+                    struct tls_server_hello hello;
+                    hello.parse(handshake.body);
+
+                    if (rec.fragment.is_not_empty()) {
+                        struct tls_handshake h;
+                        h.parse(rec.fragment);
+                        struct tls_server_certificate certificate;
+                        certificate.parse(h.body);
+                        struct json_array server_certs{tls_server, "certs"};
+                        certificate.write_json(server_certs, global_vars.certs_json_output);
+                        server_certs.close();
+                    }
+                    hello.write_json(tls_server); // this is the one metadata element
+
+                } else if (handshake.msg_type == handshake_type::certificate) {
+                    struct tls_server_certificate certificate;
+                    certificate.parse(handshake.body);
+                    struct json_array server_certs{tls_server, "certs"};
+                    certificate.write_json(server_certs, global_vars.certs_json_output);
+                    server_certs.close();
+                }
+                struct tls_record rec2;
+                rec2.parse(pf.x.transport_data);
+                struct tls_handshake handshake2;
+                handshake2.parse(rec2.fragment);
+                if (handshake2.msg_type == handshake_type::certificate) {
+                    struct tls_server_certificate cert;
+                    cert.parse(handshake2.body);
+                    struct json_array server_certs{tls_server, "certs"};
+                    cert.write_json(server_certs, global_vars.certs_json_output);
+                    server_certs.close();
+                }
+                tls_server.close();
+                tls.close();
+            }
+#if 0
+            {
+                struct tls_record rec;
+                rec.parse(pf.x.transport_data);
+                struct tls_handshake handshake;
+                handshake.parse(rec.fragment);
+
+                struct json_object tls{record, "tls"};
+                struct json_object tls_server{tls, "server"};
+                if (handshake.msg_type == handshake_type::server_hello) {
+                    struct tls_server_hello hello;
+                    hello.parse(handshake.body);
+                    hello.write_json(tls_server);
+                } else if (handshake.msg_type == handshake_type::certificate) {
+                    struct tls_server_certificate certificate;
+                    certificate.parse(handshake.body);
+                    struct json_array server_certs{tls_server, "certs"};
+                    certificate.write_json(server_certs, global_vars.certs_json_output);
+                    server_certs.close();
+                }
+                struct tls_record rec2;
+                rec2.parse(pf.x.transport_data);
+                handshake.parse(rec2.fragment);
+                if (handshake.msg_type == handshake_type::certificate) {
+                    struct tls_server_certificate cert;
+                    cert.parse(handshake.body);
+                    struct json_array server_certs{record, "certs"};
+                    cert.write_json(server_certs, global_vars.certs_json_output);
+                    server_certs.close();
+                } else {
+                    fprintf(stderr, "trailing data is not a cert (type: %u)\n", (unsigned int)handshake.msg_type);
+                }
                 tls_server.close();
                 tls.close();
 
-                //record.print_key_hex("post", pf.x.transport_data);
-
-                struct tls_record rec;
-                struct tls_handshake handshake;
-                rec.parse(pf.x.transport_data);
-                handshake.parse(rec.fragment);
-                //record.print_key_hex("handshake", handshake.body);
-                struct tls_server_certificate cert;
-                cert.parse(handshake.body);
-                //record.print_key_hex("cert", cert.certificate_list);
-                struct json_array server_certs{record, "tls_certs"};
-                cert.write_json(server_certs);
-                server_certs.close();
-
             }
+#endif
             break;
         case msg_type_http_response:
             http_response::write_json(pf.x.transport_data, record);
@@ -265,32 +321,6 @@ int append_packet_json(struct buffer_stream &buf,
                 wireguard_handshake_init wg;
                 wg.parse(pf.x.transport_data);
                 wg.write_json(record);
-            }
-            break;
-        case msg_type_tls_certificate:
-            {
-                fprintf(stderr, "got cert\n");
-                struct json_object tls{record, "tls"};
-                struct json_object tls_server{tls, "server"};
-                struct json_array server_certs{tls_server, "certs"};
-
-                struct tls_record rec;
-                struct tls_handshake handshake;
-                struct tls_server_certificate certificate;
-                tls_server.print_key_hex("tlsdata", pf.x.transport_data);
-                rec.parse(pf.x.transport_data);
-                handshake.parse(rec.fragment);
-                certificate.parse(handshake.body);
-                certificate.write_json(server_certs);
-
-                if (!global_vars.certs_json_output) {
-                    write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
-                } else {
-                    write_extract_cert_full(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
-                }
-                server_certs.close();
-                tls_server.close();
-                tls.close();
             }
             break;
         case msg_type_ssh:
@@ -326,21 +356,54 @@ int append_packet_json(struct buffer_stream &buf,
                 tls.close();
             }
         }
+        if (pf.x.packet_data.type == packet_data_type_tls_cert) {
+            struct tls_record rec;
+            rec.parse(pf.x.transport_data);
+            struct tls_handshake handshake;
+            handshake.parse(rec.fragment);
+            struct json_object tls{record, "tls"};
+            struct json_object tls_server{tls, "server"};
+            if (handshake.msg_type == handshake_type::server_hello) {
+                struct tls_server_hello hello;
+                hello.parse(handshake.body);
+
+                if (rec.fragment.is_not_empty()) {
+                    struct tls_handshake h;
+                    h.parse(rec.fragment);
+                    struct tls_server_certificate certificate;
+                    certificate.parse(h.body);
+                    struct json_array server_certs{tls_server, "certs"};
+                    certificate.write_json(server_certs, global_vars.certs_json_output);
+                    server_certs.close();
+                }
+
+                // hello.write_json(tls_server);
+
+            } else if (handshake.msg_type == handshake_type::certificate) {
+                struct tls_server_certificate certificate;
+                certificate.parse(handshake.body);
+                struct json_array server_certs{tls_server, "certs"};
+                certificate.write_json(server_certs, global_vars.certs_json_output);
+                server_certs.close();
+            }
+            struct tls_record rec2;
+            rec2.parse(pf.x.transport_data);
+            struct tls_handshake handshake2;
+            handshake2.parse(rec2.fragment);
+            if (handshake2.msg_type == handshake_type::certificate) {
+                struct tls_server_certificate cert;
+                cert.parse(handshake2.body);
+                struct json_array server_certs{tls_server, "certs"};
+                cert.write_json(server_certs, global_vars.certs_json_output);
+                server_certs.close();
+            }
+            tls_server.close();
+            tls.close();
+        }
+
+
     }
 
-    if (pf.x.packet_data.type == packet_data_type_tls_cert) {
-        struct json_object tls{record, "tls"};
-        struct json_object tls_server{tls, "server"};
-        struct json_array server_certs{tls_server, "certs"};
-        if (!global_vars.certs_json_output) {
-            write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
-        } else {
-            write_extract_cert_full(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
-        }
-        server_certs.close();
-        tls_server.close();
-        tls.close();
-    }
     if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
         if (pf.x.packet_data.length >= SNI_HDR_LEN) {
             struct json_object dtls{record, "dtls"};

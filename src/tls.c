@@ -5,6 +5,7 @@
 #include "extractor.h"
 #include "json_object.h"
 #include "tls.h"
+#include "asn1/x509.h"
 
 /* TLS Constants */
 
@@ -369,10 +370,11 @@ void tls_client_hello::fingerprint(json_object &o, const char *key) const {
 
 
 void tls_server_hello::parse(struct parser &p) {
+    extractor_debug("%s: processing packet with %td bytes\n", __func__, p->data_end - p->data);
+
+#if 0
     size_t tmp_len;
     size_t tmp_type;
-
-    extractor_debug("%s: processing packet with %td bytes\n", __func__, p->data_end - p->data);
 
     /*
      * verify that we are looking at a TLS record
@@ -407,18 +409,15 @@ void tls_server_hello::parse(struct parser &p) {
     struct parser handshake;
     parser_init_from_outer_parser(&handshake, &record, tmp_len);
     if (parse_tls_server_hello(handshake) != status_ok) {
-        goto bail;
+        return;
     }
     //    parser_pop(&handshake, &record);
 
-    return;
+#else
 
- bail:
-    /*
-     * handle possible packet parsing errors
-     */
-    extractor_debug("%s: warning: TLS serverHello processing did not fully complete\n", __func__);
-    return; 
+    parse_tls_server_hello(p);
+#endif
+    return;
 
 }
 
@@ -493,4 +492,45 @@ void tls_server_hello::write_json(struct json_object &o) const {
     extensions.print_server_name(o, "server_name");
     extensions.print_session_ticket(o, "session_ticket");
     fingerprint(o, "fingerprint"); // TBD: FIX!
+}
+
+void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
+
+    struct parser tmp_cert_list = certificate_list;
+    while (parser_get_data_length(&tmp_cert_list) > 0) {
+
+        /* get certificate length */
+        size_t tmp_len;
+        if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
+            return;
+        }
+
+        if (tmp_len > (unsigned)parser_get_data_length(&tmp_cert_list)) {
+            tmp_len = parser_get_data_length(&tmp_cert_list); /* truncate */
+        }
+
+        if (tmp_len == 0) {
+            return; /* don't bother printing out a partial cert if it has a length of zero */
+        }
+
+        struct json_object o{a};
+        if (json_output) {
+            struct json_object_asn1 cert{o, "cert"};
+            struct x509_cert c;
+            c.parse(tmp_cert_list.data, tmp_len);
+            c.print_as_json(cert, {}, NULL);
+            cert.close();
+        } else {
+            struct parser cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
+            o.print_key_base64("base64", cert_parser);
+        }
+        o.close();
+
+        /*
+         * advance parser over certificate data
+         */
+        if (parser_skip(&tmp_cert_list, tmp_len) == status_err) {
+            return;
+        }
+    }
 }

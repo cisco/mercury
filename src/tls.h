@@ -1,3 +1,10 @@
+/*
+ * tls.h
+ */
+
+#ifndef TLS_H
+#define TLS_H
+
 #include "extractor.h"
 
 struct tls_security_assessment {
@@ -120,18 +127,37 @@ struct tls_record {
     }
 };
 
+enum class handshake_type : uint8_t {
+    unknown      = 0,
+    client_hello = 1,
+    server_hello = 2,
+    new_session_ticket = 4,
+    end_of_early_data = 5,
+    encrypted_extensions = 8,
+    certificate = 11,
+    certificate_request = 13,
+    certificate_verify = 15,
+    finished = 20,
+    key_update = 24,
+    message_hash = 254
+};
+
 struct tls_handshake {
-    uint8_t  msg_type;
+    handshake_type msg_type;
     uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
     struct parser body;
 
-    tls_handshake() : msg_type{0}, length{0}, body{NULL, NULL} {}
+    tls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {}
+
+    tls_handshake(struct parser &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
+        parse(d);
+    }
 
     void parse(struct parser &d) {
         if (d.length() < (int)(4)) {
             return;
         }
-        d.read_uint8(&msg_type);
+        d.read_uint8((uint8_t *)&msg_type);
         size_t tmp;
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
@@ -165,38 +191,7 @@ struct tls_server_certificate {
         certificate_list.init_from_outer_parser(&d, length);
     }
 
-    void write_json(struct json_array &a) const {
-
-        struct parser tmp_cert_list = certificate_list;
-        while (parser_get_data_length(&tmp_cert_list) > 0) {
-
-            /* get certificate length */
-            size_t tmp_len;
-            if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
-                return;
-            }
-
-            if (tmp_len > (unsigned)parser_get_data_length(&tmp_cert_list)) {
-                tmp_len = parser_get_data_length(&tmp_cert_list); /* truncate */
-            }
-
-            if (tmp_len == 0) {
-                return; /* don't bother printing out a partial cert if it has a length of zero */
-            }
-
-            struct json_object o{a};
-            struct parser cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
-            o.print_key_base64("base64", cert_parser);
-            o.close();
-
-            /*
-             * advance parser over certificate data
-             */
-            if (parser_skip(&tmp_cert_list, tmp_len) == status_err) {
-                return;
-            }
-        }
-    }
+    void write_json(struct json_array &a, bool json_output) const;
 
 };
 
@@ -266,3 +261,4 @@ struct tls_server_hello {
 
 };
 
+#endif /* TLS_H */
