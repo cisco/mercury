@@ -1,4 +1,4 @@
-Using a custom fingerprint database with mercury
+# Using a custom fingerprint database with mercury
 
 Mercury's analysis module classifies network sessions, using several
 resource files at startup time, including a fingerprint database
