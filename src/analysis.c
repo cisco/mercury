@@ -114,7 +114,7 @@ void cache_finalize() {
 
 
 #ifndef DEFAULT_RESOURCE_DIR
-#define DEFAULT_RESOURCE_DIR "/usr/local/var/mercury"
+#define DEFAULT_RESOURCE_DIR "/usr/local/share/mercury"
 #endif
 
 int analysis_init(int verbosity) {
@@ -150,6 +150,10 @@ int analysis_init(int verbosity) {
                 }
                 return 0;
             }
+        }
+        if (verbosity > 0) {
+            fprintf(stderr, "warning: could not open file '%s'\n", resource_file_name);
+            fprintf(stderr, "warning: could not initialize analysis module with resource directory '%s', trying next in list\n", resource_dir_list[index]);
         }
 
         index++;  /* try next directory in the list */
