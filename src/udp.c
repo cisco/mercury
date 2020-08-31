@@ -45,6 +45,9 @@ unsigned char dtls_client_hello_value[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00
 };
 
+// DTLSv1.0 version: { 254, 255 } == { 0xfe, 0xff }
+// DTLSv1.2 version: { 254, 253 } == { 0xfe, 0xfd }
+
 struct pi_container dtls_client = {
     DIR_CLIENT,
     DTLS_PORT
@@ -54,7 +57,7 @@ struct pi_container dtls_client = {
 /* DTLS Server */
 unsigned char dtls_server_hello_mask[] = {
     0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
 unsigned char dtls_server_hello_value[] = {
@@ -136,7 +139,7 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
         return NULL;
     }
 
-    if (u64_compare_masked_data_to_value(udp_data,
+    if (u32_compare_masked_data_to_value(udp_data,
                                          dtls_client_hello_mask,
                                          dtls_client_hello_value)) {
         return &dtls_client;
@@ -278,8 +281,10 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         break;
     case DTLS_PORT:
         if (pi->dir == DIR_CLIENT) {
+            x->msg_type = msg_type_dtls_client_hello;
             return parser_extractor_process_dtls(p, x);
         } else {
+            x->msg_type = msg_type_dtls_server_hello;
             return parser_extractor_process_dtls_server(p, x);
         }
         break;
@@ -584,6 +589,7 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
 
     extractor_debug("%s: processing packet\n", __func__);
 
+#if 1
     /*
      * verify that we are looking at a DTLS ClientHello
      */
@@ -593,8 +599,9 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
                      dtls_client_hello_mask) == status_err) {
         return 0; /* not a clientHello */
     }
-
+#endif
     x->fingerprint_type = fingerprint_type_dtls;
+    x->packet_data.type = packet_data_type_dtls_no_sni;
 
     /*
      * skip over initial fields

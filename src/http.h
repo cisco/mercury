@@ -28,7 +28,7 @@ struct http_request {
 
     void parse(struct parser &p);
 
-    static void write_json(struct parser data, struct json_object &record);
+    static void write_json(struct parser data, struct json_object &record, bool output_metadata);
 
 };
 

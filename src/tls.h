@@ -224,20 +224,22 @@ struct tls_extensions : public parser {
 struct tls_client_hello {
     struct parser protocol_version;
     struct parser random;
-    struct parser ciphersuite_vector;
     struct parser session_id;
+    struct parser cookie;      // only present for dtls
+    struct parser ciphersuite_vector;
     struct parser compression_methods;
     struct tls_extensions extensions;
+    bool dtls;
 
-    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, session_id{NULL, NULL}, compression_methods{NULL, NULL}, extensions{NULL, NULL} {}
+    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, session_id{NULL, NULL}, cookie{NULL, NULL}, ciphersuite_vector{NULL, NULL}, compression_methods{NULL, NULL}, extensions{NULL, NULL}, dtls{false} {}
 
     void parse(struct parser &p);
 
     void fingerprint(json_object &o, const char *key) const;
 
-    static void write_json(struct parser &data, struct json_object &record);
+    static void write_json(struct parser &data, struct json_object &record, bool output_metadata);
 
-    void write_json(struct json_object &record) const;
+    void write_json(struct json_object &record, bool output_metadata) const;
 
     struct tls_security_assessment security_assesment();
 };
@@ -260,5 +262,63 @@ struct tls_server_hello {
     void write_json(struct json_object &record) const;
 
 };
+
+
+// DTLS (RFC 4347)
+
+struct dtls_record {
+    uint8_t  content_type;
+    uint16_t protocol_version;
+    uint16_t epoch;
+    uint64_t sequence_number;  // only 48 bits on wire
+    uint16_t length;
+    struct parser fragment;
+
+    dtls_record() : content_type{0}, protocol_version{0}, epoch{0}, sequence_number{0}, length{0}, fragment{NULL, NULL} {}
+
+    void parse(struct parser &d) {
+        if (d.length() < (int)(sizeof(content_type) + sizeof(protocol_version) + sizeof(length))) {
+            return;
+        }
+        d.read_uint8(&content_type);
+        d.read_uint16(&protocol_version);
+        d.read_uint16(&epoch);
+        d.read_uint(&sequence_number, 6);   // 6 bytes == 48 bits
+        d.read_uint16(&length);
+        fragment.init_from_outer_parser(&d, length);
+    }
+};
+
+struct dtls_handshake {
+    handshake_type msg_type;
+    uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
+    uint16_t message_seq;      // DTLS-only field
+    uint32_t fragment_offset;  // 24 bits on wire; DTLS-only field
+    uint32_t fragment_length;  // 24 bits on wire; DTLS-only field
+    struct parser body;
+
+    dtls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {}
+
+    dtls_handshake(struct parser &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
+        parse(d);
+    }
+
+    void parse(struct parser &d) {
+        if (d.length() < (int)(4)) {
+            return;
+        }
+        d.read_uint8((uint8_t *)&msg_type);
+        size_t tmp;
+        d.read_uint(&tmp, L_HandshakeLength);
+        length = tmp;
+        d.read_uint16(&message_seq);
+        d.read_uint(&tmp, 3);  // 24 bits on wire
+        fragment_offset = tmp;
+        d.read_uint(&tmp, 3);  // 24 bits on wire
+        fragment_length = tmp;
+        body.init_from_outer_parser(&d, length);
+    }
+};
+
 
 #endif /* TLS_H */

@@ -224,11 +224,20 @@ int append_packet_json(struct buffer_stream &buf,
         // output metadata
         switch(pf.x.msg_type) {
         case msg_type_http_request:
-            http_request::write_json(pf.x.transport_data, record);
+            http_request::write_json(pf.x.transport_data, record, global_vars.metadata_output);
             break;
         case msg_type_tls_client_hello:
             //  record.print_key_hex("tlsdata", pf.x.transport_data);
-            tls_client_hello::write_json(pf.x.transport_data, record);
+            {
+                struct tls_record rec;
+                rec.parse(pf.x.transport_data);
+                struct tls_handshake handshake;
+                handshake.parse(rec.fragment);
+                struct tls_client_hello hello;
+                hello.parse(handshake.body);
+                hello.write_json(record, global_vars.metadata_output);
+                //tls_client_hello::write_json(pf.x.transport_data, record);
+            }
             break;
         case msg_type_tls_server_hello:
         case msg_type_tls_certificate:
@@ -275,43 +284,6 @@ int append_packet_json(struct buffer_stream &buf,
                 tls_server.close();
                 tls.close();
             }
-#if 0
-            {
-                struct tls_record rec;
-                rec.parse(pf.x.transport_data);
-                struct tls_handshake handshake;
-                handshake.parse(rec.fragment);
-
-                struct json_object tls{record, "tls"};
-                struct json_object tls_server{tls, "server"};
-                if (handshake.msg_type == handshake_type::server_hello) {
-                    struct tls_server_hello hello;
-                    hello.parse(handshake.body);
-                    hello.write_json(tls_server);
-                } else if (handshake.msg_type == handshake_type::certificate) {
-                    struct tls_server_certificate certificate;
-                    certificate.parse(handshake.body);
-                    struct json_array server_certs{tls_server, "certs"};
-                    certificate.write_json(server_certs, global_vars.certs_json_output);
-                    server_certs.close();
-                }
-                struct tls_record rec2;
-                rec2.parse(pf.x.transport_data);
-                handshake.parse(rec2.fragment);
-                if (handshake.msg_type == handshake_type::certificate) {
-                    struct tls_server_certificate cert;
-                    cert.parse(handshake.body);
-                    struct json_array server_certs{record, "certs"};
-                    cert.write_json(server_certs, global_vars.certs_json_output);
-                    server_certs.close();
-                } else {
-                    fprintf(stderr, "trailing data is not a cert (type: %u)\n", (unsigned int)handshake.msg_type);
-                }
-                tls_server.close();
-                tls.close();
-
-            }
-#endif
             break;
         case msg_type_http_response:
             http_response::write_json(pf.x.transport_data, record);
@@ -323,11 +295,32 @@ int append_packet_json(struct buffer_stream &buf,
                 wg.write_json(record);
             }
             break;
+        case msg_type_dns:
+            {
+                struct json_object dns{record, "dns"};
+                write_dns_server_data(pf.x.transport_data.data,
+                                      pf.x.transport_data.length(),
+                                      dns,
+                                      !global_vars.dns_json_output);
+                dns.close();
+            }
+            break;
+        case msg_type_dtls_client_hello:
+            {
+                struct dtls_record dtls_rec;
+                dtls_rec.parse(pf.x.transport_data);
+                struct dtls_handshake handshake;
+                handshake.parse(dtls_rec.fragment);
+                if (handshake.msg_type == handshake_type::client_hello) {
+                    struct tls_client_hello hello;
+                    hello.parse(handshake.body);
+                    hello.write_json(record, global_vars.metadata_output);
+                }
+            }
+            break;
         case msg_type_ssh:
         case msg_type_ssh_kex:
-        case msg_type_dns:
         case msg_type_dhcp:
-        case msg_type_dtls_client_hello:
         case msg_type_dtls_server_hello:
         case msg_type_dtls_certificate:
         case msg_type_unknown:
@@ -341,20 +334,16 @@ int append_packet_json(struct buffer_stream &buf,
          * output packet_data (if any)
          */
         if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
-            struct json_object http{record, "http"};
-            struct json_object http_request{http, "request"};
-            http_request.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
-            http_request.close();
-            http.close();
+            http_request::write_json(pf.x.transport_data, record, global_vars.metadata_output);
         }
         if (pf.x.packet_data.type == packet_data_type_tls_sni) {
-            if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-                struct json_object tls{record, "tls"};
-                struct json_object tls_client{tls, "client"};
-                tls_client.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
-                tls_client.close();
-                tls.close();
-            }
+            struct tls_record rec;
+            rec.parse(pf.x.transport_data);
+            struct tls_handshake handshake;
+            handshake.parse(rec.fragment);
+            struct tls_client_hello hello;
+            hello.parse(handshake.body);
+            hello.write_json(record, global_vars.metadata_output);
         }
         if (pf.x.packet_data.type == packet_data_type_tls_cert) {
             struct tls_record rec;
@@ -401,20 +390,27 @@ int append_packet_json(struct buffer_stream &buf,
             tls.close();
         }
 
-
-    }
-
-    if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
-        if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-            struct json_object dtls{record, "dtls"};
-            dtls.print_key_json_string("server_name", pf.x.packet_data.value  + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
-            dtls.close();
+        if (pf.x.packet_data.type == packet_data_type_dns_server) {
+            struct json_object dns{record, "dns"};
+            write_dns_server_data(pf.x.transport_data.data,
+                                  pf.x.transport_data.length(),
+                                  dns,
+                                  !global_vars.dns_json_output);
+            dns.close();
         }
-    }
-    if (pf.x.packet_data.type == packet_data_type_dns_server) {
-        struct json_object dns{record, "dns"};
-        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, dns, !global_vars.dns_json_output);
-        dns.close();
+
+        if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
+            struct dtls_record dtls_rec;
+            dtls_rec.parse(pf.x.transport_data);
+            struct dtls_handshake handshake;
+            handshake.parse(dtls_rec.fragment);
+            if (handshake.msg_type == handshake_type::client_hello) {
+                struct tls_client_hello hello;
+                hello.parse(handshake.body);
+                hello.write_json(record, global_vars.metadata_output);
+            }
+        }
+
     }
 
     /*

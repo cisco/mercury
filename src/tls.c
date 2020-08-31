@@ -236,6 +236,8 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
 
 }
 
+#define L_DTLSCookieLength             1
+
 void tls_client_hello::parse(struct parser &p) {
     size_t tmp_len;
 
@@ -253,15 +255,25 @@ void tls_client_hello::parse(struct parser &p) {
     }
 #endif
 
+#if 0  // replaced by struct tls_record and struct tls_handshake
     /*
      * skip over initial fields
      */
     if (parser_skip(&p, L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType +  L_HandshakeLength) == status_err) {
         return;
     }
+#endif
 
     // parse clientHello.ProtocolVersion
     protocol_version.parse(p, L_ProtocolVersion);
+    if (protocol_version.is_not_readable()) {
+        return;
+    }
+
+    // determine if this is DTLS or plain old TLS
+    if (protocol_version.data[0] == 0xfe) {
+        dtls = true;
+    }
 
 #if 0
     // sanity check protocol version
@@ -269,7 +281,6 @@ void tls_client_hello::parse(struct parser &p) {
     struct parser v10{v10_value, v10_value + sizeof(v10_value)};
     if (protocol_version == v10) {
         fprintf(stderr, "%s: found version 1.0\n", __func__);
-
     }
     uint16_t version;
     if (protocol_version.read_uint16(&version) == false) {
@@ -291,6 +302,16 @@ void tls_client_hello::parse(struct parser &p) {
         return;
     }
     session_id.parse(p, tmp_len);
+
+    if (dtls) {
+        // skip over Cookie and CookieLen
+        if (parser_read_uint(&p, L_DTLSCookieLength, &tmp_len) == status_err) {
+            return;
+        }
+        if (parser_skip(&p, tmp_len + L_DTLSCookieLength) == status_err) {
+            return;
+        }
+    }
 
     // parse clientHello.Ciphersuites
     if (parser_read_and_skip_uint(&p, L_CipherSuiteVectorLength, &tmp_len)) {
@@ -315,29 +336,41 @@ void tls_client_hello::parse(struct parser &p) {
 
 }
 
-void tls_client_hello::write_json(struct json_object &record) const {
-    struct json_object tls{record, "tls"};
+void tls_client_hello::write_json(struct json_object &record, bool output_metadata) const {
+    const char *label = "tls";
+    if (dtls) {
+        label = "dtls";
+    }
+    struct json_object tls{record, label};
     struct json_object tls_client{tls, "client"};
-    tls_client.print_key_hex("version", protocol_version);
-    tls_client.print_key_hex("random", random);
-    tls_client.print_key_hex("session_id", session_id);
-    tls_client.print_key_hex("cipher_suites", ciphersuite_vector);
-    tls_client.print_key_hex("compression_methods", compression_methods);
-    //tls.print_key_hex("extensions", hello.extensions);
-    //hello.extensions.print(tls, "extensions");
+    if (output_metadata) {
+        tls_client.print_key_hex("version", protocol_version);
+        tls_client.print_key_hex("random", random);
+        tls_client.print_key_hex("session_id", session_id);
+        tls_client.print_key_hex("cipher_suites", ciphersuite_vector);
+        tls_client.print_key_hex("compression_methods", compression_methods);
+        //tls.print_key_hex("extensions", hello.extensions);
+        //hello.extensions.print(tls, "extensions");
+    }
     extensions.print_server_name(tls_client, "server_name");
-    extensions.print_session_ticket(tls_client, "session_ticket");
-    fingerprint(tls_client, "fingerprint"); // TBD: FIX!
+    if (output_metadata) {
+        extensions.print_session_ticket(tls_client, "session_ticket");
+        fingerprint(tls_client, "fingerprint"); // TBD: DEGREASING
+    }
     tls_client.close();
     tls.close();
 }
 
 // static function
 //
-void tls_client_hello::write_json(struct parser &data, struct json_object &record) {
+void tls_client_hello::write_json(struct parser &data, struct json_object &record, bool output_metadata) {
+    struct tls_record rec;
+    rec.parse(data);
+    struct tls_handshake handshake;
+    handshake.parse(rec.fragment);
     struct tls_client_hello hello;
-    hello.parse(data);
-    hello.write_json(record);
+    hello.parse(handshake.body);
+    hello.write_json(record, output_metadata);
 }
 
 void tls_client_hello::fingerprint(json_object &o, const char *key) const {
