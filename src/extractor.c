@@ -224,21 +224,58 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
     return NULL;
 }
 
+enum msg_type get_message_type(const uint8_t *tcp_data,
+                               unsigned int len) {
 
-/* packet data methods */
+    if (len < sizeof(tls_client_hello_mask)) {
+        return msg_type_unknown;
+    }
 
-void packet_data_set(struct packet_data *pd,
-                     enum packet_data_type type,
-                     size_t length,
-                     const uint8_t *value) {
-    pd->type = type;
-    pd->length = length;
-    pd->value = value;
+    // debug_print_u8_array(tcp_data);
 
-}
+    /* note: tcp_data will be 32-bit aligned as per the standard */
 
-void packet_data_init(struct packet_data *pd) {
-    packet_data_set(pd, packet_data_type_none, 0, NULL);
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         tls_client_hello_mask,
+                                         tls_client_hello_value)) {
+        return msg_type_tls_client_hello;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         tls_server_hello_mask,
+                                         tls_server_hello_value)) {
+        return msg_type_tls_server_hello;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         tls_server_cert_mask,
+                                         tls_server_cert_value)) {
+        return msg_type_tls_certificate;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         http_client_mask,
+                                         http_client_value)) {
+        return msg_type_http_request;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         http_client_post_mask,
+                                         http_client_post_value)) {
+        return msg_type_http_request;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         http_server_mask,
+                                         http_server_value)) {
+        return msg_type_http_response;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         ssh_mask,
+                                         ssh_value)) {
+        return msg_type_ssh;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         ssh_kex_mask,
+                                         ssh_kex_value)) {
+        return msg_type_ssh_kex;
+    }
+    return msg_type_unknown;
 }
 
 /* extractor methods */
@@ -258,7 +295,6 @@ void extractor_init(struct extractor *x,
     x->fingerprint_type = fingerprint_type_unknown;
     x->last_capture = NULL;
 
-    packet_data_init(&x->packet_data);
     x->transport_data.data = NULL;
     x->transport_data.data_end = NULL;
     x->msg_type = msg_type_unknown;
@@ -1145,12 +1181,6 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
     //size_t ext_len_value = (x->output - ext_len_slot) | PARENT_NODE_INDICATOR;
     encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
 
-    if (sni_data) {
-        packet_data_set(&x->packet_data, packet_data_type_tls_sni, sni_length, sni_data);
-    } else {
-        x->packet_data.type = packet_data_type_tls_no_sni;
-    }
-
     x->proto_state.state = state_done;
 
     return extractor_get_output_length(x);
@@ -1186,15 +1216,9 @@ enum status parser_extractor_process_certificate(struct parser *p, struct extrac
     if (tmp_len > (unsigned)parser_get_data_length(p)) {
         tmp_len = parser_get_data_length(p);
     }
-    
-    /* we have some certificate data in this packet */
-    packet_data_set(&x->packet_data,
-                    packet_data_type_tls_cert,
-                    tmp_len,
-                    p->data);
 
-    parser_skip(p, tmp_len);  
-    
+    parser_skip(p, tmp_len);
+
     extractor_debug("%s: completed \n", __func__);
 
     return status_ok;
@@ -1647,16 +1671,6 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
 
             if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
                 return extractor_get_output_length(x);
-            }
-            if (user_agent_string) {
-                size_t ua_len = p->data - user_agent_string;
-                ua_len = ua_len > sizeof(crlf) ? ua_len - sizeof(crlf) : 0;
-                packet_data_set(&x->packet_data,
-                                packet_data_type_http_user_agent,
-                                ua_len,
-                                user_agent_string);
-            } else {
-                x->packet_data.type = packet_data_type_http_user_agent;
             }
         }
     }

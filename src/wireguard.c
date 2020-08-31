@@ -16,7 +16,6 @@ unsigned int parser_extractor_process_wireguard(struct parser *p, struct extract
     }
 
     // set sender_index as packet_data
-    packet_data_set(&x->packet_data, packet_data_type_wireguard, sizeof(uint32_t), (const uint8_t *)&whi->sender_index);
 
     return 0;
 }

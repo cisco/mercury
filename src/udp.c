@@ -289,9 +289,11 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
         }
         break;
     case SSH_PORT:
+        x->msg_type = msg_type_ssh;
         return parser_extractor_process_ssh(p, x);
         break;
     case DNS_PORT:
+        x->msg_type = msg_type_dns;
         return parser_extractor_process_dns(p, x);
         break;
     case WIREGUARD_PORT:
@@ -601,7 +603,6 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
     }
 #endif
     x->fingerprint_type = fingerprint_type_dtls;
-    x->packet_data.type = packet_data_type_dtls_no_sni;
 
     /*
      * skip over initial fields
@@ -734,10 +735,6 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
      */
     //size_t ext_len_value = (x->output - ext_len_slot) | PARENT_NODE_INDICATOR;
     encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
-
-    if (sni_data) {
-        packet_data_set(&x->packet_data, packet_data_type_dtls_sni, sni_length, sni_data);
-    }
 
     x->proto_state.state = state_done;
 
@@ -905,7 +902,6 @@ unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x)
     extractor_debug("%s: processing packet\n", __func__);
 
     // set entire DNS packet as packet_data
-    packet_data_set(&x->packet_data, packet_data_type_dns_server, p->length(), p->data);
 
     return 0;
 }

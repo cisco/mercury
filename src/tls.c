@@ -337,6 +337,9 @@ void tls_client_hello::parse(struct parser &p) {
 }
 
 void tls_client_hello::write_json(struct json_object &record, bool output_metadata) const {
+    if (ciphersuite_vector.is_not_readable()) {
+        return;
+    }
     const char *label = "tls";
     if (dtls) {
         label = "dtls";

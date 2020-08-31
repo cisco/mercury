@@ -394,19 +394,22 @@ void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
         int ret_value;
         char dst_ip[MAX_DST_ADDR_LEN];
         unsigned char fp_str[MAX_FP_STR_LEN];
-        char server_name[MAX_SNI_LEN];
+        char server_name[MAX_SNI_LEN] = { 0 };
         uint16_t dst_port = flow_key_get_dst_port(key);
 
         uint8_t *extractor_buffer = x->output_start;
         size_t bytes_extracted = extractor_get_output_length(x);
         sprintf_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted, fp_str, MAX_FP_STR_LEN); // should check return result
         flow_key_sprintf_dst_addr(key, dst_ip);
-        if (x->packet_data.type == packet_data_type_tls_sni) {
-            size_t sni_len = x->packet_data.length - SNI_HEADER_LEN;
-            sni_len = sni_len > MAX_SNI_LEN-1 ? MAX_SNI_LEN-1 : sni_len;
-            memcpy(server_name, x->packet_data.value + SNI_HEADER_LEN, sni_len);
-            server_name[sni_len] = 0; // null termination
-        }
+
+        // TBD: copy server_name, if available from client_hello
+        //
+        //        if (x->packet_data.type == packet_data_type_tls_sni) {
+        //            size_t sni_len = x->packet_data.length - SNI_HEADER_LEN;
+        //            sni_len = sni_len > MAX_SNI_LEN-1 ? MAX_SNI_LEN-1 : sni_len;
+        //            memcpy(server_name, x->packet_data.value + SNI_HEADER_LEN, sni_len);
+        //            server_name[sni_len] = 0; // null termination
+        //        }
 
         ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
         if (ret_value == -1) {
@@ -457,19 +460,22 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
         int ret_value;
         char dst_ip[MAX_DST_ADDR_LEN];
         unsigned char fp_str[MAX_FP_STR_LEN];
-        char server_name[MAX_SNI_LEN];
+        char server_name[MAX_SNI_LEN] = { 0 };
         uint16_t dst_port = flow_key_get_dst_port(key);
 
         uint8_t *extractor_buffer = x->output_start;
         size_t bytes_extracted = extractor_get_output_length(x);
         sprintf_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted, fp_str, MAX_FP_STR_LEN); // should check return result
         flow_key_sprintf_dst_addr(key, dst_ip);
-        if (x->packet_data.type == packet_data_type_tls_sni) {
-            size_t sni_len = x->packet_data.length - SNI_HEADER_LEN;
-            sni_len = sni_len > MAX_SNI_LEN-1 ? MAX_SNI_LEN-1 : sni_len;
-            memcpy(server_name, x->packet_data.value + SNI_HEADER_LEN, sni_len);
-            server_name[sni_len] = 0; // null termination
-        }
+
+        // TBD: copy server_name, if available from client_hello
+        //
+        //        if (x->packet_data.type == packet_data_type_tls_sni) {
+        //            size_t sni_len = x->packet_data.length - SNI_HEADER_LEN;
+        //            sni_len = sni_len > MAX_SNI_LEN-1 ? MAX_SNI_LEN-1 : sni_len;
+        //            memcpy(server_name, x->packet_data.value + SNI_HEADER_LEN, sni_len);
+        //            server_name[sni_len] = 0; // null termination
+        //        }
 
         ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
         if (ret_value == -1) {

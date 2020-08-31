@@ -160,32 +160,33 @@ void http_request::write_json(struct parser data, struct json_object &record, bo
 
     std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via, upgrade_pair};
 
-    struct json_object http{record, "http"};
-    struct json_object http_request{http, "request"};
     struct http_request request;
     request.parse(data);
-    if (output_metadata) {
-        http_request.print_key_json_string("method", request.method.data, request.method.length());
-        http_request.print_key_json_string("uri", request.uri.data, request.uri.length());
-        http_request.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
-        // http.print_key_json_string("headers", request.headers.data, request.headers.length());
-        // request.headers.print_host(http, "host");
+    if (request.method.is_not_empty()) {
+        struct json_object http{record, "http"};
+        struct json_object http_request{http, "request"};
+        if (output_metadata) {
+            http_request.print_key_json_string("method", request.method.data, request.method.length());
+            http_request.print_key_json_string("uri", request.uri.data, request.uri.length());
+            http_request.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
+            // http.print_key_json_string("headers", request.headers.data, request.headers.length());
+            // request.headers.print_host(http, "host");
 
-        // run the list of http headers to be printed out against
-        // all headers, and print the values corresponding to each
-        // of the matching names
-        //
-        request.headers.print_matching_names(http_request, names_to_print);
+            // run the list of http headers to be printed out against
+            // all headers, and print the values corresponding to each
+            // of the matching names
+            //
+            request.headers.print_matching_names(http_request, names_to_print);
 
-    } else {
+        } else {
 
-        // output only the user-agent
-        std::list<std::pair<struct parser, std::string>> ua_only{user_agent_name};
-        request.headers.print_matching_names(http_request, ua_only);
+            // output only the user-agent
+            std::list<std::pair<struct parser, std::string>> ua_only{user_agent_name};
+            request.headers.print_matching_names(http_request, ua_only);
+        }
+        http_request.close();
+        http.close();
     }
-
-    http_request.close();
-    http.close();
 
 }
 

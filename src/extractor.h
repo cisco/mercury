@@ -27,25 +27,6 @@
 #define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
-enum packet_data_type {
-    packet_data_type_none            = 0,
-    packet_data_type_tls_sni         = 1,
-    packet_data_type_http_user_agent = 2,
-    packet_data_type_tls_cert        = 3,
-    packet_data_type_dtls_sni        = 4,
-    packet_data_type_dns_server      = 5,
-    packet_data_type_wireguard       = 6,
-    packet_data_type_tls_no_sni      = 7,
-    packet_data_type_http_no_user_agent = 8,
-    packet_data_type_dtls_no_sni     = 9,
-};
-
-struct packet_data {
-    enum packet_data_type type;
-    size_t length;
-    const uint8_t *value;
-};
-
 enum fingerprint_type {
     fingerprint_type_unknown     = 0,
     fingerprint_type_tcp         = 1,
@@ -112,7 +93,6 @@ struct extractor {
     unsigned char *output;              /* buffer for output         */
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
-    struct packet_data packet_data;     /* data of interest in packt */
     struct parser transport_data;       // NEW
     enum msg_type msg_type;             // NEW
 };
@@ -158,11 +138,6 @@ void parser_init_from_outer_parser(struct parser *p,
 
 enum status parser_set_data_length(struct parser *p,
                                    unsigned int data_len);
-
-void packet_data_set(struct packet_data *pd,
-                     enum packet_data_type type,
-                     size_t length,
-                     const uint8_t *value);
 
 uint16_t degrease_uint16(uint16_t x);
 
