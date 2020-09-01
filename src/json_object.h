@@ -48,8 +48,10 @@ struct json_object {
         b->write_char('}');
     }
     void print_key_json_string(const char *k, const uint8_t *v, size_t length) {
-        write_comma(comma);
-        b->json_string_escaped(k, v, length);
+        if (v) {
+            write_comma(comma);
+            b->json_string_escaped(k, v, length);
+        }
     }
     void print_key_string(const char *k, const char *v) {
         write_comma(comma);
