@@ -23,6 +23,7 @@
 #include "tls.h"
 #include "http.h"
 #include "wireguard.h"
+#include "ssh.h"
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -341,7 +342,17 @@ int append_packet_json(struct buffer_stream &buf,
         }
         break;
     case msg_type_ssh:
+        //record.print_key_json_string("ssh_init_data", pf.x.transport_data.data, pf.x.transport_data.length());
+        break;
     case msg_type_ssh_kex:
+        {
+            struct ssh_binary_packet pkt;
+            pkt.parse(pf.x.transport_data);
+            struct ssh_kex_init kex_init;
+            kex_init.parse(pkt.payload);
+            kex_init.write_json(record, global_vars.metadata_output);
+        }
+        break;
     case msg_type_dhcp:
     case msg_type_dtls_server_hello:
     case msg_type_dtls_certificate:

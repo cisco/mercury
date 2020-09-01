@@ -54,6 +54,14 @@ struct parser {
         data_end = r.data + num_bytes;
         r.data += num_bytes;
     }
+    void parse_soft_fail(struct parser &r, size_t num_bytes) {
+        if (r.length() < (ssize_t)num_bytes) {
+            num_bytes = r.length();  // only parse bytes that are available
+        }
+        data = r.data;
+        data_end = r.data + num_bytes;
+        r.data += num_bytes;
+    }
     void parse_up_to_delim(struct parser &r, uint8_t delim) {
         data = r.data;
         while (r.data <= r.data_end) {
@@ -127,11 +135,24 @@ struct parser {
         return false;
     }
 
+    // read_uint32() reads a uint32_t in network byte order, and advances the data pointer
+    //
+    bool read_uint32(uint32_t *output) {
+        if (length() >= (int)sizeof(uint32_t)) {
+            uint32_t *tmp = (uint32_t *)data;
+            *output = ntohl(*tmp);
+            data += sizeof(uint32_t);
+            return true;
+        }
+        *output = 0;
+        return false;
+    }
+
     // read_uint() reads a length num_bytes uint in network byte order, and advances the data pointer
     //
     bool read_uint(size_t *output, unsigned int num_bytes) {
 
-        if (data + num_bytes <= data_end) {
+        if (data && data + num_bytes <= data_end) {
             size_t tmp = 0;
             const unsigned char *c;
 
@@ -144,6 +165,21 @@ struct parser {
             return true;
         }
         *output = 0;
+        return false;
+    }
+
+    bool set_uint(size_t *output, unsigned int num_bytes) {
+
+        if (data && data + num_bytes <= data_end) {
+            size_t tmp = 0;
+            const unsigned char *c;
+
+            for (c = data; c < data + num_bytes; c++) {
+                tmp = (tmp << 8) + *c;
+            }
+            *output = tmp;
+            return true;
+        }
         return false;
     }
 
