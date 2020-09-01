@@ -156,7 +156,6 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::list<std::pair<st
             if (n.first.case_insensitive_match(name)) {
                 include_name = true;
                 include_value = n.second;
-                //header_name = (const char *)name.second.c_str();
             }
         }
         const uint8_t *value_start = p.data;
