@@ -44,6 +44,7 @@ MERC   += capture.c
 endif
 MERC   += config.c
 MERC   += json_file_io.c
+MERC   += match.c
 MERC   += output.c
 MERC   += pcap_file_io.c
 MERC   += pcap_reader.c

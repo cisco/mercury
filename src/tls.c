@@ -5,6 +5,7 @@
 #include "extractor.h"
 #include "json_object.h"
 #include "tls.h"
+#include "match.h"
 #include "asn1/x509.h"
 
 /* TLS Constants */

@@ -8,6 +8,7 @@
 #include "extractor.h"
 #include "proto_identify.h"
 #include "ept.h"
+#include "match.h"
 
 #define VXLAN_PORT 4789
 /*

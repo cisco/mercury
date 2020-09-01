@@ -18,15 +18,6 @@
 #include "proto_identify.h"
 
 
-/*
- * The extractor_debug macro is useful for debugging (but quite verbose)
- */
-#ifndef DEBUG
-#define extractor_debug(...)
-#else
-#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
-#endif
-
 enum fingerprint_type {
     fingerprint_type_unknown     = 0,
     fingerprint_type_tcp         = 1,
@@ -245,10 +236,6 @@ unsigned int extractor_match(struct extractor *x,
 			     size_t value_len,
 			     const unsigned char *mask);
 
-unsigned int uint16_match(uint16_t x,
-			  const uint16_t *ulist,
-			  unsigned int num);
-
 
 /*
  * protocol-specific functions
@@ -386,15 +373,6 @@ enum status proto_dispatch_add(struct proto_dispatch *pd,
 
 
 enum status proto_ident_config(const char *config_string);
-
-
-unsigned int u32_compare_masked_data_to_value(const void *data,
-                                              const void *mask,
-                                              const void *value);
-
-unsigned int u64_compare_masked_data_to_value(const void *data,
-                                              const void *mask,
-                                              const void *value);
 
 ptrdiff_t parser_get_data_length(struct parser *p);
 

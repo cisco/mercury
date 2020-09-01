@@ -1651,13 +1651,13 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
         if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
             return extractor_get_output_length(x);
         }
-        if (extractor_keyword_match_last_capture(x, &matcher_http_static_name_and_value) == status_ok) {
+        if (extractor_keyword_match_last_capture(x, &matcher_http_static_name_and_value)) {
             if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
                 return extractor_get_output_length(x);
             }
         } else {
             const uint8_t *user_agent_string = NULL;
-            if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher) == status_ok) {
+            if (extractor_keyword_match_last_capture(x, &user_agent_keyword_matcher)) {
                 /* store user agent value */
                 if (parser_skip_upto_delim(p, csp, sizeof(csp)) == status_err) {
                     return extractor_get_output_length(x);
@@ -1665,7 +1665,7 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
                 user_agent_string = p->data;
             }
 
-            if (extractor_keyword_match_last_capture(x, &matcher_http_static_name) != status_ok) {
+            if (extractor_keyword_match_last_capture(x, &matcher_http_static_name) != true) {
                 extractor_delete_last_capture(x);
             }
 
@@ -1800,12 +1800,12 @@ unsigned int parser_extractor_process_http_server(struct parser *p, struct extra
         if (parser_extractor_copy_upto_delim(p, x, csp, sizeof(csp)) == status_err) {
             return extractor_get_output_length(x);
         }
-        if (extractor_keyword_match_last_capture(x, &matcher_http_server_static_name_and_value) == status_ok) {
+        if (extractor_keyword_match_last_capture(x, &matcher_http_server_static_name_and_value)) {
             if (parser_extractor_copy_append_upto_delim(p, x, crlf) == status_err) {
                 return extractor_get_output_length(x);
             }
         } else {
-            if (extractor_keyword_match_last_capture(x, &matcher_http_server_static_name) != status_ok) {
+            if (extractor_keyword_match_last_capture(x, &matcher_http_server_static_name) != true) {
                 extractor_delete_last_capture(x);
             }
             if (parser_skip_upto_delim(p, crlf, sizeof(crlf)) == status_err) {
