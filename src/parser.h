@@ -72,10 +72,31 @@ struct parser {
             r.data++;
         }
     }
+    uint8_t parse_up_to_delimeters(struct parser &r, uint8_t delim1, uint8_t delim2) {
+        data = r.data;
+        while (r.data <= r.data_end) {
+            if (*r.data == delim1) { // found first delimeter
+                data_end = r.data;
+                return delim1;
+            }
+            if (*r.data == delim2) { // found second delimeter
+                data_end = r.data;
+                return delim2;
+            }
+            r.data++;
+        }
+        return 0;
+    }
     void skip(size_t length) {
         data += length;
         if (data > data_end) {
             data = data_end;
+        }
+    }
+    void trim(size_t length) {
+        data_end -= length;
+        if (data_end < data) {
+            data_end = data;
         }
     }
     bool case_insensitive_match(const struct parser r) const {

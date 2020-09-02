@@ -342,7 +342,20 @@ int append_packet_json(struct buffer_stream &buf,
         }
         break;
     case msg_type_ssh:
-        //record.print_key_json_string("ssh_init_data", pf.x.transport_data.data, pf.x.transport_data.length());
+        {
+            // record.print_key_json_string("ssh_init_data", pf.x.transport_data.data, pf.x.transport_data.length());
+            struct ssh_init_packet init_packet;
+            init_packet.parse(pf.x.transport_data);
+            init_packet.write_json(record, global_vars.metadata_output);
+            if (pf.x.transport_data.is_not_empty()) {
+                // record.print_key_json_string("ssh_residual_data", pf.x.transport_data.data, pf.x.transport_data.length());
+                struct ssh_binary_packet pkt;
+                pkt.parse(pf.x.transport_data);
+                struct ssh_kex_init kex_init;
+                kex_init.parse(pkt.payload);
+                kex_init.write_json(record, global_vars.metadata_output);
+            }
+        }
         break;
     case msg_type_ssh_kex:
         {
