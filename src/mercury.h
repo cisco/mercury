@@ -40,6 +40,7 @@ enum status {
  * of the program
  */
 struct mercury_config {
+    char *resources;                /* directory containing (analysis) resource files */
     char *read_filename;            /* base name of pcap file to read, if any         */
     char *write_filename;           /* base name of pcap file to write, if any        */
     char *fingerprint_filename;     /* base name of fingerprint file to write, if any */
@@ -62,7 +63,7 @@ struct mercury_config {
     bool output_block;              /* use blocking output                            */
 };
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, false, false, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0, false }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, false, false, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0, false }
 
 /*
  * struct global_variables holds all of mercury's global variables.

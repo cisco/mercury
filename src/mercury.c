@@ -50,6 +50,7 @@ char mercury_help[] =
     "GENERAL OPTIONS\n"
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
+    "   --resources d                         # use resource directory d\n"
     "   [-s or --select] filter               # select only metadata (see --help)\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
@@ -179,10 +180,11 @@ int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
+            { "resources",   required_argument, NULL, resources },
             { "version",     no_argument,       NULL, version },
             { "license",     no_argument,       NULL, license },
             { "dns-json",    no_argument,       NULL, dns_json },
@@ -213,6 +215,13 @@ int main(int argc, char *argv[]) {
                 mercury_config_read_from_file(&cfg, optarg);
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
+            }
+            break;
+        case resources:
+            if (option_is_valid(optarg)) {
+                cfg.resources = optarg;
+            } else {
+                usage(argv[0], "option resources requires directory argument", extended_help_off);
             }
             break;
         case version:
@@ -433,7 +442,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (cfg.analysis) {
-        if (analysis_init(cfg.verbosity) == -1) {
+        if (analysis_init(cfg.verbosity, cfg.resources) == -1) {
             return EXIT_FAILURE;  /* analysis engine could not be initialized */
         };
         global_vars.do_analysis = true;

@@ -14,7 +14,7 @@
 #include "addr.h"
 #include "buffer_stream.h"
 
-int analysis_init(int verbosity);
+int analysis_init(int verbosity, const char *resource_dir);
 
 int analysis_finalize();
 

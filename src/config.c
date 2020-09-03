@@ -86,6 +86,10 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg, char *l
         cfg->capture_interface = strdup(arg);
         return status_ok;
 
+    } else if ((arg = command_get_argument("resources=", line)) != NULL) {
+        cfg->resources = strdup(arg);
+        return status_ok;
+
     } else if ((arg = command_get_argument("directory=", line)) != NULL) {
         cfg->working_dir = strdup(arg);
         return status_ok;

@@ -117,7 +117,7 @@ void cache_finalize() {
 #define DEFAULT_RESOURCE_DIR "/usr/local/share/mercury"
 #endif
 
-int analysis_init(int verbosity) {
+int analysis_init(int verbosity, const char *resource_dir) {
 
 //    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
 //       printf("\n mutex init has failed\n");
@@ -132,6 +132,11 @@ int analysis_init(int verbosity) {
        "../resources",
        NULL
       };
+    if (resource_dir) {
+        resource_dir_list[0] = resource_dir;  // use directory from configuration
+        resource_dir_list[1] = NULL;          // fail otherwise
+    }
+
     char resource_file_name[PATH_MAX];
 
     unsigned int index = 0;
