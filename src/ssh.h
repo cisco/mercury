@@ -110,9 +110,11 @@ struct ssh_init_packet {
             return;
         }
         json_object json_ssh{o, "ssh"};
-        json_ssh.print_key_json_string("protocol", protocol_string.data, protocol_string.length());
-        json_ssh.print_key_json_string("comment", comment_string.data, comment_string.length());
-        fingerprint(json_ssh, "fingerprint");
+        json_object json_ssh_init{json_ssh, "init"};
+        json_ssh_init.print_key_json_string("protocol", protocol_string.data, protocol_string.length());
+        json_ssh_init.print_key_json_string("comment", comment_string.data, comment_string.length());
+        fingerprint(json_ssh_init, "fingerprint");
+        json_ssh_init.close();
         json_ssh.close();
     }
 
@@ -146,6 +148,17 @@ struct ssh_binary_packet {
     }
 };
 
+struct name_list : public parser {
+
+    name_list() : parser{} {}
+
+    void parse(struct parser &p) {
+        uint32_t length;
+        p.read_uint32(&length);
+        parser::parse(p, length);
+    }
+};
+
 /*
  * Each session starts out with a KEXINIT message:
  *
@@ -168,84 +181,85 @@ struct ssh_binary_packet {
 struct ssh_kex_init {
     struct parser msg_type;
     struct parser cookie;
-    struct parser kex_algorithms;
-    struct parser server_host_key_algorithms;
-    struct parser encryption_algorithms_client_to_server;
-    struct parser encryption_algorithms_server_to_client;
-    struct parser mac_algorithms_client_to_server;
-    struct parser mac_algorithms_server_to_client;
-    struct parser compression_algorithms_client_to_server;
-    struct parser compression_algorithms_server_to_client;
-    struct parser languages_client_to_server;
-    struct parser languages_server_to_client;
+    struct name_list kex_algorithms;
+    struct name_list server_host_key_algorithms;
+    struct name_list encryption_algorithms_client_to_server;
+    struct name_list encryption_algorithms_server_to_client;
+    struct name_list mac_algorithms_client_to_server;
+    struct name_list mac_algorithms_server_to_client;
+    struct name_list compression_algorithms_client_to_server;
+    struct name_list compression_algorithms_server_to_client;
+    struct name_list languages_client_to_server;
+    struct name_list languages_server_to_client;
 
-    ssh_kex_init() :
-        msg_type{NULL, NULL},
-        cookie{NULL, NULL},
-        kex_algorithms{NULL, NULL},
-        server_host_key_algorithms{NULL, NULL},
-        encryption_algorithms_client_to_server{NULL, NULL},
-        encryption_algorithms_server_to_client{NULL, NULL},
-        mac_algorithms_client_to_server{NULL, NULL},
-        mac_algorithms_server_to_client{NULL, NULL},
-        compression_algorithms_client_to_server{NULL, NULL},
-        compression_algorithms_server_to_client{NULL, NULL},
-        languages_client_to_server{NULL, NULL},
-        languages_server_to_client{NULL, NULL} {
-    }
+    ssh_kex_init() = default;
+    // ssh_kex_init() :
+    //     msg_type{NULL, NULL},
+    //     cookie{NULL, NULL},
+    //     kex_algorithms{NULL, NULL},
+    //     server_host_key_algorithms{NULL, NULL},
+    //     encryption_algorithms_client_to_server{NULL, NULL},
+    //     encryption_algorithms_server_to_client{NULL, NULL},
+    //     mac_algorithms_client_to_server{NULL, NULL},
+    //     mac_algorithms_server_to_client{NULL, NULL},
+    //     compression_algorithms_client_to_server{NULL, NULL},
+    //     compression_algorithms_server_to_client{NULL, NULL},
+    //     languages_client_to_server{NULL, NULL},
+    //     languages_server_to_client{NULL, NULL} {
+    // }
 
     void parse(struct parser &p) {
         msg_type.parse(p, L_ssh_payload);
         cookie.parse(p, L_ssh_cookie);
-        size_t tmp = 0;
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        kex_algorithms.parse(p, tmp);
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        server_host_key_algorithms.parse(p, tmp);
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        encryption_algorithms_client_to_server.parse(p, tmp);
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        encryption_algorithms_server_to_client.parse(p, tmp);
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        mac_algorithms_client_to_server.parse(p, tmp);
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        mac_algorithms_server_to_client.parse(p, tmp);
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        compression_algorithms_client_to_server.parse(p, tmp);
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        compression_algorithms_server_to_client.parse(p, tmp);
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        languages_client_to_server.parse(p, tmp);
-        if (parser_read_and_skip_uint(&p, sizeof(uint32_t), &tmp) == status_err) {
-            return;
-        }
-        languages_server_to_client.parse(p, tmp);
+        kex_algorithms.parse(p);
+        server_host_key_algorithms.parse(p);
+        encryption_algorithms_client_to_server.parse(p);
+        encryption_algorithms_server_to_client.parse(p);
+        mac_algorithms_client_to_server.parse(p);
+        mac_algorithms_server_to_client.parse(p);
+        compression_algorithms_client_to_server.parse(p);
+        compression_algorithms_server_to_client.parse(p);
+        languages_client_to_server.parse(p);
+        languages_server_to_client.parse(p);
     }
 
-    void write_json(json_object &o, bool output_metadata) {
+    static inline void write_hex_data(buffer_stream &buf, const struct parser &d) {
+        buf.write_char('(');
+        if (d.is_not_empty()) {
+            buf.raw_as_hex(d.data, d.length());
+        }
+        buf.write_char(')');
+    }
+
+    void fingerprint(json_object &o, const char *key) const {
+        if (kex_algorithms.is_not_readable()) {
+            return;
+        }
+        char fp_buffer[8192];
+        struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
+
+        write_hex_data(buf, kex_algorithms);
+        write_hex_data(buf, server_host_key_algorithms);
+        write_hex_data(buf, encryption_algorithms_client_to_server);
+        write_hex_data(buf, encryption_algorithms_server_to_client);
+        write_hex_data(buf, mac_algorithms_client_to_server);
+        write_hex_data(buf, mac_algorithms_server_to_client);
+        write_hex_data(buf, compression_algorithms_client_to_server);
+        write_hex_data(buf, compression_algorithms_server_to_client);
+        write_hex_data(buf, languages_client_to_server);
+        write_hex_data(buf, languages_server_to_client);
+
+        buf.write_char('\0'); // null-terminate the JSON string in the buffer
+        o.print_key_string(key, fp_buffer);
+
+    }
+
+    void write_json(json_object &o, bool output_metadata) const {
         if (kex_algorithms.is_not_readable()) {
             return;
         }
         struct json_object ssh{o, "ssh"};
-        struct json_object ssh_client{ssh, "client"};
+        struct json_object ssh_client{ssh, "kex"};
         if (output_metadata) {
             ssh_client.print_key_json_string("kex_algorithms", kex_algorithms.data, kex_algorithms.length());
             ssh_client.print_key_json_string("server_host_key_algorithms", server_host_key_algorithms.data, server_host_key_algorithms.length());
@@ -257,6 +271,7 @@ struct ssh_kex_init {
             ssh_client.print_key_json_string("compression_algorithms_server_to_client", compression_algorithms_server_to_client.data, compression_algorithms_server_to_client.length());
             ssh_client.print_key_json_string("languages_client_to_server", languages_client_to_server.data, languages_client_to_server.length());
             ssh_client.print_key_json_string("languages_server_to_client", languages_server_to_client.data, languages_server_to_client.length());
+            fingerprint(ssh_client, "fingerprint");
         }
         ssh_client.close();
         ssh.close();

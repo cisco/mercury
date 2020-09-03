@@ -35,7 +35,8 @@ struct parser {
     const unsigned char *data;          /* data being parsed/copied  */
     const unsigned char *data_end;      /* end of data buffer        */
 
-    //parser() : data{NULL}, data_end{NULL} {}
+    parser() : data{NULL}, data_end{NULL} {}
+    parser(const unsigned char *first, const unsigned char *last) : data{first}, data_end{last} {}
     //parser(const unsigned char *d, const unsigned char *e) : data{d}, data_end{e} {}
     //parser(const unsigned char *d, size_t length) : data{d}, data_end{d+length} {}
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
@@ -49,6 +50,9 @@ struct parser {
     void parse(struct parser &r, size_t num_bytes) {
         if (r.length() < (ssize_t)num_bytes) {
             r.set_null();
+            set_null();
+            // fprintf(stderr, "warning: not enough data in parse\n");
+            return;
         }
         data = r.data;
         data_end = r.data + num_bytes;
@@ -71,6 +75,7 @@ struct parser {
             }
             r.data++;
         }
+        data_end = r.data;
     }
     uint8_t parse_up_to_delimeters(struct parser &r, uint8_t delim1, uint8_t delim2) {
         data = r.data;
@@ -139,6 +144,7 @@ struct parser {
             data += 1;
             return true;
         }
+        set_null();
         *output = 0;
         return false;
     }
@@ -152,6 +158,7 @@ struct parser {
             data += sizeof(uint16_t);
             return true;
         }
+        set_null();
         *output = 0;
         return false;
     }
@@ -165,6 +172,7 @@ struct parser {
             data += sizeof(uint32_t);
             return true;
         }
+        set_null();
         *output = 0;
         return false;
     }
@@ -185,6 +193,7 @@ struct parser {
             extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
             return true;
         }
+        set_null();
         *output = 0;
         return false;
     }

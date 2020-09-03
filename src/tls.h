@@ -209,6 +209,8 @@ struct tls_server_certificate {
 
 struct tls_extensions : public parser {
 
+    tls_extensions() = default;
+
     tls_extensions(const uint8_t *data, const uint8_t *data_end) : parser{data, data_end} {}
 
     void print(struct json_object &o, const char *key) const;
@@ -251,7 +253,8 @@ struct tls_server_hello {
     struct parser compression_method;
     struct tls_extensions extensions;
 
-    tls_server_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, extensions{NULL, NULL} {}
+    tls_server_hello() = default;
+    //tls_server_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, compression_method{NULL, NULL}, extensions{NULL, NULL} {}
 
     void parse(struct parser &p);
 

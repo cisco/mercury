@@ -10,7 +10,22 @@
 
 struct http_headers : public parser {
 
-    http_headers() : parser{NULL, NULL} {}
+    http_headers() : parser{} {}
+
+    void parse(struct parser &p) {
+        unsigned char crlf[2] = { '\r', '\n' };
+
+        data = p.data;
+        while (parser_get_data_length(&p) > 0) {
+            if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+                break;  /* at end of headers */
+            }
+            if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+                break;
+            }
+        }
+        data_end = p.data;
+    }
 
     void print_host(struct json_object &o, const char *key) const;
     void print_matching_name(struct json_object &o, const char *key, struct parser &name) const;
@@ -27,7 +42,7 @@ struct http_request {
     struct parser protocol;
     struct http_headers headers;
 
-    http_request() : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL} {}
+    http_request() : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{} {}
 
     void parse(struct parser &p);
 

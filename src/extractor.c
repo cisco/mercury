@@ -1417,36 +1417,36 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
      * verify that we are looking at a TLS record
      */
     if (parser_read_and_skip_uint(p, L_ContentType, &tmp_type) == status_err) {
-        goto bail;
+        return 0;
     }
     if (tmp_type != 0x16) {
-        goto bail;    /* not a handshake record */
+        return 0;    /* not a handshake record */
     }
     if (parser_skip(p, L_ProtocolVersion) == status_err) {
-	    goto bail;
+	    return 0;
     }
     if (parser_read_and_skip_uint(p, L_RecordLength, &tmp_len) == status_err) {
-      goto bail;
+      return 0;
     }
     extractor_debug("%s: got a record\n", __func__);
     struct parser record;
     parser_init_from_outer_parser(&record, p, tmp_len);
 
     if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
-	    goto bail;
+	    return 0;
     }
     if (tmp_type != 0x02) {
-        goto bail;     /* not a serverHello */
+        return 0;     /* not a serverHello */
     }
 
     if (parser_read_and_skip_uint(&record, L_HandshakeLength, &tmp_len) == status_err) {
-	    goto bail;
+	    return 0;
     }
     extractor_debug("%s: got a handshake\n", __func__);
-    struct parser handshake;
+    struct parser handshake{};
     parser_init_from_outer_parser(&handshake, &record, tmp_len);
     if (parser_extractor_process_tls_server_hello(&handshake, x) != status_ok) {
-        goto bail;
+        return 0;
     }
     parser_pop(&handshake, &record);
 
@@ -1455,7 +1455,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
         extractor_debug("%s: expecting another handshake structure\n", __func__);
         size_t tmp_type;
         if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
-            goto bail;
+            return 0;
         }
         if (tmp_type != 11) { /* certificate */
             goto done;
@@ -1514,13 +1514,6 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
     return extractor_get_output_length(x);
 
- bail:
-    /*
-     * handle possible packet parsing errors
-     */
-    extractor_debug("%s: warning: TLS serverHello processing did not fully complete\n", __func__);
-    return 0;
-
 }
 
 unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct extractor *x) {
@@ -1531,11 +1524,11 @@ unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct e
     int skip_len = (L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType + L_CertificateLength);
 
     if (parser_skip(p, skip_len) == status_err) {
-        goto bail;
+        return 0;
     }
 
     if (parser_extractor_process_certificate(p, x) == status_err) {
-        goto bail;
+        return 0;
     }
 
     return 0; 

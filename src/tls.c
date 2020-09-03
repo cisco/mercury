@@ -147,11 +147,14 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
         if (parser_skip(&ext_parser, tmp_len) == status_err) {
             break;
         }
+        const uint8_t *data_end = ext_parser.data;
 
         if (tmp_type == type_sni) {
-            struct parser ext{data, ext_parser.data};
+            struct parser ext{data, data_end};
             //            tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
-            o.print_key_json_string(key, ext.data + SNI_HDR_LEN, ext.length() - SNI_HDR_LEN);
+            // o.print_key_json_string(key, ext.data + SNI_HDR_LEN, ext.length() - SNI_HDR_LEN);
+            ext.skip(SNI_HDR_LEN);
+            o.print_key_json_string(key, ext);
         }
     }
 
@@ -519,6 +522,13 @@ void tls_server_hello::fingerprint(json_object &o, const char *key) const {
 }
 
 void tls_server_hello::write_json(struct json_object &o) const {
+    // o.print_key_datum("version", protocol_version);
+    // o.print_key_datum("random", random);
+    // o.print_key_datum("compression_method", compression_method);
+
+    // if (protocol_version.is_not_readable()) {
+    //      return;
+    // }
     o.print_key_hex("version", protocol_version);
     o.print_key_hex("random", random);
     //o.print_key_hex("session_id", session_id);

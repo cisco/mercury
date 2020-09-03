@@ -7,9 +7,8 @@
 #include "match.h"
 
 void http_request::parse(struct parser &p) {
-    unsigned char crlf[2] = { '\r', '\n' };
 
-    /* process request line */
+    /* parse request line */
     method.parse_up_to_delim(p, ' ');
     p.skip(1);
     uri.parse_up_to_delim(p, ' ');
@@ -17,16 +16,8 @@ void http_request::parse(struct parser &p) {
     protocol.parse_up_to_delim(p, '\r');
     p.skip(2);
 
-    headers.data = p.data;
-    while (parser_get_data_length(&p) > 0) {
-        if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
-            break;  /* at end of headers */
-        }
-        if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
-            break;
-        }
-    }
-    headers.data_end = p.data;
+    /* parse headers */
+    headers.parse(p);
 
     return;
 }
@@ -35,7 +26,7 @@ void http_headers::print_host(struct json_object &o, const char *key) const {
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
 
-    struct parser p{this->data, this->data_end};
+    struct parser p{this->data, this->data_end};  // create copy, to leave object unmodified
 
     while (parser_get_data_length(&p) > 0) {
         if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
@@ -70,7 +61,10 @@ void http_headers::print_matching_name(struct json_object &o, const char *key, s
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
 
-    struct parser p{this->data, this->data_end};
+    if (this->is_not_readable()) {
+        return;
+    }
+    struct parser p{this->data, this->data_end};  // create copy, to leave object unmodified
 
     while (parser_get_data_length(&p) > 0) {
         if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
@@ -103,7 +97,10 @@ void http_headers::print_matching_names(struct json_object &o, std::list<std::pa
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
 
-    struct parser p{this->data, this->data_end};
+    if (this->is_not_readable()) {
+        return;
+    }
+    struct parser p{this->data, this->data_end};  // create copy, to leave object unmodified
 
     while (parser_get_data_length(&p) > 0) {
         if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
@@ -137,7 +134,7 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::list<std::pair<st
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
 
-    struct parser p{this->data, this->data_end};
+    struct parser p{this->data, this->data_end};  // create copy, to leave object unmodified
 
     while (parser_get_data_length(&p) > 0) {
         if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
@@ -211,9 +208,9 @@ void http_request::write_json(struct parser data, struct json_object &record, bo
         struct json_object http{record, "http"};
         struct json_object http_request{http, "request"};
         if (output_metadata) {
-            http_request.print_key_json_string("method", request.method.data, request.method.length());
-            http_request.print_key_json_string("uri", request.uri.data, request.uri.length());
-            http_request.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
+            http_request.print_key_json_string("method", request.method);
+            http_request.print_key_json_string("uri", request.uri);
+            http_request.print_key_json_string("protocol", request.protocol);
             // http.print_key_json_string("headers", request.headers.data, request.headers.length());
             // request.headers.print_host(http, "host");
 
@@ -313,7 +310,7 @@ void http_request::fingerprint(json_object &o, const char *key) const {
     if (method.is_not_readable()) {
         return;
     }
-    char fp_buffer[2048];
+    char fp_buffer[4096];
     struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
     buf.write_char('(');
     buf.raw_as_hex(method.data, method.data_end - method.data);
