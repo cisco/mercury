@@ -1,15 +1,18 @@
 ## Safe Selective Parsing of Truncated Certificates and Other Network Data
-#### David McGrew, August 18, 2020
+#### David McGrew, September 4, 2020
 
 
 One of the biggest challenges in network data collection and analysis
 is that of parsing network data with safety, performance, and
 flexibility.  Network data formats are complex, and packet data is
-often truncated, and too often misformatted.  In mercury and
+often truncated, and is too often misformatted.  In mercury and
 cert-analyze, bounds checking is enforced through structured
 programming, with data structures and functions that provide
 efficiency and flexibility.  This note explains that approach in more
 detail (and it is a work in progress).
+
+**Note: `struct datum` is currently named `struct parser` in parser.h.
+`parser` is a poor choice of name, and it will be changed soon.**
 
 Network packets occupy contiguous regions of memory.  A substring of a
 packet can be identified by a pair of pointers indicating its start
@@ -97,5 +100,30 @@ computation.  In the http_request example, there are eight pointers
 instead of the minimum number of five pointers that are needed to
 represent the start and end of the header along with its internal
 partitions, but we can avoid a modest amount of pointer arithmetic
-that would otherwise be needed for bounds checkig.
+that would otherwise be needed for bounds checking.
+
+The function `http_request::parse(struct datum &data_buffer)` takes a
+datum as input, reads that data, and assigns the `method`, `uri`,
+`protocol`, and `headers` data elements.  Those elements are
+initialized to `NULL` values when the http_request is constructed.  If
+the parsing is completely successful, then all of the elements will
+point to the appropriate regions of memory.  But what happens if the
+data_buffer contains a truncated HTTP request?  If the parsing of the
+`protocol` element fails, for instance, then that element will be left
+in the `NULL` state.  Additionally, the data_buffer will be set in the
+`empty` state, so that the attempt to parse the `headers` element can
+detect the fact that the data_buffer can no longer be parsed.
+Importantly, all of the parsing routines check to see if the datum
+they are reading from is in a `readable` state.  This provides safety,
+and allows for a very readable coding style in which data elements are
+successively parsed from a data buffer.  If that data buffer is not
+readable, there is a slight performance penalty for performing several
+`readable` checks, but this penalty may be acceptable, especially if
+the data buffer is typically readable.  If performance is a concern,
+then the parsing routine can check for readabiltiy and return early if
+need be, leaving the data elements corresponding to unparsed data in
+their `NULL` state.
+
+
+
 
