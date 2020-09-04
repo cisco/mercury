@@ -24,6 +24,7 @@
 #include "http.h"
 #include "wireguard.h"
 #include "ssh.h"
+#include "dhcp.h"
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -370,6 +371,11 @@ int append_packet_json(struct buffer_stream &buf,
         }
         break;
     case msg_type_dhcp:
+        {
+            struct dhcp_discover dhcp_disco;
+            dhcp_disco.parse(pf.x.transport_data);
+            dhcp_disco.write_json(record);
+        }
     case msg_type_dtls_server_hello:
     case msg_type_dtls_certificate:
         // cases that fall through here are not yet supported

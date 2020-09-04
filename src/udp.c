@@ -278,6 +278,7 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
 
     switch(pi->app) {
     case DHCP_CLIENT_PORT:
+        x->msg_type = msg_type_dhcp;
         return parser_extractor_process_dhcp(p, x);
         break;
     case DTLS_PORT:
