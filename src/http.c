@@ -155,15 +155,71 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::list<std::pair<st
                 include_value = n.second;
             }
         }
-        const uint8_t *value_start = p.data;
         if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
             return;
         }
-        const uint8_t *value_end = p.data - 2;
+        const uint8_t *name_end = p.data - 2;
         if (include_name) {
             if (include_value) {
                 buf.write_char('(');
-                buf.raw_as_hex(name.data, value_end - name.data);         // write {name, value}
+                buf.raw_as_hex(name.data, name_end - name.data);         // write {name, value}
+                buf.write_char(')');
+            } else {
+                buf.write_char('(');
+                buf.raw_as_hex(name.data, name.data_end - name.data - 2); // write {name}
+                buf.write_char(')');
+            }
+        }
+    }
+}
+
+#include <unordered_map>
+#include "asn1/bytestring.h"
+
+inline void to_lower(std::basic_string<uint8_t> &str, struct parser d) {
+    if (d.is_not_readable()) {
+        return;
+    }
+    while (d.data < d.data_end) {
+        str.push_back(tolower(*d.data++));
+    }
+}
+
+void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std::basic_string<uint8_t>, bool> &name_dict) const {
+    unsigned char crlf[2] = { '\r', '\n' };
+    unsigned char csp[2] = { ':', ' ' };
+
+    struct parser p{this->data, this->data_end};  // create copy, to leave object unmodified
+
+    while (parser_get_data_length(&p) > 0) {
+        if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+
+        struct parser name{p.data, NULL};
+        if (parser_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
+            return;
+        }
+        name.data_end = p.data;
+        bool include_name = false;
+        bool include_value = false;
+
+        std::basic_string<uint8_t> name_lowercase;
+        to_lower(name_lowercase, name);
+        auto pair = name_dict.find(name_lowercase);
+        if (pair != name_dict.end()) {
+            include_name = true;
+            include_value = pair->second;
+        }
+
+        if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            return;
+        }
+        const uint8_t *name_end = p.data - 2;
+        if (include_name) {
+            if (include_value) {
+                buf.write_char('(');
+                buf.raw_as_hex(name.data, name_end - name.data);         // write {name, value}
                 buf.write_char(')');
             } else {
                 buf.write_char('(');
@@ -295,10 +351,13 @@ void http_response::write_json(struct parser data, struct json_object &record) {
     //
     response.headers.print_matching_names(http_response, names_to_print);
 
+    response.fingerprint(http_response, "fingerprint");
+
     http_response.close();
     http.close();
 
 }
+
 
 #define define_pair_parser_bool(x, v) uint8_t x[]
 
@@ -319,112 +378,100 @@ void http_request::fingerprint(json_object &o, const char *key) const {
     buf.raw_as_hex(protocol.data, protocol.data_end - protocol.data);
     buf.write_char(')');
 
-    keyword_t http_static_name_and_value[] = {
-        keyword_init("accept"),
-        keyword_init("accept-encoding"),
-        keyword_init("connection"),
-        keyword_init("dnt"),
-        keyword_init("dpr"),
-        keyword_init("upgrade-insecure-requests"),
-        keyword_init("x-requested-with"),
-        keyword_init("")
+    std::unordered_map<std::basic_string<uint8_t>, bool> http_static_keywords = {
+        { { 'a', 'c', 'c', 'e', 'p', 't', ':', ' ' }, true },
+        { { 'a', 'c', 'c', 'e', 'p', 't', '-', 'e', 'n', 'c', 'o', 'd', 'i', 'n', 'g', ':', ' '}, true },
+        { { 'c', 'o', 'n', 'n', 'e', 'c', 't', 'i', 'o', 'n', ':', ' ' }, true },
+        { { 'd', 'n', 't', ':', ' ' }, true },
+        { { 'd', 'p', 'r', ':', ' ' }, true },
+        { { 'u', 'p', 'g', 'r', 'a', 'd', 'e', '-', 'i', 'n', 's', 'e', 'c', 'u', 'r', 'e', '-', 'r', 'e', 'q', 'u', 'e', 's', 't', 's', ':', ' ' }, true },
+        { { 'x', '-', 'r', 'e', 'q', 'u', 'e', 's', 't', 'e', 'd', '-', 'w', 'i', 't', 'h', ':', ' ' }, true },
+        { { 'a', 'c', 'c', 'e', 'p', 't', '-', 'c', 'h', 'a', 'r', 's', 'e', 't', ':', ' ' }, false },
+        { { 'a', 'c', 'c', 'e', 'p', 't', '-', 'l', 'a', 'n', 'g', 'u', 'a', 'g', 'e', ':', ' ' }, false },
+        { { 'a', 'u', 't', 'h', 'o', 'r', 'i', 'z', 'a', 't', 'i', 'o', 'n', ':', ' ' }, false },
+        { { 'c', 'a', 'c', 'h', 'e', '-', 'c', 'o', 'n', 't', 'r', 'o', 'l', ':', ' ' }, false },
+        { { 'h', 'o', 's', 't', ':', ' ' }, false },
+        { { 'i', 'f', '-', 'm', 'o', 'd', 'i', 'f', 'i', 'e', 'd', '-', 's', 'i', 'n', 'c', 'e', ':', ' ' }, false },
+        { { 'k', 'e', 'e', 'p', '-', 'a', 'l', 'i', 'v', 'e', ':', ' ' }, false },
+        { { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' }, false },
+        { { 'x', '-', 'f', 'l', 'a', 's', 'h', '-', 'v', 'e', 'r', 's', 'i', 'o', 'n', ':', ' ' }, false },
+        { { 'x', '-', 'p', '2', 'p', '-', 'p', 'e', 'e', 'r', 'd', 'i', 's', 't', ':', ' ' }, false } 
     };
-    keyword_t http_static_name[] = {
-        keyword_init("accept-charset"),
-        keyword_init("accept-language"),
-        keyword_init("authorization"),
-        keyword_init("cache-control"),
-        keyword_init("host"),
-        keyword_init("if-modified-since"),
-        keyword_init("keep-alive"),
-        keyword_init("user-agent"),
-        keyword_init("x-flash-version"),
-        keyword_init("x-p2p-peerdist"),
-        keyword_init("")
+    headers.fingerprint(buf, http_static_keywords);
+
+    buf.write_char('\0'); // null-terminate the JSON string in the buffer
+    o.print_key_string(key, fp_buffer);
+}
+
+void http_response::fingerprint(json_object &o, const char *key) const {
+    if (status_reason.is_not_readable()) {
+        return;
+    }
+    char fp_buffer[4096];
+    struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
+    buf.write_char('(');
+    buf.raw_as_hex(version.data, version.data_end - version.data);
+    buf.write_char(')');
+    buf.write_char('(');
+    buf.raw_as_hex(status_code.data, status_code.data_end - status_code.data);
+    buf.write_char(')');
+    buf.write_char('(');
+    buf.raw_as_hex(status_reason.data, status_reason.data_end - status_reason.data);
+    buf.write_char(')');
+
+    std::unordered_map<std::basic_string<uint8_t>, bool> http_static_keywords = {
+        { (uint8_t *)"access-control-allow-credentials: ", true },
+        { (uint8_t *)"access-control-allow-headers: ", true },
+        { (uint8_t *)"access-control-allow-methods: ", true },
+        { (uint8_t *)"access-control-expose-headers: ", true },
+        { (uint8_t *)"cache-control: ", true },
+        { (uint8_t *)"code: ", true },
+        { (uint8_t *)"connection: ", true },
+        { (uint8_t *)"content-language: ", true },
+        { (uint8_t *)"content-transfer-encoding: ", true },
+        { (uint8_t *)"p3p: ", true },
+        { (uint8_t *)"pragma: ", true },
+        { (uint8_t *)"reason: ", true },
+        { (uint8_t *)"server: ", true },
+        { (uint8_t *)"strict-transport-security: ", true },
+        { (uint8_t *)"version: ", true },
+        { (uint8_t *)"x-aspnetmvc-version: ", true },
+        { (uint8_t *)"x-aspnet-version: ", true },
+        { (uint8_t *)"x-cid: ", true },
+        { (uint8_t *)"x-ms-version: ", true },
+        { (uint8_t *)"x-xss-protection: ", true },
+        { (uint8_t *)"appex-activity-id: ", false },
+        { (uint8_t *)"cdnuuid: ", false },
+        { (uint8_t *)"cf-ray: ", false },
+        { (uint8_t *)"content-range: ", false },
+        { (uint8_t *)"content-type: ", false },
+        { (uint8_t *)"date: ", false },
+        { (uint8_t *)"etag: ", false },
+        { (uint8_t *)"expires: ", false },
+        { (uint8_t *)"flow_context: ", false },
+        { (uint8_t *)"ms-cv: ", false },
+        { (uint8_t *)"msregion: ", false },
+        { (uint8_t *)"ms-requestid: ", false },
+        { (uint8_t *)"request-id: ", false },
+        { (uint8_t *)"vary: ", false },
+        { (uint8_t *)"x-amz-cf-pop: ", false },
+        { (uint8_t *)"x-amz-request-id: ", false },
+        { (uint8_t *)"x-azure-ref-originshield: ", false },
+        { (uint8_t *)"x-cache: ", false },
+        { (uint8_t *)"x-cache-hits: ", false },
+        { (uint8_t *)"x-ccc: ", false },
+        { (uint8_t *)"x-diagnostic-s: ", false },
+        { (uint8_t *)"x-feserver: ", false },
+        { (uint8_t *)"x-hw: ", false },
+        { (uint8_t *)"x-msedge-ref: ", false },
+        { (uint8_t *)"x-ocsp-responder-id: ", false },
+        { (uint8_t *)"x-requestid: ", false },
+        { (uint8_t *)"x-served-by: ", false },
+        { (uint8_t *)"x-timer: ", false },
+        { (uint8_t *)"x-trace-context: ", false }
+
     };
-    keyword_matcher_t matcher_http_static_name_and_value = {
-        http_static_name_and_value, /* case insensitive */
-        NULL                        /* case sensitive   */
-    };
-    keyword_matcher_t matcher_http_static_name = {
-        http_static_name,           /* case insensitive */
-        NULL                        /* case sensitive   */
-    };
-
-    uint8_t a[]   = { 'a', 'c', 'c', 'e', 'p', 't', ':', ' ' };
-    struct parser a_parser{a, a+sizeof(a)};
-    std::pair<struct parser, bool> a_pair{a_parser, true};
-
-    uint8_t ae[]  = {'a', 'c', 'c', 'e', 'p', 't', '-', 'e', 'n', 'c', 'o', 'd', 'i', 'n', 'g', ':', ' '};
-    struct parser ae_parser{ae, ae+sizeof(ae)};
-    std::pair<struct parser, bool> ae_pair{ae_parser, true};
-
-    uint8_t c[]   = { 'c', 'o', 'n', 'n', 'e', 'c', 't', 'i', 'o', 'n', ':', ' ' };
-    struct parser c_parser{c, c+sizeof(c)};
-    std::pair<struct parser, bool> c_pair{c_parser, true};
-
-    uint8_t dnt[] = { 'd', 'n', 't', ':', ' ' };
-    struct parser dnt_parser{dnt, dnt+sizeof(dnt)};
-    std::pair<struct parser, bool> dnt_pair{dnt_parser, true};
-
-    uint8_t dpr[] = { 'd', 'p', 'r', ':', ' ' };
-    struct parser dpr_parser{dpr, dpr+sizeof(dpr)};
-    std::pair<struct parser, bool> dpr_pair{dpr_parser, true};
-
-    uint8_t u[]   = { 'u', 'p', 'g', 'r', 'a', 'd', 'e', '-', 'i', 'n', 's', 'e', 'c', 'u', 'r', 'e', '-', 'r', 'e', 'q', 'u', 'e', 's', 't', 's', ':', ' ' };
-    struct parser u_parser{u, u+sizeof(u)};
-    std::pair<struct parser, bool> u_pair{u_parser, true};
-
-    uint8_t x[]   = { 'x', '-', 'r', 'e', 'q', 'u', 'e', 's', 't', 'e', 'd', '-', 'w', 'i', 't', 'h', ':', ' ' };
-    struct parser x_parser{x, x+sizeof(x)};
-    std::pair<struct parser, bool> x_pair{x_parser, true};
-
-    uint8_t ac[]  = {'a', 'c', 'c', 'e', 'p', 't', '-', 'c', 'h', 'a', 'r', 's', 'e', 't', ':', ' ' };
-    struct parser ac_parser{ac, ac+sizeof(ac)};
-    std::pair<struct parser, bool> ac_pair{ac_parser, false};
-
-    uint8_t al[]  = {'a', 'c', 'c', 'e', 'p', 't', '-', 'l', 'a', 'n', 'g', 'u', 'a', 'g', 'e', ':', ' ' };
-    struct parser al_parser{al, al+sizeof(al)};
-    std::pair<struct parser, bool> al_pair{al_parser, false};
-
-    uint8_t az[]  = {'a', 'u', 't', 'h', 'o', 'r', 'i', 'z', 'a', 't', 'i', 'o', 'n', ':', ' ' };
-    struct parser az_parser{az, az+sizeof(az)};
-    std::pair<struct parser, bool> az_pair{az_parser, false};
-
-    uint8_t cc[]  = {'c', 'a', 'c', 'h', 'e', '-', 'c', 'o', 'n', 't', 'r', 'o', 'l', ':', ' ' };
-    struct parser cc_parser{cc, cc+sizeof(cc)};
-    std::pair<struct parser, bool> cc_pair{cc_parser, false};
-
-    uint8_t h[]   = {'h', 'o', 's', 't', ':', ' ' };
-    struct parser h_parser{h, h+sizeof(h)};
-    std::pair<struct parser, bool> h_pair{h_parser, false};
-
-    uint8_t ims[] = {'i', 'f', '-', 'm', 'o', 'd', 'i', 'f', 'i', 'e', 'd', '-', 's', 'i', 'n', 'c', 'e', ':', ' ' };
-    struct parser ims_parser{ims, ims+sizeof(ims)};
-    std::pair<struct parser, bool> ims_pair{ims_parser, false};
-
-    uint8_t ka[]  = {'k', 'e', 'e', 'p', '-', 'a', 'l', 'i', 'v', 'e', ':', ' ' };
-    struct parser ka_parser{ka, ka+sizeof(ka)};
-    std::pair<struct parser, bool> ka_pair{ka_parser, false};
-
-    uint8_t ua[]  = {'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
-    struct parser ua_parser{ua, ua+sizeof(ua)};
-    std::pair<struct parser, bool> ua_pair{ua_parser, false};
-
-    uint8_t xfv[] = {'x', '-', 'f', 'l', 'a', 's', 'h', '-', 'v', 'e', 'r', 's', 'i', 'o', 'n', ':', ' ' };
-    struct parser xfv_parser{xfv, xfv+sizeof(xfv)};
-    std::pair<struct parser, bool> xfv_pair{xfv_parser, false};
-
-    uint8_t xpp[] = {'x', '-', 'p', '2', 'p', '-', 'p', 'e', 'e', 'r', 'd', 'i', 's', 't', ':', ' ' };
-    struct parser xpp_parser{xpp, xpp+sizeof(xpp)};
-    std::pair<struct parser, bool> xpp_pair{xpp_parser, false};
-
-    std::list<std::pair<struct parser, bool>> static_names{
-        a_pair, ae_pair, c_pair, dnt_pair, dpr_pair, u_pair, x_pair,
-        ac_pair, al_pair, az_pair, cc_pair, h_pair, ims_pair, ka_pair, ua_pair, xfv_pair, xpp_pair
-    };
-
-    headers.fingerprint(buf, static_names);
+    headers.fingerprint(buf, http_static_keywords);
 
     buf.write_char('\0'); // null-terminate the JSON string in the buffer
     o.print_key_string(key, fp_buffer);
