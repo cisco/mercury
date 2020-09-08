@@ -19,6 +19,12 @@
 #include "llq.h"
 #include "buffer_stream.h"
 #include "dns.h"
+#include "proto_identify.h"
+#include "tls.h"
+#include "http.h"
+#include "wireguard.h"
+#include "ssh.h"
+#include "dhcp.h"
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -158,7 +164,17 @@ int append_packet_json(struct buffer_stream &buf,
      */
     struct key k;
     size_t bytes_extracted = packet_filter_extract(&pf, &k, packet, length);
-    if (bytes_extracted <= packet_filter_threshold && pf.x.packet_data.type == packet_data_type_none) {
+    if (bytes_extracted <= packet_filter_threshold && pf.x.msg_type == msg_type_unknown) {
+        return 0;
+    }
+    // The following hack is needed in order to pass 'make test'; it
+    // will be eliminated when the json_object record is only created
+    // if/when the the packet parsing that follows the assignment of
+    // msg_type is successfull.  That is, the plan is to allow the
+    // parsing functions for each protocol to decide whether or not
+    // anything should be printed out for a particular packet.  
+    //
+    if (bytes_extracted <= packet_filter_threshold && pf.x.msg_type == msg_type_tls_client_hello) {
         return 0;
     }
 
@@ -169,243 +185,208 @@ int append_packet_json(struct buffer_stream &buf,
      */
     if (bytes_extracted > packet_filter_threshold) {
         uint8_t *extractor_buffer = pf.x.output_start;
+        struct json_object fps{record, "fingerprints"};
         switch(pf.x.fingerprint_type) {
         case fingerprint_type_dhcp_client:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("dhcp", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("dhcp", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_tls:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("tls", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("tls", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_tcp:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("tcp", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("tcp", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_http:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("http", extractor_buffer, bytes_extracted);
-                fps.close();
-                record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
-            }
+            fps.print_key_ept("http", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_http_server:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("http_server", extractor_buffer, bytes_extracted);
-                fps.close();
-                record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
-            }
+            fps.print_key_ept("http_server", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_tls_server:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("tls_server", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("tls_server", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_dtls:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("dtls", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("dtls", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_dtls_server:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("dtls_server", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("dtls_server", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_ssh:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("ssh", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("ssh", extractor_buffer, bytes_extracted);
             break;
         case fingerprint_type_ssh_kex:
-            {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_ept("ssh_kex", extractor_buffer, bytes_extracted);
-                fps.close();
-            }
+            fps.print_key_ept("ssh_kex", extractor_buffer, bytes_extracted);
             break;
         default:
             ;    /* no fingerprint; do nothing */
         }
+        fps.close();
+
+        switch(pf.x.fingerprint_type) {
+        case fingerprint_type_http:
+        case fingerprint_type_http_server:
+            record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+        default:
+            ;
+        }
     }
-
-    // construct a list of http header names to be printed out
-    //
-    uint8_t ua[] = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
-    struct parser user_agent{ua, ua+sizeof(ua)};
-    std::pair<struct parser, std::string> user_agent_name{user_agent, "user_agent"};
-
-    uint8_t h[] = { 'h', 'o', 's', 't', ':', ' ' };
-    struct parser host{h, h+sizeof(h)};
-    std::pair<struct parser, std::string> host_name{host, "host"};
-
-    uint8_t xff[] = { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' };
-    struct parser xff_parser{xff, xff+sizeof(xff)};
-    std::pair<struct parser, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
-
-    uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
-    struct parser v_parser{v, v+sizeof(v)};
-    std::pair<struct parser, std::string> via{v_parser, "via"};
-
-    std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via};
 
     /*
-     * output packet_data (if any)
+     * output metadata
      */
-    if (pf.x.packet_data.type == packet_data_type_http_user_agent) {
-        struct json_object http{record, "http"};
-        struct json_object http_request{http, "request"};
-        if (global_vars.metadata_output) {
-            struct http_request request;
-            request.parse(pf.x.transport_data);
-            http_request.print_key_json_string("method", request.method.data, request.method.length());
-            http_request.print_key_json_string("uri", request.uri.data, request.uri.length());
-            http_request.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
-            // http.print_key_json_string("headers", request.headers.data, request.headers.length());
-            // request.headers.print_host(http, "host");
-
-            // run the list of http headers to be printed out against
-            // all headers, and print the values corresponding to each
-            // of the matching names
-            //
-            request.headers.print_matching_names(http_request, names_to_print);
-
-        } else {
-            http_request.print_key_json_string("user_agent", pf.x.packet_data.value, pf.x.packet_data.length);
-        }
-        http_request.close();
-        http.close();
-    }
-    if (pf.x.packet_data.type == packet_data_type_http_no_user_agent) {
-        if (global_vars.metadata_output) {
-            struct json_object http{record, "http"};
-            struct json_object http_request{http, "request"};
-            struct http_request request;
-            request.parse(pf.x.transport_data);
-            http_request.print_key_json_string("method", request.method.data, request.method.length());
-            http_request.print_key_json_string("uri", request.uri.data, request.uri.length());
-            http_request.print_key_json_string("protocol", request.protocol.data, request.protocol.length());
-            // http.print_key_json_string("headers", request.headers.data, request.headers.length());
-            // request.headers.print_host(http, "host");
-
-            // run the list of http headers to be printed out against
-            // all headers, and print the values corresponding to each
-            // of the matching names
-            //
-            request.headers.print_matching_names(http_request, names_to_print);
-            http_request.close();
-            http.close();
-        }
-    }
-    if (pf.x.packet_data.type == packet_data_type_tls_sni) {
-        if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-            struct json_object tls{record, "tls"};
-            struct json_object tls_client{tls, "client"};
-            if (global_vars.metadata_output) {
-                struct tls_client_hello hello;
-                hello.parse(pf.x.transport_data);
-                tls_client.print_key_hex("version", hello.protocol_version);
-                tls_client.print_key_hex("random", hello.random);
-                tls_client.print_key_hex("session_id", hello.session_id);
-                tls_client.print_key_hex("cipher_suites", hello.ciphersuite_vector);
-                tls_client.print_key_hex("compression_methods", hello.compression_methods);
-                //tls.print_key_hex("extensions", hello.extensions);
-                //hello.extensions.print(tls, "extensions");
-                hello.extensions.print_server_name(tls_client, "server_name");
-                hello.extensions.print_session_ticket(tls_client, "session_ticket");
-            } else {
-                tls_client.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
-            }
-            tls_client.close();
-            tls.close();
-        }
-    }
-    if (pf.x.packet_data.type == packet_data_type_tls_no_sni) {
-        if (global_vars.metadata_output) {
-            struct json_object tls{record, "tls"};
-            struct json_object tls_client{tls, "client"};
+    switch(pf.x.msg_type) {
+    case msg_type_http_request:
+        http_request::write_json(pf.x.transport_data, record, global_vars.metadata_output);
+        break;
+    case msg_type_tls_client_hello:
+        {
+            struct tls_record rec;
+            rec.parse(pf.x.transport_data);
+            struct tls_handshake handshake;
+            handshake.parse(rec.fragment);
             struct tls_client_hello hello;
-            hello.parse(pf.x.transport_data);
-            tls_client.print_key_hex("version", hello.protocol_version);
-            tls_client.print_key_hex("random", hello.random);
-            tls_client.print_key_hex("session_id", hello.session_id);
-            tls_client.print_key_hex("cipher_suites", hello.ciphersuite_vector);
-            tls_client.print_key_hex("compression_methods", hello.compression_methods);
-            //tls.print_key_hex("extensions", hello.extensions);
-            //hello.extensions.print(tls, "extensions");
-            hello.extensions.print_server_name(tls_client, "server_name");
-            hello.extensions.print_session_ticket(tls_client, "session_ticket");
-            tls_client.close();
-            tls.close();
-        }
-    }
-    if (pf.x.packet_data.type == packet_data_type_tls_cert) {
-        struct json_object tls{record, "tls"};
-        struct json_object tls_server{tls, "server"};
-        if (global_vars.metadata_output) {
-            struct tls_server_hello hello;
-            hello.parse(pf.x.transport_data);
-            if (hello.random.is_not_empty()) {
-                tls_server.print_key_hex("random", hello.random);
+            hello.parse(handshake.body);
+            hello.write_json(record, global_vars.metadata_output);
+            /*
+             * output analysis (if it's configured)
+             */
+            if (global_vars.do_analysis) {
+                struct flow_key key = flow_key_init();
+                flow_key_set_from_packet(&key, packet, length);
+                write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
             }
         }
-        struct json_array server_certs{tls_server, "certs"};
-        if (!global_vars.certs_json_output) {
-            write_extract_certificates(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
-        } else {
-            write_extract_cert_full(server_certs, pf.x.packet_data.value, pf.x.packet_data.length);
+        break;
+    case msg_type_tls_server_hello:
+    case msg_type_tls_certificate:
+        {
+            struct tls_record rec;
+            struct tls_handshake handshake;
+            struct tls_server_hello hello;
+            struct tls_server_certificate certificate;
+
+            // parse server_hello and/or certificate
+            //
+            rec.parse(pf.x.transport_data);
+            handshake.parse(rec.fragment);
+            if (handshake.msg_type == handshake_type::server_hello) {
+                hello.parse(handshake.body);
+                if (rec.fragment.is_not_empty()) {
+                    struct tls_handshake h;
+                    h.parse(rec.fragment);
+                    certificate.parse(h.body);
+                }
+
+            } else if (handshake.msg_type == handshake_type::certificate) {
+                certificate.parse(handshake.body);
+            }
+            struct tls_record rec2;
+            rec2.parse(pf.x.transport_data);
+            struct tls_handshake handshake2;
+            handshake2.parse(rec2.fragment);
+            if (handshake2.msg_type == handshake_type::certificate) {
+                certificate.parse(handshake2.body);
+            }
+
+            // output certificate (always) and server_hello (if configured to)
+            //
+            if ((global_vars.metadata_output && hello.protocol_version.is_not_empty())
+                || certificate.certificate_list.is_not_empty()) {
+                struct json_object tls{record, "tls"};
+                struct json_object tls_server{tls, "server"};
+                if (global_vars.metadata_output) { // && hello.protocol_version.is_not_empty()) {
+                    hello.write_json(tls_server);
+                }
+                if (certificate.certificate_list.is_not_empty()) {
+                    struct json_array server_certs{tls_server, "certs"};
+                    certificate.write_json(server_certs, global_vars.certs_json_output);
+                    server_certs.close();
+                }
+                tls_server.close();
+                tls.close();
+            }
         }
-        server_certs.close();
-        tls_server.close();
-        tls.close();
-    }
-    if (pf.x.packet_data.type == packet_data_type_dtls_sni) {
-        if (pf.x.packet_data.length >= SNI_HDR_LEN) {
-            struct json_object dtls{record, "dtls"};
-            dtls.print_key_json_string("server_name", pf.x.packet_data.value  + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
-            dtls.close();
+        break;
+    case msg_type_http_response:
+        if (global_vars.metadata_output) {
+            http_response::write_json(pf.x.transport_data, record);
         }
-    }
-    if (pf.x.packet_data.type == packet_data_type_dns_server) {
-        struct json_object dns{record, "dns"};
-        write_dns_server_data(pf.x.packet_data.value, pf.x.packet_data.length, dns, !global_vars.dns_json_output);
-        dns.close();
-    }
-    if (pf.x.packet_data.type == packet_data_type_wireguard && pf.x.packet_data.length == sizeof(uint32_t)) {
-        struct json_object wg{record, "wireguard"};
-        uint32_t tmp = ntohl(*(const uint32_t *)pf.x.packet_data.value);
-        struct parser si{(uint8_t *)&tmp, (uint8_t *)&tmp + sizeof(uint32_t)};
-        wg.print_key_hex("sender_index", si);
-        wg.close();
+        break;
+    case msg_type_wireguard:
+        {
+            wireguard_handshake_init wg;
+            wg.parse(pf.x.transport_data);
+            wg.write_json(record);
+        }
+        break;
+    case msg_type_dns:
+        {
+            struct json_object dns{record, "dns"};
+            write_dns_server_data(pf.x.transport_data.data,
+                                  pf.x.transport_data.length(),
+                                  dns,
+                                  !global_vars.dns_json_output);
+            dns.close();
+        }
+        break;
+    case msg_type_dtls_client_hello:
+        {
+            struct dtls_record dtls_rec;
+            dtls_rec.parse(pf.x.transport_data);
+            struct dtls_handshake handshake;
+            handshake.parse(dtls_rec.fragment);
+            if (handshake.msg_type == handshake_type::client_hello) {
+                struct tls_client_hello hello;
+                hello.parse(handshake.body);
+                hello.write_json(record, global_vars.metadata_output);
+            }
+        }
+        break;
+    case msg_type_ssh:
+        {
+            record.print_key_json_string("ssh_init_data", pf.x.transport_data.data, pf.x.transport_data.length());
+            struct ssh_init_packet init_packet;
+            init_packet.parse(pf.x.transport_data);
+            init_packet.write_json(record, global_vars.metadata_output);
+#if 0
+            if (pf.x.transport_data.is_not_empty()) {
+                record.print_key_json_string("ssh_residual_data", pf.x.transport_data.data, pf.x.transport_data.length());
+                struct ssh_binary_packet pkt;
+                pkt.parse(pf.x.transport_data);
+                struct ssh_kex_init kex_init;
+                kex_init.parse(pkt.payload);
+                kex_init.write_json(record, global_vars.metadata_output);
+            }
+#endif
+        }
+        break;
+    case msg_type_ssh_kex:
+        {
+            // record.print_key_json_string("ssh_kex_data", pf.x.transport_data.data, pf.x.transport_data.length());
+            struct ssh_binary_packet pkt;
+            pkt.parse(pf.x.transport_data);
+            struct ssh_kex_init kex_init;
+            kex_init.parse(pkt.payload);
+            kex_init.write_json(record, global_vars.metadata_output);
+        }
+        break;
+    case msg_type_dhcp:
+        {
+            struct dhcp_discover dhcp_disco;
+            dhcp_disco.parse(pf.x.transport_data);
+            dhcp_disco.write_json(record);
+        }
+    case msg_type_dtls_server_hello:
+    case msg_type_dtls_certificate:
+        // cases that fall through here are not yet supported
+    case msg_type_unknown:
+        // no output
+        break;
     }
 
     /*
-     * output flow key, analysis (if it's configured), and the timestamp
+     * output flow key and timestamp
      */
-    if (global_vars.do_analysis) {
-        struct flow_key key = flow_key_init();
-        flow_key_set_from_packet(&key, packet, length);
-        write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
-    }
-
     write_flow_key(record, k);
 
     record.print_key_timestamp("event_start", ts);

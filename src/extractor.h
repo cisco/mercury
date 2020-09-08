@@ -15,34 +15,8 @@
 #include "parser.h"
 #include "mercury.h"
 #include "tcp.h"
+#include "proto_identify.h"
 
-
-/*
- * The extractor_debug macro is useful for debugging (but quite verbose)
- */
-#ifndef DEBUG
-#define extractor_debug(...)
-#else
-#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
-#endif
-
-enum packet_data_type {
-    packet_data_type_none            = 0,
-    packet_data_type_tls_sni         = 1,
-    packet_data_type_http_user_agent = 2,
-    packet_data_type_tls_cert        = 3,
-    packet_data_type_dtls_sni        = 4,
-    packet_data_type_dns_server      = 5,
-    packet_data_type_wireguard       = 6,
-    packet_data_type_tls_no_sni      = 7,
-    packet_data_type_http_no_user_agent = 8
-};
-
-struct packet_data {
-    enum packet_data_type type;
-    size_t length;
-    const uint8_t *value;
-};
 
 enum fingerprint_type {
     fingerprint_type_unknown     = 0,
@@ -110,8 +84,8 @@ struct extractor {
     unsigned char *output;              /* buffer for output         */
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
-    struct packet_data packet_data;     /* data of interest in packt */
     struct parser transport_data;       // NEW
+    enum msg_type msg_type;             // NEW
 };
 
 /*
@@ -155,11 +129,6 @@ void parser_init_from_outer_parser(struct parser *p,
 
 enum status parser_set_data_length(struct parser *p,
                                    unsigned int data_len);
-
-void packet_data_set(struct packet_data *pd,
-                     enum packet_data_type type,
-                     size_t length,
-                     const uint8_t *value);
 
 uint16_t degrease_uint16(uint16_t x);
 
@@ -266,10 +235,6 @@ unsigned int extractor_match(struct extractor *x,
 			     const unsigned char *value,
 			     size_t value_len,
 			     const unsigned char *mask);
-
-unsigned int uint16_match(uint16_t x,
-			  const uint16_t *ulist,
-			  unsigned int num);
 
 
 /*
@@ -409,113 +374,7 @@ enum status proto_dispatch_add(struct proto_dispatch *pd,
 
 enum status proto_ident_config(const char *config_string);
 
-
-unsigned int u32_compare_masked_data_to_value(const void *data,
-                                              const void *mask,
-                                              const void *value);
-
-unsigned int u64_compare_masked_data_to_value(const void *data,
-                                              const void *mask,
-                                              const void *value);
-
 ptrdiff_t parser_get_data_length(struct parser *p);
 
-
-// new packet metadata catpure
-
-struct tls_security_assessment {
-    bool weak_version_offered;
-    bool weak_ciphersuite_offered;
-    bool weak_elliptic_curve_offered;
-    bool weak_version_used;
-    bool weak_ciphersuite_used;
-    bool weak_elliptic_curve_used;
-    bool weak_key_size_used;
-
-    tls_security_assessment() :
-        weak_version_offered{false},
-        weak_ciphersuite_offered{false},
-        weak_elliptic_curve_offered{false},
-        weak_version_used{false},
-        weak_ciphersuite_used{false},
-        weak_elliptic_curve_used{false},
-        weak_key_size_used{false}
-    {  }
-
-    void print(struct json_object &o, const char *key);
-};
-
-#define L_ExtensionType            2
-#define L_ExtensionLength          2
-
-/*
- * extension types used in normalization
- */
-#define type_sni                0x0000
-#define type_supported_groups   0x000a
-#define type_supported_versions 0x002b
-
-#define SNI_HDR_LEN 9
-
-struct tls_extensions : public parser {
-
-    tls_extensions(const uint8_t *data, const uint8_t *data_end) : parser{data, data_end} {}
-
-    void print(struct json_object &o, const char *key) const;
-
-    void print_server_name(struct json_object &o, const char *key) const;
-
-    void print_session_ticket(struct json_object &o, const char *key) const;
-};
-
-
-struct tls_client_hello {
-    struct parser protocol_version;
-    struct parser random;
-    struct parser ciphersuite_vector;
-    struct parser session_id;
-    struct parser compression_methods;
-    struct tls_extensions extensions;
-
-    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, session_id{NULL, NULL}, extensions{NULL, NULL} {}
-    void parse(struct parser &p);
-
-    struct tls_security_assessment security_assesment();
-};
-
-struct tls_server_hello {
-    struct parser protocol_version;
-    struct parser random;
-    struct parser ciphersuite_vector;
-    struct parser extensions;
-
-    tls_server_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, extensions{NULL, NULL} {}
-
-    void parse(struct parser &p);
-
-    enum status parse_tls_server_hello(struct parser &p);
-};
-
-struct http_headers : public parser {
-
-    http_headers() : parser{NULL, NULL} {}
-
-    void print_host(struct json_object &o, const char *key) const;
-    void print_matching_name(struct json_object &o, const char *key, struct parser &name) const;
-    void print_matching_names(struct json_object &o, const char *key, std::list<struct parser> &name) const;
-    void print_matching_names(struct json_object &o, std::list<std::pair<struct parser, std::string>> &name_list) const;
-};
-
-struct http_request {
-    struct parser method;
-    struct parser uri;
-    struct parser protocol;
-    struct http_headers headers;
-
-    http_request() : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL} {}
-
-    void parse(struct parser &p);
-
-};
 
 #endif /* EXTRACTOR_H */

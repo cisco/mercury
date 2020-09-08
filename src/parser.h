@@ -35,7 +35,8 @@ struct parser {
     const unsigned char *data;          /* data being parsed/copied  */
     const unsigned char *data_end;      /* end of data buffer        */
 
-    //parser() : data{NULL}, data_end{NULL} {}
+    parser() : data{NULL}, data_end{NULL} {}
+    parser(const unsigned char *first, const unsigned char *last) : data{first}, data_end{last} {}
     //parser(const unsigned char *d, const unsigned char *e) : data{d}, data_end{e} {}
     //parser(const unsigned char *d, size_t length) : data{d}, data_end{d+length} {}
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
@@ -49,6 +50,17 @@ struct parser {
     void parse(struct parser &r, size_t num_bytes) {
         if (r.length() < (ssize_t)num_bytes) {
             r.set_null();
+            set_null();
+            // fprintf(stderr, "warning: not enough data in parse\n");
+            return;
+        }
+        data = r.data;
+        data_end = r.data + num_bytes;
+        r.data += num_bytes;
+    }
+    void parse_soft_fail(struct parser &r, size_t num_bytes) {
+        if (r.length() < (ssize_t)num_bytes) {
+            num_bytes = r.length();  // only parse bytes that are available
         }
         data = r.data;
         data_end = r.data + num_bytes;
@@ -63,11 +75,33 @@ struct parser {
             }
             r.data++;
         }
+        data_end = r.data;
+    }
+    uint8_t parse_up_to_delimeters(struct parser &r, uint8_t delim1, uint8_t delim2) {
+        data = r.data;
+        while (r.data <= r.data_end) {
+            if (*r.data == delim1) { // found first delimeter
+                data_end = r.data;
+                return delim1;
+            }
+            if (*r.data == delim2) { // found second delimeter
+                data_end = r.data;
+                return delim2;
+            }
+            r.data++;
+        }
+        return 0;
     }
     void skip(size_t length) {
         data += length;
         if (data > data_end) {
             data = data_end;
+        }
+    }
+    void trim(size_t length) {
+        data_end -= length;
+        if (data_end < data) {
+            data_end = data;
         }
     }
     bool case_insensitive_match(const struct parser r) const {
@@ -101,6 +135,129 @@ struct parser {
         }
         return bits;
     }
+    void skip_up_to_delim(uint8_t delim) {
+        while (data <= data_end) {
+            if (*data == delim) { // found delimeter
+                return;
+            }
+            data++;
+        }
+    }
+
+    bool accept(uint8_t byte) {
+        if (data_end > data) {
+            uint8_t value = *data;
+            if (byte == value) {
+                data += 1;
+                return false;
+            }
+        }
+        set_empty();
+        return true;
+    }
+
+    bool accept_byte(const uint8_t *alternatives, uint8_t *output) {
+        if (data_end > data) {
+            uint8_t value = *data;
+            while (*alternatives != 0) {
+                if (*alternatives == value) {
+                    data += 1;
+                    *output = value;
+                    return false;
+                }
+                alternatives++;
+            }
+        }
+        set_empty();
+        return true;
+    }
+
+    // read_uint8() reads a uint8_t in network byte order, and advances the data pointer
+    //
+    bool read_uint8(uint8_t *output) {
+        if (data_end > data) {
+            *output = *data;
+            data += 1;
+            return true;
+        }
+        set_null();
+        *output = 0;
+        return false;
+    }
+
+    // read_uint16() reads a uint16_t in network byte order, and advances the data pointer
+    //
+    bool read_uint16(uint16_t *output) {
+        if (length() >= (int)sizeof(uint16_t)) {
+            uint16_t *tmp = (uint16_t *)data;
+            *output = ntohs(*tmp);
+            data += sizeof(uint16_t);
+            return true;
+        }
+        set_null();
+        *output = 0;
+        return false;
+    }
+
+    // read_uint32() reads a uint32_t in network byte order, and advances the data pointer
+    //
+    bool read_uint32(uint32_t *output) {
+        if (length() >= (int)sizeof(uint32_t)) {
+            uint32_t *tmp = (uint32_t *)data;
+            *output = ntohl(*tmp);
+            data += sizeof(uint32_t);
+            return true;
+        }
+        set_null();
+        *output = 0;
+        return false;
+    }
+
+    // read_uint() reads a length num_bytes uint in network byte order, and advances the data pointer
+    //
+    bool read_uint(size_t *output, unsigned int num_bytes) {
+
+        if (data && data + num_bytes <= data_end) {
+            size_t tmp = 0;
+            const unsigned char *c;
+
+            for (c = data; c < data + num_bytes; c++) {
+                tmp = (tmp << 8) + *c;
+            }
+            *output = tmp;
+            data = c;
+            extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
+            return true;
+        }
+        set_null();
+        *output = 0;
+        return false;
+    }
+
+    bool set_uint(size_t *output, unsigned int num_bytes) {
+
+        if (data && data + num_bytes <= data_end) {
+            size_t tmp = 0;
+            const unsigned char *c;
+
+            for (c = data; c < data + num_bytes; c++) {
+                tmp = (tmp << 8) + *c;
+            }
+            *output = tmp;
+            return true;
+        }
+        return false;
+    }
+
+    void init_from_outer_parser(struct parser *outer,
+                                unsigned int data_len) {
+        const unsigned char *inner_data_end = outer->data + data_len;
+
+        data = outer->data;
+        data_end = inner_data_end > outer->data_end ? outer->data_end : inner_data_end;
+        outer->data = data_end; // PROVISIONAL; NEW APPROACH
+    }
+
 };
 
 /*
