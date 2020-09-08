@@ -135,6 +135,42 @@ struct parser {
         }
         return bits;
     }
+    void skip_up_to_delim(uint8_t delim) {
+        while (data <= data_end) {
+            if (*data == delim) { // found delimeter
+                return;
+            }
+            data++;
+        }
+    }
+
+    bool accept(uint8_t byte) {
+        if (data_end > data) {
+            uint8_t value = *data;
+            if (byte == value) {
+                data += 1;
+                return false;
+            }
+        }
+        set_empty();
+        return true;
+    }
+
+    bool accept_byte(const uint8_t *alternatives, uint8_t *output) {
+        if (data_end > data) {
+            uint8_t value = *data;
+            while (*alternatives != 0) {
+                if (*alternatives == value) {
+                    data += 1;
+                    *output = value;
+                    return false;
+                }
+                alternatives++;
+            }
+        }
+        set_empty();
+        return true;
+    }
 
     // read_uint8() reads a uint8_t in network byte order, and advances the data pointer
     //
