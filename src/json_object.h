@@ -148,12 +148,12 @@ struct json_object {
         b->puts("\":");
         b->write_timestamp(ts);
     }
-    template <typename T> void print_key_value(const char *k, T &w) {
+     template <typename T> void print_key_value(const char *k, T &w) {
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":");
-        w(b);
+        w(*b);
     }
     void print_key_ipv4_addr(const char *k, const uint8_t *a) {
         write_comma(comma);

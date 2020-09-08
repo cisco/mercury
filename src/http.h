@@ -32,9 +32,8 @@ struct http_headers : public parser {
     void print_matching_names(struct json_object &o, const char *key, std::list<struct parser> &name) const;
     void print_matching_names(struct json_object &o, std::list<std::pair<struct parser, std::string>> &name_list) const;
 
-    void fingerprint(struct buffer_stream &buf, std::list<std::pair<struct parser, bool>> &name_list) const;
-
     void fingerprint(struct buffer_stream &buf, std::unordered_map<std::basic_string<uint8_t>, bool> &name_dict) const;
+
 };
 
 struct http_request {
@@ -49,7 +48,7 @@ struct http_request {
 
     static void write_json(struct parser data, struct json_object &record, bool output_metadata);
 
-    void fingerprint(json_object &o, const char *key) const;
+    void operator()(struct buffer_stream &b) const;
 
 };
 
@@ -65,7 +64,8 @@ struct http_response {
 
     static void write_json(struct parser data, struct json_object &record);
 
-    void fingerprint(json_object &o, const char *key) const;
+    void operator()(struct buffer_stream &buf) const;
+
 };
 
 #endif /* HTTP_H */

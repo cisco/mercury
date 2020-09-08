@@ -237,7 +237,7 @@ struct tls_client_hello {
 
     void parse(struct parser &p);
 
-    void fingerprint(json_object &o, const char *key) const;
+    void operator()(struct buffer_stream &buf) const;
 
     static void write_json(struct parser &data, struct json_object &record, bool output_metadata);
 
@@ -258,7 +258,7 @@ struct tls_server_hello {
 
     void parse(struct parser &p);
 
-    void fingerprint(json_object &o, const char *key) const;
+    void operator()(struct buffer_stream &buf) const;
 
     enum status parse_tls_server_hello(struct parser &p);
 

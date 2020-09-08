@@ -362,7 +362,7 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
     extensions.print_server_name(tls_client, "server_name");
     if (output_metadata) {
         extensions.print_session_ticket(tls_client, "session_ticket");
-        fingerprint(tls_client, "fingerprint"); // TBD: DEGREASING
+        tls_client.print_key_value("fingerprint", *this); // TBD: DEGREASING
     }
     tls_client.close();
     tls.close();
@@ -380,11 +380,8 @@ void tls_client_hello::write_json(struct parser &data, struct json_object &recor
     hello.write_json(record, output_metadata);
 }
 
-void tls_client_hello::fingerprint(json_object &o, const char *key) const {
-
-    char fp_buffer[2048];
-    struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
-
+void tls_client_hello::operator()(struct buffer_stream &buf) const {
+    buf.write_char('\"');
     /*
      * copy clientHello.ProtocolVersion
      */
@@ -403,9 +400,7 @@ void tls_client_hello::fingerprint(json_object &o, const char *key) const {
     buf.write_char('(');
     extensions.fingerprint(buf);
     buf.write_char(')');
-    buf.write_char('\0');
-
-    o.print_key_string(key, fp_buffer);
+    buf.write_char('\"');
 }
 
 
@@ -493,11 +488,8 @@ enum status tls_server_hello::parse_tls_server_hello(struct parser &record) {
     return status_err;
 }
 
-void tls_server_hello::fingerprint(json_object &o, const char *key) const {
-
-    char fp_buffer[2048];
-    struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
-
+void tls_server_hello::operator()(struct buffer_stream &buf) const {
+    buf.write_char('\"');
     /*
      * copy serverHello.ProtocolVersion
      */
@@ -516,9 +508,7 @@ void tls_server_hello::fingerprint(json_object &o, const char *key) const {
     buf.write_char('(');
     extensions.fingerprint(buf);
     buf.write_char(')');
-    buf.write_char('\0');
-
-    o.print_key_string(key, fp_buffer);
+    buf.write_char('\"');
 }
 
 void tls_server_hello::write_json(struct json_object &o) const {
@@ -538,7 +528,7 @@ void tls_server_hello::write_json(struct json_object &o) const {
     //hello.extensions.print(o, "extensions");
     extensions.print_server_name(o, "server_name");
     extensions.print_session_ticket(o, "session_ticket");
-    fingerprint(o, "fingerprint"); // TBD: FIX!
+    o.print_key_value("fingerprint", *this); 
 }
 
 void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
