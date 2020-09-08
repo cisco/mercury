@@ -203,9 +203,7 @@ struct os_classifier {
         return label;
     }
 
-};
-
-struct os_classifier os_clf;
+} os_clf;
 
 int os_analysis_init(const char *resource_dir) {
     const char *resource_dir_list[] =
