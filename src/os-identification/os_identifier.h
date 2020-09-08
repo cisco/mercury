@@ -2,7 +2,16 @@
 #ifndef OS_IDENTIFIER_H
 #define OS_IDENTIFIER_H
 
+#include <iostream>
+#include <fstream>
+
 #include "../parser.h"
+
+#include "../rapidjson/document.h"
+#include "../rapidjson/stringbuffer.h"
+#include "../rapidjson/istreamwrapper.h"
+#include "../rapidjson/ostreamwrapper.h"
+
 
 struct mercury_record {
     struct parser fp_type;
@@ -60,6 +69,57 @@ struct mercury_record {
 
 };
 
+
+struct os_classifier {
+    double **coefficients;
+    double *intercepts;
+    std::string *labels;
+
+    os_classifier() = default;
+
+    os_classifier(const char *os_classifier_file) {
+        rapidjson::Document clf_params;
+
+        /* read OS classifiers parameters in rapidjson object */
+        std::ifstream ifs {os_classifier_file};
+        if (!ifs.is_open()) {
+            std::cerr << "Could not open file for reading!\n";
+            return ;
+        }
+        rapidjson::IStreamWrapper isw{ifs};
+        clf_params.ParseStream(isw);
+
+        int os_len = clf_params["os_len"].GetInt();
+
+        /* read in labels */
+        const rapidjson::Value& lbls = clf_params["labels"];
+        const int label_len = lbls.Size();
+        labels = new std::string[label_len];
+        for (rapidjson::SizeType i = 0; i < lbls.Size(); i++) {
+            labels[i] = lbls[i].GetString();
+        }
+
+        /* read in intercepts */
+        intercepts = new double[label_len];
+        const rapidjson::Value& intc = clf_params["intercepts"];
+        for (rapidjson::SizeType i = 0; i < intc.Size(); i++) {
+            intercepts[i] = intc[i].GetDouble();
+        }
+
+        /* read in coefficients */
+        coefficients = new double*[label_len];
+        for (int i = 0; i < label_len; i++) {
+            coefficients[i] = new double[os_len*3];
+        }
+        const rapidjson::Value& cff = clf_params["coefficients"];
+        for (rapidjson::SizeType i = 0; i < cff.Size(); i++) {
+            const rapidjson::Value& cff_inner = cff[i];
+            for (rapidjson::SizeType j = 0; j < cff.Size(); j++) {
+                coefficients[i][j] = cff_inner[j].GetDouble();
+            }
+        }
+    }
+};
 
 
 #endif /* OS_IDENTIFIER_H */

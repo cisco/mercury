@@ -31,6 +31,7 @@ unsigned char jbuf[] = "{\"fingerprints\":{\"tls\":\"(0303)(00ffc02cc02bc024c023
 
 std::unordered_set<std::string> os_fp_types = {"tcp", "tls", "http"};
 
+struct os_classifier os_clf;
 
 
 int gzgetline(gzFile f, std::vector<char>& v) {
@@ -76,11 +77,6 @@ int database_init(const char *resource_file, rapidjson::Document &fp_db) {
 }
 
 
-int os_classifier_init(const char *resource_file) {
-    return 0;  /* success */
-}
-
-
 int os_analysis_init(const char *resource_dir) {
     const char *resource_dir_list[] =
       {
@@ -112,7 +108,7 @@ int os_analysis_init(const char *resource_dir) {
 
         strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
         strncat(resource_file_name, "/os_detection_model.json", PATH_MAX-1);
-        retcode = os_classifier_init(resource_file_name);
+        os_clf = os_classifier(resource_file_name);
 
         if (retcode == 0) {
             return 0;
