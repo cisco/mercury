@@ -25,6 +25,7 @@
 #include "wireguard.h"
 #include "ssh.h"
 #include "dhcp.h"
+#include "tcpip.h"
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -172,7 +173,7 @@ int append_packet_json(struct buffer_stream &buf,
     // if/when the the packet parsing that follows the assignment of
     // msg_type is successfull.  That is, the plan is to allow the
     // parsing functions for each protocol to decide whether or not
-    // anything should be printed out for a particular packet.  
+    // anything should be printed out for a particular packet.
     //
     if (bytes_extracted <= packet_filter_threshold && pf.x.msg_type == msg_type_tls_client_hello) {
         return 0;
@@ -195,6 +196,11 @@ int append_packet_json(struct buffer_stream &buf,
             break;
         case fingerprint_type_tcp:
             fps.print_key_ept("tcp", extractor_buffer, bytes_extracted);
+            {
+                struct tcp_packet tcp_pkt;
+                tcp_pkt.parse(pf.x.tcp);
+                //tcp_pkt.write_json(fps);
+            }
             break;
         case fingerprint_type_http:
             fps.print_key_ept("http", extractor_buffer, bytes_extracted);

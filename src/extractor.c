@@ -295,6 +295,8 @@ void extractor_init(struct extractor *x,
     x->fingerprint_type = fingerprint_type_unknown;
     x->last_capture = NULL;
 
+    x->tcp.data = NULL;
+    x->tcp.data_end = NULL;
     x->transport_data.data = NULL;
     x->transport_data.data_end = NULL;
     x->msg_type = msg_type_unknown;
@@ -2441,6 +2443,7 @@ unsigned int packet_filter_process_packet(struct packet_filter *pf, struct key *
         ;
     }
     if (transport_proto == 6) {
+        pf->x.tcp = pf->p;
         return packet_filter_process_tcp(pf, k);
 
     } else if (transport_proto == 17) {

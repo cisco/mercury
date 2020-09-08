@@ -100,6 +100,7 @@ LIBMERC_H   += parser.h
 LIBMERC_H   += pkt_proc.h
 LIBMERC_H   += ssh.h
 LIBMERC_H   += tcp.h
+LIBMERC_H   += tcpip.h
 LIBMERC_H   += tls.h
 LIBMERC_H   += udp.h
 LIBMERC_H   += utils.h

@@ -84,6 +84,7 @@ struct extractor {
     unsigned char *output;              /* buffer for output         */
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
+    struct parser tcp;                  // NEW
     struct parser transport_data;       // NEW
     enum msg_type msg_type;             // NEW
 };
