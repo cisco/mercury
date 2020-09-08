@@ -140,8 +140,39 @@ struct dhcp_discover {
             json_opt.close();
         }
         option_array.close();
+        fingerprint(json_dhcp, "fingerprint");
         json_dhcp.close();
     }
+
+    void fingerprint(json_object &o, const char *key) const {
+
+        char fp_buffer[4096];
+        struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
+
+        struct parser tmp = options;
+        while (tmp.is_not_empty()) {
+            struct dhcp_option opt;
+            opt.parse(tmp);
+            if (opt.tag == DHCP_OPT_PARAMETER_LIST || opt.tag == DHCP_OPT_VENDOR_CLASS || opt.tag == DHCP_OPT_MESSAGE_TYPE) {
+                // copy entire option into fingerprint string
+                buf.write_char('(');
+                buf.raw_as_hex(&opt.tag, sizeof(opt.tag));
+                buf.raw_as_hex(&opt.length, sizeof(opt.length));
+                buf.raw_as_hex(opt.data, opt.data_end - opt.data);
+                //                buf.raw_as_hex(opt_data, opt_data_end - opt_data);
+                buf.write_char(')');
+
+            } else if (opt.tag != DHCP_OPT_PAD) {
+                // copy only option tag into fingerprint string
+                buf.write_char('(');
+                buf.raw_as_hex(&opt.tag, sizeof(opt.tag));
+                buf.write_char(')');
+            }
+        }
+
+        o.print_key_string(key, fp_buffer);
+    }
+
 };
 
 #endif /* DHCP_H */
