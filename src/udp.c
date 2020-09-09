@@ -114,7 +114,6 @@ struct pi_container wireguard = {
     WIREGUARD_PORT
 };
 
-
 const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                               unsigned int len) {
 
@@ -162,6 +161,48 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
     }
 
     return NULL;
+}
+
+enum msg_type udp_get_message_type(const uint8_t *udp_data,
+                                   unsigned int len) {
+
+    if (len < sizeof(dhcp_client_mask)) {
+        return msg_type_unknown;
+    }
+
+    /* note: udp_data will be 32-bit aligned as per the standard */
+
+    extractor_debug("%s: udp data: %02x%02x%02x%02x%02x%02x%02x%02x\n", __func__,
+                    udp_data[0], udp_data[1], udp_data[2], udp_data[3], udp_data[4], udp_data[5], udp_data[6], udp_data[7]);
+
+    if (u32_compare_masked_data_to_value(udp_data,
+                                         dhcp_client_mask,
+                                         dhcp_client_value)) {
+        return msg_type_dhcp;
+    }
+
+    if (u32_compare_masked_data_to_value(udp_data,
+                                         dtls_client_hello_mask,
+                                         dtls_client_hello_value)) {
+        return msg_type_dtls_client_hello;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         dtls_server_hello_mask,
+                                         dtls_server_hello_value)) {
+        return msg_type_dtls_server_hello;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         dns_server_mask,
+                                         dns_server_value)) {
+        return msg_type_dns;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         wireguard_mask,
+                                         wireguard_value)) {
+        return msg_type_wireguard;
+    }
+
+    return msg_type_unknown;
 }
 
 /*

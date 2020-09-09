@@ -22,7 +22,6 @@
 #include "udp.h"
 #include "match.h"
 #include "buffer_stream.h"
-//#include "asn1/x509.h"
 #include "json_object.h"
 
 /*

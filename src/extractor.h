@@ -377,5 +377,7 @@ enum status proto_ident_config(const char *config_string);
 
 ptrdiff_t parser_get_data_length(struct parser *p);
 
+enum msg_type get_message_type(const uint8_t *tcp_data,
+                               unsigned int len);
 
 #endif /* EXTRACTOR_H */

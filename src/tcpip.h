@@ -137,6 +137,16 @@ struct tcp_packet {
 
     }
 
+    bool is_SYN() {
+        return header && TCP_IS_SYN(header->flags);
+    }
+
+    void set_key(struct key &k) {
+        if (header) {
+            k.src_port = ntohs(header->src_port);
+            k.dst_port = ntohs(header->dst_port);
+        }
+    }
     void operator() (struct buffer_stream &buf) {
         buf.write_char('\"');
         //buf.raw_as_hex(tcp_options.data, tcp_options.length());
