@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <math.h>
 
 #include "../parser.h"
 
@@ -141,10 +142,11 @@ struct mercury_record {
 
 
 struct os_classifier {
-    double **coefficients;
+    double *coefficients;
     double *intercepts;
     std::string *labels;
     int os_len;
+    int label_len;
     std::unordered_map<std::string, int> os_map;
 
     os_classifier() = default;
@@ -165,7 +167,7 @@ struct os_classifier {
 
         /* read in labels */
         const rapidjson::Value& lbls = clf_params["labels"];
-        const int label_len = lbls.Size();
+        label_len = lbls.Size();
         labels = new std::string[label_len];
         for (rapidjson::SizeType i = 0; i < lbls.Size(); i++) {
             labels[i] = lbls[i].GetString();
@@ -179,15 +181,12 @@ struct os_classifier {
         }
 
         /* read in coefficients */
-        coefficients = new double*[label_len];
-        for (int i = 0; i < label_len; i++) {
-            coefficients[i] = new double[os_len*3];
-        }
+        coefficients = new double[label_len*os_len*3];
         const rapidjson::Value& cff = clf_params["coefficients"];
         for (rapidjson::SizeType i = 0; i < cff.Size(); i++) {
             const rapidjson::Value& cff_inner = cff[i];
-            for (rapidjson::SizeType j = 0; j < cff.Size(); j++) {
-                coefficients[i][j] = cff_inner[j].GetDouble();
+            for (rapidjson::SizeType j = 0; j < cff_inner.Size(); j++) {
+                coefficients[i*os_len*3+j] = cff_inner[j].GetDouble();
             }
         }
 
@@ -199,11 +198,27 @@ struct os_classifier {
     };
 
     std::string classify(double *features) {
-        std::string label;
-        return label;
+        double score = -1e9;
+        double tmp_score;
+        int label_idx = 0;
+
+        for (int i = 0; i < label_len; i++) {
+            tmp_score = intercepts[i];
+            for (int j = 0; j < os_len*3; j++) {
+                tmp_score += coefficients[i*os_len*3+j]*features[j];
+            }
+            tmp_score = 1.0/(1+exp(-tmp_score));
+            if (tmp_score > score) {
+                score = tmp_score;
+                label_idx = i;
+            }
+        }
+
+        return labels[label_idx];
     }
 
 } os_clf;
+
 
 int os_analysis_init(const char *resource_dir) {
     const char *resource_dir_list[] =
@@ -300,7 +315,8 @@ void classify_all_samples() {
 
 
         // classify sample
-        os_clf.classify(features);
+        std::string os_name = os_clf.classify(features);
+        std::cout << os_name << std::endl;
 
         delete features;
     }

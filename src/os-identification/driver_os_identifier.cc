@@ -8,7 +8,6 @@
 #include <zlib.h>
 #include <vector>
 
-#include "../parser.h"
 #include "os_identifier.h"
 
 
@@ -35,13 +34,13 @@ int main(int argc, char *argv[]) {
     snprintf(fp_type_buffer, FP_TYPE_BUFFER_SIZE, "%.*s", (int)r.fp_type.length(), r.fp_type.data);
     snprintf(src_ip_buffer, SRC_IP_BUFFER_SIZE, "%.*s", (int)r.src_ip.length(), r.src_ip.data);
     snprintf(event_start_buffer, EVENT_START_BUFFER_SIZE, "%.*s", (int)r.event_start.length(), r.event_start.data);
-    double event_start = atof(event_start_buffer);
+//    double event_start = atof(event_start_buffer);
 
     if (os_fp_types.find(fp_type_buffer) != os_fp_types.end()) {
-        printf("%s\n",fp_type_buffer);
-        printf("%s\n",fp_buffer);
-        printf("%s\n",src_ip_buffer);
-        printf("%f\n\n",event_start);
+//        printf("%s\n",fp_type_buffer);
+//        printf("%s\n",fp_buffer);
+//        printf("%s\n",src_ip_buffer);
+//        printf("%f\n\n",event_start);
 
         update_host_data(fp_type_buffer, fp_buffer, src_ip_buffer);
         update_host_data(fp_type_buffer, fp_buffer, src_ip_buffer);
