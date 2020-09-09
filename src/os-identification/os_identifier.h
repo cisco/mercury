@@ -312,7 +312,17 @@ void classify_all_samples() {
         }
 
         // normalize sample
-
+        double tcp_sum = 0.0, tls_sum = 0.0, http_sum = 0.0;
+        for (int i = 0; i < os_clf.os_len; i++) {
+            tcp_sum += features[i];
+            tls_sum += features[os_clf.os_len+i];
+            http_sum += features[os_clf.os_len*2+i];
+        }
+        for (int i = 0; i < os_clf.os_len; i++) {
+            features[i] = (tcp_sum > 0.0) ? features[i]/tcp_sum : features[i];
+            features[os_clf.os_len+i] = (tls_sum > 0.0) ? features[os_clf.os_len+i]/tls_sum : features[os_clf.os_len+i];
+            features[os_clf.os_len*2+i] = (http_sum > 0.0) ? features[os_clf.os_len*2+i]/http_sum : features[os_clf.os_len*2+i];
+        }
 
         // classify sample
         std::string os_name = os_clf.classify(features);
