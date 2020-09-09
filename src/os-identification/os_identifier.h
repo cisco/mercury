@@ -5,6 +5,11 @@
 #include <iostream>
 #include <fstream>
 #include <math.h>
+#include <zlib.h>
+#include <string>
+#include <unordered_set>
+#include <unordered_map>
+#include <vector>
 
 #include "../parser.h"
 
@@ -303,7 +308,7 @@ void update_features(double **features, const char *fp_type, const char *str_rep
     }
 }
 
-void classify_all_samples() {
+void os_classify_all_samples() {
     for (auto it = host_data.begin(); it != host_data.end(); ++it) {
         double *features = new double[os_clf.os_len*3]();
         std::cout << it->first << std::endl;
@@ -334,6 +339,29 @@ void classify_all_samples() {
     }
 }
 
+
+#define FP_BUFFER_SIZE 512
+#define FP_TYPE_BUFFER_SIZE 32
+#define SRC_IP_BUFFER_SIZE 64
+#define EVENT_START_BUFFER_SIZE 32
+
+void os_process_line(std::string line) {
+    unsigned char *buf = (unsigned char*)line.c_str();
+    struct parser d{buf, buf + strlen((char*)buf)};
+    struct mercury_record r{d};
+
+    char fp_buffer[FP_BUFFER_SIZE];
+    char fp_type_buffer[FP_TYPE_BUFFER_SIZE];
+    char src_ip_buffer[SRC_IP_BUFFER_SIZE];
+    char event_start_buffer[EVENT_START_BUFFER_SIZE];
+
+    snprintf(fp_buffer, FP_BUFFER_SIZE, "%.*s", (int)r.fingerprint.length(), r.fingerprint.data);
+    snprintf(fp_type_buffer, FP_TYPE_BUFFER_SIZE, "%.*s", (int)r.fp_type.length(), r.fp_type.data);
+    snprintf(src_ip_buffer, SRC_IP_BUFFER_SIZE, "%.*s", (int)r.src_ip.length(), r.src_ip.data);
+    snprintf(event_start_buffer, EVENT_START_BUFFER_SIZE, "%.*s", (int)r.event_start.length(), r.event_start.data);
+
+    update_host_data(fp_type_buffer, fp_buffer, src_ip_buffer);
+}
 
 
 #endif /* OS_IDENTIFIER_H */
