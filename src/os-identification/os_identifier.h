@@ -22,8 +22,6 @@ rapidjson::Document http_os_fp_db;
 #define DEFAULT_RESOURCE_DIR "/usr/local/share/mercury"
 #endif
 
-std::unordered_set<std::string> os_fp_types = {"tcp", "tls", "http"};
-
 
 int gzgetline(gzFile f, std::vector<char>& v) {
     v = std::vector<char>(256);
@@ -68,10 +66,14 @@ int database_init(const char *resource_file, rapidjson::Document &fp_db) {
 }
 
 
+std::unordered_set<std::string> os_fp_types = {"tcp", "tls", "http"};
 
 std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> host_data;
 
 void update_host_data(const char *fp_type, const char *str_repr, const char *src_ip) {
+    if (os_fp_types.find(fp_type) == os_fp_types.end()) {
+        return ;
+    }
     auto data = std::make_pair(fp_type, str_repr);
     auto it = host_data.find(src_ip);
     if (it == host_data.end()) {
@@ -326,7 +328,7 @@ void classify_all_samples() {
 
         // classify sample
         std::string os_name = os_clf.classify(features);
-        std::cout << os_name << std::endl;
+        std::cout << os_name << std::endl << std::endl;
 
         delete features;
     }
