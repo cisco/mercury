@@ -85,6 +85,24 @@ static uint16_t static_extension_types[num_static_extension_types] = {
         64250      /* GREASE                                 */
     };
 
+uint16_t degrease_uint16(uint16_t x);
+void degrease_octet_string(void *data, ssize_t len);
+
+
+void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, size_t len) {
+    if (len % 2) {
+        return;  // error: len MUST be a multiple of two
+    }
+    uint16_t *x = (uint16_t *)data;
+    uint16_t *x_end = x + (len/2);
+
+    while (x < x_end) {
+        uint16_t tmp = degrease_uint16(*x++);
+        buf.raw_as_hex((const uint8_t *)&tmp, sizeof(tmp));
+    }
+
+}
+
 void tls_security_assessment::print(struct json_object &o, const char *key) {
     struct json_array a{o, key};
     if (weak_version_offered) {
@@ -191,11 +209,12 @@ void tls_extensions::fingerprint(struct buffer_stream &b) const {
         }
         if (uint16_match(x.type, static_extension_types, num_static_extension_types) == true) {
             b.write_char('(');
-            b.raw_as_hex(start_of_extension, end_of_extension - start_of_extension);
+            raw_as_hex_degrease(b, start_of_extension, L_ExtensionType);
+            b.raw_as_hex(start_of_extension + L_ExtensionType, end_of_extension - start_of_extension - L_ExtensionType);
             b.write_char(')');
         } else {
             b.write_char('(');
-            b.raw_as_hex(start_of_extension, L_ExtensionType);
+            raw_as_hex_degrease(b, start_of_extension, L_ExtensionType);
             b.write_char(')');
         }
 
@@ -391,7 +410,7 @@ void tls_client_hello::operator()(struct buffer_stream &buf) const {
 
     /* copy ciphersuite offer vector */
     buf.write_char('(');
-    buf.raw_as_hex(ciphersuite_vector.data, ciphersuite_vector.length());  /* TBD: degrease */
+    raw_as_hex_degrease(buf, ciphersuite_vector.data, ciphersuite_vector.length());
     buf.write_char(')');
 
     /*

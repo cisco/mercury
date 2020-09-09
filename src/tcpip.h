@@ -160,9 +160,9 @@ struct tcp_packet {
     }
 
     void write_json(struct json_object &o) {
-        //        struct json_object json_tcp{o, "tcp"};
-        o.print_key_value("tcz", *this);
-        //json_tcp.close();
+        struct json_object json_tcp{o, "tcp"};
+        json_tcp.print_key_value("fingerprint", *this);
+        json_tcp.close();
     }
 };
 

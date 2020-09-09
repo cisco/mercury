@@ -188,7 +188,7 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std
 
 // write_json is a static http_request member function
 //
-void http_request::write_json(struct parser data, struct json_object &record, bool output_metadata) {
+void http_request::write_json(struct json_object &record, bool output_metadata) {
 
     // construct a list of http header names to be printed out
     //
@@ -214,30 +214,28 @@ void http_request::write_json(struct parser data, struct json_object &record, bo
 
     std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via, upgrade_pair};
 
-    struct http_request request;
-    request.parse(data);
-    if (request.method.is_not_empty()) {
+    if (method.is_not_empty()) {
         struct json_object http{record, "http"};
         struct json_object http_request{http, "request"};
         if (output_metadata) {
-            http_request.print_key_json_string("method", request.method);
-            http_request.print_key_json_string("uri", request.uri);
-            http_request.print_key_json_string("protocol", request.protocol);
-            // http.print_key_json_string("headers", request.headers.data, request.headers.length());
-            // request.headers.print_host(http, "host");
+            http_request.print_key_json_string("method", method);
+            http_request.print_key_json_string("uri", uri);
+            http_request.print_key_json_string("protocol", protocol);
+            // http.print_key_json_string("headers", headers.data, headers.length());
+            // headers.print_host(http, "host");
 
             // run the list of http headers to be printed out against
             // all headers, and print the values corresponding to each
             // of the matching names
             //
-            request.headers.print_matching_names(http_request, names_to_print);
-            http_request.print_key_value("fingerprint", request);
+            headers.print_matching_names(http_request, names_to_print);
+            http_request.print_key_value("fingerprint", *this);
 
         } else {
 
             // output only the user-agent
             std::list<std::pair<struct parser, std::string>> ua_only{user_agent_name};
-            request.headers.print_matching_names(http_request, ua_only);
+            headers.print_matching_names(http_request, ua_only);
         }
         http_request.close();
         http.close();
@@ -270,7 +268,7 @@ void http_response::parse(struct parser &p) {
     return;
 }
 
-void http_response::write_json(struct parser data, struct json_object &record) {
+void http_response::write_json(struct json_object &record) {
 
     // construct a list of http header names to be printed out
     //
@@ -294,19 +292,17 @@ void http_response::write_json(struct parser data, struct json_object &record) {
 
     struct json_object http{record, "http"};
     struct json_object http_response{http, "response"};
-    struct http_response response;
-    response.parse(data);
-    http_response.print_key_json_string("version", response.version.data, response.version.length());
-    http_response.print_key_json_string("status_code", response.status_code.data, response.status_code.length());
-    http_response.print_key_json_string("status_reason", response.status_reason.data, response.status_reason.length());
+    http_response.print_key_json_string("version", version.data, version.length());
+    http_response.print_key_json_string("status_code", status_code.data, status_code.length());
+    http_response.print_key_json_string("status_reason", status_reason.data, status_reason.length());
     //http.print_key_json_string("headers", response.headers.data, response.headers.length());
 
     // run the list of http headers to be printed out against
     // all headers, and print the values corresponding to each
     // of the matching names
     //
-    response.headers.print_matching_names(http_response, names_to_print);
-    http_response.print_key_value("fingerprint", response);
+    headers.print_matching_names(http_response, names_to_print);
+    http_response.print_key_value("fingerprint", *this);
 
     http_response.close();
     http.close();

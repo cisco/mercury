@@ -186,52 +186,24 @@ int append_packet_json(struct buffer_stream &buf,
      */
     if (bytes_extracted > packet_filter_threshold) {
         uint8_t *extractor_buffer = pf.x.output_start;
-        struct json_object fps{record, "fingerprints"};
         switch(pf.x.fingerprint_type) {
-        case fingerprint_type_dhcp_client:
-            fps.print_key_ept("dhcp", extractor_buffer, bytes_extracted);
-            break;
-        case fingerprint_type_tls:
-            fps.print_key_ept("tls", extractor_buffer, bytes_extracted);
-            break;
         case fingerprint_type_tcp:
-            fps.print_key_ept("tcp", extractor_buffer, bytes_extracted);
             {
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_ept("tcp", extractor_buffer, bytes_extracted);
+                fps.close();
                 struct tcp_packet tcp_pkt;
                 tcp_pkt.parse(pf.x.tcp);
                 //tcp_pkt.write_json(fps);
             }
             break;
-        case fingerprint_type_http:
-            fps.print_key_ept("http", extractor_buffer, bytes_extracted);
-            break;
-        case fingerprint_type_http_server:
-            fps.print_key_ept("http_server", extractor_buffer, bytes_extracted);
-            break;
-        case fingerprint_type_tls_server:
-            fps.print_key_ept("tls_server", extractor_buffer, bytes_extracted);
-            break;
-        case fingerprint_type_dtls:
-            fps.print_key_ept("dtls", extractor_buffer, bytes_extracted);
-            break;
-        case fingerprint_type_dtls_server:
-            fps.print_key_ept("dtls_server", extractor_buffer, bytes_extracted);
-            break;
-        case fingerprint_type_ssh:
-            fps.print_key_ept("ssh", extractor_buffer, bytes_extracted);
-            break;
-        case fingerprint_type_ssh_kex:
-            fps.print_key_ept("ssh_kex", extractor_buffer, bytes_extracted);
-            break;
         default:
             ;    /* no fingerprint; do nothing */
         }
-        fps.close();
 
         switch(pf.x.fingerprint_type) {
         case fingerprint_type_http:
         case fingerprint_type_http_server:
-            record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
         default:
             ;
         }
@@ -242,7 +214,16 @@ int append_packet_json(struct buffer_stream &buf,
      */
     switch(pf.x.msg_type) {
     case msg_type_http_request:
-        http_request::write_json(pf.x.transport_data, record, global_vars.metadata_output);
+        {
+            struct http_request request;
+            request.parse(pf.x.transport_data);
+            struct json_object fps{record, "fingerprints"};
+            fps.print_key_value("http", request);
+            fps.close();
+            record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            request.write_json(record, global_vars.metadata_output);
+            // fps.close();
+        }
         break;
     case msg_type_tls_client_hello:
         {
@@ -252,6 +233,9 @@ int append_packet_json(struct buffer_stream &buf,
             handshake.parse(rec.fragment);
             struct tls_client_hello hello;
             hello.parse(handshake.body);
+            struct json_object fps{record, "fingerprints"};
+            fps.print_key_value("tls", hello);
+            fps.close();
             hello.write_json(record, global_vars.metadata_output);
             /*
              * output analysis (if it's configured)
@@ -294,6 +278,11 @@ int append_packet_json(struct buffer_stream &buf,
                 certificate.parse(handshake2.body);
             }
 
+            // output fingerprint
+            struct json_object fps{record, "fingerprints"};
+            fps.print_key_value("tls_server", hello);
+            fps.close();
+
             // output certificate (always) and server_hello (if configured to)
             //
             if ((global_vars.metadata_output && hello.protocol_version.is_not_empty())
@@ -314,8 +303,16 @@ int append_packet_json(struct buffer_stream &buf,
         }
         break;
     case msg_type_http_response:
-        if (global_vars.metadata_output) {
-            http_response::write_json(pf.x.transport_data, record);
+        {
+            struct http_response response;
+            response.parse(pf.x.transport_data);
+            struct json_object fps{record, "fingerprints"};
+            fps.print_key_value("http_server", response);
+            fps.close();
+            record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            if (global_vars.metadata_output) {
+                response.write_json(record);
+            }
         }
         break;
     case msg_type_wireguard:
@@ -344,15 +341,22 @@ int append_packet_json(struct buffer_stream &buf,
             if (handshake.msg_type == handshake_type::client_hello) {
                 struct tls_client_hello hello;
                 hello.parse(handshake.body);
+
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_value("dtls", hello);
+                fps.close();
                 hello.write_json(record, global_vars.metadata_output);
             }
         }
         break;
     case msg_type_ssh:
         {
-            record.print_key_json_string("ssh_init_data", pf.x.transport_data.data, pf.x.transport_data.length());
+            // record.print_key_json_string("ssh_init_data", pf.x.transport_data.data, pf.x.transport_data.length());
             struct ssh_init_packet init_packet;
             init_packet.parse(pf.x.transport_data);
+            struct json_object fps{record, "fingerprints"};
+            fps.print_key_value("ssh", init_packet);
+            fps.close();
             init_packet.write_json(record, global_vars.metadata_output);
 #if 0
             if (pf.x.transport_data.is_not_empty()) {
@@ -373,6 +377,9 @@ int append_packet_json(struct buffer_stream &buf,
             pkt.parse(pf.x.transport_data);
             struct ssh_kex_init kex_init;
             kex_init.parse(pkt.payload);
+            struct json_object fps{record, "fingerprints"};
+            fps.print_key_value("ssh_kex", kex_init);
+            fps.close();
             kex_init.write_json(record, global_vars.metadata_output);
         }
         break;
