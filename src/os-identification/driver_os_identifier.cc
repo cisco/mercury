@@ -1,4 +1,4 @@
-
+// g++ -Wall driver_os_identifier.cc -o driver_os_identifier ../parser.c -lz
 
 #include <stdio.h>
 #include <stdlib.h>
