@@ -285,9 +285,9 @@ void extractor_init(struct extractor *x,
                     unsigned int output_len) {
 
     //bzero(output, output_len); /* initialize the output buffer */
-    x->proto_state.proto = PROTO_UNKNOWN;
-    x->proto_state.dir = DIR_UNKNOWN;
-    x->proto_state.state = state_start;
+    // x->proto_state.proto = PROTO_UNKNOWN;
+    // x->proto_state.dir = DIR_UNKNOWN;
+    // x->proto_state.state = state_start;
     x->output = output;
     x->output_start = x->output;
     x->output_end = output + output_len;
@@ -895,7 +895,7 @@ unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) 
         }
     }
 
-    x->proto_state.state = state_done;
+    //    x->proto_state.state = state_done;
 
     return extractor_get_output_length(x);
 }
@@ -1183,7 +1183,7 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
     //size_t ext_len_value = (x->output - ext_len_slot) | PARENT_NODE_INDICATOR;
     encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
 
-    x->proto_state.state = state_done;
+    //    x->proto_state.state = state_done;
 
     return extractor_get_output_length(x);
 
@@ -1510,7 +1510,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
     }
 
  done:
-    x->proto_state.state = state_done;
+    //    x->proto_state.state = state_done;
 
     extractor_debug("%s: extractor_output_length: %td bytes\n", __func__, extractor_get_output_length(x));
 
@@ -1672,7 +1672,7 @@ unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x
 
     extractor_debug("%s: http DONE\n", __func__);
 
-    x->proto_state.state = state_done;
+    //    x->proto_state.state = state_done;
 
     return extractor_get_output_length(x);
 }
@@ -1811,7 +1811,7 @@ unsigned int parser_extractor_process_http_server(struct parser *p, struct extra
 
     extractor_debug("%s: http server DONE\n", __func__);
 
-    x->proto_state.state = state_done;
+    //    x->proto_state.state = state_done;
 
     return extractor_get_output_length(x);
 }
@@ -1878,7 +1878,7 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
             return extractor_get_output_length(x);
         }
 
-        x->proto_state.state = ssh_state_got_first_msg;
+        //        x->proto_state.state = ssh_state_got_first_msg;
 
         if (parser_get_data_length(p) == 1) {
             return extractor_get_output_length(x);
@@ -1984,7 +1984,7 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
 
     extractor_debug("%s: done parsing KEX (output length: %td)\n", __func__, extractor_get_output_length(x));
 
-    x->proto_state.state = state_done;
+    //    x->proto_state.state = state_done;
 
  bail:
     return extractor_get_output_length(x);
@@ -2088,7 +2088,7 @@ unsigned int parser_extractor_process_ssh_kex(struct parser *p, struct extractor
 
     extractor_debug("%s: done parsing KEX (output length: %td)\n", __func__, extractor_get_output_length(x));
 
-    x->proto_state.state = state_done;
+    //    x->proto_state.state = state_done;
 
  bail:
     return extractor_get_output_length(x);

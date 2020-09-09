@@ -220,9 +220,8 @@ int append_packet_json(struct buffer_stream &buf,
             struct json_object fps{record, "fingerprints"};
             fps.print_key_value("http", request);
             fps.close();
-            record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            record.print_key_string("complete", request.headers.complete ? "yes" : "no");
             request.write_json(record, global_vars.metadata_output);
-            // fps.close();
         }
         break;
     case msg_type_tls_client_hello:
@@ -309,7 +308,7 @@ int append_packet_json(struct buffer_stream &buf,
             struct json_object fps{record, "fingerprints"};
             fps.print_key_value("http_server", response);
             fps.close();
-            record.print_key_string("complete", (pf.x.proto_state.state == state_done) ? "yes" : "no");
+            record.print_key_string("complete", response.headers.complete ? "yes" : "no");
             if (global_vars.metadata_output) {
                 response.write_json(record);
             }

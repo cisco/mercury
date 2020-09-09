@@ -79,7 +79,7 @@ typedef enum extractor_state {
  */
 struct extractor {
     enum fingerprint_type fingerprint_type;
-    struct protocol_state proto_state;  /* tracking across packets   */
+    //    struct protocol_state proto_state;  /* tracking across packets   */
     unsigned char *output_start;        /* buffer for output         */
     unsigned char *output;              /* buffer for output         */
     unsigned char *output_end;          /* end of output buffer      */

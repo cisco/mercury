@@ -738,7 +738,7 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
     //size_t ext_len_value = (x->output - ext_len_slot) | PARENT_NODE_INDICATOR;
     encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
 
-    x->proto_state.state = state_done;
+    //    x->proto_state.state = state_done;
 
     return extractor_get_output_length(x);
 
@@ -881,7 +881,7 @@ unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extra
         encode_uint16(ext_len_slot, (x->output - ext_len_slot - sizeof(uint16_t)) | PARENT_NODE_INDICATOR);
     }
 
-    x->proto_state.state = state_done;
+    //    x->proto_state.state = state_done;
 
     return extractor_get_output_length(x);
 

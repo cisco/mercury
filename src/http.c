@@ -186,8 +186,6 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std
     }
 }
 
-// write_json is a static http_request member function
-//
 void http_request::write_json(struct json_object &record, bool output_metadata) {
 
     // construct a list of http header names to be printed out
@@ -244,7 +242,6 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 }
 
 void http_response::parse(struct parser &p) {
-    unsigned char crlf[2] = { '\r', '\n' };
 
     /* process request line */
     version.parse_up_to_delim(p, ' ');
@@ -254,16 +251,8 @@ void http_response::parse(struct parser &p) {
     status_reason.parse_up_to_delim(p, '\r');
     p.skip(2);
 
-    headers.data = p.data;
-    while (parser_get_data_length(&p) > 0) {
-        if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
-            break;  /* at end of headers */
-        }
-        if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
-            break;
-        }
-    }
-    headers.data_end = p.data;
+    /* parse headers */
+    headers.parse(p);
 
     return;
 }

@@ -9,8 +9,9 @@
 #include "extractor.h"
 
 struct http_headers : public parser {
+    bool complete;
 
-    http_headers() : parser{} {}
+    http_headers() : parser{}, complete{false} {}
 
     void parse(struct parser &p) {
         unsigned char crlf[2] = { '\r', '\n' };
@@ -18,6 +19,7 @@ struct http_headers : public parser {
         data = p.data;
         while (parser_get_data_length(&p) > 0) {
             if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+                complete = true;
                 break;  /* at end of headers */
             }
             if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
