@@ -158,26 +158,6 @@ int append_packet_json(struct buffer_stream &buf,
                        size_t length,
                        struct timespec *ts) {
     struct key k;
-
-// this code will be deleted as soon as
-// write_analysis_from_extractor_and_flow_key() has been refactored
-//
-#if 1
-extern unsigned int packet_filter_threshold;
-
-    struct packet_filter pf;
-    pf.tcp_init_msg_filter = NULL;
-
-    /*
-     * apply packet filter to packet; return if no fingerprints or metadata found
-     */
-
-    size_t bytes_extracted = packet_filter_extract(&pf, &k, packet, length);
-    if (bytes_extracted <= packet_filter_threshold && pf.x.msg_type == msg_type_unknown) {
-        return 0;
-    }
-#endif
-
     struct parser pkt{packet, packet+length};
     size_t transport_proto = 0;
     size_t ethertype = 0;
@@ -434,6 +414,7 @@ extern unsigned int packet_filter_threshold;
             record.print_key_timestamp("event_start", ts);
             record.close();
         }
+        break;
     case msg_type_dtls_server_hello:
     case msg_type_dtls_certificate:
         // cases that fall through here are not yet supported
@@ -442,15 +423,13 @@ extern unsigned int packet_filter_threshold;
         break;
     }
 
-    /*
-     * output flow key and timestamp
-     */
-    // struct timestamp_writer t{ts}; record.print_key_value("event_start", t);
-
     //    buf.snprintf(dstr, doff, dlen, trunc, ",\"flowhash\":\"%016lx\"", flowhash(key, ts->tv_sec));
 
-    buf.strncpy("\n");
-    return buf.length();
+    if (buf.length() != 0) {
+        buf.strncpy("\n");
+        return buf.length();
+    }
+    return 0;
 }
 
 
