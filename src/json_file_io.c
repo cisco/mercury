@@ -202,9 +202,9 @@ extern unsigned int packet_filter_threshold;
             struct json_object fps{record, "fingerprints"};
             fps.print_key_value("tcp", tcp_pkt);
             fps.close();
-            // if (global_vars.metadata_output) {
-            //     tcp_pkt.write_json(fps);
-            // }
+            if (global_vars.metadata_output) {
+                 tcp_pkt.write_json(fps);
+            }
             write_flow_key(record, k);
             record.print_key_timestamp("event_start", ts);
             record.close();
@@ -386,7 +386,6 @@ extern unsigned int packet_filter_threshold;
         break;
     case msg_type_ssh:
         {
-            // record.print_key_json_string("ssh_init_data", pkt.data, pkt.length());
             struct ssh_init_packet init_packet;
             init_packet.parse(pkt);
             struct json_object record{&buf};
