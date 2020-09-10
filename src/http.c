@@ -300,6 +300,8 @@ void http_response::write_json(struct json_object &record) {
 
 void http_request::operator()(struct buffer_stream &b) const {
     if (method.is_not_readable()) {
+        b.write_char('\"');
+        b.write_char('\"');
         return;
     }
     b.write_char('\"');
@@ -335,6 +337,8 @@ void http_request::operator()(struct buffer_stream &b) const {
 
 void http_response::operator()(struct buffer_stream &buf) const {
     if (status_reason.is_not_readable()) {
+        buf.write_char('\"');
+        buf.write_char('\"');
         return;
     }
     buf.write_char('\"');

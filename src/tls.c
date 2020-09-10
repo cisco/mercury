@@ -552,7 +552,7 @@ void tls_server_hello::operator()(struct buffer_stream &buf) const {
 
     /* copy ciphersuite offer vector */
     buf.write_char('(');
-    buf.raw_as_hex(ciphersuite_vector.data, ciphersuite_vector.length());  /* TBD: degrease */
+    buf.raw_as_hex(ciphersuite_vector.data, ciphersuite_vector.length());  /* TBD: do we need to degrease? */
     buf.write_char(')');
 
     /*

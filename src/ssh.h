@@ -71,6 +71,8 @@ struct ssh_init_packet {
 
     void operator()(struct buffer_stream &buf) const {
         if (protocol_string.is_not_readable()) {
+            buf.write_char('\"');
+            buf.write_char('\"');
             return;
         }
         buf.write_char('\"');
@@ -214,6 +216,8 @@ struct ssh_kex_init {
 
     void operator()(struct buffer_stream &buf) const {
         if (kex_algorithms.is_not_readable()) {
+            buf.write_char('\"');
+            buf.write_char('\"');
             return;
         }
         buf.write_char('\"');
