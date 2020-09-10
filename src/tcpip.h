@@ -138,7 +138,7 @@ struct tcp_packet {
     }
 
     bool is_SYN() {
-        return header && TCP_IS_SYN(header->flags);
+        return header && TCP_IS_SYN(header->flags) && !TCP_IS_ACK(header->flags);
     }
 
     void set_key(struct key &k) {
