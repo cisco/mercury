@@ -26,4 +26,8 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
                                                 const struct extractor *x,
                                                 const struct flow_key *key);
 
+void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
+                                                const struct extractor *x,
+                                                const struct key *key);
+
 #endif /* ANALYSIS_H */

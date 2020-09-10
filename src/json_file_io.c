@@ -255,7 +255,7 @@ extern unsigned int packet_filter_threshold;
             if (global_vars.do_analysis) {
                 struct flow_key key = flow_key_init();
                 flow_key_set_from_packet(&key, packet, length);
-                write_analysis_from_extractor_and_flow_key(buf, &pf.x, &key);
+                write_analysis_from_extractor_and_flow_key(buf, &pf.x, &k);
             }
             write_flow_key(record, k);
             record.print_key_timestamp("event_start", ts);
