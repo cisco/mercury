@@ -178,6 +178,36 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
 
 }
 
+void tls_extensions::set_server_name(struct parser &server_name) const {
+
+    struct parser ext_parser{this->data, this->data_end};
+
+    while (parser_get_data_length(&ext_parser) > 0) {
+        size_t tmp_len = 0;
+        size_t tmp_type;
+
+        const uint8_t *data = ext_parser.data;
+        if (parser_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+            break;
+        }
+        if (parser_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+            break;
+        }
+        if (parser_skip(&ext_parser, tmp_len) == status_err) {
+            break;
+        }
+        const uint8_t *data_end = ext_parser.data;
+
+        if (tmp_type == type_sni) {
+            struct parser ext{data, data_end};
+            ext.skip(SNI_HDR_LEN);
+            server_name = ext;
+            return;
+        }
+    }
+
+}
+
 struct tls_extension {
     uint16_t type;
     uint16_t length;
@@ -399,8 +429,7 @@ void tls_client_hello::write_json(struct parser &data, struct json_object &recor
     hello.write_json(record, output_metadata);
 }
 
-void tls_client_hello::operator()(struct buffer_stream &buf) const {
-    buf.write_char('\"');
+void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
     /*
      * copy clientHello.ProtocolVersion
      */
@@ -419,6 +448,11 @@ void tls_client_hello::operator()(struct buffer_stream &buf) const {
     buf.write_char('(');
     extensions.fingerprint(buf);
     buf.write_char(')');
+}
+
+void tls_client_hello::operator()(struct buffer_stream &buf) const {
+    buf.write_char('\"');
+    write_fingerprint(buf);
     buf.write_char('\"');
 }
 

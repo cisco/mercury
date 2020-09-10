@@ -217,6 +217,8 @@ struct tls_extensions : public parser {
 
     void print_server_name(struct json_object &o, const char *key) const;
 
+    void set_server_name(struct parser &server_name) const;
+
     void print_session_ticket(struct json_object &o, const char *key) const;
 
     void fingerprint(struct buffer_stream &b) const;
@@ -238,6 +240,8 @@ struct tls_client_hello {
     void parse(struct parser &p);
 
     void operator()(struct buffer_stream &buf) const;
+
+    void write_fingerprint(struct buffer_stream &buf) const;
 
     static void write_json(struct parser &data, struct json_object &record, bool output_metadata);
 

@@ -20,6 +20,7 @@
 #include "analysis.h"
 #include "ept.h"
 #include "utils.h"
+#include "tls.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -222,8 +223,8 @@ void flow_key_sprintf_dst_addr(const struct key *key,
     }
 }
 
-uint16_t flow_key_get_dst_port(const struct key *key) {
-    return ntohs(key->dst_port);
+uint16_t flow_key_get_dst_port(const struct key &key) {
+    return ntohs(key.dst_port);
 }
 
 
@@ -519,44 +520,37 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
 }
 
 void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
-                                                const struct extractor *x,
-                                                const struct key *key) {
+                                                const struct tls_client_hello &hello,
+                                                const struct key &key) {
     char* results;
 
-    if (x->fingerprint_type == fingerprint_type_tls) {
+    int ret_value;
+    char dst_ip[MAX_DST_ADDR_LEN];
+    uint16_t dst_port = flow_key_get_dst_port(key);
 
-        int ret_value;
-        char dst_ip[MAX_DST_ADDR_LEN];
-        unsigned char fp_str[MAX_FP_STR_LEN];
-        char server_name[MAX_SNI_LEN] = { 0 };
-        uint16_t dst_port = flow_key_get_dst_port(key);
+    // copy fingerprint string
+    char fp_str[MAX_FP_STR_LEN] = { 0 };
+    struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
+    hello.write_fingerprint(fp_buf);
+    fp_buf.write_char('\0'); // null-terminate
+    // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
 
-        uint8_t *extractor_buffer = x->output_start;
-        size_t bytes_extracted = extractor_get_output_length(x);
-        sprintf_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted, fp_str, MAX_FP_STR_LEN); // should check return result
-        flow_key_sprintf_dst_addr(key, dst_ip);
+    char sn_str[MAX_SNI_LEN] = { 0 };
+    struct parser sn{NULL, NULL};
+    hello.extensions.set_server_name(sn);
+    sn.strncpy(sn_str, MAX_SNI_LEN);
+    // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
 
-        // TBD: copy server_name, if available from client_hello
-        //
-        //        if (x->packet_data.type == packet_data_type_tls_sni) {
-        //            size_t sni_len = x->packet_data.length - SNI_HEADER_LEN;
-        //            sni_len = sni_len > MAX_SNI_LEN-1 ? MAX_SNI_LEN-1 : sni_len;
-        //            memcpy(server_name, x->packet_data.value + SNI_HEADER_LEN, sni_len);
-        //            server_name[sni_len] = 0; // null termination
-        //        }
-
-        ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
-        if (ret_value == -1) {
-            return;
-        }
-        //fprintf(file, "%s,", results);
-
-        buf.write_char(',');
-        buf.strncpy(results);
-
-        free(results);
-
+    ret_value = perform_analysis(&results, MAX_FP_STR_LEN, fp_str, sn_str, dst_ip, dst_port);
+    if (ret_value == -1) {
+        return;
     }
+    // fprintf(stderr, "analysis: %s\n", results);
+
+    buf.write_char(',');
+    buf.strncpy(results);
+
+    free(results);
 
 }
 
