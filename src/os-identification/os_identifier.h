@@ -71,26 +71,6 @@ int database_init(const char *resource_file, rapidjson::Document &fp_db) {
 }
 
 
-std::unordered_set<std::string> os_fp_types = {"tcp", "tls", "http"};
-
-std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> host_data;
-
-void update_host_data(const char *fp_type, const char *str_repr, const char *src_ip) {
-    if (os_fp_types.find(fp_type) == os_fp_types.end()) {
-        return ;
-    }
-    auto data = std::make_pair(fp_type, str_repr);
-    auto it = host_data.find(src_ip);
-    if (it == host_data.end()) {
-        std::vector<std::pair<std::string, std::string>> v = {data};
-        host_data[src_ip] = v;
-    } else {
-        it->second.push_back(data);
-    }
-}
-
-
-
 struct mercury_record {
     struct parser fp_type;
     struct parser fingerprint;
@@ -319,15 +299,29 @@ void update_features(double **features, const char *fp_type, const char *str_rep
     }
 }
 
+
+std::unordered_set<std::string> os_fp_types = {"tcp", "tls", "http"};
+std::unordered_map<std::string, double*> host_data;
+void update_host_data(const char *fp_type, const char *str_repr, const char *src_ip) {
+    if (os_fp_types.find(fp_type) == os_fp_types.end()) {
+        return ;
+    }
+
+    auto it = host_data.find(src_ip);
+    if (it == host_data.end()) {
+        double *features = new double[os_clf.os_len*3]();
+        update_features(&features, fp_type, str_repr);
+        host_data[src_ip] = features;
+    } else {
+        update_features(&it->second, fp_type, str_repr);
+    }
+}
+
+
 void os_classify_all_samples() {
     for (auto it = host_data.begin(); it != host_data.end(); ++it) {
-        double *features = new double[os_clf.os_len*3]();
         std::cout << it->first << std::endl;
-        auto v = it->second;
-
-        for (auto it2 = v.begin(); it2 != v.end(); ++it2) {
-            update_features(&features, it2->first.c_str(), it2->second.c_str());
-        }
+        double *features = it->second;
 
         // normalize sample
         double tcp_sum = 0.0, tls_sum = 0.0, http_sum = 0.0;
