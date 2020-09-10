@@ -170,9 +170,12 @@ struct tcp_packet {
     }
 
     void write_json(struct json_object &o) {
-        struct json_object json_tcp{o, "tcp"};
-        json_tcp.print_key_value("fingerprint", *this);
-        json_tcp.close();
+        if (header) {
+            struct json_object json_tcp{o, "tcp"};
+            //json_tcp.print_key_value("fingerprint", *this);
+            json_tcp.print_key_uint("seq", htonl(header->seq));
+            json_tcp.close();
+        }
     }
 };
 
