@@ -148,6 +148,11 @@ struct mercury_record {
 };
 
 
+struct os_result {
+    std::string os_name;
+    double probability;
+};
+
 struct os_classifier {
     double *coefficients;
     double *intercepts;
@@ -204,24 +209,30 @@ struct os_classifier {
         }
     };
 
-    std::string classify(double *features) {
-        double score = -1e9;
-        double tmp_score;
-        int label_idx = 0;
-
+    void classify(double *features, struct os_result *r) {
+        double scores[label_len] = {0};
+        double score_sum = 0.0;
         for (int i = 0; i < label_len; i++) {
-            tmp_score = intercepts[i];
+            scores[i] = intercepts[i];
             for (int j = 0; j < os_len*3; j++) {
-                tmp_score += coefficients[i*os_len*3+j]*features[j];
+                scores[i] += coefficients[i*os_len*3+j]*features[j];
             }
-            tmp_score = 1.0/(1+exp(-tmp_score));
-            if (tmp_score > score) {
-                score = tmp_score;
+            score_sum += exp(scores[i]);
+        }
+
+        double prob = 0.0;
+        double tmp_prob;
+        int label_idx = 0;
+        for (int i = 0; i < label_len; i++) {
+            tmp_prob = exp(scores[i])/score_sum;
+            if (tmp_prob > prob) {
+                prob = tmp_prob;
                 label_idx = i;
             }
         }
 
-        return labels[label_idx];
+        r->os_name = labels[label_idx];
+        r->probability = prob;
     }
 
 } os_clf;
@@ -332,8 +343,10 @@ void os_classify_all_samples() {
         }
 
         // classify sample
-        std::string os_name = os_clf.classify(features);
-        std::cout << os_name << std::endl << std::endl;
+        struct os_result r;
+        os_clf.classify(features, &r);
+        std::cout << "OS Name:     " << r.os_name     << std::endl;
+        std::cout << "Probability: " << r.probability << std::endl << std::endl;
 
         delete features;
     }
@@ -362,6 +375,5 @@ void os_process_line(std::string line) {
 
     update_host_data(fp_type_buffer, fp_buffer, src_ip_buffer);
 }
-
 
 #endif /* OS_IDENTIFIER_H */
