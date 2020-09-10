@@ -69,13 +69,11 @@ struct ssh_init_packet {
         p.skip(1);
     }
 
-    void fingerprint(json_object &o, const char *key) const {
+    void operator()(struct buffer_stream &buf) const {
         if (protocol_string.is_not_readable()) {
             return;
         }
-        char fp_buffer[2048];
-        struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
-
+        buf.write_char('\"');
         buf.write_char('(');
         struct parser tmp = protocol_string; // to avoid modifying object
         tmp.skip(VERS_LEN);                  // advance over "SSH-2.0"
@@ -96,10 +94,7 @@ struct ssh_init_packet {
             buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
         }
         buf.write_char(')');
-
-        buf.write_char('\0'); // null-terminate the JSON string in the buffer
-        o.print_key_string(key, fp_buffer);
-
+        buf.write_char('\"');
     }
 
     void write_json(json_object &o, bool output_metadata) {
@@ -113,7 +108,7 @@ struct ssh_init_packet {
         json_object json_ssh_init{json_ssh, "init"};
         json_ssh_init.print_key_json_string("protocol", protocol_string.data, protocol_string.length());
         json_ssh_init.print_key_json_string("comment", comment_string.data, comment_string.length());
-        fingerprint(json_ssh_init, "fingerprint");
+        json_ssh_init.print_key_value("fingerprint", *this);
         json_ssh_init.close();
         json_ssh.close();
     }
@@ -193,20 +188,6 @@ struct ssh_kex_init {
     struct name_list languages_server_to_client;
 
     ssh_kex_init() = default;
-    // ssh_kex_init() :
-    //     msg_type{NULL, NULL},
-    //     cookie{NULL, NULL},
-    //     kex_algorithms{NULL, NULL},
-    //     server_host_key_algorithms{NULL, NULL},
-    //     encryption_algorithms_client_to_server{NULL, NULL},
-    //     encryption_algorithms_server_to_client{NULL, NULL},
-    //     mac_algorithms_client_to_server{NULL, NULL},
-    //     mac_algorithms_server_to_client{NULL, NULL},
-    //     compression_algorithms_client_to_server{NULL, NULL},
-    //     compression_algorithms_server_to_client{NULL, NULL},
-    //     languages_client_to_server{NULL, NULL},
-    //     languages_server_to_client{NULL, NULL} {
-    // }
 
     void parse(struct parser &p) {
         msg_type.parse(p, L_ssh_payload);
@@ -231,13 +212,11 @@ struct ssh_kex_init {
         buf.write_char(')');
     }
 
-    void fingerprint(json_object &o, const char *key) const {
+    void operator()(struct buffer_stream &buf) const {
         if (kex_algorithms.is_not_readable()) {
             return;
         }
-        char fp_buffer[8192];
-        struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
-
+        buf.write_char('\"');
         write_hex_data(buf, kex_algorithms);
         write_hex_data(buf, server_host_key_algorithms);
         write_hex_data(buf, encryption_algorithms_client_to_server);
@@ -248,10 +227,7 @@ struct ssh_kex_init {
         write_hex_data(buf, compression_algorithms_server_to_client);
         write_hex_data(buf, languages_client_to_server);
         write_hex_data(buf, languages_server_to_client);
-
-        buf.write_char('\0'); // null-terminate the JSON string in the buffer
-        o.print_key_string(key, fp_buffer);
-
+        buf.write_char('\"');
     }
 
     void write_json(json_object &o, bool output_metadata) const {
@@ -271,7 +247,7 @@ struct ssh_kex_init {
             ssh_client.print_key_json_string("compression_algorithms_server_to_client", compression_algorithms_server_to_client.data, compression_algorithms_server_to_client.length());
             ssh_client.print_key_json_string("languages_client_to_server", languages_client_to_server.data, languages_client_to_server.length());
             ssh_client.print_key_json_string("languages_server_to_client", languages_server_to_client.data, languages_server_to_client.length());
-            fingerprint(ssh_client, "fingerprint");
+            ssh_client.print_key_value("fingerprint", *this);
         }
         ssh_client.close();
         ssh.close();

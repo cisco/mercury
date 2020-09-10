@@ -9,8 +9,9 @@
 #include "extractor.h"
 
 struct http_headers : public parser {
+    bool complete;
 
-    http_headers() : parser{} {}
+    http_headers() : parser{}, complete{false} {}
 
     void parse(struct parser &p) {
         unsigned char crlf[2] = { '\r', '\n' };
@@ -18,6 +19,7 @@ struct http_headers : public parser {
         data = p.data;
         while (parser_get_data_length(&p) > 0) {
             if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+                complete = true;
                 break;  /* at end of headers */
             }
             if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
@@ -32,9 +34,8 @@ struct http_headers : public parser {
     void print_matching_names(struct json_object &o, const char *key, std::list<struct parser> &name) const;
     void print_matching_names(struct json_object &o, std::list<std::pair<struct parser, std::string>> &name_list) const;
 
-    void fingerprint(struct buffer_stream &buf, std::list<std::pair<struct parser, bool>> &name_list) const;
-
     void fingerprint(struct buffer_stream &buf, std::unordered_map<std::basic_string<uint8_t>, bool> &name_dict) const;
+
 };
 
 struct http_request {
@@ -47,9 +48,9 @@ struct http_request {
 
     void parse(struct parser &p);
 
-    static void write_json(struct parser data, struct json_object &record, bool output_metadata);
+    void write_json(struct json_object &record, bool output_metadata);
 
-    void fingerprint(json_object &o, const char *key) const;
+    void operator()(struct buffer_stream &b) const;
 
 };
 
@@ -63,9 +64,10 @@ struct http_response {
 
     void parse(struct parser &p);
 
-    static void write_json(struct parser data, struct json_object &record);
+    void write_json(struct json_object &record);
 
-    void fingerprint(json_object &o, const char *key) const;
+    void operator()(struct buffer_stream &buf) const;
+
 };
 
 #endif /* HTTP_H */

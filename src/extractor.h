@@ -79,11 +79,12 @@ typedef enum extractor_state {
  */
 struct extractor {
     enum fingerprint_type fingerprint_type;
-    struct protocol_state proto_state;  /* tracking across packets   */
+    //    struct protocol_state proto_state;  /* tracking across packets   */
     unsigned char *output_start;        /* buffer for output         */
     unsigned char *output;              /* buffer for output         */
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
+    struct parser tcp;                  // NEW
     struct parser transport_data;       // NEW
     enum msg_type msg_type;             // NEW
 };
@@ -376,5 +377,7 @@ enum status proto_ident_config(const char *config_string);
 
 ptrdiff_t parser_get_data_length(struct parser *p);
 
+enum msg_type get_message_type(const uint8_t *tcp_data,
+                               unsigned int len);
 
 #endif /* EXTRACTOR_H */

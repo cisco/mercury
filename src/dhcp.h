@@ -125,8 +125,8 @@ struct dhcp_discover {
 
     void write_json(struct json_object &o) {
         struct json_object json_dhcp{o, "dhcp"};
-        json_dhcp.print_key_hex("options_hex", options);
-        json_dhcp.print_key_datum("options", options);
+        //json_dhcp.print_key_hex("options_hex", options);
+        //json_dhcp.print_key_datum("options", options);
 
         struct json_array option_array{json_dhcp, "options"};
         struct parser tmp = options;
@@ -134,14 +134,41 @@ struct dhcp_discover {
             struct dhcp_option opt;
             opt.parse(tmp);
             struct json_object json_opt{option_array};
-            json_opt.print_key_uint("type", opt.tag);
+            json_opt.print_key_uint("tag", opt.tag);
             json_opt.print_key_uint("length", opt.length);
             json_opt.print_key_hex("value", opt);
             json_opt.close();
         }
         option_array.close();
+        json_dhcp.print_key_value("fingerprint", *this);
         json_dhcp.close();
     }
+
+    void operator()(struct buffer_stream &b) const {
+
+        b.write_char('\"');
+        struct parser tmp = options;
+        while (tmp.is_not_empty()) {
+            struct dhcp_option opt;
+            opt.parse(tmp);
+            if (opt.tag == DHCP_OPT_PARAMETER_LIST || opt.tag == DHCP_OPT_VENDOR_CLASS || opt.tag == DHCP_OPT_MESSAGE_TYPE) {
+                // copy entire option into fingerprint string
+                b.write_char('(');
+                b.raw_as_hex(&opt.tag, sizeof(opt.tag));
+                b.raw_as_hex(&opt.length, sizeof(opt.length));
+                b.raw_as_hex(opt.data, opt.data_end - opt.data);
+                b.write_char(')');
+
+            } else if (opt.tag != DHCP_OPT_PAD) {
+                // copy only option tag into fingerprint string
+                b.write_char('(');
+                b.raw_as_hex(&opt.tag, sizeof(opt.tag));
+                b.write_char(')');
+            }
+        }
+        b.write_char('\"');
+    }
+
 };
 
 #endif /* DHCP_H */

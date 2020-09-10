@@ -20,6 +20,7 @@
 #include "analysis.h"
 #include "ept.h"
 #include "utils.h"
+#include "tls.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -209,6 +210,32 @@ uint16_t flow_key_get_dst_port(const struct flow_key *key) {
 
     return 0;
 }
+
+
+void flow_key_sprintf_dst_addr(const struct key &key,
+                               char *dst_addr_str) {
+
+    if (key.ip_vers == 4) {
+        uint8_t *d = (uint8_t *)&key.addr.ipv4.dst;
+        snprintf(dst_addr_str,
+                 MAX_DST_ADDR_LEN,
+                 "%u.%u.%u.%u",
+                 d[0], d[1], d[2], d[3]);
+    } else if (key.ip_vers == 6) {
+        uint8_t *d = (uint8_t *)&key.addr.ipv6.dst;
+        snprintf(dst_addr_str,
+                 MAX_DST_ADDR_LEN,
+                 "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
+                 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+    } else {
+        dst_addr_str[0] = '\0'; // make sure that string is null-terminated
+    }
+}
+
+uint16_t flow_key_get_dst_port(const struct key &key) {
+    return ntohs(key.dst_port);
+}
+
 
 std::string get_port_app(uint16_t dst_port) {
     auto it = port_mapping.find(dst_port);
@@ -500,3 +527,40 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
     }
 
 }
+
+void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
+                                                const struct tls_client_hello &hello,
+                                                const struct key &key) {
+    char* results;
+
+    int ret_value;
+    uint16_t dst_port = flow_key_get_dst_port(key);
+    char dst_ip_str[MAX_DST_ADDR_LEN];
+    flow_key_sprintf_dst_addr(key, dst_ip_str);
+
+    // copy fingerprint string
+    char fp_str[MAX_FP_STR_LEN] = { 0 };
+    struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
+    hello.write_fingerprint(fp_buf);
+    fp_buf.write_char('\0'); // null-terminate
+    // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
+
+    char sn_str[MAX_SNI_LEN] = { 0 };
+    struct parser sn{NULL, NULL};
+    hello.extensions.set_server_name(sn);
+    sn.strncpy(sn_str, MAX_SNI_LEN);
+    // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
+
+    ret_value = perform_analysis(&results, MAX_FP_STR_LEN, fp_str, sn_str, dst_ip_str, dst_port);
+    if (ret_value == -1) {
+        return;
+    }
+    // fprintf(stderr, "analysis: %s\n", results);
+
+    buf.write_char(',');
+    buf.strncpy(results);
+
+    free(results);
+
+}
+

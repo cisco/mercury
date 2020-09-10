@@ -2,6 +2,8 @@
  * http.c
  */
 
+#include <unordered_map>
+#include "asn1/bytestring.h"
 #include "http.h"
 #include "json_object.h"
 #include "match.h"
@@ -130,52 +132,6 @@ void http_headers::print_matching_names(struct json_object &o, std::list<std::pa
     }
 }
 
-void http_headers::fingerprint(struct buffer_stream &buf, std::list<std::pair<struct parser, bool>> &name_list) const {
-    unsigned char crlf[2] = { '\r', '\n' };
-    unsigned char csp[2] = { ':', ' ' };
-
-    struct parser p{this->data, this->data_end};  // create copy, to leave object unmodified
-
-    while (parser_get_data_length(&p) > 0) {
-        if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
-            break;  /* at end of headers */
-        }
-
-        struct parser name{p.data, NULL};
-        if (parser_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
-            return;
-        }
-        name.data_end = p.data;
-        bool include_name = false;
-        bool include_value = false;
-
-        for (const auto &n : name_list) {
-            if (n.first.case_insensitive_match(name)) {
-                include_name = true;
-                include_value = n.second;
-            }
-        }
-        if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
-            return;
-        }
-        const uint8_t *name_end = p.data - 2;
-        if (include_name) {
-            if (include_value) {
-                buf.write_char('(');
-                buf.raw_as_hex(name.data, name_end - name.data);         // write {name, value}
-                buf.write_char(')');
-            } else {
-                buf.write_char('(');
-                buf.raw_as_hex(name.data, name.data_end - name.data - 2); // write {name}
-                buf.write_char(')');
-            }
-        }
-    }
-}
-
-#include <unordered_map>
-#include "asn1/bytestring.h"
-
 inline void to_lower(std::basic_string<uint8_t> &str, struct parser d) {
     if (d.is_not_readable()) {
         return;
@@ -230,9 +186,7 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std
     }
 }
 
-// write_json is a static http_request member function
-//
-void http_request::write_json(struct parser data, struct json_object &record, bool output_metadata) {
+void http_request::write_json(struct json_object &record, bool output_metadata) {
 
     // construct a list of http header names to be printed out
     //
@@ -258,30 +212,28 @@ void http_request::write_json(struct parser data, struct json_object &record, bo
 
     std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via, upgrade_pair};
 
-    struct http_request request;
-    request.parse(data);
-    if (request.method.is_not_empty()) {
+    if (method.is_not_empty()) {
         struct json_object http{record, "http"};
         struct json_object http_request{http, "request"};
         if (output_metadata) {
-            http_request.print_key_json_string("method", request.method);
-            http_request.print_key_json_string("uri", request.uri);
-            http_request.print_key_json_string("protocol", request.protocol);
-            // http.print_key_json_string("headers", request.headers.data, request.headers.length());
-            // request.headers.print_host(http, "host");
+            http_request.print_key_json_string("method", method);
+            http_request.print_key_json_string("uri", uri);
+            http_request.print_key_json_string("protocol", protocol);
+            // http.print_key_json_string("headers", headers.data, headers.length());
+            // headers.print_host(http, "host");
 
             // run the list of http headers to be printed out against
             // all headers, and print the values corresponding to each
             // of the matching names
             //
-            request.headers.print_matching_names(http_request, names_to_print);
-            request.fingerprint(http_request, "fingerprint");
+            headers.print_matching_names(http_request, names_to_print);
+            http_request.print_key_value("fingerprint", *this);
 
         } else {
 
             // output only the user-agent
             std::list<std::pair<struct parser, std::string>> ua_only{user_agent_name};
-            request.headers.print_matching_names(http_request, ua_only);
+            headers.print_matching_names(http_request, ua_only);
         }
         http_request.close();
         http.close();
@@ -290,7 +242,6 @@ void http_request::write_json(struct parser data, struct json_object &record, bo
 }
 
 void http_response::parse(struct parser &p) {
-    unsigned char crlf[2] = { '\r', '\n' };
 
     /* process request line */
     version.parse_up_to_delim(p, ' ');
@@ -300,21 +251,13 @@ void http_response::parse(struct parser &p) {
     status_reason.parse_up_to_delim(p, '\r');
     p.skip(2);
 
-    headers.data = p.data;
-    while (parser_get_data_length(&p) > 0) {
-        if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
-            break;  /* at end of headers */
-        }
-        if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
-            break;
-        }
-    }
-    headers.data_end = p.data;
+    /* parse headers */
+    headers.parse(p);
 
     return;
 }
 
-void http_response::write_json(struct parser data, struct json_object &record) {
+void http_response::write_json(struct json_object &record) {
 
     // construct a list of http header names to be printed out
     //
@@ -338,45 +281,34 @@ void http_response::write_json(struct parser data, struct json_object &record) {
 
     struct json_object http{record, "http"};
     struct json_object http_response{http, "response"};
-    struct http_response response;
-    response.parse(data);
-    http_response.print_key_json_string("version", response.version.data, response.version.length());
-    http_response.print_key_json_string("status_code", response.status_code.data, response.status_code.length());
-    http_response.print_key_json_string("status_reason", response.status_reason.data, response.status_reason.length());
+    http_response.print_key_json_string("version", version.data, version.length());
+    http_response.print_key_json_string("status_code", status_code.data, status_code.length());
+    http_response.print_key_json_string("status_reason", status_reason.data, status_reason.length());
     //http.print_key_json_string("headers", response.headers.data, response.headers.length());
 
     // run the list of http headers to be printed out against
     // all headers, and print the values corresponding to each
     // of the matching names
     //
-    response.headers.print_matching_names(http_response, names_to_print);
-
-    response.fingerprint(http_response, "fingerprint");
+    headers.print_matching_names(http_response, names_to_print);
+    http_response.print_key_value("fingerprint", *this);
 
     http_response.close();
     http.close();
 
 }
 
-
-#define define_pair_parser_bool(x, v) uint8_t x[]
-
-uint8_t a[] = { 'a', 'c', 'c', 'e', 'p', 't', ':', ' ' };
-struct parser a_parser{a, a+sizeof(a)};
-std::pair<struct parser, bool> accept_pair{a_parser, true};
-
-void http_request::fingerprint(json_object &o, const char *key) const {
+void http_request::operator()(struct buffer_stream &b) const {
     if (method.is_not_readable()) {
         return;
     }
-    char fp_buffer[4096];
-    struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
-    buf.write_char('(');
-    buf.raw_as_hex(method.data, method.data_end - method.data);
-    buf.write_char(')');
-    buf.write_char('(');
-    buf.raw_as_hex(protocol.data, protocol.data_end - protocol.data);
-    buf.write_char(')');
+    b.write_char('\"');
+    b.write_char('(');
+    b.raw_as_hex(method.data, method.data_end - method.data);
+    b.write_char(')');
+    b.write_char('(');
+    b.raw_as_hex(protocol.data, protocol.data_end - protocol.data);
+    b.write_char(')');
 
     std::unordered_map<std::basic_string<uint8_t>, bool> http_static_keywords = {
         { { 'a', 'c', 'c', 'e', 'p', 't', ':', ' ' }, true },
@@ -397,18 +329,15 @@ void http_request::fingerprint(json_object &o, const char *key) const {
         { { 'x', '-', 'f', 'l', 'a', 's', 'h', '-', 'v', 'e', 'r', 's', 'i', 'o', 'n', ':', ' ' }, false },
         { { 'x', '-', 'p', '2', 'p', '-', 'p', 'e', 'e', 'r', 'd', 'i', 's', 't', ':', ' ' }, false } 
     };
-    headers.fingerprint(buf, http_static_keywords);
-
-    buf.write_char('\0'); // null-terminate the JSON string in the buffer
-    o.print_key_string(key, fp_buffer);
+    headers.fingerprint(b, http_static_keywords);
+    b.write_char('\"');
 }
 
-void http_response::fingerprint(json_object &o, const char *key) const {
+void http_response::operator()(struct buffer_stream &buf) const {
     if (status_reason.is_not_readable()) {
         return;
     }
-    char fp_buffer[4096];
-    struct buffer_stream buf(fp_buffer, sizeof(fp_buffer));
+    buf.write_char('\"');
     buf.write_char('(');
     buf.raw_as_hex(version.data, version.data_end - version.data);
     buf.write_char(')');
@@ -472,7 +401,5 @@ void http_response::fingerprint(json_object &o, const char *key) const {
 
     };
     headers.fingerprint(buf, http_static_keywords);
-
-    buf.write_char('\0'); // null-terminate the JSON string in the buffer
-    o.print_key_string(key, fp_buffer);
+    buf.write_char('\"');
 }
