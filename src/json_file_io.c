@@ -422,9 +422,14 @@ int append_packet_json(struct buffer_stream &buf,
             dhcp_disco.parse(pkt);
             if (dhcp_disco.is_not_empty()) {
                 struct json_object record{&buf};
-                dhcp_disco.write_json(record);
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_value("dhcp", dhcp_disco);
+                fps.close();
+                if (global_vars.metadata_output) {
+                    dhcp_disco.write_json(record);
+                    write_flow_key(record, k);
+                    record.print_key_timestamp("event_start", ts);
+                }
                 record.close();
             }
         }

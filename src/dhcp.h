@@ -142,7 +142,6 @@ struct dhcp_discover {
             json_opt.close();
         }
         option_array.close();
-        json_dhcp.print_key_value("fingerprint", *this);
         json_dhcp.close();
     }
 
