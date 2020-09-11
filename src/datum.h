@@ -31,12 +31,12 @@ inline uint8_t lowercase(uint8_t x) {
     return x;
 }
 
-struct parser {
+struct datum {
     const unsigned char *data;          /* data being parsed/copied  */
     const unsigned char *data_end;      /* end of data buffer        */
 
-    parser() : data{NULL}, data_end{NULL} {}
-    parser(const unsigned char *first, const unsigned char *last) : data{first}, data_end{last} {}
+    datum() : data{NULL}, data_end{NULL} {}
+    datum(const unsigned char *first, const unsigned char *last) : data{first}, data_end{last} {}
     //parser(const unsigned char *d, const unsigned char *e) : data{d}, data_end{e} {}
     //parser(const unsigned char *d, size_t length) : data{d}, data_end{d+length} {}
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
@@ -47,7 +47,7 @@ struct parser {
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = NULL; }
     ssize_t length() const { return data_end - data; }
-    void parse(struct parser &r, size_t num_bytes) {
+    void parse(struct datum &r, size_t num_bytes) {
         if (r.length() < (ssize_t)num_bytes) {
             r.set_null();
             set_null();
@@ -58,7 +58,7 @@ struct parser {
         data_end = r.data + num_bytes;
         r.data += num_bytes;
     }
-    void parse_soft_fail(struct parser &r, size_t num_bytes) {
+    void parse_soft_fail(struct datum &r, size_t num_bytes) {
         if (r.length() < (ssize_t)num_bytes) {
             num_bytes = r.length();  // only parse bytes that are available
         }
@@ -66,7 +66,7 @@ struct parser {
         data_end = r.data + num_bytes;
         r.data += num_bytes;
     }
-    void parse_up_to_delim(struct parser &r, uint8_t delim) {
+    void parse_up_to_delim(struct datum &r, uint8_t delim) {
         data = r.data;
         while (r.data <= r.data_end) {
             if (*r.data == delim) { // found delimeter
@@ -77,7 +77,7 @@ struct parser {
         }
         data_end = r.data;
     }
-    uint8_t parse_up_to_delimeters(struct parser &r, uint8_t delim1, uint8_t delim2) {
+    uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2) {
         data = r.data;
         while (r.data <= r.data_end) {
             if (*r.data == delim1) { // found first delimeter
@@ -104,7 +104,7 @@ struct parser {
             data_end = data;
         }
     }
-    bool case_insensitive_match(const struct parser r) const {
+    bool case_insensitive_match(const struct datum r) const {
         if (length() != r.length()) {
             return false;
         } else {
@@ -118,7 +118,7 @@ struct parser {
             return true;
         }
     }
-    bool operator==(const parser &p) const {
+    bool operator==(const datum &p) const {
         return (length() == p.length()) && memcmp(data, p.data, length()) == 0;
     }
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
@@ -249,7 +249,7 @@ struct parser {
         return false;
     }
 
-    void init_from_outer_parser(struct parser *outer,
+    void init_from_outer_parser(struct datum *outer,
                                 unsigned int data_len) {
         const unsigned char *inner_data_end = outer->data + data_len;
 
@@ -284,40 +284,40 @@ struct parser {
  * parser_init initializes a parser object with a data buffer
  * (holding the data to be parsed)
  */
-void parser_init(struct parser *p,
+void parser_init(struct datum *p,
 		 const unsigned char *data,
 		 unsigned int data_len);
 
 
-unsigned int parser_match(struct parser *p,
+unsigned int parser_match(struct datum *p,
                           const unsigned char *value,
                           size_t value_len,
                           const unsigned char *mask);
 
-void parser_init_from_outer_parser(struct parser *p,
-                                   const struct parser *outer,
+void parser_init_from_outer_parser(struct datum *p,
+                                   const struct datum *outer,
                                    unsigned int data_len);
 
-enum status parser_set_data_length(struct parser *p,
+enum status parser_set_data_length(struct datum *p,
                                    unsigned int data_len);
 
-unsigned int parser_process_tls_server(struct parser *p);
+unsigned int parser_process_tls_server(struct datum *p);
 
-enum status parser_read_and_skip_uint(struct parser *p,
+enum status parser_read_and_skip_uint(struct datum *p,
                                       unsigned int num_bytes,
                                       size_t *output);
 
-enum status parser_skip(struct parser *p,
+enum status parser_skip(struct datum *p,
                         unsigned int len);
 
-enum status parser_read_uint(struct parser *p,
+enum status parser_read_uint(struct datum *p,
                              unsigned int num_bytes,
                              size_t *output);
 
-void parser_init_packet(struct parser *p, const unsigned char *data, unsigned int length);
+void parser_init_packet(struct datum *p, const unsigned char *data, unsigned int length);
 
 
-ptrdiff_t parser_get_data_length(struct parser *p);
+ptrdiff_t parser_get_data_length(struct datum *p);
 
 /*
  * parser_find_delim(p, d, l) looks for the delimiter d with length l
@@ -327,24 +327,24 @@ ptrdiff_t parser_get_data_length(struct parser *p);
  * delimiter; in the second case, the function returns the number of
  * bytes to the end of the data buffer.
  */
-int parser_find_delim(struct parser *p,
+int parser_find_delim(struct datum *p,
                       const unsigned char *delim,
                       size_t length);
 
-enum status parser_skip_to(struct parser *p,
+enum status parser_skip_to(struct datum *p,
                            const unsigned char *location);
 
-void parser_pop(struct parser *inner, struct parser *outer);
+void parser_pop(struct datum *inner, struct datum *outer);
 
-enum status parser_skip_upto_delim(struct parser *p,
+enum status parser_skip_upto_delim(struct datum *p,
                                    const unsigned char delim[],
                                    size_t length);
 
-enum status parser_read_and_skip_uint(struct parser *p,
+enum status parser_read_and_skip_uint(struct datum *p,
                                       unsigned int num_bytes,
                                       size_t *output);
 
-enum status parser_read_and_skip_byte_string(struct parser *p,
+enum status parser_read_and_skip_byte_string(struct datum *p,
                                              unsigned int num_bytes,
                                              uint8_t *output_string);
 
@@ -353,7 +353,7 @@ enum status parser_read_and_skip_byte_string(struct parser *p,
  * start of protocol parsing functions
  */
 
-unsigned int parser_process_eth(struct parser *p, size_t *ethertype);
+unsigned int parser_process_eth(struct datum *p, size_t *ethertype);
 
 /*
  * The function parser_process_tcp processes a TCP packet.  The
@@ -361,13 +361,13 @@ unsigned int parser_process_eth(struct parser *p, size_t *ethertype);
  * pointer set to the initial octet of a TCP header.
  */
 
-unsigned int parser_process_tcp(struct parser *p);
+unsigned int parser_process_tcp(struct datum *p);
 
-unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol, struct key *k);
+unsigned int parser_process_ipv4(struct datum *p, size_t *transport_protocol, struct key *k);
 
-unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol, struct key *k);
+unsigned int parser_process_ipv6(struct datum *p, size_t *transport_protocol, struct key *k);
 
-unsigned int parser_process_packet(struct parser *p);
+unsigned int parser_process_packet(struct datum *p);
 
 
 #endif /* PARSER_H */
