@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Encoding=UTF-8
+Name=cert-analyze
+Comment=PKIX Certificate Analyzer
+Exec=/home/mcgrew/Code/mercury-transition/src/asn1/cert-analyze --input %f
+Terminal=true

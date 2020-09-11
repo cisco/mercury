@@ -106,13 +106,14 @@ struct ssh_init_packet {
         if (protocol_string.is_not_readable()) {
             return;
         }
-        json_object json_ssh{o, "ssh"};
-        json_object json_ssh_init{json_ssh, "init"};
-        json_ssh_init.print_key_json_string("protocol", protocol_string.data, protocol_string.length());
-        json_ssh_init.print_key_json_string("comment", comment_string.data, comment_string.length());
-        json_ssh_init.print_key_value("fingerprint", *this);
-        json_ssh_init.close();
-        json_ssh.close();
+        if (output_metadata) {
+            json_object json_ssh{o, "ssh"};
+            json_object json_ssh_init{json_ssh, "init"};
+            json_ssh_init.print_key_json_string("protocol", protocol_string.data, protocol_string.length());
+            json_ssh_init.print_key_json_string("comment", comment_string.data, comment_string.length());
+            json_ssh_init.close();
+            json_ssh.close();
+        }
     }
 
 };
@@ -240,9 +241,9 @@ struct ssh_kex_init {
         if (kex_algorithms.is_not_readable()) {
             return;
         }
-        struct json_object ssh{o, "ssh"};
-        struct json_object ssh_client{ssh, "kex"};
         if (output_metadata) {
+            struct json_object ssh{o, "ssh"};
+            struct json_object ssh_client{ssh, "kex"};
             ssh_client.print_key_json_string("kex_algorithms", kex_algorithms.data, kex_algorithms.length());
             ssh_client.print_key_json_string("server_host_key_algorithms", server_host_key_algorithms.data, server_host_key_algorithms.length());
             ssh_client.print_key_json_string("encryption_algorithms_client_to_server", encryption_algorithms_client_to_server.data, encryption_algorithms_client_to_server.length());
@@ -253,10 +254,9 @@ struct ssh_kex_init {
             ssh_client.print_key_json_string("compression_algorithms_server_to_client", compression_algorithms_server_to_client.data, compression_algorithms_server_to_client.length());
             ssh_client.print_key_json_string("languages_client_to_server", languages_client_to_server.data, languages_client_to_server.length());
             ssh_client.print_key_json_string("languages_server_to_client", languages_server_to_client.data, languages_server_to_client.length());
-            ssh_client.print_key_value("fingerprint", *this);
+            ssh_client.close();
+            ssh.close();
         }
-        ssh_client.close();
-        ssh.close();
     }
 
 };
