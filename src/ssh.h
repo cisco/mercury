@@ -71,6 +71,8 @@ struct ssh_init_packet {
 
     void operator()(struct buffer_stream &buf) const {
         if (protocol_string.is_not_readable()) {
+            buf.write_char('\"');
+            buf.write_char('\"');
             return;
         }
         buf.write_char('\"');
@@ -204,6 +206,8 @@ struct ssh_kex_init {
         languages_server_to_client.parse(p);
     }
 
+    bool is_not_empty() const { return kex_algorithms.is_not_empty(); }
+
     static inline void write_hex_data(buffer_stream &buf, const struct parser &d) {
         buf.write_char('(');
         if (d.is_not_empty()) {
@@ -214,6 +218,8 @@ struct ssh_kex_init {
 
     void operator()(struct buffer_stream &buf) const {
         if (kex_algorithms.is_not_readable()) {
+            buf.write_char('\"');
+            buf.write_char('\"');
             return;
         }
         buf.write_char('\"');

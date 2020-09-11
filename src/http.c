@@ -212,7 +212,7 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 
     std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via, upgrade_pair};
 
-    if (method.is_not_empty()) {
+    if (this->is_not_empty()) {
         struct json_object http{record, "http"};
         struct json_object http_request{http, "request"};
         if (output_metadata) {
@@ -299,7 +299,9 @@ void http_response::write_json(struct json_object &record) {
 }
 
 void http_request::operator()(struct buffer_stream &b) const {
-    if (method.is_not_readable()) {
+    if (is_not_empty() == false) {
+        b.write_char('\"');
+        b.write_char('\"');
         return;
     }
     b.write_char('\"');
@@ -334,7 +336,9 @@ void http_request::operator()(struct buffer_stream &b) const {
 }
 
 void http_response::operator()(struct buffer_stream &buf) const {
-    if (status_reason.is_not_readable()) {
+    if (is_not_empty() == false) {
+        buf.write_char('\"');
+        buf.write_char('\"');
         return;
     }
     buf.write_char('\"');

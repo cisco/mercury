@@ -125,6 +125,8 @@ struct tls_record {
         d.read_uint16(&length);
         fragment.init_from_outer_parser(&d, length);
     }
+
+    bool is_not_empty() const { return fragment.is_not_empty(); } 
 };
 
 enum class handshake_type : uint8_t {
@@ -191,6 +193,8 @@ struct tls_server_certificate {
         certificate_list.init_from_outer_parser(&d, length);
     }
 
+    bool is_not_empty() const { return certificate_list.is_not_empty(); }
+
     void write_json(struct json_array &a, bool json_output) const;
 
 };
@@ -239,6 +243,8 @@ struct tls_client_hello {
 
     void parse(struct parser &p);
 
+    bool is_not_empty() const { return ciphersuite_vector.is_not_empty(); };
+
     void operator()(struct buffer_stream &buf) const;
 
     void write_fingerprint(struct buffer_stream &buf) const;
@@ -258,9 +264,10 @@ struct tls_server_hello {
     struct tls_extensions extensions;
 
     tls_server_hello() = default;
-    //tls_server_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, compression_method{NULL, NULL}, extensions{NULL, NULL} {}
 
     void parse(struct parser &p);
+
+    bool is_not_empty() const { return ciphersuite_vector.is_not_empty(); };
 
     void operator()(struct buffer_stream &buf) const;
 
@@ -325,6 +332,7 @@ struct dtls_handshake {
         fragment_length = tmp;
         body.init_from_outer_parser(&d, length);
     }
+
 };
 
 
