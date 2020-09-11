@@ -123,6 +123,8 @@ struct dhcp_discover {
         options = p;
     }
 
+    bool is_not_empty() const { return options.is_not_empty(); }
+
     void write_json(struct json_object &o) {
         struct json_object json_dhcp{o, "dhcp"};
         //json_dhcp.print_key_hex("options_hex", options);

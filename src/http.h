@@ -48,6 +48,8 @@ struct http_request {
 
     void parse(struct parser &p);
 
+    bool is_not_empty() const { return uri.is_not_empty(); }
+
     void write_json(struct json_object &record, bool output_metadata);
 
     void operator()(struct buffer_stream &b) const;
@@ -63,6 +65,8 @@ struct http_response {
     http_response() : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{} {}
 
     void parse(struct parser &p);
+
+    bool is_not_empty() const { return status_code.is_not_empty(); }
 
     void write_json(struct json_object &record);
 

@@ -206,6 +206,8 @@ struct ssh_kex_init {
         languages_server_to_client.parse(p);
     }
 
+    bool is_not_empty() const { return kex_algorithms.is_not_empty(); }
+
     static inline void write_hex_data(buffer_stream &buf, const struct parser &d) {
         buf.write_char('(');
         if (d.is_not_empty()) {
