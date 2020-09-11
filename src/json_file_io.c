@@ -234,7 +234,6 @@ int append_packet_json(struct buffer_stream &buf,
                  */
                 if (global_vars.do_analysis) {
                     write_analysis_from_extractor_and_flow_key(buf, hello, k);
-                    //write_analysis_from_extractor_and_flow_key(buf, &pf.x, &k);
                 }
                 write_flow_key(record, k);
                 record.print_key_timestamp("event_start", ts);
