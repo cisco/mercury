@@ -13,7 +13,6 @@
 #include "json_object.h"
 #include "extractor.h"
 #include "packet.h"
-#include "ept.h"
 #include "utils.h"
 #include "analysis.h"
 #include "llq.h"
@@ -381,7 +380,7 @@ int append_packet_json(struct buffer_stream &buf,
             fps.print_key_value("ssh", init_packet);
             fps.close();
             init_packet.write_json(record, global_vars.metadata_output);
-#if 0
+#ifdef SSHM
             if (pkt.is_not_empty()) {
                 record.print_key_json_string("ssh_residual_data", pkt.data, pkt.length());
                 struct ssh_binary_packet pkt;
@@ -449,34 +448,6 @@ int append_packet_json(struct buffer_stream &buf,
     }
     return 0;
 }
-
-
-void json_file_write(struct json_file *jf,
-                     uint8_t *packet,
-                     size_t length,
-                     unsigned int sec,
-                     unsigned int nsec) {
-
-    struct timespec ts;
-    char obuf[LLQ_MSG_SIZE];
-
-    ts.tv_sec = sec;
-    ts.tv_nsec = nsec;
-
-    obuf[0] = '\0';
-    struct buffer_stream buf(obuf, LLQ_MSG_SIZE);
-    append_packet_json(buf, packet, length, &ts);
-    int r = buf.length();
-
-    if ((buf.trunc == 0) && (r > 0)) {
-        fwrite(obuf, r, 1, jf->file);
-
-        if (json_file_needs_rotation(jf)) {
-            json_file_rotate(jf);
-        }
-    }
-}
-
 
 void json_queue_write(struct ll_queue *llq,
                       uint8_t *packet,

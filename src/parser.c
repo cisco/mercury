@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <arpa/inet.h>  /* for htons()  */
 #include <net/ethernet.h>
-#include "ept.h"
 #include "parser.h"
 #include "utils.h"
 #include "eth.h"

@@ -53,7 +53,7 @@ struct json_object {
             b->json_string_escaped(k, v, length);
         }
     }
-    void print_key_json_string(const char *k, struct parser &d) {
+    void print_key_json_string(const char *k, const struct parser &d) {
         if (d.is_not_readable()) {
             return;
         }
@@ -131,15 +131,6 @@ struct json_object {
         if (value.data && value.data_end) {
             b->raw_as_base64(value.data, value.data_end - value.data); 
         }
-    }
-    void print_key_ept(const char *k, const uint8_t *buf, size_t buf_len) {
-        write_comma(comma);
-        b->write_char('\"');
-        b->puts(k);
-        b->puts("\":");
-        b->write_char('\"');
-        write_binary_ept_as_paren_ept(*b, buf, buf_len);
-        b->write_char('\"');
     }
     void print_key_timestamp(const char *k, struct timespec *ts) {
         write_comma(comma);

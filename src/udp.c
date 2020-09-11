@@ -7,8 +7,8 @@
 
 #include "extractor.h"
 #include "proto_identify.h"
-#include "ept.h"
 #include "match.h"
+#include "utils.h"
 
 #define VXLAN_PORT 4789
 /*
@@ -941,7 +941,8 @@ unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extra
  */
 
 unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x) {
-
+    (void)p;
+    (void)x;
     extractor_debug("%s: processing packet\n", __func__);
 
     // set entire DNS packet as packet_data

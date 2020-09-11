@@ -296,27 +296,6 @@ void tls_client_hello::parse(struct parser &p) {
 
     extractor_debug("%s: processing packet\n", __func__);
 
-    /*
-     * verify that we are looking at a TLS ClientHello
-     */
-#if 0
-    if (parser_match(&p,
-                     tls_client_hello_value,
-                     L_ContentType +    L_ProtocolVersion + L_RecordLength + L_HandshakeType,
-                     tls_client_hello_mask) == status_err) {
-        return; /* not a clientHello */
-    }
-#endif
-
-#if 0  // replaced by struct tls_record and struct tls_handshake
-    /*
-     * skip over initial fields
-     */
-    if (parser_skip(&p, L_ContentType + L_ProtocolVersion + L_RecordLength + L_HandshakeType +  L_HandshakeLength) == status_err) {
-        return;
-    }
-#endif
-
     // parse clientHello.ProtocolVersion
     protocol_version.parse(p, L_ProtocolVersion);
     if (protocol_version.is_not_readable()) {
@@ -327,25 +306,6 @@ void tls_client_hello::parse(struct parser &p) {
     if (protocol_version.data[0] == 0xfe) {
         dtls = true;
     }
-
-#if 0
-    // sanity check protocol version
-    uint8_t v10_value[]{ 0x30, 0x02 };
-    struct parser v10{v10_value, v10_value + sizeof(v10_value)};
-    if (protocol_version == v10) {
-        fprintf(stderr, "%s: found version 1.0\n", __func__);
-    }
-    uint16_t version;
-    if (protocol_version.read_uint16(&version) == false) {
-        fprintf(stderr, "%s: early return A\n", __func__);
-        return;
-    }
-    if (version < 0x0300 || version > 0x0303) {
-        fprintf(stderr, "version: %04x\n", htons(version));
-        fprintf(stderr, "%s: early return B\n", __func__);
-        return;
-    }
-#endif // 0
 
     // parse clientHello.Random
     random.parse(p, L_Random);
@@ -460,51 +420,8 @@ void tls_client_hello::operator()(struct buffer_stream &buf) const {
 void tls_server_hello::parse(struct parser &p) {
     extractor_debug("%s: processing packet with %td bytes\n", __func__, p->data_end - p->data);
 
-#if 0
-    size_t tmp_len;
-    size_t tmp_type;
-
-    /*
-     * verify that we are looking at a TLS record
-     */
-    if (parser_read_and_skip_uint(&p, L_ContentType, &tmp_type) == status_err) {
-        goto bail;
-    }
-    if (tmp_type != 0x16) {
-        goto bail;    /* not a handshake record */
-    }
-    if (parser_skip(&p, L_ProtocolVersion) == status_err) {
-	    goto bail;
-    }
-    if (parser_read_and_skip_uint(&p, L_RecordLength, &tmp_len) == status_err) {
-      goto bail;
-    }
-    extractor_debug("%s: got a record\n", __func__);
-    struct parser record;
-    record.init_from_outer_parser(&p, tmp_len);
-
-    if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
-	    goto bail;
-    }
-    if (tmp_type != 0x02) {
-        goto bail;     /* not a serverHello */
-    }
-
-    if (parser_read_and_skip_uint(&record, L_HandshakeLength, &tmp_len) == status_err) {
-	    goto bail;
-    }
-    extractor_debug("%s: got a handshake\n", __func__);
-    struct parser handshake;
-    parser_init_from_outer_parser(&handshake, &record, tmp_len);
-    if (parse_tls_server_hello(handshake) != status_ok) {
-        return;
-    }
-    //    parser_pop(&handshake, &record);
-
-#else
-
     parse_tls_server_hello(p);
-#endif
+
     return;
 
 }
@@ -565,13 +482,6 @@ void tls_server_hello::operator()(struct buffer_stream &buf) const {
 }
 
 void tls_server_hello::write_json(struct json_object &o) const {
-    // o.print_key_datum("version", protocol_version);
-    // o.print_key_datum("random", random);
-    // o.print_key_datum("compression_method", compression_method);
-
-    // if (protocol_version.is_not_readable()) {
-    //      return;
-    // }
     o.print_key_hex("version", protocol_version);
     o.print_key_hex("random", random);
     //o.print_key_hex("session_id", session_id);

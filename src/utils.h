@@ -11,9 +11,20 @@
 #include <time.h>
 #include <stdarg.h>
 #include "mercury.h"
-#include "ept.h"
 #include "packet.h"
 #include "analysis.h"
+
+/*
+ * obsolete macros
+ */
+#define PARENT_NODE_INDICATOR 0x8000
+#define LENGTH_MASK           0x7fff
+
+/* utility functions */
+
+void encode_uint16(uint8_t *p, uint16_t x);
+
+uint16_t decode_uint16(const void *x);
 
 void packet_handler_null(uint8_t *ignore,
 			 const struct pcap_pkthdr *pcap_pkthdr,

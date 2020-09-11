@@ -85,7 +85,7 @@ enum status open_and_dispatch(struct mercury_config *cfg, struct output_file *of
         exit(255);
     }
 
-#if 0
+#ifdef DONT_USE_THREADS
     pcap_file_processing_thread_func(&tc);
 #else
     err = pthread_create(&(tc.tid), NULL, pcap_file_processing_thread_func, &tc);

@@ -226,7 +226,7 @@ struct parser {
             }
             *output = tmp;
             data = c;
-            extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
+            extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zu\n", __func__, num_bytes, (unsigned)tmp, tmp);
             return true;
         }
         set_null();

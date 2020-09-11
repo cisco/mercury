@@ -33,24 +33,11 @@ enum fingerprint_type {
     fingerprint_type_ssh_kex     = 11
 };
 
-#define PROTO_UNKNOWN 65535
-
 struct protocol_state {
     uint16_t proto;   /* protocol IANA number */
     uint16_t dir;     /* DIR_CLIENT, DIR_SERVER, DIR_UNKNOWN */
     uint32_t state;   /* protocol-specific state */
 };
-
-/*
- * state represents the state of the extractor; it knows whether or
- * not additional packets must be processed, etc.
- */
-typedef enum extractor_state {
-    state_done = 0,
-    state_start = 1,
-    state_not_done = 2
-} extractor_state_e;
-
 
 /*
  * An extractor is an object that parses data in one buffer, selects
@@ -79,7 +66,6 @@ typedef enum extractor_state {
  */
 struct extractor {
     enum fingerprint_type fingerprint_type;
-    //    struct protocol_state proto_state;  /* tracking across packets   */
     unsigned char *output_start;        /* buffer for output         */
     unsigned char *output;              /* buffer for output         */
     unsigned char *output_end;          /* end of output buffer      */
@@ -88,13 +74,6 @@ struct extractor {
     struct parser transport_data;       // NEW
     enum msg_type msg_type;             // NEW
 };
-
-/*
- * extractor_is_not_done(x) returns 0 if the extractor is
- * done parsing a flow, and otherwiwse returns another value.
- *
- */
-extractor_state_e extractor_is_not_done(const struct extractor *x);
 
 
 /*
@@ -170,37 +149,6 @@ enum status extractor_read_uint(struct extractor *x,
 				unsigned int num_bytes,
 				size_t *uint_output);
 
-
-/*
- * extractor_push initializes the extractor inner with the current
- * data and output pointers of extractor outer, with the data buffer
- * restricted to the number of bytes indicated by the length parameter
- */
-enum status extractor_push(struct extractor *inner,
-			   const struct extractor *outer,
-			   size_t length);
-
-/*
- * extractor_pop removes the inner extractor and updates the outer
- * extractor appropriately.  The length of data copied into the output
- * buffer is encoded into the appropriate location of that buffer;
- * that is, this function ensures that the variable-length field
- * copied into the output buffer is accurate and complete.
- */
-void extractor_pop(struct extractor *outer,
-		   const struct extractor *inner);
-
-/*
- * extractor_reserve_output reserves num_bytes bytes of the output
- * stream as the location to which data can be written in the future,
- * and remembers that location (by storing it into its tmp_location
- * variable).  This function can be used to encode variable-length
- * data in the output (and it is used by extractor_push and
- * extractor_pop).
- */
-enum status extractor_reserve_output(struct extractor *x,
-				     size_t num_bytes);
-
 /*
  * extractor_get_data_length returns the number of bytes remaining in
  * the data buffer.  Callers should expect that the value returned may
@@ -214,24 +162,6 @@ ptrdiff_t extractor_get_data_length(struct extractor *x);
  */
 ptrdiff_t extractor_get_output_length(const struct extractor *x);
 
-enum status extractor_push_vector_extractor(struct extractor *y,
-					    struct extractor *x,
-					    size_t bytes_in_length_field);
-
-void extractor_pop_vector_extractor(struct extractor *x,
-				    struct extractor *y);
-
-enum status extractor_copy_alt(struct extractor *x,
-			       unsigned char *data, /* alternative data source */
-			       unsigned int len);
-
-unsigned int match(const unsigned char *data,
-		   size_t data_len,
-		   const unsigned char *mask,
-		   const unsigned char *value,
-		   size_t value_len);
-
-
 unsigned int extractor_match(struct extractor *x,
 			     const unsigned char *value,
 			     size_t value_len,
@@ -239,23 +169,8 @@ unsigned int extractor_match(struct extractor *x,
 
 
 /*
- * protocol-specific functions
- */
-
-
-unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x);
-
-unsigned int extractor_process_tcp(struct extractor *x);
-
-const char *get_frame_type(const unsigned char *data,
-			   unsigned int len);
-
-
-
-/*
  * new functions for mercury
  */
-
 
 unsigned int parser_extractor_process_packet(struct parser *p, struct extractor *x);
 
@@ -292,24 +207,6 @@ enum status parser_read_uint(struct parser *p,
 enum status parser_extractor_copy_append(struct parser *p,
                                          struct extractor *x,
                                          unsigned int len);
-
-/*
- * extract_fp_from_tls_client_hello() runs the fingerprint extraction
- * algorithm on the byte string start at the location *data* and
- * continuing for *data_len* bytes, and if there is a well-formed TLS
- * clientHello in that buffer, the normalized fingerprint is extracted
- * and the resulting string is written into outbuf, as a parenthesized
- * hexadecimal string, as long as it fits in the output buffer (has
- * length less than outbuf_len).
- *
- * RETURN VALUE: the number of (single-byte) characters written into
- * the output buffer, or zero on failure.
- * 
- */
-size_t extract_fp_from_tls_client_hello(uint8_t *data,
-					size_t data_len,
-					uint8_t *outbuf,
-					size_t outbuf_len);
 
 
 void parser_init_packet(struct parser *p, const unsigned char *data, unsigned int length);

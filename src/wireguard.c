@@ -7,8 +7,8 @@
 #include "extractor.h"
 
 unsigned int parser_extractor_process_wireguard(struct parser *p, struct extractor *x) {
-    struct wireguard_handshake_initiation *whi = (struct wireguard_handshake_initiation *)p->data;
-
+    (void)x;
+    
     extractor_debug("%s: processing packet\n", __func__);
 
     if (p->length() != sizeof(struct wireguard_handshake_initiation)) {

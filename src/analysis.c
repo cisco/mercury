@@ -18,7 +18,6 @@
 #include <algorithm>
 
 #include "analysis.h"
-#include "ept.h"
 #include "utils.h"
 #include "tls.h"
 
@@ -100,17 +99,6 @@ int database_init(const char *resource_file) {
 
 void database_finalize() {
     fp_db.SetObject();
-}
-
-
-void cache_finalize() {
-    return;
-    /*
-    for (std::pair<std::string, char*> element : fp_cache) {
-        free(element.second);
-    }
-    fp_cache.clear();
-    */
 }
 
 
@@ -418,114 +406,6 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
     }
 
     return 0;
-}
-
-
-void fprintf_analysis_from_extractor_and_flow_key(FILE *file,
-						  const struct extractor *x,
-						  const struct flow_key *key) {
-    char* results;
-
-    if (x->fingerprint_type == fingerprint_type_tls) {
-        int ret_value;
-        char dst_ip[MAX_DST_ADDR_LEN];
-        unsigned char fp_str[MAX_FP_STR_LEN];
-        char server_name[MAX_SNI_LEN] = { 0 };
-        uint16_t dst_port = flow_key_get_dst_port(key);
-
-        uint8_t *extractor_buffer = x->output_start;
-        size_t bytes_extracted = extractor_get_output_length(x);
-        sprintf_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted, fp_str, MAX_FP_STR_LEN); // should check return result
-        flow_key_sprintf_dst_addr(key, dst_ip);
-
-        // TBD: copy server_name, if available from client_hello
-        //
-        //        if (x->packet_data.type == packet_data_type_tls_sni) {
-        //            size_t sni_len = x->packet_data.length - SNI_HEADER_LEN;
-        //            sni_len = sni_len > MAX_SNI_LEN-1 ? MAX_SNI_LEN-1 : sni_len;
-        //            memcpy(server_name, x->packet_data.value + SNI_HEADER_LEN, sni_len);
-        //            server_name[sni_len] = 0; // null termination
-        //        }
-
-        ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
-        if (ret_value == -1) {
-            return;
-        }
-        fprintf(file, "%s,", results);
-        free(results);
-
-        /*
-        std::stringstream fp_cache_key_;
-        fp_cache_key_ << std::string((char*)fp_str) << std::string(server_name) << std::string(dst_ip) << std::to_string(dst_port);
-        std::string fp_cache_key = fp_cache_key_.str();
-
-        pthread_mutex_lock(&lock_fp_cache);
-        auto it = fp_cache.find(fp_cache_key);
-        pthread_mutex_unlock(&lock_fp_cache);
-        if (it != fp_cache.end()) {
-            results = it->second;
-            fprintf(file, "%s,", results);
-        } else {
-            ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
-            if (ret_value == -1) {
-                return;
-            }
-            fprintf(file, "%s,", results);
-
-            pthread_mutex_lock(&lock_fp_cache);
-            auto it = fp_cache.find(fp_cache_key);
-            if (it == fp_cache.end()) {
-                fp_cache.emplace(fp_cache_key, results);
-            } else {
-                free(results);
-                results = it->second;
-            }
-            pthread_mutex_unlock(&lock_fp_cache);
-        }
-        */
-    }
-}
-
-void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
-                                                const struct extractor *x,
-                                                const struct flow_key *key) {
-    char* results;
-
-    if (x->fingerprint_type == fingerprint_type_tls) {
-
-        int ret_value;
-        char dst_ip[MAX_DST_ADDR_LEN];
-        unsigned char fp_str[MAX_FP_STR_LEN];
-        char server_name[MAX_SNI_LEN] = { 0 };
-        uint16_t dst_port = flow_key_get_dst_port(key);
-
-        uint8_t *extractor_buffer = x->output_start;
-        size_t bytes_extracted = extractor_get_output_length(x);
-        sprintf_binary_ept_as_paren_ept(extractor_buffer, bytes_extracted, fp_str, MAX_FP_STR_LEN); // should check return result
-        flow_key_sprintf_dst_addr(key, dst_ip);
-
-        // TBD: copy server_name, if available from client_hello
-        //
-        //        if (x->packet_data.type == packet_data_type_tls_sni) {
-        //            size_t sni_len = x->packet_data.length - SNI_HEADER_LEN;
-        //            sni_len = sni_len > MAX_SNI_LEN-1 ? MAX_SNI_LEN-1 : sni_len;
-        //            memcpy(server_name, x->packet_data.value + SNI_HEADER_LEN, sni_len);
-        //            server_name[sni_len] = 0; // null termination
-        //        }
-
-        ret_value = perform_analysis(&results, MAX_FP_STR_LEN, (char *)fp_str, server_name, dst_ip, dst_port);
-        if (ret_value == -1) {
-            return;
-        }
-        //fprintf(file, "%s,", results);
-
-        buf.write_char(',');
-        buf.strncpy(results);
-
-        free(results);
-
-    }
-
 }
 
 void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,

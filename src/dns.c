@@ -757,6 +757,8 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
     return;
 }
 
+// dns_get_json_string() is used by the cython library
+//
 std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len) {
     char buffer[8192*8];
     struct buffer_stream buf(buffer, sizeof(buffer));
