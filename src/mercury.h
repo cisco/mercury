@@ -29,6 +29,15 @@
     #define debug_print_u8_array(X)
 #endif
 
+/*
+ * The extractor_debug macro is useful for debugging (but quite verbose)
+ */
+#ifndef DEBUG
+#define extractor_debug(...)
+#else
+#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
+#endif
+
 enum status {
     status_ok = 0,
     status_err = 1,

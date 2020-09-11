@@ -48,8 +48,17 @@ struct json_object {
         b->write_char('}');
     }
     void print_key_json_string(const char *k, const uint8_t *v, size_t length) {
+        if (v) {
+            write_comma(comma);
+            b->json_string_escaped(k, v, length);
+        }
+    }
+    void print_key_json_string(const char *k, struct parser &d) {
+        if (d.is_not_readable()) {
+            return;
+        }
         write_comma(comma);
-        b->json_string_escaped(k, v, length);
+        b->json_string_escaped(k, d.data, d.length());
     }
     void print_key_string(const char *k, const char *v) {
         write_comma(comma);
@@ -109,7 +118,7 @@ struct json_object {
         b->write_char('\"');
         b->puts(k);
         b->puts("\":\"");
-        if (value.data && value.data_end) {
+        if (value.data && value.data_end && value.data_end > value.data) {
             b->raw_as_hex(value.data, value.data_end - value.data);
         }
         b->write_char('\"');
@@ -139,12 +148,12 @@ struct json_object {
         b->puts("\":");
         b->write_timestamp(ts);
     }
-    template <typename T> void print_key_value(const char *k, T &w) {
+     template <typename T> void print_key_value(const char *k, T &w) {
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":");
-        w(b);
+        w(*b);
     }
     void print_key_ipv4_addr(const char *k, const uint8_t *a) {
         write_comma(comma);
@@ -163,6 +172,15 @@ struct json_object {
         b->write_char('\"');
         b->write_ipv6_addr(a);
         b->write_char('\"');
+    }
+    void print_key_datum(const char *k, const struct parser &d) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":{");
+        b->snprintf("\"data\":\"%p\",", d.data);
+        b->snprintf("\"data_end\":\"%p\"", d.data_end);
+        b->write_char('}');
     }
 };
 

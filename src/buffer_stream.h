@@ -726,6 +726,9 @@ struct buffer_stream {
     }
 
     void raw_as_hex(const uint8_t *data, unsigned int len) {
+        if (data == NULL) {
+            return;
+        }
         append_raw_as_hex(dstr, &doff, dlen, &trunc, data, len);
     }
 

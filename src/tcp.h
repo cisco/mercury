@@ -12,7 +12,7 @@
 #include <arpa/inet.h>
 #include <unordered_map>
 #include "mercury.h"
-//#include "buffer_stream.h"
+
 
 struct tcp_header {
     uint16_t src_port;
@@ -24,7 +24,7 @@ struct tcp_header {
     uint16_t window;
     uint16_t checksum;
     uint16_t urgent_ptr;
-};
+} __attribute__ ((__packed__));
 
 /*
  * modular arithmetic comparisons, for tcp Seq and Ack processing

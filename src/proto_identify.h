@@ -11,10 +11,27 @@
  * \brief Protocol identification (header)
  */
 
-#ifndef JOY_PROTO_IDENTIFY_H
-#define JOY_PROTO_IDENTIFY_H
+#ifndef PROTO_IDENTIFY_H
+#define PROTO_IDENTIFY_H
 
 #include <stdint.h>
+
+enum msg_type {
+    msg_type_unknown = 0,
+    msg_type_http_request,
+    msg_type_http_response,
+    msg_type_tls_client_hello,
+    msg_type_tls_server_hello,
+    msg_type_tls_certificate,
+    msg_type_ssh,
+    msg_type_ssh_kex,
+    msg_type_dns,
+    msg_type_dhcp,
+    msg_type_dtls_client_hello,
+    msg_type_dtls_server_hello,
+    msg_type_dtls_certificate,
+    msg_type_wireguard
+};
 
 /* Values indicating direction of the flow */
 #define DIR_UNKNOWN 0
@@ -51,4 +68,4 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
 const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                               unsigned int len);
 
-#endif /* JOY_PROTO_IDENTIFY_H */
+#endif /* PROTO_IDENTIFY_H */
