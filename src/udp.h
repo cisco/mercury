@@ -23,7 +23,7 @@ struct udp_packet {
 
     udp_packet() : header{NULL} {};
 
-    void parse(struct parser &d) {
+    void parse(struct datum &d) {
         if (d.length() < (int)sizeof(struct udp_header)) {
             return;
         }

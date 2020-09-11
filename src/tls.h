@@ -112,11 +112,11 @@ struct tls_record {
     uint8_t  content_type;
     uint16_t protocol_version;
     uint16_t length;
-    struct parser fragment;
+    struct datum fragment;
 
     tls_record() : content_type{0}, protocol_version{0}, length{0}, fragment{NULL, NULL} {}
 
-    void parse(struct parser &d) {
+    void parse(struct datum &d) {
         if (d.length() < (int)(sizeof(content_type) + sizeof(protocol_version) + sizeof(length))) {
             return;
         }
@@ -147,15 +147,15 @@ enum class handshake_type : uint8_t {
 struct tls_handshake {
     handshake_type msg_type;
     uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
-    struct parser body;
+    struct datum body;
 
     tls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {}
 
-    tls_handshake(struct parser &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
+    tls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
         parse(d);
     }
 
-    void parse(struct parser &d) {
+    void parse(struct datum &d) {
         if (d.length() < (int)(4)) {
             return;
         }
@@ -180,11 +180,11 @@ struct tls_handshake {
 
 struct tls_server_certificate {
     uint32_t length; // note: only 24 bits on the wire (L_CertificateListLength)
-    struct parser certificate_list;
+    struct datum certificate_list;
 
     tls_server_certificate() : length{0}, certificate_list{NULL, NULL} {}
 
-    void parse(struct parser &d) {
+    void parse(struct datum &d) {
         size_t tmp = 0;
         if (d.read_uint(&tmp, L_CertificateListLength) == false) {
             return;
@@ -211,17 +211,17 @@ struct tls_server_certificate {
 
 #define SNI_HDR_LEN 9
 
-struct tls_extensions : public parser {
+struct tls_extensions : public datum {
 
     tls_extensions() = default;
 
-    tls_extensions(const uint8_t *data, const uint8_t *data_end) : parser{data, data_end} {}
+    tls_extensions(const uint8_t *data, const uint8_t *data_end) : datum{data, data_end} {}
 
     void print(struct json_object &o, const char *key) const;
 
     void print_server_name(struct json_object &o, const char *key) const;
 
-    void set_server_name(struct parser &server_name) const;
+    void set_server_name(struct datum &server_name) const;
 
     void print_session_ticket(struct json_object &o, const char *key) const;
 
@@ -230,18 +230,18 @@ struct tls_extensions : public parser {
 
 
 struct tls_client_hello {
-    struct parser protocol_version;
-    struct parser random;
-    struct parser session_id;
-    struct parser cookie;      // only present for dtls
-    struct parser ciphersuite_vector;
-    struct parser compression_methods;
+    struct datum protocol_version;
+    struct datum random;
+    struct datum session_id;
+    struct datum cookie;      // only present for dtls
+    struct datum ciphersuite_vector;
+    struct datum compression_methods;
     struct tls_extensions extensions;
     bool dtls;
 
     tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, session_id{NULL, NULL}, cookie{NULL, NULL}, ciphersuite_vector{NULL, NULL}, compression_methods{NULL, NULL}, extensions{NULL, NULL}, dtls{false} {}
 
-    void parse(struct parser &p);
+    void parse(struct datum &p);
 
     bool is_not_empty() const { return ciphersuite_vector.is_not_empty(); };
 
@@ -249,7 +249,7 @@ struct tls_client_hello {
 
     void write_fingerprint(struct buffer_stream &buf) const;
 
-    static void write_json(struct parser &data, struct json_object &record, bool output_metadata);
+    static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
     void write_json(struct json_object &record, bool output_metadata) const;
 
@@ -257,21 +257,21 @@ struct tls_client_hello {
 };
 
 struct tls_server_hello {
-    struct parser protocol_version;
-    struct parser random;
-    struct parser ciphersuite_vector;
-    struct parser compression_method;
+    struct datum protocol_version;
+    struct datum random;
+    struct datum ciphersuite_vector;
+    struct datum compression_method;
     struct tls_extensions extensions;
 
     tls_server_hello() = default;
 
-    void parse(struct parser &p);
+    void parse(struct datum &p);
 
     bool is_not_empty() const { return ciphersuite_vector.is_not_empty(); };
 
     void operator()(struct buffer_stream &buf) const;
 
-    enum status parse_tls_server_hello(struct parser &p);
+    enum status parse_tls_server_hello(struct datum &p);
 
     void write_json(struct json_object &record) const;
 
@@ -286,11 +286,11 @@ struct dtls_record {
     uint16_t epoch;
     uint64_t sequence_number;  // only 48 bits on wire
     uint16_t length;
-    struct parser fragment;
+    struct datum fragment;
 
     dtls_record() : content_type{0}, protocol_version{0}, epoch{0}, sequence_number{0}, length{0}, fragment{NULL, NULL} {}
 
-    void parse(struct parser &d) {
+    void parse(struct datum &d) {
         if (d.length() < (int)(sizeof(content_type) + sizeof(protocol_version) + sizeof(length))) {
             return;
         }
@@ -309,15 +309,15 @@ struct dtls_handshake {
     uint16_t message_seq;      // DTLS-only field
     uint32_t fragment_offset;  // 24 bits on wire; DTLS-only field
     uint32_t fragment_length;  // 24 bits on wire; DTLS-only field
-    struct parser body;
+    struct datum body;
 
     dtls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {}
 
-    dtls_handshake(struct parser &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
+    dtls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
         parse(d);
     }
 
-    void parse(struct parser &d) {
+    void parse(struct datum &d) {
         if (d.length() < (int)(4)) {
             return;
         }

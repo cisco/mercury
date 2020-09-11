@@ -6,7 +6,7 @@
 #include "json_object.h"
 #include "extractor.h"
 
-unsigned int parser_extractor_process_wireguard(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_wireguard(struct datum *p, struct extractor *x) {
     (void)x;
     
     extractor_debug("%s: processing packet\n", __func__);
@@ -27,7 +27,7 @@ void wireguard_handshake_init::write_json(struct json_object &o) {
     }
     struct json_object wg{o, "wireguard"};
     uint32_t tmp = ntohl(*(const uint32_t *)sender_index.data);
-    struct parser si{(uint8_t *)&tmp, (uint8_t *)&tmp + sizeof(uint32_t)};
+    struct datum si{(uint8_t *)&tmp, (uint8_t *)&tmp + sizeof(uint32_t)};
     wg.print_key_hex("sender_index", si);
     wg.close();
 

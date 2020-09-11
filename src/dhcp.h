@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "mercury.h"
-#include "parser.h"
+#include "dhcp.h"
 #include "json_object.h"
 
 /*
@@ -96,28 +96,28 @@
 #define DHCP_OPT_PARAMETER_LIST 0x37
 #define DHCP_OPT_VENDOR_CLASS   0x7C
 
-struct dhcp_option : public parser {
+struct dhcp_option : public datum {
     uint8_t tag;
     uint8_t length;
 
-    dhcp_option() : parser{NULL, NULL}, tag{0}, length{0} {};
+    dhcp_option() : datum{NULL, NULL}, tag{0}, length{0} {};
 
-    void parse(struct parser &p) {
+    void parse(struct datum &p) {
         p.read_uint8(&tag);
         if (tag == 0 || tag == 255) {
             return;
         }
         p.read_uint8(&length);
-        parser::parse(p, length);
+        datum::parse(p, length);
     }
 };
 
 struct dhcp_discover {
-    struct parser options;
+    struct datum options;
 
     dhcp_discover() = default;
 
-    void parse(struct parser &p) {
+    void parse(struct datum &p) {
         p.skip(L_dhcp_fixed_header);
         p.skip(L_dhcp_magic_cookie);
         options = p;
@@ -131,7 +131,7 @@ struct dhcp_discover {
         //json_dhcp.print_key_datum("options", options);
 
         struct json_array option_array{json_dhcp, "options"};
-        struct parser tmp = options;
+        struct datum tmp = options;
         while (tmp.is_not_empty()) {
             struct dhcp_option opt;
             opt.parse(tmp);
@@ -148,7 +148,7 @@ struct dhcp_discover {
     void operator()(struct buffer_stream &b) const {
 
         b.write_char('\"');
-        struct parser tmp = options;
+        struct datum tmp = options;
         while (tmp.is_not_empty()) {
             struct dhcp_option opt;
             opt.parse(tmp);

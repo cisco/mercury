@@ -6,7 +6,7 @@
 #define TCPIP_H
 
 #include "tcp.h"
-#include "parser.h"
+#include "datum.h"
 #include "json_object.h"
 
 /*
@@ -100,13 +100,13 @@
  *
  */
 
-struct tcp_option : public parser {
+struct tcp_option : public datum {
     uint8_t kind;
     uint8_t len;
 
-    tcp_option() : parser{NULL, NULL}, kind{0}, len{0} {};
+    tcp_option() : datum{NULL, NULL}, kind{0}, len{0} {};
 
-    void parse(struct parser &p) {
+    void parse(struct datum &p) {
         p.read_uint8(&kind);
         if (kind == 0 || kind == 1) {
             return;
@@ -115,18 +115,18 @@ struct tcp_option : public parser {
         if (len < 2) {
             return;
         }
-        parser::parse(p, len - 2);
+        datum::parse(p, len - 2);
     }
 
 };
 
 struct tcp_packet {
     const struct tcp_header *header;
-    struct parser tcp_options;
+    struct datum tcp_options;
 
     tcp_packet() : header{NULL}, tcp_options{NULL, NULL} {};
 
-    void parse(struct parser &p) {
+    void parse(struct datum &p) {
         if (p.length() < (int)sizeof(struct tcp_header)) {
             return;
         }
@@ -157,7 +157,7 @@ struct tcp_packet {
         buf.write_char('(');
         buf.raw_as_hex((const uint8_t *)&header->window, sizeof(header->window));
         buf.write_char(')');
-        struct parser tmp = tcp_options;
+        struct datum tmp = tcp_options;
         while (tmp.length() > 0) {
             struct tcp_option opt;
             opt.parse(tmp);

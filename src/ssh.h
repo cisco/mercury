@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "mercury.h"
-#include "parser.h"
+#include "datum.h"
 #include "json_object.h"
 
 #define L_ssh_version_string                   8
@@ -54,12 +54,12 @@
 #define VERS_LEN 8
 
 struct ssh_init_packet {
-    struct parser protocol_string;
-    struct parser comment_string;
+    struct datum protocol_string;
+    struct datum comment_string;
 
     ssh_init_packet() : protocol_string{NULL, NULL}, comment_string{NULL, NULL} { }
 
-    void parse(struct parser &p) {
+    void parse(struct datum &p) {
         uint8_t delim = protocol_string.parse_up_to_delimeters(p, '\n', ' ');
         if (delim == '\n') {
             return;  // no comment string
@@ -77,7 +77,7 @@ struct ssh_init_packet {
         }
         buf.write_char('\"');
         buf.write_char('(');
-        struct parser tmp = protocol_string; // to avoid modifying object
+        struct datum tmp = protocol_string; // to avoid modifying object
         tmp.skip(VERS_LEN);                  // advance over "SSH-2.0"
         if (comment_string.is_not_empty()) {
             buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
@@ -133,27 +133,27 @@ struct ssh_init_packet {
 struct ssh_binary_packet {
     uint32_t packet_length;
     uint8_t padding_length;
-    struct parser payload;
+    struct datum payload;
     // random padding
     // mac
 
     ssh_binary_packet() : packet_length{0}, padding_length{0}, payload{NULL, NULL} {}
 
-    void parse(struct parser &p) {
+    void parse(struct datum &p) {
         p.read_uint32(&packet_length);
         p.read_uint8(&padding_length);
         payload.parse_soft_fail(p, packet_length - padding_length - 1);
     }
 };
 
-struct name_list : public parser {
+struct name_list : public datum {
 
-    name_list() : parser{} {}
+    name_list() : datum{} {}
 
-    void parse(struct parser &p) {
+    void parse(struct datum &p) {
         uint32_t length;
         p.read_uint32(&length);
-        parser::parse(p, length);
+        datum::parse(p, length);
     }
 };
 
@@ -177,8 +177,8 @@ struct name_list : public parser {
  *
  */
 struct ssh_kex_init {
-    struct parser msg_type;
-    struct parser cookie;
+    struct datum msg_type;
+    struct datum cookie;
     struct name_list kex_algorithms;
     struct name_list server_host_key_algorithms;
     struct name_list encryption_algorithms_client_to_server;
@@ -192,7 +192,7 @@ struct ssh_kex_init {
 
     ssh_kex_init() = default;
 
-    void parse(struct parser &p) {
+    void parse(struct datum &p) {
         msg_type.parse(p, L_ssh_payload);
         cookie.parse(p, L_ssh_cookie);
         kex_algorithms.parse(p);
@@ -209,7 +209,7 @@ struct ssh_kex_init {
 
     bool is_not_empty() const { return kex_algorithms.is_not_empty(); }
 
-    static inline void write_hex_data(buffer_stream &buf, const struct parser &d) {
+    static inline void write_hex_data(buffer_stream &buf, const struct datum &d) {
         buf.write_char('(');
         if (d.is_not_empty()) {
             buf.raw_as_hex(d.data, d.length());

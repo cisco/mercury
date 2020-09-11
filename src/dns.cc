@@ -11,7 +11,7 @@
 #include <arpa/inet.h>
 #include "dns.h"
 #include "buffer_stream.h"
-#include "parser.h"
+#include "datum.h"
 
 
 /**
@@ -771,7 +771,7 @@ std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len) {
 
 void write_dns_server_data(const uint8_t *data, size_t length, struct json_object &dns_object, bool output_base64) {
     if (output_base64) {
-        struct parser p{data, data+length};
+        struct datum p{data, data+length};
         dns_object.print_key_base64("base64", p);
     } else {
         dns_print_packet((const char *)data, length, dns_object);

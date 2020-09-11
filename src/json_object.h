@@ -53,7 +53,7 @@ struct json_object {
             b->json_string_escaped(k, v, length);
         }
     }
-    void print_key_json_string(const char *k, const struct parser &d) {
+    void print_key_json_string(const char *k, const struct datum &d) {
         if (d.is_not_readable()) {
             return;
         }
@@ -113,7 +113,7 @@ struct json_object {
         write_comma(comma);
         b->snprintf("\"%s\":%f", k, d);
     }
-    void print_key_hex(const char *k, const struct parser &value) {
+    void print_key_hex(const char *k, const struct datum &value) {
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
@@ -123,7 +123,7 @@ struct json_object {
         }
         b->write_char('\"');
     }
-    void print_key_base64(const char *k, const struct parser &value) {
+    void print_key_base64(const char *k, const struct datum &value) {
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
@@ -164,7 +164,7 @@ struct json_object {
         b->write_ipv6_addr(a);
         b->write_char('\"');
     }
-    void print_key_datum(const char *k, const struct parser &d) {
+    void print_key_datum(const char *k, const struct datum &d) {
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
@@ -236,7 +236,7 @@ struct json_array {
             b->write_char('\"');
         }
     }
-    void print_hex(const struct parser &value) {
+    void print_hex(const struct datum &value) {
         write_comma(comma);
         b->write_char('\"');
         if (value.data && value.data_end) {

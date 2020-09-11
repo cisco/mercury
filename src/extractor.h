@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>      /* for FILE */
 #include <list>
-#include "parser.h"
+#include "datum.h"
 #include "mercury.h"
 #include "tcp.h"
 #include "proto_identify.h"
@@ -70,8 +70,8 @@ struct extractor {
     unsigned char *output;              /* buffer for output         */
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
-    struct parser tcp;                  // NEW
-    struct parser transport_data;       // NEW
+    struct datum tcp;                  // NEW
+    struct datum transport_data;       // NEW
     enum msg_type msg_type;             // NEW
 };
 
@@ -89,12 +89,12 @@ void extractor_init(struct extractor *x,
  * parser_init initializes a parser object with a data buffer
  * (holding the data to be parsed)
  */
-void parser_init(struct parser *p,
+void parser_init(struct datum *p,
 		 const unsigned char *data,
 		 unsigned int data_len);
 
 
-unsigned int parser_match(struct parser *p,
+unsigned int parser_match(struct datum *p,
                           const unsigned char *value,
                           size_t value_len,
                           const unsigned char *mask);
@@ -103,11 +103,11 @@ enum status extractor_reserve(struct extractor *x,
                               unsigned char **data,
                               size_t length);
 
-void parser_init_from_outer_parser(struct parser *p,
-                                   const struct parser *outer,
+void parser_init_from_outer_parser(struct datum *p,
+                                   const struct datum *outer,
                                    unsigned int data_len);
 
-enum status parser_set_data_length(struct parser *p,
+enum status parser_set_data_length(struct datum *p,
                                    unsigned int data_len);
 
 uint16_t degrease_uint16(uint16_t x);
@@ -172,11 +172,11 @@ unsigned int extractor_match(struct extractor *x,
  * new functions for mercury
  */
 
-unsigned int parser_extractor_process_packet(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_packet(struct datum *p, struct extractor *x);
 
-unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_tls(struct datum *p, struct extractor *x);
 
-unsigned int parser_process_tls_server(struct parser *p);
+unsigned int parser_process_tls_server(struct datum *p);
 
 void extract_certificates(FILE *file, const unsigned char *data, size_t data_len);
 
@@ -186,30 +186,30 @@ void write_extract_cert_prefix(struct buffer_stream &buf, const unsigned char *d
 
 void write_extract_cert_full(struct json_array &a, const unsigned char *data, size_t data_len);
 
-enum status parser_read_and_skip_uint(struct parser *p,
+enum status parser_read_and_skip_uint(struct datum *p,
                                       unsigned int num_bytes,
                                       size_t *output);
 
-enum status parser_skip(struct parser *p,
+enum status parser_skip(struct datum *p,
                         unsigned int len);
 
-unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_ssh(struct datum *p, struct extractor *x);
 
 
-enum status parser_extractor_copy(struct parser *p,
+enum status parser_extractor_copy(struct datum *p,
                                   struct extractor *x,
                                   unsigned int len);
 
-enum status parser_read_uint(struct parser *p,
+enum status parser_read_uint(struct datum *p,
                              unsigned int num_bytes,
                              size_t *output);
 
-enum status parser_extractor_copy_append(struct parser *p,
+enum status parser_extractor_copy_append(struct datum *p,
                                          struct extractor *x,
                                          unsigned int len);
 
 
-void parser_init_packet(struct parser *p, const unsigned char *data, unsigned int length);
+void parser_init_packet(struct datum *p, const unsigned char *data, unsigned int length);
 
 
 /*
@@ -217,7 +217,7 @@ void parser_init_packet(struct parser *p, const unsigned char *data, unsigned in
  */
 struct packet_filter {
     struct tcp_initial_message_filter *tcp_init_msg_filter;
-    struct parser p;
+    struct datum p;
     struct extractor x;
     unsigned char extractor_buffer[2048];
 };
@@ -247,7 +247,7 @@ size_t packet_filter_extract(struct packet_filter *pf,
 
 unsigned int packet_filter_process_packet(struct packet_filter *pf, struct key *k);
 
-typedef unsigned int (*parser_extractor_func)(struct parser *p, struct extractor *x);
+typedef unsigned int (*parser_extractor_func)(struct datum *p, struct extractor *x);
 
 #define proto_ident_mask_len 8
 
@@ -272,7 +272,7 @@ enum status proto_dispatch_add(struct proto_dispatch *pd,
 
 enum status proto_ident_config(const char *config_string);
 
-ptrdiff_t parser_get_data_length(struct parser *p);
+ptrdiff_t parser_get_data_length(struct datum *p);
 
 enum msg_type get_message_type(const uint8_t *tcp_data,
                                unsigned int len);

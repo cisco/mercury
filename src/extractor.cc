@@ -299,7 +299,7 @@ void extractor_init(struct extractor *x,
     x->msg_type = msg_type_unknown;
 }
 
-void parser_init(struct parser *p,
+void parser_init(struct datum *p,
                  const unsigned char *data,
                  unsigned int data_len) {
 
@@ -309,8 +309,8 @@ void parser_init(struct parser *p,
     extractor_debug("%s: initialized with %td bytes\n", __func__, p->data_end - p->data);
 }
 
-void parser_init_from_outer_parser(struct parser *p,
-                                   const struct parser *outer,
+void parser_init_from_outer_parser(struct datum *p,
+                                   const struct datum *outer,
                                    unsigned int data_len) {
     const unsigned char *inner_data_end = outer->data + data_len;
 
@@ -320,12 +320,12 @@ void parser_init_from_outer_parser(struct parser *p,
     extractor_debug("%s: initialized with %td bytes\n", __func__, p->data_end - p->data);
 }
 
-void parser_pop(struct parser *inner, struct parser *outer) {
+void parser_pop(struct datum *inner, struct datum *outer) {
     outer->data = inner->data;
     extractor_debug("%s: outer parser now has %td bytes\n", __func__, outer->data_end - outer->data);
 }
 
-enum status parser_set_data_length(struct parser *p,
+enum status parser_set_data_length(struct datum *p,
                                    unsigned int data_len) {
 
     extractor_debug("%s: set_data_length from %ld to %u\n", __func__, p->data_end - p->data, data_len);
@@ -337,7 +337,7 @@ enum status parser_set_data_length(struct parser *p,
     return status_err;
 }
 
-enum status parser_skip(struct parser *p,
+enum status parser_skip(struct datum *p,
                         unsigned int len) {
     extractor_debug("%s: skipping %u bytes (%02x...)\n", __func__, len, p->data[0]);
 
@@ -349,7 +349,7 @@ enum status parser_skip(struct parser *p,
     return status_err;
 }
 
-enum status parser_skip_to(struct parser *p,
+enum status parser_skip_to(struct datum *p,
                            const unsigned char *location) {
 
     if (location <= p->data_end) {
@@ -360,7 +360,7 @@ enum status parser_skip_to(struct parser *p,
     return status_err;
 }
 
-enum status parser_read_uint(struct parser *p,
+enum status parser_read_uint(struct datum *p,
                              unsigned int num_bytes,
                              size_t *output) {
 
@@ -378,7 +378,7 @@ enum status parser_read_uint(struct parser *p,
     return status_err;
 }
 
-enum status parser_read_and_skip_uint(struct parser *p,
+enum status parser_read_and_skip_uint(struct datum *p,
                                       unsigned int num_bytes,
                                       size_t *output) {
 
@@ -397,7 +397,7 @@ enum status parser_read_and_skip_uint(struct parser *p,
     return status_err;
 }
 
-enum status parser_read_and_skip_byte_string(struct parser *p,
+enum status parser_read_and_skip_byte_string(struct datum *p,
                                              unsigned int num_bytes,
                                              uint8_t *output_string) {
 
@@ -414,7 +414,7 @@ enum status parser_read_and_skip_byte_string(struct parser *p,
     return status_err;
 }
 
-enum status parser_extractor_copy(struct parser *p,
+enum status parser_extractor_copy(struct datum *p,
                                   struct extractor *x,
                                   unsigned int len) {
 
@@ -450,7 +450,7 @@ enum status extractor_reserve(struct extractor *x,
 
 
 
-enum status parser_extractor_copy_append(struct parser *p,
+enum status parser_extractor_copy_append(struct datum *p,
                                          struct extractor *x,
                                          unsigned int len) {
 
@@ -494,7 +494,7 @@ enum status extractor_strip_last_capture(struct extractor *x) {
  * delimiter d or the end of the data in the parser, whichever comes
  * first
  */
-enum status parser_extractor_copy_append_upto_delim(struct parser *p,
+enum status parser_extractor_copy_append_upto_delim(struct datum *p,
                                                     struct extractor *x,
                                                     const unsigned char delim[2]) {
     const unsigned char *data = p->data;
@@ -543,7 +543,7 @@ enum status parser_extractor_copy_append_upto_delim(struct parser *p,
  * delimiter; in the second case, the function returns the number of
  * bytes to the end of the data buffer.
  */
-int parser_find_delim(struct parser *p,
+int parser_find_delim(struct datum *p,
                       const unsigned char *delim,
                       size_t length) {
 
@@ -566,7 +566,7 @@ int parser_find_delim(struct parser *p,
     return - (data - p->data);
 }
 
-enum status parser_skip_upto_delim(struct parser *p,
+enum status parser_skip_upto_delim(struct datum *p,
                                    const unsigned char delim[],
                                    size_t length) {
 
@@ -582,7 +582,7 @@ enum status parser_skip_upto_delim(struct parser *p,
     return status_err;
 }
 
-enum status parser_extractor_copy_upto_delim(struct parser *p,
+enum status parser_extractor_copy_upto_delim(struct datum *p,
                                              struct extractor *x,
                                              const unsigned char delim[],
                                              size_t length) {
@@ -600,7 +600,7 @@ enum status parser_extractor_copy_upto_delim(struct parser *p,
     return status_err;
 }
 
-ptrdiff_t parser_get_data_length(struct parser *p) {
+ptrdiff_t parser_get_data_length(struct datum *p) {
     return p->data_end - p->data;
 }
 
@@ -613,7 +613,7 @@ ptrdiff_t extractor_get_output_length(const struct extractor *x) {
  * (x->data & mask) == value, and returns status_err otherwise
  * It advances p->data by value_len when it returns status_ok
  */
-unsigned int parser_match(struct parser *p,
+unsigned int parser_match(struct datum *p,
                           const unsigned char *value,
                           size_t value_len,
                           const unsigned char *mask) {
@@ -761,12 +761,12 @@ enum status extractor_delete_last_capture(struct extractor *x) {
 
 unsigned int tcp_message_filter_cutoff = 0;
 
-unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_tcp_data(struct datum *p, struct extractor *x);
 
 unsigned int packet_filter_process_tcp(struct packet_filter *pf, struct key *k) {
     size_t flags, offrsv;
     const uint8_t *data = pf->p.data;
-    struct parser *p = &pf->p;
+    struct datum *p = &pf->p;
     struct extractor *x = &pf->x;
 
     extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
@@ -1001,10 +1001,10 @@ uint16_t static_extension_types[num_static_extension_types] = {
  * pointer set to the initial octet of the TCP header of the TLS
  * packet.
  */
-unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_tls(struct datum *p, struct extractor *x) {
     size_t tmp_len;
     //struct extractor y;
-    struct parser ext_parser;
+    struct datum ext_parser;
     const uint8_t *sni_data = NULL;
     size_t sni_length = 0;
     unsigned char *ext_len_slot = NULL;
@@ -1168,7 +1168,7 @@ unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x)
 #define L_CertificateLength        3
 #define L_CertificateListLength    3
 
-enum status parser_extractor_process_certificate(struct parser *p, struct extractor *x) {
+enum status parser_extractor_process_certificate(struct datum *p, struct extractor *x) {
     size_t tmp_len;
     (void)x;
 
@@ -1191,7 +1191,7 @@ enum status parser_extractor_process_certificate(struct parser *p, struct extrac
 }
 
 
-enum status parser_extractor_process_tls_server_hello(struct parser *record, struct extractor *x) {
+enum status parser_extractor_process_tls_server_hello(struct datum *record, struct extractor *x) {
     size_t tmp_len;
     size_t tmp_type;
     unsigned char *ext_len_slot = NULL;
@@ -1251,7 +1251,7 @@ enum status parser_extractor_process_tls_server_hello(struct parser *record, str
             goto bail;
         }
 
-        struct parser ext_parser;
+        struct datum ext_parser;
         parser_init_from_outer_parser(&ext_parser, record, tmp_len);
 
         while (parser_get_data_length(&ext_parser) > 0)  {
@@ -1302,7 +1302,7 @@ enum status parser_extractor_process_tls_server_hello(struct parser *record, str
  * initialized with its data pointer set to the initial octet of the
  * TCP header of the TLS packet.
  */
-unsigned int parser_extractor_process_tls_server(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_tls_server(struct datum *p, struct extractor *x) {
     size_t tmp_len;
     size_t tmp_type;
 
@@ -1324,7 +1324,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
       return 0;
     }
     extractor_debug("%s: got a record\n", __func__);
-    struct parser record;
+    struct datum record;
     parser_init_from_outer_parser(&record, p, tmp_len);
 
     if (parser_read_and_skip_uint(&record, L_HandshakeType, &tmp_type) == status_err) {
@@ -1338,7 +1338,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 	    return 0;
     }
     extractor_debug("%s: got a handshake\n", __func__);
-    struct parser handshake{};
+    struct datum handshake{};
     parser_init_from_outer_parser(&handshake, &record, tmp_len);
     if (parser_extractor_process_tls_server_hello(&handshake, x) != status_ok) {
         return 0;
@@ -1383,7 +1383,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
         if (parser_read_and_skip_uint(p, L_RecordLength, &tmp_len) == status_err) {
             goto done;
         }
-        struct parser record;
+        struct datum record;
         parser_init_from_outer_parser(&record, p, tmp_len);
 
         extractor_debug("%s: new record has %td bytes\n", __func__, record.data_end - record.data);
@@ -1411,7 +1411,7 @@ unsigned int parser_extractor_process_tls_server(struct parser *p, struct extrac
 
 }
 
-unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_tls_server_cert(struct datum *p, struct extractor *x) {
 
     extractor_debug("%s: Processing server certificate at the beginning, len = %lu, output len = %lu\n",
             __func__, parser_get_data_length(p), extractor_get_output_length(x));
@@ -1439,7 +1439,7 @@ unsigned int parser_extractor_process_tls_server_cert(struct parser *p, struct e
 
 #define http_value_len 4
 
-unsigned int parser_extractor_process_http(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_http(struct datum *p, struct extractor *x) {
     keyword_t user_agent_keyword[2] = {
         keyword_init("user-agent"),
         keyword_init("")
@@ -1627,7 +1627,7 @@ keyword_matcher_t matcher_http_server_static_name = {
     NULL                               /* case sensitive   */
 };
 
-unsigned int parser_extractor_process_http_server(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_http_server(struct datum *p, struct extractor *x) {
     unsigned char sp[1] = { ' ' };
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
@@ -1714,7 +1714,7 @@ unsigned int parser_extractor_process_http_server(struct parser *p, struct extra
 #define L_ssh_languages_client_to_server_len   4
 #define L_ssh_languages_server_to_client_len   4
 
-unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_ssh(struct datum *p, struct extractor *x) {
     size_t packet_length, padding_length, payload, tmp;
     // uint16_t ssh_proto_number = htons(SSH_PORT);
     const unsigned char ssh_first_packet[] = {
@@ -1858,7 +1858,7 @@ unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x)
     return extractor_get_output_length(x);
 }
 
-unsigned int parser_extractor_process_ssh_kex(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_ssh_kex(struct datum *p, struct extractor *x) {
     size_t packet_length, padding_length, payload, tmp;
 
     extractor_debug("%s: processing packet\n", __func__)
@@ -1963,7 +1963,7 @@ unsigned int parser_extractor_process_ssh_kex(struct parser *p, struct extractor
 }
 
 
-unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_tcp_data(struct datum *p, struct extractor *x) {
 
     x->transport_data = *p;
     struct pi_container dummy = { 0, 0 };
@@ -2047,7 +2047,7 @@ unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extracto
 #define L_ip_src_addr       4
 #define L_ip_dst_addr       4
 
-unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol, struct key *k) {
+unsigned int parser_process_ipv4(struct datum *p, size_t *transport_protocol, struct key *k) {
     size_t version_ihl;
     uint8_t *transport_data;
 
@@ -2168,7 +2168,7 @@ unsigned int parser_process_ipv4(struct parser *p, size_t *transport_protocol, s
 #define L_ipv6_hdr_ext_len           1
 #define L_ipv6_ext_hdr_base          8
 
-unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol, struct key *k) {
+unsigned int parser_process_ipv6(struct datum *p, size_t *transport_protocol, struct key *k) {
     size_t version_tc_hi;
     size_t payload_length;
     size_t next_header;
@@ -2253,7 +2253,7 @@ unsigned int parser_process_ipv6(struct parser *p, size_t *transport_protocol, s
  * frame format is outlined in the file eth.h
  */
 
-unsigned int parser_process_eth(struct parser *p, size_t *ethertype) {
+unsigned int parser_process_eth(struct datum *p, size_t *ethertype) {
 
     extractor_debug("%s: processing ethernet (len %td)\n", __func__, parser_get_data_length(p));
 

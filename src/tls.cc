@@ -120,7 +120,7 @@ struct tls_security_assessment tls_client_hello::security_assesment() {
 
 void tls_extensions::print(struct json_object &o, const char *key) const {
 
-    struct parser ext_parser{this->data, this->data_end};
+    struct datum ext_parser{this->data, this->data_end};
 
     struct json_array array{o, key};
 
@@ -139,7 +139,7 @@ void tls_extensions::print(struct json_object &o, const char *key) const {
             break;
         }
 
-        struct parser ext{data, ext_parser.data};
+        struct datum ext{data, ext_parser.data};
         array.print_hex(ext);
 
     }
@@ -149,7 +149,7 @@ void tls_extensions::print(struct json_object &o, const char *key) const {
 
 void tls_extensions::print_server_name(struct json_object &o, const char *key) const {
 
-    struct parser ext_parser{this->data, this->data_end};
+    struct datum ext_parser{this->data, this->data_end};
 
     while (parser_get_data_length(&ext_parser) > 0) {
         size_t tmp_len = 0;
@@ -168,7 +168,7 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
         const uint8_t *data_end = ext_parser.data;
 
         if (tmp_type == type_sni) {
-            struct parser ext{data, data_end};
+            struct datum ext{data, data_end};
             //            tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
             // o.print_key_json_string(key, ext.data + SNI_HDR_LEN, ext.length() - SNI_HDR_LEN);
             ext.skip(SNI_HDR_LEN);
@@ -178,9 +178,9 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
 
 }
 
-void tls_extensions::set_server_name(struct parser &server_name) const {
+void tls_extensions::set_server_name(struct datum &server_name) const {
 
-    struct parser ext_parser{this->data, this->data_end};
+    struct datum ext_parser{this->data, this->data_end};
 
     while (parser_get_data_length(&ext_parser) > 0) {
         size_t tmp_len = 0;
@@ -199,7 +199,7 @@ void tls_extensions::set_server_name(struct parser &server_name) const {
         const uint8_t *data_end = ext_parser.data;
 
         if (tmp_type == type_sni) {
-            struct parser ext{data, data_end};
+            struct datum ext{data, data_end};
             ext.skip(SNI_HDR_LEN);
             server_name = ext;
             return;
@@ -211,9 +211,9 @@ void tls_extensions::set_server_name(struct parser &server_name) const {
 struct tls_extension {
     uint16_t type;
     uint16_t length;
-    struct parser value;
+    struct datum value;
 
-    tls_extension(struct parser &p) : type{0}, length{0}, value{NULL, NULL} {
+    tls_extension(struct datum &p) : type{0}, length{0}, value{NULL, NULL} {
 
         if (p.read_uint16(&type) == false) { return; }
         if (p.read_uint16(&length) == false) { return; }
@@ -227,7 +227,7 @@ struct tls_extension {
 
 void tls_extensions::fingerprint(struct buffer_stream &b) const {
 
-    struct parser ext_parser{this->data, this->data_end};
+    struct datum ext_parser{this->data, this->data_end};
 
     while (parser_get_data_length(&ext_parser) > 0) {
 
@@ -254,7 +254,7 @@ void tls_extensions::fingerprint(struct buffer_stream &b) const {
 
 void tls_extensions::print_session_ticket(struct json_object &o, const char *key) const {
 
-    struct parser ext_parser{this->data, this->data_end};
+    struct datum ext_parser{this->data, this->data_end};
 
     while (parser_get_data_length(&ext_parser) > 0) {
         size_t tmp_len = 0;
@@ -282,7 +282,7 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
             //    opaque mac[32];
             // } ticket;
 
-            struct parser ext{data + L_ExtensionType + L_ExtensionLength, ext_parser.data};
+            struct datum ext{data + L_ExtensionType + L_ExtensionLength, ext_parser.data};
             o.print_key_hex(key, ext);
         }
     }
@@ -291,7 +291,7 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
 
 #define L_DTLSCookieLength             1
 
-void tls_client_hello::parse(struct parser &p) {
+void tls_client_hello::parse(struct datum &p) {
     size_t tmp_len;
 
     extractor_debug("%s: processing packet\n", __func__);
@@ -379,7 +379,7 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
 
 // static function
 //
-void tls_client_hello::write_json(struct parser &data, struct json_object &record, bool output_metadata) {
+void tls_client_hello::write_json(struct datum &data, struct json_object &record, bool output_metadata) {
     struct tls_record rec;
     rec.parse(data);
     struct tls_handshake handshake;
@@ -417,7 +417,7 @@ void tls_client_hello::operator()(struct buffer_stream &buf) const {
 }
 
 
-void tls_server_hello::parse(struct parser &p) {
+void tls_server_hello::parse(struct datum &p) {
     extractor_debug("%s: processing packet with %td bytes\n", __func__, p->data_end - p->data);
 
     parse_tls_server_hello(p);
@@ -426,7 +426,7 @@ void tls_server_hello::parse(struct parser &p) {
 
 }
 
-enum status tls_server_hello::parse_tls_server_hello(struct parser &record) {
+enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
     size_t tmp_len;
 
     extractor_debug("%s: processing server_hello with %td bytes\n", __func__, record.data_end - record.data);
@@ -496,7 +496,7 @@ void tls_server_hello::write_json(struct json_object &o) const {
 
 void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
 
-    struct parser tmp_cert_list = certificate_list;
+    struct datum tmp_cert_list = certificate_list;
     while (parser_get_data_length(&tmp_cert_list) > 0) {
 
         /* get certificate length */
@@ -521,7 +521,7 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
             c.print_as_json(cert, {}, NULL);
             cert.close();
         } else {
-            struct parser cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
+            struct datum cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
             o.print_key_base64("base64", cert_parser);
         }
         o.close();

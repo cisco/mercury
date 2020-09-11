@@ -8,7 +8,7 @@
 #include "json_object.h"
 #include "match.h"
 
-void http_request::parse(struct parser &p) {
+void http_request::parse(struct datum &p) {
 
     /* parse request line */
     method.parse_up_to_delim(p, ' ');
@@ -24,21 +24,21 @@ void http_request::parse(struct parser &p) {
     return;
 }
 
-void http_headers::print_matching_names(struct json_object &o, std::list<std::pair<struct parser, std::string>> &name_list) const {
+void http_headers::print_matching_names(struct json_object &o, std::list<std::pair<struct datum, std::string>> &name_list) const {
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
 
     if (this->is_not_readable()) {
         return;
     }
-    struct parser p{this->data, this->data_end};  // create copy, to leave object unmodified
+    struct datum p{this->data, this->data_end};  // create copy, to leave object unmodified
 
     while (parser_get_data_length(&p) > 0) {
         if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
             break;  /* at end of headers */
         }
 
-        struct parser keyword{p.data, NULL};
+        struct datum keyword{p.data, NULL};
         if (parser_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
             return;
         }
@@ -61,7 +61,7 @@ void http_headers::print_matching_names(struct json_object &o, std::list<std::pa
     }
 }
 
-inline void to_lower(std::basic_string<uint8_t> &str, struct parser d) {
+inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
     if (d.is_not_readable()) {
         return;
     }
@@ -74,14 +74,14 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
 
-    struct parser p{this->data, this->data_end};  // create copy, to leave object unmodified
+    struct datum p{this->data, this->data_end};  // create copy, to leave object unmodified
 
     while (parser_get_data_length(&p) > 0) {
         if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
             break;  /* at end of headers */
         }
 
-        struct parser name{p.data, NULL};
+        struct datum name{p.data, NULL};
         if (parser_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
             return;
         }
@@ -120,26 +120,26 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
     // construct a list of http header names to be printed out
     //
     uint8_t ua[] = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
-    struct parser user_agent{ua, ua+sizeof(ua)};
-    std::pair<struct parser, std::string> user_agent_name{user_agent, "user_agent"};
+    struct datum user_agent{ua, ua+sizeof(ua)};
+    std::pair<struct datum, std::string> user_agent_name{user_agent, "user_agent"};
 
     uint8_t h[] = { 'h', 'o', 's', 't', ':', ' ' };
-    struct parser host{h, h+sizeof(h)};
-    std::pair<struct parser, std::string> host_name{host, "host"};
+    struct datum host{h, h+sizeof(h)};
+    std::pair<struct datum, std::string> host_name{host, "host"};
 
     uint8_t xff[] = { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' };
-    struct parser xff_parser{xff, xff+sizeof(xff)};
-    std::pair<struct parser, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
+    struct datum xff_parser{xff, xff+sizeof(xff)};
+    std::pair<struct datum, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
 
     uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
-    struct parser v_parser{v, v+sizeof(v)};
-    std::pair<struct parser, std::string> via{v_parser, "via"};
+    struct datum v_parser{v, v+sizeof(v)};
+    std::pair<struct datum, std::string> via{v_parser, "via"};
 
     uint8_t u[] = { 'u', 'p', 'g', 'r', 'a', 'd', 'e', ':', ' ' };
-    struct parser u_parser{u, u+sizeof(u)};
-    std::pair<struct parser, std::string> upgrade_pair{u_parser, "upgrade"};
+    struct datum u_parser{u, u+sizeof(u)};
+    std::pair<struct datum, std::string> upgrade_pair{u_parser, "upgrade"};
 
-    std::list<std::pair<struct parser, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via, upgrade_pair};
+    std::list<std::pair<struct datum, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via, upgrade_pair};
 
     if (this->is_not_empty()) {
         struct json_object http{record, "http"};
@@ -161,7 +161,7 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
         } else {
 
             // output only the user-agent
-            std::list<std::pair<struct parser, std::string>> ua_only{user_agent_name};
+            std::list<std::pair<struct datum, std::string>> ua_only{user_agent_name};
             headers.print_matching_names(http_request, ua_only);
         }
         http_request.close();
@@ -170,7 +170,7 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 
 }
 
-void http_response::parse(struct parser &p) {
+void http_response::parse(struct datum &p) {
 
     /* process request line */
     version.parse_up_to_delim(p, ' ');
@@ -191,22 +191,22 @@ void http_response::write_json(struct json_object &record) {
     // construct a list of http header names to be printed out
     //
     uint8_t ct[] = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 't', 'y', 'p', 'e', ':', ' ' };
-    struct parser content_type{ct, ct+sizeof(ct)};
-    std::pair<struct parser, std::string> content_type_pair{content_type, "content_type"};
+    struct datum content_type{ct, ct+sizeof(ct)};
+    std::pair<struct datum, std::string> content_type_pair{content_type, "content_type"};
 
     uint8_t cl[] = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 'l', 'e', 'n', 'g', 't', 'h', ':', ' ' };
-    struct parser content_length{cl, cl+sizeof(cl)};
-    std::pair<struct parser, std::string> content_length_pair{content_length, "content_length"};
+    struct datum content_length{cl, cl+sizeof(cl)};
+    std::pair<struct datum, std::string> content_length_pair{content_length, "content_length"};
 
     uint8_t srv[] = { 's', 'e', 'r', 'v', 'e', 'r', ':', ' ' };
-    struct parser server{srv, srv+sizeof(srv)};
-    std::pair<struct parser, std::string> server_pair{server, "server"};
+    struct datum server{srv, srv+sizeof(srv)};
+    std::pair<struct datum, std::string> server_pair{server, "server"};
 
     uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
-    struct parser v_parser{v, v+sizeof(v)};
-    std::pair<struct parser, std::string> via_pair{v_parser, "via"};
+    struct datum v_parser{v, v+sizeof(v)};
+    std::pair<struct datum, std::string> via_pair{v_parser, "via"};
 
-    std::list<std::pair<struct parser, std::string>> names_to_print{server_pair, content_type_pair, content_length_pair, via_pair};
+    std::list<std::pair<struct datum, std::string>> names_to_print{server_pair, content_type_pair, content_length_pair, via_pair};
 
     struct json_object http{record, "http"};
     struct json_object http_response{http, "response"};

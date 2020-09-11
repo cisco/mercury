@@ -5,7 +5,7 @@
 #ifndef WIREGUARD_H
 #define WIREGUARD_H
 
-#include "parser.h"
+#include "datum.h"
 
 struct wireguard_handshake_initiation {
     uint8_t  message_type;                       // 1
@@ -19,12 +19,12 @@ struct wireguard_handshake_initiation {
 };
 
 struct wireguard_handshake_init {
-    struct parser sender_index;
-    struct parser unencrypted_ephemeral;
+    struct datum sender_index;
+    struct datum unencrypted_ephemeral;
 
     wireguard_handshake_init() : sender_index{NULL, NULL}, unencrypted_ephemeral{NULL, NULL} {}
 
-    void parse(struct parser &p) {
+    void parse(struct datum &p) {
         if (p.length() != sizeof(struct wireguard_handshake_initiation)) {
             // fprintf(stderr, "%s: wrong size (got %zu, expected %zu)\n", __func__, p.length(), sizeof(struct wireguard_handshake_initiation));
             return;

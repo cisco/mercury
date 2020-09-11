@@ -23,7 +23,7 @@
 #define VXLAN_HDR_LEN 8
 
 unsigned int packet_filter_process_vxlan(struct packet_filter *pf, struct key *k) {
-    struct parser *p = &pf->p;
+    struct datum *p = &pf->p;
     if (parser_skip(p, VXLAN_HDR_LEN) != status_ok) {
         return 0;
     }
@@ -242,10 +242,10 @@ enum msg_type udp_get_message_type(const uint8_t *udp_data,
 #define L_udp_length   2
 #define L_udp_checksum 2
 
-unsigned int parser_extractor_process_udp_data(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_udp_data(struct datum *p, struct extractor *x);
 
 unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) {
-    struct parser *p = &pf->p;
+    struct datum *p = &pf->p;
     struct extractor *x = &pf->x;
 
     extractor_debug("%s: processing packet (len %td)\n", __func__, parser_get_data_length(p));
@@ -295,13 +295,13 @@ unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k) 
 }
 
 
-unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x);
-unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extractor *x);
-unsigned int parser_extractor_process_dhcp(struct parser *p, struct extractor *x);
-unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x);
-unsigned int parser_extractor_process_wireguard(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_dtls(struct datum *p, struct extractor *x);
+unsigned int parser_extractor_process_dtls_server(struct datum *p, struct extractor *x);
+unsigned int parser_extractor_process_dhcp(struct datum *p, struct extractor *x);
+unsigned int parser_extractor_process_dns(struct datum *p, struct extractor *x);
+unsigned int parser_extractor_process_wireguard(struct datum *p, struct extractor *x);
 
-unsigned int parser_extractor_process_udp_data(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_udp_data(struct datum *p, struct extractor *x) {
     const struct pi_container *pi;
     struct pi_container dummy = { 0, 0 };
 
@@ -436,7 +436,7 @@ unsigned int parser_extractor_process_udp_data(struct parser *p, struct extracto
 #define DHCP_OPT_PARAMETER_LIST 0x37
 #define DHCP_OPT_VENDOR_CLASS   0x7C
 
-unsigned int parser_extractor_process_dhcp(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_dhcp(struct datum *p, struct extractor *x) {
 
     extractor_debug("%s: processing packet\n", __func__);
 
@@ -625,10 +625,10 @@ uint16_t dtls_static_extension_types[dtls_num_static_extension_types] = {
  * pointer set to the initial octet of the TCP header of the DTLS
  * packet.
  */
-unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_dtls(struct datum *p, struct extractor *x) {
     size_t tmp_len;
     //struct extractor y;
-    struct parser ext_parser;
+    struct datum ext_parser;
     const uint8_t *sni_data = NULL;
     size_t sni_length = 0;
 
@@ -805,7 +805,7 @@ unsigned int parser_extractor_process_dtls(struct parser *p, struct extractor *x
  * initialized with its data pointer set to the initial octet of the
  * TCP header of the TLS packet.
  */
-unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_dtls_server(struct datum *p, struct extractor *x) {
     size_t tmp_len;
 
     extractor_debug("%s: processing packet\n", __func__);
@@ -881,7 +881,7 @@ unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extra
 	        goto bail;
         }
 
-        struct parser ext_parser;
+        struct datum ext_parser;
         parser_init_from_outer_parser(&ext_parser, p, tmp_len);
         while (parser_get_data_length(&ext_parser) > 0)
         {
@@ -940,7 +940,7 @@ unsigned int parser_extractor_process_dtls_server(struct parser *p, struct extra
  * dns parser_extractor_process function
  */
 
-unsigned int parser_extractor_process_dns(struct parser *p, struct extractor *x) {
+unsigned int parser_extractor_process_dns(struct datum *p, struct extractor *x) {
     (void)p;
     (void)x;
     extractor_debug("%s: processing packet\n", __func__);

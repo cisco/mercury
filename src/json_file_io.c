@@ -157,7 +157,7 @@ int append_packet_json(struct buffer_stream &buf,
                        size_t length,
                        struct timespec *ts) {
     struct key k;
-    struct parser pkt{packet, packet+length};
+    struct datum pkt{packet, packet+length};
     size_t transport_proto = 0;
     size_t ethertype = 0;
     parser_process_eth(&pkt, &ethertype);

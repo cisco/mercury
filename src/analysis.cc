@@ -426,7 +426,7 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
     // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
 
     char sn_str[MAX_SNI_LEN] = { 0 };
-    struct parser sn{NULL, NULL};
+    struct datum sn{NULL, NULL};
     hello.extensions.set_server_name(sn);
     sn.strncpy(sn_str, MAX_SNI_LEN);
     // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
