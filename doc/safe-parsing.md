@@ -11,9 +11,6 @@ programming, with data structures and functions that provide
 efficiency and flexibility.  This note explains that approach in more
 detail (and it is a work in progress).
 
-**Note: `struct datum` is currently named `struct parser` in parser.h.
-`parser` is a poor choice of name, and it will be changed soon.**
-
 Network packets occupy contiguous regions of memory.  A substring of a
 packet can be identified by a pair of pointers indicating its start
 and its end.  Thus our fundamental data type is
