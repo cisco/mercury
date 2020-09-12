@@ -343,7 +343,7 @@ void tls_client_hello::parse(struct datum &p) {
     if (parser_read_and_skip_uint(&p, L_ExtensionsVectorLength, &tmp_len)) {
         return;
     }
-    extensions.parse(p, tmp_len);
+    extensions.parse_soft_fail(p, tmp_len);
 
     return;
 
