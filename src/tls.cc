@@ -371,7 +371,6 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
     extensions.print_server_name(tls_client, "server_name");
     if (output_metadata) {
         extensions.print_session_ticket(tls_client, "session_ticket");
-        tls_client.print_key_value("fingerprint", *this); // TBD: DEGREASING
     }
     tls_client.close();
     tls.close();
