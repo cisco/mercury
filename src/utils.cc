@@ -21,7 +21,22 @@
 #include "utils.h"
 #include "buffer_stream.h"
 
+/* utility functions */
 
+void encode_uint16(uint8_t *p, uint16_t x) {
+    p[0] = x >> 8;
+    p[1] = 0xff & x;
+}
+
+uint16_t decode_uint16 (const void *x) {
+    uint16_t y;
+    const unsigned char *z = (const unsigned char *)x;
+
+    y = z[0];
+    y = y << 8;
+    y += z[1];
+    return y;
+}
 
 void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;
@@ -74,9 +89,6 @@ size_t hex_to_raw(const void *output,
     return count;
 }
 
-
-
-
 /*
  * drop_root_privileges() returns 0 on success and -1 on failure
  */
@@ -109,7 +121,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
         if (uid == 0) {
             const char *sudo_uid = getenv("SUDO_UID");
             if (sudo_uid == NULL) {
-                fprintf(stderr, "error: environment variable `SUDO_UID` not found; cannot set user to '%s'\n", username);
+                fprintf(stderr, "error: environment variable `SUDO_UID` not found; could not drop root privileges\n");
                 return status_err;
             }
             errno = 0;
@@ -124,7 +136,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
         if (gid == 0) {
             const char *sudo_gid = getenv("SUDO_GID");
             if (sudo_gid == NULL) {
-                fprintf(stderr, "error: environment variable `SUDO_GID` not found; cannot set user to '%s'\n", username);
+                fprintf(stderr, "error: environment variable `SUDO_GID` not found; could not drop root privileges\n");
                 return status_err;
             }
             errno = 0;
@@ -137,7 +149,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
 
         new_username = getenv("SUDO_USER");
         if (new_username == NULL) {
-            fprintf(stderr, "error: environment variable `SUDO_USER` not found; cannot set user to '%s'\n", username);
+            fprintf(stderr, "error: environment variable `SUDO_USER` not found; could not drop root privileges\n");
             return status_err;
         }
 
@@ -219,20 +231,6 @@ int copy_string_into_buffer(char *dst, size_t dst_len, const char *src, size_t m
     return 0;
 }
 
-
-
-void fprintf_json_hex_string(FILE *file,
-                             const unsigned char *data,
-                             size_t len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-    fprintf(file, "\"");
-    while(x < end) {
-        fprintf(file, "%02x", *x++);
-    }
-    fprintf(file, "\"");
-}
-
 #define MAX_READABLE_SUFFIX 9
 char *readable_number_suffix[MAX_READABLE_SUFFIX] = {
     (char *)"",
@@ -245,21 +243,6 @@ char *readable_number_suffix[MAX_READABLE_SUFFIX] = {
     (char *)"Z",
     (char *)"Y"
 };
-
-void get_readable_number_int(unsigned int power,
-                             unsigned int input,
-                             unsigned int *num_output,
-                             char **str_output) {
-    unsigned int index = 0;
-
-    while ((input > power) && ((index + 1) < MAX_READABLE_SUFFIX)) {
-	index++;
-	input = input / power;
-    }
-    *num_output = input;
-    *str_output = readable_number_suffix[index];
-
-}
 
 void get_readable_number_float(double power,
                                double input,

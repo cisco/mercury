@@ -259,7 +259,7 @@ endif
 
 # fuzz testing with american fuzzy lop
 #
-FUZZ_CMD = -f tmp.json
+FUZZ_CMD = --metadata -f tmp.json
 .PHONY: fuzz-test
 fuzz-test:
 ifeq ($(have_afl),yes)

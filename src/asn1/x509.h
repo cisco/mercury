@@ -13,8 +13,9 @@
 #include "oid.h"    // oid dictionary
 
 #include "../mercury.h"
-#include "../parser.h"
+#include "../datum.h"
 #include "asn1.h"
+#include "dict.h"
 
 /*
    Name ::= CHOICE { -- only one possibility for now --
@@ -49,10 +50,10 @@ struct attribute {
     struct tlv attribute_value;
 
     attribute() : set{}, sequence{}, attribute_type{}, attribute_value{} { }
-    explicit attribute(struct parser *p) : set{}, sequence{}, attribute_type{}, attribute_value{} {
+    explicit attribute(struct datum *p) : set{}, sequence{}, attribute_type{}, attribute_value{} {
         parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         set.parse(p);
         sequence.parse(&set.value, tlv::SEQUENCE);
         attribute_type.parse(&sequence.value, tlv::OBJECT_IDENTIFIER, "attribute_type");
@@ -82,14 +83,14 @@ struct name {
     struct tlv RDNsequence;
 
     name() : RDNsequence{} {}
-    void parse(struct parser *p, const char *label=NULL) {
+    void parse(struct datum *p, const char *label=NULL) {
         RDNsequence.parse(p, tlv::SEQUENCE, label);
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
 
         struct json_array array{o, name};
-        struct parser tlv_sequence = RDNsequence.value;
+        struct datum tlv_sequence = RDNsequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct attribute attr(&tlv_sequence);
             struct json_object_asn1 attr_obj{array};
@@ -100,8 +101,8 @@ struct name {
     }
 
     bool matches(const struct name &r) const {
-        struct parser tlv_sequence = RDNsequence.value;
-        struct parser tlv_sequence_r = r.RDNsequence.value;
+        struct datum tlv_sequence = RDNsequence.value;
+        struct datum tlv_sequence_r = r.RDNsequence.value;
         while (tlv_sequence.is_not_empty() && tlv_sequence_r.is_not_empty()) {
             struct attribute attr(&tlv_sequence);
             struct attribute attr_r(&tlv_sequence_r);
@@ -125,8 +126,8 @@ struct basic_constraints {
     struct tlv ca;
     struct tlv path_len_constraint;
 
-    //    basic_constraints(struct parser *p) : sequence{p}, ca{&sequence.value}, path_len_constraint{&sequence.value} {}
-    explicit basic_constraints(struct parser *p) : sequence{}, ca{}, path_len_constraint{} {
+    //    basic_constraints(struct datum *p) : sequence{p}, ca{&sequence.value}, path_len_constraint{&sequence.value} {}
+    explicit basic_constraints(struct datum *p) : sequence{}, ca{}, path_len_constraint{} {
         sequence.parse(p);
         if (sequence.value.is_not_empty()) {
             ca.parse(&sequence.value, tlv::BOOLEAN);  // default false boolean
@@ -162,13 +163,13 @@ struct basic_constraints {
 struct ext_key_usage {
     struct tlv sequence;
 
-    ext_key_usage(struct parser *p) : sequence{} {
+    ext_key_usage(struct datum *p) : sequence{} {
         sequence.parse(p, 0, "ext_key_usage.sequence");
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct json_array_asn1 a{o, name};
-        struct parser p = sequence.value;
+        struct datum p = sequence.value;
         while (p.is_not_empty()) {
             struct tlv key_purpose_id(&p);
             const char *oid_string = parser_get_oid_string(&key_purpose_id.value);
@@ -203,10 +204,10 @@ struct key_usage {
     struct tlv bit_string;
 
     key_usage() : bit_string{} {}
-    key_usage(struct parser *p) : bit_string{} {
+    key_usage(struct datum *p) : bit_string{} {
         parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         bit_string.parse(p, tlv::BIT_STRING);
     }
 
@@ -284,10 +285,10 @@ struct policy_qualifier_info {
     struct tlv qualifier;      // cPSuri (IA5String) or userNotice
 
     policy_qualifier_info() : sequence{}, qualifier_id{}, qualifier{} {}
-    explicit policy_qualifier_info(struct parser *p) : sequence{}, qualifier_id{}, qualifier{} {
+    explicit policy_qualifier_info(struct datum *p) : sequence{}, qualifier_id{}, qualifier{} {
         parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
         qualifier_id.parse(&sequence.value); // tlv::OBJECT_IDENTIFIER);
         if (sequence.value.is_not_empty()) {
@@ -307,12 +308,12 @@ struct policy_information {
     struct tlv sequence;
 
     policy_information() : sequence{} {}
-    explicit policy_information(struct parser *p) {
+    explicit policy_information(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
         if (sequence.is_null()) { p->set_null(); } // handle unexpected data
     }
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct parser tlv_sequence = sequence.value;
+        struct datum tlv_sequence = sequence.value;
         struct tlv policy_identifier(&tlv_sequence, tlv::OBJECT_IDENTIFIER);
         struct tlv policy_qualifiers;
         if (tlv_sequence.is_not_empty()) {
@@ -333,12 +334,12 @@ struct policy_information {
 struct certificate_policies {
     struct tlv sequence;
 
-    explicit certificate_policies(struct parser *p) : sequence{} { //, policy_information{} {
+    explicit certificate_policies(struct datum *p) : sequence{} { //, policy_information{} {
         sequence.parse(p, tlv::SEQUENCE);
     }
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct json_array a{o, name};
-        struct parser tlv_sequence = sequence.value;
+        struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct policy_information pi(&tlv_sequence);
             struct json_object_asn1 wrapper{a};
@@ -364,10 +365,10 @@ struct private_key_usage_period {
     struct tlv notAfter;
 
     private_key_usage_period() : sequence{}, notBefore{}, notAfter{} {   }
-    explicit private_key_usage_period(struct parser *p) : sequence{}, notBefore{}, notAfter{} {
+    explicit private_key_usage_period(struct datum *p) : sequence{}, notBefore{}, notAfter{} {
         parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
         while (sequence.value.is_not_empty()) {
             struct tlv tmp(&sequence.value);
@@ -429,16 +430,16 @@ struct general_name {
     struct tlv explicit_tag;
 
     general_name() : explicit_tag{} {}
-    explicit general_name(struct parser *p) {
+    explicit general_name(struct datum *p) {
         parse(p);
     }
-    void parse(struct parser *p, uint8_t expected_tag=0x00) {
+    void parse(struct datum *p, uint8_t expected_tag=0x00) {
         explicit_tag.parse(p, expected_tag);
         // explicit_tag.fprint_tlv(stderr, "explicit_tag");
     }
     void print_as_json(struct json_object_asn1 &o) const {
         if (explicit_tag.tag == otherName) {
-            struct parser tlv_sequence = explicit_tag.value;
+            struct datum tlv_sequence = explicit_tag.value;
             struct tlv type_id(&tlv_sequence, tlv::OBJECT_IDENTIFIER);
             struct tlv value(&tlv_sequence, 0);
             struct json_object_asn1 other_name{o, "other_name"};
@@ -454,7 +455,7 @@ struct general_name {
         } else if (explicit_tag.tag == iPAddress) {
             explicit_tag.print_as_json_ip_address(o, "ip_address");
         } else if (explicit_tag.tag == directoryName) {
-            struct parser tmp = explicit_tag.value;
+            struct datum tmp = explicit_tag.value;
             struct name n;
             n.parse(&tmp);
             n.print_as_json(o, "directory_name");
@@ -480,13 +481,13 @@ struct general_name {
 struct subject_alt_name {
     struct tlv sequence;
 
-    explicit subject_alt_name(struct parser *p) : sequence{p} {
+    explicit subject_alt_name(struct datum *p) : sequence{p} {
         // sequence.fprint(stdout, "subject_alt_name.names");
     }
 
     void print_as_json(struct json_object &o, const char *name) const {
         struct json_array a{o, name};
-        struct parser tlv_sequence = sequence.value;
+        struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct general_name general_name(&tlv_sequence);
             struct json_object_asn1 wrapper{a};
@@ -533,10 +534,10 @@ struct distribution_point_name {
     // been found
 
     distribution_point_name() : explicit_tag{}, full_name{} {}
-    explicit distribution_point_name(struct parser *p) {
+    explicit distribution_point_name(struct datum *p) {
         parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         struct tlv tmp(p);
         if (tmp.tag == tlv::explicit_tag_constructed(0)) {
             full_name.parse(&tmp.value);
@@ -569,11 +570,11 @@ struct distribution_point {
     // note: reasons and issuer have not been implemented; no certs
     // for testing are available
 
-    explicit distribution_point(struct parser *p) : sequence{p} { }
+    explicit distribution_point(struct datum *p) : sequence{p} { }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct json_array a{o, name};
-        struct parser tlv_sequence = sequence.value;
+        struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct tlv tmp(&tlv_sequence);
             if (tmp.tag == tlv::explicit_tag_constructed(0)) {
@@ -590,11 +591,11 @@ struct distribution_point {
 struct crl_distribution_points {
     struct tlv sequence;
 
-    explicit crl_distribution_points(struct parser *p) : sequence{p} {  }
+    explicit crl_distribution_points(struct datum *p) : sequence{p} {  }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct json_array a{o, name};
-        struct parser tlv_sequence = sequence.value;
+        struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct distribution_point dp(&tlv_sequence);
             struct json_object_asn1 tmp{a};
@@ -625,11 +626,11 @@ struct authority_key_identifier {
     struct tlv cert_serial_number;
 
     authority_key_identifier() : sequence{}, key_identifier{}, cert_issuer{}, cert_serial_number{} {}
-    explicit authority_key_identifier(struct parser *p) : sequence{}, key_identifier{}, cert_issuer{}, cert_serial_number{} {
+    explicit authority_key_identifier(struct datum *p) : sequence{}, key_identifier{}, cert_issuer{}, cert_serial_number{} {
         parse(p);
     }
 
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
         while (sequence.value.is_not_empty()) {
             struct tlv tmp(&sequence.value);
@@ -652,7 +653,7 @@ struct authority_key_identifier {
             key_identifier.print_as_json_hex(aki, "key_identifier");
         }
         if (cert_issuer.is_not_null()) {
-            struct parser tlv_sequence = cert_issuer.value; // avoid modifying cert_issuer
+            struct datum tlv_sequence = cert_issuer.value; // avoid modifying cert_issuer
             struct name n;
             n.parse(&tlv_sequence);
             n.print_as_json(aki, "cert_issuer");
@@ -687,7 +688,7 @@ struct general_subtree {
     struct tlv minimum;
     struct tlv maximum;
 
-    explicit general_subtree(struct parser *p) {
+    explicit general_subtree(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
         base.parse(&sequence.value);
         while (sequence.value.is_not_empty()) {
@@ -724,7 +725,7 @@ struct name_constraints {
     struct tlv permitted_subtrees; // sequence of general_subtree
     struct tlv excluded_subtrees;  // sequence of general_subtree
 
-    explicit name_constraints(struct parser *p) {
+    explicit name_constraints(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
         while (sequence.value.is_not_empty()) {
             struct tlv tmp(&sequence.value);
@@ -740,7 +741,7 @@ struct name_constraints {
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct json_object_asn1 ps{o, name};
         if (permitted_subtrees.is_not_null()) {
-            struct parser tmp = permitted_subtrees.value;  // to avoid modifying permitted_subtrees
+            struct datum tmp = permitted_subtrees.value;  // to avoid modifying permitted_subtrees
             general_subtree subtree(&tmp);
             subtree.print_as_json(ps, "permitted_subtree");
         }
@@ -778,7 +779,7 @@ struct validity {
     validity() : sequence{}, notBefore{}, notAfter{} {
         //        parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE, "validity.sequence");
         notBefore.parse(&sequence.value, 0, "validity.notBefore"); // tlv::UTCTime or tlv::GeneralizedTime
         notAfter.parse(&sequence.value, 0, "validity.notAfter");   // tlv::UTCTime or tlv::GeneralizedTime
@@ -828,7 +829,7 @@ struct signed_certificate_timestamp_list {
 
     // for now, we don't parse the TLS-style formatting
 
-    explicit signed_certificate_timestamp_list(struct parser *p) {
+    explicit signed_certificate_timestamp_list(struct datum *p) {
         serialized_sct.parse(p);
     }
 
@@ -862,10 +863,10 @@ struct access_description {
     struct general_name access_location;
 
     access_description() : sequence{}, access_method{}, access_location{} {}
-    explicit access_description(struct parser *x) : sequence{}, access_method{}, access_location{} {
+    explicit access_description(struct datum *x) : sequence{}, access_method{}, access_location{} {
         parse(x);
     }
-   void parse(struct parser *x) {
+   void parse(struct datum *x) {
         sequence.parse(x);
         if (sequence.is_null()) {
             x->set_null();
@@ -897,17 +898,17 @@ struct access_description {
 struct authority_info_access_syntax {
     struct tlv sequence;
 
-    explicit authority_info_access_syntax(struct parser *p) : sequence{} {
+    explicit authority_info_access_syntax(struct datum *p) : sequence{} {
         parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
         struct json_array a{o, name};
         struct access_description ad;
-        struct parser tlv_sequence = sequence.value;
+        struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             ad.parse(&tlv_sequence);
             struct json_object_asn1 wrapper{a};
@@ -941,7 +942,7 @@ struct extension {
     struct tlv critical; // boolean default false
     struct tlv extnValue;
 
-    explicit extension(struct parser &p) : sequence{&p}, extnID{}, critical{}, extnValue{} {
+    explicit extension(struct datum &p) : sequence{&p}, extnID{}, critical{}, extnValue{} {
         if (sequence.is_constructed()) {
             extnID.parse(&sequence.value, 0, "extnID");
             extnValue.parse(&sequence.value, 0, "critical or extnValue");
@@ -966,7 +967,7 @@ struct extension {
             if (critical.tag == tlv::BOOLEAN) {
                 critical_flag = true;
             }
-            struct parser value = extnValue.value;
+            struct datum value = extnValue.value;
             if (oid_type == oid::id_ce_SignedCertificateTimestampList) {
                 struct signed_certificate_timestamp_list x(&value);
                 x.print_as_json(o, "signed_certificate_timestamp_list");
@@ -1053,11 +1054,11 @@ struct rsa_public_key {
     struct tlv exponent;
 
     rsa_public_key() : sequence{}, modulus{}, exponent{} {}
-    explicit rsa_public_key(struct parser *p) : sequence{}, modulus{}, exponent{} {
+    explicit rsa_public_key(struct datum *p) : sequence{}, modulus{}, exponent{} {
         parse(p);
     }
 
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
         modulus.parse(&sequence.value, tlv::INTEGER);
         exponent.parse(&sequence.value, tlv::INTEGER);
@@ -1082,6 +1083,68 @@ struct rsa_public_key {
         return exponent.value.bits_in_data();
     }
 };
+
+/*
+  From RFC 3279:
+
+   The Digital Signature Algorithm (DSA) is defined in the Digital
+   Signature Standard (DSS) [FIPS 186].  The DSA OID supported by this
+   profile is:
+
+      id-dsa OBJECT IDENTIFIER ::= {
+           iso(1) member-body(2) us(840) x9-57(10040) x9cm(4) 1 }
+
+   The id-dsa algorithm syntax includes optional domain parameters.
+   These parameters are commonly referred to as p, q, and g.  When
+   omitted, the parameters component MUST be omitted entirely.  That is,
+   the AlgorithmIdentifier MUST be a SEQUENCE of one component: the
+   OBJECT IDENTIFIER id-dsa.
+
+   If the DSA domain parameters are present in the subjectPublicKeyInfo
+   AlgorithmIdentifier, the parameters are included using the following
+   ASN.1 structure:
+
+      Dss-Parms  ::=  SEQUENCE  {
+          p             INTEGER,
+          q             INTEGER,
+          g             INTEGER  }
+
+   The DSA public key MUST be ASN.1 DER encoded as an INTEGER; this
+   encoding shall be used as the contents (i.e., the value) of the
+   subjectPublicKey component (a BIT STRING) of the SubjectPublicKeyInfo
+   data element.
+
+      DSAPublicKey ::= INTEGER -- public key, Y
+
+ */
+
+struct dsa_parameters {
+    //    struct tlv sequence;
+    struct tlv pp;
+    struct tlv qq;
+    struct tlv gg;
+
+    dsa_parameters(struct datum *p) : pp{}, qq{}, gg{} {
+        parse(p);
+    }
+
+    void parse(struct datum *p) {
+        //        sequence.parse(p, tlv::SEQUENCE);
+        pp.parse(p, tlv::INTEGER);
+        qq.parse(p, tlv::INTEGER);
+        gg.parse(p, tlv::INTEGER);
+    }
+
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object dsa_params{o, name};
+        dsa_params.print_key_hex("p", pp.value);
+        dsa_params.print_key_hex("q", qq.value);
+        dsa_params.print_key_hex("g", gg.value);
+        dsa_params.close();
+    }
+};
+
+
 
 /*
    From RFC 5480:
@@ -1113,10 +1176,10 @@ struct rsa_public_key {
  */
 
 struct ec_public_key {
-    struct parser d;
+    struct datum d;
     // struct tlv tmp;   // TBD: ec public key is *not* ASN.1 formatted
 
-    explicit ec_public_key(struct parser *p) : d{NULL, NULL} {
+    explicit ec_public_key(struct datum *p) : d{NULL, NULL} {
         d = *p;
     }
 
@@ -1128,21 +1191,21 @@ struct ec_public_key {
             if (data[0] == 0x04) {
                 data++;
                 data_length--;
-                struct parser tmp = { data, data + data_length/2};
+                struct datum tmp = { data, data + data_length/2};
                 pub_key.print_key_hex("x", tmp);
                 data += data_length/2;
-                struct parser tmp2 = { data, data + data_length/2};
+                struct datum tmp2 = { data, data + data_length/2};
                 pub_key.print_key_hex("y", tmp2);
             } else if (data[0] == 0x02) {
                 data++;
                 data_length--;
-                struct parser tmp = { data, data + data_length };
+                struct datum tmp = { data, data + data_length };
                 pub_key.print_key_hex("x", tmp);
                 pub_key.print_key_string("y", "00");
             } else if (data[0] == 0x03) {
                 data++;
                 data_length--;
-                struct parser tmp = { data, data + data_length };
+                struct datum tmp = { data, data + data_length };
                 pub_key.print_key_hex("x", tmp);
                 pub_key.print_key_string("y", "01");
             }
@@ -1173,10 +1236,10 @@ struct ecdsa_signature {
     struct tlv r;
     struct tlv s;
 
-    explicit ecdsa_signature(struct parser *p) : sequence{} {
+    explicit ecdsa_signature(struct datum *p) : sequence{} {
         parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
         r.parse(&sequence.value, tlv::INTEGER);
         s.parse(&sequence.value, tlv::INTEGER);
@@ -1211,10 +1274,10 @@ struct algorithm_identifier {
     struct tlv parameters;
 
     algorithm_identifier() : sequence{}, algorithm{}, parameters{} {}
-    explicit algorithm_identifier(struct parser *p) : sequence{}, algorithm{}, parameters{} {
+    explicit algorithm_identifier(struct datum *p) : sequence{}, algorithm{}, parameters{} {
         parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         sequence.parse(p, tlv::SEQUENCE);
         algorithm.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
         if (sequence.value.is_not_empty()) {
@@ -1230,9 +1293,21 @@ struct algorithm_identifier {
             json_object_asn1 alg_id(o, name);
             algorithm.print_as_json_oid(alg_id, "algorithm");
             if (parameters.is_not_null()) {
+
                 if (parameters.tag == tlv::OBJECT_IDENTIFIER) {
+                    // ECC parameters typically consist of OIDs
                     parameters.print_as_json_oid(alg_id, "parameters");
+
+                } else if (parameters.tag == tlv::SEQUENCE) {
+                    if (parser_get_oid_enum(&algorithm.value) == oid::id_dsa) {
+                        // DSA parameters consist of a SEQUENCE of three integers
+                        struct tlv tmp = parameters;
+                        struct dsa_parameters dsa(&tmp.value);
+                        dsa.print_as_json(o, "dsa_parameters");
+                    }
+
                 } else {
+                    // if anything else shows up here, print it as a hex string
                     parameters.print_as_json_hex(alg_id, "parameters");
                 }
             }
@@ -1266,15 +1341,22 @@ struct subject_public_key_info {
     struct tlv sequence;
     struct algorithm_identifier algorithm;
     struct tlv subject_public_key;
+    bool complete;
 
     subject_public_key_info() : sequence{}, algorithm{}, subject_public_key{} {}
-    explicit subject_public_key_info(struct parser *p) : sequence{}, algorithm{}, subject_public_key{} {
+    explicit subject_public_key_info(struct datum *p) : sequence{}, algorithm{}, subject_public_key{}, complete{false} {
         parse(p);
     }
-    void parse(struct parser *p) {
+    void parse(struct datum *p) {
         sequence.parse(p);
+        if (sequence.is_complete()) {
+            complete = true;
+        }
         algorithm.parse(&sequence.value);
         subject_public_key.parse(&sequence.value, tlv::BIT_STRING);
+        if (!subject_public_key.is_complete()) {
+            complete = false;
+        }
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
@@ -1420,7 +1502,7 @@ struct x509_cert {
 
     void parse(const void *buffer, unsigned int len) {
 
-        struct parser p;
+        struct datum p;
         parser_init(&p, (const unsigned char *)buffer, len);
 
         certificate.parse(&p, tlv::SEQUENCE, "certificate");
@@ -1473,8 +1555,10 @@ struct x509_cert {
 
         // tbs_certificate should be out of data now
         if (tbs_certificate.value.is_not_empty()) {
-            fprintf(stderr, "warning: tbs_certificate has trailing data\n");
-            struct parser tmp = tbs_certificate.value;
+            // TBD: we should probably report this data, but not sure how
+
+            // fprintf(stderr, "warning: tbs_certificate has trailing data\n");
+            struct datum tmp = tbs_certificate.value;
             struct tlv tmp_tlv(&tmp, 0, "tbs_certificate trailing data");
             //            tmp_tlv.fprint_tlv(stderr, "tbs_certificate trailing data");
         }
@@ -1487,22 +1571,22 @@ struct x509_cert {
     std::string get_json_string() const {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        print_as_json(buf, {});
+        print_as_json(buf, {}, NULL);
         std::string tmp_str(buffer, buf.length()); // TBD: move?
         return tmp_str;
     }
     void print_as_json(FILE *f) const {
         char buffer[8192*8];
         struct buffer_stream buf(buffer, sizeof(buffer));
-        print_as_json(buf, {});
+        print_as_json(buf, {}, NULL);
         buf.write_line(f);
     }
-    void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs) const {
+    void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group) const {
         struct json_object_asn1 o{&buf};
-        print_as_json(o, trusted_certs);
+        print_as_json(o, trusted_certs, key_group);
         o.close();
     }
-    void print_as_json(struct json_object_asn1 &o, const std::list<struct x509_cert> &trusted_certs) const {
+    void print_as_json(struct json_object_asn1 &o, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group) const {
 
         if (!version.is_null()) {
             version.print_as_json_hex(o, "version");
@@ -1528,7 +1612,7 @@ struct x509_cert {
 
         if (!extensions.is_null()) {
             struct json_array extensions_array{o, "extensions"};
-            struct parser tlv_sequence = extensions.value;
+            struct datum tlv_sequence = extensions.value;
             while (tlv_sequence.is_not_empty()) {
                 struct extension xtn(tlv_sequence);
                 struct json_object_asn1 wrapper{extensions_array};
@@ -1541,7 +1625,7 @@ struct x509_cert {
         if (!signature_algorithm.sequence.is_null()) {
             signature_algorithm.print_as_json(o, "signature_algorithm");
         }
-        if (!signature.is_null()) {
+        if (!signature.value.is_not_readable()) {
 
             enum oid alg_oid = signature_algorithm.type();
             if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
@@ -1558,6 +1642,7 @@ struct x509_cert {
             }
         }
         report_violations(o, trusted_certs);
+        report_key_group(o, key_group);
     }
 
     unsigned int bits_in_signature() const {
@@ -1583,7 +1668,7 @@ struct x509_cert {
     }
 
     bool subject_key_is_weak() const {
-        if (subjectPublicKeyInfo.algorithm.algorithm.is_null()) {  // TBD: is_not_truncated() would be better
+        if (subjectPublicKeyInfo.complete == false) {
             return false;  // missing data
         }
 
@@ -1608,6 +1693,10 @@ struct x509_cert {
             if (strong_ec_parameters.find(parameters) == strong_ec_parameters.end()) {
                 return true;
             }
+        } else if (alg_type == id_dsa) {
+            if (subjectPublicKeyInfo.subject_public_key.value.bits_in_data() < 2048) {
+                return true;
+            }
         } else if (alg_type == id_Ed25519) {
             ;
         } else if (alg_type == id_Ed448) {
@@ -1619,40 +1708,87 @@ struct x509_cert {
     }
 
     bool signature_is_weak(bool unsigned_is_weak=false) const {
-        unsigned int threshold = 16;  // number of leading zero bits accepted
 
-        std::unordered_map<unsigned int, unsigned int> strong_sig_algs{
-            // { "rsaEncryption", 2048 },
-            { oid::sha256WithRSAEncryption, 2048 },
-            { oid::sha384WithRSAEncryption, 2048 },
-            { oid::sha512WithRSAEncryption, 2048 },
-            { oid::ecdsa_with_SHA256, 256 },
-            { oid::ecdsa_with_SHA1, 256 }
-        };
+        if (signature_algorithm.parameters.is_truncated()) {
+            fprintf(stdout, "truncated signature_algorithm\n");
+            return false;   // missing data
+        }
 
-        enum oid sig_alg_type = signature_algorithm.type();
-        if (sig_alg_type == unknown) {
-            if (!unsigned_is_weak) {
-                return false;
+        if (!signature.is_null()) {
+            std::unordered_map<unsigned int, unsigned int> strong_ecdsa_algs{
+                { oid::ecdsa_with_SHA256, 256 },
+                { oid::ecdsa_with_SHA1, 256 }
+            };
+
+            enum oid alg_oid = signature_algorithm.type();
+            std::unordered_map<unsigned int, unsigned int>::const_iterator ecdsa_alg = strong_ecdsa_algs.find(alg_oid);
+            if (ecdsa_alg != strong_ecdsa_algs.end()) {
+
+                struct tlv tmp_sig = signature;
+                tmp_sig.remove_bitstring_encoding();
+                if (tmp_sig.is_truncated()){
+                    return false;  // missing data
+                }
+                if (tmp_sig.value.is_not_readable()){
+                    return false;  // missing data
+                }
+                struct ecdsa_signature sig{&tmp_sig.value};
+                if (sig.sequence.is_truncated()) {
+                    return false;  // missing data
+                }
+                if (sig.bits_in_signature() != ecdsa_alg->second) {
+                    return true;
+                }
+
             }
-        } else {
-            std::unordered_map<unsigned int, unsigned int>::const_iterator a = strong_sig_algs.find(sig_alg_type);
-            if (a != strong_sig_algs.end()) {
-                if (bits_in_signature() + threshold >= a->second) {
-                    return false;
+
+            std::unordered_map<unsigned int, unsigned int> strong_rsa_algs{
+                // { "rsaEncryption", 2048 },
+                { oid::sha256WithRSAEncryption, 2048 },
+                { oid::sha384WithRSAEncryption, 2048 },
+                { oid::sha512WithRSAEncryption, 2048 },
+            };
+            unsigned int rsa_threshold = 32;
+
+            std::unordered_map<unsigned int, unsigned int>::const_iterator rsa_alg = strong_rsa_algs.find(alg_oid);
+            if (rsa_alg != strong_rsa_algs.end()) {
+                if (signature.is_null()) {
+                    return false;  // missing data
+                }
+                struct tlv tmp_sig = signature;        // to avoid modifying signature
+                if (tmp_sig.is_truncated()){
+                    return false;  // missing data
+                }
+                if (tmp_sig.value.is_not_readable()){
+                    return false;  // missing data
+                }
+                tmp_sig.remove_bitstring_encoding();
+                if (tmp_sig.value.bits_in_data() + rsa_threshold < rsa_alg->second) {
+                    return true;
                 }
             }
+            return false;
         }
-        return true;
+        if (unsigned_is_weak) {
+            return true;
+        }
+        return false;
+
     }
 
     bool is_nonconformant() const {
         if (signature_algorithm.algorithm.is_null() || signature_identifier.algorithm.is_null()) {
             return false;  // missing data
         }
+        if (signature_algorithm.algorithm.is_truncated() || signature_identifier.algorithm.is_truncated()) {
+            return false;  // missing data
+        }
         enum oid sig_alg_type = signature_algorithm.type();
         enum oid tbs_sig_alg_type = signature_identifier.type();
         if (sig_alg_type != tbs_sig_alg_type) {
+            if (sig_alg_type == oid::unknown) {
+                return false;  // assume missing data (TBD: ?)
+            }
             return true;
         }
         return false;
@@ -1680,6 +1816,14 @@ struct x509_cert {
             }
         }
         return false;
+    }
+
+    void report_key_group(struct json_object_asn1 &o, struct dictionary *d) const {
+        if (d) {
+            std::basic_string<uint8_t> s = subjectPublicKeyInfo.subject_public_key.value.get_bytestring();
+            unsigned int g = d->get(s);
+            o.print_key_uint("key_group", g);
+        }
     }
 
     void report_violations(struct json_object_asn1 &o,
@@ -1742,7 +1886,7 @@ struct x509_cert {
 
         if (!extensions.is_null()) {
             struct json_array extensions_array{o, "extensions"};
-            struct parser tlv_sequence = extensions.value;
+            struct datum tlv_sequence = extensions.value;
             while (tlv_sequence.is_not_empty()) {
                 struct extension xtn(tlv_sequence);
                 struct json_object_asn1 wrapper{extensions_array};
@@ -1780,7 +1924,7 @@ struct x509_cert_prefix {
     struct tlv version;
     struct tlv serial_number;
     struct name issuer;
-    struct parser prefix;
+    struct datum prefix;
 
     x509_cert_prefix() : version{}, serial_number{}, issuer{}, prefix{NULL, NULL} {   }
 
@@ -1790,7 +1934,7 @@ struct x509_cert_prefix {
 
     void parse(const void *buffer, unsigned int len) {
 
-        struct parser p;
+        struct datum p;
         prefix.data = (const uint8_t *)buffer;
         parser_init(&p, (const unsigned char *)buffer, len);
 

@@ -10,12 +10,11 @@
 #include <stdio.h>
 #include <arpa/inet.h>  /* for htons()  */
 #include <net/ethernet.h>
-#include "ept.h"
 #include "parser.h"
 #include "utils.h"
 #include "eth.h"
 
-void parser_init(struct parser *p,
+void parser_init(struct datum *p,
                  const unsigned char *data,
                  unsigned int data_len) {
 
@@ -25,8 +24,8 @@ void parser_init(struct parser *p,
     extractor_debug("%s: initialized with %td bytes\n", __func__, p->data_end - p->data);
 }
 
-void parser_init_from_outer_parser(struct parser *p,
-                                   const struct parser *outer,
+void parser_init_from_outer_parser(struct datum *p,
+                                   const struct datum *outer,
                                    unsigned int data_len) {
     const unsigned char *inner_data_end = outer->data + data_len;
 
@@ -36,12 +35,12 @@ void parser_init_from_outer_parser(struct parser *p,
     extractor_debug("%s: initialized with %td bytes\n", __func__, p->data_end - p->data);
 }
 
-void parser_pop(struct parser *inner, struct parser *outer) {
+void parser_pop(struct datum *inner, struct datum *outer) {
     outer->data = inner->data;
     extractor_debug("%s: outer parser now has %td bytes\n", __func__, outer->data_end - outer->data);
 }
 
-enum status parser_set_data_length(struct parser *p,
+enum status parser_set_data_length(struct datum *p,
                                    unsigned int data_len) {
 
     extractor_debug("%s: set_data_length from %ld to %u\n", __func__, p->data_end - p->data, data_len);
@@ -53,7 +52,7 @@ enum status parser_set_data_length(struct parser *p,
     return status_err;
 }
 
-enum status parser_skip(struct parser *p,
+enum status parser_skip(struct datum *p,
                         unsigned int len) {
     extractor_debug("%s: skipping %u bytes (%02x...)\n", __func__, len, p->data[0]);
 
@@ -65,7 +64,7 @@ enum status parser_skip(struct parser *p,
     return status_err;
 }
 
-enum status parser_skip_to(struct parser *p,
+enum status parser_skip_to(struct datum *p,
                            const unsigned char *location) {
 
     if (location <= p->data_end) {
@@ -76,7 +75,7 @@ enum status parser_skip_to(struct parser *p,
     return status_err;
 }
 
-enum status parser_read_uint(struct parser *p,
+enum status parser_read_uint(struct datum *p,
                              unsigned int num_bytes,
                              size_t *output) {
 
@@ -94,7 +93,7 @@ enum status parser_read_uint(struct parser *p,
     return status_err;
 }
 
-enum status parser_read_and_skip_uint(struct parser *p,
+enum status parser_read_and_skip_uint(struct datum *p,
                                       unsigned int num_bytes,
                                       size_t *output) {
 
@@ -113,7 +112,7 @@ enum status parser_read_and_skip_uint(struct parser *p,
     return status_err;
 }
 
-enum status parser_read_and_skip_byte_string(struct parser *p,
+enum status parser_read_and_skip_byte_string(struct datum *p,
                                              unsigned int num_bytes,
                                              uint8_t *output_string) {
 
@@ -130,7 +129,7 @@ enum status parser_read_and_skip_byte_string(struct parser *p,
     return status_err;
 }
 
-ptrdiff_t parser_get_data_length(struct parser *p) {
+ptrdiff_t parser_get_data_length(struct datum *p) {
     return p->data_end - p->data;
 }
 
@@ -143,7 +142,7 @@ ptrdiff_t parser_get_data_length(struct parser *p) {
  * delimiter; in the second case, the function returns the number of
  * bytes to the end of the data buffer.
  */
-int parser_find_delim(struct parser *p,
+int parser_find_delim(struct datum *p,
                       const unsigned char *delim,
                       size_t length) {
 
@@ -166,7 +165,7 @@ int parser_find_delim(struct parser *p,
     return - (data - p->data);
 }
 
-enum status parser_skip_upto_delim(struct parser *p,
+enum status parser_skip_upto_delim(struct datum *p,
                                    const unsigned char delim[],
                                    size_t length) {
 
@@ -188,7 +187,7 @@ enum status parser_skip_upto_delim(struct parser *p,
  * (x->data & mask) == value, and returns status_err otherwise
  * It advances p->data by value_len when it returns status_ok
  */
-unsigned int parser_match(struct parser *p,
+unsigned int parser_match(struct datum *p,
                           const unsigned char *value,
                           size_t value_len,
                           const unsigned char *mask) {

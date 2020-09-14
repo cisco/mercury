@@ -5,12 +5,12 @@
 #ifndef ASN1_H
 #define ASN1_H
 
-#include "../parser.h"
+#include "../datum.h"
 #include "../json_object.h"
 
 namespace std {
-    template <>  struct hash<struct parser>  {
-        std::size_t operator()(const struct parser& p) const {
+    template <>  struct hash<struct datum>  {
+        std::size_t operator()(const struct datum& p) const {
             size_t x = 5381;
             const uint8_t *tmp = p.data;
             while (tmp < p.data_end) {
@@ -26,6 +26,7 @@ namespace std {
  * utility functions
  */
 
+#if 0 // currently unused functions
 void fprint_as_ascii_with_dots(FILE *f, const void *string, size_t len) {
     const char *s = (const char *)string;
     for (size_t i=0; i < len; i++) {
@@ -41,8 +42,9 @@ void fprint_as_ascii_with_dots(FILE *f, const void *string, size_t len) {
 void fprintf_parser_as_string(FILE *f, struct parser *p) {
     fprintf(f, "%.*s", (int) (p->data_end - p->data), p->data);
 }
+#endif
 
-void utc_to_generalized_time(uint8_t gt[15], const uint8_t utc[13]) {
+static void utc_to_generalized_time(uint8_t gt[15], const uint8_t utc[13]) {
     if (utc[0] < '5') {
         gt[0] = '2';
         gt[1] = '0';
@@ -52,6 +54,9 @@ void utc_to_generalized_time(uint8_t gt[15], const uint8_t utc[13]) {
     }
     memcpy(gt + 2, utc, 13);
 }
+
+
+#ifndef UTILS_H
 
 void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
     if (data == NULL) {
@@ -64,8 +69,6 @@ void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
         fprintf(f, "%02x", *x++);
     }
 }
-
-#ifndef UTILS_H
 
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;
@@ -499,7 +502,7 @@ void raw_string_print_as_oid(struct buffer_stream &buf, const uint8_t *raw, size
 }
 
 static const char *oid_empty_string = "";
-const char *parser_get_oid_string(const struct parser *p) {
+const char *parser_get_oid_string(const struct datum *p) {
     std::basic_string<uint8_t> s = p->get_bytestring();
     auto pair = oid_dict.find(s);
     if (pair == oid_dict.end()) {
@@ -508,7 +511,7 @@ const char *parser_get_oid_string(const struct parser *p) {
     return pair->second.c_str();
 }
 
-enum oid parser_get_oid_enum(const struct parser *p) {
+enum oid parser_get_oid_enum(const struct datum *p) {
     std::basic_string<uint8_t> s = p->get_bytestring();
     auto pair = oid_to_enum.find(s);
     if (pair == oid_to_enum.end()) {
@@ -531,7 +534,7 @@ struct json_object_asn1 : public json_object {
     }
     explicit json_object_asn1(struct json_array &array);
 
-    void print_key_oid(const char *k, const struct parser &value) {
+    void print_key_oid(const char *k, const struct datum &value) {
         const char *output = parser_get_oid_string(&value);
         write_comma(comma);
         if (output != oid_empty_string) {
@@ -545,10 +548,10 @@ struct json_object_asn1 : public json_object {
         }
     }
 
-    void print_key_bitstring_flags(const char *name, const struct parser &value, char * const *flags) {
+    void print_key_bitstring_flags(const char *name, const struct datum &value, char * const *flags) {
         struct json_array a{*this, name};
         if (value.data) {
-            struct parser p = value;
+            struct datum p = value;
             char *const *tmp = flags;
             size_t number_of_unused_bits = 0;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
@@ -582,7 +585,7 @@ struct json_object_asn1 : public json_object {
         comma = true;
     }
 
-    void print_key_escaped_string(const char *k, const struct parser &value) {
+    void print_key_escaped_string(const char *k, const struct datum &value) {
         write_comma(comma);
         fprintf_json_string_escaped(*b, k, value.data, value.data_end - value.data);
     }
@@ -663,7 +666,7 @@ struct json_object_asn1 : public json_object {
         b->write_char('\"');
     }
 
-    void print_key_ip_address(const char *name, const parser &value) {
+    void print_key_ip_address(const char *name, const datum &value) {
         write_comma(comma);
         b->snprintf("\"%s\":\"", name);
         fprintf_ip_address(*b, value.data, value.data_end - value.data);
@@ -677,7 +680,7 @@ json_object_asn1::json_object_asn1(struct json_array &array) : json_object(array
 struct json_array_asn1 : public json_array {
     explicit json_array_asn1(struct buffer_stream *b) : json_array(b) { }
     explicit json_array_asn1(struct json_object &object, const char *name) : json_array(object, name) { }
-    void print_oid(const struct parser &value) {
+    void print_oid(const struct datum &value) {
         const char *output = parser_get_oid_string(&value);
         write_comma(comma);
         if (output != oid_empty_string) {
@@ -712,7 +715,7 @@ struct json_array_asn1 : public json_array {
 struct tlv {
     unsigned char tag;
     size_t length;
-    struct parser value;
+    struct datum value;
 
     bool operator == (const struct tlv &r) {
         return tag == r.tag && length == r.length && value == r.value;
@@ -765,6 +768,12 @@ struct tlv {
     bool is_null() const {
         return (value.data == NULL);
     }
+    bool is_truncated() const {
+        return value.data != NULL && value.length() != (ssize_t) length;
+    }
+    bool is_complete() const {
+        return value.data != NULL && value.length() == (ssize_t) length;
+    }
     uint8_t get_little_tag() const { return tag & 0x1f; }
     tlv() {
         // initialize to null/zero
@@ -785,7 +794,7 @@ struct tlv {
         value.data = r.value.data;
         value.data_end = r.value.data_end;
     }
-    explicit tlv(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tag{0}, length{0}, value{NULL, NULL} {
+    explicit tlv(struct datum *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) : tag{0}, length{0}, value{NULL, NULL} {
         parse(p, expected_tag, tlv_name);
     }
     void handle_parse_error(const char *msg, const char *tlv_name) {
@@ -799,7 +808,7 @@ struct tlv {
         throw msg;
 #endif
     }
-    void parse(struct parser *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
+    void parse(struct datum *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
 
         if (p->data == NULL) {
             handle_parse_error("warning: NULL data", tlv_name ? tlv_name : "unknown TLV");
@@ -979,7 +988,7 @@ struct tlv {
     //
     static bool is_der_format(const void *data, size_t length) {
         uint8_t *d = (uint8_t *)data;
-        struct parser p{d, d + length};
+        struct datum p{d, d + length};
         struct tlv test(&p, tlv::SEQUENCE);
         if (test.is_null() || test.length > (length - 2)) {
             return false;
@@ -1078,7 +1087,7 @@ struct tlv {
         }
         fprintf(f, format_string, name);
         if (value.data) {
-            struct parser p = value;
+            struct datum p = value;
             size_t number_of_unused_bits;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
@@ -1105,7 +1114,7 @@ struct tlv {
         }
         fprintf(f, format_string, name);
         if (value.data) {
-            struct parser p = value;
+            struct datum p = value;
             char *const *tmp = flags;
             size_t number_of_unused_bits;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
@@ -1219,7 +1228,7 @@ struct tlv {
         }
         buf.snprintf(format_string, name);
         if (value.data) {
-            struct parser p = value;
+            struct datum p = value;
             size_t number_of_unused_bits;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
@@ -1247,7 +1256,7 @@ struct tlv {
         }
         buf.snprintf(format_string, name);
         if (value.data) {
-            struct parser p = value;
+            struct datum p = value;
             char *const *tmp = flags;
             size_t number_of_unused_bits;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
@@ -1350,7 +1359,7 @@ struct tlv {
         }
         o.b->snprintf(format_string, name);
         if (value.data) {
-            struct parser p = value;
+            struct datum p = value;
             size_t number_of_unused_bits = 0;
             parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
@@ -1405,7 +1414,7 @@ struct tlv {
     }
 
     void print_tag_as_json_hex(struct json_object &o, const char *name) const {
-        parser p{&tag, &tag+1};
+        struct datum p{&tag, &tag+1};
         o.print_key_hex(name, p);
     }
 

@@ -12,37 +12,11 @@
 #include <stdint.h>
 #include <stdio.h>      /* for FILE */
 #include <list>
-#include "parser.h"
+#include "datum.h"
 #include "mercury.h"
 #include "tcp.h"
+#include "proto_identify.h"
 
-
-/*
- * The extractor_debug macro is useful for debugging (but quite verbose)
- */
-#ifndef DEBUG
-#define extractor_debug(...)
-#else
-#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
-#endif
-
-enum packet_data_type {
-    packet_data_type_none            = 0,
-    packet_data_type_tls_sni         = 1,
-    packet_data_type_http_user_agent = 2,
-    packet_data_type_tls_cert        = 3,
-    packet_data_type_dtls_sni        = 4,
-    packet_data_type_dns_server      = 5,
-    packet_data_type_wireguard       = 6,
-    packet_data_type_tls_no_sni      = 7,
-    packet_data_type_http_no_user_agent = 8
-};
-
-struct packet_data {
-    enum packet_data_type type;
-    size_t length;
-    const uint8_t *value;
-};
 
 enum fingerprint_type {
     fingerprint_type_unknown     = 0,
@@ -59,24 +33,11 @@ enum fingerprint_type {
     fingerprint_type_ssh_kex     = 11
 };
 
-#define PROTO_UNKNOWN 65535
-
 struct protocol_state {
     uint16_t proto;   /* protocol IANA number */
     uint16_t dir;     /* DIR_CLIENT, DIR_SERVER, DIR_UNKNOWN */
     uint32_t state;   /* protocol-specific state */
 };
-
-/*
- * state represents the state of the extractor; it knows whether or
- * not additional packets must be processed, etc.
- */
-typedef enum extractor_state {
-    state_done = 0,
-    state_start = 1,
-    state_not_done = 2
-} extractor_state_e;
-
 
 /*
  * An extractor is an object that parses data in one buffer, selects
@@ -105,21 +66,14 @@ typedef enum extractor_state {
  */
 struct extractor {
     enum fingerprint_type fingerprint_type;
-    struct protocol_state proto_state;  /* tracking across packets   */
     unsigned char *output_start;        /* buffer for output         */
     unsigned char *output;              /* buffer for output         */
     unsigned char *output_end;          /* end of output buffer      */
     unsigned char *last_capture;        /* last cap in output stream */
-    struct packet_data packet_data;     /* data of interest in packt */
-    struct parser transport_data;       // NEW
+    struct datum tcp;                  // NEW
+    struct datum transport_data;       // NEW
+    enum msg_type msg_type;             // NEW
 };
-
-/*
- * extractor_is_not_done(x) returns 0 if the extractor is
- * done parsing a flow, and otherwiwse returns another value.
- *
- */
-extractor_state_e extractor_is_not_done(const struct extractor *x);
 
 
 /*
@@ -135,12 +89,12 @@ void extractor_init(struct extractor *x,
  * parser_init initializes a parser object with a data buffer
  * (holding the data to be parsed)
  */
-void parser_init(struct parser *p,
+void parser_init(struct datum *p,
 		 const unsigned char *data,
 		 unsigned int data_len);
 
 
-unsigned int parser_match(struct parser *p,
+unsigned int parser_match(struct datum *p,
                           const unsigned char *value,
                           size_t value_len,
                           const unsigned char *mask);
@@ -149,17 +103,12 @@ enum status extractor_reserve(struct extractor *x,
                               unsigned char **data,
                               size_t length);
 
-void parser_init_from_outer_parser(struct parser *p,
-                                   const struct parser *outer,
+void parser_init_from_outer_parser(struct datum *p,
+                                   const struct datum *outer,
                                    unsigned int data_len);
 
-enum status parser_set_data_length(struct parser *p,
+enum status parser_set_data_length(struct datum *p,
                                    unsigned int data_len);
-
-void packet_data_set(struct packet_data *pd,
-                     enum packet_data_type type,
-                     size_t length,
-                     const uint8_t *value);
 
 uint16_t degrease_uint16(uint16_t x);
 
@@ -200,37 +149,6 @@ enum status extractor_read_uint(struct extractor *x,
 				unsigned int num_bytes,
 				size_t *uint_output);
 
-
-/*
- * extractor_push initializes the extractor inner with the current
- * data and output pointers of extractor outer, with the data buffer
- * restricted to the number of bytes indicated by the length parameter
- */
-enum status extractor_push(struct extractor *inner,
-			   const struct extractor *outer,
-			   size_t length);
-
-/*
- * extractor_pop removes the inner extractor and updates the outer
- * extractor appropriately.  The length of data copied into the output
- * buffer is encoded into the appropriate location of that buffer;
- * that is, this function ensures that the variable-length field
- * copied into the output buffer is accurate and complete.
- */
-void extractor_pop(struct extractor *outer,
-		   const struct extractor *inner);
-
-/*
- * extractor_reserve_output reserves num_bytes bytes of the output
- * stream as the location to which data can be written in the future,
- * and remembers that location (by storing it into its tmp_location
- * variable).  This function can be used to encode variable-length
- * data in the output (and it is used by extractor_push and
- * extractor_pop).
- */
-enum status extractor_reserve_output(struct extractor *x,
-				     size_t num_bytes);
-
 /*
  * extractor_get_data_length returns the number of bytes remaining in
  * the data buffer.  Callers should expect that the value returned may
@@ -244,58 +162,21 @@ ptrdiff_t extractor_get_data_length(struct extractor *x);
  */
 ptrdiff_t extractor_get_output_length(const struct extractor *x);
 
-enum status extractor_push_vector_extractor(struct extractor *y,
-					    struct extractor *x,
-					    size_t bytes_in_length_field);
-
-void extractor_pop_vector_extractor(struct extractor *x,
-				    struct extractor *y);
-
-enum status extractor_copy_alt(struct extractor *x,
-			       unsigned char *data, /* alternative data source */
-			       unsigned int len);
-
-unsigned int match(const unsigned char *data,
-		   size_t data_len,
-		   const unsigned char *mask,
-		   const unsigned char *value,
-		   size_t value_len);
-
-
 unsigned int extractor_match(struct extractor *x,
 			     const unsigned char *value,
 			     size_t value_len,
 			     const unsigned char *mask);
-
-unsigned int uint16_match(uint16_t x,
-			  const uint16_t *ulist,
-			  unsigned int num);
-
-
-/*
- * protocol-specific functions
- */
-
-
-unsigned int parser_extractor_process_tcp_data(struct parser *p, struct extractor *x);
-
-unsigned int extractor_process_tcp(struct extractor *x);
-
-const char *get_frame_type(const unsigned char *data,
-			   unsigned int len);
-
 
 
 /*
  * new functions for mercury
  */
 
+unsigned int parser_extractor_process_packet(struct datum *p, struct extractor *x);
 
-unsigned int parser_extractor_process_packet(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_tls(struct datum *p, struct extractor *x);
 
-unsigned int parser_extractor_process_tls(struct parser *p, struct extractor *x);
-
-unsigned int parser_process_tls_server(struct parser *p);
+unsigned int parser_process_tls_server(struct datum *p);
 
 void extract_certificates(FILE *file, const unsigned char *data, size_t data_len);
 
@@ -305,48 +186,30 @@ void write_extract_cert_prefix(struct buffer_stream &buf, const unsigned char *d
 
 void write_extract_cert_full(struct json_array &a, const unsigned char *data, size_t data_len);
 
-enum status parser_read_and_skip_uint(struct parser *p,
+enum status parser_read_and_skip_uint(struct datum *p,
                                       unsigned int num_bytes,
                                       size_t *output);
 
-enum status parser_skip(struct parser *p,
+enum status parser_skip(struct datum *p,
                         unsigned int len);
 
-unsigned int parser_extractor_process_ssh(struct parser *p, struct extractor *x);
+unsigned int parser_extractor_process_ssh(struct datum *p, struct extractor *x);
 
 
-enum status parser_extractor_copy(struct parser *p,
+enum status parser_extractor_copy(struct datum *p,
                                   struct extractor *x,
                                   unsigned int len);
 
-enum status parser_read_uint(struct parser *p,
+enum status parser_read_uint(struct datum *p,
                              unsigned int num_bytes,
                              size_t *output);
 
-enum status parser_extractor_copy_append(struct parser *p,
+enum status parser_extractor_copy_append(struct datum *p,
                                          struct extractor *x,
                                          unsigned int len);
 
-/*
- * extract_fp_from_tls_client_hello() runs the fingerprint extraction
- * algorithm on the byte string start at the location *data* and
- * continuing for *data_len* bytes, and if there is a well-formed TLS
- * clientHello in that buffer, the normalized fingerprint is extracted
- * and the resulting string is written into outbuf, as a parenthesized
- * hexadecimal string, as long as it fits in the output buffer (has
- * length less than outbuf_len).
- *
- * RETURN VALUE: the number of (single-byte) characters written into
- * the output buffer, or zero on failure.
- * 
- */
-size_t extract_fp_from_tls_client_hello(uint8_t *data,
-					size_t data_len,
-					uint8_t *outbuf,
-					size_t outbuf_len);
 
-
-void parser_init_packet(struct parser *p, const unsigned char *data, unsigned int length);
+void parser_init_packet(struct datum *p, const unsigned char *data, unsigned int length);
 
 
 /*
@@ -354,7 +217,7 @@ void parser_init_packet(struct parser *p, const unsigned char *data, unsigned in
  */
 struct packet_filter {
     struct tcp_initial_message_filter *tcp_init_msg_filter;
-    struct parser p;
+    struct datum p;
     struct extractor x;
     unsigned char extractor_buffer[2048];
 };
@@ -384,7 +247,7 @@ size_t packet_filter_extract(struct packet_filter *pf,
 
 unsigned int packet_filter_process_packet(struct packet_filter *pf, struct key *k);
 
-typedef unsigned int (*parser_extractor_func)(struct parser *p, struct extractor *x);
+typedef unsigned int (*parser_extractor_func)(struct datum *p, struct extractor *x);
 
 #define proto_ident_mask_len 8
 
@@ -409,88 +272,9 @@ enum status proto_dispatch_add(struct proto_dispatch *pd,
 
 enum status proto_ident_config(const char *config_string);
 
+ptrdiff_t parser_get_data_length(struct datum *p);
 
-unsigned int u32_compare_masked_data_to_value(const void *data,
-                                              const void *mask,
-                                              const void *value);
-
-unsigned int u64_compare_masked_data_to_value(const void *data,
-                                              const void *mask,
-                                              const void *value);
-
-ptrdiff_t parser_get_data_length(struct parser *p);
-
-
-// new packet metadata catpure
-
-#define L_ExtensionType            2
-#define L_ExtensionLength          2
-
-/*
- * extension types used in normalization
- */
-#define type_sni                0x0000
-#define type_supported_groups   0x000a
-#define type_supported_versions 0x002b
-
-#define SNI_HDR_LEN 9
-
-struct tls_extensions : public parser {
-
-    tls_extensions(const uint8_t *data, const uint8_t *data_end) : parser{data, data_end} {}
-
-    void print(struct json_object &o, const char *key) const;
-
-    void print_server_name(struct json_object &o, const char *key) const;
-};
-
-
-struct tls_client_hello {
-    struct parser protocol_version;
-    struct parser random;
-    struct parser ciphersuite_vector;
-    struct parser session_id;
-    struct parser compression_methods;
-    struct tls_extensions extensions;
-
-    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, session_id{NULL, NULL}, extensions{NULL, NULL} {}
-    void parse(struct parser &p);
-
-};
-
-struct tls_server_hello {
-    struct parser protocol_version;
-    struct parser random;
-    struct parser ciphersuite_vector;
-    struct parser extensions;
-
-    tls_server_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, ciphersuite_vector{NULL, NULL}, extensions{NULL, NULL} {}
-
-    void parse(struct parser &p, struct extractor *x);
-
-    enum status parse_tls_server_hello(struct parser &p, struct extractor *x);
-};
-
-struct http_headers : public parser {
-
-    http_headers() : parser{NULL, NULL} {}
-
-    void print_host(struct json_object &o, const char *key) const;
-    void print_matching_name(struct json_object &o, const char *key, struct parser &name) const;
-    void print_matching_names(struct json_object &o, const char *key, std::list<struct parser> &name) const;
-    void print_matching_names(struct json_object &o, std::list<std::pair<struct parser, std::string>> &name_list) const;
-};
-
-struct http_request {
-    struct parser method;
-    struct parser uri;
-    struct parser protocol;
-    struct http_headers headers;
-
-    http_request() : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL} {}
-
-    void parse(struct parser &p);
-
-};
+enum msg_type get_message_type(const uint8_t *tcp_data,
+                               unsigned int len);
 
 #endif /* EXTRACTOR_H */

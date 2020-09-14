@@ -50,6 +50,7 @@ char mercury_help[] =
     "GENERAL OPTIONS\n"
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
+    "   --resources d                         # use resource directory d\n"
     "   [-s or --select] filter               # select only metadata (see --help)\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
@@ -173,18 +174,17 @@ bool option_is_valid(const char *opt) {
     return true;
 }
 
-bool dns_json_output   = false;  /* output DNS as JSON              */
-bool certs_json_output = false;  /* output certificates as JSON     */
-bool metadata_output   = false;  /* output lots of metadata         */
+extern struct global_variables global_vars;  /* defined in config.c */
 
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
+            { "resources",   required_argument, NULL, resources },
             { "version",     no_argument,       NULL, version },
             { "license",     no_argument,       NULL, license },
             { "dns-json",    no_argument,       NULL, dns_json },
@@ -217,6 +217,13 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
             break;
+        case resources:
+            if (option_is_valid(optarg)) {
+                cfg.resources = optarg;
+            } else {
+                usage(argv[0], "option resources requires directory argument", extended_help_off);
+            }
+            break;
         case version:
             mercury_version.print(stdout);
             return EXIT_SUCCESS;
@@ -229,21 +236,21 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 usage(argv[0], "option dns-json does not use an argument", extended_help_off);
             } else {
-                dns_json_output = true;
+                global_vars.dns_json_output = true;
             }
             break;
         case certs_json:
             if (optarg) {
                 usage(argv[0], "option certs-json does not use an argument", extended_help_off);
             } else {
-                certs_json_output = true;
+                global_vars.certs_json_output = true;
             }
             break;
         case metadata:
             if (optarg) {
                 usage(argv[0], "option metadata does not use an argument", extended_help_off);
             } else {
-                metadata_output = true;
+                global_vars.metadata_output = true;
             }
             break;
         case 'r':
@@ -285,7 +292,7 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 usage(argv[0], "option a or analysis does not use an argument", extended_help_off);
             } else {
-                cfg.analysis = analysis_on;
+                cfg.analysis = true;
             }
             break;
         case 'o':
@@ -430,10 +437,15 @@ int main(int argc, char *argv[]) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
     }
 
+    if (cfg.write_filename && cfg.read_filename) {
+        cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
+    }
+
     if (cfg.analysis) {
-        if (analysis_init() == -1) {
+        if (analysis_init(cfg.verbosity, cfg.resources) == -1) {
             return EXIT_FAILURE;  /* analysis engine could not be initialized */
         };
+        global_vars.do_analysis = true;
     }
 
     /*

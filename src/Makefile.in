@@ -44,6 +44,7 @@ MERC   += capture.c
 endif
 MERC   += config.c
 MERC   += json_file_io.c
+MERC   += match.c
 MERC   += output.c
 MERC   += pcap_file_io.c
 MERC   += pcap_reader.c
@@ -55,6 +56,7 @@ MERC_H += license.h
 MERC_H += version.h
 MERC_H += af_packet_v3.h
 MERC_H += config.h
+MERC_H += dhcp.h
 MERC_H += json_file_io.h
 MERC_H += json_object.h
 MERC_H += llq.h
@@ -69,31 +71,38 @@ MERC_H += signal_handling.h
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
 #
-LIBMERC     = analysis.c
-LIBMERC     += addr.c
-LIBMERC     += dns.c
-LIBMERC     += extractor.c
-LIBMERC     += ept.c
-LIBMERC     += packet.c
-LIBMERC     += pkt_proc.c
-LIBMERC     += udp.c
-LIBMERC     += utils.c
+LIBMERC     =  analysis.cc
+LIBMERC     += addr.cc
+LIBMERC     += dns.cc
+LIBMERC     += extractor.cc
+LIBMERC     += http.cc
+LIBMERC     += packet.cc
+LIBMERC     += pkt_proc.cc
+LIBMERC     += ssh.cc
+LIBMERC     += tls.cc
+LIBMERC     += udp.cc
+LIBMERC     += utils.cc
+LIBMERC     += wireguard.cc
 LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
 LIBMERC_H   += analysis.h
 LIBMERC_H   += buffer_stream.h
 LIBMERC_H   += dns.h
-LIBMERC_H   += ept.h
 LIBMERC_H   += eth.h
 LIBMERC_H   += extractor.h
+LIBMERC_H   += http.h
 LIBMERC_H   += proto_identify.h
 LIBMERC_H   += packet.h
-LIBMERC_H   += parser.h
+LIBMERC_H   += datum.h
 LIBMERC_H   += pkt_proc.h
+LIBMERC_H   += ssh.h
 LIBMERC_H   += tcp.h
+LIBMERC_H   += tcpip.h
+LIBMERC_H   += tls.h
 LIBMERC_H   += udp.h
 LIBMERC_H   += utils.h
+LIBMERC_H   += wireguard.h
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
@@ -122,9 +131,15 @@ setcap: mercury
 #	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
 	$(CXX) $(CFLAGS) -c $<
 
+# implicit rule for building object files from .cc files
+#
+%.o: %.cc %.h
+#	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
+	$(CXX) $(CFLAGS) -c $<
+
 # rule to build library
 #
-LIBMERC_OBJ = $(LIBMERC:%.c=%.o)
+LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
 libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) $(LIBMERC_H) Makefile 
 	ar rcs libmerc.a $(LIBMERC_OBJ) 
 
