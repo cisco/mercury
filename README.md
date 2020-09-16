@@ -9,6 +9,11 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normaling metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.  
 
+## Version 2.3.0
+* New **--resources** command line option causes resource files (used in analysis) to be read from a directory other than the default.  This makes it easier to use a fingerprint prevalence database other than the system default one.
+* New metadata output: SSH KEX INIT message and TCP initial sequence number (that is, the SEQ of the TCP SYN packet).
+* The packet processing logic has been refactored to use a more systematic approach to packet parsing, which is documented in [https://github.com/cisco/mercury/blob/master/doc/safe-parsing.md](doc/safe-parsing).  The new code is considerably easier to read and extend; it is utilized by the JSON output path, though some functions from the old lower-level approach to packet parsing is still in place in the PCAP output path.  
+
 ## Version 2.2.0
 * New **--metadata** command line option causes JSON output to include a lot more metadata in its output: tls.client.version, tls.client.random, tls.client.session_id, tls.client.cipher_suites, tls.client.compression_methods, tls.client.server_name, tls.server.random, tls.server.certs, http.request.method, http.request.uri, http.request.protocol, http.request.host, and http.request.user_agent.
 *  Accomodating the richer metadata required changes to the previous JSON schema.  The current schema is documented in [json-test.py](test/json-test.py).
@@ -96,6 +101,7 @@ OUTPUT
 GENERAL OPTIONS
    --config c                            # read configuration from file c
    [-a or --analysis]                    # analyze fingerprints
+   --resources d                         # use resource directory d
    [-s or --select] filter               # select only metadata (see --help)
    [-l or --limit] l                     # rotate output file after l records
    --dns-json                            # output DNS as JSON, not base64
