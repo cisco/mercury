@@ -288,13 +288,13 @@ int append_packet_json(struct buffer_stream &buf,
                 if ((global_vars.metadata_output && have_hello) || have_certificate) {
                     struct json_object tls{record, "tls"};
                     struct json_object tls_server{tls, "server"};
-                    if (global_vars.metadata_output && have_hello) {
-                        hello.write_json(tls_server);
-                    }
                     if (have_certificate) {
                         struct json_array server_certs{tls_server, "certs"};
                         certificate.write_json(server_certs, global_vars.certs_json_output);
                         server_certs.close();
+                    }
+                    if (global_vars.metadata_output && have_hello) {
+                        hello.write_json(tls_server);
                     }
                     tls_server.close();
                     tls.close();
