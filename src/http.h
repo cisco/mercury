@@ -33,6 +33,7 @@ struct http_headers : public datum {
     void print_matching_name(struct json_object &o, const char *key, struct datum &name) const;
     void print_matching_names(struct json_object &o, const char *key, std::list<struct datum> &name) const;
     void print_matching_names(struct json_object &o, std::list<std::pair<struct datum, std::string>> &name_list) const;
+    void print_matching_names(struct json_object &o, std::unordered_map<std::basic_string<uint8_t>, std::string> &name_dict) const;
 
     void fingerprint(struct buffer_stream &buf, std::unordered_map<std::basic_string<uint8_t>, bool> &name_dict) const;
 

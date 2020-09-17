@@ -8,6 +8,15 @@
 #include "json_object.h"
 #include "match.h"
 
+inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
+    if (d.is_not_readable()) {
+        return;
+    }
+    while (d.data < d.data_end) {
+        str.push_back(tolower(*d.data++));
+    }
+}
+
 void http_request::parse(struct datum &p) {
 
     /* parse request line */
@@ -24,7 +33,7 @@ void http_request::parse(struct datum &p) {
     return;
 }
 
-void http_headers::print_matching_names(struct json_object &o, std::list<std::pair<struct datum, std::string>> &name_list) const {
+void http_headers::print_matching_names(struct json_object &o, std::unordered_map<std::basic_string<uint8_t>, std::string> &name_dict) const {
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
 
@@ -45,10 +54,11 @@ void http_headers::print_matching_names(struct json_object &o, std::list<std::pa
         keyword.data_end = p.data;
         const char *header_name = NULL;
 
-        for (const auto &name : name_list) {
-            if (name.first.case_insensitive_match(keyword)) {
-                header_name = (const char *)name.second.c_str();
-            }
+        std::basic_string<uint8_t> name_lowercase;
+        to_lower(name_lowercase, keyword);
+        auto pair = name_dict.find(name_lowercase);
+        if (pair != name_dict.end()) {
+            header_name = (const char *)pair->second.c_str();
         }
         const uint8_t *value_start = p.data;
         if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
@@ -58,15 +68,6 @@ void http_headers::print_matching_names(struct json_object &o, std::list<std::pa
         if (header_name) {
             o.print_key_json_string(header_name, value_start, value_end - value_start);
         }
-    }
-}
-
-inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
-    if (d.is_not_readable()) {
-        return;
-    }
-    while (d.data < d.data_end) {
-        str.push_back(tolower(*d.data++));
     }
 }
 
@@ -117,29 +118,15 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std
 
 void http_request::write_json(struct json_object &record, bool output_metadata) {
 
-    // construct a list of http header names to be printed out
+    // list of http header names to be printed out
     //
-    uint8_t ua[] = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
-    struct datum user_agent{ua, ua+sizeof(ua)};
-    std::pair<struct datum, std::string> user_agent_name{user_agent, "user_agent"};
-
-    uint8_t h[] = { 'h', 'o', 's', 't', ':', ' ' };
-    struct datum host{h, h+sizeof(h)};
-    std::pair<struct datum, std::string> host_name{host, "host"};
-
-    uint8_t xff[] = { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' };
-    struct datum xff_parser{xff, xff+sizeof(xff)};
-    std::pair<struct datum, std::string> x_forwarded_for{xff_parser, "x_forwarded_for"};
-
-    uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
-    struct datum v_parser{v, v+sizeof(v)};
-    std::pair<struct datum, std::string> via{v_parser, "via"};
-
-    uint8_t u[] = { 'u', 'p', 'g', 'r', 'a', 'd', 'e', ':', ' ' };
-    struct datum u_parser{u, u+sizeof(u)};
-    std::pair<struct datum, std::string> upgrade_pair{u_parser, "upgrade"};
-
-    std::list<std::pair<struct datum, std::string>> names_to_print{user_agent_name, host_name, x_forwarded_for, via, upgrade_pair};
+    std::unordered_map<std::basic_string<uint8_t>, std::string> header_names_to_print = {
+        { { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' }, "user_agent" },
+        { { 'h', 'o', 's', 't', ':', ' ' }, "host"},
+        { { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' }, "x_forwarded_for"},
+        { { 'v', 'i', 'a', ':', ' ' }, "via"},
+        { { 'u', 'p', 'g', 'r', 'a', 'd', 'e', ':', ' ' }, "upgrade"}
+    };
 
     if (this->is_not_empty()) {
         struct json_object http{record, "http"};
@@ -155,13 +142,15 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
             // all headers, and print the values corresponding to each
             // of the matching names
             //
-            headers.print_matching_names(http_request, names_to_print);
+            headers.print_matching_names(http_request, header_names_to_print);
             http_request.print_key_value("fingerprint", *this);
 
         } else {
 
             // output only the user-agent
-            std::list<std::pair<struct datum, std::string>> ua_only{user_agent_name};
+            std::unordered_map<std::basic_string<uint8_t>, std::string> ua_only = {
+                { { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' }, "user_agent" }
+            };
             headers.print_matching_names(http_request, ua_only);
         }
         http_request.close();
@@ -188,25 +177,14 @@ void http_response::parse(struct datum &p) {
 
 void http_response::write_json(struct json_object &record) {
 
-    // construct a list of http header names to be printed out
+    // list of http header names to be printed out
     //
-    uint8_t ct[] = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 't', 'y', 'p', 'e', ':', ' ' };
-    struct datum content_type{ct, ct+sizeof(ct)};
-    std::pair<struct datum, std::string> content_type_pair{content_type, "content_type"};
-
-    uint8_t cl[] = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 'l', 'e', 'n', 'g', 't', 'h', ':', ' ' };
-    struct datum content_length{cl, cl+sizeof(cl)};
-    std::pair<struct datum, std::string> content_length_pair{content_length, "content_length"};
-
-    uint8_t srv[] = { 's', 'e', 'r', 'v', 'e', 'r', ':', ' ' };
-    struct datum server{srv, srv+sizeof(srv)};
-    std::pair<struct datum, std::string> server_pair{server, "server"};
-
-    uint8_t v[] = { 'v', 'i', 'a', ':', ' ' };
-    struct datum v_parser{v, v+sizeof(v)};
-    std::pair<struct datum, std::string> via_pair{v_parser, "via"};
-
-    std::list<std::pair<struct datum, std::string>> names_to_print{server_pair, content_type_pair, content_length_pair, via_pair};
+    std::unordered_map<std::basic_string<uint8_t>, std::string> header_names_to_print = {
+        { { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 't', 'y', 'p', 'e', ':', ' ' }, "content_type"},
+        { { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 'l', 'e', 'n', 'g', 't', 'h', ':', ' ' }, "content_length"},
+        { { 's', 'e', 'r', 'v', 'e', 'r', ':', ' ' }, "server"},
+        { { 'v', 'i', 'a', ':', ' ' }, "via"}
+    };
 
     struct json_object http{record, "http"};
     struct json_object http_response{http, "response"};
@@ -219,7 +197,7 @@ void http_response::write_json(struct json_object &record) {
     // all headers, and print the values corresponding to each
     // of the matching names
     //
-    headers.print_matching_names(http_response, names_to_print);
+    headers.print_matching_names(http_response, header_names_to_print);
     http_response.print_key_value("fingerprint", *this);
 
     http_response.close();
@@ -331,7 +309,6 @@ void http_response::operator()(struct buffer_stream &buf) const {
         { (uint8_t *)"x-served-by: ", false },
         { (uint8_t *)"x-timer: ", false },
         { (uint8_t *)"x-trace-context: ", false }
-
     };
     headers.fingerprint(buf, http_static_keywords);
     buf.write_char('\"');
