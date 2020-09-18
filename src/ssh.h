@@ -155,6 +155,17 @@ struct name_list : public datum {
         p.read_uint32(&length);
         datum::parse(p, length);
     }
+    void parse(struct datum &p, size_t &additional_bytes_needed) {
+        uint32_t length;
+        p.read_uint32(&length);
+        if (length > p.length()) {
+            if (additional_bytes_needed == 0) {
+                additional_bytes_needed = length - p.length();
+                fprintf(stderr, "ssh additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, length, p.length());
+            }
+        }
+        datum::parse_soft_fail(p, length);
+    }
 };
 
 /*
@@ -189,22 +200,26 @@ struct ssh_kex_init {
     struct name_list compression_algorithms_server_to_client;
     struct name_list languages_client_to_server;
     struct name_list languages_server_to_client;
+    size_t additional_bytes_needed;
 
     ssh_kex_init() = default;
 
     void parse(struct datum &p) {
+        additional_bytes_needed = 0;
+
         msg_type.parse(p, L_ssh_payload);
         cookie.parse(p, L_ssh_cookie);
-        kex_algorithms.parse(p);
-        server_host_key_algorithms.parse(p);
-        encryption_algorithms_client_to_server.parse(p);
-        encryption_algorithms_server_to_client.parse(p);
-        mac_algorithms_client_to_server.parse(p);
-        mac_algorithms_server_to_client.parse(p);
-        compression_algorithms_client_to_server.parse(p);
-        compression_algorithms_server_to_client.parse(p);
-        languages_client_to_server.parse(p);
-        languages_server_to_client.parse(p);
+        kex_algorithms.parse(p, additional_bytes_needed);
+        server_host_key_algorithms.parse(p, additional_bytes_needed);
+        encryption_algorithms_client_to_server.parse(p, additional_bytes_needed);
+        encryption_algorithms_server_to_client.parse(p, additional_bytes_needed);
+        mac_algorithms_client_to_server.parse(p, additional_bytes_needed);
+        mac_algorithms_server_to_client.parse(p, additional_bytes_needed);
+        compression_algorithms_client_to_server.parse(p, additional_bytes_needed);
+        compression_algorithms_server_to_client.parse(p, additional_bytes_needed);
+        languages_client_to_server.parse(p, additional_bytes_needed);
+        languages_server_to_client.parse(p, additional_bytes_needed);
+
     }
 
     bool is_not_empty() const { return kex_algorithms.is_not_empty(); }

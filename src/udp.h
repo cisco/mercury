@@ -41,8 +41,8 @@ struct udp_packet {
 
 };
 
-enum msg_type udp_get_message_type(const uint8_t *udp_data,
-                                   unsigned int len);
+enum udp_msg_type udp_get_message_type(const uint8_t *udp_data,
+                                       unsigned int len);
 
 #endif
 

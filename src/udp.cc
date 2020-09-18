@@ -163,11 +163,11 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
     return NULL;
 }
 
-enum msg_type udp_get_message_type(const uint8_t *udp_data,
+enum udp_msg_type udp_get_message_type(const uint8_t *udp_data,
                                    unsigned int len) {
 
     if (len < sizeof(dhcp_client_mask)) {
-        return msg_type_unknown;
+        return udp_msg_type_unknown;
     }
 
     /* note: udp_data will be 32-bit aligned as per the standard */
@@ -178,31 +178,31 @@ enum msg_type udp_get_message_type(const uint8_t *udp_data,
     if (u32_compare_masked_data_to_value(udp_data,
                                          dhcp_client_mask,
                                          dhcp_client_value)) {
-        return msg_type_dhcp;
+        return udp_msg_type_dhcp;
     }
 
     if (u32_compare_masked_data_to_value(udp_data,
                                          dtls_client_hello_mask,
                                          dtls_client_hello_value)) {
-        return msg_type_dtls_client_hello;
+        return udp_msg_type_dtls_client_hello;
     }
     if (u64_compare_masked_data_to_value(udp_data,
                                          dtls_server_hello_mask,
                                          dtls_server_hello_value)) {
-        return msg_type_dtls_server_hello;
+        return udp_msg_type_dtls_server_hello;
     }
     if (u64_compare_masked_data_to_value(udp_data,
                                          dns_server_mask,
                                          dns_server_value)) {
-        return msg_type_dns;
+        return udp_msg_type_dns;
     }
     if (u64_compare_masked_data_to_value(udp_data,
                                          wireguard_mask,
                                          wireguard_value)) {
-        return msg_type_wireguard;
+        return udp_msg_type_wireguard;
     }
 
-    return msg_type_unknown;
+    return udp_msg_type_unknown;
 }
 
 /*
@@ -319,28 +319,28 @@ unsigned int parser_extractor_process_udp_data(struct datum *p, struct extractor
 
     switch(pi->app) {
     case DHCP_CLIENT_PORT:
-        x->msg_type = msg_type_dhcp;
+        //x->msg_type = msg_type_dhcp;
         return parser_extractor_process_dhcp(p, x);
         break;
     case DTLS_PORT:
         if (pi->dir == DIR_CLIENT) {
-            x->msg_type = msg_type_dtls_client_hello;
+            //x->msg_type = msg_type_dtls_client_hello;
             return parser_extractor_process_dtls(p, x);
         } else {
-            x->msg_type = msg_type_dtls_server_hello;
+            //x->msg_type = msg_type_dtls_server_hello;
             return parser_extractor_process_dtls_server(p, x);
         }
         break;
     case SSH_PORT:
-        x->msg_type = msg_type_ssh;
+        //x->msg_type = msg_type_ssh;
         return parser_extractor_process_ssh(p, x);
         break;
     case DNS_PORT:
-        x->msg_type = msg_type_dns;
+        //x->msg_type = msg_type_dns;
         return parser_extractor_process_dns(p, x);
         break;
     case WIREGUARD_PORT:
-        x->msg_type = msg_type_wireguard;
+        //x->msg_type = msg_type_wireguard;
         return parser_extractor_process_wireguard(p, x);
         break;
     default:

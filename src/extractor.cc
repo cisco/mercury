@@ -221,11 +221,11 @@ const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
     return NULL;
 }
 
-enum msg_type get_message_type(const uint8_t *tcp_data,
-                               unsigned int len) {
+enum tcp_msg_type get_message_type(const uint8_t *tcp_data,
+                                   unsigned int len) {
 
     if (len < sizeof(tls_client_hello_mask)) {
-        return msg_type_unknown;
+        return tcp_msg_type_unknown;
     }
 
     // debug_print_u8_array(tcp_data);
@@ -235,44 +235,44 @@ enum msg_type get_message_type(const uint8_t *tcp_data,
     if (u32_compare_masked_data_to_value(tcp_data,
                                          tls_client_hello_mask,
                                          tls_client_hello_value)) {
-        return msg_type_tls_client_hello;
+        return tcp_msg_type_tls_client_hello;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
                                          tls_server_hello_mask,
                                          tls_server_hello_value)) {
-        return msg_type_tls_server_hello;
+        return tcp_msg_type_tls_server_hello;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
                                          tls_server_cert_mask,
                                          tls_server_cert_value)) {
-        return msg_type_tls_certificate;
+        return tcp_msg_type_tls_certificate;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
                                          http_client_mask,
                                          http_client_value)) {
-        return msg_type_http_request;
+        return tcp_msg_type_http_request;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
                                          http_client_post_mask,
                                          http_client_post_value)) {
-        return msg_type_http_request;
+        return tcp_msg_type_http_request;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
                                          http_server_mask,
                                          http_server_value)) {
-        return msg_type_http_response;
+        return tcp_msg_type_http_response;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
                                          ssh_mask,
                                          ssh_value)) {
-        return msg_type_ssh;
+        return tcp_msg_type_ssh;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
                                          ssh_kex_mask,
                                          ssh_kex_value)) {
-        return msg_type_ssh_kex;
+        return tcp_msg_type_ssh_kex;
     }
-    return msg_type_unknown;
+    return tcp_msg_type_unknown;
 }
 
 /* extractor methods */
@@ -296,7 +296,7 @@ void extractor_init(struct extractor *x,
     x->tcp.data_end = NULL;
     x->transport_data.data = NULL;
     x->transport_data.data_end = NULL;
-    x->msg_type = msg_type_unknown;
+    //x->msg_type = msg_type_unknown;
 }
 
 void parser_init(struct datum *p,
@@ -1976,33 +1976,33 @@ unsigned int parser_extractor_process_tcp_data(struct datum *p, struct extractor
     switch(pi->app) {
     case HTTP_PORT:
         if (pi->dir == DIR_CLIENT) {
-            x->msg_type = msg_type_http_request;
+            //x->msg_type = msg_type_http_request;
             return parser_extractor_process_http(p, x);
         } else {
-            x->msg_type = msg_type_http_response;
+            //x->msg_type = msg_type_http_response;
             return parser_extractor_process_http_server(p, x);
         }
         break;
     case HTTPS_PORT:
         if (pi->dir == DIR_CLIENT) {
-            x->msg_type = msg_type_tls_client_hello;
+            //x->msg_type = msg_type_tls_client_hello;
             return parser_extractor_process_tls(p, x);
         } else if (pi->dir == DIR_SERVER) {
             /* we have Server Hello and possibly Server Certificate */
-            x->msg_type = msg_type_tls_server_hello;
+            //x->msg_type = msg_type_tls_server_hello;
             return parser_extractor_process_tls_server(p, x);
         } else if (pi->dir == DIR_UNKNOWN) {
             /* we have Server Certificate only */
-            x->msg_type = msg_type_tls_certificate;
+            //x->msg_type = msg_type_tls_certificate;
             return parser_extractor_process_tls_server_cert(p, x);
         }
         break;
     case SSH_PORT:
-        x->msg_type = msg_type_ssh;
+        //x->msg_type = msg_type_ssh;
         return parser_extractor_process_ssh(p, x);
         break;
     case SSH_KEX:
-        x->msg_type = msg_type_ssh_kex;
+        //x->msg_type = msg_type_ssh_kex;
         return parser_extractor_process_ssh_kex(p, x);
         break;
     default:

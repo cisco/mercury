@@ -123,8 +123,9 @@ struct tcp_option : public datum {
 struct tcp_packet {
     const struct tcp_header *header;
     struct datum tcp_options;
+    uint32_t data_length;
 
-    tcp_packet() : header{NULL}, tcp_options{NULL, NULL} {};
+    tcp_packet() : header{NULL}, tcp_options{NULL, NULL}, data_length{0} {};
 
     void parse(struct datum &p) {
         if (p.length() < (int)sizeof(struct tcp_header)) {
@@ -134,7 +135,8 @@ struct tcp_packet {
         p.skip(sizeof(struct tcp_header));
 
         tcp_options.parse(p, tcp_offrsv_get_length(header->offrsv) - TCP_FIXED_HDR_LEN);
-
+        data_length = p.length();
+        //        fprintf(stderr, "tcp.data_length: %u\n", data_length);
     }
 
     bool is_SYN() {

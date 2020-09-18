@@ -181,8 +181,9 @@ struct tls_handshake {
 struct tls_server_certificate {
     uint32_t length; // note: only 24 bits on the wire (L_CertificateListLength)
     struct datum certificate_list;
+    size_t additional_bytes_needed;
 
-    tls_server_certificate() : length{0}, certificate_list{NULL, NULL} {}
+    tls_server_certificate() : length{0}, certificate_list{NULL, NULL}, additional_bytes_needed{0} {}
 
     void parse(struct datum &d) {
         size_t tmp = 0;
@@ -191,6 +192,10 @@ struct tls_server_certificate {
         }
         length = tmp;
         certificate_list.init_from_outer_parser(&d, length);
+        additional_bytes_needed = length - certificate_list.length();
+        if (additional_bytes_needed) {
+            fprintf(stderr, "certificate additional_bytes_needed: %zu\ttotal bytes needed: %u\n", additional_bytes_needed, length);
+        }
     }
 
     bool is_not_empty() const { return certificate_list.is_not_empty(); }

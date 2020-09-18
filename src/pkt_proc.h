@@ -54,7 +54,7 @@ struct pkt_proc {
 struct pkt_proc_json_writer_llq : public pkt_proc {
     struct ll_queue *llq;
     struct packet_filter pf;
-    // struct tcp_reassembler reassembler;
+    struct tcp_reassembler reassembler;
 
     /*
      * pkt_proc_json_writer(outfile_name, mode, max_records)
@@ -66,7 +66,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
      * records (lines) per file; after that limit is reached, file
      * rotation will take place.
      */
-    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter) { //: reassembler{} {
+    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter) : reassembler{} {
         llq = llq_ptr;
         if (packet_filter_init(&pf, filter) == status_err) {
             throw "could not initialize packet filter";
@@ -74,7 +74,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, reassembler);
     }
 
     void flush() override {
