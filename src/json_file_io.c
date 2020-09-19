@@ -183,6 +183,10 @@ void tcp_data_write_json(struct buffer_stream &buf,
                 rec.parse(pkt);
                 struct tls_handshake handshake;
                 handshake.parse(rec.fragment);
+                if (handshake.additional_bytes_needed) {
+                    reassembler.copy_packet(k, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed);
+                    return;
+                }
                 struct tls_client_hello hello;
                 hello.parse(handshake.body);
                 if (hello.is_not_empty()) {
