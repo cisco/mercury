@@ -149,13 +149,13 @@ cert-check:
 ifeq ($(do_cert_check),yes)
 	@echo "running certificate test"
 	$(MERCURY) -r data/top-https.pcap -f tmp.json
-	$(python) certificate-test.py tmp.json --complete 1 --partial 43
+	$(python) certificate-test.py tmp.json --complete 96 --partial 0
 	@echo $(COLOR_GREEN) "passed top-https certificate test" $(COLOR_OFF)
 	$(MERCURY) -r data/top_100_fingerprints.pcap -f tmp.json
-	$(python) certificate-test.py tmp.json --complete 150 --partial 14
+	$(python) certificate-test.py tmp.json --complete 164 --partial 0
 	@echo $(COLOR_GREEN) "passed top_100_fingerprints certificate test" $(COLOR_OFF)
 	$(MERCURY) -r data/test_decrypt.pcap -f tmp.json
-	$(python) certificate-test.py tmp.json --complete 6 --partial 1
+	$(python) certificate-test.py tmp.json --complete 8 --partial 0
 	@echo $(COLOR_GREEN) "passed test_decrypt certificate test" $(COLOR_OFF)
 	rm -f tmp.json
 else

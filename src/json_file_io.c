@@ -152,46 +152,12 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 
 }
 
-int append_packet_json(struct buffer_stream &buf,
-                       uint8_t *packet,
-                       size_t length,
-                       struct timespec *ts,
-                       struct tcp_reassembler &reassembler) {
-    struct key k;
-    struct datum pkt{packet, packet+length};
-    size_t transport_proto = 0;
-    size_t ethertype = 0;
-    parser_process_eth(&pkt, &ethertype);
-    switch(ethertype) {
-    case ETH_TYPE_IP:
-        parser_process_ipv4(&pkt, &transport_proto, &k);
-        break;
-    case ETH_TYPE_IPV6:
-        parser_process_ipv6(&pkt, &transport_proto, &k);
-        break;
-    default:
-        ;
-    }
-    if (transport_proto == 6) {
-        struct tcp_packet tcp_pkt;
-        tcp_pkt.parse(pkt);
-        tcp_pkt.set_key(k);
-        if (tcp_pkt.is_SYN()) {
-            struct json_object record{&buf};
-            struct json_object fps{record, "fingerprints"};
-            fps.print_key_value("tcp", tcp_pkt);
-            fps.close();
-            if (global_vars.metadata_output) {
-                 tcp_pkt.write_json(fps);
-            }
-            write_flow_key(record, k);
-            record.print_key_timestamp("event_start", ts);
-            record.close();
-        }
-
-        reassembler.check_packet(k, tcp_pkt.header, pkt.length());
-        // TBD: process buffer, not packet, if the reassember completes a request
-
+void tcp_data_write_json(struct buffer_stream &buf,
+                         struct datum &pkt,
+                         struct key &k,
+                         struct tcp_packet &tcp_pkt,
+                         struct timespec *ts,
+                         struct tcp_reassembler &reassembler) {
         enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
         switch(msg_type) {
         case tcp_msg_type_http_request:
@@ -270,6 +236,7 @@ int append_packet_json(struct buffer_stream &buf,
 
                 if (certificate.additional_bytes_needed) {
                     reassembler.copy_packet(k, tcp_pkt.header, tcp_pkt.data_length, certificate.additional_bytes_needed);
+                    return;
                 }
 
                 bool have_hello = hello.is_not_empty();
@@ -336,11 +303,12 @@ int append_packet_json(struct buffer_stream &buf,
                 init_packet.write_json(record, global_vars.metadata_output);
 #ifdef SSHM
                 if (pkt.is_not_empty()) {
+                    pkt.accept('\n');
                     record.print_key_json_string("ssh_residual_data", pkt.data, pkt.length());
-                    struct ssh_binary_packet pkt;
-                    pkt.parse(pkt);
+                    struct ssh_binary_packet bin_pkt;
+                    bin_pkt.parse(pkt);
                     struct ssh_kex_init kex_init;
-                    kex_init.parse(pkt.payload);
+                    kex_init.parse(bin_pkt.payload);
                     kex_init.write_json(record, global_vars.metadata_output);
                 }
 #endif
@@ -375,6 +343,56 @@ int append_packet_json(struct buffer_stream &buf,
             // no output
             break;
         }
+
+}
+
+int append_packet_json(struct buffer_stream &buf,
+                       uint8_t *packet,
+                       size_t length,
+                       struct timespec *ts,
+                       struct tcp_reassembler &reassembler) {
+    struct key k;
+    struct datum pkt{packet, packet+length};
+    size_t transport_proto = 0;
+    size_t ethertype = 0;
+    parser_process_eth(&pkt, &ethertype);
+    switch(ethertype) {
+    case ETH_TYPE_IP:
+        parser_process_ipv4(&pkt, &transport_proto, &k);
+        break;
+    case ETH_TYPE_IPV6:
+        parser_process_ipv6(&pkt, &transport_proto, &k);
+        break;
+    default:
+        ;
+    }
+    if (transport_proto == 6) {
+        struct tcp_packet tcp_pkt;
+        tcp_pkt.parse(pkt);
+        tcp_pkt.set_key(k);
+        if (tcp_pkt.is_SYN()) {
+            struct json_object record{&buf};
+            struct json_object fps{record, "fingerprints"};
+            fps.print_key_value("tcp", tcp_pkt);
+            fps.close();
+            if (global_vars.metadata_output) {
+                 tcp_pkt.write_json(fps);
+            }
+            write_flow_key(record, k);
+            record.print_key_timestamp("event_start", ts);
+            record.close();
+        }
+
+        const struct tcp_buffer *data_buf = reassembler.check_packet(k, tcp_pkt.header, pkt.length());
+        if (data_buf) {
+            // fprintf(stderr, "REASSEMBLED TCP PACKET\n");
+            struct datum reassembled_tcp_data{data_buf->data, data_buf->data + data_buf->last_byte_needed};
+            tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler);
+
+        } else {
+            tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler);
+        }
+
     } else if (transport_proto == 17) {
         struct udp_packet udp_pkt;
         udp_pkt.parse(pkt);

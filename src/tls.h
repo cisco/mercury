@@ -194,7 +194,7 @@ struct tls_server_certificate {
         certificate_list.init_from_outer_parser(&d, length);
         additional_bytes_needed = length - certificate_list.length();
         if (additional_bytes_needed) {
-            fprintf(stderr, "certificate additional_bytes_needed: %zu\ttotal bytes needed: %u\n", additional_bytes_needed, length);
+            //fprintf(stderr, "certificate additional_bytes_needed: %zu\ttotal bytes needed: %u\n", additional_bytes_needed, length);
         }
     }
 

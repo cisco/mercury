@@ -161,7 +161,7 @@ struct name_list : public datum {
         if (length > p.length()) {
             if (additional_bytes_needed == 0) {
                 additional_bytes_needed = length - p.length();
-                fprintf(stderr, "ssh additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, length, p.length());
+                //fprintf(stderr, "ssh additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, length, p.length());
             }
         }
         datum::parse_soft_fail(p, length);
