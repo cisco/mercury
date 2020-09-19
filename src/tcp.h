@@ -332,8 +332,10 @@ struct tcp_reassembler {
 
     void copy_packet(struct key &k, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
 
-        k.src_port = tcp->src_port;
-        k.dst_port = tcp->dst_port;
+        // the port numbers in the flow key are already set at this point
+        //
+        // k.src_port = tcp->src_port;
+        // k.dst_port = tcp->dst_port;
         //        size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
 
         std::hash<struct key> hasher;
@@ -361,8 +363,10 @@ struct tcp_reassembler {
         const uint8_t *src_start = (const uint8_t*)tcp;
         src_start += tcp_offrsv_get_header_length(tcp->offrsv);
 
-        k.src_port = tcp->src_port;
-        k.dst_port = tcp->dst_port;
+        // the port numbers in the flow key are already set at this point
+        //
+        // k.src_port = tcp->src_port;
+        // k.dst_port = tcp->dst_port;
         //        uint32_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
         //        (void)data_length;
 
@@ -370,10 +374,10 @@ struct tcp_reassembler {
         size_t h = hasher(k) % tcp_buffer::array_length;
         struct tcp_buffer &b = buffer[h];
         if (k == b.k) {
-            fprintf(stderr, "found flow key (src: %u, dst: %u)\tpacket: [%u,%zu]\tbuffer: [%u,%u]\n",
-                    ntohs(k.src_port), ntohs(k.dst_port), ntohl(tcp->seq), ntohl(tcp->seq)+length, b.seq_init, b.seq_init + b.index);
-            fprintf(stderr, "                                 \tpacket: [%u,%zu]\tbuffer: [%u,%u]\n",
-                    ntohl(tcp->seq)-b.seq_init, ntohl(tcp->seq)-b.seq_init+length, 0, b.index);
+            //fprintf(stderr, "found flow key (src: %u, dst: %u)\tpacket: [%u,%zu]\tbuffer: [%u,%u]\n",
+            //        ntohs(k.src_port), ntohs(k.dst_port), ntohl(tcp->seq), ntohl(tcp->seq)+length, b.seq_init, b.seq_init + b.index);
+            //fprintf(stderr, "                                 \tpacket: [%u,%zu]\tbuffer: [%u,%u]\n",
+            //        ntohl(tcp->seq)-b.seq_init, ntohl(tcp->seq)-b.seq_init+length, 0, b.index);
 
             uint32_t pkt_start = ntohl(tcp->seq) - b.seq_init;
             uint32_t pkt_end   = pkt_start + length;
