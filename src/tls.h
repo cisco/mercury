@@ -148,8 +148,9 @@ struct tls_handshake {
     handshake_type msg_type;
     uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
     struct datum body;
+    size_t additional_bytes_needed;
 
-    tls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {}
+    tls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL}, additional_bytes_needed{0} {}
 
     tls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
         parse(d);
@@ -164,6 +165,7 @@ struct tls_handshake {
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
         body.init_from_outer_parser(&d, length);
+        additional_bytes_needed = length - body.length();
     }
 };
 
@@ -243,8 +245,9 @@ struct tls_client_hello {
     struct datum compression_methods;
     struct tls_extensions extensions;
     bool dtls;
+    size_t additional_bytes_needed;
 
-    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, session_id{NULL, NULL}, cookie{NULL, NULL}, ciphersuite_vector{NULL, NULL}, compression_methods{NULL, NULL}, extensions{NULL, NULL}, dtls{false} {}
+    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, session_id{NULL, NULL}, cookie{NULL, NULL}, ciphersuite_vector{NULL, NULL}, compression_methods{NULL, NULL}, extensions{NULL, NULL}, dtls{false}, additional_bytes_needed{0} {}
 
     void parse(struct datum &p);
 
