@@ -319,7 +319,6 @@ void tcp_data_write_json(struct buffer_stream &buf,
             break;
         case tcp_msg_type_ssh_kex:
             {
-                // record.print_key_json_string("ssh_kex_data", pkt.data, pkt.length());
                 struct ssh_binary_packet ssh_pkt;
                 ssh_pkt.parse(pkt);
                 struct ssh_kex_init kex_init;

@@ -160,12 +160,19 @@ struct name_list : public datum {
         p.read_uint32(&length);
         if (length > p.length()) {
             if (additional_bytes_needed == 0) {
-                additional_bytes_needed = length - p.length();
-                //fprintf(stderr, "ssh additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, length, p.length());
+                if (length - p.length() > name_list::max_length) {
+                    p.set_empty(); // packet is not really a KEX_INIT
+
+                } else {
+                    additional_bytes_needed = length - p.length();
+                    //fprintf(stderr, "ssh additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, length, p.length());
+                }
             }
         }
         datum::parse_soft_fail(p, length);
     }
+
+    const static ssize_t max_length = 2048; // longest possible name
 };
 
 /*
