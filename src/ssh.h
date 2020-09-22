@@ -134,16 +134,29 @@ struct ssh_binary_packet {
     uint32_t packet_length;
     uint8_t padding_length;
     struct datum payload;
+    size_t additional_bytes_needed;
     // random padding
     // mac
 
     ssh_binary_packet() : packet_length{0}, padding_length{0}, payload{NULL, NULL} {}
 
     void parse(struct datum &p) {
+        additional_bytes_needed = 0;
         p.read_uint32(&packet_length);
         p.read_uint8(&padding_length);
-        payload.parse_soft_fail(p, packet_length - padding_length - 1);
+        ssize_t bytes_left_in_packet = packet_length - padding_length - 1;
+        if (bytes_left_in_packet > p.length()) {
+            if (bytes_left_in_packet - p.length() > ssh_binary_packet::max_length) {
+                p.set_empty();  // too long; probably not a real SSH binary packet
+            } else {
+                additional_bytes_needed = bytes_left_in_packet - p.length();
+                // fprintf(stderr, "ssh_binary_packet additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, packet_length, p.length());
+            }
+        }
+        payload.parse_soft_fail(p, bytes_left_in_packet);
     }
+
+    static const ssize_t max_length = 16384;
 };
 
 struct name_list : public datum {
@@ -165,7 +178,7 @@ struct name_list : public datum {
 
                 } else {
                     additional_bytes_needed = length - p.length();
-                    //fprintf(stderr, "ssh additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, length, p.length());
+                    // fprintf(stderr, "name_list additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, length, p.length());
                 }
             }
         }

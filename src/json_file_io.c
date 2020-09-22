@@ -325,11 +325,17 @@ void tcp_data_write_json(struct buffer_stream &buf,
             {
                 struct ssh_binary_packet ssh_pkt;
                 ssh_pkt.parse(pkt);
+                if (ssh_pkt.additional_bytes_needed) {
+                    reassembler.copy_packet(k, tcp_pkt.header, tcp_pkt.data_length, ssh_pkt.additional_bytes_needed);
+                    return;
+                }
                 struct ssh_kex_init kex_init;
                 kex_init.parse(ssh_pkt.payload);
-                if (kex_init.additional_bytes_needed) {
-                    reassembler.copy_packet(k, tcp_pkt.header, tcp_pkt.data_length, kex_init.additional_bytes_needed);
-                }
+                //if (kex_init.additional_bytes_needed) {
+                    //fprintf(stderr, "kex_init requesting reassembly, but not getting it\n");
+                    //reassembler.copy_packet(k, tcp_pkt.header, tcp_pkt.data_length, kex_init.additional_bytes_needed);
+                    //return;
+                //}
                 if (kex_init.is_not_empty()) {
                     struct json_object record{&buf};
                     struct json_object fps{record, "fingerprints"};
@@ -386,9 +392,9 @@ int append_packet_json(struct buffer_stream &buf,
             record.close();
         }
 
-        const struct tcp_buffer *data_buf = reassembler.check_packet(k, tcp_pkt.header, pkt.length());
+        const struct tcp_segment *data_buf = reassembler.check_packet(k, tcp_pkt.header, pkt.length());
         if (data_buf) {
-            // fprintf(stderr, "REASSEMBLED TCP PACKET\n");
+            // fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->last_byte_needed);
             struct datum reassembled_tcp_data{data_buf->data, data_buf->data + data_buf->last_byte_needed};
             tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler);
 
