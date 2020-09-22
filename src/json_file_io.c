@@ -331,11 +331,6 @@ void tcp_data_write_json(struct buffer_stream &buf,
                 }
                 struct ssh_kex_init kex_init;
                 kex_init.parse(ssh_pkt.payload);
-                //if (kex_init.additional_bytes_needed) {
-                    //fprintf(stderr, "kex_init requesting reassembly, but not getting it\n");
-                    //reassembler.copy_packet(k, tcp_pkt.header, tcp_pkt.data_length, kex_init.additional_bytes_needed);
-                    //return;
-                //}
                 if (kex_init.is_not_empty()) {
                     struct json_object record{&buf};
                     struct json_object fps{record, "fingerprints"};
