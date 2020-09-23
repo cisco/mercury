@@ -1,12 +1,12 @@
 /*
- * parser.h
+ * datum.h
  *
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
+ * Copyright (c) 2019-2020 Cisco Systems, Inc. All rights reserved.
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-#ifndef PARSER_H
-#define PARSER_H
+#ifndef DATUM_H
+#define DATUM_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -370,4 +370,4 @@ unsigned int parser_process_ipv6(struct datum *p, size_t *transport_protocol, st
 unsigned int parser_process_packet(struct datum *p);
 
 
-#endif /* PARSER_H */
+#endif /* DATUM_H */
