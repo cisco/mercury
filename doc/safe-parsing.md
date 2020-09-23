@@ -2,14 +2,23 @@
 #### David McGrew, September 4, 2020
 
 
-One of the biggest challenges in network data collection and analysis
-is that of parsing network data with safety, performance, and
+One of the important challenges in network data collection and
+analysis is that of parsing packets with safety, performance, and
 flexibility.  Network data formats are complex, and packet data is
-often truncated, and is too often misformatted.  In mercury and
-cert-analyze, bounds checking is enforced through structured
-programming, with data structures and functions that provide
-efficiency and flexibility.  This note explains that approach in more
-detail (and it is a work in progress).
+often truncated, and is too often misformatted.  Poorly designed
+network parsers have been the source of many severe software bugs.  To
+achieve performance and efficiency, Mercury (and cert-analyze) use
+*in-situ, selective parsing*, with bounds checking enforced through
+structured programming.  This note explains that approach in more
+detail (and is a work in progress).
+
+Abstractly, a packet parser reads a byte stream, determines what
+protocol and messages it contains, and converts the protocol's data
+elements into integers, strings, and other objects that are
+programmatically accessible.  **Selective parsing** converts only
+selected data elements, skipping over uninteresting ones for the sake
+of efficiency.  **In-situ parsing** avoids memory allocation by creating
+references to data elements in the packet buffer.
 
 Network packets occupy contiguous regions of memory.  A substring of a
 packet can be identified by a pair of pointers indicating its start
@@ -17,23 +26,24 @@ and its end.  Thus our fundamental data type is
 
 ```c++
    struct datum {
-      uint8_t *start;
-      uint8_t *end;
+      uint8_t *data;
+      uint8_t *data_end;
    };
 ```
 
-Roughly speaking, our strategy is to use a `struct datum` in every place
-where a naked pointer would otherwise be used, so that the extent of
-the data is always known, and to provide access to data strings only
-through functions that provide appropriate checking.
+as defined in [src/datum.h](../src/datum.h).  Roughly speaking, our
+strategy is to use a `struct datum` in every place where a naked
+pointer would otherwise be used, so that the extent of the data is
+always known, and to provide access to data strings only through
+functions that provide appropriate checking.
 
 A datum is in one of the states `null`, `readable`, or `empty`
 
-   start      |   end                     |    State
-   -----------|---------------------------|-----------------
-   NULL       |   NULL                    |    null
-   non-NULL   |   non-NULL, end > start   |    readable
-   non-NULL   |   non-NULL, end == start  |    empty
+   data       |   data_end                    |    State
+   -----------|-------------------------------|-----------------
+   NULL       |   NULL                        |    null
+   non-NULL   |   non-NULL, data_end > data   |    readable
+   non-NULL   |   non-NULL, data_end == data  |    empty
 
 A readable datum is not necessarily complete, in the sense that it
 might contain data that has been truncated, such as the first ten
@@ -75,9 +85,10 @@ an http_request is represented as
 ```
 
 The member function `parse()` takes a (reference to) a datum as input,
-parses that data and advances the start pointer, and assigns the start
-and end pointers for the method, uri, protocol, and headers.  A `struct http_request`
-object must have a scope that does not exceed that of the `data_buffer`.
+parses that data and advances the data pointer, and assigns the `data`
+and `data_end` pointers for the method, uri, protocol, and headers.  A
+`struct http_request` object must have a scope that does not exceed
+that of the `data_buffer`.
 
 An HTTP request contains a variable number of headers; in the example
 above, 'struct headers' represents all of them.  Accessing an
@@ -95,7 +106,7 @@ through functions that parse a top-level data element.
 The overhead for this approach is low; it trades some storage for
 computation.  In the http_request example, there are eight pointers
 instead of the minimum number of five pointers that are needed to
-represent the start and end of the header along with its internal
+represent the data and data_end of the header along with its internal
 partitions, but we can avoid a modest amount of pointer arithmetic
 that would otherwise be needed for bounds checking.
 
