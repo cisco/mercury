@@ -15,9 +15,9 @@ detail (and is a work in progress).
 Abstractly, a packet parser reads a byte stream, determines what
 protocol and messages it contains, and converts the protocol's data
 elements into integers, strings, and other objects that are
-programmatically accessible.  **Selective parsing** converts only
+programmatically accessible.  *Selective parsing* converts only
 selected data elements, skipping over uninteresting ones for the sake
-of efficiency.  **In-situ parsing** avoids memory allocation by creating
+of efficiency.  *In-situ parsing* avoids memory allocation by creating
 references to data elements in the packet buffer.
 
 Network packets occupy contiguous regions of memory.  A substring of a
