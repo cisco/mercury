@@ -33,8 +33,8 @@ length of the data element is known, the length of the TCP segment is known,
 and the reassembler knows exactly what TCP sequence number to look for.
 
 HTTP 1.1 does not contain such an indication, so TCP message
-reassembly is used for the method, URI, headers, and other fields.  
-A request to reassemble an HTTP1.1 request asks for the remainder of the
+reassembly is used for the method, URI, headers, and other fields.  A 
+request to reassemble an HTTP1.1 request asks for the remainder of the
 TCP message; the reassembler then uses the fact that the TCP Acknowledgement,
 or ACK field, of the client's packets will not change while it is sending
 the first TCP message.  To be clear, the client increases the ACK field in
