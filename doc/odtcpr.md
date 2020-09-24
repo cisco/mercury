@@ -33,16 +33,19 @@ length of the data element is known, the length of the TCP segment is known,
 and the reassembler knows exactly what TCP sequence number to look for.
 
 HTTP 1.1 does not contain such an indication, so TCP message
-reassembly is used for the method, URI, headers, and other fields.  A 
-request to reassemble an HTTP1.1 request asks for the remainder of the
+reassembly is used for the method, URI, headers, and other fields.  To 
+reassemble an HTTP1.1 Request, we ask for the remainder of the
 TCP message; the reassembler then uses the fact that the TCP Acknowledgement,
 or ACK field, of the client's packets will not change while it is sending
-the first TCP message.  To be clear, the client increases the ACK field in
-the packets that it sends, in order to indicate to the server that it
-recieved data.  Since the server waits until it receives the entire 
-request before it sends a response, the ACK field does not change while
-the client is sending the request, regardless of how many TCP packets it
-needs to send to get that message to the server.  
+the first TCP message.  In more detail, whenever the client receives 
+TCP data from the server, it increases the ACK field in the packets that it
+sends, in order to indicate that receipt to the server.  During the 
+entire time that the HTTP client is sending its Request to the server, 
+the server is listenting and waiting to receive the entire message, 
+and thus does not send any data to the client.  Thus the ACK field of 
+the client's TCP packets does not advance while the client is sending the
+request, regardless of how many TCP packets it needs to send to get that 
+message to the server.  
 
 When using the reassembler, it is important to request reassembly of the
 entire data element of interest, and to avoid requesting the reassembly
