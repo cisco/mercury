@@ -58,7 +58,8 @@ Detection can be accomplished by maintaining, along with each segment,
 a timestamp of when it was created.  A "reaper" function can traverse
 this list, process the incomplete segments, and then delete them.
 
-To avoid memory allocation, a preallocated array of segments is used.
-To better accomodate different segment sizes, the reassembler could
-use a big array of short segments and a short array of long segments.
+To avoid memory allocation during packet processing, a preallocated
+array of segments is used.  To better accomodate different segment
+sizes, the reassembler could use a big array of short segments and a
+short array of long segments.
 
