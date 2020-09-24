@@ -185,6 +185,8 @@ struct tls_server_certificate {
     struct datum certificate_list;
     size_t additional_bytes_needed;
 
+    static const size_t max_length = 65536;
+
     tls_server_certificate() : length{0}, certificate_list{NULL, NULL}, additional_bytes_needed{0} {}
 
     void parse(struct datum &d) {
@@ -192,11 +194,15 @@ struct tls_server_certificate {
         if (d.read_uint(&tmp, L_CertificateListLength) == false) {
             return;
         }
+        if (tmp > tls_server_certificate::max_length) {
+            d.set_null();
+            return;  // probably not a real server certificate
+        }
         length = tmp;
         certificate_list.init_from_outer_parser(&d, length);
         additional_bytes_needed = length - certificate_list.length();
         if (additional_bytes_needed) {
-            //fprintf(stderr, "certificate additional_bytes_needed: %zu\ttotal bytes needed: %u\n", additional_bytes_needed, length);
+            // fprintf(stderr, "certificate additional_bytes_needed: %zu\ttotal bytes needed: %u\n", additional_bytes_needed, length);
         }
     }
 

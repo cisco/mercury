@@ -102,6 +102,9 @@ struct key {
     void zeroize() {
         ip_vers = 0;
     }
+    bool is_zero() {
+        return ip_vers == 0;
+    }
     bool operator==(const key &k) const {
         switch (ip_vers) {
         case 4:
@@ -432,8 +435,9 @@ void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, 
 struct tcp_reassembler {
     static const size_t array_size = 8192;
     struct tcp_segment segment[tcp_reassembler::array_size];
+    struct tcp_segment *current_segment;
 
-    tcp_reassembler() : segment{} {
+    tcp_reassembler() : segment{}, current_segment{segment} {
         for(auto &b : segment) {
             b.k.zeroize();
         }
@@ -441,14 +445,24 @@ struct tcp_reassembler {
 
     void copy_packet(const struct key &k, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
 
+        if (length + bytes_needed > tcp_segment::array_length) {
+            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::array_length);
+        }
+        //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
+
         std::hash<struct key> hasher;
         size_t h = hasher(k) % tcp_reassembler::array_size;
         struct tcp_segment &b = segment[h];
+
+        if (b.k.is_zero() == false) {
+            fprintf(stderr, "clobber: key is not zero\n");
+        }
         b.init_from_packet(k, tcp, length, bytes_needed);
     }
 
     struct tcp_segment *check_packet(struct key &k, const struct tcp_header *tcp, size_t length) {
 
+        // reap();
         const uint8_t *src_start = (const uint8_t*)tcp;
         src_start += tcp_offrsv_get_header_length(tcp->offrsv);
 
@@ -456,6 +470,17 @@ struct tcp_reassembler {
         size_t h = hasher(k) % tcp_reassembler::array_size;
         struct tcp_segment &b = segment[h];
         return b.check_packet(k, tcp, length);
+    }
+
+    void reap() {
+        if (current_segment->k.is_zero() == false) {
+            fprintf(stderr, "reaper found nonzero key\n");
+        }
+
+        // advance pointer, and wrap around to start when needed
+        if (current_segment++ == (segment + tcp_reassembler::array_size)) {
+            current_segment = segment;
+        }
     }
 
 };

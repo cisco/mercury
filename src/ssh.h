@@ -143,15 +143,15 @@ struct ssh_binary_packet {
     void parse(struct datum &p) {
         additional_bytes_needed = 0;
         p.read_uint32(&packet_length);
+        if (packet_length > ssh_binary_packet::max_length) {
+            p.set_empty();  // too long; probably not a real SSH binary packet
+            return;
+        }
         p.read_uint8(&padding_length);
         ssize_t bytes_left_in_packet = packet_length - padding_length - 1;
         if (bytes_left_in_packet > p.length()) {
-            if (bytes_left_in_packet - p.length() > ssh_binary_packet::max_length) {
-                p.set_empty();  // too long; probably not a real SSH binary packet
-            } else {
-                additional_bytes_needed = bytes_left_in_packet - p.length();
-                // fprintf(stderr, "ssh_binary_packet additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, packet_length, p.length());
-            }
+            additional_bytes_needed = bytes_left_in_packet - p.length();
+            // fprintf(stderr, "ssh_binary_packet additional_bytes_needed: %zu (wanted: %zd, have: %zu)\n", additional_bytes_needed, bytes_left_in_packet, p.length());
         }
         payload.parse_soft_fail(p, bytes_left_in_packet);
     }
@@ -166,23 +166,11 @@ struct name_list : public datum {
     void parse(struct datum &p) {
         uint32_t length;
         p.read_uint32(&length);
-        datum::parse(p, length);
-    }
-    void parse(struct datum &p, size_t &additional_bytes_needed) {
-        uint32_t length;
-        p.read_uint32(&length);
-        if (length > p.length()) {
-            if (additional_bytes_needed == 0) {
-                if (length - p.length() > name_list::max_length) {
-                    p.set_empty(); // packet is not really a KEX_INIT
-
-                } else {
-                    additional_bytes_needed = length - p.length();
-                    // fprintf(stderr, "name_list additional_bytes_needed: %zu (want: %u, have: %zu)\n", additional_bytes_needed, length, p.length());
-                }
-            }
+        if (length > name_list::max_length) {
+            p.set_empty(); // packet is not really a KEX_INIT
+            return;
         }
-        datum::parse_soft_fail(p, length);
+        datum::parse(p, length);
     }
 
     const static ssize_t max_length = 2048; // longest possible name
@@ -220,25 +208,23 @@ struct ssh_kex_init {
     struct name_list compression_algorithms_server_to_client;
     struct name_list languages_client_to_server;
     struct name_list languages_server_to_client;
-    size_t additional_bytes_needed;
 
     ssh_kex_init() = default;
 
     void parse(struct datum &p) {
-        additional_bytes_needed = 0;
 
         msg_type.parse(p, L_ssh_payload);
         cookie.parse(p, L_ssh_cookie);
-        kex_algorithms.parse(p, additional_bytes_needed);
-        server_host_key_algorithms.parse(p, additional_bytes_needed);
-        encryption_algorithms_client_to_server.parse(p, additional_bytes_needed);
-        encryption_algorithms_server_to_client.parse(p, additional_bytes_needed);
-        mac_algorithms_client_to_server.parse(p, additional_bytes_needed);
-        mac_algorithms_server_to_client.parse(p, additional_bytes_needed);
-        compression_algorithms_client_to_server.parse(p, additional_bytes_needed);
-        compression_algorithms_server_to_client.parse(p, additional_bytes_needed);
-        languages_client_to_server.parse(p, additional_bytes_needed);
-        languages_server_to_client.parse(p, additional_bytes_needed);
+        kex_algorithms.parse(p);
+        server_host_key_algorithms.parse(p);
+        encryption_algorithms_client_to_server.parse(p);
+        encryption_algorithms_server_to_client.parse(p);
+        mac_algorithms_client_to_server.parse(p);
+        mac_algorithms_server_to_client.parse(p);
+        compression_algorithms_client_to_server.parse(p);
+        compression_algorithms_server_to_client.parse(p);
+        languages_client_to_server.parse(p);
+        languages_server_to_client.parse(p);
 
     }
 
