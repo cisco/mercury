@@ -757,6 +757,141 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
     return;
 }
 
+// START NEW CODE
+
+    /*
+     * A DNS name is a sequence of zero or more labels, possibly
+     * followed by an offset.  A label consists of an 8-bit number L
+     * that is less than 64 followed by L characters.  An offset is
+     * 16-bit number, with the first two bits set to one.  A name is
+     * either a sequence of two or more labels, with the last label
+     * being NULL (L=0), or a sequence of one or more labels followed by
+     * an offset, or just an offset.
+     *
+     * An offset is a pointer to (part of) a second name in another
+     * location of the same DNS packet.  Importantly, note that there
+     * may be an offset in the second name; this function must follow
+     * each offset that appears and copy the names to outputname.
+     */
+
+enum class dns_label_type { null, char_string, offset };
+
+struct dns_label_header {
+    uint8_t L;
+
+    dns_label_header() : L{0} {  }
+    dns_label_header(struct datum &d) {
+        d.read_uint8(&L);
+    }
+
+    bool is_NULL() { return L == 0; }
+
+    dns_label_type type() {
+        if (L == 0) {
+            return dns_label_type::null;
+        }
+        if (L & 0xC0) {
+            return dns_label_type::offset;
+        }
+        return dns_label_type::char_string;
+    }
+
+    uint8_t char_string_length() {
+        return L & 0x3F;
+    }
+};
+
+struct dns_offset {
+    uint16_t value;
+};
+
+struct dns_name {
+
+    dns_name() {}
+
+    void parse() {
+    }
+};
+
+struct dns_resource_record {
+    struct data_buffer<256> name_data;
+    uint16_t rr_type;
+    uint16_t rr_class;
+    uint32_t ttl;
+    uint16_t rd_length;
+    struct datum rdata;
+
+    dns_resource_record() : name_data{}, rr_type{0}, rr_class{0}, ttl{0}, rd_length{0}, rdata{NULL, NULL} {}
+
+    void parse(struct datum &d) {
+        bool first = true;
+
+        // construct name
+        while (d.is_not_empty()) {
+            struct dns_label_header h{d};
+            dns_label_type type = h.type();
+            if (type == dns_label_type::char_string) {
+                if (first) {
+                    first = false;
+                } else {
+                    name_data.copy('.');
+                }
+                name_data.copy(d, h.char_string_length());
+            }
+            if (type == dns_label_type::null) {
+                break;
+            }
+        }
+
+    }
+
+    void write_json(struct json_object &o) {
+        if (name_data.is_not_empty()) {
+            o.print_key_uint("name_data.length", name_data.length());
+            o.print_key_json_string("char_string", name_data.buffer, name_data.length());
+            //            o.print_key_json_string("char_string2", char_string2);
+        }
+    }
+};
+
+struct dns_packet {
+    dns_hdr *header;
+    struct datum records;
+
+    dns_packet() : header{NULL}, records{NULL, NULL} {  }
+
+    void parse(struct datum &d) {
+        if (d.length() < (int)sizeof(dns_hdr)) {
+            return;  // too short
+        }
+        header = (dns_hdr *)d.data;
+        d.skip(sizeof(dns_hdr));
+        records = d;
+    }
+
+    void write_json(struct json_object &o, const char *key) const {
+        if (header == NULL) {
+            return;
+        }
+        struct json_object dns_json{o, key};
+        dns_json.print_key_uint("qdcount", ntohs(header->qdcount));
+        dns_json.print_key_uint("ancount", ntohs(header->ancount));
+        dns_json.print_key_uint("nscount", ntohs(header->nscount));
+        dns_json.print_key_uint("arcount", ntohs(header->arcount));
+
+
+        struct datum record_list = records; // leave records element unchanged (const)
+        dns_resource_record record;
+        record.parse(record_list);
+        record.write_json(o);
+
+        dns_json.close();
+    }
+};
+
+
+// END NEW CODE
+
 // dns_get_json_string() is used by the cython library
 //
 std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len) {
@@ -775,6 +910,10 @@ void write_dns_server_data(const uint8_t *data, size_t length, struct json_objec
         dns_object.print_key_base64("base64", p);
     } else {
         dns_print_packet((const char *)data, length, dns_object);
+        struct datum p{data, data+length};
+        struct dns_packet dns_packet;
+        dns_packet.parse(p);
+        dns_packet.write_json(dns_object, "new_dns");
     }
     return;
 }

@@ -280,6 +280,40 @@ struct datum {
 
 };
 
+template <size_t T> struct data_buffer {
+    unsigned char buffer[T];
+    unsigned char *data;                /* data being written        */
+    const unsigned char *data_end;      /* end of data buffer        */
+
+    data_buffer<T>() : data{buffer}, data_end{buffer+T} {  }
+
+    void copy(uint8_t x) {
+        if (data + 1 > data_end) {
+            return;  // not enough room
+        }
+        *data++ = x;
+    }
+    void copy(uint8_t *array, size_t length) {
+    }
+    void copy(struct datum &r, size_t num_bytes) {
+        if (r.length() < (ssize_t)num_bytes) {
+            r.set_null();
+            // fprintf(stderr, "warning: not enough data in parse\n");
+            return;
+        }
+        if (data_end - data < num_bytes) {
+            num_bytes = data_end - data;
+        }
+        memcpy(data, r.data, num_bytes);
+        data += num_bytes;
+        r.data += num_bytes;
+    }
+    void reset() { data = buffer; }
+    bool is_not_empty() const { return data != buffer && data < data_end; }
+    ssize_t length() const { return data - buffer; }
+};
+
+
 /*
  * parser_init initializes a parser object with a data buffer
  * (holding the data to be parsed)
