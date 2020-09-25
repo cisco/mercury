@@ -35,7 +35,12 @@ as defined in [src/datum.h](../src/datum.h).  Roughly speaking, our
 strategy is to use a `struct datum` in every place where a naked
 pointer would otherwise be used, so that the extent of the data is
 always known, and to provide access to data strings only through
-functions that provide appropriate checking.
+functions that provide appropriate checking.  C++17 has a class that
+provides similar functionality for strings: [basic_string_view](https://en.cppreference.com/w/cpp/string/basic_string_view), 
+which allows the use of string processing functions without necessitating
+the creation of a string object.  (We implement `datum` independently from
+basic_string_view because we need functionality beyond string processing,
+but the latter class enables us to utilize the C++17 standard library.)
 
 A datum is in one of the states `null`, `readable`, or `empty`
 
