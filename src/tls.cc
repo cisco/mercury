@@ -490,7 +490,7 @@ void tls_server_hello::write_json(struct json_object &o) const {
     //hello.extensions.print(o, "extensions");
     extensions.print_server_name(o, "server_name");
     extensions.print_session_ticket(o, "session_ticket");
-    o.print_key_value("fingerprint", *this); 
+    //o.print_key_value("fingerprint", *this); 
 }
 
 void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {

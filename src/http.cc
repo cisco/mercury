@@ -143,7 +143,7 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
             // of the matching names
             //
             headers.print_matching_names(http_request, header_names_to_print);
-            http_request.print_key_value("fingerprint", *this);
+            //http_request.print_key_value("fingerprint", *this);
 
         } else {
 
@@ -198,7 +198,7 @@ void http_response::write_json(struct json_object &record) {
     // of the matching names
     //
     headers.print_matching_names(http_response, header_names_to_print);
-    http_response.print_key_value("fingerprint", *this);
+    //http_response.print_key_value("fingerprint", *this);
 
     http_response.close();
     http.close();
