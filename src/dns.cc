@@ -838,18 +838,30 @@ struct dns_resource_record {
                 }
                 name_data.copy(d, h.char_string_length());
             }
+            if (type == dns_label_type::offset) {
+                fprintf(stderr, "offset\n");
+                break;
+            }
             if (type == dns_label_type::null) {
                 break;
             }
         }
+        d.read_uint16(&rr_type);
+        d.read_uint16(&rr_class);
+        d.read_uint32(&ttl);
+        d.read_uint16(&rd_length);
 
     }
 
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o, const char *key) {
         if (name_data.is_not_empty()) {
-            o.print_key_uint("name_data.length", name_data.length());
-            o.print_key_json_string("char_string", name_data.buffer, name_data.length());
-            //            o.print_key_json_string("char_string2", char_string2);
+            struct json_object rr{o, key};
+            rr.print_key_json_string("name", name_data.buffer, name_data.length());
+            rr.print_key_uint("type", rr_type);
+            rr.print_key_uint("class", rr_class);
+            rr.print_key_uint("ttl", ttl);
+            rr.print_key_uint("length", rd_length);
+            rr.close();
         }
     }
 };
@@ -883,7 +895,9 @@ struct dns_packet {
         struct datum record_list = records; // leave records element unchanged (const)
         dns_resource_record record;
         record.parse(record_list);
-        record.write_json(o);
+        record.write_json(o, "q");
+        record.parse(record_list);
+        record.write_json(o, "a");
 
         dns_json.close();
     }

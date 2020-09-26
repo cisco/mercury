@@ -301,7 +301,7 @@ template <size_t T> struct data_buffer {
             // fprintf(stderr, "warning: not enough data in parse\n");
             return;
         }
-        if (data_end - data < num_bytes) {
+        if (data_end - data < (int)num_bytes) {
             num_bytes = data_end - data;
         }
         memcpy(data, r.data, num_bytes);
