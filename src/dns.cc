@@ -799,68 +799,119 @@ struct dns_label_header {
     uint8_t char_string_length() {
         return L & 0x3F;
     }
+    uint8_t offset() {
+        return L & 0x3F;
+    }
 };
 
 struct dns_offset {
     uint16_t value;
 };
 
-struct dns_name {
 
-    dns_name() {}
+struct dns_name : public data_buffer<256> {
 
-    void parse() {
-    }
-};
+    dns_name() : data_buffer{} {}
 
-struct dns_resource_record {
-    struct data_buffer<256> name_data;
-    uint16_t rr_type;
-    uint16_t rr_class;
-    uint32_t ttl;
-    uint16_t rd_length;
-    struct datum rdata;
-
-    dns_resource_record() : name_data{}, rr_type{0}, rr_class{0}, ttl{0}, rd_length{0}, rdata{NULL, NULL} {}
-
-    void parse(struct datum &d) {
+    void parse(struct datum &d, const struct datum &dns_body) {
         bool first = true;
-
-        // construct name
         while (d.is_not_empty()) {
             struct dns_label_header h{d};
             dns_label_type type = h.type();
+            if (type == dns_label_type::null) {
+                break;
+            }
             if (type == dns_label_type::char_string) {
                 if (first) {
                     first = false;
                 } else {
-                    name_data.copy('.');
+                    copy('.');
                 }
-                name_data.copy(d, h.char_string_length());
+                copy(d, h.char_string_length());
             }
             if (type == dns_label_type::offset) {
-                fprintf(stderr, "offset\n");
-                break;
-            }
-            if (type == dns_label_type::null) {
+                uint8_t tmp;
+                d.read_uint8(&tmp);
+                uint16_t offset = (((uint16_t)h.offset()) << 8) + tmp;
+                fprintf(stderr, "offset (%u)\n", offset);
+
+                // parse the label at hdr + offset
+                if (offset < sizeof(dns_hdr)) {
+                    d.set_empty();  // error: offset too small
+                }
+                struct datum tmp_dns_body = dns_body;
+                tmp_dns_body.skip(offset - sizeof(dns_hdr));
+                parse(tmp_dns_body, dns_body);
                 break;
             }
         }
+    }
+};
+
+struct dns_question_record {
+    struct dns_name name;
+    uint16_t rr_type;
+    uint16_t rr_class;
+
+    dns_question_record() : name{}, rr_type{0}, rr_class{0} {}
+
+    void parse(struct datum &d, const struct datum &dns_body) {
+        name.parse(d, dns_body);
         d.read_uint16(&rr_type);
         d.read_uint16(&rr_class);
-        d.read_uint32(&ttl);
-        d.read_uint16(&rd_length);
-
     }
 
     void write_json(struct json_object &o, const char *key) {
-        if (name_data.is_not_empty()) {
+        if (name.is_not_empty()) {
             struct json_object rr{o, key};
-            rr.print_key_json_string("name", name_data.buffer, name_data.length());
+            rr.print_key_json_string("name", name.buffer, name.length());
             rr.print_key_uint("type", rr_type);
             rr.print_key_uint("class", rr_class);
+            rr.close();
+        }
+    }
+    void write_json(struct json_object &o) {
+        if (name.is_not_empty()) {
+            o.print_key_json_string("name", name.buffer, name.length());
+            o.print_key_uint("type", rr_type);
+            o.print_key_uint("class", rr_class);
+        }
+    }
+    bool is_not_empty() { return name.is_not_empty(); }
+
+};
+
+struct dns_resource_record {
+    dns_question_record question_record;
+    uint32_t ttl;
+    uint16_t rd_length;
+    struct datum rdata;
+
+    dns_resource_record() : question_record{}, ttl{0}, rd_length{0}, rdata{NULL, NULL} {}
+
+    void parse(struct datum &d, const struct datum &dns_body) {
+        question_record.parse(d, dns_body);
+        d.read_uint32(&ttl);
+        d.read_uint16(&rd_length);
+        rdata.parse(d, rd_length);
+    }
+
+    void write_json(struct json_array &a) {
+        if (question_record.is_not_empty()) {
+            struct json_object rr{a};
+            question_record.write_json(rr);
             rr.print_key_uint("ttl", ttl);
             rr.print_key_uint("length", rd_length);
+            if (question_record.rr_class == class_IN) {
+                if (question_record.rr_type == type_A) {
+                    rr.print_key_ipv4_addr("ipv4_addr", rdata.data); // TBD: rdata address should be printable
+
+                } else if (question_record.rr_type == type_AAAA) {
+                    rr.print_key_ipv6_addr("ipv6_addr", rdata.data); // TBD: rdata address should be printable
+                }
+            } else {
+                rr.print_key_json_string("data", rdata);
+            }
             rr.close();
         }
     }
@@ -869,6 +920,7 @@ struct dns_resource_record {
 struct dns_packet {
     dns_hdr *header;
     struct datum records;
+    uint16_t qdcount, ancount, nscount, arcount;
 
     dns_packet() : header{NULL}, records{NULL, NULL} {  }
 
@@ -878,6 +930,10 @@ struct dns_packet {
         }
         header = (dns_hdr *)d.data;
         d.skip(sizeof(dns_hdr));
+        qdcount = ntohs(header->qdcount);
+        ancount = ntohs(header->ancount);
+        nscount = ntohs(header->nscount);
+        arcount = ntohs(header->arcount);
         records = d;
     }
 
@@ -886,18 +942,53 @@ struct dns_packet {
             return;
         }
         struct json_object dns_json{o, key};
-        dns_json.print_key_uint("qdcount", ntohs(header->qdcount));
-        dns_json.print_key_uint("ancount", ntohs(header->ancount));
-        dns_json.print_key_uint("nscount", ntohs(header->nscount));
-        dns_json.print_key_uint("arcount", ntohs(header->arcount));
-
+        dns_json.print_key_uint("qdcount", qdcount);
+        dns_json.print_key_uint("ancount", ancount);
+        dns_json.print_key_uint("nscount", nscount);
+        dns_json.print_key_uint("arcount", arcount);
 
         struct datum record_list = records; // leave records element unchanged (const)
-        dns_resource_record record;
-        record.parse(record_list);
-        record.write_json(o, "q");
-        record.parse(record_list);
-        record.write_json(o, "a");
+        if (qdcount) {
+            struct json_array q{o, "question"};
+            for (unsigned int count = 0; count < qdcount; count++) {
+                dns_question_record question_record;
+                question_record.parse(record_list, records);
+                struct json_object o{q};
+                question_record.write_json(o);
+                o.close();
+            }
+            q.close();
+        }
+
+        if (ancount) {
+            struct json_array a{o, "answer"};
+            for (unsigned int count = 0; count < ancount; count++) {
+                dns_resource_record resource_record;
+                resource_record.parse(record_list, records);
+                resource_record.write_json(a);
+            }
+            a.close();
+        }
+
+        if (nscount) {
+            struct json_array a{o, "authority"};
+            for (unsigned int count = 0; count < nscount; count++) {
+                dns_resource_record resource_record;
+                resource_record.parse(record_list, records);
+                resource_record.write_json(a);
+            }
+            a.close();
+        }
+
+        if (arcount) {
+            struct json_array a{o, "additional"};
+            for (unsigned int count = 0; count < arcount; count++) {
+                dns_resource_record resource_record;
+                resource_record.parse(record_list, records);
+                resource_record.write_json(a);
+            }
+            a.close();
+        }
 
         dns_json.close();
     }
