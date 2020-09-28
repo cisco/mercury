@@ -48,12 +48,12 @@ struct tcp_state {
 
 #define tcp_state_init = { 0, 0, 0, 0, 0, talking };
 
-struct ipv6_addr {
+struct ipv6_address {
     uint32_t a;
     uint32_t b;
     uint32_t c;
     uint32_t d;
-    bool operator==(const ipv6_addr &rhs) const {
+    bool operator==(const ipv6_address &rhs) const {
         return a == rhs.a && b == rhs.b && c == rhs.c && d == rhs.d;
     }
 };
@@ -69,8 +69,8 @@ struct key {
             uint32_t dst;
         } ipv4;
         struct {
-            ipv6_addr src;
-            ipv6_addr dst;
+            ipv6_address src;
+            ipv6_address dst;
         } ipv6;
     } addr;
 
@@ -84,7 +84,7 @@ struct key {
         addr.ipv4.src = sa;
         addr.ipv4.dst = da;
     }
-    key(uint16_t sp, uint16_t dp, ipv6_addr sa, ipv6_addr da, uint8_t proto) {
+    key(uint16_t sp, uint16_t dp, ipv6_address sa, ipv6_address da, uint8_t proto) {
         src_port = sp;
         dst_port = dp;
         protocol = proto;
