@@ -15,14 +15,12 @@
 
 #include <string>
 #include "json_object.h"
-
-/** maximum DNS name length */
-#define MAX_DNS_NAME_LEN 256
+#include "util_obj.h"
 
 /**
- * \file dns.cc
+ * \file dns.h
  *
- * \brief implementation for the DNS code
+ * \brief Domain Name System (DNS) protocol support
  *
  * \remarks
  * \verbatim
@@ -135,12 +133,6 @@ typedef struct {
 
 #endif
 
-
-void write_dns_server_data(const uint8_t *data, size_t length, struct json_object &o, bool base64_output);
-
-std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len);
-
-
 enum class dns_rr_type : uint16_t {
     A        = 1, /*!< a host address */
     NS       = 2, /*!< an authoritative name server */
@@ -178,7 +170,7 @@ const char *dns_rr_type_name(dns_rr_type t) {
     case dns_rr_type::HINFO:   return "HINFO";
     case dns_rr_type::MINFO:   return "MINFO";
     case dns_rr_type::MX:      return "MX";
-    case dns_rr_type::TXT:     return "TX";
+    case dns_rr_type::TXT:     return "TXT";
     case dns_rr_type::AAAA:    return "AAAA";
     default:
         break;
@@ -205,20 +197,20 @@ const char *dns_rr_class_name(dns_rr_class c) {
     return "unknown";
 }
 
-    /*
-     * A DNS name is a sequence of zero or more labels, possibly
-     * followed by an offset.  A label consists of an 8-bit number L
-     * that is less than 64 followed by L characters.  An offset is
-     * 16-bit number, with the first two bits set to one.  A name is
-     * either a sequence of two or more labels, with the last label
-     * being NULL (L=0), or a sequence of one or more labels followed by
-     * an offset, or just an offset.
-     *
-     * An offset is a pointer to (part of) a second name in another
-     * location of the same DNS packet.  Importantly, note that there
-     * may be an offset in the second name; this function must follow
-     * each offset that appears and copy the names to outputname.
-     */
+/*
+ * A DNS name is a sequence of zero or more labels, possibly
+ * followed by an offset.  A label consists of an 8-bit number L
+ * that is less than 64 followed by L characters.  An offset is
+ * 16-bit number, with the first two bits set to one.  A name is
+ * either a sequence of two or more labels, with the last label
+ * being NULL (L=0), or a sequence of one or more labels followed by
+ * an offset, or just an offset.
+ *
+ * An offset is a pointer to (part of) a second name in another
+ * location of the same DNS packet.  Importantly, note that there
+ * may be an offset in the second name; this function must follow
+ * each offset that appears and copy the names to outputname.
+ */
 
 enum class dns_label_type { null, char_string, offset };
 
@@ -249,11 +241,6 @@ struct dns_label_header {
         return L & 0x3F;
     }
 };
-
-struct dns_offset {
-    uint16_t value;
-};
-
 
 struct dns_name : public data_buffer<256> {
 
@@ -349,11 +336,16 @@ struct dns_resource_record {
             // rr.print_key_uint("length", rd_length);
             if ((dns_rr_class)question_record.rr_class == dns_rr_class::IN) {
                 if ((dns_rr_type)question_record.rr_type == dns_rr_type::A) {
-                    rr.print_key_ipv4_addr("ipv4_addr", rdata.data); // TBD: rdata address should be printable
+                    struct ipv4_addr addr;
+                    addr.parse(rdata);
+                    rr.print_key_value("ipv4_addr", addr);
 
                 } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::AAAA) {
-                    rr.print_key_ipv6_addr("ipv6_addr", rdata.data); // TBD: rdata address should be printable
+                    struct ipv6_addr addr;
+                    addr.parse(rdata);
+                    rr.print_key_value("ip6_addr", addr);
                 }
+
             } else {
                 rr.print_key_json_string("rdata", rdata);
             }
@@ -458,5 +450,6 @@ struct dns_packet {
 };
 
 
+std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len);
 
 #endif /* DNS_H */
