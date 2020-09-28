@@ -759,6 +759,70 @@ void dns_print_packet (const char *dns_pkt, ssize_t pkt_len, struct json_object 
 
 // START NEW CODE
 
+enum class dns_rr_type : uint16_t {
+    A        = 1, /*!< a host address */
+    NS       = 2, /*!< an authoritative name server */
+    MD       = 3, /*!< a mail destination (Obsolete - use MX) */
+    MF       = 4, /*!< a mail forwarder (Obsolete - use MX) */
+    CNAME    = 5, /*!< the canonical name for an alias */
+    SOA      = 6, /*!< marks the start of a zone of authority */
+    MB       = 7, /*!< a mailbox domain name (EXPERIMENTAL) */
+    MG       = 8, /*!< a mail group member (EXPERIMENTAL) */
+    MR       = 9, /*!< a mail rename domain name (EXPERIMENTAL) */
+    NULL_RR  = 10, /*!< a null RR (EXPERIMENTAL) */
+    WKS      = 11, /*!< a well known service description */
+    PTR      = 12, /*!< a domain name pointer */
+    HINFO    = 13, /*!< host information */
+    MINFO    = 14, /*!< mailbox or mail list information */
+    MX       = 15, /*!< mail exchange */
+    TXT      = 16, /*!< text strings */
+    AAAA     = 28  /*!< a IPv6 host address */
+};
+
+const char *dns_rr_type_name(dns_rr_type t) {
+    switch(t) {
+    case dns_rr_type::A:       return "A";
+    case dns_rr_type::NS:      return "NS";
+    case dns_rr_type::MD:      return "MD";
+    case dns_rr_type::MF:      return "MF";
+    case dns_rr_type::CNAME:   return "CNAME";
+    case dns_rr_type::SOA:     return "SOA";
+    case dns_rr_type::MB:      return "MB";
+    case dns_rr_type::MG:      return "MG";
+    case dns_rr_type::MR:      return "MR";
+    case dns_rr_type::NULL_RR: return "NULL";
+    case dns_rr_type::WKS:     return "WKS";
+    case dns_rr_type::PTR:     return "PTR";
+    case dns_rr_type::HINFO:   return "HINFO";
+    case dns_rr_type::MINFO:   return "MINFO";
+    case dns_rr_type::MX:      return "MX";
+    case dns_rr_type::TXT:     return "TX";
+    case dns_rr_type::AAAA:    return "AAAA";
+    default:
+        break;
+    }
+    return "uknown";
+}
+
+enum dns_rr_class : uint16_t {
+    IN = 1, /*!< the Internet */
+    CS = 2, /*!< the CSNET class (Obsolete) */
+    CH = 3, /*!< the CHAOS class */
+    HS = 4  /*!< Hesiod [Dyer 87] */
+};
+
+const char *dns_rr_class_name(dns_rr_class c) {
+    switch (c) {
+    case dns_rr_class::IN: return "IN";
+    case dns_rr_class::CS: return "CS";
+    case dns_rr_class::CH: return "CH";
+    case dns_rr_class::HS: return "HS";
+    default:
+        break;
+    }
+    return "unknown";
+}
+
     /*
      * A DNS name is a sequence of zero or more labels, possibly
      * followed by an offset.  A label consists of an 8-bit number L
@@ -833,7 +897,6 @@ struct dns_name : public data_buffer<256> {
                 uint8_t tmp;
                 d.read_uint8(&tmp);
                 uint16_t offset = (((uint16_t)h.offset()) << 8) + tmp;
-                fprintf(stderr, "offset (%u)\n", offset);
 
                 // parse the label at hdr + offset
                 if (offset < sizeof(dns_hdr)) {
@@ -873,8 +936,8 @@ struct dns_question_record {
     void write_json(struct json_object &o) {
         if (name.is_not_empty()) {
             o.print_key_json_string("name", name.buffer, name.length());
-            o.print_key_uint("type", rr_type);
-            o.print_key_uint("class", rr_class);
+            o.print_key_string("type", dns_rr_type_name((dns_rr_type)rr_type));
+            o.print_key_string("class", dns_rr_class_name((dns_rr_class)rr_class));
         }
     }
     bool is_not_empty() { return name.is_not_empty(); }
@@ -901,7 +964,7 @@ struct dns_resource_record {
             struct json_object rr{a};
             question_record.write_json(rr);
             rr.print_key_uint("ttl", ttl);
-            rr.print_key_uint("length", rd_length);
+            // rr.print_key_uint("length", rd_length);
             if (question_record.rr_class == class_IN) {
                 if (question_record.rr_type == type_A) {
                     rr.print_key_ipv4_addr("ipv4_addr", rdata.data); // TBD: rdata address should be printable
@@ -910,7 +973,7 @@ struct dns_resource_record {
                     rr.print_key_ipv6_addr("ipv6_addr", rdata.data); // TBD: rdata address should be printable
                 }
             } else {
-                rr.print_key_json_string("data", rdata);
+                rr.print_key_json_string("rdata", rdata);
             }
             rr.close();
         }
@@ -942,14 +1005,14 @@ struct dns_packet {
             return;
         }
         struct json_object dns_json{o, key};
-        dns_json.print_key_uint("qdcount", qdcount);
-        dns_json.print_key_uint("ancount", ancount);
-        dns_json.print_key_uint("nscount", nscount);
-        dns_json.print_key_uint("arcount", arcount);
+        //dns_json.print_key_uint("qdcount", qdcount);
+        //dns_json.print_key_uint("ancount", ancount);
+        //dns_json.print_key_uint("nscount", nscount);
+        //dns_json.print_key_uint("arcount", arcount);
 
         struct datum record_list = records; // leave records element unchanged (const)
         if (qdcount) {
-            struct json_array q{o, "question"};
+            struct json_array q{dns_json, "question"};
             for (unsigned int count = 0; count < qdcount; count++) {
                 dns_question_record question_record;
                 question_record.parse(record_list, records);
@@ -961,7 +1024,7 @@ struct dns_packet {
         }
 
         if (ancount) {
-            struct json_array a{o, "answer"};
+            struct json_array a{dns_json, "answer"};
             for (unsigned int count = 0; count < ancount; count++) {
                 dns_resource_record resource_record;
                 resource_record.parse(record_list, records);
@@ -971,7 +1034,7 @@ struct dns_packet {
         }
 
         if (nscount) {
-            struct json_array a{o, "authority"};
+            struct json_array a{dns_json, "authority"};
             for (unsigned int count = 0; count < nscount; count++) {
                 dns_resource_record resource_record;
                 resource_record.parse(record_list, records);
@@ -981,7 +1044,7 @@ struct dns_packet {
         }
 
         if (arcount) {
-            struct json_array a{o, "additional"};
+            struct json_array a{dns_json, "additional"};
             for (unsigned int count = 0; count < arcount; count++) {
                 dns_resource_record resource_record;
                 resource_record.parse(record_list, records);
