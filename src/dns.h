@@ -153,6 +153,8 @@ enum class dns_rr_type : uint16_t {
     AAAA     = 28  /*!< a IPv6 host address */
 };
 
+char UNKNOWN[] = "UNKNOWN";
+
 const char *dns_rr_type_name(dns_rr_type t) {
     switch(t) {
     case dns_rr_type::A:       return "A";
@@ -175,7 +177,7 @@ const char *dns_rr_type_name(dns_rr_type t) {
     default:
         break;
     }
-    return "uknown";
+    return UNKNOWN;
 }
 
 enum dns_rr_class : uint16_t {
@@ -194,7 +196,7 @@ const char *dns_rr_class_name(dns_rr_class c) {
     default:
         break;
     }
-    return "unknown";
+    return UNKNOWN;
 }
 
 /*
@@ -305,8 +307,16 @@ struct dns_question_record {
     void write_json(struct json_object &o) {
         if (name.is_not_empty()) {
             o.print_key_json_string("name", name.buffer, name.length());
-            o.print_key_string("type", dns_rr_type_name((dns_rr_type)rr_type));
-            o.print_key_string("class", dns_rr_class_name((dns_rr_class)rr_class));
+            const char *type_name = dns_rr_type_name((dns_rr_type)rr_type);
+            o.print_key_string("type", type_name);
+            if (type_name == UNKNOWN) {
+                o.print_key_uint("type_code", rr_type);
+            }
+            const char *class_name = dns_rr_class_name((dns_rr_class)rr_class);
+            o.print_key_string("class", class_name);
+            if (class_name == UNKNOWN) {
+                o.print_key_uint("class_code", rr_class);
+            }
         }
     }
     bool is_not_empty() { return name.is_not_empty(); }
