@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "../json_object.hh"
+#include "json_object.h"
 
 int main() {
 
@@ -81,9 +81,10 @@ int main() {
         }
         a.close();
     }
-    const unsigned char method[5] = "POST";
-    struct parser p{method, method + 4};
-    o.print_key_hex("hex", p);
+
+    // const unsigned char method[5] = "POST";
+    // struct parser p{method, method + 4};
+    // o.print_key_hex("hex", p);
     o.print_key_bool("json_is_fun", true);
     o.print_key_null("latin word for none");
 
