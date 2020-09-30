@@ -235,7 +235,7 @@ class TLS():
                 return {'process':predict_, 'score':0.0, 'category': 'Unknown'}
 
         # in the case of malware, remove pseudo process meant to reduce false positives
-        if self.MALWARE_DB and r_[0]['process'] == 'Generic DMZ Traffic':
+        if self.MALWARE_DB and r_[0]['process'] == 'generic dmz process':
             if len(r_) > 1 and r_[1]['malware'] == False:
                 r_.pop(0)
             else:
@@ -284,16 +284,6 @@ class TLS():
         if debug and p_['process'] in debug.split(','):
             print('%30s\t%30s\t%10s\t%0.4f' % (p_['process'], 'prob_process_given_fp', 'found', score_))
 
-#        if (endpoint != None and endpoint.prev_flow != None and
-#            'analysis' in endpoint.prev_flow and 'probable_processes' in endpoint.prev_flow['analysis']):
-#            trans_prob = sum([pp_['score']*self.transition_probs[pp_['process']][cur_proc]
-#                              for pp_ in endpoint.prev_flow['analysis']['probable_processes'][0:1]
-#                              if pp_['process'] in self.transition_probs and cur_proc in self.transition_probs[pp_['process']]])
-#            prev_proc_prior = proc_prior_
-#            if trans_prob > 0:
-#                prev_proc_prior = math.log(trans_prob)
-#            score_ += proc_prior_ if proc_prior_> prev_proc_prior else prev_proc_prior
-
         if endpoint != None and 'os_info' in p_:
             os_info = endpoint.get_os()
             if len(os_info) > 0:
@@ -324,15 +314,6 @@ class TLS():
             'classes_port_port': 0.00623,
             'classes_port_applications': 0.00528,
         }
-#        weights = {
-#            'classes_hostname_tlds': 1.0,
-#            'classes_hostname_domains': 1.0,
-#            'classes_hostname_sni': 1.0,
-#            'classes_ip_ip': 1.0,
-#            'classes_ip_as': 1.0,
-#            'classes_port_port': 1.0,
-#            'classes_port_applications': 1.0,
-#        }
         for f_name, f_value in features:
             if f_value == 'None':
                 continue
@@ -381,11 +362,7 @@ class TLS():
         tls_params_ = get_tls_params(tls_features)
 
         t_sim_set = []
-#        approx_matches_set = self.find_approximate_matches_set(tls_params_, fp_str, source_filter, key_filter)
-#        for _,k in approx_matches_set:
         for k in self.fp_db.keys():
-#            if self.fp_db[k]['total_count'] < 10000:
-#                continue
             tmp_lit_fp = eval_fp_str(self.fp_db[k]['str_repr'])
             test_ = get_sequence(tmp_lit_fp)
             score_ = self.aligner.align(target_, test_)
@@ -395,16 +372,7 @@ class TLS():
         if len(t_sim_set) == 0:
             return None
 
-#        print(tls_features)
-#        print(target_)
-#        print(t_sim_set[0:10])
-#        1/0
-
         return t_sim_set[0][1]
-#        if t_sim_set[0][0] < 0.1:
-#            return t_sim_set[0][1]
-#        else:
-#            return None
 
 
     def find_approximate_matches_set(self, tls_params, fp_str=None, source_filter=None, key_filter=None):
@@ -431,7 +399,7 @@ class TLS():
             t_scores.append((s_, k))
         t_scores.sort()
         t_scores.reverse()
-        return t_scores#[0:100]
+        return t_scores[0:100]
 
 
     @functools.lru_cache(maxsize=MAX_CACHED_RESULTS)

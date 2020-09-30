@@ -385,7 +385,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
 
     }
 
-    if (MALWARE_DB && max_proc == "Generic DMZ Traffic" && sec_mal == false) {
+    if (MALWARE_DB && max_proc == "generic dmz process" && sec_mal == false) {
         max_proc = sec_proc;
         max_score = sec_score;
         max_mal = sec_mal;
