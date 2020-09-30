@@ -102,7 +102,7 @@ struct key {
     void zeroize() {
         ip_vers = 0;
     }
-    bool is_zero() {
+    bool is_zero() const {
         return ip_vers == 0;
     }
     bool operator==(const key &k) const {
@@ -441,14 +441,10 @@ struct tcp_reassembler {
         for(auto &b : segment) {
             b.k.zeroize();
         }
+        // fprintf(stderr, "tcp_reassembler size: %zu bytes\n", sizeof(segment));
     }
 
     void copy_packet(const struct key &k, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
-
-        if (length + bytes_needed > tcp_segment::array_length) {
-            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::array_length);
-        }
-        //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
         std::hash<struct key> hasher;
         size_t h = hasher(k) % tcp_reassembler::array_size;
@@ -457,7 +453,34 @@ struct tcp_reassembler {
         if (b.k.is_zero() == false) {
             fprintf(stderr, "clobber: key is not zero\n");
         }
+
+        if (length + bytes_needed > tcp_segment::array_length) {
+            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::array_length);
+            bytes_needed = tcp_segment::array_length;
+        }
+        //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
+
         b.init_from_packet(k, tcp, length, bytes_needed);
+    }
+
+    void copy_packet_into_segment_buffer(const struct key &k, struct tcp_segment *b, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
+
+        if (length + bytes_needed > tcp_segment::array_length) {
+            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::array_length);
+            bytes_needed = tcp_segment::array_length;
+        }
+        //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
+
+        b->init_from_packet(k, tcp, length, bytes_needed);
+    }
+
+    struct tcp_segment *get_segment_buffer(const struct key &k) {
+
+        std::hash<struct key> hasher;
+        size_t h = hasher(k) % tcp_reassembler::array_size;
+        struct tcp_segment &b = segment[h];
+
+        return &b;
     }
 
     struct tcp_segment *check_packet(struct key &k, const struct tcp_header *tcp, size_t length) {
