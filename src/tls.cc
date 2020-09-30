@@ -330,8 +330,10 @@ void tls_client_hello::parse(struct datum &p) {
     if (parser_read_and_skip_uint(&p, L_CipherSuiteVectorLength, &tmp_len)) {
         return;
     }
+    if (tmp_len & 1) {
+        return;  // not a valid ciphersuite vector length
+    }
     ciphersuite_vector.parse(p, tmp_len);
-    // degrease_octet_string(x->last_capture + 2, tmp_len);
 
     // parse compression methods
     if (parser_read_and_skip_uint(&p, L_CompressionMethodsLength, &tmp_len) == status_err) {
@@ -389,6 +391,9 @@ void tls_client_hello::write_json(struct datum &data, struct json_object &record
 }
 
 void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
+    if (is_not_empty() == false) {
+        return;
+    }
     /*
      * copy clientHello.ProtocolVersion
      */
@@ -459,24 +464,27 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
 
 void tls_server_hello::operator()(struct buffer_stream &buf) const {
     buf.write_char('\"');
-    /*
-     * copy serverHello.ProtocolVersion
-     */
-    buf.write_char('(');
-    buf.raw_as_hex(protocol_version.data, protocol_version.length());
-    buf.write_char(')');
+    if (is_not_empty()) {
 
-    /* copy ciphersuite offer vector */
-    buf.write_char('(');
-    buf.raw_as_hex(ciphersuite_vector.data, ciphersuite_vector.length());  /* TBD: do we need to degrease? */
-    buf.write_char(')');
+        /*
+         * copy serverHello.ProtocolVersion
+         */
+        buf.write_char('(');
+        buf.raw_as_hex(protocol_version.data, protocol_version.length());
+        buf.write_char(')');
 
-    /*
-     * copy extensions vector
-     */
-    buf.write_char('(');
-    extensions.fingerprint(buf);
-    buf.write_char(')');
+        /* copy ciphersuite offer vector */
+        buf.write_char('(');
+        buf.raw_as_hex(ciphersuite_vector.data, ciphersuite_vector.length());
+        buf.write_char(')');
+
+        /*
+         * copy extensions vector
+         */
+        buf.write_char('(');
+        extensions.fingerprint(buf);
+        buf.write_char(')');
+    }
     buf.write_char('\"');
 }
 
