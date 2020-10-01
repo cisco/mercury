@@ -150,7 +150,15 @@ enum class dns_rr_type : uint16_t {
     MINFO    = 14, /*!< mailbox or mail list information */
     MX       = 15, /*!< mail exchange */
     TXT      = 16, /*!< text strings */
-    AAAA     = 28  /*!< a IPv6 host address */
+    X25      = 19,
+    AAAA     = 28, /*!< a IPv6 host address */
+    SRV      = 33,
+    NAPTR    = 35,
+    DS       = 43,
+    DNSKEY   = 48,
+    HTTPS    = 65,
+    WILDCARD = 255,
+    DLV      = 32769
 };
 
 char UNKNOWN[] = "UNKNOWN";
@@ -173,7 +181,15 @@ const char *dns_rr_type_name(dns_rr_type t) {
     case dns_rr_type::MINFO:   return "MINFO";
     case dns_rr_type::MX:      return "MX";
     case dns_rr_type::TXT:     return "TXT";
+    case dns_rr_type::X25:     return "X25";
     case dns_rr_type::AAAA:    return "AAAA";
+    case dns_rr_type::SRV:     return "SRV";
+    case dns_rr_type::NAPTR:   return "NAPTR";
+    case dns_rr_type::DS:      return "DS";
+    case dns_rr_type::DNSKEY:  return "DNSKEY";
+    case dns_rr_type::HTTPS:   return "HTTPS";
+    case dns_rr_type::WILDCARD: return "WILDCARD";
+    case dns_rr_type::DLV:     return "DLV";
     default:
         break;
     }
