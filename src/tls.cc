@@ -91,7 +91,7 @@ void degrease_octet_string(void *data, ssize_t len);
 
 void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, size_t len) {
     if (len % 2) {
-        return;  // error: len MUST be a multiple of two
+        len--;   // force len to be a multiple of two
     }
     uint16_t *x = (uint16_t *)data;
     uint16_t *x_end = x + (len/2);
@@ -274,7 +274,7 @@ void tls_extensions::fingerprint(struct buffer_stream &b) const {
             break;
         }
         if (uint16_match(x.type, static_extension_types, num_static_extension_types) == true) {
-            if (x.type == type_supported_groups) { // || x.type == type_supported_versions) {
+            if (x.type == type_supported_groups) {
                 // fprintf(stderr, "I am degreasing supported groups\n");
                 b.write_char('(');
                 x.write_degreased_type(b);
@@ -523,7 +523,7 @@ void tls_server_hello::operator()(struct buffer_stream &buf) const {
 
     /* copy ciphersuite offer vector */
     buf.write_char('(');
-    buf.raw_as_hex(ciphersuite_vector.data, ciphersuite_vector.length());  /* TBD: do we need to degrease? */
+    buf.raw_as_hex(ciphersuite_vector.data, ciphersuite_vector.length());
     buf.write_char(')');
 
     /*
