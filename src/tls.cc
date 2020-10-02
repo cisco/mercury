@@ -212,10 +212,14 @@ struct tls_extension {
     uint16_t type;
     uint16_t length;
     struct datum value;
+    const uint8_t *type_ptr;
+    const uint8_t *length_ptr;
 
-    tls_extension(struct datum &p) : type{0}, length{0}, value{NULL, NULL} {
+    tls_extension(struct datum &p) : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL} {
 
+        type_ptr = p.data;
         if (p.read_uint16(&type) == false) { return; }
+        length_ptr = p.data;
         if (p.read_uint16(&length) == false) { return; }
         if (length <= p.length()) {
             value.data = p.data;
@@ -223,6 +227,40 @@ struct tls_extension {
             p.data += length;
         }
     }
+
+    bool is_not_empty() { return value.is_not_empty(); }
+
+    void write_degreased_type(struct buffer_stream &b) {
+        if (type_ptr) {
+            raw_as_hex_degrease(b, type_ptr, sizeof(uint16_t));
+        }
+    }
+    void write_length(struct buffer_stream &b) {
+        if (length_ptr) {
+            raw_as_hex_degrease(b, length_ptr, sizeof(uint16_t));
+        }
+    }
+    void write_degreased_value(struct buffer_stream &b, ssize_t ungreased_len) {
+        if (value.is_not_empty()) {
+            size_t skip_len;
+            size_t greased_len;
+            if (ungreased_len < value.length()) {
+                skip_len = ungreased_len;
+                greased_len = value.length() - ungreased_len;
+            } else {
+                skip_len = value.length();
+                greased_len = 0;
+            }
+            b.raw_as_hex(value.data, skip_len);
+            raw_as_hex_degrease(b, value.data + skip_len, greased_len);
+        }
+    }
+    void write_value(struct buffer_stream &b) {
+        if (value.is_not_empty()) {
+            b.raw_as_hex(value.data, value.length());
+        }
+    }
+
 };
 
 void tls_extensions::fingerprint(struct buffer_stream &b) const {
@@ -231,20 +269,37 @@ void tls_extensions::fingerprint(struct buffer_stream &b) const {
 
     while (parser_get_data_length(&ext_parser) > 0) {
 
-        const uint8_t *start_of_extension = ext_parser.data;
         tls_extension x{ext_parser};
-        const uint8_t *end_of_extension = ext_parser.data;
         if (x.value.data == NULL) {
             break;
         }
         if (uint16_match(x.type, static_extension_types, num_static_extension_types) == true) {
-            b.write_char('(');
-            raw_as_hex_degrease(b, start_of_extension, L_ExtensionType);
-            b.raw_as_hex(start_of_extension + L_ExtensionType, end_of_extension - start_of_extension - L_ExtensionType);
-            b.write_char(')');
+            if (x.type == type_supported_groups) { // || x.type == type_supported_versions) {
+                // fprintf(stderr, "I am degreasing supported groups\n");
+                b.write_char('(');
+                x.write_degreased_type(b);
+                x.write_length(b);
+                x.write_degreased_value(b, L_NamedGroupListLen);
+                b.write_char(')');
+
+            } else if (x.type == type_supported_versions) {
+                // fprintf(stderr, "I am degreasing supported versions\n");
+                b.write_char('(');
+                x.write_degreased_type(b);
+                x.write_length(b);
+                x.write_degreased_value(b, L_ProtocolVersionListLen);
+                b.write_char(')');
+
+            } else {
+                b.write_char('(');
+                x.write_degreased_type(b);
+                x.write_length(b);
+                x.write_value(b);
+                b.write_char(')');
+            }
         } else {
             b.write_char('(');
-            raw_as_hex_degrease(b, start_of_extension, L_ExtensionType);
+            x.write_degreased_type(b);
             b.write_char(')');
         }
 
