@@ -1,5 +1,5 @@
 /*
- * parser.c
+ * datum.c
  *
  * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>  /* for htons()  */
 #include <net/ethernet.h>
-#include "parser.h"
+#include "datum.h"
 #include "utils.h"
 #include "eth.h"
 
