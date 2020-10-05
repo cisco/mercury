@@ -307,16 +307,20 @@ struct tcp_initial_message_filter {
  *
  * strategy:
  *
- *    - pre-allocated storage array to hold reassembled packets
- *    - maximum length 8192 bytes
- *    - flow key maps to array entry
+ *    - pre-allocated storage to hold reassembled packets
+ *    - flow key maps to tcp_segment
  *
- *    - copy_packet(packet, packet_length, additional_bytes_needed)
- *    - check_packet(packet, packet_length)
+ *    - to request reassembly, call copy_packet() and pass it the
+ *      initial bytes of the packet being reassembled, along with the
+ *      number of additional bytes needed
+ *
+ *    - to check a tcp packet to see if it contributes to, or
+ *      completes, a requested segment, invoke check_packet().  If it
+ *      returns a non-null value, that value points to the reassembled
+ *      tcp_segment.
  */
 
 struct tcp_segment {
-    struct key k;
     uint32_t seq_init;
     uint32_t seq_end;
     uint32_t index;
@@ -326,18 +330,17 @@ struct tcp_segment {
 
     static const bool debug = false;
 
-    tcp_segment() : k{}, seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, data{} { };
+    tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, data{} { };
 
-    void init_from_packet(const struct key &k_in, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
-        k = k_in;
+    void init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
         index = length;
         seq_init = ntohl(tcp->seq);
         seq_end = ntohl(tcp->seq) + length + bytes_needed;
         last_byte_needed = length + bytes_needed;
         if (debug) {
-            fprintf(stderr, "inserted flow key (src: %u, dst: %u) with seq %u and packet length %zu\n", k.src_port, k.dst_port, ntohl(tcp->seq), length);
+            fprintf(stderr, "inserted flow key with seq %u and packet length %zu\n", ntohl(tcp->seq), length);
             fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
-                    __func__, k.src_port, k.dst_port, ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
+                    __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
         }
 
         const uint8_t *src_start = (const uint8_t*)tcp;
@@ -352,158 +355,117 @@ struct tcp_segment {
         }
     }
 
-    struct tcp_segment *check_packet(const struct key &k_in, const struct tcp_header *tcp, size_t length) {
-        if (k_in == k) {
+    struct tcp_segment *check_packet(const struct tcp_header *tcp, size_t length) {
 
+        if (debug) {
+            fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
+                    __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
+        }
+
+        const uint8_t *src_start = (const uint8_t*)tcp;
+        src_start += tcp_offrsv_get_header_length(tcp->offrsv);
+
+        uint32_t pkt_start = ntohl(tcp->seq) - seq_init;
+        uint32_t pkt_end   = pkt_start + length;
+        if (pkt_start == index) {
             if (debug) {
-                fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
-                        __func__, k.src_port, k.dst_port, ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
+                fprintf(stderr, "==");
             }
 
-            const uint8_t *src_start = (const uint8_t*)tcp;
-            src_start += tcp_offrsv_get_header_length(tcp->offrsv);
-
-            uint32_t pkt_start = ntohl(tcp->seq) - seq_init;
-            uint32_t pkt_end   = pkt_start + length;
-            if (pkt_start == index) {
+            if (pkt_end >= last_byte_needed) {
+                uint8_t *dst_start = data + index;
+                uint32_t copy_len = last_byte_needed - index;
+                memcpy(dst_start, src_start, copy_len);
+                index += copy_len;
                 if (debug) {
-                    fprintf(stderr, "==");
+                    fprintf(stderr, "\tcopying %u bytes", copy_len);
+                    fprintf(stderr, "\tsegment: [%u,%u]", 0, index);
+                    fprintf(stderr, "\tDONE\n");
+                    //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
                 }
+                //k.zeroize();
+                return this;
 
-                if (pkt_end >= last_byte_needed) {
-                    uint8_t *dst_start = data + index;
-                    uint32_t copy_len = last_byte_needed - index;
-                    memcpy(dst_start, src_start, copy_len);
-                    index += copy_len;
-                    if (debug) {
-                        fprintf(stderr, "\tcopying %u bytes", copy_len);
-                        fprintf(stderr, "\tsegment: [%u,%u]", 0, index);
-                        fprintf(stderr, "\tDONE\n");
-                        //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
-                    }
-                    k.zeroize();
-                    return this;
-
-                } else {
-                    uint8_t *dst_start = data + index;
-                    uint32_t copy_len = pkt_end - index;
-                    memcpy(dst_start, src_start, copy_len);
-                    index += copy_len;
-                    if (debug) {
-                        fprintf(stderr, "\tcopying %u bytes", copy_len);
-                        fprintf(stderr, "\tsegment: [%u,%u]\n", 0, index);
-                    }
-                    return nullptr;
-                }
-            } else if (pkt_start < index) {
-                fprintf(stderr, "<\n");
-
-                if (pkt_end >= last_byte_needed) {
-                    pkt_start += (index - pkt_start);
-                    uint8_t *dst_start = data + index;
-                    uint32_t copy_len = last_byte_needed - index;
-                    memcpy(dst_start, src_start, copy_len);
-                    index += copy_len;
-                    if (debug) {
-                        fprintf(stderr, "\tcopying %u bytes", copy_len);
-                        fprintf(stderr, "\tsegment: [%u,%u]", 0, index);
-                        fprintf(stderr, "\tDONE\n");
-                        //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
-                    }
-                    k.zeroize();
-                    return this;
-                }
+            } else {
+                uint8_t *dst_start = data + index;
+                uint32_t copy_len = pkt_end - index;
+                memcpy(dst_start, src_start, copy_len);
+                index += copy_len;
                 if (debug) {
-                    fprintf(stderr, ">\n");
+                    fprintf(stderr, "\tcopying %u bytes", copy_len);
+                    fprintf(stderr, "\tsegment: [%u,%u]\n", 0, index);
                 }
+                return nullptr;
+            }
+        } else if (pkt_start < index) {
+            // fprintf(stderr, "<\n");
 
+            if (pkt_end >= last_byte_needed) {
+                pkt_start += (index - pkt_start);
+                uint8_t *dst_start = data + index;
+                uint32_t copy_len = last_byte_needed - index;
+                memcpy(dst_start, src_start, copy_len);
+                index += copy_len;
+                if (debug) {
+                    fprintf(stderr, "\tcopying %u bytes", copy_len);
+                    fprintf(stderr, "\tsegment: [%u,%u]", 0, index);
+                    fprintf(stderr, "\tDONE\n");
+                    //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
+                }
+                //k.zeroize();
+                return this;
             }
             if (debug) {
-                fprintf(stderr, "\n");
+                fprintf(stderr, ">\n");
             }
+
+        }
+        if (debug) {
+            fprintf(stderr, "\n");
         }
         return nullptr;
     }
 
-    bool operator==(const struct tcp_segment &s) const {
-        return k == s.k && seq_init == s.seq_init && seq_end == s.seq_end && index == s.index && last_byte_needed == s.last_byte_needed ;
-    }
+    // bool operator==(const struct tcp_segment &s) const {
+    //     return k == s.k && seq_init == s.seq_init && seq_end == s.seq_end && index == s.index && last_byte_needed == s.last_byte_needed ;
+    // }
 };
 
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
 
 struct tcp_reassembler {
-    static const size_t array_size = 8192;
-    struct tcp_segment segment[tcp_reassembler::array_size];
-    struct tcp_segment *current_segment;
+    std::unordered_map<struct key, struct tcp_segment> segment_table;
 
-    tcp_reassembler() : segment{}, current_segment{segment} {
-        for(auto &b : segment) {
-            b.k.zeroize();
-        }
-        // fprintf(stderr, "tcp_reassembler size: %zu bytes\n", sizeof(segment));
+    tcp_reassembler(unsigned int size) : segment_table{} {
+        segment_table.reserve(size);
+        // fprintf(stderr, "tcp_reassembler segment_table size: %zu bytes\n", size * sizeof(tcp_segment));
     }
 
     void copy_packet(const struct key &k, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
 
-        std::hash<struct key> hasher;
-        size_t h = hasher(k) % tcp_reassembler::array_size;
-        struct tcp_segment &b = segment[h];
-
-        if (b.k.is_zero() == false) {
-            fprintf(stderr, "clobber: key is not zero\n");
-        }
-
         if (length + bytes_needed > tcp_segment::array_length) {
             fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::array_length);
             bytes_needed = tcp_segment::array_length;
         }
         //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
-        b.init_from_packet(k, tcp, length, bytes_needed);
-    }
-
-    void copy_packet_into_segment_buffer(const struct key &k, struct tcp_segment *b, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
-
-        if (length + bytes_needed > tcp_segment::array_length) {
-            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::array_length);
-            bytes_needed = tcp_segment::array_length;
-        }
-        //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
-
-        b->init_from_packet(k, tcp, length, bytes_needed);
-    }
-
-    struct tcp_segment *get_segment_buffer(const struct key &k) {
-
-        std::hash<struct key> hasher;
-        size_t h = hasher(k) % tcp_reassembler::array_size;
-        struct tcp_segment &b = segment[h];
-
-        return &b;
+        segment_table[k].init_from_packet(tcp, length, bytes_needed);
     }
 
     struct tcp_segment *check_packet(struct key &k, const struct tcp_header *tcp, size_t length) {
 
-        // reap();
-        const uint8_t *src_start = (const uint8_t*)tcp;
-        src_start += tcp_offrsv_get_header_length(tcp->offrsv);
+        auto it = segment_table.find(k);
+        if (it != segment_table.end()) {
+            return it->second.check_packet(tcp, length);
+        }
+        return nullptr;
+    }
 
-        std::hash<struct key> hasher;
-        size_t h = hasher(k) % tcp_reassembler::array_size;
-        struct tcp_segment &b = segment[h];
-        return b.check_packet(k, tcp, length);
+    void remove_segment(key &k) {
+        segment_table.erase(k);
     }
 
     void reap() {
-        if (current_segment->k.is_zero() == false) {
-            fprintf(stderr, "reaper found nonzero key\n");
-        }
-
-        // advance pointer, and wrap around to start when needed
-        if (current_segment++ == (segment + tcp_reassembler::array_size)) {
-            current_segment = segment;
-        }
     }
 
 };

@@ -392,7 +392,7 @@ int append_packet_json(struct buffer_stream &buf,
             // fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->last_byte_needed);
             struct datum reassembled_tcp_data{data_buf->data, data_buf->data + data_buf->last_byte_needed};
             tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler);
-
+            reassembler.remove_segment(k);
         } else {
             tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler);
         }

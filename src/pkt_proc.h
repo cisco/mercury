@@ -66,7 +66,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
      * records (lines) per file; after that limit is reached, file
      * rotation will take place.
      */
-    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter) : reassembler{} {
+    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter) : reassembler{65536} {
         llq = llq_ptr;
         if (packet_filter_init(&pf, filter) == status_err) {
             throw "could not initialize packet filter";
