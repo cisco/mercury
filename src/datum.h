@@ -41,7 +41,8 @@ struct datum {
     //parser(const unsigned char *d, size_t length) : data{d}, data_end{d+length} {}
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
     const std::basic_string<uint8_t> get_bytestring() const { std::basic_string<uint8_t> s((uint8_t *)data, (int) (data_end - data)); return s;  }
-    bool is_not_null() const { return data == NULL; }
+    bool is_null() const { return data == NULL; }
+    bool is_not_null() const { return data != NULL; }
     bool is_not_empty() const { return data != NULL && data < data_end; }
     bool is_not_readable() const { return data == NULL || data == data_end; }
     void set_empty() { data = data_end; }
@@ -310,6 +311,7 @@ template <size_t T> struct data_buffer {
     }
     void reset() { data = buffer; }
     bool is_not_empty() const { return data != buffer && data < data_end; }
+    void set_empty() { data_end = data = buffer; }
     ssize_t length() const { return data - buffer; }
 };
 

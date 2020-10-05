@@ -309,6 +309,9 @@ struct dns_question_record {
         name.parse(d, dns_body);
         d.read_uint16(&rr_type);
         d.read_uint16(&rr_class);
+        if (d.is_null()) {
+            name.set_empty();
+        }
     }
 
     void write_json(struct json_object &o, const char *key) {
@@ -412,6 +415,14 @@ struct dns_packet {
             return;
         }
         records = d;
+
+        // trial parsing, just to verify dns packet formatting
+        dns_question_record question_record;
+        question_record.parse(d, records);
+        if (question_record.is_not_empty() == false) {
+            records.set_null();
+            //fprintf(stderr, "notice: setting dns packet to null\n");
+        }
     }
 
     bool is_not_empty() {
