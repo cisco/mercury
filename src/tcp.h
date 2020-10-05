@@ -325,18 +325,22 @@ struct tcp_segment {
     uint32_t seq_end;
     uint32_t index;
     uint32_t last_byte_needed;
+    unsigned int timestamp;
+
     static const size_t array_length = 8192;
-    uint8_t data[array_length - sizeof(struct key) - sizeof(seq_end)];
+    static const size_t header_length = sizeof(seq_init) + sizeof(seq_end) + sizeof(index) + sizeof(last_byte_needed) + sizeof(timestamp);
+    uint8_t data[array_length - header_length];
 
     static const bool debug = false;
 
-    tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, data{} { };
+    tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0}, data{} { };
 
-    void init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
+    void init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) {
         index = length;
         seq_init = ntohl(tcp->seq);
         seq_end = ntohl(tcp->seq) + length + bytes_needed;
         last_byte_needed = length + bytes_needed;
+        timestamp = sec;
         if (debug) {
             fprintf(stderr, "inserted flow key with seq %u and packet length %zu\n", ntohl(tcp->seq), length);
             fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
@@ -355,7 +359,7 @@ struct tcp_segment {
         }
     }
 
-    struct tcp_segment *check_packet(const struct tcp_header *tcp, size_t length) {
+    struct tcp_segment *check_packet(const struct tcp_header *tcp, size_t length, unsigned int sec) {
 
         if (debug) {
             fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
@@ -384,6 +388,7 @@ struct tcp_segment {
                     //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
                 }
                 //k.zeroize();
+                // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
                 return this;
 
             } else {
@@ -412,6 +417,7 @@ struct tcp_segment {
                     fprintf(stderr, "\tDONE\n");
                     //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
                 }
+                fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
                 //k.zeroize();
                 return this;
             }
@@ -424,6 +430,12 @@ struct tcp_segment {
             fprintf(stderr, "\n");
         }
         return nullptr;
+    }
+
+    bool is_too_old(unsigned int sec) {
+        unsigned int max_sec_in_table = 30;
+
+        return (sec > timestamp + max_sec_in_table);
     }
 
     // bool operator==(const struct tcp_segment &s) const {
@@ -441,7 +453,7 @@ struct tcp_reassembler {
         // fprintf(stderr, "tcp_reassembler segment_table size: %zu bytes\n", size * sizeof(tcp_segment));
     }
 
-    void copy_packet(const struct key &k, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
+    void copy_packet(const struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
 
         if (length + bytes_needed > tcp_segment::array_length) {
             fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::array_length);
@@ -449,23 +461,30 @@ struct tcp_reassembler {
         }
         //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
-        segment_table[k].init_from_packet(tcp, length, bytes_needed);
+        segment_table[k].init_from_packet(tcp, length, bytes_needed, sec);
     }
 
-    struct tcp_segment *check_packet(struct key &k, const struct tcp_header *tcp, size_t length) {
+    struct tcp_segment *check_packet(struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length) {
 
         auto it = segment_table.find(k);
         if (it != segment_table.end()) {
-            return it->second.check_packet(tcp, length);
+            return it->second.check_packet(tcp, length, sec);
+
+        } else {
+            // check for expired elements
+
+            it = segment_table.begin();
+            if (it != segment_table.end() && it->second.is_too_old(sec)) {
+                //fprintf(stderr, "found expired segment (age: %u seconds)\n", sec-it->second.timestamp);
+                // return it->second;  // TBD: trim to fit
+            }
         }
+
         return nullptr;
     }
 
     void remove_segment(key &k) {
         segment_table.erase(k);
-    }
-
-    void reap() {
     }
 
 };
