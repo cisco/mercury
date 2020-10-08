@@ -9,6 +9,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 #include "json_file_io.h"
 #include "json_object.h"
 #include "extractor.h"
@@ -27,6 +28,7 @@
 #include "tcpip.h"
 #include "eth.h"
 #include "udp.h"
+
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -152,12 +154,15 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 
 }
 
+// tcp_data_write_json() parses TCP data and writes metadata into
+// a buffer stream, if any is found
+//
 void tcp_data_write_json(struct buffer_stream &buf,
                          struct datum &pkt,
-                         struct key &k,
+                         const struct key &k,
                          struct tcp_packet &tcp_pkt,
                          struct timespec *ts,
-                         struct tcp_reassembler &reassembler) {
+                         struct tcp_reassembler *reassembler) {
         enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
         switch(msg_type) {
         case tcp_msg_type_http_request:
@@ -183,8 +188,8 @@ void tcp_data_write_json(struct buffer_stream &buf,
                 rec.parse(pkt);
                 struct tls_handshake handshake;
                 handshake.parse(rec.fragment);
-                if (handshake.additional_bytes_needed) {
-                    reassembler.copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed);
+                if (handshake.additional_bytes_needed && reassembler) {
+                    reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed);
                     return;
                 }
                 struct tls_client_hello hello;
@@ -238,8 +243,8 @@ void tcp_data_write_json(struct buffer_stream &buf,
                     certificate.parse(handshake2.body);
                 }
 
-                if (certificate.additional_bytes_needed) {
-                    reassembler.copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, certificate.additional_bytes_needed);
+                if (certificate.additional_bytes_needed && reassembler) {
+                    reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, certificate.additional_bytes_needed);
                     return;
                 }
 
@@ -325,8 +330,8 @@ void tcp_data_write_json(struct buffer_stream &buf,
             {
                 struct ssh_binary_packet ssh_pkt;
                 ssh_pkt.parse(pkt);
-                if (ssh_pkt.additional_bytes_needed) {
-                    reassembler.copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, ssh_pkt.additional_bytes_needed);
+                if (ssh_pkt.additional_bytes_needed && reassembler) {
+                    reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, ssh_pkt.additional_bytes_needed);
                     return;
                 }
                 struct ssh_kex_init kex_init;
@@ -385,16 +390,30 @@ int append_packet_json(struct buffer_stream &buf,
             write_flow_key(record, k);
             record.print_key_timestamp("event_start", ts);
             record.close();
-        }
 
-        const struct tcp_segment *data_buf = reassembler.check_packet(k, ts->tv_sec, tcp_pkt.header, pkt.length());
-        if (data_buf) {
-            // fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->last_byte_needed);
-            struct datum reassembled_tcp_data{data_buf->data, data_buf->data + data_buf->last_byte_needed};
-            tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler);
-            reassembler.remove_segment(k);
+            // note: we could check for non-empty data field
+
         } else {
-            tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler);
+
+            const struct tcp_segment *data_buf = reassembler.check_packet(k, ts->tv_sec, tcp_pkt.header, pkt.length());
+            if (data_buf) {
+                //fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->index);
+                struct datum reassembled_tcp_data = data_buf->reassembled_segment();
+                tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, &reassembler);
+                reassembler.remove_segment(k);
+            } else {
+                const uint8_t *tmp = pkt.data;
+                tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, &reassembler);
+                if (pkt.data == tmp) {
+                    auto segment = reassembler.reap(ts->tv_sec);
+                    if (segment != reassembler.segment_table.end()) {
+                        //fprintf(stderr, "EXPIRED PARTIAL TCP PACKET (length: %u)\n", segment->second.index);
+                        struct datum reassembled_tcp_data = segment->second.reassembled_segment();
+                        tcp_data_write_json(buf, reassembled_tcp_data, segment->first, tcp_pkt, ts, nullptr);
+                        reassembler.remove_segment(segment);
+                    }
+                }
+            }
         }
 
     } else if (transport_proto == 17) {
@@ -491,7 +510,14 @@ void json_queue_write(struct ll_queue *llq,
                       size_t length,
                       unsigned int sec,
                       unsigned int nsec,
-                      struct tcp_reassembler &reassembler) {
+                      struct tcp_reassembler &reassembler,
+                      bool blocking) {
+
+    if (blocking) {
+        while (llq->msgs[llq->widx].used != 0) {
+            usleep(50); // sleep for fifty microseconds
+        }
+    }
 
     if (llq->msgs[llq->widx].used == 0) {
 

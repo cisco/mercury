@@ -437,7 +437,7 @@ int main(int argc, char *argv[]) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
     }
 
-    if (cfg.write_filename && cfg.read_filename) {
+    if (cfg.read_filename) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
     }
 

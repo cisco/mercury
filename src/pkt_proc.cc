@@ -61,7 +61,7 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
              * write fingerprints into output file
              */
 
-            return new pkt_proc_json_writer_llq(llq, cfg->packet_filter_cfg);
+            return new pkt_proc_json_writer_llq(llq, cfg->packet_filter_cfg, cfg->output_block);
 
         }
         // note: we no longer have a 'packet dumper' option

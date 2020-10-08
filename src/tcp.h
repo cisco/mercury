@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <unordered_map>
 #include "mercury.h"
+#include "datum.h"
 
 struct tcp_header {
     uint16_t src_port;
@@ -53,7 +54,10 @@ struct ipv6_addr {
     uint32_t c;
     uint32_t d;
     bool operator==(const ipv6_addr &rhs) const {
-        return a == rhs.a && b == rhs.b && c == rhs.c && d == rhs.d;
+        return a == rhs.a
+            && b == rhs.b
+            && c == rhs.c
+            && d == rhs.d;
     }
 };
 
@@ -108,10 +112,20 @@ struct key {
     bool operator==(const key &k) const {
         switch (ip_vers) {
         case 4:
-            return src_port == k.src_port && dst_port == k.dst_port && protocol == k.protocol && k.ip_vers == 4 && addr.ipv4.src == k.addr.ipv4.src && addr.ipv4.dst == k.addr.ipv4.dst;
+            return src_port == k.src_port
+                && dst_port == k.dst_port
+                && protocol == k.protocol
+                && k.ip_vers == 4
+                && addr.ipv4.src == k.addr.ipv4.src
+                && addr.ipv4.dst == k.addr.ipv4.dst;
             break;
         case 6:
-            return src_port == k.src_port && dst_port == k.dst_port && protocol == k.protocol && k.ip_vers == 6 && addr.ipv6.src == k.addr.ipv6.src && addr.ipv6.dst == k.addr.ipv6.dst;
+            return src_port == k.src_port
+                && dst_port == k.dst_port
+                && protocol == k.protocol
+                && k.ip_vers == 6
+                && addr.ipv6.src == k.addr.ipv6.src
+                && addr.ipv6.dst == k.addr.ipv6.dst;
         default:
             return 0;
         }
@@ -124,18 +138,45 @@ namespace std {
     template <>  struct hash<struct key>  {
         std::size_t operator()(const struct key& k) const    {
 
+            size_t multiplier = 2862933555777941757;  // source: https://nuclear.llnl.gov/CNP/rng/rngman/node3.html
+
             /* assume sizeof(size_t) == 8 for now */
-            size_t x = (size_t) k.src_port | ((size_t) k.dst_port << 16) | ((size_t) k.ip_vers) << 32 | ((size_t) k.protocol) << 40;
-            x ^= (size_t) k.addr.ipv6.src.a;
-            x ^= (size_t) k.addr.ipv6.src.b;
-            x ^= (size_t) k.addr.ipv6.src.c;
-            x ^= (size_t) k.addr.ipv6.src.d;
-            x ^= (size_t) k.addr.ipv6.dst.a;
-            x ^= (size_t) k.addr.ipv6.dst.b;
-            x ^= (size_t) k.addr.ipv6.dst.c;
-            x ^= (size_t) k.addr.ipv6.dst.d;
+            // size_t x = (size_t) k.src_port | ((size_t) k.dst_port << 16) | ((size_t) k.ip_vers) << 32 | ((size_t) k.protocol) << 40;
+            // x ^= (size_t) k.addr.ipv6.src.a;
+            // x ^= (size_t) k.addr.ipv6.src.b;
+            // x ^= (size_t) k.addr.ipv6.src.c;
+            // x ^= (size_t) k.addr.ipv6.src.d;
+            // x ^= (size_t) k.addr.ipv6.dst.a;
+            // x ^= (size_t) k.addr.ipv6.dst.b;
+            // x ^= (size_t) k.addr.ipv6.dst.c;
+            // x ^= (size_t) k.addr.ipv6.dst.d;
+            // return x;
+
+            size_t x;
+            if (k.ip_vers == 4) {
+                uint32_t sa = k.addr.ipv4.src;
+                uint32_t da = k.addr.ipv4.dst;
+                uint16_t sp = k.src_port;
+                uint16_t dp = k.dst_port;
+                uint8_t  pr = k.protocol;
+                x = ((uint64_t) sp * da) + ((uint64_t) dp * sa);
+                x *= multiplier;
+                x += sa + da + sp + dp + pr;
+                x *= multiplier;
+            } else {
+                uint64_t *sa = (uint64_t *)&k.addr.ipv6.src;
+                uint64_t *da = (uint64_t *)&k.addr.ipv6.dst;
+                uint16_t sp = k.src_port;
+                uint16_t dp = k.dst_port;
+                uint8_t  pr = k.protocol;
+                x = ((uint64_t) sp * da[0] * da[1]) + ((uint64_t) dp * sa[0] * sa[1]);
+                x *= multiplier;
+                x += sa[0] + sa[1] + da[0] + da[1] + sp + dp + pr;
+                x *= multiplier;
+            }
 
             return x;
+
         }
     };
 }
@@ -430,7 +471,7 @@ struct tcp_segment {
             fprintf(stderr, "\n");
         }
         return nullptr;
-    }
+      }
 
     bool is_too_old(unsigned int sec) {
         unsigned int max_sec_in_table = 30;
@@ -438,9 +479,11 @@ struct tcp_segment {
         return (sec > timestamp + max_sec_in_table);
     }
 
-    // bool operator==(const struct tcp_segment &s) const {
-    //     return k == s.k && seq_init == s.seq_init && seq_end == s.seq_end && index == s.index && last_byte_needed == s.last_byte_needed ;
-    // }
+    struct datum reassembled_segment() const {
+        struct datum reassembled_tcp_data{data, data + index};
+        return reassembled_tcp_data;
+    }
+
 };
 
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
@@ -455,6 +498,10 @@ struct tcp_reassembler {
 
     void copy_packet(const struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
 
+        if (length == 0) {
+            fprintf(stderr, "warning: got length=0 in copy_packet()\n");
+            //            return;
+        }
         if (length + bytes_needed > tcp_segment::array_length) {
             fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::array_length);
             bytes_needed = tcp_segment::array_length;
@@ -469,22 +516,46 @@ struct tcp_reassembler {
         auto it = segment_table.find(k);
         if (it != segment_table.end()) {
             return it->second.check_packet(tcp, length, sec);
-
-        } else {
-            // check for expired elements
-
-            it = segment_table.begin();
-            if (it != segment_table.end() && it->second.is_too_old(sec)) {
-                //fprintf(stderr, "found expired segment (age: %u seconds)\n", sec-it->second.timestamp);
-                // return it->second;  // TBD: trim to fit
-            }
         }
-
         return nullptr;
     }
 
+    std::unordered_map<struct key, struct tcp_segment>::iterator reap(unsigned int sec) {
+        //        return segment_table.end(); //DEBUGGING
+
+        // check for expired elements
+
+        auto it = segment_table.begin();
+        if (it != segment_table.end() && it->second.is_too_old(sec)) {
+            // fprintf(stderr, "found expired segment (age: %u seconds)\n", sec-it->second.timestamp);
+            return it;  // not fully reassembled, but expired
+        }
+        return segment_table.end();
+    }
+
+    std::unordered_map<struct key, struct tcp_segment>::iterator check_packet2(struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length) {
+
+        auto it = segment_table.find(k);
+        if (it != segment_table.end()) {
+            if (it->second.check_packet(tcp, length, sec)) {
+                return it;
+            }
+        }
+        return segment_table.end();
+    }
+
     void remove_segment(key &k) {
-        segment_table.erase(k);
+        auto it = segment_table.find(k);
+        if (it != segment_table.end()) {
+            segment_table.erase(it);
+        }
+        //    segment_table.erase(k);
+    }
+
+    void remove_segment(std::unordered_map<struct key, struct tcp_segment>::iterator it) {
+        if (it != segment_table.end()) {
+            segment_table.erase(it);
+        }
     }
 
 };
