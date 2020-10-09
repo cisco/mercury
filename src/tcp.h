@@ -382,6 +382,18 @@ struct tcp_segment {
     };
 
     void init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) {
+        if (length + bytes_needed > tcp_segment::buffer_length) {
+            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::buffer_length);
+            if (length < tcp_segment::buffer_length) {
+                bytes_needed = tcp_segment::buffer_length - length;
+            } else {
+                // packet is longer than buffer; it should be processed immediately
+                fprintf(stderr, "warning: packet longer than buffer\n");
+                return;
+            }
+        }
+        fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
+
         index = length;
         seq_init = ntohl(tcp->seq);
         seq_end = ntohl(tcp->seq) + length + bytes_needed;
@@ -507,11 +519,6 @@ struct tcp_reassembler {
             fprintf(stderr, "warning: got length=0 in copy_packet()\n");
             //            return;
         }
-        if (length + bytes_needed > tcp_segment::buffer_length) {
-            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::buffer_length);
-            bytes_needed = tcp_segment::buffer_length;
-        }
-        //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
         tcp_segment segment;
         segment.init_from_packet(tcp, length, bytes_needed, sec);
