@@ -471,7 +471,7 @@ struct tcp_segment {
             fprintf(stderr, "\n");
         }
         return nullptr;
-      }
+    }
 
     bool is_too_old(unsigned int sec) {
         unsigned int max_sec_in_table = 30;
@@ -508,7 +508,10 @@ struct tcp_reassembler {
         }
         //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
-        segment_table[k].init_from_packet(tcp, length, bytes_needed, sec);
+        tcp_segment segment;
+        segment.init_from_packet(tcp, length, bytes_needed, sec);
+        segment_table.insert({k, segment});
+        //        segment_table[k].init_from_packet(tcp, length, bytes_needed, sec);
     }
 
     struct tcp_segment *check_packet(struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length) {
