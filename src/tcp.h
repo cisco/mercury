@@ -370,7 +370,8 @@ struct tcp_segment {
 
     static const size_t array_length = 8192;
     static const size_t header_length = sizeof(seq_init) + sizeof(seq_end) + sizeof(index) + sizeof(last_byte_needed) + sizeof(timestamp);
-    uint8_t data[array_length - header_length];
+    static const size_t buffer_length = array_length - header_length;
+    uint8_t data[buffer_length];
 
     static const bool debug = false;
 
@@ -502,9 +503,9 @@ struct tcp_reassembler {
             fprintf(stderr, "warning: got length=0 in copy_packet()\n");
             //            return;
         }
-        if (length + bytes_needed > tcp_segment::array_length) {
-            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::array_length);
-            bytes_needed = tcp_segment::array_length;
+        if (length + bytes_needed > tcp_segment::buffer_length) {
+            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::buffer_length);
+            bytes_needed = tcp_segment::buffer_length;
         }
         //fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
