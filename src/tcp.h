@@ -375,7 +375,11 @@ struct tcp_segment {
 
     static const bool debug = false;
 
-    tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0}, data{} { };
+    tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} { };
+
+    tcp_segment(const struct tcp_segment &r) : seq_init{r.seq_init}, seq_end{r.seq_end}, index{r.index}, last_byte_needed{r.last_byte_needed}, timestamp{r.timestamp} {
+        memcpy(data, r.data, r.index);
+    };
 
     void init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) {
         index = length;
