@@ -381,18 +381,18 @@ struct tcp_segment {
         memcpy(data, r.data, r.index);
     };
 
-    void init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) {
+    bool init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) {
         if (length + bytes_needed > tcp_segment::buffer_length) {
             fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu\n", length + bytes_needed, tcp_segment::buffer_length);
             if (length < tcp_segment::buffer_length) {
                 bytes_needed = tcp_segment::buffer_length - length;
             } else {
                 // packet is longer than buffer; it should be processed immediately
-                fprintf(stderr, "warning: packet longer than buffer\n");
-                return;
+                // fprintf(stderr, "warning: packet longer than buffer\n");
+                return false;
             }
         }
-        fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
+        //        fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
         index = length;
         seq_init = ntohl(tcp->seq);
@@ -415,6 +415,7 @@ struct tcp_segment {
             fprintf(stderr, "\tsegment: [%u,%u]\n", 0, index);
             //fprintf_json_string_escaped(stderr, "segment", dst_start, copy_len); fprintf(stderr, "\n");
         }
+        return true;
     }
 
     struct tcp_segment *check_packet(const struct tcp_header *tcp, size_t length, unsigned int sec) {
@@ -513,7 +514,7 @@ struct tcp_reassembler {
         // fprintf(stderr, "tcp_reassembler segment_table size: %zu bytes\n", size * sizeof(tcp_segment));
     }
 
-    void copy_packet(const struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
+    bool copy_packet(const struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
 
         if (length == 0) {
             fprintf(stderr, "warning: got length=0 in copy_packet()\n");
@@ -521,9 +522,11 @@ struct tcp_reassembler {
         }
 
         tcp_segment segment;
-        segment.init_from_packet(tcp, length, bytes_needed, sec);
-        segment_table.insert({k, segment});
-        //        segment_table[k].init_from_packet(tcp, length, bytes_needed, sec);
+        if (segment.init_from_packet(tcp, length, bytes_needed, sec)) {
+            segment_table.insert({k, segment});
+            return true;
+        }
+        return false;
     }
 
     struct tcp_segment *check_packet(struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length) {
