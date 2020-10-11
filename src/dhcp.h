@@ -274,8 +274,9 @@ enum class dhcp_option_type : uint8_t {
 
 const char *hwtype_get_string(uint8_t hwtype) {
     switch(hwtype) {
-    case 0: return "Reserved";
-    case 1: return "Ethernet";
+    case 0: return "reserved";
+    case 1: return "ethernet";
+    case 255: return "identity_association";
     default:
         ;
     }
@@ -353,16 +354,28 @@ struct dhcp_option : public datum {
                 uint8_t hwtype = 0;
                 datum::read_uint8(&hwtype);
                 json_client_id.print_key_string("hw_type", hwtype_get_string(hwtype));
-                if (hwtype != 1) {
+                if (hwtype != 1 && hwtype != 255) {
                     json_client_id.print_key_uint("hw_type_code", hwtype);
                 }
-                json_client_id.print_key_hex("address", *this);
                 if (hwtype == 1) { // Ethernet
+                    json_client_id.print_key_hex("address", *this);
                     size_t oui = 0;
                     parser_read_uint(this, 3, &oui);
                     auto x = oui_dict.find(oui);
                     if (x != oui_dict.end()) {
                         json_client_id.print_key_string("oui", x->second);
+                    }
+                } else if (hwtype == 255) {
+                    uint32_t iaid;
+                    datum::read_uint32(&iaid);
+                    json_client_id.print_key_uint("iaid", iaid);
+                    uint16_t duid_type;
+                    datum::read_uint16(&duid_type);
+                    if (duid_type == 2) { // assigned by enterprise number
+                        uint32_t en;
+                        datum::read_uint32(&en);
+                        json_client_id.print_key_uint("enterprise_number", en);
+                        json_client_id.print_key_hex("identifier", *this);
                     }
                 }
                 json_client_id.close();
