@@ -272,6 +272,45 @@ enum class dhcp_option_type : uint8_t {
 	End = 0x00ff
 };
 
+const char *hwtype_get_string(uint8_t hwtype) {
+    switch(hwtype) {
+    case 0: return "Reserved";
+    case 1: return "Ethernet";
+    default:
+        ;
+    }
+    return "Unknown";
+}
+
+// as per https://www.iana.org/assignments/bootp-dhcp-parameters/bootp-dhcp-parameters.xhtml#message-type-53
+// retrieved on Oct. 2020
+//
+const char *msg_type_get_string(uint8_t msg_type) {
+    switch(msg_type) {
+    case 1: return "discover";
+    case 2: return "offer";
+    case 3: return "request";
+    case 4: return "decline";
+    case 5: return "ack";
+    case 6: return "nack";
+    case 7: return "release";
+    case 8: return "inform";
+    case 9: return "force_renew";
+    case 10: return "lease_query";
+    case 11: return "lease_unassigned";
+    case 12: return "lease_unknown";
+    case 13: return "lease_active";
+    case 14: return "bulk_lease_query";
+    case 15: return "lease_query_done";
+    case 16: return "active_lease_query";
+    case 17: return "lease_query_status";
+    case 18: return "tls";
+    default:
+        ;
+    }
+    return "unknown";
+}
+
 struct dhcp_option : public datum {
     uint8_t tag;
     uint8_t length;
@@ -287,7 +326,54 @@ struct dhcp_option : public datum {
         datum::parse(p, length);
     }
 
-    void write_json(struct json_array &option_array) {
+    void write_json(struct json_object &json_opt) {
+
+        switch((dhcp_option_type)tag) {
+        case dhcp_option_type::DHCP_Msg_Type:
+            {
+                uint8_t msg_type = 0;
+                datum::read_uint8(&msg_type);
+                json_opt.print_key_string("msg_type", msg_type_get_string(msg_type));
+            }
+            break;
+        case dhcp_option_type::Address_Request:
+            if (datum::length() == 4) {
+                json_opt.print_key_ipv4_addr("requested_address", this->data);
+            } // TBD: IPv6
+            break;
+        case dhcp_option_type::Hostname:
+            json_opt.print_key_json_string("hostname", *this);
+            break;
+        case dhcp_option_type::Class_Id:
+            json_opt.print_key_json_string("vendor_class_id", *this);
+            break;
+        case dhcp_option_type::Client_Id:
+            {
+                struct json_object json_client_id{json_opt, "client_id"};
+                uint8_t hwtype = 0;
+                datum::read_uint8(&hwtype);
+                json_client_id.print_key_string("hw_type", hwtype_get_string(hwtype));
+                if (hwtype != 1) {
+                    json_client_id.print_key_uint("hw_type_code", hwtype);
+                }
+                json_client_id.print_key_hex("address", *this);
+                if (hwtype == 1) { // Ethernet
+                    size_t oui = 0;
+                    parser_read_uint(this, 3, &oui);
+                    auto x = oui_dict.find(oui);
+                    if (x != oui_dict.end()) {
+                        json_client_id.print_key_string("oui", x->second);
+                    }
+                }
+                json_client_id.close();
+            }
+            break;
+        default:
+            ;
+        }
+    }
+
+    void write_json_complete(struct json_array &option_array) {
         struct json_object json_opt{option_array};
 
         switch((dhcp_option_type)tag) {
@@ -307,6 +393,9 @@ struct dhcp_option : public datum {
             break;
         case dhcp_option_type::Hostname:
             json_opt.print_key_json_string("hostname", *this);
+            break;
+        case dhcp_option_type::Class_Id:
+            json_opt.print_key_json_string("vendor_class_id", *this);
             break;
         case dhcp_option_type::Client_Id:
             {
@@ -342,6 +431,7 @@ struct dhcp_option : public datum {
     }
 };
 
+
 struct dhcp_discover {
     struct datum options;
 
@@ -357,6 +447,17 @@ struct dhcp_discover {
 
     void write_json(struct json_object &o) {
         struct json_object json_dhcp{o, "dhcp"};
+        struct datum tmp = options;
+        while (tmp.is_not_empty()) {
+            struct dhcp_option opt;
+            opt.parse(tmp);
+            opt.write_json(json_dhcp);
+        }
+        json_dhcp.close();
+    }
+
+    void write_json_complete(struct json_object &o) {
+        struct json_object json_dhcp{o, "dhcp"};
         //json_dhcp.print_key_hex("options_hex", options);
         //json_dhcp.print_key_datum("options", options);
 
@@ -365,7 +466,7 @@ struct dhcp_discover {
         while (tmp.is_not_empty()) {
             struct dhcp_option opt;
             opt.parse(tmp);
-            opt.write_json(option_array);
+            opt.write_json_complete(option_array);
         }
         option_array.close();
         json_dhcp.close();
