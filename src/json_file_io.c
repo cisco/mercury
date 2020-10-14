@@ -30,6 +30,8 @@
 #include "udp.h"
 
 
+#define alignment(p) (p%16 ? (p%8 ? (p%4 ? (p%2 ? 1 : 2) : 4) : 8) : 16)
+
 extern struct global_variables global_vars; /* defined in config.c */
 
 #define json_file_needs_rotation(jf) (--((jf)->record_countdown) == 0)
