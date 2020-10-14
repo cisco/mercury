@@ -191,9 +191,10 @@ void tcp_data_write_json(struct buffer_stream &buf,
                 struct tls_handshake handshake;
                 handshake.parse(rec.fragment);
                 if (handshake.additional_bytes_needed && reassembler) {
-                    fprintf(stderr, "tls.handshake.client_hello (%zu)\n", handshake.additional_bytes_needed);
-                    reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed);
-                    return;
+                    //fprintf(stderr, "tls.handshake.client_hello (%zu)\n", handshake.additional_bytes_needed);
+                    if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed)) {
+                        return;
+                    }
                 }
                 struct tls_client_hello hello;
                 hello.parse(handshake.body);
@@ -247,9 +248,10 @@ void tcp_data_write_json(struct buffer_stream &buf,
                 }
 
                 if (certificate.additional_bytes_needed && reassembler) {
-                    fprintf(stderr, "tls.handshake.certificate (%zu)\n", certificate.additional_bytes_needed);
-                    reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, certificate.additional_bytes_needed);
-                    return;
+                    //fprintf(stderr, "tls.handshake.certificate (%zu)\n", certificate.additional_bytes_needed);
+                    if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, certificate.additional_bytes_needed)) {
+                        return;
+                    }
                 }
 
                 bool have_hello = hello.is_not_empty();
@@ -335,9 +337,10 @@ void tcp_data_write_json(struct buffer_stream &buf,
                 struct ssh_binary_packet ssh_pkt;
                 ssh_pkt.parse(pkt);
                 if (ssh_pkt.additional_bytes_needed && reassembler) {
-                    fprintf(stderr, "ssh.binary_packet (%zu)\n", ssh_pkt.additional_bytes_needed);
-                    reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, ssh_pkt.additional_bytes_needed);
-                    return;
+                    //fprintf(stderr, "ssh.binary_packet (%zu)\n", ssh_pkt.additional_bytes_needed);
+                    if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, ssh_pkt.additional_bytes_needed)) {
+                        return;
+                    }
                 }
                 struct ssh_kex_init kex_init;
                 kex_init.parse(ssh_pkt.payload);
