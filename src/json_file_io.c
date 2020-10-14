@@ -194,6 +194,9 @@ int append_packet_json(struct buffer_stream &buf,
         udp_pkt.parse(pkt);
         udp_pkt.set_key(k);
         msg_type = udp_get_message_type(pkt.data, pkt.length());
+        if (msg_type == msg_type_unknown) {
+            msg_type = udp_pkt.estimate_msg_type_from_ports();
+        }
     }
 
     switch(msg_type) {
