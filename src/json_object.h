@@ -227,6 +227,14 @@ struct json_array {
         b->puts(s);
         b->write_char('\"');
     }
+    void print_json_string(struct datum &d) {
+        if (d.is_not_readable()) {
+            return;
+        }
+        write_comma(comma);
+        b->json_string_escaped(d.data, d.length());
+
+    }
     void print_base64(const uint8_t *data, size_t length) {
         write_comma(comma);
         if (data) {

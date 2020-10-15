@@ -155,6 +155,7 @@ enum class dns_rr_type : uint16_t {
     SRV      = 33,
     NAPTR    = 35,
     DS       = 43,
+    NSEC	 = 47,
     DNSKEY   = 48,
     HTTPS    = 65,
     WILDCARD = 255,
@@ -186,6 +187,7 @@ const char *dns_rr_type_name(dns_rr_type t) {
     case dns_rr_type::SRV:     return "SRV";
     case dns_rr_type::NAPTR:   return "NAPTR";
     case dns_rr_type::DS:      return "DS";
+    case dns_rr_type::NSEC:    return "NSEC";
     case dns_rr_type::DNSKEY:  return "DNSKEY";
     case dns_rr_type::HTTPS:   return "HTTPS";
     case dns_rr_type::WILDCARD: return "WILDCARD";
@@ -302,6 +304,7 @@ struct dns_question_record {
     struct dns_name name;
     uint16_t rr_type;
     uint16_t rr_class;
+    bool cache;
 
     dns_question_record() : name{}, rr_type{0}, rr_class{0} {}
 
@@ -309,12 +312,14 @@ struct dns_question_record {
         name.parse(d, dns_body);
         d.read_uint16(&rr_type);
         d.read_uint16(&rr_class);
+        cache = rr_class & 0x8000;  // mDNS cache bit
+        rr_class &= 0x7fff;         // mask away mDNS cache bit
         if (d.is_null()) {
             name.set_empty();
         }
     }
 
-    void write_json(struct json_object &o, const char *key) {
+    void write_json(struct json_object &o, const char *key) const {
         if (name.is_not_empty()) {
             struct json_object rr{o, key};
             rr.print_key_json_string("name", name.buffer, name.length());
@@ -323,7 +328,7 @@ struct dns_question_record {
             rr.close();
         }
     }
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o) const {
         if (name.is_not_empty()) {
             o.print_key_json_string("name", name.buffer, name.length());
             const char *type_name = dns_rr_type_name((dns_rr_type)rr_type);
@@ -338,7 +343,7 @@ struct dns_question_record {
             }
         }
     }
-    bool is_not_empty() { return name.is_not_empty(); }
+    bool is_not_empty() const { return name.is_not_empty(); }
 
 };
 
@@ -347,36 +352,82 @@ struct dns_resource_record {
     uint32_t ttl;
     uint16_t rd_length;
     struct datum rdata;
+    struct datum body;
 
-    dns_resource_record() : question_record{}, ttl{0}, rd_length{0}, rdata{NULL, NULL} {}
+    dns_resource_record() : question_record{}, ttl{0}, rd_length{0}, rdata{NULL, NULL}, body{NULL, NULL} {}
 
     void parse(struct datum &d, const struct datum &dns_body) {
+        body = dns_body;
         question_record.parse(d, dns_body);
         d.read_uint32(&ttl);
         d.read_uint16(&rd_length);
         rdata.parse(d, rd_length);
     }
 
-    void write_json(struct json_array &a) {
+    void write_json(struct json_array &a) const {
         if (question_record.is_not_empty()) {
             struct json_object rr{a};
             question_record.write_json(rr);
             rr.print_key_uint("ttl", ttl);
-            // rr.print_key_uint("length", rd_length);
-            if ((dns_rr_class)question_record.rr_class == dns_rr_class::IN) {
+
+            struct datum tmp_rdata = rdata;
+            if ((dns_rr_class)(question_record.rr_class) == dns_rr_class::IN) {
                 if ((dns_rr_type)question_record.rr_type == dns_rr_type::A) {
                     struct ipv4_addr addr;
-                    addr.parse(rdata);
+                    addr.parse(tmp_rdata);
                     rr.print_key_value("ipv4_addr", addr);
 
                 } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::AAAA) {
                     struct ipv6_addr addr;
-                    addr.parse(rdata);
+                    addr.parse(tmp_rdata);
                     rr.print_key_value("ip6_addr", addr);
+
+                } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::TXT) {
+                    struct json_array txt{rr, "txt"};
+                    while (tmp_rdata.is_not_empty()) {
+                        uint8_t length;
+                        tmp_rdata.read_uint8(&length);
+                        struct datum tmp;
+                        tmp.parse(tmp_rdata, length);
+                        txt.print_json_string(tmp);
+                    }
+                    txt.close();
+
+                } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::SRV) {
+                    struct json_object srv{rr, "srv"};
+
+                    uint16_t priority;
+                    tmp_rdata.read_uint16(&priority);
+                    srv.print_key_uint("priority", priority);
+
+                    uint16_t weight;
+                    tmp_rdata.read_uint16(&weight);
+                    srv.print_key_uint("weight", weight);
+
+                    uint16_t port;
+                    tmp_rdata.read_uint16(&port);
+                    srv.print_key_uint("port", port);
+
+                    struct dns_name target;
+                    target.parse(tmp_rdata, body);
+                    srv.print_key_json_string("target", target.buffer, target.length());
+
+                    srv.close();
+
+                } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::NSEC) {
+
+                    struct json_object nsec{rr, "nsec"};
+
+                    struct dns_name next_name;
+                    next_name.parse(tmp_rdata, body);
+                    nsec.print_key_json_string("next_domain_name", next_name.buffer, next_name.length());
+
+                    nsec.print_key_hex("type_bit_maps", tmp_rdata);
+                    nsec.close();
                 }
 
             } else {
-                rr.print_key_json_string("rdata", rdata);
+                rr.print_key_hex("rdata", tmp_rdata);
             }
             rr.close();
         }
