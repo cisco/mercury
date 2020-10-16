@@ -133,6 +133,19 @@ typedef struct {
 
 #endif
 
+class unsigned_int {
+    uint16_t value_;
+
+public:
+    unsigned_int(uint16_t v) : value_{v} {}
+
+    void parse(struct datum &d) {
+        d.read_uint16(&value_);
+    }
+
+    uint16_t value() { return value_; }
+};
+
 enum class dns_rr_type : uint16_t {
     A        = 1, /*!< a host address */
     NS       = 2, /*!< an authoritative name server */
@@ -299,6 +312,14 @@ struct dns_name : public data_buffer<256> {
         }
     }
 };
+
+// template <typename T>
+// struct unsigned_int {
+//     T value;
+
+//     unsigned_int<T>(T v) : value{v} {}
+
+// };
 
 struct dns_question_record {
     struct dns_name name;
