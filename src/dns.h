@@ -267,8 +267,9 @@ struct dns_name : public data_buffer<256> {
 
     dns_name() : data_buffer{} {}
 
+
     void parse(struct datum &d, const struct datum &dns_body) {
-        bool first = true;
+
         while (d.is_not_empty()) {
             struct dns_label_header h{d};
             dns_label_type type = h.type();
@@ -276,12 +277,8 @@ struct dns_name : public data_buffer<256> {
                 break;
             }
             if (type == dns_label_type::char_string) {
-                if (first) {
-                    first = false;
-                } else {
-                    copy('.');
-                }
                 copy(d, h.char_string_length());
+                copy('.');
             }
             if (type == dns_label_type::offset) {
                 uint8_t tmp;
