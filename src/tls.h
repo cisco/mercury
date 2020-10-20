@@ -211,6 +211,9 @@ struct tls_server_certificate {
 
 #define SNI_HDR_LEN 9
 
+
+enum class tls_role { client, server };
+
 struct tls_extensions : public datum {
 
     tls_extensions() = default;
@@ -225,7 +228,7 @@ struct tls_extensions : public datum {
 
     void print_session_ticket(struct json_object &o, const char *key) const;
 
-    void fingerprint(struct buffer_stream &b) const;
+    void fingerprint(struct buffer_stream &b, enum tls_role role) const;
 };
 
 
@@ -256,6 +259,8 @@ struct tls_client_hello {
     struct tls_security_assessment security_assesment();
 };
 
+#include "match.h"
+
 struct tls_server_hello {
     struct datum protocol_version;
     struct datum random;
@@ -267,7 +272,18 @@ struct tls_server_hello {
 
     void parse(struct datum &p);
 
-    bool is_not_empty() const { return ciphersuite_vector.is_not_empty(); };
+    bool is_not_empty() const {
+        uint16_t tls_version_list[6] = {
+            0x0303, 0x0302, 0x0301, 0x0300, 0xfeff, 0xfefd
+        };
+        struct datum tmp = protocol_version;
+        uint16_t version;
+        tmp.read_uint16(&version);
+        if (!uint16_match(version, tls_version_list, 6)) {
+            return false;
+        };
+        return ciphersuite_vector.is_not_empty();
+    };
 
     void operator()(struct buffer_stream &buf) const;
 
