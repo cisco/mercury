@@ -194,6 +194,9 @@ int append_packet_json(struct buffer_stream &buf,
         udp_pkt.parse(pkt);
         udp_pkt.set_key(k);
         msg_type = udp_get_message_type(pkt.data, pkt.length());
+        if (msg_type == msg_type_unknown) {
+            msg_type = udp_pkt.estimate_msg_type_from_ports();
+        }
     }
 
     switch(msg_type) {
@@ -337,16 +340,26 @@ int append_packet_json(struct buffer_stream &buf,
         break;
     case msg_type_dns:
         {
-            struct json_object record{&buf};
-            struct json_object dns{record, "dns"};
-            write_dns_server_data(pkt.data,
-                                  pkt.length(),
-                                  dns,
-                                  !global_vars.dns_json_output);
-            dns.close();
-            write_flow_key(record, k);
-            record.print_key_timestamp("event_start", ts);
-            record.close();
+            if (global_vars.dns_json_output) {
+                struct dns_packet dns_pkt{pkt};
+                if (dns_pkt.is_not_empty()) {
+                    struct json_object json_record{&buf};
+                    struct json_object json_dns{json_record, "dns"};
+                    dns_pkt.write_json(json_dns);
+                    json_dns.close();
+                    write_flow_key(json_record, k);
+                    json_record.print_key_timestamp("event_start", ts);
+                    json_record.close();
+                }
+            } else {
+                struct json_object json_record{&buf};
+                struct json_object json_dns{json_record, "dns"};
+                json_dns.print_key_base64("base64", pkt);
+                json_dns.close();
+                write_flow_key(json_record, k);
+                json_record.print_key_timestamp("event_start", ts);
+                json_record.close();
+            }
         }
         break;
     case msg_type_dtls_client_hello:

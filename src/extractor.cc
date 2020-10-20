@@ -2364,6 +2364,7 @@ bool packet_filter_apply(struct packet_filter *pf, uint8_t *packet, size_t lengt
 
 extern unsigned char dhcp_client_mask[8];  /* udp.c */
 extern unsigned char dns_server_mask[8];   /* udp.c */
+extern unsigned char dns_client_mask[8];   /* udp.c */
 extern unsigned char wireguard_mask[8];    /* udp.c */
 
 
@@ -2420,6 +2421,7 @@ enum status proto_ident_config(const char *config_string) {
     }
     if (protocols["dns"] == false) {
         bzero(dns_server_mask, sizeof(dns_server_mask));
+        bzero(dns_client_mask, sizeof(dns_client_mask));
     }
     if (protocols["http"] == false) {
         bzero(http_client_mask, sizeof(http_client_mask));

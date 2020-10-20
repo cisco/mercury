@@ -263,7 +263,7 @@ struct tls_extension {
 
 };
 
-void tls_extensions::fingerprint(struct buffer_stream &b) const {
+void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) const {
 
     struct datum ext_parser{this->data, this->data_end};
 
@@ -287,7 +287,11 @@ void tls_extensions::fingerprint(struct buffer_stream &b) const {
                 b.write_char('(');
                 x.write_degreased_type(b);
                 x.write_length(b);
-                x.write_degreased_value(b, L_ProtocolVersionListLen);
+                if (role == tls_role::client) {
+                    x.write_degreased_value(b, L_ProtocolVersionListLen);
+                } else {
+                    x.write_degreased_value(b, 0);
+                }
                 b.write_char(')');
 
             } else {
@@ -465,7 +469,7 @@ void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
      * copy extensions vector
      */
     buf.write_char('(');
-    extensions.fingerprint(buf);
+    extensions.fingerprint(buf, tls_role::client);
     buf.write_char(')');
 }
 
@@ -537,7 +541,7 @@ void tls_server_hello::operator()(struct buffer_stream &buf) const {
          * copy extensions vector
          */
         buf.write_char('(');
-        extensions.fingerprint(buf);
+        extensions.fingerprint(buf, tls_role::server);
         buf.write_char(')');
     }
     buf.write_char('\"');

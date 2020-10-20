@@ -211,6 +211,9 @@ struct tls_server_certificate {
 
 #define SNI_HDR_LEN 9
 
+
+enum class tls_role { client, server };
+
 struct tls_extensions : public datum {
 
     tls_extensions() = default;
@@ -225,7 +228,7 @@ struct tls_extensions : public datum {
 
     void print_session_ticket(struct json_object &o, const char *key) const;
 
-    void fingerprint(struct buffer_stream &b) const;
+    void fingerprint(struct buffer_stream &b, enum tls_role role) const;
 };
 
 

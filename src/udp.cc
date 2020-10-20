@@ -100,6 +100,13 @@ struct pi_container dns_server = {
     DNS_PORT
 };
 
+unsigned char dns_client_mask[] = {
+    0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0xff, 0x00
+};
+unsigned char dns_client_value[] = {
+    0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 /*
  * wireguard
  */
@@ -194,6 +201,11 @@ enum msg_type udp_get_message_type(const uint8_t *udp_data,
     if (u64_compare_masked_data_to_value(udp_data,
                                          dns_server_mask,
                                          dns_server_value)) {
+        return msg_type_dns;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         dns_client_mask,
+                                         dns_client_value)) {
         return msg_type_dns;
     }
     if (u64_compare_masked_data_to_value(udp_data,

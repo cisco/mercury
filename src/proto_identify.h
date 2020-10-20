@@ -25,7 +25,7 @@ enum msg_type {
     msg_type_tls_certificate,
     msg_type_ssh,
     msg_type_ssh_kex,
-    msg_type_dns,
+    msg_type_dns,  // note: both queries and responses
     msg_type_dhcp,
     msg_type_dtls_client_hello,
     msg_type_dtls_server_hello,

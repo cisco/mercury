@@ -501,6 +501,42 @@ static inline int append_json_string_escaped(char *dstr, int *doff, int dlen, in
     return r;
 }
 
+static inline int append_json_string_no_key(char *dstr, int *doff, int dlen, int *trunc,
+                                            const uint8_t *data, unsigned int len) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+
+    r += append_putc(dstr, doff, dlen, trunc, '"');
+
+    for (unsigned int i = 0; (i < len) && (*trunc == 0); i++) {
+        if ((data[i] < 0x20) || /* escape control characters   */
+            (data[i] > 0x7f)) { /* escape non-ASCII characters */
+            r += append_strncpy(dstr, doff, dlen, trunc,
+                                "\\u00");
+            r += append_putc(dstr, doff, dlen, trunc,
+                             hex_table[(data[i] & 0xf0) >> 4]);
+            r += append_putc(dstr, doff, dlen, trunc,
+                             hex_table[data[i] & 0x0f]);
+        } else {
+            if (data[i] == '"' || data[i] == '\\') { /* escape special characters   */
+                r += append_putc(dstr, doff, dlen, trunc,
+                                 '\\');
+            }
+            r += append_putc(dstr, doff, dlen, trunc,
+                             data[i]);
+        }
+    }
+
+    r += append_putc(dstr, doff, dlen, trunc,
+                     '"');
+
+    return r;
+}
+
 static inline unsigned int string_is_nonascii(const uint8_t *data, size_t len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
@@ -719,6 +755,10 @@ struct buffer_stream {
 
     void json_string_escaped(const char *key, const uint8_t *data, unsigned int len) {
         append_json_string_escaped(dstr, &doff, dlen, &trunc, key, data, len);
+    }
+
+    void json_string_escaped(const uint8_t *data, unsigned int len) {
+        append_json_string_no_key(dstr, &doff, dlen, &trunc, data, len);
     }
 
     void json_hex_string(const uint8_t *data, unsigned int len) {

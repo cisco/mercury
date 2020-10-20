@@ -41,7 +41,8 @@ struct datum {
     //parser(const unsigned char *d, size_t length) : data{d}, data_end{d+length} {}
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
     const std::basic_string<uint8_t> get_bytestring() const { std::basic_string<uint8_t> s((uint8_t *)data, (int) (data_end - data)); return s;  }
-    bool is_not_null() const { return data == NULL; }
+    bool is_null() const { return data == NULL; }
+    bool is_not_null() const { return data != NULL; }
     bool is_not_empty() const { return data != NULL && data < data_end; }
     bool is_not_readable() const { return data == NULL || data == data_end; }
     void set_empty() { data = data_end; }
@@ -279,6 +280,41 @@ struct datum {
     }
 
 };
+
+template <size_t T> struct data_buffer {
+    unsigned char buffer[T];
+    unsigned char *data;                /* data being written        */
+    const unsigned char *data_end;      /* end of data buffer        */
+
+    data_buffer<T>() : data{buffer}, data_end{buffer+T} {  }
+
+    void copy(uint8_t x) {
+        if (data + 1 > data_end) {
+            return;  // not enough room
+        }
+        *data++ = x;
+    }
+    void copy(uint8_t *array, size_t length) {
+    }
+    void copy(struct datum &r, size_t num_bytes) {
+        if (r.length() < (ssize_t)num_bytes) {
+            r.set_null();
+            // fprintf(stderr, "warning: not enough data in parse\n");
+            return;
+        }
+        if (data_end - data < (int)num_bytes) {
+            num_bytes = data_end - data;
+        }
+        memcpy(data, r.data, num_bytes);
+        data += num_bytes;
+        r.data += num_bytes;
+    }
+    void reset() { data = buffer; }
+    bool is_not_empty() const { return data != buffer && data < data_end; }
+    void set_empty() { data_end = data = buffer; }
+    ssize_t length() const { return data - buffer; }
+};
+
 
 /*
  * parser_init initializes a parser object with a data buffer
