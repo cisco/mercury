@@ -2229,7 +2229,7 @@ unsigned int parser_process_ipv6(struct datum *p, size_t *transport_protocol, st
             if (parser_read_uint(p, L_ipv6_hdr_ext_len, &ext_hdr_len) == status_err) {
                 return 0;
             }
-            if (parser_skip(p, L_ipv6_ext_hdr_base + ext_hdr_len) == status_err) {
+            if (parser_skip(p, L_ipv6_ext_hdr_base + ext_hdr_len*8 - L_ipv6_next_header) == status_err) {
                 return 0;
             }
 
