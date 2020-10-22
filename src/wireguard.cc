@@ -8,7 +8,7 @@
 
 unsigned int parser_extractor_process_wireguard(struct datum *p, struct extractor *x) {
     (void)x;
-    
+
     extractor_debug("%s: processing packet\n", __func__);
 
     if (p->length() != sizeof(struct wireguard_handshake_initiation)) {

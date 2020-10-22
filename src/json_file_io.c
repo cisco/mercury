@@ -27,6 +27,7 @@
 #include "tcpip.h"
 #include "eth.h"
 #include "udp.h"
+#include "quic.h"
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -336,6 +337,20 @@ int append_packet_json(struct buffer_stream &buf,
             write_flow_key(record, k);
             record.print_key_timestamp("event_start", ts);
             record.close();
+        }
+        break;
+    case msg_type_quic:
+        {
+            struct quic_packet quic_pkt{pkt};
+            if (quic_pkt.is_not_empty()) {
+                struct json_object json_record{&buf};
+                struct json_object json_quic{json_record, "quic"};
+                quic_pkt.write_json(json_quic);
+                json_quic.close();
+                write_flow_key(json_record, k);
+                json_record.print_key_timestamp("event_start", ts);
+                json_record.close();
+            }
         }
         break;
     case msg_type_dns:
