@@ -40,7 +40,7 @@ struct udp_packet {
     }
 
     enum msg_type estimate_msg_type_from_ports() {
-        if (header->src_port == htons(5353) || header->dst_port == htons(5353)) {
+        if (header && (header->src_port == htons(5353) || header->dst_port == htons(5353))) {
             return msg_type_dns;
         }
         return msg_type_unknown;
