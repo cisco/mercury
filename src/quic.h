@@ -69,11 +69,15 @@ struct quic_packet {
         length = length & 0x3FFF;
         data.parse(d, length);
 
-        if (data.is_not_empty() == false) {
+        if ((data.is_not_empty() == false) || (version.is_not_empty() == false) ||
+            (dcid.is_not_empty() == false) || (scid.is_not_empty() == false) ||
+            (data.length() < 32)) {
             header = NULL;
+            version.set_null();
             dcid.set_null();
             scid.set_null();
             token.set_null();
+            data.set_null();
         }
     }
 
