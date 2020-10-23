@@ -341,7 +341,7 @@ int append_packet_json(struct buffer_stream &buf,
         break;
     case msg_type_quic:
         {
-            struct quic_packet quic_pkt{pkt};
+            struct quic_initial_packet quic_pkt{pkt};
             if (quic_pkt.is_not_empty()) {
                 struct json_object json_record{&buf};
                 struct json_object json_quic{json_record, "quic"};
