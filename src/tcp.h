@@ -447,7 +447,7 @@ struct tcp_segment {
                     //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
                 }
                 //k.zeroize();
-                // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
+                fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
                 return this;
 
             } else {
