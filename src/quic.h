@@ -14,6 +14,8 @@
 #define QUIC_H
 
 #include <string>
+#include <openssl/aes.h>
+#include <openssl/hmac.h>
 #include "json_object.h"
 #include "util_obj.h"
 
@@ -64,6 +66,65 @@ struct uint8_bitfield {
     }
 };
 
+// 22: {'salt': bytes.fromhex('7fbcdb0e7c66bbe9193a96cd21519ebd7a02644a')},
+// 23: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+// 24: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+// 25: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+// 26: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+// 27: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+// 28: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
+// 29: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
+// 30: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
+// 31: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
+
+
+struct quic_initial_packet_crypto {
+    AES_KEY dec_key;
+    constexpr static const uint8_t client_in[] = "tls13 client in";
+    constexpr static const uint8_t quic_key[]  = "tls13 quic key";
+    constexpr static const uint8_t quic_iv[]   = "tls13 quic iv";
+
+    quic_initial_packet_crypto(const uint8_t *dcid, size_t dcid_len) {
+        uint8_t salt_v31[] = {
+            0xaf, 0xbf, 0xec, 0x28, 0x99, 0x93, 0xd2, 0x4c,
+            0x9e, 0x97, 0x86, 0xf1, 0x9c, 0x61, 0x11, 0xe0,
+            0x43, 0x90, 0xa8, 0x99
+        };
+
+        uint8_t initial_secret[EVP_MAX_MD_SIZE];
+        unsigned int initial_secret_len = 0;
+        HMAC(EVP_sha256(), salt_v31, sizeof(salt_v31), dcid, dcid_len, initial_secret, &initial_secret_len);
+
+        //        AES_set_decrypt_key(dec_key_v31, 192, &dec_key);
+
+        fprintf(stderr, "set decryption key\n");
+    }
+
+    void decrypt(void *data) {
+    }
+
+    void kdf_tls13() {
+
+    }
+    // def kdf_tls13(secret, label, length):
+    //     digest_type = SHA256()
+    //     key = b''
+    //     block = b''
+
+    //     label = b'tls13 ' + label
+    //     len_ = struct.pack('!H', length)
+    //     label = b'%s%s%s%s' % (len_, struct.pack('B', len(label)), label, b'\x00')
+
+    //     ind = 0
+    //     while len(key) < length:
+    //         ind += 1
+    //         block = IQUIC.hmac(secret, digest_type, b'%s%s%s' % (block, label, struct.pack('B',ind)))
+    //         key += block
+
+    //     return bytearray(key[:length])
+
+};
+
 struct quic_initial_packet {
     uint8_t connection_info;
     struct datum version;
@@ -72,6 +133,8 @@ struct quic_initial_packet {
     struct datum token;
     struct datum data;
     bool valid;
+
+    static struct quick_initial_packet_crypto decrypter;
 
     //    quic_initial_packet() : connection_info{0}, dcid{NULL, NULL}, scid{NULL, NULL}, token{NULL, NULL}, data{NULL, NULL}, valid{false} {  }
 
