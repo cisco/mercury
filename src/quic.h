@@ -169,7 +169,7 @@ struct quic_initial_packet {
         data_length = data_length & 0x3FFF;
         data.parse(d, data_length);
 
-        if ((data.is_not_empty() == false) || (data_length < 32)) {
+        if ((data.is_not_empty() == false) || (data_length < 32) || (scid.is_not_empty() == false)) {
             return;  // invalid or incomplete packet
         }
         valid = true;
