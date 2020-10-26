@@ -343,6 +343,9 @@ int append_packet_json(struct buffer_stream &buf,
         {
             struct quic_initial_packet quic_pkt{pkt};
             if (quic_pkt.is_not_empty()) {
+//                struct quic_initial_packet_crypto quic_pkt_crypto{quic_pkt.dcid};
+                struct quic_initial_packet_crypto quic_pkt_crypto{quic_pkt.dcid.data, quic_pkt.dcid.length()};
+                quic_pkt_crypto.decrypt(quic_pkt.data.data, quic_pkt.data.length());
                 struct json_object json_record{&buf};
                 struct json_object json_quic{json_record, "quic"};
                 quic_pkt.write_json(json_quic);

@@ -121,7 +121,7 @@ CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
 mercury: $(MERC) $(MERC_H) libmerc.a Makefile lctrie/liblctrie.a
-	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc -L./lctrie -llctrie -lz
+	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc -L./lctrie -llctrie -lz -lcrypto
 	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
 
 setcap: mercury
