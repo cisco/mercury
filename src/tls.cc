@@ -38,7 +38,7 @@
 /*
  * expanded set of static extensions
  */
-#define num_static_extension_types 35
+#define num_static_extension_types 34
 
 /*
  * extension types used in normalization
@@ -82,8 +82,7 @@ static uint16_t static_extension_types[num_static_extension_types] = {
         51914,     /* GREASE                                 */
         56026,     /* GREASE                                 */
         60138,     /* GREASE                                 */
-        64250,     /* GREASE                                 */
-        65445      /* quic_transport_parameters              */
+        64250      /* GREASE                                 */
     };
 
 uint16_t degrease_uint16(uint16_t x);
