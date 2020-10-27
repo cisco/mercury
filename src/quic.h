@@ -180,6 +180,7 @@ struct quic_initial_packet_crypto {
     uint8_t pn_length = 0;
 
     unsigned char plaintext[1024] = {0};
+    int16_t plaintext_len = 0;
 
     quic_initial_packet_crypto(struct quic_initial_packet quic_pkt) {
         const uint8_t *dcid = quic_pkt.dcid.data;
@@ -218,7 +219,7 @@ struct quic_initial_packet_crypto {
 
     void decrypt(const uint8_t *data, unsigned int length) {
         uint16_t cipher_len = (length-pn_length < 1024) ? length-pn_length : 1024;
-        int16_t plaintext_len = gcm_decrypt(data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
+        plaintext_len = gcm_decrypt(data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
         if (plaintext_len == -1) { // error
             valid = false;
             return;
@@ -229,12 +230,14 @@ struct quic_initial_packet_crypto {
             return;
         }
 
+/*
         printf("plaintext_len: %d\n", plaintext_len);
         printf("plaintext: %02x", plaintext[0]);
         for (int16_t i = 1; i < plaintext_len; i++) {
             printf("%02x", plaintext[i]);
         }
         printf("\n");
+*/
     }
 
     // adapted from https://wiki.openssl.org/index.php/EVP_Authenticated_Encryption_and_Decryption

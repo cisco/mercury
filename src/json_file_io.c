@@ -347,7 +347,15 @@ int append_packet_json(struct buffer_stream &buf,
                 struct quic_initial_packet_crypto quic_pkt_crypto{quic_pkt};
                 quic_pkt_crypto.decrypt(quic_pkt.data.data, quic_pkt.data.length());
                 if (quic_pkt_crypto.is_not_empty()) {
-                    
+                    struct tls_client_hello hello;
+                    struct datum quic_plaintext(quic_pkt_crypto.plaintext+8, quic_pkt_crypto.plaintext+quic_pkt_crypto.plaintext_len);
+                    hello.parse(quic_plaintext);
+                    if (hello.is_not_empty()) {
+                        struct json_object fps{json_record, "fingerprints"};
+                        fps.print_key_value("quic", hello);
+                        fps.close();
+                        hello.write_json(json_record, global_vars.metadata_output);
+                    }
                 }
                 struct json_object json_quic{json_record, "quic"};
                 quic_pkt.write_json(json_quic);
