@@ -14,6 +14,7 @@
 #define QUIC_H
 
 #include <string>
+#include <unordered_map>
 #include <openssl/aes.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
@@ -68,159 +69,6 @@ struct uint8_bitfield {
     }
 };
 
-// 22: {'salt': bytes.fromhex('7fbcdb0e7c66bbe9193a96cd21519ebd7a02644a')},
-// 23: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
-// 24: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
-// 25: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
-// 26: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
-// 27: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
-// 28: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
-// 29: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
-// 30: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
-// 31: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
-
-
-struct quic_initial_packet_crypto {
-    AES_KEY dec_key;
-    constexpr static const uint8_t client_in_label[] = "tls13 client in";
-    constexpr static const uint8_t quic_key_label[]  = "tls13 quic key";
-    constexpr static const uint8_t quic_iv_label[]   = "tls13 quic iv";
-    constexpr static const uint8_t quic_hp_label[]   = "tls13 quic hp";
-
-    uint8_t quic_key[EVP_MAX_MD_SIZE] = {0};
-    unsigned int quic_key_len = 0;
-
-    uint8_t quic_iv[EVP_MAX_MD_SIZE] = {0};
-    unsigned int quic_iv_len = 0;
-
-    uint8_t quic_hp[EVP_MAX_MD_SIZE] = {0};
-    unsigned int quic_hp_len = 0;
-
-    quic_initial_packet_crypto(const uint8_t *dcid, size_t dcid_len) {
-//        uint8_t salt_v31[] = {
-//            0xaf, 0xbf, 0xec, 0x28, 0x99, 0x93, 0xd2, 0x4c,
-//            0x9e, 0x97, 0x86, 0xf1, 0x9c, 0x61, 0x11, 0xe0,
-//            0x43, 0x90, 0xa8, 0x99
-//        };
-        uint8_t salt_v31[] = {
-            0xc3, 0xee, 0xf7, 0x12, 0xc7, 0x2e, 0xbb, 0x5a,
-            0x11, 0xa7, 0xd2, 0x43, 0x2b, 0xb4, 0x63, 0x65,
-            0xbe, 0xf9, 0xf5, 0x02
-        };
-
-        uint8_t initial_secret[EVP_MAX_MD_SIZE];
-        unsigned int initial_secret_len = 0;
-        HMAC(EVP_sha256(), salt_v31, sizeof(salt_v31), dcid, dcid_len, initial_secret, &initial_secret_len);
-
-        uint8_t c_initial_secret[EVP_MAX_MD_SIZE] = {0};
-        unsigned int c_initial_secret_len = 0;
-        kdf_tls13(initial_secret, initial_secret_len, client_in_label, sizeof(client_in_label)-1, 32, c_initial_secret, &c_initial_secret_len);
-        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_key_label, sizeof(quic_key_label)-1, 16, quic_key, &quic_key_len);
-        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, 12, quic_iv, &quic_iv_len);
-        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, 16, quic_hp, &quic_hp_len);
-    }
-
-    void decrypt(const uint8_t *data, unsigned int length) {
-        unsigned char plaintext[1024] = {0};
-        int16_t plaintext_len = gcm_decrypt(data+3, length-3, quic_key, quic_iv, quic_iv_len, plaintext);
-        if (plaintext_len == -1) { // error
-            return;
-        }
-
-        printf("plaintext_len: %d\n", plaintext_len);
-        printf("plaintext: %02x", plaintext[0]);
-        for (int16_t i = 1; i < plaintext_len; i++) {
-            printf("%02x", plaintext[i]);
-        }
-        printf("\n");
-    }
-
-    // adapted from https://wiki.openssl.org/index.php/EVP_Authenticated_Encryption_and_Decryption
-    int gcm_decrypt(const unsigned char *ciphertext, int ciphertext_len,
-                    unsigned char *key,
-                    unsigned char *iv, int iv_len,
-                    unsigned char *plaintext)
-    {
-        EVP_CIPHER_CTX *ctx;
-        int len;
-        int plaintext_len;
-
-        /* Create and initialise the context */
-        if(!(ctx = EVP_CIPHER_CTX_new()))
-            return -1;
-
-        /* Initialise the decryption operation. */
-        if(!EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL))
-            return -1;
-
-        /* Set IV length. Not necessary if this is 12 bytes (96 bits) */
-        if(!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv_len, NULL))
-            return -1;
-
-        /* Initialise key and IV */
-        if(!EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv))
-            return -1;
-
-        /*
-         * Provide the message to be decrypted, and obtain the plaintext output.
-         * EVP_DecryptUpdate can be called multiple times if necessary
-         */
-        if(!EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
-            return -1;
-        plaintext_len = len;
-
-        /*
-         * Finalise the decryption. A positive return value indicates success,
-         * anything else is a failure - the plaintext is not trustworthy.
-         */
-        EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
-
-        /* Clean up */
-        EVP_CIPHER_CTX_free(ctx);
-
-        plaintext_len += len;
-        return plaintext_len;
-    }
-
-    void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
-                   uint8_t length, uint8_t *out_, unsigned int *out_len) {
-//        uint8_t new_label[4+label_len] = {0};
-        uint8_t *new_label = new uint8_t[4+label_len]();
-        new_label[1] = length;
-        new_label[2] = label_len;
-        for (uint i = 0; i < label_len; i++) {
-            new_label[3+i] = label[i];
-        }
-
-        uint8_t ind = 0;
-        uint8_t block[EVP_MAX_MD_SIZE];
-        uint8_t new_block[512] = {0};
-        unsigned int block_len = 0;
-        while (*out_len < length) {
-            ind++;
-
-            for (unsigned int i = 0; i < block_len; i++) {
-                new_block[i] = block[i];
-            }
-            for (unsigned int i = block_len; i < block_len+label_len+4; i++) {
-                new_block[i] = new_label[i];
-            }
-            new_block[block_len+label_len+4] = ind;
-
-            HMAC(EVP_sha256(), secret, secret_length, new_block, block_len+label_len+5, block, &block_len);
-
-            for (unsigned int i = 0; i < block_len; i++) {
-                out_[*out_len] = block[i];
-                (*out_len)++;
-                if (*out_len >= length) {
-                    delete[] new_label;
-                    return ;
-                }
-            }
-        }
-        delete[] new_label;
-    }
-};
 
 struct quic_initial_packet {
     uint8_t connection_info;
@@ -292,5 +140,187 @@ struct quic_initial_packet {
 
     }
 };
+
+
+size_t salt_length = 20;
+uint8_t salt_v22[]     = {0x7f,0xbc,0xdb,0x0e,0x7c,0x66,0xbb,0xe9,0x19,0x3a,0x96,0xcd,0x21,0x51,0x9e,0xbd,0x7a,0x02,0x64,0x4a};
+uint8_t salt_v23_v28[] = {0xc3,0xee,0xf7,0x12,0xc7,0x2e,0xbb,0x5a,0x11,0xa7,0xd2,0x43,0x2b,0xb4,0x63,0x65,0xbe,0xf9,0xf5,0x02};
+uint8_t salt_v29_v32[] = {0xaf,0xbf,0xec,0x28,0x99,0x93,0xd2,0x4c,0x9e,0x97,0x86,0xf1,0x9c,0x61,0x11,0xe0,0x43,0x90,0xa8,0x99};
+std::unordered_map<uint8_t, uint8_t*> quic_initial_salt = {
+    {22, salt_v22},
+    {23, salt_v23_v28},
+    {24, salt_v23_v28},
+    {25, salt_v23_v28},
+    {26, salt_v23_v28},
+    {27, salt_v23_v28},
+    {28, salt_v23_v28},
+    {29, salt_v29_v32},
+    {30, salt_v29_v32},
+    {31, salt_v29_v32},
+    {32, salt_v29_v32},
+};
+
+struct quic_initial_packet_crypto {
+    bool valid;
+
+    constexpr static const uint8_t client_in_label[] = "tls13 client in";
+    constexpr static const uint8_t quic_key_label[]  = "tls13 quic key";
+    constexpr static const uint8_t quic_iv_label[]   = "tls13 quic iv";
+    constexpr static const uint8_t quic_hp_label[]   = "tls13 quic hp";
+
+    uint8_t quic_key[EVP_MAX_MD_SIZE] = {0};
+    unsigned int quic_key_len = 0;
+
+    uint8_t quic_iv[EVP_MAX_MD_SIZE] = {0};
+    unsigned int quic_iv_len = 0;
+
+    uint8_t quic_hp[EVP_MAX_MD_SIZE] = {0};
+    unsigned int quic_hp_len = 0;
+
+    uint8_t pn_length = 0;
+
+    unsigned char plaintext[1024] = {0};
+
+    quic_initial_packet_crypto(struct quic_initial_packet quic_pkt) {
+        const uint8_t *dcid = quic_pkt.dcid.data;
+        size_t dcid_len = quic_pkt.dcid.length();
+        uint8_t version = *(quic_pkt.version.data+3);
+
+        uint8_t *initial_salt;
+        auto pair = quic_initial_salt.find(version);
+        if (pair != quic_initial_salt.end()) {
+            initial_salt = pair->second;
+        } else {
+            valid = false;
+            return;
+        }
+
+        uint8_t initial_secret[EVP_MAX_MD_SIZE];
+        unsigned int initial_secret_len = 0;
+        HMAC(EVP_sha256(), initial_salt, salt_length, dcid, dcid_len, initial_secret, &initial_secret_len);
+
+        uint8_t c_initial_secret[EVP_MAX_MD_SIZE] = {0};
+        unsigned int c_initial_secret_len = 0;
+        kdf_tls13(initial_secret, initial_secret_len, client_in_label, sizeof(client_in_label)-1, 32, c_initial_secret, &c_initial_secret_len);
+        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_key_label, sizeof(quic_key_label)-1, 16, quic_key, &quic_key_len);
+        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, 12, quic_iv, &quic_iv_len);
+        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, 16, quic_hp, &quic_hp_len);
+
+        AES_KEY enc_key;
+        AES_set_encrypt_key(quic_hp, 128, &enc_key);
+        uint8_t buf[32] = {0};
+        AES_encrypt(quic_pkt.data.data+4, buf, &enc_key);
+        pn_length = quic_pkt.connection_info ^ (buf[0] & 0x0f);
+        pn_length = (pn_length & 0x03) + 1;
+
+        valid = true;
+    }
+
+    void decrypt(const uint8_t *data, unsigned int length) {
+        uint16_t cipher_len = (length-pn_length < 1024) ? length-pn_length : 1024;
+        int16_t plaintext_len = gcm_decrypt(data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
+        if (plaintext_len == -1) { // error
+            valid = false;
+            return;
+        }
+
+        if ((plaintext[4] != 0x01) || (plaintext[8] != 0x03) || (plaintext[9] != 0x03)) {
+            valid = false;
+            return;
+        }
+
+        printf("plaintext_len: %d\n", plaintext_len);
+        printf("plaintext: %02x", plaintext[0]);
+        for (int16_t i = 1; i < plaintext_len; i++) {
+            printf("%02x", plaintext[i]);
+        }
+        printf("\n");
+    }
+
+    // adapted from https://wiki.openssl.org/index.php/EVP_Authenticated_Encryption_and_Decryption
+    int gcm_decrypt(const unsigned char *ciphertext, int ciphertext_len,
+                    unsigned char *key, unsigned char *iv,
+                    unsigned char *plaintext)
+    {
+        EVP_CIPHER_CTX *ctx;
+        int len;
+        int plaintext_len;
+
+        /* Create and initialise the context */
+        if(!(ctx = EVP_CIPHER_CTX_new()))
+            return -1;
+
+        /* Initialise the decryption operation. */
+        if(!EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL))
+            return -1;
+
+        /* Initialise key and IV */
+        if(!EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv))
+            return -1;
+
+        /*
+         * Provide the message to be decrypted, and obtain the plaintext output.
+         * EVP_DecryptUpdate can be called multiple times if necessary
+         */
+        if(!EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
+            return -1;
+        plaintext_len = len;
+
+        /*
+         * Finalise the decryption. A positive return value indicates success,
+         * anything else is a failure - the plaintext is not trustworthy.
+         */
+        EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
+
+        /* Clean up */
+        EVP_CIPHER_CTX_free(ctx);
+
+        plaintext_len += len;
+        return plaintext_len;
+    }
+
+    void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
+                   uint8_t length, uint8_t *out_, unsigned int *out_len) {
+        uint8_t *new_label = new uint8_t[4+label_len]();
+        new_label[1] = length;
+        new_label[2] = label_len;
+        for (uint i = 0; i < label_len; i++) {
+            new_label[3+i] = label[i];
+        }
+
+        uint8_t ind = 0;
+        uint8_t block[EVP_MAX_MD_SIZE];
+        uint8_t new_block[512] = {0};
+        unsigned int block_len = 0;
+        while (*out_len < length) {
+            ind++;
+
+            for (unsigned int i = 0; i < block_len; i++) {
+                new_block[i] = block[i];
+            }
+            for (unsigned int i = block_len; i < block_len+label_len+4; i++) {
+                new_block[i] = new_label[i];
+            }
+            new_block[block_len+label_len+4] = ind;
+
+            HMAC(EVP_sha256(), secret, secret_length, new_block, block_len+label_len+5, block, &block_len);
+
+            for (unsigned int i = 0; i < block_len; i++) {
+                out_[*out_len] = block[i];
+                (*out_len)++;
+                if (*out_len >= length) {
+                    delete[] new_label;
+                    return ;
+                }
+            }
+        }
+        delete[] new_label;
+    }
+
+    bool is_not_empty() {
+        return valid;
+    }
+};
+
 
 #endif /* QUIC_H */
