@@ -81,14 +81,11 @@ struct quic_initial_packet {
 
     static struct quick_initial_packet_crypto decrypter;
 
-    //    quic_initial_packet() : connection_info{0}, dcid{NULL, NULL}, scid{NULL, NULL}, token{NULL, NULL}, data{NULL, NULL}, valid{false} {  }
-
     quic_initial_packet(struct datum &d) : connection_info{0}, dcid{NULL, NULL}, scid{NULL, NULL}, token{NULL, NULL}, data{NULL, NULL}, valid{false} {
         parse(d);
     }
 
     void parse(struct datum &d) {
-
         d.read_uint8(&connection_info);
         if ((connection_info & 0x30) != 0) {
             return;
@@ -114,7 +111,8 @@ struct quic_initial_packet {
         data_length = data_length & 0x3FFF;
         data.parse(d, data_length);
 
-        if ((data.is_not_empty() == false) || (data_length < 32) || (scid.is_not_empty() == false)) {
+        if ((data.is_not_empty() == false) || (data_length < 32) ||
+            (scid.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
             return;  // invalid or incomplete packet
         }
         valid = true;
@@ -129,7 +127,6 @@ struct quic_initial_packet {
             return;
         }
 
-        //        o.print_key_uint8("connection_info", connection_info);
         struct uint8_bitfield bitfield{connection_info};
         o.print_key_value("connection_info", bitfield);
         o.print_key_hex("version", version);
@@ -230,14 +227,6 @@ struct quic_initial_packet_crypto {
             return;
         }
 
-/*
-        printf("plaintext_len: %d\n", plaintext_len);
-        printf("plaintext: %02x", plaintext[0]);
-        for (int16_t i = 1; i < plaintext_len; i++) {
-            printf("%02x", plaintext[i]);
-        }
-        printf("\n");
-*/
     }
 
     // adapted from https://wiki.openssl.org/index.php/EVP_Authenticated_Encryption_and_Decryption
