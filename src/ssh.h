@@ -123,10 +123,15 @@ struct ssh_init_packet {
  *
  *    Each packet is in the following format:
  *
- *     uint32    packet_length
- *     byte      padding_length
+ *     uint32    packet_length (length of the packet in bytes, not
+ *               including 'mac' or the 'packet_length' field itself.)
+ *
+ *     byte      padding_length (length of 'random padding' in bytes)
+ *
  *     byte[n1]  payload; n1 = packet_length - padding_length - 1
+ *
  *     byte[n2]  random padding; n2 = padding_length
+ *
  *     byte[m]   mac (Message Authentication Code - MAC); m = mac_length
  *
  */
@@ -143,12 +148,15 @@ struct ssh_binary_packet {
     void parse(struct datum &p) {
         additional_bytes_needed = 0;
         p.read_uint32(&packet_length);
-        if (packet_length > ssh_binary_packet::max_length) {
-            p.set_empty();  // too long; probably not a real SSH binary packet
+        if (packet_length > ssh_binary_packet::max_length || packet_length < ssh_binary_packet::min_length) {
+            p.set_empty();  // probably not a real SSH binary packet
             return;
         }
         p.read_uint8(&padding_length);
-        ssize_t bytes_left_in_packet = packet_length - padding_length - 1;
+        if (p.is_not_empty() == false) {
+            return;
+        }
+        ssize_t bytes_left_in_packet = packet_length - 1;
         if (bytes_left_in_packet > p.length()) {
             additional_bytes_needed = bytes_left_in_packet - p.length();
             // fprintf(stderr, "ssh_binary_packet additional_bytes_needed: %zu (wanted: %zd, have: %zu)\n", additional_bytes_needed, bytes_left_in_packet, p.length());
@@ -157,6 +165,7 @@ struct ssh_binary_packet {
     }
 
     static const ssize_t max_length = 16384;
+    static const ssize_t min_length = 1;
 };
 
 struct name_list : public datum {

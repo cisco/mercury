@@ -40,6 +40,7 @@ struct pkt_proc_stats {
 struct pkt_proc {
     virtual void apply(struct packet_info *pi, uint8_t *eth) = 0;
     virtual void flush() = 0;
+    virtual void finalize() = 0;
     virtual ~pkt_proc() {};
     size_t bytes_written = 0;
     size_t packets_written = 0;
@@ -78,6 +79,10 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
         json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, reassembler, block);
     }
 
+    void finalize() override {
+        reassembler.count_all();
+    }
+
     void flush() override {
 
     }
@@ -103,6 +108,8 @@ struct pkt_proc_pcap_writer_llq : public pkt_proc {
         }
         pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000, block);
     }
+
+    void finalize() override { }
 
     void flush() override {
     }
@@ -138,6 +145,8 @@ struct pkt_proc_pcap_writer : public pkt_proc {
         }
         pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
+
+    void finalize() override { }
 
     void flush() override {
         FILE *file_ptr = pcap_file.file_ptr;
@@ -187,6 +196,8 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
             pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
         }
     }
+
+    void finalize() override { }
 
     void flush() override {
         FILE *file_ptr = pcap_file.file_ptr;
@@ -238,6 +249,8 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
         }
     }
 
+    void finalize() override { }
+
     void flush() override {
     }
 
@@ -254,6 +267,8 @@ struct pkt_proc_dumper : public pkt_proc {
     void apply(struct packet_info *pi, uint8_t *eth) override {
         packet_fprintf(stdout, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
+
+    void finalize() override { }
 
     void flush() override {
     }

@@ -150,6 +150,8 @@ struct tls_handshake {
     struct datum body;
     size_t additional_bytes_needed;
 
+    static const unsigned int max_handshake_len = 32768;
+
     tls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL}, additional_bytes_needed{0} {}
 
     tls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
@@ -164,6 +166,9 @@ struct tls_handshake {
         size_t tmp;
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
+        if (length > max_handshake_len) {
+            return;
+        }
         body.init_from_outer_parser(&d, length);
         additional_bytes_needed = length - body.length();
     }
