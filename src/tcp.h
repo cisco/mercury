@@ -375,24 +375,35 @@ struct tcp_segment {
 
     static const bool debug = false;
 
-    tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} { };
+    tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} {
+        fprintf(stderr, "creating tcp_segment ()\n");
+    };
 
     tcp_segment(const struct tcp_segment &r) : seq_init{r.seq_init}, seq_end{r.seq_end}, index{r.index}, last_byte_needed{r.last_byte_needed}, timestamp{r.timestamp} {
         memcpy(data, r.data, r.index);
+        fprintf(stderr, "creating tcp_segment (*)\n");
     };
+
+    tcp_segment(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} {
+        fprintf(stderr, "creating tcp_segment (**)\n");
+        init_from_packet(tcp, length, bytes_needed, sec);
+    };
+
+    ~tcp_segment() { fprintf(stderr, "destroying tcp_segment\n"); };
 
     bool init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) {
         if (length + bytes_needed > tcp_segment::buffer_length) {
-            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu (length: %zu, bytes_needed: %zu)\n",
-                    length + bytes_needed, tcp_segment::buffer_length, length, bytes_needed);
+            //            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu (length: %zu, bytes_needed: %zu)\n", length + bytes_needed, tcp_segment::buffer_length, length, bytes_needed);
+
             if (length < tcp_segment::buffer_length) {
                 bytes_needed = tcp_segment::buffer_length - length;
             } else {
                 // packet is longer than buffer; it should be processed immediately
-                // fprintf(stderr, "warning: packet longer than buffer\n");
+                fprintf(stderr, "processing immediately as packet is longer than buffer\n");
                 return false;
             }
         }
+        fprintf(stderr, "requesting reassembly\n");
         //        fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
         index = length;
@@ -420,6 +431,7 @@ struct tcp_segment {
     }
 
     struct tcp_segment *check_packet(const struct tcp_header *tcp, size_t length, unsigned int sec) {
+        (void)sec;
 
         if (debug) {
             fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
@@ -447,7 +459,8 @@ struct tcp_segment {
                     fprintf(stderr, "\tDONE\n");
                     //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
                 }
-                fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
+                fprintf(stderr, "reassembled packet\n");
+                // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
                 return this;
 
             } else {
@@ -475,7 +488,8 @@ struct tcp_segment {
                     fprintf(stderr, "\tDONE\n");
                     //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
                 }
-                fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
+                fprintf(stderr, "reassembled packet\n");
+                // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
                 return this;
             } else {
                 fprintf(stderr, "pkt_end < last_byte_needed\n");
@@ -512,9 +526,11 @@ void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, 
 
 struct tcp_reassembler {
     std::unordered_map<struct key, struct tcp_segment> segment_table;
+    std::unordered_map<struct key, struct tcp_segment>::iterator reap_it;
 
-    tcp_reassembler(unsigned int size) : segment_table{} {
+    tcp_reassembler(unsigned int size) : segment_table{}, reap_it{segment_table.end()} {
         segment_table.reserve(size);
+        reap_it = segment_table.end();
         // fprintf(stderr, "tcp_reassembler segment_table size: %zu bytes\n", size * sizeof(tcp_segment));
     }
 
@@ -527,7 +543,8 @@ struct tcp_reassembler {
 
         tcp_segment segment;
         if (segment.init_from_packet(tcp, length, bytes_needed, sec)) {
-            segment_table.insert({k, segment});
+            reap_it = segment_table.emplace(k, segment).first;
+            reap_it++;
             return true;
         }
         return false;
@@ -543,14 +560,13 @@ struct tcp_reassembler {
     }
 
     std::unordered_map<struct key, struct tcp_segment>::iterator reap(unsigned int sec) {
-        //        return segment_table.end(); //DEBUGGING
 
         // check for expired elements
 
-        auto it = segment_table.begin();
-        if (it != segment_table.end() && it->second.is_too_old(sec)) {
-            fprintf(stderr, "found expired segment (age: %u seconds)\n", sec-it->second.timestamp);
-            return it;  // not fully reassembled, but expired
+        if (reap_it != segment_table.end() && reap_it->second.is_too_old(sec)) {
+            fprintf(stderr, "processing expired segment\n");
+            // fprintf(stderr, "processing expired segment (age: %u seconds)\n", sec - reap_it->second.timestamp);
+            return reap_it;  // not fully reassembled, but expired
         }
         return segment_table.end();
     }
@@ -558,25 +574,66 @@ struct tcp_reassembler {
     void remove_segment(key &k) {
         auto it = segment_table.find(k);
         if (it != segment_table.end()) {
-            segment_table.erase(it);
+            reap_it = segment_table.erase(it);
         }
         //    segment_table.erase(k);
     }
 
     void remove_segment(std::unordered_map<struct key, struct tcp_segment>::iterator it) {
         if (it != segment_table.end()) {
-            segment_table.erase(it);
+            reap_it = segment_table.erase(it);
         }
     }
 
     void count_all() {
-        fprintf(stderr, "counting all zombie tcp segments\n");
         auto it = segment_table.begin();
         while (it != segment_table.end()) {
-            fprintf(stderr, "found segment (timestamp: %u)\n", it->second.timestamp);
-            it++;
+            fprintf(stderr, "counting segment\n");
+            it = segment_table.erase(it);
         }
     }
+
+};
+
+struct flow_table {
+    std::unordered_map<struct key, unsigned int> table;
+    std::unordered_map<struct key, unsigned int>::iterator reap_it;
+
+    flow_table(unsigned int size) : table{}, reap_it{table.end()} {
+        table.reserve(size);
+        reap_it = table.end();
+    }
+
+    bool flow_is_new(const struct key &k, unsigned int sec) {
+
+        auto it = table.find(k);
+        if (it != table.end() && (sec - it->second < flow_table::timeout)) {
+            it->second = sec;
+            reap(sec);
+            //fprintf(stderr, "FLOW OLD\n");
+            return false;
+        }
+        auto tmp = table.insert({k, sec}).first;
+        update_reap_iterator(tmp);
+        //fprintf(stderr, "FLOW NEW\n");
+        return true;
+    }
+
+    void reap(unsigned int sec) {
+
+        // check for expired flows
+        if (reap_it != table.end() && (sec - reap_it->second > flow_table::timeout)) {
+            reap_it = table.erase(reap_it);
+        }
+    }
+
+    void update_reap_iterator(std::unordered_map<struct key, unsigned int>::iterator x) {
+        if (x != table.end()) {
+            reap_it = x++;
+        }
+    }
+
+    static const unsigned int timeout = 180; // seconds before flow timeout
 
 };
 

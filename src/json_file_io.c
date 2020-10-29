@@ -156,6 +156,8 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 
 }
 
+struct flow_table flows{65536};
+
 // tcp_data_write_json() parses TCP data and writes metadata into
 // a buffer stream, if any is found
 //
@@ -166,6 +168,11 @@ void tcp_data_write_json(struct buffer_stream &buf,
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler) {
         enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
+
+        bool is_new = false;
+        if (pkt.is_not_empty()) {
+            is_new = flows.flow_is_new(k, ts->tv_sec);
+        }
         switch(msg_type) {
         case tcp_msg_type_http_request:
             {
@@ -357,7 +364,17 @@ void tcp_data_write_json(struct buffer_stream &buf,
             }
             break;
         case tcp_msg_type_unknown:
-            // no output
+
+            if (is_new) {
+                struct json_object record{&buf};
+                struct json_object tcp{record, "tcp"};
+                tcp.print_key_hex("data", pkt);
+                tcp.close();
+                // tcp.print_key_json_string("tcp_data_string", pkt);
+                write_flow_key(record, k);
+                record.print_key_timestamp("event_start", ts);
+                record.close();
+            }
             break;
         }
 
@@ -428,6 +445,10 @@ int append_packet_json(struct buffer_stream &buf,
         struct udp_packet udp_pkt;
         udp_pkt.parse(pkt);
         udp_pkt.set_key(k);
+        bool is_new = false;
+        if (pkt.is_not_empty()) {
+            is_new = flows.flow_is_new(k, ts->tv_sec);
+        }
         enum udp_msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
         switch(msg_type) {
         case udp_msg_type_wireguard:
@@ -499,7 +520,16 @@ int append_packet_json(struct buffer_stream &buf,
         case udp_msg_type_dtls_certificate:
             // cases that fall through here are not yet supported
         case udp_msg_type_unknown:
-            // no output
+            if (is_new) {
+                struct json_object record{&buf};
+                struct json_object udp{record, "udp"};
+                udp.print_key_hex("data", pkt);
+                // udp.print_key_json_string("udp_data_string", pkt);
+                udp.close();
+                write_flow_key(record, k);
+                record.print_key_timestamp("event_start", ts);
+                record.close();
+            }
             break;
         }
     }
