@@ -2229,7 +2229,7 @@ unsigned int parser_process_ipv6(struct datum *p, size_t *transport_protocol, st
             if (parser_read_uint(p, L_ipv6_hdr_ext_len, &ext_hdr_len) == status_err) {
                 return 0;
             }
-            if (parser_skip(p, L_ipv6_ext_hdr_base + ext_hdr_len) == status_err) {
+            if (parser_skip(p, L_ipv6_ext_hdr_base + ext_hdr_len*8 - L_ipv6_next_header) == status_err) {
                 return 0;
             }
 
@@ -2366,6 +2366,7 @@ extern unsigned char dhcp_client_mask[8];  /* udp.c */
 extern unsigned char dns_server_mask[8];   /* udp.c */
 extern unsigned char dns_client_mask[8];   /* udp.c */
 extern unsigned char wireguard_mask[8];    /* udp.c */
+extern unsigned char quic_mask[8];         /* udp.c */
 
 
 enum status proto_ident_config(const char *config_string) {
@@ -2384,6 +2385,7 @@ enum status proto_ident_config(const char *config_string) {
         { "tcp.message", false },
         { "tls",         false },
         { "wireguard",   false },
+        { "quic",        false },
     };
 
     std::string s{config_string};
@@ -2445,6 +2447,9 @@ enum status proto_ident_config(const char *config_string) {
     }
     if (protocols["wireguard"] == false) {
         bzero(wireguard_mask, sizeof(wireguard_mask));
+    }
+    if (protocols["quic"] == false) {
+        bzero(quic_mask, sizeof(quic_mask));
     }
     return status_ok;
 }

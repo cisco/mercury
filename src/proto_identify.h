@@ -30,7 +30,8 @@ enum msg_type {
     msg_type_dtls_client_hello,
     msg_type_dtls_server_hello,
     msg_type_dtls_certificate,
-    msg_type_wireguard
+    msg_type_wireguard,
+    msg_type_quic
 };
 
 /* Values indicating direction of the flow */
@@ -50,6 +51,7 @@ enum msg_type {
 #define DTLS_PORT         99
 #define DNS_PORT          53
 #define WIREGUARD_PORT 51820
+#define QUIC_PORT       4433
 
 /**
  * \brief Protocol Inference container

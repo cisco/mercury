@@ -121,6 +121,21 @@ struct pi_container wireguard = {
     WIREGUARD_PORT
 };
 
+/*
+ * quic
+ */
+unsigned char quic_mask[] = {
+    0xf0, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00
+};
+unsigned char quic_value[] = {
+    0xc0, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+struct pi_container quic = {
+    DIR_UNKNOWN,
+    QUIC_PORT
+};
+
+
 const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                               unsigned int len) {
 
@@ -165,6 +180,11 @@ const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
                                          wireguard_mask,
                                          wireguard_value)) {
         return &wireguard;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         quic_mask,
+                                         quic_value)) {
+        return &quic;
     }
 
     return NULL;
@@ -212,6 +232,11 @@ enum msg_type udp_get_message_type(const uint8_t *udp_data,
                                          wireguard_mask,
                                          wireguard_value)) {
         return msg_type_wireguard;
+    }
+    if (u64_compare_masked_data_to_value(udp_data,
+                                         quic_mask,
+                                         quic_value)) {
+        return msg_type_quic;
     }
 
     return msg_type_unknown;
