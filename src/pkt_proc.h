@@ -57,6 +57,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     bool block;
     struct packet_filter pf;
     struct tcp_reassembler reassembler;
+    struct flow_table ip_flow_table;
 
     /*
      * pkt_proc_json_writer(outfile_name, mode, max_records)
@@ -68,7 +69,9 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
      * records (lines) per file; after that limit is reached, file
      * rotation will take place.
      */
-    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) : block{blocking}, reassembler{65536} {
+    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) :
+        block{blocking}, reassembler{65536}, ip_flow_table{65536} {
+
         llq = llq_ptr;
         if (packet_filter_init(&pf, filter) == status_err) {
             throw "could not initialize packet filter";
@@ -80,12 +83,12 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
 
 #warning "omitting tcp reassembly; 'make clean' and recompile to use that option"
 
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, nullptr, block);
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, nullptr, block, ip_flow_table);
 #else
 
 #warning "using tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DOMIT_TCP_REASSEMBLY to omit that option"
 
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, &reassembler, block);
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, &reassembler, block, ip_flow_table);
 #endif
     }
 

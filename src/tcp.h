@@ -349,6 +349,7 @@ struct tcp_initial_message_filter {
  * strategy:
  *
  *    - pre-allocated storage to hold reassembled packets
+ *
  *    - flow key maps to tcp_segment
  *
  *    - to request reassembly, call copy_packet() and pass it the
@@ -376,20 +377,22 @@ struct tcp_segment {
     static const bool debug = false;
 
     tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} {
-        fprintf(stderr, "creating tcp_segment ()\n");
+        // fprintf(stderr, "creating tcp_segment ()\n");
     };
 
     tcp_segment(const struct tcp_segment &r) : seq_init{r.seq_init}, seq_end{r.seq_end}, index{r.index}, last_byte_needed{r.last_byte_needed}, timestamp{r.timestamp} {
         memcpy(data, r.data, r.index);
-        fprintf(stderr, "creating tcp_segment (*)\n");
+        // fprintf(stderr, "creating tcp_segment (*)\n");
     };
 
     tcp_segment(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} {
-        fprintf(stderr, "creating tcp_segment (**)\n");
+        // fprintf(stderr, "creating tcp_segment (**)\n");
         init_from_packet(tcp, length, bytes_needed, sec);
     };
 
-    ~tcp_segment() { fprintf(stderr, "destroying tcp_segment\n"); };
+    ~tcp_segment() {
+        //fprintf(stderr, "destroying tcp_segment\n");
+    };
 
     bool init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) {
         if (length + bytes_needed > tcp_segment::buffer_length) {
