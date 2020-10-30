@@ -33,7 +33,7 @@ void json_queue_write(struct ll_queue *llq,
                       size_t length,
                       unsigned int sec,
                       unsigned int usec,
-                      struct tcp_reassembler &reassembler,
+                      struct tcp_reassembler *reassembler,
                       bool blocking);
 
 enum status json_file_init(struct json_file *js,

@@ -76,7 +76,17 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, reassembler, block);
+#ifdef OMIT_TCP_REASSEMBLY
+
+#warning "omitting tcp reassembly; 'make clean' and recompile to use that option"
+
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, nullptr, block);
+#else
+
+#warning "using tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DOMIT_TCP_REASSEMBLY to omit that option"
+
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, &reassembler, block);
+#endif
     }
 
     void finalize() override {

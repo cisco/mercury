@@ -384,7 +384,7 @@ int append_packet_json(struct buffer_stream &buf,
                        uint8_t *packet,
                        size_t length,
                        struct timespec *ts,
-                       struct tcp_reassembler &reassembler) {
+                       struct tcp_reassembler *reassembler) {
     struct key k;
     struct datum pkt{packet, packet+length};
     size_t transport_proto = 0;
@@ -420,24 +420,28 @@ int append_packet_json(struct buffer_stream &buf,
 
         } else {
 
-            const struct tcp_segment *data_buf = reassembler.check_packet(k, ts->tv_sec, tcp_pkt.header, pkt.length());
-            if (data_buf) {
-                //fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->index);
-                struct datum reassembled_tcp_data = data_buf->reassembled_segment();
-                tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, &reassembler);
-                reassembler.remove_segment(k);
-            } else {
-                const uint8_t *tmp = pkt.data;
-                tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, &reassembler);
-                if (pkt.data == tmp) {
-                    auto segment = reassembler.reap(ts->tv_sec);
-                    if (segment != reassembler.segment_table.end()) {
-                        //fprintf(stderr, "EXPIRED PARTIAL TCP PACKET (length: %u)\n", segment->second.index);
-                        struct datum reassembled_tcp_data = segment->second.reassembled_segment();
-                        tcp_data_write_json(buf, reassembled_tcp_data, segment->first, tcp_pkt, ts, nullptr);
-                        reassembler.remove_segment(segment);
+            if (reassembler) {
+                const struct tcp_segment *data_buf = reassembler->check_packet(k, ts->tv_sec, tcp_pkt.header, pkt.length());
+                if (data_buf) {
+                    //fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->index);
+                    struct datum reassembled_tcp_data = data_buf->reassembled_segment();
+                    tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler);
+                    reassembler->remove_segment(k);
+                } else {
+                    const uint8_t *tmp = pkt.data;
+                    tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler);
+                    if (pkt.data == tmp) {
+                        auto segment = reassembler->reap(ts->tv_sec);
+                        if (segment != reassembler->segment_table.end()) {
+                            //fprintf(stderr, "EXPIRED PARTIAL TCP PACKET (length: %u)\n", segment->second.index);
+                            struct datum reassembled_tcp_data = segment->second.reassembled_segment();
+                            tcp_data_write_json(buf, reassembled_tcp_data, segment->first, tcp_pkt, ts, nullptr);
+                            reassembler->remove_segment(segment);
+                        }
                     }
                 }
+            } else {
+                tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, nullptr);  // process packet without tcp reassembly
             }
         }
 
@@ -548,7 +552,7 @@ void json_queue_write(struct ll_queue *llq,
                       size_t length,
                       unsigned int sec,
                       unsigned int nsec,
-                      struct tcp_reassembler &reassembler,
+                      struct tcp_reassembler *reassembler,
                       bool blocking) {
 
     if (blocking) {
