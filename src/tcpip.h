@@ -143,6 +143,10 @@ struct tcp_packet {
         return header && TCP_IS_SYN(header->flags) && !TCP_IS_ACK(header->flags);
     }
 
+    bool is_SYN_ACK() {
+        return header && TCP_IS_SYN(header->flags) && TCP_IS_ACK(header->flags);
+    }
+
     void set_key(struct key &k) {
         if (header) {
             k.src_port = ntohs(header->src_port);
@@ -175,8 +179,14 @@ struct tcp_packet {
     }
 
     void write_json(struct json_object &o) {
-        if (header) {
+        if (is_SYN()) {
             struct json_object json_tcp{o, "tcp"};
+            //json_tcp.print_key_value("fingerprint", *this);
+            json_tcp.print_key_uint("seq", htonl(header->seq));
+            json_tcp.close();
+
+        } else if (is_SYN_ACK()) {
+            struct json_object json_tcp{o, "tcp_server"};
             //json_tcp.print_key_value("fingerprint", *this);
             json_tcp.print_key_uint("seq", htonl(header->seq));
             json_tcp.close();
