@@ -99,6 +99,25 @@ struct tls_security_assessment {
  *     } Handshake;
  */
 
+enum class tls_content_type : uint16_t {
+    // 0-19 	Unassigned (Requires coordination; see [RFC7983]) 		[RFC5764][RFC7983]
+    change_cipher_spec = 20,
+    alert = 21,
+    handshake = 22,
+    application_data = 23,
+    heartbeat = 24,
+    tls12_cid = 25 // (TEMPORARY - registered 2019-07-02, extension registered 2020-07-28, expires 2021-07-02) 	Y 	[draft-ietf-tls-dtls-connection-id]
+    // 26-63 	Unassigned
+    // 64-255 	Unassigned (Requires coordination; see [RFC7983]) 		[RFC5764][RFC7983]
+};
+
+enum class tls_version : uint16_t {
+    sslv3_0 = 0x0300,
+    tlsv1_0 = 0x0301,
+    tlsv1_1 = 0x0302,
+    tlsv1_2 = 0x0303,
+};
+
 /*
  * field lengths
  */
@@ -127,6 +146,39 @@ struct tls_record {
     }
 
     bool is_not_empty() const { return fragment.is_not_empty(); } 
+
+    static bool is_valid(const struct datum &d) {
+        struct datum tmp = d;
+        struct tls_record record;
+        record.parse(tmp);
+        return record.is_valid();
+    }
+
+    bool is_valid() const {
+
+        switch ((tls_content_type) content_type) {
+        case tls_content_type::change_cipher_spec:
+        case tls_content_type::alert:
+        case tls_content_type::handshake:
+        case tls_content_type::application_data:
+        case tls_content_type::heartbeat:
+        case tls_content_type::tls12_cid:
+            break;
+        default:
+            return false;
+        }
+
+        switch((tls_version) protocol_version) {
+        case tls_version::sslv3_0:
+        case tls_version::tlsv1_0:
+        case tls_version::tlsv1_1:
+        case tls_version::tlsv1_2:
+            break;
+        default:
+            return false;
+        }
+        return true;
+    }
 };
 
 enum class handshake_type : uint8_t {
