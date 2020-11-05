@@ -636,8 +636,9 @@ struct flow_table {
         }
     }
 
-    static const unsigned int timeout = 180; // seconds before flow timeout
+    static const unsigned int timeout = 60 * 60; // seconds before flow timeout
 
 };
+
 
 #endif /* MERC_TCP_H */
