@@ -123,8 +123,9 @@ struct tcp_option : public datum {
 struct tcp_packet {
     const struct tcp_header *header;
     struct datum tcp_options;
+    uint32_t data_length;
 
-    tcp_packet() : header{NULL}, tcp_options{NULL, NULL} {};
+    tcp_packet() : header{NULL}, tcp_options{NULL, NULL}, data_length{0} {};
 
     void parse(struct datum &p) {
         if (p.length() < (int)sizeof(struct tcp_header)) {
@@ -134,11 +135,16 @@ struct tcp_packet {
         p.skip(sizeof(struct tcp_header));
 
         tcp_options.parse(p, tcp_offrsv_get_length(header->offrsv) - TCP_FIXED_HDR_LEN);
-
+        data_length = p.length();
+        //        fprintf(stderr, "tcp.data_length: %u\n", data_length);
     }
 
     bool is_SYN() {
         return header && TCP_IS_SYN(header->flags) && !TCP_IS_ACK(header->flags);
+    }
+
+    bool is_SYN_ACK() {
+        return header && TCP_IS_SYN(header->flags) && TCP_IS_ACK(header->flags);
     }
 
     void set_key(struct key &k) {
@@ -173,8 +179,14 @@ struct tcp_packet {
     }
 
     void write_json(struct json_object &o) {
-        if (header) {
+        if (is_SYN()) {
             struct json_object json_tcp{o, "tcp"};
+            //json_tcp.print_key_value("fingerprint", *this);
+            json_tcp.print_key_uint("seq", htonl(header->seq));
+            json_tcp.close();
+
+        } else if (is_SYN_ACK()) {
+            struct json_object json_tcp{o, "tcp_server"};
             //json_tcp.print_key_value("fingerprint", *this);
             json_tcp.print_key_uint("seq", htonl(header->seq));
             json_tcp.close();

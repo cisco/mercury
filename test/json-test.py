@@ -105,6 +105,18 @@ mercury_schema = {
                          'response': {'type': 'object'},
                      },
                      "additionalProperties": False
+             },
+        'tcp': {'type': 'object',
+                     'properties': {
+                         'data':   {'type': 'string'},
+                     },
+                     "additionalProperties": False
+             },
+        'udp': {'type': 'object',
+                     'properties': {
+                         'data':   {'type': 'string'},
+                     },
+                     "additionalProperties": False
              }
     },
     'required': ['src_ip','dst_ip','src_port','dst_port','protocol','event_start'],

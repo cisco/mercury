@@ -40,6 +40,7 @@ struct pkt_proc_stats {
 struct pkt_proc {
     virtual void apply(struct packet_info *pi, uint8_t *eth) = 0;
     virtual void flush() = 0;
+    virtual void finalize() = 0;
     virtual ~pkt_proc() {};
     size_t bytes_written = 0;
     size_t packets_written = 0;
@@ -53,8 +54,10 @@ struct pkt_proc {
  */
 struct pkt_proc_json_writer_llq : public pkt_proc {
     struct ll_queue *llq;
+    bool block;
     struct packet_filter pf;
-    // struct tcp_reassembler reassembler;
+    struct tcp_reassembler reassembler;
+    struct flow_table ip_flow_table;
 
     /*
      * pkt_proc_json_writer(outfile_name, mode, max_records)
@@ -66,7 +69,9 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
      * records (lines) per file; after that limit is reached, file
      * rotation will take place.
      */
-    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter) { //: reassembler{} {
+    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) :
+        block{blocking}, reassembler{65536}, ip_flow_table{65536} {
+
         llq = llq_ptr;
         if (packet_filter_init(&pf, filter) == status_err) {
             throw "could not initialize packet filter";
@@ -74,7 +79,21 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
+#ifndef USE_TCP_REASSEMBLY
+
+// #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
+
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, nullptr, block, ip_flow_table);
+#else
+
+// #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
+
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, &reassembler, block, ip_flow_table);
+#endif
+    }
+
+    void finalize() override {
+        reassembler.count_all();
     }
 
     void flush() override {
@@ -102,6 +121,8 @@ struct pkt_proc_pcap_writer_llq : public pkt_proc {
         }
         pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000, block);
     }
+
+    void finalize() override { }
 
     void flush() override {
     }
@@ -137,6 +158,8 @@ struct pkt_proc_pcap_writer : public pkt_proc {
         }
         pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
+
+    void finalize() override { }
 
     void flush() override {
         FILE *file_ptr = pcap_file.file_ptr;
@@ -186,6 +209,8 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
             pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
         }
     }
+
+    void finalize() override { }
 
     void flush() override {
         FILE *file_ptr = pcap_file.file_ptr;
@@ -237,6 +262,8 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
         }
     }
 
+    void finalize() override { }
+
     void flush() override {
     }
 
@@ -253,6 +280,8 @@ struct pkt_proc_dumper : public pkt_proc {
     void apply(struct packet_info *pi, uint8_t *eth) override {
         packet_fprintf(stdout, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
+
+    void finalize() override { }
 
     void flush() override {
     }

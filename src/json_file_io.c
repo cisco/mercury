@@ -9,6 +9,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 #include "json_file_io.h"
 #include "json_object.h"
 #include "extractor.h"
@@ -28,6 +29,8 @@
 #include "eth.h"
 #include "udp.h"
 #include "quic.h"
+
+#define alignment(p) (p%16 ? (p%8 ? (p%4 ? (p%2 ? 1 : 2) : 4) : 8) : 16)
 
 extern struct global_variables global_vars; /* defined in config.c */
 
@@ -127,6 +130,7 @@ void write_flow_key(struct buffer_stream &buf, const struct key &k) {
     buf.strncpy(",\"dst_port\":");
     buf.write_uint16(k.dst_port);
 
+    // buf.snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
 void write_flow_key(struct json_object &o, const struct key &k) {
@@ -151,57 +155,29 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     o.print_key_uint16("src_port", k.src_port);
     o.print_key_uint16("dst_port", k.dst_port);
 
+    // o.b->snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
-int append_packet_json(struct buffer_stream &buf,
-                       uint8_t *packet,
-                       size_t length,
-                       struct timespec *ts) {
-    struct key k;
-    struct datum pkt{packet, packet+length};
-    size_t transport_proto = 0;
-    size_t ethertype = 0;
-    parser_process_eth(&pkt, &ethertype);
-    switch(ethertype) {
-    case ETH_TYPE_IP:
-        parser_process_ipv4(&pkt, &transport_proto, &k);
-        break;
-    case ETH_TYPE_IPV6:
-        parser_process_ipv6(&pkt, &transport_proto, &k);
-        break;
-    default:
-        ;
+// tcp_data_write_json() parses TCP data and writes metadata into
+// a buffer stream, if any is found
+//
+void tcp_data_write_json(struct buffer_stream &buf,
+                         struct datum &pkt,
+                         const struct key &k,
+                         struct tcp_packet &tcp_pkt,
+                         struct timespec *ts,
+                         struct tcp_reassembler *reassembler,
+                         struct flow_table &flows) {
+
+    if (pkt.is_not_empty() == false) {
+        return;
     }
-    enum msg_type msg_type = msg_type_unknown;
-    if (transport_proto == 6) {
-        struct tcp_packet tcp_pkt;
-        tcp_pkt.parse(pkt);
-        tcp_pkt.set_key(k);
-        if (tcp_pkt.is_SYN()) {
-            struct json_object record{&buf};
-            struct json_object fps{record, "fingerprints"};
-            fps.print_key_value("tcp", tcp_pkt);
-            fps.close();
-            if (global_vars.metadata_output) {
-                 tcp_pkt.write_json(fps);
-            }
-            write_flow_key(record, k);
-            record.print_key_timestamp("event_start", ts);
-            record.close();
-        }
-        msg_type = get_message_type(pkt.data, pkt.length());
-    } else if (transport_proto == 17) {
-        struct udp_packet udp_pkt;
-        udp_pkt.parse(pkt);
-        udp_pkt.set_key(k);
-        msg_type = udp_get_message_type(pkt.data, pkt.length());
-        if (msg_type == msg_type_unknown) {
-            msg_type = udp_pkt.estimate_msg_type_from_ports();
-        }
-    }
+    enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
+
+    bool is_new = flows.flow_is_new(k, ts->tv_sec);
 
     switch(msg_type) {
-    case msg_type_http_request:
+    case tcp_msg_type_http_request:
         {
             struct http_request request;
             request.parse(pkt);
@@ -218,12 +194,18 @@ int append_packet_json(struct buffer_stream &buf,
             }
         }
         break;
-    case msg_type_tls_client_hello:
+    case tcp_msg_type_tls_client_hello:
         {
             struct tls_record rec;
             rec.parse(pkt);
             struct tls_handshake handshake;
             handshake.parse(rec.fragment);
+            if (handshake.additional_bytes_needed && reassembler) {
+                // fprintf(stderr, "tls.handshake.client_hello (%zu)\n", handshake.additional_bytes_needed);
+                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed)) {
+                    return;
+                }
+            }
             struct tls_client_hello hello;
             hello.parse(handshake.body);
             if (hello.is_not_empty()) {
@@ -244,8 +226,8 @@ int append_packet_json(struct buffer_stream &buf,
             }
         }
         break;
-    case msg_type_tls_server_hello:
-    case msg_type_tls_certificate:
+    case tcp_msg_type_tls_server_hello:
+    case tcp_msg_type_tls_certificate:
         {
             struct tls_record rec;
             struct tls_handshake handshake;
@@ -273,6 +255,13 @@ int append_packet_json(struct buffer_stream &buf,
             handshake2.parse(rec2.fragment);
             if (handshake2.msg_type == handshake_type::certificate) {
                 certificate.parse(handshake2.body);
+            }
+
+            if (certificate.additional_bytes_needed && reassembler) {
+                // fprintf(stderr, "tls.handshake.certificate (%zu)\n", certificate.additional_bytes_needed);
+                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, certificate.additional_bytes_needed)) {
+                    return;
+                }
             }
 
             bool have_hello = hello.is_not_empty();
@@ -309,7 +298,7 @@ int append_packet_json(struct buffer_stream &buf,
             }
         }
         break;
-    case msg_type_http_response:
+    case tcp_msg_type_http_response:
         {
             struct http_response response;
             response.parse(pkt);
@@ -328,91 +317,7 @@ int append_packet_json(struct buffer_stream &buf,
             }
         }
         break;
-    case msg_type_wireguard:
-        {
-            wireguard_handshake_init wg;
-            wg.parse(pkt);
-            struct json_object record{&buf};
-            wg.write_json(record);
-            write_flow_key(record, k);
-            record.print_key_timestamp("event_start", ts);
-            record.close();
-        }
-        break;
-    case msg_type_quic:
-        {
-            struct quic_initial_packet quic_pkt{pkt};
-            if (quic_pkt.is_not_empty()) {
-                struct json_object json_record{&buf};
-                struct quic_initial_packet_crypto quic_pkt_crypto{quic_pkt};
-                quic_pkt_crypto.decrypt(quic_pkt.data.data, quic_pkt.data.length());
-                if (quic_pkt_crypto.is_not_empty()) {
-                    struct tls_client_hello hello;
-                    struct datum quic_plaintext(quic_pkt_crypto.plaintext+8, quic_pkt_crypto.plaintext+quic_pkt_crypto.plaintext_len);
-                    hello.parse(quic_plaintext);
-                    if (hello.is_not_empty()) {
-                        struct json_object fps{json_record, "fingerprints"};
-                        fps.print_key_value("quic", hello);
-                        fps.close();
-                        hello.write_json(json_record, global_vars.metadata_output);
-                    }
-                }
-                struct json_object json_quic{json_record, "quic"};
-                quic_pkt.write_json(json_quic);
-                json_quic.close();
-                write_flow_key(json_record, k);
-                json_record.print_key_timestamp("event_start", ts);
-                json_record.close();
-            }
-        }
-        break;
-    case msg_type_dns:
-        {
-            if (global_vars.dns_json_output) {
-                struct dns_packet dns_pkt{pkt};
-                if (dns_pkt.is_not_empty()) {
-                    struct json_object json_record{&buf};
-                    struct json_object json_dns{json_record, "dns"};
-                    dns_pkt.write_json(json_dns);
-                    json_dns.close();
-                    write_flow_key(json_record, k);
-                    json_record.print_key_timestamp("event_start", ts);
-                    json_record.close();
-                }
-            } else {
-                struct json_object json_record{&buf};
-                struct json_object json_dns{json_record, "dns"};
-                json_dns.print_key_base64("base64", pkt);
-                json_dns.close();
-                write_flow_key(json_record, k);
-                json_record.print_key_timestamp("event_start", ts);
-                json_record.close();
-            }
-        }
-        break;
-    case msg_type_dtls_client_hello:
-        {
-            struct dtls_record dtls_rec;
-            dtls_rec.parse(pkt);
-            struct dtls_handshake handshake;
-            handshake.parse(dtls_rec.fragment);
-            if (handshake.msg_type == handshake_type::client_hello) {
-                struct tls_client_hello hello;
-                hello.parse(handshake.body);
-                if (hello.is_not_empty()) {
-                    struct json_object record{&buf};
-                    struct json_object fps{record, "fingerprints"};
-                    fps.print_key_value("dtls", hello);
-                    fps.close();
-                    hello.write_json(record, global_vars.metadata_output);
-                    write_flow_key(record, k);
-                    record.print_key_timestamp("event_start", ts);
-                    record.close();
-                }
-            }
-        }
-        break;
-    case msg_type_ssh:
+    case tcp_msg_type_ssh:
         {
             struct ssh_init_packet init_packet;
             init_packet.parse(pkt);
@@ -423,11 +328,12 @@ int append_packet_json(struct buffer_stream &buf,
             init_packet.write_json(record, global_vars.metadata_output);
 #ifdef SSHM
             if (pkt.is_not_empty()) {
+                pkt.accept('\n');
                 record.print_key_json_string("ssh_residual_data", pkt.data, pkt.length());
-                struct ssh_binary_packet pkt;
-                pkt.parse(pkt);
+                struct ssh_binary_packet bin_pkt;
+                bin_pkt.parse(pkt);
                 struct ssh_kex_init kex_init;
-                kex_init.parse(pkt.payload);
+                kex_init.parse(bin_pkt.payload);
                 kex_init.write_json(record, global_vars.metadata_output);
             }
 #endif
@@ -436,11 +342,16 @@ int append_packet_json(struct buffer_stream &buf,
             record.close();
         }
         break;
-    case msg_type_ssh_kex:
+    case tcp_msg_type_ssh_kex:
         {
-            // record.print_key_json_string("ssh_kex_data", pkt.data, pkt.length());
             struct ssh_binary_packet ssh_pkt;
             ssh_pkt.parse(pkt);
+            if (ssh_pkt.additional_bytes_needed && reassembler) {
+                // fprintf(stderr, "ssh.binary_packet (%zu)\n", ssh_pkt.additional_bytes_needed);
+                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, ssh_pkt.additional_bytes_needed)) {
+                    return;
+                }
+            }
             struct ssh_kex_init kex_init;
             kex_init.parse(ssh_pkt.payload);
             if (kex_init.is_not_empty()) {
@@ -455,33 +366,243 @@ int append_packet_json(struct buffer_stream &buf,
             }
         }
         break;
-    case msg_type_dhcp:
-        {
-            struct dhcp_discover dhcp_disco;
-            dhcp_disco.parse(pkt);
-            if (dhcp_disco.is_not_empty()) {
-                struct json_object record{&buf};
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_value("dhcp", dhcp_disco);
-                fps.close();
-                if (global_vars.metadata_output) {
-                    dhcp_disco.write_json(record);
-                    write_flow_key(record, k);
-                    record.print_key_timestamp("event_start", ts);
-                }
-                record.close();
+    case tcp_msg_type_unknown:
+
+        if (is_new) {
+            // if this packet is a TLS record, ignore it
+            if (tls_record::is_valid(pkt)) {
+                return;
             }
+
+            // output the data field
+            struct json_object record{&buf};
+            struct json_object tcp{record, "tcp"};
+            tcp.print_key_hex("data", pkt);
+            // tcp.print_key_json_string("data_string", pkt);
+            tcp.close();
+            write_flow_key(record, k);
+            record.print_key_timestamp("event_start", ts);
+            record.close();
         }
-        break;
-    case msg_type_dtls_server_hello:
-    case msg_type_dtls_certificate:
-        // cases that fall through here are not yet supported
-    case msg_type_unknown:
-        // no output
         break;
     }
 
-    //    buf.snprintf(dstr, doff, dlen, trunc, ",\"flowhash\":\"%016lx\"", flowhash(key, ts->tv_sec));
+}
+
+int append_packet_json(struct buffer_stream &buf,
+                       uint8_t *packet,
+                       size_t length,
+                       struct timespec *ts,
+                       struct tcp_reassembler *reassembler,
+                       struct flow_table &flows) {
+    struct key k;
+    struct datum pkt{packet, packet+length};
+    size_t transport_proto = 0;
+    size_t ethertype = 0;
+    parser_process_eth(&pkt, &ethertype);
+    switch(ethertype) {
+    case ETH_TYPE_IP:
+        parser_process_ipv4(&pkt, &transport_proto, &k);
+        break;
+    case ETH_TYPE_IPV6:
+        parser_process_ipv6(&pkt, &transport_proto, &k);
+        break;
+    default:
+        ;
+    }
+    if (transport_proto == 6) {
+        struct tcp_packet tcp_pkt;
+        tcp_pkt.parse(pkt);
+        tcp_pkt.set_key(k);
+        if (tcp_pkt.is_SYN()) {
+            struct json_object record{&buf};
+            struct json_object fps{record, "fingerprints"};
+            fps.print_key_value("tcp", tcp_pkt);
+            fps.close();
+            if (global_vars.metadata_output) {
+                 tcp_pkt.write_json(fps);
+            }
+            write_flow_key(record, k);
+            record.print_key_timestamp("event_start", ts);
+            record.close();
+
+            // note: we could check for non-empty data field
+
+#ifdef REPORT_SYN_ACK
+        } else if (tcp_pkt.is_SYN_ACK()) {
+            struct json_object record{&buf};
+            struct json_object fps{record, "fingerprints"};
+            fps.print_key_value("tcp_server", tcp_pkt);
+            fps.close();
+            if (global_vars.metadata_output) {
+                 tcp_pkt.write_json(fps);
+            }
+            write_flow_key(record, k);
+            record.print_key_timestamp("event_start", ts);
+            record.close();
+
+            // note: we could check for non-empty data field
+#endif
+
+        } else {
+
+            if (reassembler) {
+                const struct tcp_segment *data_buf = reassembler->check_packet(k, ts->tv_sec, tcp_pkt.header, pkt.length());
+                if (data_buf) {
+                    //fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->index);
+                    struct datum reassembled_tcp_data = data_buf->reassembled_segment();
+                    tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler, flows);
+                    reassembler->remove_segment(k);
+                } else {
+                    const uint8_t *tmp = pkt.data;
+                    tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler, flows);
+                    if (pkt.data == tmp) {
+                        auto segment = reassembler->reap(ts->tv_sec);
+                        if (segment != reassembler->segment_table.end()) {
+                            //fprintf(stderr, "EXPIRED PARTIAL TCP PACKET (length: %u)\n", segment->second.index);
+                            struct datum reassembled_tcp_data = segment->second.reassembled_segment();
+                            tcp_data_write_json(buf, reassembled_tcp_data, segment->first, tcp_pkt, ts, nullptr, flows);
+                            reassembler->remove_segment(segment);
+                        }
+                    }
+                }
+            } else {
+                tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, nullptr, flows);  // process packet without tcp reassembly
+            }
+        }
+
+    } else if (transport_proto == 17) {
+        struct udp_packet udp_pkt;
+        udp_pkt.parse(pkt);
+        udp_pkt.set_key(k);
+        bool is_new = false;
+        if (pkt.is_not_empty()) {
+            is_new = flows.flow_is_new(k, ts->tv_sec);
+        }
+        enum udp_msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
+        if (msg_type == udp_msg_type_unknown) {
+            msg_type = udp_pkt.estimate_msg_type_from_ports();
+        }
+        switch(msg_type) {
+        case udp_msg_type_quic:
+            {
+                struct quic_initial_packet quic_pkt{pkt};
+                if (quic_pkt.is_not_empty()) {
+                    struct json_object json_record{&buf};
+                    struct quic_initial_packet_crypto quic_pkt_crypto{quic_pkt};
+                    quic_pkt_crypto.decrypt(quic_pkt.data.data, quic_pkt.data.length());
+                    if (quic_pkt_crypto.is_not_empty()) {
+                        struct tls_client_hello hello;
+                        struct datum quic_plaintext(quic_pkt_crypto.plaintext+8, quic_pkt_crypto.plaintext+quic_pkt_crypto.plaintext_len);
+                        hello.parse(quic_plaintext);
+                        if (hello.is_not_empty()) {
+                            struct json_object fps{json_record, "fingerprints"};
+                            fps.print_key_value("quic", hello);
+                            fps.close();
+                            hello.write_json(json_record, global_vars.metadata_output);
+                        }
+                    }
+                    struct json_object json_quic{json_record, "quic"};
+                    quic_pkt.write_json(json_quic);
+                    json_quic.close();
+                    write_flow_key(json_record, k);
+                    json_record.print_key_timestamp("event_start", ts);
+                    json_record.close();
+                }
+            }
+            break;
+        case udp_msg_type_wireguard:
+            {
+                wireguard_handshake_init wg;
+                wg.parse(pkt);
+                struct json_object record{&buf};
+                wg.write_json(record);
+                write_flow_key(record, k);
+                record.print_key_timestamp("event_start", ts);
+                record.close();
+            }
+            break;
+        case udp_msg_type_dns:
+            {
+                if (global_vars.dns_json_output) {
+                    struct dns_packet dns_pkt{pkt};
+                    if (dns_pkt.is_not_empty()) {
+                        struct json_object json_record{&buf};
+                        struct json_object json_dns{json_record, "dns"};
+                        dns_pkt.write_json(json_dns);
+                        json_dns.close();
+                        write_flow_key(json_record, k);
+                        json_record.print_key_timestamp("event_start", ts);
+                        json_record.close();
+                    }
+                } else {
+                    struct json_object json_record{&buf};
+                    struct json_object json_dns{json_record, "dns"};
+                    json_dns.print_key_base64("base64", pkt);
+                    json_dns.close();
+                    write_flow_key(json_record, k);
+                    json_record.print_key_timestamp("event_start", ts);
+                    json_record.close();
+                }
+            }
+            break;
+        case udp_msg_type_dtls_client_hello:
+            {
+                struct dtls_record dtls_rec;
+                dtls_rec.parse(pkt);
+                struct dtls_handshake handshake;
+                handshake.parse(dtls_rec.fragment);
+                if (handshake.msg_type == handshake_type::client_hello) {
+                    struct tls_client_hello hello;
+                    hello.parse(handshake.body);
+                    if (hello.is_not_empty()) {
+                        struct json_object record{&buf};
+                        struct json_object fps{record, "fingerprints"};
+                        fps.print_key_value("dtls", hello);
+                        fps.close();
+                        hello.write_json(record, global_vars.metadata_output);
+                        write_flow_key(record, k);
+                        record.print_key_timestamp("event_start", ts);
+                        record.close();
+                    }
+                }
+            }
+            break;
+        case udp_msg_type_dhcp:
+            {
+                struct dhcp_discover dhcp_disco;
+                dhcp_disco.parse(pkt);
+                if (dhcp_disco.is_not_empty()) {
+                    struct json_object record{&buf};
+                    struct json_object fps{record, "fingerprints"};
+                    fps.print_key_value("dhcp", dhcp_disco);
+                    fps.close();
+                    if (global_vars.metadata_output) {
+                        dhcp_disco.write_json(record);
+                        write_flow_key(record, k);
+                        record.print_key_timestamp("event_start", ts);
+                    }
+                    record.close();
+                }
+            }
+            break;
+        case udp_msg_type_dtls_server_hello:
+        case udp_msg_type_dtls_certificate:
+            // cases that fall through here are not yet supported
+        case udp_msg_type_unknown:
+            if (is_new) {
+                struct json_object record{&buf};
+                struct json_object udp{record, "udp"};
+                udp.print_key_hex("data", pkt);
+                // udp.print_key_json_string("data_string", pkt);
+                udp.close();
+                write_flow_key(record, k);
+                record.print_key_timestamp("event_start", ts);
+                record.close();
+            }
+            break;
+        }
+    }
 
     if (buf.length() != 0) {
         buf.strncpy("\n");
@@ -494,7 +615,16 @@ void json_queue_write(struct ll_queue *llq,
                       uint8_t *packet,
                       size_t length,
                       unsigned int sec,
-                      unsigned int nsec) {
+                      unsigned int nsec,
+                      struct tcp_reassembler *reassembler,
+                      bool blocking,
+                      struct flow_table &flows) {
+
+    if (blocking) {
+        while (llq->msgs[llq->widx].used != 0) {
+            usleep(50); // sleep for fifty microseconds
+        }
+    }
 
     if (llq->msgs[llq->widx].used == 0) {
 
@@ -511,7 +641,7 @@ void json_queue_write(struct ll_queue *llq,
         llq->msgs[llq->widx].buf[0] = '\0';
 
         struct buffer_stream buf(llq->msgs[llq->widx].buf, LLQ_MSG_SIZE);
-        append_packet_json(buf, packet, length, &(llq->msgs[llq->widx].ts));
+        append_packet_json(buf, packet, length, &(llq->msgs[llq->widx].ts), reassembler, flows);
         int r = buf.length();
         if ((buf.trunc == 0) && (r > 0)) {
 

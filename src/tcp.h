@@ -12,7 +12,7 @@
 #include <arpa/inet.h>
 #include <unordered_map>
 #include "mercury.h"
-
+#include "datum.h"
 
 struct tcp_header {
     uint16_t src_port;
@@ -53,6 +53,7 @@ struct ipv6_address {
     uint32_t b;
     uint32_t c;
     uint32_t d;
+
     bool operator==(const ipv6_address &rhs) const {
         return a == rhs.a && b == rhs.b && c == rhs.c && d == rhs.d;
     }
@@ -100,13 +101,29 @@ struct key {
         addr.ipv6.src = { 0, 0, 0, 0 };
         addr.ipv6.dst = { 0, 0, 0, 0 };
     }
+    void zeroize() {
+        ip_vers = 0;
+    }
+    bool is_zero() const {
+        return ip_vers == 0;
+    }
     bool operator==(const key &k) const {
         switch (ip_vers) {
         case 4:
-            return src_port == k.src_port && dst_port == k.dst_port && protocol == k.protocol && k.ip_vers == 4 && addr.ipv4.src == k.addr.ipv4.src && addr.ipv4.dst == k.addr.ipv4.dst;
+            return src_port == k.src_port
+                && dst_port == k.dst_port
+                && protocol == k.protocol
+                && k.ip_vers == 4
+                && addr.ipv4.src == k.addr.ipv4.src
+                && addr.ipv4.dst == k.addr.ipv4.dst;
             break;
         case 6:
-            return src_port == k.src_port && dst_port == k.dst_port && protocol == k.protocol && k.ip_vers == 6 && addr.ipv6.src == k.addr.ipv6.src && addr.ipv6.dst == k.addr.ipv6.dst;
+            return src_port == k.src_port
+                && dst_port == k.dst_port
+                && protocol == k.protocol
+                && k.ip_vers == 6
+                && addr.ipv6.src == k.addr.ipv6.src
+                && addr.ipv6.dst == k.addr.ipv6.dst;
         default:
             return 0;
         }
@@ -119,18 +136,45 @@ namespace std {
     template <>  struct hash<struct key>  {
         std::size_t operator()(const struct key& k) const    {
 
+            size_t multiplier = 2862933555777941757;  // source: https://nuclear.llnl.gov/CNP/rng/rngman/node3.html
+
             /* assume sizeof(size_t) == 8 for now */
-            size_t x = (size_t) k.src_port | ((size_t) k.dst_port << 16) | ((size_t) k.ip_vers) << 32 | ((size_t) k.protocol) << 40;
-            x ^= (size_t) k.addr.ipv6.src.a;
-            x ^= (size_t) k.addr.ipv6.src.b;
-            x ^= (size_t) k.addr.ipv6.src.c;
-            x ^= (size_t) k.addr.ipv6.src.d;
-            x ^= (size_t) k.addr.ipv6.dst.a;
-            x ^= (size_t) k.addr.ipv6.dst.b;
-            x ^= (size_t) k.addr.ipv6.dst.c;
-            x ^= (size_t) k.addr.ipv6.dst.d;
+            // size_t x = (size_t) k.src_port | ((size_t) k.dst_port << 16) | ((size_t) k.ip_vers) << 32 | ((size_t) k.protocol) << 40;
+            // x ^= (size_t) k.addr.ipv6.src.a;
+            // x ^= (size_t) k.addr.ipv6.src.b;
+            // x ^= (size_t) k.addr.ipv6.src.c;
+            // x ^= (size_t) k.addr.ipv6.src.d;
+            // x ^= (size_t) k.addr.ipv6.dst.a;
+            // x ^= (size_t) k.addr.ipv6.dst.b;
+            // x ^= (size_t) k.addr.ipv6.dst.c;
+            // x ^= (size_t) k.addr.ipv6.dst.d;
+            // return x;
+
+            size_t x;
+            if (k.ip_vers == 4) {
+                uint32_t sa = k.addr.ipv4.src;
+                uint32_t da = k.addr.ipv4.dst;
+                uint16_t sp = k.src_port;
+                uint16_t dp = k.dst_port;
+                uint8_t  pr = k.protocol;
+                x = ((uint64_t) sp * da) + ((uint64_t) dp * sa);
+                x *= multiplier;
+                x += sa + da + sp + dp + pr;
+                x *= multiplier;
+            } else {
+                uint64_t *sa = (uint64_t *)&k.addr.ipv6.src;
+                uint64_t *da = (uint64_t *)&k.addr.ipv6.dst;
+                uint16_t sp = k.src_port;
+                uint16_t dp = k.dst_port;
+                uint8_t  pr = k.protocol;
+                x = ((uint64_t) sp * da[0] * da[1]) + ((uint64_t) dp * sa[0] * sa[1]);
+                x *= multiplier;
+                x += sa[0] + sa[1] + da[0] + da[1] + sp + dp + pr;
+                x *= multiplier;
+            }
 
             return x;
+
         }
     };
 }
@@ -149,7 +193,7 @@ namespace std {
 
 #define TCP_FLAGS_FORMAT "%c%c%c%c "
 #define TCP_FLAGS_PRINT(x) ((x & 0x02) ? 'S' : ' '), ((x & 0x10) ? 'A' : ' '), ((x & 0x01) ? 'F' : ' '), ((x & 0x04) ? 'R' : ' ')
-
+ 
 #define TCP_IS_ACK(flags) ((flags) & 0x10)
 #define TCP_IS_PSH(flags) ((flags) & 0x08)
 #define TCP_IS_RST(flags) ((flags) & 0x04)
@@ -302,60 +346,297 @@ struct tcp_initial_message_filter {
  *
  * strategy:
  *
- *    - pre-allocated storage array to hold reassembled packets
- *    - maximum length 4096 bytes
- *    - flow key maps to array entry
+ *    - pre-allocated storage to hold reassembled packets
  *
- *    - copy_packet(packet, packet_length, additional_bytes_needed)
- *    - check_packet(packet, packet_length)
+ *    - flow key maps to tcp_segment
+ *
+ *    - to request reassembly, call copy_packet() and pass it the
+ *      initial bytes of the packet being reassembled, along with the
+ *      number of additional bytes needed
+ *
+ *    - to check a tcp packet to see if it contributes to, or
+ *      completes, a requested segment, invoke check_packet().  If it
+ *      returns a non-null value, that value points to the reassembled
+ *      tcp_segment.
  */
 
-struct tcp_buffer {
-    tcp_buffer() : k{}, seq_end{}, data{} { };
-    struct key k;
+struct tcp_segment {
+    uint32_t seq_init;
     uint32_t seq_end;
-    uint8_t data[8192 - sizeof(struct key) - sizeof(seq_end)];
+    uint32_t index;
+    uint32_t last_byte_needed;
+    unsigned int timestamp;
+
     static const size_t array_length = 8192;
-};
+    static const size_t header_length = sizeof(seq_init) + sizeof(seq_end) + sizeof(index) + sizeof(last_byte_needed) + sizeof(timestamp);
+    static const size_t buffer_length = array_length - header_length;
+    uint8_t data[buffer_length];
 
-struct tcp_reassembler {
-    struct tcp_buffer buffer[8192];
+    static const bool debug = false;
 
-    tcp_reassembler() : buffer{} {  }
+    tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} {
+        // fprintf(stderr, "creating tcp_segment ()\n");
+    };
 
-    void copy_packet(struct key &k, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
+    tcp_segment(const struct tcp_segment &r) : seq_init{r.seq_init}, seq_end{r.seq_end}, index{r.index}, last_byte_needed{r.last_byte_needed}, timestamp{r.timestamp} {
+        memcpy(data, r.data, r.index);
+        // fprintf(stderr, "creating tcp_segment (*)\n");
+    };
 
-        k.src_port = tcp->src_port;
-        k.dst_port = tcp->dst_port;
-        size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
-        (void)data_length;
+    tcp_segment(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} {
+        // fprintf(stderr, "creating tcp_segment (**)\n");
+        init_from_packet(tcp, length, bytes_needed, sec);
+    };
 
-        std::hash<struct key> hasher;
-        size_t h = hasher(k) % tcp_buffer::array_length;
-        buffer[h].k = k;
-        buffer[h].seq_end = tcp->seq + bytes_needed;
-        fprintf(stderr, "inserted flow key\n");
+    ~tcp_segment() {
+        //fprintf(stderr, "destroying tcp_segment\n");
+    };
 
-    }
+    bool init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) {
+        if (length + bytes_needed > tcp_segment::buffer_length) {
+            //            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu (length: %zu, bytes_needed: %zu)\n", length + bytes_needed, tcp_segment::buffer_length, length, bytes_needed);
 
-    bool check_packet(struct key &k, const struct tcp_header *tcp, size_t length) {
+            if (length < tcp_segment::buffer_length) {
+                bytes_needed = tcp_segment::buffer_length - length;
+            } else {
+                // packet is longer than buffer; it should be processed immediately
+                fprintf(stderr, "processing immediately as packet is longer than buffer\n");
+                return false;
+            }
+        }
+        fprintf(stderr, "requesting reassembly\n");
+        //        fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
-        k.src_port = tcp->src_port;
-        k.dst_port = tcp->dst_port;
-        size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
-        (void)data_length;
-
-        std::hash<struct key> hasher;
-        size_t h = hasher(k) % tcp_buffer::array_length;
-        if (k == buffer[h].k) {
-            fprintf(stderr, "found flow key\n");
-        } else {
-            ;
+        index = length;
+        seq_init = ntohl(tcp->seq);
+        seq_end = ntohl(tcp->seq) + length + bytes_needed;
+        last_byte_needed = length + bytes_needed;
+        timestamp = sec;
+        if (debug) {
+            fprintf(stderr, "inserted flow key with seq %u and packet length %zu\n", ntohl(tcp->seq), length);
+            fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
+                    __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
         }
 
+        const uint8_t *src_start = (const uint8_t*)tcp;
+        src_start += tcp_offrsv_get_header_length(tcp->offrsv);
+        uint8_t *dst_start = data;
+        uint32_t copy_len = length;
+        memcpy(dst_start, src_start, copy_len);
+        if (debug) {
+            fprintf(stderr, "\tcopying %u bytes", copy_len);
+            fprintf(stderr, "\tsegment: [%u,%u]\n", 0, index);
+            //fprintf_json_string_escaped(stderr, "segment", dst_start, copy_len); fprintf(stderr, "\n");
+        }
         return true;
     }
 
+    struct tcp_segment *check_packet(const struct tcp_header *tcp, size_t length, unsigned int sec) {
+        (void)sec;
+
+        if (debug) {
+            fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
+                    __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
+        }
+
+        const uint8_t *src_start = (const uint8_t*)tcp;
+        src_start += tcp_offrsv_get_header_length(tcp->offrsv);
+
+        uint32_t pkt_start = ntohl(tcp->seq) - seq_init;
+        uint32_t pkt_end   = pkt_start + length;
+        if (pkt_start == index) {
+            if (debug) {
+                fprintf(stderr, "==");
+            }
+
+            if (pkt_end >= last_byte_needed) {
+                uint8_t *dst_start = data + index;
+                uint32_t copy_len = last_byte_needed - index;
+                memcpy(dst_start, src_start, copy_len);
+                index += copy_len;
+                if (debug) {
+                    fprintf(stderr, "\tcopying %u bytes", copy_len);
+                    fprintf(stderr, "\tsegment: [%u,%u]", 0, index);
+                    fprintf(stderr, "\tDONE\n");
+                    //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
+                }
+                fprintf(stderr, "reassembled packet\n");
+                // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
+                return this;
+
+            } else {
+                uint8_t *dst_start = data + index;
+                uint32_t copy_len = pkt_end - index;
+                memcpy(dst_start, src_start, copy_len);
+                index += copy_len;
+                if (debug) {
+                    fprintf(stderr, "\tcopying %u bytes", copy_len);
+                    fprintf(stderr, "\tsegment: [%u,%u]\n", 0, index);
+                }
+                return nullptr;
+            }
+        } else if (pkt_start < index) {
+
+            if (pkt_end >= last_byte_needed) {
+                pkt_start += (index - pkt_start);
+                uint8_t *dst_start = data + index;
+                uint32_t copy_len = last_byte_needed - index;
+                memcpy(dst_start, src_start, copy_len);
+                index += copy_len;
+                if (debug) {
+                    fprintf(stderr, "\tcopying %u bytes", copy_len);
+                    fprintf(stderr, "\tsegment: [%u,%u]", 0, index);
+                    fprintf(stderr, "\tDONE\n");
+                    //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
+                }
+                fprintf(stderr, "reassembled packet\n");
+                // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
+                return this;
+            } else {
+                fprintf(stderr, "pkt_end < last_byte_needed\n");
+            }
+            if (debug) {
+                fprintf(stderr, ">\n");
+            }
+
+        } else if (pkt_start > index) { // pkt_start > index
+            //            fprintf(stderr, "pkt_start > index (difference: %u, pkt_start: %u, index: %u)\n", pkt_start - index, pkt_start, index);
+        } else {
+            fprintf(stderr, "wtf?\n");
+        }
+        if (debug) {
+            fprintf(stderr, "\n");
+        }
+        return nullptr;
+    }
+
+    bool is_too_old(unsigned int sec) {
+        unsigned int max_sec_in_table = 30;
+
+        return (sec > timestamp + max_sec_in_table);
+    }
+
+    struct datum reassembled_segment() const {
+        struct datum reassembled_tcp_data{data, data + index};
+        return reassembled_tcp_data;
+    }
+
 };
+
+void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
+
+struct tcp_reassembler {
+    std::unordered_map<struct key, struct tcp_segment> segment_table;
+    std::unordered_map<struct key, struct tcp_segment>::iterator reap_it;
+
+    tcp_reassembler(unsigned int size) : segment_table{}, reap_it{segment_table.end()} {
+        segment_table.reserve(size);
+        reap_it = segment_table.end();
+        // fprintf(stderr, "tcp_reassembler segment_table size: %zu bytes\n", size * sizeof(tcp_segment));
+    }
+
+    bool copy_packet(const struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
+
+        if (length == 0) {
+            fprintf(stderr, "warning: got length=0 in copy_packet()\n");
+            //            return;
+        }
+
+        tcp_segment segment;
+        if (segment.init_from_packet(tcp, length, bytes_needed, sec)) {
+            reap_it = segment_table.emplace(k, segment).first;
+            reap_it++;
+            return true;
+        }
+        return false;
+    }
+
+    struct tcp_segment *check_packet(struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length) {
+
+        auto it = segment_table.find(k);
+        if (it != segment_table.end()) {
+            return it->second.check_packet(tcp, length, sec);
+        }
+        return nullptr;
+    }
+
+    std::unordered_map<struct key, struct tcp_segment>::iterator reap(unsigned int sec) {
+
+        // check for expired elements
+
+        if (reap_it != segment_table.end() && reap_it->second.is_too_old(sec)) {
+            fprintf(stderr, "processing expired segment\n");
+            // fprintf(stderr, "processing expired segment (age: %u seconds)\n", sec - reap_it->second.timestamp);
+            return reap_it;  // not fully reassembled, but expired
+        }
+        return segment_table.end();
+    }
+
+    void remove_segment(key &k) {
+        auto it = segment_table.find(k);
+        if (it != segment_table.end()) {
+            reap_it = segment_table.erase(it);
+        }
+        //    segment_table.erase(k);
+    }
+
+    void remove_segment(std::unordered_map<struct key, struct tcp_segment>::iterator it) {
+        if (it != segment_table.end()) {
+            reap_it = segment_table.erase(it);
+        }
+    }
+
+    void count_all() {
+        auto it = segment_table.begin();
+        while (it != segment_table.end()) {
+            fprintf(stderr, "counting segment\n");
+            it = segment_table.erase(it);
+        }
+    }
+
+};
+
+struct flow_table {
+    std::unordered_map<struct key, unsigned int> table;
+    std::unordered_map<struct key, unsigned int>::iterator reap_it;
+
+    flow_table(unsigned int size) : table{}, reap_it{table.end()} {
+        table.reserve(size);
+        reap_it = table.end();
+    }
+
+    bool flow_is_new(const struct key &k, unsigned int sec) {
+
+        auto it = table.find(k);
+        if (it != table.end() && (sec - it->second < flow_table::timeout)) {
+            it->second = sec;
+            reap(sec);
+            //fprintf(stderr, "FLOW OLD\n");
+            return false;
+        }
+        auto tmp = table.insert({k, sec}).first;
+        update_reap_iterator(tmp);
+        //fprintf(stderr, "FLOW NEW\n");
+        return true;
+    }
+
+    void reap(unsigned int sec) {
+
+        // check for expired flows
+        if (reap_it != table.end() && (sec - reap_it->second > flow_table::timeout)) {
+            reap_it = table.erase(reap_it);
+        }
+    }
+
+    void update_reap_iterator(std::unordered_map<struct key, unsigned int>::iterator x) {
+        if (x != table.end()) {
+            reap_it = x++;
+        }
+    }
+
+    static const unsigned int timeout = 60 * 60; // seconds before flow timeout
+
+};
+
 
 #endif /* MERC_TCP_H */

@@ -72,7 +72,7 @@ struct extractor {
     unsigned char *last_capture;        /* last cap in output stream */
     struct datum tcp;                  // NEW
     struct datum transport_data;       // NEW
-    enum msg_type msg_type;             // NEW
+    //enum msg_type msg_type;             // NEW
 };
 
 
@@ -274,7 +274,7 @@ enum status proto_ident_config(const char *config_string);
 
 ptrdiff_t parser_get_data_length(struct datum *p);
 
-enum msg_type get_message_type(const uint8_t *tcp_data,
-                               unsigned int len);
+enum tcp_msg_type get_message_type(const uint8_t *tcp_data,
+                                   unsigned int len);
 
 #endif /* EXTRACTOR_H */

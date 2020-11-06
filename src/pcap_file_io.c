@@ -380,6 +380,8 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
         }
     }
 
+    pkt_processor->finalize();  // clear out buffers
+
     pkt_processor->bytes_written = total_length;
     pkt_processor->packets_written = num_packets;
 

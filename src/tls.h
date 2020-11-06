@@ -99,6 +99,25 @@ struct tls_security_assessment {
  *     } Handshake;
  */
 
+enum class tls_content_type : uint16_t {
+    // 0-19 	Unassigned (Requires coordination; see [RFC7983]) 		[RFC5764][RFC7983]
+    change_cipher_spec = 20,
+    alert = 21,
+    handshake = 22,
+    application_data = 23,
+    heartbeat = 24,
+    tls12_cid = 25 // (TEMPORARY - registered 2019-07-02, extension registered 2020-07-28, expires 2021-07-02) 	Y 	[draft-ietf-tls-dtls-connection-id]
+    // 26-63 	Unassigned
+    // 64-255 	Unassigned (Requires coordination; see [RFC7983]) 		[RFC5764][RFC7983]
+};
+
+enum class tls_version : uint16_t {
+    sslv3_0 = 0x0300,
+    tlsv1_0 = 0x0301,
+    tlsv1_1 = 0x0302,
+    tlsv1_2 = 0x0303,
+};
+
 /*
  * field lengths
  */
@@ -127,6 +146,39 @@ struct tls_record {
     }
 
     bool is_not_empty() const { return fragment.is_not_empty(); } 
+
+    static bool is_valid(const struct datum &d) {
+        struct datum tmp = d;
+        struct tls_record record;
+        record.parse(tmp);
+        return record.is_valid();
+    }
+
+    bool is_valid() const {
+
+        switch ((tls_content_type) content_type) {
+        case tls_content_type::change_cipher_spec:
+        case tls_content_type::alert:
+        case tls_content_type::handshake:
+        case tls_content_type::application_data:
+        case tls_content_type::heartbeat:
+        case tls_content_type::tls12_cid:
+            break;
+        default:
+            return false;
+        }
+
+        switch((tls_version) protocol_version) {
+        case tls_version::sslv3_0:
+        case tls_version::tlsv1_0:
+        case tls_version::tlsv1_1:
+        case tls_version::tlsv1_2:
+            break;
+        default:
+            return false;
+        }
+        return true;
+    }
 };
 
 enum class handshake_type : uint8_t {
@@ -148,8 +200,11 @@ struct tls_handshake {
     handshake_type msg_type;
     uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
     struct datum body;
+    size_t additional_bytes_needed;
 
-    tls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {}
+    static const unsigned int max_handshake_len = 32768;
+
+    tls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL}, additional_bytes_needed{0} {}
 
     tls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
         parse(d);
@@ -163,7 +218,11 @@ struct tls_handshake {
         size_t tmp;
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
+        if (length > max_handshake_len) {
+            return;
+        }
         body.init_from_outer_parser(&d, length);
+        additional_bytes_needed = length - body.length();
     }
 };
 
@@ -181,16 +240,27 @@ struct tls_handshake {
 struct tls_server_certificate {
     uint32_t length; // note: only 24 bits on the wire (L_CertificateListLength)
     struct datum certificate_list;
+    size_t additional_bytes_needed;
 
-    tls_server_certificate() : length{0}, certificate_list{NULL, NULL} {}
+    static const size_t max_length = 65536;
+
+    tls_server_certificate() : length{0}, certificate_list{NULL, NULL}, additional_bytes_needed{0} {}
 
     void parse(struct datum &d) {
         size_t tmp = 0;
         if (d.read_uint(&tmp, L_CertificateListLength) == false) {
             return;
         }
+        if (tmp > tls_server_certificate::max_length) {
+            d.set_null();
+            return;  // probably not a real server certificate
+        }
         length = tmp;
         certificate_list.init_from_outer_parser(&d, length);
+        additional_bytes_needed = length - certificate_list.length();
+        if (additional_bytes_needed) {
+            // fprintf(stderr, "certificate additional_bytes_needed: %zu\ttotal bytes needed: %u\n", additional_bytes_needed, length);
+        }
     }
 
     bool is_not_empty() const { return certificate_list.is_not_empty(); }
@@ -241,8 +311,9 @@ struct tls_client_hello {
     struct datum compression_methods;
     struct tls_extensions extensions;
     bool dtls;
+    size_t additional_bytes_needed;
 
-    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, session_id{NULL, NULL}, cookie{NULL, NULL}, ciphersuite_vector{NULL, NULL}, compression_methods{NULL, NULL}, extensions{NULL, NULL}, dtls{false} {}
+    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, session_id{NULL, NULL}, cookie{NULL, NULL}, ciphersuite_vector{NULL, NULL}, compression_methods{NULL, NULL}, extensions{NULL, NULL}, dtls{false}, additional_bytes_needed{0} {}
 
     void parse(struct datum &p);
 
