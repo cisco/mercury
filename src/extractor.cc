@@ -37,6 +37,11 @@
  */
 bool select_tcp_syn = 1;
 
+/*
+ * select_tcp_syn selects MDNS (port 5353)
+ */
+bool select_mdns = true;
+
 /* protocol identification, adapted from joy */
 
 /*
@@ -2367,6 +2372,8 @@ extern unsigned char dns_server_mask[8];   /* udp.c */
 extern unsigned char dns_client_mask[8];   /* udp.c */
 extern unsigned char wireguard_mask[8];    /* udp.c */
 extern unsigned char quic_mask[8];         /* udp.c */
+extern unsigned char dtls_client_hello_mask[8]; /* udp.c */
+extern unsigned char dtls_server_hello_mask[8]; /* udp.c */
 
 
 enum status proto_ident_config(const char *config_string) {
@@ -2376,6 +2383,7 @@ enum status proto_ident_config(const char *config_string) {
 
     std::map<std::string, bool> protocols{
         { "all",         false },
+        { "none",        false },
         { "dhcp",        false },
         { "dns",         false },
         { "dtls",        false },
@@ -2418,12 +2426,18 @@ enum status proto_ident_config(const char *config_string) {
     if (protocols["all"] == true) {
         return status_ok;
     }
+    if (protocols["none"] == true) {
+        for (auto &pair : protocols) {
+            pair.second = false;
+        }
+    }
     if (protocols["dhcp"] == false) {
         bzero(dhcp_client_mask, sizeof(dhcp_client_mask));
     }
     if (protocols["dns"] == false) {
         bzero(dns_server_mask, sizeof(dns_server_mask));
         bzero(dns_client_mask, sizeof(dns_client_mask));
+        select_mdns = false;
     }
     if (protocols["http"] == false) {
         bzero(http_client_mask, sizeof(http_client_mask));
@@ -2443,7 +2457,11 @@ enum status proto_ident_config(const char *config_string) {
     }
     if (protocols["tls"] == false) {
         bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(tls_server_cert_embedded_mask, sizeof(tls_client_hello_mask));
+        bzero(tls_server_cert_embedded_mask, sizeof(tls_server_cert_embedded_mask));
+    }
+    if (protocols["dtls"] == false) {
+        bzero(dtls_client_hello_mask, sizeof(dtls_client_hello_mask));
+        bzero(dtls_server_hello_mask, sizeof(dtls_server_hello_mask));
     }
     if (protocols["wireguard"] == false) {
         bzero(wireguard_mask, sizeof(wireguard_mask));

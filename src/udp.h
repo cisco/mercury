@@ -9,6 +9,8 @@
 
 #include "extractor.h"
 
+extern bool select_mdns;                    // defined in extractor.cc
+
 unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k);
 
 struct udp_header {
@@ -40,7 +42,7 @@ struct udp_packet {
     }
 
     enum udp_msg_type estimate_msg_type_from_ports() {
-        if (header && (header->src_port == htons(5353) || header->dst_port == htons(5353))) {
+        if (select_mdns && header && (header->src_port == htons(5353) || header->dst_port == htons(5353))) {
             return udp_msg_type_dns;
         }
         return udp_msg_type_unknown;

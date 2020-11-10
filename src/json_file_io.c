@@ -34,6 +34,8 @@
 
 extern struct global_variables global_vars; /* defined in config.c */
 
+extern bool select_tcp_syn;                 // defined in extractor.cc
+
 #define json_file_needs_rotation(jf) (--((jf)->record_countdown) == 0)
 #define SNI_HDR_LEN 9
 #define FP_BUF_LEN 2048
@@ -174,7 +176,10 @@ void tcp_data_write_json(struct buffer_stream &buf,
     }
     enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
 
-    bool is_new = flows.flow_is_new(k, ts->tv_sec);
+    bool is_new = false;
+    if (global_vars.output_tcp_initial_data) {
+        is_new = flows.flow_is_new(k, ts->tv_sec);
+    }
 
     switch(msg_type) {
     case tcp_msg_type_http_request:
@@ -414,7 +419,7 @@ int append_packet_json(struct buffer_stream &buf,
         struct tcp_packet tcp_pkt;
         tcp_pkt.parse(pkt);
         tcp_pkt.set_key(k);
-        if (tcp_pkt.is_SYN()) {
+        if (select_tcp_syn && tcp_pkt.is_SYN()) {
             struct json_object record{&buf};
             struct json_object fps{record, "fingerprints"};
             fps.print_key_value("tcp", tcp_pkt);
@@ -429,7 +434,7 @@ int append_packet_json(struct buffer_stream &buf,
             // note: we could check for non-empty data field
 
 #ifdef REPORT_SYN_ACK
-        } else if (tcp_pkt.is_SYN_ACK()) {
+        } else if (select_tcp_syn && tcp_pkt.is_SYN_ACK()) {
             struct json_object record{&buf};
             struct json_object fps{record, "fingerprints"};
             fps.print_key_value("tcp_server", tcp_pkt);
@@ -476,7 +481,7 @@ int append_packet_json(struct buffer_stream &buf,
         udp_pkt.parse(pkt);
         udp_pkt.set_key(k);
         bool is_new = false;
-        if (pkt.is_not_empty()) {
+        if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = flows.flow_is_new(k, ts->tv_sec);
         }
         enum udp_msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
