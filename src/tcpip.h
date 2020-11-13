@@ -67,6 +67,7 @@
 #define TCP_OPT_NOP     1
 #define TCP_OPT_MSS     2
 #define TCP_OPT_WS      3
+#define TCP_OPT_TS      8
 
 #define TCP_FIN      0x01
 #define TCP_SYN      0x02
@@ -178,17 +179,37 @@ struct tcp_packet {
         buf.write_char('\"');
     }
 
+    void write_timestamp(struct json_object &json_tcp) {
+        struct datum tmp = tcp_options;
+        while (tmp.length() > 0) {
+            struct tcp_option opt;
+            opt.parse(tmp);
+            if (opt.kind == TCP_OPT_TS) {
+                struct json_object json_ts{json_tcp, "timestamp"};
+                size_t ts = 0;
+                if (opt.read_uint(&ts, 4)) {
+                    json_ts.print_key_uint("ts_val", ts);
+                }
+                if (opt.read_uint(&ts, 4) && ts != 0) {
+                    json_ts.print_key_uint("ts_ecr", ts);
+                }
+                json_ts.close();
+            }
+        }
+    }
     void write_json(struct json_object &o) {
         if (is_SYN()) {
             struct json_object json_tcp{o, "tcp"};
             //json_tcp.print_key_value("fingerprint", *this);
             json_tcp.print_key_uint("seq", htonl(header->seq));
+            write_timestamp(json_tcp);
             json_tcp.close();
 
         } else if (is_SYN_ACK()) {
             struct json_object json_tcp{o, "tcp_server"};
             //json_tcp.print_key_value("fingerprint", *this);
             json_tcp.print_key_uint("seq", htonl(header->seq));
+            write_timestamp(json_tcp);
             json_tcp.close();
         }
     }
