@@ -198,6 +198,13 @@ public:
         for (size_t i=0; i<length; i++) {
             uint8_t outchar = data[i];
             if (isprint(outchar)) {
+                if (outchar == '\n') {
+                    b.write_char('\\');
+                    b.write_char('n');
+                } else if (outchar == '\t') {
+                    b.write_char('\\');
+                    b.write_char('t');
+                }
                 if (outchar == '"' || outchar == '\\') {
                     b.write_char('\\');  // escape special characters
                 }
