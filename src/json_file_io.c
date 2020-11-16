@@ -379,6 +379,16 @@ void tcp_data_write_json(struct buffer_stream &buf,
                 return;
             }
 
+            // if this packet is a fragment of a certificate, ignore it
+            // ssize_t asn1_82_count = 0;
+            // for (const uint8_t *x=pkt.data; x < pkt.data_end; x++) {
+            //     if (*x == 0x82) { asn1_82_count++; }
+            // }
+            // if (asn1_82_count * 8 > pkt.length()) {
+            //     fprintf(stderr, "ignoring %zd out of %zd\n", asn1_82_count, pkt.length());
+            //     return;
+            // }
+
             // output the data field
             struct json_object record{&buf};
             struct json_object tcp{record, "tcp"};
@@ -450,6 +460,9 @@ int append_packet_json(struct buffer_stream &buf,
 #endif
 
         } else {
+
+            // fprintf(stderr, "flows.table.size(): %zu\n", flows.table.size());
+            // fprintf(stderr, "reassembler->segment_table.size(): %zu\n", reassembler->segment_table.size());
 
             if (reassembler) {
                 const struct tcp_segment *data_buf = reassembler->check_packet(k, ts->tv_sec, tcp_pkt.header, pkt.length());
@@ -625,44 +638,39 @@ void json_queue_write(struct ll_queue *llq,
                       bool blocking,
                       struct flow_table &flows) {
 
+    struct llq_msg &msg = llq->init_msg(blocking);
+
     if (blocking) {
-        while (llq->msgs[llq->widx].used != 0) {
+        while (msg.used != 0) {
             usleep(50); // sleep for fifty microseconds
         }
     }
 
-    if (llq->msgs[llq->widx].used == 0) {
+    if (msg.used == 0) {
 
-        //char obuf[LLQ_MSG_SIZE];
-        // int olen = LLQ_MSG_SIZE;
-        // int ooff = 0;
-        // int trunc = 0;
+        msg.ts.tv_sec = sec;
+        msg.ts.tv_nsec = nsec;
+        msg.buf[0] = '\0';
 
-        llq->msgs[llq->widx].ts.tv_sec = sec;
-        llq->msgs[llq->widx].ts.tv_nsec = nsec;
-
-
-        //obuf[sizeof(struct timespec)] = '\0';
-        llq->msgs[llq->widx].buf[0] = '\0';
-
-        struct buffer_stream buf(llq->msgs[llq->widx].buf, LLQ_MSG_SIZE);
-        append_packet_json(buf, packet, length, &(llq->msgs[llq->widx].ts), reassembler, flows);
+        struct buffer_stream buf(msg.buf, LLQ_MSG_SIZE);
+        append_packet_json(buf, packet, length, &(msg.ts), reassembler, flows);
         int r = buf.length();
         if ((buf.trunc == 0) && (r > 0)) {
 
-            llq->msgs[llq->widx].len = r;
+            msg.len = r;
 
             //fprintf(stderr, "DEBUG: sent a message!\n");
             __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
-            llq->msgs[llq->widx].used = 1;
+            msg.used = 1;
 
             /* fprintf(stderr, "DEBUG QUEUE %d packet time: %ld.%09ld\n", */
             /*         llq->qnum, */
-            /*         llq->msgs[llq->widx].ts.tv_sec, */
-            /*         llq->msgs[llq->widx].ts.tv_nsec); */
+            /*         msg.ts.tv_sec, */
+            /*         msg.ts.tv_nsec); */
 
             //llq->next_write();
-            llq->widx = (llq->widx + 1) % LLQ_DEPTH;
+
+            llq->increment_widx();
         }
     }
     else {

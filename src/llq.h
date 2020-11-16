@@ -5,6 +5,8 @@
 #ifndef LLQ_H
 #define LLQ_H
 
+#include <unistd.h>
+
 #define LLQ_MSG_SIZE 16384   /* The number of bytes allowed for each message in the lockless queue */
 #define LLQ_DEPTH    2048    /* The number of "buckets" (queue messages) allowed */
 #define LLQ_MAX_AGE  5       /* Maximum age (in seconds) messages are allowed to sit in a queue */
@@ -24,6 +26,23 @@ struct ll_queue {
     int ridx;  /* The read index */
     int widx;  /* The write index */
     struct llq_msg msgs[LLQ_DEPTH];
+
+    static const size_t msg_length = LLQ_DEPTH;
+
+    struct llq_msg &init_msg(bool blocking) {
+        struct llq_msg &m = msgs[widx];
+        if (blocking) {
+            while (m.used != 0) {
+                usleep(50); // sleep for fifty microseconds
+            }
+        }
+        return m;
+    }
+    void write_buffer_to_queue() {
+    }
+    void increment_widx() {
+        widx = (widx + 1) % LLQ_DEPTH;
+    }
 };
 
 
