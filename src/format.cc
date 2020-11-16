@@ -61,6 +61,7 @@ class data_format {
     size_t graphical;
     size_t crlf_count;
     size_t asn1_count;
+    size_t asn1_82_count;
     size_t zero_count;
     average<size_t> avg_ascii_run_length;
     average<size_t> avg_printable_run_length;
@@ -74,6 +75,7 @@ public:
     size_t get_graphical_count() { return graphical; }
     size_t get_crlf_count() { return crlf_count; }
     size_t get_asn1_count() { return asn1_count; }
+    size_t get_asn1_82_count() { return asn1_82_count; }
     size_t get_zero_count() { return zero_count; }
     size_t get_avg_ascii_run_length() { return avg_ascii_run_length.value(); }
     size_t get_longest_ascii_run_length() { return avg_ascii_run_length.get_longest(); }
@@ -93,6 +95,7 @@ public:
         graphical{0},
         crlf_count{0},
         asn1_count{0},
+        asn1_82_count{0},
         zero_count{0},
         avg_ascii_run_length{},
         avg_printable_run_length{} {
@@ -136,6 +139,9 @@ public:
                 }
                 if (i > 0 && data[i-1] == 0x30 && data[i] == 0x82) {
                     asn1_count++;
+                }
+                if (data[i] == 0x82) {
+                    asn1_82_count++;
                 }
             }
             if (ascii_run_length > 0) {
@@ -252,6 +258,8 @@ int main(int argc, char *argv[]) {
             json.print_key_uint("crlf_count", format.get_crlf_count());
 
             json.print_key_uint("asn1_count", format.get_asn1_count());
+
+            json.print_key_uint("asn1_82_count", format.get_asn1_82_count());
 
             json.print_key_float("zero_fraction", format.as_fraction(format.get_zero_count()));
 
