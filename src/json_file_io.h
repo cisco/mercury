@@ -35,7 +35,8 @@ void json_queue_write(struct ll_queue *llq,
                       unsigned int usec,
                       struct tcp_reassembler *reassembler,
                       bool blocking,
-                      struct flow_table &flows);
+                      struct flow_table &flows,
+                      struct flow_table_tcp &tcp_flows);
 
 enum status json_file_init(struct json_file *js,
 			   const char *outfile_name,
