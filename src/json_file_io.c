@@ -169,7 +169,7 @@ void tcp_data_write_json(struct buffer_stream &buf,
                          struct tcp_packet &tcp_pkt,
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler,
-                         struct flow_table &flows) {
+                         struct flow_table_tcp &flows) {
 
     if (pkt.is_not_empty() == false) {
         return;
@@ -178,7 +178,7 @@ void tcp_data_write_json(struct buffer_stream &buf,
 
     bool is_new = false;
     if (global_vars.output_tcp_initial_data) {
-        is_new = flows.flow_is_new(k, ts->tv_sec);
+        is_new = flows.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
     }
 
     switch(msg_type) {
@@ -398,6 +398,9 @@ void tcp_data_write_json(struct buffer_stream &buf,
             write_flow_key(record, k);
             record.print_key_timestamp("event_start", ts);
             record.close();
+            //            fprintf(stderr, "is_new == true when processing unknown tcp message type\n");
+        } else {
+            // fprintf(stderr, "is_new == false when processing unknown tcp message type\n");
         }
         break;
     }
@@ -409,7 +412,8 @@ int append_packet_json(struct buffer_stream &buf,
                        size_t length,
                        struct timespec *ts,
                        struct tcp_reassembler *reassembler,
-                       struct flow_table &flows) {
+                       struct flow_table &flows,
+                       struct flow_table_tcp &tcp_flows) {
     struct key k;
     struct datum pkt{packet, packet+length};
     size_t transport_proto = 0;
@@ -428,8 +432,12 @@ int append_packet_json(struct buffer_stream &buf,
     if (transport_proto == 6) {
         struct tcp_packet tcp_pkt;
         tcp_pkt.parse(pkt);
+        if (tcp_pkt.header == nullptr) {
+            return 0;  // incomplete tcp header; can't process packet
+        }
         tcp_pkt.set_key(k);
         if (select_tcp_syn && tcp_pkt.is_SYN()) {
+            tcp_flows.syn_packet(k, ntohl(tcp_pkt.header->seq));
             struct json_object record{&buf};
             struct json_object fps{record, "fingerprints"};
             fps.print_key_value("tcp", tcp_pkt);
@@ -469,23 +477,23 @@ int append_packet_json(struct buffer_stream &buf,
                 if (data_buf) {
                     //fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->index);
                     struct datum reassembled_tcp_data = data_buf->reassembled_segment();
-                    tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler, flows);
+                    tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler, tcp_flows);
                     reassembler->remove_segment(k);
                 } else {
                     const uint8_t *tmp = pkt.data;
-                    tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler, flows);
+                    tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler, tcp_flows);
                     if (pkt.data == tmp) {
                         auto segment = reassembler->reap(ts->tv_sec);
                         if (segment != reassembler->segment_table.end()) {
                             //fprintf(stderr, "EXPIRED PARTIAL TCP PACKET (length: %u)\n", segment->second.index);
                             struct datum reassembled_tcp_data = segment->second.reassembled_segment();
-                            tcp_data_write_json(buf, reassembled_tcp_data, segment->first, tcp_pkt, ts, nullptr, flows);
+                            tcp_data_write_json(buf, reassembled_tcp_data, segment->first, tcp_pkt, ts, nullptr, tcp_flows);
                             reassembler->remove_segment(segment);
                         }
                     }
                 }
             } else {
-                tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, nullptr, flows);  // process packet without tcp reassembly
+                tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, nullptr, tcp_flows);  // process packet without tcp reassembly
             }
         }
 
@@ -636,7 +644,8 @@ void json_queue_write(struct ll_queue *llq,
                       unsigned int nsec,
                       struct tcp_reassembler *reassembler,
                       bool blocking,
-                      struct flow_table &flows) {
+                      struct flow_table &flows,
+                      struct flow_table_tcp &tcp_flows) {
 
     struct llq_msg &msg = llq->init_msg(blocking);
 
@@ -653,7 +662,7 @@ void json_queue_write(struct ll_queue *llq,
         msg.buf[0] = '\0';
 
         struct buffer_stream buf(msg.buf, LLQ_MSG_SIZE);
-        append_packet_json(buf, packet, length, &(msg.ts), reassembler, flows);
+        append_packet_json(buf, packet, length, &(msg.ts), reassembler, flows, tcp_flows);
         int r = buf.length();
         if ((buf.trunc == 0) && (r > 0)) {
 

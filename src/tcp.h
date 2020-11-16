@@ -639,4 +639,81 @@ struct flow_table {
 };
 
 
+// flow_table_tcp
+//
+// goals:
+//
+//  * identify the first data packet in each TCP flow, with zero false
+//   positives
+//
+//  * identify packets that are TCP retransmissions
+//
+
+
+struct tcp_context {
+public:
+    tcp_context(unsigned int seconds, uint32_t sequence_number) : sec{seconds}, seq{sequence_number+1} {}
+
+    //private:
+    unsigned int sec;
+    uint32_t seq;
+};
+
+struct flow_table_tcp {
+    std::unordered_map<struct key, struct tcp_context> table;
+    std::unordered_map<struct key, struct tcp_context>::iterator reap_it;
+
+    flow_table_tcp(unsigned int size) : table{}, reap_it{table.end()} {
+        table.reserve(size);
+        reap_it = table.end();
+    }
+
+    void syn_packet(const struct key &k, uint32_t seq) {
+        // fprintf(stderr, "SYN has seq: %u\n", seq);
+        table.insert({k, {0, seq}});
+    }
+
+    bool is_first_data_packet(const struct key &k, unsigned int sec, uint32_t seq) {
+        // fprintf(stderr, "packet has seq: %u\n", seq);
+        auto it = table.find(k);
+        if (it != table.end()) {
+            if (it->second.sec == 0 && it->second.seq == seq) {
+                // fprintf(stderr, "found first data packet (seq: %u)\n", seq);
+                return true;
+            } else {
+                // fprintf(stderr, "tcp flow table entry has seq: %u\n", it->second.seq);
+            }
+            if (sec - it->second.sec < flow_table::timeout) {
+                it->second.sec = sec;
+                reap(sec);
+                //fprintf(stderr, "FLOW OLD\n");
+                return false;
+            }
+        }
+        auto tmp = table.insert({k, {sec, seq}}).first;
+        update_reap_iterator(tmp);
+        //fprintf(stderr, "FLOW NEW\n");
+        //        return true;
+        return false;
+    }
+
+    void reap(unsigned int sec) {
+
+        // check for expired flows
+        if (reap_it != table.end() && (sec - reap_it->second.sec > flow_table::timeout)) {
+            reap_it = table.erase(reap_it);
+        }
+    }
+
+    void update_reap_iterator(std::unordered_map<struct key, struct tcp_context>::iterator x) {
+        if (x != table.end()) {
+            reap_it = x++;
+        }
+    }
+
+    static const unsigned int timeout = 60 * 60; // seconds before flow timeout
+
+};
+
+
 #endif /* MERC_TCP_H */

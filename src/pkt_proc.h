@@ -58,6 +58,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     struct packet_filter pf;
     struct tcp_reassembler reassembler;
     struct flow_table ip_flow_table;
+    struct flow_table_tcp tcp_flow_table;
 
     /*
      * pkt_proc_json_writer(outfile_name, mode, max_records)
@@ -70,7 +71,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
      * rotation will take place.
      */
     explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) :
-        block{blocking}, reassembler{65536}, ip_flow_table{65536} {
+        block{blocking}, reassembler{65536}, ip_flow_table{65536}, tcp_flow_table{65536} {
 
         llq = llq_ptr;
         if (packet_filter_init(&pf, filter) == status_err) {
@@ -83,12 +84,12 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
 
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
 
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, nullptr, block, ip_flow_table);
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, nullptr, block, ip_flow_table, tcp_flow_table);
 #else
 
 // #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
 
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, &reassembler, block, ip_flow_table);
+        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, &reassembler, block, ip_flow_table, tcp_flow_table);
 #endif
     }
 
