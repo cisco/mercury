@@ -8,6 +8,7 @@
 #define JSON_OBJECT_H
 
 #include "buffer_stream.h"
+#include "datum.h"
 
 /*
  * json_object and json_array serialize JSON objects and arrays,

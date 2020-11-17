@@ -437,7 +437,7 @@ int append_packet_json(struct buffer_stream &buf,
         }
         tcp_pkt.set_key(k);
         if (select_tcp_syn && tcp_pkt.is_SYN()) {
-            tcp_flows.syn_packet(k, ntohl(tcp_pkt.header->seq));
+            tcp_flows.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             struct json_object record{&buf};
             struct json_object fps{record, "fingerprints"};
             fps.print_key_value("tcp", tcp_pkt);
@@ -647,48 +647,14 @@ void json_queue_write(struct ll_queue *llq,
                       struct flow_table &flows,
                       struct flow_table_tcp &tcp_flows) {
 
-    struct llq_msg &msg = llq->init_msg(blocking);
+    struct llq_msg *msg = llq->init_msg(blocking, sec, nsec);
+    if (msg) {
 
-    if (blocking) {
-        while (msg.used != 0) {
-            usleep(50); // sleep for fifty microseconds
-        }
-    }
-
-    if (msg.used == 0) {
-
-        msg.ts.tv_sec = sec;
-        msg.ts.tv_nsec = nsec;
-        msg.buf[0] = '\0';
-
-        struct buffer_stream buf(msg.buf, LLQ_MSG_SIZE);
-        append_packet_json(buf, packet, length, &(msg.ts), reassembler, flows, tcp_flows);
-        int r = buf.length();
-        if ((buf.trunc == 0) && (r > 0)) {
-
-            msg.len = r;
-
-            //fprintf(stderr, "DEBUG: sent a message!\n");
-            __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
-            msg.used = 1;
-
-            /* fprintf(stderr, "DEBUG QUEUE %d packet time: %ld.%09ld\n", */
-            /*         llq->qnum, */
-            /*         msg.ts.tv_sec, */
-            /*         msg.ts.tv_nsec); */
-
-            //llq->next_write();
-
+        struct buffer_stream buf(msg->buf, LLQ_MSG_SIZE);
+        append_packet_json(buf, packet, length, &(msg->ts), reassembler, flows, tcp_flows);
+        if ((buf.trunc == 0) && (buf.length() > 0)) {
+            msg->send(buf.length());
             llq->increment_widx();
         }
     }
-    else {
-        //fprintf(stderr, "DEBUG: queue bucket used!\n");
-
-        // TODO: this is where we'd update an output drop counter
-        // but currently this spot in the code doesn't have access to
-        // any thread stats pointer or similar and I don't want
-        // to update a global variable in this location.
-    }
-
 }

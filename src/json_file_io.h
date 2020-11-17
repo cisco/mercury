@@ -43,4 +43,12 @@ enum status json_file_init(struct json_file *js,
 			   const char *mode,
 			   uint64_t max_records);
 
+int append_packet_json(struct buffer_stream &buf,
+                       uint8_t *packet,
+                       size_t length,
+                       struct timespec *ts,
+                       struct tcp_reassembler *reassembler,
+                       struct flow_table &flows,
+                       struct flow_table_tcp &tcp_flows);
+
 #endif /* JSON_FILE_IO_H */

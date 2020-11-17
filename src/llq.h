@@ -17,6 +17,13 @@ struct llq_msg {
     char buf[LLQ_MSG_SIZE];
     ssize_t len;
     struct timespec ts;
+
+    void send(ssize_t length) {
+        len = length;
+        // A full memory barrier prevents the following flag set from happening too soon
+        __sync_synchronize();
+        used = 1;
+    }
 };
 
 
@@ -29,14 +36,28 @@ struct ll_queue {
 
     static const size_t msg_length = LLQ_DEPTH;
 
-    struct llq_msg &init_msg(bool blocking) {
-        struct llq_msg &m = msgs[widx];
+    struct llq_msg *init_msg(bool blocking, unsigned int sec, unsigned int nsec) {
+        struct llq_msg *m = &msgs[widx];
         if (blocking) {
-            while (m.used != 0) {
+            while (m->used != 0) {
                 usleep(50); // sleep for fifty microseconds
             }
         }
-        return m;
+        if (m->used == 0) {
+
+            m->ts.tv_sec = sec;
+            m->ts.tv_nsec = nsec;
+            m->buf[0] = '\0';
+
+            return m;
+        }
+        //fprintf(stderr, "DEBUG: queue bucket used!\n");
+
+        // TODO: this is where we'd update an output drop counter
+        // but currently this spot in the code doesn't have access to
+        // any thread stats pointer or similar and I don't want
+        // to update a global variable in this location.
+        return nullptr;
     }
     void write_buffer_to_queue() {
     }

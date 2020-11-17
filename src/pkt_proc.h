@@ -16,6 +16,8 @@
 #include "extractor.h"
 #include "packet.h"
 #include "rnd_pkt_drop.h"
+#include "llq.h"
+#include "buffer_stream.h"
 
 /* Information about each packet on the wire */
 struct packet_info {
@@ -84,17 +86,38 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
 
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
 
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, nullptr, block, ip_flow_table, tcp_flow_table);
+        // json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, nullptr, block, ip_flow_table, tcp_flow_table);
+        struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
+        if (msg) {
+            struct buffer_stream buf(msg->buf, LLQ_MSG_SIZE);
+            append_packet_json(buf, eth, pi->len, &(msg->ts), nullptr, ip_flow_table, tcp_flow_table);
+            if ((buf.trunc == 0) && (buf.length() > 0)) {
+                msg->send(buf.length());
+                llq->increment_widx();
+            }
+        }
+
 #else
 
 // #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
 
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, &reassembler, block, ip_flow_table, tcp_flow_table);
+        // json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec, &reassembler, block, ip_flow_table, tcp_flow_table);
+        struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
+        if (msg) {
+            struct buffer_stream buf(msg->buf, LLQ_MSG_SIZE);
+            append_packet_json(buf, eth, pi->len, &(msg->ts), &reassembler, ip_flow_table, tcp_flow_table);
+            if ((buf.trunc == 0) && (buf.length() > 0)) {
+                msg->send(buf.length());
+                llq->increment_widx();
+            }
+        }
+
 #endif
     }
 
     void finalize() override {
         reassembler.count_all();
+        tcp_flow_table.count_all();
     }
 
     void flush() override {

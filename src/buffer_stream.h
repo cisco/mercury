@@ -9,8 +9,7 @@
 #define BUFFER_STREAM_H
 
 #include <string.h>  /* for memcpy() */
-#include "utils.h"
-
+#include <stdarg.h>
 
 /* append_null(...)
  * This is a special append function because all other append_...() functions

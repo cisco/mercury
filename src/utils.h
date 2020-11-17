@@ -38,9 +38,6 @@ size_t hex_to_raw(const void *output,
 		       size_t output_buf_len,
 		       const char *null_terminated_hex_string);
 
-void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
-
-
 void fprintf_json_hex_string(FILE *file,
                             const unsigned char *data,
                             unsigned int len);
