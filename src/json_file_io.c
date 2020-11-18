@@ -102,39 +102,6 @@ enum status json_file_init(struct json_file *jf,
     return json_file_rotate(jf);
 }
 
-void write_flow_key(struct buffer_stream &buf, const struct key &k) {
-    if (k.ip_vers == 6) {
-        const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
-        buf.strncpy("\"src_ip\":\"");
-        buf.write_ipv6_addr(s);
-
-        const uint8_t *d = (const uint8_t *)&k.addr.ipv6.dst;
-        buf.strncpy("\",\"dst_ip\":\"");
-        buf.write_ipv6_addr(d);
-
-    } else {
-
-        const uint8_t *s = (const uint8_t *)&k.addr.ipv4.src;
-        buf.strncpy("\"src_ip\":\"");
-        buf.write_ipv4_addr(s);
-
-        const uint8_t *d = (const uint8_t *)&k.addr.ipv4.dst;
-        buf.strncpy("\",\"dst_ip\":\"");
-        buf.write_ipv4_addr(d);
-    }
-
-    buf.strncpy("\",\"protocol\":");
-    buf.write_uint8(k.protocol);
-
-    buf.strncpy(",\"src_port\":");
-    buf.write_uint16(k.src_port);
-
-    buf.strncpy(",\"dst_port\":");
-    buf.write_uint16(k.dst_port);
-
-    // buf.snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
-}
-
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
         const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
@@ -379,16 +346,6 @@ void tcp_data_write_json(struct buffer_stream &buf,
                 return;
             }
 
-            // if this packet is a fragment of a certificate, ignore it
-            // ssize_t asn1_82_count = 0;
-            // for (const uint8_t *x=pkt.data; x < pkt.data_end; x++) {
-            //     if (*x == 0x82) { asn1_82_count++; }
-            // }
-            // if (asn1_82_count * 8 > pkt.length()) {
-            //     fprintf(stderr, "ignoring %zd out of %zd\n", asn1_82_count, pkt.length());
-            //     return;
-            // }
-
             // output the data field
             struct json_object record{&buf};
             struct json_object tcp{record, "tcp"};
@@ -398,22 +355,22 @@ void tcp_data_write_json(struct buffer_stream &buf,
             write_flow_key(record, k);
             record.print_key_timestamp("event_start", ts);
             record.close();
-            //            fprintf(stderr, "is_new == true when processing unknown tcp message type\n");
-        } else {
-            // fprintf(stderr, "is_new == false when processing unknown tcp message type\n");
         }
         break;
     }
 
 }
 
-int append_packet_json(struct buffer_stream &buf,
-                       uint8_t *packet,
-                       size_t length,
-                       struct timespec *ts,
-                       struct tcp_reassembler *reassembler,
-                       struct flow_table &flows,
-                       struct flow_table_tcp &tcp_flows) {
+size_t append_packet_json(void *buffer,
+                          size_t buffer_size,
+                          uint8_t *packet,
+                          size_t length,
+                          struct timespec *ts,
+                          struct tcp_reassembler *reassembler,
+                          struct flow_table &flows,
+                          struct flow_table_tcp &tcp_flows) {
+
+    struct buffer_stream buf{(char *)buffer, buffer_size};
     struct key k;
     struct datum pkt{packet, packet+length};
     size_t transport_proto = 0;
@@ -635,31 +592,9 @@ int append_packet_json(struct buffer_stream &buf,
         }
     }
 
-    if (buf.length() != 0) {
+    if (buf.length() != 0 && buf.trunc == 0) {
         buf.strncpy("\n");
         return buf.length();
     }
     return 0;
-}
-
-void json_queue_write(struct ll_queue *llq,
-                      uint8_t *packet,
-                      size_t length,
-                      unsigned int sec,
-                      unsigned int nsec,
-                      struct tcp_reassembler *reassembler,
-                      bool blocking,
-                      struct flow_table &flows,
-                      struct flow_table_tcp &tcp_flows) {
-
-    struct llq_msg *msg = llq->init_msg(blocking, sec, nsec);
-    if (msg) {
-
-        struct buffer_stream buf(msg->buf, LLQ_MSG_SIZE);
-        append_packet_json(buf, packet, length, &(msg->ts), reassembler, flows, tcp_flows);
-        if ((buf.trunc == 0) && (buf.length() > 0)) {
-            msg->send(buf.length());
-            llq->increment_widx();
-        }
-    }
 }
