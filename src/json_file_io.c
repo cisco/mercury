@@ -436,35 +436,40 @@ int append_packet_json(struct buffer_stream &buf,
             return 0;  // incomplete tcp header; can't process packet
         }
         tcp_pkt.set_key(k);
-        if (select_tcp_syn && tcp_pkt.is_SYN()) {
+        if (tcp_pkt.is_SYN()) {
             tcp_flows.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
-            struct json_object record{&buf};
-            struct json_object fps{record, "fingerprints"};
-            fps.print_key_value("tcp", tcp_pkt);
-            fps.close();
-            if (global_vars.metadata_output) {
-                 tcp_pkt.write_json(fps);
+            if (select_tcp_syn) {
+                struct json_object record{&buf};
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_value("tcp", tcp_pkt);
+                fps.close();
+                if (global_vars.metadata_output) {
+                    tcp_pkt.write_json(fps);
+                }
+                // note: we could check for non-empty data field
+                write_flow_key(record, k);
+                record.print_key_timestamp("event_start", ts);
+                record.close();
             }
-            write_flow_key(record, k);
-            record.print_key_timestamp("event_start", ts);
-            record.close();
 
-            // note: we could check for non-empty data field
+        } else if (tcp_pkt.is_SYN_ACK()) {
+            tcp_flows.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
 
 #ifdef REPORT_SYN_ACK
-        } else if (select_tcp_syn && tcp_pkt.is_SYN_ACK()) {
-            struct json_object record{&buf};
-            struct json_object fps{record, "fingerprints"};
-            fps.print_key_value("tcp_server", tcp_pkt);
-            fps.close();
-            if (global_vars.metadata_output) {
-                 tcp_pkt.write_json(fps);
-            }
-            write_flow_key(record, k);
-            record.print_key_timestamp("event_start", ts);
-            record.close();
+            if (select_tcp_syn) {
+                struct json_object record{&buf};
+                struct json_object fps{record, "fingerprints"};
+                fps.print_key_value("tcp_server", tcp_pkt);
+                fps.close();
+                if (global_vars.metadata_output) {
+                    tcp_pkt.write_json(fps);
+                }
+                write_flow_key(record, k);
+                record.print_key_timestamp("event_start", ts);
+                record.close();
 
-            // note: we could check for non-empty data field
+                // note: we could check for non-empty data field
+            }
 #endif
 
         } else {
