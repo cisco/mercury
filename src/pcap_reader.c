@@ -33,7 +33,7 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
         }
         status = pcap_file_open(&tc->rf, input_filename, io_direction_reader, cfg->flags);
         if (status) {
-            printf("%s: could not open pcap input file %s\n", strerror(errno), cfg->read_filename);
+            printf("error: could not open pcap input file %s\n", cfg->read_filename);
             return status;
         }
     }

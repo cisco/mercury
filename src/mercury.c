@@ -34,10 +34,11 @@
 struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
 
 char mercury_help[] =
-    "%s INPUT [OUTPUT] [OPTIONS]:\n"
+    "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
     "INPUT\n"
     "   [-c or --capture] capture_interface   # capture packets from interface\n"
     "   [-r or --read] read_file              # read packets from file\n"
+    "   no input option                       # read packets from standard input\n"
     "OUTPUT\n"
     "   [-f or --fingerprint] json_file_name  # write JSON fingerprints to file\n"
     "   [-w or --write] pcap_file_name        # write packets to PCAP/MCAP file\n"
@@ -85,6 +86,9 @@ char mercury_extended_help[] =
     "   fingerprint metadata are written.\n"
     "\n"
     "   \"[r or --read] r\" reads packets from the file r, in PCAP format.\n"
+    "\n"
+    "   if neither -r nor -c is specified, then packets are read from standard input,\n"
+    "   in PCAP format.\n"
     "\n"
     "   \"[-s or --select] f\" selects packets according to the metadata filter f, which\n"
     "   is a comma-separated list of the following strings:\n"
@@ -459,7 +463,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (cfg.read_filename == NULL && cfg.capture_interface == NULL) {
-        usage(argv[0], "neither read [r] nor capture [c] specified on command line", extended_help_off);
+        cfg.read_filename = (char *)"-";  // convention: a dash indicates to read from stdin
     }
     if (cfg.read_filename != NULL && cfg.capture_interface != NULL) {
         usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
