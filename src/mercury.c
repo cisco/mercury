@@ -25,6 +25,7 @@
 #include "output.h"
 #include "license.h"
 #include "version.h"
+#include "rnd_pkt_drop.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined

@@ -18,6 +18,10 @@
 #include "rnd_pkt_drop.h"
 #include "llq.h"
 
+extern struct global_variables global_vars; /* defined in config.c */
+
+extern bool select_tcp_syn;                 // defined in extractor.cc
+
 /* Information about each packet on the wire */
 struct packet_info {
   struct timespec ts;   /* timestamp */
@@ -47,78 +51,6 @@ struct pkt_proc {
     size_t packets_written = 0;
 };
 
-/*
- * struct pkt_proc_json_writer_llq represents a packet processing object
- * that writes out a JSON representation of fingerprints, metadata,
- * flow keys, and event time to a queue that is then written to a file
- * by a dedicated output thread.
- */
-struct pkt_proc_json_writer_llq : public pkt_proc {
-    struct ll_queue *llq;
-    bool block;
-    struct packet_filter pf;
-    struct tcp_reassembler reassembler;
-    struct flow_table ip_flow_table;
-    struct flow_table_tcp tcp_flow_table;
-
-    /*
-     * pkt_proc_json_writer(outfile_name, mode, max_records)
-     * initializes object to write a single JSON line containing the
-     * flow key, time, fingerprints, and metadata to the output file
-     * with the path outfile_name and mode passed as arguments; that
-     * file is opened by this invocation, with that mode.  If
-     * max_records is nonzero, then it defines the maximum number of
-     * records (lines) per file; after that limit is reached, file
-     * rotation will take place.
-     */
-    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) :
-        block{blocking}, reassembler{65536}, ip_flow_table{65536}, tcp_flow_table{65536} {
-
-        llq = llq_ptr;
-        if (packet_filter_init(&pf, filter) == status_err) {
-            throw "could not initialize packet filter";
-        }
-    }
-
-    void apply(struct packet_info *pi, uint8_t *eth) override {
-#ifndef USE_TCP_REASSEMBLY
-
-// #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
-
-        struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
-        if (msg) {
-            size_t write_len = append_packet_json(msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts), nullptr, ip_flow_table, tcp_flow_table);
-            if (write_len > 0) {
-                msg->send(write_len);
-                llq->increment_widx();
-            }
-        }
-
-#else
-
-// #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
-
-        struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
-        if (msg) {
-            size_t write_len = append_packet_json(msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts), &reassembler, ip_flow_table, tcp_flow_table);
-            if (write_len > 0) {
-                msg->send(write_len);
-                llq->increment_widx();
-            }
-        }
-
-#endif
-    }
-
-    void finalize() override {
-        reassembler.count_all();
-        tcp_flow_table.count_all();
-    }
-
-    void flush() override {
-
-    }
-};
 
 /*
  * struct pkt_proc_pcap_writer represents a packet processing object

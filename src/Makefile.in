@@ -96,6 +96,7 @@ LIBMERC_H   += proto_identify.h
 LIBMERC_H   += packet.h
 LIBMERC_H   += datum.h
 LIBMERC_H   += pkt_proc.h
+LIBMERC_H   += pkt_proc_json.h
 LIBMERC_H   += ssh.h
 LIBMERC_H   += tcp.h
 LIBMERC_H   += tcpip.h
