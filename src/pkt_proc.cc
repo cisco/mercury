@@ -8,7 +8,6 @@
 #include <string.h>
 #include "extractor.h"
 #include "pcap_file_io.h"
-#include "json_file_io.h"
 #include "packet.h"
 #include "rnd_pkt_drop.h"
 #include "pkt_proc.h"
@@ -134,13 +133,13 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     struct datum pkt{packet, packet+length};
     size_t transport_proto = 0;
     size_t ethertype = 0;
-    parser_process_eth(&pkt, &ethertype);
+    datum_process_eth(&pkt, &ethertype);
     switch(ethertype) {
     case ETH_TYPE_IP:
-        parser_process_ipv4(&pkt, &transport_proto, &k);
+        datum_process_ipv4(&pkt, &transport_proto, &k);
         break;
     case ETH_TYPE_IPV6:
-        parser_process_ipv6(&pkt, &transport_proto, &k);
+        datum_process_ipv6(&pkt, &transport_proto, &k);
         break;
     default:
         ;

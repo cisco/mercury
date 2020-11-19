@@ -565,7 +565,7 @@ struct tcp_reassembler {
         tcp_segment segment;
         if (segment.init_from_packet(tcp, length, bytes_needed, sec)) {
             reap_it = segment_table.emplace(k, segment).first;
-            reap_it++;
+            ++reap_it;
             return true;
         }
         return false;
@@ -738,7 +738,7 @@ struct flow_table_tcp {
 
     void increment_reap_iterator() {
         if (reap_it != table.end()) {
-            reap_it++;
+            ++reap_it;
         } else {
             reap_it = table.begin();
         }

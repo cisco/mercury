@@ -4,21 +4,6 @@
 
 #include "wireguard.h"
 #include "json_object.h"
-#include "extractor.h"
-
-unsigned int parser_extractor_process_wireguard(struct datum *p, struct extractor *x) {
-    (void)x;
-
-    extractor_debug("%s: processing packet\n", __func__);
-
-    if (p->length() != sizeof(struct wireguard_handshake_initiation)) {
-        return 0;   // not wireguard handshake initial message
-    }
-
-    // set sender_index as packet_data
-
-    return 0;
-}
 
 void wireguard_handshake_init::write_json(struct json_object &o) {
 

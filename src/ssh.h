@@ -143,7 +143,7 @@ struct ssh_binary_packet {
     // random padding
     // mac
 
-    ssh_binary_packet() : packet_length{0}, padding_length{0}, payload{NULL, NULL} {}
+    ssh_binary_packet() : packet_length{0}, padding_length{0}, payload{NULL, NULL}, additional_bytes_needed{0} {}
 
     void parse(struct datum &p) {
         additional_bytes_needed = 0;

@@ -30,12 +30,12 @@
 #endif
 
 /*
- * The extractor_debug macro is useful for debugging (but quite verbose)
+ * The mercury_debug macro is useful for debugging (but quite verbose)
  */
 #ifndef DEBUG
-#define extractor_debug(...)
+#define mercury_debug(...)
 #else
-#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
+#define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
 enum status {

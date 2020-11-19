@@ -360,7 +360,7 @@ struct dhcp_option : public datum {
                 if (hwtype == 1) { // Ethernet
                     json_client_id.print_key_hex("address", *this);
                     size_t oui = 0;
-                    parser_read_uint(this, 3, &oui);
+                    datum_read_uint(this, 3, &oui);
                     auto x = oui_dict.find(oui);
                     if (x != oui_dict.end()) {
                         json_client_id.print_key_string("oui", x->second);
@@ -417,7 +417,7 @@ struct dhcp_option : public datum {
                 json_opt.print_key_uint("hwtype", hwtype);
                 json_opt.print_key_hex("client_id", *this);
                 size_t oui = 0;
-                parser_read_uint(this, 3, &oui);
+                datum_read_uint(this, 3, &oui);
                 auto x = oui_dict.find(oui);
                 if (x != oui_dict.end()) {
                     json_opt.print_key_string("oui", x->second);

@@ -74,6 +74,7 @@ MERC_H += signal_handling.h
 LIBMERC     =  analysis.cc
 LIBMERC     += addr.cc
 LIBMERC     += dns.cc
+LIBMERC     += datum.cc
 LIBMERC     += extractor.cc
 LIBMERC     += http.cc
 LIBMERC     += packet.cc

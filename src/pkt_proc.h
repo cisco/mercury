@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include "pcap_file_io.h"
-#include "json_file_io.h"
 #include "extractor.h"
 #include "packet.h"
 #include "rnd_pkt_drop.h"
@@ -29,13 +28,10 @@ struct packet_info {
   uint32_t len;        /* length this packet (off wire) */
 };
 
-extern unsigned int packet_filter_threshold;
-
 struct pkt_proc_stats {
     size_t bytes_written;
     size_t packets_written;
 };
-
 
 struct stateful_pkt_proc {
     struct packet_filter pf;
@@ -182,20 +178,14 @@ struct pkt_proc_pcap_writer : public pkt_proc {
 
 /*
  * struct pkt_proc_filter_pcap_writer represents a packet processing
- * object that first filters packets, then writes tem out in PCAP file
+ * object that first filters packets, then writes them out in PCAP file
  * format.
  */
 struct pkt_proc_filter_pcap_writer : public pkt_proc {
     struct pcap_file pcap_file;
+    struct stateful_pkt_proc processor;
 
-    /*
-     * packet_filter_threshold is a (somewhat arbitrary) threshold used in
-     * the packet metadata filter; it will probably get eliminated soon,
-     * in favor of extractor::proto_state::state, but for now it remains
-     */
-    unsigned int packet_filter_threshold = 8;
-
-    pkt_proc_filter_pcap_writer(const char *outfile, int flags) {
+    pkt_proc_filter_pcap_writer(const char *outfile, int flags) : processor{""} {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
             throw "could not open PCAP output file";
@@ -212,10 +202,11 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
             return;  /* random packet drop configured, and this packet got selected to be discarded */
         }
 
-        struct packet_filter pf;
-        if (packet_filter_apply(&pf, packet, length)) {
+        uint8_t buf[LLQ_MSG_SIZE];
+        if (processor.write_json(buf, LLQ_MSG_SIZE, packet, length, &pi->ts) != 0) {
             pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
         }
+
     }
 
     void finalize() override { }
@@ -290,13 +281,6 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     struct ll_queue *llq;
     bool block;
     struct stateful_pkt_proc processor;
-
-    /*
-     * packet_filter_threshold is a (somewhat arbitrary) threshold used in
-     * the packet metadata filter; it will probably get eliminated soon,
-     * in favor of extractor::proto_state::state, but for now it remains
-     */
-    unsigned int packet_filter_threshold = 8;
 
     explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) : block{blocking}, processor{filter} {
         llq = llq_ptr;

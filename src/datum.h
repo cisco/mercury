@@ -17,12 +17,12 @@
 #include "mercury.h"
 
 /*
- * The extractor_debug macro is useful for debugging (but quite verbose)
+ * The mercury_debug macro is useful for debugging (but quite verbose)
  */
 #ifndef DEBUG
-#define extractor_debug(...)
+#define mercury_debug(...)
 #else
-#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
+#define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
 inline uint8_t lowercase(uint8_t x) {
@@ -228,7 +228,7 @@ struct datum {
             }
             *output = tmp;
             data = c;
-            extractor_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zu\n", __func__, num_bytes, (unsigned)tmp, tmp);
+            mercury_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zu\n", __func__, num_bytes, (unsigned)tmp, tmp);
             return true;
         }
         set_null();
@@ -318,93 +318,89 @@ template <size_t T> struct data_buffer {
 
 
 /*
- * parser_init initializes a parser object with a data buffer
+ * datum_init initializes a parser object with a data buffer
  * (holding the data to be parsed)
  */
-void parser_init(struct datum *p,
-		 const unsigned char *data,
-		 unsigned int data_len);
+void datum_init(struct datum *p,
+                const unsigned char *data,
+                unsigned int data_len);
+
+unsigned int datum_match(struct datum *p,
+                         const unsigned char *value,
+                         size_t value_len,
+                         const unsigned char *mask);
+
+void datum_init_from_outer_parser(struct datum *p,
+                                  const struct datum *outer,
+                                  unsigned int data_len);
+
+enum status datum_set_data_length(struct datum *p,
+                                  unsigned int data_len);
+
+unsigned int datum_process_tls_server(struct datum *p);
+
+enum status datum_read_and_skip_uint(struct datum *p,
+                                     unsigned int num_bytes,
+                                     size_t *output);
+
+enum status datum_skip(struct datum *p,
+                       unsigned int len);
+
+enum status datum_read_uint(struct datum *p,
+                            unsigned int num_bytes,
+                            size_t *output);
+
+void datum_init_packet(struct datum *p, const unsigned char *data, unsigned int length);
 
 
-unsigned int parser_match(struct datum *p,
-                          const unsigned char *value,
-                          size_t value_len,
-                          const unsigned char *mask);
-
-void parser_init_from_outer_parser(struct datum *p,
-                                   const struct datum *outer,
-                                   unsigned int data_len);
-
-enum status parser_set_data_length(struct datum *p,
-                                   unsigned int data_len);
-
-unsigned int parser_process_tls_server(struct datum *p);
-
-enum status parser_read_and_skip_uint(struct datum *p,
-                                      unsigned int num_bytes,
-                                      size_t *output);
-
-enum status parser_skip(struct datum *p,
-                        unsigned int len);
-
-enum status parser_read_uint(struct datum *p,
-                             unsigned int num_bytes,
-                             size_t *output);
-
-void parser_init_packet(struct datum *p, const unsigned char *data, unsigned int length);
-
-
-ptrdiff_t parser_get_data_length(struct datum *p);
+ptrdiff_t datum_get_data_length(struct datum *p);
 
 /*
- * parser_find_delim(p, d, l) looks for the delimiter d with length l
+ * datum_find_delim(p, d, l) looks for the delimiter d with length l
  * in the parser p's data buffer, until it reaches the delimiter d or
  * the end of the data in the parser, whichever comes first.  In the
  * first case, the function returns the number of bytes to the
  * delimiter; in the second case, the function returns the number of
  * bytes to the end of the data buffer.
  */
-int parser_find_delim(struct datum *p,
-                      const unsigned char *delim,
-                      size_t length);
+int datum_find_delim(struct datum *p,
+                     const unsigned char *delim,
+                     size_t length);
 
-enum status parser_skip_to(struct datum *p,
-                           const unsigned char *location);
+enum status datum_skip_to(struct datum *p,
+                          const unsigned char *location);
 
-void parser_pop(struct datum *inner, struct datum *outer);
+enum status datum_skip_upto_delim(struct datum *p,
+                                  const unsigned char delim[],
+                                  size_t length);
 
-enum status parser_skip_upto_delim(struct datum *p,
-                                   const unsigned char delim[],
-                                   size_t length);
+enum status datum_read_and_skip_uint(struct datum *p,
+                                     unsigned int num_bytes,
+                                     size_t *output);
 
-enum status parser_read_and_skip_uint(struct datum *p,
-                                      unsigned int num_bytes,
-                                      size_t *output);
-
-enum status parser_read_and_skip_byte_string(struct datum *p,
-                                             unsigned int num_bytes,
-                                             uint8_t *output_string);
-
+enum status datum_read_and_skip_byte_string(struct datum *p,
+                                            unsigned int num_bytes,
+                                            uint8_t *output_string);
 
 /*
  * start of protocol parsing functions
  */
 
-unsigned int parser_process_eth(struct datum *p, size_t *ethertype);
+unsigned int datum_process_eth(struct datum *p, size_t *ethertype);
 
 /*
- * The function parser_process_tcp processes a TCP packet.  The
+ * The function datum_process_tcp processes a TCP packet.  The
  * parser MUST have previously been initialized with its data
  * pointer set to the initial octet of a TCP header.
  */
 
-unsigned int parser_process_tcp(struct datum *p);
+unsigned int datum_process_tcp(struct datum *p);
 
-unsigned int parser_process_ipv4(struct datum *p, size_t *transport_protocol, struct key *k);
+unsigned int datum_process_ipv4(struct datum *p, size_t *transport_protocol, struct key *k);
 
-unsigned int parser_process_ipv6(struct datum *p, size_t *transport_protocol, struct key *k);
+unsigned int datum_process_ipv6(struct datum *p, size_t *transport_protocol, struct key *k);
 
-unsigned int parser_process_packet(struct datum *p);
+unsigned int datum_process_packet(struct datum *p);
 
 
 #endif /* DATUM_H */

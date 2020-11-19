@@ -17,12 +17,12 @@ struct http_headers : public datum {
         unsigned char crlf[2] = { '\r', '\n' };
 
         data = p.data;
-        while (parser_get_data_length(&p) > 0) {
-            if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+        while (datum_get_data_length(&p) > 0) {
+            if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
                 complete = true;
                 break;  /* at end of headers */
             }
-            if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
                 break;
             }
         }

@@ -502,7 +502,7 @@ void raw_string_print_as_oid(struct buffer_stream &buf, const uint8_t *raw, size
 }
 
 static const char *oid_empty_string = "";
-const char *parser_get_oid_string(const struct datum *p) {
+const char *datum_get_oid_string(const struct datum *p) {
     std::basic_string<uint8_t> s = p->get_bytestring();
     auto pair = oid_dict.find(s);
     if (pair == oid_dict.end()) {
@@ -511,7 +511,7 @@ const char *parser_get_oid_string(const struct datum *p) {
     return pair->second.c_str();
 }
 
-enum oid parser_get_oid_enum(const struct datum *p) {
+enum oid datum_get_oid_enum(const struct datum *p) {
     std::basic_string<uint8_t> s = p->get_bytestring();
     auto pair = oid_to_enum.find(s);
     if (pair == oid_to_enum.end()) {
@@ -535,7 +535,7 @@ struct json_object_asn1 : public json_object {
     explicit json_object_asn1(struct json_array &array);
 
     void print_key_oid(const char *k, const struct datum &value) {
-        const char *output = parser_get_oid_string(&value);
+        const char *output = datum_get_oid_string(&value);
         write_comma(comma);
         if (output != oid_empty_string) {
             b->snprintf("\"%s\":\"%s\"", k, output);
@@ -554,7 +554,7 @@ struct json_object_asn1 : public json_object {
             struct datum p = value;
             char *const *tmp = flags;
             size_t number_of_unused_bits = 0;
-            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            datum_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
                     if (x & *p.data) {
@@ -681,7 +681,7 @@ struct json_array_asn1 : public json_array {
     explicit json_array_asn1(struct buffer_stream *b) : json_array(b) { }
     explicit json_array_asn1(struct json_object &object, const char *name) : json_array(object, name) { }
     void print_oid(const struct datum &value) {
-        const char *output = parser_get_oid_string(&value);
+        const char *output = datum_get_oid_string(&value);
         write_comma(comma);
         if (output != oid_empty_string) {
             b->snprintf("\"%s\"", output);
@@ -813,7 +813,7 @@ struct tlv {
         if (p->data == NULL) {
             handle_parse_error("warning: NULL data", tlv_name ? tlv_name : "unknown TLV");
         }
-        if (parser_get_data_length(p) < 2) {
+        if (datum_get_data_length(p) < 2) {
             p->set_empty();  // parser is no longer good for reading
             // fprintf(stderr, "error: incomplete data (only %ld bytes in %s)\n", p->data_end - p->data, tlv_name ? tlv_name : "unknown TLV");
             handle_parse_error("warning: incomplete data", tlv_name);
@@ -830,7 +830,7 @@ struct tlv {
         tag = p->data[0];
         length = p->data[1];
 
-        parser_skip(p, 2);
+        datum_skip(p, 2);
 
         // set length
         if (length >= 128) {
@@ -840,17 +840,17 @@ struct tlv {
                 handle_parse_error("error: invalid length field", tlv_name);
                 return;
             }
-            if (parser_read_and_skip_uint(p, num_octets_in_length, &length) == status_err) {
+            if (datum_read_and_skip_uint(p, num_octets_in_length, &length) == status_err) {
                 p->set_empty();  // parser is no longer good for reading
-                // fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, parser_get_data_length(p));
+                // fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, datum_get_data_length(p));
                 handle_parse_error("warning: could not read length", tlv_name);
                 return;
             }
         }
 
         // set value
-        parser_init_from_outer_parser(&value, p, length);
-        if (parser_skip(p, length) == status_err) {
+        datum_init_from_outer_parser(&value, p, length);
+        if (datum_skip(p, length) == status_err) {
             p->set_empty();   // parser is no longer good for reading
             handle_parse_error("warning: value field is truncated", tlv_name);
         }
@@ -862,7 +862,7 @@ struct tlv {
 
     void remove_bitstring_encoding() {
         size_t first_octet = 0;
-        parser_read_and_skip_uint(&value, 1, &first_octet);
+        datum_read_and_skip_uint(&value, 1, &first_octet);
         if (first_octet) {
             // throw "error removing bitstring encoding";
             value.set_null();
@@ -1056,7 +1056,7 @@ struct tlv {
         }
         fprintf(f, format_string, name);
 
-        const char *output = parser_get_oid_string(&value);
+        const char *output = datum_get_oid_string(&value);
         if (output != oid_empty_string) {
             fprintf(f, "\"%s\"", output);
         } else {
@@ -1089,7 +1089,7 @@ struct tlv {
         if (value.data) {
             struct datum p = value;
             size_t number_of_unused_bits;
-            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            datum_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
@@ -1117,7 +1117,7 @@ struct tlv {
             struct datum p = value;
             char *const *tmp = flags;
             size_t number_of_unused_bits;
-            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            datum_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
@@ -1195,7 +1195,7 @@ struct tlv {
         }
         buf.snprintf(format_string, name);
 
-        const char *output = parser_get_oid_string(&value);
+        const char *output = datum_get_oid_string(&value);
         if (output != oid_empty_string) {
             buf.snprintf("\"%s\"", output);
         } else {
@@ -1230,7 +1230,7 @@ struct tlv {
         if (value.data) {
             struct datum p = value;
             size_t number_of_unused_bits;
-            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            datum_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
@@ -1259,7 +1259,7 @@ struct tlv {
             struct datum p = value;
             char *const *tmp = flags;
             size_t number_of_unused_bits;
-            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            datum_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
@@ -1361,7 +1361,7 @@ struct tlv {
         if (value.data) {
             struct datum p = value;
             size_t number_of_unused_bits = 0;
-            parser_read_and_skip_uint(&p, 1, &number_of_unused_bits);
+            datum_read_and_skip_uint(&p, 1, &number_of_unused_bits);
             const char *comma = "";
             while (p.data < p.data_end-1) {
                 for (uint8_t x = 0x80; x > 0; x=x>>1) {
