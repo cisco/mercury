@@ -1,3 +1,4 @@
+ ```
  |-- complete: string (nullable = true)
  |-- dhcp: struct (nullable = true)
  |    |-- client_id: struct (nullable = true)
@@ -102,3 +103,4 @@
  |    |    |-- version: string (nullable = true)
  |-- wireguard: struct (nullable = true)
  |    |-- sender_index: string (nullable = true)
+ ```
