@@ -74,6 +74,7 @@ MERC_H += signal_handling.h
 LIBMERC     =  analysis.cc
 LIBMERC     += addr.cc
 LIBMERC     += dns.cc
+LIBMERC     += datum.cc
 LIBMERC     += extractor.cc
 LIBMERC     += http.cc
 LIBMERC     += packet.cc
@@ -101,8 +102,10 @@ LIBMERC_H   += tcp.h
 LIBMERC_H   += tcpip.h
 LIBMERC_H   += tls.h
 LIBMERC_H   += udp.h
+LIBMERC_H   += util_obj.h
 LIBMERC_H   += utils.h
 LIBMERC_H   += wireguard.h
+LIBMERC_H   += quic.h
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
@@ -119,7 +122,7 @@ CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
 mercury: $(MERC) $(MERC_H) libmerc.a Makefile lctrie/liblctrie.a
-	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc -L./lctrie -llctrie -lz
+	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc -L./lctrie -llctrie -lz -lcrypto
 	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
 
 setcap: mercury

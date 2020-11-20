@@ -30,12 +30,12 @@
 #endif
 
 /*
- * The extractor_debug macro is useful for debugging (but quite verbose)
+ * The mercury_debug macro is useful for debugging (but quite verbose)
  */
 #ifndef DEBUG
-#define extractor_debug(...)
+#define mercury_debug(...)
 #else
-#define extractor_debug(...)  (fprintf(stdout, __VA_ARGS__))
+#define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
 enum status {
@@ -83,12 +83,15 @@ struct mercury_config {
  * global state, and put them all on the same cache line.
  */
 struct global_variables {
-    global_variables() : dns_json_output{false}, certs_json_output{false}, metadata_output{false}, do_analysis{false} {}
+
+    global_variables() : dns_json_output{false}, certs_json_output{false}, metadata_output{false}, do_analysis{false}, output_tcp_initial_data{false}, output_udp_initial_data{false} {}
 
     bool dns_json_output;   /* output DNS as JSON              */
     bool certs_json_output; /* output certificates as JSON     */
     bool metadata_output;   /* output lots of metadata         */
     bool do_analysis;       /* write analysys{} JSON object    */
+    bool output_tcp_initial_data; /* write initial data field  */
+    bool output_udp_initial_data; /* write initial data field  */
 };
 
 #endif /* MERCURY_H */

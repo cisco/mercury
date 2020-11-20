@@ -16,6 +16,7 @@ from pmercury.protocols.dtls_server import DTLS_Server
 from pmercury.protocols.http_server import HTTP_Server
 from pmercury.protocols.tls_certificate import TLS_Certificate
 
+from protocols.iquic import IQUIC
 
 def pkt_proc(ts, data):
     buf = data
@@ -31,6 +32,10 @@ def pkt_proc(ts, data):
         ip_length = 40
         ip_offset = 14
         protocol  = buf[20]
+        if protocol == 44:
+            ip_length = 48
+            ip_offset = 14
+            protocol  = buf[54]
     elif buf[14] == 0x08 and buf[15] == 0x00: # IPv4 (hack for linux cooked capture)
         ip_length = 20
         ip_offset = 16
@@ -99,9 +104,9 @@ def pkt_proc(ts, data):
                 fp_str_, context_ = DTLS_Server.fingerprint(data, app_offset, data_len)
                 fp_type = 'dtls_server'
         elif (buf[app_offset+1] == 0xff and buf[app_offset+2] == 0x00 and
-              buf[app_offset+3] == 0x00 and buf[app_offset+4] == 0x18):
-                fp_str_, context_ = IQUIC.fingerprint(data, app_offset, data_len)
-                fp_type = 'iquic'
+              buf[app_offset+3] == 0x00):
+            fp_str_, context_ = IQUIC.fingerprint(data, app_offset, data_len)
+            fp_type = 'iquic'
         elif data_len - app_offset < 240:
             return None
         elif (buf[app_offset+236] == 0x63 and

@@ -62,7 +62,7 @@ struct attribute {
 
     void print_as_json(struct json_object_asn1 &o) const {
         if (attribute_type.is_not_null()) {
-            const char *oid_string = parser_get_oid_string(&attribute_type.value);
+            const char *oid_string = datum_get_oid_string(&attribute_type.value);
             if (oid_string != oid_empty_string) {
                 attribute_value.print_as_json_escaped_string(o, oid_string);
             } else {
@@ -172,7 +172,7 @@ struct ext_key_usage {
         struct datum p = sequence.value;
         while (p.is_not_empty()) {
             struct tlv key_purpose_id(&p);
-            const char *oid_string = parser_get_oid_string(&key_purpose_id.value);
+            const char *oid_string = datum_get_oid_string(&key_purpose_id.value);
             if (oid_string != oid_empty_string) {
                 a.print_string(oid_string);
             } else {
@@ -962,7 +962,7 @@ struct extension {
             enum oid oid_type = oid::unknown;
             bool critical_flag = false;
             if (extnID.tag == tlv::OBJECT_IDENTIFIER) {
-                oid_type = parser_get_oid_enum(&extnID.value);
+                oid_type = datum_get_oid_enum(&extnID.value);
             }
             if (critical.tag == tlv::BOOLEAN) {
                 critical_flag = true;
@@ -1299,7 +1299,7 @@ struct algorithm_identifier {
                     parameters.print_as_json_oid(alg_id, "parameters");
 
                 } else if (parameters.tag == tlv::SEQUENCE) {
-                    if (parser_get_oid_enum(&algorithm.value) == oid::id_dsa) {
+                    if (datum_get_oid_enum(&algorithm.value) == oid::id_dsa) {
                         // DSA parameters consist of a SEQUENCE of three integers
                         struct tlv tmp = parameters;
                         struct dsa_parameters dsa(&tmp.value);
@@ -1317,14 +1317,14 @@ struct algorithm_identifier {
 
     enum oid type() const {
         if (algorithm.is_not_null()) {
-            return parser_get_oid_enum(&algorithm.value);
+            return datum_get_oid_enum(&algorithm.value);
         }
         return oid::unknown;
     }
 
     enum oid get_parameters() const {
         if (parameters.is_not_null()) {
-            return parser_get_oid_enum(&parameters.value);
+            return datum_get_oid_enum(&parameters.value);
         }
         return oid::unknown;
     }
@@ -1503,7 +1503,7 @@ struct x509_cert {
     void parse(const void *buffer, unsigned int len) {
 
         struct datum p;
-        parser_init(&p, (const unsigned char *)buffer, len);
+        datum_init(&p, (const unsigned char *)buffer, len);
 
         certificate.parse(&p, tlv::SEQUENCE, "certificate");
 
@@ -1936,7 +1936,7 @@ struct x509_cert_prefix {
 
         struct datum p;
         prefix.data = (const uint8_t *)buffer;
-        parser_init(&p, (const unsigned char *)buffer, len);
+        datum_init(&p, (const unsigned char *)buffer, len);
 
         struct tlv certificate(&p, tlv::SEQUENCE, "certificate");
 

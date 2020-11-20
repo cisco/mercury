@@ -137,7 +137,7 @@ enum status pcap_file_open(struct pcap_file *f,
         // set file i/o buffer
         set_file_io_buffer(f, fname);
 
-        // set the file advisory for the read file
+        // set the file advisory for the write file
 #ifdef POSIX_FADV_SEQUENTIAL
         if (posix_fadvise(f->fd, 0, 0, POSIX_FADV_SEQUENTIAL) != 0) {
             printf("%s: Could not set file advisory for pcap file %s\n", strerror(errno), fname);
@@ -170,12 +170,19 @@ enum status pcap_file_open(struct pcap_file *f,
 
     } else { /* O_RDONLY */
 
-	/*  open existing file for reading */
-	f->file_ptr = fopen(fname, "r");
-	if (f->file_ptr == NULL) {
-	    printf("%s: error opening read file %s\n", strerror(errno), fname);
-	    return status_err; /* could not open file */
-	}
+        if (strncmp(fname, "-", sizeof("-")) == 0) {
+            /* read PCAP file from standard input */
+            f->file_ptr = stdin;
+
+        } else {
+
+            /*  open existing file for reading */
+            f->file_ptr = fopen(fname, "r");
+            if (f->file_ptr == NULL) {
+                printf("%s: error opening read file %s\n", strerror(errno), fname);
+                return status_err; /* could not open file */
+            }
+        }
 
 	f->fd = fileno(f->file_ptr);  // save file descriptor
 	if (f->fd < 0) {
@@ -183,9 +190,9 @@ enum status pcap_file_open(struct pcap_file *f,
 	    return status_err; /* system call failed */
 	}
 
-	// set the file advisory for the read file
+	// set the file advisory for the read file, if it is not stdin
 #ifdef POSIX_FADV_SEQUENTIAL
-	if (posix_fadvise(f->fd, 0, 0, POSIX_FADV_SEQUENTIAL) != 0) {
+	if (f->file_ptr != stdin && posix_fadvise(f->fd, 0, 0, POSIX_FADV_SEQUENTIAL) != 0) {
 	    printf("%s: Could not set file advisory for read file %s\n", strerror(errno), fname);
 	}
 #endif
@@ -198,7 +205,11 @@ enum status pcap_file_open(struct pcap_file *f,
 
 	items_read = fread(&file_header, sizeof(file_header), 1, f->file_ptr);
 	if (items_read == 0) {
-	    perror("could not read file header");
+	    if (errno) {
+            perror("error: could not read PCAP file header");
+        } else {
+            fprintf(stderr, "error: could not read PCAP file header\n");
+        }
 	    return status_err; /* could not read packet header from file */
 	}
 	if (file_header.magic_number == magic) {
@@ -280,7 +291,22 @@ enum status pcap_file_write_packet_direct(struct pcap_file *f,
 }
 
 
-#define BUFLEN  16384
+enum status advance(FILE *f, size_t length) {
+    if (f == stdin) {
+        for (size_t i=0; i < length; i++) {
+            uint8_t tmp = getc(f);
+            (void)tmp;
+        }
+    } else {
+        if (fseek(f, length, SEEK_CUR) != 0) {
+            perror("error: could not advance file pointer\n");
+            return status_err;
+        }
+    }
+    return status_ok;
+}
+
+#define BUFLEN  65536
 
 enum status pcap_file_read_packet(struct pcap_file *f,
                   struct pcap_pkthdr *pkthdr, /* output */
@@ -312,24 +338,22 @@ enum status pcap_file_read_packet(struct pcap_file *f,
     if (pkthdr->caplen <= BUFLEN) {
         items_read = fread(packet_data, pkthdr->caplen, 1, f->file_ptr);
         if (items_read == 0) {
-            printf("could not read packet from file, caplen: %u\n", pkthdr->caplen);
+            fprintf(stderr, "error: could not read packet with caplen %u\n", pkthdr->caplen);
             return status_err;          /* could not read packet from file */
         }
     } else {
+        fprintf(stderr, "warning: buffer size %u cannot store packet of length %u\n", BUFLEN, pkthdr->caplen);
         /*
          * The packet length is much bigger than BUFLEN.
          * Read BUFLEN bytes to process the packet and skip the remaining bytes.
          */
         if (fread(packet_data, BUFLEN, 1, f->file_ptr) == 0) {
-            printf("could not read %d bytes of the packet from file\n", (int)BUFLEN);
+            fprintf(stderr, "error: could not read %d bytes of the packet from file\n", (int)BUFLEN);
             return status_err;          /* could not read packet from file */
         }
 
         // advance the file pointer to skip the large packet
-        if (fseek(f->file_ptr, pkthdr->caplen - BUFLEN, SEEK_CUR) != 0) {
-            perror("error: could not advance file pointer\n");
-            return status_err;
-        }
+        advance(f->file_ptr, pkthdr->caplen - BUFLEN);
 
         // adjust the packet len and caplen
         pkthdr->len = pkthdr->caplen;
@@ -379,6 +403,8 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
             }
         }
     }
+
+    pkt_processor->finalize();  // clear out buffers
 
     pkt_processor->bytes_written = total_length;
     pkt_processor->packets_written = num_packets;

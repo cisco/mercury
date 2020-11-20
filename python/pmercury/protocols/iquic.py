@@ -22,7 +22,7 @@ from pmercury.protocols.tls import TLS
 
 
 class IQUIC(Protocol):
-    VERSIONS = set([22,23,24])
+    VERSIONS = set([22,23,24,25,26,27,28,29,30,31])
     QUIC_VERSION_PARAMETERS = {
         22: {'salt': bytes.fromhex('7fbcdb0e7c66bbe9193a96cd21519ebd7a02644a')},
         23: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
@@ -32,6 +32,8 @@ class IQUIC(Protocol):
         27: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
         28: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
         29: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
+        30: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
+        31: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
     }
     SAMPLE_SIZE = 16
 
@@ -45,7 +47,7 @@ class IQUIC(Protocol):
         if (data[offset+1] != 0xff or
             data[offset+2] != 0x00 or
             data[offset+3] != 0x00 or
-            data[offset+4] != 0x18):
+            data[offset+4] not in VERSIONS):
             return False
         return True
 
@@ -102,7 +104,7 @@ class IQUIC(Protocol):
 
         token_len = data[offset]
         token = data[offset+1:offset+1+token_len]
-        offset += 2+token_len
+        offset += 3+token_len
         if offset >= data_len:
             return None
 

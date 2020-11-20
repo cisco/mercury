@@ -123,10 +123,15 @@ struct ssh_init_packet {
  *
  *    Each packet is in the following format:
  *
- *     uint32    packet_length
- *     byte      padding_length
+ *     uint32    packet_length (length of the packet in bytes, not
+ *               including 'mac' or the 'packet_length' field itself.)
+ *
+ *     byte      padding_length (length of 'random padding' in bytes)
+ *
  *     byte[n1]  payload; n1 = packet_length - padding_length - 1
+ *
  *     byte[n2]  random padding; n2 = padding_length
+ *
  *     byte[m]   mac (Message Authentication Code - MAC); m = mac_length
  *
  */
@@ -134,16 +139,33 @@ struct ssh_binary_packet {
     uint32_t packet_length;
     uint8_t padding_length;
     struct datum payload;
+    size_t additional_bytes_needed;
     // random padding
     // mac
 
-    ssh_binary_packet() : packet_length{0}, padding_length{0}, payload{NULL, NULL} {}
+    ssh_binary_packet() : packet_length{0}, padding_length{0}, payload{NULL, NULL}, additional_bytes_needed{0} {}
 
     void parse(struct datum &p) {
+        additional_bytes_needed = 0;
         p.read_uint32(&packet_length);
+        if (packet_length > ssh_binary_packet::max_length || packet_length < ssh_binary_packet::min_length) {
+            p.set_empty();  // probably not a real SSH binary packet
+            return;
+        }
         p.read_uint8(&padding_length);
-        payload.parse_soft_fail(p, packet_length - padding_length - 1);
+        if (p.is_not_empty() == false) {
+            return;
+        }
+        ssize_t bytes_left_in_packet = packet_length - 1;
+        if (bytes_left_in_packet > p.length()) {
+            additional_bytes_needed = bytes_left_in_packet - p.length();
+            // fprintf(stderr, "ssh_binary_packet additional_bytes_needed: %zu (wanted: %zd, have: %zu)\n", additional_bytes_needed, bytes_left_in_packet, p.length());
+        }
+        payload.parse_soft_fail(p, bytes_left_in_packet);
     }
+
+    static const ssize_t max_length = 16384;
+    static const ssize_t min_length = 1;
 };
 
 struct name_list : public datum {
@@ -153,8 +175,14 @@ struct name_list : public datum {
     void parse(struct datum &p) {
         uint32_t length;
         p.read_uint32(&length);
+        if (length > name_list::max_length) {
+            p.set_empty(); // packet is not really a KEX_INIT
+            return;
+        }
         datum::parse(p, length);
     }
+
+    const static ssize_t max_length = 2048; // longest possible name
 };
 
 /*
@@ -193,6 +221,7 @@ struct ssh_kex_init {
     ssh_kex_init() = default;
 
     void parse(struct datum &p) {
+
         msg_type.parse(p, L_ssh_payload);
         cookie.parse(p, L_ssh_cookie);
         kex_algorithms.parse(p);
@@ -205,6 +234,7 @@ struct ssh_kex_init {
         compression_algorithms_server_to_client.parse(p);
         languages_client_to_server.parse(p);
         languages_server_to_client.parse(p);
+
     }
 
     bool is_not_empty() const { return kex_algorithms.is_not_empty(); }

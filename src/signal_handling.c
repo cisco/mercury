@@ -20,8 +20,9 @@ int sig_close_flag = 0; /* Watched by the threads while processing packets */
  * an appropriate signal
  */
 void sig_close (int signal_arg) {
-    psignal(signal_arg, "\nGracefully shutting down");
+    psignal(signal_arg, "\nshutting down");
     sig_close_flag = 1; /* tell all threads to shutdown gracefully */
+    fclose(stdin);      /* if are reading from stdin, stop reading */
 }
 
 /*

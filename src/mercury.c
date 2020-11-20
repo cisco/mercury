@@ -25,6 +25,7 @@
 #include "output.h"
 #include "license.h"
 #include "version.h"
+#include "rnd_pkt_drop.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -34,10 +35,11 @@
 struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
 
 char mercury_help[] =
-    "%s INPUT [OUTPUT] [OPTIONS]:\n"
+    "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
     "INPUT\n"
     "   [-c or --capture] capture_interface   # capture packets from interface\n"
     "   [-r or --read] read_file              # read packets from file\n"
+    "   no input option                       # read packets from standard input\n"
     "OUTPUT\n"
     "   [-f or --fingerprint] json_file_name  # write JSON fingerprints to file\n"
     "   [-w or --write] pcap_file_name        # write packets to PCAP/MCAP file\n"
@@ -51,7 +53,9 @@ char mercury_help[] =
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   --resources d                         # use resource directory d\n"
-    "   [-s or --select] filter               # select only metadata (see --help)\n"
+    "   [-s or --select] filter               # select traffic by filter (see --help)\n"
+    "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
+    "   --nonselected-udp-data                # udp data for nonselected traffic\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
     "   --certs-json                          # output certs as JSON, not base64\n"
@@ -84,10 +88,13 @@ char mercury_extended_help[] =
     "\n"
     "   \"[r or --read] r\" reads packets from the file r, in PCAP format.\n"
     "\n"
+    "   if neither -r nor -c is specified, then packets are read from standard input,\n"
+    "   in PCAP format.\n"
+    "\n"
     "   \"[-s or --select] f\" selects packets according to the metadata filter f, which\n"
     "   is a comma-separated list of the following strings:\n"
     "      dhcp          DHCP discover message\n"
-    "      dns           DNS response\n"
+    "      dns           DNS messages\n"
     "      tls           DTLS clientHello, serverHello, and certificates\n"
     "      http          HTTP request and response\n"
     "      ssh           SSH handshake and KEX\n"
@@ -97,6 +104,19 @@ char mercury_extended_help[] =
     "      wireguard     WG handshake initiation message\n"
     "      all           all of the above\n"
     "      <no option>   all of the above\n"
+    "      none          none of the above\n"
+    "\n"
+    "   --nonselected-tcp-data writes the first TCP Data field in a flow with\n"
+    "   nonzero length, for *non*-selected traffic, into JSON.  This option provides\n"
+    "   a view into the TCP data that the --select option does not recognize. The\n"
+    "   --select filter affects the TCP data written by this option; use\n"
+    "   '--select=none' to obtain the TCP data for each flow.\n"
+    "\n"
+    "   --nonselected-udp-data writes the first UDP Data field in a flow with\n"
+    "   nonzero length, for *non*-selected traffic, into JSON.  This option provides\n"
+    "   a view into the UDP data that the --select option does not recognize. The\n"
+    "   --select filter affects the UDP data written by this option; use\n"
+    "   '--select=none' to obtain the UDP data for each flow.\n"
     "\n"
     "   \"[-u or --user] u\" sets the UID and GID to those of user u, so that\n"
     "   output file(s) are owned by this user.  If this option is not set, then\n"
@@ -180,7 +200,7 @@ int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -190,6 +210,8 @@ int main(int argc, char *argv[]) {
             { "dns-json",    no_argument,       NULL, dns_json },
             { "certs-json",  no_argument,       NULL, certs_json },
             { "metadata",    no_argument,       NULL, metadata },
+            { "nonselected-tcp-data", no_argument, NULL, tcp_init_data },
+            { "nonselected-udp-data", no_argument, NULL, udp_init_data },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -251,6 +273,20 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option metadata does not use an argument", extended_help_off);
             } else {
                 global_vars.metadata_output = true;
+            }
+            break;
+        case tcp_init_data:
+            if (optarg) {
+                usage(argv[0], "option nonselected-tcp-data does not use an argument", extended_help_off);
+            } else {
+                global_vars.output_tcp_initial_data = true;
+            }
+            break;
+        case udp_init_data:
+            if (optarg) {
+                usage(argv[0], "option nonselected-udp-data does not use an argument", extended_help_off);
+            } else {
+                global_vars.output_udp_initial_data = true;
             }
             break;
         case 'r':
@@ -428,7 +464,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (cfg.read_filename == NULL && cfg.capture_interface == NULL) {
-        usage(argv[0], "neither read [r] nor capture [c] specified on command line", extended_help_off);
+        cfg.read_filename = (char *)"-";  // convention: a dash indicates to read from stdin
     }
     if (cfg.read_filename != NULL && cfg.capture_interface != NULL) {
         usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
@@ -437,7 +473,7 @@ int main(int argc, char *argv[]) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
     }
 
-    if (cfg.write_filename && cfg.read_filename) {
+    if (cfg.read_filename) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
     }
 

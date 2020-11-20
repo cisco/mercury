@@ -20,7 +20,7 @@ CFLAGS = --std=c++11 -Wall -Wpedantic -Wextra -O2 $(OPTFLAGS) # -DASN1_DEBUG=1
 all: cert-analyze oidc oid.h
 
 cert-analyze: cert-analyze.cc x509.h asn1.h oid.h ../utils.h ../json_object.h
-	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../parser.c ../utils.c # -lmhash
+	$(CXX) $(CFLAGS) -o cert-analyze cert-analyze.cc ../datum.cc ../utils.cc # -lmhash
 
 oidc: oidc.cc
 	$(CXX) $(CFLAGS) -o oidc oidc.cc

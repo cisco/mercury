@@ -12,10 +12,14 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include "pcap_file_io.h"
-#include "json_file_io.h"
 #include "extractor.h"
 #include "packet.h"
 #include "rnd_pkt_drop.h"
+#include "llq.h"
+
+extern struct global_variables global_vars; /* defined in config.c */
+
+extern bool select_tcp_syn;                 // defined in extractor.cc
 
 /* Information about each packet on the wire */
 struct packet_info {
@@ -24,12 +28,66 @@ struct packet_info {
   uint32_t len;        /* length this packet (off wire) */
 };
 
-extern unsigned int packet_filter_threshold;
-
 struct pkt_proc_stats {
     size_t bytes_written;
     size_t packets_written;
 };
+
+struct stateful_pkt_proc {
+    struct packet_filter pf;
+    struct flow_table ip_flow_table;
+    struct flow_table_tcp tcp_flow_table;
+    struct tcp_reassembler reassembler;
+    struct tcp_reassembler *reassembler_ptr;
+
+    explicit stateful_pkt_proc(const char *filter) :
+        pf{},
+        ip_flow_table{65536},
+        tcp_flow_table{65536},
+        reassembler{65536},
+        reassembler_ptr{&reassembler}
+    {
+        if (packet_filter_init(&pf, filter) == status_err) {
+            throw "could not initialize packet filter";
+        }
+#ifndef USE_TCP_REASSEMBLY
+// #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
+        reassembler_ptr = nullptr;
+#else
+// #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
+#endif
+
+    }
+
+    void finalize() {
+        reassembler.count_all();
+        tcp_flow_table.count_all();
+    }
+
+    size_t write_json(void *buffer,
+                      size_t buffer_size,
+                      uint8_t *packet,
+                      size_t length,
+                      struct timespec *ts) {
+        return write_json(buffer, buffer_size, packet, length, ts, reassembler_ptr);
+    }
+
+    size_t write_json(void *buffer,
+                              size_t buffer_size,
+                              uint8_t *packet,
+                              size_t length,
+                              struct timespec *ts,
+                              struct tcp_reassembler *reassembler);
+
+    void tcp_data_write_json(struct buffer_stream &buf,
+                             struct datum &pkt,
+                             const struct key &k,
+                             struct tcp_packet &tcp_pkt,
+                             struct timespec *ts,
+                             struct tcp_reassembler *reassembler);
+
+};
+
 
 /*
  * struct pkt_proc is a packet processor; this abstract class defines
@@ -40,47 +98,12 @@ struct pkt_proc_stats {
 struct pkt_proc {
     virtual void apply(struct packet_info *pi, uint8_t *eth) = 0;
     virtual void flush() = 0;
+    virtual void finalize() = 0;
     virtual ~pkt_proc() {};
     size_t bytes_written = 0;
     size_t packets_written = 0;
 };
 
-/*
- * struct pkt_proc_json_writer_llq represents a packet processing object
- * that writes out a JSON representation of fingerprints, metadata,
- * flow keys, and event time to a queue that is then written to a file
- * by a dedicated output thread.
- */
-struct pkt_proc_json_writer_llq : public pkt_proc {
-    struct ll_queue *llq;
-    struct packet_filter pf;
-    // struct tcp_reassembler reassembler;
-
-    /*
-     * pkt_proc_json_writer(outfile_name, mode, max_records)
-     * initializes object to write a single JSON line containing the
-     * flow key, time, fingerprints, and metadata to the output file
-     * with the path outfile_name and mode passed as arguments; that
-     * file is opened by this invocation, with that mode.  If
-     * max_records is nonzero, then it defines the maximum number of
-     * records (lines) per file; after that limit is reached, file
-     * rotation will take place.
-     */
-    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter) { //: reassembler{} {
-        llq = llq_ptr;
-        if (packet_filter_init(&pf, filter) == status_err) {
-            throw "could not initialize packet filter";
-        }
-    }
-
-    void apply(struct packet_info *pi, uint8_t *eth) override {
-        json_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec);
-    }
-
-    void flush() override {
-
-    }
-};
 
 /*
  * struct pkt_proc_pcap_writer represents a packet processing object
@@ -102,6 +125,8 @@ struct pkt_proc_pcap_writer_llq : public pkt_proc {
         }
         pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000, block);
     }
+
+    void finalize() override { }
 
     void flush() override {
     }
@@ -138,6 +163,8 @@ struct pkt_proc_pcap_writer : public pkt_proc {
         pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
 
+    void finalize() override { }
+
     void flush() override {
         FILE *file_ptr = pcap_file.file_ptr;
         if (file_ptr != NULL) {
@@ -151,20 +178,14 @@ struct pkt_proc_pcap_writer : public pkt_proc {
 
 /*
  * struct pkt_proc_filter_pcap_writer represents a packet processing
- * object that first filters packets, then writes tem out in PCAP file
+ * object that first filters packets, then writes them out in PCAP file
  * format.
  */
 struct pkt_proc_filter_pcap_writer : public pkt_proc {
     struct pcap_file pcap_file;
+    struct stateful_pkt_proc processor;
 
-    /*
-     * packet_filter_threshold is a (somewhat arbitrary) threshold used in
-     * the packet metadata filter; it will probably get eliminated soon,
-     * in favor of extractor::proto_state::state, but for now it remains
-     */
-    unsigned int packet_filter_threshold = 8;
-
-    pkt_proc_filter_pcap_writer(const char *outfile, int flags) {
+    pkt_proc_filter_pcap_writer(const char *outfile, int flags) : processor{""} {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
             throw "could not open PCAP output file";
@@ -181,11 +202,14 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
             return;  /* random packet drop configured, and this packet got selected to be discarded */
         }
 
-        struct packet_filter pf;
-        if (packet_filter_apply(&pf, packet, length)) {
+        uint8_t buf[LLQ_MSG_SIZE];
+        if (processor.write_json(buf, LLQ_MSG_SIZE, packet, length, &pi->ts) != 0) {
             pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
         }
+
     }
+
+    void finalize() override { }
 
     void flush() override {
         FILE *file_ptr = pcap_file.file_ptr;
@@ -199,27 +223,67 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
 };
 
 /*
+ * struct pkt_proc_json_writer_llq represents a packet processing object
+ * that writes out a JSON representation of fingerprints, metadata,
+ * flow keys, and event time to a queue that is then written to a file
+ * by a dedicated output thread.
+ */
+struct pkt_proc_json_writer_llq : public pkt_proc {
+    struct ll_queue *llq;
+    bool block;
+    struct stateful_pkt_proc processor;
+
+    /*
+     * pkt_proc_json_writer(outfile_name, mode, max_records)
+     * initializes object to write a single JSON line containing the
+     * flow key, time, fingerprints, and metadata to the output file
+     * with the path outfile_name and mode passed as arguments; that
+     * file is opened by this invocation, with that mode.  If
+     * max_records is nonzero, then it defines the maximum number of
+     * records (lines) per file; after that limit is reached, file
+     * rotation will take place.
+     */
+    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) :
+        block{blocking},
+        processor{filter}
+    {
+        llq = llq_ptr;
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) override {
+        struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
+        if (msg) {
+            size_t write_len = processor.write_json(msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts));
+            if (write_len > 0) {
+                msg->send(write_len);
+                llq->increment_widx();
+            }
+        }
+    }
+
+    void finalize() override {
+        processor.finalize();
+    }
+
+    void flush() override {
+
+    }
+
+};
+
+
+/*
  * struct pkt_proc_filter_pcap_writer represents a packet processing
- * object that first filters packets, then writes tem out in PCAP file
+ * object that first filters packets, then writes them out in PCAP file
  * format.
  */
 struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     struct ll_queue *llq;
-    struct packet_filter pf;
     bool block;
-    
-    /*
-     * packet_filter_threshold is a (somewhat arbitrary) threshold used in
-     * the packet metadata filter; it will probably get eliminated soon,
-     * in favor of extractor::proto_state::state, but for now it remains
-     */
-    unsigned int packet_filter_threshold = 8;
+    struct stateful_pkt_proc processor;
 
-    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) : block{blocking} {
+    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) : block{blocking}, processor{filter} {
         llq = llq_ptr;
-        if (packet_filter_init(&pf, filter) == status_err) {
-            throw "could not initialize packet filter";
-        }
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
@@ -232,10 +296,13 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
             return;  /* random packet drop configured, and this packet got selected to be discarded */
         }
 
-        if (packet_filter_apply(&pf, packet, length)) {
+        uint8_t buf[LLQ_MSG_SIZE];
+        if (processor.write_json(buf, LLQ_MSG_SIZE, packet, length, &pi->ts) != 0) {
             pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000, block);
         }
     }
+
+    void finalize() override { }
 
     void flush() override {
     }
@@ -253,6 +320,8 @@ struct pkt_proc_dumper : public pkt_proc {
     void apply(struct packet_info *pi, uint8_t *eth) override {
         packet_fprintf(stdout, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
+
+    void finalize() override { }
 
     void flush() override {
     }

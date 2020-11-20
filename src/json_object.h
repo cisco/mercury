@@ -8,6 +8,7 @@
 #define JSON_OBJECT_H
 
 #include "buffer_stream.h"
+#include "datum.h"
 
 /*
  * json_object and json_array serialize JSON objects and arrays,
@@ -129,7 +130,7 @@ struct json_object {
         b->puts(k);
         b->puts("\":");
         if (value.data && value.data_end) {
-            b->raw_as_base64(value.data, value.data_end - value.data); 
+            b->raw_as_base64(value.data, value.data_end - value.data);
         }
     }
     void print_key_timestamp(const char *k, struct timespec *ts) {
@@ -226,6 +227,14 @@ struct json_array {
         b->write_char('\"');
         b->puts(s);
         b->write_char('\"');
+    }
+    void print_json_string(struct datum &d) {
+        if (d.is_not_readable()) {
+            return;
+        }
+        write_comma(comma);
+        b->json_string_escaped(d.data, d.length());
+
     }
     void print_base64(const uint8_t *data, size_t length) {
         write_comma(comma);

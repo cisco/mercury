@@ -17,12 +17,12 @@ struct http_headers : public datum {
         unsigned char crlf[2] = { '\r', '\n' };
 
         data = p.data;
-        while (parser_get_data_length(&p) > 0) {
-            if (parser_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+        while (datum_get_data_length(&p) > 0) {
+            if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
                 complete = true;
                 break;  /* at end of headers */
             }
-            if (parser_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
                 break;
             }
         }
@@ -33,6 +33,7 @@ struct http_headers : public datum {
     void print_matching_name(struct json_object &o, const char *key, struct datum &name) const;
     void print_matching_names(struct json_object &o, const char *key, std::list<struct datum> &name) const;
     void print_matching_names(struct json_object &o, std::list<std::pair<struct datum, std::string>> &name_list) const;
+    void print_matching_names(struct json_object &o, std::unordered_map<std::basic_string<uint8_t>, std::string> &name_dict) const;
 
     void fingerprint(struct buffer_stream &buf, std::unordered_map<std::basic_string<uint8_t>, bool> &name_dict) const;
 

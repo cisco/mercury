@@ -13,7 +13,7 @@ from distutils.extension import Extension
 # "../parser.c" is needed to include parser functions
 # "-std=c++11" is needed due to c++11 dependency
 
-sources = ['mercury.pyx','../dns.c','../utils.c','../parser.c']
+sources = ['mercury.pyx','../dns.cc','../utils.cc','../datum.c']
 
 setup(ext_modules=[Extension("mercury",
                              sources=sources,

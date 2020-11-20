@@ -16,21 +16,26 @@
 
 #include <stdint.h>
 
-enum msg_type {
-    msg_type_unknown = 0,
-    msg_type_http_request,
-    msg_type_http_response,
-    msg_type_tls_client_hello,
-    msg_type_tls_server_hello,
-    msg_type_tls_certificate,
-    msg_type_ssh,
-    msg_type_ssh_kex,
-    msg_type_dns,
-    msg_type_dhcp,
-    msg_type_dtls_client_hello,
-    msg_type_dtls_server_hello,
-    msg_type_dtls_certificate,
-    msg_type_wireguard
+enum tcp_msg_type {
+    tcp_msg_type_unknown = 0,
+    tcp_msg_type_http_request,
+    tcp_msg_type_http_response,
+    tcp_msg_type_tls_client_hello,
+    tcp_msg_type_tls_server_hello,
+    tcp_msg_type_tls_certificate,
+    tcp_msg_type_ssh,
+    tcp_msg_type_ssh_kex
+};
+
+enum udp_msg_type {
+    udp_msg_type_unknown = 0,
+    udp_msg_type_dns,
+    udp_msg_type_dhcp,
+    udp_msg_type_dtls_client_hello,
+    udp_msg_type_dtls_server_hello,
+    udp_msg_type_dtls_certificate,
+    udp_msg_type_wireguard,
+    udp_msg_type_quic
 };
 
 /* Values indicating direction of the flow */
@@ -50,6 +55,7 @@ enum msg_type {
 #define DTLS_PORT         99
 #define DNS_PORT          53
 #define WIREGUARD_PORT 51820
+#define QUIC_PORT       4433
 
 /**
  * \brief Protocol Inference container
