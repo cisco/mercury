@@ -6,9 +6,7 @@
  */
 
 #include <string.h>
-#include "extractor.h"
 #include "pcap_file_io.h"
-#include "packet.h"
 #include "rnd_pkt_drop.h"
 #include "pkt_proc.h"
 #include "utils.h"

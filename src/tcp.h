@@ -424,7 +424,7 @@ struct tcp_segment {
                 return false;
             }
         }
-        fprintf(stderr, "requesting reassembly\n");
+        // fprintf(stderr, "requesting reassembly\n");
         //        fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
 
         index = length;
@@ -480,7 +480,7 @@ struct tcp_segment {
                     fprintf(stderr, "\tDONE\n");
                     //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
                 }
-                fprintf(stderr, "reassembled packet\n");
+                // fprintf(stderr, "reassembled packet\n");
                 // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
                 return this;
 
@@ -585,7 +585,7 @@ struct tcp_reassembler {
         // check for expired elements
 
         if (reap_it != segment_table.end() && reap_it->second.is_too_old(sec)) {
-            fprintf(stderr, "processing expired segment\n");
+            // fprintf(stderr, "processing expired segment\n");
             // fprintf(stderr, "processing expired segment (age: %u seconds)\n", sec - reap_it->second.timestamp);
             return reap_it;  // not fully reassembled, but expired
         }
