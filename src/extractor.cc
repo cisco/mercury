@@ -116,6 +116,30 @@ unsigned char http_client_post_value[] = {
     'P', 'O', 'S', 'T', ' ', 0x00, 0x00, 0x00
 };
 
+unsigned char http_client_connect_mask[] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
+
+unsigned char http_client_connect_value[] = {
+    'C', 'O', 'N', 'N', 'E', 'C', 'T', ' '
+};
+
+unsigned char http_client_put_mask[] = {
+    0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00
+};
+
+unsigned char http_client_put_value[] = {
+    'P', 'U', 'T', ' ', 0x00, 0x00, 0x00, 0x00
+};
+
+unsigned char http_client_head_mask[] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00
+};
+
+unsigned char http_client_head_value[] = {
+    'H', 'E', 'A', 'D', ' ', 0x00, 0x00, 0x00
+};
+
 struct pi_container http_client = {
     DIR_CLIENT,
     HTTP_PORT
@@ -206,6 +230,21 @@ enum tcp_msg_type get_message_type(const uint8_t *tcp_data,
     if (u32_compare_masked_data_to_value(tcp_data,
                                          http_client_post_mask,
                                          http_client_post_value)) {
+        return tcp_msg_type_http_request;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         http_client_connect_mask,
+                                         http_client_connect_value)) {
+        return tcp_msg_type_http_request;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         http_client_put_mask,
+                                         http_client_put_value)) {
+        return tcp_msg_type_http_request;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         http_client_head_mask,
+                                         http_client_head_value)) {
         return tcp_msg_type_http_request;
     }
     if (u32_compare_masked_data_to_value(tcp_data,
@@ -608,6 +647,9 @@ enum status proto_ident_config(const char *config_string) {
     if (protocols["http"] == false) {
         bzero(http_client_mask, sizeof(http_client_mask));
         bzero(http_client_post_mask, sizeof(http_client_post_mask));
+        bzero(http_client_connect_mask, sizeof(http_client_connect_mask));
+        bzero(http_client_put_mask, sizeof(http_client_put_mask));
+        bzero(http_client_head_mask, sizeof(http_client_head_mask));
         bzero(http_server_mask, sizeof(http_server_mask));
     }
     if (protocols["ssh"] == false) {
