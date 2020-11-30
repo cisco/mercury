@@ -10,9 +10,9 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>      /* for FILE */
 #include <arpa/inet.h>
 #include <string.h>
+#include <limits>
 #include <string>
 #include "mercury.h"
 
