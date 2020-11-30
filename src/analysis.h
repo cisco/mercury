@@ -11,13 +11,52 @@
 #include <stdio.h>
 #include "packet.h"
 #include "addr.h"
+#include "json_object.h"
 #include "buffer_stream.h"
 
 int analysis_init(int verbosity, const char *resource_dir);
 
 int analysis_finalize();
 
-void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
+class analysis_result {
+    static const size_t max_proc_len = 256;
+    bool valid = false;
+    char max_proc[max_proc_len];
+    long double max_score;
+    bool max_mal;
+    long double malware_prob;
+
+public:
+    analysis_result() : valid{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0} { }
+
+    analysis_result(const char *proc, long double score) : valid{true}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0} {
+        strncpy(max_proc, proc, max_proc_len-1);
+    }
+    analysis_result(const char *proc, long double score, bool mal, long double mal_prob) : valid{true}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob} {
+        strncpy(max_proc, proc, max_proc_len-1);
+    }
+
+    void write_json(struct json_object &o, const char *key) {
+        if (malware_prob > 0) {
+            struct json_object analysis{o, key};
+            analysis.print_key_string("process", max_proc);
+            analysis.print_key_float("score", max_score);
+            analysis.print_key_bool("malware", max_mal);
+            analysis.print_key_float("p_malware", malware_prob);
+            analysis.close();
+        } else {
+            struct json_object analysis{o, key};
+            analysis.print_key_string("process", max_proc);
+            analysis.print_key_float("score", max_score);
+            analysis.close();
+        }
+
+    }
+
+    bool is_valid() { return valid; }
+};
+
+void write_analysis_from_extractor_and_flow_key(struct json_object &o,
                                                 const struct tls_client_hello &hello,
                                                 const struct key &key);
 
