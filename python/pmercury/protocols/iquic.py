@@ -131,7 +131,7 @@ class IQUIC(Protocol):
 
         nonce = bytearray(len(iv) - pn_length) + bytearray(pn)
         for i in range(len(iv)):
-            nonce[i] ^= iv[i]
+            iv[i] ^= nonce[i]
 
         cipher = Cipher(AES(key), GCM(iv), backend=default_backend())
         payload = cipher.decryptor().update(bytes(data[offset + pn_length:]))
