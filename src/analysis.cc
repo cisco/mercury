@@ -267,10 +267,9 @@ std::string get_domain_name(char* server_name) {
 // fp_db.Accept(writer);
 // std::cerr << buffer.GetString() << std::endl;
 
-struct analysis_result perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
+struct analysis_result perform_analysis(char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
     rapidjson::Value::ConstMemberIterator matcher = fp_db.FindMember(fp_str);
     if (matcher == fp_db.MemberEnd()) {
-
         return analysis_result();
     }
     rapidjson::Value& fp = fp_db[fp_str];
@@ -398,19 +397,15 @@ struct analysis_result perform_analysis(char **result, size_t max_bytes, char *f
         }
     }
 
-    *result = (char*)calloc(max_bytes, sizeof(char));
     if (MALWARE_DB) {
         return analysis_result(max_proc.c_str(), max_score, max_mal, malware_prob);
     }
     return analysis_result(max_proc.c_str(), max_score);
-
 }
 
 void write_analysis_from_extractor_and_flow_key(struct json_object &o,
                                                 const struct tls_client_hello &hello,
                                                 const struct key &key) {
-    char* results;
-
     uint16_t dst_port = flow_key_get_dst_port(key);
     char dst_ip_str[MAX_DST_ADDR_LEN];
     flow_key_sprintf_dst_addr(key, dst_ip_str);
@@ -428,15 +423,10 @@ void write_analysis_from_extractor_and_flow_key(struct json_object &o,
     sn.strncpy(sn_str, MAX_SNI_LEN);
     // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
 
-    class analysis_result res = perform_analysis(&results, MAX_FP_STR_LEN, fp_str, sn_str, dst_ip_str, dst_port);
+    class analysis_result res = perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
     if (res.is_valid() == false) {
         return;
     }
     res.write_json(o, "analysis");
-    //buf.write_char(',');
-    //buf.strncpy(results);
-
-    free(results);
-
 }
 
