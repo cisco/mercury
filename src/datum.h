@@ -94,6 +94,25 @@ struct datum {
         }
         return 0;
     }
+    uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
+        data = r.data;
+        while (r.data <= r.data_end) {
+            if (*r.data == delim1) { // found first delimeter
+                data_end = r.data;
+                return delim1;
+            }
+            if (*r.data == delim2) { // found second delimeter
+                data_end = r.data;
+                return delim2;
+            }
+            if (*r.data == delim3) { // found third delimeter
+                data_end = r.data;
+                return delim2;
+            }
+            r.data++;
+        }
+        return 0;
+    }
     void skip(size_t length) {
         data += length;
         if (data > data_end) {
@@ -280,6 +299,12 @@ struct datum {
         return true;
     }
 
+    int compare(const void *x, ssize_t x_len) {
+        if (data && length() == x_len) {
+            return memcmp(x, data, x_len);
+        }
+        return std::numeric_limits<int>::min();
+    }
 };
 
 template <size_t T> struct data_buffer {
