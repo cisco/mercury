@@ -318,5 +318,9 @@ struct quic_initial_packet_crypto {
     }
 };
 
+constexpr uint8_t quic_initial_packet_crypto::client_in_label[];
+constexpr uint8_t quic_initial_packet_crypto::quic_key_label[];
+constexpr uint8_t quic_initial_packet_crypto::quic_iv_label[];
+constexpr uint8_t quic_initial_packet_crypto::quic_hp_label[];
 
 #endif /* QUIC_H */
