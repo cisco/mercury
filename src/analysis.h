@@ -25,23 +25,25 @@ class analysis_result {
     long double max_score;
     bool max_mal;
     long double malware_prob;
+    bool classify_malware;
 
 public:
-    analysis_result() : valid{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0} { }
+    analysis_result() : valid{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false} { }
 
-    analysis_result(const char *proc, long double score) : valid{true}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0} {
+    analysis_result(const char *proc, long double score) : valid{true}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
-    analysis_result(const char *proc, long double score, bool mal, long double mal_prob) : valid{true}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob} {
+    analysis_result(const char *proc, long double score, bool mal, long double mal_prob) :
+        valid{true}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
 
     void write_json(struct json_object &o, const char *key) {
-        if (malware_prob > 0) {
+        if (classify_malware) {
             struct json_object analysis{o, key};
             analysis.print_key_string("process", max_proc);
             analysis.print_key_float("score", max_score);
-            analysis.print_key_bool("malware", max_mal);
+            analysis.print_key_uint("malware", max_mal);
             analysis.print_key_float("p_malware", malware_prob);
             analysis.close();
         } else {
