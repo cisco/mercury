@@ -270,6 +270,7 @@ std::string get_domain_name(char* server_name) {
 struct analysis_result perform_analysis(char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
     rapidjson::Value::ConstMemberIterator matcher = fp_db.FindMember(fp_str);
     if (matcher == fp_db.MemberEnd()) {
+        // fprintf(stderr, "no fp in db\n");
         return analysis_result();
     }
     rapidjson::Value& fp = fp_db[fp_str];
