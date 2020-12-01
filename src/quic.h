@@ -112,7 +112,7 @@ struct quic_initial_packet {
         data.parse(d, data_length);
 
         if ((data.is_not_empty() == false) || (data_length < 32) ||
-            (scid.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
+            (dcid.is_not_empty() == false)) {
             return;  // invalid or incomplete packet
         }
         valid = true;
@@ -210,6 +210,10 @@ struct quic_initial_packet_crypto {
         AES_encrypt(quic_pkt.data.data+4, buf, &enc_key);
         pn_length = quic_pkt.connection_info ^ (buf[0] & 0x0f);
         pn_length = (pn_length & 0x03) + 1;
+
+	for (uint8_t i = quic_iv_len-pn_length; i < quic_iv_len; i++) {
+	  quic_iv[i] ^= (buf[(i-(quic_iv_len-pn_length))+1] ^ *(quic_pkt.data.data + (i-(quic_iv_len-pn_length))));
+	}
 
         valid = true;
     }
