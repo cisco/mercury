@@ -294,6 +294,8 @@ struct tls_extensions : public datum {
 
     void print_server_name(struct json_object &o, const char *key) const;
 
+    void print_quic_transport_parameters(struct json_object &o, const char *key) const;
+
     void set_server_name(struct datum &server_name) const;
 
     void print_session_ticket(struct json_object &o, const char *key) const;

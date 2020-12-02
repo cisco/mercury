@@ -43,10 +43,11 @@
 /*
  * extension types used in normalization
  */
-#define type_sni                0x0000
-#define type_supported_groups   0x000a
-#define type_supported_versions 0x002b
-#define type_session_ticket     0x0023
+#define type_sni                       0x0000
+#define type_supported_groups          0x000a
+#define type_supported_versions        0x002b
+#define type_session_ticket            0x0023
+#define type_quic_transport_parameters 0xffa5
 
 static uint16_t static_extension_types[num_static_extension_types] = {
         1,         /* max fragment length                    */
@@ -195,6 +196,34 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
             // o.print_key_json_string(key, ext.data + SNI_HDR_LEN, ext.length() - SNI_HDR_LEN);
             ext.skip(SNI_HDR_LEN);
             o.print_key_json_string(key, ext);
+        }
+    }
+
+}
+
+void tls_extensions::print_quic_transport_parameters(struct json_object &o, const char *key) const {
+
+    struct datum ext_parser{this->data, this->data_end};
+
+    while (datum_get_data_length(&ext_parser) > 0) {
+        size_t tmp_len = 0;
+        size_t tmp_type;
+
+        const uint8_t *data = ext_parser.data;
+        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+            break;
+        }
+        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+            break;
+        }
+        if (datum_skip(&ext_parser, tmp_len) == status_err) {
+            break;
+        }
+        const uint8_t *data_end = ext_parser.data;
+
+        if (tmp_type == type_quic_transport_parameters) {
+            struct datum ext{data, data_end};
+            o.print_key_hex(key, ext);
         }
     }
 
@@ -452,6 +481,7 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
         //hello.extensions.print(tls, "extensions");
     }
     extensions.print_server_name(tls_client, "server_name");
+    extensions.print_quic_transport_parameters(tls_client, "quic_transport_parameters");
     if (output_metadata) {
         extensions.print_session_ticket(tls_client, "session_ticket");
     }
