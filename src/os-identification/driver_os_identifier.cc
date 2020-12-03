@@ -1,4 +1,4 @@
-// g++ -Wall driver_os_identifier.cc -o driver_os_identifier ../parser.c -lz
+// g++ -Wall driver_os_identifier.cc -o driver_os_identifier ../datum.cc -lz
 // ./driver_os_identifier mercury.json
 
 #include <iostream>

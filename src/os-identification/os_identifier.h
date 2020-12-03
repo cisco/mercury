@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../parser.h"
+#include "../datum.h"
 
 #include "../rapidjson/document.h"
 #include "../rapidjson/stringbuffer.h"
@@ -72,22 +72,22 @@ int database_init(const char *resource_file, rapidjson::Document &fp_db) {
 
 
 struct mercury_record {
-    struct parser fp_type;
-    struct parser fingerprint;
-    struct parser src_ip;
-    struct parser event_start;
+    struct datum fp_type;
+    struct datum fingerprint;
+    struct datum src_ip;
+    struct datum event_start;
 
     mercury_record() = default;
 
-    mercury_record(struct parser &d) : fp_type{}, fingerprint{}, src_ip{}, event_start{} {
+    mercury_record(struct datum &d) : fp_type{}, fingerprint{}, src_ip{}, event_start{} {
         parse(d);
     };
 
-    void parse(struct parser &d) {
+    void parse(struct datum &d) {
         uint8_t next_byte;
         if (d.accept('{')) return;
         if (d.accept_byte((const uint8_t *)"\"}", &next_byte)) return;
-        struct parser key;
+        struct datum key;
         if (next_byte == '\"') {
             key.parse_up_to_delim(d, '\"'); // "fingerprints"
             if (d.accept_byte((const uint8_t *)"\"", &next_byte)) return;
@@ -104,14 +104,14 @@ struct mercury_record {
         if (d.accept('\"')) return;
         if (d.accept('}')) return;
 
-        if (parser_skip_upto_delim(&d, (const unsigned char *)"src_ip", sizeof("src_ip")-1)) return;
+        if (datum_skip_upto_delim(&d, (const unsigned char *)"src_ip", sizeof("src_ip")-1)) return;
         if (d.accept('\"')) return;
         if (d.accept(':')) return;
         if (d.accept('\"')) return;
         src_ip.parse_up_to_delim(d, '\"');
         if (d.accept('\"')) return;
 
-        if (parser_skip_upto_delim(&d, (const unsigned char *)"event_start", sizeof("event_start")-1)) return;
+        if (datum_skip_upto_delim(&d, (const unsigned char *)"event_start", sizeof("event_start")-1)) return;
         if (d.accept('\"')) return;
         if (d.accept(':')) return;
         event_start.parse_up_to_delim(d, '}');
@@ -354,7 +354,7 @@ void os_classify_all_samples() {
 
 void os_process_line(std::string line) {
     unsigned char *buf = (unsigned char*)line.c_str();
-    struct parser d{buf, buf + strlen((char*)buf)};
+    struct datum d{buf, buf + strlen((char*)buf)};
     struct mercury_record r{d};
 
     char fp_buffer[FP_BUFFER_SIZE];
