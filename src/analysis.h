@@ -12,7 +12,6 @@
 #include "packet.h"
 #include "addr.h"
 #include "json_object.h"
-#include "buffer_stream.h"
 
 int analysis_init(int verbosity, const char *resource_dir);
 
