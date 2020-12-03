@@ -259,11 +259,13 @@ size_t stateful_pkt_proc::write_json(void *buffer,
             {
                 wireguard_handshake_init wg;
                 wg.parse(pkt);
-                struct json_object record{&buf};
-                wg.write_json(record);
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
-                record.close();
+                if (wg.is_valid()) {
+                    struct json_object record{&buf};
+                    wg.write_json(record);
+                    write_flow_key(record, k);
+                    record.print_key_timestamp("event_start", ts);
+                    record.close();
+                }
             }
             break;
         case udp_msg_type_dns:
@@ -323,9 +325,9 @@ size_t stateful_pkt_proc::write_json(void *buffer,
                     fps.close();
                     if (global_vars.metadata_output) {
                         dhcp_disco.write_json(record);
-                        write_flow_key(record, k);
-                        record.print_key_timestamp("event_start", ts);
                     }
+                    write_flow_key(record, k);
+                    record.print_key_timestamp("event_start", ts);
                     record.close();
                 }
             }
