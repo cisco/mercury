@@ -76,20 +76,27 @@ struct mercury_record {
     struct datum fingerprint;
     struct datum src_ip;
     struct datum event_start;
+    bool valid;   // a record is valid only if it contains a fingerprint, src_ip, and event_start
 
     mercury_record() = default;
 
-    mercury_record(struct datum &d) : fp_type{}, fingerprint{}, src_ip{}, event_start{} {
+    mercury_record(struct datum &d) : fp_type{}, fingerprint{}, src_ip{}, event_start{}, valid{false} {
         parse(d);
     };
 
     void parse(struct datum &d) {
+        valid = false;
+
         uint8_t next_byte;
         if (d.accept('{')) return;
         if (d.accept_byte((const uint8_t *)"\"}", &next_byte)) return;
         struct datum key;
         if (next_byte == '\"') {
             key.parse_up_to_delim(d, '\"'); // "fingerprints"
+            if (key.compare((const unsigned char *)"fingerprints", sizeof("fingerprints")-1) != 0) {
+                // fprintf(stderr, "expected \"fingerprints\", got %.*s\n", (int)key.length(), key.data);
+                return;
+            }
             if (d.accept_byte((const uint8_t *)"\"", &next_byte)) return;
         }
         if (d.accept(':')) return;
@@ -116,13 +123,21 @@ struct mercury_record {
         if (d.accept(':')) return;
         event_start.parse_up_to_delim(d, '}');
         if (d.accept('}')) return;
+
+        valid = true;
     }
 
+    bool is_valid() { return valid; }
+
     void write_json(FILE *output) {
-        fprintf(output, "{\"fp_type\":\"%.*s\"", (int)fp_type.length(), fp_type.data);
-        fprintf(output, ",\"fingerprint\":\"%.*s\"", (int)fingerprint.length(), fingerprint.data);
-        fprintf(output, ",\"src_ip\":\"%.*s\"", (int)src_ip.length(), src_ip.data);
-        fprintf(output, ",\"event_start\":%.*s}\n", (int)event_start.length(), event_start.data);
+        if (valid) {
+            fprintf(output, "{\"fp_type\":\"%.*s\"", (int)fp_type.length(), fp_type.data);
+            fprintf(output, ",\"fingerprint\":\"%.*s\"", (int)fingerprint.length(), fingerprint.data);
+            fprintf(output, ",\"src_ip\":\"%.*s\"", (int)src_ip.length(), src_ip.data);
+            fprintf(output, ",\"event_start\":%.*s}\n", (int)event_start.length(), event_start.data);
+        } else {
+            fprintf(stderr, "warning: attempt to write invalid or incomplete mercury_record\n");
+        }
     }
 
 };
@@ -352,10 +367,17 @@ void os_classify_all_samples() {
 #define SRC_IP_BUFFER_SIZE 64
 #define EVENT_START_BUFFER_SIZE 32
 
-void os_process_line(std::string line) {
+void os_process_line(std::string line, bool verbose=false) {
     unsigned char *buf = (unsigned char*)line.c_str();
     struct datum d{buf, buf + strlen((char*)buf)};
     struct mercury_record r{d};
+
+    if (!r.is_valid()) {
+        if (verbose) {
+            fprintf(stderr, "warning: mercury record is invalid or incomplete (%s)\n", line.c_str());
+        }
+        return;
+    }
 
     char fp_buffer[FP_BUFFER_SIZE];
     char fp_type_buffer[FP_TYPE_BUFFER_SIZE];
