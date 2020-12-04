@@ -9,6 +9,15 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normaling metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.  
 
+## Version 2.3.4
+* *Multiple* PCAP files can be piped in to the standard input, like `cat *.pcap | ./mercury`, which can simplify workflow and improve performance, especially when working with HDFS and NFS, by minimizing or eliminating the need to write intermediary files to disk.
+* Added defensive coding (no changes in functionality).
+
+## Version 2.3.3
+* Improved QUIC processing.
+* Added recognition of CONNECT, PUT, and HEAD methods for HTTP fingerprinting.
+* Fixed a bug in the --analysis module caused when the fingerprint database contains a count field greater than 2^31.  
+
 ## Version 2.3.2
 * QUIC client fingerprints are now reported.
 * PCAP files can be piped in to the standard input, like `cat dhcp.pcap | ./mercury --metadata`.  This feature makes it easier to work with some environments like HDFS.
