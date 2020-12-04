@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <array>
+#include <bitset>
 #include <limits>
 #include <string>
 #include "mercury.h"
@@ -253,6 +255,17 @@ struct datum {
         set_null();
         *output = 0;
         return false;
+    }
+
+    template <size_t N>
+    void read_array(std::array<uint8_t, N> a) {
+        if (data && data + N <= data_end) {
+            memcpy(a.data(), data, N);
+            data += N;
+            return;
+        }
+        set_null();
+        memset(a.data(), 0, N);
     }
 
     bool set_uint(size_t *output, unsigned int num_bytes) {

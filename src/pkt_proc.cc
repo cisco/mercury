@@ -25,6 +25,7 @@
 #include "dhcp.h"
 #include "tcpip.h"
 #include "eth.h"
+#include "gre.h"
 #include "udp.h"
 #include "quic.h"
 #include "analysis.h"
@@ -118,6 +119,7 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     // o.b->snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
+static constexpr bool report_GRE = false;
 
 size_t stateful_pkt_proc::write_json(void *buffer,
                                      size_t buffer_size,
@@ -141,6 +143,21 @@ size_t stateful_pkt_proc::write_json(void *buffer,
         break;
     default:
         ;
+    }
+
+    if (report_GRE && transport_proto == 47) {
+        gre_header gre{pkt};
+        switch(gre.get_protocol_type()) {
+        case ETH_TYPE_IP:
+            datum_process_ipv4(&pkt, &transport_proto, &k);
+            break;
+        case ETH_TYPE_IPV6:
+            datum_process_ipv6(&pkt, &transport_proto, &k);
+            break;
+        default:
+            ;
+        }
+
     }
     if (transport_proto == 6) {
         struct tcp_packet tcp_pkt;
