@@ -10,9 +10,11 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>      /* for FILE */
 #include <arpa/inet.h>
 #include <string.h>
+#include <array>
+#include <bitset>
+#include <limits>
 #include <string>
 #include "mercury.h"
 
@@ -87,6 +89,25 @@ struct datum {
                 return delim1;
             }
             if (*r.data == delim2) { // found second delimeter
+                data_end = r.data;
+                return delim2;
+            }
+            r.data++;
+        }
+        return 0;
+    }
+    uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
+        data = r.data;
+        while (r.data <= r.data_end) {
+            if (*r.data == delim1) { // found first delimeter
+                data_end = r.data;
+                return delim1;
+            }
+            if (*r.data == delim2) { // found second delimeter
+                data_end = r.data;
+                return delim2;
+            }
+            if (*r.data == delim3) { // found third delimeter
                 data_end = r.data;
                 return delim2;
             }
@@ -236,6 +257,17 @@ struct datum {
         return false;
     }
 
+    template <size_t N>
+    void read_array(std::array<uint8_t, N> a) {
+        if (data && data + N <= data_end) {
+            memcpy(a.data(), data, N);
+            data += N;
+            return;
+        }
+        set_null();
+        memset(a.data(), 0, N);
+    }
+
     bool set_uint(size_t *output, unsigned int num_bytes) {
 
         if (data && data + num_bytes <= data_end) {
@@ -280,6 +312,12 @@ struct datum {
         return true;
     }
 
+    int compare(const void *x, ssize_t x_len) {
+        if (data && length() == x_len) {
+            return memcmp(x, data, x_len);
+        }
+        return std::numeric_limits<int>::min();
+    }
 };
 
 template <size_t T> struct data_buffer {

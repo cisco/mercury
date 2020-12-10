@@ -1,4 +1,4 @@
-// g++ -Wall driver_os_identifier.cc -o driver_os_identifier ../parser.c -lz
+// g++ -Wall driver_os_identifier.cc -o driver_os_identifier ../datum.cc -lz
 // ./driver_os_identifier mercury.json
 
 #include <iostream>
@@ -6,6 +6,7 @@
 
 #include "os_identifier.h"
 
+bool verbose = true;  // set to true for details about incomplete mercury_records
 
 int main(int argc, char *argv[]) {
     if (argv[1] == NULL) {
@@ -25,7 +26,7 @@ int main(int argc, char *argv[]) {
     std::string line;
     while (getline(ifs,line)) {
         /* extract features and update host data */
-        os_process_line(line);
+        os_process_line(line, verbose);
     }
 
     /* classify all src_ip's */

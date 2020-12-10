@@ -239,6 +239,70 @@ enum status pcap_file_open(struct pcap_file *f,
     return status_ok;
 }
 
+inline bool pcap_packet_hdr_may_be_a_file_header(const struct pcap_packet_hdr *hdr) {
+    return hdr->incl_len == 0 && (hdr->ts_sec == magic || hdr->ts_sec == cagim);
+}
+
+enum status pcap_file_reinit_file_hdr(struct pcap_file *f,
+                                      const struct pcap_file_hdr *file_header) {
+
+    if (f->flags != O_RDONLY) {
+        fprintf(stderr, "error: attempt to reinitialize a writeable file (flags=0x%x)\n", f->flags);
+        return status_err;
+    }
+
+	if (file_header->magic_number == magic) {
+	    f->byteswap = 0;
+	} else if (file_header->magic_number == cagim) {
+	    f->byteswap = 1;
+	} else {
+	    if (file_header->magic_number == 0x0a0d0d0a) {
+            fprintf(stderr, "error: pcap-ng format found; this format is currently unsupported\n");
+            exit(255); // hard stop; we have data we can't process
+	    } else {
+            fprintf(stderr, "warning: file not in pcap format in %s (file header: %08x)\n",
+                    __func__, file_header->magic_number);
+        }
+	}
+
+    return status_ok;
+}
+
+enum status pcap_file_reinit(struct pcap_file *f,
+                             struct pcap_pkthdr *pkthdr /* input and output */
+                             ) {
+
+    struct pcap_file_hdr file_hdr;
+    memcpy(&file_hdr, pkthdr, sizeof(pcap_packet_hdr));
+    uint8_t *tmp = (uint8_t *)&file_hdr;
+    tmp += sizeof(pcap_packet_hdr);
+    ssize_t items_read = fread(tmp, 1, sizeof(pcap_file_hdr) - sizeof(pcap_packet_hdr), f->file_ptr);
+    if (items_read != sizeof(pcap_file_hdr) - sizeof(pcap_packet_hdr)) {
+        fprintf(stderr, "error: could not read remainder of file header (only got %zu bytes, needed %zu)\n", items_read, sizeof(pcap_file_hdr) - sizeof(pcap_packet_hdr));
+        return status_err;  /* could not read remainder of file header         */
+    }
+    if (pcap_file_reinit_file_hdr(f, &file_hdr) != status_ok) {
+        fprintf(stderr, "error: could not reinitialze; not a valid file header\n");
+        return status_err;  /* could not reinitialize; not a vaild file header */
+    }
+
+    /* read first packet header, and write its values as output */
+    struct pcap_packet_hdr packet_hdr;
+    items_read = fread(&packet_hdr, sizeof(packet_hdr), 1, f->file_ptr);
+    if (items_read == 0) {
+        return status_err_no_more_data; /* could not read packet header from file */
+    }
+    if (f->byteswap) {
+        pkthdr->ts.tv_sec = ntohl(packet_hdr.ts_sec);
+        pkthdr->ts.tv_usec = ntohl(packet_hdr.ts_usec);
+        pkthdr->caplen = ntohl(packet_hdr.incl_len);
+    } else {
+        pkthdr->ts.tv_sec = packet_hdr.ts_sec;
+        pkthdr->ts.tv_usec = packet_hdr.ts_usec;
+        pkthdr->caplen = packet_hdr.incl_len;
+    }
+    return status_ok;
+}
 
 enum status pcap_file_write_packet_direct(struct pcap_file *f,
                       const void *packet,
@@ -309,9 +373,9 @@ enum status advance(FILE *f, size_t length) {
 #define BUFLEN  65536
 
 enum status pcap_file_read_packet(struct pcap_file *f,
-                  struct pcap_pkthdr *pkthdr, /* output */
-                  void *packet_data           /* output */
-                  ) {
+                                  struct pcap_pkthdr *pkthdr, /* output */
+                                  void *packet_data           /* output */
+                                  ) {
     ssize_t items_read;
     struct pcap_packet_hdr packet_hdr;
 
@@ -335,6 +399,17 @@ enum status pcap_file_read_packet(struct pcap_file *f,
         pkthdr->caplen = packet_hdr.incl_len;
     }
 
+    if (f->file_ptr == stdin && pcap_packet_hdr_may_be_a_file_header(&packet_hdr)) {
+
+        /*
+         * we are reading from standard input, and the packet header
+         * seems to be the header of a new file, so we will attempt to
+         * reinitialize the pcap_file using that file header
+         */
+        if (pcap_file_reinit(f, pkthdr) != status_ok) {
+            return status_err;
+        }
+    }
     if (pkthdr->caplen <= BUFLEN) {
         items_read = fread(packet_data, pkthdr->caplen, 1, f->file_ptr);
         if (items_read == 0) {

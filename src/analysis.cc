@@ -282,7 +282,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
     std::string server_name_str(server_name);
     std::string dst_ip_str(dst_ip);
 
-    uint32_t fp_tc, p_count, tmp_value;
+    uint64_t fp_tc, p_count, tmp_value;
     long double prob_process_given_fp, score;
     long double max_score = -1.0;
     long double sec_score = -1.0;
@@ -294,7 +294,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
     bool sec_mal = false;
 
     rapidjson::Value proc;
-    fp_tc = fp["total_count"].GetInt();
+    fp_tc = fp["total_count"].GetUint64();
 
     long double base_prior;
     long double proc_prior = log(.1);
@@ -302,7 +302,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
 
     const rapidjson::Value& procs = fp["process_info"];
     for (rapidjson::SizeType i = 0; i < procs.Size(); i++) {
-        p_count = procs[i]["count"].GetInt();
+        p_count = procs[i]["count"].GetUint64();
         prob_process_given_fp = (long double)p_count/fp_tc;
 
         base_prior = log(1.0/fp_tc);
@@ -316,7 +316,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
 
         itr = procs[i]["classes_ip_as"].FindMember(asn.c_str());
         if (itr != procs[i]["classes_ip_as"].MemberEnd()) {
-            tmp_value = procs[i]["classes_ip_as"][asn.c_str()].GetInt();
+            tmp_value = procs[i]["classes_ip_as"][asn.c_str()].GetUint64();
             score += log((long double)tmp_value/fp_tc)*0.13924;
         } else {
             score += base_prior*0.13924;
@@ -324,7 +324,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
 
         itr = procs[i]["classes_hostname_domains"].FindMember(domain.c_str());
         if (itr != procs[i]["classes_hostname_domains"].MemberEnd()) {
-            tmp_value = procs[i]["classes_hostname_domains"][domain.c_str()].GetInt();
+            tmp_value = procs[i]["classes_hostname_domains"][domain.c_str()].GetUint64();
             score += log((long double)tmp_value/fp_tc)*0.15590;
         } else {
             score += base_prior*0.15590;
@@ -332,7 +332,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
 
         itr = procs[i]["classes_port_applications"].FindMember(port_app.c_str());
         if (itr != procs[i]["classes_port_applications"].MemberEnd()) {
-            tmp_value = procs[i]["classes_port_applications"][port_app.c_str()].GetInt();
+            tmp_value = procs[i]["classes_port_applications"][port_app.c_str()].GetUint64();
             score += log((long double)tmp_value/fp_tc)*0.00528;
         } else {
             score += base_prior*0.00528;
@@ -341,7 +341,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
         if (EXTENDED_FP_METADATA) {
             itr = procs[i]["classes_ip_ip"].FindMember(dst_ip_str.c_str());
             if (itr != procs[i]["classes_ip_ip"].MemberEnd()) {
-                tmp_value = procs[i]["classes_ip_ip"][dst_ip_str.c_str()].GetInt();
+                tmp_value = procs[i]["classes_ip_ip"][dst_ip_str.c_str()].GetUint64();
                 score += log((long double)tmp_value/fp_tc)*0.56735;
             } else {
                 score += base_prior*0.56735;
@@ -349,7 +349,7 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
 
             itr = procs[i]["classes_hostname_sni"].FindMember(server_name_str.c_str());
             if (itr != procs[i]["classes_hostname_sni"].MemberEnd()) {
-                tmp_value = procs[i]["classes_hostname_sni"][server_name_str.c_str()].GetInt();
+                tmp_value = procs[i]["classes_hostname_sni"][server_name_str.c_str()].GetUint64();
                 score += log((long double)tmp_value/fp_tc)*0.96941;
             } else {
                 score += base_prior*0.96941;
