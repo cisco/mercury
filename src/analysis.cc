@@ -431,3 +431,25 @@ void write_analysis_from_extractor_and_flow_key(struct json_object &o,
     res.write_json(o, "analysis");
 }
 
+class analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
+                                                   const struct key &key) {
+    uint16_t dst_port = flow_key_get_dst_port(key);
+    char dst_ip_str[MAX_DST_ADDR_LEN];
+    flow_key_sprintf_dst_addr(key, dst_ip_str);
+
+    // copy fingerprint string
+    char fp_str[MAX_FP_STR_LEN] = { 0 };
+    struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
+    hello.write_fingerprint(fp_buf);
+    fp_buf.write_char('\0'); // null-terminate
+    // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
+
+    char sn_str[MAX_SNI_LEN] = { 0 };
+    struct datum sn{NULL, NULL};
+    hello.extensions.set_server_name(sn);
+    sn.strncpy(sn_str, MAX_SNI_LEN);
+    // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
+
+    return perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
+}
+

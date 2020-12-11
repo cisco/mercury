@@ -417,7 +417,8 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
                  * output analysis (if it's configured)
                  */
                 if (global_vars.do_analysis) {
-                    write_analysis_from_extractor_and_flow_key(record, hello, k);
+                    class analysis_result res = analyze_client_hello_and_key(hello, k);
+                    res.write_json(record, "analysis");
                 }
                 write_flow_key(record, k);
                 record.print_key_timestamp("event_start", ts);

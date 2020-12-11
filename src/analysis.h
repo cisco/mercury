@@ -38,28 +38,25 @@ public:
     }
 
     void write_json(struct json_object &o, const char *key) {
-        if (classify_malware) {
-            struct json_object analysis{o, key};
+        struct json_object analysis{o, key};
+        if (valid) {
             analysis.print_key_string("process", max_proc);
             analysis.print_key_float("score", max_score);
-            analysis.print_key_uint("malware", max_mal);
-            analysis.print_key_float("p_malware", malware_prob);
-            analysis.close();
+            if (classify_malware) {
+                analysis.print_key_uint("malware", max_mal);
+                analysis.print_key_float("p_malware", malware_prob);
+            }
         } else {
-            struct json_object analysis{o, key};
-            analysis.print_key_string("process", max_proc);
-            analysis.print_key_float("score", max_score);
-            analysis.close();
+            analysis.print_key_string("status", "unknown_fingerprint");
         }
-
+        analysis.close();
     }
 
     bool is_valid() { return valid; }
 };
 
-void write_analysis_from_extractor_and_flow_key(struct json_object &o,
-                                                const struct tls_client_hello &hello,
-                                                const struct key &key);
+class analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
+                                                   const struct key &key);
 
 
 #endif /* ANALYSIS_H */
