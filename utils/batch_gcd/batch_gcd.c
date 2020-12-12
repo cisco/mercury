@@ -450,6 +450,14 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
 }
 
 
+/* Note that for a small number of moduli needing additional factoring work
+ * this quadratic algorithm is very efficient.
+ * For large numbers though it becomes effectively impossible to finish.
+ * DJB has a much more complex but much more efficient algorithm
+ * when the number of moduli needing co-prime factorization:
+ * "Factoring into coprimesin essentially linear time"
+ * https://cr.yp.to/lineartime/dcba-20040404.pdf
+ */
 struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist) {
     assert(nlist != NULL);
     assert(nlist->num != NULL);
