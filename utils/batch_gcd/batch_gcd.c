@@ -450,6 +450,136 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
 }
 
 
+struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist) {
+    assert(nlist != NULL);
+    assert(nlist->num != NULL);
+    assert(gcdlist != NULL);
+    assert(gcdlist->num != NULL);
+
+    /* The smallest co-prime list */
+    struct numlist *cplist = makenumlist(nlist->len);
+
+    size_t weak_count = 0; /* A count of the weak moduli */
+    uint64_t *weakidx = calloc(nlist->len, sizeof(uint64_t));
+    assert(weakidx != NULL);
+
+    size_t weak_gcd_count = 0; /* A count of the number of weak moduli needing more GCD work */
+    uint64_t *weakidx_gcd = calloc(nlist->len, sizeof(uint64_t));
+    assert(weakidx_gcd != NULL);
+
+    mpz_t q;
+    mpz_init(q);
+
+    /* Each GCD that isn't 1 is vulnerable and needs factoring */
+    for (size_t i = 0; i < nlist->len; i++) {
+        if (mpz_cmp_ui(gcdlist->num[i], 1) != 0) {
+            /* This moduli is weak
+             *
+             * Case 1: The GCD is less than the moduli meaning
+             * we already have factored the moduli. In that case
+             * find the smaller of the two co-prime factors and store
+             * it in the cplist.
+             *
+             * Case 2: The GCD is equal to moduli meaning this moduli
+             * shares all factors with other moduli and it needs further
+             * GCD efforts to separate out the co-primes.
+             */
+
+            /* Check case 1 that GCD is already less than moduli */
+            if (mpz_cmp(gcdlist->num[i], nlist->num[i]) != 0) {
+                /* Store this index */
+                weakidx[weak_count] = i;
+                weak_count++;
+
+                /* Find the other factor */
+                mpz_div(q, nlist->num[i], gcdlist->num[i]);
+
+                /* Set co-prime factor to lesser of the two */
+                if (mpz_cmp(gcdlist->num[i], q) < 0) {
+                    mpz_set(cplist->num[i], gcdlist->num[i]);
+                } else {
+                    mpz_set(cplist->num[i], q);
+                }
+            } else {
+                /* We're in case 2 where further GCD work is needed */
+
+                /* Store this index */
+                weakidx[weak_count] = i;
+                weak_count++;
+
+                /* Also track that we need to do more GCD work */
+                weakidx_gcd[weak_gcd_count] = i;
+                weak_gcd_count++;
+            }
+
+        } else {
+            /* The smallest co-prime of a moduli that
+             * doesn't share a prime with another moduli
+             * is the moduli itself
+             */
+                mpz_set(cplist->num[i], nlist->num[i]);
+        }
+    }
+
+    /* Now report on work remaining */
+    fprintf(stderr, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
+    fprintf(stderr, "Still need to perform GCD co-factoring on %lu weak moduli.\n", weak_gcd_count);
+    fprintf(stderr, "Work still to do: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
+
+    /* To separate out the remaining co-primes we just do trial GCD on the remaining
+     * weak moduli until we find a pair that only share one co-prime.
+     * This makes the step quadratic in the number of weak moduli
+     */
+    mpz_t gcd;
+    mpz_init(gcd);
+    size_t weak_gcd_success = 0;
+    for (size_t wgi = 0; wgi < weak_gcd_count; wgi++) {
+        for (size_t wi = 0; wi < weak_count; wi++) {
+
+            int idx_w = weakidx[wi];
+            int idx_g = weakidx_gcd[wgi];
+
+            /* Skip when these are the same index */
+            if (idx_w == idx_g) {
+                continue;
+            }
+
+            /* GCD this pair */
+            mpz_gcd(gcd, nlist->num[idx_w], nlist->num[idx_g]);
+
+            if (mpz_cmp_ui(gcd, 1) != 0) {
+                /* Okay they share at least one factor */
+                if (mpz_cmp(gcd, nlist->num[idx_g]) != 0) {
+                    /* They only shared one factor */
+                    mpz_div(q, nlist->num[idx_g], gcd);
+
+                    /* Set co-prime factor to lesser of the two */
+                    if (mpz_cmp(gcd, q) < 0) {
+                        mpz_set(cplist->num[idx_g], gcd);
+                    } else {
+                        mpz_set(cplist->num[idx_g], q);
+                    }
+
+                    weak_gcd_success++;
+                    break;
+                }
+            }
+        }
+    }
+
+    fprintf(stderr, "Further found co-factors for %lu weak moduli.\n", weak_gcd_success);
+
+    free(weakidx);
+    free(weakidx_gcd);
+    mpz_clear(q);
+    mpz_clear(gcd);
+
+    return cplist;
+}
+
+
+
+
 void print_numlist(struct numlist *nlist) {
     assert(nlist != NULL);
     assert(nlist->num != NULL);
@@ -542,10 +672,14 @@ int main (void) {
     }
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
+    struct numlist *cplist = factor_coprimes(nlist, gcdlist);
+
     for (size_t i = 0; i < nlist->len; i++) {
         if (mpz_cmp_ui(gcdlist->num[i], 1) != 0) {
             fprintf(stderr, "Found vulnerable modulus on line %lu: ", i + 1);
             gmp_fprintf(stderr, "%Zx", nlist->num[i]);
+            fprintf(stderr, " with smallest co-factor ");
+            gmp_fprintf(stderr, "%Zx", cplist->num[i]);
             fprintf(stderr, "\n");
         }
     }
@@ -553,6 +687,7 @@ int main (void) {
     mpz_clear(mpz_temp);
     freenumlist(nlist);
     freenumlist(gcdlist);
+    freenumlist(cplist);
 
     return 0;
 }
