@@ -219,10 +219,10 @@ enum status pcap_file_open(struct pcap_file *f,
 	    f->byteswap = 1;
 	    // printf("file is in pcap format\nbyteswap is needed\n");
 	} else {
-	    printf("error: file %s not in pcap format (file header: %08x)\n",
+	    fprintf(stderr, "error: file %s not in pcap format (file header: %08x)\n",
 		   fname, file_header.magic_number);
 	    if (file_header.magic_number == 0x0a0d0d0a) {
-		printf("error: pcap-ng format found; this format is currently unsupported\n");
+            fprintf(stderr, "error: pcap-ng format found; this format is currently unsupported\n");
 	    }
 	    exit(255);
 	}
@@ -491,12 +491,12 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
 }
 
 enum status pcap_file_close(struct pcap_file *f) {
-    if (fclose(f->file_ptr) != 0) {
-	perror("could not close input pcap file");
-	return status_err;
+    if (f->file_ptr != stdin && fclose(f->file_ptr) != 0) {
+        perror("could not close input pcap file");
+        return status_err;
     }
     if (f->buffer) {
-	free(f->buffer);
+        free(f->buffer);
     }
     return status_ok;
 }

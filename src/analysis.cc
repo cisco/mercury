@@ -267,11 +267,11 @@ std::string get_domain_name(char* server_name) {
 // fp_db.Accept(writer);
 // std::cerr << buffer.GetString() << std::endl;
 
-int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
+struct analysis_result perform_analysis(char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
     rapidjson::Value::ConstMemberIterator matcher = fp_db.FindMember(fp_str);
     if (matcher == fp_db.MemberEnd()) {
-
-        return -1;
+        // fprintf(stderr, "no fp in db\n");
+        return analysis_result();
     }
     rapidjson::Value& fp = fp_db[fp_str];
 
@@ -398,22 +398,15 @@ int perform_analysis(char **result, size_t max_bytes, char *fp_str, char *server
         }
     }
 
-    *result = (char*)calloc(max_bytes, sizeof(char));
     if (MALWARE_DB) {
-        snprintf(*result, max_bytes, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf,\"malware\":%d,\"p_malware\":%Lf}", max_proc.c_str(), max_score, max_mal, malware_prob);
-    } else {
-        snprintf(*result, max_bytes, "\"analysis\":{\"process\":\"%s\",\"score\":%Lf}", max_proc.c_str(), max_score);
+        return analysis_result(max_proc.c_str(), max_score, max_mal, malware_prob);
     }
-
-    return 0;
+    return analysis_result(max_proc.c_str(), max_score);
 }
 
-void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
+void write_analysis_from_extractor_and_flow_key(struct json_object &o,
                                                 const struct tls_client_hello &hello,
                                                 const struct key &key) {
-    char* results;
-
-    int ret_value;
     uint16_t dst_port = flow_key_get_dst_port(key);
     char dst_ip_str[MAX_DST_ADDR_LEN];
     flow_key_sprintf_dst_addr(key, dst_ip_str);
@@ -431,16 +424,32 @@ void write_analysis_from_extractor_and_flow_key(struct buffer_stream &buf,
     sn.strncpy(sn_str, MAX_SNI_LEN);
     // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
 
-    ret_value = perform_analysis(&results, MAX_FP_STR_LEN, fp_str, sn_str, dst_ip_str, dst_port);
-    if (ret_value == -1) {
+    class analysis_result res = perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
+    if (res.is_valid() == false) {
         return;
     }
-    // fprintf(stderr, "analysis: %s\n", results);
+    res.write_json(o, "analysis");
+}
 
-    buf.write_char(',');
-    buf.strncpy(results);
+class analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
+                                                   const struct key &key) {
+    uint16_t dst_port = flow_key_get_dst_port(key);
+    char dst_ip_str[MAX_DST_ADDR_LEN];
+    flow_key_sprintf_dst_addr(key, dst_ip_str);
 
-    free(results);
+    // copy fingerprint string
+    char fp_str[MAX_FP_STR_LEN] = { 0 };
+    struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
+    hello.write_fingerprint(fp_buf);
+    fp_buf.write_char('\0'); // null-terminate
+    // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
 
+    char sn_str[MAX_SNI_LEN] = { 0 };
+    struct datum sn{NULL, NULL};
+    hello.extensions.set_server_name(sn);
+    sn.strncpy(sn_str, MAX_SNI_LEN);
+    // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
+
+    return perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
 }
 
