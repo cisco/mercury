@@ -7,7 +7,6 @@
 
 
 #include <string>
-#include "mercury.h"
 
 uint32_t get_asn_info(char* dst_ip);
 

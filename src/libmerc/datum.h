@@ -16,7 +16,7 @@
 #include <bitset>
 #include <limits>
 #include <string>
-#include "mercury.h"
+#include "libmerc.h"  // for enum status
 
 /*
  * The mercury_debug macro is useful for debugging (but quite verbose)

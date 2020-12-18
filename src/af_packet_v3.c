@@ -33,10 +33,10 @@
 
 #include "af_packet_v3.h"
 #include "signal_handling.h"
-#include "utils.h"
+#include "libmerc/utils.h"
 #include "rnd_pkt_drop.h"
 #include "output.h"
-#include "pkt_proc.h"
+#include "pkt_processing.h"
 
 /*
  * The thread_storage, stats_tracking, and ring_limits structs are

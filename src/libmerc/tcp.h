@@ -11,7 +11,6 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <unordered_map>
-#include "mercury.h"
 #include "datum.h"
 
 struct tcp_header {

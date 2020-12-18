@@ -11,8 +11,7 @@
 #include <errno.h>
 #include <thread>
 #include "config.h"
-
-struct global_variables global_vars;
+#include "libmerc/libmerc.h"
 
 char *command_get_argument(const char *command, char *line) {
     if (strncmp(command, line, strlen(command)-1) == 0) {
@@ -67,7 +66,9 @@ enum status argument_parse_as_float(const char *arg, float *variable_to_set) {
     return status_err;
 }
 
-static enum status mercury_config_parse_line(struct mercury_config *cfg, char *line) {
+static enum status mercury_config_parse_line(struct mercury_config *cfg,
+                                             class global_variables &global_vars,
+                                             char *line) {
     char *arg = NULL;
 
     if ((arg = command_get_argument("read=", line)) != NULL) {
@@ -180,6 +181,7 @@ enum status mercury_config_read_from_file(struct mercury_config *cfg,
         return status_err;
     }
 
+    class global_variables global_vars;
     char *line = NULL;
     size_t len = 0;
     ssize_t nread;
@@ -187,13 +189,15 @@ enum status mercury_config_read_from_file(struct mercury_config *cfg,
         if (nread > 1) {
             line[nread-1] = 0; /* replace CR with null terminator */
             string_remove_whitespace(line);
-            if (mercury_config_parse_line(cfg, line) == status_err) {
+            if (mercury_config_parse_line(cfg, global_vars, line) == status_err) {
                 fprintf(stderr, "warning: ignoring unparseable command line '%s'\n", line);
             }
         }
     }
     free(line);
     fclose(cfg_file);
+
+    mercury_set_global_variables(global_vars);
 
     return status_ok;
 }

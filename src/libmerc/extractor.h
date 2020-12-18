@@ -13,7 +13,6 @@
 #include <stdio.h>      /* for FILE */
 #include <list>
 #include "datum.h"
-#include "mercury.h"
 #include "tcp.h"
 #include "proto_identify.h"
 

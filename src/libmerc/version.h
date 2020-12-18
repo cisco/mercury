@@ -10,6 +10,9 @@
 #ifndef SEMANTIC_VERSION
 #define SEMANTIC_VERSION
 
+#include <stdint.h>
+#include <stdio.h>
+
 struct semantic_version {
     unsigned int major;
     unsigned int minor;

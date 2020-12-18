@@ -34,34 +34,53 @@ CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spur
 CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 CFLAGS += $(OPTFLAGS)
 
-# MERC and MERC_H hold the core source and header files, respectively
+# libmerc.a performs selective packet parsing and fingerprint extraction
+# LIBMERC and LIBMERC_H hold the core source and header files,
+# respectively, for that library
 #
-MERC   =  mercury.c
-ifeq ($(have_tpkt3),yes)
-MERC   += af_packet_v3.c
-else
-MERC   += capture.c
-endif
-MERC   += config.c
-MERC   += json_file_io.c
-MERC   += output.c
-MERC   += pkt_processing.cc
-MERC   += pcap_file_io.c
-MERC   += pcap_reader.c
-MERC   += rnd_pkt_drop.c
-MERC   += signal_handling.c
+LIBMERC     =  analysis.cc
+LIBMERC     += addr.cc
+LIBMERC     += dns.cc
+LIBMERC     += datum.cc
+LIBMERC     += extractor.cc
+LIBMERC     += http.cc
+LIBMERC     += libmerc.cc
+LIBMERC     += match.cc
+LIBMERC     += packet.cc
+LIBMERC     += pkt_proc.cc
+LIBMERC     += ssh.cc
+LIBMERC     += tls.cc
+LIBMERC     += udp.cc
+LIBMERC     += utils.cc
+LIBMERC     += wireguard.cc
+LIBMERC     += $(PYANALYSIS)
 
-MERC_H =  mercury.h
-MERC_H += af_packet_v3.h
-MERC_H += config.h
-MERC_H += json_file_io.h
-MERC_H += llq.h
-MERC_H += output.h
-MERC_H += pkt_processing.h
-MERC_H += pcap_file_io.h
-MERC_H += pcap_reader.h
-MERC_H += rnd_pkt_drop.h
-MERC_H += signal_handling.h
+LIBMERC_H   =  addr.h
+LIBMERC_H   += analysis.h
+LIBMERC_H   += buffer_stream.h
+LIBMERC_H   += dhcp.h
+LIBMERC_H   += dns.h
+LIBMERC_H   += eth.h
+LIBMERC_H   += extractor.h
+LIBMERC_H   += http.h
+LIBMERC_H   += json_object.h
+LIBMERC_H   += libmerc.h
+LIBMERC_H   += match.h
+LIBMERC_H   += proto_identify.h
+LIBMERC_H   += packet.h
+LIBMERC_H   += datum.h
+LIBMERC_H   += gre.h
+LIBMERC_H   += pkt_proc.h
+LIBMERC_H   += ssh.h
+LIBMERC_H   += tcp.h
+LIBMERC_H   += tcpip.h
+LIBMERC_H   += tls.h
+LIBMERC_H   += udp.h
+LIBMERC_H   += util_obj.h
+LIBMERC_H   += utils.h
+LIBMERC_H   += version.h
+LIBMERC_H   += wireguard.h
+LIBMERC_H   += quic.h
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
@@ -69,20 +88,10 @@ ifeq ($(have_py3),yes)
 # CYTARGETS  = python-inference/tls_fingerprint_min.cpp python-inference/tls_fingerprint_min.h python-inference/tls_fingerprint_min_api.h
 # CYPREREQ   = python-inference/tls_fingerprint_min.pyx
 else
-PYANALYSIS = 
-CYTARGETS  = 
+PYANALYSIS =
+CYTARGETS  =
 CYPREREQ   =
 endif
-
-CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
-EUID       = $(id -u)
-
-mercury: $(MERC) $(MERC_H) libmerc/libmerc.a Makefile
-	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L./libmerc -lmerc -lz -lcrypto
-	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
-
-setcap: mercury
-	sudo setcap $(CAP) $<
 
 # implicit rule for building object files
 #
@@ -98,8 +107,15 @@ setcap: mercury
 
 # rule to build library
 #
-libmerc/libmerc.a:
-	cd libmerc; $(MAKE) libmerc.a
+LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
+libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) $(LIBMERC_H) lctrie/liblctrie.a Makefile
+	ar -x lctrie/liblctrie.a
+	ar rcs libmerc.a $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+
+# lctrie ip address subnet matching library (in lctrie subdirectory)
+#
+lctrie/liblctrie.a:
+	cd lctrie && $(MAKE) liblctrie.a
 
 # rule to build the cython/python analysis engine in python-inference
 #
@@ -108,45 +124,19 @@ ifeq ($(have_py3),yes)
 	python3 python-inference/setup.py build_ext --inplace
 endif
 
-
 # special targets for mercury
 #
 .PHONY: debug
-debug: $(MERC) $(MERC_H) libmerc/libmerc.a Makefile
+debug: $(MERC) $(MERC_H) libmerc.a Makefile
 	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean
 clean:
-	rm -rf mercury gmon.out libmerc/libmerc.a *.o
-	cd libmerc && $(MAKE) clean
+	rm -rf libmerc.a *.o
+	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-	for file in $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-
-.PHONY: distclean
-distclean: clean
-	rm -rf Makefile autom4te.cache config.log config.status
-
-.PHONY: install
-install: mercury
-	mkdir -p $(bindir)
-	$(INSTALL) mercury $(bindir)
-#	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
-	adduser --system --no-create-home --group mercury
-	mkdir -p $(localstatedir)
-	$(INSTALL) -d $(localstatedir) -o mercury -g mercury
-
-.PHONY: install-nonroot
-install-nonroot: mercury
-	mkdir -p $(bindir)
-	$(INSTALL) mercury $(bindir)
-	mkdir -p $(localstatedir)
-	$(INSTALL) -d $(localstatedir)
-
-.PHONY: uninstall
-uninstall:
-	rm -f $(bindir)/mercury
-	rm -rf $(localstatedir)
+	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
 #  To build mercury for profiling using gprof, run
 #
@@ -158,30 +148,29 @@ uninstall:
 #  further informataion.
 
 .PHONY: cppcheck
-cppcheck: $(MERC)
-	cppcheck --language=c++ --std=c++11 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^
-	cd libmerc && $(MAKE) cppcheck
+cppcheck: $(MERC) $(LIBMERC)
+	cppcheck --language=c++ --std=c++11 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
 
 .PHONY: test
 test: mercury
 	cd ../test && $(MAKE)
 
-major=$(shell cat ../VERSION | grep -o "^[0-9]*")
-minor=$(subst .,,$(shell cat ../VERSION | grep -o "\.[0-9]*\."))
-patch=$(shell cat ../VERSION | grep -o "[0-9]*$$")
+major=$(shell cat ../../VERSION | grep -o "^[0-9]*")
+minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
+patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
 version=$(major).$(minor).$(patch)
 MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
-	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../VERSION
+	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../../VERSION
 	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
 
 increment-minor-version:
-	echo $(major).$(shell expr $(minor) + 1).0 > ../VERSION
+	echo $(major).$(shell expr $(minor) + 1).0 > ../../VERSION
 	git tag -a $(major).$(shell expr $(minor) + 1).0 -m "\"minor version increment\""
 
 increment-major-version:
-	echo $(shell expr $(major) + 1).0.0 > ../VERSION
+	echo $(shell expr $(major) + 1).0.0 > ../../VERSION
 	git tag -a $(shell expr $(major) + 1).0.0 -m "\"major version increment\""
 
 # EOF

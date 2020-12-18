@@ -7,7 +7,7 @@
 #include <string.h>
 #include "output.h"
 #include "pcap_file_io.h"  // for write_pcap_file_header()
-#include "utils.h"
+#include "libmerc/utils.h"
 
 
 #define output_file_needs_rotation(ojf) (--((ojf)->record_countdown) == 0)

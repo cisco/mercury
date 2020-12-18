@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "mercury.h"
 #include "dhcp.h"
 #include "json_object.h"
 #include "oui.h"

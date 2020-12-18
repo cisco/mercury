@@ -1,12 +1,15 @@
 /*
  * pcap_reader.c
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <errno.h>
 #include "pcap_reader.h"
 #include "output.h"
-#include "pkt_proc.h"
-#include "utils.h"
+#include "pkt_processing.h"
+#include "libmerc/utils.h"
 
 #define BILLION 1000000000L
 

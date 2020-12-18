@@ -16,8 +16,7 @@
 #include <grp.h>
 #include <stdlib.h>
 #include <time.h>
-#include "mercury.h"
-#include "pcap_file_io.h"
+#include "libmerc.h"
 #include "utils.h"
 
 /* utility functions */

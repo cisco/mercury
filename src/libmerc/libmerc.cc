@@ -1,4 +1,30 @@
-char license_string[] =
+// libmerc.cc
+//
+// interface to the mercury network metadata capture and analysis
+// library
+
+#include "libmerc.h"
+#include "version.h"
+
+#ifndef  MERCURY_SEMANTIC_VERSION
+#warning MERCURY_SEMANTIC_VERSION is not defined
+#define  MERCURY_SEMANTIC_VERSION 0,0,0
+#endif
+
+struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
+
+void mercury_print_version_string(FILE *f) {
+    mercury_version.print(f);
+}
+
+class global_variables global_vars;
+
+int mercury_set_global_variables(const class global_variables &vars) {
+    global_vars = vars;
+    return 0;
+}
+
+const char license_string[] =
     "Copyright (c) 2019-2020 Cisco Systems, Inc.\n"
     "All rights reserved.\n"
     "\n"
@@ -40,3 +66,9 @@ char license_string[] =
     " * https://github.com/cisco/mercury/src/rapidjson for the rapidjson license;\n"
     "   this package is copyright 2015 THL A29 Limited, a Tencent company, and\n"
     "   Milo Yip.";
+
+const char *mercury_get_license_string() {
+    return license_string;
+}
+
+

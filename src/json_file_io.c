@@ -11,10 +11,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include "json_file_io.h"
-#include "json_object.h"
-#include "extractor.h"
-#include "packet.h"
-#include "utils.h"
+#include "libmerc/utils.h"  // for copy_string_into_buffer()
 
 #define alignment(p) (p%16 ? (p%8 ? (p%4 ? (p%2 ? 1 : 2) : 4) : 8) : 16)
 

@@ -19,20 +19,10 @@
 #include "pcap_file_io.h"
 #include "af_packet_v3.h"
 #include "pcap_reader.h"
-#include "analysis.h"
 #include "signal_handling.h"
 #include "config.h"
 #include "output.h"
-#include "license.h"
-#include "version.h"
 #include "rnd_pkt_drop.h"
-
-#ifndef  MERCURY_SEMANTIC_VERSION
-#warning MERCURY_SEMANTIC_VERSION is not defined
-#define  MERCURY_SEMANTIC_VERSION 0,0,0
-#endif
-
-struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
 
 char mercury_help[] =
     "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
@@ -194,10 +184,9 @@ bool option_is_valid(const char *opt) {
     return true;
 }
 
-extern struct global_variables global_vars;  /* defined in config.c */
-
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
+    class global_variables global_vars;
 
     while(1) {
         enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9 };
@@ -247,11 +236,11 @@ int main(int argc, char *argv[]) {
             }
             break;
         case version:
-            mercury_version.print(stdout);
+            mercury_print_version_string(stdout);
             return EXIT_SUCCESS;
             break;
         case license:
-            printf("%s\n", license_string);
+            printf("%s\n", mercury_get_license_string());
             return EXIT_SUCCESS;
             break;
         case dns_json:
@@ -519,6 +508,8 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
         }
     }
+
+    mercury_set_global_variables(global_vars);
 
     /* init random number generator */
     srand(time(0));

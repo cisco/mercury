@@ -6,11 +6,9 @@
  */
 
 #include <string.h>
-#include "pcap_file_io.h"
-#include "rnd_pkt_drop.h"
+#include "libmerc.h"
 #include "pkt_proc.h"
 #include "utils.h"
-
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -29,70 +27,9 @@
 #include "udp.h"
 #include "quic.h"
 #include "analysis.h"
-#include "llq.h"
 #include "buffer_stream.h"
 
-
-/*
- * packet_filter_threshold is a (somewhat arbitrary) threshold used in
- * the packet metadata filter; it will probably get eliminated soon,
- * in favor of extractor::proto_state::state, but for now it remains
- */
-unsigned int packet_filter_threshold = 7;
-
-struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
-                                          int tnum,
-                                          struct ll_queue *llq) {
-
-    try {
-
-        enum status status;
-        char outfile[MAX_FILENAME];
-        pid_t pid = tnum;
-
-        if (cfg->write_filename) {
-
-            status = filename_append(outfile, cfg->write_filename, "/", NULL);
-            if (status) {
-                throw "error in filename";
-            }
-            if (cfg->verbosity) {
-                fprintf(stderr, "initializing thread function %x with filename %s\n", pid, outfile);
-            }
-
-            if (cfg->filter) {
-                /*
-                 * write only packet metadata (TLS clientHellos, TCP SYNs, ...) to capture file
-                 */
-                return new pkt_proc_filter_pcap_writer_llq(llq, cfg->packet_filter_cfg, cfg->output_block);
-
-            } else {
-                /*
-                 * write all packets to capture file
-                 */
-                return new pkt_proc_pcap_writer_llq(llq, cfg->output_block);
-
-            }
-
-        } else {
-            /*
-             * write fingerprints into output file
-             */
-
-            return new pkt_proc_json_writer_llq(llq, cfg->packet_filter_cfg, cfg->output_block);
-
-        }
-        // note: we no longer have a 'packet dumper' option
-        //    return new pkt_proc_dumper();
-
-    }
-    catch (const char *s) {
-        fprintf(stdout, "error: %s\n", s);
-    };
-
-    return NULL;
-}
-
+extern class global_variables global_vars;  // defined in libmerc.cc
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {

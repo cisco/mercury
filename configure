@@ -4868,7 +4868,7 @@ else
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&5
 $as_echo "$as_me: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&2;}
 fi
-ac_config_files="$ac_config_files src/Makefile test/Makefile resources/Makefile install_mercury/mercury.service"
+ac_config_files="$ac_config_files src/libmerc/Makefile src/Makefile test/Makefile resources/Makefile install_mercury/mercury.service"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -5575,6 +5575,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
+    "src/libmerc/Makefile") CONFIG_FILES="$CONFIG_FILES src/libmerc/Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "resources/Makefile") CONFIG_FILES="$CONFIG_FILES resources/Makefile" ;;

@@ -25,11 +25,10 @@
 
 #include "mercury.h"
 #include "pcap_file_io.h"
-#include "pkt_proc.h"
+#include "pkt_processing.h"
 #include "signal_handling.h"
-#include "utils.h"
+#include "libmerc/utils.h"
 #include "llq.h"
-#include "buffer_stream.h"
 
 /*
  * constants used in file format

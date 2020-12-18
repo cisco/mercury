@@ -10,9 +10,10 @@
 
 #include <time.h>
 #include <stdarg.h>
-#include "mercury.h"
+#include <stdio.h>
 #include "packet.h"
 #include "analysis.h"
+#include "libmerc.h"
 
 /*
  * obsolete macros
@@ -68,11 +69,10 @@ void get_readable_number_float(double power,
                                double *num_output,
                                char **str_output);
 
-
 enum status filename_append(char dst[MAX_FILENAME],
-			    const char *src,
-			    const char *delim,
-			    const char *tail);
+                            const char *src,
+                            const char *delim,
+                            const char *tail);
 
 struct timer {
     struct timespec before;

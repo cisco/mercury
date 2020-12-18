@@ -1,12 +1,12 @@
 /*
- * match.c
+ * match.cc
  *
  * Copyright (c) 2020 Cisco Systems, Inc. All rights reserved.
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <ctype.h>    // for tolower()
-#include "mercury.h"  // for mercury_debug()
+#include "datum.h"    // for mercury_debug()
 #include "match.h"
 
 unsigned int uint16_match(uint16_t x,

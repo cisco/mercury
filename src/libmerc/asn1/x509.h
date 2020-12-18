@@ -12,7 +12,7 @@
 #include "bytestring.h"
 #include "oid.h"    // oid dictionary
 
-#include "../mercury.h"
+#include "../libmerc.h"
 #include "../datum.h"
 #include "asn1.h"
 #include "dict.h"

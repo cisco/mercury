@@ -12,8 +12,7 @@
 
 #include <inttypes.h>
 #include <stdio.h>
-
-#define MAX_FILENAME 256
+#include "libmerc/libmerc.h"
 
 #define MAX_HEX 16
 
@@ -37,12 +36,6 @@
 #else
 #define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
-
-enum status {
-    status_ok = 0,
-    status_err = 1,
-    status_err_no_more_data = 2
-};
 
 /*
  * struct mercury_config holds the configuration information for a run
@@ -74,24 +67,5 @@ struct mercury_config {
 
 #define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, false, false, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, NULL, 0, 0, false }
 
-/*
- * struct global_variables holds all of mercury's global variables.
- * This set is currently limited to booleans that control the
- * processing and output.  It would be nice avoid global state by
- * passing these values into the packet processor (struct pkt_proc),
- * but for now we are using this global struct to keep track of the
- * global state, and put them all on the same cache line.
- */
-struct global_variables {
-
-    global_variables() : dns_json_output{false}, certs_json_output{false}, metadata_output{false}, do_analysis{false}, output_tcp_initial_data{false}, output_udp_initial_data{false} {}
-
-    bool dns_json_output;   /* output DNS as JSON              */
-    bool certs_json_output; /* output certificates as JSON     */
-    bool metadata_output;   /* output lots of metadata         */
-    bool do_analysis;       /* write analysys{} JSON object    */
-    bool output_tcp_initial_data; /* write initial data field  */
-    bool output_udp_initial_data; /* write initial data field  */
-};
 
 #endif /* MERCURY_H */
