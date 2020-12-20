@@ -9,25 +9,22 @@
 
 #include "version.h"
 
-#define MAX_FILENAME 256
-
 /*
- * struct global_variables holds all of mercury's global variables.
- * This set is currently limited to booleans that control the
- * processing and output.  It would be nice avoid global state by
- * passing these values into the packet processor (struct pkt_proc),
- * but for now we are using this global struct to keep track of the
- * global state, and put them all on the same cache line.
+ * class libmerc_config represents the complete configuration of
+ * the libmerc library
  */
-class global_variables {
+class libmerc_config {
 public:
-    global_variables() :
+    libmerc_config() :
         dns_json_output{false},
         certs_json_output{false},
         metadata_output{false},
         do_analysis{false},
         output_tcp_initial_data{false},
-        output_udp_initial_data{false} {}
+        output_udp_initial_data{false},
+        resources{NULL},
+        packet_filter_cfg{NULL}
+    {}
 
     bool dns_json_output;   /* output DNS as JSON              */
     bool certs_json_output; /* output certificates as JSON     */
@@ -35,13 +32,32 @@ public:
     bool do_analysis;       /* write analysys{} JSON object    */
     bool output_tcp_initial_data; /* write initial data field  */
     bool output_udp_initial_data; /* write initial data field  */
+
+    char *resources;        /* directory containing (analysis) resource files */
+    char *packet_filter_cfg; /* packet filter configuration string             */
 };
 
-int mercury_set_global_variables(const class global_variables &vars);
+/**
+ * @brief initializes libmerc
+ *
+ * Initializes libmerc to use the configuration as specified with the
+ * input parameters.  Returns zero on success.
+ *
+ * @param vars          libmerc_config
+ * @param verbosity     higher values increase verbosity sent to stderr
+ * @param resource_dir  directory of resource files to use in analysis
+ *
+ */
+int mercury_init(const class libmerc_config &vars, int verbosity);
 
-int analysis_init(int verbosity, const char *resource_dir);
-
-int analysis_finalize();
+/**
+ * @brief finalizes libmerc
+ *
+ * Finalizes the libmerc library, and frees up resources allocated by
+ * mercury_init().   Returns zero on success.
+ *
+ */
+int mercury_finalize();
 
 enum status {
     status_ok = 0,
@@ -50,33 +66,38 @@ enum status {
 };
 // enum status : bool { ok = 0, err = 1 };
 
+enum status static_data_config(const char *config_string);
+
 /**
- * @brief extracts a TLS client fingerprint from a packet
+ * @brief returns the mercury license string
  *
- * Extracts a TLS clientHello fingerprint from the TCP data field
- * (which starts at @em data and contains @em data_len bytes) and
- * writes it into the output buffer (which starts at @em outbuf and
- * contains @em outbuf_len bytes) in bracket notation (human readable)
- * form, if there is enough room for it.
- *
- * @param [in] data the start of the TCP data field
- * @param [in] data_len the number of bytes in the TCP data field
- * @param [out] outbuf the output buffer
- * @param [in] outbuf_len the number of bytes in the output buffer
+ * Returns a printable string containing the license for mercury and
+ * libmerc.
  *
  */
-size_t extract_fp_from_tls_client_hello(uint8_t *data,
-                                        size_t data_len,
-                                        uint8_t *outbuf,
-                                        size_t outbuf_len);
+const char *mercury_get_license_string();
 
+/**
+ * @brief prints the mercury semantic version
+ *
+ * Prints the semantic version of mercury/libmerc to the FILE provided
+ * as input.
+ *
+ * @param [in] file to print semantic version on.
+ *
+ */
+void mercury_print_version_string(FILE *f);
+
+
+/*
+ * packet_filter_init(pf, s) initializes a packet filter, using the
+ * configuration string s passed as input
+ */
+enum status packet_filter_init(struct packet_filter *pf);
 
 enum status proto_ident_config(const char *config_string);
 
-enum status static_data_config(const char *config_string);
 
-const char *mercury_get_license_string();
-
-void mercury_print_version_string(FILE *f);
+#define MAX_FILENAME 256
 
 #endif /* LIBMERC_H */

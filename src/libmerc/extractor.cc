@@ -9,8 +9,6 @@
 #include <ctype.h>    /* for tolower()  */
 #include <stdio.h>
 #include <arpa/inet.h>  /* for htons()  */
-#include <algorithm>
-#include <map>
 
 #include "extractor.h"
 #include "utils.h"
@@ -32,15 +30,6 @@
 #define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
-/*
- * select_tcp_syn selects TCP SYNs for extraction
- */
-bool select_tcp_syn = 1;
-
-/*
- * select_tcp_syn selects MDNS (port 5353)
- */
-bool select_mdns = true;
 
 /* protocol identification, adapted from joy */
 
@@ -546,138 +535,5 @@ unsigned int datum_process_eth(struct datum *p, size_t *ethertype) {
     return 0;  /* we don't extract any data, but this is not a failure */
 }
 
-
-/*
- * struct packet_filter implements a packet metadata filter
- */
-
-unsigned int tcp_message_filter_cutoff = 0;
-
-enum status packet_filter_init(struct packet_filter *pf, const char *config_string) {
-
-    enum status status = proto_ident_config(config_string);
-    if (status) {
-        return status;
-    }
-    if (tcp_message_filter_cutoff) {
-        pf->tcp_init_msg_filter = new tcp_initial_message_filter;
-        pf->tcp_init_msg_filter->tcp_initial_message_filter_init();
-    } else {
-        pf->tcp_init_msg_filter = NULL;
-    }
-    return status_ok;
-}
-
-/*
- * configuration for protocol identification
- */
-
-extern unsigned char dhcp_client_mask[8];  /* udp.c */
-extern unsigned char dns_server_mask[8];   /* udp.c */
-extern unsigned char dns_client_mask[8];   /* udp.c */
-extern unsigned char wireguard_mask[8];    /* udp.c */
-extern unsigned char quic_mask[8];         /* udp.c */
-extern unsigned char dtls_client_hello_mask[8]; /* udp.c */
-extern unsigned char dtls_server_hello_mask[8]; /* udp.c */
-
-
-enum status proto_ident_config(const char *config_string) {
-    if (config_string == NULL) {
-        return status_ok;    /* use the default configuration */
-    }
-
-    std::map<std::string, bool> protocols{
-        { "all",         false },
-        { "none",        false },
-        { "dhcp",        false },
-        { "dns",         false },
-        { "dtls",        false },
-        { "http",        false },
-        { "ssh",         false },
-        { "tcp",         false },
-        { "tcp.message", false },
-        { "tls",         false },
-        { "wireguard",   false },
-        { "quic",        false },
-    };
-
-    std::string s{config_string};
-    std::string delim{","};
-    size_t pos = 0;
-    std::string token;
-    while ((pos = s.find(delim)) != std::string::npos) {
-        token = s.substr(0, pos);
-        token.erase(std::remove_if(token.begin(), token.end(), isspace), token.end());
-        s.erase(0, pos + delim.length());
-
-        auto pair = protocols.find(token);
-        if (pair != protocols.end()) {
-            pair->second = true;
-        } else {
-            fprintf(stderr, "error: unrecognized filter command \"%s\"\n", token.c_str());
-            return status_err;
-        }
-    }
-    token = s.substr(0, pos);
-    s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
-    auto pair = protocols.find(token);
-    if (pair != protocols.end()) {
-        pair->second = true;
-    } else {
-        fprintf(stderr, "error: unrecognized filter command \"%s\"\n", token.c_str());
-        return status_err;
-    }
-
-    if (protocols["all"] == true) {
-        return status_ok;
-    }
-    if (protocols["none"] == true) {
-        for (auto &pair : protocols) {
-            pair.second = false;
-        }
-    }
-    if (protocols["dhcp"] == false) {
-        bzero(dhcp_client_mask, sizeof(dhcp_client_mask));
-    }
-    if (protocols["dns"] == false) {
-        bzero(dns_server_mask, sizeof(dns_server_mask));
-        bzero(dns_client_mask, sizeof(dns_client_mask));
-        select_mdns = false;
-    }
-    if (protocols["http"] == false) {
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_client_post_mask, sizeof(http_client_post_mask));
-        bzero(http_client_connect_mask, sizeof(http_client_connect_mask));
-        bzero(http_client_put_mask, sizeof(http_client_put_mask));
-        bzero(http_client_head_mask, sizeof(http_client_head_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
-    }
-    if (protocols["ssh"] == false) {
-        bzero(ssh_kex_mask, sizeof(ssh_kex_mask));
-        bzero(ssh_mask, sizeof(ssh_mask));
-    }
-    if (protocols["tcp"] == false) {
-        select_tcp_syn = 0;
-    }
-    if (protocols["tcp.message"] == true) {
-        select_tcp_syn = 0;
-        tcp_message_filter_cutoff = 1;
-    }
-    if (protocols["tls"] == false) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(tls_server_cert_embedded_mask, sizeof(tls_server_cert_embedded_mask));
-    }
-    if (protocols["dtls"] == false) {
-        bzero(dtls_client_hello_mask, sizeof(dtls_client_hello_mask));
-        bzero(dtls_server_hello_mask, sizeof(dtls_server_hello_mask));
-    }
-    if (protocols["wireguard"] == false) {
-        bzero(wireguard_mask, sizeof(wireguard_mask));
-    }
-    if (protocols["quic"] == false) {
-        bzero(quic_mask, sizeof(quic_mask));
-    }
-    return status_ok;
-}
 
 

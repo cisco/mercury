@@ -14,6 +14,8 @@
 #include "extractor.h"
 #include "packet.h"
 
+extern class libmerc_config global_vars;    // defined in libmerc.cc
+
 extern bool select_tcp_syn;                 // defined in extractor.cc
 
 /* Information about each packet on the wire */
@@ -35,14 +37,14 @@ struct stateful_pkt_proc {
     struct tcp_reassembler reassembler;
     struct tcp_reassembler *reassembler_ptr;
 
-    explicit stateful_pkt_proc(const char *filter) :
+    explicit stateful_pkt_proc() :
         pf{},
         ip_flow_table{65536},
         tcp_flow_table{65536},
         reassembler{65536},
         reassembler_ptr{&reassembler}
     {
-        if (packet_filter_init(&pf, filter) == status_err) {
+        if (packet_filter_init(&pf) == status_err) {
             throw "could not initialize packet filter";
         }
 #ifndef USE_TCP_REASSEMBLY

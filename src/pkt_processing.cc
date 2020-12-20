@@ -11,7 +11,6 @@
 #include "pkt_processing.h"
 #include "libmerc/utils.h"
 
-
 struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                                           int tnum,
                                           struct ll_queue *llq) {
@@ -32,26 +31,17 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
                 fprintf(stderr, "initializing thread function %x with filename %s\n", pid, outfile);
             }
 
-            if (cfg->filter) {
-                /*
-                 * write only packet metadata (TLS clientHellos, TCP SYNs, ...) to capture file
-                 */
-                return new pkt_proc_filter_pcap_writer_llq(llq, cfg->packet_filter_cfg, cfg->output_block);
-
-            } else {
-                /*
-                 * write all packets to capture file
-                 */
-                return new pkt_proc_pcap_writer_llq(llq, cfg->output_block);
-
-            }
+            /*
+             * write (filtered, if configured that way) packets to capture file
+             */
+            return new pkt_proc_filter_pcap_writer_llq(llq, cfg->output_block);
 
         } else {
             /*
              * write fingerprints into output file
              */
 
-            return new pkt_proc_json_writer_llq(llq, cfg->packet_filter_cfg, cfg->output_block);
+            return new pkt_proc_json_writer_llq(llq, cfg->output_block);
 
         }
         // note: we no longer have a 'packet dumper' option

@@ -67,7 +67,7 @@ enum status argument_parse_as_float(const char *arg, float *variable_to_set) {
 }
 
 static enum status mercury_config_parse_line(struct mercury_config *cfg,
-                                             class global_variables &global_vars,
+                                             class libmerc_config &global_vars,
                                              char *line) {
     char *arg = NULL;
 
@@ -88,15 +88,12 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return status_ok;
 
     } else if ((arg = command_get_argument("resources=", line)) != NULL) {
-        cfg->resources = strdup(arg);
+        global_vars.resources = strdup(arg);
         return status_ok;
 
     } else if ((arg = command_get_argument("directory=", line)) != NULL) {
         cfg->working_dir = strdup(arg);
         return status_ok;
-
-    } else if ((arg = command_get_argument("filter=", line)) != NULL) {
-        return argument_parse_as_boolean(arg, &cfg->filter);
 
     } else if ((arg = command_get_argument("analysis=", line)) != NULL) {
         return argument_parse_as_boolean(arg, &cfg->analysis);
@@ -126,7 +123,7 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return argument_parse_as_int(arg, &cfg->verbosity);
 
     } else if ((arg = command_get_argument("select=", line)) != NULL) {
-        cfg->packet_filter_cfg = strdup(arg);
+        global_vars.packet_filter_cfg = strdup(arg);
         return status_ok;
 
     } else if ((arg = command_get_argument("dns-json", line)) != NULL) {
@@ -169,9 +166,10 @@ void string_remove_whitespace(char* s) {
     } while (*s);
 }
 
-enum status mercury_config_read_from_file(struct mercury_config *cfg,
+enum status mercury_config_read_from_file(struct mercury_config &cfg,
+                                          class libmerc_config &global_vars,
                                           const char *filename) {
-    if (cfg->verbosity) {
+    if (cfg.verbosity) {
         fprintf(stderr, "reading config file %s\n", filename);
     }
 
@@ -181,7 +179,6 @@ enum status mercury_config_read_from_file(struct mercury_config *cfg,
         return status_err;
     }
 
-    class global_variables global_vars;
     char *line = NULL;
     size_t len = 0;
     ssize_t nread;
@@ -189,15 +186,13 @@ enum status mercury_config_read_from_file(struct mercury_config *cfg,
         if (nread > 1) {
             line[nread-1] = 0; /* replace CR with null terminator */
             string_remove_whitespace(line);
-            if (mercury_config_parse_line(cfg, global_vars, line) == status_err) {
+            if (mercury_config_parse_line(&cfg, global_vars, line) == status_err) {
                 fprintf(stderr, "warning: ignoring unparseable command line '%s'\n", line);
             }
         }
     }
     free(line);
     fclose(cfg_file);
-
-    mercury_set_global_variables(global_vars);
 
     return status_ok;
 }

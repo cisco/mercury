@@ -29,7 +29,7 @@
 #include "analysis.h"
 #include "buffer_stream.h"
 
-extern class global_variables global_vars;  // defined in libmerc.cc
+extern class libmerc_config global_vars;  // defined in libmerc.cc
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {

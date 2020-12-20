@@ -112,7 +112,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
     struct pcap_file pcap_file;
     struct stateful_pkt_proc processor;
 
-    pkt_proc_filter_pcap_writer(const char *outfile, int flags) : processor{""} {
+    pkt_proc_filter_pcap_writer(const char *outfile, int flags) : processor{} {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
             throw "could not open PCAP output file";
@@ -170,9 +170,9 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
      * records (lines) per file; after that limit is reached, file
      * rotation will take place.
      */
-    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) :
+    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, bool blocking) :
         block{blocking},
-        processor{filter}
+        processor{}
     {
         llq = llq_ptr;
     }
@@ -209,7 +209,7 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     bool block;
     struct stateful_pkt_proc processor;
 
-    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, const char *filter, bool blocking) : block{blocking}, processor{filter} {
+    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, bool blocking) : block{blocking}, processor{} {
         llq = llq_ptr;
     }
 

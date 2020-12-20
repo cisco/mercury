@@ -22,18 +22,7 @@
  */
 struct packet_filter {
     struct tcp_initial_message_filter *tcp_init_msg_filter;
-    struct datum p;
 };
-
-/*
- * packet_filter_init(pf, s) initializes a packet filter, using the
- * configuration string s passed as input
- */
-enum status packet_filter_init(struct packet_filter *pf,
-                               const char *config_string);
-
-
-enum status proto_ident_config(const char *config_string);
 
 enum tcp_msg_type get_message_type(const uint8_t *tcp_data,
                                    unsigned int len);

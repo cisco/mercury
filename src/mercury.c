@@ -186,7 +186,7 @@ bool option_is_valid(const char *opt) {
 
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
-    class global_variables global_vars;
+    class libmerc_config libmerc_cfg;
 
     while(1) {
         enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9 };
@@ -223,14 +223,14 @@ int main(int argc, char *argv[]) {
         switch(c) {
         case config:
             if (option_is_valid(optarg)) {
-                mercury_config_read_from_file(&cfg, optarg);
+                mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
             break;
         case resources:
             if (option_is_valid(optarg)) {
-                cfg.resources = optarg;
+                libmerc_cfg.resources = optarg;
             } else {
                 usage(argv[0], "option resources requires directory argument", extended_help_off);
             }
@@ -247,35 +247,35 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 usage(argv[0], "option dns-json does not use an argument", extended_help_off);
             } else {
-                global_vars.dns_json_output = true;
+                libmerc_cfg.dns_json_output = true;
             }
             break;
         case certs_json:
             if (optarg) {
                 usage(argv[0], "option certs-json does not use an argument", extended_help_off);
             } else {
-                global_vars.certs_json_output = true;
+                libmerc_cfg.certs_json_output = true;
             }
             break;
         case metadata:
             if (optarg) {
                 usage(argv[0], "option metadata does not use an argument", extended_help_off);
             } else {
-                global_vars.metadata_output = true;
+                libmerc_cfg.metadata_output = true;
             }
             break;
         case tcp_init_data:
             if (optarg) {
                 usage(argv[0], "option nonselected-tcp-data does not use an argument", extended_help_off);
             } else {
-                global_vars.output_tcp_initial_data = true;
+                libmerc_cfg.output_tcp_initial_data = true;
             }
             break;
         case udp_init_data:
             if (optarg) {
                 usage(argv[0], "option nonselected-udp-data does not use an argument", extended_help_off);
             } else {
-                global_vars.output_udp_initial_data = true;
+                libmerc_cfg.output_udp_initial_data = true;
             }
             break;
         case 'r':
@@ -336,16 +336,17 @@ int main(int argc, char *argv[]) {
             break;
         case 's':
             if (optarg) {
-                if (cfg.packet_filter_cfg != NULL) {
+                if (libmerc_cfg.packet_filter_cfg != NULL) {
                     usage(argv[0], "option s or select used more than once", extended_help_off);
                 }
                 if (option_is_valid(optarg)) {
-                    cfg.packet_filter_cfg = optarg;
+                    libmerc_cfg.packet_filter_cfg = optarg;
                 } else {
                     usage(argv[0], "option s or select has the form -s\"filter\" or --select=\"filter\"", extended_help_off);
                 }
+            } else {
+                libmerc_cfg.packet_filter_cfg = (char *)"all";
             }
-            cfg.filter = 1;
             break;
         case 'h':
             if (optarg) {
@@ -466,12 +467,9 @@ int main(int argc, char *argv[]) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
     }
 
-    if (cfg.analysis) {
-        if (analysis_init(cfg.verbosity, cfg.resources) == -1) {
-            return EXIT_FAILURE;  /* analysis engine could not be initialized */
-        };
-        global_vars.do_analysis = true;
-    }
+    if (mercury_init(libmerc_cfg, cfg.verbosity) != 0) {
+        return EXIT_FAILURE;          // libmerc could not be initialized
+    };
 
     /*
      * loop_count < 1  ==> not valid
@@ -509,8 +507,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    mercury_set_global_variables(global_vars);
-
     /* init random number generator */
     srand(time(0));
 
@@ -536,9 +532,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (cfg.analysis) {
-        analysis_finalize();
-    }
+    mercury_finalize();
 
     if (cfg.verbosity) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
