@@ -64,17 +64,6 @@ bool select_tcp_syn = 1;
  */
 bool select_mdns = true;
 
-enum status packet_filter_init(struct packet_filter *pf) {
-
-    if (tcp_message_filter_cutoff) {
-        pf->tcp_init_msg_filter = new tcp_initial_message_filter;
-        pf->tcp_init_msg_filter->tcp_initial_message_filter_init();
-    } else {
-        pf->tcp_init_msg_filter = NULL;
-    }
-    return status_ok;
-}
-
 /*
  * configuration for protocol identification
  */

@@ -89,12 +89,6 @@ const char *mercury_get_license_string();
 void mercury_print_version_string(FILE *f);
 
 
-/*
- * packet_filter_init(pf, s) initializes a packet filter, using the
- * configuration string s passed as input
- */
-enum status packet_filter_init(struct packet_filter *pf);
-
 enum status proto_ident_config(const char *config_string);
 
 

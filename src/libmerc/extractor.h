@@ -17,12 +17,6 @@
 #include "proto_identify.h"
 
 
-/*
- * struct packet_filter implements packet metadata filtering
- */
-struct packet_filter {
-    struct tcp_initial_message_filter *tcp_init_msg_filter;
-};
 
 enum tcp_msg_type get_message_type(const uint8_t *tcp_data,
                                    unsigned int len);

@@ -31,22 +31,20 @@ struct pkt_proc_stats {
 };
 
 struct stateful_pkt_proc {
-    struct packet_filter pf;
     struct flow_table ip_flow_table;
     struct flow_table_tcp tcp_flow_table;
     struct tcp_reassembler reassembler;
     struct tcp_reassembler *reassembler_ptr;
+    struct tcp_initial_message_filter tcp_init_msg_filter;
 
     explicit stateful_pkt_proc() :
-        pf{},
         ip_flow_table{65536},
         tcp_flow_table{65536},
         reassembler{65536},
-        reassembler_ptr{&reassembler}
+        reassembler_ptr{&reassembler},
+        tcp_init_msg_filter{}
     {
-        if (packet_filter_init(&pf) == status_err) {
-            throw "could not initialize packet filter";
-        }
+
 #ifndef USE_TCP_REASSEMBLY
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
         reassembler_ptr = nullptr;
