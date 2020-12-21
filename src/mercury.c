@@ -317,7 +317,7 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 usage(argv[0], "option a or analysis does not use an argument", extended_help_off);
             } else {
-                cfg.analysis = true;
+                libmerc_cfg.do_analysis = true;
             }
             break;
         case 'o':
@@ -477,9 +477,9 @@ int main(int argc, char *argv[]) {
      * loop_count == 1 ==> default condition
      */
     if (cfg.loop_count < 1) {
-        usage(argv[0], "Invalid loop count, it should be >= 1", extended_help_off);
+        usage(argv[0], "error: invalid loop count (should be >= 1)", extended_help_off);
     } else if (cfg.loop_count > 1) {
-        printf("Loop count: %d\n", cfg.loop_count);
+        fprintf(stderr, "notice: looping over input with loop count %d\n", cfg.loop_count);
     }
 
     /* The option --adaptive works only with -w PCAP file option and -c capture interface */

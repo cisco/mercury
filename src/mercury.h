@@ -47,7 +47,6 @@ struct mercury_config {
     char *fingerprint_filename;     /* base name of fingerprint file to write, if any */
     char *capture_interface;        /* base name of interface to capture from, if any */
     char *working_dir;              /* working directory                              */
-    bool analysis;                  /* indicates that fingerprints should be analyzed */
     int flags;                      /* flags for open()                               */
     char *mode;                     /* mode for fopen()                               */
     int fanout_group;               /* identifies fanout group used by sockets        */
@@ -62,7 +61,7 @@ struct mercury_config {
     bool output_block;              /* use blocking output                            */
 };
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, false, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0, false }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0, false }
 
 
 #endif /* MERCURY_H */

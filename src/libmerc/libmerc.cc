@@ -32,11 +32,10 @@ int mercury_init(const class libmerc_config &vars, int verbosity) {
     if (status) {
         return status;
     }
-    if (global_vars.resources) {
+    if (global_vars.do_analysis) {
         if (analysis_init(verbosity, global_vars.resources) != 0) {
             return -1;
         }
-        global_vars.do_analysis = true;
     }
     return 0; // success
 }

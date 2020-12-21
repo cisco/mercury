@@ -96,7 +96,7 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return status_ok;
 
     } else if ((arg = command_get_argument("analysis=", line)) != NULL) {
-        return argument_parse_as_boolean(arg, &cfg->analysis);
+        return argument_parse_as_boolean(arg, &global_vars.do_analysis);
 
     } else if ((arg = command_get_argument("buffer=", line)) != NULL) {
         return argument_parse_as_float(arg, &cfg->buffer_fraction);
