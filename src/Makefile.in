@@ -77,12 +77,18 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-mercury: $(MERC) $(MERC_H) libmerc/libmerc.a Makefile
+mercury: $(MERC) $(MERC_H) libmerc/libmerc.a Makefile.in
 	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L./libmerc -lmerc -lz -lcrypto
 	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
 
 setcap: mercury
 	sudo setcap $(CAP) $<
+
+libmerc/libmerc.a: libmerc
+
+.PHONY: libmerc
+libmerc:
+	$(MAKE) --directory=$@
 
 # implicit rule for building object files
 #
@@ -95,11 +101,6 @@ setcap: mercury
 %.o: %.cc %.h
 #	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
 	$(CXX) $(CFLAGS) -c $<
-
-# rule to build library
-#
-libmerc/libmerc.a:
-	cd libmerc; $(MAKE) libmerc.a
 
 # rule to build the cython/python analysis engine in python-inference
 #
