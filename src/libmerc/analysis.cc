@@ -26,8 +26,6 @@
 
 rapidjson::Document fp_db;
 
-#define MAX_FP_STR_LEN 4096
-#define MAX_SNI_LEN     257
 
 //pthread_mutex_t lock_fp_cache;
 //std::unordered_map<std::string,char*> fp_cache;
@@ -40,6 +38,14 @@ std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,
                                                           {2376,"docker"}, {8001,"tor"},     {8443,"alt-https"},
                                                           {9000,"tor"},    {9001,"tor"},     {9002,"tor"},
                                                           {9101,"tor"}};
+
+// uint16_t get_port_mapping(std::string s) {
+//     auto x = port_mapping.find(s);
+//     if (x == port_mapping.end()) {
+//         return 0;  // error
+//     }
+//     return x.second;
+// }
 
 bool MALWARE_DB = true;
 bool EXTENDED_FP_METADATA = true;
@@ -80,6 +86,16 @@ int database_init(const char *resource_file) {
         rapidjson::Document fp(&allocator);
         fp.Parse(line_str.c_str());
 
+        //fprintf(stderr, "%s\n", fp["str_repr"].GetString());
+        // if (fp.HasMember("str_repr")) {
+        //     static const char* kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
+        //     fprintf(stderr, "Type of member %s is %s\n", "str_repr", kTypeNames[fp["str_repr"].GetType()]);
+        //     if (fp["str_repr"].IsString()) {
+        //         fprintf(stderr, "got string\n");
+        //         fprintf(stderr, "%s\n", fp["str_repr"].GetString());
+        //     }
+        // }
+
         rapidjson::Value::ConstMemberIterator itr = fp["process_info"][0].FindMember("malware");
         if (itr == fp["process_info"][0].MemberEnd()) {
             MALWARE_DB = false;
@@ -91,6 +107,7 @@ int database_init(const char *resource_file) {
         }
 
         fp_db.AddMember(fp["str_repr"], fp, allocator);
+
     }
     gzclose(in_file);
 
@@ -105,6 +122,8 @@ void database_finalize() {
 #ifndef DEFAULT_RESOURCE_DIR
 #define DEFAULT_RESOURCE_DIR "/usr/local/share/mercury"
 #endif
+
+classifier *c = NULL;
 
 int analysis_init(int verbosity, const char *resource_dir) {
 
@@ -137,6 +156,10 @@ int analysis_init(int verbosity, const char *resource_dir) {
         if (retcode == 0) {
             strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
             strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
+
+            c = new classifier(resource_file_name);
+            // c->print(stderr);
+
             retcode = database_init(resource_file_name);
             if (retcode == 0) {
                 if (verbosity > 0) {
@@ -168,7 +191,7 @@ int analysis_finalize() {
 
 #define SNI_HEADER_LEN 9
 
-#define MAX_DST_ADDR_LEN 40
+//#define MAX_DST_ADDR_LEN 40
 void flow_key_sprintf_dst_addr(const struct flow_key *key,
 			       char *dst_addr_str) {
 
