@@ -73,7 +73,7 @@ class analysis_result analyze_client_hello_and_key(const struct tls_client_hello
 
 // helper functions
 
-#define MAX_DST_ADDR_LEN 40
+#define MAX_DST_ADDR_LEN 48
 #define MAX_FP_STR_LEN 4096
 #define MAX_SNI_LEN     257
 
@@ -93,21 +93,35 @@ int gzgetline(gzFile f, std::vector<char>& v);
 class process_info {
 public:
     std::string name;
+    bool malware;
     uint64_t count;
     std::unordered_map<uint32_t, uint64_t> ip_as;
     std::unordered_map<std::string, uint64_t> hostname_domains;
     std::unordered_map<std::string, uint64_t> portname_applications;
+    std::unordered_map<std::string, uint64_t> ip_ip;
+    std::unordered_map<std::string, uint64_t> hostname_sni;
+    bool extended_fp_metadata = false;
 
     process_info(std::string proc_name,
+                 bool is_malware,
                  uint64_t proc_count,
                  std::unordered_map<uint32_t, uint64_t> as,
                  std::unordered_map<std::string, uint64_t> domains,
-                 std::unordered_map<std::string, uint64_t> ports) :
+                 std::unordered_map<std::string, uint64_t> ports,
+                 std::unordered_map<std::string, uint64_t> ip,
+                 std::unordered_map<std::string, uint64_t> sni) :
         name{proc_name},
+        malware{is_malware},
         count{proc_count},
         ip_as{as},
         hostname_domains{domains},
-        portname_applications{ports} { }
+        portname_applications{ports},
+        ip_ip{ip},
+        hostname_sni{sni} {
+            if (!ip.empty() && !sni.empty()) {
+                extended_fp_metadata = true;
+            }
+        }
 
     void print(FILE *f) {
         fprintf(f, "{\"process\":\"%s\"", name.c_str());
@@ -133,6 +147,27 @@ public:
             comma = ',';
         }
         fprintf(f, "}");
+
+        if (!ip_ip.empty() && !hostname_sni.empty()) {
+            fprintf(f, ",\"classes_ip_ip\":{");
+            comma = ' ';
+            for (auto &x : ip_ip) {
+                fprintf(f, "%c\"%s\":%lu", comma, x.first.c_str(), x.second);
+                comma = ',';
+            }
+            fprintf(f, "}");
+
+            fprintf(f, ",\"classes_hostname_sni\":{");
+            comma = ' ';
+            for (auto &x : hostname_sni) {
+                fprintf(f, "%c\"%s\":%lu", comma, x.first.c_str(), x.second);
+                comma = ',';
+            }
+            fprintf(f, "}");
+        }
+
+        // TBD: print malware data
+
         fprintf(f, "}");
     }
 };
@@ -199,12 +234,17 @@ public:
             if (fp.HasMember("process_info") && fp["process_info"].IsArray()) {
                 //fprintf(stderr, "process_info[]\n");
 
+                unsigned int process_number = 0;
                 for (auto &x : fp["process_info"].GetArray()) {
+                    process_number++;
                     //fprintf(stderr, "%s\n", "process_info");
 
+                    bool malware = false;
                     std::unordered_map<uint32_t, uint64_t> ip_as;
                     std::unordered_map<std::string, uint64_t> hostname_domains;
                     std::unordered_map<std::string, uint64_t> portname_applications;
+                    std::unordered_map<std::string, uint64_t> ip_ip;
+                    std::unordered_map<std::string, uint64_t> hostname_sni;
 
                     uint64_t count = 0;
                     std::string name;
@@ -246,13 +286,45 @@ public:
                             if (y.value.IsUint64()) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
                             }
-                            //extern std::unordered_map<uint16_t, std::string> port_mapping; // analysis.cc
-                            //uint16_t port_number = port_mapping[y.name.GetString()];       // TBD: check
                             portname_applications[y.name.GetString()] = y.value.GetUint64();
                         }
                     }
+                    if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
+                        if (EXTENDED_FP_METADATA == false && process_number > 1) {
+                            throw "error: extended fingerprint metadata expected, but not present";
+                        }
+                        EXTENDED_FP_METADATA = true;
+                        //fprintf(stderr, "\tclasses_ip_ip\n");
+                        for (auto &y : x["classes_ip_ip"].GetObject()) {
+                            if (!y.value.IsUint64()) {
+                                fprintf(stderr, "warning: classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
+                                //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                            }
+                            ip_ip[y.name.GetString()] = y.value.GetUint64();
+                        }
+                    }
+                    if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
+                        if (EXTENDED_FP_METADATA == false && process_number > 1) {
+                            throw "error: extended fingerprint metadata expected, but not present";
+                        }
+                        EXTENDED_FP_METADATA = true;
+                        //fprintf(stderr, "\tclasses_hostname_sni\n");
+                        for (auto &y : x["classes_hostname_sni"].GetObject()) {
+                            if (y.value.IsUint64()) {
+                                //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                            }
+                            hostname_sni[y.name.GetString()] = y.value.GetUint64();
+                        }
+                    }
+                    if (x.HasMember("malware") && x["malware"].IsBool()) {
+                        if (MALWARE_DB == false && process_number > 1) {
+                            throw "error: malware data expected, but not present";
+                        }
+                        MALWARE_DB = true;
+                        malware = x["malware"].GetBool();
+                    }
 
-                    class process_info process(name, count, ip_as, hostname_domains, portname_applications);
+                    class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni);
                     process_vector.push_back(process);
                 }
                 class fingerprint_data fp_data(total_count, process_vector);
@@ -262,16 +334,6 @@ public:
                     fprintf(stderr, "warning: file %s has duplicate entry for fingerprint %s\n", resource_file, fp_string.c_str());
                 }
                 fpdb[fp_string] = fp_data;
-            }
-
-            rapidjson::Value::ConstMemberIterator itr = fp["process_info"][0].FindMember("malware");
-            if (itr == fp["process_info"][0].MemberEnd()) {
-                MALWARE_DB = false;
-            }
-
-            itr = fp["process_info"][0].FindMember("classes_hostname_sni");
-            if (itr == fp["process_info"][0].MemberEnd()) {
-                EXTENDED_FP_METADATA = false;
             }
 
         }
@@ -290,10 +352,8 @@ public:
     struct analysis_result perform_analysis(char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
-            // fprintf(stderr, "no fp in db\n");
             return analysis_result();
         }
-        //        rapidjson::Value& fp = fp_db[fp_str];
         class fingerprint_data &fp = fpdb_entry->second;
 
         uint32_t asn_int = get_asn_info(dst_ip);
@@ -321,7 +381,6 @@ public:
         long double base_prior;
         long double proc_prior = log(.1);
 
-        unsigned int lookups = 0;
         unsigned int hits = 0;
         unsigned int num_procs = 0;
         for (const auto &p : fp.process_data) {
@@ -333,8 +392,9 @@ public:
             score = log(prob_process_given_fp);
             score = fmax(score, proc_prior);
 
+            fprintf(stderr, "process %s starting with score %Lf\n", p.name.c_str(), score);
+
             const auto tmp = p.ip_as.find(asn_int);
-            ++lookups;
             if (tmp != p.ip_as.end()) {
                 tmp_value = tmp->second;
                 fprintf(stderr, "found ip_as:                 %s\n", asn.c_str());
@@ -343,9 +403,9 @@ public:
             } else {
                 score += base_prior*0.13924;
             }
+            fprintf(stderr, "score: %Lf\n", score);
 
             const auto a = p.hostname_domains.find(domain);
-            ++lookups;
             if (a != p.hostname_domains.end()) {
                 tmp_value = a->second;
                 fprintf(stderr, "found hostname_domains:      %s\n", domain.c_str());
@@ -354,9 +414,9 @@ public:
             } else {
                 score += base_prior*0.15590;
             }
+            fprintf(stderr, "score: %Lf\n", score);
 
             const auto b = p.portname_applications.find(port_app);
-            ++lookups;
             if (b != p.portname_applications.end()) {
                 tmp_value = b->second;
                 fprintf(stderr, "found portname_applications: %s\n", port_app.c_str());
@@ -365,28 +425,80 @@ public:
             } else {
                 score += base_prior*0.00528;
             }
+            fprintf(stderr, "score: %Lf\n", score);
 
-            // TBD: EXTENDED_METADATA
+            if (EXTENDED_FP_METADATA) {
+                fprintf(stderr, "looking for ip_ip %s\n", dst_ip_str.c_str());
+                const auto ip_ip = p.ip_ip.find(dst_ip_str);
+                if (ip_ip != p.ip_ip.end()) {
+                    tmp_value = ip_ip->second;
+                    fprintf(stderr, "found ip_ip %s with tmp_value %lu\n", dst_ip_str.c_str(), tmp_value);
+                    ++hits;
+                    score += log((long double)tmp_value/fp_tc)*0.56735;
+                } else {
+                    score += base_prior*0.56735;
+                }
+                fprintf(stderr, "score: %Lf\n", score);
 
-            // TBD: MALWARE_DB
+                const auto hostname_sni = p.hostname_sni.find(server_name_str);
+                if (hostname_sni != p.hostname_sni.end()) {
+                    tmp_value = hostname_sni->second;
+                    fprintf(stderr, "found server_name_str %s with tmp_value %lu\n", hostname_sni->first.c_str(), tmp_value);
+                    ++hits;
+                    score += log((long double)tmp_value/fp_tc)*0.96941;
+                } else {
+                    score += base_prior*0.96941;
+                }
+                fprintf(stderr, "score: %Lf\n", score);
+
+            }
 
             score = exp(score);
             score_sum += score;
-            if (score > max_score) {
-                max_score = score;
-                max_proc = p.name;
-                fprintf(stderr, "setting max_proc to %s with score %Lf\n", max_proc.c_str(), score);
-            } else {
-                fprintf(stderr, "rejecting process %s with score %Lf\n", p.name.c_str(), score);
-            }
 
+            fprintf(stderr, "exp(score): %Le\n", score);
+
+            if (MALWARE_DB) {
+                if (p.malware && score > 0.0) {
+                    malware_prob += score;
+                }
+
+                if (score > max_score) {
+                    sec_score = max_score;
+                    sec_proc = max_proc;
+                    sec_mal = max_mal;
+                    max_score = score;
+                    max_proc = p.name;
+                    max_mal = p.malware;
+                    fprintf(stderr, "[2] setting max_proc to %s with exp(score) %Le\n", p.name.c_str(), score);
+                } else if (score > sec_score) {
+                    sec_score = score;
+                    sec_proc = p.name;
+                    sec_mal = p.malware;
+                    fprintf(stderr, "[3] setting sec_proc to %s with exp(score) %Le\n", p.name.c_str(), score);
+                } else {
+                   fprintf(stderr, "[4] rejecting process %s with exp(score) %Le\n", p.name.c_str(), score);
+                }
+            } else {
+                if (score > max_score) {
+                    max_score = score;
+                    max_proc = p.name;
+                    fprintf(stderr, "[1] setting max_proc to %s with exp(score) %Le\n", p.name.c_str(), score);
+                } else {
+                    fprintf(stderr, "rejecting process %s with exp(score) %Le\n", p.name.c_str(), score);
+                }
+            }
         }
 
         if (MALWARE_DB && max_proc == "generic dmz process" && sec_mal == false) {
+            fprintf(stderr, "setting max_proc to sec_proc (%s to %s)\n", max_proc.c_str(), sec_proc.c_str());
             max_proc = sec_proc;
             max_score = sec_score;
             max_mal = sec_mal;
         }
+
+        fprintf(stderr, "pre-adjust score: %Le\n", max_score);
+        fprintf(stderr, "score_sum:        %Le\n", score_sum);
 
         if (score_sum > 0.0) {
             max_score /= score_sum;
@@ -394,10 +506,9 @@ public:
                 malware_prob /= score_sum;
             }
         }
-        fprintf(stderr, "lookups:   %u\n", lookups);
         fprintf(stderr, "hits:      %u\n", hits);
         fprintf(stderr, "num_procs: %u\n", num_procs);
-        fprintf(stderr, "final proc is %s\n\n", max_proc.c_str());
+        fprintf(stderr, "final proc is %s with score %Lf\n\n", max_proc.c_str(), max_score);
 
         if (MALWARE_DB) {
             return analysis_result(max_proc.c_str(), max_score, max_mal, malware_prob);

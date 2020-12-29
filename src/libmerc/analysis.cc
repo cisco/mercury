@@ -329,11 +329,13 @@ struct analysis_result perform_analysis(char *fp_str, char *server_name, char *d
         prob_process_given_fp = (long double)p_count/fp_tc;
 
         base_prior = log(1.0/fp_tc);
+
+#ifdef USE_DOMAIN_MEAN
         itr = procs[i].FindMember("domain_mean");
         if ((itr != procs[i].MemberEnd()) && (procs[i]["domain_mean"].GetFloat() < 0.5)) {
             base_prior = log(.1/fp_tc);
         }
-
+#endif
         score = log(prob_process_given_fp);
         score = fmax(score, proc_prior);
 
