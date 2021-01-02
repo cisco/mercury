@@ -71,15 +71,23 @@ class analysis_result analyze_client_hello_and_key(const struct tls_client_hello
 #include "rapidjson/stringbuffer.h"
 #include "tls.h"
 
+// an instance of class update represents an update to a prior
+// probability
+class update {
+public:
+    update(unsigned int i, long double v) : index{i}, value{v} {}
+    unsigned int index;  // index of probability to update
+    long double value;   // value of update
+};
+
+
 // helper functions
 
 #define MAX_DST_ADDR_LEN 48
 #define MAX_FP_STR_LEN 4096
 #define MAX_SNI_LEN     257
 
-extern std::unordered_map<uint16_t, std::string> port_mapping;
 
-std::string get_port_app(uint16_t dst_port);
 
 std::string get_domain_name(char* server_name);
 
@@ -95,9 +103,9 @@ public:
     std::string name;
     bool malware;
     uint64_t count;
-    std::unordered_map<uint32_t, uint64_t> ip_as;
+    std::unordered_map<uint32_t, uint64_t>    ip_as;
     std::unordered_map<std::string, uint64_t> hostname_domains;
-    std::unordered_map<std::string, uint64_t> portname_applications;
+    std::unordered_map<uint16_t, uint64_t>    portname_applications;
     std::unordered_map<std::string, uint64_t> ip_ip;
     std::unordered_map<std::string, uint64_t> hostname_sni;
     bool extended_fp_metadata = false;
@@ -107,7 +115,7 @@ public:
                  uint64_t proc_count,
                  std::unordered_map<uint32_t, uint64_t> as,
                  std::unordered_map<std::string, uint64_t> domains,
-                 std::unordered_map<std::string, uint64_t> ports,
+                 std::unordered_map<uint16_t, uint64_t> ports,
                  std::unordered_map<std::string, uint64_t> ip,
                  std::unordered_map<std::string, uint64_t> sni) :
         name{proc_name},
@@ -143,7 +151,7 @@ public:
         fprintf(f, ",\"classes_port_applications\":{");
         comma = ' ';
         for (auto &x : portname_applications) {
-            fprintf(f, "%c\"%s\":%lu", comma, x.first.c_str(), x.second);
+            fprintf(f, "%c\"%u\":%lu", comma, x.first, x.second);
             comma = ',';
         }
         fprintf(f, "}");
@@ -173,6 +181,14 @@ public:
 };
 
 class fingerprint_data {
+    std::vector<std::string> process_name;
+    std::vector<long double> process_prob;
+    std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
+    std::unordered_map<uint16_t, std::vector<class update>> port_updates;
+    std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
+    std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
+    std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
+    long double base_prior;
 public:
     uint64_t total_count;
     std::vector<class process_info> process_data;
@@ -181,7 +197,75 @@ public:
 
     fingerprint_data(uint64_t count, std::vector<class process_info> processes) :
         total_count{count},
-        process_data{processes}  { }
+        process_data{processes}  {
+
+            // initialize data structures
+            //
+            process_name.reserve(processes.size());
+            process_prob.reserve(processes.size());
+
+            base_prior = log(1.0 / total_count);
+            size_t index = 0;
+            for (const auto &p : processes) {
+                process_name.push_back(p.name);
+
+                long double proc_prior = log(.1);
+                long double prob_process_given_fp = (long double)p.count / total_count;
+                long double score = log(prob_process_given_fp);
+                process_prob.push_back(fmax(score, proc_prior) + base_prior * (0.13924 + 0.15590 + 0.00528));
+
+                for (const auto &as_and_count : p.ip_as) {
+                    const auto x = as_number_updates.find(as_and_count.first);
+                    class update u{ index, (log((long double)as_and_count.second / total_count) - base_prior )* 0.13924 };
+                    if (x != as_number_updates.end()) {
+                        x->second.push_back(u);
+                    } else {
+                        as_number_updates[as_and_count.first] = { u };
+                    }
+                }
+                for (const auto &domains_and_count : p.hostname_domains) {
+                    const auto x = hostname_domain_updates.find(domains_and_count.first);
+                    class update u{ index, (log((long double)domains_and_count.second / total_count) - base_prior) * 0.15590 };
+                    if (x != hostname_domain_updates.end()) {
+                        x->second.push_back(u);
+                    } else {
+                        hostname_domain_updates[domains_and_count.first] = { u };
+                    }
+                }
+                for (const auto &port_and_count : p.portname_applications) {
+                    const auto x = port_updates.find(port_and_count.first);
+                    class update u{ index, (log((long double)port_and_count.second / total_count) - base_prior) * 0.00528 };
+                    if (x != port_updates.end()) {
+                        x->second.push_back(u);
+                    } else {
+                        port_updates[port_and_count.first] = { u };
+                    }
+                }
+
+                ++index;
+            }
+
+            if (false) {
+                for (size_t i=0; i < processes.size(); i++) {
+                    fprintf(stderr, "process: %s\tprob: %Le\n", process_name[i].c_str(), process_prob[i]);
+                }
+                std::unordered_map<uint16_t, std::vector<class update>> port_updates;
+                fprintf(stderr, "port_updates:\n");
+                for (const auto &port_and_updates : port_updates) {
+                    fprintf(stderr, "\t%u:\n", port_and_updates.first);
+                    for (const auto &update : port_and_updates.second) {
+                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+                    }
+                }
+                fprintf(stderr, "as_number_updates:\n");
+                for (const auto &asn_and_updates : as_number_updates) {
+                    fprintf(stderr, "\t%u:\n", asn_and_updates.first);
+                    for (const auto &update : asn_and_updates.second) {
+                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+                    }
+                }
+            }
+        }
 
     void print(FILE *f) {
         fprintf(f, ",\"total_count\":%lu", total_count);
@@ -194,6 +278,93 @@ public:
         }
         fprintf(f, "]");
     }
+
+    struct analysis_result perform_analysis(char *server_name, char *dst_ip, uint16_t dst_port) {
+        uint32_t asn_int = get_asn_info(dst_ip);
+        uint16_t port_app = remap_port(dst_port);
+        std::string domain = get_domain_name(server_name);
+        std::string server_name_str(server_name);
+        std::string dst_ip_str(dst_ip);
+
+        std::vector<long double> process_score = process_prob;  // working copy of probability vector
+
+        auto asn_update = as_number_updates.find(asn_int);
+        if (asn_update != as_number_updates.end()) {
+            for (const auto &x : asn_update->second) {
+                process_score[x.index] += x.value;
+            }
+        }
+        auto port_update = port_updates.find(port_app);
+        if (port_update != port_updates.end()) {
+            for (const auto &x : port_update->second) {
+                process_score[x.index] += x.value;
+            }
+        }
+        auto hostname_domain_update = hostname_domain_updates.find(domain);
+        if (hostname_domain_update != hostname_domain_updates.end()) {
+            for (const auto &x : hostname_domain_update->second) {
+                process_score[x.index] += x.value;
+            }
+        }
+        auto ip_ip_update = ip_ip_updates.find(dst_ip_str);
+        if (ip_ip_update != ip_ip_updates.end()) {
+            for (const auto &x : ip_ip_update->second) {
+                process_score[x.index] += x.value;
+            }
+        }
+        auto hostname_sni_update = hostname_sni_updates.find(server_name_str);
+        if (hostname_sni_update != hostname_sni_updates.end()) {
+            for (const auto &x : hostname_sni_update->second) {
+                process_score[x.index] += x.value;
+            }
+        }
+
+        long double max_score = 0.0;
+        uint64_t index_max = 0;
+        for (uint64_t i=0; i < process_score.size(); i++) {
+            if (process_score[i] > max_score) {
+                max_score = process_score[i];
+                index_max = i;
+            }
+        }
+        return analysis_result(process_name[index_max].c_str(), max_score);
+    }
+
+    static uint16_t remap_port(uint16_t dst_port) {
+        std::unordered_map<uint16_t, uint16_t> port_remapping =
+            {
+             { 443, 443 },   // https
+             { 448, 448 },   // database
+             { 465, 465 },   // email
+             { 563, 563 },   // nntp
+             { 585, 465 },   // email
+             { 614, 614 },   // shell
+             { 636, 636 },   // ldap
+             { 989, 989 },   // ftp
+             { 990, 989 },   // ftp
+             { 991, 991 },   // nas
+             { 992, 992 },   // telnet
+             { 993, 465 },   // email
+             { 994, 994 },   // irc
+             { 995, 465 },   // email
+             { 1443, 1443 }, // alt-https
+             { 2376, 2376 }, // docker
+             { 8001, 8001 }, // tor
+             { 8443, 1443 }, // alt-https
+             { 9000, 8001 }, // tor
+             { 9001, 8001 }, // tor
+             { 9002, 8001 }, // tor
+             { 9101, 8001 }, // tor
+            };
+
+        const auto port_it = port_remapping.find(dst_port);
+        if (port_it != port_remapping.end()) {
+            return port_it->second;
+        }
+        return 0;  // unknown
+    }
+
+
 };
 
 // static const char* kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
@@ -203,8 +374,9 @@ class classifier {
     bool MALWARE_DB = false;
     bool EXTENDED_FP_METADATA = false;
 
-public:
     std::unordered_map<std::string, class fingerprint_data> fpdb;
+
+public:
 
     classifier(const char *resource_file) : fpdb{} {
 
@@ -240,9 +412,9 @@ public:
                     //fprintf(stderr, "%s\n", "process_info");
 
                     bool malware = false;
-                    std::unordered_map<uint32_t, uint64_t> ip_as;
+                    std::unordered_map<uint32_t, uint64_t>    ip_as;
                     std::unordered_map<std::string, uint64_t> hostname_domains;
-                    std::unordered_map<std::string, uint64_t> portname_applications;
+                    std::unordered_map<uint16_t, uint64_t>    portname_applications;
                     std::unordered_map<std::string, uint64_t> ip_ip;
                     std::unordered_map<std::string, uint64_t> hostname_sni;
 
@@ -272,7 +444,12 @@ public:
                             if (y.value.IsUint64()) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
 
+                                errno = 0;
                                 unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
+                                if (errno) {
+                                    as_number = 0; // "unknown"
+                                    fprintf(stderr, "note: found string \"%s\" in ip_as\n", y.name.GetString());
+                                }
                                 if (as_number > 0xffffffff) {
                                     throw "error: as number too high";
                                 }
@@ -286,7 +463,16 @@ public:
                             if (y.value.IsUint64()) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
                             }
-                            portname_applications[y.name.GetString()] = y.value.GetUint64();
+
+                            uint16_t tmp_port = 0;
+                            auto port_it = string_to_port.find(y.name.GetString());
+                            if (port_it == string_to_port.end()) {
+                                // throw "error: unexpected string in classes_port_applications";
+                                fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
+                            } else {
+                                tmp_port = port_it->second;
+                            }
+                            portname_applications[tmp_port] = y.value.GetUint64();
                         }
                     }
                     if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
@@ -349,6 +535,52 @@ public:
         }
     }
 
+    std::unordered_map<std::string, uint16_t> string_to_port =
+        {
+         { "unknown",      0 },
+         { "https",      443 },
+         { "database",   448 },
+         { "email",      465 },
+         { "nntp",       563 },
+         { "shell",      614 },
+         { "ldap",       636 },
+         { "ftp",        989 },
+         { "nas",        991 },
+         { "telnet",     992 },
+         { "irc",        994 },
+         { "alt-https", 1443 },
+         { "docker",    2376 },
+         { "tor",       8001 },
+        };
+    std::string port_to_app(uint16_t dst_port) {
+        std::unordered_map<uint16_t, std::string> port_app = {
+             {443, "https"},  {448,"database"}, {465,"email"},
+             {563,"nntp"},    {585,"email"},    {614,"shell"},
+             {636,"ldap"},    {989,"ftp"},      {990,"ftp"},
+             {991,"nas"},     {992,"telnet"},   {993,"email"},
+             {994,"irc"},     {995,"email"},    {1443,"alt-https"},
+             {2376,"docker"}, {8001,"tor"},     {8443,"alt-https"},
+             {9000,"tor"},    {9001,"tor"},     {9002,"tor"},
+             {9101,"tor"}
+        };
+        auto it = port_app.find(dst_port);
+        if (it != port_app.end()) {
+            return it->second;
+        }
+        return "unknown";
+
+    }
+
+    struct analysis_result perform_analysis_alt(const char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
+        const auto fpdb_entry = fpdb.find(fp_str);
+        if (fpdb_entry == fpdb.end()) {
+            return analysis_result();
+        }
+        class fingerprint_data &fp_data = fpdb_entry->second;
+
+        return fp_data.perform_analysis(server_name, dst_ip, dst_port);
+    }
+
     struct analysis_result perform_analysis(char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
@@ -357,8 +589,7 @@ public:
         class fingerprint_data &fp = fpdb_entry->second;
 
         uint32_t asn_int = get_asn_info(dst_ip);
-        std::string asn = std::to_string(asn_int);
-        std::string port_app = get_port_app(dst_port);
+        uint16_t port_app = fingerprint_data::remap_port(dst_port);
         std::string domain = get_domain_name(server_name);
         std::string server_name_str(server_name);
         std::string dst_ip_str(dst_ip);
@@ -397,7 +628,7 @@ public:
             const auto tmp = p.ip_as.find(asn_int);
             if (tmp != p.ip_as.end()) {
                 tmp_value = tmp->second;
-                fprintf(stderr, "found ip_as:                 %s\n", asn.c_str());
+                fprintf(stderr, "found ip_as:                 %u\n", asn_int);
                 ++hits;
                 score += log((long double)tmp_value/fp_tc)*0.13924;
             } else {
@@ -419,7 +650,7 @@ public:
             const auto b = p.portname_applications.find(port_app);
             if (b != p.portname_applications.end()) {
                 tmp_value = b->second;
-                fprintf(stderr, "found portname_applications: %s\n", port_app.c_str());
+                fprintf(stderr, "found portname_applications: %u\n", port_app);
                 ++hits;
                 score += log((long double)tmp_value/fp_tc)*0.00528;
             } else {
@@ -538,6 +769,30 @@ public:
         return this->perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
     }
 
+    class analysis_result analyze_client_hello_and_key_alt(const struct tls_client_hello &hello,
+                                                           const struct key &key) {
+        uint16_t dst_port = flow_key_get_dst_port(key);
+        char dst_ip_str[MAX_DST_ADDR_LEN];
+        flow_key_sprintf_dst_addr(key, dst_ip_str);
+
+        // copy fingerprint string
+        char fp_str[MAX_FP_STR_LEN] = { 0 };
+        struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
+        hello.write_fingerprint(fp_buf);
+        fp_buf.write_char('\0'); // null-terminate
+        // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
+
+        char sn_str[MAX_SNI_LEN] = { 0 };
+        struct datum sn{NULL, NULL};
+        hello.extensions.set_server_name(sn);
+        sn.strncpy(sn_str, MAX_SNI_LEN);
+        // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
+
+        return this->perform_analysis_alt(fp_str, sn_str, dst_ip_str, dst_port);
+    }
+
 };
+
+
 
 #endif /* ANALYSIS_H */
