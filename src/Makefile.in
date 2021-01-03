@@ -84,11 +84,8 @@ mercury: $(MERC) $(MERC_H) libmerc/libmerc.a Makefile.in
 setcap: mercury
 	sudo setcap $(CAP) $<
 
-libmerc/libmerc.a: libmerc
-
-.PHONY: libmerc
-libmerc:
-	$(MAKE) --directory=$@
+libmerc/libmerc.a:
+	$(MAKE) --directory=libmerc
 
 # implicit rule for building object files
 #
