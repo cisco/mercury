@@ -478,3 +478,4 @@ class analysis_result analyze_client_hello_and_key(const struct tls_client_hello
     return perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
 }
 
+bool fingerprint_data::malware_db = false;

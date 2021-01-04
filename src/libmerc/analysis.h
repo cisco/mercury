@@ -183,12 +183,16 @@ public:
 class fingerprint_data {
     std::vector<std::string> process_name;
     std::vector<long double> process_prob;
+    std::vector<bool>        malware;
     std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
     std::unordered_map<uint16_t, std::vector<class update>> port_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
     long double base_prior;
+
+    static bool malware_db;
+
 public:
     uint64_t total_count;
     std::vector<class process_info> process_data;
@@ -199,15 +203,24 @@ public:
         total_count{count},
         process_data{processes}  {
 
+            //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
+
             // initialize data structures
             //
             process_name.reserve(processes.size());
             process_prob.reserve(processes.size());
+            malware.reserve(processes.size());
 
             base_prior = log(1.0 / total_count);
             size_t index = 0;
-            for (const auto &p : processes) {
+            for (const auto &p : process_data) {
                 process_name.push_back(p.name);
+                malware.push_back(p.malware);
+                if (p.malware) {
+                    malware_db = true;
+                }
+
+                //fprintf(stderr, "compiling process \"%s\"\n", p.name.c_str());
 
                 long double proc_prior = log(.1);
                 long double prob_process_given_fp = (long double)p.count / total_count;
@@ -241,26 +254,53 @@ public:
                         port_updates[port_and_count.first] = { u };
                     }
                 }
+                for (const auto &ip_and_count : p.ip_ip) {
+                    const auto x = ip_ip_updates.find(ip_and_count.first);
+                    class update u{ index, (log((long double)ip_and_count.second / total_count) - base_prior) * 0.56735 };
+                    if (x != ip_ip_updates.end()) {
+                        x->second.push_back(u);
+                    } else {
+                        ip_ip_updates[ip_and_count.first] = { u };
+                    }
+                }
+                for (const auto &sni_and_count : p.hostname_sni) {
+                    const auto x = hostname_sni_updates.find(sni_and_count.first);
+                    class update u{ index, (log((long double)sni_and_count.second / total_count) - base_prior) * 0.96941 };
+                    if (x != hostname_sni_updates.end()) {
+                        x->second.push_back(u);
+                    } else {
+                        hostname_sni_updates[sni_and_count.first] = { u };
+                    }
+                }
 
                 ++index;
             }
 
             if (false) {
+                // dump info to stderr
+                //
                 for (size_t i=0; i < processes.size(); i++) {
                     fprintf(stderr, "process: %s\tprob: %Le\n", process_name[i].c_str(), process_prob[i]);
-                }
-                std::unordered_map<uint16_t, std::vector<class update>> port_updates;
-                fprintf(stderr, "port_updates:\n");
-                for (const auto &port_and_updates : port_updates) {
-                    fprintf(stderr, "\t%u:\n", port_and_updates.first);
-                    for (const auto &update : port_and_updates.second) {
-                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
-                    }
                 }
                 fprintf(stderr, "as_number_updates:\n");
                 for (const auto &asn_and_updates : as_number_updates) {
                     fprintf(stderr, "\t%u:\n", asn_and_updates.first);
                     for (const auto &update : asn_and_updates.second) {
+                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+                    }
+                }
+                //std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
+                fprintf(stderr, "hostname_domain_updates:\n");
+                for (const auto &domain_and_updates : hostname_domain_updates) {
+                    fprintf(stderr, "\t%s:\n", domain_and_updates.first.c_str());
+                    for (const auto &update : domain_and_updates.second) {
+                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+                    }
+                }
+                fprintf(stderr, "port_updates:\n");
+                for (const auto &port_and_updates : port_updates) {
+                    fprintf(stderr, "\t%u:\n", port_and_updates.first);
+                    for (const auto &update : port_and_updates.second) {
                         fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
                     }
                 }
@@ -319,13 +359,48 @@ public:
             }
         }
 
-        long double max_score = 0.0;
+        long double score_sum = 0.0;
+        for (auto &score : process_score) {
+            score = exp(score);
+            score_sum += score;
+        }
+
+        long double malware_prob = 0.0;
+        long double max_score = std::numeric_limits<long double>::lowest();
+        long double sec_score = std::numeric_limits<long double>::lowest();
         uint64_t index_max = 0;
+        uint64_t index_sec = 0;
+        //fprintf(stderr, "initial max_score: %Le\n", process_score[0]);
         for (uint64_t i=0; i < process_score.size(); i++) {
+            if (malware[i]) {
+                malware_prob += process_score[i];
+            }
             if (process_score[i] > max_score) {
+                sec_score = max_score;
+                index_sec = index_max;
                 max_score = process_score[i];
                 index_max = i;
+                //fprintf(stderr, "XXXX setting max to \"%s\", sec to \"%s\"\n", process_name[index_max].c_str(), process_name[index_sec].c_str());
+            } else if (process_score[i] > sec_score) {
+                sec_score = process_score[i];
+                index_sec = i;
             }
+        }
+
+        if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
+            index_max = index_sec;
+            max_score = sec_score;
+        }
+
+        if (score_sum > 0.0) {
+            max_score /= score_sum;
+            if (malware_db) {
+                malware_prob /= score_sum;
+            }
+        }
+
+        if (malware_db) {
+            return analysis_result(process_name[index_max].c_str(), max_score, malware[index_max], malware_prob);
         }
         return analysis_result(process_name[index_max].c_str(), max_score);
     }
