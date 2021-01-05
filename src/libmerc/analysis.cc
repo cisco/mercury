@@ -342,8 +342,10 @@ struct analysis_result perform_analysis(char *fp_str, char *server_name, char *d
         itr = procs[i]["classes_ip_as"].FindMember(asn.c_str());
         if (itr != procs[i]["classes_ip_as"].MemberEnd()) {
             tmp_value = procs[i]["classes_ip_as"][asn.c_str()].GetUint64();
+            fprintf(stderr, "process \"%s\": dst_ip: \"%s\", classes_ip_as[\"%s\"]: %lu\n", procs[i]["process"].GetString(),dst_ip_str.c_str(),  asn.c_str(), tmp_value);
             score += log((long double)tmp_value/fp_tc)*0.13924;
         } else {
+            //fprintf(stderr, "process \"%s\": dst_ip: \"%s\", classes_ip_as.FindMember(\"%s\") == MemberEnd\n", procs[i]["process"].GetString(), dst_ip_str.c_str(), asn.c_str());
             score += base_prior*0.13924;
         }
 
@@ -367,8 +369,10 @@ struct analysis_result perform_analysis(char *fp_str, char *server_name, char *d
             itr = procs[i]["classes_ip_ip"].FindMember(dst_ip_str.c_str());
             if (itr != procs[i]["classes_ip_ip"].MemberEnd()) {
                 tmp_value = procs[i]["classes_ip_ip"][dst_ip_str.c_str()].GetUint64();
+                fprintf(stderr, "process: \"%s\"\tclasses_ip_ip[\"%s\"]: %lu\n", procs[i]["process"].GetString(), dst_ip_str.c_str(), tmp_value);
                 score += log((long double)tmp_value/fp_tc)*0.56735;
             } else {
+                //fprintf(stderr, "process: \"%s\"\tclasses_ip_ip.FindMember(\"%s\") == MemberEnd()\n", procs[i]["process"].GetString(), dst_ip_str.c_str());
                 score += base_prior*0.56735;
             }
 
@@ -422,6 +426,8 @@ struct analysis_result perform_analysis(char *fp_str, char *server_name, char *d
             malware_prob /= score_sum;
         }
     }
+
+    fprintf(stderr, "selected process: \"%s\"\tdst_ip: \"%s\"\tasn: \"%s\"\n---------------------------------\n", max_proc.c_str(), dst_ip_str.c_str(), asn.c_str());
 
     if (MALWARE_DB) {
         return analysis_result(max_proc.c_str(), max_score, max_mal, malware_prob);

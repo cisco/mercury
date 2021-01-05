@@ -519,16 +519,21 @@ public:
                             if (y.value.IsUint64()) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
 
-                                errno = 0;
-                                unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
-                                if (errno) {
-                                    as_number = 0; // "unknown"
-                                    fprintf(stderr, "note: found string \"%s\" in ip_as\n", y.name.GetString());
+                                if (strcmp(y.name.GetString(), "unknown") != 0) {
+
+                                    errno = 0;
+                                    unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
+                                    if (errno) {
+                                        as_number = 0; // "unknown"
+                                        fprintf(stderr, "note: found string \"%s\" in ip_as\n", y.name.GetString());
+                                    }
+                                    if (as_number > 0xffffffff) {
+                                        throw "error: as number too high";
+                                    }
+                                    ip_as[as_number] = y.value.GetUint64();
+
                                 }
-                                if (as_number > 0xffffffff) {
-                                    throw "error: as number too high";
-                                }
-                                ip_as[as_number] = y.value.GetUint64();
+
                             }
                         }
                     }
