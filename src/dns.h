@@ -265,12 +265,19 @@ struct dns_label_header {
 
 struct dns_name : public data_buffer<256> {
 
+    static const unsigned int recursion_threshold = 16;  // prevents stack overflow
+
     dns_name() : data_buffer{} {}
 
+    void parse(struct datum &d, const struct datum &dns_body, unsigned int recursion_count=0) {
 
-    void parse(struct datum &d, const struct datum &dns_body) {
+        if (recursion_count++ > recursion_threshold) {
+            d.set_empty();
+            return;
+        }
 
         while (d.is_not_empty()) {
+
             struct dns_label_header h{d};
             dns_label_type type = h.type();
             if (type == dns_label_type::null) {
@@ -285,13 +292,18 @@ struct dns_name : public data_buffer<256> {
                 d.read_uint8(&tmp);
                 uint16_t offset = (((uint16_t)h.offset()) << 8) + tmp;
 
-                // parse the label at hdr + offset
                 if (offset < sizeof(dns_hdr)) {
                     d.set_empty();  // error: offset too small
+                    return;
+                } else if ((ssize_t)offset >= dns_body.length()) {
+                    d.set_empty();
+                    return;         // error: offset points to itself, or a following label
                 }
+
+                // parse the label at hdr + offset
                 struct datum tmp_dns_body = dns_body;
                 tmp_dns_body.skip(offset - sizeof(dns_hdr));
-                parse(tmp_dns_body, dns_body);
+                parse(tmp_dns_body, dns_body, recursion_count);
                 break;
             }
         }
