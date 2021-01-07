@@ -220,16 +220,22 @@ public:
                     malware_db = true;
                 }
 
+                constexpr long double as_weight = 0.13924;
+                constexpr long double domain_weight = 0.15590;
+                constexpr long double port_weight = 0.00528;
+                constexpr long double ip_weight = 0.56735;
+                constexpr long double sni_weight = 0.96941;
+
                 //fprintf(stderr, "compiling process \"%s\"\n", p.name.c_str());
 
                 long double proc_prior = log(.1);
                 long double prob_process_given_fp = (long double)p.count / total_count;
                 long double score = log(prob_process_given_fp);
-                process_prob.push_back(fmax(score, proc_prior) + base_prior * (0.13924 + 0.15590 + 0.00528));
+                process_prob.push_back(fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight));
 
                 for (const auto &as_and_count : p.ip_as) {
                     const auto x = as_number_updates.find(as_and_count.first);
-                    class update u{ index, (log((long double)as_and_count.second / total_count) - base_prior )* 0.13924 };
+                    class update u{ index, (log((long double)as_and_count.second / total_count) - base_prior ) * as_weight };
                     if (x != as_number_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -238,7 +244,7 @@ public:
                 }
                 for (const auto &domains_and_count : p.hostname_domains) {
                     const auto x = hostname_domain_updates.find(domains_and_count.first);
-                    class update u{ index, (log((long double)domains_and_count.second / total_count) - base_prior) * 0.15590 };
+                    class update u{ index, (log((long double)domains_and_count.second / total_count) - base_prior) * domain_weight };
                     if (x != hostname_domain_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -247,7 +253,7 @@ public:
                 }
                 for (const auto &port_and_count : p.portname_applications) {
                     const auto x = port_updates.find(port_and_count.first);
-                    class update u{ index, (log((long double)port_and_count.second / total_count) - base_prior) * 0.00528 };
+                    class update u{ index, (log((long double)port_and_count.second / total_count) - base_prior) * port_weight };
                     if (x != port_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -256,7 +262,7 @@ public:
                 }
                 for (const auto &ip_and_count : p.ip_ip) {
                     const auto x = ip_ip_updates.find(ip_and_count.first);
-                    class update u{ index, (log((long double)ip_and_count.second / total_count) - base_prior) * 0.56735 };
+                    class update u{ index, (log((long double)ip_and_count.second / total_count) - base_prior) * ip_weight };
                     if (x != ip_ip_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -265,7 +271,7 @@ public:
                 }
                 for (const auto &sni_and_count : p.hostname_sni) {
                     const auto x = hostname_sni_updates.find(sni_and_count.first);
-                    class update u{ index, (log((long double)sni_and_count.second / total_count) - base_prior) * 0.96941 };
+                    class update u{ index, (log((long double)sni_and_count.second / total_count) - base_prior) * sni_weight };
                     if (x != hostname_sni_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -388,7 +394,12 @@ public:
         }
 
         if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
+            // the most probable process is unlabeled, so choose the
+            // next most probable one if it isn't malware, and adjust
+            // the normalization sum as appropriate
+
             index_max = index_sec;
+            score_sum -= max_score;
             max_score = sec_score;
         }
 

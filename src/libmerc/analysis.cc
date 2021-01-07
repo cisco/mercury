@@ -415,7 +415,13 @@ struct analysis_result perform_analysis(char *fp_str, char *server_name, char *d
     }
 
     if (MALWARE_DB && max_proc == "generic dmz process" && sec_mal == false) {
+        // the most probable process is unlabeled, so choose the
+        // next most probable one if it isn't malware, and adjust
+        // the normalization sum as appropriate
+
+        fprintf(stderr, "XXX eliminating top score and renormalizing (score_sum: %Le, max_score: %Le)\n", score_sum, max_score);
         max_proc = sec_proc;
+        score_sum -= max_score;
         max_score = sec_score;
         max_mal = sec_mal;
     }
@@ -427,7 +433,7 @@ struct analysis_result perform_analysis(char *fp_str, char *server_name, char *d
         }
     }
 
-    fprintf(stderr, "selected process: \"%s\"\tdst_ip: \"%s\"\tasn: \"%s\"\n---------------------------------\n", max_proc.c_str(), dst_ip_str.c_str(), asn.c_str());
+    fprintf(stderr, "XXX selected process: \"%s\"\tdst_ip: \"%s\"\tasn: \"%s\"\n---------------------------------\n", max_proc.c_str(), dst_ip_str.c_str(), asn.c_str());
 
     if (MALWARE_DB) {
         return analysis_result(max_proc.c_str(), max_score, max_mal, malware_prob);
