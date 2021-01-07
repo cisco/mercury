@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <ctype.h>
 #include <pthread.h>
 
 #include <gmp.h>
@@ -620,6 +621,24 @@ void print_prodtree(struct prodtree *ptree) {
 }
 
 
+/* Check if a line is all hex characters (except trailing newline) */
+int is_hex_line(const char *line) {
+    int len = strlen(line);
+    int len_to_check;
+    if (line[len - 1] == '\n') {
+        len_to_check = len - 1;
+    } else {
+        len_to_check = len;
+    }
+    for (int i = 0; i < len_to_check; i++) {
+        if (!isxdigit(line[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+
 int main (void) {
 
     /* log2 test */
@@ -665,19 +684,32 @@ int main (void) {
     struct numlist *nlist = makenumlist(0);
     mpz_t mpz_temp;
     mpz_init(mpz_temp);
-    int done = 0;
-    int line = 0;
-    while (done == 0) {
-        line++;
-        int ret = gmp_fscanf(stdin, "%Zx\n", mpz_temp);
-        if (ret == EOF) {
-            done = 1;
-        } else if (ret != 1) {
-            fprintf(stderr, "Invalid modilus input on line %d\n", line);
-        } else {
-            push_numlist(nlist, mpz_temp);
+    char *linestr = NULL;
+    size_t linelen = 0;
+    ssize_t read;
+    int linenum = 1;
+    while ((read = getline(&linestr, &linelen, stdin)) != -1) {
+        if (!is_hex_line(linestr)) {
+            fprintf(stderr, "Aborting due to non-hex input on line %d: %s\n",
+                    linenum, linestr);
+            exit(2);
         }
+        int ret = gmp_sscanf(linestr, "%Zx\n", mpz_temp);
+        if (ret == 1) {
+            push_numlist(nlist, mpz_temp);
+        } else {
+            fprintf(stderr, "Aborting due to invalid modulus on line %d: %s\n",
+                    linenum, linestr);
+            exit(3);
+        }
+        linenum++;
     }
+    if (ferror(stdin)) {
+        fprintf(stderr, "Aborting due to error reading line %d\n", linenum);
+        exit(1);
+    }
+    free(linestr);
+
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
     struct numlist *cplist = factor_coprimes(nlist, gcdlist);
