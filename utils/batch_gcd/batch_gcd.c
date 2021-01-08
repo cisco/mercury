@@ -9,6 +9,9 @@
 
 #include <gmp.h>
 
+#define NTHREADS 4   /* Number of threads to use. Adjust and recompile. */
+
+
 struct numlist {
     size_t len;   /* The actual number of elements */
     size_t alloc; /* The number of allocated elements */
@@ -396,7 +399,7 @@ struct prodtree * producttree(struct numlist *nlist) {
     ptree->level[0] = nlist; /*copynumlist(nlist);*/
     for (size_t l = 1; l < ptree->height; l++) {
         ptree->level[l] = makenumlist((ptree->level[l - 1]->len + 1) / 2);
-        threaded_listmul(ptree->level[l], ptree->level[l - 1], 4);
+        threaded_listmul(ptree->level[l], ptree->level[l - 1], NTHREADS);
     }
 
     return ptree;
@@ -427,7 +430,7 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
         struct numlist *Xlist = ptree->level[ptree->height - up];
 
         newRlist = makenumlist(Xlist->len);
-        threaded_listsqmod(Xlist, Rlist, newRlist, 4);
+        threaded_listsqmod(Xlist, Rlist, newRlist, NTHREADS);
 
         if (up != 2) {
             freenumlist(Rlist);
@@ -440,7 +443,7 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
     }
 
     struct numlist *gcdlist = makenumlist(nlist->len);
-    threaded_listdivgcd(gcdlist, Rlist, nlist, 4);
+    threaded_listdivgcd(gcdlist, Rlist, nlist, NTHREADS);
 
     if (needfree == 1) {
         freenumlist(Rlist);
