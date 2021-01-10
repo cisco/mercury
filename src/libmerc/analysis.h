@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <algorithm>
 #include "packet.h"
 #include "addr.h"
 #include "json_object.h"
@@ -70,15 +71,6 @@ class analysis_result analyze_client_hello_and_key(const struct tls_client_hello
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "tls.h"
-
-// an instance of class update represents an update to a prior
-// probability
-class update {
-public:
-    update(unsigned int i, long double v) : index{i}, value{v} {}
-    unsigned int index;  // index of probability to update
-    long double value;   // value of update
-};
 
 
 // helper functions
@@ -180,16 +172,31 @@ public:
     }
 };
 
+// data type used in floating point computations
+//
+using floating_point_type = long double;
+
+// an instance of class update represents an update to a prior
+// probability
+//
+class update {
+public:
+    update(unsigned int i, floating_point_type v) : index{i}, value{v} {}
+    unsigned int index;  // index of probability to update
+    floating_point_type value;   // value of update
+};
+
+
 class fingerprint_data {
     std::vector<std::string> process_name;
-    std::vector<long double> process_prob;
+    std::vector<floating_point_type> process_prob;
     std::vector<bool>        malware;
     std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
     std::unordered_map<uint16_t, std::vector<class update>> port_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
-    long double base_prior;
+    floating_point_type base_prior;
 
     static bool malware_db;
 
@@ -220,22 +227,22 @@ public:
                     malware_db = true;
                 }
 
-                constexpr long double as_weight = 0.13924;
-                constexpr long double domain_weight = 0.15590;
-                constexpr long double port_weight = 0.00528;
-                constexpr long double ip_weight = 0.56735;
-                constexpr long double sni_weight = 0.96941;
+                constexpr floating_point_type as_weight = 0.13924;
+                constexpr floating_point_type domain_weight = 0.15590;
+                constexpr floating_point_type port_weight = 0.00528;
+                constexpr floating_point_type ip_weight = 0.56735;
+                constexpr floating_point_type sni_weight = 0.96941;
 
                 //fprintf(stderr, "compiling process \"%s\"\n", p.name.c_str());
 
-                long double proc_prior = log(.1);
-                long double prob_process_given_fp = (long double)p.count / total_count;
-                long double score = log(prob_process_given_fp);
+                floating_point_type proc_prior = log(.1);
+                floating_point_type prob_process_given_fp = (floating_point_type)p.count / total_count;
+                floating_point_type score = log(prob_process_given_fp);
                 process_prob.push_back(fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight));
 
                 for (const auto &as_and_count : p.ip_as) {
                     const auto x = as_number_updates.find(as_and_count.first);
-                    class update u{ index, (log((long double)as_and_count.second / total_count) - base_prior ) * as_weight };
+                    class update u{ index, (log((floating_point_type)as_and_count.second / total_count) - base_prior ) * as_weight };
                     if (x != as_number_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -244,7 +251,7 @@ public:
                 }
                 for (const auto &domains_and_count : p.hostname_domains) {
                     const auto x = hostname_domain_updates.find(domains_and_count.first);
-                    class update u{ index, (log((long double)domains_and_count.second / total_count) - base_prior) * domain_weight };
+                    class update u{ index, (log((floating_point_type)domains_and_count.second / total_count) - base_prior) * domain_weight };
                     if (x != hostname_domain_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -253,7 +260,7 @@ public:
                 }
                 for (const auto &port_and_count : p.portname_applications) {
                     const auto x = port_updates.find(port_and_count.first);
-                    class update u{ index, (log((long double)port_and_count.second / total_count) - base_prior) * port_weight };
+                    class update u{ index, (log((floating_point_type)port_and_count.second / total_count) - base_prior) * port_weight };
                     if (x != port_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -262,7 +269,7 @@ public:
                 }
                 for (const auto &ip_and_count : p.ip_ip) {
                     const auto x = ip_ip_updates.find(ip_and_count.first);
-                    class update u{ index, (log((long double)ip_and_count.second / total_count) - base_prior) * ip_weight };
+                    class update u{ index, (log((floating_point_type)ip_and_count.second / total_count) - base_prior) * ip_weight };
                     if (x != ip_ip_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -271,7 +278,7 @@ public:
                 }
                 for (const auto &sni_and_count : p.hostname_sni) {
                     const auto x = hostname_sni_updates.find(sni_and_count.first);
-                    class update u{ index, (log((long double)sni_and_count.second / total_count) - base_prior) * sni_weight };
+                    class update u{ index, (log((floating_point_type)sni_and_count.second / total_count) - base_prior) * sni_weight };
                     if (x != hostname_sni_updates.end()) {
                         x->second.push_back(u);
                     } else {
@@ -282,6 +289,7 @@ public:
                 ++index;
             }
 
+#if 0
             if (false) {
                 // dump info to stderr
                 //
@@ -311,6 +319,8 @@ public:
                     }
                 }
             }
+#endif // 0
+
         }
 
     void print(FILE *f) {
@@ -332,7 +342,7 @@ public:
         std::string server_name_str(server_name);
         std::string dst_ip_str(dst_ip);
 
-        std::vector<long double> process_score = process_prob;  // working copy of probability vector
+        std::vector<floating_point_type> process_score = process_prob;  // working copy of probability vector
 
         auto asn_update = as_number_updates.find(asn_int);
         if (asn_update != as_number_updates.end()) {
@@ -365,18 +375,18 @@ public:
             }
         }
 
-        long double score_sum = 0.0;
+        //auto max_it = std::max_element(process_score.begin(), process_score.end());
+        floating_point_type score_sum = 0.0;
         for (auto &score : process_score) {
             score = exp(score);
             score_sum += score;
         }
 
-        long double malware_prob = 0.0;
-        long double max_score = std::numeric_limits<long double>::lowest();
-        long double sec_score = std::numeric_limits<long double>::lowest();
+        floating_point_type malware_prob = 0.0;
+        floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
+        floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
         uint64_t index_max = 0;
         uint64_t index_sec = 0;
-        //fprintf(stderr, "initial max_score: %Le\n", process_score[0]);
         for (uint64_t i=0; i < process_score.size(); i++) {
             if (malware[i]) {
                 malware_prob += process_score[i];
@@ -402,6 +412,9 @@ public:
             score_sum -= max_score;
             max_score = sec_score;
         }
+
+        // max_score = process_score[index_max]; // exp(max_score);
+        // sec_score = process_score[index_sec]; //exp(sec_score);
 
         if (score_sum > 0.0) {
             max_score /= score_sum;
