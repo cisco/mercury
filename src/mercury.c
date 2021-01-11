@@ -479,7 +479,7 @@ int main(int argc, char *argv[]) {
     if (cfg.loop_count < 1) {
         usage(argv[0], "error: invalid loop count (should be >= 1)", extended_help_off);
     } else if (cfg.loop_count > 1) {
-        fprintf(stderr, "notice: looping over input with loop count %d\n", cfg.loop_count);
+        // fprintf(stderr, "notice: looping over input with loop count %d\n", cfg.loop_count);
     }
 
     /* The option --adaptive works only with -w PCAP file option and -c capture interface */
