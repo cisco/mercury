@@ -376,10 +376,8 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
                     //class analysis_result res = analyze_client_hello_and_key(hello, k);
                     //res.write_json(record, "analysis");
                     extern classifier *c;
-                    //class analysis_result res2 = c->analyze_client_hello_and_key(hello, k);
-                    //res2.write_json(record, "analysis2");
-                    class analysis_result res3 = c->analyze_client_hello_and_key_alt(hello, k);
-                    res3.write_json(record, "analysis");
+                    class analysis_result result = c->analyze_client_hello_and_key(hello, k);
+                    result.write_json(record, "analysis");
                 }
                 write_flow_key(record, k);
                 record.print_key_timestamp("event_start", ts);
