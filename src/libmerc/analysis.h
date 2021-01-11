@@ -202,13 +202,11 @@ class fingerprint_data {
 
 public:
     uint64_t total_count;
-    std::vector<class process_info> process_data;
 
-    fingerprint_data() : total_count{0}, process_data{}  { }
+    fingerprint_data() : total_count{0}  { }
 
     fingerprint_data(uint64_t count, std::vector<class process_info> processes) :
-        total_count{count},
-        process_data{processes}  {
+        total_count{count} {
 
             //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
 
@@ -220,7 +218,7 @@ public:
 
             base_prior = log(1.0 / total_count);
             size_t index = 0;
-            for (const auto &p : process_data) {
+            for (const auto &p : processes) {
                 process_name.push_back(p.name);
                 malware.push_back(p.malware);
                 if (p.malware) {
@@ -289,6 +287,20 @@ public:
                 ++index;
             }
 
+        }
+
+    void print(FILE *f) {
+        fprintf(f, ",\"total_count\":%lu", total_count);
+        fprintf(f, ",\"process_info\":[");
+
+        // TBD: fix
+
+        // char comma = ' ';
+        // for (auto &p : process_data) {
+        //     fputc(comma, f);
+        //     p.print(f);
+        //     comma = ',';
+        // }
 #if 0
             if (false) {
                 // dump info to stderr
@@ -321,24 +333,39 @@ public:
             }
 #endif // 0
 
-        }
-
-    void print(FILE *f) {
-        fprintf(f, ",\"total_count\":%lu", total_count);
-        fprintf(f, ",\"process_info\":[");
-        char comma = ' ';
-        for (auto &p : process_data) {
-            fputc(comma, f);
-            p.print(f);
-            comma = ',';
-        }
         fprintf(f, "]");
+    }
+
+    std::string get_tld_domain_name(char* server_name) {
+
+        char *separator = NULL;
+        char *previous_separator = NULL;
+        char *c = server_name;
+        while (*c) {
+            if (*c == '.') {
+                if (separator) {
+                    previous_separator = separator;
+                }
+                separator = c;
+            }
+            c++;
+        }
+        if (previous_separator) {
+            previous_separator++;  // increment past '.'
+            //fprintf(stderr, "gdn input: %s\toutput: %s\n", server_name, previous_separator);
+            return previous_separator;
+        } else if (separator) {
+            //fprintf(stderr, "gdn input: %s\toutput: %s\n", server_name, separator);
+            return separator;
+        }
+        //fprintf(stderr, "gdn input: %s\toutput: %s\n", server_name, server_name);
+        return server_name;
     }
 
     struct analysis_result perform_analysis(char *server_name, char *dst_ip, uint16_t dst_port) {
         uint32_t asn_int = get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
-        std::string domain = get_domain_name(server_name);
+        std::string domain = get_tld_domain_name(server_name);
         std::string server_name_str(server_name);
         std::string dst_ip_str(dst_ip);
 
@@ -375,22 +402,11 @@ public:
             }
         }
 
-        //auto max_it = std::max_element(process_score.begin(), process_score.end());
-        floating_point_type score_sum = 0.0;
-        for (auto &score : process_score) {
-            score = exp(score);
-            score_sum += score;
-        }
-
-        floating_point_type malware_prob = 0.0;
         floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
         floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
         uint64_t index_max = 0;
         uint64_t index_sec = 0;
         for (uint64_t i=0; i < process_score.size(); i++) {
-            if (malware[i]) {
-                malware_prob += process_score[i];
-            }
             if (process_score[i] > max_score) {
                 sec_score = max_score;
                 index_sec = index_max;
@@ -403,6 +419,19 @@ public:
             }
         }
 
+        //auto max_it = std::max_element(process_score.begin(), process_score.end());
+        floating_point_type score_sum = 0.0;
+        floating_point_type malware_prob = 0.0;
+        for (uint64_t i=0; i < process_score.size(); i++) {
+            process_score[i] = exp((float)process_score[i]);
+            score_sum += process_score[i];
+            if (malware[i]) {
+                malware_prob += process_score[i];
+            }
+        }
+        max_score = process_score[index_max];
+        sec_score = process_score[index_sec];
+
         if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
             // the most probable process is unlabeled, so choose the
             // next most probable one if it isn't malware, and adjust
@@ -412,9 +441,6 @@ public:
             score_sum -= max_score;
             max_score = sec_score;
         }
-
-        // max_score = process_score[index_max]; // exp(max_score);
-        // sec_score = process_score[index_sec]; //exp(sec_score);
 
         if (score_sum > 0.0) {
             max_score /= score_sum;
@@ -675,7 +701,7 @@ public:
 
     }
 
-    struct analysis_result perform_analysis_alt(const char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
+    struct analysis_result perform_analysis(const char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
             return analysis_result();
@@ -683,172 +709,6 @@ public:
         class fingerprint_data &fp_data = fpdb_entry->second;
 
         return fp_data.perform_analysis(server_name, dst_ip, dst_port);
-    }
-
-    struct analysis_result perform_analysis(char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
-        const auto fpdb_entry = fpdb.find(fp_str);
-        if (fpdb_entry == fpdb.end()) {
-            return analysis_result();
-        }
-        class fingerprint_data &fp = fpdb_entry->second;
-
-        uint32_t asn_int = get_asn_info(dst_ip);
-        uint16_t port_app = fingerprint_data::remap_port(dst_port);
-        std::string domain = get_domain_name(server_name);
-        std::string server_name_str(server_name);
-        std::string dst_ip_str(dst_ip);
-
-        uint64_t fp_tc, p_count, tmp_value;
-        long double prob_process_given_fp, score;
-        long double max_score = -1.0;
-        long double sec_score = -1.0;
-        long double score_sum = 0.0;
-        long double malware_prob = 0.0;
-        rapidjson::Value equiv_class;
-        std::string max_proc;
-        std::string sec_proc;
-        bool max_mal = false;
-        bool sec_mal = false;
-
-        rapidjson::Value proc;
-        fp_tc = fp.total_count;
-
-        long double base_prior;
-        long double proc_prior = log(.1);
-
-        unsigned int hits = 0;
-        unsigned int num_procs = 0;
-        for (const auto &p : fp.process_data) {
-            ++num_procs;
-            p_count = p.count;
-            prob_process_given_fp = (long double)p_count/fp_tc;
-
-            base_prior = log(1.0/fp_tc);
-            score = log(prob_process_given_fp);
-            score = fmax(score, proc_prior);
-
-            fprintf(stderr, "process %s starting with score %Lf\n", p.name.c_str(), score);
-
-            const auto tmp = p.ip_as.find(asn_int);
-            if (tmp != p.ip_as.end()) {
-                tmp_value = tmp->second;
-                fprintf(stderr, "found ip_as:                 %u\n", asn_int);
-                ++hits;
-                score += log((long double)tmp_value/fp_tc)*0.13924;
-            } else {
-                score += base_prior*0.13924;
-            }
-            fprintf(stderr, "score: %Lf\n", score);
-
-            const auto a = p.hostname_domains.find(domain);
-            if (a != p.hostname_domains.end()) {
-                tmp_value = a->second;
-                fprintf(stderr, "found hostname_domains:      %s\n", domain.c_str());
-                ++hits;
-                score += log((long double)tmp_value/fp_tc)*0.15590;
-            } else {
-                score += base_prior*0.15590;
-            }
-            fprintf(stderr, "score: %Lf\n", score);
-
-            const auto b = p.portname_applications.find(port_app);
-            if (b != p.portname_applications.end()) {
-                tmp_value = b->second;
-                fprintf(stderr, "found portname_applications: %u\n", port_app);
-                ++hits;
-                score += log((long double)tmp_value/fp_tc)*0.00528;
-            } else {
-                score += base_prior*0.00528;
-            }
-            fprintf(stderr, "score: %Lf\n", score);
-
-            if (EXTENDED_FP_METADATA) {
-                fprintf(stderr, "looking for ip_ip %s\n", dst_ip_str.c_str());
-                const auto ip_ip = p.ip_ip.find(dst_ip_str);
-                if (ip_ip != p.ip_ip.end()) {
-                    tmp_value = ip_ip->second;
-                    fprintf(stderr, "found ip_ip %s with tmp_value %lu\n", dst_ip_str.c_str(), tmp_value);
-                    ++hits;
-                    score += log((long double)tmp_value/fp_tc)*0.56735;
-                } else {
-                    score += base_prior*0.56735;
-                }
-                fprintf(stderr, "score: %Lf\n", score);
-
-                const auto hostname_sni = p.hostname_sni.find(server_name_str);
-                if (hostname_sni != p.hostname_sni.end()) {
-                    tmp_value = hostname_sni->second;
-                    fprintf(stderr, "found server_name_str %s with tmp_value %lu\n", hostname_sni->first.c_str(), tmp_value);
-                    ++hits;
-                    score += log((long double)tmp_value/fp_tc)*0.96941;
-                } else {
-                    score += base_prior*0.96941;
-                }
-                fprintf(stderr, "score: %Lf\n", score);
-
-            }
-
-            score = exp(score);
-            score_sum += score;
-
-            fprintf(stderr, "exp(score): %Le\n", score);
-
-            if (MALWARE_DB) {
-                if (p.malware && score > 0.0) {
-                    malware_prob += score;
-                }
-
-                if (score > max_score) {
-                    sec_score = max_score;
-                    sec_proc = max_proc;
-                    sec_mal = max_mal;
-                    max_score = score;
-                    max_proc = p.name;
-                    max_mal = p.malware;
-                    fprintf(stderr, "[2] setting max_proc to %s with exp(score) %Le\n", p.name.c_str(), score);
-                } else if (score > sec_score) {
-                    sec_score = score;
-                    sec_proc = p.name;
-                    sec_mal = p.malware;
-                    fprintf(stderr, "[3] setting sec_proc to %s with exp(score) %Le\n", p.name.c_str(), score);
-                } else {
-                   fprintf(stderr, "[4] rejecting process %s with exp(score) %Le\n", p.name.c_str(), score);
-                }
-            } else {
-                if (score > max_score) {
-                    max_score = score;
-                    max_proc = p.name;
-                    fprintf(stderr, "[1] setting max_proc to %s with exp(score) %Le\n", p.name.c_str(), score);
-                } else {
-                    fprintf(stderr, "rejecting process %s with exp(score) %Le\n", p.name.c_str(), score);
-                }
-            }
-        }
-
-        if (MALWARE_DB && max_proc == "generic dmz process" && sec_mal == false) {
-            fprintf(stderr, "setting max_proc to sec_proc (%s to %s)\n", max_proc.c_str(), sec_proc.c_str());
-            max_proc = sec_proc;
-            max_score = sec_score;
-            max_mal = sec_mal;
-        }
-
-        fprintf(stderr, "pre-adjust score: %Le\n", max_score);
-        fprintf(stderr, "score_sum:        %Le\n", score_sum);
-
-        if (score_sum > 0.0) {
-            max_score /= score_sum;
-            if (MALWARE_DB) {
-                malware_prob /= score_sum;
-            }
-        }
-        fprintf(stderr, "hits:      %u\n", hits);
-        fprintf(stderr, "num_procs: %u\n", num_procs);
-        fprintf(stderr, "final proc is %s with score %Lf\n\n", max_proc.c_str(), max_score);
-
-        if (MALWARE_DB) {
-            return analysis_result(max_proc.c_str(), max_score, max_mal, malware_prob);
-        }
-        return analysis_result(max_proc.c_str(), max_score);
     }
 
     class analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
@@ -871,28 +731,6 @@ public:
         // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
 
         return this->perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
-    }
-
-    class analysis_result analyze_client_hello_and_key_alt(const struct tls_client_hello &hello,
-                                                           const struct key &key) {
-        uint16_t dst_port = flow_key_get_dst_port(key);
-        char dst_ip_str[MAX_DST_ADDR_LEN];
-        flow_key_sprintf_dst_addr(key, dst_ip_str);
-
-        // copy fingerprint string
-        char fp_str[MAX_FP_STR_LEN] = { 0 };
-        struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
-        hello.write_fingerprint(fp_buf);
-        fp_buf.write_char('\0'); // null-terminate
-        // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
-
-        char sn_str[MAX_SNI_LEN] = { 0 };
-        struct datum sn{NULL, NULL};
-        hello.extensions.set_server_name(sn);
-        sn.strncpy(sn_str, MAX_SNI_LEN);
-        // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
-
-        return this->perform_analysis_alt(fp_str, sn_str, dst_ip_str, dst_port);
     }
 
 };
