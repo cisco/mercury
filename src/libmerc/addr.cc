@@ -46,6 +46,19 @@ uint32_t get_asn_info(char* dst_ip) {
     return 0;
 }
 
+uint32_t get_asn_info(uint32_t ipv4_addr) {
+
+    lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntohl(ipv4_addr));
+    if (subnet == NULL) {
+        return 0;
+    }
+    if (subnet->info.type == IP_SUBNET_BGP) {
+        return subnet->info.bgp.asn;
+    }
+
+    return 0;
+}
+
 /*
  * BGP_MAX_ENTRIES is the maximum number of subnets
  */

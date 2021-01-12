@@ -336,6 +336,11 @@ public:
         fprintf(f, "]");
     }
 
+    // get_tld_domain_name() returns the string containing the top two
+    // domains of the input string; that is, given "s3.amazonaws.com",
+    // it returns "amazonaws.com".  If there is only one name, it is
+    // returned.
+    //
     std::string get_tld_domain_name(char* server_name) {
 
         char *separator = NULL;
@@ -352,13 +357,8 @@ public:
         }
         if (previous_separator) {
             previous_separator++;  // increment past '.'
-            //fprintf(stderr, "gdn input: %s\toutput: %s\n", server_name, previous_separator);
             return previous_separator;
-        } else if (separator) {
-            //fprintf(stderr, "gdn input: %s\toutput: %s\n", server_name, separator);
-            return separator;
         }
-        //fprintf(stderr, "gdn input: %s\toutput: %s\n", server_name, server_name);
         return server_name;
     }
 
