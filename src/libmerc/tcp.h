@@ -58,6 +58,20 @@ struct ipv6_address {
     }
 };
 
+struct ip_address {
+    enum ip_version { v4, v6 };
+    enum ip_version version;
+    union address {
+        address(uint32_t a)     : ipv4{a} {}
+        address(ipv6_address a) : ipv6{a} {}
+        uint32_t ipv4;
+        ipv6_address ipv6;
+    } value;
+
+    ip_address(uint32_t v4_addr)     : version{ip_version::v4}, value{v4_addr} {}
+    ip_address(ipv6_address v6_addr) : version{ip_version::v6}, value{v6_addr} {}
+};
+
 struct key {
     uint16_t src_port;
     uint16_t dst_port;
