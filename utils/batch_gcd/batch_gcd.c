@@ -4,9 +4,13 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <ctype.h>
 #include <pthread.h>
 
 #include <gmp.h>
+
+#define NTHREADS 4   /* Number of threads to use. Adjust and recompile. */
+
 
 struct numlist {
     size_t len;   /* The actual number of elements */
@@ -395,7 +399,7 @@ struct prodtree * producttree(struct numlist *nlist) {
     ptree->level[0] = nlist; /*copynumlist(nlist);*/
     for (size_t l = 1; l < ptree->height; l++) {
         ptree->level[l] = makenumlist((ptree->level[l - 1]->len + 1) / 2);
-        threaded_listmul(ptree->level[l], ptree->level[l - 1], 4);
+        threaded_listmul(ptree->level[l], ptree->level[l - 1], NTHREADS);
     }
 
     return ptree;
@@ -426,7 +430,7 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
         struct numlist *Xlist = ptree->level[ptree->height - up];
 
         newRlist = makenumlist(Xlist->len);
-        threaded_listsqmod(Xlist, Rlist, newRlist, 4);
+        threaded_listsqmod(Xlist, Rlist, newRlist, NTHREADS);
 
         if (up != 2) {
             freenumlist(Rlist);
@@ -439,7 +443,7 @@ struct numlist * fast_batchgcd(struct numlist *nlist) {
     }
 
     struct numlist *gcdlist = makenumlist(nlist->len);
-    threaded_listdivgcd(gcdlist, Rlist, nlist, 4);
+    threaded_listdivgcd(gcdlist, Rlist, nlist, NTHREADS);
 
     if (needfree == 1) {
         freenumlist(Rlist);
@@ -620,6 +624,24 @@ void print_prodtree(struct prodtree *ptree) {
 }
 
 
+/* Check if a line is all hex characters (except trailing newline) */
+int is_hex_line(const char *line) {
+    int len = strlen(line);
+    int len_to_check;
+    if (line[len - 1] == '\n') {
+        len_to_check = len - 1;
+    } else {
+        len_to_check = len;
+    }
+    for (int i = 0; i < len_to_check; i++) {
+        if (!isxdigit(line[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+
 int main (void) {
 
     /* log2 test */
@@ -665,19 +687,32 @@ int main (void) {
     struct numlist *nlist = makenumlist(0);
     mpz_t mpz_temp;
     mpz_init(mpz_temp);
-    int done = 0;
-    int line = 0;
-    while (done == 0) {
-        line++;
-        int ret = gmp_fscanf(stdin, "%Zx\n", mpz_temp);
-        if (ret == EOF) {
-            done = 1;
-        } else if (ret != 1) {
-            fprintf(stderr, "Invalid modilus input on line %d\n", line);
-        } else {
-            push_numlist(nlist, mpz_temp);
+    char *linestr = NULL;
+    size_t linelen = 0;
+    ssize_t read;
+    int linenum = 1;
+    while ((read = getline(&linestr, &linelen, stdin)) != -1) {
+        if (!is_hex_line(linestr)) {
+            fprintf(stderr, "Aborting due to non-hex input on line %d: %s\n",
+                    linenum, linestr);
+            exit(2);
         }
+        int ret = gmp_sscanf(linestr, "%Zx\n", mpz_temp);
+        if (ret == 1) {
+            push_numlist(nlist, mpz_temp);
+        } else {
+            fprintf(stderr, "Aborting due to invalid modulus on line %d: %s\n",
+                    linenum, linestr);
+            exit(3);
+        }
+        linenum++;
     }
+    if (ferror(stdin)) {
+        fprintf(stderr, "Aborting due to error reading line %d\n", linenum);
+        exit(1);
+    }
+    free(linestr);
+
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
     struct numlist *cplist = factor_coprimes(nlist, gcdlist);
