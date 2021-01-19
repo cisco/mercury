@@ -96,7 +96,7 @@ endif
 # rule to build library
 #
 LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
-libmerc.a: $(CYTARGETS) depend $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
+libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 	ar rcs libmerc.a $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 
@@ -109,12 +109,13 @@ lctrie/liblctrie.a:
 # -MM option, which is essential for correctly handling changes to
 # header file
 #
-depend: .depend
+.depend:
+	$(CXX) $(CFLAGS) -MM $(LIBMERC) $(LIBMERC_H) > ./.depend
 
-.depend: $(LIBMERC) $(LIBMERC_H)
-	$(CXX) $(CFLAGS) -MM $^ > ./.depend
+ifeq (,$(findstring $(MAKECMDGOALS),clean))
+  include .depend
+endif
 
-include .depend
 
 # implicit rule for building object files from .cc files
 #
