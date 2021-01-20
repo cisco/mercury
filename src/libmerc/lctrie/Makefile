@@ -12,7 +12,7 @@ clean:
 	rm -f lctrie_test
 	rm -f liblctrie.a
 
-CFLAGS = -g -ggdb -std=gnu99 -Wall -O3
+CFLAGS = -g -ggdb -std=gnu99 -Wall -O3 -fPIC
 LDFLAGS = -g -ggdb -O3
 LDLIBS = 
 
