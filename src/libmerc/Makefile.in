@@ -28,13 +28,14 @@ CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(dat
 CXX      = @CXX@
 CFLAGS  = --std=c++11
 CFLAGS += -O3
+CFLAGS += -fPIC
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 CFLAGS += $(OPTFLAGS)
 
-# libmerc.a performs selective packet parsing and fingerprint extraction
+# libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
 #
@@ -93,12 +94,15 @@ CYTARGETS  =
 CYPREREQ   =
 endif
 
+VERSION=$(shell cat ../../VERSION)
+
 # rule to build library
 #
 LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
-libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
+libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
-	ar rcs libmerc.a $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+#	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+	$(CXX) -shared -fPIC -Wl,-soname,libmerc.so.$(VERSION) -o libmerc.so.$(VERSION) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 
 # lctrie ip address subnet matching library (in lctrie subdirectory)
 #
@@ -133,13 +137,13 @@ endif
 # special targets for mercury
 #
 .PHONY: debug
-debug: $(MERC) $(MERC_H) libmerc.a Makefile
+debug: $(MERC) $(MERC_H) libmerc.so Makefile
 	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean
 clean:
-	rm -rf libmerc.a *.o .depend
+	rm -rf libmerc.so *.o .depend
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done

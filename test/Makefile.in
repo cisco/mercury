@@ -21,6 +21,8 @@ COLOR_YELLOW = "\033[0;33m"
 COLOR_OFF    = "\033[0m"
 
 MERCURY = ../src/mercury
+export LD_LIBRARY_PATH =$(shell pwd)/../src/libmerc
+
 have_tcpreplay = @TCPREPLAY@
 have_jq = @JQ@
 have_valgrind = @VALGRIND@

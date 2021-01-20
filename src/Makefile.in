@@ -80,7 +80,7 @@ EUID       = $(id -u)
 all: libmerc mercury
 
 mercury: $(MERC) $(MERC_H) Makefile.in
-	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L./libmerc -lmerc -lz -lcrypto
+	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread libmerc/libmerc.so.2.3.4 -lz -lcrypto
 	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
 
 setcap: mercury
@@ -113,13 +113,13 @@ endif
 # special targets for mercury
 #
 .PHONY: debug
-debug: $(MERC) $(MERC_H) libmerc/libmerc.a Makefile
+debug: $(MERC) $(MERC_H) libmerc/libmerc.so Makefile
 	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean
 clean:
-	rm -rf mercury gmon.out libmerc/libmerc.a *.o
+	rm -rf mercury gmon.out libmerc/libmerc.so *.o
 	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
