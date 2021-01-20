@@ -163,9 +163,9 @@ enum class dns_rr_type : uint16_t {
     DLV      = 32769
 };
 
-char UNKNOWN[] = "UNKNOWN";
+static const char UNKNOWN[] = "UNKNOWN";
 
-const char *dns_rr_type_name(dns_rr_type t) {
+inline const char *dns_rr_type_name(dns_rr_type t) {
     switch(t) {
     case dns_rr_type::A:       return "A";
     case dns_rr_type::NS:      return "NS";
@@ -206,7 +206,7 @@ enum dns_rr_class : uint16_t {
     HS = 4  /*!< Hesiod [Dyer 87] */
 };
 
-const char *dns_rr_class_name(dns_rr_class c) {
+inline const char *dns_rr_class_name(dns_rr_class c) {
     switch (c) {
     case dns_rr_class::IN: return "IN";
     case dns_rr_class::CS: return "CS";
