@@ -1,13 +1,13 @@
 # Mercury: network metadata capture and analysis
-<img align="right" src="./mercury.png" width="200"> 
+<img align="right" src="./mercury.png" width="200">
 
 This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application, which is described [here](python/README.md).  There is also a [User's Guide](https://github.com/cisco/mercury/wiki/Using-Mercury).
 
 ## Overview
 
-Mercury reads network packets, identifies metadata of interest, and writes out the metadata in JSON format.  Alternatively, mercury can write out the packets that contain the metadata in the PCAP file format.  Mercury can scale up to high data rates (40Gbps on server-class hardware); it uses zero-copy ring buffers to acquire packets, and packets are processed by independent worker threads.  The amount of memory consumed by the ring buffers, and the number of worker threads, are configurable; this makes it easy to scale up (but be wary of using too much memory).  
+Mercury reads network packets, identifies metadata of interest, and writes out the metadata in JSON format.  Alternatively, mercury can write out the packets that contain the metadata in the PCAP file format.  Mercury can scale up to high data rates (40Gbps on server-class hardware); it uses zero-copy ring buffers to acquire packets, and packets are processed by independent worker threads.  The amount of memory consumed by the ring buffers, and the number of worker threads, are configurable; this makes it easy to scale up (but be wary of using too much memory).
 
-Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normaling metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.  
+Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normalizing metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.
 
 ## Version 2.3.4
 * *Multiple* PCAP files can be piped in to the standard input, like `cat *.pcap | ./mercury`, which can simplify workflow and improve performance, especially when working with HDFS and NFS, by minimizing or eliminating the need to write intermediary files to disk.
@@ -16,7 +16,7 @@ Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other pr
 ## Version 2.3.3
 * Improved QUIC processing.
 * Added recognition of CONNECT, PUT, and HEAD methods for HTTP fingerprinting.
-* Fixed a bug in the --analysis module caused when the fingerprint database contains a count field greater than 2^31.  
+* Fixed a bug in the --analysis module caused when the fingerprint database contains a count field greater than 2^31.
 
 ## Version 2.3.2
 * QUIC client fingerprints are now reported.
@@ -32,7 +32,7 @@ Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other pr
 ## Version 2.3.0
 * New **--resources** command line option causes resource files (used in analysis) to be read from a directory other than the default.  This makes it easier to use a fingerprint prevalence database other than the system default one.
 * New metadata output: SSH KEX INIT message and TCP initial sequence number (that is, the SEQ of the TCP SYN packet).
-* The packet processing logic has been refactored to use a more systematic approach to packet parsing, which is documented in [doc/safe-parsing](https://github.com/cisco/mercury/blob/master/doc/safe-parsing.md).  The new code is considerably easier to read and extend; it is utilized by the JSON output path, though some functions from the old lower-level approach to packet parsing is still in place in the PCAP output path.  
+* The packet processing logic has been refactored to use a more systematic approach to packet parsing, which is documented in [doc/safe-parsing](https://github.com/cisco/mercury/blob/master/doc/safe-parsing.md).  The new code is considerably easier to read and extend; it is utilized by the JSON output path, though some functions from the old lower-level approach to packet parsing is still in place in the PCAP output path.
 
 ## Version 2.2.0
 * New **--metadata** command line option causes JSON output to include a lot more metadata in its output: tls.client.version, tls.client.random, tls.client.session_id, tls.client.cipher_suites, tls.client.compression_methods, tls.client.server_name, tls.server.random, tls.server.certs, http.request.method, http.request.uri, http.request.protocol, http.request.host, and http.request.user_agent.
@@ -60,15 +60,15 @@ Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other pr
 
 
 ## Building and installing mercury
-In the root directory, run 
+In the root directory, run
 ```
-./configure 
+./configure
 make
 ```
 to build the package (and check for the programs and python modules required to test it).  TPACKETv3 is present in Linux kernels newer than 3.2.
 
 ### Installation
-In the root directory, edit mercury.cfg with the network interface you want to capture from, then run 
+In the root directory, edit mercury.cfg with the network interface you want to capture from, then run
 ```
 ./configure
 make
@@ -201,7 +201,7 @@ GENERAL OPTIONS
    **--license** and **--version** write their information to stdout, then halt.
 
    **[-h or --help]** writes this extended help message to stdout.
-   
+
 
 ### SYSTEM
 The directories used by the default install are as follows.  Run **mercury --help** to
