@@ -559,6 +559,7 @@ public:
                     std::unordered_map<uint16_t, uint64_t>    portname_applications;
                     std::unordered_map<std::string, uint64_t> ip_ip;
                     std::unordered_map<std::string, uint64_t> hostname_sni;
+                    std::unordered_map<std::string, uint64_t> os_info;
 
                     std::string name;
                     if (x.HasMember("process") && x["process"].IsString()) {
@@ -602,18 +603,16 @@ public:
                         //fprintf(stderr, "\tclasses_port_applications\n");
                         for (auto &y : x["classes_port_applications"].GetObject()) {
                             if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > process_destinations)) {
-                                //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                                uint16_t tmp_port = 0;
+                                auto port_it = string_to_port.find(y.name.GetString());
+                                if (port_it == string_to_port.end()) {
+                                    // throw "error: unexpected string in classes_port_applications";
+                                    fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
+                                } else {
+                                    tmp_port = port_it->second;
+                                }
+                                portname_applications[tmp_port] = y.value.GetUint64();
                             }
-
-                            uint16_t tmp_port = 0;
-                            auto port_it = string_to_port.find(y.name.GetString());
-                            if (port_it == string_to_port.end()) {
-                                // throw "error: unexpected string in classes_port_applications";
-                                fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
-                            } else {
-                                tmp_port = port_it->second;
-                            }
-                            portname_applications[tmp_port] = y.value.GetUint64();
                         }
                     }
                     if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
@@ -626,8 +625,8 @@ public:
                             if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > process_destinations)) {
                                 fprintf(stderr, "warning: classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                                ip_ip[y.name.GetString()] = y.value.GetUint64();
                             }
-                            ip_ip[y.name.GetString()] = y.value.GetUint64();
                         }
                     }
                     if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
@@ -639,8 +638,13 @@ public:
                         for (auto &y : x["classes_hostname_sni"].GetObject()) {
                             if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > process_destinations)) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                                hostname_sni[y.name.GetString()] = y.value.GetUint64();
                             }
-                            hostname_sni[y.name.GetString()] = y.value.GetUint64();
+                        }
+                    }
+                    if (x.HasMember("os_info") && x["os_info"].IsObject()) {
+                        for (auto &y : x["os_info"].GetObject()) {
+                            os_info[y.name.GetString()] = y.value.GetUint64();
                         }
                     }
 
