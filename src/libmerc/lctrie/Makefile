@@ -1,9 +1,9 @@
 
 all: lctrie_test
 
-lctrie_test: lctrie_test.o lctrie.o lctrie_bgp.o lctrie_ip.o
+lctrie_test: lctrie_test.o lctrie.o lctrie_bgp.o lctrie_ip.o common.o
 
-liblctrie.a: lctrie.o lctrie_bgp.o lctrie_ip.o
+liblctrie.a: lctrie.o lctrie_bgp.o lctrie_ip.o common.o
 	ar rcs liblctrie.a $^
 
 clean:
@@ -12,7 +12,8 @@ clean:
 	rm -f lctrie_test
 	rm -f liblctrie.a
 
-CFLAGS = -g -ggdb -std=gnu99 -Wall -O3 -fPIC
+CC     = g++
+CFLAGS = -g -ggdb -std=c++11 -Wall -O3 -Wno-sign-compare -fPIC
 LDFLAGS = -g -ggdb -O3
 LDLIBS = 
 

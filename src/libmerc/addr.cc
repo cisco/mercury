@@ -11,14 +11,9 @@
 #include <locale.h>
 #include "addr.h"
 
-#if defined(__cplusplus)
-    extern "C" {
-#endif
 #include "lctrie/lctrie.h"
 #include "lctrie/lctrie_bgp.h"
-#if defined(__cplusplus)
-    }
-#endif
+
 
 /*
  * ipv4_subnet_trie and ipv4_subnet_array are global variables holding the
