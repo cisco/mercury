@@ -15,7 +15,7 @@
 #include "addr.h"
 #include "json_object.h"
 
-int analysis_init(int verbosity, const char *resource_dir);
+int analysis_init(int verbosity, const char *resource_dir, float fingerprint_processes, float process_destinations);
 
 int analysis_finalize();
 
@@ -503,7 +503,7 @@ class classifier {
 
 public:
 
-    classifier(const char *resource_file) : fpdb{} {
+  classifier(const char *resource_file, const float fingerprint_processes, const float process_destinations) : fpdb{} {
 
         gzFile in_file = gzopen(resource_file, "r");
         if (in_file == NULL) {
@@ -533,6 +533,15 @@ public:
 
                 unsigned int process_number = 0;
                 for (auto &x : fp["process_info"].GetArray()) {
+                    uint64_t count = 0;
+                    if (x.HasMember("count") && x["count"].IsUint64()) {
+                        count = x["count"].GetUint64();
+                        //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
+                    }
+		    if ((process_number > 1) && ((float)count/total_count < fingerprint_processes)) {
+		        continue;
+		    }
+
                     process_number++;
                     //fprintf(stderr, "%s\n", "process_info");
 
@@ -543,22 +552,16 @@ public:
                     std::unordered_map<std::string, uint64_t> ip_ip;
                     std::unordered_map<std::string, uint64_t> hostname_sni;
 
-                    uint64_t count = 0;
                     std::string name;
                     if (x.HasMember("process") && x["process"].IsString()) {
                         name = x["process"].GetString();
                         //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
                     }
-                    if (x.HasMember("count") && x["count"].IsUint64()) {
-                        count = x["count"].GetUint64();
-                        //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
-                    }
                     if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
                         //fprintf(stderr, "\tclasses_hostname_domains\n");
                         for (auto &y : x["classes_hostname_domains"].GetObject()) {
-                            if (y.value.IsUint64()) {
+                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > process_destinations)) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-
                                 hostname_domains[y.name.GetString()] = y.value.GetUint64();
                             }
                         }
@@ -566,7 +569,7 @@ public:
                     if (x.HasMember("classes_ip_as") && x["classes_ip_as"].IsObject()) {
                         //fprintf(stderr, "\tclasses_ip_as\n");
                         for (auto &y : x["classes_ip_as"].GetObject()) {
-                            if (y.value.IsUint64()) {
+                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > process_destinations)) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
 
                                 if (strcmp(y.name.GetString(), "unknown") != 0) {
@@ -590,7 +593,7 @@ public:
                     if (x.HasMember("classes_port_applications") && x["classes_port_applications"].IsObject()) {
                         //fprintf(stderr, "\tclasses_port_applications\n");
                         for (auto &y : x["classes_port_applications"].GetObject()) {
-                            if (y.value.IsUint64()) {
+                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > process_destinations)) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
                             }
 
@@ -612,7 +615,7 @@ public:
                         EXTENDED_FP_METADATA = true;
                         //fprintf(stderr, "\tclasses_ip_ip\n");
                         for (auto &y : x["classes_ip_ip"].GetObject()) {
-                            if (!y.value.IsUint64()) {
+                            if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > process_destinations)) {
                                 fprintf(stderr, "warning: classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
                             }
@@ -626,7 +629,7 @@ public:
                         EXTENDED_FP_METADATA = true;
                         //fprintf(stderr, "\tclasses_hostname_sni\n");
                         for (auto &y : x["classes_hostname_sni"].GetObject()) {
-                            if (y.value.IsUint64()) {
+                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > process_destinations)) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
                             }
                             hostname_sni[y.name.GetString()] = y.value.GetUint64();

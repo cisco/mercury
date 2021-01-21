@@ -125,7 +125,7 @@ void database_finalize() {
 
 classifier *c = NULL;
 
-int analysis_init(int verbosity, const char *resource_dir) {
+int analysis_init(int verbosity, const char *resource_dir, const float fingerprint_processes, const float process_destinations) {
 
 //    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
 //       printf("\n mutex init has failed\n");
@@ -157,9 +157,11 @@ int analysis_init(int verbosity, const char *resource_dir) {
             strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
             strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
 
-            c = new classifier(resource_file_name);
+            c = new classifier(resource_file_name, fingerprint_processes, process_destinations);
             // c->print(stderr);
 
+	    return 0;
+	    /*
             retcode = database_init(resource_file_name);
             if (retcode == 0) {
                 if (verbosity > 0) {
@@ -167,6 +169,7 @@ int analysis_init(int verbosity, const char *resource_dir) {
                 }
                 return 0;
             }
+	    */
         }
         if (verbosity > 0) {
             fprintf(stderr, "warning: could not open file '%s'\n", resource_file_name);
