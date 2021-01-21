@@ -534,18 +534,26 @@ public:
                 unsigned int process_number = 0;
                 for (auto &x : fp["process_info"].GetArray()) {
                     uint64_t count = 0;
+                    bool malware = false;
+
                     if (x.HasMember("count") && x["count"].IsUint64()) {
                         count = x["count"].GetUint64();
                         //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
                     }
-		    if ((process_number > 1) && ((float)count/total_count < fingerprint_processes)) {
+                    if (x.HasMember("malware") && x["malware"].IsBool()) {
+                        if (MALWARE_DB == false && process_number > 1) {
+                            throw "error: malware data expected, but not present";
+                        }
+                        MALWARE_DB = true;
+                        malware = x["malware"].GetBool();
+                    }
+		    if ((process_number > 1) && ((float)count/total_count < fingerprint_processes) && (malware != true)) {
 		        continue;
 		    }
 
                     process_number++;
                     //fprintf(stderr, "%s\n", "process_info");
 
-                    bool malware = false;
                     std::unordered_map<uint32_t, uint64_t>    ip_as;
                     std::unordered_map<std::string, uint64_t> hostname_domains;
                     std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -634,13 +642,6 @@ public:
                             }
                             hostname_sni[y.name.GetString()] = y.value.GetUint64();
                         }
-                    }
-                    if (x.HasMember("malware") && x["malware"].IsBool()) {
-                        if (MALWARE_DB == false && process_number > 1) {
-                            throw "error: malware data expected, but not present";
-                        }
-                        MALWARE_DB = true;
-                        malware = x["malware"].GetBool();
                     }
 
                     class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni);
