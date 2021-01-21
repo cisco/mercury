@@ -1,9 +1,9 @@
 
 all: lctrie_test
 
-lctrie_test: lctrie_test.o lctrie.o lctrie_bgp.o lctrie_ip.o common.o
+lctrie_test: lctrie_test.o lctrie.o lctrie_bgp.o lctrie_ip.o
 
-liblctrie.a: lctrie.o lctrie_bgp.o lctrie_ip.o common.o
+liblctrie.a: lctrie.o lctrie_bgp.o lctrie_ip.o
 	ar rcs liblctrie.a $^
 
 clean:
@@ -13,9 +13,9 @@ clean:
 	rm -f liblctrie.a
 
 CC     = g++
-CFLAGS = -g -ggdb -std=c++11 -Wall -O3 -Wno-sign-compare -fPIC
+CFLAGS = -g -ggdb -std=c++11 -Wall -O3 -fPIC # -Wno-sign-compare
 LDFLAGS = -g -ggdb -O3
-LDLIBS = 
+LDLIBS =
 
 # autodep stuff
 

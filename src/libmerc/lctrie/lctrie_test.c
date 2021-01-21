@@ -592,9 +592,9 @@ int test_ipv6(const char *input_file) {
     // timer has millisecond accuracy
 
     printf("Complete.\n");
-    printf("%'u lookups with %'u hits and %'u misses in %ldms.\n", nlookup, nhit, nmiss,
+    printf("%'u IPv6 lookups with %'u hits and %'u misses in %ldms.\n", nlookup, nhit, nmiss,
            took_ms);
-    printf("%'lu lookups/sec.\n\n", nlookup / took_ms * 1000);
+    printf("%'lu IPv6 lookups/sec.\n\n", nlookup / took_ms * 1000);
 
     printf("Pausing to allow for system analysis.\n");
     printf("Hit enter key to continue...\n");

@@ -112,7 +112,7 @@ template <typename T>
 static
 uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
                        uint32_t num, uint32_t newprefix) {
-  int i, pat, bits, count, patfound;
+  size_t i, pat, bits, count, patfound;
 
   // branch factor results in 1 << branch trie subnodes
 
@@ -133,13 +133,13 @@ uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
   bits = 1;
   do {
     bits++;
-    if (num < ((FILLFACT * (1<<bits)) / 100) ||
+    if (num < ((FILLFACT * ((unsigned int)1<<bits)) / 100) ||
         newprefix + bits > sizeof(uint32_t))
       break;
     i = first;
     pat = 0;
     count = 0;
-    while (pat < 1<<bits) {
+    while (pat < (unsigned int)1<<bits) {
       patfound = 0;
       while (i < first + num &&
              pat == EXTRACT(newprefix, bits, trie->nets[trie->bases[i]].addr)) {
@@ -150,7 +150,7 @@ uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
         count++;
       pat++;
     }
-  } while (count >= ((FILLFACT * (1<<bits)) / 100));
+  } while (count >= ((FILLFACT * ((unsigned int)1<<bits)) / 100));
   return bits - 1;
 }
 
@@ -159,7 +159,7 @@ uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
 template <typename T>
 static
 void build_inner(lct<T> *trie, uint32_t prefix, uint32_t first, uint32_t num, uint32_t pos) {
-  int k, p, idx, bits;
+  size_t k, p, idx, bits;
   T bitpat;
   uint32_t newprefix = 0, i;
   uint8_t branch;
@@ -187,7 +187,7 @@ void build_inner(lct<T> *trie, uint32_t prefix, uint32_t first, uint32_t num, ui
 
     // Build the subtrees
     p = first;
-    for (bitpat = 0; bitpat < (1 << branch); ++bitpat) {
+    for (bitpat = 0; bitpat < ((unsigned int)1 << branch); ++bitpat) {
       k = 0;
       while (p + k < first + num &&
              EXTRACT(newprefix, branch, trie->nets[trie->bases[p + k]].addr) == bitpat) {
@@ -201,7 +201,7 @@ void build_inner(lct<T> *trie, uint32_t prefix, uint32_t first, uint32_t num, ui
 
         // Compute the longest prefix match for p - 1
         if (p > first) {
-          int prep, len;
+          size_t prep, len;
           prep =  trie->nets[trie->bases[p - 1]].prefix;
           while (prep != IP_PREFIX_NIL && match1 == 0) {
             len = trie->nets[prep].len;
@@ -216,7 +216,7 @@ void build_inner(lct<T> *trie, uint32_t prefix, uint32_t first, uint32_t num, ui
 
         // Compute the longest prefix match for p
         if (p < first + num) {
-          int prep, len;
+          size_t prep, len;
           prep =  trie->nets[trie->bases[p]].prefix;
           while (prep != IP_PREFIX_NIL && match2 == 0) {
             len = trie->nets[prep].len;
@@ -280,7 +280,7 @@ int lct_build(lct<T> *trie, lct_subnet<T> *subnets, uint32_t size) {
 
   constexpr unsigned int bits_in_T = sizeof(T) * 8;
   trie->shortest = bits_in_T;  // max subnet prefix length (single address)
-  for (int i = 0; i < size; ++i) {
+  for (size_t i = 0; i < size; ++i) {
     if (IP_BASE == subnets[i].type) {
       // save off the base's index in the subnet array
       // and increment the bases counter

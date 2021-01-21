@@ -366,14 +366,14 @@ void subnet_mask(lct_subnet<T> *subnets, size_t size) {
     T prefix, prefix2;
 
     constexpr unsigned int bits_in_T = sizeof(T) * 8;
-    for (int i = 0; i < size; ++i) {
+    for (size_t i = 0; i < size; ++i) {
         lct_subnet<T> *p = &subnets[i];
 
         //uint32_t netmask = 0xffffffff;
         T netmask = std::numeric_limits<T>::max();
         netmask = -1;
         if (p->len < bits_in_T) {
-            for (int j = 0; j < (bits_in_T - p->len); ++j) {
+            for (unsigned int j = 0; j < (bits_in_T - p->len); ++j) {
                 netmask &= ~((T)1 << j);
             }
         }
@@ -425,7 +425,7 @@ size_t subnet_dedup(lct_subnet<T> *subnets, size_t size) {
 
   int address_family = get_address_family<T>();
 
-  for (int i = 0, j = 1; j < size; ++i, ++j) {
+  for (size_t i = 0, j = 1; j < size; ++i, ++j) {
     // we have a duplicate!
       if (!subnet_cmp<T>(&subnets[i], &subnets[j])) {
           prefix = hton(subnets[i].addr);
@@ -506,13 +506,13 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
   // a value, and we wouldn't be able to compare that field
   // to a default canary value without first having initialized
   // everything on an initial walk through the array.
-  for (int i = 0; i < size; ++i) {
+  for (size_t i = 0; i < size; ++i) {
     p[i].prefix = IP_PREFIX_NIL;
   }
 
   // go through and determine which subnets are prefixes of other subnets
-  for (int i = 0; i < size; ++i) {
-    int j = i + 1;  // fake out a psuedo second iterator
+  for (size_t i = 0; i < size; ++i) {
+    size_t j = i + 1;  // fake out a psuedo second iterator
     if ((j < size) && subnet_isprefix(&p[i], &p[j])) {
 #if LCT_IP_DEBUG_PREFIXES
       prefix = hton(p[i].addr);
@@ -532,7 +532,7 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
       p[j].prefix = i;
       p[j].fullprefix = i;
 
-      for (int k = j + 1; k < size && subnet_isprefix(&p[i], &p[k]); ++k) {
+      for (size_t k = j + 1; k < size && subnet_isprefix(&p[i], &p[k]); ++k) {
 #if LCT_IP_DEBUG_PREFIXES
         prefix2 = hton(p[k].addr);
         if (!inet_ntop(address_family, &(prefix2), pstr2, sizeof(pstr2)))
@@ -559,7 +559,7 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
   }
 
   // walk through the sorted array forwards to add the bases to their prefixes
-  for (int i = 0; i < size; ++i) {
+  for (size_t i = 0; i < size; ++i) {
     // we'll walk the tree up from the bases up through their prefixes
     // the depends on prefixes with no prefix having their pre pointer
     // assigned to NUL
@@ -570,7 +570,7 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
   }
 
   // go through the array yet again to find full prefixes
-  for (int i = 0; i < size; ++i ) {
+  for (size_t i = 0; i < size; ++i ) {
     // if the prefix is fully used, mark it full
     if (stats[i].used == stats[i].size)
       p[i].type = IP_PREFIX_FULL;
@@ -582,7 +582,7 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
   //
   // We can't do this in a consective pass since the subnet nodes don't
   // have indexes back to their base subnets.
-  for (int i = 0; i < size; ++i ) {
+  for (size_t i = 0; i < size; ++i ) {
     // if the prefix is fully used, mark it full
     prefix = p[i].prefix;
     if (prefix != IP_PREFIX_NIL && p[prefix].type == IP_PREFIX_FULL)

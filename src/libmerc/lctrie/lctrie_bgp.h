@@ -154,6 +154,7 @@ int
 read_prefix_table(const char *filename,
                   lct_subnet<T> prefix[],
                   size_t prefix_size) {
+    (void)prefix_size;
   int num = 0;
   FILE *infile;
   char *line = NULL;
