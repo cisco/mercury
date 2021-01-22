@@ -1,0 +1,100 @@
+# A Weighted Naive Bayes Classifier for Analyzing Destination Context
+
+Mercury's Fingerprinting with Destination Context (FDC) system identifies the software process that created a TLS client_hello, and can indicate when that process is malware or other unwanted software (when given a fingerprint knowledge base that contains malware data).  A major component of that system is a weighted naive Bayes classifier.  This note documents its function, design, and implementation.
+
+
+
+## Function
+
+FDC takes as input a characteristic fingerprint string and a destination context, which consists of a destination IP address, a destination port, and the server_name field from the TLS client_hello extensions.  These fields represent the destination to which the client_hello was sent.
+
+FDC returns several different types of data about the process that generated the client_hello, including information about the most probable process, probable attributes of the process, and the probable Operating System (OS) on which the process ran.  
+
+The information about the most probable process is:
+
+* the name of the most probable process (as a const pointer to a NULL-terminated string),
+* a boolean attribute that indicates whether or not the most probable process is malware (as a bool), and
+* a probability score that represents the classifier's confidence that information about the probable process is correct (as a float between 0.0 and 1.0 inclusive).
+
+The malware attribute is set whenever the most probable process has been flagged as malicious by threat intelligence services.  
+
+There is a special process name "unknown" that is used whenever there is no ground truth available.  If the most probable process is "unknown", then then the second most probable process is reported instead.
+
+The information about probable attributes is:
+
+* the probability that the process that generated the client_hello is malware, regardless of what the probable process is (as a float between 0.0 and 1.0).
+
+Probable attributes are important whenever there is a multitude of similar processes with the same attribute, such as polymorphic malware.   In that case, the classifier may not be able to identify the most probable process with high confidence, but it can still accurately estimate the probability that the process is malware. 
+
+The OS information is:
+
+* the most probable OS (as a const pointer to a NULL-terminated string), and
+* a probability score that represents the classifier's confidence that information about the probable OS is correct (as a float between 0.0 and 1.0 inclusive).
+
+The FDC system reads a set of resource files at initialization time, from which it obtains all of the information that it uses in its analysis (other than the inputs listed above).
+
+***TBD: document resource files.***
+
+There is a special "uknown fingerprint" string that is used to indicate that a fingerprint was not found in the knowledge base.  
+
+
+
+## Design 
+
+Mercury's FDC implementation uses a Weighted Naive Bayes (WNB) classifier to analyze destination context, and it uses the characteristic fingerprint string to select the WNB classifier.   Informally, when a string and a destination context are input, the string is used to select a classifier that is then applied to the destination context.   More formally, the classifier uses probabilities that are conditioned on the fingerprint.  The mathematical details are presented in [*Accurate TLS Fingerprinting using Destination Context and Knowledge Bases*](https://arxiv.org/abs/2009.01939).
+
+A [Naive Bayes classifier](https://en.wikipedia.org/wiki/Naive_Bayes_classifier) is a simple, robust, and easily interpretable machine learning technique.  It estimates probabilities by applying Bayes' theorem, and makes the "naive" simplifying assumption that the data features are [conditionally independent](https://en.wikipedia.org/wiki/Conditional_independence), so that it is possible to estimate the model's probabilities from empirical data.  A WNB classifier assigns a different weight to each data feature, and tunes the weights during training to improve its accuracy.
+
+Before the WNB classifier is run, the destination context is analyzed to find the destination's equivalence classes[^equivalence classes].   These classes are an important part of the data model; they enable the classifier to generalize IP addresses using [Autonomous System Numbers](https://en.wikipedia.org/wiki/Autonomous_system_(Internet)) and generalize server_names using [DNS domains](https://en.wikipedia.org/wiki/Domain_Name_System).  The equivalence classes currently used are:
+
+* Autonomous System Numbers (ASNs) for IPv4 addresses[^IPv6]
+* The second level DNS domains (or first level only, if it there is just one) for TLS server_names.
+* ...
+
+
+
+The classifier can easily be extended to understand new equivalence classes.   Currently, new classes can only be added at compile time, but it may be possible to extend the implementation so that it can learn new equivalence classes from resource files at run time.
+
+
+
+## Implementation
+
+To apply a naive Bayes classifier (weighed or otherwise), it is necessary to loop over all data features and all processes to compute an estimate the probability of each process, then find the maximum of those probabilities.   The straightforward way to do this would be with two nested loops, one for the data features, and one for the processes.  Mercury's WNB classifier avoids this double loop; it only loops over the data features.   For each feature, there is a lookup that returns a set of probability updates.   Each probability update identifies a process to be updated (with an index into a vector processes), and the amount by which it should be updated (with a long double number).  
+
+
+
+The classification algorithm can be summarized as:
+
+1. Use the fingerprint string as an index into the table of WNB classifiers.
+   1. If the fingerprint string could not be found in the table, return "unknown fingerprint".
+   2. If a WNB classifier corresponding to the fingerprint was found, proceed to Step 2.
+2. Find the equivalence classes for each of the data features in the destination context.  
+   1. Find the ASN of the destination IP addres.
+   2. Find the second level DNS domain (or first level only, if there is just one) of the server_name.
+   3. ...
+3. Initialize a vector of long double numbers to the prior probabilities of each process, by dividing the total count by the count for that process.
+4. For each equivalence class, perform a lookup to find the updates to be performed on the process probability vector.
+5. Find the maximum value of the process probability vector and its corresponding index, and the second highest value and its corresponding index.
+6. Normalize the probability of the most probable process by dividing the probability of the most probable process by the sum of all process probabilities. 
+7. Return the name of the most probable process and its normalized score.
+
+
+
+### Numerical Stability and Accuracy
+
+To improve the stability and accuracy, a WNB classifier implementation should use [log probabilities](https://en.wikipedia.org/wiki/Log_probability) to represent the process probabilities and probability updates, and should use long doubles to hold those values.   This simply means that, instead of working directly with a probability p, we work with its logarithm log(p); instead of multiplying two probability values to get a third (like p3 = p2 * p1), we add their logarithms (as with log(p3) = log(p2) + log(p1)).  This is straightforward, except that the normalization in Step 6 must apply the exp() function to each log-probability, because normalization must be applied to probabilities, not log-probabilities.  For computational efficiency, each log-probability should be cast to a float before exp() is performed on it, because the extra precision of long doubles is not needed, and reducing the size of the input to exp() significantly reduces its computational cost.  The [log-sum-exp trick](https://gasstationwithoutpumps.wordpress.com/2014/05/06/sum-of-probabilities-in-log-prob-space/) can be used to improve the accuracy of the normalization step.
+
+The logic that determines the most probable process should be performed before normalization or exponentiation, to keep the loss of numerical accuracy inherent in those steps away from the process-selection logic.
+
+The major loss of accuracy of the algorithm occurs during the updating of process probabilities.   It may be worthwhile to use a [compensated summation algorithm](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) to improve the accuracy of those computations.
+
+ 
+
+
+
+# Footnotes
+
+
+
+[^equivalence classes]:   Every set can be partitioned into non-overlapping [equivalence classes](https://en.wikipedia.org/wiki/Equivalence_class).  Each element of the set belongs to a single equivalence class.   
+[^IPv6]: IPv6 addresses are not yet fully supported, pending a rewrite of the lctrie library.
