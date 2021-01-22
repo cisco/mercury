@@ -147,6 +147,7 @@ int analysis_init(int verbosity, const char *resource_dir, const float fingerpri
     }
 
     char resource_file_name[PATH_MAX];
+    char resource_fp_prevalence[PATH_MAX];
 
     unsigned int index = 0;
     while (resource_dir_list[index] != NULL) {
@@ -158,7 +159,10 @@ int analysis_init(int verbosity, const char *resource_dir, const float fingerpri
             strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
             strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
 
-            c = new classifier(resource_file_name, fingerprint_processes, process_destinations, report_os);
+            strncpy(resource_fp_prevalence, resource_dir_list[index], PATH_MAX-1);
+            strncat(resource_fp_prevalence, "/fp_prevalence_tls.txt.gz", PATH_MAX-1);
+
+            c = new classifier(resource_file_name, resource_fp_prevalence, fingerprint_processes, process_destinations, report_os);
             // c->print(stderr);
 
 	    return 0;

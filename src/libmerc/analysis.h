@@ -25,6 +25,7 @@ int analysis_finalize();
 class analysis_result {
     static const size_t max_proc_len = 256;
     bool valid = false;
+    bool rare = false;
     char max_proc[max_proc_len];
     long double max_score;
     bool max_mal;
@@ -33,13 +34,15 @@ class analysis_result {
     std::unordered_map<std::string, uint64_t> *os_info;
 
 public:
-    analysis_result() : valid{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL} { }
+    analysis_result() : valid{false}, rare{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL} { }
 
-    analysis_result(const char *proc, long double score, std::unordered_map<std::string, uint64_t> *os) : valid{true}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{os} {
+    analysis_result(const bool is_rare) : valid{false}, rare{is_rare}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL} { }
+
+    analysis_result(const char *proc, long double score, std::unordered_map<std::string, uint64_t> *os) : valid{true}, rare{false}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{os} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
     analysis_result(const char *proc, long double score, std::unordered_map<std::string, uint64_t> *os, bool mal, long double mal_prob) :
-        valid{true}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true}, os_info{os} {
+        valid{true}, rare{false}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true}, os_info{os} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
 
@@ -59,6 +62,8 @@ public:
 	       }
 	       os_json.close();
 	    }
+        } else if (rare) {
+            analysis.print_key_string("status", "rare_fingerprint");
         } else {
             analysis.print_key_string("status", "unknown_fingerprint");
         }
@@ -75,6 +80,7 @@ class analysis_result analyze_client_hello_and_key(const struct tls_client_hello
 
 // classifier
 
+#include <unordered_set>
 #include <string>
 #include <vector>
 #include <zlib.h>
@@ -516,16 +522,30 @@ class classifier {
     bool EXTENDED_FP_METADATA = false;
 
     std::unordered_map<std::string, class fingerprint_data> fpdb;
+    std::unordered_set<std::string> fp_prevalence;
 
 public:
 
-  classifier(const char *resource_file, const float fingerprint_processes, const float process_destinations, const bool report_os) : fpdb{} {
+  classifier(const char *resource_file, const char *resource_fp_prevalence, const float fingerprint_processes, const float process_destinations, const bool report_os) : fpdb{} {
 
-        gzFile in_file = gzopen(resource_file, "r");
+        gzFile in_file = gzopen(resource_fp_prevalence, "r");
+        if (in_file == NULL) {
+            throw "error: could not open resource fp prevalence";
+        }
+        std::vector<char> line;
+        while (gzgetline(in_file, line)) {
+            std::string line_str(line.begin(), line.end());
+	    if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
+	      line_str.erase(line_str.length()-1);
+	    }
+	    fp_prevalence.insert(line_str);
+        }
+        gzclose(in_file);
+
+        in_file = gzopen(resource_file, "r");
         if (in_file == NULL) {
             throw "error: could not open resource file";
         }
-        std::vector<char> line;
         while (gzgetline(in_file, line)) {
             std::string line_str(line.begin(), line.end());
             rapidjson::Document fp;
@@ -730,7 +750,11 @@ public:
     struct analysis_result perform_analysis(const char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
-            return analysis_result();
+            if (fp_prevalence.find(fp_str) != fp_prevalence.end()) {
+                return analysis_result();
+            } else {
+                return analysis_result(true);
+            }
         }
         class fingerprint_data &fp_data = fpdb_entry->second;
 
