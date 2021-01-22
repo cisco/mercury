@@ -100,6 +100,7 @@ public:
     std::unordered_map<uint16_t, uint64_t>    portname_applications;
     std::unordered_map<std::string, uint64_t> ip_ip;
     std::unordered_map<std::string, uint64_t> hostname_sni;
+    std::unordered_map<std::string, uint64_t> os_info;
     bool extended_fp_metadata = false;
 
     process_info(std::string proc_name,
@@ -109,7 +110,8 @@ public:
                  std::unordered_map<std::string, uint64_t> domains,
                  std::unordered_map<uint16_t, uint64_t> ports,
                  std::unordered_map<std::string, uint64_t> ip,
-                 std::unordered_map<std::string, uint64_t> sni) :
+                 std::unordered_map<std::string, uint64_t> sni,
+                 std::unordered_map<std::string, uint64_t> oses) :
         name{proc_name},
         malware{is_malware},
         count{proc_count},
@@ -117,7 +119,8 @@ public:
         hostname_domains{domains},
         portname_applications{ports},
         ip_ip{ip},
-        hostname_sni{sni} {
+        hostname_sni{sni},
+        os_info{oses} {
             if (!ip.empty() && !sni.empty()) {
                 extended_fp_metadata = true;
             }
@@ -648,7 +651,7 @@ public:
                         }
                     }
 
-                    class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni);
+                    class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni, os_info);
                     process_vector.push_back(process);
                 }
                 class fingerprint_data fp_data(total_count, process_vector);
