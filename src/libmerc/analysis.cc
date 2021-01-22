@@ -125,7 +125,8 @@ void database_finalize() {
 
 classifier *c = NULL;
 
-int analysis_init(int verbosity, const char *resource_dir, const float fingerprint_processes, const float process_destinations) {
+int analysis_init(int verbosity, const char *resource_dir, const float fingerprint_processes,
+                  const float process_destinations, const bool report_os) {
 
 //    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
 //       printf("\n mutex init has failed\n");
@@ -157,7 +158,7 @@ int analysis_init(int verbosity, const char *resource_dir, const float fingerpri
             strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
             strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
 
-            c = new classifier(resource_file_name, fingerprint_processes, process_destinations);
+            c = new classifier(resource_file_name, fingerprint_processes, process_destinations, report_os);
             // c->print(stderr);
 
 	    return 0;
@@ -439,9 +440,9 @@ struct analysis_result perform_analysis(char *fp_str, char *server_name, char *d
     fprintf(stderr, "XXX selected process: \"%s\"\tdst_ip: \"%s\"\tasn: \"%s\"\n---------------------------------\n", max_proc.c_str(), dst_ip_str.c_str(), asn.c_str());
 
     if (MALWARE_DB) {
-        return analysis_result(max_proc.c_str(), max_score, max_mal, malware_prob);
+      return analysis_result(max_proc.c_str(), max_score, NULL, max_mal, malware_prob);
     }
-    return analysis_result(max_proc.c_str(), max_score);
+    return analysis_result(max_proc.c_str(), max_score, NULL);
 }
 
 void write_analysis_from_extractor_and_flow_key(struct json_object &o,

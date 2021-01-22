@@ -20,6 +20,7 @@ public:
         certs_json_output{false},
         metadata_output{false},
         do_analysis{false},
+        report_os{false},
         output_tcp_initial_data{false},
         output_udp_initial_data{false},
         resources{NULL},
@@ -28,18 +29,19 @@ public:
 	process_destinations{0.0}
     {}
 
-    bool dns_json_output;   /* output DNS as JSON              */
-    bool certs_json_output; /* output certificates as JSON     */
-    bool metadata_output;   /* output lots of metadata         */
-    bool do_analysis;       /* write analysys{} JSON object    */
-    bool output_tcp_initial_data; /* write initial data field  */
-    bool output_udp_initial_data; /* write initial data field  */
+    bool dns_json_output;         /* output DNS as JSON           */
+    bool certs_json_output;       /* output certificates as JSON  */
+    bool metadata_output;         /* output lots of metadata      */
+    bool do_analysis;             /* write analysys{} JSON object */
+    bool report_os;               /* report oses in analysis JSON */
+    bool output_tcp_initial_data; /* write initial data field     */
+    bool output_udp_initial_data; /* write initial data field     */
 
-    char *resources;        /* directory containing (analysis) resource files */
+    char *resources;         /* directory containing (analysis) resource files */
     char *packet_filter_cfg; /* packet filter configuration string             */
 
-    float fingerprint_processes; /* remove processes with less than <var> weight */
-    float process_destinations; /* remove destinations with less than <var> weight */
+    float fingerprint_processes; /* remove processes with less than <var> weight    */
+    float process_destinations;  /* remove destinations with less than <var> weight */
 };
 
 /**

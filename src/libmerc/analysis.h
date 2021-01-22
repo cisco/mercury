@@ -15,7 +15,10 @@
 #include "addr.h"
 #include "json_object.h"
 
-int analysis_init(int verbosity, const char *resource_dir, float fingerprint_processes, float process_destinations);
+#include <unordered_map>
+
+int analysis_init(int verbosity, const char *resource_dir, const float fingerprint_processes,
+                  const float process_destinations, const bool report_os);
 
 int analysis_finalize();
 
@@ -27,15 +30,16 @@ class analysis_result {
     bool max_mal;
     long double malware_prob;
     bool classify_malware;
+    std::unordered_map<std::string, uint64_t> *os_info;
 
 public:
-    analysis_result() : valid{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false} { }
+    analysis_result() : valid{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL} { }
 
-    analysis_result(const char *proc, long double score) : valid{true}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false} {
+    analysis_result(const char *proc, long double score, std::unordered_map<std::string, uint64_t> *os) : valid{true}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{os} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
-    analysis_result(const char *proc, long double score, bool mal, long double mal_prob) :
-        valid{true}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true} {
+    analysis_result(const char *proc, long double score, std::unordered_map<std::string, uint64_t> *os, bool mal, long double mal_prob) :
+        valid{true}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true}, os_info{os} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
 
@@ -48,6 +52,13 @@ public:
                 analysis.print_key_uint("malware", max_mal);
                 analysis.print_key_float("p_malware", malware_prob);
             }
+	    if ((os_info != NULL) && ((*os_info).size() > 0)) { /* print operating system info */
+	       struct json_object os_json{analysis, "os_info"};
+	       for (const auto &os_and_count : *os_info) {
+                   os_json.print_key_uint(os_and_count.first.c_str(), os_and_count.second);
+	       }
+	       os_json.close();
+	    }
         } else {
             analysis.print_key_string("status", "unknown_fingerprint");
         }
@@ -66,7 +77,6 @@ class analysis_result analyze_client_hello_and_key(const struct tls_client_hello
 
 #include <string>
 #include <vector>
-#include <unordered_map>
 #include <zlib.h>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -199,9 +209,11 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
+    std::vector<std::unordered_map<std::string, uint64_t>> os_info;
     floating_point_type base_prior;
 
     static bool malware_db;
+    static bool report_os;
 
 public:
     uint64_t total_count;
@@ -227,6 +239,7 @@ public:
                 if (p.malware) {
                     malware_db = true;
                 }
+		os_info.push_back(p.os_info);
 
                 constexpr floating_point_type as_weight = 0.13924;
                 constexpr floating_point_type domain_weight = 0.15590;
@@ -453,9 +466,9 @@ public:
         }
 
         if (malware_db) {
-            return analysis_result(process_name[index_max].c_str(), max_score, malware[index_max], malware_prob);
+            return analysis_result(process_name[index_max].c_str(), max_score, &os_info[index_max], malware[index_max], malware_prob);
         }
-        return analysis_result(process_name[index_max].c_str(), max_score);
+        return analysis_result(process_name[index_max].c_str(), max_score, &os_info[index_max]);
     }
 
     static uint16_t remap_port(uint16_t dst_port) {
@@ -506,7 +519,7 @@ class classifier {
 
 public:
 
-  classifier(const char *resource_file, const float fingerprint_processes, const float process_destinations) : fpdb{} {
+  classifier(const char *resource_file, const float fingerprint_processes, const float process_destinations, const bool report_os) : fpdb{} {
 
         gzFile in_file = gzopen(resource_file, "r");
         if (in_file == NULL) {
@@ -645,9 +658,11 @@ public:
                             }
                         }
                     }
-                    if (x.HasMember("os_info") && x["os_info"].IsObject()) {
+                    if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
                         for (auto &y : x["os_info"].GetObject()) {
-                            os_info[y.name.GetString()] = y.value.GetUint64();
+                            if (std::string(y.name.GetString()) != "") {
+                                os_info[y.name.GetString()] = y.value.GetUint64();
+                            }
                         }
                     }
 
