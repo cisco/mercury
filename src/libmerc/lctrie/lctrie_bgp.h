@@ -18,11 +18,24 @@ void ipv6_print(FILE *f, const __uint128_t *addr) {
     uint16_t *sentinel = a + (sizeof(__uint128_t)/sizeof(uint16_t)) - 1;
 
     while (a < sentinel) {
-        fprintf(stderr, "%x", *a);
+        fprintf(f, "%x", *a);
         putc(':', f);
         a++;
     }
-    fprintf(stderr, "%x", *a);
+    fprintf(f, "%x", *a);
+}
+
+template <typename T>
+void ipv6_print_rev(FILE *f, const __uint128_t *addr) {
+    uint16_t *a = (uint16_t *)addr;
+    uint16_t *iterator = a + (sizeof(__uint128_t)/sizeof(uint16_t)) - 1;
+
+    while (iterator > a) {
+        fprintf(f, "%x", *iterator);
+        putc(':', f);
+        --iterator;
+    }
+    fprintf(f, "%x", *iterator);
 }
 
 

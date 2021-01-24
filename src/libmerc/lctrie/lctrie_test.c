@@ -584,12 +584,16 @@ int test_ipv6(const char *input_file) {
         // record the lookup, hit, and miss stats
         ++nlookup;
         subnet = lct_find(&t, prefix);
+        //ipv6_print_rev<ipv6_addr>(stdout, &prefix);
         if (subnet) {
             ++nhit;
+            //fprintf(stdout, "\thit\t");
+            //print_subnet(subnet);
         }
         else {
             ++nmiss;
         }
+        //putc('\n', stdout);
 
         // get the current time
     }
