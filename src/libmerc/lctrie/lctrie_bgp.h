@@ -15,16 +15,14 @@
 template <typename T>
 void ipv6_print(FILE *f, const __uint128_t *addr) {
     uint16_t *a = (uint16_t *)addr;
-    uint16_t *sentinel = a + (sizeof(__uint128_t)/sizeof(uint16_t));
+    uint16_t *sentinel = a + (sizeof(__uint128_t)/sizeof(uint16_t)) - 1;
 
     while (a < sentinel) {
-        if (*a) {
-            fprintf(stderr, "%x", *a);
-        }
+        fprintf(stderr, "%x", *a);
         putc(':', f);
         a++;
     }
-
+    fprintf(stderr, "%x", *a);
 }
 
 
@@ -73,22 +71,35 @@ lct_subnet_set_from_string(lct_subnet<T> *subnet, const char *subnet_string) {
 
       int advance = 0;
 
-      // parse address
+      // parse string as IPv6 address
       __uint128_t addr = 0;
       uint16_t *a = (uint16_t *)&addr;
       uint16_t *sentinel = a + (sizeof(__uint128_t)/sizeof(uint16_t));
+      uint16_t *trailer = NULL;
       const char *start = subnet_string;
       int num_items_parsed = 1;
+      size_t trailing_uint16s = 0;
       while (true) {
 
           if (a >= sentinel) {
               return -1;  // parse error; too many digits in address
           }
 
-          // advance over (any number of) colons
-          while (start[0] == ':') {
+          // advance over (one or two) colons
+          if (start[0] == ':') {
               start++;
               a++;
+              if (start[0] == ':') {
+                  if (trailer) {
+                      return -1; // parse error; multiple occurences of "::"
+                  }
+                  start++;
+                  a++;
+                  if (start[0] == ':') {
+                      return -1; // parse error; ":::" is invalid
+                  }
+                  trailer = a;
+              }
           }
           // check for end of address/subnet
           if (!isxdigit(start[0])) {
@@ -99,12 +110,30 @@ lct_subnet_set_from_string(lct_subnet<T> *subnet, const char *subnet_string) {
           if (num_items_parsed == 1) {
               *a = ntohs(*a);
               start += bytes_consumed;
+              if (trailer) {
+                  trailing_uint16s++;
+              }
           }  else {
               break;
           }
       }
+      if (trailing_uint16s) {
+          int shift = 8 - (trailer - (uint16_t *)&addr) - trailing_uint16s;
+          //fprintf(stderr, "shift: %d\n", shift);
+          //ipv6_print<__uint128_t>(stderr, &addr);
+          //fprintf(stderr, "\tgot %zu trailing uint16s in %s\n", trailing_uint16s, subnet_string);
+
+          // shift elements
+          uint16_t *x = (uint16_t *)&addr;
+          for (size_t i=0; i < trailing_uint16s; i++) {
+              x[7-i] = x[7-i-shift];
+              x[7-i-shift] = 0;
+          }
+          //ipv6_print<__uint128_t>(stderr, &addr);
+          //fprintf(stderr, "\tgot %zu trailing uint16s in %s\n", trailing_uint16s, subnet_string);
+          //fprintf(stderr, "-----------------------------\n");
+      }
       addr = ntoh(addr);
-      // a = (uint16_t *)&addr;
       num_items_parsed = sscanf(start, "\t%hhu%n", &mask_length, &advance);
       if (num_items_parsed != 1) {
            return -1;

@@ -9,6 +9,8 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 
+#include <random>
+
 #include "lctrie_ip.h"
 #include "lctrie_bgp.h"
 #include "lctrie.h"
@@ -24,27 +26,28 @@
 #define LCT_VERIFY_PREFIXES         1
 #define LCT_IP_DISPLAY_PREFIXES     0
 
+std::random_device rd;
+std::minstd_rand random_source(rd());
+//std::ranlux48_base random_source(rd());
 
 uint32_t next = 1;
 uint32_t fastrand(void) {
     next = next * 1103515245 + 12345;
     return((unsigned)(next/65536) % RAND_MAX);
+    //return random_source();
 }
 
 ipv6_addr next_ipv6 = 1;
 ipv6_addr fastrand_ipv6(void) {
     ipv6_addr tmp = 0;
-    uint16_t *t = (uint16_t *)&tmp;
-    t[0] = fastrand();
-    t[1] = fastrand();
-    t[2] = fastrand();
-    t[3] = fastrand();
-    t[4] = fastrand();
-    t[5] = fastrand();
-    t[6] = fastrand();
-    t[7] = fastrand();
+    uint32_t *t = (uint32_t *)&tmp;
+    t[0] = random_source();
+    t[1] = random_source();
+    t[2] = random_source();
+    t[3] = random_source();
     return tmp;
 }
+
 
 template <typename T>
 void print_subnet(lct_subnet<T> *subnet) {
@@ -401,7 +404,9 @@ int test_ipv4(char *input_file) {
 
     printf("Pausing to allow for system analysis.\n");
     printf("Hit enter key to continue...\n");
+#ifdef PAUSE
     getc(stdin);
+#endif
 
     // we're done with the subnets, stats, and trie;  dump them.
     lct_free<T>(&t);
@@ -541,8 +546,9 @@ int test_ipv6(const char *input_file) {
                                "2001:1490:0:1000:1::",
                                "2a00:4120:8000:70::",
                                "2403:2c00:cfff:0:0:0:0:1",
-                               "2a00:1760:6007::f8",  // ERROR; how to parse this???
+                               "2a00:1760:6007::f8",
                                "2403:2c00:7:1::1",
+                               "2a03:d000:299f:e000::15",
                                NULL
     };
     printf("Testing trie matches for address various subnet prefix lengths...\n");
@@ -598,7 +604,9 @@ int test_ipv6(const char *input_file) {
 
     printf("Pausing to allow for system analysis.\n");
     printf("Hit enter key to continue...\n");
+#ifdef PAUSE
     getc(stdin);
+#endif
 
     // we're done with the subnets, stats, and trie;  dump them.
     lct_free<ipv6_addr>(&t);
