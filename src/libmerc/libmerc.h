@@ -20,13 +20,13 @@ public:
         certs_json_output{false},
         metadata_output{false},
         do_analysis{false},
-        report_os{false},
+        report_os{true},
         output_tcp_initial_data{false},
         output_udp_initial_data{false},
         resources{NULL},
         packet_filter_cfg{NULL},
-	fingerprint_processes{0.0},
-	process_destinations{0.0}
+	fingerprint_processes{0.01},
+	process_destinations{0.01}
     {}
 
     bool dns_json_output;         /* output DNS as JSON           */

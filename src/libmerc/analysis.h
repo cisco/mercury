@@ -63,9 +63,9 @@ public:
 	       os_json.close();
 	    }
         } else if (rare) {
-            analysis.print_key_string("status", "rare_fingerprint");
+            analysis.print_key_string("status", "randomized_fingerprint");
         } else {
-            analysis.print_key_string("status", "unknown_fingerprint");
+            analysis.print_key_string("status", "unlabeled_fingerprint");
         }
         analysis.close();
     }
@@ -463,7 +463,6 @@ public:
             score_sum -= max_score;
             max_score = sec_score;
         }
-
         if (score_sum > 0.0) {
             max_score /= score_sum;
             if (malware_db) {
