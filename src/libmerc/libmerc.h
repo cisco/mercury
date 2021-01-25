@@ -25,8 +25,8 @@ public:
         output_udp_initial_data{false},
         resources{NULL},
         packet_filter_cfg{NULL},
-	fingerprint_processes{0.01},
-	process_destinations{0.01}
+        fp_proc_threshold{0.0},
+        proc_dst_threshold{0.0}
     {}
 
     bool dns_json_output;         /* output DNS as JSON           */
@@ -40,8 +40,8 @@ public:
     char *resources;         /* directory containing (analysis) resource files */
     char *packet_filter_cfg; /* packet filter configuration string             */
 
-    float fingerprint_processes; /* remove processes with less than <var> weight    */
-    float process_destinations;  /* remove destinations with less than <var> weight */
+    float fp_proc_threshold;   /* remove processes with less than <var> weight    */
+    float proc_dst_threshold;  /* remove destinations with less than <var> weight */
 };
 
 /**

@@ -26,7 +26,7 @@ have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 CXX      = @CXX@
-CFLAGS  = --std=c++11
+CFLAGS  = --std=c++17
 CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
@@ -160,7 +160,7 @@ uninstall:
 
 .PHONY: cppcheck
 cppcheck: $(MERC)
-	cppcheck --language=c++ --std=c++11 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^
+	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^
 	cd libmerc && $(MAKE) cppcheck
 
 .PHONY: test
