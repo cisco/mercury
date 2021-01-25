@@ -10,6 +10,7 @@
 #include "version.h"
 #include "analysis.h"
 #include "extractor.h"  // for proto_ident_config()
+#include "pkt_proc.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -46,6 +47,11 @@ int mercury_finalize() {
         analysis_finalize();
     }
     return 0; // success
+}
+
+size_t mercury_analyze(struct stateful_pkt_proc& processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
+{
+    return processor.write_json(buffer, buffer_size, packet, length, ts);
 }
 
 /*
