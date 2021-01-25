@@ -139,7 +139,7 @@ distclean: clean
 	rm -rf Makefile autom4te.cache config.log config.status
 
 .PHONY: install
-install: mercury
+install: libmerc mercury
 	mkdir -p $(bindir)
 	$(INSTALL) mercury $(bindir)
 	$(INSTALL) $(LIBMERC) $(libdir)
@@ -159,7 +159,9 @@ install-nonroot: mercury
 .PHONY: uninstall
 uninstall:
 	rm -f $(bindir)/mercury
-	rm -rf $(localstatedir)
+	rm -f $(libdir)/$(LIBMERC)
+	ldconfig
+	@echo "local captures not removed; to do that, run 'rm -rf $(localstatedir)'"
 
 #  To build mercury for profiling using gprof, run
 #
