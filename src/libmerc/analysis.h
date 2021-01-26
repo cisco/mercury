@@ -266,6 +266,9 @@ public:
                         i++;
                     }
                     os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
+                } else {
+                    os_information *os_infos = NULL;
+                    os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
                 }
 
                 constexpr floating_point_type as_weight = 0.13924;
