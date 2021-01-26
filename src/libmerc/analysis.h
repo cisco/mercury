@@ -28,27 +28,27 @@ typedef struct {
 class analysis_result {
     static const size_t max_proc_len = 256;
     bool valid = false;
-    bool rare = false;
+    bool randomized = false;
     char max_proc[max_proc_len];
     long double max_score;
     bool max_mal;
     long double malware_prob;
     bool classify_malware;
     os_information *os_info;
-    uint8_t os_info_len;
+    uint16_t os_info_len;
 
 public:
-    analysis_result() : valid{false}, rare{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result() : valid{false}, randomized{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
-    analysis_result(const bool is_rare) : valid{false}, rare{is_rare}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result(const bool is_randomized) : valid{false}, randomized{is_randomized}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
-    analysis_result(const char *proc, long double score, os_information *os, uint8_t os_len) :
-        valid{true}, rare{false}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
+    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len) :
+        valid{true}, randomized{false}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
-    analysis_result(const char *proc, long double score, os_information *os, uint8_t os_len, bool mal, long double mal_prob) :
-        valid{true}, rare{false}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
+    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob) :
+        valid{true}, randomized{false}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
@@ -64,12 +64,12 @@ public:
             }
             if ((os_info != NULL) && (os_info_len > 0)) { /* print operating system info */
                 struct json_object os_json{analysis, "os_info"};
-                for (uint8_t i = 0; i < os_info_len; i++) {
+                for (uint16_t i = 0; i < os_info_len; i++) {
                     os_json.print_key_uint(os_info[i].os_name, os_info[i].os_prev);
                 }
                 os_json.close();
             }
-        } else if (rare) {
+        } else if (randomized) {
             analysis.print_key_string("status", "randomized_fingerprint");
         } else {
             analysis.print_key_string("status", "unlabeled_fingerprint");
@@ -225,7 +225,7 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
-    std::vector<std::pair<os_information*,uint8_t>> os_info;
+    std::vector<std::pair<os_information*,uint16_t>> os_info;
     floating_point_type base_prior;
 
     static bool malware_db;
@@ -458,14 +458,12 @@ public:
                 index_sec = index_max;
                 max_score = process_score[i];
                 index_max = i;
-                //fprintf(stderr, "XXXX setting max to \"%s\", sec to \"%s\"\n", process_name[index_max].c_str(), process_name[index_sec].c_str());
             } else if (process_score[i] > sec_score) {
                 sec_score = process_score[i];
                 index_sec = i;
             }
         }
 
-        //auto max_it = std::max_element(process_score.begin(), process_score.end());
         floating_point_type score_sum = 0.0;
         floating_point_type malware_prob = 0.0;
         for (uint64_t i=0; i < process_score.size(); i++) {
@@ -495,7 +493,7 @@ public:
         }
 
         os_information *os_info_data = NULL;
-        uint8_t os_info_size = 0;
+        uint16_t os_info_size = 0;
         if (os_info.size() > 0) {
             os_info_data = os_info[index_max].first;
             os_info_size = os_info[index_max].second;
@@ -505,12 +503,6 @@ public:
                                    malware[index_max], malware_prob);
         }
         return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size);
-        /*
-        if (malware_db) {
-            return analysis_result(process_name[index_max].c_str(), max_score, &os_info[index_max], malware[index_max], malware_prob);
-        }
-        return analysis_result(process_name[index_max].c_str(), max_score, &os_info[index_max]);
-        */
     }
 
     static uint16_t remap_port(uint16_t dst_port) {
@@ -843,11 +835,6 @@ public:
     struct analysis_result perform_analysis(const char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
-            /*if (fp_prevalence.find(fp_str) != fp_prevalence.end()) {
-                return analysis_result();
-            } else {
-                return analysis_result(true);
-            }*/
             if (fp_prevalence.contains(fp_str)) {
                 fp_prevalence.update(fp_str);
                 return analysis_result();

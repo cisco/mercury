@@ -20,7 +20,7 @@ public:
         certs_json_output{false},
         metadata_output{false},
         do_analysis{false},
-        report_os{true},
+        report_os{false},
         output_tcp_initial_data{false},
         output_udp_initial_data{false},
         resources{NULL},
