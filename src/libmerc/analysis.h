@@ -15,27 +15,41 @@
 #include "addr.h"
 #include "json_object.h"
 
-int analysis_init(int verbosity, const char *resource_dir);
+int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_threshold,
+                  const float proc_dst_threshold, const bool report_os);
 
 int analysis_finalize();
+
+typedef struct {
+    char *os_name;
+    uint64_t os_prev;
+}os_information;
 
 class analysis_result {
     static const size_t max_proc_len = 256;
     bool valid = false;
+    bool randomized = false;
     char max_proc[max_proc_len];
     long double max_score;
     bool max_mal;
     long double malware_prob;
     bool classify_malware;
+    os_information *os_info;
+    uint16_t os_info_len;
 
 public:
-    analysis_result() : valid{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false} { }
+    analysis_result() : valid{false}, randomized{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
-    analysis_result(const char *proc, long double score) : valid{true}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false} {
+    analysis_result(const bool is_randomized) : valid{false}, randomized{is_randomized}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+
+    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len) :
+        valid{true}, randomized{false}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
+        os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
-    analysis_result(const char *proc, long double score, bool mal, long double mal_prob) :
-        valid{true}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true} {
+    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob) :
+        valid{true}, randomized{false}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
+        os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
 
@@ -48,8 +62,17 @@ public:
                 analysis.print_key_uint("malware", max_mal);
                 analysis.print_key_float("p_malware", malware_prob);
             }
+            if ((os_info != NULL) && (os_info_len > 0)) { /* print operating system info */
+                struct json_object os_json{analysis, "os_info"};
+                for (uint16_t i = 0; i < os_info_len; i++) {
+                    os_json.print_key_uint(os_info[i].os_name, os_info[i].os_prev);
+                }
+                os_json.close();
+            }
+        } else if (randomized) {
+            analysis.print_key_string("status", "randomized_fingerprint");
         } else {
-            analysis.print_key_string("status", "unknown_fingerprint");
+            analysis.print_key_string("status", "unlabeled_fingerprint");
         }
         analysis.close();
     }
@@ -61,12 +84,15 @@ class analysis_result analyze_client_hello_and_key(const struct tls_client_hello
                                                    const struct key &key);
 
 
-
 // classifier
 
+#include <mutex>
+#include <shared_mutex>
+#include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <vector>
-#include <unordered_map>
 #include <zlib.h>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -100,6 +126,7 @@ public:
     std::unordered_map<uint16_t, uint64_t>    portname_applications;
     std::unordered_map<std::string, uint64_t> ip_ip;
     std::unordered_map<std::string, uint64_t> hostname_sni;
+    std::map<std::string, uint64_t> os_info;
     bool extended_fp_metadata = false;
 
     process_info(std::string proc_name,
@@ -109,7 +136,8 @@ public:
                  std::unordered_map<std::string, uint64_t> domains,
                  std::unordered_map<uint16_t, uint64_t> ports,
                  std::unordered_map<std::string, uint64_t> ip,
-                 std::unordered_map<std::string, uint64_t> sni) :
+                 std::unordered_map<std::string, uint64_t> sni,
+                 std::map<std::string, uint64_t> oses) :
         name{proc_name},
         malware{is_malware},
         count{proc_count},
@@ -117,7 +145,8 @@ public:
         hostname_domains{domains},
         portname_applications{ports},
         ip_ip{ip},
-        hostname_sni{sni} {
+        hostname_sni{sni},
+        os_info{oses} {
             if (!ip.empty() && !sni.empty()) {
                 extended_fp_metadata = true;
             }
@@ -196,9 +225,11 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
+    std::vector<std::pair<os_information*,uint16_t>> os_info;
     floating_point_type base_prior;
 
     static bool malware_db;
+    static bool report_os;
 
 public:
     uint64_t total_count;
@@ -223,6 +254,21 @@ public:
                 malware.push_back(p.malware);
                 if (p.malware) {
                     malware_db = true;
+                }
+
+                if (p.os_info.size() > 0) {
+                    os_information *os_infos = (os_information*)malloc(p.os_info.size() * sizeof(*os_infos));
+                    int i = 0;
+                    for (const auto &os_and_count : p.os_info) {
+                        os_infos[i].os_name = (char*)malloc(os_and_count.first.length()+1);
+                        strcpy(os_infos[i].os_name, os_and_count.first.c_str());
+                        os_infos[i].os_prev = os_and_count.second;
+                        i++;
+                    }
+                    os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
+                } else {
+                    os_information *os_infos = NULL;
+                    os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
                 }
 
                 constexpr floating_point_type as_weight = 0.13924;
@@ -287,7 +333,7 @@ public:
                 ++index;
             }
 
-        }
+    }
 
     void print(FILE *f) {
         fprintf(f, ",\"total_count\":%lu", total_count);
@@ -412,14 +458,12 @@ public:
                 index_sec = index_max;
                 max_score = process_score[i];
                 index_max = i;
-                //fprintf(stderr, "XXXX setting max to \"%s\", sec to \"%s\"\n", process_name[index_max].c_str(), process_name[index_sec].c_str());
             } else if (process_score[i] > sec_score) {
                 sec_score = process_score[i];
                 index_sec = i;
             }
         }
 
-        //auto max_it = std::max_element(process_score.begin(), process_score.end());
         floating_point_type score_sum = 0.0;
         floating_point_type malware_prob = 0.0;
         for (uint64_t i=0; i < process_score.size(); i++) {
@@ -441,7 +485,6 @@ public:
             score_sum -= max_score;
             max_score = sec_score;
         }
-
         if (score_sum > 0.0) {
             max_score /= score_sum;
             if (malware_db) {
@@ -449,10 +492,17 @@ public:
             }
         }
 
-        if (malware_db) {
-            return analysis_result(process_name[index_max].c_str(), max_score, malware[index_max], malware_prob);
+        os_information *os_info_data = NULL;
+        uint16_t os_info_size = 0;
+        if (os_info.size() > 0) {
+            os_info_data = os_info[index_max].first;
+            os_info_size = os_info[index_max].second;
         }
-        return analysis_result(process_name[index_max].c_str(), max_score);
+        if (malware_db) {
+            return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size,
+                                   malware[index_max], malware_prob);
+        }
+        return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size);
     }
 
     static uint16_t remap_port(uint16_t dst_port) {
@@ -495,21 +545,91 @@ public:
 // static const char* kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
 // fprintf(stderr, "Type of member %s is %s\n", "str_repr", kTypeNames[fp["str_repr"].GetType()]);
 
+
+class FingerprintPrevalence {
+public:
+    FingerprintPrevalence(uint32_t max_cache_size_) : max_cache_size{max_cache_size_} {}
+
+    // first check if known fingerprints contains fingerprint, then check adaptive set
+    bool contains(std::string fp_str) const {
+        if (known_set_.find(fp_str) != known_set_.end()) {
+            return true;
+        }
+
+        std::shared_lock lock(mutex_);
+        if (set_.find(fp_str) != set_.end()) {
+            return true;
+        }
+        return false;
+    }
+
+    // seed known set of fingerprints
+    void initial_add(std::string fp_str) {
+        known_set_.insert(fp_str);
+    }
+
+    // update fingerprint LRU cache if needed
+    void update(std::string fp_str) {
+        if (known_set_.find(fp_str) != known_set_.end()) {
+            return ;
+        }
+
+        std::unique_lock lock(mutex_);
+
+        if (set_.find(fp_str) != set_.end()) {
+            list_.remove(fp_str);
+            list_.push_back(fp_str);
+        } else {
+            list_.push_back(fp_str);
+            set_.insert(fp_str);
+        }
+
+        if (set_.size() > max_cache_size) {
+            set_.erase(list_.front());
+            list_.pop_front();
+        }
+    }
+
+private:
+    mutable std::shared_mutex mutex_;
+    std::list<std::string> list_;
+    std::unordered_set<std::string> set_;
+    std::unordered_set<std::string> known_set_;
+    uint32_t max_cache_size;
+};
+
+
 class classifier {
     bool MALWARE_DB = false;
     bool EXTENDED_FP_METADATA = false;
 
     std::unordered_map<std::string, class fingerprint_data> fpdb;
+    //std::unordered_set<std::string> fp_prevalence;
+    FingerprintPrevalence fp_prevalence = FingerprintPrevalence(100000);
 
 public:
 
-    classifier(const char *resource_file) : fpdb{} {
+    classifier(const char *resource_file, const char *resource_fp_prevalence, const float fp_proc_threshold, const float proc_dst_threshold, const bool report_os) : fpdb{} {
 
-        gzFile in_file = gzopen(resource_file, "r");
+        gzFile in_file = gzopen(resource_fp_prevalence, "r");
+        if (in_file == NULL) {
+            throw "error: could not open resource fp prevalence";
+        }
+        std::vector<char> line;
+        while (gzgetline(in_file, line)) {
+            std::string line_str(line.begin(), line.end());
+            if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
+                line_str.erase(line_str.length()-1);
+            }
+            //fp_prevalence.insert(line_str);
+            fp_prevalence.initial_add(line_str);
+        }
+        gzclose(in_file);
+
+        in_file = gzopen(resource_file, "r");
         if (in_file == NULL) {
             throw "error: could not open resource file";
         }
-        std::vector<char> line;
         while (gzgetline(in_file, line)) {
             std::string line_str(line.begin(), line.end());
             rapidjson::Document fp;
@@ -533,32 +653,45 @@ public:
 
                 unsigned int process_number = 0;
                 for (auto &x : fp["process_info"].GetArray()) {
+                    uint64_t count = 0;
+                    bool malware = false;
+
+                    if (x.HasMember("count") && x["count"].IsUint64()) {
+                        count = x["count"].GetUint64();
+                        //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
+                    }
+                    if (x.HasMember("malware") && x["malware"].IsBool()) {
+                        if (MALWARE_DB == false && process_number > 1) {
+                            throw "error: malware data expected, but not present";
+                        }
+                        MALWARE_DB = true;
+                        malware = x["malware"].GetBool();
+                    }
+                    /* do not load process into memory if prevalence is below threshold */
+		    if ((process_number > 1) && ((float)count/total_count < fp_proc_threshold) && (malware != true)) {
+		        continue;
+		    }
+
                     process_number++;
                     //fprintf(stderr, "%s\n", "process_info");
 
-                    bool malware = false;
                     std::unordered_map<uint32_t, uint64_t>    ip_as;
                     std::unordered_map<std::string, uint64_t> hostname_domains;
                     std::unordered_map<uint16_t, uint64_t>    portname_applications;
                     std::unordered_map<std::string, uint64_t> ip_ip;
                     std::unordered_map<std::string, uint64_t> hostname_sni;
+                    std::map<std::string, uint64_t> os_info;
 
-                    uint64_t count = 0;
                     std::string name;
                     if (x.HasMember("process") && x["process"].IsString()) {
                         name = x["process"].GetString();
                         //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
                     }
-                    if (x.HasMember("count") && x["count"].IsUint64()) {
-                        count = x["count"].GetUint64();
-                        //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
-                    }
                     if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
                         //fprintf(stderr, "\tclasses_hostname_domains\n");
                         for (auto &y : x["classes_hostname_domains"].GetObject()) {
-                            if (y.value.IsUint64()) {
+                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-
                                 hostname_domains[y.name.GetString()] = y.value.GetUint64();
                             }
                         }
@@ -566,7 +699,7 @@ public:
                     if (x.HasMember("classes_ip_as") && x["classes_ip_as"].IsObject()) {
                         //fprintf(stderr, "\tclasses_ip_as\n");
                         for (auto &y : x["classes_ip_as"].GetObject()) {
-                            if (y.value.IsUint64()) {
+                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
 
                                 if (strcmp(y.name.GetString(), "unknown") != 0) {
@@ -590,19 +723,17 @@ public:
                     if (x.HasMember("classes_port_applications") && x["classes_port_applications"].IsObject()) {
                         //fprintf(stderr, "\tclasses_port_applications\n");
                         for (auto &y : x["classes_port_applications"].GetObject()) {
-                            if (y.value.IsUint64()) {
-                                //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                                uint16_t tmp_port = 0;
+                                auto port_it = string_to_port.find(y.name.GetString());
+                                if (port_it == string_to_port.end()) {
+                                    // throw "error: unexpected string in classes_port_applications";
+                                    fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
+                                } else {
+                                    tmp_port = port_it->second;
+                                }
+                                portname_applications[tmp_port] = y.value.GetUint64();
                             }
-
-                            uint16_t tmp_port = 0;
-                            auto port_it = string_to_port.find(y.name.GetString());
-                            if (port_it == string_to_port.end()) {
-                                // throw "error: unexpected string in classes_port_applications";
-                                fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
-                            } else {
-                                tmp_port = port_it->second;
-                            }
-                            portname_applications[tmp_port] = y.value.GetUint64();
                         }
                     }
                     if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
@@ -612,11 +743,11 @@ public:
                         EXTENDED_FP_METADATA = true;
                         //fprintf(stderr, "\tclasses_ip_ip\n");
                         for (auto &y : x["classes_ip_ip"].GetObject()) {
-                            if (!y.value.IsUint64()) {
+                            if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                                 fprintf(stderr, "warning: classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                                ip_ip[y.name.GetString()] = y.value.GetUint64();
                             }
-                            ip_ip[y.name.GetString()] = y.value.GetUint64();
                         }
                     }
                     if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
@@ -626,21 +757,21 @@ public:
                         EXTENDED_FP_METADATA = true;
                         //fprintf(stderr, "\tclasses_hostname_sni\n");
                         for (auto &y : x["classes_hostname_sni"].GetObject()) {
-                            if (y.value.IsUint64()) {
+                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                                 //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                                hostname_sni[y.name.GetString()] = y.value.GetUint64();
                             }
-                            hostname_sni[y.name.GetString()] = y.value.GetUint64();
                         }
                     }
-                    if (x.HasMember("malware") && x["malware"].IsBool()) {
-                        if (MALWARE_DB == false && process_number > 1) {
-                            throw "error: malware data expected, but not present";
+                    if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
+                        for (auto &y : x["os_info"].GetObject()) {
+                            if (std::string(y.name.GetString()) != "") {
+                                os_info[y.name.GetString()] = y.value.GetUint64();
+                            }
                         }
-                        MALWARE_DB = true;
-                        malware = x["malware"].GetBool();
                     }
 
-                    class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni);
+                    class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni, os_info);
                     process_vector.push_back(process);
                 }
                 class fingerprint_data fp_data(total_count, process_vector);
@@ -704,7 +835,13 @@ public:
     struct analysis_result perform_analysis(const char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
-            return analysis_result();
+            if (fp_prevalence.contains(fp_str)) {
+                fp_prevalence.update(fp_str);
+                return analysis_result();
+            } else {
+                fp_prevalence.update(fp_str);
+                return analysis_result(true);
+            }
         }
         class fingerprint_data &fp_data = fpdb_entry->second;
 

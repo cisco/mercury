@@ -20,21 +20,28 @@ public:
         certs_json_output{false},
         metadata_output{false},
         do_analysis{false},
+        report_os{false},
         output_tcp_initial_data{false},
         output_udp_initial_data{false},
         resources{NULL},
-        packet_filter_cfg{NULL}
+        packet_filter_cfg{NULL},
+        fp_proc_threshold{0.0},
+        proc_dst_threshold{0.0}
     {}
 
-    bool dns_json_output;   /* output DNS as JSON              */
-    bool certs_json_output; /* output certificates as JSON     */
-    bool metadata_output;   /* output lots of metadata         */
-    bool do_analysis;       /* write analysys{} JSON object    */
-    bool output_tcp_initial_data; /* write initial data field  */
-    bool output_udp_initial_data; /* write initial data field  */
+    bool dns_json_output;         /* output DNS as JSON           */
+    bool certs_json_output;       /* output certificates as JSON  */
+    bool metadata_output;         /* output lots of metadata      */
+    bool do_analysis;             /* write analysys{} JSON object */
+    bool report_os;               /* report oses in analysis JSON */
+    bool output_tcp_initial_data; /* write initial data field     */
+    bool output_udp_initial_data; /* write initial data field     */
 
-    char *resources;        /* directory containing (analysis) resource files */
+    char *resources;         /* directory containing (analysis) resource files */
     char *packet_filter_cfg; /* packet filter configuration string             */
+
+    float fp_proc_threshold;   /* remove processes with less than <var> weight    */
+    float proc_dst_threshold;  /* remove destinations with less than <var> weight */
 };
 
 /**
@@ -48,7 +55,7 @@ public:
  * @param resource_dir  directory of resource files to use in analysis
  *
  */
-int mercury_init(const class libmerc_config &vars, int verbosity);
+extern "C" int mercury_init(const class libmerc_config &vars, int verbosity);
 
 /**
  * @brief finalizes libmerc
@@ -57,7 +64,9 @@ int mercury_init(const class libmerc_config &vars, int verbosity);
  * mercury_init().   Returns zero on success.
  *
  */
-int mercury_finalize();
+extern "C" int mercury_finalize();
+
+extern "C" size_t mercury_analyze(struct stateful_pkt_proc& processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts);
 
 enum status {
     status_ok = 0,

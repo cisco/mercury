@@ -1,6 +1,9 @@
 # makefile for mercury fast fingerprint / packet metadata capture program
 #
 
+LIBMERC_SONUMBER = 0
+LIBMERC_SONAME = libmerc.so.$(LIBMERC_SONUMBER)
+
 SHELL = /bin/sh
 
 srcdir = .
@@ -26,15 +29,16 @@ have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 CXX      = @CXX@
-CFLAGS  = --std=c++11
+CFLAGS  = --std=c++17
 CFLAGS += -O3
+CFLAGS += -fPIC
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 CFLAGS += $(OPTFLAGS)
 
-# libmerc.a performs selective packet parsing and fingerprint extraction
+# libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
 #
@@ -93,12 +97,16 @@ CYTARGETS  =
 CYPREREQ   =
 endif
 
+VERSION=$(shell cat ../../VERSION)
+
 # rule to build library
 #
 LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
-libmerc.a: $(CYTARGETS) depend $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
+libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
-	ar rcs libmerc.a $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+#	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+	ldconfig -n .
 
 # lctrie ip address subnet matching library (in lctrie subdirectory)
 #
@@ -109,12 +117,13 @@ lctrie/liblctrie.a:
 # -MM option, which is essential for correctly handling changes to
 # header file
 #
-depend: .depend
+.depend:
+	$(CXX) $(CFLAGS) -MM $(LIBMERC) $(LIBMERC_H) > ./.depend
 
-.depend: $(LIBMERC) $(LIBMERC_H)
-	$(CXX) $(CFLAGS) -MM $^ > ./.depend
+ifeq (,$(findstring $(MAKECMDGOALS),clean))
+  include .depend
+endif
 
-include .depend
 
 # implicit rule for building object files from .cc files
 #
@@ -132,13 +141,13 @@ endif
 # special targets for mercury
 #
 .PHONY: debug
-debug: $(MERC) $(MERC_H) libmerc.a Makefile
-	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
+debug: $(MERC) $(MERC_H) libmerc.so Makefile
+	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean
 clean:
-	rm -rf libmerc.a *.o .depend
+	rm -rf libmerc.so *.o .depend
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
@@ -154,7 +163,7 @@ clean:
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(LIBMERC)
-	cppcheck --language=c++ --std=c++11 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
+	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
 
 .PHONY: test
 test: mercury

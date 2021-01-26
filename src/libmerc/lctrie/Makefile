@@ -12,9 +12,10 @@ clean:
 	rm -f lctrie_test
 	rm -f liblctrie.a
 
-CFLAGS = -g -ggdb -std=gnu99 -Wall -O3
+CC     = g++
+CFLAGS = -g -ggdb -std=c++11 -Wall -O3 -fPIC # -Wno-sign-compare
 LDFLAGS = -g -ggdb -O3
-LDLIBS = 
+LDLIBS =
 
 # autodep stuff
 

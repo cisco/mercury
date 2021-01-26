@@ -10,6 +10,7 @@
 #include "version.h"
 #include "analysis.h"
 #include "extractor.h"  // for proto_ident_config()
+#include "pkt_proc.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -33,7 +34,8 @@ int mercury_init(const class libmerc_config &vars, int verbosity) {
         return status;
     }
     if (global_vars.do_analysis) {
-        if (analysis_init(verbosity, global_vars.resources) != 0) {
+      if (analysis_init(verbosity, global_vars.resources, global_vars.fp_proc_threshold,
+			global_vars.proc_dst_threshold, global_vars.report_os) != 0) {
             return -1;
         }
     }
@@ -45,6 +47,11 @@ int mercury_finalize() {
         analysis_finalize();
     }
     return 0; // success
+}
+
+size_t mercury_analyze(struct stateful_pkt_proc& processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
+{
+    return processor.write_json(buffer, buffer_size, packet, length, ts);
 }
 
 /*

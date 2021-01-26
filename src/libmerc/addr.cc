@@ -11,21 +11,16 @@
 #include <locale.h>
 #include "addr.h"
 
-#if defined(__cplusplus)
-    extern "C" {
-#endif
 #include "lctrie/lctrie.h"
 #include "lctrie/lctrie_bgp.h"
-#if defined(__cplusplus)
-    }
-#endif
+
 
 /*
  * ipv4_subnet_trie and ipv4_subnet_array are global variables holding the
  * level compressed path trie data and subnet information for IPv4 BGP
  * Autonomous System Numbers and so on.
  */
-lct_t ipv4_subnet_trie;
+lct<ipv4_addr> ipv4_subnet_trie;
 lct_subnet_t *ipv4_subnet_array;
 
 uint32_t get_asn_info(char* dst_ip) {
@@ -71,7 +66,7 @@ uint32_t get_asn_info(uint32_t ipv4_addr) {
  * NULL is returned, and the caller should use errno/perror to
  * determine the cause.
  */
-lct_subnet_t *lct_init_from_file(lct_t *lct, char *filename) {
+lct_subnet_t *lct_init_from_file(lct<ipv4_addr> *trie, char *filename) {
   int num = 0;
   uint32_t prefix;
   lct_subnet_t *p;
@@ -102,7 +97,7 @@ lct_subnet_t *lct_init_from_file(lct_t *lct, char *filename) {
   // validate subnet prefixes against their netmasks
   // and sort the resulting array
   subnet_mask(p, num);
-  qsort(p, num, sizeof(lct_subnet_t), subnet_cmp);
+  qsort(p, num, sizeof(lct_subnet<ipv4_addr>), subnet_cmp<ipv4_addr>);
 
   // de-duplicate subnets and shrink the buffer down to its
   // actual size and split into prefixes and bases
@@ -135,8 +130,8 @@ lct_subnet_t *lct_init_from_file(lct_t *lct, char *filename) {
   }
 
   // actually build the trie and get the trie node count for statistics printing
-  memset(lct, 0, sizeof(lct_t));
-  lct_build(lct, p, num);
+  memset(trie, 0, sizeof(lct<ipv4_addr>));
+  lct_build(trie, p, num);
 
   return p;
 
