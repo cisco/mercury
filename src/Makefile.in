@@ -1,6 +1,12 @@
 # makefile for mercury fast fingerprint / packet metadata capture program
 #
 
+# definitions for colorized output
+COLOR_RED    = "\033[0;31m"
+COLOR_GREEN  = "\033[0;32m"
+COLOR_YELLOW = "\033[0;33m"
+COLOR_OFF    = "\033[0m"
+
 SHELL = /bin/sh
 
 srcdir = .
@@ -11,11 +17,14 @@ INSTALLDATA = /usr/bin/install -c -m 644
 prefix = @prefix@
 exec_prefix=@exec_prefix@
 bindir = @bindir@
+libdir = @libdir@
 localstatedir = @localstatedir@/mercury
 datarootdir = @datarootdir@/mercury
 
 .SUFFIXES:
 .SUFFIXES: .c .o
+
+LIBMERC = libmerc/libmerc.so
 
 # set parameters from configure (autoconf)
 #
@@ -80,8 +89,9 @@ EUID       = $(id -u)
 all: libmerc mercury
 
 mercury: $(MERC) $(MERC_H) Makefile.in
-	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread libmerc/libmerc.so.2.3.4 -lz -lcrypto
-	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
+	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
+	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
+	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 setcap: mercury
 	sudo setcap $(CAP) $<
@@ -113,13 +123,13 @@ endif
 # special targets for mercury
 #
 .PHONY: debug
-debug: $(MERC) $(MERC_H) libmerc/libmerc.so Makefile
-	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
+debug: $(MERC) $(MERC_H) $(LIBMERC) Makefile
+	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean
 clean:
-	rm -rf mercury gmon.out libmerc/libmerc.so *.o
+	rm -rf mercury gmon.out *.o
 	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
@@ -129,9 +139,11 @@ distclean: clean
 	rm -rf Makefile autom4te.cache config.log config.status
 
 .PHONY: install
-install: mercury
+install: libmerc mercury
 	mkdir -p $(bindir)
 	$(INSTALL) mercury $(bindir)
+	$(INSTALL) $(LIBMERC) $(libdir)
+	ldconfig
 #	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
 	adduser --system --no-create-home --group mercury
 	mkdir -p $(localstatedir)
@@ -147,7 +159,9 @@ install-nonroot: mercury
 .PHONY: uninstall
 uninstall:
 	rm -f $(bindir)/mercury
-	rm -rf $(localstatedir)
+	rm -f $(libdir)/$(LIBMERC)
+	ldconfig
+	@echo "local captures not removed; to do that, run 'rm -rf $(localstatedir)'"
 
 #  To build mercury for profiling using gprof, run
 #

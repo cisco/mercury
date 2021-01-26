@@ -1,6 +1,9 @@
 # makefile for mercury fast fingerprint / packet metadata capture program
 #
 
+LIBMERC_SONUMBER = 0
+LIBMERC_SONAME = libmerc.so.$(LIBMERC_SONUMBER)
+
 SHELL = /bin/sh
 
 srcdir = .
@@ -102,7 +105,8 @@ LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
 libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
-	$(CXX) -shared -fPIC -Wl,-soname,libmerc.so.$(VERSION) -o libmerc.so.$(VERSION) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+	ldconfig -n .
 
 # lctrie ip address subnet matching library (in lctrie subdirectory)
 #
@@ -138,7 +142,7 @@ endif
 #
 .PHONY: debug
 debug: $(MERC) $(MERC_H) libmerc.so Makefile
-	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
+	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean
