@@ -25,11 +25,6 @@ struct packet_info {
   uint32_t len;        /* length this packet (off wire) */
 };
 
-struct pkt_proc_stats {
-    size_t bytes_written;
-    size_t packets_written;
-};
-
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
     struct flow_table_tcp tcp_flow_table;
