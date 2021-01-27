@@ -14,7 +14,18 @@
 #include "pcap_file_io.h"
 #include "rnd_pkt_drop.h"
 #include "llq.h"
+#include "libmerc/libmerc.h"
 #include "libmerc/pkt_proc.h"
+
+
+// struct packet_info contains timestamp and length information about
+// a packet
+//
+struct packet_info {
+    struct timespec ts;   // timestamp
+    uint32_t caplen;      // length of portion present
+    uint32_t len;         // length this packet (off wire)
+};
 
 /*
  * struct pkt_proc is a packet processor; this abstract class defines
@@ -158,7 +169,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
 struct pkt_proc_json_writer_llq : public pkt_proc {
     struct ll_queue *llq;
     bool block;
-    struct stateful_pkt_proc processor;
+    mercury_packet_processor processor;
 
     /*
      * pkt_proc_json_writer(outfile_name, mode, max_records)
@@ -171,6 +182,58 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
      * rotation will take place.
      */
     explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, bool blocking) :
+        block{blocking},
+        processor{NULL}
+    {
+        llq = llq_ptr;
+        processor = mercury_packet_processor_construct();
+    }
+
+    void apply(struct packet_info *pi, uint8_t *eth) override {
+        struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
+        if (msg) {
+            size_t write_len = mercury_packet_processor_analyze(processor, msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts));
+            if (write_len > 0) {
+                msg->send(write_len);
+                llq->increment_widx();
+            }
+        }
+    }
+
+    void finalize() override {
+        processor->finalize();
+        mercury_packet_processor_destruct(processor);
+    }
+
+    void flush() override {
+
+    }
+
+};
+
+/*
+ * struct pkt_proc_json_writer_llq_CPP is the C++ only version of this
+ * code; it does not use the libmerc extern C API.  It represents a
+ * packet processing object that writes out a JSON representation of
+ * fingerprints, metadata, flow keys, and event time to a queue that
+ * is then written to a file by a dedicated output thread.
+ */
+struct pkt_proc_json_writer_llq_CPP : public pkt_proc {
+    struct ll_queue *llq;
+    bool block;
+    struct stateful_pkt_proc processor;
+
+    /*
+     * pkt_proc_json_writer(outfile_name, mode, max_records)
+     * initializes object to write a single JSON line containing the
+     * flow key, time, fingerprints, and metadata to the output file
+     * with the path outfile_name and mode passed as arguments; that
+     * file is opened by this invocation, with that mode.  If
+     * max_records is nonzero, then it defines the maximum number of
+     * records (lines) per file; after that limit is reached, file
+     * rotation will take place.
+     */
+    explicit pkt_proc_json_writer_llq_CPP(struct ll_queue *llq_ptr, bool blocking) :
         block{blocking},
         processor{}
     {

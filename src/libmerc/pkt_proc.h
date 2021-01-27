@@ -18,13 +18,6 @@ extern class libmerc_config global_vars;    // defined in libmerc.cc
 
 extern bool select_tcp_syn;                 // defined in extractor.cc
 
-/* Information about each packet on the wire */
-struct packet_info {
-  struct timespec ts;   /* timestamp */
-  uint32_t caplen;     /* length of portion present */
-  uint32_t len;        /* length this packet (off wire) */
-};
-
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
     struct flow_table_tcp tcp_flow_table;

@@ -26,20 +26,29 @@ void mercury_print_version_string(FILE *f) {
 class libmerc_config global_vars;
 
 int mercury_init(const class libmerc_config &vars, int verbosity) {
-    global_vars = vars;
-    global_vars.resources = vars.resources;
-    global_vars.packet_filter_cfg = vars.packet_filter_cfg;
-    enum status status = proto_ident_config(vars.packet_filter_cfg);
-    if (status) {
-        return status;
-    }
-    if (global_vars.do_analysis) {
-      if (analysis_init(verbosity, global_vars.resources, global_vars.fp_proc_threshold,
-			global_vars.proc_dst_threshold, global_vars.report_os) != 0) {
-            return -1;
+    try {
+        global_vars = vars;
+        global_vars.resources = vars.resources;
+        global_vars.packet_filter_cfg = vars.packet_filter_cfg;
+        enum status status = proto_ident_config(vars.packet_filter_cfg);
+        if (status) {
+            return status;
         }
+        if (global_vars.do_analysis) {
+            if (analysis_init(verbosity, global_vars.resources, global_vars.fp_proc_threshold,
+                              global_vars.proc_dst_threshold, global_vars.report_os) != 0) {
+                return -1; // failure
+            }
+        }
+        return 0; // success
     }
-    return 0; // success
+    catch (char const *s) {
+        fprintf(stderr, "error: %s\n", s);
+    }
+    catch (...) {
+        ;
+    }
+    return -1; // failure
 }
 
 int mercury_finalize() {
@@ -49,9 +58,18 @@ int mercury_finalize() {
     return 0; // success
 }
 
-size_t mercury_analyze(struct stateful_pkt_proc& processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
+size_t mercury_packet_processor_analyze(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
 {
-    return processor.write_json(buffer, buffer_size, packet, length, ts);
+    try {
+        return processor->write_json(buffer, buffer_size, packet, length, ts);
+    }
+    catch (char const *s) {
+        fprintf(stderr, "error: %s\n", s);
+    }
+    catch (...) {
+        ;
+    }
+    return 0;
 }
 
 /*
@@ -191,6 +209,28 @@ enum status proto_ident_config(const char *config_string) {
     }
     return status_ok;
 }
+
+mercury_packet_processor mercury_packet_processor_construct() {
+    try {
+        stateful_pkt_proc *tmp = new stateful_pkt_proc;
+        return tmp;
+    }
+    catch (...) {
+        ; // error, return NULL
+    }
+    return NULL;
+}
+
+void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
+    try {
+        if (mpp) {
+            delete mpp;
+        }
+    }
+    catch (...) {
+    }
+}
+
 
 const char license_string[] =
     "Copyright (c) 2019-2020 Cisco Systems, Inc.\n"

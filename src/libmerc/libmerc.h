@@ -66,12 +66,18 @@ extern "C" int mercury_init(const class libmerc_config &vars, int verbosity);
  */
 extern "C" int mercury_finalize();
 
-extern "C" size_t mercury_analyze(struct stateful_pkt_proc& processor,
-                                  void *buffer,
-                                  size_t buffer_size,
-                                  uint8_t *packet,
-                                  size_t length,
-                                  struct timespec* ts);
+typedef struct stateful_pkt_proc *mercury_packet_processor;
+
+extern "C" mercury_packet_processor mercury_packet_processor_construct();
+
+extern "C" void mercury_packet_processor_destruct(mercury_packet_processor mpp);
+
+extern "C" size_t mercury_packet_processor_analyze(mercury_packet_processor processor,
+                                                   void *buffer,
+                                                   size_t buffer_size,
+                                                   uint8_t *packet,
+                                                   size_t length,
+                                                   struct timespec* ts);
 
 enum status {
     status_ok = 0,

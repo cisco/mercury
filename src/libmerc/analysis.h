@@ -613,7 +613,7 @@ public:
 
         gzFile in_file = gzopen(resource_fp_prevalence, "r");
         if (in_file == NULL) {
-            throw "error: could not open resource fp prevalence";
+            throw "error: could not open resource file fp prevalence";
         }
         std::vector<char> line;
         while (gzgetline(in_file, line)) {
