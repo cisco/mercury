@@ -10,11 +10,11 @@
 #include "version.h"
 
 /*
- * class libmerc_config represents the complete configuration of
+ * struct libmerc_config represents the complete configuration of
  * the libmerc library
  */
-class libmerc_config {
-public:
+struct libmerc_config {
+
     libmerc_config() :
         dns_json_output{false},
         certs_json_output{false},
@@ -66,18 +66,41 @@ extern "C" int mercury_init(const class libmerc_config &vars, int verbosity);
  */
 extern "C" int mercury_finalize();
 
+/*
+ * mercury_packet_processor is an opaque pointer to a threadsafe
+ * packet processor
+ */
 typedef struct stateful_pkt_proc *mercury_packet_processor;
 
+/*
+ * mercury_packet_processor_construct() allocates and initializes a
+ * new mercury_packet_processor.  Returns a valid pointer on success,
+ * and NULL otherwise.
+ */
 extern "C" mercury_packet_processor mercury_packet_processor_construct();
 
+/*
+ * mercury_packet_processor_destruct() deallocates all resources
+ * associated with a mercury_packet_processor.
+ */
 extern "C" void mercury_packet_processor_destruct(mercury_packet_processor mpp);
 
-extern "C" size_t mercury_packet_processor_analyze(mercury_packet_processor processor,
-                                                   void *buffer,
-                                                   size_t buffer_size,
-                                                   uint8_t *packet,
-                                                   size_t length,
-                                                   struct timespec* ts);
+/*
+ * mercury_packet_processor_write_json() processes a packet and timestamp and
+ * writes the resulting JSON into a buffer.
+ *
+ * processor (input) - packet processor context to be used
+ * buffer (output) - location to which JSON will be written
+ * buffer_size (input) - length of buffer in bytes
+ * packet (input) - location of packet, starting with ethernet header
+ * ts (input) - pointer to timestamp associated with packet
+ */
+extern "C" size_t mercury_packet_processor_write_json(mercury_packet_processor processor,
+                                                      void *buffer,
+                                                      size_t buffer_size,
+                                                      uint8_t *packet,
+                                                      size_t length,
+                                                      struct timespec* ts);
 
 enum status {
     status_ok = 0,
@@ -86,8 +109,6 @@ enum status {
 };
 // enum status : bool { ok = 0, err = 1 };
 
-enum status static_data_config(const char *config_string);
-
 /**
  * @brief returns the mercury license string
  *
@@ -95,7 +116,7 @@ enum status static_data_config(const char *config_string);
  * libmerc.
  *
  */
-const char *mercury_get_license_string();
+extern "C" const char *mercury_get_license_string();
 
 /**
  * @brief prints the mercury semantic version
@@ -106,10 +127,14 @@ const char *mercury_get_license_string();
  * @param [in] file to print semantic version on.
  *
  */
-void mercury_print_version_string(FILE *f);
+extern "C" void mercury_print_version_string(FILE *f);
 
 
+// OTHER FUNCTIONS
+//
 enum status proto_ident_config(const char *config_string);
+
+enum status static_data_config(const char *config_string);
 
 
 #define MAX_FILENAME 256

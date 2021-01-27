@@ -192,7 +192,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     void apply(struct packet_info *pi, uint8_t *eth) override {
         struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
         if (msg) {
-            size_t write_len = mercury_packet_processor_analyze(processor, msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts));
+            size_t write_len = mercury_packet_processor_write_json(processor, msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts));
             if (write_len > 0) {
                 msg->send(write_len);
                 llq->increment_widx();
@@ -201,7 +201,6 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     }
 
     void finalize() override {
-        processor->finalize();
         mercury_packet_processor_destruct(processor);
     }
 

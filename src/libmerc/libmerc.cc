@@ -58,7 +58,7 @@ int mercury_finalize() {
     return 0; // success
 }
 
-size_t mercury_packet_processor_analyze(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
+size_t mercury_packet_processor_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
         return processor->write_json(buffer, buffer_size, packet, length, ts);
@@ -224,6 +224,7 @@ mercury_packet_processor mercury_packet_processor_construct() {
 void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     try {
         if (mpp) {
+            mpp->finalize();
             delete mpp;
         }
     }
