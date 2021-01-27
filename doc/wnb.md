@@ -8,7 +8,7 @@ Mercury's Fingerprinting with Destination Context (FDC) system identifies the so
 
 FDC takes as input a characteristic fingerprint string and a destination context, which consists of a destination IP address, a destination port, and the server_name field from the TLS client_hello extensions.  These fields represent the destination to which the client_hello was sent.
 
-FDC returns several different types of data about the process that generated the client_hello, including information about the most probable process, probable attributes of the process, and the probable Operating System (OS) on which the process ran.  
+FDC returns several different types of data about the process that generated the client_hello, including information about the most probable process, probable attributes of the process, and a list of Operating Systems that were associated with the process in the ground truth data.  
 
 The information about the most probable process is:
 
@@ -18,7 +18,7 @@ The information about the most probable process is:
 
 The malware attribute is set whenever the most probable process has been flagged as malicious by threat intelligence services.  
 
-There is a special process name "unknown" that is used whenever there is no ground truth available.  If the most probable process is "unknown", then then the second most probable process is reported instead.
+There is a special process name "generic dmz process" that is used whenever there is no ground truth available.  If the most probable process is "generic dmz process", then the second most probable process is reported instead.
 
 The information about probable attributes is:
 
@@ -26,17 +26,38 @@ The information about probable attributes is:
 
 Probable attributes are important whenever there is a multitude of similar processes with the same attribute, such as polymorphic malware.   In that case, the classifier may not be able to identify the most probable process with high confidence, but it can still accurately estimate the probability that the process is malware. 
 
-The OS information is:
+The OS information lists all operating systems and their prevalences that the most probable process has been observed using in the ground truth data. The analysis object contains the number of OSes, os_info_len, along with an array of structs where each struct represents one OS and contains:
 
-* the most probable OS (as a const pointer to a NULL-terminated string), and
-* a probability score that represents the classifier's confidence that information about the probable OS is correct (as a float between 0.0 and 1.0 inclusive).
+* an observed OS (as a const pointer to a NULL-terminated string), and
+* a uint64_t count of the number of times the process was seen with the observed OS.
 
-The FDC system reads a set of resource files at initialization time, from which it obtains all of the information that it uses in its analysis (other than the inputs listed above).
+The FDC system reads a set of resource files at initialization time, from which it obtains all of the information that it uses in its analysis (other than the inputs listed above). The resource files include:
 
-***TBD: document resource files.***
+* fingerprint_db.json.gz: knowledge base that maps processes and their destinations to characteristic fingerprint strings. Each fingerprint entry is represented as a JSON object, and only fingerprints with associated process ground truth are included.
+* fp_prevalence_tls.txt.gz: lists all characteristic fingerprint strings observed whether there exists process labels or not.
+* pyasn.db: maps IPv4 and IPv6 subnets to autonomous systems.
 
-There is a special "uknown fingerprint" string that is used to indicate that a fingerprint was not found in the knowledge base.  
+If a fingerprint is not in fingerprint_db.json.gz, then the analysis JSON object will only contain a special "status" key. The "status" key's value is "unlabeled_fingerprint" if the fingerprint was in fp_prevalence_tls.txt.gz and "randomized_fingerprint" otherwise.
 
+The following is an example of mercury's JSON output:
+
+``` json
+  "analysis": {
+    "process": "microsoft internet explorer",
+    "score": 0.969323,
+    "malware": 0,
+    "p_malware": 0,
+    "os_info": {
+      "cpe:2.3:o:microsoft:windows_10:1703:*:*:*:*:*:*:*": 53,
+      "cpe:2.3:o:microsoft:windows_10:1803:*:*:*:*:*:*:*": 602617,
+      "cpe:2.3:o:microsoft:windows_10:1809:*:*:*:*:*:*:*": 1845,
+      "cpe:2.3:o:microsoft:windows_10:1903:*:*:*:*:*:*:*": 2493,
+      "cpe:2.3:o:microsoft:windows_10:1909:*:*:*:*:*:*:*": 5999554,
+      "cpe:2.3:o:microsoft:windows_10:2004:*:*:*:*:*:*:*": 1211,
+      "cpe:2.3:o:microsoft:windows_10:20H2:*:*:*:*:*:*:*": 908
+    }
+  }
+```
 
 
 ## Design 

@@ -16,7 +16,7 @@ Fortunately, there are other places where we can look for malware server names. 
 
 In TLSv1.2, all of that data is unencrypted and can readily be parsed by a monitoring system.  In TLSv1.3, the most recent version of that standard, the server_name field in the client_hello is never encrypted, but certificates are encrypted.  However, the certificate associated with a server can easily be obtained by "tailgating": the monitoring system can send its own `client_hello` to the server to obtain the server's certificate, and cache the results for future use.
 
-### Observing Server Names with Mercury 
+### Observing Server Names with Mercury
 
 [Mercury](#mercury) can report all of the data fields mentioned above.  These fields appear in the JSON output (when mercury is configured to report that data).   The following table summarizes the fields, where they appear in the JSON, and the command line or configuration file option needed.
 
@@ -28,6 +28,9 @@ In TLSv1.2, all of that data is unencrypted and can readily be parsed by a monit
 | TLS server certificate common_name      | `.tls.server.certs[].cert.subject[].common_name`             | `--certs-json` |
 | HTTP request host name                  | `.http.request.host`                                         | `--metadata`   |
 
+Mercury's JSON corresponds as closely as possible to the original packet data.  Because of this, DNS names have a trailing dot, like "mb.moatads.com.", while TLS server_name fields almost always do not, such as "mb.moatads.com".   (See [RFC 1034](https://www.ietf.org/rfc/rfc1034.txt) and [RFC 6066](https://tools.ietf.org/html/rfc6066#page-6) for details.)  Some TLS clients will put the trailing dot TLS server_name, regardless of the RFC.  The capitalization of DNS names can vary, and may need to be converted to lowercase before comparison (see [RFC 4343](https://tools.ietf.org/html/rfc4343)).  
+
+
 ### Statistics
 
 To quantify the benefits of these additional name sources, we counted the number of distinct names that appeared in each field, for a ten minute period on an enterprise 40 Gbps link.
@@ -38,7 +41,7 @@ To quantify the benefits of these additional name sources, we counted the number
 | TLS client hello             | 4,121                    |
 | TLS certificate              | 14,094                   |
 
-Amazingly, most of the names that appear in the TLS client hellos do *not* appear in the DNS data.  
+1,203 of the names that appear in the TLS client hellos do *not* appear in the DNS data; this shows that monitoring TLS can find IoCs that would not be found through passive DNS monitoring. 
 
 
 
@@ -47,6 +50,3 @@ Amazingly, most of the names that appear in the TLS client hellos do *not* appea
 1. <a name="fireeye"></a>  [FireEye Sunburst Backdoor](https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html )
 2. <a name="doh"></a> [DNS Queries over HTTPS (RFC 8484)](https://tools.ietf.org/html/rfc8484)
 3. <a name="mercury"></a> [Mercury: network metadata capture and analysis](https://github.com/cisco/mercury)
-
-
-

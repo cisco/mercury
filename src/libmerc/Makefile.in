@@ -29,7 +29,7 @@ have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 CXX      = @CXX@
-CFLAGS  = --std=c++11
+CFLAGS  = --std=c++17
 CFLAGS += -O3
 CFLAGS += -fPIC
 # CFLAGS += -march=x86-64 -mtune=generic
@@ -163,7 +163,7 @@ clean:
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(LIBMERC)
-	cppcheck --language=c++ --std=c++11 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
+	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
 
 .PHONY: test
 test: mercury
