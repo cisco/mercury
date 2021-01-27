@@ -59,7 +59,12 @@ extern "C" int mercury_init(const class libmerc_config &vars, int verbosity);
  */
 extern "C" int mercury_finalize();
 
-extern "C" size_t mercury_analyze(struct stateful_pkt_proc& processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts);
+extern "C" size_t mercury_analyze(struct stateful_pkt_proc& processor,
+                                  void *buffer,
+                                  size_t buffer_size,
+                                  uint8_t *packet,
+                                  size_t length,
+                                  struct timespec* ts);
 
 enum status {
     status_ok = 0,
