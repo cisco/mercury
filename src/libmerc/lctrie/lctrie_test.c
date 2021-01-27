@@ -26,19 +26,17 @@
 #define LCT_VERIFY_PREFIXES         1
 #define LCT_IP_DISPLAY_PREFIXES     0
 
+// random_ipv4_addr() and random_ipv6_addr() are helper functions for
+// generating random addresses, for use in testing
+//
 std::random_device rd;
 std::minstd_rand random_source(rd());
-//std::ranlux48_base random_source(rd());
 
-uint32_t next = 1;
-uint32_t fastrand(void) {
-    next = next * 1103515245 + 12345;
-    return((unsigned)(next/65536) % RAND_MAX);
-    //return random_source();
+uint32_t random_ipv4_addr(void) {
+    return random_source();
 }
 
-ipv6_addr next_ipv6 = 1;
-ipv6_addr fastrand_ipv6(void) {
+ipv6_addr random_ipv6_addr(void) {
     ipv6_addr tmp = 0;
     uint32_t *t = (uint32_t *)&tmp;
     t[0] = random_source();
@@ -373,17 +371,21 @@ int test_ipv4(char *input_file) {
     inet_pton(AF_INET, "192.168.0.0", (void *) &localprefix);
     localprefix = ntoh(localprefix);
 
+    // create array of random addresses to be looked up
+    constexpr size_t num_addrs = 50000000;
+    std::vector<ipv4_addr> address_vector;
+    address_vector.reserve(num_addrs);
+    for (size_t i = 0; i < num_addrs; i++) {
+        address_vector.push_back(random_ipv4_addr());
+    }
+
     // start the stop clock
     struct timeval start, now;
     gettimeofday(&start, NULL);
-    for (int i = 0; i < 50000000; i++) {
-
-        // just grab a random number and check to match
-        prefix = fastrand();
-
+    for (auto a : address_vector) {
         // record the lookup, hit, and miss stats
         ++nlookup;
-        subnet = lct_find(&t, prefix);
+        subnet = lct_find(&t, a);
         if (subnet) {
             ++nhit;
         }
@@ -391,8 +393,8 @@ int test_ipv4(char *input_file) {
             ++nmiss;
         }
 
-        // get the current time
     }
+    // get the current time
     gettimeofday(&now, NULL);
     unsigned long took_ms = 1000 * (now.tv_sec - start.tv_sec) + (now.tv_usec - start.tv_usec) / 1000;
     // timer has millisecond accuracy
@@ -571,32 +573,30 @@ int test_ipv6(const char *input_file) {
     unsigned int nlookup = 0, nhit = 0, nmiss = 0;
     srand(time(NULL));  // not crypto secure, but we don't need that
 
+    // create array of random addresses to be looked up
+    std::vector<ipv6_addr> address_vector;
+    constexpr size_t num_addrs = 50000000;
+    address_vector.reserve(num_addrs);
+    for (size_t i = 0; i < num_addrs; i++) {
+        address_vector.push_back(random_ipv6_addr());
+    }
+
     // start the stop clock
     struct timeval start, now;
     gettimeofday(&start, NULL);
-    for (int i = 0; i < 50000000; i++) {
-
-        // just grab a random number and check to match
-        prefix = fastrand_ipv6();
-
-        // fprint_addr(stderr, "random ipv6 addr", &prefix);
-
+    for (auto addr : address_vector) {
         // record the lookup, hit, and miss stats
         ++nlookup;
-        subnet = lct_find(&t, prefix);
-        //ipv6_print_rev<ipv6_addr>(stdout, &prefix);
+        subnet = lct_find(&t, addr);
         if (subnet) {
             ++nhit;
-            //fprintf(stdout, "\thit\t");
-            //print_subnet(subnet);
         }
         else {
             ++nmiss;
         }
-        //putc('\n', stdout);
 
-        // get the current time
     }
+    // get the current time
     gettimeofday(&now, NULL);
     unsigned long took_ms = 1000 * (now.tv_sec - start.tv_sec) + (now.tv_usec - start.tv_usec) / 1000;
     // timer has millisecond accuracy
@@ -619,7 +619,6 @@ int test_ipv6(const char *input_file) {
 
     return 0;
 }
-
 
 
 int main(int argc, char *argv[]) {
