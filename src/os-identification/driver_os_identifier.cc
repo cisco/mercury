@@ -1,5 +1,10 @@
-// g++ -Wall driver_os_identifier.cc -o driver_os_identifier ../datum.cc -lz
-// ./driver_os_identifier mercury.json
+// driver for os_identifier
+//
+// compile as:
+//    g++ -I ../libmerc/ -Wall driver_os_identifier.cc -o driver_os_identifier ../libmerc/datum.cc -lz
+//
+// run as:
+//    ./driver_os_identifier mercury.json
 
 #include <iostream>
 #include <fstream>
@@ -13,7 +18,7 @@ int main(int argc, char *argv[]) {
         printf("error: please supply mercury output file\n");
         return -1;
     }
-    printf("processing: %s\n\n",argv[1]);
+    fprintf(stderr, "processing: %s\n",argv[1]);
 
     /* initialize OS identification models */
     os_analysis_init("../../resources");

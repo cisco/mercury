@@ -11,12 +11,12 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../datum.h"
+#include "datum.h"
 
-#include "../rapidjson/document.h"
-#include "../rapidjson/stringbuffer.h"
-#include "../rapidjson/istreamwrapper.h"
-#include "../rapidjson/ostreamwrapper.h"
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/istreamwrapper.h"
+#include "rapidjson/ostreamwrapper.h"
 
 
 rapidjson::Document tcp_os_fp_db;
@@ -335,7 +335,7 @@ void update_host_data(const char *fp_type, const char *str_repr, const char *src
 
 void os_classify_all_samples() {
     for (auto it = host_data.begin(); it != host_data.end(); ++it) {
-        std::cout << it->first << std::endl;
+        std::cout << "{\"src_ip\":\"" << it->first << "\"";
         double *features = it->second;
 
         // normalize sample
@@ -354,8 +354,8 @@ void os_classify_all_samples() {
         // classify sample
         struct os_result r;
         os_clf.classify(features, &r);
-        std::cout << "OS Name:     " << r.os_name     << std::endl;
-        std::cout << "Probability: " << r.probability << std::endl << std::endl;
+        std::cout << ",\"os\":\"" << r.os_name << "\"";
+        std::cout << ",\"probability\":" << r.probability << "}\n";
 
         delete features;
     }
