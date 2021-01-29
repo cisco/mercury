@@ -467,7 +467,7 @@ int main(int argc, char *argv[]) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
     }
 
-    if (mercury_init(libmerc_cfg, cfg.verbosity) != 0) {
+    if (mercury_init(&libmerc_cfg, cfg.verbosity) != 0) {
         return EXIT_FAILURE;          // libmerc could not be initialized
     };
 
