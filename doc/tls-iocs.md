@@ -2,7 +2,7 @@
 
 
 
-The ability to detect compromised systems is essential, and for many incidents, this requires the ability to detect communication with particular Internet hosts.   Some of the most valuable IoCs are the names of servers that control malware, such as "appsync-api.eu-west-1.avsvmcloud.com" in the recent [Sunburst incident](#fireeye).   These Domain Name System (DNS) names can be observed in several different ways; this note highlights how the traditional approaches to observing DNS names are increasingly less effective, and how other techniques can regain this lost visibility, especially TLS monitoring.
+The ability to detect compromised systems is essential, and for many incidents, this requires the ability to detect communication with particular Internet hosts.   Some of the most valuable IoCs are the names of servers that control malware, such as "seobundlekit.com" in the recent [Sunburst incident](#fireeye).   These Domain Name System (DNS) names can be observed in several different ways; this note highlights how the traditional approaches to observing DNS names are increasingly less effective, and how other techniques can regain this lost visibility, especially TLS monitoring.
 
 
 
