@@ -7,6 +7,7 @@
 #ifndef LIBMERC_H
 #define LIBMERC_H
 
+#include <stdbool.h>
 #include "version.h"
 
 /*
@@ -15,6 +16,8 @@
  */
 struct libmerc_config {
 
+#ifdef __cplusplus
+    // constructor, for c++ only
     libmerc_config() :
         dns_json_output{false},
         certs_json_output{false},
@@ -28,6 +31,7 @@ struct libmerc_config {
         fp_proc_threshold{0.0},
         proc_dst_threshold{0.0}
     {}
+#endif
 
     bool dns_json_output;         /* output DNS as JSON           */
     bool certs_json_output;       /* output certificates as JSON  */
@@ -44,6 +48,11 @@ struct libmerc_config {
     float proc_dst_threshold;  /* remove destinations with less than <var> weight */
 };
 
+
+#ifndef __cplusplus
+#define libmerc_config_init() {false,false,false,false,false,false,false,NULL,NULL,0.0,0.0}
+#endif
+
 /**
  * @brief initializes libmerc
  *
@@ -55,7 +64,10 @@ struct libmerc_config {
  * @param resource_dir  directory of resource files to use in analysis
  *
  */
-extern "C" int mercury_init(const class libmerc_config &vars, int verbosity);
+#ifdef __cplusplus
+extern "C"
+#endif
+int mercury_init(const struct libmerc_config *vars, int verbosity);
 
 /**
  * @brief finalizes libmerc
@@ -64,26 +76,37 @@ extern "C" int mercury_init(const class libmerc_config &vars, int verbosity);
  * mercury_init().   Returns zero on success.
  *
  */
-extern "C" int mercury_finalize();
+#ifdef __cplusplus
+extern "C"
+#endif
+int mercury_finalize();
 
 /*
  * mercury_packet_processor is an opaque pointer to a threadsafe
  * packet processor
  */
+//#ifdef __cplusplus
 typedef struct stateful_pkt_proc *mercury_packet_processor;
+//#endif
 
 /*
  * mercury_packet_processor_construct() allocates and initializes a
  * new mercury_packet_processor.  Returns a valid pointer on success,
  * and NULL otherwise.
  */
-extern "C" mercury_packet_processor mercury_packet_processor_construct();
+#ifdef __cplusplus
+extern "C"
+#endif
+mercury_packet_processor mercury_packet_processor_construct();
 
 /*
  * mercury_packet_processor_destruct() deallocates all resources
  * associated with a mercury_packet_processor.
  */
-extern "C" void mercury_packet_processor_destruct(mercury_packet_processor mpp);
+#ifdef __cplusplus
+extern "C"
+#endif
+void mercury_packet_processor_destruct(mercury_packet_processor mpp);
 
 /*
  * mercury_packet_processor_write_json() processes a packet and timestamp and
@@ -95,12 +118,28 @@ extern "C" void mercury_packet_processor_destruct(mercury_packet_processor mpp);
  * packet (input) - location of packet, starting with ethernet header
  * ts (input) - pointer to timestamp associated with packet
  */
-extern "C" size_t mercury_packet_processor_write_json(mercury_packet_processor processor,
-                                                      void *buffer,
-                                                      size_t buffer_size,
-                                                      uint8_t *packet,
-                                                      size_t length,
-                                                      struct timespec* ts);
+#ifdef __cplusplus
+extern "C"
+#endif
+size_t mercury_packet_processor_write_json(mercury_packet_processor processor,
+                                           void *buffer,
+                                           size_t buffer_size,
+                                           uint8_t *packet,
+                                           size_t length,
+                                           struct timespec* ts);
+
+/*
+ * same as above, but packet points to an IP header (v4 or v6)
+ */
+#ifdef __cplusplus
+extern "C"
+#endif
+size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor,
+                                              void *buffer,
+                                              size_t buffer_size,
+                                              uint8_t *packet,
+                                              size_t length,
+                                              struct timespec* ts);
 
 enum status {
     status_ok = 0,
@@ -116,7 +155,10 @@ enum status {
  * libmerc.
  *
  */
-extern "C" const char *mercury_get_license_string();
+#ifdef __cplusplus
+extern "C"
+#endif
+const char *mercury_get_license_string();
 
 /**
  * @brief prints the mercury semantic version
@@ -127,8 +169,10 @@ extern "C" const char *mercury_get_license_string();
  * @param [in] file to print semantic version on.
  *
  */
-extern "C" void mercury_print_version_string(FILE *f);
-
+#ifdef __cplusplus
+extern "C"
+#endif
+void mercury_print_version_string(FILE *f);
 
 // OTHER FUNCTIONS
 //

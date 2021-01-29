@@ -25,12 +25,12 @@ void mercury_print_version_string(FILE *f) {
 
 class libmerc_config global_vars;
 
-int mercury_init(const class libmerc_config &vars, int verbosity) {
+int mercury_init(const struct libmerc_config *vars, int verbosity) {
     try {
-        global_vars = vars;
-        global_vars.resources = vars.resources;
-        global_vars.packet_filter_cfg = vars.packet_filter_cfg;
-        enum status status = proto_ident_config(vars.packet_filter_cfg);
+        global_vars = *vars;
+        global_vars.resources = vars->resources;
+        global_vars.packet_filter_cfg = vars->packet_filter_cfg;
+        enum status status = proto_ident_config(vars->packet_filter_cfg);
         if (status) {
             return status;
         }
@@ -43,7 +43,7 @@ int mercury_init(const class libmerc_config &vars, int verbosity) {
         return 0; // success
     }
     catch (char const *s) {
-        fprintf(stderr, "error: %s\n", s);
+        fprintf(stderr, "%s\n", s);
     }
     catch (...) {
         ;
@@ -61,10 +61,24 @@ int mercury_finalize() {
 size_t mercury_packet_processor_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
-        return processor->write_json(buffer, buffer_size, packet, length, ts);
+        return processor->write_json(buffer, buffer_size, packet, length, ts, NULL);
     }
     catch (char const *s) {
-        fprintf(stderr, "error: %s\n", s);
+        fprintf(stderr, "%s\n", s);
+    }
+    catch (...) {
+        ;
+    }
+    return 0;
+}
+
+size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
+{
+    try {
+        return processor->ip_write_json(buffer, buffer_size, packet, length, ts, NULL);
+    }
+    catch (char const *s) {
+        fprintf(stderr, "%s\n", s);
     }
     catch (...) {
         ;

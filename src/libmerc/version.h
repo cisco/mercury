@@ -13,6 +13,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+
 struct semantic_version {
     unsigned int major;
     unsigned int minor;
@@ -36,5 +38,11 @@ struct semantic_version {
         return false;
     }
 };
+
+#else // C, not C++
+
+
+
+#endif
 
 #endif /* SEMANTIC_VERSION */

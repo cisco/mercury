@@ -56,11 +56,11 @@ struct stateful_pkt_proc {
     }
 
     size_t write_json(void *buffer,
-                              size_t buffer_size,
-                              uint8_t *packet,
-                              size_t length,
-                              struct timespec *ts,
-                              struct tcp_reassembler *reassembler);
+                      size_t buffer_size,
+                      uint8_t *packet,
+                      size_t length,
+                      struct timespec *ts,
+                      struct tcp_reassembler *reassembler);
 
     void tcp_data_write_json(struct buffer_stream &buf,
                              struct datum &pkt,
@@ -68,6 +68,13 @@ struct stateful_pkt_proc {
                              struct tcp_packet &tcp_pkt,
                              struct timespec *ts,
                              struct tcp_reassembler *reassembler);
+
+    size_t ip_write_json(void *buffer,
+                         size_t buffer_size,
+                         uint8_t *ip_packet,
+                         size_t length,
+                         struct timespec *ts,
+                         struct tcp_reassembler *reassembler);
 
 };
 

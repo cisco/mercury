@@ -34,7 +34,8 @@ have_pip3   = @PIP3@
 have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
-CXX      = @CXX@
+CXX     = @CXX@
+CC      = @CC@
 CFLAGS  = --std=c++17
 CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
@@ -45,7 +46,7 @@ CFLAGS += $(OPTFLAGS)
 
 # MERC and MERC_H hold the core source and header files, respectively
 #
-MERC   =  mercury.c
+# MERC   =  mercury.c
 ifeq ($(have_tpkt3),yes)
 MERC   += af_packet_v3.c
 else
@@ -88,8 +89,8 @@ EUID       = $(id -u)
 
 all: libmerc mercury
 
-mercury: $(MERC) $(MERC_H) Makefile.in
-	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
+mercury: mercury.c $(MERC) $(MERC_H) Makefile.in
+	$(CXX) $(CFLAGS) -o mercury mercury.c $(MERC) -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
@@ -119,17 +120,23 @@ ifeq ($(have_py3),yes)
 	python3 python-inference/setup.py build_ext --inplace
 endif
 
+#MERC_OBJ = $(MERC:%.o=%.c)
+
+libmerc_test: libmerc_test.c libmerc Makefile.in
+	$(CC) -Wall -std=c17 -o libmerc_test libmerc_test.c -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
+	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
+
 
 # special targets for mercury
 #
 .PHONY: debug
-debug: $(MERC) $(MERC_H) $(LIBMERC) Makefile
-	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -lmerc
+debug: mercury.c $(MERC) $(MERC_H) $(LIBMERC) Makefile
+	$(CXX) $(CFLAGS) -g -Wall -o mercury mercury.c $(MERC) -lpthread -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean
 clean:
-	rm -rf mercury gmon.out *.o
+	rm -rf mercury libmerc_test gmon.out *.o
 	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done

@@ -20,10 +20,10 @@ int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_t
 
 int analysis_finalize();
 
-typedef struct {
+struct os_information {
     char *os_name;
-    uint64_t os_prev;
-}os_information;
+    uint64_t os_prevalence;
+};
 
 class analysis_result {
     static const size_t max_proc_len = 256;
@@ -34,7 +34,7 @@ class analysis_result {
     bool max_mal;
     long double malware_prob;
     bool classify_malware;
-    os_information *os_info;
+    struct os_information *os_info;
     uint16_t os_info_len;
 
 public:
@@ -65,7 +65,7 @@ public:
             if ((os_info != NULL) && (os_info_len > 0)) { /* print operating system info */
                 struct json_object os_json{analysis, "os_info"};
                 for (uint16_t i = 0; i < os_info_len; i++) {
-                    os_json.print_key_uint(os_info[i].os_name, os_info[i].os_prev);
+                    os_json.print_key_uint(os_info[i].os_name, os_info[i].os_prevalence);
                 }
                 os_json.close();
             }
@@ -262,7 +262,7 @@ public:
                     for (const auto &os_and_count : p.os_info) {
                         os_infos[i].os_name = (char*)malloc(os_and_count.first.length()+1);
                         strcpy(os_infos[i].os_name, os_and_count.first.c_str());
-                        os_infos[i].os_prev = os_and_count.second;
+                        os_infos[i].os_prevalence = os_and_count.second;
                         i++;
                     }
                     os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
@@ -546,9 +546,9 @@ public:
 // fprintf(stderr, "Type of member %s is %s\n", "str_repr", kTypeNames[fp["str_repr"].GetType()]);
 
 
-class FingerprintPrevalence {
+class fingerprint_prevalence {
 public:
-    FingerprintPrevalence(uint32_t max_cache_size_) : max_cache_size{max_cache_size_} {}
+    fingerprint_prevalence(uint32_t max_cache_size) : max_cache_size_{max_cache_size} {}
 
     // first check if known fingerprints contains fingerprint, then check adaptive set
     bool contains(std::string fp_str) const {
@@ -584,7 +584,7 @@ public:
             set_.insert(fp_str);
         }
 
-        if (set_.size() > max_cache_size) {
+        if (set_.size() > max_cache_size_) {
             set_.erase(list_.front());
             list_.pop_front();
         }
@@ -595,7 +595,7 @@ private:
     std::list<std::string> list_;
     std::unordered_set<std::string> set_;
     std::unordered_set<std::string> known_set_;
-    uint32_t max_cache_size;
+    uint32_t max_cache_size_;
 };
 
 
@@ -604,8 +604,7 @@ class classifier {
     bool EXTENDED_FP_METADATA = false;
 
     std::unordered_map<std::string, class fingerprint_data> fpdb;
-    //std::unordered_set<std::string> fp_prevalence;
-    FingerprintPrevalence fp_prevalence = FingerprintPrevalence(100000);
+    fingerprint_prevalence fp_prevalence{100000};
 
 public:
 
