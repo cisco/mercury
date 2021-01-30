@@ -152,7 +152,7 @@ install: libmerc mercury
 	$(INSTALL) $(LIBMERC) $(libdir)
 	ldconfig
 #	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
-	adduser --system --no-create-home --group mercury
+	-useradd --system --no-create-home --user-group mercury
 	mkdir -p $(localstatedir)
 	$(INSTALL) -d $(localstatedir) -o mercury -g mercury
 
