@@ -72,7 +72,7 @@ In the root directory, edit mercury.cfg with the network interface you want to c
 ```
 ./configure
 make
-sudo make install
+sudo make install MERCURY_CFG=mercury.cfg
 ```
 to install mercury and create and start a systemd service.  If you don't want the mercury systemd service to be installed, then instead run
 ```
@@ -96,6 +96,11 @@ and the output should contain 'active (running)'.  To view the log (stderr) outp
 sudo journalctl -u mercury
 ```
 
+To uninstall mercury, run
+```
+sudo make uninstall
+```
+which will remove the mercury program, resources directory, user, group, and systemd related files.  The directory containing capture files will be retained, but its owner will be changed to root, to avoid unintentional data loss.  All captured data files are retained across successive installs and uninstalls, and must be manually deleted.
 
 ### Compile-time options
 There are compile-time options that can tune mercury for your hardware, or generate debugging output.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make".   For instance, to turn on debugging, first run **make clean** to remove the previous build, then run **make "OPTFLAGS=-DDEBUG"**.   This runs make, telling it to pass the string "-DDEBUG" to the C/C++ compiler.  The available compile time options are:
