@@ -108,6 +108,11 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 	ldconfig -n .
 
+# debug target
+#
+debug-libmerc.so: CFLAGS += -DDEBUG -g -O0
+debug-libmerc.so: libmerc.so
+
 # lctrie ip address subnet matching library (in lctrie subdirectory)
 #
 lctrie/liblctrie.a:
@@ -137,13 +142,6 @@ $(CYTARGETS): $(CYPREREQ)
 ifeq ($(have_py3),yes)
 	python3 python-inference/setup.py build_ext --inplace
 endif
-
-# special targets for mercury
-#
-.PHONY: debug
-debug: $(MERC) $(MERC_H) libmerc.so Makefile
-	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -lmerc
-	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean
 clean:

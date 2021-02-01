@@ -533,7 +533,7 @@ void tls_client_hello::operator()(struct buffer_stream &buf) const {
 
 
 void tls_server_hello::parse(struct datum &p) {
-    mercury_debug("%s: processing packet with %td bytes\n", __func__, p->data_end - p->data);
+    mercury_debug("%s: processing packet with %td bytes\n", __func__, p.data_end - p.data);
 
     parse_tls_server_hello(p);
 
