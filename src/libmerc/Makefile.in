@@ -147,7 +147,7 @@ debug: $(MERC) $(MERC_H) libmerc.so Makefile
 
 .PHONY: clean
 clean:
-	rm -rf libmerc.so *.o .depend
+	rm -rf libmerc.so libmerc.so.* *.o .depend
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
