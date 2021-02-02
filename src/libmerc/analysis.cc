@@ -30,15 +30,6 @@ rapidjson::Document fp_db;
 //pthread_mutex_t lock_fp_cache;
 //std::unordered_map<std::string,char*> fp_cache;
 
-std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,"database"}, {465,"email"},
-                                                          {563,"nntp"},    {585,"email"},    {614,"shell"},
-                                                          {636,"ldap"},    {989,"ftp"},      {990,"ftp"},
-                                                          {991,"nas"},     {992,"telnet"},   {993,"email"},
-                                                          {994,"irc"},     {995,"email"},    {1443,"alt-https"},
-                                                          {2376,"docker"}, {8001,"tor"},     {8443,"alt-https"},
-                                                          {9000,"tor"},    {9001,"tor"},     {9002,"tor"},
-                                                          {9101,"tor"}};
-
 // uint16_t get_port_mapping(std::string s) {
 //     auto x = port_mapping.find(s);
 //     if (x == port_mapping.end()) {
@@ -257,6 +248,15 @@ uint16_t flow_key_get_dst_port(const struct key &key) {
 
 
 std::string get_port_app(uint16_t dst_port) {
+    std::unordered_map<uint16_t, std::string> port_mapping = {{443, "https"},  {448,"database"}, {465,"email"},
+                                                              {563,"nntp"},    {585,"email"},    {614,"shell"},
+                                                              {636,"ldap"},    {989,"ftp"},      {990,"ftp"},
+                                                              {991,"nas"},     {992,"telnet"},   {993,"email"},
+                                                              {994,"irc"},     {995,"email"},    {1443,"alt-https"},
+                                                              {2376,"docker"}, {8001,"tor"},     {8443,"alt-https"},
+                                                              {9000,"tor"},    {9001,"tor"},     {9002,"tor"},
+                                                              {9101,"tor"}};
+
     auto it = port_mapping.find(dst_port);
     if (it != port_mapping.end()) {
         return it->second;
