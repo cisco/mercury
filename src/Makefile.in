@@ -146,7 +146,7 @@ clean:
 	rm -rf mercury libmerc_test gmon.out *.o
 	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-	for file in $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+	for file in mercury.c libmerc_test.c $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
 .PHONY: distclean
 distclean: clean
