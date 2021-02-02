@@ -113,6 +113,12 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 debug-libmerc.so: CFLAGS += -DDEBUG -g -O0
 debug-libmerc.so: libmerc.so
 
+# rule to build static library
+#
+libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
+	ar -x lctrie/liblctrie.a
+	ar rcs libmerc.a $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+
 # lctrie ip address subnet matching library (in lctrie subdirectory)
 #
 lctrie/liblctrie.a:
