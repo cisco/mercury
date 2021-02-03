@@ -103,10 +103,14 @@ setcap: mercury
 .PHONY: libmerc
 libmerc:
 	$(MAKE) --directory=libmerc
+	$(MAKE) --directory=libmerc libmerc.a
 
 .PHONY: debug-libmerc
 debug-libmerc:
 	$(MAKE) --directory=libmerc debug-libmerc.so
+
+tls_scanner: tls_scanner.cc libmerc
+	$(CXX) $(CFLAGS) tls_scanner.cc -o tls_scanner libmerc/libmerc.a -lssl -lcrypto -lz
 
 # implicit rule for building object files
 #
@@ -143,7 +147,7 @@ debug: mercury.c $(MERC) $(MERC_H) $(LIBMERC) Makefile
 
 .PHONY: clean
 clean:
-	rm -rf mercury libmerc_test gmon.out *.o
+	rm -rf mercury libmerc_test tls_scanner gmon.out *.o
 	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
