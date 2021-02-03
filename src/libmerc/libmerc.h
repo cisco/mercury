@@ -8,7 +8,8 @@
 #define LIBMERC_H
 
 #include <stdbool.h>
-#include "version.h"
+#include <stdint.h>
+#include <stdio.h>
 
 /*
  * struct libmerc_config represents the complete configuration of

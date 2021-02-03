@@ -17,9 +17,9 @@
 #define  MERCURY_SEMANTIC_VERSION 0,0,0
 #endif
 
-struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
 
 void mercury_print_version_string(FILE *f) {
+    struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
 }
 
