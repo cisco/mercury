@@ -16,17 +16,8 @@
 #include <pthread.h>
 #include <strings.h>
 #include <sys/time.h>
-//#include <thread>
 
 #include "libmerc/libmerc.h"
-
-//#include "mercury.h"
-//#include "pcap_file_io.h"
-//#include "af_packet_v3.h"
-//#include "pcap_reader.h"
-//#include "signal_handling.h"
-//#include "config.h"
-//#include "output.h"
 
 unsigned char client_hello_eth[] = {
   0x00, 0x50, 0x56, 0xe0, 0xb0, 0xbc, 0x00, 0x0c, 0x29, 0x74, 0x82, 0x2f,
