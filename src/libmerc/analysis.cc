@@ -156,16 +156,7 @@ int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_t
             c = new classifier(resource_file_name, resource_fp_prevalence, fp_proc_threshold, proc_dst_threshold, report_os);
             // c->print(stderr);
 
-	    return 0;
-	    /*
-            retcode = database_init(resource_file_name);
-            if (retcode == 0) {
-                if (verbosity > 0) {
-                    fprintf(stderr, "initialized analysis module with resource directory %s\n", resource_dir_list[index]);
-                }
-                return 0;
-            }
-	    */
+            return 0;
         }
         if (verbosity > 0) {
             fprintf(stderr, "warning: could not open file '%s'\n", resource_file_name);
@@ -183,7 +174,10 @@ int analysis_finalize() {
 
     addr_finalize();
     database_finalize();
-//    cache_finalize();
+
+    if (c) {
+        delete c;  // free up classifier
+    }
 
     return 1;
 }
