@@ -71,7 +71,7 @@ struct stateful_pkt_proc {
 
     size_t ip_write_json(void *buffer,
                          size_t buffer_size,
-                         uint8_t *ip_packet,
+                         const uint8_t *ip_packet,
                          size_t length,
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler);
