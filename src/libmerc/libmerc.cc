@@ -26,6 +26,10 @@ void mercury_print_version_string(FILE *f) {
 class libmerc_config global_vars;
 
 int mercury_init(const struct libmerc_config *vars, int verbosity) {
+
+    // sanity check, to help with shared object library development
+    fprintf(stderr, "libmerc build time: %s %s\n", __DATE__, __TIME__);
+
     try {
         global_vars = *vars;
         global_vars.resources = vars->resources;
