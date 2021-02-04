@@ -87,6 +87,7 @@ char mercury_extended_help[] =
     "      dns           DNS messages\n"
     "      tls           DTLS clientHello, serverHello, and certificates\n"
     "      http          HTTP request and response\n"
+    "      quic          QUIC handshake\n"
     "      ssh           SSH handshake and KEX\n"
     "      tcp           TCP headers\n"
     "      tcp.message   TCP initial message\n"
