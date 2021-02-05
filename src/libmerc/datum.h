@@ -333,8 +333,8 @@ template <size_t T> struct data_buffer {
         }
         *data++ = x;
     }
-    void copy(uint8_t *array, size_t length) {
-    }
+    // void copy(uint8_t *array, size_t length) {
+    // }
     void copy(struct datum &r, size_t num_bytes) {
         if (r.length() < (ssize_t)num_bytes) {
             r.set_null();
