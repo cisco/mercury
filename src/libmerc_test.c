@@ -18,6 +18,7 @@
 #include <sys/time.h>
 
 #include "libmerc/libmerc.h"
+#include "libmerc/result.h"
 
 unsigned char client_hello_eth[] = {
   0x00, 0x50, 0x56, 0xe0, 0xb0, 0xbc, 0x00, 0x0c, 0x29, 0x74, 0x82, 0x2f,
@@ -103,6 +104,13 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "%s", output_buffer);
     if (memcmp(expected_json, output_buffer, num_bytes_written) != 0) {
         fprintf(stdout, "error in output of mercury_packet_processor_ip_write_json() (got %s)\n", output_buffer);
+    }
+
+    // test analysis_result interface
+    struct analysis_result r;
+    if (mercury_packet_processor_ip_set_analysis_result(m, &r, client_hello_ip, client_hello_ip_len, &time)) {
+        fprintf(stdout, "got analysis result\n");
+        fprintf(stdout, "process name: %s\n", result_get_process_name(&r));
     }
 
     // tear down per-thread state

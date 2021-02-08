@@ -14,74 +14,16 @@
 #include "packet.h"
 #include "addr.h"
 #include "json_object.h"
+#include "result.h"
 
 int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_threshold,
                   const float proc_dst_threshold, const bool report_os);
 
 int analysis_finalize();
 
-struct os_information {
-    char *os_name;
-    uint64_t os_prevalence;
-};
 
-class analysis_result {
-    static const size_t max_proc_len = 256;
-    bool valid = false;
-    bool randomized = false;
-    char max_proc[max_proc_len];
-    long double max_score;
-    bool max_mal;
-    long double malware_prob;
-    bool classify_malware;
-    struct os_information *os_info;
-    uint16_t os_info_len;
-
-public:
-    analysis_result() : valid{false}, randomized{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
-
-    analysis_result(const bool is_randomized) : valid{false}, randomized{is_randomized}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
-
-    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len) :
-        valid{true}, randomized{false}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
-        os_info{os}, os_info_len{os_len} {
-        strncpy(max_proc, proc, max_proc_len-1);
-    }
-    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob) :
-        valid{true}, randomized{false}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
-        os_info{os}, os_info_len{os_len} {
-        strncpy(max_proc, proc, max_proc_len-1);
-    }
-
-    void write_json(struct json_object &o, const char *key) {
-        struct json_object analysis{o, key};
-        if (valid) {
-            analysis.print_key_string("process", max_proc);
-            analysis.print_key_float("score", max_score);
-            if (classify_malware) {
-                analysis.print_key_uint("malware", max_mal);
-                analysis.print_key_float("p_malware", malware_prob);
-            }
-            if ((os_info != NULL) && (os_info_len > 0)) { /* print operating system info */
-                struct json_object os_json{analysis, "os_info"};
-                for (uint16_t i = 0; i < os_info_len; i++) {
-                    os_json.print_key_uint(os_info[i].os_name, os_info[i].os_prevalence);
-                }
-                os_json.close();
-            }
-        } else if (randomized) {
-            analysis.print_key_string("status", "randomized_fingerprint");
-        } else {
-            analysis.print_key_string("status", "unlabeled_fingerprint");
-        }
-        analysis.close();
-    }
-
-    bool is_valid() { return valid; }
-};
-
-class analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
-                                                   const struct key &key);
+struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
+                                                    const struct key &key);
 
 
 // classifier
@@ -847,8 +789,8 @@ public:
         return fp_data.perform_analysis(server_name, dst_ip, dst_port);
     }
 
-    class analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
-                                                       const struct key &key) {
+    struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
+                                                        const struct key &key) {
         uint16_t dst_port = flow_key_get_dst_port(key);
         char dst_ip_str[MAX_DST_ADDR_LEN];
         flow_key_sprintf_dst_addr(key, dst_ip_str);

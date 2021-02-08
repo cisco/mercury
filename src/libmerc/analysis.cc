@@ -463,15 +463,15 @@ void write_analysis_from_extractor_and_flow_key(struct json_object &o,
     sn.strncpy(sn_str, MAX_SNI_LEN);
     // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
 
-    class analysis_result res = perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
+    struct analysis_result res = perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
     if (res.is_valid() == false) {
         return;
     }
     res.write_json(o, "analysis");
 }
 
-class analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
-                                                   const struct key &key) {
+struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
+                                                    const struct key &key) {
     uint16_t dst_port = flow_key_get_dst_port(key);
     char dst_ip_str[MAX_DST_ADDR_LEN];
     flow_key_sprintf_dst_addr(key, dst_ip_str);

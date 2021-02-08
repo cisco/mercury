@@ -23,7 +23,7 @@ void mercury_print_version_string(FILE *f) {
     mercury_version.print(f);
 }
 
-class libmerc_config global_vars;
+struct libmerc_config global_vars;
 
 int mercury_init(const struct libmerc_config *vars, int verbosity) {
 
@@ -89,6 +89,29 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
     }
     return 0;
 }
+
+//mercury_packet_processor_ip_set_analysis_result(m, &result, client_hello_ip, client_hello_ip_len, &time);
+bool mercury_packet_processor_ip_set_analysis_result(mercury_packet_processor processor, result r, uint8_t *packet, size_t length, struct timespec* ts)
+{
+    try {
+        return processor->ip_set_analysis_result(r, packet, length, ts, NULL);
+    }
+    catch (char const *s) {
+        fprintf(stderr, "%s\n", s);
+    }
+    catch (...) {
+        ;
+    }
+    return 0;
+}
+
+const char *result_get_process_name(const result r) {
+    if (r) {
+        return r->max_proc;
+    }
+    return NULL;
+}
+
 
 /*
  * struct packet_filter implements a packet metadata filter

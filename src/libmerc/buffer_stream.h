@@ -10,6 +10,7 @@
 
 #include <string.h>  /* for memcpy() */
 #include <stdarg.h>
+#include <time.h>
 
 /* append_null(...)
  * This is a special append function because all other append_...() functions

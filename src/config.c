@@ -67,7 +67,7 @@ enum status argument_parse_as_float(const char *arg, float *variable_to_set) {
 }
 
 static enum status mercury_config_parse_line(struct mercury_config *cfg,
-                                             class libmerc_config &global_vars,
+                                             struct libmerc_config &global_vars,
                                              char *line) {
     char *arg = NULL;
 
@@ -167,7 +167,7 @@ void string_remove_whitespace(char* s) {
 }
 
 enum status mercury_config_read_from_file(struct mercury_config &cfg,
-                                          class libmerc_config &global_vars,
+                                          struct libmerc_config &global_vars,
                                           const char *filename) {
     if (cfg.verbosity) {
         fprintf(stderr, "reading config file %s\n", filename);

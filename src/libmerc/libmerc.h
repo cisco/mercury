@@ -142,6 +142,22 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
                                               size_t length,
                                               struct timespec* ts);
 
+typedef struct analysis_result *result;
+
+#ifdef __cplusplus
+extern "C"
+#endif
+bool mercury_packet_processor_ip_set_analysis_result(mercury_packet_processor processor,
+                                                     result res,
+                                                     uint8_t *packet,
+                                                     size_t length,
+                                                     struct timespec* ts);
+
+#ifdef __cplusplus
+extern "C"
+#endif
+const char *result_get_process_name(const result r);
+
 enum status {
     status_ok = 0,
     status_err = 1,

@@ -14,7 +14,7 @@
 #include "extractor.h"
 #include "packet.h"
 
-extern class libmerc_config global_vars;    // defined in libmerc.cc
+extern struct libmerc_config global_vars;   // defined in libmerc.cc
 
 extern bool select_tcp_syn;                 // defined in extractor.cc
 
@@ -69,6 +69,13 @@ struct stateful_pkt_proc {
                              struct timespec *ts,
                              struct tcp_reassembler *reassembler);
 
+    void tcp_data_write_json_old(struct buffer_stream &buf,
+                                 struct datum &pkt,
+                                 const struct key &k,
+                                 struct tcp_packet &tcp_pkt,
+                                 struct timespec *ts,
+                                 struct tcp_reassembler *reassembler);
+
     size_t ip_write_json(void *buffer,
                          size_t buffer_size,
                          const uint8_t *ip_packet,
@@ -76,6 +83,18 @@ struct stateful_pkt_proc {
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler);
 
+    bool ip_set_analysis_result(struct analysis_result *r,
+                                const uint8_t *ip_packet,
+                                size_t length,
+                                struct timespec *ts,
+                                struct tcp_reassembler *reassembler);
+
+    bool tcp_data_set_analysis_result(struct analysis_result *r,
+                                      struct datum &pkt,
+                                      const struct key &k,
+                                      struct tcp_packet &tcp_pkt,
+                                      struct timespec *ts,
+                                      struct tcp_reassembler *reassembler);
 };
 
 #endif /* PKT_PROC_H */

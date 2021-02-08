@@ -187,7 +187,7 @@ bool option_is_valid(const char *opt) {
 
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
-    class libmerc_config libmerc_cfg;
+    struct libmerc_config libmerc_cfg;
 
     while(1) {
         enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9 };
