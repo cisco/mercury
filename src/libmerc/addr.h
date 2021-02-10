@@ -8,7 +8,7 @@
 
 #include <string>
 
-uint32_t get_asn_info(char* dst_ip);
+uint32_t get_asn_info(const char* dst_ip);
 
 int addr_init(const char *resources_dir);
 

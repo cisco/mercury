@@ -23,7 +23,7 @@
 lct<ipv4_addr> ipv4_subnet_trie;
 lct_subnet_t *ipv4_subnet_array;
 
-uint32_t get_asn_info(char* dst_ip) {
+uint32_t get_asn_info(const char* dst_ip) {
     uint32_t ipv4_addr;
 
     if (inet_pton(AF_INET, dst_ip, &ipv4_addr) != 1) {
