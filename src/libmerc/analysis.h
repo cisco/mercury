@@ -16,18 +16,6 @@
 #include "json_object.h"
 #include "result.h"
 
-int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_threshold,
-                  const float proc_dst_threshold, const bool report_os);
-
-int analysis_finalize();
-
-
-struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
-                                                    const struct key &key);
-
-
-// classifier
-
 #include <mutex>
 #include <shared_mutex>
 #include <map>
@@ -41,20 +29,19 @@ struct analysis_result analyze_client_hello_and_key(const struct tls_client_hell
 #include "tls.h"
 
 
-// helper functions
+int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_threshold,
+                  const float proc_dst_threshold, const bool report_os);
 
-#define MAX_DST_ADDR_LEN 48
-#define MAX_FP_STR_LEN 4096
-#define MAX_SNI_LEN     257
-
+int analysis_finalize();
 
 
-std::string get_domain_name(char* server_name);
+struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
+                                                    const struct key &key);
 
-uint16_t flow_key_get_dst_port(const struct key &key);
 
-void flow_key_sprintf_dst_addr(const struct key &key,
-                               char *dst_addr_str);
+
+// classifier
+
 
 int gzgetline(gzFile f, std::vector<char>& v);
 
@@ -329,11 +316,11 @@ public:
     // it returns "amazonaws.com".  If there is only one name, it is
     // returned.
     //
-    std::string get_tld_domain_name(char* server_name) {
+    std::string get_tld_domain_name(const char* server_name) {
 
-        char *separator = NULL;
-        char *previous_separator = NULL;
-        char *c = server_name;
+        const char *separator = NULL;
+        const char *previous_separator = NULL;
+        const char *c = server_name;
         while (*c) {
             if (*c == '.') {
                 if (separator) {
@@ -350,7 +337,7 @@ public:
         return server_name;
     }
 
-    struct analysis_result perform_analysis(char *server_name, char *dst_ip, uint16_t dst_port) {
+    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port) {
         uint32_t asn_int = get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
@@ -773,7 +760,7 @@ public:
 
     }
 
-    struct analysis_result perform_analysis(const char *fp_str, char *server_name, char *dst_ip, uint16_t dst_port) {
+    struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
             if (fp_prevalence.contains(fp_str)) {
@@ -789,6 +776,7 @@ public:
         return fp_data.perform_analysis(server_name, dst_ip, dst_port);
     }
 
+#if 0
     struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
                                                         const struct key &key) {
         uint16_t dst_port = flow_key_get_dst_port(key);
@@ -810,9 +798,20 @@ public:
 
         return this->perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
     }
+#endif
+
+    bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
+                                                    const struct destination_context &dc,
+                                                    struct analysis_result &result) {
+
+        if (fp.type != fingerprint_type_tls) {
+            return false;  // cannot perform analysis
+        }
+        result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port);
+        return true;
+    }
 
 };
-
 
 
 #endif /* ANALYSIS_H */

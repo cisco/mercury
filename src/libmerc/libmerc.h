@@ -156,6 +156,15 @@ bool mercury_packet_processor_ip_set_analysis_result(mercury_packet_processor pr
 #ifdef __cplusplus
 extern "C"
 #endif
+const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(mercury_packet_processor processor,
+                                                                                uint8_t *packet,
+                                                                                size_t length,
+                                                                                struct timespec* ts);
+
+
+#ifdef __cplusplus
+extern "C"
+#endif
 const char *result_get_process_name(const result r);
 
 enum status {

@@ -90,11 +90,31 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
     return 0;
 }
 
+#if 0
 //mercury_packet_processor_ip_set_analysis_result(m, &result, client_hello_ip, client_hello_ip_len, &time);
 bool mercury_packet_processor_ip_set_analysis_result(mercury_packet_processor processor, result r, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
         return processor->ip_set_analysis_result(r, packet, length, ts, NULL);
+    }
+    catch (char const *s) {
+        fprintf(stderr, "%s\n", s);
+    }
+    catch (...) {
+        ;
+    }
+    return 0;
+}
+#endif
+
+const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
+{
+    try {
+        uint8_t buffer[4096]; // buffer for (ignored) json output
+
+        if (processor->ip_write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {
+            return &processor->analysis;
+        }
     }
     catch (char const *s) {
         fprintf(stderr, "%s\n", s);

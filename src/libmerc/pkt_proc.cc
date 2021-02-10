@@ -488,8 +488,11 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
                  */
                 if (global_vars.do_analysis) {
                     extern classifier *c;
-                    struct analysis_result result = c->analyze_client_hello_and_key(hello, k);
-                    result.write_json(record, "analysis");
+                    analysis.fp.init(hello);
+                    analysis.destination.init(hello, k);
+                    if (c->analyze_fingerprint_and_destination_context(analysis.fp, analysis.destination, analysis.result)) {
+                        analysis.result.write_json(record, "analysis");
+                    }
                 }
                 write_flow_key(record, k);
                 record.print_key_timestamp("event_start", ts);
@@ -699,10 +702,13 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
             if (hello.is_not_empty()) {
                 if (global_vars.do_analysis) {
                     extern classifier *c;
-                    struct analysis_result result = c->analyze_client_hello_and_key(hello, k);
-                    //result.write_json(record, "analysis");
-                    *r = result;
-                    return true;
+
+                    analysis.fp.init(hello);
+                    analysis.destination.init(hello, k);
+                    if (c->analyze_fingerprint_and_destination_context(analysis.fp, analysis.destination, analysis.result)) {
+                        *r = analysis.result;
+                        return true;
+                    }
                 }
             }
         }
@@ -1122,8 +1128,11 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
                  */
                 if (global_vars.do_analysis) {
                     extern classifier *c;
-                    struct analysis_result result = c->analyze_client_hello_and_key(hello, k);
-                    result.write_json(record, "analysis");
+                    analysis.fp.init(hello);
+                    analysis.destination.init(hello, k);
+                    if (c->analyze_fingerprint_and_destination_context(analysis.fp, analysis.destination, analysis.result)) {
+                        analysis.result.write_json(record, "analysis");
+                    }
                 }
                 write_flow_key(record, k);
                 record.print_key_timestamp("event_start", ts);

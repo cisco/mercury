@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include "extractor.h"
 #include "packet.h"
+#include "analysis.h"
 
 extern struct libmerc_config global_vars;   // defined in libmerc.cc
 
@@ -24,13 +25,15 @@ struct stateful_pkt_proc {
     struct tcp_reassembler reassembler;
     struct tcp_reassembler *reassembler_ptr;
     struct tcp_initial_message_filter tcp_init_msg_filter;
+    struct analysis_context analysis;
 
     explicit stateful_pkt_proc() :
         ip_flow_table{65536},
         tcp_flow_table{65536},
         reassembler{65536},
         reassembler_ptr{&reassembler},
-        tcp_init_msg_filter{}
+        tcp_init_msg_filter{},
+        analysis{}
     {
 
 #ifndef USE_TCP_REASSEMBLY

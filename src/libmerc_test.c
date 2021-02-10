@@ -107,10 +107,17 @@ int main(int argc, char *argv[]) {
     }
 
     // test analysis_result interface
-    struct analysis_result r;
-    if (mercury_packet_processor_ip_set_analysis_result(m, &r, client_hello_ip, client_hello_ip_len, &time)) {
+    const struct analysis_context *c = mercury_packet_processor_ip_get_analysis_context(m, client_hello_ip, client_hello_ip_len, &time);
+    if (c && c->fp.type == fingerprint_type_tls) {
         fprintf(stdout, "got analysis result\n");
-        fprintf(stdout, "process name: %s\n", result_get_process_name(&r));
+        fprintf(stdout, "fingerprint: %s\n", c->fp.fp_str);
+        fprintf(stdout, "server_name: \"%s\"\n", c->destination.sn_str);
+        fprintf(stdout, "process name: \"%s\"\n", c->result.max_proc);
+        fprintf(stdout, "probability score: %Lf\n", c->result.max_score);
+        for (unsigned int i=0; i < c->result.os_info_len; i++) {
+            struct os_information *os = &c->result.os_info[i];
+            fprintf(stdout, "OS and prevalence: %s\t%lu\n", os->os_name, os->os_prevalence);
+        }
     }
 
     // tear down per-thread state
