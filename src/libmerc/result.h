@@ -20,12 +20,13 @@ void flow_key_sprintf_dst_addr(const struct key &key,
 
 #endif
 
-struct os_information {
-    char *os_name;
-    uint64_t os_prevalence;
-};
 
 #define max_proc_len 256
+
+struct malware_result {
+    bool max_mal;
+    long double malware_prob;
+};
 
 struct analysis_result {
     bool valid;  // = false;
@@ -79,7 +80,7 @@ public:
         analysis.close();
     }
 
-    bool is_valid() { return valid; }
+    bool is_valid() const { return valid; }
 #endif
 };
 
@@ -90,15 +91,6 @@ public:
 #define MAX_FP_STR_LEN 4096
 #define MAX_SNI_LEN     257
 
-
-// enum fingerprint_type identifies the type of fingerprint
-// for the struct fingerprint; we use an regular enum in
-// order to be C-compatible
-//
-enum fingerprint_type {
-     fingerprint_type_unknown = 0,
-     fingerprint_type_tls = 1
-};
 
 struct fingerprint {
     enum fingerprint_type type;

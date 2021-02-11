@@ -18,7 +18,6 @@
 #include <sys/time.h>
 
 #include "libmerc/libmerc.h"
-#include "libmerc/result.h"
 
 unsigned char client_hello_eth[] = {
   0x00, 0x50, 0x56, 0xe0, 0xb0, 0xbc, 0x00, 0x0c, 0x29, 0x74, 0x82, 0x2f,
@@ -108,16 +107,76 @@ int main(int argc, char *argv[]) {
 
     // test analysis_result interface
     const struct analysis_context *c = mercury_packet_processor_ip_get_analysis_context(m, client_hello_ip, client_hello_ip_len, &time);
-    if (c && c->fp.type == fingerprint_type_tls) {
-        fprintf(stdout, "got analysis result\n");
-        fprintf(stdout, "fingerprint: %s\n", c->fp.fp_str);
-        fprintf(stdout, "server_name: \"%s\"\n", c->destination.sn_str);
-        fprintf(stdout, "process name: \"%s\"\n", c->result.max_proc);
-        fprintf(stdout, "probability score: %Lf\n", c->result.max_score);
-        for (unsigned int i=0; i < c->result.os_info_len; i++) {
-            struct os_information *os = &c->result.os_info[i];
-            fprintf(stdout, "OS and prevalence: %s\t%lu\n", os->os_name, os->os_prevalence);
+    if (analysis_context_get_fingerprint_type(c) == fingerprint_type_tls) {
+
+        fprintf(stdout, "got tls fingerprint\n");
+
+        const char *fingerprint_string = analysis_context_get_fingerprint_string(c);
+        if (fingerprint_string != NULL) {
+            fprintf(stdout, "fingerprint: %s\n", fingerprint_string);
+        } else {
+            fprintf(stdout, "error: fingerprint string unavailable\n");
         }
+
+        const char *server_name = analysis_context_get_server_name(c);
+        if (server_name != NULL) {
+            fprintf(stdout, "server_name: \"%s\"\n", server_name);
+        } else {
+            fprintf(stdout, "note: server_name not present\n"); // this is not an error
+        }
+
+        enum fingerprint_status status = analysis_context_get_fingerprint_status(c);
+        if (status == fingerprint_status_labeled) {
+
+            fprintf(stdout, "fingerprint status: labeled\n");
+
+            const char *probable_process = NULL;
+            double probability_score = 0.0;
+            if (analysis_context_get_process_info(c,
+                                                  &probable_process,
+                                                  &probability_score)) {
+                fprintf(stdout, "process name: \"%s\"\n", probable_process);
+                fprintf(stdout, "probability score: %f\n", probability_score);
+            }
+
+            bool probable_process_is_malware = 0;
+            double probability_malware = 0.0;
+            if (analysis_context_get_malware_info(c,
+                                                  &probable_process_is_malware,
+                                                  &probability_malware)) {
+                fprintf(stdout, "probable process is malware: \"%s\"\n", probable_process_is_malware ? "true" : "false");
+                fprintf(stdout, "probability that process is malware: %f\n", probability_score);
+            } else {
+                fprintf(stdout, "malware information unavailable\n");
+            }
+
+            const struct os_information *os_info = NULL;
+            size_t os_info_len = 0;
+            if (analysis_context_get_os_info(c,
+                                             &os_info,
+                                             &os_info_len)) {
+                const struct os_information *os = os_info;
+                for (unsigned int i=0; i < os_info_len; i++) {
+                    fprintf(stdout, "OS and prevalence: %s\t%lu\n", os->os_name, os->os_prevalence);
+                    os++;
+                }
+            } else {
+                fprintf(stdout, "OS information unavailable\n");
+            }
+        } else if (status == fingerprint_status_randomized) {
+
+            fprintf(stdout, "fingerprint status: randomized\n");
+
+        } else if (status == fingerprint_status_unlabled) {
+
+            fprintf(stdout, "fingerprint status: unlabled\n");
+
+        } else {
+
+            fprintf(stdout, "fingerprint status: no information available\n");
+
+        }
+
     }
 
     // tear down per-thread state

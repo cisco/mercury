@@ -142,16 +142,12 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
                                               size_t length,
                                               struct timespec* ts);
 
-typedef struct analysis_result *result;
-
-#ifdef __cplusplus
-extern "C"
-#endif
-bool mercury_packet_processor_ip_set_analysis_result(mercury_packet_processor processor,
-                                                     result res,
-                                                     uint8_t *packet,
-                                                     size_t length,
-                                                     struct timespec* ts);
+enum fingerprint_status {
+    fingerprint_status_no_info_available = 0,  // fingerprint status is unknown
+    fingerprint_status_labeled           = 1,  // fingerprint is in FPDB
+    fingerprint_status_randomized        = 2,  // fingerprint is in randomized FP set
+    fingerprint_status_unlabled          = 3   // fingerprint is not in FPDB or randomized set
+};
 
 #ifdef __cplusplus
 extern "C"
@@ -161,11 +157,66 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
                                                                                 size_t length,
                                                                                 struct timespec* ts);
 
+#ifdef __cplusplus
+extern "C"
+#endif
+enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac);
+
+// enum fingerprint_type identifies the type of fingerprint
+// for the struct fingerprint; we use an regular enum in
+// order to be C-compatible
+//
+enum fingerprint_type {
+     fingerprint_type_unknown = 0,
+     fingerprint_type_tls = 1
+};
 
 #ifdef __cplusplus
 extern "C"
 #endif
-const char *result_get_process_name(const result r);
+enum fingerprint_type analysis_context_get_fingerprint_type(const struct analysis_context *ac);
+
+#ifdef __cplusplus
+extern "C"
+#endif
+const char *analysis_context_get_fingerprint_string(const struct analysis_context *ac);
+
+#ifdef __cplusplus
+extern "C"
+#endif
+const char *analysis_context_get_server_name(const struct analysis_context *ac);
+
+
+#ifdef __cplusplus
+extern "C"
+#endif
+bool analysis_context_get_process_info(const struct analysis_context *ac, // input
+                                       const char **probable_process,     // output
+                                       double *probability_score          // output
+                                       );
+
+#ifdef __cplusplus
+extern "C"
+#endif
+bool analysis_context_get_malware_info(const struct analysis_context *ac, // input
+                                       bool *probable_process_is_malware, // output
+                                       double *probability_malware        // output
+                                       );
+
+
+struct os_information {
+    char *os_name;
+    uint64_t os_prevalence;
+};
+
+#ifdef __cplusplus
+extern "C"
+#endif
+bool analysis_context_get_os_info(const struct analysis_context *ac, // input
+                                  const struct os_information **os_info,   // output
+                                  size_t *os_info_len                // output
+                                  );
+
 
 enum status {
     status_ok = 0,

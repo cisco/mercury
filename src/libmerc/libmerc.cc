@@ -90,23 +90,6 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
     return 0;
 }
 
-#if 0
-//mercury_packet_processor_ip_set_analysis_result(m, &result, client_hello_ip, client_hello_ip_len, &time);
-bool mercury_packet_processor_ip_set_analysis_result(mercury_packet_processor processor, result r, uint8_t *packet, size_t length, struct timespec* ts)
-{
-    try {
-        return processor->ip_set_analysis_result(r, packet, length, ts, NULL);
-    }
-    catch (char const *s) {
-        fprintf(stderr, "%s\n", s);
-    }
-    catch (...) {
-        ;
-    }
-    return 0;
-}
-#endif
-
 const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
@@ -125,11 +108,79 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
     return 0;
 }
 
-const char *result_get_process_name(const result r) {
-    if (r) {
-        return r->max_proc;
+enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac) {
+
+    if (ac) {
+        if (ac->result.valid) {
+            return fingerprint_status_labeled;
+        } else if (ac->result.randomized) {
+            return fingerprint_status_randomized;
+        } else {
+            return fingerprint_status_unlabled;
+        }
+    }
+    return fingerprint_status_no_info_available;
+}
+
+enum fingerprint_type analysis_context_get_fingerprint_type(const struct analysis_context *ac) {
+
+    if (ac) {
+        return ac->fp.type;
+    }
+    return fingerprint_type_unknown;
+}
+
+const char *analysis_context_get_fingerprint_string(const struct analysis_context *ac) {
+    if (ac) {
+        return ac->fp.fp_str;
     }
     return NULL;
+}
+
+const char *analysis_context_get_server_name(const struct analysis_context *ac) {
+    if (ac) {
+        return ac->destination.sn_str;
+    }
+    return NULL;
+}
+
+bool analysis_context_get_process_info(const struct analysis_context *ac, // input
+                                       const char **probable_process,     // output
+                                       double *probability_score          // output
+                                       ) {
+
+    if (ac && ac->result.valid) {
+        *probable_process = ac->result.max_proc;
+        *probability_score = ac->result.max_score;
+        return true;
+    }
+    return false;
+}
+
+bool analysis_context_get_malware_info(const struct analysis_context *ac, // input
+                                       bool *probable_process_is_malware, // output
+                                       double *probability_malware        // output
+                                       ) {
+
+    if (ac && ac->result.valid && ac->result.classify_malware) {
+        *probable_process_is_malware = ac->result.max_mal;
+        *probability_malware = ac->result.malware_prob;
+        return true;
+    }
+    return false;
+}
+
+bool analysis_context_get_os_info(const struct analysis_context *ac, // input
+                                  const struct os_information **os_info,   // output
+                                  size_t *os_info_len                // output
+                                  ) {
+
+    if (ac && ac->result.valid && ac->result.os_info != NULL) {
+        *os_info = ac->result.os_info;
+        *os_info_len = ac->result.os_info_len;
+        return true;
+    }
+    return false;
 }
 
 
