@@ -10,12 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <errno.h>
-#include <getopt.h>
-#include <pthread.h>
 #include <strings.h>
-#include <sys/time.h>
 
 #include "libmerc/libmerc.h"
 
@@ -55,58 +50,46 @@ unsigned char client_hello_eth[] = {
 
 uint8_t *client_hello_ip = client_hello_eth + 14;
 size_t client_hello_ip_len = sizeof(client_hello_eth) - 14;
-//unsigned int client_hello_eth_len = 367;
 
 char *expected_json = "{\"fingerprints\":{\"tls\":\"(0303)(130213031301c02cc030009fcca9cca8ccaac02bc02f009ec024c028006bc023c0270067c00ac0140039c009c0130033009d009c003d003c0035002f00ff)((0000)(000b000403000102)(000a000c000a001d0017001e00190018)(0023)(0016)(0017)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(002b0009080304030303020301)(002d00020101)(0033))\"},\"tls\":{\"client\":{\"server_name\":\"nytimes.com\"}},\"analysis\":{\"process\":\"siege\",\"score\":0.882271,\"os_info\":{\"(Mac OS X)(High Sierra)(10.13.6)\":1252897}},\"src_ip\":\"192.168.113.237\",\"dst_ip\":\"151.101.65.164\",\"protocol\":6,\"src_port\":32810,\"dst_port\":443,\"event_start\":0.000000}\n";
 
 int main(int argc, char *argv[]) {
 
-    // initialize library's global configuration
+    // initialize libmerc's global configuration by creating a
+    // libmerc_config structure and then passing it into mercury_init
+    //
     struct libmerc_config config = libmerc_config_init();
     config.do_analysis = true;
     config.resources = "../resources";
     config.report_os = true;
     int verbosity = 0;
-
     int retval = mercury_init(&config, verbosity);
     if (retval) {
         fprintf(stderr, "mercury_init() error (code %d)\n", retval);
         return EXIT_FAILURE;
     }
 
-    // initialize per-thread state
+    // initialize a mercury_packer_processor, which is an opaque
+    // pointer; there should be one mercury_packet_processor for each
+    // packet-processing thread
+    //
     mercury_packet_processor m = mercury_packet_processor_construct();
     if (m == NULL) {
         fprintf(stderr, "error in mercury_packet_processor_construct()\n");
         return EXIT_FAILURE;
     }
 
-    char output_buffer[4096] = { 0, };
+    // pass a packet and timestamp into the packet processor, and get
+    // back a pointer to an analysis_context (or a NULL)
+    //
     struct timespec time;
     time.tv_sec = time.tv_nsec = 0;  // set to January 1st, 1970 (the Epoch)
-    size_t num_bytes_written = mercury_packet_processor_write_json(m, output_buffer, sizeof(output_buffer), client_hello_eth, sizeof(client_hello_eth), &time);
-    if (num_bytes_written == 0) {
-        fprintf(stdout, "error in mercury_packet_processor_write_json() (wrote %zu bytes)\n", num_bytes_written);
-        return EXIT_FAILURE;
-    }
-    fprintf(stdout, "%s", output_buffer);
-    if (memcmp(expected_json, output_buffer, num_bytes_written) != 0) {
-        fprintf(stdout, "error in output of mercury_packet_processor_write_json() (got %s)\n", output_buffer);
-    }
-
-    bzero(output_buffer, sizeof(output_buffer));
-    num_bytes_written = mercury_packet_processor_ip_write_json(m, output_buffer, sizeof(output_buffer), client_hello_ip, client_hello_ip_len, &time);
-    if (num_bytes_written == 0) {
-        fprintf(stdout, "error in mercury_packet_processor_ip_write_json() (wrote %zu bytes)\n", num_bytes_written);
-        return EXIT_FAILURE;
-    }
-    fprintf(stdout, "%s", output_buffer);
-    if (memcmp(expected_json, output_buffer, num_bytes_written) != 0) {
-        fprintf(stdout, "error in output of mercury_packet_processor_ip_write_json() (got %s)\n", output_buffer);
-    }
-
-    // test analysis_result interface
-    const struct analysis_context *c = mercury_packet_processor_ip_get_analysis_context(m, client_hello_ip, client_hello_ip_len, &time);
+    const struct analysis_context *c = mercury_packet_processor_ip_get_analysis_context(m,
+                                                                                        client_hello_ip,
+                                                                                        client_hello_ip_len,
+                                                                                        &time);
+    // process fingerprint, server_name, and analysis results
+    //
     if (analysis_context_get_fingerprint_type(c) == fingerprint_type_tls) {
 
         fprintf(stdout, "got tls fingerprint\n");
@@ -179,10 +162,12 @@ int main(int argc, char *argv[]) {
 
     }
 
-    // tear down per-thread state
+    // tear down packet processor
+    //
     mercury_packet_processor_destruct(m);
 
     // tear down library's global configuration
+    //
     retval = mercury_finalize();
     if (retval) {
         fprintf(stderr, "mercury_finalize() error (code %d)\n", retval);
