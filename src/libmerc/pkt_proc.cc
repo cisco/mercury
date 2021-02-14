@@ -908,27 +908,22 @@ struct tcp_protocol_write_metadata {
 
 struct is_not_empty {
     bool operator()(http_request &r) {
-        (void) r;
         fprintf(stderr, "tcp_protocol_visitor: http_request\n");
         return r.is_not_empty();
     }
     bool operator()(http_response &r) {
-        (void) r;
         fprintf(stderr, "tcp_protocol_visitor: http_response\n");
         return r.is_not_empty();
     }
     bool operator()(tls_client_hello &r) {
-        (void) r;
         fprintf(stderr, "tcp_protocol_visitor: tls_client_hello\n");
         return r.is_not_empty();
     }
     bool operator()(tls_server_hello_and_certificate &r) {
-        (void) r;
         fprintf(stderr, "tcp_protocol_visitor: tls_server_hello_and_certificate\n");
         return r.is_not_empty();
     }
     bool operator()(std::monostate &r) {
-        (void) r;
         return false;
         // fprintf(stderr, "%s\n", __func__);
         // fprintf(stderr, "tcp_protocol_visitor: monostate\n");
