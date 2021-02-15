@@ -24,18 +24,21 @@ The fingerprint database contains detailed information about fingerprints, proce
 The **probable process** is the process that the classifier rates as most likely to have generated the observed fingerprint and destination context.  The information about the most probable process is:
 
 * the **name** of the most probable process (as a const pointer to a NULL-terminated string),
-* a boolean **malware** attribute that indicates whether or not the most probable process is malware (as a C99 bool), and
+* a boolean **probable_process_is_malware** attribute that indicates whether or not the most probable process is malware (as a C99 bool), which is just called **malware** in mercury's JSON output,
 * a probability **score** that represents the classifier's confidence that information about the probable process is correct (as a float between 0.0 and 1.0 inclusive).  Technically, the score is actually the probability that the probable process is the actual process, as computed by the classifier.
 
-The malware boolean attribute is **true** whenever the most probable process has been flagged as malicious by threat intelligence services.  That is, this attribute applies to the probable process.
+The probable_process_is_malware boolean attribute is **true** whenever the most probable process has been flagged as malicious by threat intelligence services.  That is, this attribute applies to the probable process.
 
 In the fingerprint database, there is a special process name "generic dmz process" that is used whenever there is no ground truth available for a fingerprint.  If the most probable process is "generic dmz process", then the classifier reports the second most probable process instead.
 
 The information about probable attributes is:
 
-* the probability **p_malware** that the process that generated the client_hello is malware, regardless of what the probable process is (as a float between 0.0 and 1.0).
+* the probability **p_malware** that the process that generated the client_hello is malware, regardless of what the probable process is (as a float between 0.0 and 1.0), and 
+* in the future, there may be an attribute associated with evasive behavior.
 
-Probable attributes are important whenever there is a multitude of similar processes with the same attribute, such as polymorphic malware.   In that case, there are many distinct processes that behave simialrly, and the classifier may not be able to identify the exact process with high confidence, but it can still accurately estimate the probability that the process is malware.  When using the classifier to report malware 
+To understand the difference between probable_process_is_malware and p_malware, consider the case that the fingerprint is used by both a benign processes and a malware processes.  If the classifier computes that the probability of the benign process was 0.51 and the probability of the malware process was 0.49, then the probable process will be benign and probable_process_is_malware will be **false**, but p_malware will be 0.49.  
+
+The p_malware field is especially important when there is a multitude of similar processes, such as polymorphic malware.   In that case, there are many distinct processes that behave simialrly, and the classifier may not be able to identify the exact process with high confidence, but it can still accurately estimate the probability that the process is malware.  When using the classifier to report malware, the p_malware field is more important than the malware boolean associated with the probable process.
 
 The OS information lists all operating systems and their prevalences that the most probable process has been observed using in the ground truth data. The analysis object contains the number of OSes, os_info_len, along with an array of structs where each struct represents a single OS and contains:
 
@@ -65,9 +68,9 @@ struct os_information {
     uint64_t os_prevalence;
 };
 
-bool analysis_context_get_os_info(const struct analysis_context *ac, // input
-                                  const struct os_information **os_info,   // output
-                                  size_t *os_info_len                // output
+bool analysis_context_get_os_info(const struct analysis_context *ac,     // input
+                                  const struct os_information **os_info, // output
+                                  size_t *os_info_len                    // output
                                   );
 
 ```
