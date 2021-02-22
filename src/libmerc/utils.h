@@ -49,8 +49,10 @@ void fprintf_json_hex_string(FILE *f, const char *key, const uint8_t *data, unsi
 
 void fprintf_json_string(FILE *f, const char *key, const uint8_t *data, unsigned int len);
 
+extern "C" LIBMERC_DLL_EXPORTED
 enum status drop_root_privileges(const char *username, const char *directory);
 
+extern "C" LIBMERC_DLL_EXPORTED
 int copy_string_into_buffer(char *dst, size_t dst_len, const char *src, size_t max_src_len);
 
 void fprintf_json_base64_string(FILE *file, const unsigned char *data, size_t input_length);
@@ -62,12 +64,13 @@ void printf_raw_as_hex(const uint8_t *data, unsigned int len);
  * human-understandable representation of a (potentially very large)
  * number, for printing out
  */
-
+extern "C" LIBMERC_DLL_EXPORTED
 void get_readable_number_float(double power,
                                double input,
                                double *num_output,
                                char **str_output);
 
+extern "C" LIBMERC_DLL_EXPORTED
 enum status filename_append(char dst[FILENAME_MAX],
                             const char *src,
                             const char *delim,
@@ -78,7 +81,10 @@ struct timer {
     struct timespec after;
 };
 
+extern "C" LIBMERC_DLL_EXPORTED
 void timer_start(struct timer *t);
+
+extern "C" LIBMERC_DLL_EXPORTED
 uint64_t timer_stop(struct timer *t);
 
 #endif /* UTILS_H */

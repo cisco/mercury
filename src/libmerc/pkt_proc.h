@@ -14,6 +14,7 @@
 #include "extractor.h"
 #include "packet.h"
 #include "analysis.h"
+#include "libmerc.h"
 
 extern struct libmerc_config global_vars;   // defined in libmerc.cc
 
@@ -58,6 +59,7 @@ struct stateful_pkt_proc {
         return write_json(buffer, buffer_size, packet, length, ts, reassembler_ptr);
     }
 
+    LIBMERC_DLL_EXPORTED
     size_t write_json(void *buffer,
                       size_t buffer_size,
                       uint8_t *packet,

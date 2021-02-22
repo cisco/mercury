@@ -12,6 +12,13 @@
 #include <stdio.h>
 #include <time.h>
 
+// The LIBMERC_DLL_EXPORTED attribute can be applied to a function or
+// variable to indicate that it should be exported from a shared
+// object library even if the -fvisibility=hidden option is passed to
+// the compiler
+//
+#define LIBMERC_DLL_EXPORTED __attribute__((__visibility__("default")))
+
 /*
  * struct libmerc_config represents the complete configuration of
  * the libmerc library
@@ -67,7 +74,7 @@ struct libmerc_config {
  *
  */
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 int mercury_init(const struct libmerc_config *vars, int verbosity);
 
@@ -79,7 +86,7 @@ int mercury_init(const struct libmerc_config *vars, int verbosity);
  *
  */
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 int mercury_finalize();
 
@@ -97,7 +104,7 @@ typedef struct stateful_pkt_proc *mercury_packet_processor;
  * and NULL otherwise.
  */
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 mercury_packet_processor mercury_packet_processor_construct();
 
@@ -106,7 +113,7 @@ mercury_packet_processor mercury_packet_processor_construct();
  * associated with a mercury_packet_processor.
  */
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 void mercury_packet_processor_destruct(mercury_packet_processor mpp);
 
@@ -121,7 +128,7 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp);
  * ts (input) - pointer to timestamp associated with packet
  */
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 size_t mercury_packet_processor_write_json(mercury_packet_processor processor,
                                            void *buffer,
@@ -134,7 +141,7 @@ size_t mercury_packet_processor_write_json(mercury_packet_processor processor,
  * same as above, but packet points to an IP header (v4 or v6)
  */
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor,
                                               void *buffer,
@@ -151,7 +158,7 @@ enum fingerprint_status {
 };
 
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(mercury_packet_processor processor,
                                                                                 uint8_t *packet,
@@ -159,7 +166,7 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
                                                                                 struct timespec* ts);
 
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac);
 
@@ -173,23 +180,23 @@ enum fingerprint_type {
 };
 
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 enum fingerprint_type analysis_context_get_fingerprint_type(const struct analysis_context *ac);
 
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *analysis_context_get_fingerprint_string(const struct analysis_context *ac);
 
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *analysis_context_get_server_name(const struct analysis_context *ac);
 
 
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 bool analysis_context_get_process_info(const struct analysis_context *ac, // input
                                        const char **probable_process,     // output
@@ -197,7 +204,7 @@ bool analysis_context_get_process_info(const struct analysis_context *ac, // inp
                                        );
 
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 bool analysis_context_get_malware_info(const struct analysis_context *ac, // input
                                        bool *probable_process_is_malware, // output
@@ -211,7 +218,7 @@ struct os_information {
 };
 
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 bool analysis_context_get_os_info(const struct analysis_context *ac, // input
                                   const struct os_information **os_info,   // output
@@ -234,7 +241,7 @@ enum status {
  *
  */
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *mercury_get_license_string();
 
@@ -248,7 +255,7 @@ const char *mercury_get_license_string();
  *
  */
 #ifdef __cplusplus
-extern "C"
+extern "C" LIBMERC_DLL_EXPORTED
 #endif
 void mercury_print_version_string(FILE *f);
 
