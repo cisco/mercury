@@ -165,7 +165,7 @@ public:
                 http_record.close();
                 output_buffer_stream.write_line(stdout);
 
-                if (response.status_code.compare("301", 3) == 0 || response.status_code.compare("302", 3) == 0 ) {
+                if (true || response.status_code.compare("301", 3) == 0 || response.status_code.compare("302", 3) == 0 ) {
                     // print out redirect data
                     fprintf(stdout, "body: %.*s", (int)http.length(), http.data);
                 }
@@ -177,7 +177,7 @@ public:
             std::set<std::string> src_links = {};
             std::string http_body = http.get_string();
             std::smatch matches;
-            std::regex rgx("src.{2,8}http(s)*://[a-zA-Z0-9-]*(\\.[a-zA-Z0-9-]*)*");
+            std::regex rgx("src.{2,8}(http(s)*:)*//[a-zA-Z0-9-]*(\\.[a-zA-Z0-9-]*)*");
             while (std::regex_search(http_body, matches, rgx)) {
                 // fprintf(stdout, "%s\n", matches[0].str().c_str());
                 src_links.insert(matches[0].str());
