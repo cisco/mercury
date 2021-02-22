@@ -44,6 +44,23 @@ CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spur
 CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 CFLAGS += $(OPTFLAGS)
 
+# extra flags
+CFLAGS += -fno-rtti
+CFLAGS += -Wformat
+CLFAGS += -Wformat-security
+CFLAGS += -Wno-deprecated-declarations
+CFLAGS += -Wno-long-long
+CFLAGS += -Wmissing-noreturn
+CFLAGS += -Wunreachable-code
+CFLAGS += -fvisibility=hidden
+CFLAGS += -DNDEBUG
+# CFLAGS += -g
+# CFLAGS += -ggdb
+CFLAGS += -fno-builtin-malloc
+CFLAGS += -fno-builtin-calloc
+CFLAGS += -fno-builtin-realloc
+CFLAGS += -fno-builtin-free
+
 # MERC and MERC_H hold the core source and header files, respectively
 #
 # MERC   =  mercury.c
