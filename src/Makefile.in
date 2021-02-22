@@ -112,6 +112,7 @@ mercury: mercury.c $(MERC) $(MERC_H) Makefile.in
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 debug-mercury: CFLAGS += -DDEBUG -g -O0
+debug-mercury: CFLAGS += -fsanitize=address -static-libasan
 debug-mercury: debug-libmerc mercury
 
 setcap: mercury

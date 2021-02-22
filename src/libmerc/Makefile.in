@@ -133,8 +133,12 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 # debug target
 #
 # debug-libmerc.so: CFLAGS += -DDEBUG # this option triggers voluminous detailed output
-debug-libmerc.so: CFLAGS += -g -O0
+debug-libmerc.so: CFLAGS += -g
+debug-libmerc.so: CFLAGS += -ggdb
+debug-libmerc.so: CFLAGS += -O0
 debug-libmerc.so: CFLAGS += -UNDEBUG
+debug-libmerc.so: CFLAGS += -fsanitize=address
+debug-libmerc.so: CFLAGS += -fno-omit-frame-pointer
 debug-libmerc.so: STRIP = @echo "not running strip on"
 debug-libmerc.so: libmerc.so
 
