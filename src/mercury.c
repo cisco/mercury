@@ -164,7 +164,7 @@ enum extended_help {
     extended_help_on  = 1
 };
 
-void usage(const char *progname, const char *err_string, enum extended_help extended_help) {
+[[noreturn]] void usage(const char *progname, const char *err_string, enum extended_help extended_help) {
     if (err_string) {
         printf("error: %s\n", err_string);
     }
