@@ -20,6 +20,9 @@ datarootdir = @datarootdir@/mercury
 .SUFFIXES:
 .SUFFIXES: .c .o
 
+# STRIP determines whether or not strip is run on shared object files
+STRIP = strip
+
 # set parameters from configure (autoconf)
 #
 python      = @PY@
@@ -124,12 +127,20 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+	$(STRIP) libmerc.so
 	ldconfig -n .
 
 # debug target
 #
 debug-libmerc.so: CFLAGS += -DDEBUG -g -O0
+debug-libmerc.so: CFLAGS += -UNDEBUG
+debug-libmerc.so: STRIP = @echo "not running strip on"
 debug-libmerc.so: libmerc.so
+
+# unstripped (but optimized) target
+#
+unstripped-libmerc.so: STRIP = @echo "not running strip on"
+unstripped-libmerc.so: libmerc.so
 
 # rule to build static library
 #

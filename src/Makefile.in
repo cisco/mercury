@@ -126,6 +126,10 @@ libmerc:
 debug-libmerc:
 	$(MAKE) --directory=libmerc debug-libmerc.so
 
+.PHONY: unstripped-libmerc
+unstripped-libmerc:
+	$(MAKE) --directory=libmerc unstripped-libmerc.so
+
 tls_scanner: tls_scanner.cc libmerc
 	$(CXX) $(CFLAGS) tls_scanner.cc -o tls_scanner libmerc/libmerc.a -lssl -lcrypto -lz
 
