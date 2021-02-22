@@ -12,8 +12,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include "packet.h"
-#include "analysis.h"
-#include "libmerc.h"
+#include "libmerc.h" // for enum status
 
 /*
  * obsolete macros
@@ -69,7 +68,7 @@ void get_readable_number_float(double power,
                                double *num_output,
                                char **str_output);
 
-enum status filename_append(char dst[MAX_FILENAME],
+enum status filename_append(char dst[FILENAME_MAX],
                             const char *src,
                             const char *delim,
                             const char *tail);

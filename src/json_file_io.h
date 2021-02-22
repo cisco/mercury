@@ -18,7 +18,7 @@ struct json_file {
     int64_t record_countdown;
     int64_t max_records;
     uint32_t file_num;
-    char outfile_name[MAX_FILENAME];
+    char outfile_name[FILENAME_MAX];
     const char *mode;
 };
 

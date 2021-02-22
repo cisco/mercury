@@ -258,7 +258,4 @@ enum status proto_ident_config(const char *config_string);
 
 enum status static_data_config(const char *config_string);
 
-
-#define MAX_FILENAME 256
-
 #endif /* LIBMERC_H */

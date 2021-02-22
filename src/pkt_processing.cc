@@ -18,7 +18,7 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
     try {
 
         enum status status;
-        char outfile[MAX_FILENAME];
+        char outfile[FILENAME_MAX];
         pid_t pid = tnum;
 
         if (cfg->write_filename) {

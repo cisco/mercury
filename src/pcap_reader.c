@@ -17,7 +17,7 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
                                                         struct mercury_config *cfg,
                                                         int tnum,
                                                         struct ll_queue *llq) {
-    char input_filename[MAX_FILENAME];
+    char input_filename[FILENAME_MAX];
     tc->tnum = tnum;
 	tc->loop_count = cfg->loop_count;
     enum status status;

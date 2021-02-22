@@ -257,7 +257,7 @@ void get_readable_number_float(double power,
 
 }
 
-enum status filename_append(char dst[MAX_FILENAME],
+enum status filename_append(char dst[FILENAME_MAX],
                             const char *src,
                             const char *delim,
                             const char *tail) {
@@ -267,19 +267,19 @@ enum status filename_append(char dst[MAX_FILENAME],
         /*
          * filename = directory || '/' || thread_num
          */
-        if (strnlen(src, MAX_FILENAME) + strlen(tail) + 1 > MAX_FILENAME) {
+        if (strnlen(src, FILENAME_MAX) + strlen(tail) + 1 > FILENAME_MAX) {
             return status_err; /* filename too long */
         }
-        strncpy(dst, src, MAX_FILENAME);
+        strncpy(dst, src, FILENAME_MAX);
         strcat(dst, delim);
         strcat(dst, tail);
 
     } else {
 
-        if (strnlen(src, MAX_FILENAME) >= MAX_FILENAME) {
+        if (strnlen(src, FILENAME_MAX) >= FILENAME_MAX) {
             return status_err; /* filename too long */
         }
-        strncpy(dst, src, MAX_FILENAME);
+        strncpy(dst, src, FILENAME_MAX);
 
     }
     return status_ok;
