@@ -95,6 +95,7 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
     try {
         uint8_t buffer[4096]; // buffer for (ignored) json output
 
+        processor->analysis.result.valid = false;
         if (processor->ip_write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {
             return &processor->analysis;
         }
@@ -105,7 +106,26 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
     catch (...) {
         ;
     }
-    return 0;
+    return NULL;
+}
+
+const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
+{
+    try {
+        uint8_t buffer[4096]; // buffer for (ignored) json output
+
+        processor->analysis.result.valid = false;
+        if (processor->write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {
+            return &processor->analysis;
+        }
+    }
+    catch (char const *s) {
+        fprintf(stderr, "%s\n", s);
+    }
+    catch (...) {
+        ;
+    }
+    return NULL;
 }
 
 enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac) {
@@ -139,7 +159,9 @@ const char *analysis_context_get_fingerprint_string(const struct analysis_contex
 
 const char *analysis_context_get_server_name(const struct analysis_context *ac) {
     if (ac) {
-        return ac->destination.sn_str;
+        if (ac->destination.sn_str[0] != '\0') {
+            return ac->destination.sn_str;
+        }
     }
     return NULL;
 }
