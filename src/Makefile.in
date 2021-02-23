@@ -104,7 +104,7 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: libmerc mercury libmerc_test tls_scanner cert_analyze
+all: libmerc mercury libmerc_test cert_analyze # tls_scanner
 
 mercury: mercury.c $(MERC) $(MERC_H) Makefile.in
 	$(CXX) $(CFLAGS) -o mercury mercury.c $(MERC) -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
