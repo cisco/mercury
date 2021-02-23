@@ -20,7 +20,7 @@
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h>
 
-#include "libmerc/asn1/x509.h"
+#include "libmerc/x509.h"
 #include "libmerc/http.h"
 #include "libmerc/json_object.h"
 

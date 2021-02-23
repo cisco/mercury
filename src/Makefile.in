@@ -104,7 +104,7 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: libmerc mercury libmerc_test tls_scanner
+all: libmerc mercury libmerc_test tls_scanner cert_analyze
 
 mercury: mercury.c $(MERC) $(MERC_H) Makefile.in
 	$(CXX) $(CFLAGS) -o mercury mercury.c $(MERC) -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
@@ -133,6 +133,9 @@ unstripped-libmerc:
 
 tls_scanner: tls_scanner.cc libmerc
 	$(CXX) $(CFLAGS) tls_scanner.cc -o tls_scanner libmerc/libmerc.a -lssl -lcrypto -lz
+
+cert_analyze: cert_analyze.cc libmerc
+	$(CXX) $(CFLAGS) cert_analyze.cc -o cert_analyze libmerc/libmerc.a -lcrypto
 
 # implicit rule for building object files
 #
@@ -169,10 +172,10 @@ debug: mercury.c $(MERC) $(MERC_H) $(LIBMERC) Makefile
 
 .PHONY: clean
 clean:
-	rm -rf mercury libmerc_test tls_scanner gmon.out *.o
+	rm -rf mercury libmerc_test tls_scanner cert_analyze gmon.out *.o
 	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-	for file in mercury.c libmerc_test.c $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
 .PHONY: distclean
 distclean: clean

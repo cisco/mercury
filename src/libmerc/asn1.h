@@ -5,8 +5,8 @@
 #ifndef ASN1_H
 #define ASN1_H
 
-#include "../datum.h"
-#include "../json_object.h"
+#include "datum.h"
+#include "json_object.h"
 
 namespace std {
     template <>  struct hash<struct datum>  {

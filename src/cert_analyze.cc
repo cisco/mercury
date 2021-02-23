@@ -1,5 +1,5 @@
 /*
- * cert-analyze.cc
+ * cert_analyze.cc
  *
  * analyze X509 certificates
  */
@@ -12,9 +12,9 @@
 #include <string>
 #include <list>
 
-#include "x509.h"
-#include "base64.h"
-#include "../rapidjson/document.h"
+#include "libmerc/x509.h"
+#include "libmerc/base64.h"
+#include "libmerc/rapidjson/document.h"
 
 
 // set to 1 to include hashing
@@ -337,7 +337,7 @@ struct der_file_writer {
 // std::unordered_map<std::string, std::string> cert_dict;
 //#include <thread>
 
-void usage(const char *progname) {
+[[noreturn]] void usage(const char *progname) {
     const char *help_message =
         "usage: %s: [--input <infile>] [INPUT OPTIONS] [OUTPUT OPTIONS]\n"
         "   --input <infile> reads certificate(s) from <infile> in base64 format\n"

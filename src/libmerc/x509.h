@@ -10,10 +10,10 @@
 #include <unordered_set>
 #include <list>
 #include "bytestring.h"
-#include "oid.h"    // oid dictionary
+#include "asn1/oid.h"    // oid dictionary
 
-#include "../libmerc.h"
-#include "../datum.h"
+#include "libmerc.h"
+#include "datum.h"
 #include "asn1.h"
 #include "dict.h"
 
