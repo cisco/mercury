@@ -314,3 +314,50 @@ void http_response::operator()(struct buffer_stream &buf) const {
     headers.fingerprint(buf, http_static_keywords);
     buf.write_char('\"');
 }
+
+struct datum http_headers::get_location_header() {
+    struct datum output{NULL, NULL};
+    unsigned char crlf[2] = { '\r', '\n' };
+    unsigned char csp[2] = { ':', ' ' };
+
+    if (this->is_not_readable()) {
+        return output;
+    }
+    struct datum p{this->data, this->data_end};  // create copy, to leave object unmodified
+
+    while (datum_get_data_length(&p) > 0) {
+        if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+            break;  /* at end of headers */
+        }
+
+        struct datum keyword{p.data, NULL};
+        if (datum_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
+            return output;
+        }
+        keyword.data_end = p.data;
+        const char *header_name = NULL;
+
+        std::basic_string<uint8_t> name_lowercase;
+        std::basic_string<uint8_t> location = { 'l', 'o', 'c', 'a', 't', 'i', 'o', 'n', ':', ' ' };
+        to_lower(name_lowercase, keyword);
+        if (name_lowercase.compare(location) == 0) {
+            header_name = "location";
+        }
+        const uint8_t *value_start = p.data;
+        if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            return output;
+        }
+        const uint8_t *value_end = p.data - 2;
+        if (header_name) {
+            output.data = value_start;
+            output.data_end = value_end;
+            break;
+            //o.print_key_json_string(header_name, value_start, value_end - value_start);
+        }
+    }
+    return output;
+}
+
+struct datum http_response::get_location_header() {
+    return headers.get_location_header();
+}

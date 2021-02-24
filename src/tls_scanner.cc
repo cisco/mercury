@@ -28,11 +28,17 @@ class tls_scanner {
 private:
     SSL_CTX *ctx = NULL;
 
-    constexpr static const char *tlsv1_3_only = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_CCM_SHA256:TLS_AES_128_CCM_8_SHA256";
+    constexpr static const char *tlsv1_3_only_ciphersuites = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_CCM_SHA256:TLS_AES_128_CCM_8_SHA256";
+
+    bool print_cert = true;
+    bool print_response_body = true;
+    bool print_src_links = true;
+
 
 public:
-    tls_scanner(const std::string &hostname, std::string &inner_hostname) {
+    tls_scanner(bool cert, bool response_body, bool src_links) : print_cert{cert}, print_response_body{response_body}, print_src_links{src_links} { }
 
+    void scan(const std::string &hostname, std::string &inner_hostname) {
         std::string &http_host_field = inner_hostname;
         if (inner_hostname == "") {
             http_host_field = hostname;
@@ -42,8 +48,13 @@ public:
         SSL_library_init();
         SSL_load_error_strings();
 #endif
+
         // initialize openssl session context
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+        ctx = SSL_CTX_new(TLSv1_2_client_method());
+#else
         ctx = SSL_CTX_new(TLS_client_method());
+#endif
         if (ctx == NULL) {
             throw "error: could not initialize TLS context\n";
         }
@@ -73,6 +84,7 @@ public:
             throw "error: could not initialize TLS context\n";
         }
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
         constexpr bool tls_version_1_3_only = false;
         if (tls_version_1_3_only) {
             int status = SSL_set_min_proto_version(tls, TLS1_3_VERSION);
@@ -81,6 +93,7 @@ public:
                 // throw "error: could not set protocol version to 1.2\n";
             }
         }
+#endif
 
         // status = SSL_set_cipher_list(tls, tlsv1_3_only);
         // if (status != 1) {
@@ -109,7 +122,7 @@ public:
 
         uint8_t *cert_buffer = NULL;
         int cert_len = i2d_X509(cert, &cert_buffer);
-        if (cert_len > 0) {
+        if (print_cert && cert_len > 0) {
 
             // parse and print certificate using libmerc/asn1/x509.h
             struct x509_cert cc;
@@ -165,15 +178,22 @@ public:
                 http_record.close();
                 output_buffer_stream.write_line(stdout);
 
-                if (true || response.status_code.compare("301", 3) == 0 || response.status_code.compare("302", 3) == 0 ) {
+                struct datum location = response.get_location_header();
+                if (location.is_not_empty()) {
+                    fprintf(stdout, "location header: %.*s\n", (int)location.length(), location.data);
+                }
+
+                if (print_response_body || response.status_code.compare("301", 3) == 0 || response.status_code.compare("302", 3) == 0 ) {
                     // print out redirect data
                     fprintf(stdout, "body: %.*s", (int)http.length(), http.data);
                 }
+
             }
+
             // print out raw body
             //fprintf(stdout, "body: %.*s", (int)http.length(), http.data);
 
-            // print out links
+            // find src= links in page
             std::set<std::string> src_links = {};
             std::string http_body = http.get_string();
             std::smatch matches;
@@ -184,7 +204,9 @@ public:
                 http_body = matches.suffix().str();
             }
             for (const auto &x : src_links) {
-                fprintf(stdout, "%s\n", x.c_str());
+                if (print_src_links) {
+                    fprintf(stdout, "%s\n", x.c_str());
+                }
             }
         }
     }
@@ -206,7 +228,11 @@ int main(int argc, char *argv[]) {
     }
 
     try {
-        tls_scanner scanner(hostname, inner_hostname);
+        tls_scanner scanner(true, // print certificate
+                            true, // print response body
+                            true  // print src links
+                            );
+        scanner.scan(hostname, inner_hostname);
     }
     catch (const char *s) {
         fprintf(stderr, "%s", s);
