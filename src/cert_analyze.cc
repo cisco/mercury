@@ -322,7 +322,7 @@ struct der_file_writer {
             exit(EXIT_FAILURE);
         }
     }
-    ssize_t write_cert(uint8_t *outbuf, size_t outbuf_len) {
+    ssize_t write_cert(const uint8_t *outbuf, size_t outbuf_len) {
         size_t bytes_written = fwrite(outbuf, 1, outbuf_len, stream);
         if (bytes_written == outbuf_len) {
             return bytes_written;
@@ -330,6 +330,30 @@ struct der_file_writer {
         return -bytes_written; // indicate error with negative return value
     }
     ~der_file_writer() {
+        fclose(stream);
+    };
+};
+
+struct base64_file_writer {
+    FILE *stream;
+
+    base64_file_writer(const char *outfile) {
+        stream = fopen(outfile, "w");
+        if (stream == NULL) {
+            fprintf(stderr, "error: could not open file %s (%s)\n", outfile, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+    ssize_t write_cert(const uint8_t *outbuf, size_t outbuf_len) {
+        std::string b64 = base64_encode(outbuf, outbuf_len);
+        b64 += '\n';
+        size_t bytes_written = fwrite(b64.c_str(), 1, b64.length(), stream);
+        if (bytes_written == b64.length()) {
+            return bytes_written;
+        }
+        return -bytes_written; // indicate error with negative return value
+    }
+    ~base64_file_writer() {
         fclose(stream);
     };
 };
@@ -354,6 +378,7 @@ struct der_file_writer {
         "   --filter <spec>  output only certificates matching <spec>:\n"
         "            weak\n"
         "   --key-group      identify duplicate keys with key_group number\n"
+        "   --common-key <f> write certs with common keys into output file <f>\n"
         "   --trunc-test     parse every possible truncation of certificates\n"
         "OTHER\n"
         "   --trust <roots>  trust certificates in <roots>\n"
@@ -368,6 +393,7 @@ int main(int argc, char *argv[]) {
     const char *filter = NULL;
     const char *logfile = NULL;
     const char *trust = NULL;
+    const char *common_key = NULL;
     bool prefix = false;
     bool prefix_as_hex = false;
     bool input_is_pem = false;
@@ -391,6 +417,7 @@ int main(int argc, char *argv[]) {
              case_filter,
              case_log_malformed,
              case_key_group,
+             case_common_key,
              case_trunc_test,
              case_trust,
              case_help,
@@ -405,6 +432,7 @@ int main(int argc, char *argv[]) {
              {"filter",         required_argument, NULL,  case_filter        },
              {"log-malformed",  required_argument, NULL,  case_log_malformed },
              {"key-group",      no_argument,       NULL,  case_key_group     },
+             {"common-key",     required_argument, NULL,  case_common_key    },
              {"trunc-test",     no_argument,       NULL,  case_trunc_test    },
              {"trust",          required_argument, NULL,  case_trust         },
              {"help",           no_argument,       NULL,  case_help          },
@@ -482,6 +510,13 @@ int main(int argc, char *argv[]) {
             }
             key_group = true;
             break;
+        case case_common_key:
+            if (!optarg) {
+                fprintf(stderr, "error: option 'common-key' needs an argument\n");
+                usage(argv[0]);
+            }
+            common_key = optarg;
+            break;
         case case_trunc_test:
             if (optarg) {
                 fprintf(stderr, "error: option 'trunc-test' does not accept an argument\n");
@@ -541,6 +576,9 @@ int main(int argc, char *argv[]) {
         kg = &key_group_dict;
     }
 
+    // common_keys
+    std::unordered_map<std::basic_string<uint8_t>, std::basic_string<uint8_t>> keys_to_certs{};
+
     std::list<struct x509_cert> trusted_certs;
     uint8_t trusted_cert_buf[256 * 1024];
     uint8_t *cb = trusted_cert_buf;
@@ -576,6 +614,7 @@ int main(int argc, char *argv[]) {
             // fprintf(stderr, "cert: %u\tprefix length: %zu\n", line_number, p.get_length());
 
         } else {
+
             // parse certificate, then print as JSON
             char buffer[256*1024];
             struct buffer_stream buf(buffer, sizeof(buffer));
@@ -590,6 +629,39 @@ int main(int argc, char *argv[]) {
                         cc.parse(cert_buf, trunc_len);
                         cc.print_as_json(buf, trusted_certs, kg);
                         buf.write_line(stdout);
+                    }
+
+                } else if (common_key) {
+
+                    // detect certificates that have identical keys but distinct subject names
+                    c.parse(cert_buf, cert_len);
+                    std::basic_string<uint8_t> k;
+                    c.get_subject_public_key(k);
+
+                    auto key_and_cert = keys_to_certs.find(k);
+                    if (key_and_cert != keys_to_certs.end()) {
+                        // fprintf(stdout, "found duplicate for key ");
+                        // fprintf_raw_as_hex(stdout, k.c_str(), k.length());
+                        // fputc('\n', stdout);
+
+                        // create a file writer
+                        std::string key_as_hex = hex_encode(k.c_str(), k.length());
+                        std::string filename{common_key};
+                        filename += "-" + key_as_hex.substr(32,48);
+                        base64_file_writer b64writer{filename.c_str()};
+
+                        // write certs to file
+                        if (b64writer.write_cert(cert_buf, cert_len) < 0) {
+                            fprintf(stderr, "error: could not write certificate to base64 output file\n");
+                        }
+                        if (b64writer.write_cert(key_and_cert->second.c_str(), key_and_cert->second.length()) < 0) {
+                            fprintf(stderr, "error: could not write original certificate to base64 output file\n");
+                        }
+
+
+                    } else {
+                        std::basic_string<uint8_t> tmp_cert{cert_buf, cert_len};
+                        keys_to_certs.insert({k, tmp_cert});
                     }
 
                 } else {

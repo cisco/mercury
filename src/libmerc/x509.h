@@ -1826,6 +1826,10 @@ struct x509_cert {
         }
     }
 
+    void get_subject_public_key(std::basic_string<uint8_t> &s) const {
+        s = subjectPublicKeyInfo.subject_public_key.value.get_bytestring();
+    }
+
     void report_violations(struct json_object_asn1 &o,
                            const std::list<struct x509_cert> &trusted_certs) const {
         bool not_currently_valid = is_not_currently_valid();

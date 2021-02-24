@@ -5,6 +5,24 @@
 #ifndef BASE64_H
 #define BASE64_H
 
+
+std::string hex_encode(const unsigned char *src, size_t len) {
+    char hex_table[] =
+        {
+         '0', '1', '2', '3',
+         '4', '5', '6', '7',
+         '8', '9', 'a', 'b',
+         'c', 'd', 'e', 'f'
+    };
+    std::string out;
+
+    for (size_t i = 0; i < len; i++) {
+        out += hex_table[(src[i] & 0xf0) >> 4];
+        out += hex_table[src[i] & 0x0f];
+    }
+    return out;
+}
+
 /*
  * START base64
  */
@@ -29,9 +47,6 @@ static const unsigned char base64_table[65] =
 * base64_encode - Base64 encode
 * @src: Data to be encoded
 * @len: Length of the data to be encoded
-* @out_len: Pointer to output length variable, or %NULL if not used
-* Returns: Allocated buffer of out_len bytes of encoded data,
-* or empty string on failure
 */
 std::string base64_encode(const unsigned char *src, size_t len)
 {
