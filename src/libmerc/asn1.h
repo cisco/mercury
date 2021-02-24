@@ -26,24 +26,6 @@ namespace std {
  * utility functions
  */
 
-#if 0 // currently unused functions
-void fprint_as_ascii_with_dots(FILE *f, const void *string, size_t len) {
-    const char *s = (const char *)string;
-    for (size_t i=0; i < len; i++) {
-        if (isprint(s[i])) {
-            fprintf(f, "%c", s[i]);
-        } else {
-            fprintf(f, ".");
-        }
-    }
-    printf("\n");
-}
-
-void fprintf_parser_as_string(FILE *f, struct parser *p) {
-    fprintf(f, "%.*s", (int) (p->data_end - p->data), p->data);
-}
-#endif
-
 static void utc_to_generalized_time(uint8_t gt[15], const uint8_t utc[13]) {
     if (utc[0] < '5') {
         gt[0] = '2';
