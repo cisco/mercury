@@ -3,6 +3,7 @@
  */
 
 #include <unordered_map>
+#include <string>
 #include "bytestring.h"
 #include "http.h"
 #include "json_object.h"
