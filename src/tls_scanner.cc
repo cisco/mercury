@@ -44,6 +44,14 @@ public:
             http_host_field = hostname;
         }
 
+        // set path, if there is one
+        std::string path = "/";
+        size_t idx = http_host_field.find("/");
+        if (idx != std::string::npos) {
+            path = http_host_field.substr(idx, std::string::npos);
+            http_host_field.resize(idx);
+        }
+
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
         SSL_library_init();
         SSL_load_error_strings();
@@ -62,7 +70,7 @@ public:
             throw "error: could not initialize TLS verification\n";
         }
 
-        std::string host_and_port = hostname + ":443";
+        std::string host_and_port = http_host_field + ":443";
         BIO *bio = BIO_new_connect(host_and_port.c_str());
         if (bio == nullptr) {
             throw "error: could not create BIO\n";
@@ -101,9 +109,9 @@ public:
         //     // throw "error: could not set TLSv1.3-only ciphersuites\n";
         // }
 
-        SSL_set_tlsext_host_name(tls, hostname.c_str());
+        SSL_set_tlsext_host_name(tls, http_host_field.c_str());
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-        SSL_set1_host(tls, hostname.c_str());
+        SSL_set1_host(tls, http_host_field.c_str());
 #endif
 
         if (BIO_do_handshake(tls_bio) <= 0) {
@@ -139,7 +147,7 @@ public:
 #endif
 
         // send HTTP request
-        std::string line = "GET / HTTP/1.1";
+        std::string line = "GET " + path + " HTTP/1.1";
         std::string request = line + "\r\n";
         request += "Host: " + http_host_field + "\r\n";
         request += "User-Agent: Mozilla/5.0 (Linux; ; ) AppleWebKit/ (KHTML, like Gecko) Chrome/ Mobile Safari/\r\n"; // pretend we're Android
@@ -218,7 +226,22 @@ int main(int argc, char *argv[]) {
     //fprintf(stdout, "openssl version number: %08x\n", (unsigned int)OPENSSL_VERSION_NUMBER);
 
     if (argc < 2 || argc > 3) {
-        fprintf(stderr, "usage: %s <hostname> [ <inner_hostname> ]\n", argv[0]);
+        fprintf(stderr,
+                "%s usage:\n"
+                "\ttls_scanner <hostname>[/<path>]\n"
+                "or\n"
+                "\ttls_scanner <hostname> <inner_hostname>[/<path>]\n"
+                "\n"
+                "Scans an HTTPS server for its certificate, HTTP response headers, response\n"
+                "body, redirect links, and src= links, and reports its findings to standard\n"
+                "output.  To check for domain fronting, set the inner_hostname to be\n"
+                "distinct from hostname.\n"
+                "\n"
+                "Parameters:\n"
+                "\t<hostname> is the name of the HTTPS host (e.g. example.com)\n"
+                "\t<inner_hostname> determines the name of the HTTP host field\n"
+                "\t<path> is the path used in the HTTP URI (e.g. /en-us/)\n\n",
+                argv[0]);
         return EXIT_FAILURE;
     }
     std::string hostname = argv[1];
