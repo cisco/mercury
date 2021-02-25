@@ -205,7 +205,7 @@ struct os_classifier {
     };
 
     void classify(double *features, struct os_result *r) {
-        double scores[label_len] = {0};
+        double *scores = new double[label_len];
         double score_sum = 0.0;
         for (int i = 0; i < label_len; i++) {
             scores[i] = intercepts[i];
@@ -228,6 +228,8 @@ struct os_classifier {
 
         r->os_name = labels[label_idx];
         r->probability = prob;
+
+        delete scores;
     }
 
 } os_clf;

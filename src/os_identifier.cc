@@ -1,20 +1,26 @@
-// driver for os_identifier
-//
-// compile as:
-//    g++ -I ../libmerc/ -Wall driver_os_identifier.cc -o driver_os_identifier ../libmerc/datum.cc -lz
-//
-// run as:
-//    ./driver_os_identifier mercury.json
+/* os_identifier.cc
+ *
+ * driver program for os_identifier.h
+ *
+ * compile as:
+ *    g++ -I ../libmerc/ -Wall os_identifier.cc -o os_identifier ../libmerc/datum.cc -lz
+ *
+ * run as:
+ *
+ *    ./os_identifier <json-file>
+ *
+ * where <json-file> is a mercury JSON output file containing fingerprints
+ */
 
 #include <iostream>
 #include <fstream>
 
-#include "os_identifier.h"
+#include "os-identification/os_identifier.h"
 
-bool verbose = true;  // set to true for details about incomplete mercury_records
+bool verbose = false;  // set to true for details about incomplete mercury_records
 
 int main(int argc, char *argv[]) {
-    if (argv[1] == NULL) {
+    if (argc != 2 || argv[1] == NULL) {
         printf("error: please supply mercury output file\n");
         return -1;
     }
