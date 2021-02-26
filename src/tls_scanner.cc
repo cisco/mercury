@@ -576,7 +576,7 @@ public:
             throw "error: could not initialize TLS verification\n";
         }
 
-        std::string host_and_port = http_host_field + ":443";
+        std::string host_and_port = hostname + ":443";
         BIO *bio = BIO_new_connect(host_and_port.c_str());
         if (bio == nullptr) {
             throw "error: could not create BIO\n";
@@ -615,9 +615,9 @@ public:
         //     // throw "error: could not set TLSv1.3-only ciphersuites\n";
         // }
 
-        SSL_set_tlsext_host_name(tls, http_host_field.c_str());
+        SSL_set_tlsext_host_name(tls, hostname.c_str());
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-        SSL_set1_host(tls, http_host_field.c_str());
+        SSL_set1_host(tls, hostname.c_str());
 #endif
 
         if (BIO_do_handshake(tls_bio) <= 0) {
