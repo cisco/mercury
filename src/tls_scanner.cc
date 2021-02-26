@@ -657,10 +657,10 @@ public:
             for (std::string s : ua_strings) {
                 if (std::regex_search(s, ua_regex)) {
                     user_agent = s + "\r\n";
+                    fprintf(stderr, "user_agent: \"%s\"\n", s.c_str());
                     break;
                 }
             }
-            fprintf(stderr, "user_agent: %s\n", user_agent.c_str());
         }
 
         // send HTTP request
