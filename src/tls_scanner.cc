@@ -528,6 +528,21 @@ std::array ua_strings = {
                          "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)"
 };
 
+
+class uri {
+    struct datum scheme;
+    struct datum host;
+    struct datum path;
+
+public:
+    uri(struct datum &d) {
+        parse(d);
+    }
+    void parse(struct datum &d) {
+        (void)d;
+    }
+};
+
 class tls_scanner {
 private:
     SSL_CTX *ctx = NULL;
@@ -538,11 +553,12 @@ private:
     bool print_cert = true;
     bool print_response_body = true;
     bool print_src_links = true;
+    bool omit_sni;
     std::string user_agent;
 
 public:
 
-    tls_scanner(bool cert, bool response_body, bool src_links) : print_cert{cert}, print_response_body{response_body}, print_src_links{src_links}, user_agent{user_agent_default} { }
+    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni) : print_cert{cert}, print_response_body{response_body}, print_src_links{src_links}, omit_sni{no_sni}, user_agent{user_agent_default} { }
 
     void scan(const std::string &hostname, std::string &inner_hostname, const std::string ua_search_string) {
         std::string &http_host_field = inner_hostname;
@@ -615,10 +631,12 @@ public:
         //     // throw "error: could not set TLSv1.3-only ciphersuites\n";
         // }
 
-        SSL_set_tlsext_host_name(tls, hostname.c_str());
+        if (!omit_sni) {
+            SSL_set_tlsext_host_name(tls, hostname.c_str());
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-        SSL_set1_host(tls, hostname.c_str());
+            SSL_set1_host(tls, hostname.c_str());
 #endif
+        }
 
         if (BIO_do_handshake(tls_bio) <= 0) {
             throw "error: TLS handshake failed\n";
@@ -948,6 +966,7 @@ int main(int argc, char *argv[]) {
     class options opt({ { argument::positional, "hostname",           "is the name of the HTTPS host (e.g. example.com)" },
                         { argument::positional, "inner_hostname",     "determines the name of the HTTP host field" },
                         { argument::required,   "--user-agent",       "sets the user agent string" },
+                        { argument::none,       "--no-server-name",   "omits the TLS server name" },
                         { argument::none,       "--list-user-agents", "print out all user agent strings" },
                         { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
                         { argument::none,       "--body",             "prints out HTTP response body" }});
@@ -961,6 +980,7 @@ int main(int argc, char *argv[]) {
     auto [ inner_hostname_is_set, inner_hostname ] = opt.get_value("inner_hostname");
     auto [ ua_is_set, ua_search_string ] = opt.get_value("--user-agent");
     bool list_uas    = opt.is_set("--list-user-agents");
+    bool omit_sni    = opt.is_set("--no-server-name");
     bool print_certs = opt.is_set("--certs");
     bool print_body  = opt.is_set("--body");
 
@@ -978,8 +998,9 @@ int main(int argc, char *argv[]) {
     }
     try {
         tls_scanner scanner(print_certs, // print certificate
-                            print_body, // print response body
-                            true  // print src links
+                            print_body,  // print response body
+                            true,        // print src links
+                            omit_sni     // omit TLS server name
                             );
         scanner.scan(hostname, inner_hostname, ua_search_string);
     }
