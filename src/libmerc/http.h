@@ -37,7 +37,7 @@ struct http_headers : public datum {
 
     void fingerprint(struct buffer_stream &buf, std::unordered_map<std::basic_string<uint8_t>, bool> &name_dict) const;
 
-    struct datum get_location_header();
+    struct datum get_header(const std::basic_string<uint8_t> &header_name);
 };
 
 struct http_request {
@@ -74,7 +74,7 @@ struct http_response {
 
     void operator()(struct buffer_stream &buf) const;
 
-    struct datum get_location_header();
+    struct datum get_header(const std::basic_string<uint8_t> &header_name);
 };
 
 #endif /* HTTP_H */

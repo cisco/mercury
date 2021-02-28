@@ -529,17 +529,47 @@ std::array ua_strings = {
 };
 
 
-class uri {
+struct hostname : public datum {
+
+    hostname() : datum{NULL, NULL} { }
+
+    void parse(struct datum &d) {
+        accept_hostname(d);
+    }
+    void accept_hostname(struct datum &d) {
+        if (d.data == NULL || d.data >= d.data_end) {
+            return;
+        }
+        data = d.data;
+        const uint8_t *tmp_data = d.data;
+        while (tmp_data < d.data_end) {
+            if (!isalnum(*tmp_data) && *tmp_data != '.' && *tmp_data != '-') {
+                break;
+            }
+            tmp_data++;
+        }
+        data_end = d.data = tmp_data;
+    }
+};
+
+struct uri {
     struct datum scheme;
-    struct datum host;
+    struct hostname host;
     struct datum path;
 
 public:
-    uri(struct datum &d) {
+    uri(struct datum &d) : scheme{}, host{}, path{} {
         parse(d);
     }
     void parse(struct datum &d) {
-        (void)d;
+        // find start of host
+        uint8_t slash_pair[2] = { '/', '/' };
+        if (datum_skip_upto_delim(&d, slash_pair, sizeof(slash_pair)) == status_err) {
+            return;
+        };
+
+        host.parse(d);
+        path = d;
     }
 };
 
@@ -556,11 +586,14 @@ private:
     bool omit_sni;
     std::string user_agent;
 
+    std::vector<std::string> hosts_visited;
+
 public:
 
-    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni) : print_cert{cert}, print_response_body{response_body}, print_src_links{src_links}, omit_sni{no_sni}, user_agent{user_agent_default} { }
+    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni) : print_cert{cert}, print_response_body{response_body}, print_src_links{src_links}, omit_sni{no_sni}, user_agent{user_agent_default}, hosts_visited{} { }
 
     void scan(const std::string &hostname, std::string &inner_hostname, const std::string ua_search_string) {
+        std::string redirect = "";
         std::string &http_host_field = inner_hostname;
         if (inner_hostname == "") {
             http_host_field = hostname;
@@ -572,6 +605,11 @@ public:
         if (idx != std::string::npos) {
             path = http_host_field.substr(idx, std::string::npos);
             http_host_field.resize(idx);
+        }
+
+        if (hostname == "") {
+            //fprintf(stderr, "warning: empty hostname found\n");
+            return;
         }
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -642,6 +680,9 @@ public:
             throw "error: TLS handshake failed\n";
         }
 
+        // record successful visit to host
+        hosts_visited.push_back(hostname);
+
         int err = SSL_get_verify_result(tls);
         if (err != X509_V_OK) {
             const char *message = X509_verify_cert_error_string(err);
@@ -706,7 +747,7 @@ public:
         // parse and process http_response message
         if(http_response_len > 0) {
 
-            //fprintf(stdout, "%.*s", http_response_len, http_buffer);
+            // fprintf(stdout, "%.*s", http_response_len, http_buffer);
 
             // parse http headers, and print as JSON
             const unsigned char *tmp = (const unsigned char *)http_buffer;
@@ -722,12 +763,23 @@ public:
                 http_record.close();
                 output_buffer_stream.write_line(stdout);
 
-                struct datum location = response.get_location_header();
+                std::basic_string<uint8_t> loc = { 'l', 'o', 'c', 'a', 't', 'i', 'o', 'n', ':', ' ' };
+                struct datum location = response.get_header(loc);
                 if (location.is_not_empty()) {
-                    fprintf(stdout, "location header: %.*s\n", (int)location.length(), location.data);
+                    fprintf(stderr, "location header: %.*s\n", (int)location.length(), location.data);
+                    uri location_uri{location};
+                    fprintf(stderr, "location host: %.*s\n", (int)location_uri.host.length(), location_uri.host.data);
+
+                    redirect = location_uri.host.get_string();
                 }
 
-                if (print_response_body || response.status_code.compare("301", 3) == 0 || response.status_code.compare("302", 3) == 0 ) {
+                std::basic_string<uint8_t> cc = { 'c', 'a', 'c', 'h', 'e', '-', 'c', 'o', 'n', 't', 'r', 'o', 'l', ':', ' ' };
+                struct datum cache_control = response.get_header(cc);
+                if (cache_control.is_not_empty()) {
+                    fprintf(stdout, "cache-control header: %.*s\n", (int)cache_control.length(), cache_control.data);
+                }
+
+                if (print_response_body) { // || response.status_code.compare("301", 3) == 0 || response.status_code.compare("302", 3) == 0 ) {
                     // print out redirect data
                     fprintf(stdout, "body: %.*s\n", (int)http.length(), http.data);
                 }
@@ -741,17 +793,59 @@ public:
             std::set<std::string> src_links = {};
             std::string http_body = http.get_string();
             std::smatch matches;
-            std::regex rgx("src.{2,8}(http(s)*:)*//[a-zA-Z0-9-]*(\\.[a-zA-Z0-9-]*)*");
+            //std::regex rgx("src.{2,8}(http(s)*:)*//[a-zA-Z0-9-]*(\\.[a-zA-Z0-9-]*)*");
+            std::regex rgx("src=\"[^\"]*\"");
             while (std::regex_search(http_body, matches, rgx)) {
                 // fprintf(stdout, "%s\n", matches[0].str().c_str());
                 src_links.insert(matches[0].str());
                 http_body = matches.suffix().str();
             }
+
+            // follow src= links, if any
             for (const auto &x : src_links) {
                 if (print_src_links) {
-                    fprintf(stdout, "%s\n", x.c_str());
+                    //fprintf(stderr, "src= %s\n", x.c_str());
+
+                    // TODO: load relative src= links if they are HTML
+                    // TODO: set path part of host/path, for absolute src= links
+
+                    uint8_t *tmp = (uint8_t *)x.data();
+                    datum src{tmp, tmp+x.length()};
+                    uri u{src};
+                    std::string host = u.host.get_string();
+                    //fprintf(stdout, "found src= link host=%s, path=%.*s\n",
+                    //        host.c_str(),
+                    //        (int)u.path.length(), u.path.data);
+
+                    if (!was_previously_visited(host)) {
+                        scan(host, host, ua_search_string);
+                    }
                 }
             }
+
+        }
+
+        // follow redirect, if any, by recursing
+        if (redirect != "") {
+            if (!was_previously_visited(redirect)) {
+                scan(redirect, redirect, ua_search_string);
+            }
+        }
+
+    }
+
+    bool was_previously_visited(std::string &host) {
+        for (const auto &h : hosts_visited) {
+            if (h == host) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void print_history(FILE *f) {
+        for (const auto &h : hosts_visited) {
+            fprintf(f, "%s\n", h.c_str());
         }
     }
 
@@ -962,14 +1056,15 @@ int main(int argc, char *argv[]) {
         "output.  To check for domain fronting, set the inner_hostname to be\n"
         "distinct from hostname.\n\n"
         "OPTIONS\n";
-
+    
     class options opt({ { argument::positional, "hostname",           "is the name of the HTTPS host (e.g. example.com)" },
                         { argument::positional, "inner_hostname",     "determines the name of the HTTP host field" },
                         { argument::required,   "--user-agent",       "sets the user agent string" },
                         { argument::none,       "--no-server-name",   "omits the TLS server name" },
                         { argument::none,       "--list-user-agents", "print out all user agent strings" },
                         { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
-                        { argument::none,       "--body",             "prints out HTTP response body" }});
+                        { argument::none,       "--body",             "prints out HTTP response body" },
+                        { argument::none,       "--help",             "prints out help message" }});
 
     if (!opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
@@ -983,6 +1078,12 @@ int main(int argc, char *argv[]) {
     bool omit_sni    = opt.is_set("--no-server-name");
     bool print_certs = opt.is_set("--certs");
     bool print_body  = opt.is_set("--body");
+    bool print_help  = opt.is_set("--help");
+
+    if (print_help) {
+        opt.usage(stdout, argv[0], summary);
+        return 0;
+    }
 
     //fprintf(stdout, "openssl version number: %08x\n", (unsigned int)OPENSSL_VERSION_NUMBER);
 
@@ -1003,6 +1104,9 @@ int main(int argc, char *argv[]) {
                             omit_sni     // omit TLS server name
                             );
         scanner.scan(hostname, inner_hostname, ua_search_string);
+
+        fprintf(stdout, "\nhostnames visited:\n");
+        scanner.print_history(stdout);
     }
     catch (const char *s) {
         fprintf(stderr, "%s", s);

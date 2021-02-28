@@ -315,7 +315,7 @@ void http_response::operator()(struct buffer_stream &buf) const {
     buf.write_char('\"');
 }
 
-struct datum http_headers::get_location_header() {
+struct datum http_headers::get_header(const std::basic_string<uint8_t> &location) {
     struct datum output{NULL, NULL};
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
@@ -338,7 +338,6 @@ struct datum http_headers::get_location_header() {
         const char *header_name = NULL;
 
         std::basic_string<uint8_t> name_lowercase;
-        std::basic_string<uint8_t> location = { 'l', 'o', 'c', 'a', 't', 'i', 'o', 'n', ':', ' ' };
         to_lower(name_lowercase, keyword);
         if (name_lowercase.compare(location) == 0) {
             header_name = "location";
@@ -358,6 +357,6 @@ struct datum http_headers::get_location_header() {
     return output;
 }
 
-struct datum http_response::get_location_header() {
-    return headers.get_location_header();
+struct datum http_response::get_header(const std::basic_string<uint8_t> &header_name) {
+    return headers.get_header(header_name);
 }
