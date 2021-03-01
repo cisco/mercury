@@ -678,7 +678,9 @@ public:
             throw "error: could not create BIO\n";
         }
         if (BIO_do_connect(bio) <= 0) {
-            throw "error: could not connect\n";
+            fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
+            //throw "error: could not connect to %s\n";
+            return;
         }
 
         BIO *tls_bio = BIO_new_ssl(ctx, 1);
