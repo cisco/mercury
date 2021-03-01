@@ -552,10 +552,37 @@ struct hostname : public datum {
     }
 };
 
+struct uri_path : public datum {
+
+    uri_path() : datum{NULL, NULL} { }
+
+    void parse(struct datum &d) {
+        accept_path(d);
+    }
+    void accept_path(struct datum &d) {
+        if (d.data == NULL || d.data >= d.data_end) {
+            return;
+        }
+        data = d.data;
+        const uint8_t *tmp_data = d.data;
+        while (tmp_data < d.data_end) {
+            // note: this function works with valid paths that are
+            // exctacted from HTML links, which are terminated by a
+            // quotation, but it is not appropriate for other use
+            // cases
+            if (*tmp_data == '\"') {
+                break;
+            }
+            tmp_data++;
+        }
+        data_end = d.data = tmp_data;
+    }
+};
+
 struct uri {
     struct datum scheme;
     struct hostname host;
-    struct datum path;
+    struct uri_path path;
 
 public:
     uri(struct datum &d) : scheme{}, host{}, path{} {
@@ -569,7 +596,7 @@ public:
         };
 
         host.parse(d);
-        path = d;
+        path.parse(d);
     }
 };
 
@@ -592,20 +619,35 @@ public:
 
     tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni) : print_cert{cert}, print_response_body{response_body}, print_src_links{src_links}, omit_sni{no_sni}, user_agent{user_agent_default}, hosts_visited{} { }
 
-    void scan(const std::string &hostname, std::string &inner_hostname, const std::string ua_search_string) {
+    // note: scan() should be rewritten so that its input strings are const; as written,
+    // those strings could be changed
+    //
+    void scan(std::string &hostname, std::string &inner_hostname, const std::string ua_search_string) {
         std::string redirect = "";
         std::string &http_host_field = inner_hostname;
+        bool trim_hostname = false;
         if (inner_hostname == "") {
             http_host_field = hostname;
+            trim_hostname = true;
         }
 
-        // set path, if there is one
+        // set path, if there is one, and trim the path off of the
+        // host string(s) as needed
+        //
         std::string path = "/";
         size_t idx = http_host_field.find("/");
         if (idx != std::string::npos) {
             path = http_host_field.substr(idx, std::string::npos);
             http_host_field.resize(idx);
+            if (trim_hostname) {
+                hostname.resize(idx);
+            }
         }
+
+        // fprintf(stderr, "hostname:   %s\n", hostname.c_str());
+        // fprintf(stderr, "inner host: %s\n", inner_hostname.c_str());
+        // fprintf(stderr, "host field: %s\n", http_host_field.c_str());
+        // fprintf(stderr, "path:       %s\n", path.c_str());
 
         if (hostname == "") {
             //fprintf(stderr, "warning: empty hostname found\n");
@@ -729,9 +771,22 @@ public:
         request += "User-Agent: " + user_agent;
         request += "Connection: close\r\n";
         request += "\r\n";
-        //fprintf(stderr, "request: %s\n", request.c_str());
         BIO_write(tls_bio, request.data(), request.size());
         BIO_flush(tls_bio);
+
+        // parse HTTP request for JSON output
+        const uint8_t *http_req_buffer = (const uint8_t *)request.data();
+        struct datum http_req_data{http_req_buffer, http_req_buffer + request.length()};
+        http_request req;
+        req.parse(http_req_data);
+
+        // report http request
+        char output_buffer[1024*16];
+        struct buffer_stream output_buffer_stream{output_buffer, sizeof(output_buffer)};
+        struct json_object http_record{&output_buffer_stream};
+        req.write_json(http_record, true);
+        http_record.close();
+        output_buffer_stream.write_line(stdout);
 
         // get HTTP response
         int http_response_len = 0, read_len = 0;
@@ -756,8 +811,7 @@ public:
                 http_response response;
                 response.parse(http);
 
-                char output_buffer[1024*16];
-                struct buffer_stream output_buffer_stream{output_buffer, sizeof(output_buffer)};
+                output_buffer_stream = {output_buffer, sizeof(output_buffer)}; // reset
                 struct json_object http_record{&output_buffer_stream};
                 response.write_json(http_record);
                 http_record.close();
@@ -813,11 +867,13 @@ public:
                     datum src{tmp, tmp+x.length()};
                     uri u{src};
                     std::string host = u.host.get_string();
-                    //fprintf(stdout, "found src= link host=%s, path=%.*s\n",
-                    //        host.c_str(),
-                    //        (int)u.path.length(), u.path.data);
+                    // fprintf(stdout, "found src= link host=%s, path=%.*s\n",
+                    //         host.c_str(),
+                    //         (int)u.path.length(), u.path.data);
 
                     if (!was_previously_visited(host)) {
+                        // append path to host, since scan() expects that
+                        host += u.path.get_string();
                         scan(host, host, ua_search_string);
                     }
                 }
