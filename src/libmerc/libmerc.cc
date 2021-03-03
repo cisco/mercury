@@ -116,7 +116,9 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
 
         processor->analysis.result.valid = false;
         if (processor->write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {
-            return &processor->analysis;
+            if (processor->analysis.result.valid) {
+                return &processor->analysis;
+            }
         }
     }
     catch (char const *s) {
