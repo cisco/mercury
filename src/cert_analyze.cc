@@ -15,38 +15,73 @@
 #include "libmerc/x509.h"
 #include "libmerc/base64.h"
 #include "libmerc/rapidjson/document.h"
+#include <openssl/evp.h>
 
 
-// set to 1 to include hashing
-#define HAVE_MHASH 0
-#if HAVE_MHASH
+// certificate hashing
 
-#include <mhash.h>
-void sha256_hash(const void *buffer,
-                 unsigned int len) {
-    int i;
-    MHASH td;
-    unsigned char hash[32];
+class hasher {
+    EVP_MD_CTX *mdctx;
 
-    hashid hash_type = MHASH_SHA1;
-    td = mhash_init(hash_type);
-    if (td == MHASH_FAILED) {
-        return;
+public:
+
+    hasher() : mdctx{nullptr} { }
+
+    ~hasher() {
+        EVP_MD_CTX_free(mdctx);
     }
 
-    mhash(td, buffer, len);
+    constexpr static size_t output_size = 20;
 
-    mhash_deinit(td, hash);
+    void hash_buffer(const unsigned char *message, size_t message_len, unsigned char *digest, unsigned int digest_len) {
 
-    printf("%s: ", mhash_get_hash_name(hash_type));
-    for (i = 0; i < mhash_get_block_size(hash_type); i++) {
-        printf("%.2x", hash[i]);
+        if ((unsigned int)EVP_MD_size(EVP_sha1()) > digest_len) {
+            handleErrors();
+        }
+
+        if (mdctx == NULL) {
+            if ((mdctx = EVP_MD_CTX_new()) == NULL) {
+                handleErrors();
+            }
+        }
+
+        if (1 != EVP_DigestInit_ex(mdctx, EVP_sha1(), NULL)) {
+            handleErrors();
+        }
+
+        if (1 != EVP_DigestUpdate(mdctx, message, message_len)) {
+            handleErrors();
+        }
+
+        unsigned int tmp_len;
+        if (1 != EVP_DigestFinal_ex(mdctx, digest, &tmp_len)) {
+            handleErrors();
+        }
+
     }
-    printf("\n");
+
+    void handleErrors() {
+        fprintf(stderr, "error: EVP hash failure\n");
+    }
+};
+
+
+void sha1_hash(const void *buffer,
+               unsigned int len) {
+
+    class hasher h;
+    uint8_t output_buffer[h.output_size];
+
+    h.hash_buffer((uint8_t *)buffer, len, output_buffer, sizeof(output_buffer));
+
+    //printf("SHA1: ");
+    for (size_t i = 0; i < sizeof(output_buffer); i++) {
+        fprintf(stderr, "%.2x", output_buffer[i]);
+    }
+    fputc('\n', stderr);
 
 }
 
-#endif
 
 // file reading
 
@@ -599,7 +634,7 @@ int main(int argc, char *argv[]) {
         // fprintf_raw_as_hex(stderr, cert_buf, cert_len);
         // fprintf(stderr, "\n");
 
-        //  sha256_hash(cert_buf, cert_len);
+        //sha1_hash(cert_buf, cert_len);
 
         if (prefix || prefix_as_hex) {
             // parse certificate prefix, then print as JSON
