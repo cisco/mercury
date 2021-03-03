@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "json_object.h"
+#include "libmerc/json_object.h"
 
 size_t hex_to_raw(const void *output,
                   size_t output_buf_len,

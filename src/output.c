@@ -7,7 +7,7 @@
 #include <string.h>
 #include "output.h"
 #include "pcap_file_io.h"  // for write_pcap_file_header()
-#include "utils.h"
+#include "libmerc/utils.h"
 
 
 #define output_file_needs_rotation(ojf) (--((ojf)->record_countdown) == 0)
@@ -222,7 +222,7 @@ void debug_print_tour_tree(struct tourn_tree *t_tree, const struct thread_queues
 }
 
 enum status output_file_rotate(struct output_file *ojf) {
-    char outfile[MAX_FILENAME];
+    char outfile[FILENAME_MAX];
 
     if (ojf->type == file_type_stdout) {
         ojf->file = stdout;
@@ -258,7 +258,7 @@ enum status output_file_rotate(struct output_file *ojf) {
         }
     } else {
         ojf->max_records = UINT64_MAX;
-        strncpy(outfile, ojf->outfile_name, MAX_FILENAME - 1);
+        strncpy(outfile, ojf->outfile_name, FILENAME_MAX - 1);
     }
 
     ojf->file = fopen(outfile, ojf->mode);

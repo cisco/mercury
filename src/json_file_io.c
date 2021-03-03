@@ -11,10 +11,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include "json_file_io.h"
-#include "json_object.h"
-#include "extractor.h"
-#include "packet.h"
-#include "utils.h"
+#include "libmerc/utils.h"  // for copy_string_into_buffer()
 
 #define alignment(p) (p%16 ? (p%8 ? (p%4 ? (p%2 ? 1 : 2) : 4) : 8) : 16)
 
@@ -23,7 +20,7 @@
 #define FP_BUF_LEN 2048
 
 enum status json_file_rotate(struct json_file *jf) {
-    char outfile[MAX_FILENAME];
+    char outfile[FILENAME_MAX];
 
     if (jf->file) {
         // printf("rotating output file\n");
@@ -72,7 +69,7 @@ enum status json_file_init(struct json_file *jf,
                            const char *mode,
                            uint64_t max_records) {
 
-    if (copy_string_into_buffer(jf->outfile_name, sizeof(jf->outfile_name), outfile_name, MAX_FILENAME) != 0) {
+    if (copy_string_into_buffer(jf->outfile_name, sizeof(jf->outfile_name), outfile_name, FILENAME_MAX) != 0) {
         return status_err;
     }
     jf->mode = mode;

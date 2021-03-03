@@ -20,6 +20,7 @@ datarootdir = @datarootdir@/mercury
 
 RESOURCE_FILES += fingerprint_db.json.gz
 RESOURCE_FILES += pyasn.db
+RESOURCE_FILES += fp_prevalence_tls.txt.gz
 # RESOURCE_FILES  = app_families.txt
 # RESOURCE_FILES += implementation_date_cs.json.gz
 # RESOURCE_FILES += asn_info.db.gz
@@ -39,12 +40,12 @@ install-nonroot:
 
 .PHONY: uninstall
 uninstall:
-	rm -rf $(localstatedir)
-	@echo $(COLOR_GREEN) "mercury capture data is still in place; to remove, use rm -rf $(datarootdir)" $(COLOR_OFF)
-#	rm -rf $(datarootdir)    # some users will want to retain data after 'uninstall'
+	rm -rf $(datarootdir)
+	chown root $(localstatedir)
+	@echo $(COLOR_GREEN) "mercury capture data is still in place at $(localstatedir)" $(COLOR_OFF)
 
 .PHONY: distclean
 distclean:
-	rm -rf Makefile
+	rm -f Makefile
 
 # EOF

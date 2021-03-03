@@ -1,0 +1,228 @@
+# makefile for mercury fast fingerprint / packet metadata capture program
+#
+
+LIBMERC_SONUMBER = 0
+LIBMERC_SONAME = libmerc.so.$(LIBMERC_SONUMBER)
+
+SHELL = /bin/sh
+
+srcdir = .
+
+INSTALL = /usr/bin/install -c
+INSTALLDATA = /usr/bin/install -c -m 644
+
+prefix = @prefix@
+exec_prefix=@exec_prefix@
+bindir = @bindir@
+localstatedir = @localstatedir@/mercury
+datarootdir = @datarootdir@/mercury
+
+.SUFFIXES:
+.SUFFIXES: .c .o
+
+# STRIP determines whether or not strip is run on shared object files
+STRIP = strip
+
+# set parameters from configure (autoconf)
+#
+python      = @PY@
+have_py3    = @PYTHON3@
+have_pip3   = @PIP3@
+have_tpkt3  = @HAVE_TPACKET_V3@
+CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
+
+CXX      = @CXX@
+CFLAGS  = --std=c++17
+CFLAGS += -O3
+CFLAGS += -fPIC
+# CFLAGS += -march=x86-64 -mtune=generic
+CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
+CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
+CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
+
+# extra flags
+CFLAGS += -fno-rtti
+CFLAGS += -Wformat
+CLFAGS += -Wformat-security
+CFLAGS += -Wno-deprecated-declarations
+CFLAGS += -Wno-long-long
+CFLAGS += -Wmissing-noreturn
+CFLAGS += -Wunreachable-code
+CFLAGS += -fvisibility=hidden
+CFLAGS += -DNDEBUG
+# CFLAGS += -g
+# CFLAGS += -ggdb
+CFLAGS += -fno-builtin-malloc
+CFLAGS += -fno-builtin-calloc
+CFLAGS += -fno-builtin-realloc
+CFLAGS += -fno-builtin-free
+
+CFLAGS += $(OPTFLAGS)
+
+# libmerc.so performs selective packet parsing and fingerprint extraction
+# LIBMERC and LIBMERC_H hold the core source and header files,
+# respectively, for that library
+#
+LIBMERC     =  analysis.cc
+LIBMERC     += addr.cc
+LIBMERC     += dns.cc
+LIBMERC     += datum.cc
+LIBMERC     += extractor.cc
+LIBMERC     += http.cc
+LIBMERC     += libmerc.cc
+LIBMERC     += match.cc
+LIBMERC     += packet.cc
+LIBMERC     += pkt_proc.cc
+LIBMERC     += ssh.cc
+LIBMERC     += tls.cc
+LIBMERC     += udp.cc
+LIBMERC     += utils.cc
+LIBMERC     += wireguard.cc
+LIBMERC     += $(PYANALYSIS)
+
+LIBMERC_H   =  addr.h
+LIBMERC_H   += analysis.h
+LIBMERC_H   += buffer_stream.h
+LIBMERC_H   += dhcp.h
+LIBMERC_H   += dns.h
+LIBMERC_H   += eth.h
+LIBMERC_H   += extractor.h
+LIBMERC_H   += http.h
+LIBMERC_H   += json_object.h
+LIBMERC_H   += libmerc.h
+LIBMERC_H   += match.h
+LIBMERC_H   += proto_identify.h
+LIBMERC_H   += packet.h
+LIBMERC_H   += datum.h
+LIBMERC_H   += gre.h
+LIBMERC_H   += pkt_proc.h
+LIBMERC_H   += ssh.h
+LIBMERC_H   += tcp.h
+LIBMERC_H   += tcpip.h
+LIBMERC_H   += tls.h
+LIBMERC_H   += udp.h
+LIBMERC_H   += util_obj.h
+LIBMERC_H   += utils.h
+LIBMERC_H   += version.h
+LIBMERC_H   += wireguard.h
+LIBMERC_H   += quic.h
+
+ifeq ($(have_py3),yes)
+# PYANALYSIS = python_interface.c
+# CDEFS     += -Wl,--no-as-needed -ldl -lutil $(shell pkg-config --libs --cflags python3)
+# CYTARGETS  = python-inference/tls_fingerprint_min.cpp python-inference/tls_fingerprint_min.h python-inference/tls_fingerprint_min_api.h
+# CYPREREQ   = python-inference/tls_fingerprint_min.pyx
+else
+PYANALYSIS =
+CYTARGETS  =
+CYPREREQ   =
+endif
+
+VERSION=$(shell cat ../../VERSION)
+
+# rule to build library
+#
+LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
+libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
+	ar -x lctrie/liblctrie.a
+#	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+	$(STRIP) libmerc.so
+	ldconfig -n .
+
+# debug target
+#
+# debug-libmerc.so: CFLAGS += -DDEBUG # this option triggers voluminous detailed output
+debug-libmerc.so: CFLAGS += -g
+debug-libmerc.so: CFLAGS += -ggdb
+debug-libmerc.so: CFLAGS += -O0
+debug-libmerc.so: CFLAGS += -UNDEBUG
+debug-libmerc.so: CFLAGS += -fsanitize=address
+debug-libmerc.so: CFLAGS += -fno-omit-frame-pointer
+debug-libmerc.so: STRIP = @echo "not running strip on"
+debug-libmerc.so: libmerc.so
+
+# unstripped (but optimized) target
+#
+unstripped-libmerc.so: STRIP = @echo "not running strip on"
+unstripped-libmerc.so: libmerc.so
+
+# rule to build static library
+#
+libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
+	ar -x lctrie/liblctrie.a
+	ar rcs libmerc.a $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+
+# lctrie ip address subnet matching library (in lctrie subdirectory)
+#
+lctrie/liblctrie.a:
+	cd lctrie && $(MAKE) liblctrie.a
+
+# rules for automatically determining dependancies via the compiler's
+# -MM option, which is essential for correctly handling changes to
+# header file
+#
+.depend:
+	$(CXX) $(CFLAGS) -MM $(LIBMERC) $(LIBMERC_H) > ./.depend
+
+ifeq (,$(findstring $(MAKECMDGOALS),clean))
+  include .depend
+endif
+
+
+# implicit rule for building object files from .cc files
+#
+%.o: %.cc
+	$(CXX) $(CFLAGS) -c $<
+
+
+# rule to build the cython/python analysis engine in python-inference
+#
+$(CYTARGETS): $(CYPREREQ)
+ifeq ($(have_py3),yes)
+	python3 python-inference/setup.py build_ext --inplace
+endif
+
+.PHONY: clean
+clean:
+	rm -rf libmerc.so libmerc.so.* libmerc.a *.o .depend
+	cd lctrie && $(MAKE) clean
+	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+
+#  To build mercury for profiling using gprof, run
+#
+#     make clean
+#     make OPTFLAGS="-pg"
+#
+#  ... to first remove all of the normally-built components, and then
+#  build all of them with gprof instrumentation.  See 'man gprof' for
+#  further informataion.
+
+.PHONY: cppcheck
+cppcheck: $(MERC) $(LIBMERC)
+	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
+
+.PHONY: test
+test: mercury
+	cd ../test && $(MAKE)
+
+major=$(shell cat ../../VERSION | grep -o "^[0-9]*")
+minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
+patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
+version=$(major).$(minor).$(patch)
+MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+.PHONY: increment-patchlevel increment-minor-version increment-major-version
+increment-patchlevel:
+	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../../VERSION
+	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
+
+increment-minor-version:
+	echo $(major).$(shell expr $(minor) + 1).0 > ../../VERSION
+	git tag -a $(major).$(shell expr $(minor) + 1).0 -m "\"minor version increment\""
+
+increment-major-version:
+	echo $(shell expr $(major) + 1).0.0 > ../../VERSION
+	git tag -a $(shell expr $(major) + 1).0.0 -m "\"major version increment\""
+
+# EOF

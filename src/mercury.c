@@ -19,20 +19,10 @@
 #include "pcap_file_io.h"
 #include "af_packet_v3.h"
 #include "pcap_reader.h"
-#include "analysis.h"
 #include "signal_handling.h"
 #include "config.h"
 #include "output.h"
-#include "license.h"
-#include "version.h"
 #include "rnd_pkt_drop.h"
-
-#ifndef  MERCURY_SEMANTIC_VERSION
-#warning MERCURY_SEMANTIC_VERSION is not defined
-#define  MERCURY_SEMANTIC_VERSION 0,0,0
-#endif
-
-struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
 
 char mercury_help[] =
     "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
@@ -97,6 +87,7 @@ char mercury_extended_help[] =
     "      dns           DNS messages\n"
     "      tls           DTLS clientHello, serverHello, and certificates\n"
     "      http          HTTP request and response\n"
+    "      quic          QUIC handshake\n"
     "      ssh           SSH handshake and KEX\n"
     "      tcp           TCP headers\n"
     "      tcp.message   TCP initial message\n"
@@ -173,7 +164,7 @@ enum extended_help {
     extended_help_on  = 1
 };
 
-void usage(const char *progname, const char *err_string, enum extended_help extended_help) {
+[[noreturn]] void usage(const char *progname, const char *err_string, enum extended_help extended_help) {
     if (err_string) {
         printf("error: %s\n", err_string);
     }
@@ -194,10 +185,9 @@ bool option_is_valid(const char *opt) {
     return true;
 }
 
-extern struct global_variables global_vars;  /* defined in config.c */
-
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
+    struct libmerc_config libmerc_cfg;
 
     while(1) {
         enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9 };
@@ -234,59 +224,59 @@ int main(int argc, char *argv[]) {
         switch(c) {
         case config:
             if (option_is_valid(optarg)) {
-                mercury_config_read_from_file(&cfg, optarg);
+                mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
             break;
         case resources:
             if (option_is_valid(optarg)) {
-                cfg.resources = optarg;
+                libmerc_cfg.resources = optarg;
             } else {
                 usage(argv[0], "option resources requires directory argument", extended_help_off);
             }
             break;
         case version:
-            mercury_version.print(stdout);
+            mercury_print_version_string(stdout);
             return EXIT_SUCCESS;
             break;
         case license:
-            printf("%s\n", license_string);
+            printf("%s\n", mercury_get_license_string());
             return EXIT_SUCCESS;
             break;
         case dns_json:
             if (optarg) {
                 usage(argv[0], "option dns-json does not use an argument", extended_help_off);
             } else {
-                global_vars.dns_json_output = true;
+                libmerc_cfg.dns_json_output = true;
             }
             break;
         case certs_json:
             if (optarg) {
                 usage(argv[0], "option certs-json does not use an argument", extended_help_off);
             } else {
-                global_vars.certs_json_output = true;
+                libmerc_cfg.certs_json_output = true;
             }
             break;
         case metadata:
             if (optarg) {
                 usage(argv[0], "option metadata does not use an argument", extended_help_off);
             } else {
-                global_vars.metadata_output = true;
+                libmerc_cfg.metadata_output = true;
             }
             break;
         case tcp_init_data:
             if (optarg) {
                 usage(argv[0], "option nonselected-tcp-data does not use an argument", extended_help_off);
             } else {
-                global_vars.output_tcp_initial_data = true;
+                libmerc_cfg.output_tcp_initial_data = true;
             }
             break;
         case udp_init_data:
             if (optarg) {
                 usage(argv[0], "option nonselected-udp-data does not use an argument", extended_help_off);
             } else {
-                global_vars.output_udp_initial_data = true;
+                libmerc_cfg.output_udp_initial_data = true;
             }
             break;
         case 'r':
@@ -328,7 +318,7 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 usage(argv[0], "option a or analysis does not use an argument", extended_help_off);
             } else {
-                cfg.analysis = true;
+                libmerc_cfg.do_analysis = true;
             }
             break;
         case 'o':
@@ -347,16 +337,17 @@ int main(int argc, char *argv[]) {
             break;
         case 's':
             if (optarg) {
-                if (cfg.packet_filter_cfg != NULL) {
+                if (libmerc_cfg.packet_filter_cfg != NULL) {
                     usage(argv[0], "option s or select used more than once", extended_help_off);
                 }
                 if (option_is_valid(optarg)) {
-                    cfg.packet_filter_cfg = optarg;
+                    libmerc_cfg.packet_filter_cfg = optarg;
                 } else {
                     usage(argv[0], "option s or select has the form -s\"filter\" or --select=\"filter\"", extended_help_off);
                 }
+            } else {
+                libmerc_cfg.packet_filter_cfg = (char *)"all";
             }
-            cfg.filter = 1;
             break;
         case 'h':
             if (optarg) {
@@ -477,12 +468,9 @@ int main(int argc, char *argv[]) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
     }
 
-    if (cfg.analysis) {
-        if (analysis_init(cfg.verbosity, cfg.resources) == -1) {
-            return EXIT_FAILURE;  /* analysis engine could not be initialized */
-        };
-        global_vars.do_analysis = true;
-    }
+    if (mercury_init(&libmerc_cfg, cfg.verbosity) != 0) {
+        return EXIT_FAILURE;          // libmerc could not be initialized
+    };
 
     /*
      * loop_count < 1  ==> not valid
@@ -490,9 +478,9 @@ int main(int argc, char *argv[]) {
      * loop_count == 1 ==> default condition
      */
     if (cfg.loop_count < 1) {
-        usage(argv[0], "Invalid loop count, it should be >= 1", extended_help_off);
+        usage(argv[0], "error: invalid loop count (should be >= 1)", extended_help_off);
     } else if (cfg.loop_count > 1) {
-        printf("Loop count: %d\n", cfg.loop_count);
+        // fprintf(stderr, "notice: looping over input with loop count %d\n", cfg.loop_count);
     }
 
     /* The option --adaptive works only with -w PCAP file option and -c capture interface */
@@ -545,9 +533,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (cfg.analysis) {
-        analysis_finalize();
-    }
+    mercury_finalize();
 
     if (cfg.verbosity) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");

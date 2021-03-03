@@ -99,6 +99,7 @@ else
 	systemctl stop mercury
 	systemctl disable mercury
 	rm /etc/systemd/system/mercury.service
+	userdel mercury
 endif
 
 

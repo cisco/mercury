@@ -1,6 +1,12 @@
 # makefile for mercury fast fingerprint / packet metadata capture program
 #
 
+# definitions for colorized output
+COLOR_RED    = "\033[0;31m"
+COLOR_GREEN  = "\033[0;32m"
+COLOR_YELLOW = "\033[0;33m"
+COLOR_OFF    = "\033[0m"
+
 SHELL = /bin/sh
 
 srcdir = .
@@ -11,11 +17,14 @@ INSTALLDATA = /usr/bin/install -c -m 644
 prefix = @prefix@
 exec_prefix=@exec_prefix@
 bindir = @bindir@
+libdir = @libdir@
 localstatedir = @localstatedir@/mercury
 datarootdir = @datarootdir@/mercury
 
 .SUFFIXES:
 .SUFFIXES: .c .o
+
+LIBMERC = libmerc/libmerc.so
 
 # set parameters from configure (autoconf)
 #
@@ -25,8 +34,9 @@ have_pip3   = @PIP3@
 have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
-CXX      = @CXX@
-CFLAGS  = --std=c++11
+CXX     = @CXX@
+CC      = @CC@
+CFLAGS  = --std=c++17
 CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
@@ -34,9 +44,26 @@ CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spur
 CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 CFLAGS += $(OPTFLAGS)
 
+# extra flags
+CFLAGS += -fno-rtti
+CFLAGS += -Wformat
+CLFAGS += -Wformat-security
+CFLAGS += -Wno-deprecated-declarations
+CFLAGS += -Wno-long-long
+CFLAGS += -Wmissing-noreturn
+CFLAGS += -Wunreachable-code
+CFLAGS += -fvisibility=hidden
+CFLAGS += -DNDEBUG
+# CFLAGS += -g
+# CFLAGS += -ggdb
+CFLAGS += -fno-builtin-malloc
+CFLAGS += -fno-builtin-calloc
+CFLAGS += -fno-builtin-realloc
+CFLAGS += -fno-builtin-free
+
 # MERC and MERC_H hold the core source and header files, respectively
 #
-MERC   =  mercury.c
+# MERC   =  mercury.c
 ifeq ($(have_tpkt3),yes)
 MERC   += af_packet_v3.c
 else
@@ -44,69 +71,24 @@ MERC   += capture.c
 endif
 MERC   += config.c
 MERC   += json_file_io.c
-MERC   += match.c
 MERC   += output.c
+MERC   += pkt_processing.cc
 MERC   += pcap_file_io.c
 MERC   += pcap_reader.c
 MERC   += rnd_pkt_drop.c
 MERC   += signal_handling.c
 
 MERC_H =  mercury.h
-MERC_H += license.h
-MERC_H += version.h
 MERC_H += af_packet_v3.h
 MERC_H += config.h
-MERC_H += dhcp.h
 MERC_H += json_file_io.h
-MERC_H += json_object.h
 MERC_H += llq.h
-MERC_H += match.h
 MERC_H += output.h
+MERC_H += pkt_processing.h
 MERC_H += pcap_file_io.h
 MERC_H += pcap_reader.h
 MERC_H += rnd_pkt_drop.h
 MERC_H += signal_handling.h
-
-# libmerc.a performs selective packet parsing and fingerprint extraction
-# LIBMERC and LIBMERC_H hold the core source and header files,
-# respectively, for that library
-#
-LIBMERC     =  analysis.cc
-LIBMERC     += addr.cc
-LIBMERC     += dns.cc
-LIBMERC     += datum.cc
-LIBMERC     += extractor.cc
-LIBMERC     += http.cc
-LIBMERC     += packet.cc
-LIBMERC     += pkt_proc.cc
-LIBMERC     += ssh.cc
-LIBMERC     += tls.cc
-LIBMERC     += udp.cc
-LIBMERC     += utils.cc
-LIBMERC     += wireguard.cc
-LIBMERC     += $(PYANALYSIS)
-
-LIBMERC_H   =  addr.h
-LIBMERC_H   += analysis.h
-LIBMERC_H   += buffer_stream.h
-LIBMERC_H   += dns.h
-LIBMERC_H   += eth.h
-LIBMERC_H   += extractor.h
-LIBMERC_H   += http.h
-LIBMERC_H   += proto_identify.h
-LIBMERC_H   += packet.h
-LIBMERC_H   += datum.h
-LIBMERC_H   += gre.h
-LIBMERC_H   += pkt_proc.h
-LIBMERC_H   += ssh.h
-LIBMERC_H   += tcp.h
-LIBMERC_H   += tcpip.h
-LIBMERC_H   += tls.h
-LIBMERC_H   += udp.h
-LIBMERC_H   += util_obj.h
-LIBMERC_H   += utils.h
-LIBMERC_H   += wireguard.h
-LIBMERC_H   += quic.h
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
@@ -122,12 +104,41 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-mercury: $(MERC) $(MERC_H) libmerc.a Makefile lctrie/liblctrie.a
-	$(CXX) $(CFLAGS) -o mercury $(MERC) -lpthread -L. -lmerc -L./lctrie -llctrie -lz -lcrypto
-	@echo "build complete; now run 'sudo setcap" $(CAP) "mercury'"
+all: libmerc mercury libmerc_test cert_analyze # tls_scanner
+
+mercury: mercury.c $(MERC) $(MERC_H) Makefile.in
+	$(CXX) $(CFLAGS) -o mercury mercury.c $(MERC) -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
+	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
+	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
+
+debug-mercury: CFLAGS += -DDEBUG -g -O0
+debug-mercury: CFLAGS += -fsanitize=address -static-libasan
+debug-mercury: debug-libmerc mercury
 
 setcap: mercury
 	sudo setcap $(CAP) $<
+
+.PHONY: libmerc
+libmerc:
+	$(MAKE) --directory=libmerc
+	$(MAKE) --directory=libmerc libmerc.a
+
+.PHONY: debug-libmerc
+debug-libmerc:
+	$(MAKE) --directory=libmerc debug-libmerc.so
+
+.PHONY: unstripped-libmerc
+unstripped-libmerc:
+	$(MAKE) --directory=libmerc unstripped-libmerc.so
+
+tls_scanner: tls_scanner.cc libmerc
+	$(CXX) $(CFLAGS) tls_scanner.cc -o tls_scanner libmerc/libmerc.a -lssl -lcrypto -lz
+
+cert_analyze: cert_analyze.cc libmerc
+	$(CXX) $(CFLAGS) cert_analyze.cc -o cert_analyze libmerc/libmerc.a -lcrypto
+
+os_identifier: os_identifier.cc os-identification/os_identifier.h libmerc/datum.cc
+	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc -o os_identifier libmerc/datum.cc -lz
 
 # implicit rule for building object files
 #
@@ -141,17 +152,6 @@ setcap: mercury
 #	$(CXX) $(CFLAGS) $(shell pkg-config --libs --cflags python3) -c $<
 	$(CXX) $(CFLAGS) -c $<
 
-# rule to build library
-#
-LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
-libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) $(LIBMERC_H) Makefile 
-	ar rcs libmerc.a $(LIBMERC_OBJ) 
-
-# lctrie ip address subnet matching library (in lctrie subdirectory)
-#
-lctrie/liblctrie.a:
-	cd lctrie && $(MAKE) liblctrie.a
-
 # rule to build the cython/python analysis engine in python-inference
 #
 $(CYTARGETS): $(CYPREREQ)
@@ -159,31 +159,39 @@ ifeq ($(have_py3),yes)
 	python3 python-inference/setup.py build_ext --inplace
 endif
 
+#MERC_OBJ = $(MERC:%.o=%.c)
+
+libmerc_test: libmerc_test.c libmerc Makefile.in
+	$(CC) -Wall -std=c17 -o libmerc_test libmerc_test.c -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
+	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
+
 
 # special targets for mercury
 #
 .PHONY: debug
-debug: $(MERC) $(MERC_H) libmerc.a Makefile
-	$(CXX) $(CFLAGS) -g -Wall -o mercury $(MERC) -lpthread -L. -lmerc
+debug: mercury.c $(MERC) $(MERC_H) $(LIBMERC) Makefile
+	$(CXX) $(CFLAGS) -g -Wall -o mercury mercury.c $(MERC) -lpthread -lmerc
 	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
-.PHONY: clean 
+.PHONY: clean
 clean:
-	rm -rf mercury gmon.out libmerc.a *.o tls_fingerprint_min.*.so
-	cd lctrie && $(MAKE) clean
+	rm -rf mercury libmerc_test tls_scanner cert_analyze os_identifier gmon.out *.o
+	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
 .PHONY: distclean
 distclean: clean
 	rm -rf Makefile autom4te.cache config.log config.status
 
 .PHONY: install
-install: mercury
+install: libmerc mercury
 	mkdir -p $(bindir)
 	$(INSTALL) mercury $(bindir)
+	$(INSTALL) $(LIBMERC) $(libdir)
+	ldconfig
 #	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
-	adduser --system --no-create-home --group mercury
+	-useradd --system --no-create-home --user-group mercury
 	mkdir -p $(localstatedir)
 	$(INSTALL) -d $(localstatedir) -o mercury -g mercury
 
@@ -197,7 +205,9 @@ install-nonroot: mercury
 .PHONY: uninstall
 uninstall:
 	rm -f $(bindir)/mercury
-	rm -rf $(localstatedir)
+	rm -f $(libdir)/$(LIBMERC)
+	ldconfig
+	@echo "local captures not removed; to do that, run 'rm -rf $(localstatedir)'"
 
 #  To build mercury for profiling using gprof, run
 #
@@ -209,8 +219,9 @@ uninstall:
 #  further informataion.
 
 .PHONY: cppcheck
-cppcheck: $(MERC) $(LIBMERC)
-	cppcheck --language=c++ --std=c++11 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
+cppcheck: $(MERC)
+	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^
+	cd libmerc && $(MAKE) cppcheck
 
 .PHONY: test
 test: mercury
