@@ -928,10 +928,10 @@ class option {
     argument arg;
     std::string documentation;
     std::string value;
-    bool is_set;
+    bool value_is_set;
 
 public:
-    option(argument opt_arg, std::string opt_name, std::string opt_doc) : name{opt_name}, arg{opt_arg}, documentation{opt_doc}, value{}, is_set{false} { }
+    option(argument opt_arg, const std::string &opt_name, std::string opt_doc) : name{opt_name}, arg{opt_arg}, documentation{opt_doc}, value{}, value_is_set{false} { }
 
     bool matches(const char *option_name) const {
         return name.compare(option_name) == 0;
@@ -944,32 +944,34 @@ public:
     const char *get_doc() const { return documentation.c_str(); }
 
     std::pair<bool, std::string> get_value() const {
-        return {is_set, value};
+        return {value_is_set, value};
     }
 
     void set_value(const char *v) {
         value = v;
         //fprintf(stderr, "setting value %s\n", v);
-        is_set = true;
+        value_is_set = true;
     }
 
     void set_value() {
         //fprintf(stderr, "setting bool\n");
-        is_set = true;
+        value_is_set = true;
     }
 
-    bool set() { return is_set; }
+    bool is_set() { return value_is_set; }
 };
 
-class options {
+class option_processor {
     std::vector<option> option_vector;
 
 public:
-    options(const std::vector<option> &opts) : option_vector{opts} { }
+    option_processor(const std::vector<option> &opts) : option_vector{opts} {
+        // TBD: verify that there are no duplicated option names
+    }
 
     bool set_positional_parameter(const char *arg) {
         for (option &o : option_vector) {
-            if (o.arg_type(argument::positional) && !o.set()) {
+            if (o.arg_type(argument::positional) && !o.is_set()) {
                 o.set_value(arg);
                 return true;
             }
@@ -1074,7 +1076,7 @@ public:
     bool is_set(const char *name) {
         for (option &o : option_vector) {
             if (o.matches(name)) {
-                return o.set();
+                return o.is_set();
             }
         }
         return false;  // error: option name not found
@@ -1114,15 +1116,17 @@ int main(int argc, char *argv[]) {
         "output.  To check for domain fronting, set the inner_hostname to be\n"
         "distinct from hostname.\n\n"
         "OPTIONS\n";
-    
-    class options opt({ { argument::positional, "hostname",           "is the name of the HTTPS host (e.g. example.com)" },
-                        { argument::positional, "inner_hostname",     "determines the name of the HTTP host field" },
-                        { argument::required,   "--user-agent",       "sets the user agent string" },
-                        { argument::none,       "--no-server-name",   "omits the TLS server name" },
-                        { argument::none,       "--list-user-agents", "print out all user agent strings" },
-                        { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
-                        { argument::none,       "--body",             "prints out HTTP response body" },
-                        { argument::none,       "--help",             "prints out help message" }});
+
+    class option_processor opt({
+        { argument::positional, "hostname",           "is the name of the HTTPS host (e.g. example.com)" },
+        { argument::positional, "inner_hostname",     "determines the name of the HTTP host field" },
+        { argument::required,   "--user-agent",       "sets the user agent string" },
+        { argument::none,       "--no-server-name",   "omits the TLS server name" },
+        { argument::none,       "--list-user-agents", "print out all user agent strings" },
+        { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
+        { argument::none,       "--body",             "prints out HTTP response body" },
+        { argument::none,       "--help",             "prints out help message" }
+    });
 
     if (!opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
