@@ -28,6 +28,7 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
 else
 	cd src && $(MAKE) install
+	$(INSTALLDATA) mercury /usr/share/bash-completion/completions/ # note: completion script has same name as binary
 endif
 
 .PHONY: install-resources
