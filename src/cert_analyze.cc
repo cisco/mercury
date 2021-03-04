@@ -28,7 +28,8 @@ public:
     hasher() : mdctx{nullptr} { }
 
     ~hasher() {
-        EVP_MD_CTX_free(mdctx);
+        // EVP_MD_CTX_free() is preferred in v1.1.1, but unavailble in earlier versions
+        EVP_MD_CTX_destroy(mdctx);
     }
 
     constexpr static size_t output_size = 20;
