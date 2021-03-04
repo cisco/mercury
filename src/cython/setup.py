@@ -13,13 +13,13 @@ from distutils.extension import Extension
 # "../parser.c" is needed to include parser functions
 # "-std=c++11" is needed due to c++11 dependency
 
-sources = ['mercury.pyx','../dns.cc','../utils.cc','../datum.c']
+sources = ['mercury.pyx','../libmerc/dns.cc','../libmerc/utils.cc','../libmerc/datum.cc']
 
 setup(ext_modules=[Extension("mercury",
                              sources=sources,
                              language="c++",
-                             extra_compile_args=["-std=c++11","-Wno-narrowing"],
-                             extra_link_args=["-std=c++11",],
+                             extra_compile_args=["-std=c++17","-Wno-narrowing"],
+                             extra_link_args=["-std=c++17",],
                              runtime_library_dirs=['../'])
                   ],
       cmdclass={'build_ext':build_ext})

@@ -2011,6 +2011,13 @@ struct x509_cert_prefix {
         print_as_json_hex(buf);
         buf.write_line(f);
     }
+    std::string get_hex_string() const {
+        char buffer[8192*8];
+        struct buffer_stream buf(buffer, sizeof(buffer));
+        buf.raw_as_hex(prefix.data, prefix.length());
+        std::string tmp_str(buffer, buf.length()); // TBD: move?
+        return tmp_str;
+    }
 
 };
 
