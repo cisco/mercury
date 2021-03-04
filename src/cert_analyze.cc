@@ -40,7 +40,8 @@ public:
         }
 
         if (mdctx == NULL) {
-            if ((mdctx = EVP_MD_CTX_new()) == NULL) {
+            // EVP_MD_CTX_new() is preferred in v1.1.1, but unavailble in earlier versions
+            if ((mdctx = EVP_MD_CTX_create()) == NULL) {
                 handleErrors();
             }
         }
