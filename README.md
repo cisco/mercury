@@ -9,6 +9,16 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normalizing metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.
 
+
+## Version 2.3.6
+* Organized all packet processing functions into [libmerc](src/libmerc), a separate library with makefile targets to support both shared objects and a static library.  An interface is defined in [libmerc.h](src/libmerc.h) (with [doxygen-based documentation](doc/mercury.pdf)), which provides a programmatic interface to TLS fingerprinting with destination context.
+* Added the initial version of [tls_scanner](src/tls_scanner.cc), a tool for scanning HTTPS servers to obtain certificates, HTTP response headers, and redirect and src= links, and to test for domain fronting.
+* Added [cert_analyze](src/cert_analyze.cc), a tool for analyzing X509/PKIX certificates.
+* Added command completion for mercury, cert_analyze, and tls_scanner.
+
+## Version 2.3.5
+* Optimized the [Naive Bayes classifier for process and malware identification](doc/wnb.md).
+
 ## Version 2.3.4
 * *Multiple* PCAP files can be piped in to the standard input, like `cat *.pcap | ./mercury`, which can simplify workflow and improve performance, especially when working with HDFS and NFS, by minimizing or eliminating the need to write intermediary files to disk.
 * Added defensive coding (no changes in functionality).
