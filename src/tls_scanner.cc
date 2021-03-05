@@ -959,6 +959,20 @@ public:
     }
 
     bool is_set() { return value_is_set; }
+
+    const char *get_type_string() {
+        if (arg_type(argument::required)) {
+            return "<arg>";
+        }
+        if (arg_type(argument::optional)) {
+            return "[<arg>]";
+        }
+        if (arg_type(argument::none) || arg_type(argument::positional)) {
+            return "";
+        }
+        return "";
+    }
+
 };
 
 class option_processor {
@@ -1042,8 +1056,11 @@ public:
 
     void usage(FILE *f, const char *progname, const char *summary) {
         fprintf(f, "%s %s", progname, summary);
+        const char *whitespace = "                  ";
         for (option &o : option_vector) {
-            fprintf(f, "   %s: %s\n", o.get_name(), o.get_doc());
+            int white_len = strlen(whitespace) - strlen(o.get_name()) - strlen(o.get_type_string());
+            white_len = white_len > 0 ? white_len : 0;
+            fprintf(f, "   %s %s %.*s%s\n", o.get_name(), o.get_type_string(), white_len, whitespace, o.get_doc());
         }
         fputc('\n', f);
     }
@@ -1108,8 +1125,7 @@ int main(int argc, char *argv[]) {
     const char summary[] =
         "usage:\n"
         "\ttls_scanner <hostname>[/<path>] [OPTIONS]\n"
-        "or\n"
-        "\ttls_scanner <hostname> <inner_hostname>[/<path>] [OPTIONS]\n"
+        "\ttls_scanner <hostname> <inner_hostname>[/<path>] [OPTIONS]\n\n"
         "where <path> is the path used in the HTTP URI (e.g. /en-us/)\n\n"
         "Scans an HTTPS server for its certificate, HTTP response headers, response\n"
         "body, redirect links, and src= links, and reports its findings to standard\n"
@@ -1120,9 +1136,9 @@ int main(int argc, char *argv[]) {
     class option_processor opt({
         { argument::positional, "hostname",           "is the name of the HTTPS host (e.g. example.com)" },
         { argument::positional, "inner_hostname",     "determines the name of the HTTP host field" },
-        { argument::required,   "--user-agent",       "sets the user agent string" },
+        { argument::required,   "--user-agent",       "sets the user agent to the first matching <arg>" },
         { argument::none,       "--no-server-name",   "omits the TLS server name" },
-        { argument::none,       "--list-user-agents", "print out all user agent strings" },
+        { argument::none,       "--list-user-agents", "print out user agent strings, most prevalent first" },
         { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
         { argument::none,       "--body",             "prints out HTTP response body" },
         { argument::none,       "--help",             "prints out help message" }
