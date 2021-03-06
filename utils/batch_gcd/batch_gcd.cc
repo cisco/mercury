@@ -36,6 +36,13 @@ struct list_worker_thread {
 };
 
 
+void usage(FILE *fp, const char *progname) {
+    fprintf(fp, "Usage: %s < moduli_in_hex.txt\n\n", progname);
+    fprintf(fp, "Where the input must be exactly one hex integer per line.\n");
+    fprintf(fp, "No blank lines or other characters permitted.\n");
+}
+
+
 size_t intlog2(size_t num) {
 
     /* returns the log base-2 value of num rounded up to the nearest int */
@@ -646,7 +653,7 @@ int is_hex_line(const char *line) {
 }
 
 
-int main (void) {
+int main (int argc, char *argv[]) {
 
     /* log2 test */
     /*for (size_t n = 0; n < 10; n++) {
@@ -687,16 +694,24 @@ int main (void) {
     /* freenumlist(nlist); */
     /* freenumlist(gcdlist); */
 
+    /* This tool takes no arguments. If there are any (e.g., "-h"),
+       then print a usage message on stderr and exit. */
+    if (argc > 1) {
+        usage(stderr, argv[0]);
+        exit(-1);
+    }
 
-    /* Read lines from stdin where each line is a modulus in hex */
+    /* Get ready to read a list of large integers */
     struct numlist *nlist = makenumlist(0);
     mpz_t mpz_temp;
     mpz_init(mpz_temp);
-    /* Compute maximum number of limbs in GMP */
+
+    /* Account for maximum integer size in GMP */
     assert(sizeof(mpz_temp->_mp_size) == sizeof(int));
-    const size_t GMP_LIMBS_MAX = INT_MAX;
-    /* upper bound of limbs in the product of all input integers */
-    size_t estimated_limbs = 0;
+    const size_t GMP_LIMBS_MAX = INT_MAX;  /* GMP limit */
+    size_t estimated_limbs = 0; /* estimate for product of all inputs */
+
+    /* Read lines from stdin where each line is a modulus in hex */
     char *linestr = NULL;
     size_t linelen = 0;
     ssize_t read;
