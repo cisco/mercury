@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <limits.h>
 #include <ctype.h>
 #include <pthread.h>
 
@@ -683,10 +684,16 @@ int main (void) {
     /* freenumlist(nlist); */
     /* freenumlist(gcdlist); */
 
+
     /* Read lines from stdin where each line is a modulus in hex */
     struct numlist *nlist = makenumlist(0);
     mpz_t mpz_temp;
     mpz_init(mpz_temp);
+    /* Compute maximum number of limbs in GMP */
+    assert(sizeof(mpz_temp->_mp_size) == sizeof(int));
+    const size_t GMP_LIMBS_MAX = INT_MAX;
+    /* upper bound of limbs in the product of all input integers */
+    size_t estimated_limbs = 0;
     char *linestr = NULL;
     size_t linelen = 0;
     ssize_t read;
@@ -700,6 +707,7 @@ int main (void) {
         int ret = gmp_sscanf(linestr, "%Zx\n", mpz_temp);
         if (ret == 1) {
             push_numlist(nlist, mpz_temp);
+            estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
         } else {
             fprintf(stderr, "Aborting due to invalid modulus on line %d: %s\n",
                     linenum, linestr);
@@ -712,6 +720,28 @@ int main (void) {
         exit(1);
     }
     free(linestr);
+
+    /* Abort if the product of all the inputs might exceed GMP's
+       largest possible integer.
+
+       GMP max limbs is INT_MAX = 2^31 - 1. On a 64-bit machine, that
+       means the length of the maximum integer is approximately
+       64*(2^31-1) = 2^37 - 64 bits, or about 16GB.  Therefore, if the
+       estimated size of the product of the inputs is greater than
+       this limit, we abort without attempting batch GCD.
+
+       Reference: https://gmplib.org/gmp6.0
+
+       "...the mpz code is limited to 2^32 bits on 32-bit hosts and
+       2^37 bits on 64-bit hosts."
+    */
+    if (estimated_limbs > GMP_LIMBS_MAX) {
+        fprintf(stderr, "Aborting: product of inputs will exceed GMP max\n");
+        fprintf(stderr, "Estimated limbs needed: %zu\n", estimated_limbs);
+        fprintf(stderr, "Maximum limbs supported by GMP: %zu\n", GMP_LIMBS_MAX);
+        fprintf(stderr, "Where each limb is %zu bytes.\n", sizeof(mp_limb_t));
+        exit(4);
+    }
 
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
