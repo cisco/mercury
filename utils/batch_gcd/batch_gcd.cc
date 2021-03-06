@@ -10,7 +10,10 @@
 
 #include <gmp.h>
 
-#define NTHREADS 4   /* Number of threads to use. Adjust and recompile. */
+#include <thread>
+
+/* Number of threads to use. Adjust and recompile if fixed number is desired. */
+static const int NTHREADS = std::thread::hardware_concurrency();
 
 
 struct numlist {
@@ -473,11 +476,11 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
     struct numlist *cplist = makenumlist(nlist->len);
 
     size_t weak_count = 0; /* A count of the weak moduli */
-    uint64_t *weakidx = calloc(nlist->len, sizeof(uint64_t));
+    uint64_t *weakidx = (uint64_t *)calloc(nlist->len, sizeof(uint64_t));
     assert(weakidx != NULL);
 
     size_t weak_gcd_count = 0; /* A count of the number of weak moduli needing more GCD work */
-    uint64_t *weakidx_gcd = calloc(nlist->len, sizeof(uint64_t));
+    uint64_t *weakidx_gcd = (uint64_t *)calloc(nlist->len, sizeof(uint64_t));
     assert(weakidx_gcd != NULL);
 
     mpz_t q;
@@ -535,9 +538,9 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
     }
 
     /* Now report on work remaining */
-    fprintf(stderr, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
-    fprintf(stderr, "Still need to perform GCD co-factoring on %lu weak moduli.\n", weak_gcd_count);
-    fprintf(stderr, "Work still to do: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
+    fprintf(stdout, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
+    fprintf(stdout, "Still need to perform GCD co-factoring on %lu weak moduli.\n", weak_gcd_count);
+    fprintf(stdout, "Work still to do: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
 
     /* To separate out the remaining co-primes we just do trial GCD on the remaining
      * weak moduli until we find a pair that only share one co-prime.
@@ -580,7 +583,7 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
         }
     }
 
-    fprintf(stderr, "Further found co-factors for %lu weak moduli.\n", weak_gcd_success);
+    fprintf(stdout, "Further found co-factors for %lu weak moduli.\n", weak_gcd_success);
 
     free(weakidx);
     free(weakidx_gcd);
@@ -743,17 +746,20 @@ int main (void) {
         exit(4);
     }
 
+    fprintf(stdout, "Running batch GCD on %zu moduli using %d threads.\n",
+            nlist->len, NTHREADS);
+
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
     struct numlist *cplist = factor_coprimes(nlist, gcdlist);
 
     for (size_t i = 0; i < nlist->len; i++) {
         if (mpz_cmp_ui(gcdlist->num[i], 1) != 0) {
-            fprintf(stderr, "Found vulnerable modulus on line %lu: ", i + 1);
-            gmp_fprintf(stderr, "%Zx", nlist->num[i]);
-            fprintf(stderr, " with smallest co-factor ");
-            gmp_fprintf(stderr, "%Zx", cplist->num[i]);
-            fprintf(stderr, "\n");
+            fprintf(stdout, "Found vulnerable modulus on line %lu: ", i + 1);
+            gmp_fprintf(stdout, "%Zx", nlist->num[i]);
+            fprintf(stdout, " with smallest co-factor ");
+            gmp_fprintf(stdout, "%Zx", cplist->num[i]);
+            fprintf(stdout, "\n");
         }
     }
 
