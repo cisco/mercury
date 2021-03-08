@@ -104,7 +104,7 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: libmerc mercury libmerc_test cert_analyze # tls_scanner
+all: libmerc mercury libmerc_test cert_analyze # tls_scanner batch_gcd
 
 mercury: mercury.c $(MERC) $(MERC_H) Makefile.in
 	$(CXX) $(CFLAGS) -o mercury mercury.c $(MERC) -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
@@ -133,6 +133,10 @@ unstripped-libmerc:
 
 tls_scanner: tls_scanner.cc libmerc
 	$(CXX) $(CFLAGS) tls_scanner.cc -o tls_scanner libmerc/libmerc.a -lssl -lcrypto -lz
+
+batch_gcd: CFLAGS += -march=native -flto
+batch_gcd: batch_gcd.cc
+	$(CXX) $(CFLAGS) batch_gcd.cc -o batch_gcd -Bdynamic -lgmp -lpthread
 
 cert_analyze: cert_analyze.cc libmerc
 	$(CXX) $(CFLAGS) cert_analyze.cc -o cert_analyze libmerc/libmerc.a -lcrypto
