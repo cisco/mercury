@@ -313,12 +313,17 @@ void json_queue_write(struct ll_queue *llq,
 
     if (llq->msgs[llq->widx].used == 0) {
 
+        //char obuf[LLQ_MSG_SIZE];
+        // int olen = LLQ_MSG_SIZE;
+        // int ooff = 0;
+        // int trunc = 0;
+
         llq->msgs[llq->widx].ts.tv_sec = sec;
         llq->msgs[llq->widx].ts.tv_nsec = nsec;
 
+
         struct buffer_stream buf(llq->msgs[llq->widx].buf, LLQ_MSG_SIZE);
         append_packet_json(buf, packet, length, &(llq->msgs[llq->widx].ts));
-
         int r = buf.length();
         if ((buf.trunc == 0) && (r > 0)) {
 
@@ -336,25 +341,23 @@ void json_queue_write(struct ll_queue *llq,
 
             //llq->next_write();
             llq->widx = (llq->widx + 1) % LLQ_DEPTH;
-        } else if ((buf.trunc == 1) && (r > 0)) {
+        } else {
 
             /* We may have a "jumbo" message we need to output. We'll try
              * to rebuild the output again with a jumbo buffer */
 
-            if (llq->jmsgs[llq->jwidx].used == 0) {
-                struct buffer_stream jbuf(llq->jmsgs[llq->jwidx].buf, LLQ_MSG_SIZE_JUMBO);
-                append_packet_json(jbuf, packet, length, &(llq->msgs[llq->widx].ts));
+            if (llq->msgs[llq->jwidx].used == 0) {
+                struct buffer_stream buf(llq->jmsgs[llq->jwidx].buf, LLQ_MSG_SIZE_JUMBO);
+                append_packet_json(buf, packet, length, &(llq->msgs[llq->widx].ts));
+                int r = buf.length();
 
-                int jr = jbuf.length();
-                if ((jbuf.trunc == 0) && (jr > 0)) {
+                if ((buf.trunc == 0) && (r > 0)) {
 
+                    llq->msgs[llq->widx].len = r;
                     llq->jmsgs[llq->jwidx].used = 1;
-                    llq->msgs[llq->widx].len = jr;
-                    llq->msgs[llq->widx].jidx = llq->jwidx;
                     llq->msgs[llq->widx].jumbo = 1;
-
+                    llq->msgs[llq->widx].jidx = llq->jwidx;
                     llq->jwidx = (llq->jwidx + 1) % LLQ_DEPTH_JUMBO;
-
                     __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
                     llq->msgs[llq->widx].used = 1;
 
