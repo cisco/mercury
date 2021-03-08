@@ -322,13 +322,15 @@ void json_queue_write(struct ll_queue *llq,
         llq->msgs[llq->widx].ts.tv_nsec = nsec;
 
 
+        //obuf[sizeof(struct timespec)] = '\0';
+        llq->msgs[llq->widx].buf[0] = '\0';
+
         struct buffer_stream buf(llq->msgs[llq->widx].buf, LLQ_MSG_SIZE);
         append_packet_json(buf, packet, length, &(llq->msgs[llq->widx].ts));
         int r = buf.length();
         if ((buf.trunc == 0) && (r > 0)) {
 
             llq->msgs[llq->widx].len = r;
-            llq->msgs[llq->widx].jumbo = 0;
 
             //fprintf(stderr, "DEBUG: sent a message!\n");
             __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
@@ -341,33 +343,6 @@ void json_queue_write(struct ll_queue *llq,
 
             //llq->next_write();
             llq->widx = (llq->widx + 1) % LLQ_DEPTH;
-        } else {
-
-            /* We may have a "jumbo" message we need to output. We'll try
-             * to rebuild the output again with a jumbo buffer */
-
-            if (llq->msgs[llq->jwidx].used == 0) {
-                struct buffer_stream buf(llq->jmsgs[llq->jwidx].buf, LLQ_MSG_SIZE_JUMBO);
-                append_packet_json(buf, packet, length, &(llq->msgs[llq->widx].ts));
-                int r = buf.length();
-
-                if ((buf.trunc == 0) && (r > 0)) {
-
-                    llq->msgs[llq->widx].len = r;
-                    llq->jmsgs[llq->jwidx].used = 1;
-                    llq->msgs[llq->widx].jumbo = 1;
-                    llq->msgs[llq->widx].jidx = llq->jwidx;
-                    llq->jwidx = (llq->jwidx + 1) % LLQ_DEPTH_JUMBO;
-                    __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
-                    llq->msgs[llq->widx].used = 1;
-
-                    llq->widx = (llq->widx + 1) % LLQ_DEPTH;
-                } else {
-                    /* We couldn't handle the jumbo output, we should record that */
-                }
-            } else {
-                /* there was no more jumbo output buckets available */
-            }
         }
     }
     else {

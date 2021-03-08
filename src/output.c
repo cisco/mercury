@@ -396,17 +396,7 @@ void *output_thread_func(void *arg) {
 
             struct llq_msg *wmsg = &(out_ctx->qs.queue[wq].msgs[out_ctx->qs.queue[wq].ridx]);
             if (wmsg->used == 1) {
-
-                if (wmsg->jumbo == 0) {
-                    fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
-                } else {
-                    /* Here we need to write jumbo output instead */
-                    struct llq_msg_jumbo *jwmsg = &(out_ctx->qs.queue[wq].jmsgs[wmsg->jidx]);
-                    fwrite(jwmsg->buf, wmsg->len, 1, out_ctx->file);
-
-                    /* Now clear the used flag on the jumbo message buffer */
-                    jwmsg->used = 0;
-                }
+                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
