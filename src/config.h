@@ -2,6 +2,9 @@
  * config.h
  *
  * mercury configuration structures and functions
+ *
+ * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef CONFIG_H

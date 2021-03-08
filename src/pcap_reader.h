@@ -1,5 +1,8 @@
 /*
  * pcap_reader.c
+ *
+ * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef PCAP_READER_H

@@ -9,6 +9,9 @@
 // if the HTTP response status code indicates that the resource has
 // moved (codes 301 and 302), then the entire response body is printed
 // out.  The program is a simple wrapper around the tls_scanner class.
+//
+// Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+// https://github.com/cisco/mercury/blob/master/LICENSE
 
 #include <string>
 #include <unordered_map>

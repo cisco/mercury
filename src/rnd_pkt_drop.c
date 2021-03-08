@@ -3,6 +3,9 @@
  *
  * random packet drops, to enable testing that adaptively finds the
  * maximum packet throughput
+ *
+ * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <stdlib.h>

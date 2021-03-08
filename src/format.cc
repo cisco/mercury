@@ -3,6 +3,9 @@
 // translates between and analyzes data formats
 //
 // g++ -Wall -O3 format.cc -o format
+//
+// Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+// https://github.com/cisco/mercury/blob/master/LICENSE
 
 #include <stdio.h>
 #include <ctype.h>

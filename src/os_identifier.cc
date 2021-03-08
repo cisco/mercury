@@ -10,6 +10,9 @@
  *    ./os_identifier <json-file>
  *
  * where <json-file> is a mercury JSON output file containing fingerprints
+ *
+ * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <iostream>

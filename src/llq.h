@@ -1,5 +1,8 @@
 /*
  * llq - lockless queue for inter-thread communication
+ *
+ * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef LLQ_H

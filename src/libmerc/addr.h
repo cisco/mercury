@@ -3,6 +3,9 @@
  *
  * interface into address processing functions, including longest
  * prefix matching
+ *
+ * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 

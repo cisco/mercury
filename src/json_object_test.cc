@@ -1,3 +1,12 @@
+/*
+ * json_object_test.cc
+ *
+ * test driver for json output code
+ *
+ * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
+ */
+
 #include <stdio.h>
 
 #include "json_object.h"

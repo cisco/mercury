@@ -1,3 +1,12 @@
+/*
+ * lsif.c
+ *
+ * list available interfaces
+ *
+ * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
+ */
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE     /* To get defns of NI_MAXSERV and NI_MAXHOST */
 #endif
