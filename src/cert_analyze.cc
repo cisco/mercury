@@ -2,6 +2,9 @@
  * cert_analyze.cc
  *
  * analyze X509 certificates
+ *
+ * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <stdio.h>
@@ -375,7 +378,7 @@ struct base64_file_writer {
     FILE *stream;
 
     base64_file_writer(const char *outfile) {
-        stream = fopen(outfile, "w");
+        stream = fopen(outfile, "a");
         if (stream == NULL) {
             fprintf(stderr, "error: could not open file %s (%s)\n", outfile, strerror(errno));
             exit(EXIT_FAILURE);
@@ -389,6 +392,12 @@ struct base64_file_writer {
             return bytes_written;
         }
         return -bytes_written; // indicate error with negative return value
+    }
+    bool is_empty() {
+        if (stream) {
+            return ftell(stream) == 0;
+        }
+        return false;
     }
     ~base64_file_writer() {
         fclose(stream);
@@ -438,7 +447,7 @@ int main(int argc, char *argv[]) {
     bool input_is_der = false;
     bool key_group = false;
     bool trunc_test = false;
-    //const char *outfile = NULL;
+    bool verbose = false;    // this could be set by a command line option
 
     // parse arguments
     while (1) {
@@ -670,36 +679,46 @@ int main(int argc, char *argv[]) {
 
                 } else if (common_key) {
 
-                    // detect certificates that have identical keys but distinct subject names
+                    // detect distinct certificates that have identical keys
                     c.parse(cert_buf, cert_len);
                     std::basic_string<uint8_t> k;
                     c.get_subject_public_key(k);
 
                     auto key_and_cert = keys_to_certs.find(k);
                     if (key_and_cert != keys_to_certs.end()) {
-                        // fprintf(stdout, "found duplicate for key ");
-                        // fprintf_raw_as_hex(stdout, k.c_str(), k.length());
-                        // fputc('\n', stdout);
+                        if (verbose) {
+                            fprintf(stdout, "found duplicate for key ");
+                            fprintf_raw_as_hex(stdout, k.c_str(), k.length());
+                            fputc('\n', stdout);
+                        }
 
-                        // create a file writer
+                        // open/create a file to write certs with key k into
+                        //
                         std::string key_as_hex = hex_encode(k.c_str(), k.length());
                         std::string filename{common_key};
-                        filename += "-" + key_as_hex.substr(32,48);
+                        filename += "-" + key_as_hex.substr(32, 48);
                         base64_file_writer b64writer{filename.c_str()};
 
                         // write certs to file
+                        if (b64writer.is_empty()) {
+                            // write first certificate with key k into file
+                            if (b64writer.write_cert(key_and_cert->second.c_str(), key_and_cert->second.length()) < 0) {
+                                fprintf(stderr, "error: could not write original certificate to base64 output file\n");
+                            }
+                        }
                         if (b64writer.write_cert(cert_buf, cert_len) < 0) {
                             fprintf(stderr, "error: could not write certificate to base64 output file\n");
                         }
-                        if (b64writer.write_cert(key_and_cert->second.c_str(), key_and_cert->second.length()) < 0) {
-                            fprintf(stderr, "error: could not write original certificate to base64 output file\n");
-                        }
-
 
                     } else {
                         std::basic_string<uint8_t> tmp_cert{cert_buf, cert_len};
                         keys_to_certs.insert({k, tmp_cert});
                     }
+
+                    // note: b64writer closes its file at the end of
+                    // this scope, though the data in the file
+                    // probably won't be written out to disk until
+                    // immediately
 
                 } else {
 
