@@ -761,8 +761,11 @@ int main (int argc, char *argv[]) {
         exit(4);
     }
 
-    fprintf(stdout, "Running batch GCD on %zu moduli using %d threads.\n",
-            nlist->len, NTHREADS);
+    fprintf(stdout, "Running batch GCD on %zu moduli.\n", nlist->len);
+
+    // Intentionally print the following to stderr, so that stdout
+    // does not vary with the number of threads.
+    fprintf(stderr, "[DEBUG] Batch GCD parallelized with %d threads.\n", NTHREADS);
 
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
