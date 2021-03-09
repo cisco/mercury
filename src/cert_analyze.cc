@@ -681,44 +681,46 @@ int main(int argc, char *argv[]) {
 
                     // detect distinct certificates that have identical keys
                     c.parse(cert_buf, cert_len);
-                    std::basic_string<uint8_t> k;
-                    c.get_subject_public_key(k);
+                    if (c.is_valid()) {
+                        std::basic_string<uint8_t> k;
+                        c.get_subject_public_key(k);
 
-                    auto key_and_cert = keys_to_certs.find(k);
-                    if (key_and_cert != keys_to_certs.end()) {
-                        if (verbose) {
-                            fprintf(stdout, "found duplicate for key ");
-                            fprintf_raw_as_hex(stdout, k.c_str(), k.length());
-                            fputc('\n', stdout);
-                        }
-
-                        // open/create a file to write certs with key k into
-                        //
-                        std::string key_as_hex = hex_encode(k.c_str(), k.length());
-                        std::string filename{common_key};
-                        filename += "-" + key_as_hex.substr(32, 48);
-                        base64_file_writer b64writer{filename.c_str()};
-
-                        // write certs to file
-                        if (b64writer.is_empty()) {
-                            // write first certificate with key k into file
-                            if (b64writer.write_cert(key_and_cert->second.c_str(), key_and_cert->second.length()) < 0) {
-                                fprintf(stderr, "error: could not write original certificate to base64 output file\n");
+                        auto key_and_cert = keys_to_certs.find(k);
+                        if (key_and_cert != keys_to_certs.end()) {
+                            if (verbose) {
+                                fprintf(stdout, "found duplicate for key ");
+                                fprintf_raw_as_hex(stdout, k.c_str(), k.length());
+                                fputc('\n', stdout);
                             }
-                        }
-                        if (b64writer.write_cert(cert_buf, cert_len) < 0) {
-                            fprintf(stderr, "error: could not write certificate to base64 output file\n");
+
+                            // open/create a file to write certs with key k into
+                            //
+                            std::string key_as_hex = hex_encode(k.c_str(), k.length());
+                            std::string filename{common_key};
+                            filename += "-" + key_as_hex.substr(32, 48);
+                            base64_file_writer b64writer{filename.c_str()};
+
+                            // write certs to file
+                            if (b64writer.is_empty()) {
+                                // write first certificate with key k into file
+                                if (b64writer.write_cert(key_and_cert->second.c_str(), key_and_cert->second.length()) < 0) {
+                                    fprintf(stderr, "error: could not write original certificate to base64 output file\n");
+                                }
+                            }
+                            if (b64writer.write_cert(cert_buf, cert_len) < 0) {
+                                fprintf(stderr, "error: could not write certificate to base64 output file\n");
+                            }
+
+                        } else {
+                            std::basic_string<uint8_t> tmp_cert{cert_buf, cert_len};
+                            keys_to_certs.insert({k, tmp_cert});
                         }
 
-                    } else {
-                        std::basic_string<uint8_t> tmp_cert{cert_buf, cert_len};
-                        keys_to_certs.insert({k, tmp_cert});
+                        // note: b64writer closes its file at the end of
+                        // this scope, though the data in the file
+                        // probably won't be written out to disk until
+                        // immediately
                     }
-
-                    // note: b64writer closes its file at the end of
-                    // this scope, though the data in the file
-                    // probably won't be written out to disk until
-                    // immediately
 
                 } else {
 

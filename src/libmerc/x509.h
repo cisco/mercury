@@ -1924,6 +1924,9 @@ struct x509_cert {
         o.close();
     }
 
+    bool is_valid() const {
+        return issuer.RDNsequence.is_not_null();
+    }
 };
 
 struct x509_cert_prefix {
