@@ -189,6 +189,15 @@ public:
         // note: file may be nullptr after construction
     }
 
+    ~compressed_archive() {
+        if (file) {
+            gzclose(file);
+        }
+        if (fd) {
+            close(fd);
+        }
+    }
+
     class archive_node *get_next_entry() {
 
         if (file == nullptr) {

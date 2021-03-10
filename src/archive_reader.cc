@@ -14,8 +14,8 @@ int main(int argc, char *argv[]) {
 
     const char summary[] =
         "usage:\n"
-        "\tarchive_reader <archive> [OPTIONS]\n"
-        "\n\n"
+        "   archive_reader <archive> [OPTIONS]\n"
+        "\n"
         "OPTIONS\n"
         ;
     class option_processor opt({
