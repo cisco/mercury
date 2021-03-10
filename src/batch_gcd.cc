@@ -87,12 +87,24 @@ struct numlist * makenumlist(size_t len) {
 }
 
 
+/* Equivalent to BSD reallocarray(), which is superior to realloc()
+   because it checks for integer overflow in the calculation of the
+   value nmemb * size. */
+void *realloc_safe(void *ptr, size_t nmemb, size_t size) {
+    size_t rsize = nmemb * size;
+    if (size != 0 && rsize / size != nmemb) {
+        return NULL;   // overflow occurred
+    }
+    return realloc(ptr, rsize);
+}
+
+
 void grownumlist(struct numlist *nlist) {
     assert(nlist != NULL);
     assert(nlist->num != NULL);
 
     nlist->alloc *= 2;
-    nlist->num = (mpz_t *)reallocarray(nlist->num, sizeof(mpz_t), nlist->alloc);
+    nlist->num = (mpz_t *)realloc_safe(nlist->num, sizeof(mpz_t), nlist->alloc);
     assert(nlist->num != NULL);
 
     for (size_t i = nlist->len; i < nlist->alloc; i++) {
@@ -761,8 +773,11 @@ int main (int argc, char *argv[]) {
         exit(4);
     }
 
-    fprintf(stdout, "Running batch GCD on %zu moduli using %d threads.\n",
-            nlist->len, NTHREADS);
+    fprintf(stdout, "Running batch GCD on %zu moduli.\n", nlist->len);
+
+    // Intentionally print the following to stderr, so that stdout
+    // does not vary with the number of threads.
+    fprintf(stderr, "[DEBUG] Batch GCD parallelized with %d threads.\n", NTHREADS);
 
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
@@ -785,5 +800,3 @@ int main (int argc, char *argv[]) {
 
     return 0;
 }
-
-

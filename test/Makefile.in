@@ -31,6 +31,8 @@ python      = @PY@
 have_jsonschema = @HAVE_JSONSCHEMA@
 have_afl        = @HAVE_AFL@
 
+BATCH_GCD = ../src/batch_gcd
+
 # check dependancies to see if any tests need to be omitted
 #
 omitted_test = no
@@ -71,7 +73,10 @@ MCAP_TEST_FILES = $(notdir $(wildcard ./data/*.mcap))
 MCAP_COMP_FILES = $(MCAP_TEST_FILES:%.mcap=%.mcap-comp)
 JSON_TEST_FILES = $(notdir $(wildcard ./data/*.json))
 JSON_COMP_FILES = $(JSON_TEST_FILES:%.json=%.json-comp)
-
+BGCD_TEST_FILES = $(wildcard ./batch_gcd/*.bgcd-in)        # input files
+BGCD_OUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-out)   # expected output
+BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
+BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
 .PHONY: all clean
 all: clean comp analysis cert-check memcheck dummy-capture
@@ -286,5 +291,18 @@ ifeq ($(have_afl),yes)
 else
 	@echo $(COLOR_YELLOW) "afl unavailable; cannot perform fuzz test" $(COLOR_OFF)
 endif
+
+# batch GCD tests
+#
+.PHONY: batch_gcd_test
+batch_gcd_test: $(BGCD_COMP_TARG)
+
+%.bgcd-tout: %.bgcd-in
+	$(BATCH_GCD) < $< > $@
+
+%.bgcd-comp: %.bgcd-tout
+	@echo "checking file" $< "against expected output"
+	diff $< $(<:.bgcd-tout=.bgcd-out)
+	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)
 
 # EOF
