@@ -41,9 +41,8 @@ rapidjson::Document fp_db;
 bool MALWARE_DB = true;
 bool EXTENDED_FP_METADATA = true;
 
-
-int gzgetline(gzFile f, std::vector<char>& v) {
-    v = std::vector<char>(256);
+int gzgetline(gzFile f, std::string &s) {
+    std::vector<char> v(256);
     unsigned pos = 0;
     for (;;) {
         if (gzgets(f, &v[pos], v.size()-pos) == 0) {
@@ -59,9 +58,10 @@ int gzgetline(gzFile f, std::vector<char>& v) {
         v.resize(v.size() * 2);
     }
     v.resize(pos);
+    std::string tmp_str(v.begin(), v.end());
+    s = tmp_str;
     return 1;
 }
-
 
 int database_init(const char *resource_file) {
     fp_db.SetObject();
@@ -71,9 +71,8 @@ int database_init(const char *resource_file) {
     if (in_file == NULL) {
         return -1;
     }
-    std::vector<char> line;
-    while (gzgetline(in_file, line)) {
-        std::string line_str(line.begin(), line.end());
+    std::string line_str;
+    while (gzgetline(in_file, line_str)) {
         rapidjson::Document fp(&allocator);
         fp.Parse(line_str.c_str());
 
@@ -138,7 +137,6 @@ int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_t
     }
 
     char resource_file_name[PATH_MAX];
-    char resource_fp_prevalence[PATH_MAX];
 
     unsigned int index = 0;
     while (resource_dir_list[index] != NULL) {
@@ -147,6 +145,15 @@ int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_t
         int retcode = addr_init(resource_file_name);
 
         if (retcode == 0) {
+
+#if 0
+            char archive_file_name[PATH_MAX];
+            strncpy(archive_file_name, resource_dir_list[index], PATH_MAX-1);
+            strncat(archive_file_name, "/resources.tgz", PATH_MAX-1);
+            c = new classifier(archive_file_name, fp_proc_threshold, proc_dst_threshold, report_os);
+            //c->print(stderr);
+#else
+            char resource_fp_prevalence[PATH_MAX];
             strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
             strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
 
@@ -154,8 +161,8 @@ int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_t
             strncat(resource_fp_prevalence, "/fp_prevalence_tls.txt.gz", PATH_MAX-1);
 
             c = new classifier(resource_file_name, resource_fp_prevalence, fp_proc_threshold, proc_dst_threshold, report_os);
-            // c->print(stderr);
-
+            //c->print(stderr);
+#endif
             return 0;
         }
         if (verbosity > 0) {

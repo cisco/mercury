@@ -27,7 +27,7 @@
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "tls.h"
-
+#include "archive.h"
 
 int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_threshold,
                   const float proc_dst_threshold, const bool report_os);
@@ -43,7 +43,7 @@ struct analysis_result analyze_client_hello_and_key(const struct tls_client_hell
 // classifier
 
 
-int gzgetline(gzFile f, std::vector<char>& v);
+int gzgetline(gzFile f, std::string &s);
 
 class process_info {
 public:
@@ -519,6 +519,12 @@ public:
         }
     }
 
+    void print(FILE *f) {
+        for (auto &entry : known_set_) {
+            fprintf(f, "%s\n", entry.c_str());
+        }
+    }
+
 private:
     mutable std::shared_mutex mutex_;
     std::list<std::string> list_;
@@ -537,20 +543,175 @@ class classifier {
 
 public:
 
-    classifier(const char *resource_file, const char *resource_fp_prevalence, const float fp_proc_threshold, const float proc_dst_threshold, const bool report_os) : fpdb{} {
+    void process_fp_prevalence_line(std::string &line_str) {
+        if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
+            line_str.erase(line_str.length()-1);
+        }
+        fp_prevalence.initial_add(line_str);
+    }
+
+    void process_fp_db_line(std::string &line_str, float fp_proc_threshold, float proc_dst_threshold, bool report_os) {
+        rapidjson::Document fp;
+        fp.Parse(line_str.c_str());
+
+        std::string fp_string;
+        if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
+            fp_string = fp["str_repr"].GetString();
+            //fprintf(stderr, "%s\n", fp_string.c_str());
+        }
+
+        uint64_t total_count = 0;
+        if (fp.HasMember("total_count") && fp["total_count"].IsUint64()) {
+            total_count = fp["total_count"].GetUint64();
+        }
+
+        std::vector<class process_info> process_vector;
+
+        if (fp.HasMember("process_info") && fp["process_info"].IsArray()) {
+            //fprintf(stderr, "process_info[]\n");
+
+            unsigned int process_number = 0;
+            for (auto &x : fp["process_info"].GetArray()) {
+                uint64_t count = 0;
+                bool malware = false;
+
+                if (x.HasMember("count") && x["count"].IsUint64()) {
+                    count = x["count"].GetUint64();
+                    //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
+                }
+                if (x.HasMember("malware") && x["malware"].IsBool()) {
+                    if (MALWARE_DB == false && process_number > 1) {
+                        throw "error: malware data expected, but not present";
+                    }
+                    MALWARE_DB = true;
+                    malware = x["malware"].GetBool();
+                }
+                /* do not load process into memory if prevalence is below threshold */
+                if ((process_number > 1) && ((float)count/total_count < fp_proc_threshold) && (malware != true)) {
+                    continue;
+                }
+
+                process_number++;
+                //fprintf(stderr, "%s\n", "process_info");
+
+                std::unordered_map<uint32_t, uint64_t>    ip_as;
+                std::unordered_map<std::string, uint64_t> hostname_domains;
+                std::unordered_map<uint16_t, uint64_t>    portname_applications;
+                std::unordered_map<std::string, uint64_t> ip_ip;
+                std::unordered_map<std::string, uint64_t> hostname_sni;
+                std::map<std::string, uint64_t> os_info;
+
+                std::string name;
+                if (x.HasMember("process") && x["process"].IsString()) {
+                    name = x["process"].GetString();
+                    //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
+                }
+                if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
+                    //fprintf(stderr, "\tclasses_hostname_domains\n");
+                    for (auto &y : x["classes_hostname_domains"].GetObject()) {
+                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                            hostname_domains[y.name.GetString()] = y.value.GetUint64();
+                        }
+                    }
+                }
+                if (x.HasMember("classes_ip_as") && x["classes_ip_as"].IsObject()) {
+                    //fprintf(stderr, "\tclasses_ip_as\n");
+                    for (auto &y : x["classes_ip_as"].GetObject()) {
+                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+
+                            if (strcmp(y.name.GetString(), "unknown") != 0) {
+
+                                errno = 0;
+                                unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
+                                if (errno) {
+                                    as_number = 0; // "unknown"
+                                    fprintf(stderr, "note: found string \"%s\" in ip_as\n", y.name.GetString());
+                                }
+                                if (as_number > 0xffffffff) {
+                                    throw "error: as number too high";
+                                }
+                                ip_as[as_number] = y.value.GetUint64();
+
+                            }
+
+                        }
+                    }
+                }
+                if (x.HasMember("classes_port_applications") && x["classes_port_applications"].IsObject()) {
+                    //fprintf(stderr, "\tclasses_port_applications\n");
+                    for (auto &y : x["classes_port_applications"].GetObject()) {
+                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                            uint16_t tmp_port = 0;
+                            auto port_it = string_to_port.find(y.name.GetString());
+                            if (port_it == string_to_port.end()) {
+                                // throw "error: unexpected string in classes_port_applications";
+                                fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
+                            } else {
+                                tmp_port = port_it->second;
+                            }
+                            portname_applications[tmp_port] = y.value.GetUint64();
+                        }
+                    }
+                }
+                if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
+                    if (EXTENDED_FP_METADATA == false && process_number > 1) {
+                        throw "error: extended fingerprint metadata expected, but not present";
+                    }
+                    EXTENDED_FP_METADATA = true;
+                    //fprintf(stderr, "\tclasses_ip_ip\n");
+                    for (auto &y : x["classes_ip_ip"].GetObject()) {
+                        if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                            fprintf(stderr, "warning: classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
+                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                            ip_ip[y.name.GetString()] = y.value.GetUint64();
+                        }
+                    }
+                }
+                if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
+                    if (EXTENDED_FP_METADATA == false && process_number > 1) {
+                        throw "error: extended fingerprint metadata expected, but not present";
+                    }
+                    EXTENDED_FP_METADATA = true;
+                    //fprintf(stderr, "\tclasses_hostname_sni\n");
+                    for (auto &y : x["classes_hostname_sni"].GetObject()) {
+                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                            hostname_sni[y.name.GetString()] = y.value.GetUint64();
+                        }
+                    }
+                }
+                if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
+                    for (auto &y : x["os_info"].GetObject()) {
+                        if (std::string(y.name.GetString()) != "") {
+                            os_info[y.name.GetString()] = y.value.GetUint64();
+                        }
+                    }
+                }
+
+                class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni, os_info);
+                process_vector.push_back(process);
+            }
+            class fingerprint_data fp_data(total_count, process_vector);
+            // fp_data.print(stderr);
+
+            if (fpdb.find(fp_string) != fpdb.end()) {
+                fprintf(stderr, "warning: fingerprint database has duplicate entry for fingerprint %s\n", fp_string.c_str());
+            }
+            fpdb[fp_string] = fp_data;
+        }
+    }
+
+    classifier(const char *resource_file, const char *resource_fp_prevalence, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{} {
 
         gzFile in_file = gzopen(resource_fp_prevalence, "r");
         if (in_file == NULL) {
             throw "error: could not open resource file fp prevalence";
         }
-        std::vector<char> line;
-        while (gzgetline(in_file, line)) {
-            std::string line_str(line.begin(), line.end());
-            if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
-                line_str.erase(line_str.length()-1);
-            }
-            //fp_prevalence.insert(line_str);
-            fp_prevalence.initial_add(line_str);
+        std::string line_str;
+        while (gzgetline(in_file, line_str)) {
+            process_fp_prevalence_line(line_str);
         }
         gzclose(in_file);
 
@@ -558,161 +719,45 @@ public:
         if (in_file == NULL) {
             throw "error: could not open resource file";
         }
-        while (gzgetline(in_file, line)) {
-            std::string line_str(line.begin(), line.end());
-            rapidjson::Document fp;
-            fp.Parse(line_str.c_str());
-
-            std::string fp_string;
-            if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
-                fp_string = fp["str_repr"].GetString();
-                //fprintf(stderr, "%s\n", fp_string.c_str());
-            }
-
-            uint64_t total_count = 0;
-            if (fp.HasMember("total_count") && fp["total_count"].IsUint64()) {
-                total_count = fp["total_count"].GetUint64();
-            }
-
-            std::vector<class process_info> process_vector;
-
-            if (fp.HasMember("process_info") && fp["process_info"].IsArray()) {
-                //fprintf(stderr, "process_info[]\n");
-
-                unsigned int process_number = 0;
-                for (auto &x : fp["process_info"].GetArray()) {
-                    uint64_t count = 0;
-                    bool malware = false;
-
-                    if (x.HasMember("count") && x["count"].IsUint64()) {
-                        count = x["count"].GetUint64();
-                        //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
-                    }
-                    if (x.HasMember("malware") && x["malware"].IsBool()) {
-                        if (MALWARE_DB == false && process_number > 1) {
-                            throw "error: malware data expected, but not present";
-                        }
-                        MALWARE_DB = true;
-                        malware = x["malware"].GetBool();
-                    }
-                    /* do not load process into memory if prevalence is below threshold */
-		    if ((process_number > 1) && ((float)count/total_count < fp_proc_threshold) && (malware != true)) {
-		        continue;
-		    }
-
-                    process_number++;
-                    //fprintf(stderr, "%s\n", "process_info");
-
-                    std::unordered_map<uint32_t, uint64_t>    ip_as;
-                    std::unordered_map<std::string, uint64_t> hostname_domains;
-                    std::unordered_map<uint16_t, uint64_t>    portname_applications;
-                    std::unordered_map<std::string, uint64_t> ip_ip;
-                    std::unordered_map<std::string, uint64_t> hostname_sni;
-                    std::map<std::string, uint64_t> os_info;
-
-                    std::string name;
-                    if (x.HasMember("process") && x["process"].IsString()) {
-                        name = x["process"].GetString();
-                        //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
-                    }
-                    if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
-                        //fprintf(stderr, "\tclasses_hostname_domains\n");
-                        for (auto &y : x["classes_hostname_domains"].GetObject()) {
-                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                                //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                                hostname_domains[y.name.GetString()] = y.value.GetUint64();
-                            }
-                        }
-                    }
-                    if (x.HasMember("classes_ip_as") && x["classes_ip_as"].IsObject()) {
-                        //fprintf(stderr, "\tclasses_ip_as\n");
-                        for (auto &y : x["classes_ip_as"].GetObject()) {
-                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                                //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-
-                                if (strcmp(y.name.GetString(), "unknown") != 0) {
-
-                                    errno = 0;
-                                    unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
-                                    if (errno) {
-                                        as_number = 0; // "unknown"
-                                        fprintf(stderr, "note: found string \"%s\" in ip_as\n", y.name.GetString());
-                                    }
-                                    if (as_number > 0xffffffff) {
-                                        throw "error: as number too high";
-                                    }
-                                    ip_as[as_number] = y.value.GetUint64();
-
-                                }
-
-                            }
-                        }
-                    }
-                    if (x.HasMember("classes_port_applications") && x["classes_port_applications"].IsObject()) {
-                        //fprintf(stderr, "\tclasses_port_applications\n");
-                        for (auto &y : x["classes_port_applications"].GetObject()) {
-                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                                uint16_t tmp_port = 0;
-                                auto port_it = string_to_port.find(y.name.GetString());
-                                if (port_it == string_to_port.end()) {
-                                    // throw "error: unexpected string in classes_port_applications";
-                                    fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
-                                } else {
-                                    tmp_port = port_it->second;
-                                }
-                                portname_applications[tmp_port] = y.value.GetUint64();
-                            }
-                        }
-                    }
-                    if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
-                        if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                            throw "error: extended fingerprint metadata expected, but not present";
-                        }
-                        EXTENDED_FP_METADATA = true;
-                        //fprintf(stderr, "\tclasses_ip_ip\n");
-                        for (auto &y : x["classes_ip_ip"].GetObject()) {
-                            if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                                fprintf(stderr, "warning: classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
-                                //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                                ip_ip[y.name.GetString()] = y.value.GetUint64();
-                            }
-                        }
-                    }
-                    if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
-                        if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                            throw "error: extended fingerprint metadata expected, but not present";
-                        }
-                        EXTENDED_FP_METADATA = true;
-                        //fprintf(stderr, "\tclasses_hostname_sni\n");
-                        for (auto &y : x["classes_hostname_sni"].GetObject()) {
-                            if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                                //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                                hostname_sni[y.name.GetString()] = y.value.GetUint64();
-                            }
-                        }
-                    }
-                    if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
-                        for (auto &y : x["os_info"].GetObject()) {
-                            if (std::string(y.name.GetString()) != "") {
-                                os_info[y.name.GetString()] = y.value.GetUint64();
-                            }
-                        }
-                    }
-
-                    class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni, os_info);
-                    process_vector.push_back(process);
-                }
-                class fingerprint_data fp_data(total_count, process_vector);
-                // fp_data.print(stderr);
-
-                if (fpdb.find(fp_string) != fpdb.end()) {
-                    fprintf(stderr, "warning: file %s has duplicate entry for fingerprint %s\n", resource_file, fp_string.c_str());
-                }
-                fpdb[fp_string] = fp_data;
-            }
-
+        while (gzgetline(in_file, line_str)) {
+            process_fp_db_line(line_str, fp_proc_threshold, proc_dst_threshold, report_os);
         }
         gzclose(in_file);
+
+    }
+
+    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{} {
+
+        bool got_fp_prevalence = false;
+        bool got_fp_db = false;
+        class compressed_archive archive{resource_archive_file};
+        const class archive_node *entry = archive.get_next_entry();
+        if (entry == nullptr) {
+            throw "error: could not read any entries from resource archive file";
+        }
+        while (entry != nullptr) {
+            if (entry->is_regular_file()) {
+                std::string line_str;
+
+                std::string name = entry->get_name();
+                if (name == "fp_prevalence_tls.txt") {
+                    while (archive.getline(line_str)) {
+                        process_fp_prevalence_line(line_str);
+                    }
+                    got_fp_prevalence = true;
+
+                } else if (name == "fingerprint_db.json") {
+                    while (archive.getline(line_str)) {
+                        process_fp_db_line(line_str, fp_proc_threshold, proc_dst_threshold, report_os);
+                    }
+                    got_fp_db = true;
+                }
+            }
+            if (got_fp_db && got_fp_prevalence) {
+                break; // got all data, we're done here
+            }
+            entry = archive.get_next_entry();
+        }
 
     }
 
@@ -722,6 +767,7 @@ public:
             fpdb_entry.second.print(f);
             fprintf(f, "}\n");
         }
+        fp_prevalence.print(f);
     }
 
     std::unordered_map<std::string, uint16_t> string_to_port =
