@@ -223,18 +223,9 @@ void print_out_analysis_context(const struct analysis_context *c) {
     }
 }
 
-int main(int argc, char *argv[]) {
 
-    // initialize libmerc's global configuration by creating a
-    // libmerc_config structure and then passing it into mercury_init
-    //
-    struct libmerc_config config = libmerc_config_init();
-    config.do_analysis = true;
-    config.resources = "../resources";
-    config.report_os = true;
-    config.packet_filter_cfg = "tls";
-    int verbosity = 0;
-    int retval = mercury_init(&config, verbosity);
+int test_libmerc(struct libmerc_config *config, int verbosity) {
+    int retval = mercury_init(config, verbosity);
     if (retval) {
         fprintf(stderr, "mercury_init() error (code %d)\n", retval);
         return EXIT_FAILURE;
@@ -304,6 +295,44 @@ int main(int argc, char *argv[]) {
     retval = mercury_finalize();
     if (retval) {
         fprintf(stderr, "mercury_finalize() error (code %d)\n", retval);
+        return EXIT_FAILURE;
+    }
+
+    return 0;
+}
+
+
+int main(int argc, char *argv[]) {
+    int verbosity = 0;
+    int retval;
+
+    // test standard configuration
+
+    // initialize libmerc's global configuration by creating a
+    // libmerc_config structure and then passing it into mercury_init
+    //
+    struct libmerc_config config = libmerc_config_init();
+    config.do_analysis = true;
+    config.resources = "../resources";
+    config.report_os = true;
+    config.packet_filter_cfg = "tls";
+    retval = test_libmerc(&config, verbosity);
+    if (retval) {
+        fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
+        return EXIT_FAILURE;
+    }
+
+    // test reduced database size configuration
+    struct libmerc_config config_min_db = libmerc_config_init();
+    config_min_db.do_analysis = true;
+    config_min_db.resources = "../resources";
+    config_min_db.report_os = true;
+    config_min_db.packet_filter_cfg = "tls";
+    config_min_db.fp_proc_threshold = .001;
+    config_min_db.proc_dst_threshold = .01;
+    retval = test_libmerc(&config_min_db, verbosity);
+    if (retval) {
+        fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
         return EXIT_FAILURE;
     }
 
