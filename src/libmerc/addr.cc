@@ -12,7 +12,9 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <locale.h>
+#include <string>
 #include "addr.h"
+#include "archive.h"
 
 #include "lctrie/lctrie.h"
 #include "lctrie/lctrie_bgp.h"
@@ -57,6 +59,47 @@ uint32_t get_asn_info(uint32_t ipv4_addr) {
     return 0;
 }
 
+template <typename T>
+int
+read_prefix_table_from_archive(const char *archive_name,
+                               lct_subnet<T> prefix[],
+                               size_t prefix_size) {
+    (void)prefix_size;
+    int num = 0;
+
+    // open the archive for reading
+    class compressed_archive archive{archive_name};
+    const class archive_node *entry = archive.get_next_entry();
+    if (entry == nullptr) {
+        fprintf(stderr, "error: could not open archive %s\n", archive_name);
+        return -1;
+    }
+
+    // validate and parse each line of input
+    while (entry != nullptr) {
+        if (entry->is_regular_file()) {
+            std::string line_str;
+
+            std::string name = entry->get_name();
+            if (name == "pyasn.db") {
+                while (archive.getline(line_str)) {
+
+                    // set the prefix[num] to the subnet and ASN found in line
+                    if (lct_subnet_set_from_string(&prefix[num], line_str.c_str()) != 0) {
+                        fprintf(stderr, "error: could not parse subnet string '%s'\n", line_str.c_str());
+                        return -1;
+                    }
+                    num++;
+                }
+            }
+        }
+        entry = archive.get_next_entry();
+    }
+
+    return num;
+}
+
+
 /*
  * BGP_MAX_ENTRIES is the maximum number of subnets
  */
@@ -92,9 +135,15 @@ lct_subnet_t *lct_init_from_file(lct<ipv4_addr> *trie, char *filename) {
 
   // read in the ASN prefixes
   int rc;
+#if 1
+  if (0 > (rc = read_prefix_table_from_archive(filename, &p[num], BGP_MAX_ENTRIES - num))) {
+      goto bail; /* could not read prefix file */
+  }
+#else
   if (0 > (rc = read_prefix_table(filename, &p[num], BGP_MAX_ENTRIES - num))) {
       goto bail; /* could not read prefix file */
   }
+#endif
   num += rc;
 
   // validate subnet prefixes against their netmasks

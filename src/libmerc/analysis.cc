@@ -1,5 +1,5 @@
 /*
- * analysis.c
+ * analysis.cc
  *
  * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -109,68 +109,31 @@ void database_finalize() {
 }
 
 
-#ifndef DEFAULT_RESOURCE_DIR
-#define DEFAULT_RESOURCE_DIR "/usr/local/share/mercury"
+#ifndef DEFAULT_RESOURCE_FILE
+#define DEFAULT_RESOURCE_FILE "/usr/local/share/mercury/resources.tgz"
 #endif
 
 classifier *c = NULL;
 
-int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_threshold,
-                  const float proc_dst_threshold, const bool report_os) {
+int analysis_init_from_archive(int verbosity,
+                               const char *archive_name,
+                               const float fp_proc_threshold,
+                               const float proc_dst_threshold,
+                               const bool report_os) {
 
-//    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
-//       printf("\n mutex init has failed\n");
-//        return -1;
-//    }
-//    fp_cache = {};
-
-    const char *resource_dir_list[] =
-      {
-       DEFAULT_RESOURCE_DIR,
-       "resources",
-       "../resources",
-       NULL
-      };
-    if (resource_dir) {
-        resource_dir_list[0] = resource_dir;  // use directory from configuration
-        resource_dir_list[1] = NULL;          // fail otherwise
+    if (archive_name == nullptr) {
+        archive_name = DEFAULT_RESOURCE_FILE;
     }
 
-    char resource_file_name[PATH_MAX];
+    int retcode = addr_init(archive_name);
+    if (retcode == 0) {
+        c = new classifier(archive_name, fp_proc_threshold, proc_dst_threshold, report_os);
+        //c->print(stderr);
+        return 0;
+    }
 
-    unsigned int index = 0;
-    while (resource_dir_list[index] != NULL) {
-        strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
-        strncat(resource_file_name, "/pyasn.db", PATH_MAX-1);
-        int retcode = addr_init(resource_file_name);
-
-        if (retcode == 0) {
-
-#if 0
-            char archive_file_name[PATH_MAX];
-            strncpy(archive_file_name, resource_dir_list[index], PATH_MAX-1);
-            strncat(archive_file_name, "/resources.tgz", PATH_MAX-1);
-            c = new classifier(archive_file_name, fp_proc_threshold, proc_dst_threshold, report_os);
-            //c->print(stderr);
-#else
-            char resource_fp_prevalence[PATH_MAX];
-            strncpy(resource_file_name, resource_dir_list[index], PATH_MAX-1);
-            strncat(resource_file_name, "/fingerprint_db.json.gz", PATH_MAX-1);
-
-            strncpy(resource_fp_prevalence, resource_dir_list[index], PATH_MAX-1);
-            strncat(resource_fp_prevalence, "/fp_prevalence_tls.txt.gz", PATH_MAX-1);
-
-            c = new classifier(resource_file_name, resource_fp_prevalence, fp_proc_threshold, proc_dst_threshold, report_os);
-            //c->print(stderr);
-#endif
-            return 0;
-        }
-        if (verbosity > 0) {
-            fprintf(stderr, "warning: could not open file '%s'\n", resource_file_name);
-            fprintf(stderr, "warning: could not initialize analysis module with resource directory '%s', trying next in list\n", resource_dir_list[index]);
-        }
-
-        index++;  /* try next directory in the list */
+    if (verbosity > 0) {
+            fprintf(stderr, "warning: could not open resource archive '%s'\n", archive_name);
     }
     fprintf(stderr, "warning: could not initialize analysis module\n");
     return -1;

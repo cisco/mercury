@@ -1,0 +1,31 @@
+
+#-*- mode: shell-script;-*-
+
+# this file contains a bash function that provides detailed command
+# completion for cert_analyze
+#
+# install in /usr/share/bash-completion/completions
+
+
+_cert_analyze()
+{
+    local cur prev opts
+    _init_completion || return
+
+    if [[ $prev == --input ]]; then
+        _filedir '@(b64|pem)?(.gz)'
+        return
+    fi
+
+    if [[ $prev == --filter ]]; then
+        COMPREPLY=( $( compgen -W 'weak' -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $( compgen -W '$( _parse_help "$1" )' -- "$cur" ) )
+        return 0
+    fi
+}
+
+complete -F _cert_analyze cert_analyze

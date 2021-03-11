@@ -18,10 +18,10 @@ bindir = @bindir@
 localstatedir = @localstatedir@/mercury
 datarootdir = @datarootdir@/mercury
 
-RESOURCE_FILES += fingerprint_db.json.gz
-RESOURCE_FILES += pyasn.db
-RESOURCE_FILES += fp_prevalence_tls.txt.gz
-# RESOURCE_FILES  = app_families.txt
+RESOURCE_FILES += resources.tgz
+# RESOURCE_FILES += pyasn.db
+# RESOURCE_FILES += fp_prevalence_tls.txt.gz
+# RESOURCE_FILES += app_families.txt
 # RESOURCE_FILES += implementation_date_cs.json.gz
 # RESOURCE_FILES += asn_info.db.gz
 # RESOURCE_FILES += implementation_date_ext.json.gz

@@ -143,7 +143,7 @@ endif
 analysis:
 ifeq ($(do_analysis),yes)
 	@echo "running analysis test"
-	$(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources
+	$(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources/resources.tgz
 	$(python) json-test.py tmp.json
 	@echo $(COLOR_GREEN) "passed analysis test" $(COLOR_OFF)
 	rm -f tmp.json
@@ -253,7 +253,7 @@ distclean: clean
 memcheck:
 ifeq ($(have_valgrind),yes)
 	@echo "running memcheck with valgrind"
-	valgrind --trace-children=yes --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources 2> memcheck.tmp
+	valgrind --trace-children=yes --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources/resources.tgz 2> memcheck.tmp
 #	cat memcheck.tmp | grep "definitely lost: 0 bytes in 0 blocks"
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
 	rm -f memcheck.tmp

@@ -133,7 +133,7 @@ public:
     archive(const char *filename) : file{nullptr}, entry{nullptr} {
         file = fopen(filename, "r");
         if (file == nullptr) {
-            fprintf(stderr, "error: could not open file %s\n", filename);
+            fprintf(stderr, "error: could not open archive file %s\n", filename);
         }
         // note: file may be nullptr after construction
     }
@@ -148,14 +148,14 @@ public:
 
             // advance to next block
             if (fseek(file, entry->bytes_until_next_block(), SEEK_CUR) == -1) {
-                fprintf(stderr, "error: could not read %zu bytes from file\n", entry->get_size());
+                fprintf(stderr, "error: attempt to advance %zu bytes in archive file failed\n", entry->get_size());
                 return nullptr;
             }
         }
 
         size_t bytes_read = fread(buffer, 1, sizeof(buffer), file);
         if (bytes_read != sizeof(buffer)) {
-            fprintf(stderr, "error: could not read %zu bytes from file\n", sizeof(buffer));
+            fprintf(stderr, "error: attempt to read %zu bytes from archive file failed\n", sizeof(buffer));
             return nullptr;
         }
         entry = (class archive_node *)buffer;
@@ -184,7 +184,7 @@ public:
         fd = open(filename, O_RDONLY, "r");
         file = gzdopen(fd, "r");
         if (file == nullptr) {
-            fprintf(stderr, "error: could not open file %s\n", filename);
+            fprintf(stderr, "error: could not open archive file %s\n", filename);
         }
         // note: file may be nullptr after construction
     }
@@ -208,7 +208,7 @@ public:
 
             // advance to next block
             if (gzseek(file, next_entry, SEEK_SET) == -1) {
-                fprintf(stderr, "error: could not read %zu bytes from file\n", entry->get_size());
+                fprintf(stderr, "error: could not advance %zu bytes in archive file\n", entry->get_size());
                 return nullptr;
             }
         }
@@ -219,7 +219,7 @@ public:
     class archive_node *read_block() {
         ssize_t bytes_read = gzread(file, buffer, sizeof(buffer));
         if (bytes_read != (ssize_t)sizeof(buffer)) {
-            fprintf(stderr, "error: could not read %zu bytes from file\n", sizeof(buffer));
+            fprintf(stderr, "error: attempt to read %zu bytes from archive file failed\n", sizeof(buffer));
             return nullptr;
         }
         entry = (class archive_node *)buffer;
@@ -236,7 +236,6 @@ public:
         char read_buffer[8192];
         while (true) {
 
-            //fprintf(stdout, "tell: %zu\n", gztell(file));
             ssize_t read_len = sizeof(read_buffer);
             if (read_len + gztell(file) > end_of_file) {
                 read_len = end_of_file - gztell(file);
@@ -244,16 +243,13 @@ public:
             if (read_len == 0) {
                 break;  // no more data
             }
-            //fprintf(stdout, "reading %zd bytes\n", read_len);
             if (gzgets(file, read_buffer, read_len) == NULL) {
-                //fprintf(stdout, "got EOF\n");
                 return s.length();     // EOF
             }
-            unsigned bytes_read = strlen(read_buffer);
-            //fprintf(stdout, "got %u bytes\n", bytes_read);
+            size_t bytes_read = strlen(read_buffer);
             s.append(read_buffer, bytes_read);
-            if (read_buffer[bytes_read-1] == '\n') {
-                s.back() = '\0';
+            if (bytes_read > 0 && read_buffer[bytes_read-1] == '\n') {
+                s.erase(s.length()-1);   // strip terminating newline
                 break;
             }
         }

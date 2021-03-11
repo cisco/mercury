@@ -39,9 +39,9 @@ int mercury_init(const struct libmerc_config *vars, int verbosity) {
             return status;
         }
         if (global_vars.do_analysis) {
-            if (analysis_init(verbosity, global_vars.resources, global_vars.fp_proc_threshold,
-                              global_vars.proc_dst_threshold, global_vars.report_os) != 0) {
-                return -1; // failure
+            if (analysis_init_from_archive(verbosity, global_vars.resources, global_vars.fp_proc_threshold,
+                                           global_vars.proc_dst_threshold, global_vars.report_os) != 0) {
+                return -1;
             }
         }
         return 0; // success

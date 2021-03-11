@@ -1,0 +1,24 @@
+
+#-*- mode: shell-script;-*-
+
+# this file contains a bash function that provides detailed command
+# completion for tls_scanner
+#
+# install in /usr/share/bash-completion/completions
+
+
+_tls_scanner()
+{
+    local cur prev opts
+    _init_completion || return
+
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $( compgen -W '$( _parse_help "$1" )' -- "$cur" ) )
+        return 0
+    else
+        _known_hosts_real -- "$cur"
+    fi
+
+}
+
+complete -F _tls_scanner tls_scanner

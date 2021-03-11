@@ -139,7 +139,7 @@ OUTPUT
 GENERAL OPTIONS
    --config c                            # read configuration from file c
    [-a or --analysis]                    # analyze fingerprints
-   --resources d                         # use resource directory d
+   --resources=f                         # use resource file f
    [-s or --select] filter               # select only metadata (see --help)
    [-l or --limit] l                     # rotate output file after l records
    --dns-json                            # output DNS as JSON, not base64

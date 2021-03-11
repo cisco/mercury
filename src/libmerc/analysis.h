@@ -29,8 +29,11 @@
 #include "tls.h"
 #include "archive.h"
 
-int analysis_init(int verbosity, const char *resource_dir, const float fp_proc_threshold,
-                  const float proc_dst_threshold, const bool report_os);
+int analysis_init_from_archive(int verbosity,
+                               const char *archive_name,
+                               const float fp_proc_threshold,
+                               const float proc_dst_threshold,
+                               const bool report_os);
 
 int analysis_finalize();
 
@@ -477,7 +480,7 @@ public:
 
 class fingerprint_prevalence {
 public:
-    fingerprint_prevalence(uint32_t max_cache_size) : max_cache_size_{max_cache_size} {}
+    fingerprint_prevalence(uint32_t max_cache_size) : mutex_{}, list_{}, set_{}, known_set_{}, max_cache_size_{max_cache_size} {}
 
     // first check if known fingerprints contains fingerprint, then check adaptive set
     bool contains(std::string fp_str) const {
@@ -547,6 +550,7 @@ public:
         if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
             line_str.erase(line_str.length()-1);
         }
+        //fprintf(stderr, "loading fp_prevalence_line '%s'\n", line_str.c_str());
         fp_prevalence.initial_add(line_str);
     }
 
