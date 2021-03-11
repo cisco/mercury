@@ -1,5 +1,5 @@
 /*
- * addr.c
+ * addr.cc
  *
  * address processing functions, including longest prefix match
  *
