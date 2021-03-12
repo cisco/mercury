@@ -42,11 +42,8 @@ struct analysis_result analyze_client_hello_and_key(const struct tls_client_hell
                                                     const struct key &key);
 
 
-
-// classifier
-
-
-int gzgetline(gzFile f, std::string &s);
+// process and malware classifier classes
+//
 
 class process_info {
 public:
@@ -705,29 +702,6 @@ public:
             }
             fpdb[fp_string] = fp_data;
         }
-    }
-
-    classifier(const char *resource_file, const char *resource_fp_prevalence, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{} {
-
-        gzFile in_file = gzopen(resource_fp_prevalence, "r");
-        if (in_file == NULL) {
-            throw "error: could not open resource file fp prevalence";
-        }
-        std::string line_str;
-        while (gzgetline(in_file, line_str)) {
-            process_fp_prevalence_line(line_str);
-        }
-        gzclose(in_file);
-
-        in_file = gzopen(resource_file, "r");
-        if (in_file == NULL) {
-            throw "error: could not open resource file";
-        }
-        while (gzgetline(in_file, line_str)) {
-            process_fp_db_line(line_str, fp_proc_threshold, proc_dst_threshold, report_os);
-        }
-        gzclose(in_file);
-
     }
 
     classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{} {
