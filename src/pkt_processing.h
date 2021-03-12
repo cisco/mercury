@@ -17,6 +17,7 @@
 #include "libmerc/libmerc.h"
 #include "libmerc/pkt_proc.h"
 
+constexpr static size_t PREALLOC_SIZE = 65536;
 
 // struct packet_info contains timestamp and length information about
 // a packet
@@ -123,7 +124,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
     struct pcap_file pcap_file;
     struct stateful_pkt_proc processor;
 
-    pkt_proc_filter_pcap_writer(const char *outfile, int flags) : processor{} {
+    pkt_proc_filter_pcap_writer(const char *outfile, int flags) : processor{PREALLOC_SIZE} {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
             throw "could not open PCAP output file";
@@ -234,7 +235,7 @@ struct pkt_proc_json_writer_llq_CPP : public pkt_proc {
      */
     explicit pkt_proc_json_writer_llq_CPP(struct ll_queue *llq_ptr, bool blocking) :
         block{blocking},
-        processor{}
+        processor{PREALLOC_SIZE}
     {
         llq = llq_ptr;
     }
@@ -271,7 +272,7 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     bool block;
     struct stateful_pkt_proc processor;
 
-    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, bool blocking) : block{blocking}, processor{} {
+    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, bool blocking) : block{blocking}, processor{PREALLOC_SIZE} {
         llq = llq_ptr;
     }
 

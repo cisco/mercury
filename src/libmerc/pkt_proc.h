@@ -28,10 +28,10 @@ struct stateful_pkt_proc {
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
 
-    explicit stateful_pkt_proc() :
-        ip_flow_table{65536},
-        tcp_flow_table{65536},
-        reassembler{65536},
+    explicit stateful_pkt_proc(size_t prealloc_size=0) :
+        ip_flow_table{prealloc_size},
+        tcp_flow_table{prealloc_size},
+        reassembler{prealloc_size},
         reassembler_ptr{&reassembler},
         tcp_init_msg_filter{},
         analysis{}
@@ -41,7 +41,7 @@ struct stateful_pkt_proc {
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
         reassembler_ptr = nullptr;
 #else
-// #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
+      // #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
 #endif
 
     }

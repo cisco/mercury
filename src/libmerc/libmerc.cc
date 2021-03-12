@@ -348,7 +348,7 @@ enum status proto_ident_config(const char *config_string) {
 
 mercury_packet_processor mercury_packet_processor_construct() {
     try {
-        stateful_pkt_proc *tmp = new stateful_pkt_proc;
+        stateful_pkt_proc *tmp = new stateful_pkt_proc{0};
         return tmp;
     }
     catch (...) {
