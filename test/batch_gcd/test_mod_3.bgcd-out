@@ -1,8 +1,3 @@
-Running batch GCD on 3 moduli.
-Found 3 weak moduli out of 3.
-Still need to perform GCD co-factoring on 1 weak moduli.
-Work still to do: O(3 * 1) == O(3)
-Further found co-factors for 1 weak moduli.
 Found vulnerable modulus on line 1: 29bf7 with smallest co-factor 133
 Found vulnerable modulus on line 2: 12a15 with smallest co-factor 89
 Found vulnerable modulus on line 3: 17b6d with smallest co-factor 89

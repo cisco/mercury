@@ -557,9 +557,9 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
     }
 
     /* Now report on work remaining */
-    fprintf(stdout, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
-    fprintf(stdout, "Still need to perform GCD co-factoring on %lu weak moduli.\n", weak_gcd_count);
-    fprintf(stdout, "Work still to do: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
+    fprintf(stderr, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
+    fprintf(stderr, "Still need to perform GCD co-factoring on %lu weak moduli.\n", weak_gcd_count);
+    fprintf(stderr, "Work still to do: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
 
     /* To separate out the remaining co-primes we just do trial GCD on the remaining
      * weak moduli until we find a pair that only share one co-prime.
@@ -602,7 +602,7 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
         }
     }
 
-    fprintf(stdout, "Further found co-factors for %lu weak moduli.\n", weak_gcd_success);
+    fprintf(stderr, "Further found co-factors for %lu weak moduli.\n", weak_gcd_success);
 
     free(weakidx);
     free(weakidx_gcd);
@@ -773,11 +773,9 @@ int main (int argc, char *argv[]) {
         exit(4);
     }
 
-    fprintf(stdout, "Running batch GCD on %zu moduli.\n", nlist->len);
-
-    // Intentionally print the following to stderr, so that stdout
-    // does not vary with the number of threads.
-    fprintf(stderr, "[DEBUG] Batch GCD parallelized with %d threads.\n", NTHREADS);
+    // Print all informational messages to stderr
+    fprintf(stderr, "Running batch GCD on %zu moduli.\n", nlist->len);
+    fprintf(stderr, "Batch GCD parallelized with %d threads.\n", NTHREADS);
 
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
