@@ -6,7 +6,9 @@
 #define OPTIONS_H
 
 #include <stdio.h>
+#include <string.h>
 #include <string>
+#include <vector>
 
 /*
  * example use of class option_processor
@@ -157,6 +159,47 @@ public:
             return false;
         }
         return true;
+    }
+
+    // parse_c_string(s) parses a null-terminated C character string s
+    // into an argv[] style vector of null-terminated C character
+    // strings
+    std::vector<char *> parse_c_string(char *s) {
+        char delimiter = ' ';
+        std::vector<char *> v;
+        v.push_back(nullptr);  // placeholder for argv[] compatibility
+
+        while (*s == delimiter) {
+            s++;  // consume leading whitespace
+        }
+        char *prev_string = s;
+        while (*s != '\0') {
+            if (prev_string == nullptr) {
+                prev_string = s;
+            }
+            if (*s == delimiter) {
+                *s = '\0';
+                v.push_back(prev_string);
+                prev_string = nullptr;
+                s++;
+                while (*s == delimiter) {
+                    s++;  // consume whitespace
+                }
+            } else {
+                s++;
+            }
+        }
+        if (s != prev_string && prev_string != nullptr) {
+            v.push_back(prev_string);
+        }
+        return v;
+    }
+
+    bool process_c_string(char *s) {
+        std::vector<char *> v = parse_c_string(s);
+        int argc = v.size();
+        char **argv = &v[0];
+        return process_argv(argc, argv);
     }
 
     void usage(FILE *f, const char *progname, const char *summary) {
