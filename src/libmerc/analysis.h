@@ -29,11 +29,14 @@
 #include "tls.h"
 #include "archive.h"
 
+
 int analysis_init_from_archive(int verbosity,
                                const char *archive_name,
-                               const float fp_proc_threshold,
-                               const float proc_dst_threshold,
-                               const bool report_os);
+                               const uint8_t *enc_key,
+                               enum enc_key_type key_type,
+                               float fp_proc_threshold,
+                               float proc_dst_threshold,
+                               bool report_os);
 
 int analysis_finalize();
 

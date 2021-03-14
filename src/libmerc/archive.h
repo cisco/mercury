@@ -19,6 +19,8 @@
 
 #include <zlib.h>
 
+#include "libmerc.h"
+
 
 #define print_field(f, F) fprintf(f, #F ":\t%.*s\n", (int)sizeof(F), F)
 

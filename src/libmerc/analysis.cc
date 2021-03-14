@@ -20,6 +20,7 @@
 #include "analysis.h"
 #include "utils.h"
 #include "tls.h"
+#include "libmerc.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -117,9 +118,17 @@ classifier *c = NULL;
 
 int analysis_init_from_archive(int verbosity,
                                const char *archive_name,
+                               const uint8_t *enc_key,
+                               enum enc_key_type key_type,
                                const float fp_proc_threshold,
                                const float proc_dst_threshold,
                                const bool report_os) {
+
+    if (enc_key != NULL || key_type != enc_key_type_none) {
+        fprintf(stderr, "error: decryption key provided in configuration, but decryption not supported\n");
+        fprintf(stderr, "key: %p\ttype: %u\n", enc_key, key_type);
+        return -1;  // error
+    }
 
     if (archive_name == nullptr) {
         archive_name = DEFAULT_RESOURCE_FILE;

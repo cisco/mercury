@@ -20,6 +20,11 @@
 //
 #define LIBMERC_DLL_EXPORTED __attribute__((__visibility__("default")))
 
+enum enc_key_type {
+    enc_key_type_none = 0,
+    enc_key_type_aes_256
+};
+
 /**
  * @breif struct libmerc_config represents the complete configuration
  * of the libmerc library.
@@ -42,6 +47,8 @@ struct libmerc_config {
         output_tcp_initial_data{false},
         output_udp_initial_data{false},
         resources{NULL},
+        enc_key{NULL},
+        key_type{enc_key_type_none},
         packet_filter_cfg{NULL},
         fp_proc_threshold{0.0},
         proc_dst_threshold{0.0}
@@ -56,7 +63,10 @@ struct libmerc_config {
     bool output_tcp_initial_data; /* write initial data field     */
     bool output_udp_initial_data; /* write initial data field     */
 
-    char *resources;         /* directory containing (analysis) resource files */
+    char *resources;             /* archive containing resource files       */
+    const uint8_t *enc_key;      /* (optional) decryption key for archive   */
+    enum enc_key_type key_type;  /* key type (none=0 if key not present)    */
+
     char *packet_filter_cfg; /* packet filter configuration string             */
 
     float fp_proc_threshold;   /* remove processes with less than <var> weight    */
@@ -68,7 +78,7 @@ struct libmerc_config {
  * minimal, default configuration.
  */
 #ifndef __cplusplus
-#define libmerc_config_init() {false,false,false,false,false,false,false,NULL,NULL,0.0,0.0}
+#define libmerc_config_init() {false,false,false,false,false,false,false,NULL,NULL,enc_key_type_none,NULL,0.0,0.0}
 #endif
 
 /**
