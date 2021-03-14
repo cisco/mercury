@@ -313,7 +313,7 @@ int main(int argc, char *argv[]) {
     //
     struct libmerc_config config = libmerc_config_init();
     config.do_analysis = true;
-    config.resources = "../resources";
+    config.resources = "../resources/resources.tgz";
     config.report_os = true;
     config.packet_filter_cfg = "tls";
     retval = test_libmerc(&config, verbosity);
@@ -325,7 +325,7 @@ int main(int argc, char *argv[]) {
     // test reduced database size configuration
     struct libmerc_config config_min_db = libmerc_config_init();
     config_min_db.do_analysis = true;
-    config_min_db.resources = "../resources";
+    config_min_db.resources = "../resources/resources.tgz";
     config_min_db.report_os = true;
     config_min_db.packet_filter_cfg = "tls";
     config_min_db.fp_proc_threshold = .001;
