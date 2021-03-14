@@ -1,0 +1,4 @@
+Duplicate ignored: line 2 = line 1 = 28a3
+Found vulnerable modulus on line 3: 29bf7 with smallest co-factor 133
+Found vulnerable modulus on line 4: 12a15 with smallest co-factor 89
+Found vulnerable modulus on line 5: 17b6d with smallest co-factor 89

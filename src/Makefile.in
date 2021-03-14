@@ -136,7 +136,7 @@ tls_scanner: tls_scanner.cc libmerc
 
 batch_gcd: CFLAGS += -march=native -flto
 batch_gcd: batch_gcd.cc
-	$(CXX) $(CFLAGS) batch_gcd.cc -o batch_gcd -Bdynamic -lgmp -lpthread
+	$(CXX) $(CFLAGS) batch_gcd.cc -o batch_gcd -Bdynamic -lgmpxx -lgmp -lpthread
 
 cert_analyze: cert_analyze.cc libmerc
 	$(CXX) $(CFLAGS) cert_analyze.cc -o cert_analyze libmerc/libmerc.a -lcrypto

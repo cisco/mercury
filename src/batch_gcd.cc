@@ -9,8 +9,12 @@
 #include <pthread.h>
 
 #include <gmp.h>
+#include <gmpxx.h>
 
+#include <map>
+#include <vector>
 #include <thread>
+
 
 /* Number of threads to use. Adjust and recompile if fixed number is desired. */
 static const int NTHREADS = std::thread::hardware_concurrency();
@@ -723,33 +727,57 @@ int main (int argc, char *argv[]) {
     const size_t GMP_LIMBS_MAX = INT_MAX;  /* GMP limit */
     size_t estimated_limbs = 0; /* estimate for product of all inputs */
 
-    /* Read lines from stdin where each line is a modulus in hex */
+    /* Read lines from stdin where each line is a modulus in hex.
+       Record the original line number for each modulus, and detect
+       and report duplicates.
+     */
     char *linestr = NULL;
     size_t linelen = 0;
     ssize_t read;
-    int linenum = 1;
+    size_t linenum = 1;
+    /* Deduplication-related variables */
+    std::map<mpz_class, size_t> line_first_seen; // 1st time each modulus appears
+    // Due to deduplication, not all lines are fed to batch GCD. Store the
+    // original line number for each element i of the batch GCD numlist.
+    std::vector<size_t> original_linenum;
+    size_t duplicates_ignored = 0;
     while ((read = getline(&linestr, &linelen, stdin)) != -1) {
         if (!is_hex_line(linestr)) {
-            fprintf(stderr, "Aborting due to non-hex input on line %d: %s\n",
+            fprintf(stderr, "Aborting due to non-hex input on line %zu: %s\n",
                     linenum, linestr);
             exit(2);
         }
         int ret = gmp_sscanf(linestr, "%Zx\n", mpz_temp);
         if (ret == 1) {
-            push_numlist(nlist, mpz_temp);
-            estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
+            // Ignore this line if it duplicates a previous line.
+            mpz_class n(mpz_temp);
+            if (line_first_seen.count(n) == 1) {
+                fprintf(stdout,
+                        "Duplicate ignored: line %zu = line %zu = ",
+                        linenum, line_first_seen[n]);
+                gmp_fprintf(stdout, "%Zx", n);
+                fprintf(stdout, "\n");
+                duplicates_ignored++;
+            } else {
+                // Not a duplicate; add to the list for batch GCD
+                line_first_seen[n] = linenum;
+                push_numlist(nlist, mpz_temp);
+                original_linenum.push_back(linenum);
+                estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
+            }
         } else {
-            fprintf(stderr, "Aborting due to invalid modulus on line %d: %s\n",
+            fprintf(stderr, "Aborting due to invalid modulus on line %zu: %s\n",
                     linenum, linestr);
             exit(3);
         }
         linenum++;
     }
     if (ferror(stdin)) {
-        fprintf(stderr, "Aborting due to error reading line %d\n", linenum);
+        fprintf(stderr, "Aborting due to error reading line %zu\n", linenum);
         exit(1);
     }
     free(linestr);
+    line_first_seen.clear(); // save memory
 
     /* Abort if the product of all the inputs might exceed GMP's
        largest possible integer.
@@ -774,8 +802,14 @@ int main (int argc, char *argv[]) {
     }
 
     // Print all informational messages to stderr
-    fprintf(stderr, "Running batch GCD on %zu moduli.\n", nlist->len);
-    fprintf(stderr, "Batch GCD parallelized with %d threads.\n", NTHREADS);
+    fprintf(stderr, "Running batch GCD on %zu moduli", nlist->len);
+    if (duplicates_ignored > 0) {
+        fprintf(stderr, " (ignoring %zu duplicate line%s)",
+                duplicates_ignored,
+                duplicates_ignored >= 2 ? "s" : "");
+    }
+    fprintf(stderr, ".\n");
+    fprintf(stderr, "Parallelization: %d threads\n", NTHREADS);
 
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
@@ -783,7 +817,8 @@ int main (int argc, char *argv[]) {
 
     for (size_t i = 0; i < nlist->len; i++) {
         if (mpz_cmp_ui(gcdlist->num[i], 1) != 0) {
-            fprintf(stdout, "Found vulnerable modulus on line %lu: ", i + 1);
+            fprintf(stdout, "Found vulnerable modulus on line %zu: ",
+                    original_linenum[i]);
             gmp_fprintf(stdout, "%Zx", nlist->num[i]);
             fprintf(stdout, " with smallest co-factor ");
             gmp_fprintf(stdout, "%Zx", cplist->num[i]);
