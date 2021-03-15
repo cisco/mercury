@@ -9,8 +9,13 @@
 #include <pthread.h>
 
 #include <gmp.h>
+#include <gmpxx.h>
 
+#include <map>
+#include <vector>
 #include <thread>
+#include <utility>
+
 
 /* Number of threads to use. Adjust and recompile if fixed number is desired. */
 static const int NTHREADS = std::thread::hardware_concurrency();
@@ -38,8 +43,12 @@ struct list_worker_thread {
 
 void usage(FILE *fp, const char *progname) {
     fprintf(fp, "Usage: %s < moduli_in_hex.txt\n\n", progname);
-    fprintf(fp, "Where the input must be exactly one hex integer per line.\n");
-    fprintf(fp, "No blank lines or other characters permitted.\n");
+
+    fprintf(fp, "This code efficiently runs all-to-all GCD on RSA moduli.\n");
+    fprintf(fp, "The input must be exactly one hex integer per line.\n");
+    fprintf(fp, "No blank lines or other characters are permitted.\n\n");
+
+    fprintf(fp, "Informational progress messages are written to stderr.\n");
 }
 
 
@@ -557,9 +566,9 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
     }
 
     /* Now report on work remaining */
-    fprintf(stdout, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
-    fprintf(stdout, "Still need to perform GCD co-factoring on %lu weak moduli.\n", weak_gcd_count);
-    fprintf(stdout, "Work still to do: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
+    fprintf(stderr, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
+    fprintf(stderr, "%lu weak moduli have both factors shared with others.\n", weak_gcd_count);
+    fprintf(stderr, "GCD trials still needed: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
 
     /* To separate out the remaining co-primes we just do trial GCD on the remaining
      * weak moduli until we find a pair that only share one co-prime.
@@ -602,7 +611,7 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
         }
     }
 
-    fprintf(stdout, "Further found co-factors for %lu weak moduli.\n", weak_gcd_success);
+    fprintf(stderr, "Further found co-factors for %lu weak moduli.\n", weak_gcd_success);
 
     free(weakidx);
     free(weakidx_gcd);
@@ -723,33 +732,57 @@ int main (int argc, char *argv[]) {
     const size_t GMP_LIMBS_MAX = INT_MAX;  /* GMP limit */
     size_t estimated_limbs = 0; /* estimate for product of all inputs */
 
-    /* Read lines from stdin where each line is a modulus in hex */
+    /* Read lines from stdin where each line is a modulus in hex.
+       Record the original line number for each modulus, and detect
+       and report duplicates.
+     */
     char *linestr = NULL;
     size_t linelen = 0;
     ssize_t read;
-    int linenum = 1;
+    size_t linenum = 1;
+    /* Deduplication-related variables */
+    std::map<mpz_class, size_t> line_first_seen; // 1st time each modulus appears
+    // Due to deduplication, not all lines are fed to batch GCD. Store the
+    // original line number for each element i of the batch GCD numlist.
+    std::vector<size_t> original_linenum;
+    size_t duplicates_ignored = 0;
     while ((read = getline(&linestr, &linelen, stdin)) != -1) {
         if (!is_hex_line(linestr)) {
-            fprintf(stderr, "Aborting due to non-hex input on line %d: %s\n",
+            fprintf(stderr, "Aborting due to non-hex input on line %zu: %s\n",
                     linenum, linestr);
             exit(2);
         }
         int ret = gmp_sscanf(linestr, "%Zx\n", mpz_temp);
         if (ret == 1) {
-            push_numlist(nlist, mpz_temp);
-            estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
+            // Ignore this line if it duplicates a previous line.
+            mpz_class n(mpz_temp);
+            if (line_first_seen.count(n) == 1) {
+                fprintf(stdout,
+                        "Duplicate ignored: line %zu = line %zu = ",
+                        linenum, line_first_seen[n]);
+                gmp_fprintf(stdout, "%Zx", n);
+                fprintf(stdout, "\n");
+                duplicates_ignored++;
+            } else {
+                // Not a duplicate; add to the list for batch GCD
+                line_first_seen[n] = linenum;
+                push_numlist(nlist, mpz_temp);
+                original_linenum.push_back(linenum);
+                estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
+            }
         } else {
-            fprintf(stderr, "Aborting due to invalid modulus on line %d: %s\n",
+            fprintf(stderr, "Aborting due to invalid modulus on line %zu: %s\n",
                     linenum, linestr);
             exit(3);
         }
         linenum++;
     }
     if (ferror(stdin)) {
-        fprintf(stderr, "Aborting due to error reading line %d\n", linenum);
+        fprintf(stderr, "Aborting due to error reading line %zu\n", linenum);
         exit(1);
     }
     free(linestr);
+    line_first_seen.clear(); // save memory
 
     /* Abort if the product of all the inputs might exceed GMP's
        largest possible integer.
@@ -773,24 +806,75 @@ int main (int argc, char *argv[]) {
         exit(4);
     }
 
-    fprintf(stdout, "Running batch GCD on %zu moduli.\n", nlist->len);
-
-    // Intentionally print the following to stderr, so that stdout
-    // does not vary with the number of threads.
-    fprintf(stderr, "[DEBUG] Batch GCD parallelized with %d threads.\n", NTHREADS);
+    // Print all informational messages to stderr
+    fprintf(stderr, "Running batch GCD on %zu moduli", nlist->len);
+    if (duplicates_ignored > 0) {
+        fprintf(stderr, " (ignoring %zu duplicate line%s)",
+                duplicates_ignored,
+                duplicates_ignored >= 2 ? "s" : "");
+    }
+    fprintf(stderr, ".\n");
+    fprintf(stderr, "Parallelization: %d threads\n", NTHREADS);
 
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
     struct numlist *cplist = factor_coprimes(nlist, gcdlist);
 
+    // Go through the GCD list and look for non-trivial factors.  For
+    // each non-trivial factor, record the set of lines sharing that
+    // factor.
+    std::map<mpz_class,std::vector<size_t>> factor2lines;
     for (size_t i = 0; i < nlist->len; i++) {
         if (mpz_cmp_ui(gcdlist->num[i], 1) != 0) {
-            fprintf(stdout, "Found vulnerable modulus on line %lu: ", i + 1);
-            gmp_fprintf(stdout, "%Zx", nlist->num[i]);
-            fprintf(stdout, " with smallest co-factor ");
-            gmp_fprintf(stdout, "%Zx", cplist->num[i]);
+            // Get the factors and the original line number
+            mpz_class n(nlist->num[i]);
+            mpz_class f1(cplist->num[i]);
+            mpz_class f2 = n / f1;
+            if (f1 > f2) {
+                std::swap(f1, f2);
+            }
+            assert(f1 * f2 == n);
+            size_t line = original_linenum[i];
+
+            // Record the factors - lines relationship
+            if (factor2lines.count(f1) == 0) {
+                factor2lines[f1] = std::vector<size_t>();
+            }
+            factor2lines[f1].push_back(line);
+            if (factor2lines.count(f2) == 0) {
+                factor2lines[f2] = std::vector<size_t>();
+            }
+            factor2lines[f2].push_back(line);
+
+            fprintf(stdout, "Vulnerable modulus on line %zu: ",
+                    original_linenum[i]);
+            gmp_fprintf(stdout, "%Zx", n);
+            fprintf(stdout, " = ");
+            gmp_fprintf(stdout, "%Zx", f1);
+            fprintf(stdout, " * ");
+            gmp_fprintf(stdout, "%Zx", f2);
             fprintf(stdout, "\n");
         }
+    }
+
+    // Report which lines share common factors.
+    // For example, "1,3;2,4,5;3,6" means the following:
+    // - lines 1,3 share a common factor
+    // - lines 2,4,5 share a different factor
+    // - lines 3,6 share a third factor different from the one shared by 1,3
+    fprintf(stderr, "Reporting which lines, if any, share a common factor.\n");
+    bool first_factor = true;
+    for (const auto& [f, lines]: factor2lines) {
+        if (lines.size() > 1) {
+            fprintf(stdout, first_factor ? "" : ";");
+            for (size_t i = 0; i < lines.size(); i++) {
+                fprintf(stdout, "%s%zu", (i==0)?"":",", lines[i]);
+            }
+            first_factor = false;
+        }
+    }
+    if (!first_factor) { // something was printed
+        fprintf(stdout, "\n");
     }
 
     mpz_clear(mpz_temp);
