@@ -1,3 +1,3 @@
-Found vulnerable modulus on line 1: 29bf7 with smallest co-factor 133
-Found vulnerable modulus on line 2: 12a15 with smallest co-factor 89
-Found vulnerable modulus on line 3: 17b6d with smallest co-factor 89
+Vulnerable modulus on line 1: 29bf7 = 133 * 22d
+Vulnerable modulus on line 2: 12a15 = 89 * 22d
+Vulnerable modulus on line 3: 17b6d = 89 * 2c5

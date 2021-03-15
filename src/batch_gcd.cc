@@ -14,6 +14,7 @@
 #include <map>
 #include <vector>
 #include <thread>
+#include <utility>
 
 
 /* Number of threads to use. Adjust and recompile if fixed number is desired. */
@@ -42,8 +43,12 @@ struct list_worker_thread {
 
 void usage(FILE *fp, const char *progname) {
     fprintf(fp, "Usage: %s < moduli_in_hex.txt\n\n", progname);
-    fprintf(fp, "Where the input must be exactly one hex integer per line.\n");
-    fprintf(fp, "No blank lines or other characters permitted.\n");
+
+    fprintf(fp, "This code efficiently runs all-to-all GCD on RSA moduli.\n");
+    fprintf(fp, "The input must be exactly one hex integer per line.\n");
+    fprintf(fp, "No blank lines or other characters are permitted.\n\n");
+
+    fprintf(fp, "Informational progress messages are written to stderr.\n");
 }
 
 
@@ -815,16 +820,44 @@ int main (int argc, char *argv[]) {
 
     struct numlist *cplist = factor_coprimes(nlist, gcdlist);
 
+    // Go through the GCD list and look for non-trivial factors.  For
+    // each non-trivial factor, record the set of lines sharing that
+    // factor.
+    std::map<mpz_class,std::vector<size_t>> factor2lines;
     for (size_t i = 0; i < nlist->len; i++) {
         if (mpz_cmp_ui(gcdlist->num[i], 1) != 0) {
-            fprintf(stdout, "Found vulnerable modulus on line %zu: ",
+            // Get the factors and the original line number
+            mpz_class n(nlist->num[i]);
+            mpz_class f1(cplist->num[i]);
+            mpz_class f2 = n / f1;
+            if (f1 > f2) {
+                std::swap(f1, f2);
+            }
+            assert(f1 * f2 == n);
+            size_t line = original_linenum[i];
+
+            // Record the factors - lines relationship
+            if (factor2lines.count(f1) == 0) {
+                factor2lines[f1] = std::vector<size_t>();
+            }
+            factor2lines[f1].push_back(line);
+            if (factor2lines.count(f2) == 0) {
+                factor2lines[f2] = std::vector<size_t>();
+            }
+            factor2lines[f2].push_back(line);
+
+            fprintf(stdout, "Vulnerable modulus on line %zu: ",
                     original_linenum[i]);
-            gmp_fprintf(stdout, "%Zx", nlist->num[i]);
-            fprintf(stdout, " with smallest co-factor ");
-            gmp_fprintf(stdout, "%Zx", cplist->num[i]);
+            gmp_fprintf(stdout, "%Zx", n);
+            fprintf(stdout, " = ");
+            gmp_fprintf(stdout, "%Zx", f1);
+            fprintf(stdout, " * ");
+            gmp_fprintf(stdout, "%Zx", f2);
             fprintf(stdout, "\n");
         }
     }
+
+    // TODO: report which lines share common factors
 
     mpz_clear(mpz_temp);
     freenumlist(nlist);
