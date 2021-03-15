@@ -567,8 +567,8 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
 
     /* Now report on work remaining */
     fprintf(stderr, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
-    fprintf(stderr, "Still need to perform GCD co-factoring on %lu weak moduli.\n", weak_gcd_count);
-    fprintf(stderr, "Work still to do: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
+    fprintf(stderr, "%lu weak moduli have both factors shared with others.\n", weak_gcd_count);
+    fprintf(stderr, "GCD trials still needed: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
 
     /* To separate out the remaining co-primes we just do trial GCD on the remaining
      * weak moduli until we find a pair that only share one co-prime.
