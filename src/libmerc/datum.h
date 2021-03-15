@@ -348,6 +348,9 @@ template <size_t T> struct data_buffer {
         data += num_bytes;
         r.data += num_bytes;
     }
+    void copy(struct datum &r) {
+        copy(r, r.length());
+    }
     void reset() { data = buffer; }
     bool is_not_empty() const { return data != buffer && data < data_end; }
     void set_empty() { data_end = data = buffer; }
