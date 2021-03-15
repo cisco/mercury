@@ -857,7 +857,25 @@ int main (int argc, char *argv[]) {
         }
     }
 
-    // TODO: report which lines share common factors
+    // Report which lines share common factors.
+    // For example, "1,3;2,4,5;3,6" means the following:
+    // - lines 1,3 share a common factor
+    // - lines 2,4,5 share a different factor
+    // - lines 3,6 share a third factor different from the one shared by 1,3
+    fprintf(stderr, "Reporting which lines, if any, share a common factor.\n");
+    bool first_factor = true;
+    for (const auto& [f, lines]: factor2lines) {
+        if (lines.size() > 1) {
+            fprintf(stdout, first_factor ? "" : ";");
+            for (size_t i = 0; i < lines.size(); i++) {
+                fprintf(stdout, "%s%zu", (i==0)?"":",", lines[i]);
+            }
+            first_factor = false;
+        }
+    }
+    if (!first_factor) { // something was printed
+        fprintf(stdout, "\n");
+    }
 
     mpz_clear(mpz_temp);
     freenumlist(nlist);
