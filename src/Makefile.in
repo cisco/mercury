@@ -24,7 +24,8 @@ datarootdir = @datarootdir@/mercury
 .SUFFIXES:
 .SUFFIXES: .c .o
 
-LIBMERC = libmerc/libmerc.so
+LIBMERC = libmerc/libmerc.a
+LIBMERC_SO = libmerc/libmerc.so
 
 # set parameters from configure (autoconf)
 #
@@ -115,6 +116,9 @@ debug-mercury: CFLAGS += -DDEBUG -g -O0
 debug-mercury: CFLAGS += -fsanitize=address -static-libasan
 debug-mercury: debug-libmerc mercury
 
+unstripped-mercury: CFLAGS += -fvisibility=default  # keep symbols
+unstripped-mercury: unstripped-libmerc mercury
+
 setcap: mercury
 	sudo setcap $(CAP) $<
 
@@ -125,11 +129,11 @@ libmerc:
 
 .PHONY: debug-libmerc
 debug-libmerc:
-	$(MAKE) --directory=libmerc debug-libmerc.so
+	$(MAKE) --directory=libmerc debug-libmerc.so debug-libmerc.a
 
 .PHONY: unstripped-libmerc
 unstripped-libmerc:
-	$(MAKE) --directory=libmerc unstripped-libmerc.so
+	$(MAKE) --directory=libmerc unstripped-libmerc.so unstripped-libmerc.a
 
 tls_scanner: tls_scanner.cc libmerc
 	$(CXX) $(CFLAGS) tls_scanner.cc -o tls_scanner libmerc/libmerc.a -lssl -lcrypto -lz
@@ -169,7 +173,7 @@ endif
 #MERC_OBJ = $(MERC:%.o=%.c)
 
 libmerc_test: libmerc_test.c libmerc Makefile.in
-	$(CC) -Wall -std=c17 -o libmerc_test libmerc_test.c -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
+	$(CC) -Wall -std=c17 -o libmerc_test libmerc_test.c -lpthread $(LIBMERC_SO) -L./libmerc -lz -lcrypto
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 

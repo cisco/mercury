@@ -129,23 +129,43 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 	$(STRIP) libmerc.so
 	ldconfig -n .
+	cp libmerc.so ../../lib/
 
-# debug target
+# debug targets (debug-libmerc.a and debug-libmerc.so)
 #
-# debug-libmerc.so: CFLAGS += -DDEBUG # this option triggers voluminous detailed output
-debug-libmerc.so: CFLAGS += -g
-debug-libmerc.so: CFLAGS += -ggdb
-debug-libmerc.so: CFLAGS += -O0
-debug-libmerc.so: CFLAGS += -UNDEBUG
-debug-libmerc.so: CFLAGS += -fsanitize=address
-debug-libmerc.so: CFLAGS += -fno-omit-frame-pointer
+# These targets produce .a or .so libraries with the same name, but
+# different compilation options, for use in debugging and profiling
+
+# DBGFLAGS sets the compiler and linker flags for debugging,
+# overriding earlier options where needed
+#
+DBGFLAGS += -g
+DBGFLAGS += -ggdb
+DBGFLAGS += -O0
+DBGFLAGS += -UNDEBUG
+DBGFLAGS += -fsanitize=address
+DBGFLAGS += -fno-omit-frame-pointer
+DBGFLAGS += -fvisibility=default
+# DBGFLAGS += -DDEBUG # this option triggers voluminous detailed output
+
+debug-libmerc.so: CFLAGS += $(DBGFLAGS)
 debug-libmerc.so: STRIP = @echo "not running strip on"
 debug-libmerc.so: libmerc.so
+debug-libmerc.so:
+	cp libmerc.so ../../lib/debug-libmerc.so
 
-# unstripped (but optimized) target
+debug-libmerc.a: CFLAGS += $(DBGFLAGS)
+debug-libmerc.a: libmerc.a
+
+# unstripped (but optimized) targets
 #
 unstripped-libmerc.so: STRIP = @echo "not running strip on"
 unstripped-libmerc.so: libmerc.so
+unstripped-libmerc.so:
+	cp libmerc.so ../../lib/unstripped-libmerc.so
+
+# unstripped-libmerc.a: CFLAGS += -fvisibility=default
+unstripped-libmerc.a: libmerc.a
 
 # rule to build static library
 #
@@ -185,7 +205,7 @@ endif
 
 .PHONY: clean
 clean:
-	rm -rf libmerc.so libmerc.so.* libmerc.a *.o .depend
+	rm -rf libmerc.so libmerc.so.* debug-libmerc.so unstripped-libmerc.so libmerc.a *.o .depend
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done

@@ -103,6 +103,16 @@ else
 	userdel mercury
 endif
 
+# the target libs builds three versions of libmerc.so, and copies them
+# to the folder libs/
+.PHONY: libs
+libs:
+	$(MAKE) --directory=src clean
+	$(MAKE) --directory=src libmerc
+	$(MAKE) --directory=src clean
+	$(MAKE) --directory=src debug-libmerc
+	$(MAKE) --directory=src clean
+	$(MAKE) --directory=src unstripped-libmerc
 
 .PHONY: test
 test:
