@@ -105,9 +105,9 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: libmerc mercury libmerc_test cert_analyze # tls_scanner batch_gcd
+all: mercury libmerc_test cert_analyze # tls_scanner batch_gcd
 
-mercury: mercury.c $(MERC) $(MERC_H) Makefile.in
+mercury: mercury.c $(MERC) $(MERC_H) $(LIBMERC) Makefile.in
 	$(CXX) $(CFLAGS) -o mercury mercury.c $(MERC) -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
@@ -121,6 +121,12 @@ unstripped-mercury: unstripped-libmerc mercury
 
 setcap: mercury
 	sudo setcap $(CAP) $<
+
+libmerc/libmerc.a:
+	$(MAKE) --directory=libmerc libmerc.a
+
+libmerc/libmerc.so:
+	$(MAKE) --directory=libmerc libmerc.so
 
 .PHONY: libmerc
 libmerc:
@@ -172,7 +178,7 @@ endif
 
 #MERC_OBJ = $(MERC:%.o=%.c)
 
-libmerc_test: libmerc_test.c libmerc Makefile.in
+libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 	$(CC) -Wall -std=c17 -o libmerc_test libmerc_test.c -lpthread $(LIBMERC_SO) -L./libmerc -lz -lcrypto
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
