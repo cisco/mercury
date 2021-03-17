@@ -140,6 +140,7 @@ endif
 .PHONY: distclean
 distclean: clean
 	rm -rf autom4te.cache config.log config.status
+	rm -f lib/*.so
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
 	@/bin/false
