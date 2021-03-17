@@ -455,7 +455,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
                 struct json_object fps{record, "fingerprints"};
                 fps.print_key_value("http", request);
                 fps.close();
-                record.print_key_string("complete", request.headers.complete ? "yes" : "no");
+                // record.print_key_string("complete", request.headers.complete ? "yes" : "no");  // TBD: (re)move
                 request.write_json(record, global_vars.metadata_output);
                 write_flow_key(record, k);
                 record.print_key_timestamp("event_start", ts);
@@ -581,7 +581,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
                 struct json_object fps{record, "fingerprints"};
                 fps.print_key_value("http_server", response);
                 fps.close();
-                record.print_key_string("complete", response.headers.complete ? "yes" : "no");
+                // record.print_key_string("complete", response.headers.complete ? "yes" : "no");  // TBD: (re)move?
                 if (global_vars.metadata_output) {
                     response.write_json(record);
                 }
@@ -822,7 +822,7 @@ public:
 
 };
 
-//#define NEWCODE 1
+//#define NEWCODE 1  // using std::variant
 #ifdef NEWCODE
 
 #include <variant>
@@ -876,7 +876,7 @@ struct write_fingerprint {
         struct json_object fps{record, "fingerprints"};
         fps.print_key_value("http", r);
         fps.close();
-        record.print_key_string("complete", r.headers.complete ? "yes" : "no");
+        // record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
     }
 
     template <typename T>
@@ -896,6 +896,39 @@ struct write_fingerprint {
         fps.close();
     }
 
+    void operator()(std::monostate &r) {
+        (void) r;
+    }
+};
+
+struct write_analysis {
+    struct json_object &record;
+    const struct key &k_;
+    struct analysis_context &analysis_;
+
+    write_analysis(struct json_object &object,
+                   const struct key &k,
+                   struct analysis_context &analysis) :
+        record{object},
+        k_{k},
+        analysis_{analysis}
+    {}
+
+    void operator()(tls_client_hello &r) {
+        if (global_vars.do_analysis) {
+            extern classifier *c;
+            analysis_.fp.init(r);
+            analysis_.destination.init(r, k_);
+            if (c->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result)) {
+                analysis_.result.write_json(record, "analysis");
+            }
+        }
+    }
+
+    template <typename T>
+    void operator()(T &r) {
+        (void) r;
+    }
     void operator()(std::monostate &r) {
         (void) r;
     }
@@ -1029,6 +1062,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         struct json_object record{&buf};
         std::visit(write_fingerprint{record}, x);
         std::visit(write_metadata{record}, x);
+        std::visit(write_analysis{record, k, analysis}, x);
         write_flow_key(record, k);
         record.print_key_timestamp("event_start", ts);
         record.close();
