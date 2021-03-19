@@ -129,7 +129,6 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 	$(STRIP) libmerc.so
 	ldconfig -n .
-	cp libmerc.so ../../lib/
 
 # debug targets (debug-libmerc.a and debug-libmerc.so)
 #
@@ -147,6 +146,9 @@ DBGFLAGS += -fsanitize=address
 DBGFLAGS += -fno-omit-frame-pointer
 DBGFLAGS += -fvisibility=default
 # DBGFLAGS += -DDEBUG # this option triggers voluminous detailed output
+
+stripped-libmerc.so: libmerc.so
+	cp libmerc.so ../../lib/
 
 debug-libmerc.so: CFLAGS += $(DBGFLAGS)
 debug-libmerc.so: STRIP = @echo "not running strip on"

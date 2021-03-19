@@ -24,7 +24,7 @@ datarootdir = @datarootdir@/mercury
 .SUFFIXES:
 .SUFFIXES: .c .o
 
-LIBMERC = libmerc/libmerc.a
+LIBMERC = libmerc.a
 LIBMERC_SO = libmerc/libmerc.so
 
 # set parameters from configure (autoconf)
@@ -107,10 +107,9 @@ EUID       = $(id -u)
 
 all: mercury libmerc_test cert_analyze # tls_scanner batch_gcd
 
-mercury: mercury.c $(MERC) $(MERC_H) $(LIBMERC) Makefile.in
-	$(CXX) $(CFLAGS) -o mercury mercury.c $(MERC) -lpthread $(LIBMERC) -L./libmerc -lz -lcrypto
+mercury: mercury.c $(MERC) $(MERC_H) libmerc.a Makefile.in
+	$(CXX) $(CFLAGS) mercury.c $(MERC) -lpthread -L./libmerc -lmerc -lz -lcrypto -o mercury
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
-	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 debug-mercury: CFLAGS += -DDEBUG -g -O0
 debug-mercury: CFLAGS += -fsanitize=address -static-libasan
@@ -122,7 +121,8 @@ unstripped-mercury: unstripped-libmerc mercury
 setcap: mercury
 	sudo setcap $(CAP) $<
 
-libmerc/libmerc.a:
+.PHONY: libmerc.a
+libmerc.a:
 	$(MAKE) --directory=libmerc libmerc.a
 
 libmerc/libmerc.so:
@@ -141,21 +141,25 @@ debug-libmerc:
 unstripped-libmerc:
 	$(MAKE) --directory=libmerc unstripped-libmerc.so unstripped-libmerc.a
 
+.PHONY: stripped-libmerc
+stripped-libmerc:
+	$(MAKE) --directory=libmerc stripped-libmerc.so
+
 tls_scanner: tls_scanner.cc libmerc
-	$(CXX) $(CFLAGS) tls_scanner.cc -o tls_scanner libmerc/libmerc.a -lssl -lcrypto -lz
+	$(CXX) $(CFLAGS) tls_scanner.cc libmerc/libmerc.a -lssl -lcrypto -lz -o tls_scanner
 
 batch_gcd: CFLAGS += -march=native -flto
 batch_gcd: batch_gcd.cc
-	$(CXX) $(CFLAGS) batch_gcd.cc -o batch_gcd -Bdynamic -lgmpxx -lgmp -lpthread
+	$(CXX) $(CFLAGS) batch_gcd.cc -Bdynamic -lgmpxx -lgmp -lpthread -o batch_gcd
 
 cert_analyze: cert_analyze.cc libmerc
-	$(CXX) $(CFLAGS) cert_analyze.cc -o cert_analyze libmerc/libmerc.a -lcrypto
+	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/libmerc.a -lcrypto -o cert_analyze
 
 os_identifier: os_identifier.cc os-identification/os_identifier.h libmerc/datum.cc
-	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc -o os_identifier libmerc/datum.cc -lz
+	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc libmerc/datum.cc -lz -o os_identifier 
 
 archive_reader: archive_reader.cc libmerc/archive.h
-	$(CXX) $(CFLAGS) archive_reader.cc -o archive_reader -lz
+	$(CXX) $(CFLAGS) archive_reader.cc -lz -o archive_reader 
 
 # implicit rule for building object files
 #
@@ -179,16 +183,12 @@ endif
 #MERC_OBJ = $(MERC:%.o=%.c)
 
 libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
-	$(CC) -Wall -std=c17 -o libmerc_test libmerc_test.c -lpthread $(LIBMERC_SO) -L./libmerc -lz -lcrypto
+	$(CC) -Wall -std=c17 libmerc_test.c -lpthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 
-# special targets for mercury
+# special targets
 #
-.PHONY: debug
-debug: mercury.c $(MERC) $(MERC_H) $(LIBMERC) Makefile
-	$(CXX) $(CFLAGS) -g -Wall -o mercury mercury.c $(MERC) -lpthread -lmerc
-	@echo "build complete; now run 'sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip mercury'"
 
 .PHONY: clean
 clean:

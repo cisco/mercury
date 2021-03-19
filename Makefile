@@ -108,7 +108,7 @@ endif
 .PHONY: libs
 libs:
 	$(MAKE) --directory=src clean
-	$(MAKE) --directory=src libmerc
+	$(MAKE) --directory=src stripped-libmerc
 	$(MAKE) --directory=src clean
 	$(MAKE) --directory=src debug-libmerc
 	$(MAKE) --directory=src clean
