@@ -2,8 +2,8 @@ Zero modulus ignored: line 10
 Duplicate ignored: line 11 = line 9 = 9
 Modulus on line 2 divides another modulus: 2
 Modulus on line 3 divides another modulus: 3
-Vulnerable modulus on line 4: 4 = 2 * 2
-Vulnerable modulus on line 6: 6 = 2 * 3
-Vulnerable modulus on line 8: 8 = 2 * 4
-Vulnerable modulus on line 9: 9 = 3 * 3
+Vulnerable modulus on line 4: 4 has factors 2 and 2
+Vulnerable modulus on line 6: 6 has factors 2 and 3
+Vulnerable modulus on line 8: 8 has factors 2 and 4
+Vulnerable modulus on line 9: 9 has factors 3 and 3
 2,4,6,8;3,6,9

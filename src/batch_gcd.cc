@@ -567,8 +567,8 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
 
     /* Now report on work remaining */
     fprintf(stderr, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
-    fprintf(stderr, "%lu weak moduli have both factors shared with others.\n", weak_gcd_count);
-    fprintf(stderr, "GCD trials still needed: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
+    fprintf(stderr, "Computing pairwise GCD for %lu moduli, ", weak_gcd_count);
+    fprintf(stderr, "estimated time: O(%lu * %lu)\n", weak_count, weak_gcd_count);
 
     /* To separate out the remaining co-primes we just do trial GCD on the remaining
      * weak moduli until we find a pair that only share one co-prime.
@@ -875,9 +875,9 @@ int main (int argc, char *argv[]) {
             fprintf(stdout, "Vulnerable modulus on line %zu: ",
                     original_linenum[i]);
             gmp_fprintf(stdout, "%Zx", n);
-            fprintf(stdout, " = ");
+            fprintf(stdout, " has factors ");
             gmp_fprintf(stdout, "%Zx", f1);
-            fprintf(stdout, " * ");
+            fprintf(stdout, " and ");
             gmp_fprintf(stdout, "%Zx", f2);
             fprintf(stdout, "\n");
         }
