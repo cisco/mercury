@@ -567,8 +567,8 @@ struct numlist * factor_coprimes(struct numlist *nlist, struct numlist *gcdlist)
 
     /* Now report on work remaining */
     fprintf(stderr, "Found %lu weak moduli out of %ld.\n", weak_count, nlist->len);
-    fprintf(stderr, "%lu weak moduli have both factors shared with others.\n", weak_gcd_count);
-    fprintf(stderr, "GCD trials still needed: O(%lu * %lu) == O(%lu)\n", weak_count, weak_gcd_count, weak_count * weak_gcd_count);
+    fprintf(stderr, "Computing pairwise GCD for %lu moduli, ", weak_gcd_count);
+    fprintf(stderr, "estimated time: O(%lu * %lu)\n", weak_count, weak_gcd_count);
 
     /* To separate out the remaining co-primes we just do trial GCD on the remaining
      * weak moduli until we find a pair that only share one co-prime.
@@ -746,6 +746,7 @@ int main (int argc, char *argv[]) {
     // original line number for each element i of the batch GCD numlist.
     std::vector<size_t> original_linenum;
     size_t duplicates_ignored = 0;
+    size_t zeros_ignored = 0;
     while ((read = getline(&linestr, &linelen, stdin)) != -1) {
         if (!is_hex_line(linestr)) {
             fprintf(stderr, "Aborting due to non-hex input on line %zu: %s\n",
@@ -763,6 +764,9 @@ int main (int argc, char *argv[]) {
                 gmp_fprintf(stdout, "%Zx", n);
                 fprintf(stdout, "\n");
                 duplicates_ignored++;
+            } else if (n == 0) {
+                fprintf(stdout, "Zero modulus ignored: line %zu\n", linenum);
+                zeros_ignored++;
             } else {
                 // Not a duplicate; add to the list for batch GCD
                 line_first_seen[n] = linenum;
@@ -809,9 +813,14 @@ int main (int argc, char *argv[]) {
     // Print all informational messages to stderr
     fprintf(stderr, "Running batch GCD on %zu moduli", nlist->len);
     if (duplicates_ignored > 0) {
-        fprintf(stderr, " (ignoring %zu duplicate line%s)",
+        fprintf(stderr, ", ignoring %zu duplicate line%s",
                 duplicates_ignored,
                 duplicates_ignored >= 2 ? "s" : "");
+    }
+    if (zeros_ignored > 0) {
+        fprintf(stderr, ", ignoring %zu zero line%s",
+                zeros_ignored,
+                zeros_ignored >= 2 ? "s" : "");
     }
     fprintf(stderr, ".\n");
     fprintf(stderr, "Parallelization: %d threads\n", NTHREADS);
@@ -820,38 +829,55 @@ int main (int argc, char *argv[]) {
 
     struct numlist *cplist = factor_coprimes(nlist, gcdlist);
 
-    // Go through the GCD list and look for non-trivial factors.  For
-    // each non-trivial factor, record the set of lines sharing that
+    // Go through the GCD list and look for non-trivial factors.
+    // Print each factorization that was discovered.  Also, for each
+    // non-trivial factor, record the set of lines sharing that
     // factor.
     std::map<mpz_class,std::vector<size_t>> factor2lines;
     for (size_t i = 0; i < nlist->len; i++) {
         if (mpz_cmp_ui(gcdlist->num[i], 1) != 0) {
-            // Get the factors and the original line number
+            size_t line = original_linenum[i];
+
+            // Get the factors
             mpz_class n(nlist->num[i]);
             mpz_class f1(cplist->num[i]);
+            if (f1 == 0) {
+                // Record the factor/line relationship (this one is weird)
+                if (factor2lines.count(n) == 0) {
+                    factor2lines[n] == std::vector<size_t>();
+                }
+                factor2lines[n].push_back(line);
+                // Output
+                gmp_fprintf(stdout,
+                     "Modulus on line %zu divides another modulus: %Zx\n",
+                     line, n);
+                continue;
+            }
             mpz_class f2 = n / f1;
             if (f1 > f2) {
                 std::swap(f1, f2);
             }
             assert(f1 * f2 == n);
-            size_t line = original_linenum[i];
 
-            // Record the factors - lines relationship
+            // Record the factors/lines relationship
             if (factor2lines.count(f1) == 0) {
                 factor2lines[f1] = std::vector<size_t>();
             }
             factor2lines[f1].push_back(line);
-            if (factor2lines.count(f2) == 0) {
-                factor2lines[f2] = std::vector<size_t>();
+            if (f2 != f1) { // false only if modulus is a perfect square
+                if (factor2lines.count(f2) == 0) {
+                    factor2lines[f2] = std::vector<size_t>();
+                }
+                factor2lines[f2].push_back(line);
             }
-            factor2lines[f2].push_back(line);
 
+            // Output
             fprintf(stdout, "Vulnerable modulus on line %zu: ",
                     original_linenum[i]);
             gmp_fprintf(stdout, "%Zx", n);
-            fprintf(stdout, " = ");
+            fprintf(stdout, " has factors ");
             gmp_fprintf(stdout, "%Zx", f1);
-            fprintf(stdout, " * ");
+            fprintf(stdout, " and ");
             gmp_fprintf(stdout, "%Zx", f2);
             fprintf(stdout, "\n");
         }
