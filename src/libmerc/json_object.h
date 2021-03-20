@@ -140,6 +140,14 @@ struct json_object {
         b->puts("\":");
         b->write_timestamp(ts);
     }
+    void print_key_timestamp_as_string(const char *k, struct timespec *ts) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":\"");
+        b->write_timestamp_as_string(ts);
+        b->write_char('\"');
+    }
      template <typename T> void print_key_value(const char *k, T &w) {
         write_comma(comma);
         b->write_char('\"');

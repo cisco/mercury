@@ -284,6 +284,27 @@ static inline int append_timestamp(char *dstr, int *doff, int dlen, int *trunc,
 }
 
 
+static inline int append_timestamp_as_string(char *dstr, int *doff, int dlen, int *trunc,
+                                             const struct timespec *ts) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    // construct ISO8601 / RFC3339 compliant UTC timestamp
+    struct tm tm;
+    gmtime_r(&ts->tv_sec, &tm);
+    char time_buf[31];
+    strftime(time_buf, sizeof(time_buf), "%Y-%m-%dT%H:%M:%S.", &tm);
+    char str_buf[31];
+    int str_len = snprintf(str_buf, sizeof(str_buf), "%s%09luZ", time_buf, ts->tv_nsec);
+
+    return append_memcpy(dstr, doff, dlen, trunc,
+                         str_buf, str_len);
+}
+
+
+
 static inline int append_uint8(char *dstr, int *doff, int dlen, int *trunc,
                                uint8_t n) {
 
@@ -782,6 +803,10 @@ struct buffer_stream {
 
     void write_timestamp(const struct timespec *ts) {
         append_timestamp(dstr, &doff, dlen, &trunc, ts);
+    }
+
+    void write_timestamp_as_string(const struct timespec *ts) {
+        append_timestamp_as_string(dstr, &doff, dlen, &trunc, ts);
     }
 
     void write_uint8(uint8_t n) {
