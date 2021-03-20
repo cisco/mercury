@@ -31,6 +31,8 @@
 
 extern struct libmerc_config global_vars;  // defined in libmerc.h
 
+double malware_prob_threshold = 0.0; // HACK for demo
+
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
         const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
@@ -424,7 +426,6 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     return 0;
 }
 
-
 // tcp_data_write_json() parses TCP data and writes metadata into
 // a buffer stream, if any is found
 //
@@ -495,9 +496,10 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
                     }
                 }
                 write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
+                record.print_key_timestamp("event_start", ts); // HACK: _as_string
                 record.close();
             }
+            // if (analysis.result.max_mal || (analysis.result.malware_prob >= malware_prob_threshold)) { return; } // HACK
         }
         break;
     case tcp_msg_type_tls_server_hello:
@@ -660,6 +662,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         break;
     }
 
+    //buf.doff = 0; // HACK: squelch printing
 }
 
 // tcp_data_write_json() parses TCP data and writes metadata into
@@ -786,13 +789,6 @@ public:
         bool have_certificate = certificate.is_not_empty();
         if (have_hello || have_certificate) {
 
-            // output fingerprint
-            if (have_hello) {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_value("tls_server", hello);
-                fps.close();
-            }
-
             // output certificate (always) and server_hello (if configured to)
             //
             if ((global_vars.metadata_output && have_hello) || have_certificate) {
@@ -831,7 +827,8 @@ using tcp_protocol = std::variant<http_request,
                                   http_response,
                                   tls_client_hello,
                                   tls_server_hello_and_certificate,
-                                  //ssh_init_packet,
+                                  ssh_init_packet,
+                                  ssh_kex_init,
                                   std::monostate>;
 
 struct is_not_empty {
@@ -872,27 +869,40 @@ struct write_fingerprint {
 
     write_fingerprint(struct json_object &object) : record{object} {}
 
+    template <typename T>
+    void operator()(T &r) {
+        r.write_fingerprint(record);
+    }
+
     void operator()(http_request &r) {
         struct json_object fps{record, "fingerprints"};
         fps.print_key_value("http", r);
         fps.close();
-        // record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
-    }
-
-    template <typename T>
-    void operator()(T &r) {
-        r.write_fingerprint(record);
+        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
     }
 
     void operator()(http_response &r) {
         struct json_object fps{record, "fingerprints"};
         fps.print_key_value("http_server", r);
         fps.close();
+        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
     }
 
     void operator()(tls_client_hello &r) {
         struct json_object fps{record, "fingerprints"};
         fps.print_key_value("tls", r);
+        fps.close();
+    }
+
+    void operator()(ssh_init_packet &r) {
+        struct json_object fps{record, "fingerprints"};
+        fps.print_key_value("ssh", r);
+        fps.close();
+    }
+
+    void operator()(ssh_kex_init &r) {
+        struct json_object fps{record, "fingerprints"};
+        fps.print_key_value("ssh_kex", r);
         fps.close();
     }
 
@@ -1032,6 +1042,30 @@ void set_tcp_protocol(tcp_protocol &x, struct datum &pkt) {
             x.emplace<tls_server_hello_and_certificate>();
             auto &msg = std::get<tls_server_hello_and_certificate>(x);
             msg.parse(pkt);
+            break;
+        }
+    case tcp_msg_type_ssh:
+        {
+            x.emplace<ssh_init_packet>();
+            auto &request = std::get<ssh_init_packet>(x);
+            request.parse(pkt);
+            break;
+        }
+    case tcp_msg_type_ssh_kex:
+        {
+            struct ssh_binary_packet ssh_pkt;
+            ssh_pkt.parse(pkt);
+#if TBD
+            if (ssh_pkt.additional_bytes_needed && reassembler) {
+                // fprintf(stderr, "ssh.binary_packet (%zu)\n", ssh_pkt.additional_bytes_needed);
+                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, ssh_pkt.additional_bytes_needed)) {
+                    return;
+                }
+            }
+#endif // TBD
+            x.emplace<ssh_kex_init>();
+            auto &kex_init = std::get<ssh_kex_init>(x);
+            kex_init.parse(ssh_pkt.payload);
             break;
         }
     default:

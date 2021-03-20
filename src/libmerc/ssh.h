@@ -71,6 +71,10 @@ struct ssh_init_packet {
         p.skip(1);
     }
 
+    bool is_not_empty() {
+        return protocol_string.is_not_empty();
+    }
+
     void operator()(struct buffer_stream &buf) const {
         if (protocol_string.is_not_readable()) {
             buf.write_char('\"');
@@ -164,6 +168,10 @@ struct ssh_binary_packet {
             // fprintf(stderr, "ssh_binary_packet additional_bytes_needed: %zu (wanted: %zd, have: %zu)\n", additional_bytes_needed, bytes_left_in_packet, p.length());
         }
         payload.parse_soft_fail(p, bytes_left_in_packet);
+    }
+
+    bool is_not_empty() {
+        return payload.is_not_empty();
     }
 
     static const ssize_t max_length = 16384;

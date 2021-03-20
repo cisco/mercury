@@ -189,6 +189,8 @@ int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
 
+    extern double malware_prob_threshold;  // HACK for demo
+
     while(1) {
         enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9 };
         int opt_idx = 0;
@@ -209,6 +211,7 @@ int main(int argc, char *argv[]) {
             { "fingerprint", required_argument, NULL, 'f' },
             { "analysis",    no_argument,       NULL, 'a' },
             { "threads",     required_argument, NULL, 't' },
+            { "threshold",   required_argument, NULL, 'x' }, // HACK for demo
             { "buffer",      required_argument, NULL, 'b' },
             { "limit",       required_argument, NULL, 'l' },
             { "user",        required_argument, NULL, 'u' },
@@ -378,6 +381,18 @@ int main(int argc, char *argv[]) {
                 }
             } else {
                 usage(argv[0], "option t or threads requires a numeric argument", extended_help_off);
+            }
+            break;
+        case 'x':
+            if (option_is_valid(optarg)) {
+                errno = 0;
+                malware_prob_threshold = strtod(optarg, NULL);
+                if (malware_prob_threshold < 0.0 || malware_prob_threshold > 1.0 || errno) {
+                    printf("error: could not convert argument \"%s\" to a non-negative number\n", optarg);
+                    usage(argv[0], "option x or threshold requires a numeric argument between 0.0 and 1.0", extended_help_off);
+                }
+            } else {
+                usage(argv[0], "option x or threshold requires a numeric argument greater than 0.0 and less than 1.0", extended_help_off);
             }
             break;
         case 'l':
