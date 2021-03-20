@@ -1,3 +1,14 @@
+/********************************************************************
+  Efficiently compute the pairwise GCD of a large number of integers
+  (RSA moduli)
+
+  Primary reference: Heninger, Nadia, Zakir Durumeric, Eric Wustrow,
+  and J. Alex Halderman. "Mining Your Ps and Qs: Detection of
+  Widespread Weak Keys in Network Devices," 205–20, 2012.
+
+  https://www.usenix.org/conference/usenixsecurity12/technical-sessions/presentation/heninger
+ *******************************************************************/
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -825,14 +836,19 @@ int main (int argc, char *argv[]) {
     fprintf(stderr, ".\n");
     fprintf(stderr, "Parallelization: %d threads\n", NTHREADS);
 
+    // Main computation: Batch GCD (Heninger, 2012)
     struct numlist *gcdlist = fast_batchgcd(nlist);
 
+    // (Heninger, 2012) With batch GCD, if a modulus shares both of
+    // its prime factors with two other distinct moduli, then the GCD
+    // will be the modulus itself rather than one of its prime
+    // factors. For these, we apply the naive quadratic algorithm for
+    // pairwise GCDs.
     struct numlist *cplist = factor_coprimes(nlist, gcdlist);
 
-    // Go through the GCD list and look for non-trivial factors.
-    // Print each factorization that was discovered.  Also, for each
-    // non-trivial factor, record the set of lines sharing that
-    // factor.
+    // Go through the GCD list and print each factorization that was
+    // discovered.  Also, for each non-trivial factor, record the set
+    // of lines sharing that factor.
     std::map<mpz_class,std::vector<size_t>> factor2lines;
     for (size_t i = 0; i < nlist->len; i++) {
         if (mpz_cmp_ui(gcdlist->num[i], 1) != 0) {
