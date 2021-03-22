@@ -1084,6 +1084,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
 
     (void) tcp_pkt;
     (void) reassembler;
+
     if (pkt.is_not_empty() == false) {
         return;
     }
@@ -1102,8 +1103,6 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         record.print_key_timestamp("event_start", ts);
         record.close();
     }
-
-    // TBD: add first data packet processing
 
 }
 
