@@ -820,12 +820,41 @@ public:
 
 #include <variant>
 
-using tcp_protocol = std::variant<http_request,
+class unknown_initial_packet {
+    datum tcp_data_field;
+
+public:
+
+    unknown_initial_packet() : tcp_data_field{} { }
+
+    void parse(struct datum &pkt) {
+        // if this packet is a TLS record, ignore it
+        if (tls_record::is_valid(tcp_data_field)) {
+            tcp_data_field.set_empty();
+        } else {
+            tcp_data_field = pkt;
+        }
+    }
+
+    void write_fingerprint(json_object &record) { (void)record; }
+
+    void write_json(json_object &record, bool) {
+        struct json_object tcp{record, "tcp"};
+        tcp.print_key_hex("data", tcp_data_field);
+        tcp.close();
+    }
+
+    bool is_not_empty() { return tcp_data_field.is_not_empty(); }
+};
+
+using tcp_protocol = std::variant<std::monostate,
+                                  http_request,
                                   http_response,
                                   tls_client_hello,
                                   tls_server_hello_and_certificate,
-                                  //ssh_init_packet,
-                                  std::monostate>;
+                                  unknown_initial_packet
+                                  //,ssh_init_packet,
+                                  >;
 
 struct is_not_empty {
     template <typename T>
@@ -985,7 +1014,7 @@ tcp_protocol get_tcp_protocol(struct datum &pkt) {
     return tmp;
 }
 
-void set_tcp_protocol(tcp_protocol &x, struct datum &pkt) {
+void set_tcp_protocol(tcp_protocol &x, struct datum &pkt, bool is_new) {
 
     enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
     switch(msg_type) {
@@ -1031,7 +1060,14 @@ void set_tcp_protocol(tcp_protocol &x, struct datum &pkt) {
             break;
         }
     default:
-        x.emplace<std::monostate>();
+        if (is_new) {
+            x.emplace<unknown_initial_packet>();
+            auto &msg = std::get<unknown_initial_packet>(x);
+            msg.parse(pkt);
+        } else {
+            x.emplace<std::monostate>();
+        }
+        break;
     }
 }
 
@@ -1048,12 +1084,15 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
 
     (void) tcp_pkt;
     (void) reassembler;
-
     if (pkt.is_not_empty() == false) {
         return;
     }
+    bool is_new = false;
+    if (global_vars.output_tcp_initial_data) {
+        is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+    }
     tcp_protocol x;
-    set_tcp_protocol(x, pkt);
+    set_tcp_protocol(x, pkt, is_new);
     if (std::visit(is_not_empty{}, x)) {
         struct json_object record{&buf};
         std::visit(write_fingerprint{record}, x);
