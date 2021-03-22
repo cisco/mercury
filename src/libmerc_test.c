@@ -138,6 +138,29 @@ unsigned char client_hello_no_server_name_eth[] = {
   0x02, 0x01, 0x02, 0x02, 0x02, 0x03, 0x00, 0x0f, 0x00, 0x01, 0x01
 };
 
+// analysis_context_fprint_debug_info() prints out debugging info to a FILE *
+//
+void analysis_context_fprint_debug_info(const struct analysis_context *ac, FILE *f) {
+
+    if (ac == NULL || analysis_context_get_fingerprint_type(ac) != fingerprint_type_tls) {
+        return;   // nothing to report
+    }
+    const char *prefix = "mercury";
+    fprintf(f, "%s: fingerprint=%s\n", prefix, analysis_context_get_fingerprint_string(ac));
+    fprintf(f, "%s: server_name=%s\n", prefix, analysis_context_get_server_name(ac));
+    const char *probable_process = NULL;
+    double probability_score = 0.0;
+    if (analysis_context_get_process_info(ac, &probable_process, &probability_score)) {
+        fprintf(f, "%s: probable_process=%s\n", prefix, probable_process);
+        fprintf(f, "%s: probability_score=%f\n", prefix, probability_score);
+    }
+    bool probable_process_is_malware = false;
+    double probability_session_is_malware = 0.0;
+    if (analysis_context_get_malware_info(ac, &probable_process_is_malware, &probability_session_is_malware)) {
+        fprintf(f, "%s: probable_process_is_malware=%u\n", prefix, probable_process_is_malware);
+        fprintf(f, "%s: probability_session_is_malware=%f\n", prefix, probability_session_is_malware);
+    }
+}
 
 // print_out_analysis_context(c) prints out information about the
 // fingerprint, server_name (if present), and the result of its
@@ -221,6 +244,9 @@ void print_out_analysis_context(const struct analysis_context *c) {
         }
 
     }
+
+    analysis_context_fprint_debug_info(c, stdout);
+
 }
 
 
@@ -300,7 +326,6 @@ int test_libmerc(struct libmerc_config *config, int verbosity) {
 
     return 0;
 }
-
 
 int main(int argc, char *argv[]) {
     int verbosity = 0;
