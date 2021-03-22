@@ -428,7 +428,7 @@ size_t stateful_pkt_proc::write_json(void *buffer,
 // tcp_data_write_json() parses TCP data and writes metadata into
 // a buffer stream, if any is found
 //
-void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
+void stateful_pkt_proc::tcp_data_write_json_OBSOLETE(struct buffer_stream &buf,
                                             struct datum &pkt,
                                             const struct key &k,
                                             struct tcp_packet &tcp_pkt,
@@ -822,7 +822,7 @@ public:
 
 };
 
-//#define NEWCODE 1  // using std::variant
+#define NEWCODE 1  // using std::variant
 #ifdef NEWCODE
 
 #include <variant>
