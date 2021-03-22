@@ -786,13 +786,6 @@ public:
         bool have_certificate = certificate.is_not_empty();
         if (have_hello || have_certificate) {
 
-            // output fingerprint
-            if (have_hello) {
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_value("tls_server", hello);
-                fps.close();
-            }
-
             // output certificate (always) and server_hello (if configured to)
             //
             if ((global_vars.metadata_output && have_hello) || have_certificate) {
@@ -857,8 +850,11 @@ struct write_metadata {
     }
 
     void operator()(http_response &r) {
-        r.write_json(record);
+        if (global_vars.metadata_output) {
+            r.write_json(record);
+        }
     }
+
     void operator()(tls_server_hello_and_certificate &r) {
         r.write_json(record);
     }
