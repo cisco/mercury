@@ -1028,14 +1028,10 @@ void set_tcp_protocol(tcp_protocol &x,
         {
             struct ssh_binary_packet ssh_pkt;
             ssh_pkt.parse(pkt);
-#if TBD
-            if (ssh_pkt.additional_bytes_needed && reassembler) {
-                // fprintf(stderr, "ssh.binary_packet (%zu)\n", ssh_pkt.additional_bytes_needed);
-                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, ssh_pkt.additional_bytes_needed)) {
-                    return;
-                }
+            if (tcp_pkt && ssh_pkt.additional_bytes_needed) {
+                tcp_pkt->reassembly_needed(ssh_pkt.additional_bytes_needed);
+                return;
             }
-#endif // TBD
             x.emplace<ssh_kex_init>();
             auto &kex_init = std::get<ssh_kex_init>(x);
             kex_init.parse(ssh_pkt.payload);
