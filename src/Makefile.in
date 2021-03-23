@@ -105,10 +105,20 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: mercury libmerc_test cert_analyze # tls_scanner batch_gcd
+all: libmerc-and-mercury libmerc_test cert_analyze # tls_scanner batch_gcd
 
-mercury: mercury.c $(MERC) $(MERC_H) libmerc.a Makefile.in
-	$(CXX) $(CFLAGS) mercury.c $(MERC) -lpthread -L./libmerc -lmerc -lz -lcrypto -o mercury
+# the target libmerc-and-mercury checks to see if libmerc.a needs to
+# be rebuilt, rebuilds it if needed, and then builds mercury.
+#
+.PHONY: libmerc-and-mercury
+libmerc-and-mercury: libmerc.a mercury
+
+# the target mercury rebuilds mercury, and is dependent on the actual
+# libmerc.a file, but it does not trigger any check to see if
+# libmerc.a itself needs to be rebuild
+#
+mercury: mercury.c $(MERC) $(MERC_H) libmerc/libmerc.a Makefile.in
+	$(CXX) $(CFLAGS) mercury.c $(MERC) -lpthread libmerc/libmerc.a -lz -lcrypto -o mercury
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 
 debug-mercury: CFLAGS += -DDEBUG -g -O0
@@ -123,10 +133,10 @@ setcap: mercury
 
 .PHONY: libmerc.a
 libmerc.a:
-	$(MAKE) --directory=libmerc libmerc.a
+	$(MAKE) -j --directory=libmerc libmerc.a
 
 libmerc/libmerc.so:
-	$(MAKE) --directory=libmerc libmerc.so
+	$(MAKE) -j --directory=libmerc libmerc.so
 
 .PHONY: libmerc
 libmerc:
@@ -135,15 +145,15 @@ libmerc:
 
 .PHONY: debug-libmerc
 debug-libmerc:
-	$(MAKE) --directory=libmerc debug-libmerc.so debug-libmerc.a
+	$(MAKE) -j --directory=libmerc debug-libmerc.so debug-libmerc.a
 
 .PHONY: unstripped-libmerc
 unstripped-libmerc:
-	$(MAKE) --directory=libmerc unstripped-libmerc.so unstripped-libmerc.a
+	$(MAKE) -j --directory=libmerc unstripped-libmerc.so unstripped-libmerc.a
 
 .PHONY: stripped-libmerc
 stripped-libmerc:
-	$(MAKE) --directory=libmerc stripped-libmerc.so
+	$(MAKE) -j --directory=libmerc stripped-libmerc.so
 
 tls_scanner: tls_scanner.cc libmerc
 	$(CXX) $(CFLAGS) tls_scanner.cc libmerc/libmerc.a -lssl -lcrypto -lz -o tls_scanner
@@ -152,8 +162,8 @@ batch_gcd: CFLAGS += -march=native -flto
 batch_gcd: batch_gcd.cc
 	$(CXX) $(CFLAGS) batch_gcd.cc -Bdynamic -lgmpxx -lgmp -lpthread -o batch_gcd
 
-cert_analyze: cert_analyze.cc libmerc
-	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/libmerc.a -lcrypto -o cert_analyze
+cert_analyze: cert_analyze.cc libmerc/datum.cc
+	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/datum.cc libmerc/libmerc.a -lcrypto -o cert_analyze
 
 os_identifier: os_identifier.cc os-identification/os_identifier.h libmerc/datum.cc
 	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc libmerc/datum.cc -lz -o os_identifier 

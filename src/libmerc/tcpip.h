@@ -128,8 +128,9 @@ struct tcp_packet {
     const struct tcp_header *header;
     struct datum tcp_options;
     uint32_t data_length;
+    uint32_t additional_bytes_needed;
 
-    tcp_packet() : header{NULL}, tcp_options{NULL, NULL}, data_length{0} {};
+    tcp_packet() : header{NULL}, tcp_options{NULL, NULL}, data_length{0}, additional_bytes_needed{0} {};
 
     void parse(struct datum &p) {
         if (p.length() < (int)sizeof(struct tcp_header)) {
@@ -141,6 +142,10 @@ struct tcp_packet {
         tcp_options.parse(p, tcp_offrsv_get_length(header->offrsv) - TCP_FIXED_HDR_LEN);
         data_length = p.length();
         //        fprintf(stderr, "tcp.data_length: %u\n", data_length);
+    }
+
+    void reassembly_needed(uint32_t num_bytes_needed) {
+        additional_bytes_needed = num_bytes_needed;
     }
 
     bool is_SYN() {

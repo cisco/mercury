@@ -74,7 +74,7 @@ struct stateful_pkt_proc {
                              struct timespec *ts,
                              struct tcp_reassembler *reassembler);
 
-    void tcp_data_write_json_old(struct buffer_stream &buf,
+    void tcp_data_write_json_OBSOLETE(struct buffer_stream &buf,
                                  struct datum &pkt,
                                  const struct key &k,
                                  struct tcp_packet &tcp_pkt,
