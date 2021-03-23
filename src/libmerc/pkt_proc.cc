@@ -732,7 +732,6 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
 
 //////////////////////////////////////////////////////////
 
-
 class tls_server_hello_and_certificate {
     struct tls_server_hello hello;
     struct tls_server_certificate certificate;
@@ -740,7 +739,7 @@ class tls_server_hello_and_certificate {
 public:
     tls_server_hello_and_certificate() : hello{}, certificate{} {}
 
-    void parse(struct datum &pkt) {
+    void parse(struct datum &pkt, struct tcp_packet *tcp_pkt) {
         struct tls_record rec;
         struct tls_handshake handshake;
 
@@ -766,14 +765,9 @@ public:
         if (handshake2.msg_type == handshake_type::certificate) {
             certificate.parse(handshake2.body);
         }
-#ifdef TBD
-        if (certificate.additional_bytes_needed && reassembler) {
-            // fprintf(stderr, "tls.handshake.certificate (%zu)\n", certificate.additional_bytes_needed);
-            if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, certificate.additional_bytes_needed)) {
-                return;
-            }
+        if (tcp_pkt && certificate.additional_bytes_needed) {
+            tcp_pkt->reassembly_needed(certificate.additional_bytes_needed);
         }
-#endif
     }
 
     bool is_not_empty() {
@@ -847,6 +841,13 @@ public:
     bool is_not_empty() { return tcp_data_field.is_not_empty(); }
 };
 
+// tcp_protocol is an alias for a variant record that holds the data
+// structure resulting from the parsing of the TCP data field.  The
+// default value of std::monostate indicates that the protocol matcher
+// did not recognize the packet.  The class unknown_initial_packet
+// represents the TCP data field of an unrecognized packet that is
+// the first data packet in a flow.
+//
 using tcp_protocol = std::variant<std::monostate,
                                   http_request,
                                   http_response,
@@ -951,70 +952,14 @@ struct write_analysis {
     }
 
     template <typename T>
-    void operator()(T &r) {
-        (void) r;
-    }
-    void operator()(std::monostate &r) {
-        (void) r;
-    }
+    void operator()(T &) { }
+
 };
 
-
-
-tcp_protocol get_tcp_protocol(struct datum &pkt) {
-
-    enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
-    switch(msg_type) {
-    case tcp_msg_type_http_request:
-        {
-            tcp_protocol tmp{std::in_place_type<http_request>};
-            auto &request = std::get<http_request>(tmp);
-            request.parse(pkt);
-            return tmp;
-        }
-    case tcp_msg_type_http_response:
-        {
-            tcp_protocol tmp{std::in_place_type<http_response>};
-            auto &response = std::get<http_response>(tmp);
-            response.parse(pkt);
-            return tmp;
-        }
-    case tcp_msg_type_tls_client_hello:
-        {
-            struct tls_record rec;
-            rec.parse(pkt);
-            struct tls_handshake handshake;
-            handshake.parse(rec.fragment);
-#ifdef TBD
-            if (handshake.additional_bytes_needed && reassembler) {
-                // fprintf(stderr, "tls.handshake.client_hello (%zu)\n", handshake.additional_bytes_needed);
-                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed)) {
-                    return;
-                }
-            }
-#endif
-            tcp_protocol tmp{std::in_place_type<tls_client_hello>};
-            auto &message = std::get<tls_client_hello>(tmp);
-            message.parse(handshake.body);
-            return tmp;
-        }
-    case tcp_msg_type_tls_server_hello:
-    case tcp_msg_type_tls_certificate:
-        {
-            //            class tls_server_hello_and_certificate hello_and_cert{};
-            tcp_protocol tmp{std::in_place_type<tls_server_hello_and_certificate>};
-            auto &response = std::get<tls_server_hello_and_certificate>(tmp);
-            response.parse(pkt);
-            return tmp;
-        }
-    default:
-        ;
-    }
-    tcp_protocol tmp{std::in_place_type<std::monostate>};
-    return tmp;
-}
-
-void set_tcp_protocol(tcp_protocol &x, struct datum &pkt, bool is_new) {
+void set_tcp_protocol(tcp_protocol &x,
+                      struct datum &pkt,
+                      bool is_new,
+                      struct tcp_packet *tcp_pkt) {
 
     enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
     switch(msg_type) {
@@ -1038,14 +983,10 @@ void set_tcp_protocol(tcp_protocol &x, struct datum &pkt, bool is_new) {
             rec.parse(pkt);
             struct tls_handshake handshake;
             handshake.parse(rec.fragment);
-#ifdef TBD
-            if (handshake.additional_bytes_needed && reassembler) {
-                // fprintf(stderr, "tls.handshake.client_hello (%zu)\n", handshake.additional_bytes_needed);
-                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed)) {
-                    return;
-                }
+            if (tcp_pkt && handshake.additional_bytes_needed) {
+                tcp_pkt->reassembly_needed(handshake.additional_bytes_needed);
+                return;
             }
-#endif
             x.emplace<tls_client_hello>();
             auto &message = std::get<tls_client_hello>(x);
             message.parse(handshake.body);
@@ -1056,7 +997,7 @@ void set_tcp_protocol(tcp_protocol &x, struct datum &pkt, bool is_new) {
         {
             x.emplace<tls_server_hello_and_certificate>();
             auto &msg = std::get<tls_server_hello_and_certificate>(x);
-            msg.parse(pkt);
+            msg.parse(pkt, tcp_pkt);
             break;
         }
     default:
@@ -1082,9 +1023,6 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
                                             struct timespec *ts,
                                             struct tcp_reassembler *reassembler) {
 
-    (void) tcp_pkt;
-    (void) reassembler;
-
     if (pkt.is_not_empty() == false) {
         return;
     }
@@ -1093,7 +1031,13 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
     }
     tcp_protocol x;
-    set_tcp_protocol(x, pkt, is_new);
+    set_tcp_protocol(x, pkt, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
+
+    if (tcp_pkt.additional_bytes_needed) {
+        if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, tcp_pkt.additional_bytes_needed)) {
+            return;
+        }
+    }
     if (std::visit(is_not_empty{}, x)) {
         struct json_object record{&buf};
         std::visit(write_fingerprint{record}, x);
