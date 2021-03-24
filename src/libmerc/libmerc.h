@@ -257,8 +257,15 @@ enum fingerprint_status analysis_context_get_fingerprint_status(const struct ana
  * struct fingerprint.
  */
 enum fingerprint_type {
-     fingerprint_type_unknown = 0, /**< The fingerprint type is not known. */
-     fingerprint_type_tls = 1      /**< TLS fingerprint                    */
+     fingerprint_type_unknown = 0,     /**< The fingerprint type is not known. */
+     fingerprint_type_tls = 1,         /**< TLS client fingerprint             */
+     fingerprint_type_tls_server = 2,  /**< TLS server fingerprint             */
+     fingerprint_type_http = 3,        /**< HTTP client fingerprint            */
+     fingerprint_type_http_server = 4, /**< HTTP server fingerprint            */
+     fingerprint_type_ssh = 5,         /**< SSH init fingerprint               */
+     fingerprint_type_ssh_kex = 6,     /**< SSH kex fingerprint                */
+     fingerprint_type_tcp = 7,         /**< TCP SYN fingerprint                */
+     fingerprint_type_dhcp = 8,        /**< DHCP client fingerprint            */
 };
 
 /**

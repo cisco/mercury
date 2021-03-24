@@ -164,11 +164,8 @@ struct tcp_packet {
     }
     void operator() (struct buffer_stream &buf) {
         if (header == NULL) {
-            buf.write_char('\"');
-            buf.write_char('\"');
             return;
         }
-        buf.write_char('\"');
         buf.write_char('(');
         buf.raw_as_hex((const uint8_t *)&header->window, sizeof(header->window));
         buf.write_char(')');
@@ -184,7 +181,6 @@ struct tcp_packet {
             }
             buf.write_char(')');
         }
-        buf.write_char('\"');
     }
 
     void write_timestamp(struct json_object &json_tcp) {

@@ -152,9 +152,10 @@ struct json_object {
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
-        b->puts("\":");
+        b->puts("\":\"");
         w(*b);
-    }
+        b->write_char('\"');
+     }
     void print_key_ipv4_addr(const char *k, const uint8_t *a) {
         write_comma(comma);
         b->write_char('\"');

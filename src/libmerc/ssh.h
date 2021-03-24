@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include "datum.h"
 #include "json_object.h"
+#include "fingerprint.h"
 
 #define L_ssh_version_string                   8
 #define L_ssh_packet_length                    4
@@ -77,11 +78,8 @@ struct ssh_init_packet {
 
     void operator()(struct buffer_stream &buf) const {
         if (protocol_string.is_not_readable()) {
-            buf.write_char('\"');
-            buf.write_char('\"');
             return;
         }
-        buf.write_char('\"');
         buf.write_char('(');
         struct datum tmp = protocol_string; // to avoid modifying object
         tmp.skip(VERS_LEN);                  // advance over "SSH-2.0"
@@ -102,7 +100,13 @@ struct ssh_init_packet {
             buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
         }
         buf.write_char(')');
-        buf.write_char('\"');
+    }
+
+    void compute_fingerprint(struct fingerprint &fp) const {
+        struct buffer_stream fp_buf{fp.fp_str, MAX_FP_STR_LEN};
+        operator()(fp_buf);
+        fp_buf.write_char('\0'); // null-terminate
+        fp.type = fingerprint_type_ssh;
     }
 
     void write_json(json_object &o, bool output_metadata) {
@@ -259,11 +263,8 @@ struct ssh_kex_init {
 
     void operator()(struct buffer_stream &buf) const {
         if (kex_algorithms.is_not_readable()) {
-            buf.write_char('\"');
-            buf.write_char('\"');
             return;
         }
-        buf.write_char('\"');
         write_hex_data(buf, kex_algorithms);
         write_hex_data(buf, server_host_key_algorithms);
         write_hex_data(buf, encryption_algorithms_client_to_server);
@@ -274,7 +275,6 @@ struct ssh_kex_init {
         write_hex_data(buf, compression_algorithms_server_to_client);
         write_hex_data(buf, languages_client_to_server);
         write_hex_data(buf, languages_server_to_client);
-        buf.write_char('\"');
     }
 
     void write_json(json_object &o, bool output_metadata) const {
@@ -297,6 +297,13 @@ struct ssh_kex_init {
             ssh_client.close();
             ssh.close();
         }
+    }
+
+    void compute_fingerprint(struct fingerprint &fp) const {
+        struct buffer_stream fp_buf{fp.fp_str, MAX_FP_STR_LEN};
+        operator()(fp_buf);
+        fp_buf.write_char('\0'); // null-terminate
+        fp.type = fingerprint_type_ssh_kex;
     }
 
 };

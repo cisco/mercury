@@ -8,6 +8,7 @@
 #ifndef TLS_H
 #define TLS_H
 
+#include "fingerprint.h"
 #include "extractor.h"
 
 struct tls_security_assessment {
@@ -328,6 +329,8 @@ struct tls_client_hello {
 
     void write_fingerprint(struct buffer_stream &buf) const;
 
+    void compute_fingerprint(struct fingerprint &fp) const;
+
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
     void write_json(struct json_object &record, bool output_metadata) const;
@@ -366,6 +369,8 @@ struct tls_server_hello {
     enum status parse_tls_server_hello(struct datum &p);
 
     void write_json(struct json_object &record) const;
+
+    void compute_fingerprint(struct fingerprint &fp) const;
 
 };
 

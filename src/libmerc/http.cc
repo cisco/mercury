@@ -211,11 +211,8 @@ void http_response::write_json(struct json_object &record) {
 
 void http_request::operator()(struct buffer_stream &b) const {
     if (is_not_empty() == false) {
-        b.write_char('\"');
-        b.write_char('\"');
         return;
     }
-    b.write_char('\"');
     b.write_char('(');
     b.raw_as_hex(method.data, method.data_end - method.data);
     b.write_char(')');
@@ -243,16 +240,12 @@ void http_request::operator()(struct buffer_stream &b) const {
         { { 'x', '-', 'p', '2', 'p', '-', 'p', 'e', 'e', 'r', 'd', 'i', 's', 't', ':', ' ' }, false } 
     };
     headers.fingerprint(b, http_static_keywords);
-    b.write_char('\"');
 }
 
 void http_response::operator()(struct buffer_stream &buf) const {
     if (is_not_empty() == false) {
-        buf.write_char('\"');
-        buf.write_char('\"');
         return;
     }
-    buf.write_char('\"');
     buf.write_char('(');
     buf.raw_as_hex(version.data, version.data_end - version.data);
     buf.write_char(')');
@@ -315,7 +308,10 @@ void http_response::operator()(struct buffer_stream &buf) const {
         { (uint8_t *)"x-trace-context: ", false }
     };
     headers.fingerprint(buf, http_static_keywords);
-    buf.write_char('\"');
+}
+
+void http_request::compute_fingerprint(struct fingerprint &fp) const {
+    fp.set(*this, fingerprint_type_http);
 }
 
 struct datum http_headers::get_header(const std::basic_string<uint8_t> &location) {
@@ -358,6 +354,10 @@ struct datum http_headers::get_header(const std::basic_string<uint8_t> &location
         }
     }
     return output;
+}
+
+void http_response::compute_fingerprint(struct fingerprint &fp) const {
+    fp.set(*this, fingerprint_type_http_server);
 }
 
 struct datum http_response::get_header(const std::basic_string<uint8_t> &header_name) {

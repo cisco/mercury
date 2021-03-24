@@ -14,6 +14,7 @@
 #include "json_object.h"
 #include "tls.h"
 #include "addr.h"
+#include "fingerprint.h"
 
 uint16_t flow_key_get_dst_port(const struct key &key);
 
@@ -90,31 +91,7 @@ public:
 // helper functions and constants
 
 #define MAX_DST_ADDR_LEN 48
-#define MAX_FP_STR_LEN 4096
 #define MAX_SNI_LEN     257
-
-
-struct fingerprint {
-    enum fingerprint_type type;
-    char fp_str[MAX_FP_STR_LEN];
-
-#ifdef __cplusplus
-    fingerprint() : type{fingerprint_type_unknown} {}
-
-    fingerprint(const struct tls_client_hello &hello) {
-        init(hello);
-    }
-
-    void init(const struct tls_client_hello &hello) {
-        type = fingerprint_type_tls;
-        struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
-        hello.write_fingerprint(fp_buf);
-        fp_buf.write_char('\0'); // null-terminate
-        // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
-    }
-
-#endif
-};
 
 struct destination_context {
     char dst_ip_str[MAX_DST_ADDR_LEN];

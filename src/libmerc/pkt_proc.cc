@@ -6,6 +6,8 @@
  */
 
 #include <string.h>
+#include <variant>
+
 #include "libmerc.h"
 #include "pkt_proc.h"
 #include "utils.h"
@@ -426,313 +428,6 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     return 0;
 }
 
-// tcp_data_write_json() parses TCP data and writes metadata into
-// a buffer stream, if any is found
-//
-void stateful_pkt_proc::tcp_data_write_json_OBSOLETE(struct buffer_stream &buf,
-                                            struct datum &pkt,
-                                            const struct key &k,
-                                            struct tcp_packet &tcp_pkt,
-                                            struct timespec *ts,
-                                            struct tcp_reassembler *reassembler) {
-
-    if (pkt.is_not_empty() == false) {
-        return;
-    }
-    enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
-
-    bool is_new = false;
-    if (global_vars.output_tcp_initial_data) {
-        is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
-    }
-
-    switch(msg_type) {
-    case tcp_msg_type_http_request:
-        {
-            struct http_request request;
-            request.parse(pkt);
-            if (request.is_not_empty()) {
-                struct json_object record{&buf};
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_value("http", request);
-                fps.close();
-                // record.print_key_string("complete", request.headers.complete ? "yes" : "no");  // TBD: (re)move
-                request.write_json(record, global_vars.metadata_output);
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
-                record.close();
-            }
-        }
-        break;
-    case tcp_msg_type_tls_client_hello:
-        {
-            struct tls_record rec;
-            rec.parse(pkt);
-            struct tls_handshake handshake;
-            handshake.parse(rec.fragment);
-            if (handshake.additional_bytes_needed && reassembler) {
-                // fprintf(stderr, "tls.handshake.client_hello (%zu)\n", handshake.additional_bytes_needed);
-                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed)) {
-                    return;
-                }
-            }
-            struct tls_client_hello hello;
-            hello.parse(handshake.body);
-            if (hello.is_not_empty()) {
-                struct json_object record{&buf};
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_value("tls", hello);
-                fps.close();
-                hello.write_json(record, global_vars.metadata_output);
-                /*
-                 * output analysis (if it's configured)
-                 */
-                if (global_vars.do_analysis) {
-                    extern classifier *c;
-                    analysis.fp.init(hello);
-                    analysis.destination.init(hello, k);
-                    if (c->analyze_fingerprint_and_destination_context(analysis.fp, analysis.destination, analysis.result)) {
-                        analysis.result.write_json(record, "analysis");
-                    }
-                }
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts); // HACK: _as_string
-                record.close();
-            }
-            // if (analysis.result.max_mal || (analysis.result.malware_prob >= malware_prob_threshold)) { return; } // HACK
-        }
-        break;
-    case tcp_msg_type_tls_server_hello:
-    case tcp_msg_type_tls_certificate:
-        {
-            struct tls_record rec;
-            struct tls_handshake handshake;
-            struct tls_server_hello hello;
-            struct tls_server_certificate certificate;
-
-            // parse server_hello and/or certificate
-            //
-            rec.parse(pkt);
-            handshake.parse(rec.fragment);
-            if (handshake.msg_type == handshake_type::server_hello) {
-                hello.parse(handshake.body);
-                if (rec.is_not_empty()) {
-                    struct tls_handshake h;
-                    h.parse(rec.fragment);
-                    certificate.parse(h.body);
-                }
-
-            } else if (handshake.msg_type == handshake_type::certificate) {
-                certificate.parse(handshake.body);
-            }
-            struct tls_record rec2;
-            rec2.parse(pkt);
-            struct tls_handshake handshake2;
-            handshake2.parse(rec2.fragment);
-            if (handshake2.msg_type == handshake_type::certificate) {
-                certificate.parse(handshake2.body);
-            }
-
-            if (certificate.additional_bytes_needed && reassembler) {
-                // fprintf(stderr, "tls.handshake.certificate (%zu)\n", certificate.additional_bytes_needed);
-                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, certificate.additional_bytes_needed)) {
-                    return;
-                }
-            }
-
-            bool have_hello = hello.is_not_empty();
-            bool have_certificate = certificate.is_not_empty();
-            if (have_hello || have_certificate) {
-                struct json_object record{&buf};
-
-                // output fingerprint
-                if (have_hello) {
-                    struct json_object fps{record, "fingerprints"};
-                    fps.print_key_value("tls_server", hello);
-                    fps.close();
-                }
-
-                // output certificate (always) and server_hello (if configured to)
-                //
-                if ((global_vars.metadata_output && have_hello) || have_certificate) {
-                    struct json_object tls{record, "tls"};
-                    struct json_object tls_server{tls, "server"};
-                    if (have_certificate) {
-                        struct json_array server_certs{tls_server, "certs"};
-                        certificate.write_json(server_certs, global_vars.certs_json_output);
-                        server_certs.close();
-                    }
-                    if (global_vars.metadata_output && have_hello) {
-                        hello.write_json(tls_server);
-                    }
-                    tls_server.close();
-                    tls.close();
-                }
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
-                record.close();
-            }
-        }
-        break;
-    case tcp_msg_type_http_response:
-        {
-            struct http_response response;
-            response.parse(pkt);
-            if (response.is_not_empty()) {
-                struct json_object record{&buf};
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_value("http_server", response);
-                fps.close();
-                // record.print_key_string("complete", response.headers.complete ? "yes" : "no");  // TBD: (re)move?
-                if (global_vars.metadata_output) {
-                    response.write_json(record);
-                }
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
-                record.close();
-            }
-        }
-        break;
-    case tcp_msg_type_ssh:
-        {
-            struct ssh_init_packet init_packet;
-            init_packet.parse(pkt);
-            struct json_object record{&buf};
-            struct json_object fps{record, "fingerprints"};
-            fps.print_key_value("ssh", init_packet);
-            fps.close();
-            init_packet.write_json(record, global_vars.metadata_output);
-#ifdef SSHM
-            if (pkt.is_not_empty()) {
-                pkt.accept('\n');
-                record.print_key_json_string("ssh_residual_data", pkt.data, pkt.length());
-                struct ssh_binary_packet bin_pkt;
-                bin_pkt.parse(pkt);
-                struct ssh_kex_init kex_init;
-                kex_init.parse(bin_pkt.payload);
-                kex_init.write_json(record, global_vars.metadata_output);
-            }
-#endif
-            write_flow_key(record, k);
-            record.print_key_timestamp("event_start", ts);
-            record.close();
-        }
-        break;
-    case tcp_msg_type_ssh_kex:
-        {
-            struct ssh_binary_packet ssh_pkt;
-            ssh_pkt.parse(pkt);
-            if (ssh_pkt.additional_bytes_needed && reassembler) {
-                // fprintf(stderr, "ssh.binary_packet (%zu)\n", ssh_pkt.additional_bytes_needed);
-                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, ssh_pkt.additional_bytes_needed)) {
-                    return;
-                }
-            }
-            struct ssh_kex_init kex_init;
-            kex_init.parse(ssh_pkt.payload);
-            if (kex_init.is_not_empty()) {
-                struct json_object record{&buf};
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_value("ssh_kex", kex_init);
-                fps.close();
-                kex_init.write_json(record, global_vars.metadata_output);
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
-                record.close();
-            }
-        }
-        break;
-    case tcp_msg_type_unknown:
-
-        if (is_new) {
-            // if this packet is a TLS record, ignore it
-            if (tls_record::is_valid(pkt)) {
-                return;
-            }
-
-            // output the data field
-            struct json_object record{&buf};
-            struct json_object tcp{record, "tcp"};
-            tcp.print_key_hex("data", pkt);
-            tcp.close();
-            write_flow_key(record, k);
-            record.print_key_timestamp("event_start", ts);
-            record.close();
-        }
-        break;
-    }
-
-    //buf.doff = 0; // HACK: squelch printing
-}
-
-// tcp_data_write_json() parses TCP data and writes metadata into
-// a buffer stream, if any is found
-//
-bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
-                                                     struct datum &pkt,
-                                                     const struct key &k,
-                                                     struct tcp_packet &tcp_pkt,
-                                                     struct timespec *ts,
-                                                     struct tcp_reassembler *reassembler) {
-
-    if (pkt.is_not_empty() == false) {
-        return false;
-    }
-    enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
-
-    // DEAD CODE
-    //
-    // bool is_new = false;
-    // if (global_vars.output_tcp_initial_data) {
-    //     is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
-    // }
-
-    switch(msg_type) {
-    case tcp_msg_type_http_request:
-        break;
-    case tcp_msg_type_tls_client_hello:
-        {
-            struct tls_record rec;
-            rec.parse(pkt);
-            struct tls_handshake handshake;
-            handshake.parse(rec.fragment);
-            if (handshake.additional_bytes_needed && reassembler) {
-                // fprintf(stderr, "tls.handshake.client_hello (%zu)\n", handshake.additional_bytes_needed);
-                if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, handshake.additional_bytes_needed)) {
-                    return false;
-                }
-            }
-            struct tls_client_hello hello;
-            hello.parse(handshake.body);
-            if (hello.is_not_empty()) {
-                if (global_vars.do_analysis) {
-                    extern classifier *c;
-
-                    analysis.fp.init(hello);
-                    analysis.destination.init(hello, k);
-                    if (c->analyze_fingerprint_and_destination_context(analysis.fp, analysis.destination, analysis.result)) {
-                        *r = analysis.result;
-                        return true;
-                    }
-                }
-            }
-        }
-        break;
-    case tcp_msg_type_tls_server_hello:
-    case tcp_msg_type_tls_certificate:
-        break;
-    case tcp_msg_type_http_response:
-        break;
-    case tcp_msg_type_ssh:
-        break;
-    case tcp_msg_type_ssh_kex:
-        break;
-    case tcp_msg_type_unknown:
-        break;
-    }
-    return false;
-}
-
 //////////////////////////////////////////////////////////
 
 class tls_server_hello_and_certificate {
@@ -810,12 +505,25 @@ public:
         }
     }
 
+    void compute_fingerprint(struct fingerprint &fp) const {
+        if (hello.is_not_empty()) {
+            fp.set(hello, fingerprint_type_tls_server);
+        }
+    }
+
+    const char *get_name() {
+        if (hello.is_not_empty()) {
+            return "tls_server";
+        }
+        return nullptr;
+    }
+
+    void operator()(buffer_stream &b) {
+        if (hello.is_not_empty()) {
+            hello(b);
+        }
+    }
 };
-
-#define NEWCODE 1  // using std::variant
-#ifdef NEWCODE
-
-#include <variant>
 
 class unknown_initial_packet {
     datum tcp_data_field;
@@ -833,7 +541,7 @@ public:
         }
     }
 
-    void write_fingerprint(json_object &record) { (void)record; }
+    void operator()(buffer_stream &) { }
 
     void write_json(json_object &record, bool) {
         struct json_object tcp{record, "tcp"};
@@ -897,6 +605,26 @@ struct write_metadata {
     }
 };
 
+struct compute_fingerprint {
+    struct fingerprint &fp_;
+
+    compute_fingerprint(struct fingerprint &fp) : fp_{fp} {
+        fp_.type = fingerprint_type_unknown;
+        fp.fp_str[0] = '\0';  // initialize fingerprint to 'emtpy'
+    }
+
+    template <typename T>
+    void operator()(T &msg) {
+        msg.compute_fingerprint(fp_);
+    }
+
+    void operator()(std::monostate &) { }
+
+    void operator()(unknown_initial_packet &) { }
+
+};
+
+
 struct write_fingerprint {
     struct json_object &record;
 
@@ -939,37 +667,32 @@ struct write_fingerprint {
         fps.close();
     }
 
-    void operator()(std::monostate &r) {
-        (void) r;
-    }
+    void operator()(std::monostate &) { }
 };
 
-struct write_analysis {
-    struct json_object &record;
+struct do_analysis {
     const struct key &k_;
     struct analysis_context &analysis_;
 
-    write_analysis(struct json_object &object,
-                   const struct key &k,
-                   struct analysis_context &analysis) :
-        record{object},
+    do_analysis(const struct key &k,
+                struct analysis_context &analysis) :
         k_{k},
         analysis_{analysis}
     {}
 
-    void operator()(tls_client_hello &r) {
+    bool operator()(tls_client_hello &r) {
         if (global_vars.do_analysis) {
             extern classifier *c;
-            analysis_.fp.init(r);
+            //  r.set_fingerprint(analysis_.fp);
+            //  analysis_.fp.init(r);
             analysis_.destination.init(r, k_);
-            if (c->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result)) {
-                analysis_.result.write_json(record, "analysis");
-            }
+            return c->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
         }
+        return false;
     }
 
     template <typename T>
-    void operator()(T &) { }
+    bool operator()(T &) { return false; }
 
 };
 
@@ -977,6 +700,9 @@ void set_tcp_protocol(tcp_protocol &x,
                       struct datum &pkt,
                       bool is_new,
                       struct tcp_packet *tcp_pkt) {
+
+    // note: std::get<T>() throws exceptions; it might be better to
+    // use get_if<T>(), which does not
 
     enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
     switch(msg_type) {
@@ -1076,10 +802,18 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         }
     }
     if (std::visit(is_not_empty{}, x)) {
+
+        std::visit(compute_fingerprint{analysis.fp}, x);
+        bool output_analysis = std::visit(do_analysis{k, analysis}, x);
+
         struct json_object record{&buf};
-        std::visit(write_fingerprint{record}, x);
+        if (analysis.fp.get_type() != fingerprint_type_unknown) {
+            analysis.fp.write(record);
+        }
         std::visit(write_metadata{record}, x);
-        std::visit(write_analysis{record, k, analysis}, x);
+        if (output_analysis) {
+            analysis.result.write_json(record, "analysis");
+        }
         write_flow_key(record, k);
         record.print_key_timestamp("event_start", ts);
         record.close();
@@ -1087,4 +821,27 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
 
 }
 
-#endif // NEWCODE
+bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
+                                                     struct datum &pkt,
+                                                     const struct key &k,
+                                                     struct tcp_packet &,
+                                                     struct timespec *,
+                                                     struct tcp_reassembler *) {
+
+    if (pkt.is_not_empty() == false) {
+        return false;
+    }
+    tcp_protocol x;
+    set_tcp_protocol(x, pkt, false, nullptr);
+
+    if (std::visit(is_not_empty{}, x)) {
+
+        std::visit(compute_fingerprint{analysis.fp}, x);
+        if (std::visit(do_analysis{k, analysis}, x)) {
+            *r = analysis.result;
+            return true;
+        }
+    }
+
+    return false;
+}

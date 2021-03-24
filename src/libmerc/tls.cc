@@ -10,6 +10,7 @@
 #include "tls.h"
 #include "match.h"
 #include "x509.h"
+#include "fingerprint.h"
 
 /* TLS Constants */
 
@@ -529,11 +530,12 @@ void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
 }
 
 void tls_client_hello::operator()(struct buffer_stream &buf) const {
-    buf.write_char('\"');
     write_fingerprint(buf);
-    buf.write_char('\"');
 }
 
+void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {
+    fp.set(*this, fingerprint_type_tls);
+}
 
 void tls_server_hello::parse(struct datum &p) {
     mercury_debug("%s: processing packet with %td bytes\n", __func__, p.data_end - p.data);
@@ -577,7 +579,6 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
 }
 
 void tls_server_hello::operator()(struct buffer_stream &buf) const {
-    buf.write_char('\"');
     if (is_not_empty()) {
 
         /*
@@ -599,7 +600,6 @@ void tls_server_hello::operator()(struct buffer_stream &buf) const {
         extensions.fingerprint(buf, tls_role::server);
         buf.write_char(')');
     }
-    buf.write_char('\"');
 }
 
 void tls_server_hello::write_json(struct json_object &o) const {
