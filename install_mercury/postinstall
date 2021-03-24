@@ -1,4 +1,4 @@
 #!/bin/sh
-adduser --system --no-create-home --group mercury
+useradd --system --create-home --user-group mercury
 mkdir -p /usr/local/var/mercury
 chown -R mercury:mercury /usr/local/var/mercury
