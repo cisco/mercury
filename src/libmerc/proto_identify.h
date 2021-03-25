@@ -24,7 +24,8 @@ enum tcp_msg_type {
     tcp_msg_type_tls_server_hello,
     tcp_msg_type_tls_certificate,
     tcp_msg_type_ssh,
-    tcp_msg_type_ssh_kex
+    tcp_msg_type_ssh_kex,
+    tcp_msg_type_smtp_server
 };
 
 enum udp_msg_type {
@@ -50,6 +51,7 @@ enum udp_msg_type {
 #define HTTPS_PORT       443
 #define SSH_PORT          22
 #define SSH_KEX           23
+#define SMTP_PORT         25
 #define DHCP_CLIENT_PORT  67
 #define DHCP_SERVER_PORT  68
 #define DTLS_PORT         99

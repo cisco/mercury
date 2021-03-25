@@ -106,6 +106,7 @@ LIBMERC_H   += utils.h
 LIBMERC_H   += version.h
 LIBMERC_H   += wireguard.h
 LIBMERC_H   += quic.h
+LIBMERC_H   += smtp.h
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c

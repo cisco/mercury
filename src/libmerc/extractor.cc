@@ -185,6 +185,21 @@ struct pi_container ssh_kex = {
     SSH_KEX
 };
 
+/* SMTP server matching value */
+
+unsigned char smtp_server_mask[] = {
+    0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00
+};
+
+unsigned char smtp_server_value[] = {
+    0x32, 0x35, 0x30, 0x2d, 0x00, 0x00, 0x00, 0x00
+};
+
+struct pi_container smtp_server = {
+    DIR_SERVER,
+    SMTP_PORT
+};
+
 enum tcp_msg_type get_message_type(const uint8_t *tcp_data,
                                    unsigned int len) {
 
@@ -250,6 +265,11 @@ enum tcp_msg_type get_message_type(const uint8_t *tcp_data,
                                          ssh_kex_mask,
                                          ssh_kex_value)) {
         return tcp_msg_type_ssh_kex;
+    }
+    if (u32_compare_masked_data_to_value(tcp_data,
+                                         smtp_server_mask,
+                                         smtp_server_value)) {
+        return tcp_msg_type_smtp_server;
     }
     return tcp_msg_type_unknown;
 }

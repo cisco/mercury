@@ -28,6 +28,7 @@
 #include "gre.h"
 #include "udp.h"
 #include "quic.h"
+#include "smtp.h"
 #include "analysis.h"
 #include "buffer_stream.h"
 
@@ -566,6 +567,7 @@ using tcp_protocol = std::variant<std::monostate,
                                   tls_server_hello_and_certificate,
                                   ssh_init_packet,
                                   ssh_kex_init,
+                                  smtp_server,
                                   unknown_initial_packet
                                   >;
 
@@ -761,6 +763,13 @@ void set_tcp_protocol(tcp_protocol &x,
             x.emplace<ssh_kex_init>();
             auto &kex_init = std::get<ssh_kex_init>(x);
             kex_init.parse(ssh_pkt.payload);
+            break;
+        }
+    case tcp_msg_type_smtp_server:
+        {
+            x.emplace<smtp_server>();
+            auto &response = std::get<smtp_server>(x);
+            response.parse(pkt);
             break;
         }
     default:
