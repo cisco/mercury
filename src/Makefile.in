@@ -123,10 +123,7 @@ mercury: mercury.c $(MERC) $(MERC_H) libmerc/libmerc.a Makefile.in
 
 debug-mercury: CFLAGS += -DDEBUG -g -O0
 debug-mercury: CFLAGS += -fsanitize=address -static-libasan
-debug-mercury: debug-libmerc mercury
-
-unstripped-mercury: CFLAGS += -fvisibility=default  # keep symbols
-unstripped-mercury: unstripped-libmerc mercury
+debug-mercury: debug-libmerc.a mercury
 
 setcap: mercury
 	sudo setcap $(CAP) $<
@@ -143,9 +140,13 @@ libmerc:
 	$(MAKE) --directory=libmerc
 	$(MAKE) --directory=libmerc libmerc.a
 
+.PHONY: debug-libmerc.a
+debug-libmerc.a:
+	$(MAKE) -j --directory=libmerc debug-libmerc.a
+
 .PHONY: debug-libmerc
 debug-libmerc:
-	$(MAKE) -j --directory=libmerc debug-libmerc.so debug-libmerc.a
+	$(MAKE) -j --directory=libmerc debug-libmerc.so
 
 .PHONY: unstripped-libmerc
 unstripped-libmerc:

@@ -87,6 +87,7 @@ LIBMERC_H   += dhcp.h
 LIBMERC_H   += dns.h
 LIBMERC_H   += eth.h
 LIBMERC_H   += extractor.h
+LIBMERC_H   += fingerprint.h
 LIBMERC_H   += http.h
 LIBMERC_H   += json_object.h
 LIBMERC_H   += libmerc.h
