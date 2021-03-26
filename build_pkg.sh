@@ -62,7 +62,6 @@ fi
 FPM_LINUX_OPTIONS="-n mercury -v $VERSION --iteration $ITERATION\
     --vendor Cisco -m etta@cisco.com --url https://github.com/cisco/mercury \
     --after-install ./install_mercury/postinstall \
-    --after-remove ./install_mercury/postuninstall \
     --config-files /etc/mercury/mercury.cfg"
 
 if [ "$BUILDTYPE" == "deb" ]; then
@@ -70,6 +69,8 @@ if [ "$BUILDTYPE" == "deb" ]; then
         --deb-systemd ./install_mercury/mercury.service \
         --deb-no-default-config-files \
         --description "Mercury is an experimental single-purpose network security monitoring application focusing on traffic fingerprinting." \
+        --after-remove ./install_mercury/postuninstall_remove \
+        --deb-after-purge ./install_mercury/postuninstall_purge \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
         ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
 elif [ "$BUILDTYPE" == "rpm" ]; then
@@ -77,6 +78,7 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
         --rpm-dist el7 \
         --rpm-attr 775,mercury,mercury:/usr/local/var/mercury \
         --description "Mercury is an experimental single-purpose network security monitoring application focusing on traffic fingerprinting." \
+        --after-remove ./install_mercury/postuninstall_rpm \
         ./install_mercury/mercury.service=/usr/lib/systemd/system/ \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
         ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
