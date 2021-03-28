@@ -59,16 +59,19 @@ if [ -z "$ITERATION" ]; then
     ITERATION="1"
 fi
 
+DESCRIPTION="Mercury is a tool for network metadata capture and analysis."
+
 FPM_LINUX_OPTIONS="-n mercury -v $VERSION --iteration $ITERATION\
-    --vendor Cisco -m etta@cisco.com --url https://github.com/cisco/mercury \
+    --vendor Cisco -m mercury-interest@cisco.com --url https://github.com/cisco/mercury \
     --after-install ./install_mercury/postinstall \
-    --config-files /etc/mercury/mercury.cfg"
+    --config-files /etc/mercury/mercury.cfg       \
+    --license BSD --depends libssl1.1 --depends zlib1g"
 
 if [ "$BUILDTYPE" == "deb" ]; then
     fpm -s dir -t deb $FPM_LINUX_OPTIONS \
         --deb-systemd ./install_mercury/mercury.service \
         --deb-no-default-config-files \
-        --description "Mercury is an experimental single-purpose network security monitoring application focusing on traffic fingerprinting." \
+        --description "$DESCRIPTION" \
         --after-remove ./install_mercury/postuninstall_remove \
         --deb-after-purge ./install_mercury/postuninstall_purge \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
@@ -77,7 +80,7 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
     fpm -s dir -t rpm $FPM_LINUX_OPTIONS \
         --rpm-dist el7 \
         --rpm-attr 775,mercury,mercury:/usr/local/var/mercury \
-        --description "Mercury is an experimental single-purpose network security monitoring application focusing on traffic fingerprinting." \
+        --description "$DESCRIPTION" \
         --after-remove ./install_mercury/postuninstall_rpm \
         ./install_mercury/mercury.service=/usr/lib/systemd/system/ \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
