@@ -25,6 +25,7 @@ enum tcp_msg_type {
     tcp_msg_type_tls_certificate,
     tcp_msg_type_ssh,
     tcp_msg_type_ssh_kex,
+    tcp_msg_type_smtp_client,
     tcp_msg_type_smtp_server
 };
 

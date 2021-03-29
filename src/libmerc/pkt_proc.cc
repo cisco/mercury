@@ -567,6 +567,7 @@ using tcp_protocol = std::variant<std::monostate,
                                   tls_server_hello_and_certificate,
                                   ssh_init_packet,
                                   ssh_kex_init,
+                                  smtp_client,
                                   smtp_server,
                                   unknown_initial_packet
                                   >;
@@ -763,6 +764,13 @@ void set_tcp_protocol(tcp_protocol &x,
             x.emplace<ssh_kex_init>();
             auto &kex_init = std::get<ssh_kex_init>(x);
             kex_init.parse(ssh_pkt.payload);
+            break;
+        }
+    case tcp_msg_type_smtp_client:
+        {
+            x.emplace<smtp_client>();
+            auto &response = std::get<smtp_client>(x);
+            response.parse(pkt);
             break;
         }
     case tcp_msg_type_smtp_server:

@@ -34,7 +34,7 @@ struct smtp_parameters : public datum {
         data_end = p.data;
     }
 
-    void print_parameters(struct json_array &a) const {
+    void print_parameters(struct json_array &a, int offset) const {
         unsigned char crlf[2] = { '\r', '\n' };
 
         if (this->is_not_readable()) {
@@ -52,7 +52,7 @@ struct smtp_parameters : public datum {
                 break;
             }
             param.data_end = p.data - 2;
-            param.data += 4;
+            param.data += offset;
 
             a.print_json_string(param);
         }
@@ -60,8 +60,45 @@ struct smtp_parameters : public datum {
 };
 
 
-struct smtp_server {
+class smtp_client {
     struct smtp_parameters parameters;
+
+public:
+
+    smtp_client() : parameters{} { }
+
+    void parse(struct datum &pkt) {
+        parameters.parse(pkt);
+
+        return;
+    }
+
+    void operator()(buffer_stream &) { }
+
+    void write_json(json_object &record, bool) {
+        if (this->is_not_empty()) {
+            struct json_object smtp{record, "smtp"};
+            struct json_object smtp_request{smtp, "request"};
+            struct json_array params{smtp_request, "parameters"};
+
+            parameters.print_parameters(params, 5);
+
+            params.close();
+            smtp_request.close();
+            smtp.close();
+        }
+    }
+
+    void compute_fingerprint(struct fingerprint) const { };
+
+    bool is_not_empty() { return parameters.is_not_empty(); }
+};
+
+
+class smtp_server {
+    struct smtp_parameters parameters;
+
+public:
 
     smtp_server() : parameters{} { }
 
@@ -79,7 +116,7 @@ struct smtp_server {
             struct json_object smtp_response{smtp, "response"};
             struct json_array params{smtp_response, "parameters"};
 
-            parameters.print_parameters(params);
+            parameters.print_parameters(params, 4);
 
             params.close();
             smtp_response.close();
@@ -87,7 +124,7 @@ struct smtp_server {
         }
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const { };
+    void compute_fingerprint(struct fingerprint) const { };
 
     bool is_not_empty() { return parameters.is_not_empty(); }
 };
