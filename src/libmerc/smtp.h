@@ -34,6 +34,34 @@ struct smtp_parameters : public datum {
         data_end = p.data;
     }
 
+    void fingerprint(struct buffer_stream &buf) const {
+        unsigned char crlf[2] = { '\r', '\n' };
+        unsigned char hello[2] = { '.' };
+
+        if (this->is_not_readable()) {
+            return;
+        }
+        struct datum p{this->data, this->data_end};
+
+        while (datum_get_data_length(&p) > 0) {
+            if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+                break;  /* at end of parameters */
+            }
+
+            struct datum param{p.data, NULL};
+            if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+                break;
+            }
+            param.data_end = p.data - 2;
+
+            if (datum_find_delim(&param, hello, sizeof(hello)) == (param.data_end - param.data)) {
+                buf.write_char('(');
+                buf.raw_as_hex(param.data, param.data_end - param.data);         // write {name, value}
+                buf.write_char(')');
+            }
+        }
+    }
+
     void print_parameters(struct json_array &a, int offset) const {
         unsigned char crlf[2] = { '\r', '\n' };
 
@@ -73,7 +101,7 @@ public:
         return;
     }
 
-    void operator()(buffer_stream &) { }
+    void operator()(buffer_stream &) const { }
 
     void write_json(json_object &record, bool) {
         if (this->is_not_empty()) {
@@ -91,7 +119,7 @@ public:
 
     void compute_fingerprint(struct fingerprint) const { };
 
-    bool is_not_empty() { return parameters.is_not_empty(); }
+    bool is_not_empty() const { return parameters.is_not_empty(); }
 };
 
 
@@ -108,7 +136,14 @@ public:
         return;
     }
 
-    void operator()(buffer_stream &) { }
+    void operator()(buffer_stream &buf) const {
+        if (is_not_empty() == false) {
+            return;
+        }
+        buf.write_char('(');
+        buf.write_char(')');
+        //parameters.fingerprint(buf);
+    }
 
     void write_json(json_object &record, bool) {
         if (this->is_not_empty()) {
@@ -124,9 +159,12 @@ public:
         }
     }
 
-    void compute_fingerprint(struct fingerprint) const { };
+    //void compute_fingerprint(struct fingerprint) const { }
+    void compute_fingerprint(struct fingerprint &fp) const {
+        fp.set(*this, fingerprint_type_smtp_server);
+    }
 
-    bool is_not_empty() { return parameters.is_not_empty(); }
+    bool is_not_empty() const { return parameters.is_not_empty(); }
 };
 
 

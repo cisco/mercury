@@ -266,6 +266,7 @@ enum fingerprint_type {
      fingerprint_type_ssh_kex = 6,     /**< SSH kex fingerprint                */
      fingerprint_type_tcp = 7,         /**< TCP SYN fingerprint                */
      fingerprint_type_dhcp = 8,        /**< DHCP client fingerprint            */
+     fingerprint_type_smtp_server = 9, /**< SMTP server fingerprint            */
 };
 
 /**
