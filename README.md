@@ -1,7 +1,7 @@
 # Mercury: network metadata capture and analysis
 <img align="right" src="./mercury.png" width="200">
 
-This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application, which is described [here](python/README.md).  There is also a [User's Guide](https://github.com/cisco/mercury/wiki/Using-Mercury).
+This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application, which is described [here](python/README.md).  There is also a [User's Guide](https://github.com/cisco/mercury/wiki/Using-Mercury).  While mercury is used in some production applications, please consider it 'beta'.
 
 ## Overview
 
@@ -9,6 +9,10 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normalizing metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.
 
+## Version 2.4.0
+* Added [batch_gcd](doc/batch-gcd.md), a program for efficiently finding the common factors of RSA public keys.
+* Refactored TCP packet processing to use a C++17 `std::variant` for compile-time polymorphism, which enabled considerable code simplification.
+* Added [mercury-json-validity-check.sh](test/mercury-json-validity-check.sh) to improve test coverage of mercury's different command line options.
 
 ## Version 2.3.6
 * Organized all packet processing functions into [libmerc](src/libmerc), a separate library with makefile targets to support both shared objects and a static library.  An interface is defined in [libmerc.h](src/libmerc.h) (with [doxygen-based documentation](doc/mercury.pdf)), which provides a programmatic interface to TLS fingerprinting with destination context.
@@ -244,7 +248,7 @@ see if the directories on your system differ.
 Mercury is intended for defensive network monitoring, security research and forensics.  Researchers, administrators, penetration testers, and security operations teams can use these tools to protect networks, detect vulnerabilities, and benefit the broader community through improved awareness and defensive posture. As with any packet monitoring tool, Mercury could potentially be misused. **Do not run it on any network of which you are not the owner or the administrator**.
 
 ## Credits
-Mercury was developed by David McGrew, Brandon Enright, Blake Anderson, Lucas Messenger, Adam Weller and Shekhar Acharya with input from Brian Long, Bill Hudson, and others.  Pmercury was developed by Blake Anderson, with input from the others.
+Mercury and this package was developed by David McGrew, Brandon Enright, Blake Anderson, Lucas Messenger, Adam Weller, Andrew Chi, and Shekhar Acharya with input from Brian Long, Bill Hudson, and others.  Pmercury was developed by Blake Anderson, with input from the others.
 
 ## Acknowledgments
 
