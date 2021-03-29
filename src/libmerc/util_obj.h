@@ -21,11 +21,9 @@ struct ipv4_addr : public datum {
     }
 
     void operator()(struct buffer_stream &b) const {
-        b.write_char('\"');
         if (data) {
             b.write_ipv4_addr(data);
         }
-        b.write_char('\"');
     }
 };
 
@@ -38,11 +36,9 @@ struct ipv6_addr : public datum {
     }
 
     void operator()(struct buffer_stream &b) const {
-        b.write_char('\"');
         if (data) {
             b.write_ipv6_addr(data);
         }
-        b.write_char('\"');
     }
 };
 
