@@ -772,7 +772,7 @@ int main (int argc, char *argv[]) {
                 fprintf(stdout,
                         "Duplicate ignored: line %zu = line %zu = ",
                         linenum, line_first_seen[n]);
-                gmp_fprintf(stdout, "%Zx", n);
+                gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
                 fprintf(stdout, "\n");
                 duplicates_ignored++;
             } else if (n == 0) {
@@ -860,13 +860,13 @@ int main (int argc, char *argv[]) {
             if (f1 == 0) {
                 // Record the factor/line relationship (this one is weird)
                 if (factor2lines.count(n) == 0) {
-                    factor2lines[n] == std::vector<size_t>();
+                    factor2lines[n] = std::vector<size_t>();
                 }
                 factor2lines[n].push_back(line);
                 // Output
                 gmp_fprintf(stdout,
                      "Modulus on line %zu divides another modulus: %Zx\n",
-                     line, n);
+                     line, n.get_mpz_t());
                 continue;
             }
             mpz_class f2 = n / f1;
@@ -890,11 +890,11 @@ int main (int argc, char *argv[]) {
             // Output
             fprintf(stdout, "Vulnerable modulus on line %zu: ",
                     original_linenum[i]);
-            gmp_fprintf(stdout, "%Zx", n);
+            gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
             fprintf(stdout, " has factors ");
-            gmp_fprintf(stdout, "%Zx", f1);
+            gmp_fprintf(stdout, "%Zx", f1.get_mpz_t());
             fprintf(stdout, " and ");
-            gmp_fprintf(stdout, "%Zx", f2);
+            gmp_fprintf(stdout, "%Zx", f2.get_mpz_t());
             fprintf(stdout, "\n");
         }
     }
