@@ -140,9 +140,7 @@ public:
         if (is_not_empty() == false) {
             return;
         }
-        buf.write_char('(');
-        buf.write_char(')');
-        //parameters.fingerprint(buf);
+        parameters.fingerprint(buf);
     }
 
     void write_json(json_object &record, bool) {

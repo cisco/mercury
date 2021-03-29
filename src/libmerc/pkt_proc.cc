@@ -821,6 +821,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
     if (std::visit(is_not_empty{}, x)) {
 
         std::visit(compute_fingerprint{analysis.fp}, x);
+
         bool output_analysis = std::visit(do_analysis{k, analysis}, x);
 
         struct json_object record{&buf};
