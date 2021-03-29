@@ -79,7 +79,7 @@ BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
 BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
 .PHONY: all clean
-all: clean comp analysis cert-check memcheck dummy-capture
+all: clean comp analysis cert-check memcheck dummy-capture json-validity-test
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
@@ -87,6 +87,12 @@ else
 	@echo $(COLOR_YELLOW) "warning: some tests could not be performed due to missing dependancies" $(COLOR_OFF)
 	@echo $(COLOR_YELLOW) "please install the missing packages mentioned above and re-run ./configure" $(COLOR_OFF)
 endif
+
+.PHONY: json-validity-test
+json-validity-test:
+	@echo "running json validity test"
+	./mercury-json-validity-check.sh --dns-json --certs-json --metadata --nonselected-tcp-data --nonselected-udp-data
+	@echo $(COLOR_GREEN) "passed json validity test" $(COLOR_OFF)
 
 .PHONY: comp
 comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
@@ -280,14 +286,16 @@ endif
 
 # fuzz testing with american fuzzy lop
 #
-FUZZ_CMD = --metadata -f tmp.json
+FUZZ_CMD = --metadata --dns-json --certs-json --analysis -f /dev/null
 .PHONY: fuzz-test
-fuzz-test:
-ifeq ($(have_afl),yes)
-	@echo "running fuzz test with afl-g++"
-	cd ../src && $(MAKE) clean && $(MAKE) CXX=afl-g++ CC=afl-gcc
-	mv ../src/mercury ./afl-mercury
+fuzz-test: afl-mercury
 	afl-fuzz -i afl_data -o afl_findings ./afl-mercury -r @@ $(FUZZ_CMD)
+
+afl-mercury:
+ifeq ($(have_afl),yes)
+	@echo "building afl-mercury for fuzz test, using afl-g++"
+	cd ../src && $(MAKE) clean && $(MAKE) CXX=afl-g++ CC=afl-g++ libmerc-and-mercury
+	mv ../src/mercury ./afl-mercury
 else
 	@echo $(COLOR_YELLOW) "afl unavailable; cannot perform fuzz test" $(COLOR_OFF)
 endif

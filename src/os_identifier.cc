@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "processing: %s\n",argv[1]);
 
     /* initialize OS identification models */
-    os_analysis_init("../../resources");
+    os_analysis_init("../resources");
 
     std::ifstream ifs {argv[1]};
     if (!ifs.is_open()) {
