@@ -36,7 +36,8 @@ struct smtp_parameters : public datum {
 
     void fingerprint(struct buffer_stream &buf) const {
         unsigned char crlf[2] = { '\r', '\n' };
-        unsigned char hello[2] = { '.' };
+        unsigned char domain[1] = { '.' };
+        unsigned char hello[5] = { 'H', 'e', 'l', 'l', 'o' };
 
         if (this->is_not_readable()) {
             return;
@@ -54,7 +55,8 @@ struct smtp_parameters : public datum {
             }
             param.data_end = p.data - 2;
 
-            if (datum_find_delim(&param, hello, sizeof(hello)) == (param.data_end - param.data)) {
+            if ((datum_find_delim(&param, domain, sizeof(domain)) == -1*(param.data_end - param.data)) &&
+                (datum_find_delim(&param, hello, sizeof(hello)) == -1*(param.data_end - param.data))) {
                 buf.write_char('(');
                 buf.raw_as_hex(param.data, param.data_end - param.data);         // write {name, value}
                 buf.write_char(')');
