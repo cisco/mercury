@@ -216,7 +216,7 @@ distclean: clean
 install: libmerc mercury
 	mkdir -p $(bindir)
 	$(INSTALL) mercury $(bindir)
-	$(INSTALL) $(LIBMERC) $(libdir)
+#	$(INSTALL) $(LIBMERC) $(libdir)
 	ldconfig
 #	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
 	-useradd --system --no-create-home --user-group mercury
