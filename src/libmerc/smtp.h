@@ -1,5 +1,5 @@
 /*
- * ssh.h
+ * smtp.h
  *
  * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
@@ -64,8 +64,9 @@ struct smtp_parameters : public datum {
         }
     }
 
-    void print_parameters(struct json_array &a, int offset) const {
+    void print_parameters(struct json_array &a, int offset, bool output_metadata) const {
         unsigned char crlf[2] = { '\r', '\n' };
+        unsigned char domain_match[1] = { '.' };
 
         if (this->is_not_readable()) {
             return;
@@ -84,7 +85,9 @@ struct smtp_parameters : public datum {
             param.data_end = p.data - 2;
             param.data += offset;
 
-            a.print_json_string(param);
+            if ((output_metadata) || (datum_find_delim(&param, domain_match, sizeof(domain_match)) > 0)) {
+                a.print_json_string(param);
+            }
         }
     }
 };
@@ -111,7 +114,7 @@ public:
             struct json_object smtp_request{smtp, "request"};
             struct json_array params{smtp_request, "parameters"};
 
-            parameters.print_parameters(params, 5);
+            parameters.print_parameters(params, 5, true);
 
             params.close();
             smtp_request.close();
@@ -145,13 +148,13 @@ public:
         parameters.fingerprint(buf);
     }
 
-    void write_json(json_object &record, bool) {
+    void write_json(json_object &record, bool output_metadata) {
         if (this->is_not_empty()) {
             struct json_object smtp{record, "smtp"};
             struct json_object smtp_response{smtp, "response"};
             struct json_array params{smtp_response, "parameters"};
 
-            parameters.print_parameters(params, 4);
+            parameters.print_parameters(params, 4, output_metadata);
 
             params.close();
             smtp_response.close();

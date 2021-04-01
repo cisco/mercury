@@ -241,6 +241,8 @@ extern unsigned char http_client_head_mask[8];
 extern unsigned char http_server_mask[8];
 extern unsigned char ssh_mask[8];
 extern unsigned char ssh_kex_mask[8];
+extern unsigned char smtp_client_mask[8];
+extern unsigned char smtp_server_mask[8];
 
 extern unsigned char dhcp_client_mask[8];  /* udp.c */
 extern unsigned char dns_server_mask[8];   /* udp.c */
@@ -268,6 +270,7 @@ enum status proto_ident_config(const char *config_string) {
         { "tls",         false },
         { "wireguard",   false },
         { "quic",        false },
+        { "smtp",        false },
     };
 
     std::string s{config_string};
@@ -344,6 +347,10 @@ enum status proto_ident_config(const char *config_string) {
     }
     if (protocols["quic"] == false) {
         bzero(quic_mask, sizeof(quic_mask));
+    }
+    if (protocols["smtp"] == false) {
+        bzero(smtp_client_mask, sizeof(smtp_client_mask));
+        bzero(smtp_server_mask, sizeof(smtp_server_mask));
     }
     return status_ok;
 }
