@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
 
-    extern double malware_prob_threshold;  // HACK for demo
+    extern double malware_prob_threshold;  // TODO - expose hidden command
 
     while(1) {
         enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9 };
@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
             { "fingerprint", required_argument, NULL, 'f' },
             { "analysis",    no_argument,       NULL, 'a' },
             { "threads",     required_argument, NULL, 't' },
-            { "threshold",   required_argument, NULL, 'x' }, // HACK for demo
+            { "threshold",   required_argument, NULL, 'x' },  // TODO - expose hidden command
             { "buffer",      required_argument, NULL, 'b' },
             { "limit",       required_argument, NULL, 'l' },
             { "user",        required_argument, NULL, 'u' },
