@@ -34,7 +34,7 @@
 
 extern struct libmerc_config global_vars;  // defined in libmerc.h
 
-double malware_prob_threshold = 0.0; // HACK for demo
+double malware_prob_threshold = -1.0; // HACK for demo
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
@@ -572,6 +572,16 @@ using tcp_protocol = std::variant<std::monostate,
                                   unknown_initial_packet
                                   >;
 
+
+template <size_t I = 0>
+void enumerate_tcp_protocol_types() {
+    if constexpr (I < std::variant_size_v<tcp_protocol>) {
+        std::variant_alternative_t<I, tcp_protocol> tmp;
+        fprintf(stderr, "I=%zu\n", I);
+        enumerate_tcp_protocol_types<I + 1>();
+    }
+}
+
 struct is_not_empty {
     template <typename T>
     bool operator()(T &r) {
@@ -823,6 +833,8 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         std::visit(compute_fingerprint{analysis.fp}, x);
 
         bool output_analysis = std::visit(do_analysis{k, analysis}, x);
+
+        if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return; } // TODO - expose hidden command
 
         struct json_object record{&buf};
         if (analysis.fp.get_type() != fingerprint_type_unknown) {

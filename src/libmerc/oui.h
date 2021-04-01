@@ -1,6 +1,15 @@
 #include <stdint.h>
 #include <unordered_map>
 
+#ifndef USE_OUI_DICT
+
+// create an empty dictionary - this compile-time option reduces code
+// size, and can significantly reduce build time.
+//
+std::unordered_map<uint32_t, const char *> oui_dict = { };
+
+#else
+
 std::unordered_map<uint32_t, const char *> oui_dict = {
 	{ 0x000000, "XEROX CORPORATION" },
 	{ 0x000001, "XEROX CORPORATION" },
@@ -28714,3 +28723,5 @@ std::unordered_map<uint32_t, const char *> oui_dict = {
 	{ 0xFCFEC2, "Invensys Controls UK Limited" },
 	{ 0xFCFFAA, "IEEE Registration Authority" },
 };
+
+#endif // USE_OUI_DICT

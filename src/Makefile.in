@@ -73,7 +73,7 @@ endif
 MERC   += config.c
 MERC   += json_file_io.c
 MERC   += output.c
-MERC   += pkt_processing.cc
+MERCC  += pkt_processing.cc
 MERC   += pcap_file_io.c
 MERC   += pcap_reader.c
 MERC   += rnd_pkt_drop.c
@@ -90,6 +90,8 @@ MERC_H += pcap_file_io.h
 MERC_H += pcap_reader.h
 MERC_H += rnd_pkt_drop.h
 MERC_H += signal_handling.h
+
+MERC_OBJ = $(MERCC:%.cc=%.o) $(MERC:%.c=%.o)
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
@@ -113,12 +115,19 @@ all: libmerc-and-mercury libmerc_test cert_analyze # tls_scanner batch_gcd
 .PHONY: libmerc-and-mercury
 libmerc-and-mercury: libmerc.a mercury
 
+# implicit rules for building object files from .c and .cc files
+#
+%.o: %.c
+	$(CXX) $(CFLAGS) -c $<
+%.o: %.cc
+	$(CXX) $(CFLAGS) -c $<
+
 # the target mercury rebuilds mercury, and is dependent on the actual
 # libmerc.a file, but it does not trigger any check to see if
 # libmerc.a itself needs to be rebuild
 #
-mercury: mercury.c $(MERC) $(MERC_H) libmerc/libmerc.a Makefile.in
-	$(CXX) $(CFLAGS) mercury.c $(MERC) -lpthread libmerc/libmerc.a -lz -lcrypto -o mercury
+mercury: mercury.c $(MERC_OBJ) $(MERC_H) libmerc/libmerc.a Makefile.in
+	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -lpthread libmerc/libmerc.a -lz -lcrypto -o mercury
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 
 debug-mercury: CFLAGS += -DDEBUG -g -O0
@@ -216,7 +225,7 @@ distclean: clean
 install: libmerc mercury
 	mkdir -p $(bindir)
 	$(INSTALL) mercury $(bindir)
-	$(INSTALL) $(LIBMERC) $(libdir)
+#	$(INSTALL) $(LIBMERC) $(libdir)
 	ldconfig
 #	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
 	-useradd --system --no-create-home --user-group mercury

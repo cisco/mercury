@@ -233,7 +233,6 @@ bool select_mdns = true;
  */
 
 extern unsigned char tls_client_hello_mask[8];
-extern unsigned char tls_server_cert_embedded_mask[12];
 extern unsigned char http_client_mask[8];
 extern unsigned char http_client_post_mask[8];
 extern unsigned char http_client_connect_mask[8];
@@ -335,7 +334,6 @@ enum status proto_ident_config(const char *config_string) {
     }
     if (protocols["tls"] == false) {
         bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-        bzero(tls_server_cert_embedded_mask, sizeof(tls_server_cert_embedded_mask));
     }
     if (protocols["dtls"] == false) {
         bzero(dtls_client_hello_mask, sizeof(dtls_client_hello_mask));
