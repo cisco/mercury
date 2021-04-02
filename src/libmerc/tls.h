@@ -271,6 +271,8 @@ struct tls_server_certificate {
 
     void write_json(struct json_array &a, bool json_output) const;
 
+    static unsigned char mask[8];
+    static unsigned char value[8];
 };
 
 #define L_ExtensionType            2
@@ -336,6 +338,10 @@ struct tls_client_hello {
     void write_json(struct json_object &record, bool output_metadata) const;
 
     struct tls_security_assessment security_assesment();
+
+    static unsigned char mask[8];
+    static unsigned char value[8];
+
 };
 
 #include "match.h"
@@ -371,6 +377,9 @@ struct tls_server_hello {
     void write_json(struct json_object &record) const;
 
     void compute_fingerprint(struct fingerprint &fp) const;
+
+    static unsigned char mask[8]; // same as tls_client_hello_mask
+    static unsigned char value[8];
 
 };
 
