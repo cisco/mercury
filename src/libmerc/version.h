@@ -26,14 +26,18 @@ struct semantic_version {
     explicit semantic_version(const char *version_string) {
         sscanf(version_string, "%u.%u.%u", &major, &minor, &patchlevel);
     }
-    void print(FILE *f) {
+
+    void print(FILE *f) const {
         fprintf(f, "%u.%u.%u\n", major, minor, patchlevel);
     }
-    bool is_less_than(struct semantic_version v) {
+    bool is_less_than(struct semantic_version v) const {
         if (major < v.major || minor < v.minor || patchlevel < v.patchlevel) {
             return true;
         }
         return false;
+    }
+    uint32_t get_version_as_uint32() const {
+        return (uint32_t)major << 24 | (uint32_t)minor << 16 | (uint32_t)patchlevel << 8 | 0;
     }
 };
 

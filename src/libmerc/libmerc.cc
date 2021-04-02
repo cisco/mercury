@@ -23,6 +23,19 @@ void mercury_print_version_string(FILE *f) {
     mercury_version.print(f);
 }
 
+uint32_t mercury_get_version_number() {
+    struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
+    return mercury_version.get_version_as_uint32();
+}
+
+const char *mercury_get_resource_version() {
+    extern classifier *c;
+    if (c) {
+        return c->get_resource_version();
+    }
+    return nullptr;
+}
+
 struct libmerc_config global_vars;
 
 int mercury_init(const struct libmerc_config *vars, int verbosity) {
