@@ -7,8 +7,8 @@
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-#ifndef SEMANTIC_VERSION
-#define SEMANTIC_VERSION
+#ifndef SEMANTIC_VERSION_H
+#define SEMANTIC_VERSION_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -37,4 +37,4 @@ struct semantic_version {
     }
 };
 
-#endif /* SEMANTIC_VERSION */
+#endif /* SEMANTIC_VERSION_H */
