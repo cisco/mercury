@@ -17,19 +17,31 @@
 template <typename T> class matrix {
     size_t _rows;
     size_t _columns;
-    std::unique_ptr<T[]> data;
+    size_t num_elements;
+    T *data;
 
 public:
     matrix(size_t rows, size_t columns)
         : _rows{rows},
           _columns{columns},
-          data{std::make_unique<T[]>(rows * columns)} {}
+          num_elements{rows * columns},
+          data{new T[rows * columns]} {}
+
+    ~matrix() { delete[] data; }
+
+    void resize(size_t new_rows, size_t new_columns) {
+        if (new_rows * new_columns > num_elements) {
+            delete[] data;
+            data = new T[new_rows * new_columns];
+            num_elements = new_rows * new_columns;
+        }
+        _rows = new_rows;
+        _columns = new_columns;
+    }
 
     size_t rows() const { return _rows; }
 
     size_t columns() const { return _columns; }
-
-    T *operator[](size_t row) { return row * _columns + data.get(); }
 
     T &operator()(size_t row, size_t column) {
         return data[row * _columns + column];
@@ -56,6 +68,9 @@ template <typename T> struct edit_distance {
     }
 
     void recompute(const uint8_t *a, T Na, const uint8_t *b, T Nb) {
+
+        D.resize(Na+1, Nb+1);
+
         for (size_t i = 0; i < D.rows(); i++) {
             D(i,0) = i;
         }
@@ -150,6 +165,8 @@ template <typename T> struct longest_common_subsequence {
      *  unique).
      */
     void recompute(const uint8_t *a, size_t Na, const uint8_t *b, size_t Nb) {
+
+        L.resize(Na+1, Nb+1);
 
         for (size_t i = 0; i < L.rows(); i++) {
             L(i,0) = 0;
@@ -319,13 +336,15 @@ template <typename T> struct longest_common_substring {
 
     void recompute(const uint8_t *a, size_t Na, const uint8_t *b, size_t Nb) {
 
-        for (size_t i = 0; i < L.rows(); i++) {
+        L.resize(Na+1, Nb+1);
+
+        for (size_t i = 0; i < Na; i++) {
             L(i,0) = 0;
         }
         for (size_t j = 0; j < L.columns(); j++) {
             L(0,j) = 0;
         }
-        for (size_t i = 1; i < L.rows(); i++) {
+        for (size_t i = 1; i < Na; i++) {
             for (size_t j = 1; j < L.columns(); j++) {
                 if (a[i-1] == b[j-1]) {
 

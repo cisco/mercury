@@ -181,6 +181,9 @@ os_identifier: os_identifier.cc os-identification/os_identifier.h libmerc/datum.
 archive_reader: archive_reader.cc libmerc/archive.h
 	$(CXX) $(CFLAGS) archive_reader.cc -lz -o archive_reader 
 
+string: string.cc stringalgs.h options.h
+	$(CXX) $(CFLAGS) string.cc -o string
+
 # implicit rule for building object files
 #
 %.o: %.c %.h
@@ -212,7 +215,7 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 
 .PHONY: clean
 clean:
-	rm -rf mercury libmerc_test tls_scanner cert_analyze os_identifier archive_reader batch_gcd gmon.out *.o
+	rm -rf mercury libmerc_test tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o
 	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
