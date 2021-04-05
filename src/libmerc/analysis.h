@@ -15,6 +15,7 @@
 #include "addr.h"
 #include "json_object.h"
 #include "result.h"
+#include "fp_stats.h"
 
 #include <mutex>
 #include <shared_mutex>
@@ -546,6 +547,8 @@ class classifier {
 
     std::string resource_version;  // as reported by VERSION file in resource archive
 
+    fingerprint_stats fp_stats;
+
 public:
 
     void process_fp_prevalence_line(std::string &line_str) {
@@ -709,7 +712,7 @@ public:
         }
     }
 
-    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{} {
+    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{}, fp_stats{} {
 
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
@@ -796,6 +799,9 @@ public:
     }
 
     struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
+
+        fp_stats.observe(fp_str, server_name, dst_ip, dst_port);
+
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
             if (fp_prevalence.contains(fp_str)) {
