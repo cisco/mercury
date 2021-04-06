@@ -219,7 +219,7 @@ struct tls_handshake {
             return;
         }
         d.read_uint8((uint8_t *)&msg_type);
-        size_t tmp;
+        uint64_t tmp;
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
         if (length > max_handshake_len) {
@@ -251,7 +251,7 @@ struct tls_server_certificate {
     tls_server_certificate() : length{0}, certificate_list{NULL, NULL}, additional_bytes_needed{0} {}
 
     void parse(struct datum &d) {
-        size_t tmp = 0;
+        uint64_t tmp = 0;
         if (d.read_uint(&tmp, L_CertificateListLength) == false) {
             return;
         }
@@ -428,7 +428,7 @@ struct dtls_handshake {
             return;
         }
         d.read_uint8((uint8_t *)&msg_type);
-        size_t tmp;
+        uint64_t tmp;
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
         d.read_uint16(&message_seq);

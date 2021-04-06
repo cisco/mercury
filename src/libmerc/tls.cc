@@ -635,7 +635,7 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
     while (datum_get_data_length(&tmp_cert_list) > 0) {
 
         /* get certificate length */
-        size_t tmp_len;
+        uint64_t tmp_len;
         if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
             return;
         }

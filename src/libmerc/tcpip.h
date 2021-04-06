@@ -190,7 +190,7 @@ struct tcp_packet {
             opt.parse(tmp);
             if (opt.kind == TCP_OPT_TS) {
                 struct json_object json_ts{json_tcp, "timestamp"};
-                size_t ts = 0;
+                uint64_t ts = 0;
                 if (opt.read_uint(&ts, 4)) {
                     json_ts.print_key_uint("ts_val", ts);
                 }

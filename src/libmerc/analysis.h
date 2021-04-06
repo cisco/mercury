@@ -86,25 +86,25 @@ public:
 
     void print(FILE *f) {
         fprintf(f, "{\"process\":\"%s\"", name.c_str());
-        fprintf(f, ",\"count\":\"%lu\"", count);
+        fprintf(f, ",\"count\":\"%" PRIu64 "\"", count);
         fprintf(f, ",\"classes_ip_as\":{");
         char comma = ' ';
         for (auto &x : ip_as) {
-            fprintf(f, "%c\"%u\":%lu", comma, x.first, x.second);
+            fprintf(f, "%c\"%u\":%" PRIu64, comma, x.first, x.second);
             comma = ',';
         }
         fprintf(f, "}");
         fprintf(f, ",\"classes_hostname_domains\":{");
         comma = ' ';
         for (auto &x : hostname_domains) {
-            fprintf(f, "%c\"%s\":%lu", comma, x.first.c_str(), x.second);
+            fprintf(f, "%c\"%s\":%" PRIu64, comma, x.first.c_str(), x.second);
             comma = ',';
         }
         fprintf(f, "}");
         fprintf(f, ",\"classes_port_applications\":{");
         comma = ' ';
         for (auto &x : portname_applications) {
-            fprintf(f, "%c\"%u\":%lu", comma, x.first, x.second);
+            fprintf(f, "%c\"%u\":%" PRIu64, comma, x.first, x.second);
             comma = ',';
         }
         fprintf(f, "}");
@@ -113,7 +113,7 @@ public:
             fprintf(f, ",\"classes_ip_ip\":{");
             comma = ' ';
             for (auto &x : ip_ip) {
-                fprintf(f, "%c\"%s\":%lu", comma, x.first.c_str(), x.second);
+                fprintf(f, "%c\"%s\":%" PRIu64, comma, x.first.c_str(), x.second);
                 comma = ',';
             }
             fprintf(f, "}");
@@ -121,7 +121,7 @@ public:
             fprintf(f, ",\"classes_hostname_sni\":{");
             comma = ' ';
             for (auto &x : hostname_sni) {
-                fprintf(f, "%c\"%s\":%lu", comma, x.first.c_str(), x.second);
+                fprintf(f, "%c\"%s\":%" PRIu64, comma, x.first.c_str(), x.second);
                 comma = ',';
             }
             fprintf(f, "}");
@@ -268,7 +268,7 @@ public:
     }
 
     void print(FILE *f) {
-        fprintf(f, ",\"total_count\":%lu", total_count);
+        fprintf(f, ",\"total_count\":%" PRIu64, total_count);
         fprintf(f, ",\"process_info\":[");
 
         // TBD: fix

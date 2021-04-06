@@ -126,7 +126,7 @@ int analysis_init_from_archive(int verbosity,
 
     if (enc_key != NULL || key_type != enc_key_type_none) {
         fprintf(stderr, "error: decryption key provided in configuration, but decryption not supported\n");
-        fprintf(stderr, "key: %p\ttype: %u\n", enc_key, key_type);
+        // fprintf(stderr, "key: %p\ttype: %u\n", enc_key, key_type);
         return -1;  // error
     }
 

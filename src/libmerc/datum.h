@@ -238,10 +238,10 @@ struct datum {
 
     // read_uint() reads a length num_bytes uint in network byte order, and advances the data pointer
     //
-    bool read_uint(size_t *output, unsigned int num_bytes) {
+    bool read_uint(uint64_t *output, unsigned int num_bytes) {
 
         if (data && data + num_bytes <= data_end) {
-            size_t tmp = 0;
+            uint64_t tmp = 0;
             const unsigned char *c;
 
             for (c = data; c < data + num_bytes; c++) {
