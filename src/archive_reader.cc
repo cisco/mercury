@@ -21,6 +21,7 @@ int main(int argc, char *argv[]) {
     class option_processor opt({
         { argument::positional, "archive",     "read file <archive>" },
         { argument::required,   "--directory", "set the directory to <arg>" },
+        { argument::required,   "--decrypt",   "decrypt using key <arg>" },
         { argument::none,       "--extract",   "extract archive" },
         { argument::none,       "--list",      "list archive entries" },
         { argument::none,       "--dump",      "dump archive entries" },
@@ -33,10 +34,15 @@ int main(int argc, char *argv[]) {
 
     auto [ archive_is_set, archive ] = opt.get_value("archive");
     auto [ dir_is_set, directory ] = opt.get_value("--directory");
+    auto [ decrypt, key ] = opt.get_value("--decrypt");
     bool list       = opt.is_set("--list");
     bool dump       = opt.is_set("--dump");
     bool extract    = opt.is_set("--extract");
     bool print_help = opt.is_set("--help");
+
+    if (!list && !dump && !extract && !print_help) {
+        fprintf(stderr, "warning: no actions specified on command line\n");
+    }
 
     if (print_help) {
         opt.usage(stdout, argv[0], summary);
@@ -51,7 +57,7 @@ int main(int argc, char *argv[]) {
     }
 
     const char *archive_file_name = archive.c_str();
-    class compressed_archive tar{archive_file_name};
+    class encrypted_compressed_archive tar{archive_file_name};
     const class archive_node *entry = tar.get_next_entry();
     if (entry == nullptr) {
         fprintf(stderr, "error: could not read any entries from archive file %s\n", archive_file_name);
