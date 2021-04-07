@@ -257,6 +257,10 @@ int test_libmerc(struct libmerc_config *config, int verbosity) {
         return EXIT_FAILURE;
     }
 
+    // report on the VERSION of the resources archive
+    const char *VERSION = mercury_get_resource_version();
+    fprintf(stdout, "mercury resource archive version: %s\n", VERSION ? VERSION : "unknown");
+
     // initialize a mercury_packer_processor, which is an opaque
     // pointer; there should be one mercury_packet_processor for each
     // packet-processing thread
@@ -330,6 +334,10 @@ int test_libmerc(struct libmerc_config *config, int verbosity) {
 int main(int argc, char *argv[]) {
     int verbosity = 0;
     int retval;
+
+    // report library version
+    uint32_t version = mercury_get_version_number();
+    fprintf(stdout, "libmerc version number: %08x\n", version);
 
     // test standard configuration
 

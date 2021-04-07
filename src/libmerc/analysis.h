@@ -86,25 +86,25 @@ public:
 
     void print(FILE *f) {
         fprintf(f, "{\"process\":\"%s\"", name.c_str());
-        fprintf(f, ",\"count\":\"%lu\"", count);
+        fprintf(f, ",\"count\":\"%" PRIu64 "\"", count);
         fprintf(f, ",\"classes_ip_as\":{");
         char comma = ' ';
         for (auto &x : ip_as) {
-            fprintf(f, "%c\"%u\":%lu", comma, x.first, x.second);
+            fprintf(f, "%c\"%u\":%" PRIu64, comma, x.first, x.second);
             comma = ',';
         }
         fprintf(f, "}");
         fprintf(f, ",\"classes_hostname_domains\":{");
         comma = ' ';
         for (auto &x : hostname_domains) {
-            fprintf(f, "%c\"%s\":%lu", comma, x.first.c_str(), x.second);
+            fprintf(f, "%c\"%s\":%" PRIu64, comma, x.first.c_str(), x.second);
             comma = ',';
         }
         fprintf(f, "}");
         fprintf(f, ",\"classes_port_applications\":{");
         comma = ' ';
         for (auto &x : portname_applications) {
-            fprintf(f, "%c\"%u\":%lu", comma, x.first, x.second);
+            fprintf(f, "%c\"%u\":%" PRIu64, comma, x.first, x.second);
             comma = ',';
         }
         fprintf(f, "}");
@@ -113,7 +113,7 @@ public:
             fprintf(f, ",\"classes_ip_ip\":{");
             comma = ' ';
             for (auto &x : ip_ip) {
-                fprintf(f, "%c\"%s\":%lu", comma, x.first.c_str(), x.second);
+                fprintf(f, "%c\"%s\":%" PRIu64, comma, x.first.c_str(), x.second);
                 comma = ',';
             }
             fprintf(f, "}");
@@ -121,7 +121,7 @@ public:
             fprintf(f, ",\"classes_hostname_sni\":{");
             comma = ' ';
             for (auto &x : hostname_sni) {
-                fprintf(f, "%c\"%s\":%lu", comma, x.first.c_str(), x.second);
+                fprintf(f, "%c\"%s\":%" PRIu64, comma, x.first.c_str(), x.second);
                 comma = ',';
             }
             fprintf(f, "}");
@@ -268,7 +268,7 @@ public:
     }
 
     void print(FILE *f) {
-        fprintf(f, ",\"total_count\":%lu", total_count);
+        fprintf(f, ",\"total_count\":%" PRIu64, total_count);
         fprintf(f, ",\"process_info\":[");
 
         // TBD: fix
@@ -544,6 +544,8 @@ class classifier {
     std::unordered_map<std::string, class fingerprint_data> fpdb;
     fingerprint_prevalence fp_prevalence{100000};
 
+    std::string resource_version;  // as reported by VERSION file in resource archive
+
 public:
 
     void process_fp_prevalence_line(std::string &line_str) {
@@ -707,7 +709,7 @@ public:
         }
     }
 
-    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{} {
+    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{} {
 
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
@@ -730,6 +732,12 @@ public:
                 } else if (name == "fingerprint_db.json") {
                     while (archive.getline(line_str)) {
                         process_fp_db_line(line_str, fp_proc_threshold, proc_dst_threshold, report_os);
+                    }
+                    got_fp_db = true;
+
+                } else if (name == "VERSION") {
+                    while (archive.getline(line_str)) {
+                        resource_version += line_str;
                     }
                     got_fp_db = true;
                 }
@@ -838,6 +846,9 @@ public:
         return true;
     }
 
+    const char *get_resource_version() {
+        return resource_version.c_str();
+    }
 };
 
 

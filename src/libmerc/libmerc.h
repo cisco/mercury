@@ -430,6 +430,46 @@ extern "C" LIBMERC_DLL_EXPORTED
 #endif
 void mercury_print_version_string(FILE *f);
 
+/**
+ * @brief returns the mercury semantic version
+ *
+ * Returns the semantic version of mercury/libmerc as a uint32_t, in
+ * which the major version is the most significant byte, the minor
+ * version is the second most significant byte, the patchlevel is the
+ * third most significant byte, and the least significant byte may be
+ * zero.  That is, the format looks like
+ *
+ *    major | minor | patchlevel | 0
+ *
+ * @return an unsigned integer that encodes the semantic version
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+uint32_t mercury_get_version_number();
+
+/**
+ * @brief returns the resource archive VERSION
+ *
+ * Returns a pointer to a NULL-terminated string containing the
+ * entirety of the VERSION file in the resource archive provided to
+ * the mercury library.  If there was no VERSION file in the archive,
+ * then a zero-length string will be returned.
+ *
+ * @warning this function should only be called after libmerc is
+ * initialized, and it should not be called after it is
+ * de-initialized.
+ *
+ * @return a pointer to a null-terminated string containing the
+ * resource archive VERSION file
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+const char *mercury_get_resource_version();
+
 // OTHER FUNCTIONS
 //
 enum status proto_ident_config(const char *config_string);

@@ -61,6 +61,10 @@ struct http_request {
     void operator()(struct buffer_stream &b) const;
 
     void compute_fingerprint(struct fingerprint &fp) const;
+
+    static unsigned char http_client_mask[8];
+    static unsigned char http_client_value[8];
+
 };
 
 struct http_response {

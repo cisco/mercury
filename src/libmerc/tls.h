@@ -219,7 +219,7 @@ struct tls_handshake {
             return;
         }
         d.read_uint8((uint8_t *)&msg_type);
-        size_t tmp;
+        uint64_t tmp;
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
         if (length > max_handshake_len) {
@@ -251,7 +251,7 @@ struct tls_server_certificate {
     tls_server_certificate() : length{0}, certificate_list{NULL, NULL}, additional_bytes_needed{0} {}
 
     void parse(struct datum &d) {
-        size_t tmp = 0;
+        uint64_t tmp = 0;
         if (d.read_uint(&tmp, L_CertificateListLength) == false) {
             return;
         }
@@ -271,6 +271,8 @@ struct tls_server_certificate {
 
     void write_json(struct json_array &a, bool json_output) const;
 
+    static unsigned char mask[8];
+    static unsigned char value[8];
 };
 
 #define L_ExtensionType            2
@@ -336,6 +338,10 @@ struct tls_client_hello {
     void write_json(struct json_object &record, bool output_metadata) const;
 
     struct tls_security_assessment security_assesment();
+
+    static unsigned char mask[8];
+    static unsigned char value[8];
+
 };
 
 #include "match.h"
@@ -371,6 +377,9 @@ struct tls_server_hello {
     void write_json(struct json_object &record) const;
 
     void compute_fingerprint(struct fingerprint &fp) const;
+
+    static unsigned char mask[8]; // same as tls_client_hello_mask
+    static unsigned char value[8];
 
 };
 
@@ -419,7 +428,7 @@ struct dtls_handshake {
             return;
         }
         d.read_uint8((uint8_t *)&msg_type);
-        size_t tmp;
+        uint64_t tmp;
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
         d.read_uint16(&message_seq);

@@ -229,7 +229,7 @@ struct os_classifier {
         r->os_name = labels[label_idx];
         r->probability = prob;
 
-        delete scores;
+        delete[] scores;
     }
 
 } os_clf;

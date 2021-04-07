@@ -537,6 +537,13 @@ void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {
     fp.set(*this, fingerprint_type_tls);
 }
 
+unsigned char tls_client_hello::mask [8]= {
+    0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00
+};
+unsigned char tls_client_hello::value[8] = {
+    0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00
+};
+
 void tls_server_hello::parse(struct datum &p) {
     mercury_debug("%s: processing packet with %td bytes\n", __func__, p.data_end - p.data);
 
@@ -615,13 +622,20 @@ void tls_server_hello::write_json(struct json_object &o) const {
     //o.print_key_value("fingerprint", *this); 
 }
 
+unsigned char tls_server_hello::mask[8] = {
+    0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00
+};
+unsigned char tls_server_hello::value[8] = {
+    0x16, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
+};
+
 void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
 
     struct datum tmp_cert_list = certificate_list;
     while (datum_get_data_length(&tmp_cert_list) > 0) {
 
         /* get certificate length */
-        size_t tmp_len;
+        uint64_t tmp_len;
         if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
             return;
         }
@@ -655,3 +669,10 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
         }
     }
 }
+
+unsigned char tls_server_certificate::mask[8] = {
+    0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00
+};
+unsigned char tls_server_certificate::value[8] = {
+    0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00
+};
