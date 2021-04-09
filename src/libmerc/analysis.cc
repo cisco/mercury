@@ -165,7 +165,7 @@ int analysis_finalize() {
 
 //#define MAX_DST_ADDR_LEN 40
 void flow_key_sprintf_dst_addr(const struct flow_key *key,
-			       char *dst_addr_str) {
+                               char *dst_addr_str) {
 
     if (key->type == ipv4) {
         uint8_t *d = (uint8_t *)&key->value.v4.dst_addr;
@@ -181,6 +181,26 @@ void flow_key_sprintf_dst_addr(const struct flow_key *key,
                  d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
     } else {
         dst_addr_str[0] = '\0'; // make sure that string is null-terminated
+    }
+}
+
+void flow_key_sprintf_src_addr(const struct flow_key *key,
+                               char *src_addr_str) {
+
+    if (key->type == ipv4) {
+        uint8_t *s = (uint8_t *)&key->value.v4.src_addr;
+        snprintf(src_addr_str,
+                 MAX_DST_ADDR_LEN,
+                 "%u.%u.%u.%u",
+                 s[0], s[1], s[2], s[3]);
+    } else if (key->type == ipv6) {
+        uint8_t *s = (uint8_t *)&key->value.v6.src_addr;
+        snprintf(src_addr_str,
+                 MAX_DST_ADDR_LEN,
+                 "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
+                 s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15]);
+    } else {
+        src_addr_str[0] = '\0'; // make sure that string is null-terminated
     }
 }
 

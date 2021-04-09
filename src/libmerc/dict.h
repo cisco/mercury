@@ -14,6 +14,8 @@
 #include <stdint.h>
 #include <unordered_map>
 
+#include "bytestring.h"
+
 struct dictionary {
     std::unordered_map<std::basic_string<uint8_t>, uint32_t> dict;
     unsigned int count;

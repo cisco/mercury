@@ -33,6 +33,8 @@
 
 extern struct libmerc_config global_vars;  // defined in libmerc.h
 
+fingerprint_stats fp_stats;  // global just for experimentation
+
 double malware_prob_threshold = -1.0; // HACK for demo
 
 void write_flow_key(struct json_object &o, const struct key &k) {
@@ -822,6 +824,13 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         if (analysis.fp.get_type() != fingerprint_type_unknown) {
             analysis.fp.write(record);
         }
+
+        if (analysis.fp.get_type() == fingerprint_type_tls) {
+            char src_ip_str[MAX_ADDR_STR_LEN];
+            k.sprint_src_addr(src_ip_str);
+            fp_stats.observe_event(src_ip_str, analysis.fp.fp_str, analysis.destination.sn_str, analysis.destination.dst_ip_str, analysis.destination.dst_port);
+        }
+
         std::visit(write_metadata{record}, x);
         if (output_analysis) {
             analysis.result.write_json(record, "analysis");

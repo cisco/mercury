@@ -30,6 +30,10 @@
 #include "tls.h"
 #include "archive.h"
 
+// TBD - move flow_key_sprintf_src_addr() to the right file
+//
+void flow_key_sprintf_src_addr(const struct flow_key *key,
+                               char *src_addr_str);
 
 int analysis_init_from_archive(int verbosity,
                                const char *archive_name,
@@ -547,9 +551,8 @@ class classifier {
 
     std::string resource_version;  // as reported by VERSION file in resource archive
 
-    fingerprint_stats fp_stats;
-
 public:
+    fingerprint_stats fp_stats;  // public just for experimentation
 
     void process_fp_prevalence_line(std::string &line_str) {
         if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
@@ -800,7 +803,7 @@ public:
 
     struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
 
-        fp_stats.observe(fp_str, server_name, dst_ip, dst_port);
+        // fp_stats.observe(fp_str, server_name, dst_ip, dst_port); // TBD - decide where this call should go
 
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
