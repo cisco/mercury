@@ -552,7 +552,6 @@ class classifier {
     std::string resource_version;  // as reported by VERSION file in resource archive
 
 public:
-    fingerprint_stats fp_stats;  // public just for experimentation
 
     void process_fp_prevalence_line(std::string &line_str) {
         if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
@@ -715,7 +714,7 @@ public:
         }
     }
 
-    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{}, fp_stats{} {
+    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{} {
 
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
