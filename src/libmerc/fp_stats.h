@@ -165,7 +165,7 @@ public:
     ~fingerprint_stats() {
         // TODO: connect this output to mercury in a more useful way
         //
-        FILE *fpfile = nullptr; // stderr; // fopen("fingerprint_stats.txt", "w");
+        FILE *fpfile = stderr; // nullptr; // stderr; // fopen("fingerprint_stats.txt", "w");
         if (fpfile) {
             fprint(fpfile);
         }
