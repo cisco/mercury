@@ -27,6 +27,7 @@
 
 rapidjson::Document fp_db;
 
+ptr_dict os_dictionary;
 
 //pthread_mutex_t lock_fp_cache;
 //std::unordered_map<std::string,char*> fp_cache;

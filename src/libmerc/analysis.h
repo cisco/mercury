@@ -28,7 +28,7 @@
 #include "rapidjson/stringbuffer.h"
 #include "tls.h"
 #include "archive.h"
-
+#include "dict.h"
 
 int analysis_init_from_archive(int verbosity,
                                const char *archive_name,
@@ -147,6 +147,7 @@ public:
     floating_point_type value;   // value of update
 };
 
+extern ptr_dict os_dictionary;  // in analysis.cc
 
 class fingerprint_data {
     std::vector<std::string> process_name;
@@ -157,7 +158,9 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
-    std::vector<std::pair<os_information*,uint16_t>> os_info;
+    //std::vector<std::pair<os_information*,uint16_t>> os_info; // TODO: delete
+    std::vector<std::vector<struct os_information>> process_os_info_vector;
+    //std::vector<std::vector<std::string>> process_os_names;
     floating_point_type base_prior;
 
     static bool malware_db;
@@ -166,9 +169,9 @@ class fingerprint_data {
 public:
     uint64_t total_count;
 
-    fingerprint_data() : total_count{0}  { }
+    fingerprint_data() : total_count{0} { }
 
-    fingerprint_data(uint64_t count, std::vector<class process_info> processes) :
+    fingerprint_data(uint64_t count, const std::vector<class process_info> processes) :
         total_count{count} {
 
             //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -189,18 +192,38 @@ public:
                 }
 
                 if (p.os_info.size() > 0) {
+
+#if 0 // TODO: delete
+                    // note: struct os_information is defined as a C (not C++) object, so that
+                    // it can be exposed through dlsym(), so we use C-style memory management here
+                    //
                     os_information *os_infos = (os_information*)malloc(p.os_info.size() * sizeof(*os_infos));
                     int i = 0;
                     for (const auto &os_and_count : p.os_info) {
                         os_infos[i].os_name = (char*)malloc(os_and_count.first.length()+1);
                         strcpy(os_infos[i].os_name, os_and_count.first.c_str());
                         os_infos[i].os_prevalence = os_and_count.second;
+                        //fprintf(stderr, "os_infos.push_back(%s)\n", os_infos[i].os_name);
                         i++;
                     }
                     os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
+#endif
+                    // create a vector of os_information structs, whose char * makes
+                    // use of the os_dictionary
+                    //
+                    process_os_info_vector.push_back(std::vector<struct os_information>{});
+                    std::vector<struct os_information> &os_info_vector = process_os_info_vector.back();
+                    for (const auto &os_and_count : p.os_info) {
+                        const char *os = os_dictionary.get(os_and_count.first);
+                        struct os_information tmp{(char *)os, os_and_count.second};
+                        os_info_vector.push_back(tmp);
+                    }
+
+#if 0
                 } else {
                     os_information *os_infos = NULL;
                     os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
+#endif // TODO: delete
                 }
 
                 constexpr floating_point_type as_weight = 0.13924;
@@ -265,6 +288,9 @@ public:
                 ++index;
             }
 
+    }
+
+    ~fingerprint_data() {
     }
 
     void print(FILE *f) {
@@ -424,11 +450,13 @@ public:
             }
         }
 
+        // set os_info (to NULL if unavailable)
+        //
         os_information *os_info_data = NULL;
         uint16_t os_info_size = 0;
-        if (os_info.size() > 0) {
-            os_info_data = os_info[index_max].first;
-            os_info_size = os_info[index_max].second;
+        if (process_os_info_vector.size() > 0) {
+            os_info_data = process_os_info_vector[index_max].data();
+            os_info_size = process_os_info_vector[index_max].size();
         }
         if (malware_db) {
             return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size,
