@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <algorithm>
 
-#include "json_object.h"
+#include "dict.h"
 
 // class event_processor coverts a sequence of sorted event strings into a
 // JSON representation
@@ -71,6 +71,7 @@ public:
 
 };
 
+#define ANON_SRC_IP
 
 // class event_encoder converts a bunch of variables to an event
 // string (with the set_string() method) and converts an event string
@@ -80,20 +81,29 @@ public:
 //
 class event_encoder {
     dict fp_dict;
+    dict addr_dict;
 public:
 
     event_encoder() : fp_dict{} {}
 
-    bool compute_inverse_map() { return fp_dict.compute_inverse_map();  }
+    bool compute_inverse_map() {
+        return fp_dict.compute_inverse_map() && addr_dict.compute_inverse_map();
+    }
 
     void set_string(std::string &tmp,  const char *src_ip, const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
+
+#ifdef ANON_SRC_IP
+        // compress source address string, for anonymization
+        char src_addr_buf[9];
+        addr_dict.compress(src_ip, src_addr_buf);
+#endif
 
         // compress fingerprint string
         char compressed_fp_buf[9];
         fp_dict.compress(fp_str, compressed_fp_buf);
 
         tmp.clear();
-        tmp.append(src_ip);
+        tmp.append(src_addr_buf);      // tmp.append(src_ip);
         tmp += '#';
         tmp.append(compressed_fp_buf); // tmp.append(fp); to omit compression
         tmp += '#';
@@ -133,6 +143,10 @@ public:
         c++;                     // advance past #
         const char *tail = c;
 
+#ifdef COMP_SRC_ADDR
+        size_t compressed_addr_num = strtol(head, NULL, 16);
+        head = addr_dict.get_inverse(compressed_addr_num);
+#endif
         size_t compressed_fp_num = strtol(comp_fp, NULL, 16);
         const char *decomp_fp = fp_dict.get_inverse(compressed_fp_num);
 
@@ -177,14 +191,18 @@ public:
 
     void fprint(FILE *f) {
 
+        if (event_table.size() == 0) {
+            return;  // nothing to report
+        }
+
         // note: this function is not const because of compute_inverse_map()
 
-        // compute fingerprint inverse table
+        // compute decoding table for elements
         if (encoder.compute_inverse_map() == false) {
             return;  // error; unable to compute fingerprint decompression map
         }
 
-        std::vector<std::pair<std::string, uint64_t>> v(fp_dst_table.begin(), fp_dst_table.end());
+        std::vector<std::pair<std::string, uint64_t>> v(event_table.begin(), event_table.end());
         std::sort(v.begin(), v.end(), [](auto &l, auto &r){ return l.first < r.first; } );
 
         event_processor ep(f);
