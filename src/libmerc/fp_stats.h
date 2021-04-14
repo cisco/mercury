@@ -75,7 +75,7 @@ public:
     std::vector<std::pair<const char *, uint32_t>> inverse;
     unsigned int inverse_size;
 
-    dict() : d{}, count{0}, inverse{}, inverse_size{0} {}
+    dict() : d{}, count{0}, inverse{}, inverse_size{0} { }
 
     unsigned int get(const std::string &value) {
         auto x = d.find(value);
@@ -88,7 +88,6 @@ public:
 
     void compress(const std::string &value,
                   char fp_index_string[9]) {
-
         auto x = d.find(value);
         if (x == d.end()) {
             d.emplace(value, count);
@@ -153,50 +152,24 @@ public:
 
 };
 
-class fingerprint_stats {
-    std::unordered_map<std::string, uint64_t> fp_dst_table;
+class event_encoder {
     dict fp_dict;
-    std::string observation;
-
 public:
-    fingerprint_stats() : fp_dst_table{}, fp_dict{}, observation{'\0', 128} {
-    }
 
-    ~fingerprint_stats() {
-        // TODO: connect this output to mercury in a more useful way
-        //
-        FILE *fpfile = stderr; // nullptr; // stderr; // fopen("fingerprint_stats.txt", "w");
-        if (fpfile) {
-            fprint(fpfile);
-        }
-    }
+    event_encoder() : fp_dict{} {}
 
-    void observe_event(const char *src_ip, const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
+    bool compute_inverse_map() { return fp_dict.compute_inverse_map();  }
 
-        set_string_to_observation(observation, src_ip, fp_str, server_name, dst_ip, dst_port);
-
-        const auto entry = fp_dst_table.find(observation);
-        if (entry != fp_dst_table.end()) {
-            entry->second = entry->second + 1;
-        } else {
-            fp_dst_table.emplace(observation, 1);  // check return value?
-        }
-    }
-
-    void set_string_to_observation(std::string &tmp, const char *src_ip, const char *fp, const char *server_name, const char *dst_ip, uint16_t dst_port) {
+    void set_string(std::string &tmp,  const char *src_ip, const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
 
         // compress fingerprint string
-        //        uint32_t fp_index = fp_dict.get(fp);
         char compressed_fp_buf[9];
-        fp_dict.compress(fp, compressed_fp_buf);
-        // sprintf(fp_index_string, "%x", fp_index);
-
-        //fprintf(stdout, "compressed: %s\tdecompressed: %s\tin\n", compressed_fp_buf, fp);
+        fp_dict.compress(fp_str, compressed_fp_buf);
 
         tmp.clear();
         tmp.append(src_ip);
         tmp += '#';
-        tmp.append(compressed_fp_buf); //tmp.append(fp);
+        tmp.append(compressed_fp_buf); // tmp.append(fp); to omit compression
         tmp += '#';
         tmp.append("(");
         tmp.append(server_name);
@@ -209,8 +182,57 @@ public:
         tmp += '(';
         tmp.append(dst_port_string);
         tmp += ')';
+    }
 
-        // fprintf(stderr, "observe: %s\n", tmp.c_str());
+    std::vector<std::string> get_vector(const std::string &s) {
+
+        size_t idx = s.find('#');
+        std::string head = s.substr(0, idx);
+        std::string tail = s.substr(idx+1, std::string::npos);
+
+        size_t fp_idx = tail.find('#');
+        std::string compressed_fp = tail.substr(0, fp_idx);
+        std::string suffix = tail.substr(fp_idx+1, std::string::npos);
+
+        // decompress fingerprint string
+        size_t compressed_fp_num = strtol(compressed_fp.c_str(), NULL, 16);
+        std::string decompressed_fp = fp_dict.get_inverse(compressed_fp_num);
+
+        return std::vector<std::string> {head.c_str(), decompressed_fp.c_str(), suffix.c_str()};
+
+    }
+
+};
+
+
+class fingerprint_stats {
+    std::unordered_map<std::string, uint64_t> fp_dst_table;
+    event_encoder encoder;
+    std::string observation;  // used as preallocated temporary variable
+
+public:
+    fingerprint_stats() : fp_dst_table{}, encoder{}, observation{'\0', 128} {
+    }
+
+    ~fingerprint_stats() {
+        // TODO: connect this output to mercury in a more useful way
+        //
+        FILE *fpfile = stderr; // nullptr; // stderr; // fopen("fingerprint_stats.txt", "w");
+        if (fpfile) {
+            fprint(fpfile);
+        }
+    }
+
+    void observe(const char *src_ip, const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
+
+        encoder.set_string(observation, src_ip, fp_str, server_name, dst_ip, dst_port);
+
+        const auto entry = fp_dst_table.find(observation);
+        if (entry != fp_dst_table.end()) {
+            entry->second = entry->second + 1;
+        } else {
+            fp_dst_table.emplace(observation, 1);  // TODO: check return value for allocation failure
+        }
     }
 
     void fprint(FILE *f) {
@@ -218,136 +240,30 @@ public:
         // note: this function is not const because of compute_inverse_map()
 
         // compute fingerprint inverse table
-        if (fp_dict.compute_inverse_map() == false) {
+        if (encoder.compute_inverse_map() == false) {
             return;  // error; unable to compute fingerprint decompression map
         }
 
         std::vector<std::pair<std::string, uint64_t>> v(fp_dst_table.begin(), fp_dst_table.end());
         std::sort(v.begin(), v.end(), [](auto &l, auto &r){ return l.first < r.first; } );
 
-        size_t total_len = 0;
         event_processor ep(f);
         ep.process_init();
         for (auto &entry : v) {
-
-            // fprintf(stdout, "%s\n", entry.first.c_str());  // HACK for debugging
-
-            total_len += entry.first.length();
-
-            size_t idx = entry.first.find('#');
-            std::string head = entry.first.substr(0, idx);
-            std::string tail = entry.first.substr(idx+1, std::string::npos);
-
-            size_t fp_idx = tail.find('#');
-            std::string compressed_fp = tail.substr(0, fp_idx);
-            std::string suffix = tail.substr(fp_idx+1, std::string::npos);
-
-            // decompress fingerprint string
-            size_t compressed_fp_num = strtol(compressed_fp.c_str(), NULL, 16);
-            std::string decompressed_fp = fp_dict.get_inverse(compressed_fp_num);
-            //  std::string fp_str = decompressed_fp + suffix;
-
-            //fprintf(stdout, "compressed: %s\tdecompressed: %s\tout\n", compressed_fp.c_str(), decompressed_fp.c_str());
-
-            ep.process_update({head.c_str(), decompressed_fp.c_str(), suffix.c_str()}, entry.second);
+            std::vector<std::string> v = encoder.get_vector(entry.first);
+            ep.process_update({v[0].c_str(), v[1].c_str(), v[2].c_str() }, entry.second);
         }
         ep.process_final();
 
         // if (fp_dict.unit_test(stderr)) {
         //     fprintf(stderr, "passed fp_dict.unit_test()\n");
         // }
-
         // fprintf(stderr, "total_len: %zu\n", total_len);
 
         return;
     }
 
 };
-
-
-//// OBSOLETE CODE /////
-
-#if 0 // obsolete fp_stats code
-
-class destination_stats {
-    std::unordered_map<std::string, uint64_t> dest_count;
-public:
-    destination_stats() : dest_count{} {}
-
-    void observe(const char *server_name, const char *dst_ip, uint16_t dst_port) {
-        std::string tmp("(");
-        tmp.append(server_name);
-        tmp += ')';
-        tmp += '(';
-        tmp.append(dst_ip);
-        char dst_port_string[8];
-        sprintf(dst_port_string, "%hu", dst_port);
-        tmp += ')';
-        tmp += '(';
-        tmp.append(dst_port_string);
-        tmp += ')';
-
-        // fprintf(stderr, "observe: %s\n", tmp.c_str());
-
-        const auto &dc = dest_count.find(tmp);
-        if (dc == dest_count.end()) {
-            dest_count.emplace(tmp, 1);
-        } else {
-            dc->second = dc->second + 1;
-        }
-    }
-
-    void fprint(FILE *f) const {
-        std::vector<std::pair<std::string, uint64_t>> vec(dest_count.begin(), dest_count.end());
-        std::sort(vec.begin(), vec.end(), [](auto &l, auto &r){ return l.second > r.second; } );
-        bool first = true;
-        for (const auto & x : vec) {
-            if (!first) {
-                fputc(',', f);
-            }
-            fprintf(f, "\"%s\": %lu", x.first.c_str(), x.second);
-            first = false;
-        }
-    }
-};
-
-class fingerprint_stats_old {
-    std::unordered_map<std::string, destination_stats> fp_dst_table;
-
-    public:
-    fingerprint_stats_old() : fp_dst_table{} { }
-
-    ~fingerprint_stats_old() {
-        fprint(stderr);
-    }
-
-    void observe(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
-        const auto dst_table = fp_dst_table.find(fp_str);
-        if (dst_table != fp_dst_table.end()) {
-            //fprintf(stderr, "fp %s found in table\n", fp_str);
-            dst_table->second.observe(server_name, dst_ip, dst_port);
-        } else {
-            //fprintf(stderr, "fp %s NOT found in table\n", fp_str);
-            destination_stats tmp;
-            auto [dst, dst_is_set] = fp_dst_table.emplace(fp_str, tmp);
-            if (dst_is_set) {
-                dst->second.observe(server_name, dst_ip, dst_port);
-            }
-        }
-    }
-
-    void fprint(FILE *f) const {
-        for (const auto &x : fp_dst_table) {
-            fprintf(f, "{\"str_repr\": \"%s\",\"destinations\":{", x.first.c_str());
-            x.second.fprint(f);
-            fprintf(f, "}}\n");
-        }
-    }
-};
-
-#endif
-
-//// OBSOLETE CODE /////
 
 
 #endif // FP_STATS_H

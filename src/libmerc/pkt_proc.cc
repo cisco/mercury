@@ -787,7 +787,6 @@ void set_tcp_protocol(tcp_protocol &x,
     }
 }
 
-
 // tcp_data_write_json() parses TCP data and writes metadata into
 // a buffer stream, if any is found
 //
@@ -825,7 +824,8 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             analysis.fp.write(record);
         }
 
-        if (analysis.fp.get_type() != fingerprint_type_unknown) { // == fingerprint_type_tls) {
+        // if (analysis.fp.get_type() != fingerprint_type_unknown) { // == fingerprint_type_tls) {
+        if (analysis.fp.get_type() == fingerprint_type_tls) {
             //
             // TODO: observe_event() should only be invoked if
             // analysis.destination has been set by a previous call to
@@ -833,7 +833,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             //
             char src_ip_str[MAX_ADDR_STR_LEN];
             k.sprint_src_addr(src_ip_str);
-            fp_stats.observe_event(src_ip_str, analysis.fp.fp_str, analysis.destination.sn_str, analysis.destination.dst_ip_str, analysis.destination.dst_port);
+            fp_stats.observe(src_ip_str, analysis.fp.fp_str, analysis.destination.sn_str, analysis.destination.dst_ip_str, analysis.destination.dst_port);
         }
 
         std::visit(write_metadata{record}, x);
