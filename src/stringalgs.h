@@ -338,13 +338,13 @@ template <typename T> struct longest_common_substring {
 
         L.resize(Na+1, Nb+1);
 
-        for (size_t i = 0; i < Na; i++) {
+        for (size_t i = 0; i < L.rows(); i++) {
             L(i,0) = 0;
         }
         for (size_t j = 0; j < L.columns(); j++) {
             L(0,j) = 0;
         }
-        for (size_t i = 1; i < Na; i++) {
+        for (size_t i = 1; i < L.rows(); i++) {
             for (size_t j = 1; j < L.columns(); j++) {
                 if (a[i-1] == b[j-1]) {
 
