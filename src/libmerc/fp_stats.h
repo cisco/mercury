@@ -28,7 +28,7 @@ public:
         prev = { "", "", "" };
     }
 
-    void process_update(std::vector<const char *> v, uint32_t count) {
+    void process_update(std::array<const char *, 3> v, uint32_t count) {
 
         // find number of elements that match previous vector
         size_t num_matching = 0;
@@ -184,22 +184,33 @@ public:
         tmp += ')';
     }
 
-    std::vector<std::string> get_vector(const std::string &s) {
+    std::array<const char *, 3> get_vector(std::string &s) {
 
-        size_t idx = s.find('#');
-        std::string head = s.substr(0, idx);
-        std::string tail = s.substr(idx+1, std::string::npos);
+        const char *c = s.c_str();
+        const char *head = c;
+        while (*c != '\0') {
+            if (*c == '#') {
+                break;
+            }
+            c++;
+        }
+        s[c - head] = '\0';      // replace # with null
+        c++;                     // advance past #
+        const char *comp_fp = c;
+        while (*c != '\0') {
+            if (*c == '#') {
+                break;
+            }
+            c++;
+        }
+        s[c - head] = '\0';      // replace # with null
+        c++;                     // advance past #
+        const char *tail = c;
 
-        size_t fp_idx = tail.find('#');
-        std::string compressed_fp = tail.substr(0, fp_idx);
-        std::string suffix = tail.substr(fp_idx+1, std::string::npos);
+        size_t compressed_fp_num = strtol(comp_fp, NULL, 16);
+        const char *decomp_fp = fp_dict.get_inverse(compressed_fp_num);
 
-        // decompress fingerprint string
-        size_t compressed_fp_num = strtol(compressed_fp.c_str(), NULL, 16);
-        std::string decompressed_fp = fp_dict.get_inverse(compressed_fp_num);
-
-        return std::vector<std::string> {head.c_str(), decompressed_fp.c_str(), suffix.c_str()};
-
+        return {head, decomp_fp, tail};
     }
 
 };
@@ -250,8 +261,7 @@ public:
         event_processor ep(f);
         ep.process_init();
         for (auto &entry : v) {
-            std::vector<std::string> v = encoder.get_vector(entry.first);
-            ep.process_update({v[0].c_str(), v[1].c_str(), v[2].c_str() }, entry.second);
+            ep.process_update(encoder.get_vector(entry.first), entry.second);
         }
         ep.process_final();
 
