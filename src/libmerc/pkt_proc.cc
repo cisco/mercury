@@ -30,10 +30,11 @@
 #include "quic.h"
 #include "analysis.h"
 #include "buffer_stream.h"
+#include "stats.h"
 
 extern struct libmerc_config global_vars;  // defined in libmerc.h
 
-fingerprint_stats fp_stats;  // global just for experimentation
+stats_aggregator fp_stats;  // global just for experimentation
 
 double malware_prob_threshold = -1.0; // HACK for demo
 

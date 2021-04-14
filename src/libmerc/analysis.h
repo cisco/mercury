@@ -15,7 +15,7 @@
 #include "addr.h"
 #include "json_object.h"
 #include "result.h"
-#include "fp_stats.h"
+#include "stats.h"
 
 #include <mutex>
 #include <shared_mutex>

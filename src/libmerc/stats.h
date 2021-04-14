@@ -1,11 +1,12 @@
 /*
- * fp_stats.h
+ * stats.h
  *
- * track and report aggregate fingerprint statistics
+ * track and report aggregate statistics for fingerprints, destations,
+ * and other events
  */
 
-#ifndef FP_STATS_H
-#define FP_STATS_H
+#ifndef STATS_H
+#define STATS_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -15,6 +16,9 @@
 
 #include "json_object.h"
 
+// class event_processor coverts a sequence of sorted event strings into a
+// JSON representation
+//
 class event_processor {
     std::vector<std::string> prev;
     bool first_loop;
@@ -68,90 +72,12 @@ public:
 };
 
 
-class dict {
-public:
-    std::unordered_map<std::string, uint32_t> d;
-    unsigned int count;
-    std::vector<std::pair<const char *, uint32_t>> inverse;
-    unsigned int inverse_size;
-
-    dict() : d{}, count{0}, inverse{}, inverse_size{0} { }
-
-    unsigned int get(const std::string &value) {
-        auto x = d.find(value);
-        if (x == d.end()) {
-            d.emplace(value, count);
-            return count++;
-        }
-        return x->second;
-    }
-
-    void compress(const std::string &value,
-                  char fp_index_string[9]) {
-        auto x = d.find(value);
-        if (x == d.end()) {
-            d.emplace(value, count);
-            sprintf(fp_index_string, "%x", count);
-            count++;
-            return;
-        }
-        sprintf(fp_index_string, "%x", x->second);
-    }
-
-    bool compute_inverse_map() {
-
-        try {
-            inverse.reserve(d.size());
-            for (const auto &x : d) {
-                inverse.push_back({x.first.c_str(), x.second});
-            }
-            std::stable_sort(inverse.begin(), inverse.end(), [](auto &l, auto &r){ return l.second < r.second; });
-            inverse_size = inverse.size();
-            return true;
-        }
-        catch (...) {
-            return false;
-        }
-    }
-
-    const char *get_inverse(unsigned int index) const {
-        if (index < inverse_size) {
-            return inverse[index].first;
-        }
-        return unknown_fp_string;
-    }
-
-    inline static const char *unknown_fp_string{"unknown"};
-
-    // unit_test(f) verifies that the dictionary is the same in both
-    // the forard and inverse directions; perform this test only after
-    // the dictionary has been populated.  Returns true if the test passed,
-    // and false otherwise.
-    //
-    bool unit_test(FILE *f) {
-        // sanity check: output forward and reverse mappings, to enable comparison
-        bool passed = true;
-        for (const auto &a : d) {
-            if (a.first.compare(get_inverse(a.second)) != 0) {
-                if (f) {
-                    fprintf(f, "dict unit test error: mismatch at dict table entry (%s: %u)\n", a.first.c_str(), a.second);
-                }
-                passed = false;
-            }
-        }
-        for (const auto &b : inverse) {
-            if (get(b.first) != b.second) {
-                if (f) {
-                    fprintf(f, "dict unit test error: mismatch at inverse table entry (%s: %u)\n", b.first, b.second);
-                }
-                passed = false;
-            }
-        }
-        return passed;
-    }
-
-};
-
+// class event_encoder converts a bunch of variables to an event
+// string (with the set_string() method) and converts an event string
+// into an array of char * (with the get_vector() method).  Its member
+// functions are not const because they may update the fp_dict dict
+// member.
+//
 class event_encoder {
     dict fp_dict;
 public:
@@ -215,17 +141,20 @@ public:
 
 };
 
-
-class fingerprint_stats {
-    std::unordered_map<std::string, uint64_t> fp_dst_table;
+// class stats_aggregator manages all of the data needed to gather and
+// report aggregate statistics about (fingerprint and destination)
+// events
+//
+class stats_aggregator {
+    std::unordered_map<std::string, uint64_t> event_table;
     event_encoder encoder;
     std::string observation;  // used as preallocated temporary variable
 
 public:
-    fingerprint_stats() : fp_dst_table{}, encoder{}, observation{'\0', 128} {
+    stats_aggregator() : event_table{}, encoder{}, observation{'\0', 128} {
     }
 
-    ~fingerprint_stats() {
+    ~stats_aggregator() {
         // TODO: connect this output to mercury in a more useful way
         //
         FILE *fpfile = stderr; // nullptr; // stderr; // fopen("fingerprint_stats.txt", "w");
@@ -238,11 +167,11 @@ public:
 
         encoder.set_string(observation, src_ip, fp_str, server_name, dst_ip, dst_port);
 
-        const auto entry = fp_dst_table.find(observation);
-        if (entry != fp_dst_table.end()) {
+        const auto entry = event_table.find(observation);
+        if (entry != event_table.end()) {
             entry->second = entry->second + 1;
         } else {
-            fp_dst_table.emplace(observation, 1);  // TODO: check return value for allocation failure
+            event_table.emplace(observation, 1);  // TODO: check return value for allocation failure
         }
     }
 
@@ -268,7 +197,6 @@ public:
         // if (fp_dict.unit_test(stderr)) {
         //     fprintf(stderr, "passed fp_dict.unit_test()\n");
         // }
-        // fprintf(stderr, "total_len: %zu\n", total_len);
 
         return;
     }
@@ -276,4 +204,4 @@ public:
 };
 
 
-#endif // FP_STATS_H
+#endif // STATS_H
