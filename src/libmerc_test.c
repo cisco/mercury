@@ -369,5 +369,13 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    // test stats data writing
+    const char *stats_data_file_name = "merc_stats.txt";
+    if (mercury_write_stats_data(stats_data_file_name) == false) {
+        fprintf(stderr, "error writing stats data file\n");
+        return EXIT_FAILURE;
+    }
+    fprintf(stdout, "wrote stats data file to '%s'\n", stats_data_file_name);
+
     return 0;
 }

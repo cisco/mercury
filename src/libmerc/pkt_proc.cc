@@ -825,7 +825,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             analysis.fp.write(record);
         }
 
-        if (false) { //analysis.fp.get_type() == fingerprint_type_tls) {
+        if (analysis.fp.get_type() == fingerprint_type_tls) {
             //
             // TODO: observe_event() should only be invoked if
             // analysis.destination has been set by a previous call to

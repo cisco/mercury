@@ -171,7 +171,7 @@ public:
     ~stats_aggregator() {
         // TODO: connect this output to mercury in a more useful way
         //
-        FILE *fpfile = stderr; // nullptr; // stderr; // fopen("fingerprint_stats.txt", "w");
+        FILE *fpfile = nullptr; // stderr; // fopen("fingerprint_stats.txt", "w");
         if (fpfile) {
             fprint(fpfile);
         }
