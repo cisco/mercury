@@ -127,7 +127,7 @@ libmerc-and-mercury: libmerc.a mercury
 # libmerc.a itself needs to be rebuild
 #
 mercury: mercury.c $(MERC_OBJ) $(MERC_H) libmerc/libmerc.a Makefile.in
-	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -lpthread libmerc/libmerc.a -lz -lcrypto -o mercury
+	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -pthread libmerc/libmerc.a -lz -lcrypto -o mercury
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 
 debug-mercury: CFLAGS += -DDEBUG -g -O0
@@ -170,7 +170,7 @@ tls_scanner: tls_scanner.cc libmerc
 
 batch_gcd: CFLAGS += -march=native -flto
 batch_gcd: batch_gcd.cc
-	$(CXX) $(CFLAGS) batch_gcd.cc -Bdynamic -lgmpxx -lgmp -lpthread -o batch_gcd
+	$(CXX) $(CFLAGS) batch_gcd.cc -Bdynamic -lgmpxx -lgmp -pthread -o batch_gcd
 
 cert_analyze: cert_analyze.cc libmerc/datum.cc
 	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/datum.cc libmerc/libmerc.a -lcrypto -o cert_analyze
@@ -206,7 +206,7 @@ endif
 #MERC_OBJ = $(MERC:%.o=%.c)
 
 libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
-	$(CC) -Wall -std=c17 libmerc_test.c -lpthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
+	$(CC) -Wall -std=c17 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 
