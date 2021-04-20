@@ -843,6 +843,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             event_string.append(analysis.destination.sn_str).append(")(");
             event_string.append(analysis.destination.dst_ip_str).append(")(");
             event_string.append(dst_port_str).append(")");
+            //fprintf(stderr, "note: observed event_string '%s'\n", event_string.c_str());
             mq->push((uint8_t *)event_string.c_str(), event_string.length()+1);
         }
 

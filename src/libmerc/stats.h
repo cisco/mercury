@@ -349,10 +349,12 @@ class data_aggregator {
 
 public:
     data_aggregator() : q{}, ag{}, shutdown_requested{false} {
+        //fprintf(stderr, "note: starting data_aggregator\n");
         consumer_thread = std::thread( [this](){ consumer(); } );  // lambda just calls member function
     }
 
     ~data_aggregator() {
+        //fprintf(stderr, "note: halting data_aggregator\n");
         halt_and_join();
         ag.fprint(stderr);
         for (auto & x : q) {
@@ -366,27 +368,27 @@ public:
     }
 
     void consumer() {
+        //fprintf(stderr, "note: running consumer()\n");
         //size_t count = 0;
         while(shutdown_requested.load() == false) {
             if (q.size()) {
                 for (auto & qr : q) {
                     message *msg = qr->pop();
                     if (msg) {
-                        //fprintf(stderr, "got message %zu\t'%.*s'\n", count++, (int)msg->length, msg->buffer);
+                        //fprintf(stderr, "note: got message %zu\t'%.*s'\n", count++, (int)msg->length, msg->buffer);
                         std::string event{(char *)msg->buffer, msg->length};  // TODO: move string constructor outside of loop
                         ag.observe_event_string(event);
+                    } else {
+                        //fprintf(stderr, "consumer thread saw empty queue\n");
                     }
                 }
             } else {
-                //fprintf(stderr, "q is empty\n");
+                //fprintf(stderr, "consumer thread has no queues (yet)\n");
             }
             usleep(50); // sleep for fifty microseconds
         }
     }
 
 };
-
-
-
 
 #endif // STATS_H
