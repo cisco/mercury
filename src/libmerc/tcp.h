@@ -155,6 +155,12 @@ struct key {
                     sa[0], sa[1], sa[2], sa[3], sa[4], sa[5], sa[6], sa[7], sa[8], sa[9], sa[10], sa[11], sa[12], sa[13], sa[14], sa[15]);
         }
     }
+
+#define MAX_PORT_STR_LEN 6
+    void sprint_dst_port(char dst_port_string[MAX_PORT_STR_LEN]) const {
+        snprintf(dst_port_string, MAX_PORT_STR_LEN, "%u", dst_port);
+    }
+
 };
 
 

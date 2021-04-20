@@ -27,6 +27,7 @@ struct stateful_pkt_proc {
     struct tcp_reassembler *reassembler_ptr;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
+    struct message_queue *mq;
 
     explicit stateful_pkt_proc(size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
@@ -34,8 +35,13 @@ struct stateful_pkt_proc {
         reassembler{prealloc_size},
         reassembler_ptr{&reassembler},
         tcp_init_msg_filter{},
-        analysis{}
+        analysis{},
+        mq{nullptr}
     {
+
+        extern data_aggregator aggregator;  // pkt_proc.cc
+
+        mq = aggregator.add_producer();
 
 #ifndef USE_TCP_REASSEMBLY
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"

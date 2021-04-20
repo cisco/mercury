@@ -833,7 +833,17 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             //
             char src_ip_str[MAX_ADDR_STR_LEN];
             k.sprint_src_addr(src_ip_str);
-            fp_stats.observe(src_ip_str, analysis.fp.fp_str, analysis.destination.sn_str, analysis.destination.dst_ip_str, analysis.destination.dst_port);
+            char dst_port_str[MAX_PORT_STR_LEN];
+            k.sprint_dst_port(dst_port_str);
+            //fp_stats.observe(src_ip_str, analysis.fp.fp_str, analysis.destination.sn_str, analysis.destination.dst_ip_str, analysis.destination.dst_port);
+            std::string event_string;
+            event_string.append("(");
+            event_string.append(src_ip_str).append(")#(");
+            event_string.append(analysis.fp.fp_str).append(")#(");
+            event_string.append(analysis.destination.sn_str).append(")(");
+            event_string.append(analysis.destination.dst_ip_str).append(")(");
+            event_string.append(dst_port_str).append(")");
+            mq->push((uint8_t *)event_string.c_str(), event_string.length()+1);
         }
 
         std::visit(write_metadata{record}, x);
@@ -871,3 +881,10 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
 
     return false;
 }
+
+// aggregator is a global data structure holding all of the statistics
+// on traffic observations, as well as the message queues needed to
+// send data to the aggregator.
+
+struct data_aggregator aggregator;
+
