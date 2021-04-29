@@ -125,24 +125,24 @@ int analysis_init_from_archive(int verbosity,
                                const bool report_os) {
 
     if (enc_key != NULL || key_type != enc_key_type_none) {
-        fprintf(stderr, "error: decryption key provided in configuration, but decryption not supported\n");
-        fprintf(stderr, "key: %p\ttype: %u\n", enc_key, key_type);
-        return -1;  // error
+        //fprintf(stderr, "note: decryption key provided in configuration\n");
     }
 
     if (archive_name == nullptr) {
         archive_name = DEFAULT_RESOURCE_FILE;
     }
 
-    int retcode = addr_init(archive_name);
+    encrypted_compressed_archive arch{archive_name, enc_key}; // TODO: key type
+    int retcode = addr_init(arch);
     if (retcode == 0) {
-        c = new classifier(archive_name, fp_proc_threshold, proc_dst_threshold, report_os);
+        encrypted_compressed_archive archive{archive_name, enc_key}; // TODO: key type
+        c = new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os);
         //c->print(stderr);
         return 0;
     }
 
     if (verbosity > 0) {
-            fprintf(stderr, "warning: could not open resource archive '%s'\n", archive_name);
+        fprintf(stderr, "warning: could not open resource archive '%s'\n", archive_name);
     }
     fprintf(stderr, "warning: could not initialize analysis module\n");
     return -1;

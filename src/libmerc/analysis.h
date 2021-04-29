@@ -714,11 +714,12 @@ public:
         }
     }
 
-    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{} {
+    classifier(class encrypted_compressed_archive &archive, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{} {
 
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
-        class compressed_archive archive{resource_archive_file};
+        bool got_version = false;
+        //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
             throw "error: could not read any entries from resource archive file";
@@ -744,10 +745,10 @@ public:
                     while (archive.getline(line_str)) {
                         resource_version += line_str;
                     }
-                    got_fp_db = true;
+                    got_version = true;
                 }
             }
-            if (got_fp_db && got_fp_prevalence) {
+            if (got_fp_db && got_fp_prevalence && got_version) {   // TODO: Do we want to require a VERSION file?
                 break; // got all data, we're done here
             }
             entry = archive.get_next_entry();

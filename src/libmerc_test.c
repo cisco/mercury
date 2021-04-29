@@ -250,7 +250,10 @@ void print_out_analysis_context(const struct analysis_context *c) {
 }
 
 
-int test_libmerc(struct libmerc_config *config, int verbosity) {
+int test_libmerc(const struct libmerc_config *config, int verbosity) {
+
+    fprintf(stdout, "initializing mercury with %s resource archive\n", config->key_type ? "encrypted (.tgz.enc)" : "unencrypted (.tgz)");
+
     int retval = mercury_init(config, verbosity);
     if (retval) {
         fprintf(stderr, "mercury_init() error (code %d)\n", retval);
@@ -342,7 +345,8 @@ int main(int argc, char *argv[]) {
     // test standard configuration
 
     // initialize libmerc's global configuration by creating a
-    // libmerc_config structure and then passing it into mercury_init
+    // libmerc_config structure and then passing it into mercury_init,
+    // using a resource archive that is compressed but not encrypted
     //
     struct libmerc_config config = libmerc_config_init();
     config.do_analysis = true;
@@ -350,6 +354,27 @@ int main(int argc, char *argv[]) {
     config.report_os = true;
     config.packet_filter_cfg = "tls";
     retval = test_libmerc(&config, verbosity);
+    if (retval) {
+        fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
+        return EXIT_FAILURE;
+    }
+
+    // initialize libmerc's global configuration by creating a
+    // libmerc_config structure and then passing it into mercury_init,
+    // using a resource archive that is encrypted and compressed
+    //
+    struct libmerc_config config_enc = libmerc_config_init();
+    config_enc.do_analysis = true;
+    config_enc.resources = "../resources/resources.tgz.enc"; // note .enc extension
+    const uint8_t enc_key[16] = {
+       0xa4, 0x65, 0xd1, 0xd6, 0xed, 0xaa, 0xb0, 0xbb,
+       0x01, 0x69, 0xe0, 0xf8, 0xb0, 0x10, 0x8e, 0xfd
+    };
+    config_enc.enc_key = enc_key;
+    config_enc.key_type = enc_key_type_aes_128;
+    config_enc.report_os = true;
+    config_enc.packet_filter_cfg = "tls";
+    retval = test_libmerc(&config_enc, verbosity);
     if (retval) {
         fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
         return EXIT_FAILURE;

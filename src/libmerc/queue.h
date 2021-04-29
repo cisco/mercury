@@ -12,7 +12,7 @@
 #include <mutex>
 
 struct message {
-    uint8_t buffer[512];    // data buffer
+    uint8_t buffer[1024];   // data buffer
     size_t length;          // number of bytes of data in buffer
 
     bool copy(const uint8_t *data, size_t data_length) {

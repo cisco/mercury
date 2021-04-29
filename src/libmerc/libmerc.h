@@ -22,6 +22,7 @@
 
 enum enc_key_type {
     enc_key_type_none = 0,
+    enc_key_type_aes_128,
     enc_key_type_aes_256
 };
 

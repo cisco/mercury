@@ -10,6 +10,34 @@
 #include "libmerc/archive.h"
 #include "options.h"
 
+// hex_to_raw() reads a string in hexadecimal, and writes the raw
+// octets corresponding to that string to output.  If an error occurs,
+// a number less than zero is returned; otherwise, the number of bytes
+// written to the output buffer is returned.
+//
+ssize_t hex_to_raw(const void *output,
+                  size_t output_buf_len,
+                  const char *null_terminated_hex_string) {
+    const char *hex = null_terminated_hex_string;
+    const unsigned char *out = (uint8_t *)output;
+    size_t count = 0;
+
+    while (output_buf_len-- > 0) {
+        if (hex[0] == 0 || hex[0] == '\n') {
+            break;
+        }
+        if (hex[1] == 0) {
+            return count;   /* error */
+        }
+        if (!isxdigit(hex[0]) || !isxdigit(hex[1])) {
+            return -1;
+        }
+        sscanf(hex, "%2hhx", (unsigned char *)&out[count++]);
+        hex += 2;
+    }
+    return count;
+}
+
 int main(int argc, char *argv[]) {
 
     const char summary[] =
@@ -34,7 +62,7 @@ int main(int argc, char *argv[]) {
 
     auto [ archive_is_set, archive ] = opt.get_value("archive");
     auto [ dir_is_set, directory ] = opt.get_value("--directory");
-    auto [ decrypt, key ] = opt.get_value("--decrypt");
+    auto [ key_is_set, key_str ] = opt.get_value("--decrypt");
     bool list       = opt.is_set("--list");
     bool dump       = opt.is_set("--dump");
     bool extract    = opt.is_set("--extract");
@@ -56,8 +84,24 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // uint8_t key[32];
+    // uint8_t iv[32];
+    // if (key_is_set) {
+    unsigned char key[16] = {
+                             0xa4, 0x65, 0xd1, 0xd6, 0xed, 0xaa, 0xb0, 0xbb,
+                             0x01, 0x69, 0xe0, 0xf8, 0xb0, 0x10, 0x8e, 0xfd
+    };
+    // unsigned char iv[16] = {
+    //                         0x3d, 0x13, 0xe0, 0x0e, 0x90, 0xc4, 0x08, 0x2d,
+    //                         0x02, 0x1c, 0x5a, 0xa9, 0x34, 0xdb, 0x57, 0x5a
+    // };
+    //  hex_to_raw(key, sizeof(key), key_str.c_str());
+    //  hex_to_raw(iv, sizeof(key), key_str.c_str()+32);
+
+    uint8_t *k = key_is_set ? key : nullptr;
+
     const char *archive_file_name = archive.c_str();
-    class encrypted_compressed_archive tar{archive_file_name};
+    class encrypted_compressed_archive tar{archive_file_name, k};
     const class archive_node *entry = tar.get_next_entry();
     if (entry == nullptr) {
         fprintf(stderr, "error: could not read any entries from archive file %s\n", archive_file_name);
@@ -66,6 +110,8 @@ int main(int argc, char *argv[]) {
     if (list | dump) {
         // print out [summary of] each archive entry
         while (entry != nullptr) {
+
+            //entry->print_all_fields(stderr); // TODO: delete
 
             // report on entry
             entry->print(stderr);

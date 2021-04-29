@@ -19,6 +19,7 @@
 
 #include <zlib.h>
 
+#include "enc_file_reader.h"
 #include "libmerc.h"
 #include "datum.h"
 
@@ -338,30 +339,34 @@ public:
 
 
 class gz_file {
-    int fd;
     unsigned char file_buffer[512];
     z_stream_s z;
+    encrypted_file enc_file;
 
 public:
 
-    explicit operator bool() const { return (fd != 0); }
+    explicit operator bool() const {
+        return enc_file.is_readable();
+    }
 
-    gz_file(const char *filename) : fd{0} {
-        fd = open(filename, O_RDONLY, "r");
-        if (fd == 0) {
-            fprintf(stderr, "error: could not open archive file %s\n", filename);
-            return;  // error; not reading a compressed archive file
-        }
-        ssize_t file_buffer_bytes = ::read(fd, file_buffer, sizeof(file_buffer));
+    gz_file(const char *filename, const uint8_t *key) : enc_file{filename, key, nullptr} {
+        //fprintf(stderr, "gz_file::%s\n", __func__);
+
+        // fd = open(filename, O_RDONLY, "r");
+        // if (fd == 0) {
+        //     fprintf(stderr, "error: could not open archive file %s\n", filename);
+        //     return;  // error; not reading a compressed archive file
+        // }
+        ssize_t file_buffer_bytes = enc_file.read(file_buffer, sizeof(file_buffer));
         if (file_buffer_bytes < 0) { // (ssize_t)sizeof(file_buffer)) {
             fprintf(stderr, "error: could not read archive file %s (%ld)\n", filename, file_buffer_bytes);
             return;  // error; not reading a compressed archive file
         }
 
-        fprintf(stderr, "read %zd bytes from file\n", file_buffer_bytes);
-        fprintf(stderr, "file_buffer: '%.*s'\n", (int)file_buffer_bytes, file_buffer);
-        fprintf_raw_as_hex(stderr, file_buffer, file_buffer_bytes);
-        fputc('\n', stderr);
+        //fprintf(stderr, "read %zd bytes from file\n", file_buffer_bytes);
+        //fprintf(stderr, "file_buffer: '%.*s'\n", (int)file_buffer_bytes, file_buffer);
+        //fprintf_raw_as_hex(stderr, file_buffer, file_buffer_bytes);
+        //fputc('\n', stderr);
 
         //  set next_in, avail_in, zalloc, zfree and opaque
         z.next_in = file_buffer;
@@ -373,18 +378,26 @@ public:
         z.avail_out = 0;
 
         // int err = inflateInit(&z);
-        int err = inflateInit2(&z, 16+MAX_WBITS); // see zlib.h version 1.2.1
+        int err = inflateInit2(&z, MAX_WBITS + 32); // enable automatic header detection; see zlib.h version 1.2.1
         if (err != Z_OK) {
             fprintf(stderr, "error in InflateInit (code %d)\n", err);
-            close(fd);
-            fd = 0;
+            //close(fd);
+            //fd = 0;
+        }
+    }
+
+    ~gz_file() {
+        int retcode = inflateEnd(&z);
+        if (retcode != Z_OK) {
+            fprintf(stderr, "warning: error code %d in %s\n", retcode, __func__);
         }
     }
 
     // the read() function mimics zlib's gzread()
     //
     ssize_t read(uint8_t *buffer, size_t len) {
-        fprintf(stderr, "%s\n", __func__);
+        //fprintf(stderr, "gz_file::%s\n", __func__);
+        //fprintf(stderr, "\tavail_in: %u\tavail_out: %u\n", z.avail_in, z.avail_out);
         if (buffer == nullptr || len == 0) {
             return 0;  // error, or no work needed
         }
@@ -393,51 +406,63 @@ public:
         while (z.avail_out > 0) {
 
             if (z.avail_in == 0) {
-                ssize_t file_buffer_bytes = ::read(fd, file_buffer, sizeof(file_buffer));
+                ssize_t file_buffer_bytes = enc_file.read(file_buffer, sizeof(file_buffer));
                 if (file_buffer_bytes < 0) { // (ssize_t)sizeof(file_buffer)) {
-                    fprintf(stderr, "error: could not read archive file (%ld)\n", file_buffer_bytes);
+                    fprintf(stderr, "\terror: could not read archive file (%ld)\n", file_buffer_bytes);
                     return -1;  // error
                 }
                 z.next_in = file_buffer;
                 z.avail_in = file_buffer_bytes;
             }
 
-            fprintf(stderr, "avail_in: %u\tavail_out: %u\n", z.avail_in, z.avail_out);
+            //fprintf(stderr, "\tavail_in: %u\tavail_out: %u\n", z.avail_in, z.avail_out);
 
             int err = inflate(&z, Z_NO_FLUSH);
-            fprintf(stderr, "got error code %d (message: %s)\n", err, z.msg);
+            //if (err) { fprintf(stderr, "\tgot error code %d (message: %s)\n", err, z.msg); }
+            if (err == Z_STREAM_END) {
+                //fprintf(stderr, "\tgot Z_STREAM_END\n");
+                return len - z.avail_out;
+            }
             if (err != Z_OK || err == Z_STREAM_END) {
-                fprintf(stderr, "error: could not initialize zlib decompressor\n");
+                //fprintf(stderr, "\terror: could not initialize zlib decompressor\n");
                 return len - z.avail_out;
             }
 
             // dump buffer
-            fprintf(stdout, "buffer:      '%.*s'\n", z.avail_out, buffer);
-            fprintf_raw_as_hex(stderr, buffer, z.avail_out);
-            fputc('\n', stderr);
+            //fprintf(stdout, "buffer:      '%.*s'\n", z.avail_out, buffer);
+            //fprintf_raw_as_hex(stderr, buffer, z.avail_out);
+            //fputc('\n', stderr);
 
         }
+
+        //fprintf(stderr, "\tread %zd bytes (%zu requested)\n", len - z.avail_out, len);
+        //fprintf(stderr, "\tavail_in: %u\tavail_out: %u\n", z.avail_in, z.avail_out);
         return len - z.avail_out;
     }
 
     ssize_t tell() {
-        fprintf(stderr, "%s\n", __func__);
+        //fprintf(stderr, "gz_file::%s\n", __func__);
         return z.total_out;
     }
 
     ssize_t seek(size_t location) {
         uint8_t tmp_buf[512];
 
-        fprintf(stderr, "%s\n", __func__);
+        //fprintf(stderr, "gz_file::%s\n", __func__);
 
+        size_t jump_len = location - z.total_out;
+        //fprintf(stderr, "\tseeking to location %zu, which is %zd bytes ahead\n", location, jump_len);
+
+        //size_t init = z.total_out;
         while (z.total_out < location) {
             z.next_out = tmp_buf;
-            z.avail_out = location > sizeof(tmp_buf) ? sizeof(tmp_buf) : location;
+            jump_len = location - z.total_out;
+            z.avail_out = jump_len > sizeof(tmp_buf) ? sizeof(tmp_buf) : jump_len;
 
             if (z.avail_in == 0) {
-                ssize_t file_buffer_bytes = ::read(fd, file_buffer, sizeof(file_buffer));
+                ssize_t file_buffer_bytes = enc_file.read(file_buffer, sizeof(file_buffer));
                 if (file_buffer_bytes < 0) { // (ssize_t)sizeof(file_buffer)) {
-                    fprintf(stderr, "error: could not read archive file (%ld)\n", file_buffer_bytes);
+                    fprintf(stderr, "\terror: could not read archive file (%ld)\n", file_buffer_bytes);
                     return -1;  // error
                 }
 
@@ -445,172 +470,84 @@ public:
                 z.avail_in = file_buffer_bytes;
             }
 
-            fprintf(stderr, "avail_in: %u\tavail_out: %u\n", z.avail_in, z.avail_out);
+            //fprintf(stderr, "\tavail_in: %u\tavail_out: %u\n", z.avail_in, z.avail_out);
 
             int err = inflate(&z, Z_NO_FLUSH);
-            fprintf(stderr, "got error code %d (message: %s)\n", err, z.msg);
+            if (err == Z_STREAM_END) {
+                return z.total_out;
+            }
+            //if (err) { fprintf(stderr, "got error code %d (message: %s)\n", err, z.msg); }
             if (err != Z_OK || err == Z_STREAM_END) {
                 fprintf(stderr, "error: zlib decompressor failed\n");
                 return -1;
             }
             // dump buffer
-            // fprintf(stdout, "buffer:      '%.*s'\n", z.avail_out, tmp_buf);
-            // fprintf_raw_as_hex(stderr, tmp_buf, z.avail_out);
-            // fputc('\n', stderr);
+            //fprintf(stderr, "\tbuffer: (%d bytes) '%.*s'\n", z.avail_out, z.avail_out, tmp_buf);
+            //fprintf_raw_as_hex(stderr, tmp_buf, z.avail_out);
+            //fputc('\n', stderr);
 
+            //fprintf(stderr, "\tlocation - z.total_out: %zd\n", location - z.total_out);
+            //fprintf(stderr, "\tseek advanced %zd bytes to location %zu\n", z.total_out-init, location);
+            //fprintf(stderr, "\tavail_in: %u\tavail_out: %u\n", z.avail_in, z.avail_out);
         }
         return z.total_out;
     }
 
+    ssize_t getline(std::string &s, ssize_t read_len) {
+        s.clear();
+        ssize_t length = 0;
+        while (length < read_len) {
+            char c;
+            ssize_t bytes_read = read((uint8_t *)&c, sizeof(c));
+            if (bytes_read <= 0) {
+                break;
+            }
+            if (c == '\n') {
+                break;
+            }
+            s += c;
+            length++;
+        }
+        return length;
+    }
 };
 
 class encrypted_compressed_archive {
 private:
-    //    gzFile file;
     gz_file gz;
     class archive_node *entry;
     unsigned char buffer[512];
     ssize_t next_entry;
     ssize_t end_of_file;
-    int fd;
     unsigned char file_buffer[512];
-    z_stream_s z;
 
 public:
 
-    ssize_t next_entry_value() const { return next_entry; }
-
-    ssize_t fill_buffer() {
-        while (z.avail_out > 0) {
-
-            fprintf(stderr, "avail_in: %u\tavail_out: %u\n", z.avail_in, z.avail_out);
-
-            int err = inflate(&z, Z_NO_FLUSH);
-            fprintf(stderr, "got error code %d (message: %s)\n", err, z.msg);
-            fprintf(stderr, "z.avail_in: %u\n", z.avail_in);
-            fprintf(stderr, "z.avail_out: %u\n", z.avail_out);
-            if (err != Z_OK || err == Z_STREAM_END) {
-                fprintf(stderr, "error: could not initialize zlib decompressor\n");
-                return 0;
+    bool entry_is_empty() const {
+        for ( const auto & c: buffer) {
+            if (c != 0) {
+                return false;
             }
-
-            // dump buffer
-            fprintf(stdout, "buffer:      '%.*s'\n", z.avail_out, buffer);
-            fprintf_raw_as_hex(stderr, buffer, z.avail_out);
-            fputc('\n', stderr);
-            z.next_out = buffer;
-            z.avail_out = sizeof(buffer);
-
         }
-        return (sizeof(buffer) - z.avail_out);
+        return true;
     }
 
-    encrypted_compressed_archive(const char *filename) : gz{filename}, entry{nullptr}, next_entry{0}, end_of_file{0}, fd{0} {
-        fprintf(stderr, "%s\n", __func__);
+    ssize_t next_entry_value() const { return next_entry; }
 
-        return;
-
-        fd = open(filename, O_RDONLY, "r");
-        if (fd == 0) {
-            fprintf(stderr, "error: could not open archive file %s\n", filename);
-            return;  // error; not reading a compressed archive file
-        }
-        //file = gzdopen(fd, "r");
-
-#if 0
-        // read 0x1f8d header
-        ssize_t file_buffer_bytes = read(fd, file_buffer, 10);
-        if (file_buffer_bytes < 10) {
-            fprintf(stderr, "error: could not read deflate header from archive file %s (%ld)\n", filename, file_buffer_bytes);
-            return;  // error; not reading a compressed archive file
-        }
-        fprintf_raw_as_hex(stderr, file_buffer, file_buffer_bytes);
-        fputc('\n', stderr);
-
-        struct datum file_header{file_buffer, file_buffer+10};
-        deflate_header dh{file_header};
-        dh.fprint(stderr);
-#endif
-        ssize_t file_buffer_bytes = read(fd, file_buffer, sizeof(file_buffer));
-        if (file_buffer_bytes < 0) { // (ssize_t)sizeof(file_buffer)) {
-            fprintf(stderr, "error: could not read archive file %s (%ld)\n", filename, file_buffer_bytes);
-            return;  // error; not reading a compressed archive file
-        }
-
-        fprintf(stderr, "read %zd bytes from file\n", file_buffer_bytes);
-        fprintf(stderr, "file_buffer: '%.*s'\n", (int)file_buffer_bytes, file_buffer);
-        fprintf_raw_as_hex(stderr, file_buffer, file_buffer_bytes);
-        fputc('\n', stderr);
-
-        //  set next_in, avail_in, zalloc, zfree and opaque
-        z.next_in = file_buffer;
-        z.avail_in = file_buffer_bytes;
-        z.zalloc = _zalloc;
-        z.zfree = _zfree;
-        z.opaque = nullptr; // ???
-        z.next_out = buffer;
-        z.avail_out = sizeof(buffer);
-
-        // int err = inflateInit(&z);
-        int err = inflateInit2(&z, 16+MAX_WBITS); // see zlib.h version 1.2.1
-        if (err != Z_OK) {
-            fprintf(stderr, "error in InflateInit (code %d)\n", err);
-            close(fd);
-            fd = 0;
-        }
-        return;
-        while (true) {
-
-            fprintf(stderr, "avail_in: %u\tavail_out: %u\n", z.avail_in, z.avail_out);
-
-            int err = inflate(&z, Z_NO_FLUSH);
-            fprintf(stderr, "got error code %d (message: %s)\n", err, z.msg);
-            fprintf(stderr, "z.avail_in: %u\n", z.avail_in);
-            fprintf(stderr, "z.avail_out: %u\n", z.avail_out);
-            if (err != Z_OK || err == Z_STREAM_END) {
-                fprintf(stderr, "error: could not initialize zlib decompressor\n");
-                return;
-            }
-
-            // dump buffer
-            fprintf(stdout, "buffer:      '%.*s'\n", z.avail_out, buffer);
-            fprintf_raw_as_hex(stderr, buffer, z.avail_out);
-            fputc('\n', stderr);
-            z.next_out = buffer;
-            z.avail_out = sizeof(buffer);
-
-            // fprintf(stderr, "z.avail_in: %u\n", z.avail_in);
-            if (z.avail_in == 0) {
-                file_buffer_bytes = read(fd, file_buffer, sizeof(file_buffer));
-                if (file_buffer_bytes < 0) { // (ssize_t)sizeof(file_buffer)) {
-                    fprintf(stderr, "error: could not read archive file %s (%ld)\n", filename, file_buffer_bytes);
-                    return;  // error; not reading a compressed archive file
-                }
-                z.next_in = file_buffer;
-                z.avail_in = file_buffer_bytes;
-            }
-        }
-
-        return;
-        fprintf(stderr, "buffer:      '%.*s'\n", (int)sizeof(buffer), buffer);
-        fprintf_raw_as_hex(stderr, buffer, sizeof(buffer));
-        fputc('\n', stderr);
-
-        // note: file may be nullptr after construction
+    encrypted_compressed_archive(const char *filename, const uint8_t *dec_key=nullptr) : gz{filename, dec_key}, entry{nullptr}, next_entry{0}, end_of_file{0} {
+        //fprintf(stderr, "encrypted_compressed_archive::%s\n", __func__);
     }
 
     ~encrypted_compressed_archive() {
-        if (fd) {
-            close(fd);
-        }
+        //fprintf(stderr, "encrypted_compressed_archive::%s\n", __func__);
     }
 
     class archive_node *get_next_entry() {
-        fprintf(stderr, "func: %s\n", __func__);
+        //fprintf(stderr, "encrypted_compressed_archive::%s\n", __func__);
 
-        if (!gz) {
-            return nullptr;   // error; not reading a compressed archive file
-        }
+        // if (!gz) {
+        //     return nullptr;   // error; not reading a compressed archive file
+        // }
 
         if (entry != nullptr) {
 
@@ -625,7 +562,7 @@ public:
     }
 
     class archive_node *read_block() {
-        fprintf(stderr, "func: %s\n", __func__);
+        //fprintf(stderr, "encrypted_compressed_archive::%s\n", __func__);
 
         ssize_t bytes_read = gz.read(buffer, sizeof(buffer));
         if (bytes_read != (ssize_t)sizeof(buffer)) {
@@ -634,7 +571,12 @@ public:
         }
         entry = (class archive_node *)buffer;
         if (!entry->is_valid()) {
+            if (entry_is_empty()) {
+                return nullptr;  // end-of-archive marker is two 512-byte null blocks
+            }
             fprintf(stderr, "error: archive entry is not valid\n");
+            //fprintf_raw_as_hex(stderr, buffer, sizeof(buffer));
+            //entry->print_all_fields(stderr);
             return nullptr;
         }
         next_entry = entry->bytes_until_next_block() + gz.tell();
@@ -644,34 +586,11 @@ public:
     }
 
     ssize_t getline(std::string &s) {
-        (void)s;
-        fprintf(stderr, "%s\n", __func__);
+        //fprintf(stderr, "encrypted_compressed_archive::%s\n", __func__);
 
-#if 0
-        s.clear();
-        char read_buffer[8192];
-        while (true) {
+        //fprintf(stderr, "getline max len: %zd\n", end_of_file - gz.tell());
+        return gz.getline(s, end_of_file - gz.tell());
 
-            ssize_t read_len = sizeof(read_buffer);
-            if (read_len + gztell(file) > end_of_file) {
-                read_len = end_of_file - gztell(file);
-            }
-            if (read_len == 0) {
-                break;  // no more data
-            }
-            if (gzgets(file, read_buffer, read_len) == NULL) {
-                return s.length();     // EOF
-            }
-            size_t bytes_read = strlen(read_buffer);
-            s.append(read_buffer, bytes_read);
-            if (bytes_read > 0 && read_buffer[bytes_read-1] == '\n') {
-                s.erase(s.length()-1);   // strip terminating newline
-                break;
-            }
-        }
-        return s.length();
-#endif // 0
-        return 0;
     }
 };
 

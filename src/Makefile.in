@@ -179,7 +179,7 @@ os_identifier: os_identifier.cc os-identification/os_identifier.h libmerc/datum.
 	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc libmerc/datum.cc -lz -o os_identifier 
 
 archive_reader: archive_reader.cc libmerc/archive.h
-	$(CXX) $(CFLAGS) archive_reader.cc -lz -o archive_reader 
+	$(CXX) $(CFLAGS) archive_reader.cc -lz -lcrypto -o archive_reader 
 
 string: string.cc stringalgs.h options.h
 	$(CXX) $(CFLAGS) string.cc -o string
