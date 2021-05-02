@@ -405,14 +405,15 @@ bool mercury_write_stats_data(const char *stats_data_file_path) {
         return false;
     }
 
-    extern stats_aggregator fp_stats; // defined in pkt_proc.cc
+    extern data_aggregator aggregator; // defined in pkt_proc.cc
 
-    FILE *stats_data_file = fopen(stats_data_file_path, "w");
+    gzFile stats_data_file = gzopen(stats_data_file_path, "w");
     if (stats_data_file == nullptr) {
         fprintf(stderr, "error: could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
         return false;
     }
-    fp_stats.fprint(stats_data_file);
+    aggregator.gzprint(stats_data_file);
+    gzclose(stats_data_file);
 
     return true;
 }

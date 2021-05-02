@@ -18,6 +18,8 @@
 #include <thread>
 #include <atomic>
 
+#include <zlib.h>
+
 #include "dict.h"
 #include "queue.h"
 
@@ -128,6 +130,61 @@ public:
     }
 
     void process_final() { fputs("}]}]}\n", f); }
+
+};
+
+// class event_processor_alt coverts a sequence of sorted event
+// strings into an alternative JSON representation
+//
+class event_processor_gz {
+    std::vector<std::string> prev;
+    bool first_loop;
+    gzFile gzf;
+
+public:
+    event_processor_gz(gzFile gzfile) : prev{"", "", ""}, first_loop{true}, gzf{gzfile} {}
+
+    void process_init() {
+        first_loop = true;
+        prev = { "", "", "" };
+    }
+
+    void process_update(std::array<const char *, 3> v, uint32_t count) {
+
+        // find number of elements that match previous vector
+        size_t num_matching = 0;
+        for (num_matching=0; num_matching<2; num_matching++) {
+            if (prev[num_matching].compare(v[num_matching]) != 0) {
+                break;
+            }
+        }
+        // set mismatched previous values
+        for (size_t i=num_matching; i<2; i++) {
+            prev[i] = v[i];
+        }
+
+        // output unique elements
+        switch(num_matching) {
+        case 0:
+            if (!first_loop) {
+                gzprintf(gzf, "}]}]}\n");
+            }
+            gzprintf(gzf, "{\"src_ip\":\"%s\",\"fingerprints\":[{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[0], v[1], v[2], count);
+            break;
+        case 1:
+            gzprintf(gzf, "}]},{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1], v[2], count);
+            break;
+        case 2:
+            gzprintf(gzf, "},{\"dst\":\"%s\",\"count\":%u", v[2], count);
+            break;
+        default:
+            ;
+        }
+        first_loop = false;
+
+    }
+
+    void process_final() { gzprintf(gzf, "}]}]}\n"); }
 
 };
 
@@ -266,17 +323,10 @@ class stats_aggregator {
     std::string observation;  // used as preallocated temporary variable
 
 public:
-    stats_aggregator() : event_table{}, encoder{}, observation{'\0', 128} {
-    }
 
-    ~stats_aggregator() {
-        // TODO: connect this output to mercury in a more useful way
-        //
-        FILE *fpfile = nullptr; // stderr; // fopen("fingerprint_stats.txt", "w");
-        if (fpfile) {
-            fprint(fpfile);
-        }
-    }
+    stats_aggregator() : event_table{}, encoder{}, observation{'\0', 128} {  }
+
+    ~stats_aggregator() {  }
 
     void observe(const char *src_ip, const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
 
@@ -302,7 +352,11 @@ public:
         }
     }
 
-    void fprint(FILE *f) {
+    void gzprint(gzFile f) {
+
+        // fprintf(stderr, "%s with gzFile %p\n", __func__, (void *)f);
+        // int retval = gzprintf(f, "\"this is just a test\"");
+        // fprintf(stderr, "gzprintf returned %d\n", retval);
 
         if (event_table.size() == 0) {
             return;  // nothing to report
@@ -318,7 +372,7 @@ public:
         std::vector<std::pair<std::string, uint64_t>> v(event_table.begin(), event_table.end());
         std::sort(v.begin(), v.end(), [](auto &l, auto &r){ return l.first < r.first; } );
 
-        event_processor_alt ep(f);
+        event_processor_gz ep(f);
         ep.process_init();
         for (auto &entry : v) {
             ep.process_update(encoder.get_vector(entry.first), entry.second);
@@ -356,7 +410,6 @@ public:
     ~data_aggregator() {
         //fprintf(stderr, "note: halting data_aggregator\n");
         halt_and_join();
-        ag.fprint(stderr);
         for (auto & x : q) {
             delete x;
         }
@@ -367,28 +420,34 @@ public:
         return q.back();
     }
 
+    void process_event_queues() {
+        if (q.size()) {
+            for (auto & qr : q) {
+                message *msg = qr->pop();
+                if (msg) {
+                    //fprintf(stderr, "note: got message %zu\t'%.*s'\n", count++, (int)msg->length, msg->buffer);
+                    std::string event{(char *)msg->buffer, msg->length};  // TODO: move string constructor outside of loop
+                    ag.observe_event_string(event);
+                } else {
+                    //fprintf(stderr, "consumer thread saw empty queue\n");
+                }
+            }
+        } else {
+            //fprintf(stderr, "consumer thread has no queues (yet)\n");
+        }
+    }
+
     void consumer() {
         //fprintf(stderr, "note: running consumer()\n");
         //size_t count = 0;
         while(shutdown_requested.load() == false) {
-            if (q.size()) {
-                for (auto & qr : q) {
-                    message *msg = qr->pop();
-                    if (msg) {
-                        //fprintf(stderr, "note: got message %zu\t'%.*s'\n", count++, (int)msg->length, msg->buffer);
-                        std::string event{(char *)msg->buffer, msg->length};  // TODO: move string constructor outside of loop
-                        ag.observe_event_string(event);
-                    } else {
-                        //fprintf(stderr, "consumer thread saw empty queue\n");
-                    }
-                }
-            } else {
-                //fprintf(stderr, "consumer thread has no queues (yet)\n");
-            }
+            process_event_queues();
             usleep(50); // sleep for fifty microseconds
         }
+        process_event_queues();
     }
 
+    void gzprint(gzFile f) { ag.gzprint(f); }
 };
 
 #endif // STATS_H

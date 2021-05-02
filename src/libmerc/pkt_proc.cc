@@ -34,9 +34,13 @@
 
 extern struct libmerc_config global_vars;  // defined in libmerc.h
 
-stats_aggregator fp_stats;  // global just for experimentation
+// aggregator is a global data structure holding all of the statistics
+// on traffic observations, as well as the message queues needed to
+// send data to the aggregator.
+//
+struct data_aggregator aggregator;
 
-double malware_prob_threshold = -1.0; // HACK for demo
+double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
@@ -883,9 +887,4 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
     return false;
 }
 
-// aggregator is a global data structure holding all of the statistics
-// on traffic observations, as well as the message queues needed to
-// send data to the aggregator.
-
-struct data_aggregator aggregator;
 

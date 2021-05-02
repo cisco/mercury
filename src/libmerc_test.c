@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 
 #include "libmerc/libmerc.h"
 
@@ -395,7 +396,8 @@ int main(int argc, char *argv[]) {
     }
 
     // test stats data writing
-    const char *stats_data_file_name = "merc_stats.txt";
+    sleep(1);  // sleep to allow data to propagate through event queues
+    const char *stats_data_file_name = "merc_stats.json.gz";
     if (mercury_write_stats_data(stats_data_file_name) == false) {
         fprintf(stderr, "error writing stats data file\n");
         return EXIT_FAILURE;
