@@ -61,17 +61,17 @@ uint32_t get_asn_info(uint32_t ipv4_addr) {
 
 template <typename T>
 int
-read_prefix_table_from_archive(const char *archive_name,
+read_prefix_table_from_archive(class encrypted_compressed_archive &archive, // const char *archive_name,
                                lct_subnet<T> prefix[],
                                size_t prefix_size) {
     (void)prefix_size;
     int num = 0;
 
     // open the archive for reading
-    class compressed_archive archive{archive_name};
+    // class compressed_archive archive{archive_name};
     const class archive_node *entry = archive.get_next_entry();
     if (entry == nullptr) {
-        fprintf(stderr, "error: could not open archive %s\n", archive_name);
+        fprintf(stderr, "error: could not read archive\n");
         return -1;
     }
 
@@ -112,7 +112,8 @@ read_prefix_table_from_archive(const char *archive_name,
  * NULL is returned, and the caller should use errno/perror to
  * determine the cause.
  */
-lct_subnet_t *lct_init_from_file(lct<ipv4_addr> *trie, char *filename) {
+lct_subnet_t *lct_init_from_file(lct<ipv4_addr> *trie,
+                                 encrypted_compressed_archive &archive) { // char *filename) {
   int num = 0;
   uint32_t prefix;
   lct_subnet_t *p;
@@ -136,7 +137,7 @@ lct_subnet_t *lct_init_from_file(lct<ipv4_addr> *trie, char *filename) {
   // read in the ASN prefixes
   int rc;
 #if 1
-  if (0 > (rc = read_prefix_table_from_archive(filename, &p[num], BGP_MAX_ENTRIES - num))) {
+  if (0 > (rc = read_prefix_table_from_archive(archive, &p[num], BGP_MAX_ENTRIES - num))) {
       goto bail; /* could not read prefix file */
   }
 #else
@@ -193,6 +194,7 @@ lct_subnet_t *lct_init_from_file(lct<ipv4_addr> *trie, char *filename) {
   return NULL;
 }
 
+#if 0
 int addr_init(const char *resources_dir) {
 
     ipv4_subnet_array = lct_init_from_file(&ipv4_subnet_trie, (char *)resources_dir);
@@ -201,9 +203,21 @@ int addr_init(const char *resources_dir) {
     }
     return 0;
 }
+#endif
 
 void addr_finalize() {
     free(ipv4_subnet_trie.root);
     lct_free(&ipv4_subnet_trie);
     free(ipv4_subnet_array);
+}
+
+//////
+
+int addr_init(encrypted_compressed_archive &archive) {
+
+    ipv4_subnet_array = lct_init_from_file(&ipv4_subnet_trie, archive);
+    if (ipv4_subnet_array == NULL) {
+        return -1;
+    }
+    return 0;
 }

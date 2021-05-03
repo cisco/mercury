@@ -15,6 +15,7 @@
 #include "addr.h"
 #include "json_object.h"
 #include "result.h"
+#include "stats.h"
 
 #include <mutex>
 #include <shared_mutex>
@@ -28,7 +29,11 @@
 #include "rapidjson/stringbuffer.h"
 #include "tls.h"
 #include "archive.h"
-#include "dict.h"
+
+// TBD - move flow_key_sprintf_src_addr() to the right file
+//
+void flow_key_sprintf_src_addr(const struct flow_key *key,
+                               char *src_addr_str);
 
 int analysis_init_from_archive(int verbosity,
                                const char *archive_name,
@@ -737,11 +742,12 @@ public:
         }
     }
 
-    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{} {
+    classifier(class encrypted_compressed_archive &archive, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{} {
 
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
-        class compressed_archive archive{resource_archive_file};
+        bool got_version = false;
+        //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
             throw "error: could not read any entries from resource archive file";
@@ -767,10 +773,10 @@ public:
                     while (archive.getline(line_str)) {
                         resource_version += line_str;
                     }
-                    got_fp_db = true;
+                    got_version = true;
                 }
             }
-            if (got_fp_db && got_fp_prevalence) {
+            if (got_fp_db && got_fp_prevalence && got_version) {   // TODO: Do we want to require a VERSION file?
                 break; // got all data, we're done here
             }
             entry = archive.get_next_entry();
@@ -824,6 +830,9 @@ public:
     }
 
     struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
+
+        // fp_stats.observe(fp_str, server_name, dst_ip, dst_port); // TBD - decide where this call should go
+
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
             if (fp_prevalence.contains(fp_str)) {

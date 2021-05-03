@@ -31,10 +31,17 @@
 #include "smtp.h"
 #include "analysis.h"
 #include "buffer_stream.h"
+#include "stats.h"
 
 extern struct libmerc_config global_vars;  // defined in libmerc.h
 
-double malware_prob_threshold = -1.0; // HACK for demo
+// aggregator is a global data structure holding all of the statistics
+// on traffic observations, as well as the message queues needed to
+// send data to the aggregator.
+//
+struct data_aggregator aggregator;
+
+double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
@@ -709,6 +716,52 @@ struct do_analysis {
 
 };
 
+struct do_observation {
+    const struct key &k_;
+    struct analysis_context &analysis_;
+    struct message_queue *mq_;
+
+    do_observation(const struct key &k,
+                   struct analysis_context &analysis,
+                   struct message_queue *mq) :
+        k_{k},
+        analysis_{analysis},
+        mq_{mq}
+    {}
+
+    void operator()(tls_client_hello &r) {
+
+        // note: we only perform observations when analysis is
+        // configured, because we rely on do_analysis to set the
+        // analysis_.destination
+        //
+        if (global_vars.do_analysis) {
+
+            // create event and send it to the data/stats aggregator
+            //
+            char src_ip_str[MAX_ADDR_STR_LEN];
+            k_.sprint_src_addr(src_ip_str);
+            char dst_port_str[MAX_PORT_STR_LEN];
+            k_.sprint_dst_port(dst_port_str);
+            std::string event_string;
+            event_string.append("(");
+            event_string.append(src_ip_str).append(")#(");
+            event_string.append(analysis_.fp.fp_str).append(")#(");
+            event_string.append(analysis_.destination.sn_str).append(")(");
+            event_string.append(analysis_.destination.dst_ip_str).append(")(");
+            event_string.append(dst_port_str).append(")");
+            //fprintf(stderr, "note: observed event_string '%s'\n", event_string.c_str());
+            mq_->push((uint8_t *)event_string.c_str(), event_string.length()+1);
+
+        }
+    }
+
+    template <typename T>
+    void operator()(T &) { }
+
+};
+
+
 void set_tcp_protocol(tcp_protocol &x,
                       struct datum &pkt,
                       bool is_new,
@@ -802,7 +855,6 @@ void set_tcp_protocol(tcp_protocol &x,
     }
 }
 
-
 // tcp_data_write_json() parses TCP data and writes metadata into
 // a buffer stream, if any is found
 //
@@ -840,6 +892,9 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         if (analysis.fp.get_type() != fingerprint_type_unknown) {
             analysis.fp.write(record);
         }
+
+        std::visit(do_observation{k, analysis, mq}, x);
+
         std::visit(write_metadata{record}, x);
         if (output_analysis) {
             analysis.result.write_json(record, "analysis");
@@ -875,3 +930,5 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
 
     return false;
 }
+
+

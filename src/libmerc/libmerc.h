@@ -22,6 +22,7 @@
 
 enum enc_key_type {
     enc_key_type_none = 0,
+    enc_key_type_aes_128,
     enc_key_type_aes_256
 };
 
@@ -395,6 +396,68 @@ bool analysis_context_get_os_info(const struct analysis_context *ac,     // inpu
                                   const struct os_information **os_info, // output
                                   size_t *os_info_len                    // output
                                   );
+
+
+/**
+ * mercury_get_stats_data()
+ *
+ * @param data_ptr (output) is a pointer to a pointer to a buffer that
+ * contains the stats data; that is, the function sets the pointer at
+ * the location provided as input to be that buffer.  The pointer MAY
+ * be NULL, if no data was gathered or if some other error occured.
+ *
+ * This function may process a lot of data, and it may take a very
+ * long time to return, so the caller MUST be prepared to wait for
+ * seconds or minutes.
+ *
+ * This function SHOULD be called periodically, e.g. every hour or
+ * every day.  Mercury's stats engine accumulates data between calls
+ * to this function, and each call flushes all of the data maintained
+ * by that engine.  The stats engine uses a large but fixed amount of
+ * RAM for data storage; if it runs out of storage, it will stop
+ * accumulating data.
+ *
+ * @param num_bytes_ptr (output) is a pointer to a size_t that
+ * contains the number of bytes of stats data in the data buffer; that
+ * is, the function sets the size_t at the location provided as input
+ * to be the size of that buffer.  The value of num_bytes MAY be zero,
+ * if no data was gathered or if some other error occured.
+ *
+ * @return true on success, false otherwise.  In particular, if either
+ * data_ptr or num_bytes_ptr are NULL, then false will be returned; in
+ * the latter case, you SHOULD NOT dereference either data_ptr or
+ * num_bytes_ptr.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+bool mercury_get_stats_data(void **data_ptr, size_t *num_bytes_ptr);
+
+
+/**
+ * mercury_write_stats_data()
+ *
+ * @param stats_data_file_path (input) is a pointer to an ASCII
+ * character string holding the path to the file to which stats data
+ * is to be written.
+ *
+ * This function may process a lot of data, and it may take a very
+ * long time to return, so the caller MUST be prepared to wait for
+ * seconds or minutes.
+ *
+ * This function SHOULD be called periodically, e.g. every hour or
+ * every day.  Mercury's stats engine accumulates data between calls
+ * to this function, and each call flushes all of the data maintained
+ * by that engine.  The stats engine uses a large but fixed amount of
+ * RAM for data storage; if it runs out of storage, it will stop
+ * accumulating data.
+ *
+ * @return true on success, false otherwise.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+bool mercury_write_stats_data(const char *stats_data_file_path);
 
 
 enum status {

@@ -390,6 +390,41 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     }
 }
 
+char dummy_stats_data[] =
+    "this example data is just for use in prototyping the "
+    "mercury_get_stats_data() function";
+
+bool mercury_get_stats_data(void **data_ptr, size_t *num_bytes_ptr) {
+
+    if (data_ptr == NULL || num_bytes_ptr == NULL) {
+        return false;
+    }
+
+    *data_ptr = dummy_stats_data;
+    *num_bytes_ptr = sizeof(dummy_stats_data);
+
+    return true;
+}
+
+bool mercury_write_stats_data(const char *stats_data_file_path) {
+
+    if (stats_data_file_path == NULL) {
+        return false;
+    }
+
+    extern data_aggregator aggregator; // defined in pkt_proc.cc
+
+    gzFile stats_data_file = gzopen(stats_data_file_path, "w");
+    if (stats_data_file == nullptr) {
+        fprintf(stderr, "error: could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
+        return false;
+    }
+    aggregator.gzprint(stats_data_file);
+    gzclose(stats_data_file);
+
+    return true;
+}
+
 
 const char license_string[] =
     "Copyright (c) 2019-2020 Cisco Systems, Inc.\n"
