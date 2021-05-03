@@ -713,6 +713,52 @@ struct do_analysis {
 
 };
 
+struct do_observation {
+    const struct key &k_;
+    struct analysis_context &analysis_;
+    struct message_queue *mq_;
+
+    do_observation(const struct key &k,
+                   struct analysis_context &analysis,
+                   struct message_queue *mq) :
+        k_{k},
+        analysis_{analysis},
+        mq_{mq}
+    {}
+
+    void operator()(tls_client_hello &r) {
+
+        // note: we only perform observations when analysis is
+        // configured, because we rely on do_analysis to set the
+        // analysis_.destination
+        //
+        if (global_vars.do_analysis) {
+
+            // create event and send it to the data/stats aggregator
+            //
+            char src_ip_str[MAX_ADDR_STR_LEN];
+            k_.sprint_src_addr(src_ip_str);
+            char dst_port_str[MAX_PORT_STR_LEN];
+            k_.sprint_dst_port(dst_port_str);
+            std::string event_string;
+            event_string.append("(");
+            event_string.append(src_ip_str).append(")#(");
+            event_string.append(analysis_.fp.fp_str).append(")#(");
+            event_string.append(analysis_.destination.sn_str).append(")(");
+            event_string.append(analysis_.destination.dst_ip_str).append(")(");
+            event_string.append(dst_port_str).append(")");
+            //fprintf(stderr, "note: observed event_string '%s'\n", event_string.c_str());
+            mq_->push((uint8_t *)event_string.c_str(), event_string.length()+1);
+
+        }
+    }
+
+    template <typename T>
+    void operator()(T &) { }
+
+};
+
+
 void set_tcp_protocol(tcp_protocol &x,
                       struct datum &pkt,
                       bool is_new,
@@ -829,27 +875,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             analysis.fp.write(record);
         }
 
-        if (analysis.fp.get_type() == fingerprint_type_tls) {
-            //
-            // TODO: observe_event() should only be invoked if
-            // analysis.destination has been set by a previous call to
-            // do_analysis
-            //
-            char src_ip_str[MAX_ADDR_STR_LEN];
-            k.sprint_src_addr(src_ip_str);
-            char dst_port_str[MAX_PORT_STR_LEN];
-            k.sprint_dst_port(dst_port_str);
-            //fp_stats.observe(src_ip_str, analysis.fp.fp_str, analysis.destination.sn_str, analysis.destination.dst_ip_str, analysis.destination.dst_port);
-            std::string event_string;
-            event_string.append("(");
-            event_string.append(src_ip_str).append(")#(");
-            event_string.append(analysis.fp.fp_str).append(")#(");
-            event_string.append(analysis.destination.sn_str).append(")(");
-            event_string.append(analysis.destination.dst_ip_str).append(")(");
-            event_string.append(dst_port_str).append(")");
-            //fprintf(stderr, "note: observed event_string '%s'\n", event_string.c_str());
-            mq->push((uint8_t *)event_string.c_str(), event_string.length()+1);
-        }
+        std::visit(do_observation{k, analysis, mq}, x);
 
         std::visit(write_metadata{record}, x);
         if (output_analysis) {

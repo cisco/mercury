@@ -366,7 +366,7 @@ int main(int argc, char *argv[]) {
     //
     struct libmerc_config config_enc = libmerc_config_init();
     config_enc.do_analysis = true;
-    config_enc.resources = "../resources/resources.tgz.enc"; // note .enc extension
+    config_enc.resources = "../test/resources.tgz.enc"; // note .enc extension
     const uint8_t enc_key[16] = {
        0xa4, 0x65, 0xd1, 0xd6, 0xed, 0xaa, 0xb0, 0xbb,
        0x01, 0x69, 0xe0, 0xf8, 0xb0, 0x10, 0x8e, 0xfd
