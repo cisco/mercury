@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# usage: encrypt_file <filename>
+# usage: encrypt_file <filename> <hexkey>
 #
 #    Encrypts <filename> using AES-128-CBC, with an IV computed by
 #    encrypting a random none, which prepended to the ciphertext in the
