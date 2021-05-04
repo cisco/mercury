@@ -324,7 +324,7 @@ class stats_aggregator {
 
 public:
 
-    stats_aggregator() : event_table{}, encoder{}, observation{'\0', 128} {  }
+    stats_aggregator() : event_table{}, encoder{}, observation{} {  }
 
     ~stats_aggregator() {  }
 
@@ -403,14 +403,14 @@ class data_aggregator {
 
 public:
     data_aggregator() : q{}, ag{}, shutdown_requested{false} {
-        //fprintf(stderr, "note: starting data_aggregator\n");
-        consumer_thread = std::thread( [this](){ consumer(); } );  // lambda just calls member function
+        start_processing();
     }
 
     ~data_aggregator() {
         //fprintf(stderr, "note: halting data_aggregator\n");
         halt_and_join();
         for (auto & x : q) {
+            //fprintf(stderr, "note: deleting message_queue %p\n", (void *)x);
             delete x;
         }
     }
@@ -418,6 +418,11 @@ public:
     message_queue *add_producer() {
         q.push_back(new message_queue);
         return q.back();
+    }
+
+    void start_processing() {
+        //fprintf(stderr, "note: starting data_aggregator\n");
+        consumer_thread = std::thread( [this](){ consumer(); } );  // lambda just calls member function
     }
 
     void process_event_queues() {
