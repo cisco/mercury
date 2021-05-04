@@ -157,6 +157,7 @@ int analysis_finalize() {
 
     if (c) {
         delete c;  // free up classifier
+        c = nullptr;
     }
 
     return 1;
