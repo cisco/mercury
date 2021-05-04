@@ -328,14 +328,20 @@ int main(int , char *[]) {
         return EXIT_FAILURE;
     }
 
-    return 0; // TODO: remove shortcut
-
     libmerc_config config_lite{};
     config_lite.do_analysis = true;
     std::string resources_lite_path = "../resources/resources_lite.tgz";
     config_lite.resources = (char*) resources_lite_path.c_str();
 
     retval = test_libmerc(&config_lite, verbosity);
+    if (retval) {
+        fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
+        return EXIT_FAILURE;
+    }
+
+    // repeat test with original config
+    //
+    retval = test_libmerc(&config, verbosity);
     if (retval) {
         fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
         return EXIT_FAILURE;
