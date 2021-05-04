@@ -12,6 +12,13 @@
 #include <stdio.h>
 #include <time.h>
 
+// defaults (if not set via ./configure)
+//
+#ifndef DEFAULT_RESOURCE_DIR
+#define DEFAULT_RESOURCE_DIR "/usr/local/share/mercury"
+#endif
+
+
 // The LIBMERC_DLL_EXPORTED attribute can be applied to a function or
 // variable to indicate that it should be exported from a shared
 // object library even if the -fvisibility=hidden option is passed to
@@ -538,5 +545,6 @@ const char *mercury_get_resource_version();
 enum status proto_ident_config(const char *config_string);
 
 enum status static_data_config(const char *config_string);
+
 
 #endif /* LIBMERC_H */
