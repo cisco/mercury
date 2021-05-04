@@ -729,7 +729,7 @@ struct do_observation {
         mq_{mq}
     {}
 
-    void operator()(tls_client_hello &r) {
+    void operator()(tls_client_hello &) {
 
         // note: we only perform observations when analysis is
         // configured, because we rely on do_analysis to set the
@@ -893,7 +893,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             analysis.fp.write(record);
         }
 
-        std::visit(do_observation{k, analysis, mq}, x);
+        //  std::visit(do_observation{k, analysis, mq}, x);  // TODO: restore aggregator
 
         std::visit(write_metadata{record}, x);
         if (output_analysis) {

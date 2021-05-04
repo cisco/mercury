@@ -41,7 +41,7 @@ struct stateful_pkt_proc {
 
         extern data_aggregator aggregator;  // pkt_proc.cc
 
-        mq = aggregator.add_producer();
+        //        mq = aggregator.add_producer();  // TODO: restore aggregator
 
 #ifndef USE_TCP_REASSEMBLY
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
