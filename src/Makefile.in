@@ -209,13 +209,17 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 	$(CC) -Wall -std=c17 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
+libmerc_driver: clean debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in
+	$(CXX) $(CFLAGS) libmerc_driver.cc -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -ldl -fsanitize=address -lasan -o libmerc_driver
+	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
+
 
 # special targets
 #
 
 .PHONY: clean
 clean:
-	rm -rf mercury libmerc_test tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o
+	rm -rf mercury libmerc_test libmerc_driver tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o
 	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
