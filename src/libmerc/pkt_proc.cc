@@ -33,8 +33,6 @@
 #include "buffer_stream.h"
 #include "stats.h"
 
-extern struct libmerc_config global_vars;  // defined in libmerc.h
-
 // aggregator is a global data structure holding all of the statistics
 // on traffic observations, as well as the message queues needed to
 // send data to the aggregator.
@@ -480,7 +478,7 @@ public:
         return hello.is_not_empty() || certificate.is_not_empty();
     }
 
-    void write_json(struct json_object &record) {
+    void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
 
         bool have_hello = hello.is_not_empty();
         bool have_certificate = certificate.is_not_empty();
@@ -488,15 +486,15 @@ public:
 
             // output certificate (always) and server_hello (if configured to)
             //
-            if ((global_vars.metadata_output && have_hello) || have_certificate) {
+            if ((metadata_output && have_hello) || have_certificate) {
                 struct json_object tls{record, "tls"};
                 struct json_object tls_server{tls, "server"};
                 if (have_certificate) {
                     struct json_array server_certs{tls_server, "certs"};
-                    certificate.write_json(server_certs, global_vars.certs_json_output);
+                    certificate.write_json(server_certs, certs_json_output);
                     server_certs.close();
                 }
-                if (global_vars.metadata_output && have_hello) {
+                if (metadata_output && have_hello) {
                     hello.write_json(tls_server);
                 }
                 tls_server.close();
@@ -603,22 +601,29 @@ struct is_not_empty {
 
 struct write_metadata {
     struct json_object &record;
+    bool metadata_output_;
+    bool certs_json_output_;
 
-    write_metadata(struct json_object &object) : record{object} {}
+    write_metadata(struct json_object &object,
+                   bool metadata_output,
+                   bool certs_json_output) : record{object},
+                                             metadata_output_{metadata_output},
+                                             certs_json_output_{certs_json_output}
+    {}
 
     template <typename T>
     void operator()(T &r) {
-        r.write_json(record, global_vars.metadata_output);
+        r.write_json(record, metadata_output_);
     }
 
     void operator()(http_response &r) {
-        if (global_vars.metadata_output) {
+        if (metadata_output_) {
             r.write_json(record);
         }
     }
 
     void operator()(tls_server_hello_and_certificate &r) {
-        r.write_json(record);
+        r.write_json(record, metadata_output_, certs_json_output_);
     }
     void operator()(std::monostate &r) {
         (void) r;
@@ -701,14 +706,9 @@ struct do_analysis {
     {}
 
     bool operator()(tls_client_hello &r) {
-        if (global_vars.do_analysis) {
-            extern classifier *c;
-            //  r.set_fingerprint(analysis_.fp);
-            //  analysis_.fp.init(r);
-            analysis_.destination.init(r, k_);
-            return c->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
-        }
-        return false;
+        extern classifier *c;
+        analysis_.destination.init(r, k_);
+        return c->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }
 
     template <typename T>
@@ -730,30 +730,21 @@ struct do_observation {
     {}
 
     void operator()(tls_client_hello &) {
-
-        // note: we only perform observations when analysis is
-        // configured, because we rely on do_analysis to set the
-        // analysis_.destination
+        // create event and send it to the data/stats aggregator
         //
-        if (global_vars.do_analysis) {
-
-            // create event and send it to the data/stats aggregator
-            //
-            char src_ip_str[MAX_ADDR_STR_LEN];
-            k_.sprint_src_addr(src_ip_str);
-            char dst_port_str[MAX_PORT_STR_LEN];
-            k_.sprint_dst_port(dst_port_str);
-            std::string event_string;
-            event_string.append("(");
-            event_string.append(src_ip_str).append(")#(");
-            event_string.append(analysis_.fp.fp_str).append(")#(");
-            event_string.append(analysis_.destination.sn_str).append(")(");
-            event_string.append(analysis_.destination.dst_ip_str).append(")(");
-            event_string.append(dst_port_str).append(")");
-            //fprintf(stderr, "note: observed event_string '%s'\n", event_string.c_str());
-            mq_->push((uint8_t *)event_string.c_str(), event_string.length()+1);
-
-        }
+        char src_ip_str[MAX_ADDR_STR_LEN];
+        k_.sprint_src_addr(src_ip_str);
+        char dst_port_str[MAX_PORT_STR_LEN];
+        k_.sprint_dst_port(dst_port_str);
+        std::string event_string;
+        event_string.append("(");
+        event_string.append(src_ip_str).append(")#(");
+        event_string.append(analysis_.fp.fp_str).append(")#(");
+        event_string.append(analysis_.destination.sn_str).append(")(");
+        event_string.append(analysis_.destination.dst_ip_str).append(")(");
+        event_string.append(dst_port_str).append(")");
+        //fprintf(stderr, "note: observed event_string '%s'\n", event_string.c_str());
+        mq_->push((uint8_t *)event_string.c_str(), event_string.length()+1);
     }
 
     template <typename T>
@@ -884,7 +875,16 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
 
         std::visit(compute_fingerprint{analysis.fp}, x);
 
-        bool output_analysis = std::visit(do_analysis{k, analysis}, x);
+        bool output_analysis = false;
+        if (global_vars.do_analysis) {
+            output_analysis = std::visit(do_analysis{k, analysis}, x);
+
+            // note: we only perform observations when analysis is
+            // configured, because we rely on do_analysis to set the
+            // analysis_.destination
+            //
+            //  std::visit(do_observation{k, analysis, mq}, x);  // TODO: restore aggregator
+        }
 
         if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return; } // TODO - expose hidden command
 
@@ -893,9 +893,8 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             analysis.fp.write(record);
         }
 
-        //  std::visit(do_observation{k, analysis, mq}, x);  // TODO: restore aggregator
+        std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output}, x);
 
-        std::visit(write_metadata{record}, x);
         if (output_analysis) {
             analysis.result.write_json(record, "analysis");
         }

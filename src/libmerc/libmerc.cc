@@ -47,7 +47,7 @@ const char *mercury_get_resource_version() {
     return nullptr;
 }
 
-struct libmerc_config global_vars;
+struct libmerc_config global_config;
 
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
@@ -60,6 +60,8 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     try {
         m = new mercury;
+
+        global_config = *vars; // TODO: remove global
 
         m->global_vars = *vars;
         m->global_vars.resources = vars->resources;

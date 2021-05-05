@@ -16,7 +16,7 @@
 #include "analysis.h"
 #include "libmerc.h"
 
-extern struct libmerc_config global_vars;   // defined in libmerc.cc
+extern struct libmerc_config global_config; // defined in libmerc.cc
 
 extern bool select_tcp_syn;                 // defined in extractor.cc
 
@@ -29,8 +29,11 @@ struct stateful_pkt_proc {
     struct analysis_context analysis;
     struct message_queue *mq;
     mercury_context m;
+    classifier *c;
+    libmerc_config global_vars;
 
-    explicit stateful_pkt_proc(size_t prealloc_size=0, mercury_context mc=nullptr) :
+    explicit stateful_pkt_proc(size_t prealloc_size=0,
+                               mercury_context mc=nullptr) :
         ip_flow_table{prealloc_size},
         tcp_flow_table{prealloc_size},
         reassembler{prealloc_size},
@@ -38,8 +41,18 @@ struct stateful_pkt_proc {
         tcp_init_msg_filter{},
         analysis{},
         mq{nullptr},
-        m{mc}
+        m{mc},
+        c{nullptr},
+        global_vars{}
     {
+
+        if (m == nullptr) {
+
+            // set pointers to (refer to) global variables
+            extern classifier *c;
+            this->c = c;
+            this->global_vars = global_config;
+        }
 
         extern data_aggregator aggregator;  // pkt_proc.cc
 
