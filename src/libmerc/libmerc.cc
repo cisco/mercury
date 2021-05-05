@@ -129,10 +129,16 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
 const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
+
+        extern classifier *c;
+        if (c == nullptr) {
+            return NULL;
+        }
+
         uint8_t buffer[4096]; // buffer for (ignored) json output
 
         processor->analysis.result.valid = false;
-        if (processor->write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {
+        if (processor->write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {  // TODO: replace with get_context!
             if (processor->analysis.result.valid) {
                 return &processor->analysis;
             }
@@ -388,22 +394,6 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     }
     catch (...) {
     }
-}
-
-char dummy_stats_data[] =
-    "this example data is just for use in prototyping the "
-    "mercury_get_stats_data() function";
-
-bool mercury_get_stats_data(void **data_ptr, size_t *num_bytes_ptr) {
-
-    if (data_ptr == NULL || num_bytes_ptr == NULL) {
-        return false;
-    }
-
-    *data_ptr = dummy_stats_data;
-    *num_bytes_ptr = sizeof(dummy_stats_data);
-
-    return true;
 }
 
 bool mercury_write_stats_data(const char *stats_data_file_path) {

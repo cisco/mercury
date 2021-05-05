@@ -156,8 +156,9 @@ int analysis_finalize() {
     database_finalize();
 
     if (c) {
-        delete c;  // free up classifier
-        c = nullptr;
+        classifier *tmp = c;
+        c = nullptr;   // swap pointer to null, to prevent future use
+        delete tmp;    // free up classifier
     }
 
     return 1;

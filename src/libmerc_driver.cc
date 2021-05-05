@@ -165,20 +165,19 @@ struct libmerc_api {
         double* probability_score);
     bool (*get_malware_info)(const analysis_context* ac, bool* probable_process_is_malware,
         double* probability_malware);
+
+    void* mercury_handle = nullptr;
 };
 
-libmerc_api mercury_api{};
+libmerc_api mercury{};
 
-void* mercury_handle = nullptr;
-
-int mercury_bind() {
-    std::string lib_path = "./libmerc/libmerc.so";
-    if ((mercury_handle = dlopen(lib_path.c_str(), RTLD_NOW|RTLD_LOCAL)) == nullptr) {
+int mercury_bind(struct libmerc_api &mercury_api, const char *lib_path) {
+    if ((mercury_api.mercury_handle = dlopen(lib_path, RTLD_NOW|RTLD_LOCAL)) == nullptr) {
         const char *dlerr = dlerror();
-        fprintf(stderr, "mercury: failed to load %s: %s\n", lib_path.c_str(), dlerr ? dlerr : "unknown error");
+        fprintf(stderr, "mercury: failed to load %s: %s\n", lib_path, dlerr ? dlerr : "unknown error");
         return -1; // error
     } else {
-        fprintf(stderr, "mercury: loading %s\n", lib_path.c_str());
+        fprintf(stderr, "mercury: loading %s\n", lib_path);
     }
 
     struct FuncBinding
@@ -203,7 +202,7 @@ int mercury_bind() {
     FuncBinding* index;
     dlerror();  // initialize error reporting
     for (index = bindings; index->lib_sym; index++) {
-        *(void**)index->local_sym  = dlsym(mercury_handle, index->lib_sym);
+        *(void**)index->local_sym  = dlsym(mercury_api.mercury_handle, index->lib_sym);
         if (*(index->local_sym) == nullptr) {
             const char *dlerr = dlerror();
             fprintf(stderr, "mercury: failed to resolve symbol: %s (error: %s)\n", index->lib_sym, dlerr ? dlerr : "unknown error");
@@ -211,21 +210,35 @@ int mercury_bind() {
         }
     }
 
+    fprintf(stderr, "mercury_bind() succeeded with handle %p\n", mercury_api.mercury_handle);
+
     return 0; // success
 }
 
-void mercury_unbind() {
-    dlclose(mercury_handle);
-    mercury_handle = nullptr;
+void mercury_unbind(struct libmerc_api &libmerc_api) {
+    dlclose(libmerc_api.mercury_handle);
+    libmerc_api.mercury_handle = nullptr;
 }
 
+struct packet_processor_state {
+    unsigned int thread_number;
+    struct libmerc_api *mercury;
+
+    packet_processor_state(unsigned int tn, struct libmerc_api *m) : thread_number{tn}, mercury{m} {}
+
+};
+
 void *packet_processor(void *arg) {
-    unsigned int thread_number = *((unsigned int *)arg);
+    packet_processor_state *pp = (packet_processor_state *)arg;
+    struct libmerc_api *merc = pp->mercury;
+    //    unsigned int thread_number = *((unsigned int *)arg);
     struct timespec time;
     time.tv_sec = time.tv_nsec = 0;  // set to January 1st, 1970 (the Epoch)
 
+    fprintf(stderr, "packet_processor() has processor state %p\n", (void *)merc);
+
     // create mercury packet processor
-    mercury_packet_processor mpp = mercury_api.mercury_packet_processor_construct();
+    mercury_packet_processor mpp = merc->mercury_packet_processor_construct();
     if (mpp == NULL) {
         fprintf(stderr, "error in mercury_packet_processor_construct()\n");
         return NULL;
@@ -235,35 +248,35 @@ void *packet_processor(void *arg) {
     //
     const char *probable_process = NULL;
     double probability_score = 0.0;
-    const struct analysis_context *ctx = mercury_api.get_analysis_context(mpp, client_hello_eth, client_hello_eth_len, &time);
+    const struct analysis_context *ctx = merc->get_analysis_context(mpp, client_hello_eth, client_hello_eth_len, &time);
     if (ctx == NULL) {
         fprintf(stderr, "error in get_analysis_context()\n");
         return NULL;
     }
-    if (mercury_api.get_process_info(ctx, &probable_process, &probability_score)) {
-        fprintf(stderr, "thread: %u\tprobable_process: %s\tscore: %f\n", thread_number, probable_process, probability_score);
+    if (merc->get_process_info(ctx, &probable_process, &probability_score)) {
+        fprintf(stderr, "thread: %u\tprobable_process: %s\tscore: %f\n", pp->thread_number, probable_process, probability_score);
     }
 
     // try it on another packet
     //
     probable_process = NULL;
     probability_score = 0.0;
-    ctx = mercury_api.get_analysis_context(mpp, client_hello_no_server_name_eth, sizeof(client_hello_no_server_name_eth), &time);
+    ctx = merc->get_analysis_context(mpp, client_hello_no_server_name_eth, sizeof(client_hello_no_server_name_eth), &time);
     if (ctx == NULL) {
         fprintf(stderr, "error in get_analysis_context()\n");
         return NULL;
     }
-    if (mercury_api.get_process_info(ctx, &probable_process, &probability_score)) {
-        fprintf(stderr, "thread: %u\tprobable_process: %s\tscore: %f\n", thread_number, probable_process, probability_score);
+    if (merc->get_process_info(ctx, &probable_process, &probability_score)) {
+        fprintf(stderr, "thread: %u\tprobable_process: %s\tscore: %f\n", pp->thread_number, probable_process, probability_score);
     }
 
     // destroy packet processor
-    mercury_api.mercury_packet_processor_destruct(mpp);
+    merc->mercury_packet_processor_destruct(mpp);
 
     return NULL;
 }
 
-int test_libmerc(struct libmerc_config *config, int verbosity) {
+int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) {
     int num_loops = 4;
     constexpr int num_threads = 8;
 
@@ -271,14 +284,14 @@ int test_libmerc(struct libmerc_config *config, int verbosity) {
         fprintf(stderr, "loop: %d\n", i);
 
         // bind libmerc
-        int retval = mercury_bind();
+        int retval = mercury_bind(mercury, "./libmerc/libmerc.so");
         if (retval != 0) {
             fprintf(stderr, "error: mercury_bind() returned code %d\n", retval);
             return 1;
         }
 
         // init mercury
-        retval = mercury_api.mercury_init(*config, verbosity);
+        retval = mercury.mercury_init(*config, verbosity);
         if (retval != 0) {
             fprintf(stderr, "error: mercury_init() returned code %d\n", retval);
             return -1;
@@ -286,9 +299,97 @@ int test_libmerc(struct libmerc_config *config, int verbosity) {
 
         // create packet processing threads
         std::array<pthread_t, num_threads> tid_array;
-        std::array<unsigned int, num_threads> thread_number = { 0, 1, 2, 3, 4, 5, 6, 7 };
+        packet_processor_state thread_state[num_threads] = {
+             { 0, &mercury },
+             { 1, &mercury },
+             { 2, &mercury },
+             { 3, &mercury },
+             { 4, &mercury },
+             { 5, &mercury },
+             { 6, &mercury },
+             { 7, &mercury }
+            };
+        //std::array<unsigned int, num_threads> thread_number = { 0, 1, 2, 3, 4, 5, 6, 7 };
         for (int idx=0; idx < num_threads; idx++) {
-            pthread_create(&tid_array[idx], NULL, packet_processor, &thread_number[idx]);
+            pthread_create(&tid_array[idx], NULL, packet_processor, &thread_state[idx]);
+        }
+        fprintf(stderr, "created all %zu threads\n", tid_array.size());
+
+        if (fail) {
+            // delete mercury state, to force failure
+            mercury.mercury_finalize();
+        }
+
+        for (auto & t : tid_array) {
+            pthread_join(t, NULL);
+        }
+        fprintf(stderr, "joined all %zu threads\n", tid_array.size());
+
+        // destroy mercury
+        mercury.mercury_finalize();
+
+        fprintf(stderr, "completed mercury_finalize()\n");
+
+        // unbind libmerc
+        mercury_unbind(mercury);
+
+    }
+
+    return 0;
+}
+
+int double_bind_test(struct libmerc_config *config, struct libmerc_config *config2) {
+    int verbosity = 1;
+    int num_loops = 4;
+    constexpr int num_threads = 8;
+
+    fprintf(stderr, "running mercury_double_bind() test\n");
+
+    for (int i = 0; i < num_loops; i++) {
+        fprintf(stderr, "loop: %d\n", i);
+
+        // bind libmerc
+        int retval = mercury_bind(mercury, "./libmerc/libmerc.so");
+        if (retval != 0) {
+            fprintf(stderr, "error: mercury_bind() returned code %d\n", retval);
+            return 1;
+        }
+
+        // init mercury
+        retval = mercury.mercury_init(*config, verbosity);
+        if (retval != 0) {
+            fprintf(stderr, "error: mercury_init() returned code %d\n", retval);
+            return -1;
+        }
+
+        // bind and init second mercury library
+        struct libmerc_api mercury_alt;
+        retval = mercury_bind(mercury_alt, "./libmerc/libmerc.so.alt");
+        if (retval != 0) {
+            fprintf(stderr, "error: mercury_bind() returned code %d in second bind\n", retval);
+            return 1;
+        }
+        retval = mercury_alt.mercury_init(*config2, verbosity);
+        if (retval != 0) {
+            fprintf(stderr, "error: mercury_init() returned code %d in second init\n", retval);
+            return -1;
+        }
+
+        // create packet processing threads
+        std::array<pthread_t, num_threads> tid_array;
+        //        std::array<unsigned int, num_threads> thread_number = { 0, 1, 2, 3, 4, 5, 6, 7 };
+        packet_processor_state thread_state[num_threads] = {
+             { 0, &mercury },
+             { 1, &mercury },
+             { 2, &mercury },
+             { 3, &mercury },
+             { 4, &mercury_alt },
+             { 5, &mercury_alt },
+             { 6, &mercury_alt },
+             { 7, &mercury_alt }
+            };
+        for (int idx=0; idx < num_threads; idx++) {
+            pthread_create(&tid_array[idx], NULL, packet_processor, &thread_state[idx]);
         }
         fprintf(stderr, "created all %zu threads\n", tid_array.size());
 
@@ -298,12 +399,15 @@ int test_libmerc(struct libmerc_config *config, int verbosity) {
         fprintf(stderr, "joined all %zu threads\n", tid_array.size());
 
         // destroy mercury
-        mercury_api.mercury_finalize();
+        mercury.mercury_finalize();
 
         fprintf(stderr, "completed mercury_finalize()\n");
 
         // unbind libmerc
-        mercury_unbind();
+        mercury_unbind(mercury);
+
+        mercury_alt.mercury_finalize();
+        mercury_unbind(mercury_alt);
 
     }
 
@@ -322,16 +426,25 @@ int main(int , char *[]) {
     std::string resources_path = "../resources/resources.tgz";
     config.resources = (char*) resources_path.c_str();
 
+    libmerc_config config_lite{};
+    config_lite.do_analysis = true;
+    std::string resources_lite_path = "../resources/resources_lite.tgz";
+    config_lite.resources = (char*) resources_lite_path.c_str();
+
+    if (0) {
+        // perform double bind/init test
+        int retval = double_bind_test(&config_lite, &config);
+        if (retval) {
+            fprintf(stderr, "double_bind_test() error (code %d)\n", retval);
+            return EXIT_FAILURE;
+        }
+    }
+
     int retval = test_libmerc(&config, verbosity);
     if (retval) {
         fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
         return EXIT_FAILURE;
     }
-
-    libmerc_config config_lite{};
-    config_lite.do_analysis = true;
-    std::string resources_lite_path = "../resources/resources_lite.tgz";
-    config_lite.resources = (char*) resources_lite_path.c_str();
 
     retval = test_libmerc(&config_lite, verbosity);
     if (retval) {
