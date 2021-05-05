@@ -89,35 +89,43 @@ struct libmerc_config {
 #define libmerc_config_init() {false,false,false,false,false,false,false,NULL,NULL,enc_key_type_none,NULL,0.0,0.0}
 #endif
 
+
+/**
+ * mercury_context is an opaque pointer to an object that holds the
+ * mercury state associated with a running instance
+ */
+typedef struct mercury *mercury_context;
+
 /**
  * @brief initializes libmerc
  *
  * Initializes libmerc to use the configuration as specified with the
- * input parameters.  Returns zero on success.
+ * input parameters.  Returns a valid mercury_context handle on
+ * success, and NULL otherwise.
  *
  * @param vars          libmerc_config
  * @param verbosity     higher values increase verbosity sent to stderr
  * @param resource_dir  directory of resource files to use in analysis
  *
- * @return 0 on success, -1 on failure
+ * @return a valid mercury_context handle on success, NULL on failure
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-int mercury_init(const struct libmerc_config *vars, int verbosity);
+mercury_context mercury_init(const struct libmerc_config *vars, int verbosity);
 
 /**
  * @brief finalizes libmerc
  *
- * Finalizes the libmerc library, and frees up resources allocated by
- * mercury_init().   Returns zero on success.
+ * Finalizes the libmerc context associated with the handle, and frees
+ * up resources allocated by mercury_init().  Returns zero on success.
  *
  * @return 0 on success, -1 on failure
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-int mercury_finalize();
+int mercury_finalize(mercury_context mc);
 
 /**
  * mercury_packet_processor is an opaque pointer to a threadsafe

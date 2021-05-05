@@ -255,9 +255,9 @@ int test_libmerc(const struct libmerc_config *config, int verbosity) {
 
     fprintf(stdout, "initializing mercury with %s resource archive\n", config->key_type ? "encrypted (.tgz.enc)" : "unencrypted (.tgz)");
 
-    int retval = mercury_init(config, verbosity);
-    if (retval) {
-        fprintf(stderr, "mercury_init() error (code %d)\n", retval);
+    mercury_context mc = mercury_init(config, verbosity);
+    if (mc == NULL) {
+        fprintf(stderr, "mercury_init() error\n");
         return EXIT_FAILURE;
     }
 
@@ -326,7 +326,7 @@ int test_libmerc(const struct libmerc_config *config, int verbosity) {
 
     // tear down library's global configuration
     //
-    retval = mercury_finalize();
+    int retval = mercury_finalize(mc);
     if (retval) {
         fprintf(stderr, "mercury_finalize() error (code %d)\n", retval);
         return EXIT_FAILURE;

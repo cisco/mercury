@@ -151,8 +151,8 @@ unsigned char client_hello_no_server_name_eth[] = {
 typedef void (*dummy_func)();
 
 struct libmerc_api {
-    int (*mercury_init)(const libmerc_config& vars, int verbosity);
-    int (*mercury_finalize)();
+    mercury_context (*mercury_init)(const libmerc_config& vars, int verbosity);
+    int (*mercury_finalize)(mercury_context);
     size_t (*mercury_analyze)(mercury_packet_processor processor, void* buffer,
         size_t buffer_size, const uint8_t* packet, size_t length, struct timespec* ts);
     mercury_packet_processor (*mercury_packet_processor_construct)();
@@ -291,9 +291,9 @@ int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) 
         }
 
         // init mercury
-        retval = mercury.mercury_init(*config, verbosity);
-        if (retval != 0) {
-            fprintf(stderr, "error: mercury_init() returned code %d\n", retval);
+        mercury_context mc = mercury.mercury_init(*config, verbosity);
+        if (mc == NULL) {
+            fprintf(stderr, "error: mercury_init() returned null\n");
             return -1;
         }
 
@@ -317,7 +317,7 @@ int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) 
 
         if (fail) {
             // delete mercury state, to force failure
-            mercury.mercury_finalize();
+            mercury.mercury_finalize(mc);
         }
 
         for (auto & t : tid_array) {
@@ -326,7 +326,7 @@ int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) 
         fprintf(stderr, "joined all %zu threads\n", tid_array.size());
 
         // destroy mercury
-        mercury.mercury_finalize();
+        mercury.mercury_finalize(mc);
 
         fprintf(stderr, "completed mercury_finalize()\n");
 
@@ -356,9 +356,9 @@ int double_bind_test(struct libmerc_config *config, struct libmerc_config *confi
         }
 
         // init mercury
-        retval = mercury.mercury_init(*config, verbosity);
-        if (retval != 0) {
-            fprintf(stderr, "error: mercury_init() returned code %d\n", retval);
+        mercury_context mc = mercury.mercury_init(*config, verbosity);
+        if (mc == nullptr) {
+            fprintf(stderr, "error: mercury_init() returned null\n");
             return -1;
         }
 
@@ -369,9 +369,9 @@ int double_bind_test(struct libmerc_config *config, struct libmerc_config *confi
             fprintf(stderr, "error: mercury_bind() returned code %d in second bind\n", retval);
             return 1;
         }
-        retval = mercury_alt.mercury_init(*config2, verbosity);
-        if (retval != 0) {
-            fprintf(stderr, "error: mercury_init() returned code %d in second init\n", retval);
+        mercury_context mc_alt = mercury_alt.mercury_init(*config2, verbosity);
+        if (mc_alt == nullptr) {
+            fprintf(stderr, "error: mercury_init() returned null in second init\n");
             return -1;
         }
 
@@ -399,14 +399,14 @@ int double_bind_test(struct libmerc_config *config, struct libmerc_config *confi
         fprintf(stderr, "joined all %zu threads\n", tid_array.size());
 
         // destroy mercury
-        mercury.mercury_finalize();
+        mercury.mercury_finalize(mc);
 
         fprintf(stderr, "completed mercury_finalize()\n");
 
         // unbind libmerc
         mercury_unbind(mercury);
 
-        mercury_alt.mercury_finalize();
+        mercury_alt.mercury_finalize(mc);
         mercury_unbind(mercury_alt);
 
     }

@@ -18,6 +18,17 @@
 #endif
 
 
+/**
+ * struct mercury holds state that is used by one or more
+ * mercury_packet_processor
+ *
+ */
+struct mercury {
+    struct libmerc_config global_vars;
+    data_aggregator aggregator;
+    classifier *c = NULL;
+};
+
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
@@ -38,7 +49,9 @@ const char *mercury_get_resource_version() {
 
 struct libmerc_config global_vars;
 
-int mercury_init(const struct libmerc_config *vars, int verbosity) {
+mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
+
+    mercury *m = nullptr;
 
     if (verbosity > 0) {
         // sanity check, to help with shared object library development
@@ -46,37 +59,47 @@ int mercury_init(const struct libmerc_config *vars, int verbosity) {
     }
 
     try {
-        global_vars = *vars;
-        global_vars.resources = vars->resources;
-        global_vars.packet_filter_cfg = vars->packet_filter_cfg;
+        m = new mercury;
+
+        m->global_vars = *vars;
+        m->global_vars.resources = vars->resources;
+        m->global_vars.packet_filter_cfg = vars->packet_filter_cfg;
         enum status status = proto_ident_config(vars->packet_filter_cfg);
         if (status) {
-            return status;
+            throw (const char *)"error: proto_ident_config() failed"; // failure
         }
-        if (global_vars.do_analysis) {
-            if (analysis_init_from_archive(verbosity, global_vars.resources,
+        if (m->global_vars.do_analysis) {
+            if (analysis_init_from_archive(verbosity, m->global_vars.resources,
                                            vars->enc_key, vars->key_type,
-                                           global_vars.fp_proc_threshold,
-                                           global_vars.proc_dst_threshold, global_vars.report_os) != 0) {
-                return -1;
+                                           m->global_vars.fp_proc_threshold,
+                                           m->global_vars.proc_dst_threshold,
+                                           m->global_vars.report_os) != 0) {
+                throw (const char *)"error: analysis_init_from_archive() failed"; // failure
             }
         }
-        return 0; // success
+        return m; // success
     }
-    catch (char const *s) {
+    catch (const char *s) {
         fprintf(stderr, "%s\n", s);
     }
     catch (...) {
         ;
     }
-    return -1; // failure
+    if (m) {
+        delete m;
+    }
+    return nullptr; // failure
 }
 
-int mercury_finalize() {
-    if (global_vars.do_analysis) {
+int mercury_finalize(mercury_context mc) {
+    if (mc->global_vars.do_analysis) {
         analysis_finalize();
     }
-    return 0; // success
+    if (mc) {
+        delete mc;
+        return 0; // success
+    }
+    return -1;    // error
 }
 
 size_t mercury_packet_processor_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
