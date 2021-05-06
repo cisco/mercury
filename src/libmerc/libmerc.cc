@@ -35,8 +35,6 @@ const char *mercury_get_resource_version(struct mercury *mc) {
     return nullptr;
 }
 
-//struct libmerc_config global_config;
-
 struct mercury *global_context = nullptr;
 
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
@@ -49,31 +47,12 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     }
 
     try {
-        //global_config = *vars; // TODO: remove global
 
         m = new mercury{vars, verbosity};
         global_context = m;
 
         return m; // TBD
 
-
-        m->global_vars = *vars;
-        m->global_vars.resources = vars->resources;
-        m->global_vars.packet_filter_cfg = vars->packet_filter_cfg;
-        enum status status = proto_ident_config(vars->packet_filter_cfg);
-        if (status) {
-            throw (const char *)"error: proto_ident_config() failed"; // failure
-        }
-        if (m->global_vars.do_analysis) {
-            if (analysis_init_from_archive(verbosity, m->global_vars.resources,
-                                           vars->enc_key, vars->key_type,
-                                           m->global_vars.fp_proc_threshold,
-                                           m->global_vars.proc_dst_threshold,
-                                           m->global_vars.report_os) != 0) {
-                throw (const char *)"error: analysis_init_from_archive() failed"; // failure
-            }
-        }
-        return m; // success
     }
     catch (const char *s) {
         fprintf(stderr, "%s\n", s);
@@ -88,11 +67,8 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 }
 
 int mercury_finalize(mercury_context mc) {
-    // TODO: remove dead code
-    // if (mc->global_vars.do_analysis) {
-    //     analysis_finalize();
-    // }
     if (mc) {
+        fprintf(stderr, "%s deleting %p\n", __func__, (void *)mc);
         delete mc;
         return 0; // success
     }
