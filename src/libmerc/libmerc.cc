@@ -18,17 +18,6 @@
 #endif
 
 
-/**
- * struct mercury holds state that is used by one or more
- * mercury_packet_processor
- *
- */
-struct mercury {
-    struct libmerc_config global_vars;
-    data_aggregator aggregator;
-    classifier *c = NULL;
-};
-
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
@@ -46,7 +35,9 @@ const char *mercury_get_resource_version(struct mercury *mc) {
     return nullptr;
 }
 
-struct libmerc_config global_config;
+//struct libmerc_config global_config;
+
+struct mercury *global_context = nullptr;
 
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
@@ -58,9 +49,13 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     }
 
     try {
-        m = new mercury;
+        //global_config = *vars; // TODO: remove global
 
-        global_config = *vars; // TODO: remove global
+        m = new mercury{vars, verbosity};
+        global_context = m;
+
+        return m; // TBD
+
 
         m->global_vars = *vars;
         m->global_vars.resources = vars->resources;
@@ -93,9 +88,10 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 }
 
 int mercury_finalize(mercury_context mc) {
-    if (mc->global_vars.do_analysis) {
-        analysis_finalize();
-    }
+    // TODO: remove dead code
+    // if (mc->global_vars.do_analysis) {
+    //     analysis_finalize();
+    // }
     if (mc) {
         delete mc;
         return 0; // success
@@ -392,9 +388,9 @@ enum status proto_ident_config(const char *config_string) {
     return status_ok;
 }
 
-mercury_packet_processor mercury_packet_processor_construct() {
+mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) {
     try {
-        stateful_pkt_proc *tmp = new stateful_pkt_proc{0};
+        stateful_pkt_proc *tmp = new stateful_pkt_proc{0, mc};
         return tmp;
     }
     catch (...) {

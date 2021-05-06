@@ -137,14 +137,15 @@ typedef struct stateful_pkt_proc *mercury_packet_processor;
 
 /**
  * mercury_packet_processor_construct() allocates and initializes a
- * new mercury_packet_processor.
+ * new mercury_packet_processor associated with the mercury_context
+ * passed as input.
  *
  * @return a valid pointer on success, NULL otherwise.
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-mercury_packet_processor mercury_packet_processor_construct();
+mercury_packet_processor mercury_packet_processor_construct(mercury_context mc);
 
 /**
  * mercury_packet_processor_destruct() deallocates all resources

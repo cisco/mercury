@@ -16,9 +16,45 @@
 #include "analysis.h"
 #include "libmerc.h"
 
-extern struct libmerc_config global_config; // defined in libmerc.cc
+extern struct mercury *global_context; // defined in libmerc.cc
 
 extern bool select_tcp_syn;                 // defined in extractor.cc
+
+/**
+ * struct mercury holds state that is used by one or more
+ * mercury_packet_processor
+ *
+ */
+struct mercury {
+    struct libmerc_config global_vars;
+    data_aggregator aggregator;
+    classifier *c;
+
+    mercury(const struct libmerc_config *vars, int verbosity) {
+        global_vars = *vars;
+        global_vars.resources = vars->resources;
+        global_vars.packet_filter_cfg = vars->packet_filter_cfg;
+        enum status status = proto_ident_config(vars->packet_filter_cfg);
+        if (status) {
+            throw (const char *)"error: proto_ident_config() failed"; // failure
+        }
+        if (global_vars.do_analysis) {
+            c = analysis_init_from_archive(verbosity, global_vars.resources,
+                                           vars->enc_key, vars->key_type,
+                                           global_vars.fp_proc_threshold,
+                                           global_vars.proc_dst_threshold,
+                                           global_vars.report_os);
+            if (c == nullptr) {
+                throw (const char *)"error: analysis_init_from_archive() failed"; // failure
+            }
+        }
+    }
+
+
+    ~mercury() {
+        analysis_finalize(c);
+    }
+};
 
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
@@ -48,11 +84,23 @@ struct stateful_pkt_proc {
 
         if (m == nullptr) { // TODO: eliminate or document
 
-            // set pointers to (refer to) global variables
+            if (global_context == nullptr) {
+                throw "error: global_context uninitialized in stateful_pkt_processor()";
+            }
+            // set config and classifier to (refer to) global context
             //
-            extern classifier *c;
-            this->c = c;
-            this->global_vars = global_config;
+            //extern classifier *c;
+            this->c = global_context->c;
+            this->global_vars = global_context->global_vars;
+
+        } else {
+
+            // set config and classifier to (refer to) context m
+            //
+            this->c = m->c;
+            this->global_vars = m->global_vars;
+
+            //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         }
 
         extern data_aggregator aggregator;  // pkt_proc.cc

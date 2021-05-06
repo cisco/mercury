@@ -35,7 +35,7 @@
 void flow_key_sprintf_src_addr(const struct flow_key *key,
                                char *src_addr_str);
 
-int analysis_init_from_archive(int verbosity,
+struct classifier *analysis_init_from_archive(int verbosity,
                                const char *archive_name,
                                const uint8_t *enc_key,
                                enum enc_key_type key_type,
@@ -43,7 +43,7 @@ int analysis_init_from_archive(int verbosity,
                                float proc_dst_threshold,
                                bool report_os);
 
-int analysis_finalize();
+int analysis_finalize(classifier *c);
 
 
 struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,

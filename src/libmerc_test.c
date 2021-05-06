@@ -269,7 +269,7 @@ int test_libmerc(const struct libmerc_config *config, int verbosity) {
     // pointer; there should be one mercury_packet_processor for each
     // packet-processing thread
     //
-    mercury_packet_processor m = mercury_packet_processor_construct();
+    mercury_packet_processor m = mercury_packet_processor_construct(mc);
     if (m == NULL) {
         fprintf(stderr, "error in mercury_packet_processor_construct()\n");
         return EXIT_FAILURE;
@@ -336,7 +336,7 @@ int test_libmerc(const struct libmerc_config *config, int verbosity) {
 }
 
 int main(int argc, char *argv[]) {
-    int verbosity = 0;
+    int verbosity = 1;
     int retval;
 
     // report library version
