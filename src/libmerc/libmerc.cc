@@ -68,7 +68,6 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
 int mercury_finalize(mercury_context mc) {
     if (mc) {
-        fprintf(stderr, "%s deleting %p\n", __func__, (void *)mc);
         delete mc;
         return 0; // success
     }

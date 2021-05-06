@@ -232,11 +232,10 @@ struct packet_processor_state {
 void *packet_processor(void *arg) {
     packet_processor_state *pp = (packet_processor_state *)arg;
     struct libmerc_api *merc = pp->mercury;
-    //    unsigned int thread_number = *((unsigned int *)arg);
     struct timespec time;
     time.tv_sec = time.tv_nsec = 0;  // set to January 1st, 1970 (the Epoch)
 
-    fprintf(stderr, "packet_processor() has processor state %p\n", (void *)merc);
+    fprintf(stderr, "packet_processor() has libmerc_api=%p and mercury_context=%p\n", (void *)merc, (void *)pp->mc);
 
     // create mercury packet processor
     mercury_packet_processor mpp = merc->mercury_packet_processor_construct(pp->mc);
