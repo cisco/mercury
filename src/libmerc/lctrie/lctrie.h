@@ -323,7 +323,9 @@ void lct_free(lct<T> *trie) {
 
   // don't free the external subnet array.
   // that's under outside control.
-  free(trie->bases);
+  if (trie->bases) {
+      free(trie->bases);
+  }
   trie->bases = NULL;
   trie->root = NULL;
   trie->ncount = 0;
@@ -338,7 +340,7 @@ void lct_free(lct<T> *trie) {
 // key must be provided in host byte ordering
 //
 template <typename T>
-lct_subnet<T> *lct_find(lct<T> *trie, T key) {
+lct_subnet<T> *lct_find(const lct<T> *trie, T key) {
   lct_node_t *node;
   int pos, branch, idx;
   uint32_t prep;

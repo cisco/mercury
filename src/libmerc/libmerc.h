@@ -546,7 +546,7 @@ uint32_t mercury_get_version_number();
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-const char *mercury_get_resource_version();
+const char *mercury_get_resource_version(mercury_context mc);
 
 // OTHER FUNCTIONS
 //

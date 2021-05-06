@@ -46,9 +46,10 @@ struct stateful_pkt_proc {
         global_vars{}
     {
 
-        if (m == nullptr) {
+        if (m == nullptr) { // TODO: eliminate or document
 
             // set pointers to (refer to) global variables
+            //
             extern classifier *c;
             this->c = c;
             this->global_vars = global_config;

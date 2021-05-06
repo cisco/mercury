@@ -262,7 +262,7 @@ int test_libmerc(const struct libmerc_config *config, int verbosity) {
     }
 
     // report on the VERSION of the resources archive
-    const char *VERSION = mercury_get_resource_version();
+    const char *VERSION = mercury_get_resource_version(mc);
     fprintf(stdout, "mercury resource archive version: %s\n", VERSION ? VERSION : "unknown");
 
     // initialize a mercury_packer_processor, which is an opaque

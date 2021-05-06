@@ -39,10 +39,9 @@ uint32_t mercury_get_version_number() {
     return mercury_version.get_version_as_uint32();
 }
 
-const char *mercury_get_resource_version() {
-    extern classifier *c;
-    if (c) {
-        return c->get_resource_version();
+const char *mercury_get_resource_version(struct mercury *mc) {
+    if (mc && mc->c) {
+        return mc->c->get_resource_version();
     }
     return nullptr;
 }
@@ -154,12 +153,6 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
 const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
-
-        extern classifier *c;
-        if (c == nullptr) {
-            return NULL;
-        }
-
         uint8_t buffer[4096]; // buffer for (ignored) json output
 
         processor->analysis.result.valid = false;

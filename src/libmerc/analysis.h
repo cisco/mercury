@@ -152,8 +152,6 @@ public:
     floating_point_type value;   // value of update
 };
 
-extern ptr_dict os_dictionary;  // in analysis.cc
-
 class fingerprint_data {
     std::vector<std::string> process_name;
     std::vector<floating_point_type> process_prob;
@@ -171,12 +169,18 @@ class fingerprint_data {
     static bool malware_db;
     static bool report_os;
 
+    const subnet_data *subnet_data_ptr = nullptr;
+
 public:
     uint64_t total_count;
 
     fingerprint_data() : total_count{0} { }
 
-    fingerprint_data(uint64_t count, const std::vector<class process_info> processes) :
+    fingerprint_data(uint64_t count,
+                     const std::vector<class process_info> processes,
+                     ptr_dict &os_dictionary,
+                     const subnet_data *subnets) :
+        subnet_data_ptr{subnets},
         total_count{count} {
 
             //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -372,7 +376,7 @@ public:
     }
 
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port) {
-        uint32_t asn_int = get_asn_info(dst_ip);
+        uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
         std::string server_name_str(server_name);
@@ -574,6 +578,10 @@ class classifier {
     bool MALWARE_DB = false;
     bool EXTENDED_FP_METADATA = false;
 
+    ptr_dict os_dictionary;  // used to hold/compact OS CPE strings
+
+    subnet_data subnets;     // holds ASN/subnet information
+
     std::unordered_map<std::string, class fingerprint_data> fpdb;
     fingerprint_prevalence fp_prevalence{100000};
 
@@ -732,7 +740,7 @@ public:
                 class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni, os_info);
                 process_vector.push_back(process);
             }
-            class fingerprint_data fp_data(total_count, process_vector);
+            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets);
             // fp_data.print(stderr);
 
             if (fpdb.find(fp_string) != fpdb.end()) {
@@ -742,7 +750,10 @@ public:
         }
     }
 
-    classifier(class encrypted_compressed_archive &archive, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{} {
+    classifier(class encrypted_compressed_archive &archive,
+               float fp_proc_threshold,
+               float proc_dst_threshold,
+               bool report_os) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
 
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
@@ -774,6 +785,12 @@ public:
                         resource_version += line_str;
                     }
                     got_version = true;
+
+                } else if (name == "pyasn.db") {
+                    while (archive.getline(line_str)) {
+                        subnets.process_line(line_str);
+                    }
+                    got_version = true;
                 }
             }
             if (got_fp_db && got_fp_prevalence && got_version) {   // TODO: Do we want to require a VERSION file?
@@ -782,6 +799,7 @@ public:
             entry = archive.get_next_entry();
         }
 
+        subnets.process_final();
     }
 
     void print(FILE *f) {

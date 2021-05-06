@@ -698,17 +698,19 @@ struct write_fingerprint {
 struct do_analysis {
     const struct key &k_;
     struct analysis_context &analysis_;
+    classifier *c_;
 
     do_analysis(const struct key &k,
-                struct analysis_context &analysis) :
+                struct analysis_context &analysis,
+                classifier *c) :
         k_{k},
-        analysis_{analysis}
+        analysis_{analysis},
+        c_{c}
     {}
 
     bool operator()(tls_client_hello &r) {
-        extern classifier *c;
         analysis_.destination.init(r, k_);
-        return c->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }
 
     template <typename T>
@@ -877,7 +879,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
 
         bool output_analysis = false;
         if (global_vars.do_analysis) {
-            output_analysis = std::visit(do_analysis{k, analysis}, x);
+            output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
             // note: we only perform observations when analysis is
             // configured, because we rely on do_analysis to set the
@@ -921,7 +923,7 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
     if (std::visit(is_not_empty{}, x)) {
 
         std::visit(compute_fingerprint{analysis.fp}, x);
-        if (std::visit(do_analysis{k, analysis}, x)) {
+        if (std::visit(do_analysis{k, analysis, c}, x)) {
             *r = analysis.result;
             return true;
         }
