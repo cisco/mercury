@@ -120,7 +120,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         tcp_pkt.set_key(k);
         if (tcp_pkt.is_SYN()) {
-            tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+            if (global_vars.output_tcp_initial_data) {
+                tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+            }
             if (select_tcp_syn) {
                 struct json_object record{&buf};
                 struct json_object fps{record, "fingerprints"};
@@ -136,7 +138,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
 
         } else if (tcp_pkt.is_SYN_ACK()) {
-            tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+            if (global_vars.output_tcp_initial_data) {
+                tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+            }
 
 #ifdef REPORT_SYN_ACK
             if (select_tcp_syn) {
