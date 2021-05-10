@@ -255,21 +255,21 @@ int test_libmerc(const struct libmerc_config *config, int verbosity) {
 
     fprintf(stdout, "initializing mercury with %s resource archive\n", config->key_type ? "encrypted (.tgz.enc)" : "unencrypted (.tgz)");
 
-    int retval = mercury_init(config, verbosity);
-    if (retval) {
-        fprintf(stderr, "mercury_init() error (code %d)\n", retval);
+    mercury_context mc = mercury_init(config, verbosity);
+    if (mc == NULL) {
+        fprintf(stderr, "mercury_init() error\n");
         return EXIT_FAILURE;
     }
 
     // report on the VERSION of the resources archive
-    const char *VERSION = mercury_get_resource_version();
+    const char *VERSION = mercury_get_resource_version(mc);
     fprintf(stdout, "mercury resource archive version: %s\n", VERSION ? VERSION : "unknown");
 
     // initialize a mercury_packer_processor, which is an opaque
     // pointer; there should be one mercury_packet_processor for each
     // packet-processing thread
     //
-    mercury_packet_processor m = mercury_packet_processor_construct();
+    mercury_packet_processor m = mercury_packet_processor_construct(mc);
     if (m == NULL) {
         fprintf(stderr, "error in mercury_packet_processor_construct()\n");
         return EXIT_FAILURE;
@@ -326,7 +326,7 @@ int test_libmerc(const struct libmerc_config *config, int verbosity) {
 
     // tear down library's global configuration
     //
-    retval = mercury_finalize();
+    int retval = mercury_finalize(mc);
     if (retval) {
         fprintf(stderr, "mercury_finalize() error (code %d)\n", retval);
         return EXIT_FAILURE;
@@ -336,7 +336,7 @@ int test_libmerc(const struct libmerc_config *config, int verbosity) {
 }
 
 int main(int argc, char *argv[]) {
-    int verbosity = 0;
+    int verbosity = 1;
     int retval;
 
     // report library version

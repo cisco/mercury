@@ -484,7 +484,9 @@ int main(int argc, char *argv[]) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
     }
 
-    if (mercury_init(&libmerc_cfg, cfg.verbosity) != 0) {
+    mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
+    if (mc == nullptr) {
+        fprintf(stderr, "error: could not initialize mercury\n");
         return EXIT_FAILURE;          // libmerc could not be initialized
     };
 
@@ -549,7 +551,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    mercury_finalize();
+    mercury_finalize(mc);
 
     if (cfg.verbosity) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");

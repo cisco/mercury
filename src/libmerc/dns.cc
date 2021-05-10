@@ -5,6 +5,8 @@
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
+#include <string>
+
 #include "dns.h"
 
 

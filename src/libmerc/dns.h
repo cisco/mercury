@@ -13,7 +13,6 @@
 #ifndef DNS_H
 #define DNS_H
 
-#include <string>
 #include "json_object.h"
 #include "util_obj.h"
 

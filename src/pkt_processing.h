@@ -187,7 +187,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
         processor{NULL}
     {
         llq = llq_ptr;
-        processor = mercury_packet_processor_construct();
+        processor = mercury_packet_processor_construct(nullptr);
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {

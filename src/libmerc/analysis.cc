@@ -25,9 +25,6 @@
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 
-rapidjson::Document fp_db;
-
-ptr_dict os_dictionary;
 
 //pthread_mutex_t lock_fp_cache;
 //std::unordered_map<std::string,char*> fp_cache;
@@ -65,59 +62,14 @@ int gzgetline(gzFile f, std::string &s) {
     return 1;
 }
 
-int database_init(const char *resource_file) {
-    fp_db.SetObject();
-    rapidjson::Document::AllocatorType& allocator = fp_db.GetAllocator();
-
-    gzFile in_file = gzopen(resource_file, "r");
-    if (in_file == NULL) {
-        return -1;
-    }
-    std::string line_str;
-    while (gzgetline(in_file, line_str)) {
-        rapidjson::Document fp(&allocator);
-        fp.Parse(line_str.c_str());
-
-        //fprintf(stderr, "%s\n", fp["str_repr"].GetString());
-        // if (fp.HasMember("str_repr")) {
-        //     static const char* kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
-        //     fprintf(stderr, "Type of member %s is %s\n", "str_repr", kTypeNames[fp["str_repr"].GetType()]);
-        //     if (fp["str_repr"].IsString()) {
-        //         fprintf(stderr, "got string\n");
-        //         fprintf(stderr, "%s\n", fp["str_repr"].GetString());
-        //     }
-        // }
-
-        rapidjson::Value::ConstMemberIterator itr = fp["process_info"][0].FindMember("malware");
-        if (itr == fp["process_info"][0].MemberEnd()) {
-            MALWARE_DB = false;
-        }
-
-        itr = fp["process_info"][0].FindMember("classes_hostname_sni");
-        if (itr == fp["process_info"][0].MemberEnd()) {
-            EXTENDED_FP_METADATA = false;
-        }
-
-        fp_db.AddMember(fp["str_repr"], fp, allocator);
-
-    }
-    gzclose(in_file);
-
-    return 0;  /* success */
-}
-
-void database_finalize() {
-    fp_db.SetObject();
-}
-
 
 #ifndef DEFAULT_RESOURCE_FILE
 #define DEFAULT_RESOURCE_FILE "/usr/local/share/mercury/resources.tgz"
 #endif
 
-classifier *c = NULL;
+//classifier *c = NULL;
 
-int analysis_init_from_archive(int verbosity,
+classifier *analysis_init_from_archive(int verbosity,
                                const char *archive_name,
                                const uint8_t *enc_key,
                                enum enc_key_type key_type,
@@ -133,27 +85,20 @@ int analysis_init_from_archive(int verbosity,
         archive_name = DEFAULT_RESOURCE_FILE;
     }
 
-    encrypted_compressed_archive arch{archive_name, enc_key}; // TODO: key type
-    int retcode = addr_init(arch);
-    if (retcode == 0) {
-        encrypted_compressed_archive archive{archive_name, enc_key}; // TODO: key type
-        c = new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os);
-        //c->print(stderr);
-        return 0;
-    }
+    encrypted_compressed_archive archive{archive_name, enc_key}; // TODO: key type
+    return new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os);
+
+    // TBD: move warnings to appropriate place(s)
 
     if (verbosity > 0) {
         fprintf(stderr, "warning: could not open resource archive '%s'\n", archive_name);
     }
     fprintf(stderr, "warning: could not initialize analysis module\n");
-    return -1;
+    return nullptr;
 }
 
 
-int analysis_finalize() {
-
-    addr_finalize();
-    database_finalize();
+int analysis_finalize(classifier *c) {
 
     if (c) {
         classifier *tmp = c;

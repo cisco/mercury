@@ -352,11 +352,9 @@ public:
         }
     }
 
-    void gzprint(gzFile f) {
+    bool is_empty() const { return event_table.size() == 0; }
 
-        // fprintf(stderr, "%s with gzFile %p\n", __func__, (void *)f);
-        // int retval = gzprintf(f, "\"this is just a test\"");
-        // fprintf(stderr, "gzprintf returned %d\n", retval);
+    void gzprint(gzFile f) {
 
         if (event_table.size() == 0) {
             return;  // nothing to report
@@ -370,6 +368,7 @@ public:
         }
 
         std::vector<std::pair<std::string, uint64_t>> v(event_table.begin(), event_table.end());
+        event_table.clear();
         std::sort(v.begin(), v.end(), [](auto &l, auto &r){ return l.first < r.first; } );
 
         event_processor_gz ep(f);
@@ -393,39 +392,27 @@ class data_aggregator {
     stats_aggregator ag;
     std::atomic<bool> shutdown_requested;
     std::thread consumer_thread;
+    std::mutex m;
 
-    void halt_and_join() {
+    // stop_processing() MUST NOT be called until all writing to the
+    // message_queues has stopped
+    //
+    void stop_processing() {
+        if (!ag.is_empty()) {
+            gzFile gzf = gzopen("stats.gz", "w");  // TODO: remove hardcoded name
+            if (gzf) {
+                gzprint(gzf);
+                gzclose(gzf);
+            }
+        }
         shutdown_requested.store(true);
         if(consumer_thread.joinable()) {
              consumer_thread.join();
         }
     }
 
-public:
-    data_aggregator() : q{}, ag{}, shutdown_requested{false} {
-        start_processing();
-    }
-
-    ~data_aggregator() {
-        //fprintf(stderr, "note: halting data_aggregator\n");
-        halt_and_join();
-        for (auto & x : q) {
-            //fprintf(stderr, "note: deleting message_queue %p\n", (void *)x);
-            delete x;
-        }
-    }
-
-    message_queue *add_producer() {
-        q.push_back(new message_queue);
-        return q.back();
-    }
-
-    void start_processing() {
-        //fprintf(stderr, "note: starting data_aggregator\n");
-        consumer_thread = std::thread( [this](){ consumer(); } );  // lambda just calls member function
-    }
-
     void process_event_queues() {
+        std::lock_guard m_guard{m};
         if (q.size()) {
             for (auto & qr : q) {
                 message *msg = qr->pop();
@@ -452,7 +439,36 @@ public:
         process_event_queues();
     }
 
-    void gzprint(gzFile f) { ag.gzprint(f); }
+public:
+
+    data_aggregator() : q{}, ag{}, shutdown_requested{false} {
+        start_processing();
+    }
+
+    ~data_aggregator() {
+        //fprintf(stderr, "note: halting data_aggregator\n");
+        stop_processing();
+        for (auto & x : q) {
+            //fprintf(stderr, "note: deleting message_queue %p\n", (void *)x);
+            delete x;
+        }
+    }
+
+    message_queue *add_producer() {
+        std::lock_guard m_guard{m};
+        q.push_back(new message_queue);
+        return q.back();
+    }
+
+    void start_processing() {
+        //fprintf(stderr, "note: starting data_aggregator\n");
+        consumer_thread = std::thread( [this](){ consumer(); } );  // lambda just calls member function
+    }
+
+    void gzprint(gzFile f) {
+        std::lock_guard m_guard{m};
+        ag.gzprint(f);
+    }
 };
 
 #endif // STATS_H
