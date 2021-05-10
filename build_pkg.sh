@@ -86,7 +86,7 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
         --after-remove ./install_mercury/postuninstall_rpm \
         ./install_mercury/mercury.service=/usr/lib/systemd/system/ \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
-        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
+        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/ \
         --depends libssl.so.10 \
         --depends libz.so.1
 fi
