@@ -80,8 +80,8 @@ if [ "$BUILDTYPE" == "deb" ]; then
         ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
 elif [ "$BUILDTYPE" == "rpm" ]; then
     fpm -s dir -t rpm $FPM_LINUX_OPTIONS \
-        --depends libssl.so.10 \
-        --depends libz.so.1    \
+        --depends 'libssl.so.10()(64bit)' \
+        --depends 'libz.so.1()(64bit)'    \
         --rpm-dist el7 \
         --rpm-attr 775,mercury,mercury:/usr/local/var/mercury \
         --description "$DESCRIPTION" \
