@@ -30,7 +30,7 @@ struct mercury {
     data_aggregator aggregator;
     classifier *c;
 
-    mercury(const struct libmerc_config *vars, int verbosity) {
+    mercury(const struct libmerc_config *vars, int verbosity) : c{nullptr} {
         global_vars = *vars;
         global_vars.resources = vars->resources;
         global_vars.packet_filter_cfg = vars->packet_filter_cfg;

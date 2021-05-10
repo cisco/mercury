@@ -166,6 +166,8 @@ struct libmerc_api {
     bool (*get_malware_info)(const analysis_context* ac, bool* probable_process_is_malware,
         double* probability_malware);
 
+    bool (*write_stats_data)(const char *stats_data_file_path);
+
     void* mercury_handle = nullptr;
 };
 
@@ -196,6 +198,7 @@ int mercury_bind(struct libmerc_api &mercury_api, const char *lib_path) {
         { "analysis_context_get_fingerprint_status", (dummy_func*)&mercury_api.get_fingerprint_status },
         { "analysis_context_get_process_info", (dummy_func*)&mercury_api.get_process_info },
         { "analysis_context_get_malware_info", (dummy_func*)&mercury_api.get_malware_info },
+        { "mercury_write_stats_data", (dummy_func*)&mercury_api.write_stats_data },
         { nullptr, nullptr }
     };
 
@@ -325,6 +328,9 @@ int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) 
         }
         fprintf(stderr, "joined all %zu threads\n", tid_array.size());
 
+        // write stats file
+        mercury.write_stats_data("libmerc_driver_stats.json.gz");
+
         // destroy mercury
         mercury.mercury_finalize(mc);
 
@@ -377,7 +383,6 @@ int double_bind_test(struct libmerc_config *config, struct libmerc_config *confi
 
         // create packet processing threads
         std::array<pthread_t, num_threads> tid_array;
-        //        std::array<unsigned int, num_threads> thread_number = { 0, 1, 2, 3, 4, 5, 6, 7 };
         packet_processor_state thread_state[num_threads] = {
              { 0, &mercury, mc },
              { 1, &mercury, mc },
@@ -393,10 +398,15 @@ int double_bind_test(struct libmerc_config *config, struct libmerc_config *confi
         }
         fprintf(stderr, "created all %zu threads\n", tid_array.size());
 
+        mercury.write_stats_data("libmerc_driver_stats_pre_join.json.gz");
+
         for (auto & t : tid_array) {
             pthread_join(t, NULL);
         }
         fprintf(stderr, "joined all %zu threads\n", tid_array.size());
+
+        // write stats file
+        mercury.write_stats_data("libmerc_driver_stats_post_join.json.gz");
 
         // destroy mercury
         mercury.mercury_finalize(mc);
