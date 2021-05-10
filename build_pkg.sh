@@ -69,24 +69,24 @@ FPM_LINUX_OPTIONS="-n mercury -v $VERSION --iteration $ITERATION\
 
 if [ "$BUILDTYPE" == "deb" ]; then
     fpm -s dir -t deb $FPM_LINUX_OPTIONS \
+        --depends libssl1.1 \
+        --depends zlib1g    \
         --deb-systemd ./install_mercury/mercury.service \
         --deb-no-default-config-files \
         --description "$DESCRIPTION" \
         --after-remove ./install_mercury/postuninstall_remove \
         --deb-after-purge ./install_mercury/postuninstall_purge \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
-        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/ \
-        --depends libssl1.1 \
-        --depends zlib1g
+        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
 elif [ "$BUILDTYPE" == "rpm" ]; then
     fpm -s dir -t rpm $FPM_LINUX_OPTIONS \
+        --depends libssl.so.10 \
+        --depends libz.so.1    \
         --rpm-dist el7 \
         --rpm-attr 775,mercury,mercury:/usr/local/var/mercury \
         --description "$DESCRIPTION" \
         --after-remove ./install_mercury/postuninstall_rpm \
         ./install_mercury/mercury.service=/usr/lib/systemd/system/ \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
-        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/ \
-        --depends libssl.so.10 \
-        --depends libz.so.1
+        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
 fi
