@@ -50,7 +50,7 @@ def read_merc_stats(in_file):
         r = json.loads(line)
         src_ip = r['src_ip']
         for x in r['fingerprints']:
-            str_repr = x['str_repr'][1:-1] # TODO: delete [1:-1], not needed if there aren't extra parens
+            str_repr = x['str_repr']
             for y in x['dest_info']:
                 dst_info = y['dst']
                 count    = y['count']
@@ -140,14 +140,14 @@ def main():
         print(f'error: merc_out count ({merc_count}) != merc_stats count ({merc_count_stats})')
         sys.exit(1)
 
-    print(merc_count)
-    print(merc_count_stats)
+    # print(merc_count)
+    # print(merc_count_stats)
 
     if compare_stats_dbs(merc_db, merc_db_stats) == False:
         print('error: stats database comparison failed')
         sys.exit(1)
 
-    print('success: stats databases match!')
+    print('success: stats databases match')
     sys.exit(0)
 
 
