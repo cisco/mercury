@@ -23,6 +23,16 @@
 
 #include "libmerc/libmerc.h"
 
+namespace snort {
+#define SO_PUBLIC
+
+    SO_PUBLIC void LogMessage(const char*, ...) __attribute__((format (printf, 1, 2)));
+    SO_PUBLIC void LogMessage(FILE*, const char*, ...) __attribute__((format (printf, 2, 3)));
+    SO_PUBLIC void WarningMessage(const char*, ...) __attribute__((format (printf, 1, 2)));
+    SO_PUBLIC void ErrorMessage(const char*, ...) __attribute__((format (printf, 1, 2)));
+
+    [[noreturn]] SO_PUBLIC void FatalError(const char*, ...) __attribute__((format (printf, 1, 2)));
+}
 
 unsigned char client_hello_eth[] = {
   0x00, 0x50, 0x56, 0xe0, 0xb0, 0xbc, 0x00, 0x0c, 0x29, 0x74, 0x82, 0x2f,

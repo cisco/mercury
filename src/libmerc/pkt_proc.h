@@ -16,7 +16,7 @@
 #include "analysis.h"
 #include "libmerc.h"
 
-extern struct mercury *global_context; // defined in libmerc.cc
+//extern struct mercury *global_context; // defined in libmerc.cc  // TODO: delete
 
 extern bool select_tcp_syn;                 // defined in extractor.cc
 
@@ -30,7 +30,7 @@ struct mercury {
     data_aggregator aggregator;
     classifier *c;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : c{nullptr} {
+    mercury(const struct libmerc_config *vars, int verbosity) : aggregator{}, c{nullptr} {
         global_vars = *vars;
         global_vars.resources = vars->resources;
         global_vars.packet_filter_cfg = vars->packet_filter_cfg;
@@ -66,10 +66,10 @@ struct stateful_pkt_proc {
     struct message_queue *mq;
     mercury_context m;
     classifier *c;
+    data_aggregator *ag;
     libmerc_config global_vars;
 
-    explicit stateful_pkt_proc(size_t prealloc_size=0,
-                               mercury_context mc=nullptr) :
+    explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
         tcp_flow_table{prealloc_size},
         reassembler{prealloc_size},
@@ -79,33 +79,38 @@ struct stateful_pkt_proc {
         mq{nullptr},
         m{mc},
         c{nullptr},
+        ag{nullptr},
         global_vars{}
     {
 
-        if (m == nullptr) { // TODO: eliminate or document
+        // if (m == nullptr) { // TODO: eliminate or document
 
-            if (global_context == nullptr) {
-                throw "error: global_context uninitialized in stateful_pkt_processor()";
-            }
-            // set config and classifier to (refer to) global context
-            //
-            //extern classifier *c;
-            this->c = global_context->c;
-            this->global_vars = global_context->global_vars;
+        //     if (global_context == nullptr) {
+        //         throw "error: global_context uninitialized in stateful_pkt_processor()";
+        //     }
+        //     // set config and classifier to (refer to) global context
+        //     //
+        //     //extern classifier *c;
+        //     this->c = global_context->c;
+        //     this->global_vars = global_context->global_vars;
 
-        } else {
+        // } else {
 
-            // set config and classifier to (refer to) context m
-            //
-            this->c = m->c;
-            this->global_vars = m->global_vars;
-
-            //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
+        // set config and classifier to (refer to) context m
+        //
+        if (m->c == nullptr && m->global_vars.do_analysis) {
+            throw "error: classifier pointer is null";
         }
+        this->c = m->c;
+        this->global_vars = m->global_vars;
 
-        extern data_aggregator aggregator;  // pkt_proc.cc
+        //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
+        // }
 
-        //        mq = aggregator.add_producer();  // TODO: restore aggregator
+        mq = m->aggregator.add_producer();
+        if (mq == nullptr) {
+            throw "error: could not initialize event queue";
+        }
 
 #ifndef USE_TCP_REASSEMBLY
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
@@ -114,6 +119,12 @@ struct stateful_pkt_proc {
       // #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
 #endif
 
+    }
+
+    ~stateful_pkt_proc() {
+        if (ag) {
+            ag->remove_producer(mq);
+        }
     }
 
     void finalize() {

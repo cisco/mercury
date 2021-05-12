@@ -324,6 +324,16 @@ int test_libmerc(const struct libmerc_config *config, int verbosity) {
     //
     mercury_packet_processor_destruct(m);
 
+    // write stats data to file
+    //
+    sleep(1);  // sleep to allow data to propagate through event queues
+    const char *stats_data_file_name = "merc_stats.json.gz";
+    if (mercury_write_stats_data(mc, stats_data_file_name) == false) {
+        fprintf(stderr, "error writing stats data file\n");
+        return EXIT_FAILURE;
+    }
+    fprintf(stdout, "wrote stats data file to '%s'\n", stats_data_file_name);
+
     // tear down library's global configuration
     //
     int retval = mercury_finalize(mc);
@@ -394,15 +404,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
         return EXIT_FAILURE;
     }
-
-    // test stats data writing
-    sleep(1);  // sleep to allow data to propagate through event queues
-    const char *stats_data_file_name = "merc_stats.json.gz";
-    if (mercury_write_stats_data(stats_data_file_name) == false) {
-        fprintf(stderr, "error writing stats data file\n");
-        return EXIT_FAILURE;
-    }
-    fprintf(stdout, "wrote stats data file to '%s'\n", stats_data_file_name);
 
     return 0;
 }

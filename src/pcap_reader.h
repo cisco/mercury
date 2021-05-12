@@ -29,12 +29,12 @@ struct pcap_reader_thread_context {
 
 enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_thread_context *tc,
                                                         struct mercury_config *cfg,
+                                                        mercury_context mc,
                                                         int tnum,
                                                         struct ll_queue *llq);
 
 void pcap_reader_thread_context_finalize(struct pcap_reader_thread_context *tc);
 
-
-enum status open_and_dispatch(struct mercury_config *cfg, struct output_file *of);
+enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, struct output_file *of);
 
 #endif /* PCAP_READER_H */

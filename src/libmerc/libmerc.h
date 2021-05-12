@@ -453,6 +453,9 @@ bool mercury_get_stats_data(void **data_ptr, size_t *num_bytes_ptr);
 /**
  * mercury_write_stats_data()
  *
+ * @param mercury_context is the context associated with the stats
+ * data to be written out.
+ *
  * @param stats_data_file_path (input) is a pointer to an ASCII
  * character string holding the path to the file to which stats data
  * is to be written.
@@ -473,7 +476,7 @@ bool mercury_get_stats_data(void **data_ptr, size_t *num_bytes_ptr);
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-bool mercury_write_stats_data(const char *stats_data_file_path);
+bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_path);
 
 
 enum status {

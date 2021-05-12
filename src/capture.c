@@ -14,14 +14,12 @@
  * AF_PACKET TPACKETv3 is not available.  In the future, it may be
  * replaced by a more functional alternative.
  */
-enum status bind_and_dispatch(struct mercury_config *cfg,
-			      struct output_file *out_ctx) {
+enum status bind_and_dispatch(struct mercury_config *,
+                              mercury_context,
+                              struct output_file *) {
 
-  (void)cfg;     // suppress compiler warnings
-  (void)out_ctx;
-  
   fprintf(stderr, "error: packet capture is unavailable; AF_PACKET TPACKETv3 not present\n");
-  
+
   return status_err;
 }
 

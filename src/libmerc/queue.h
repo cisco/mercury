@@ -52,9 +52,10 @@ public:
         std::unique_lock<std::mutex> m_lock(m);
         if (is_full()) {
             err_count++;
-            //fprintf(stderr, "%s: no room in queue %p\n", __func__, (void *)this);
+            fprintf(stderr, "%s: queue %p is full\n", __func__, (void *)this);
             return false; // error: no room in queue
         }
+        //fprintf(stderr, "%s: queue size: %zd\n", __func__, size());
         if (msg_buf[last].copy(data, data_length)) {
             increment(last);
             //fprintf(stderr, "%s (length %zu)\n", __func__, data_length);
@@ -67,6 +68,7 @@ public:
 
     message *pop() {
         std::unique_lock<std::mutex> m_lock(m);
+        //fprintf(stderr, "%s: queue size: %zd\n", __func__, size());
         if (is_empty()) {
             return nullptr;
         }

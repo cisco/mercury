@@ -303,10 +303,14 @@ public:
         char compressed_fp_buf[9];
         fp_dict.compress(fp, compressed_fp_buf);
 
-        s.clear();
-        s.append(head).append("#");
-        s.append(compressed_fp_buf).append("#");
-        s.append(tail);
+        //fprintf(stderr, "%s\t%s\t%s\n", s.c_str(), head, compressed_fp_buf);
+
+        // create new string (in a tmp, to avoid overlapping append() calls) then return it
+        std::string tmp;
+        tmp.append(head).append("#");
+        tmp.append(compressed_fp_buf).append("#");
+        tmp.append(tail);
+        s = tmp;
 
         //fprintf(stderr, "compressed event string: %s\n", s.c_str());
     }
@@ -398,6 +402,14 @@ class data_aggregator {
     // message_queues has stopped
     //
     void stop_processing() {
+
+        // shut down consumer thread
+        shutdown_requested.store(true);
+        if(consumer_thread.joinable()) {
+             consumer_thread.join();
+        }
+
+        // write stats data to file
         if (!ag.is_empty()) {
             gzFile gzf = gzopen("stats.gz", "w");  // TODO: remove hardcoded name
             if (gzf) {
@@ -405,49 +417,51 @@ class data_aggregator {
                 gzclose(gzf);
             }
         }
-        shutdown_requested.store(true);
-        if(consumer_thread.joinable()) {
-             consumer_thread.join();
+    }
+
+    void empty_event_queue(message_queue *q) {
+        //fprintf(stderr, "note: emptying message queue in %p\n", (void *)this);
+        message *msg = q->pop();
+        while (msg) {
+            //fprintf(stderr, "note: got message\n");
+            std::string event{(char *)msg->buffer, msg->length};  // TODO: move string constructor outside of loop
+            ag.observe_event_string(event);
+            msg = q->pop();
         }
     }
 
     void process_event_queues() {
         std::lock_guard m_guard{m};
+        //fprintf(stderr, "note: processing event queue of size %zd in %p\n", q.size(), (void *)this);
         if (q.size()) {
             for (auto & qr : q) {
-                message *msg = qr->pop();
-                if (msg) {
-                    //fprintf(stderr, "note: got message %zu\t'%.*s'\n", count++, (int)msg->length, msg->buffer);
-                    std::string event{(char *)msg->buffer, msg->length};  // TODO: move string constructor outside of loop
-                    ag.observe_event_string(event);
-                } else {
-                    //fprintf(stderr, "consumer thread saw empty queue\n");
-                }
+                //fprintf(stderr, "note: processing event queue %p in %p with size %zd\n", (void *)qr, (void *)this, qr->size());
+                empty_event_queue(qr);
             }
-        } else {
-            //fprintf(stderr, "consumer thread has no queues (yet)\n");
         }
     }
 
     void consumer() {
-        //fprintf(stderr, "note: running consumer()\n");
+        //fprintf(stderr, "note: running consumer in %p\n", (void *)this);
         //size_t count = 0;
         while(shutdown_requested.load() == false) {
             process_event_queues();
             usleep(50); // sleep for fifty microseconds
         }
-        process_event_queues();
     }
 
 public:
 
     data_aggregator() : q{}, ag{}, shutdown_requested{false} {
         start_processing();
+        //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
     }
 
     ~data_aggregator() {
-        //fprintf(stderr, "note: halting data_aggregator\n");
+        //fprintf(stderr, "note: destructing data_aggregator %p\n", (void *)this);
         stop_processing();
+
+        // delete message_queues, if any
         for (auto & x : q) {
             //fprintf(stderr, "note: deleting message_queue %p\n", (void *)x);
             delete x;
@@ -456,8 +470,28 @@ public:
 
     message_queue *add_producer() {
         std::lock_guard m_guard{m};
+        //fprintf(stderr, "note: adding producer in %p\n", (void *)this);
         q.push_back(new message_queue);
         return q.back();
+    }
+
+    void remove_producer(message_queue *p) {
+        if (p == nullptr) {
+            return;
+        }
+        std::lock_guard m_guard{m};
+        //fprintf(stderr, "note: removing producer in %p\n", (void *)this);
+        empty_event_queue(p);
+        for (std::vector<message_queue *>::iterator it = q.begin(); it < q.end(); it++) {
+            if (*it == p) {
+                //fprintf(stderr, "%s: deleting and erasing message_queue p=%p in %p\n", __func__, (void *)p, (void *)this);
+                delete *it;
+                q.erase(it);
+            }
+        }
+        if (q.size() == 0) {
+            shutdown_requested.store(true);  // time to close up shop
+        }
     }
 
     void start_processing() {

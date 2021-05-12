@@ -35,8 +35,6 @@ const char *mercury_get_resource_version(struct mercury *mc) {
     return nullptr;
 }
 
-struct mercury *global_context = nullptr;
-
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
@@ -49,9 +47,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     try {
 
         m = new mercury{vars, verbosity};
-        global_context = m;
-
-        return m; // TBD
+        return m;
 
     }
     catch (const char *s) {
@@ -365,8 +361,11 @@ enum status proto_ident_config(const char *config_string) {
 
 mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) {
     try {
-        stateful_pkt_proc *tmp = new stateful_pkt_proc{0, mc};
+        stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
         return tmp;
+    }
+    catch (const char *s) {
+        fprintf(stderr, "%s\n", s);
     }
     catch (...) {
         ; // error, return NULL
@@ -385,20 +384,18 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     }
 }
 
-bool mercury_write_stats_data(const char *stats_data_file_path) {
+bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_path) {
 
-    if (stats_data_file_path == NULL) {
+    if (mc == NULL || stats_data_file_path == NULL) {
         return false;
     }
-
-    extern data_aggregator aggregator; // defined in pkt_proc.cc
 
     gzFile stats_data_file = gzopen(stats_data_file_path, "w");
     if (stats_data_file == nullptr) {
         fprintf(stderr, "error: could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
         return false;
     }
-    aggregator.gzprint(stats_data_file);
+    mc->aggregator.gzprint(stats_data_file);
     gzclose(stats_data_file);
 
     return true;

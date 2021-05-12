@@ -540,13 +540,13 @@ int main(int argc, char *argv[]) {
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
-        if (bind_and_dispatch(&cfg, &out_file) != status_ok) {
+        if (bind_and_dispatch(&cfg, mc, &out_file) != status_ok) {
             fprintf(stderr, "error: bind and dispatch failed\n");
             return EXIT_FAILURE;
         }
     } else if (cfg.read_filename) {
 
-        if (open_and_dispatch(&cfg, &out_file) != status_ok) {
+        if (open_and_dispatch(&cfg, mc, &out_file) != status_ok) {
             return EXIT_FAILURE;
         }
     }

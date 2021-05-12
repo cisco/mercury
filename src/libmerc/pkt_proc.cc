@@ -33,12 +33,6 @@
 #include "buffer_stream.h"
 #include "stats.h"
 
-// aggregator is a global data structure holding all of the statistics
-// on traffic observations, as well as the message queues needed to
-// send data to the aggregator.
-//
-struct data_aggregator aggregator;
-
 double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
@@ -744,8 +738,8 @@ struct do_observation {
         k_.sprint_dst_port(dst_port_str);
         std::string event_string;
         event_string.append("(");
-        event_string.append(src_ip_str).append(")#(");
-        event_string.append(analysis_.fp.fp_str).append(")#(");
+        event_string.append(src_ip_str).append(")#");
+        event_string.append(analysis_.fp.fp_str).append("#(");
         event_string.append(analysis_.destination.sn_str).append(")(");
         event_string.append(analysis_.destination.dst_ip_str).append(")(");
         event_string.append(dst_port_str).append(")");
@@ -889,7 +883,9 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             // configured, because we rely on do_analysis to set the
             // analysis_.destination
             //
-            //  std::visit(do_observation{k, analysis, mq}, x);  // TODO: restore aggregator
+            if (mq) {
+                std::visit(do_observation{k, analysis, mq}, x);
+            }
         }
 
         if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return; } // TODO - expose hidden command
