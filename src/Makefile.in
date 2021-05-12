@@ -83,6 +83,7 @@ MERC   += signal_handling.c
 MERC_H =  mercury.h
 MERC_H += af_packet_v3.h
 MERC_H += config.h
+MERC_H += control.h
 MERC_H += json_file_io.h
 MERC_H += llq.h
 MERC_H += output.h

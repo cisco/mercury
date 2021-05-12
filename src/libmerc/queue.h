@@ -17,7 +17,7 @@ struct message {
 
     bool copy(const uint8_t *data, size_t data_length) {
         if (data_length > sizeof(buffer)) {
-            fprintf(stderr, "error: data too long in %s (length: %zu)\n", __func__, data_length);
+            // fprintf(stderr, "error: data too long in %s (length: %zu)\n", __func__, data_length);
             return false;  // error: data too long
         }
         memcpy(buffer, data, data_length);
@@ -25,7 +25,6 @@ struct message {
         return true;
     }
 };
-
 
 class message_queue {
     std::mutex m;
@@ -52,7 +51,7 @@ public:
         std::unique_lock<std::mutex> m_lock(m);
         if (is_full()) {
             err_count++;
-            fprintf(stderr, "%s: queue %p is full\n", __func__, (void *)this);
+            //fprintf(stderr, "%s: queue %p is full\n", __func__, (void *)this);
             return false; // error: no room in queue
         }
         //fprintf(stderr, "%s: queue size: %zd\n", __func__, size());

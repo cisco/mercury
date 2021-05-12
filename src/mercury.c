@@ -24,6 +24,7 @@
 #include "config.h"
 #include "output.h"
 #include "rnd_pkt_drop.h"
+#include "control.h"
 
 char mercury_help[] =
     "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
@@ -44,6 +45,7 @@ char mercury_help[] =
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   --resources=f                         # use resource file f\n"
+    "   --stats=f                             # write stats to file f\n"
     "   [-s or --select] filter               # select traffic by filter (see --help)\n"
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
@@ -193,11 +195,12 @@ int main(int argc, char *argv[]) {
     extern double malware_prob_threshold;  // TODO - expose hidden command
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
             { "resources",   required_argument, NULL, resources },
+            { "stats",       required_argument, NULL, write_stats },
             { "version",     no_argument,       NULL, version },
             { "license",     no_argument,       NULL, license },
             { "dns-json",    no_argument,       NULL, dns_json },
@@ -238,6 +241,13 @@ int main(int argc, char *argv[]) {
                 libmerc_cfg.resources = optarg;
             } else {
                 usage(argv[0], "option resources requires directory argument", extended_help_off);
+            }
+            break;
+        case write_stats:
+            if (option_is_valid(optarg)) {
+                cfg.stats_filename = optarg;
+            } else {
+                usage(argv[0], "option stats requires filename argument", extended_help_off);
             }
             break;
         case version:
@@ -529,6 +539,11 @@ int main(int argc, char *argv[]) {
     /* init random number generator */
     srand(time(0));
 
+    controller *ctl = nullptr;
+    if (cfg.stats_filename) {
+        ctl = new controller{mc, "mercury-stats.json.gz", 2};
+    }
+
     pthread_t output_thread;
     struct output_file out_file;
     if (output_thread_init(output_thread, out_file, cfg) != 0) {
@@ -557,6 +572,10 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
     }
     output_thread_finalize(output_thread, &out_file);
+
+    if (ctl) {
+        delete ctl;
+    }
 
     return 0;
 }

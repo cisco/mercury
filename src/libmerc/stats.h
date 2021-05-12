@@ -443,7 +443,6 @@ class data_aggregator {
 
     void consumer() {
         //fprintf(stderr, "note: running consumer in %p\n", (void *)this);
-        //size_t count = 0;
         while(shutdown_requested.load() == false) {
             process_event_queues();
             usleep(50); // sleep for fifty microseconds
