@@ -91,6 +91,7 @@ MERC_H += pkt_processing.h
 MERC_H += pcap_file_io.h
 MERC_H += pcap_reader.h
 MERC_H += rnd_pkt_drop.h
+MERC_H += rotator.h
 MERC_H += signal_handling.h
 
 MERC_OBJ = $(MERCC:%.cc=%.o) $(MERC:%.c=%.o)

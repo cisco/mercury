@@ -541,7 +541,7 @@ int main(int argc, char *argv[]) {
 
     controller *ctl = nullptr;
     if (cfg.stats_filename) {
-        ctl = new controller{mc, "mercury-stats.json.gz", 2};
+        ctl = new controller{mc, cfg.stats_filename, 30};
     }
 
     pthread_t output_thread;
