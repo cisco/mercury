@@ -393,10 +393,11 @@ public:
 
 class data_aggregator {
     std::vector<class message_queue *> q;
-    stats_aggregator ag;
+    stats_aggregator ag1, ag2, *ag;
     std::atomic<bool> shutdown_requested;
     std::thread consumer_thread;
     std::mutex m;
+    std::mutex output_mutex;
 
     // stop_processing() MUST NOT be called until all writing to the
     // message_queues has stopped
@@ -409,8 +410,10 @@ class data_aggregator {
              consumer_thread.join();
         }
 
+        return; // TODO: do we want the write-out step below?
+
         // write stats data to file
-        if (!ag.is_empty()) {
+        if (!ag->is_empty()) {
             gzFile gzf = gzopen("stats.gz", "w");  // TODO: remove hardcoded name
             if (gzf) {
                 gzprint(gzf);
@@ -425,7 +428,7 @@ class data_aggregator {
         while (msg) {
             //fprintf(stderr, "note: got message\n");
             std::string event{(char *)msg->buffer, msg->length};  // TODO: move string constructor outside of loop
-            ag.observe_event_string(event);
+            ag->observe_event_string(event);
             msg = q->pop();
         }
     }
@@ -451,7 +454,7 @@ class data_aggregator {
 
 public:
 
-    data_aggregator() : q{}, ag{}, shutdown_requested{false} {
+    data_aggregator() : q{}, ag1{}, ag2{}, ag{&ag1}, shutdown_requested{false} {
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
     }
@@ -499,8 +502,26 @@ public:
     }
 
     void gzprint(gzFile f) {
-        std::lock_guard m_guard{m};
-        ag.gzprint(f);
+
+        // ensure that only one print function is running at a time
+        //
+        std::lock_guard output_guard{output_mutex};
+
+        // swap ag pointer, so that we can print out the previously
+        // gathered data while new events are tracked in the other
+        // stats_aggregator
+        //
+        stats_aggregator *tmp = ag;
+        {
+            std::lock_guard m_guard{m};
+            tmp = ag;
+            if (ag == &ag1) {
+                ag = &ag2;
+            } else {
+                ag = &ag1;
+            }
+        }
+        tmp->gzprint(f);
     }
 };
 

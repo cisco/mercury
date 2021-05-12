@@ -566,6 +566,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (ctl) {
+        delete ctl;  // delete control thread, which will flush stats output (if any)
+    }
+
     mercury_finalize(mc);
 
     if (cfg.verbosity) {
@@ -573,9 +577,6 @@ int main(int argc, char *argv[]) {
     }
     output_thread_finalize(output_thread, &out_file);
 
-    if (ctl) {
-        delete ctl;
-    }
 
     return 0;
 }
