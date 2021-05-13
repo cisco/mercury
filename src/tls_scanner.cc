@@ -840,6 +840,18 @@ public:
                     fprintf(stdout, "cache-control header: %.*s\n", (int)cache_control.length(), cache_control.data);
                 }
 
+                std::basic_string<uint8_t> ct = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 't', 'y', 'p', 'e', ':', ' ' };
+                struct datum content_type = response.get_header(ct);
+                if (content_type.is_not_empty()) {
+                    fprintf(stderr, "content-type: %.*s\n", (int)content_type.length(), content_type.data);
+
+                    uint8_t app_type_dns[] = { 'a', 'p', 'p', 'l', 'i', 'c', 'a', 't', 'i', 'o', 'n', '/', 'd', 'n', 's', '-', 'm', 'e', 's', 's', 'a', 'g', 'e' };
+                    struct datum app_type_dns_datum{app_type_dns, app_type_dns + sizeof(app_type_dns)};
+                    if (content_type.case_insensitive_match(app_type_dns_datum)) {
+                        fprintf(stderr, "got DNS response\n");
+                    }
+                }
+
                 if (print_response_body) { // || response.status_code.compare("301", 3) == 0 || response.status_code.compare("302", 3) == 0 ) {
                     // print out redirect data
                     fprintf(stdout, "body: %.*s\n", (int)http.length(), http.data);
