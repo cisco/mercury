@@ -325,24 +325,14 @@ class stats_aggregator {
     std::unordered_map<std::string, uint64_t> event_table;
     event_encoder encoder;
     std::string observation;  // used as preallocated temporary variable
+    size_t num_entries;
+    size_t max_entries;
 
 public:
 
-    stats_aggregator() : event_table{}, encoder{}, observation{} {  }
+    stats_aggregator(size_t size_limit) : event_table{}, encoder{}, observation{}, num_entries{0}, max_entries{size_limit} { }
 
     ~stats_aggregator() {  }
-
-    void observe(const char *src_ip, const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
-
-        encoder.set_string(observation, src_ip, fp_str, server_name, dst_ip, dst_port);
-        //fprintf(stdout, "event string %s\tlength: %zu\n", observation.c_str(), observation.length());
-        const auto entry = event_table.find(observation);
-        if (entry != event_table.end()) {
-            entry->second = entry->second + 1;
-        } else {
-            event_table.emplace(observation, 1);  // TODO: check return value for allocation failure
-        }
-    }
 
     void observe_event_string(std::string &obs) {
 
@@ -352,7 +342,11 @@ public:
         if (entry != event_table.end()) {
             entry->second = entry->second + 1;
         } else {
+            if (max_entries && num_entries >= max_entries) {
+                return;  // don't go over the max_entries limit
+            }
             event_table.emplace(obs, 1);  // TODO: check return value for allocation failure
+            ++num_entries;
         }
     }
 
@@ -373,6 +367,7 @@ public:
 
         std::vector<std::pair<std::string, uint64_t>> v(event_table.begin(), event_table.end());
         event_table.clear();
+        num_entries = 0;
         std::sort(v.begin(), v.end(), [](auto &l, auto &r){ return l.first < r.first; } );
 
         event_processor_gz ep(f);
@@ -410,16 +405,7 @@ class data_aggregator {
              consumer_thread.join();
         }
 
-        return; // TODO: do we want the write-out step below?
-
-        // write stats data to file
-        if (!ag->is_empty()) {
-            gzFile gzf = gzopen("stats.gz", "w");  // TODO: remove hardcoded name
-            if (gzf) {
-                gzprint(gzf);
-                gzclose(gzf);
-            }
-        }
+        return;
     }
 
     void empty_event_queue(message_queue *q) {
@@ -454,7 +440,7 @@ class data_aggregator {
 
 public:
 
-    data_aggregator() : q{}, ag1{}, ag2{}, ag{&ag1}, shutdown_requested{false} {
+    data_aggregator(size_t size_limit=0) : q{}, ag1{size_limit}, ag2{size_limit}, ag{&ag1}, shutdown_requested{false} {
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
     }
@@ -465,7 +451,7 @@ public:
 
         // delete message_queues, if any
         for (auto & x : q) {
-            //fprintf(stderr, "note: deleting message_queue %p\n", (void *)x);
+            //fprintf(stderr, "%s: deleting message_queue %p\n", __func__, (void *)x);
             delete x;
         }
     }

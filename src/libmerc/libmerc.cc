@@ -47,7 +47,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     try {
 
         m = new mercury{vars, verbosity};
-        return m;
+        return m;  // success
 
     }
     catch (const char *s) {

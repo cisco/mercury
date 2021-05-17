@@ -195,7 +195,7 @@ int main(int argc, char *argv[]) {
     extern double malware_prob_threshold;  // TODO - expose hidden command
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -208,6 +208,7 @@ int main(int argc, char *argv[]) {
             { "metadata",    no_argument,       NULL, metadata },
             { "nonselected-tcp-data", no_argument, NULL, tcp_init_data },
             { "nonselected-udp-data", no_argument, NULL, udp_init_data },
+            { "stats-limit", required_argument, NULL, stats_limit },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -246,6 +247,7 @@ int main(int argc, char *argv[]) {
         case write_stats:
             if (option_is_valid(optarg)) {
                 cfg.stats_filename = optarg;
+                libmerc_cfg.do_stats = true;
             } else {
                 usage(argv[0], "option stats requires filename argument", extended_help_off);
             }
@@ -415,6 +417,17 @@ int main(int argc, char *argv[]) {
                 }
             } else {
                 usage(argv[0], "option l or limit requires a numeric argument", extended_help_off);
+            }
+            break;
+        case stats_limit:
+            if (option_is_valid(optarg)) {
+                errno = 0;
+                libmerc_cfg.max_stats_entries = strtol(optarg, NULL, 10);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                }
+            } else {
+                usage(argv[0], "option stats-limit requires a numeric argument", extended_help_off);
             }
             break;
         case 'p':

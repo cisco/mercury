@@ -51,6 +51,7 @@ struct libmerc_config {
         certs_json_output{false},
         metadata_output{false},
         do_analysis{false},
+        do_stats{false},
         report_os{false},
         output_tcp_initial_data{false},
         output_udp_initial_data{false},
@@ -59,7 +60,8 @@ struct libmerc_config {
         key_type{enc_key_type_none},
         packet_filter_cfg{NULL},
         fp_proc_threshold{0.0},
-        proc_dst_threshold{0.0}
+        proc_dst_threshold{0.0},
+        max_stats_entries{0}
     {}
 #endif
 
@@ -67,6 +69,7 @@ struct libmerc_config {
     bool certs_json_output;       /* output certificates as JSON  */
     bool metadata_output;         /* output lots of metadata      */
     bool do_analysis;             /* write analysys{} JSON object */
+    bool do_stats;                /* gather src/fp/dst statistics */
     bool report_os;               /* report oses in analysis JSON */
     bool output_tcp_initial_data; /* write initial data field     */
     bool output_udp_initial_data; /* write initial data field     */
@@ -79,6 +82,7 @@ struct libmerc_config {
 
     float fp_proc_threshold;   /* remove processes with less than <var> weight    */
     float proc_dst_threshold;  /* remove destinations with less than <var> weight */
+    size_t max_stats_entries;  /* max num entries in stats tables                 */
 };
 
 /**
@@ -86,7 +90,7 @@ struct libmerc_config {
  * minimal, default configuration.
  */
 #ifndef __cplusplus
-#define libmerc_config_init() {false,false,false,false,false,false,false,NULL,NULL,enc_key_type_none,NULL,0.0,0.0}
+#define libmerc_config_init() {false,false,false,false,false,false,false,false,NULL,NULL,enc_key_type_none,NULL,0.0,0.0,0}
 #endif
 
 

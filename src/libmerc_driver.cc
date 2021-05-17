@@ -176,7 +176,7 @@ struct libmerc_api {
     bool (*get_malware_info)(const analysis_context* ac, bool* probable_process_is_malware,
         double* probability_malware);
 
-    bool (*write_stats_data)(const char *stats_data_file_path);
+    bool (*write_stats_data)(mercury_context mc, const char *stats_data_file_path);
 
     void* mercury_handle = nullptr;
 };
@@ -339,7 +339,7 @@ int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) 
         fprintf(stderr, "joined all %zu threads\n", tid_array.size());
 
         // write stats file
-        mercury.write_stats_data("libmerc_driver_stats.json.gz");
+        mercury.write_stats_data(mc, "libmerc_driver_stats.json.gz");
 
         // destroy mercury
         mercury.mercury_finalize(mc);
@@ -408,7 +408,8 @@ int double_bind_test(struct libmerc_config *config, struct libmerc_config *confi
         }
         fprintf(stderr, "created all %zu threads\n", tid_array.size());
 
-        mercury.write_stats_data("libmerc_driver_stats_pre_join.json.gz");
+        mercury.write_stats_data(mc, "libmerc_driver_stats_pre_join.json.gz");
+        mercury.write_stats_data(mc_alt, "libmerc_driver_stats_pre_join_alt.json.gz");
 
         for (auto & t : tid_array) {
             pthread_join(t, NULL);
@@ -416,7 +417,8 @@ int double_bind_test(struct libmerc_config *config, struct libmerc_config *confi
         fprintf(stderr, "joined all %zu threads\n", tid_array.size());
 
         // write stats file
-        mercury.write_stats_data("libmerc_driver_stats_post_join.json.gz");
+        mercury.write_stats_data(mc, "libmerc_driver_stats_post_join.json.gz");
+        mercury.write_stats_data(mc_alt, "libmerc_driver_stats_post_join_alt.json.gz");
 
         // destroy mercury
         mercury.mercury_finalize(mc);

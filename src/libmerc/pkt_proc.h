@@ -30,7 +30,7 @@ struct mercury {
     data_aggregator aggregator;
     classifier *c;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : aggregator{}, c{nullptr} {
+    mercury(const struct libmerc_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr} {
         global_vars = *vars;
         global_vars.resources = vars->resources;
         global_vars.packet_filter_cfg = vars->packet_filter_cfg;
@@ -83,19 +83,6 @@ struct stateful_pkt_proc {
         global_vars{}
     {
 
-        // if (m == nullptr) { // TODO: eliminate or document
-
-        //     if (global_context == nullptr) {
-        //         throw "error: global_context uninitialized in stateful_pkt_processor()";
-        //     }
-        //     // set config and classifier to (refer to) global context
-        //     //
-        //     //extern classifier *c;
-        //     this->c = global_context->c;
-        //     this->global_vars = global_context->global_vars;
-
-        // } else {
-
         // set config and classifier to (refer to) context m
         //
         if (m->c == nullptr && m->global_vars.do_analysis) {
@@ -107,9 +94,12 @@ struct stateful_pkt_proc {
         //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         // }
 
-        mq = m->aggregator.add_producer();
-        if (mq == nullptr) {
-            throw "error: could not initialize event queue";
+        if (global_vars.do_stats) {
+            ag = &m->aggregator;
+            mq = ag->add_producer();
+            if (mq == nullptr) {
+                throw "error: could not initialize event queue";
+            }
         }
 
 #ifndef USE_TCP_REASSEMBLY
@@ -122,11 +112,11 @@ struct stateful_pkt_proc {
     }
 
     ~stateful_pkt_proc() {
-        if (ag) {
-            ag->remove_producer(mq);
-        }
+        // we could call ag->remote_procuder(mq), but for now we do not
     }
 
+    // TODO: the count_all() functions should probably be removed
+    //
     void finalize() {
         reassembler.count_all();
         tcp_flow_table.count_all();
