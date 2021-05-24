@@ -184,7 +184,8 @@ struct libmerc_api {
 libmerc_api mercury{};
 
 int mercury_bind(struct libmerc_api &mercury_api, const char *lib_path) {
-    if ((mercury_api.mercury_handle = dlopen(lib_path, RTLD_NOW|RTLD_LOCAL)) == nullptr) {
+    //    if ((mercury_api.mercury_handle = dlopen(lib_path, RTLD_NOW|RTLD_LOCAL)) == nullptr) {
+    if ((mercury_api.mercury_handle = dlopen(lib_path, RTLD_LAZY|RTLD_GLOBAL)) == nullptr) {
         const char *dlerr = dlerror();
         fprintf(stderr, "mercury: failed to load %s: %s\n", lib_path, dlerr ? dlerr : "unknown error");
         return -1; // error
@@ -445,11 +446,13 @@ int main(int , char *[]) {
     //
     libmerc_config config{};
     config.do_analysis = true;
+    config.do_stats = true;
     std::string resources_path = "../resources/resources.tgz";
     config.resources = (char*) resources_path.c_str();
 
     libmerc_config config_lite{};
     config_lite.do_analysis = true;
+    config_lite.do_stats = true;
     std::string resources_lite_path = "../resources/resources_lite.tgz";
     config_lite.resources = (char*) resources_lite_path.c_str();
 

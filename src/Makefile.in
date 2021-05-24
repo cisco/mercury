@@ -214,7 +214,7 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 
 libmerc_driver: clean debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in
 	$(CXX) $(CFLAGS) libmerc_driver.cc -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -ldl -fsanitize=address -lasan -o libmerc_driver
-	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
+	@echo $(COLOR_GREEN) "To run libmerc_driver, export LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/9/libasan.so:/usr/lib/x86_64-linux-gnu/libcrypto.so:/usr/lib/x86_64-linux-gnu/libssl.so:/usr/lib/x86_64-linux-gnu/libz.so" $(COLOR_OFF)
 
 
 # special targets
