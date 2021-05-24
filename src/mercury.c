@@ -46,6 +46,7 @@ char mercury_help[] =
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   --resources=f                         # use resource file f\n"
     "   --stats=f                             # write stats to file f\n"
+    "   --stats-limit=L                       # limit stats to L entries f\n"
     "   [-s or --select] filter               # select traffic by filter (see --help)\n"
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
@@ -501,6 +502,12 @@ int main(int argc, char *argv[]) {
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
+    }
+    if (libmerc_cfg.max_stats_entries && cfg.stats_filename == NULL) {
+        usage(argv[0], "stats-limit set, but no stats file specified", extended_help_off);
+    }
+    if (cfg.stats_filename != NULL && !libmerc_cfg.do_analysis) {
+        usage(argv[0], "stats option requires --analysis", extended_help_off);
     }
 
     if (cfg.read_filename) {
