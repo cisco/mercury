@@ -184,8 +184,8 @@ struct libmerc_api {
 libmerc_api mercury{};
 
 int mercury_bind(struct libmerc_api &mercury_api, const char *lib_path) {
-    //    if ((mercury_api.mercury_handle = dlopen(lib_path, RTLD_NOW|RTLD_LOCAL)) == nullptr) {
-    if ((mercury_api.mercury_handle = dlopen(lib_path, RTLD_LAZY|RTLD_GLOBAL)) == nullptr) {
+
+    if ((mercury_api.mercury_handle = dlopen(lib_path, RTLD_LAZY|RTLD_LOCAL)) == nullptr) {
         const char *dlerr = dlerror();
         fprintf(stderr, "mercury: failed to load %s: %s\n", lib_path, dlerr ? dlerr : "unknown error");
         return -1; // error

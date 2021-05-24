@@ -129,7 +129,7 @@ LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
 libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o -lz -lcrypto
 	$(STRIP) libmerc.so
 	ldconfig -n .
 
