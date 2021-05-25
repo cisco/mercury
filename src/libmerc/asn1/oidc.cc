@@ -346,7 +346,7 @@ void parse_asn1_line(std::list<std::string> &tokens) {
      *    string string ::= { string+ number+ }
      */
 
-#if 0
+#ifdef DEBUG_ASN1_PARSER
 
     for (auto t: tokens) {
         cout << "token\t" << t << "\t";

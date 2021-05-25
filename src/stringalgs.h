@@ -225,10 +225,6 @@ template <typename T> struct longest_common_subsequence {
                 i--;
                 j--;
             }
-            if (0) {
-                printf("error: no L conditions matched (L(i-1, j-1)+1: %u, L(i,j): %u)\n", L(i-1, j-1) + 1, L(i,j));
-                break;
-            }
             if (i == 0 || j == 0) {
                 break;
             }
@@ -253,10 +249,6 @@ template <typename T> struct longest_common_subsequence {
                 result.push_back(a[i-1]);
                 i--;
                 j--;
-            }
-            if (0) {
-                printf("error: no L conditions matched (L(i-1, j-1)+1: %u, L(i,j): %u)\n", L(i-1, j-1) + 1, L(i,j));
-                break;
             }
             if (i == 0 || j == 0) {
                 break;

@@ -293,12 +293,11 @@ public:
         c++;                     // advance past #
         const char *tail = c;
 
-#if 1 // def ANON_SRC_IP
-        // compress source address string, for anonymization
+        // compress source address string, for anonymization (regardless of ANON_SRC_IP)
         char src_addr_buf[9];
         addr_dict.compress(head, src_addr_buf);
         head = src_addr_buf;
-#endif
+
         // compress fingerprint string
         char compressed_fp_buf[9];
         fp_dict.compress(fp, compressed_fp_buf);

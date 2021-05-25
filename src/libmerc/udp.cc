@@ -203,28 +203,3 @@ enum udp_msg_type udp_get_message_type(const uint8_t *udp_data,
 #define L_udp_checksum 2
 
 
-#if 0
-#define VXLAN_PORT 4789
-/*
- *  VXLAN Header:
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |R|R|R|R|I|R|R|R|            Reserved                           |
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |                VXLAN Network Identifier (VNI) |   Reserved    |
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-#define VXLAN_HDR_LEN 8
-
-unsigned int packet_filter_process_vxlan(struct packet_filter *pf, struct key *k) {
-    struct datum *p = &pf->p;
-    if (parser_skip(p, VXLAN_HDR_LEN) != status_ok) {
-        return 0;
-    }
-    /*
-     * note: we ignore the VXLAN Network Identifier for now, which
-     * makes little difference as long as they are all identical
-     */
-    return packet_filter_process_packet(pf, k);
-}
-#endif // 0

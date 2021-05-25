@@ -298,6 +298,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 }
             }
             break;
+        case udp_msg_type_vxlan:
+            {
+                // TBD: skip VXLAN header, then parse inner packet
+            }
+            break;
         case udp_msg_type_dtls_server_hello:
         case udp_msg_type_dtls_certificate:
             // cases that fall through here are not yet supported

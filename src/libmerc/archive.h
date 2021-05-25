@@ -24,18 +24,8 @@
 #include "datum.h"
 
 // for debugging
-
+//
 void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len);
-#if 0
-void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-
-    while (x < end) {
-        fprintf(f, "%02x", *x++);
-    }
-}
-#endif
 
 #define print_field(f, F) fprintf(f, #F ":\t%.*s\n", (int)sizeof(F), F)
 

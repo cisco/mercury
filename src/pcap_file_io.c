@@ -57,7 +57,7 @@ struct pcap_packet_hdr {
     uint32_t ts_usec;        /* timestamp microseconds */
     uint32_t incl_len;       /* number of octets of packet saved in file */
     uint32_t orig_len;       /* actual length of packet */
-};  // TBD: pack structure
+} __attribute__((packed));
 
 #define ONE_KB (1024)
 #define ONE_MB (1024 * ONE_KB)

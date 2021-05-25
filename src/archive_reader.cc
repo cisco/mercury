@@ -111,8 +111,6 @@ int main(int argc, char *argv[]) {
         // print out [summary of] each archive entry
         while (entry != nullptr) {
 
-            //entry->print_all_fields(stderr); // TODO: delete
-
             // report on entry
             entry->print(stderr);
             if (entry->is_directory()) {

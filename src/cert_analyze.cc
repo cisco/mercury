@@ -244,20 +244,6 @@ struct base64_file_reader : public file_reader {
             return 0;
         }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, line, nread);
-#if 0
-        size_t offset=0;
-        if (0) {
-            // advance just past the comma
-            int i;
-            for (i=0; i<nread; i++) {
-                if (line[i] == ',') {
-                    break;
-                }
-            }
-            offset = i+1;
-        }
-        char *b64_line = line + offset;
-#endif
         if (cert_len < 0) {
             fprintf(stderr, "error: base64 decoding failure on line %u around character %zd\n", line_number, -cert_len);
             const char opening_line[] = "-----BEGIN CERTIFICATE-----";

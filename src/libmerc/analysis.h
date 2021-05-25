@@ -202,21 +202,6 @@ public:
 
                 if (p.os_info.size() > 0) {
 
-#if 0 // TODO: delete
-                    // note: struct os_information is defined as a C (not C++) object, so that
-                    // it can be exposed through dlsym(), so we use C-style memory management here
-                    //
-                    os_information *os_infos = (os_information*)malloc(p.os_info.size() * sizeof(*os_infos));
-                    int i = 0;
-                    for (const auto &os_and_count : p.os_info) {
-                        os_infos[i].os_name = (char*)malloc(os_and_count.first.length()+1);
-                        strcpy(os_infos[i].os_name, os_and_count.first.c_str());
-                        os_infos[i].os_prevalence = os_and_count.second;
-                        //fprintf(stderr, "os_infos.push_back(%s)\n", os_infos[i].os_name);
-                        i++;
-                    }
-                    os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
-#endif
                     // create a vector of os_information structs, whose char * makes
                     // use of the os_dictionary
                     //
@@ -227,12 +212,6 @@ public:
                         struct os_information tmp{(char *)os, os_and_count.second};
                         os_info_vector.push_back(tmp);
                     }
-
-#if 0
-                } else {
-                    os_information *os_infos = NULL;
-                    os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
-#endif // TODO: delete
                 }
 
                 constexpr floating_point_type as_weight = 0.13924;
@@ -306,46 +285,33 @@ public:
         fprintf(f, ",\"total_count\":%" PRIu64, total_count);
         fprintf(f, ",\"process_info\":[");
 
-        // TBD: fix
+        // TBD: fingerprint_data::print() output should be a JSON representation of object
 
-        // char comma = ' ';
-        // for (auto &p : process_data) {
-        //     fputc(comma, f);
-        //     p.print(f);
-        //     comma = ',';
-        // }
-#if 0
-            if (false) {
-                // dump info to stderr
-                //
-                for (size_t i=0; i < processes.size(); i++) {
-                    fprintf(stderr, "process: %s\tprob: %Le\n", process_name[i].c_str(), process_prob[i]);
-                }
-                fprintf(stderr, "as_number_updates:\n");
-                for (const auto &asn_and_updates : as_number_updates) {
-                    fprintf(stderr, "\t%u:\n", asn_and_updates.first);
-                    for (const auto &update : asn_and_updates.second) {
-                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
-                    }
-                }
-                //std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
-                fprintf(stderr, "hostname_domain_updates:\n");
-                for (const auto &domain_and_updates : hostname_domain_updates) {
-                    fprintf(stderr, "\t%s:\n", domain_and_updates.first.c_str());
-                    for (const auto &update : domain_and_updates.second) {
-                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
-                    }
-                }
-                fprintf(stderr, "port_updates:\n");
-                for (const auto &port_and_updates : port_updates) {
-                    fprintf(stderr, "\t%u:\n", port_and_updates.first);
-                    for (const auto &update : port_and_updates.second) {
-                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
-                    }
-                }
+        for (size_t i=0; i < process_name.size(); i++) {
+            fprintf(stderr, "process: %s\tprob: %Le\n", process_name[i].c_str(), process_prob[i]);
+        }
+        fprintf(stderr, "as_number_updates:\n");
+        for (const auto &asn_and_updates : as_number_updates) {
+            fprintf(stderr, "\t%u:\n", asn_and_updates.first);
+            for (const auto &update : asn_and_updates.second) {
+                fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
             }
-#endif // 0
-
+        }
+        //std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
+        fprintf(stderr, "hostname_domain_updates:\n");
+        for (const auto &domain_and_updates : hostname_domain_updates) {
+            fprintf(stderr, "\t%s:\n", domain_and_updates.first.c_str());
+            for (const auto &update : domain_and_updates.second) {
+                fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+            }
+        }
+        fprintf(stderr, "port_updates:\n");
+        for (const auto &port_and_updates : port_updates) {
+            fprintf(stderr, "\t%u:\n", port_and_updates.first);
+            for (const auto &update : port_and_updates.second) {
+                fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+            }
+        }
         fprintf(f, "]");
     }
 
@@ -865,30 +831,6 @@ public:
 
         return fp_data.perform_analysis(server_name, dst_ip, dst_port);
     }
-
-#if 0
-    struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
-                                                        const struct key &key) {
-        uint16_t dst_port = flow_key_get_dst_port(key);
-        char dst_ip_str[MAX_DST_ADDR_LEN];
-        flow_key_sprintf_dst_addr(key, dst_ip_str);
-
-        // copy fingerprint string
-        char fp_str[MAX_FP_STR_LEN] = { 0 };
-        struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
-        hello.write_fingerprint(fp_buf);
-        fp_buf.write_char('\0'); // null-terminate
-        // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
-
-        char sn_str[MAX_SNI_LEN] = { 0 };
-        struct datum sn{NULL, NULL};
-        hello.extensions.set_server_name(sn);
-        sn.strncpy(sn_str, MAX_SNI_LEN);
-        // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
-
-        return this->perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
-    }
-#endif
 
     bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
                                                     const struct destination_context &dc,

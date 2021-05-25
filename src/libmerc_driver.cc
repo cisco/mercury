@@ -456,14 +456,15 @@ int main(int , char *[]) {
     std::string resources_lite_path = "../resources/resources_lite.tgz";
     config_lite.resources = (char*) resources_lite_path.c_str();
 
-    if (true) {
+    bool perform_double_bind_test = true;
+    if (perform_double_bind_test) {
+
         // perform double bind/init test
         int retval = double_bind_test(&config_lite, &config);
         if (retval) {
             fprintf(stderr, "double_bind_test() error (code %d)\n", retval);
             return EXIT_FAILURE;
         }
-        return EXIT_SUCCESS;
     }
 
     int retval = test_libmerc(&config, verbosity);

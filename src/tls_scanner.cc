@@ -808,13 +808,14 @@ public:
 
         // parse and process http_response message
         if(http_response_len > 0) {
+            bool parse_response = true;
 
             // fprintf(stdout, "%.*s", http_response_len, http_buffer);
 
             // parse http headers, and print as JSON
             const unsigned char *tmp = (const unsigned char *)http_buffer;
             struct datum http{tmp, tmp+http_response_len};
-            if (true) {
+            if (parse_response) {
                 http_response response;
                 response.parse(http);
 
