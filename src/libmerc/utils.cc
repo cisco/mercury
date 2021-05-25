@@ -21,21 +21,6 @@
 
 /* utility functions */
 
-void encode_uint16(uint8_t *p, uint16_t x) {
-    p[0] = x >> 8;
-    p[1] = 0xff & x;
-}
-
-uint16_t decode_uint16 (const void *x) {
-    uint16_t y;
-    const unsigned char *z = (const unsigned char *)x;
-
-    y = z[0];
-    y = y << 8;
-    y += z[1];
-    return y;
-}
-
 void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
@@ -45,26 +30,26 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
     }
 }
 
-// void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
-//     const unsigned char *x = data;
-//     const unsigned char *end = data + len;
+void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
+    const unsigned char *x = data;
+    const unsigned char *end = data + len;
 
-//     fprintf(f, "\"%s\":\"", key);
-//     while (x < end) {
-//         if (*x < 0x20) {                   /* escape control characters   */
-//             fprintf(f, "\\u%04x", *x);
-//         } else if (*x > 0x7f) {            /* escape non-ASCII characters */
-//             fprintf(f, "\\u%04x", *x);
-//         } else {
-//             if (*x == '"' || *x == '\\') { /* escape special characters   */
-//                 fprintf(f, "\\");
-//             }
-//             fprintf(f, "%c", *x);
-//         }
-//         x++;
-//     }
-//     fprintf(f, "\"");
-// }
+    fprintf(f, "\"%s\":\"", key);
+    while (x < end) {
+        if (*x < 0x20) {                   /* escape control characters   */
+            fprintf(f, "\\u%04x", *x);
+        } else if (*x > 0x7f) {            /* escape non-ASCII characters */
+            fprintf(f, "\\u%04x", *x);
+        } else {
+            if (*x == '"' || *x == '\\') { /* escape special characters   */
+                fprintf(f, "\\");
+            }
+            fprintf(f, "%c", *x);
+        }
+        x++;
+    }
+    fprintf(f, "\"");
+}
 
 size_t hex_to_raw(const void *output,
                   size_t output_buf_len,

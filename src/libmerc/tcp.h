@@ -69,8 +69,8 @@ struct ip_address {
         ipv6_address ipv6;
     } value;
 
-    ip_address(uint32_t v4_addr)     : version{ip_version::v4}, value{v4_addr} {}
-    ip_address(ipv6_address v6_addr) : version{ip_version::v6}, value{v6_addr} {}
+    explicit ip_address(uint32_t v4_addr)     : version{ip_version::v4}, value{v4_addr} {}
+    explicit ip_address(ipv6_address v6_addr) : version{ip_version::v6}, value{v6_addr} {}
 };
 
 struct key {

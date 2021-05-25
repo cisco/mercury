@@ -413,7 +413,7 @@ public:
                 //fprintf(stderr, "\tgot Z_STREAM_END\n");
                 return len - z.avail_out;
             }
-            if (err != Z_OK || err == Z_STREAM_END) {
+            if (err != Z_OK) {
                 //fprintf(stderr, "\terror: could not initialize zlib decompressor\n");
                 return len - z.avail_out;
             }
@@ -467,7 +467,7 @@ public:
                 return z.total_out;
             }
             //if (err) { fprintf(stderr, "got error code %d (message: %s)\n", err, z.msg); }
-            if (err != Z_OK || err == Z_STREAM_END) {
+            if (err != Z_OK) {
                 fprintf(stderr, "error: zlib decompressor failed\n");
                 return -1;
             }

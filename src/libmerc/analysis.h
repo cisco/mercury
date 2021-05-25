@@ -66,15 +66,15 @@ public:
     std::map<std::string, uint64_t> os_info;
     bool extended_fp_metadata = false;
 
-    process_info(std::string proc_name,
+    process_info(const std::string &proc_name,
                  bool is_malware,
                  uint64_t proc_count,
-                 std::unordered_map<uint32_t, uint64_t> as,
-                 std::unordered_map<std::string, uint64_t> domains,
-                 std::unordered_map<uint16_t, uint64_t> ports,
-                 std::unordered_map<std::string, uint64_t> ip,
-                 std::unordered_map<std::string, uint64_t> sni,
-                 std::map<std::string, uint64_t> oses) :
+                 const std::unordered_map<uint32_t, uint64_t> &as,
+                 const std::unordered_map<std::string, uint64_t> &domains,
+                 const std::unordered_map<uint16_t, uint64_t> &ports,
+                 const std::unordered_map<std::string, uint64_t> &ip,
+                 const std::unordered_map<std::string, uint64_t> &sni,
+                 const std::map<std::string, uint64_t> &oses) :
         name{proc_name},
         malware{is_malware},
         count{proc_count},
@@ -177,7 +177,7 @@ public:
     fingerprint_data() : total_count{0} { }
 
     fingerprint_data(uint64_t count,
-                     const std::vector<class process_info> processes,
+                     const std::vector<class process_info> &processes,
                      ptr_dict &os_dictionary,
                      const subnet_data *subnets) :
         subnet_data_ptr{subnets},

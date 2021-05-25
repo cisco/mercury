@@ -273,7 +273,7 @@ int lct_build(lct<T> *trie, lct_subnet<T> *subnets, uint32_t size) {
 
   // allocate and count the bases
   trie->bcount = 0;
-  if (!trie) {
+  if (!trie->bases) {
     fprintf(stderr, "ERROR: failed to allocate trie bases index buffer\n");
     return -1;
   }

@@ -10,6 +10,7 @@
 
 #include "datum.h"
 #include "json_object.h"
+#include "utils.h"
 
 namespace std {
     template <>  struct hash<struct datum>  {
@@ -39,45 +40,6 @@ static void utc_to_generalized_time(uint8_t gt[15], const uint8_t utc[13]) {
     }
     memcpy(gt + 2, utc, 13);
 }
-
-
-#ifndef UTILS_H
-
-void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
-    if (data == NULL) {
-        return;
-    }
-    const unsigned char *x = (const unsigned char *)data;
-    const unsigned char *end = x + len;
-
-    while (x < end) {
-        fprintf(f, "%02x", *x++);
-    }
-}
-
-void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-
-    fprintf(f, "\"%s\":\"", key);
-    while (x < end) {
-        if (*x < 0x20) {                   /* escape control characters   */
-            fprintf(f, "\\u%04x", *x);
-        } else if (*x > 0x7f) {            /* escape non-ASCII characters */
-            fprintf(f, "\\u%04x", *x);
-        } else {
-            if (*x == '"' || *x == '\\') { /* escape special characters   */
-                fprintf(f, "\\");
-            }
-            fprintf(f, "%c", *x);
-        }
-        x++;
-    }
-    fprintf(f, "\"");
-
-}
-
-#endif /* #ifndef UTILS_H */
 
 void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;

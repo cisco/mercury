@@ -25,49 +25,9 @@
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 
-
-//pthread_mutex_t lock_fp_cache;
-//std::unordered_map<std::string,char*> fp_cache;
-
-// uint16_t get_port_mapping(std::string s) {
-//     auto x = port_mapping.find(s);
-//     if (x == port_mapping.end()) {
-//         return 0;  // error
-//     }
-//     return x.second;
-// }
-
-bool MALWARE_DB = true;
-bool EXTENDED_FP_METADATA = true;
-
-int gzgetline(gzFile f, std::string &s) {
-    std::vector<char> v(256);
-    unsigned pos = 0;
-    for (;;) {
-        if (gzgets(f, &v[pos], v.size()-pos) == 0) {
-            // EOF
-            return 0;
-        }
-        unsigned read = strlen(&v[pos]);
-        if (v[pos+read-1] == '\n') {
-            pos = pos + read - 1;
-            break;
-        }
-        pos = v.size() - 1;
-        v.resize(v.size() * 2);
-    }
-    v.resize(pos);
-    std::string tmp_str(v.begin(), v.end());
-    s = tmp_str;
-    return 1;
-}
-
-
 #ifndef DEFAULT_RESOURCE_FILE
 #define DEFAULT_RESOURCE_FILE "/usr/local/share/mercury/resources.tgz"
 #endif
-
-//classifier *c = NULL;
 
 classifier *analysis_init_from_archive(int verbosity,
                                const char *archive_name,

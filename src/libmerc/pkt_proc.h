@@ -33,7 +33,7 @@ struct mercury {
     mercury(const struct libmerc_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr} {
         global_vars = *vars;
         global_vars.resources = vars->resources;
-        global_vars.packet_filter_cfg = vars->packet_filter_cfg;
+        global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy
         enum status status = proto_ident_config(vars->packet_filter_cfg);
         if (status) {
             throw (const char *)"error: proto_ident_config() failed"; // failure

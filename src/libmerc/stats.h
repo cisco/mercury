@@ -403,8 +403,6 @@ class data_aggregator {
         if(consumer_thread.joinable()) {
              consumer_thread.join();
         }
-
-        return;
     }
 
     void empty_event_queue(message_queue *q) {
@@ -496,7 +494,7 @@ public:
         // gathered data while new events are tracked in the other
         // stats_aggregator
         //
-        stats_aggregator *tmp = ag;
+        stats_aggregator *tmp;
         {
             std::lock_guard m_guard{m};
             tmp = ag;
