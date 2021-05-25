@@ -60,9 +60,10 @@ struct mercury_config {
     int use_test_packet;            /* use test packet to write output file           */
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
     bool output_block;              /* use blocking output                            */
-};
+    size_t stats_rotation_duration; /* number of seconds between stats file rotation  */}
+;
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0, false }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0, false, 300 }
 
 
 #endif /* MERCURY_H */

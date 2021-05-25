@@ -46,7 +46,8 @@ char mercury_help[] =
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   --resources=f                         # use resource file f\n"
     "   --stats=f                             # write stats to file f\n"
-    "   --stats-limit=L                       # limit stats to L entries f\n"
+    "   --stats-time=T                        # write stats every T seconds\n"
+    "   --stats-limit=L                       # limit stats to L entries\n"
     "   [-s or --select] filter               # select traffic by filter (see --help)\n"
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
@@ -196,7 +197,7 @@ int main(int argc, char *argv[]) {
     extern double malware_prob_threshold;  // TODO - expose hidden command
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -210,6 +211,7 @@ int main(int argc, char *argv[]) {
             { "nonselected-tcp-data", no_argument, NULL, tcp_init_data },
             { "nonselected-udp-data", no_argument, NULL, udp_init_data },
             { "stats-limit", required_argument, NULL, stats_limit },
+            { "stats-time",  required_argument, NULL, stats_time },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -420,6 +422,17 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option l or limit requires a numeric argument", extended_help_off);
             }
             break;
+        case stats_time:
+            if (option_is_valid(optarg)) {
+                errno = 0;
+                cfg.stats_rotation_duration = strtol(optarg, NULL, 10);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                }
+            } else {
+                usage(argv[0], "option stats-time requires a numeric argument", extended_help_off);
+            }
+            break;
         case stats_limit:
             if (option_is_valid(optarg)) {
                 errno = 0;
@@ -561,7 +574,7 @@ int main(int argc, char *argv[]) {
 
     controller *ctl = nullptr;
     if (cfg.stats_filename) {
-        ctl = new controller{mc, cfg.stats_filename, 30};
+        ctl = new controller{mc, cfg.stats_filename, cfg.stats_rotation_duration};
     }
 
     pthread_t output_thread;
