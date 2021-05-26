@@ -156,78 +156,80 @@ unsigned char client_hello_no_server_name_eth[] = {
 typedef void (*dummy_func)();
 
 struct libmerc_api {
-    mercury_context (*mercury_init)(const libmerc_config& vars, int verbosity);
-    int (*mercury_finalize)(mercury_context);
-    size_t (*mercury_analyze)(mercury_packet_processor processor, void* buffer,
-        size_t buffer_size, const uint8_t* packet, size_t length, struct timespec* ts);
-    mercury_packet_processor (*mercury_packet_processor_construct)(mercury_context mc);
-    void (*mercury_packet_processor_destruct)(mercury_packet_processor mpp);
-    const analysis_context* (*get_analysis_context)(mercury_packet_processor processor,
-        const uint8_t* packet, size_t length, struct timespec* ts);
-    enum fingerprint_type (*get_fingerprint_type)(const struct analysis_context* ac);
-    enum fingerprint_status (*get_fingerprint_status)(const analysis_context* ac);
-    bool (*get_process_info)(const analysis_context* ac, const char** probable_process,
-        double* probability_score);
-    bool (*get_malware_info)(const analysis_context* ac, bool* probable_process_is_malware,
-        double* probability_malware);
 
-    bool (*write_stats_data)(mercury_context mc, const char *stats_data_file_path);
-
-    void* mercury_handle = nullptr;
-};
-
-libmerc_api mercury{};
-
-int mercury_bind(struct libmerc_api &mercury_api, const char *lib_path) {
-
-    if ((mercury_api.mercury_handle = dlopen(lib_path, RTLD_LAZY|RTLD_LOCAL)) == nullptr) {
-        const char *dlerr = dlerror();
-        fprintf(stderr, "mercury: failed to load %s: %s\n", lib_path, dlerr ? dlerr : "unknown error");
-        return -1; // error
-    } else {
-        fprintf(stderr, "mercury: loading %s\n", lib_path);
-    }
-
-    struct FuncBinding
-    {
-        const char* lib_sym;
-        dummy_func* local_sym;
-    } bindings[] =
-    {
-        { "mercury_init", (dummy_func*)&mercury_api.mercury_init },
-        { "mercury_finalize", (dummy_func*)&mercury_api.mercury_finalize },
-        { "mercury_packet_processor_write_json", (dummy_func*)&mercury_api.mercury_analyze },
-        { "mercury_packet_processor_construct", (dummy_func*)&mercury_api.mercury_packet_processor_construct },
-        { "mercury_packet_processor_destruct", (dummy_func*)&mercury_api.mercury_packet_processor_destruct },
-        { "mercury_packet_processor_get_analysis_context", (dummy_func*)&mercury_api.get_analysis_context },
-        { "analysis_context_get_fingerprint_type", (dummy_func*)&mercury_api.get_fingerprint_type },
-        { "analysis_context_get_fingerprint_status", (dummy_func*)&mercury_api.get_fingerprint_status },
-        { "analysis_context_get_process_info", (dummy_func*)&mercury_api.get_process_info },
-        { "analysis_context_get_malware_info", (dummy_func*)&mercury_api.get_malware_info },
-        { "mercury_write_stats_data", (dummy_func*)&mercury_api.write_stats_data },
-        { nullptr, nullptr }
-    };
-
-    FuncBinding* index;
-    dlerror();  // initialize error reporting
-    for (index = bindings; index->lib_sym; index++) {
-        *(void**)index->local_sym  = dlsym(mercury_api.mercury_handle, index->lib_sym);
-        if (*(index->local_sym) == nullptr) {
-            const char *dlerr = dlerror();
-            fprintf(stderr, "mercury: failed to resolve symbol: %s (error: %s)\n", index->lib_sym, dlerr ? dlerr : "unknown error");
-            return -2; // error
+    libmerc_api(const char *lib_path) {
+        if (bind(lib_path) != 0) {
+            throw "error: could not initialize libmerc_api";
         }
     }
 
-    fprintf(stderr, "mercury_bind() succeeded with handle %p\n", mercury_api.mercury_handle);
+    ~libmerc_api() {
+        mercury_unbind(*this);
+    }
 
-    return 0; // success
-}
+    decltype(mercury_init)                                  *init = nullptr;
+    decltype(mercury_finalize)                              *finalize = nullptr;
+    decltype(mercury_packet_processor_get_analysis_context) *analyze = nullptr;
+    decltype(mercury_packet_processor_construct)            *packet_processor_construct = nullptr;
+    decltype(mercury_packet_processor_destruct)             *packet_processor_destruct = nullptr;
+    decltype(mercury_packet_processor_get_analysis_context) *get_analysis_context = nullptr;
+    decltype(analysis_context_get_fingerprint_type)         *get_fingerprint_type = nullptr;
+    decltype(analysis_context_get_fingerprint_status)       *get_fingerprint_status = nullptr;
+    decltype(analysis_context_get_process_info)             *get_process_info = nullptr;
+    decltype(analysis_context_get_malware_info)             *get_malware_info = nullptr;
+    decltype(mercury_write_stats_data)                      *write_stats_data = nullptr;
 
-void mercury_unbind(struct libmerc_api &libmerc_api) {
-    dlclose(libmerc_api.mercury_handle);
-    libmerc_api.mercury_handle = nullptr;
-}
+    void *dl_handle = nullptr;
+
+    int bind(const char *lib_path) {
+
+        if ((dl_handle = dlopen(lib_path, RTLD_LAZY|RTLD_LOCAL)) == nullptr) {
+            const char *dlerr = dlerror();
+            fprintf(stderr, "mercury: failed to load %s: %s\n", lib_path, dlerr ? dlerr : "unknown error");
+            return -1; // error
+        } else {
+            fprintf(stderr, "mercury: loading %s\n", lib_path);
+        }
+
+        init =                       (decltype(init))                       dlsym(dl_handle, "mercury_init");
+        finalize =                   (decltype(finalize))                   dlsym(dl_handle, "mercury_finalize");
+        analyze =                    (decltype(analyze))                    dlsym(dl_handle, "mercury_packet_processor_get_analysis_context");
+        packet_processor_construct = (decltype(packet_processor_construct)) dlsym(dl_handle, "mercury_packet_processor_construct");
+        packet_processor_destruct =  (decltype(packet_processor_destruct))  dlsym(dl_handle, "mercury_packet_processor_destruct");
+        get_analysis_context =       (decltype(get_analysis_context))       dlsym(dl_handle, "mercury_packet_processor_get_analysis_context");
+        get_fingerprint_type =       (decltype(get_fingerprint_type))       dlsym(dl_handle, "analysis_context_get_fingerprint_type");
+        get_fingerprint_status =     (decltype(get_fingerprint_status))     dlsym(dl_handle, "analysis_context_get_fingerprint_status");
+        get_process_info =           (decltype(get_process_info))           dlsym(dl_handle, "analysis_context_get_process_info");
+        get_malware_info =           (decltype(get_malware_info))           dlsym(dl_handle, "analysis_context_get_malware_info");
+        write_stats_data =           (decltype(write_stats_data))           dlsym(dl_handle, "mercury_write_stats_data");
+
+        if (init                       == nullptr ||
+            finalize                   == nullptr ||
+            analyze                    == nullptr ||
+            packet_processor_construct == nullptr ||
+            packet_processor_destruct  == nullptr ||
+            get_analysis_context       == nullptr ||
+            get_fingerprint_type       == nullptr ||
+            get_fingerprint_status     == nullptr ||
+            get_process_info           == nullptr ||
+            get_malware_info           == nullptr ||
+            write_stats_data           == nullptr) {
+            fprintf(stderr, "error: could not initialize one or more libmerc function pointers\n");
+            return -1;
+        }
+        return 0;
+
+        fprintf(stderr, "mercury_bind() succeeded with handle %p\n", dl_handle);
+
+        return 0; // success
+    }
+
+    void mercury_unbind(struct libmerc_api &libmerc_api) {
+        dlclose(libmerc_api.dl_handle);
+        libmerc_api.dl_handle = nullptr;
+    }
+
+};
 
 struct packet_processor_state {
     unsigned int thread_number;
@@ -247,7 +249,7 @@ void *packet_processor(void *arg) {
     fprintf(stderr, "packet_processor() has libmerc_api=%p and mercury_context=%p\n", (void *)merc, (void *)pp->mc);
 
     // create mercury packet processor
-    mercury_packet_processor mpp = merc->mercury_packet_processor_construct(pp->mc);
+    mercury_packet_processor mpp = merc->packet_processor_construct(pp->mc);
     if (mpp == NULL) {
         fprintf(stderr, "error in mercury_packet_processor_construct()\n");
         return NULL;
@@ -280,12 +282,12 @@ void *packet_processor(void *arg) {
     }
 
     // destroy packet processor
-    merc->mercury_packet_processor_destruct(mpp);
+    merc->packet_processor_destruct(mpp);
 
     return NULL;
 }
 
-int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) {
+int test_libmerc(const struct libmerc_config *config, int verbosity, bool fail=false) {
     int num_loops = 4;
     constexpr int num_threads = 8;
 
@@ -293,14 +295,10 @@ int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) 
         fprintf(stderr, "loop: %d\n", i);
 
         // bind libmerc
-        int retval = mercury_bind(mercury, "./libmerc/libmerc.so");
-        if (retval != 0) {
-            fprintf(stderr, "error: mercury_bind() returned code %d\n", retval);
-            return 1;
-        }
+        libmerc_api mercury("./libmerc/libmerc.so");
 
         // init mercury
-        mercury_context mc = mercury.mercury_init(*config, verbosity);
+        mercury_context mc = mercury.init(config, verbosity);
         if (mc == NULL) {
             fprintf(stderr, "error: mercury_init() returned null\n");
             return -1;
@@ -326,7 +324,7 @@ int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) 
 
         if (fail) {
             // delete mercury state, to force failure
-            mercury.mercury_finalize(mc);
+            mercury.finalize(mc);
         }
 
         for (auto & t : tid_array) {
@@ -338,19 +336,18 @@ int test_libmerc(struct libmerc_config *config, int verbosity, bool fail=false) 
         mercury.write_stats_data(mc, "libmerc_driver_stats.json.gz");
 
         // destroy mercury
-        mercury.mercury_finalize(mc);
+        mercury.finalize(mc);
 
         fprintf(stderr, "completed mercury_finalize()\n");
 
-        // unbind libmerc
-        mercury_unbind(mercury);
+        // mercury is unbound from its shared object file when it leaves scope
 
     }
 
     return 0;
 }
 
-int double_bind_test(struct libmerc_config *config, struct libmerc_config *config2) {
+int double_bind_test(const struct libmerc_config *config, const struct libmerc_config *config2) {
     int verbosity = 1;
     int num_loops = 4;
     constexpr int num_threads = 8;
@@ -361,27 +358,18 @@ int double_bind_test(struct libmerc_config *config, struct libmerc_config *confi
         fprintf(stderr, "loop: %d\n", i);
 
         // bind libmerc
-        int retval = mercury_bind(mercury, "./libmerc/libmerc.so");
-        if (retval != 0) {
-            fprintf(stderr, "error: mercury_bind() returned code %d\n", retval);
-            return 1;
-        }
+        libmerc_api mercury("./libmerc/libmerc.so");
 
         // init mercury
-        mercury_context mc = mercury.mercury_init(*config, verbosity);
+        mercury_context mc = mercury.init(config, verbosity);
         if (mc == nullptr) {
             fprintf(stderr, "error: mercury_init() returned null\n");
             return -1;
         }
 
         // bind and init second mercury library
-        struct libmerc_api mercury_alt;
-        retval = mercury_bind(mercury_alt, "./libmerc/libmerc.so.alt");
-        if (retval != 0) {
-            fprintf(stderr, "error: mercury_bind() returned code %d in second bind\n", retval);
-            return 1;
-        }
-        mercury_context mc_alt = mercury_alt.mercury_init(*config2, verbosity);
+        struct libmerc_api mercury_alt("./libmerc/libmerc.so.alt");
+        mercury_context mc_alt = mercury_alt.init(config2, verbosity);
         if (mc_alt == nullptr) {
             fprintf(stderr, "error: mercury_init() returned null in second init\n");
             return -1;
@@ -417,15 +405,14 @@ int double_bind_test(struct libmerc_config *config, struct libmerc_config *confi
         mercury.write_stats_data(mc_alt, "libmerc_driver_stats_post_join_alt.json.gz");
 
         // destroy mercury
-        mercury.mercury_finalize(mc);
+        mercury.finalize(mc);
 
         fprintf(stderr, "completed mercury_finalize()\n");
 
-        // unbind libmerc
-        mercury_unbind(mercury);
+        // mercury and mercury_alt are unbound from its shared object
+        // file when they leave scope
 
-        mercury_alt.mercury_finalize(mc_alt);
-        mercury_unbind(mercury_alt);
+        mercury_alt.finalize(mc_alt);
 
     }
 
