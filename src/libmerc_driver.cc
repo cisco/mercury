@@ -7,11 +7,6 @@
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-// To use this program, it may be necessary to preload libraries using
-// a command such as:
-//
-//    export LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/9/libasan.so:/usr/lib/x86_64-linux-gnu/libcrypto.so:/usr/lib/x86_64-linux-gnu/libssl.so:/usr/lib/x86_64-linux-gnu/libz.so
-
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <stdio.h>
