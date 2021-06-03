@@ -101,6 +101,8 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
 const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
+        // TODO: eliminate ignored JSON output
+        //
         uint8_t buffer[4096]; // buffer for (ignored) json output
 
         processor->analysis.result.valid = false;
