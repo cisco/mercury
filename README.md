@@ -9,6 +9,17 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normalizing metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.
 
+## Version 2.5.0
+* Replaced resource directory with resource archive.  A single compressed archive (or `.tar.gz`) file holds all of the resources that mercury needs in order to run its classifier.  The --resources command line option now specifies the path of the resources archive.  This change makes it easier to configure and distribute the set of resource files as an atomic set.  The archive format is a conventional Unix Standard tape archive format (as defined by POSIX in IEEE P1003.1-1988, and widely used through the GNU `tar` utility), compressed with GZIP (as defined by RFC1952, and widely used through `gzip` and `pigz`).
+* Added the experimental `stats` feature, which computes and stores aggregate statistics regarding TLS fingerprints and destinations, and periodically writes those statistics out to a compressed JSON file.   The stats file output is independent from the normal session-oriented JSON output.  The number of stats entries can be limited in order to protect against memory exhaustion.  This feature is currently experimental, and is likely to evolve.  It uses these new command line options:
+
+        --stats=f                             # write stats to file f
+        --stats-time=T                        # write stats every T seconds
+        --stats-limit=L                       # limit stats to L entries
+* Added [SMTP](src/libmerc/smtp.h) parsing.
+* Gathered together most of libmerc's global variables, to enable multiple libmerc instances to be used concurrently.   This makes it possible to update libmerc by loading a newer version of limberc.so. 
+* Added the [libmerc_driver](src/libmerc_driver.cc) test program to test concurrent uses of libmerc.
+
 ## Version 2.4.0
 * Added [batch_gcd](doc/batch-gcd.md), a program for efficiently finding the common factors of RSA public keys.
 * Refactored TCP packet processing to use a C++17 `std::variant` for compile-time polymorphism, which enabled considerable code simplification.
@@ -143,6 +154,10 @@ OUTPUT
 GENERAL OPTIONS
    --config c                            # read configuration from file c
    [-a or --analysis]                    # analyze fingerprints
+   --resources=f                         # use resource file f
+   --stats=f                             # write stats to file f
+   --stats-time=T                        # write stats every T seconds
+   --stats-limit=L                       # limit stats to L entries
    --resources=f                         # use resource file f
    [-s or --select] filter               # select only metadata (see --help)
    [-l or --limit] l                     # rotate output file after l records
