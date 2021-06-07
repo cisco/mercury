@@ -124,7 +124,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
     struct pcap_file pcap_file;
     struct stateful_pkt_proc processor;
 
-    pkt_proc_filter_pcap_writer(const char *outfile, int flags) : processor{PREALLOC_SIZE} {
+    pkt_proc_filter_pcap_writer(mercury_context mc, const char *outfile, int flags) : processor{mc, PREALLOC_SIZE} {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
             throw "could not open PCAP output file";
@@ -182,12 +182,15 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
      * records (lines) per file; after that limit is reached, file
      * rotation will take place.
      */
-    explicit pkt_proc_json_writer_llq(struct ll_queue *llq_ptr, bool blocking) :
+    explicit pkt_proc_json_writer_llq(mercury_context mc, struct ll_queue *llq_ptr, bool blocking) :
         block{blocking},
         processor{NULL}
     {
         llq = llq_ptr;
-        processor = mercury_packet_processor_construct();
+        processor = mercury_packet_processor_construct(mc);
+        if (processor == nullptr) {
+            throw "error: could not construct packet processor";
+        }
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
@@ -233,9 +236,9 @@ struct pkt_proc_json_writer_llq_CPP : public pkt_proc {
      * records (lines) per file; after that limit is reached, file
      * rotation will take place.
      */
-    explicit pkt_proc_json_writer_llq_CPP(struct ll_queue *llq_ptr, bool blocking) :
+    explicit pkt_proc_json_writer_llq_CPP(mercury_context mc, struct ll_queue *llq_ptr, bool blocking) :
         block{blocking},
-        processor{PREALLOC_SIZE}
+        processor{mc, PREALLOC_SIZE}
     {
         llq = llq_ptr;
     }
@@ -272,7 +275,12 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     bool block;
     struct stateful_pkt_proc processor;
 
-    explicit pkt_proc_filter_pcap_writer_llq(struct ll_queue *llq_ptr, bool blocking) : block{blocking}, processor{PREALLOC_SIZE} {
+    explicit pkt_proc_filter_pcap_writer_llq(mercury_context mc,
+                                             struct ll_queue *llq_ptr,
+                                             bool blocking) :
+        block{blocking},
+        processor{mc, PREALLOC_SIZE}
+    {
         llq = llq_ptr;
     }
 
@@ -325,6 +333,7 @@ struct pkt_proc_dumper : public pkt_proc {
  * to return based on the details of the configuration.
  */
 struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
+                                          mercury_context mc,
                                           int tnum,
                                           struct ll_queue *llq);
 

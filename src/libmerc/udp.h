@@ -14,8 +14,6 @@
 
 extern bool select_mdns;                    // defined in extractor.cc
 
-unsigned int packet_filter_process_udp(struct packet_filter *pf, struct key *k);
-
 struct udp_header {
     uint16_t src_port;
     uint16_t dst_port;
@@ -48,12 +46,42 @@ struct udp_packet {
         if (select_mdns && header && (header->src_port == htons(5353) || header->dst_port == htons(5353))) {
             return udp_msg_type_dns;
         }
+        if (header && header->dst_port == htons(4789)) {
+            return udp_msg_type_vxlan;
+        }
         return udp_msg_type_unknown;
     }
+
 };
 
 enum udp_msg_type udp_get_message_type(const uint8_t *udp_data,
                                        unsigned int len);
 
-#endif
+//   From RFC 7348 (VXLAN)
+//
+//   #define VXLAN_PORT 4789
+//
+//   VXLAN Header:
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |R|R|R|R|I|R|R|R|            Reserved                           |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                VXLAN Network Identifier (VNI) |   Reserved    |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//
+
+#define VXLAN_HDR_LEN 8
+
+class vxlan : public datum {
+    vxlan(datum &d) : datum{d} {
+        if (datum_skip(&d, VXLAN_HDR_LEN) != status_ok) {
+            d.set_empty();
+        }
+    }
+    // note: we ignore the VXLAN Network Identifier for now, which
+    // makes little difference as long as they are all identical
+    //
+};
+
+#endif  // UDP_H
 

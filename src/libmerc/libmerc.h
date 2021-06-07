@@ -12,6 +12,13 @@
 #include <stdio.h>
 #include <time.h>
 
+// defaults (if not set via ./configure)
+//
+#ifndef DEFAULT_RESOURCE_DIR
+#define DEFAULT_RESOURCE_DIR "/usr/local/share/mercury"
+#endif
+
+
 // The LIBMERC_DLL_EXPORTED attribute can be applied to a function or
 // variable to indicate that it should be exported from a shared
 // object library even if the -fvisibility=hidden option is passed to
@@ -22,6 +29,7 @@
 
 enum enc_key_type {
     enc_key_type_none = 0,
+    enc_key_type_aes_128,
     enc_key_type_aes_256
 };
 
@@ -43,6 +51,7 @@ struct libmerc_config {
         certs_json_output{false},
         metadata_output{false},
         do_analysis{false},
+        do_stats{false},
         report_os{false},
         output_tcp_initial_data{false},
         output_udp_initial_data{false},
@@ -51,7 +60,8 @@ struct libmerc_config {
         key_type{enc_key_type_none},
         packet_filter_cfg{NULL},
         fp_proc_threshold{0.0},
-        proc_dst_threshold{0.0}
+        proc_dst_threshold{0.0},
+        max_stats_entries{0}
     {}
 #endif
 
@@ -59,6 +69,7 @@ struct libmerc_config {
     bool certs_json_output;       /* output certificates as JSON  */
     bool metadata_output;         /* output lots of metadata      */
     bool do_analysis;             /* write analysys{} JSON object */
+    bool do_stats;                /* gather src/fp/dst statistics */
     bool report_os;               /* report oses in analysis JSON */
     bool output_tcp_initial_data; /* write initial data field     */
     bool output_udp_initial_data; /* write initial data field     */
@@ -71,6 +82,7 @@ struct libmerc_config {
 
     float fp_proc_threshold;   /* remove processes with less than <var> weight    */
     float proc_dst_threshold;  /* remove destinations with less than <var> weight */
+    size_t max_stats_entries;  /* max num entries in stats tables                 */
 };
 
 /**
@@ -78,38 +90,46 @@ struct libmerc_config {
  * minimal, default configuration.
  */
 #ifndef __cplusplus
-#define libmerc_config_init() {false,false,false,false,false,false,false,NULL,NULL,enc_key_type_none,NULL,0.0,0.0}
+#define libmerc_config_init() {false,false,false,false,false,false,false,false,NULL,NULL,enc_key_type_none,NULL,0.0,0.0,0}
 #endif
+
+
+/**
+ * mercury_context is an opaque pointer to an object that holds the
+ * mercury state associated with a running instance
+ */
+typedef struct mercury *mercury_context;
 
 /**
  * @brief initializes libmerc
  *
  * Initializes libmerc to use the configuration as specified with the
- * input parameters.  Returns zero on success.
+ * input parameters.  Returns a valid mercury_context handle on
+ * success, and NULL otherwise.
  *
  * @param vars          libmerc_config
  * @param verbosity     higher values increase verbosity sent to stderr
  * @param resource_dir  directory of resource files to use in analysis
  *
- * @return 0 on success, -1 on failure
+ * @return a valid mercury_context handle on success, NULL on failure
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-int mercury_init(const struct libmerc_config *vars, int verbosity);
+mercury_context mercury_init(const struct libmerc_config *vars, int verbosity);
 
 /**
  * @brief finalizes libmerc
  *
- * Finalizes the libmerc library, and frees up resources allocated by
- * mercury_init().   Returns zero on success.
+ * Finalizes the libmerc context associated with the handle, and frees
+ * up resources allocated by mercury_init().  Returns zero on success.
  *
  * @return 0 on success, -1 on failure
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-int mercury_finalize();
+int mercury_finalize(mercury_context mc);
 
 /**
  * mercury_packet_processor is an opaque pointer to a threadsafe
@@ -121,14 +141,15 @@ typedef struct stateful_pkt_proc *mercury_packet_processor;
 
 /**
  * mercury_packet_processor_construct() allocates and initializes a
- * new mercury_packet_processor.
+ * new mercury_packet_processor associated with the mercury_context
+ * passed as input.
  *
  * @return a valid pointer on success, NULL otherwise.
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-mercury_packet_processor mercury_packet_processor_construct();
+mercury_packet_processor mercury_packet_processor_construct(mercury_context mc);
 
 /**
  * mercury_packet_processor_destruct() deallocates all resources
@@ -397,6 +418,71 @@ bool analysis_context_get_os_info(const struct analysis_context *ac,     // inpu
                                   );
 
 
+/**
+ * mercury_get_stats_data()
+ *
+ * @param data_ptr (output) is a pointer to a pointer to a buffer that
+ * contains the stats data; that is, the function sets the pointer at
+ * the location provided as input to be that buffer.  The pointer MAY
+ * be NULL, if no data was gathered or if some other error occured.
+ *
+ * This function may process a lot of data, and it may take a very
+ * long time to return, so the caller MUST be prepared to wait for
+ * seconds or minutes.
+ *
+ * This function SHOULD be called periodically, e.g. every hour or
+ * every day.  Mercury's stats engine accumulates data between calls
+ * to this function, and each call flushes all of the data maintained
+ * by that engine.  The stats engine uses a large but fixed amount of
+ * RAM for data storage; if it runs out of storage, it will stop
+ * accumulating data.
+ *
+ * @param num_bytes_ptr (output) is a pointer to a size_t that
+ * contains the number of bytes of stats data in the data buffer; that
+ * is, the function sets the size_t at the location provided as input
+ * to be the size of that buffer.  The value of num_bytes MAY be zero,
+ * if no data was gathered or if some other error occured.
+ *
+ * @return true on success, false otherwise.  In particular, if either
+ * data_ptr or num_bytes_ptr are NULL, then false will be returned; in
+ * the latter case, you SHOULD NOT dereference either data_ptr or
+ * num_bytes_ptr.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+bool mercury_get_stats_data(void **data_ptr, size_t *num_bytes_ptr);
+
+
+/**
+ * mercury_write_stats_data()
+ *
+ * @param mercury_context is the context associated with the stats
+ * data to be written out.
+ *
+ * @param stats_data_file_path (input) is a pointer to an ASCII
+ * character string holding the path to the file to which stats data
+ * is to be written.
+ *
+ * This function may process a lot of data, and it may take a very
+ * long time to return, so the caller MUST be prepared to wait for
+ * seconds or minutes.
+ *
+ * This function SHOULD be called periodically, e.g. every hour or
+ * every day.  Mercury's stats engine accumulates data between calls
+ * to this function, and each call flushes all of the data maintained
+ * by that engine.  The stats engine uses a large but fixed amount of
+ * RAM for data storage; if it runs out of storage, it will stop
+ * accumulating data.
+ *
+ * @return true on success, false otherwise.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_path);
+
+
 enum status {
     status_ok = 0,
     status_err = 1,
@@ -468,12 +554,13 @@ uint32_t mercury_get_version_number();
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-const char *mercury_get_resource_version();
+const char *mercury_get_resource_version(mercury_context mc);
 
 // OTHER FUNCTIONS
 //
 enum status proto_ident_config(const char *config_string);
 
 enum status static_data_config(const char *config_string);
+
 
 #endif /* LIBMERC_H */

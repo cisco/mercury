@@ -65,10 +65,12 @@ FPM_LINUX_OPTIONS="-n mercury -v $VERSION --iteration $ITERATION\
     --vendor Cisco -m mercury-interest@cisco.com --url https://github.com/cisco/mercury \
     --after-install ./install_mercury/postinstall \
     --config-files /etc/mercury/mercury.cfg       \
-    --license BSD --depends libssl1.1 --depends zlib1g"
+    --license BSD"
 
 if [ "$BUILDTYPE" == "deb" ]; then
     fpm -s dir -t deb $FPM_LINUX_OPTIONS \
+        --depends libssl1.1 \
+        --depends zlib1g    \
         --deb-systemd ./install_mercury/mercury.service \
         --deb-no-default-config-files \
         --description "$DESCRIPTION" \
@@ -78,6 +80,8 @@ if [ "$BUILDTYPE" == "deb" ]; then
         ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
 elif [ "$BUILDTYPE" == "rpm" ]; then
     fpm -s dir -t rpm $FPM_LINUX_OPTIONS \
+        --depends 'libssl.so.10()(64bit)' \
+        --depends 'libz.so.1()(64bit)'    \
         --rpm-dist el7 \
         --rpm-attr 775,mercury,mercury:/usr/local/var/mercury \
         --description "$DESCRIPTION" \

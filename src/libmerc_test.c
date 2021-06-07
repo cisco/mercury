@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 
 #include "libmerc/libmerc.h"
 
@@ -250,22 +251,25 @@ void print_out_analysis_context(const struct analysis_context *c) {
 }
 
 
-int test_libmerc(struct libmerc_config *config, int verbosity) {
-    int retval = mercury_init(config, verbosity);
-    if (retval) {
-        fprintf(stderr, "mercury_init() error (code %d)\n", retval);
+int test_libmerc(const struct libmerc_config *config, int verbosity, const char *stats_file) {
+
+    fprintf(stdout, "initializing mercury with %s resource archive\n", config->key_type ? "encrypted (.tgz.enc)" : "unencrypted (.tgz)");
+
+    mercury_context mc = mercury_init(config, verbosity);
+    if (mc == NULL) {
+        fprintf(stderr, "mercury_init() error\n");
         return EXIT_FAILURE;
     }
 
     // report on the VERSION of the resources archive
-    const char *VERSION = mercury_get_resource_version();
+    const char *VERSION = mercury_get_resource_version(mc);
     fprintf(stdout, "mercury resource archive version: %s\n", VERSION ? VERSION : "unknown");
 
     // initialize a mercury_packer_processor, which is an opaque
     // pointer; there should be one mercury_packet_processor for each
     // packet-processing thread
     //
-    mercury_packet_processor m = mercury_packet_processor_construct();
+    mercury_packet_processor m = mercury_packet_processor_construct(mc);
     if (m == NULL) {
         fprintf(stderr, "error in mercury_packet_processor_construct()\n");
         return EXIT_FAILURE;
@@ -320,9 +324,18 @@ int test_libmerc(struct libmerc_config *config, int verbosity) {
     //
     mercury_packet_processor_destruct(m);
 
+    // write stats data to file
+    //
+    sleep(1);  // sleep to allow data to propagate through event queues
+    if (mercury_write_stats_data(mc, stats_file) == false) {
+        fprintf(stderr, "error writing stats data file\n");
+        return EXIT_FAILURE;
+    }
+    fprintf(stdout, "wrote stats data file to '%s'\n", stats_file);
+
     // tear down library's global configuration
     //
-    retval = mercury_finalize();
+    int retval = mercury_finalize(mc);
     if (retval) {
         fprintf(stderr, "mercury_finalize() error (code %d)\n", retval);
         return EXIT_FAILURE;
@@ -332,7 +345,7 @@ int test_libmerc(struct libmerc_config *config, int verbosity) {
 }
 
 int main(int argc, char *argv[]) {
-    int verbosity = 0;
+    int verbosity = 1;
     int retval;
 
     // report library version
@@ -342,14 +355,38 @@ int main(int argc, char *argv[]) {
     // test standard configuration
 
     // initialize libmerc's global configuration by creating a
-    // libmerc_config structure and then passing it into mercury_init
+    // libmerc_config structure and then passing it into mercury_init,
+    // using a resource archive that is compressed but not encrypted
     //
     struct libmerc_config config = libmerc_config_init();
     config.do_analysis = true;
     config.resources = "../resources/resources.tgz";
     config.report_os = true;
+    config.do_stats = true;
     config.packet_filter_cfg = "tls";
-    retval = test_libmerc(&config, verbosity);
+    retval = test_libmerc(&config, verbosity, "merc_stats_0.json.gz");
+    if (retval) {
+        fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
+        return EXIT_FAILURE;
+    }
+
+    // initialize libmerc's global configuration by creating a
+    // libmerc_config structure and then passing it into mercury_init,
+    // using a resource archive that is encrypted and compressed
+    //
+    struct libmerc_config config_enc = libmerc_config_init();
+    config_enc.do_analysis = true;
+    config_enc.resources = "../test/resources.tgz.enc"; // note .enc extension
+    const uint8_t enc_key[16] = {
+       0xa4, 0x65, 0xd1, 0xd6, 0xed, 0xaa, 0xb0, 0xbb,
+       0x01, 0x69, 0xe0, 0xf8, 0xb0, 0x10, 0x8e, 0xfd
+    };
+    config_enc.enc_key = enc_key;
+    config_enc.key_type = enc_key_type_aes_128;
+    config_enc.report_os = true;
+    config_enc.do_stats = true;
+    config_enc.packet_filter_cfg = "tls";
+    retval = test_libmerc(&config_enc, verbosity, "merc_stats_1.json.gz");
     if (retval) {
         fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
         return EXIT_FAILURE;
@@ -360,10 +397,11 @@ int main(int argc, char *argv[]) {
     config_min_db.do_analysis = true;
     config_min_db.resources = "../resources/resources.tgz";
     config_min_db.report_os = true;
+    config_min_db.do_stats = true;
     config_min_db.packet_filter_cfg = "tls";
     config_min_db.fp_proc_threshold = .001;
     config_min_db.proc_dst_threshold = .01;
-    retval = test_libmerc(&config_min_db, verbosity);
+    retval = test_libmerc(&config_min_db, verbosity, "merc_stats_2.json.gz");
     if (retval) {
         fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
         return EXIT_FAILURE;

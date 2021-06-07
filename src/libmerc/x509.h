@@ -446,7 +446,7 @@ struct general_name {
             struct tlv value(&tlv_sequence, 0);
             struct json_object_asn1 other_name{o, "other_name"};
             type_id.print_as_json_oid(other_name, "type_id");
-            value.print_as_json_hex(other_name, "value");
+            value.print_as_json_escaped_string(other_name, "value"); // nb: used to be hex
             other_name.close();
         } else if (explicit_tag.tag == rfc822Name) {
             explicit_tag.print_as_json_escaped_string(o, "rfc822_name");

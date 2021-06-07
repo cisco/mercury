@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
@@ -23,6 +24,7 @@
 #include "config.h"
 #include "output.h"
 #include "rnd_pkt_drop.h"
+#include "control.h"
 
 char mercury_help[] =
     "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
@@ -43,6 +45,9 @@ char mercury_help[] =
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   --resources=f                         # use resource file f\n"
+    "   --stats=f                             # write stats to file f\n"
+    "   --stats-time=T                        # write stats every T seconds\n"
+    "   --stats-limit=L                       # limit stats to L entries\n"
     "   [-s or --select] filter               # select traffic by filter (see --help)\n"
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
@@ -192,11 +197,12 @@ int main(int argc, char *argv[]) {
     extern double malware_prob_threshold;  // TODO - expose hidden command
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
             { "resources",   required_argument, NULL, resources },
+            { "stats",       required_argument, NULL, write_stats },
             { "version",     no_argument,       NULL, version },
             { "license",     no_argument,       NULL, license },
             { "dns-json",    no_argument,       NULL, dns_json },
@@ -204,6 +210,8 @@ int main(int argc, char *argv[]) {
             { "metadata",    no_argument,       NULL, metadata },
             { "nonselected-tcp-data", no_argument, NULL, tcp_init_data },
             { "nonselected-udp-data", no_argument, NULL, udp_init_data },
+            { "stats-limit", required_argument, NULL, stats_limit },
+            { "stats-time",  required_argument, NULL, stats_time },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -237,6 +245,14 @@ int main(int argc, char *argv[]) {
                 libmerc_cfg.resources = optarg;
             } else {
                 usage(argv[0], "option resources requires directory argument", extended_help_off);
+            }
+            break;
+        case write_stats:
+            if (option_is_valid(optarg)) {
+                cfg.stats_filename = optarg;
+                libmerc_cfg.do_stats = true;
+            } else {
+                usage(argv[0], "option stats requires filename argument", extended_help_off);
             }
             break;
         case version:
@@ -406,6 +422,28 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option l or limit requires a numeric argument", extended_help_off);
             }
             break;
+        case stats_time:
+            if (option_is_valid(optarg)) {
+                errno = 0;
+                cfg.stats_rotation_duration = strtol(optarg, NULL, 10);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                }
+            } else {
+                usage(argv[0], "option stats-time requires a numeric argument", extended_help_off);
+            }
+            break;
+        case stats_limit:
+            if (option_is_valid(optarg)) {
+                errno = 0;
+                libmerc_cfg.max_stats_entries = strtol(optarg, NULL, 10);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                }
+            } else {
+                usage(argv[0], "option stats-limit requires a numeric argument", extended_help_off);
+            }
+            break;
         case 'p':
             if (option_is_valid(optarg)) {
                 errno = 0;
@@ -478,12 +516,20 @@ int main(int argc, char *argv[]) {
     if (cfg.fingerprint_filename && cfg.write_filename) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
     }
+    if (libmerc_cfg.max_stats_entries && cfg.stats_filename == NULL) {
+        usage(argv[0], "stats-limit set, but no stats file specified", extended_help_off);
+    }
+    if (cfg.stats_filename != NULL && !libmerc_cfg.do_analysis) {
+        usage(argv[0], "stats option requires --analysis", extended_help_off);
+    }
 
     if (cfg.read_filename) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
     }
 
-    if (mercury_init(&libmerc_cfg, cfg.verbosity) != 0) {
+    mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
+    if (mc == nullptr) {
+        fprintf(stderr, "error: could not initialize mercury\n");
         return EXIT_FAILURE;          // libmerc could not be initialized
     };
 
@@ -526,6 +572,11 @@ int main(int argc, char *argv[]) {
     /* init random number generator */
     srand(time(0));
 
+    controller *ctl = nullptr;
+    if (cfg.stats_filename) {
+        ctl = new controller{mc, cfg.stats_filename, cfg.stats_rotation_duration};
+    }
+
     pthread_t output_thread;
     struct output_file out_file;
     if (output_thread_init(output_thread, out_file, cfg) != 0) {
@@ -537,23 +588,28 @@ int main(int argc, char *argv[]) {
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
-        if (bind_and_dispatch(&cfg, &out_file) != status_ok) {
+        if (bind_and_dispatch(&cfg, mc, &out_file) != status_ok) {
             fprintf(stderr, "error: bind and dispatch failed\n");
             return EXIT_FAILURE;
         }
     } else if (cfg.read_filename) {
 
-        if (open_and_dispatch(&cfg, &out_file) != status_ok) {
+        if (open_and_dispatch(&cfg, mc, &out_file) != status_ok) {
             return EXIT_FAILURE;
         }
     }
 
-    mercury_finalize();
+    if (ctl) {
+        delete ctl;  // delete control thread, which will flush stats output (if any)
+    }
+
+    mercury_finalize(mc);
 
     if (cfg.verbosity) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
     }
     output_thread_finalize(output_thread, &out_file);
+
 
     return 0;
 }

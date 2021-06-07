@@ -28,17 +28,16 @@ uint32_t mercury_get_version_number() {
     return mercury_version.get_version_as_uint32();
 }
 
-const char *mercury_get_resource_version() {
-    extern classifier *c;
-    if (c) {
-        return c->get_resource_version();
+const char *mercury_get_resource_version(struct mercury *mc) {
+    if (mc && mc->c) {
+        return mc->c->get_resource_version();
     }
     return nullptr;
 }
 
-struct libmerc_config global_vars;
+mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
-int mercury_init(const struct libmerc_config *vars, int verbosity) {
+    mercury *m = nullptr;
 
     if (verbosity > 0) {
         // sanity check, to help with shared object library development
@@ -46,37 +45,29 @@ int mercury_init(const struct libmerc_config *vars, int verbosity) {
     }
 
     try {
-        global_vars = *vars;
-        global_vars.resources = vars->resources;
-        global_vars.packet_filter_cfg = vars->packet_filter_cfg;
-        enum status status = proto_ident_config(vars->packet_filter_cfg);
-        if (status) {
-            return status;
-        }
-        if (global_vars.do_analysis) {
-            if (analysis_init_from_archive(verbosity, global_vars.resources,
-                                           vars->enc_key, vars->key_type,
-                                           global_vars.fp_proc_threshold,
-                                           global_vars.proc_dst_threshold, global_vars.report_os) != 0) {
-                return -1;
-            }
-        }
-        return 0; // success
+
+        m = new mercury{vars, verbosity};
+        return m;  // success
+
     }
-    catch (char const *s) {
+    catch (const char *s) {
         fprintf(stderr, "%s\n", s);
     }
     catch (...) {
         ;
     }
-    return -1; // failure
+    if (m) {
+        delete m;
+    }
+    return nullptr; // failure
 }
 
-int mercury_finalize() {
-    if (global_vars.do_analysis) {
-        analysis_finalize();
+int mercury_finalize(mercury_context mc) {
+    if (mc) {
+        delete mc;
+        return 0; // success
     }
-    return 0; // success
+    return -1;    // error
 }
 
 size_t mercury_packet_processor_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
@@ -110,6 +101,8 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
 const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
+        // TODO: eliminate ignored JSON output
+        //
         uint8_t buffer[4096]; // buffer for (ignored) json output
 
         processor->analysis.result.valid = false;
@@ -132,7 +125,7 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
         uint8_t buffer[4096]; // buffer for (ignored) json output
 
         processor->analysis.result.valid = false;
-        if (processor->write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {
+        if (processor->write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {  // TODO: replace with get_context!
             if (processor->analysis.result.valid) {
                 return &processor->analysis;
             }
@@ -368,10 +361,13 @@ enum status proto_ident_config(const char *config_string) {
     return status_ok;
 }
 
-mercury_packet_processor mercury_packet_processor_construct() {
+mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) {
     try {
-        stateful_pkt_proc *tmp = new stateful_pkt_proc{0};
+        stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
         return tmp;
+    }
+    catch (const char *s) {
+        fprintf(stderr, "%s\n", s);
     }
     catch (...) {
         ; // error, return NULL
@@ -388,6 +384,23 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     }
     catch (...) {
     }
+}
+
+bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_path) {
+
+    if (mc == NULL || stats_data_file_path == NULL) {
+        return false;
+    }
+
+    gzFile stats_data_file = gzopen(stats_data_file_path, "w");
+    if (stats_data_file == nullptr) {
+        fprintf(stderr, "error: could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
+        return false;
+    }
+    mc->aggregator.gzprint(stats_data_file);
+    gzclose(stats_data_file);
+
+    return true;
 }
 
 

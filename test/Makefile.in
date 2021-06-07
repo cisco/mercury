@@ -79,7 +79,7 @@ BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
 BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
 .PHONY: all clean
-all: clean comp analysis cert-check memcheck dummy-capture json-validity-test
+all: clean comp analysis cert-check memcheck dummy-capture json-validity-test stats
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
@@ -243,6 +243,14 @@ endif
 else
 	@echo $(COLOR_YELLOW) "omitting dummy-capture test; tcpreplay is unavailable" $(COLOR_OFF)
 endif
+
+.PHONY: stats
+stats:
+	@echo "running stats test"
+	$(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources/resources.tgz --stats=stats
+	bash -c "$(python) ./compare-stats.py -m tmp.json -s <(zcat stats.json.gz)"
+	@echo $(COLOR_GREEN) "passed stats test" $(COLOR_OFF)
+	rm -f tmp.json stats.json.gz
 
 .PHONY: clean
 clean:

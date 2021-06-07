@@ -12,6 +12,7 @@
 #include "libmerc/utils.h"
 
 struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
+                                          mercury_context mc,
                                           int tnum,
                                           struct ll_queue *llq) {
 
@@ -34,14 +35,14 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
             /*
              * write (filtered, if configured that way) packets to capture file
              */
-            return new pkt_proc_filter_pcap_writer_llq(llq, cfg->output_block);
+            return new pkt_proc_filter_pcap_writer_llq(mc, llq, cfg->output_block);
 
         } else {
             /*
              * write fingerprints into output file
              */
 
-            return new pkt_proc_json_writer_llq(llq, cfg->output_block);
+            return new pkt_proc_json_writer_llq(mc, llq, cfg->output_block);
 
         }
         // note: we no longer have a 'packet dumper' option

@@ -12,8 +12,8 @@
 
 #include "common.h"
 
-using ipv4_addr = uint32_t;
-using ipv6_addr = __uint128_t;
+using ipv4_addr_t = uint32_t;
+using ipv6_addr_t = __uint128_t;
 
 #define IP_SUBNET_UNUSED      0
 #define IP_SUBNET_BGP         1

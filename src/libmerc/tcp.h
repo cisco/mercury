@@ -69,8 +69,8 @@ struct ip_address {
         ipv6_address ipv6;
     } value;
 
-    ip_address(uint32_t v4_addr)     : version{ip_version::v4}, value{v4_addr} {}
-    ip_address(ipv6_address v6_addr) : version{ip_version::v6}, value{v6_addr} {}
+    explicit ip_address(uint32_t v4_addr)     : version{ip_version::v4}, value{v4_addr} {}
+    explicit ip_address(ipv6_address v6_addr) : version{ip_version::v6}, value{v6_addr} {}
 };
 
 struct key {
@@ -143,25 +143,24 @@ struct key {
         }
     }
 
-    void fprint(FILE *f, const char *message="") const {
-        fprintf(f, "%s", message);
+#define MAX_ADDR_STR_LEN 48
+
+    void sprint_src_addr(char src_addr[MAX_ADDR_STR_LEN]) const {
         if (ip_vers == 4) {
             uint8_t *sa = (uint8_t *)&addr.ipv4.src;
-            uint8_t *da = (uint8_t *)&addr.ipv4.dst;
-            fprintf(f, "sa: %u.%u.%u.%u, ", sa[0], sa[1], sa[2], sa[3]);
-            fprintf(f, "da: %u.%u.%u.%u, ", da[0], da[1], da[2], da[3]);
+            snprintf(src_addr, MAX_ADDR_STR_LEN, "%u.%u.%u.%u", sa[0], sa[1], sa[2], sa[3]);
         } else {
             uint8_t *sa = (uint8_t *)&addr.ipv6.src;
-            uint8_t *da = (uint8_t *)&addr.ipv6.dst;
-            fprintf(f, "sa: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:, ",
+            snprintf(src_addr, MAX_ADDR_STR_LEN, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
                     sa[0], sa[1], sa[2], sa[3], sa[4], sa[5], sa[6], sa[7], sa[8], sa[9], sa[10], sa[11], sa[12], sa[13], sa[14], sa[15]);
-            fprintf(f, "da: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:, ",
-                    da[0], da[1], da[2], da[3], da[4], da[5], da[6], da[7], da[8], da[9], da[10], da[11], da[12], da[13], da[14], da[15]);
         }
-        fprintf(f, "sp: %u, ", src_port);
-        fprintf(f, "dp: %u, ", dst_port);
-        fprintf(f, "pr: %u\n", protocol);
     }
+
+#define MAX_PORT_STR_LEN 6
+    void sprint_dst_port(char dst_port_string[MAX_PORT_STR_LEN]) const {
+        snprintf(dst_port_string, MAX_PORT_STR_LEN, "%u", dst_port);
+    }
+
 };
 
 

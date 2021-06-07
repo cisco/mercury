@@ -48,6 +48,7 @@ struct pcap_file {
     off_t  allocated_size; /* file size allocated using posix_fallocate    */
     uint64_t bytes_written; /* number of bytes written to this file       */
     uint64_t packets_written; /* number of packets written to this file   */
+    uint16_t linktype;        /* data link type                           */
 };
 
 #define pcap_file_init() { NULL, 0, 0, 0, NULL, NULL, NULL }

@@ -15,6 +15,7 @@
 #include "addr.h"
 #include "json_object.h"
 #include "result.h"
+#include "stats.h"
 
 #include <mutex>
 #include <shared_mutex>
@@ -29,8 +30,12 @@
 #include "tls.h"
 #include "archive.h"
 
+// TBD - move flow_key_sprintf_src_addr() to the right file
+//
+void flow_key_sprintf_src_addr(const struct flow_key *key,
+                               char *src_addr_str);
 
-int analysis_init_from_archive(int verbosity,
+struct classifier *analysis_init_from_archive(int verbosity,
                                const char *archive_name,
                                const uint8_t *enc_key,
                                enum enc_key_type key_type,
@@ -38,7 +43,7 @@ int analysis_init_from_archive(int verbosity,
                                float proc_dst_threshold,
                                bool report_os);
 
-int analysis_finalize();
+int analysis_finalize(classifier *c);
 
 
 struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
@@ -61,15 +66,15 @@ public:
     std::map<std::string, uint64_t> os_info;
     bool extended_fp_metadata = false;
 
-    process_info(std::string proc_name,
+    process_info(const std::string &proc_name,
                  bool is_malware,
                  uint64_t proc_count,
-                 std::unordered_map<uint32_t, uint64_t> as,
-                 std::unordered_map<std::string, uint64_t> domains,
-                 std::unordered_map<uint16_t, uint64_t> ports,
-                 std::unordered_map<std::string, uint64_t> ip,
-                 std::unordered_map<std::string, uint64_t> sni,
-                 std::map<std::string, uint64_t> oses) :
+                 const std::unordered_map<uint32_t, uint64_t> &as,
+                 const std::unordered_map<std::string, uint64_t> &domains,
+                 const std::unordered_map<uint16_t, uint64_t> &ports,
+                 const std::unordered_map<std::string, uint64_t> &ip,
+                 const std::unordered_map<std::string, uint64_t> &sni,
+                 const std::map<std::string, uint64_t> &oses) :
         name{proc_name},
         malware{is_malware},
         count{proc_count},
@@ -147,7 +152,6 @@ public:
     floating_point_type value;   // value of update
 };
 
-
 class fingerprint_data {
     std::vector<std::string> process_name;
     std::vector<floating_point_type> process_prob;
@@ -157,18 +161,26 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
-    std::vector<std::pair<os_information*,uint16_t>> os_info;
+    //std::vector<std::pair<os_information*,uint16_t>> os_info; // TODO: delete
+    std::vector<std::vector<struct os_information>> process_os_info_vector;
+    //std::vector<std::vector<std::string>> process_os_names;
     floating_point_type base_prior;
 
     static bool malware_db;
     static bool report_os;
 
+    const subnet_data *subnet_data_ptr = nullptr;
+
 public:
     uint64_t total_count;
 
-    fingerprint_data() : total_count{0}  { }
+    fingerprint_data() : total_count{0} { }
 
-    fingerprint_data(uint64_t count, std::vector<class process_info> processes) :
+    fingerprint_data(uint64_t count,
+                     const std::vector<class process_info> &processes,
+                     ptr_dict &os_dictionary,
+                     const subnet_data *subnets) :
+        subnet_data_ptr{subnets},
         total_count{count} {
 
             //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -189,18 +201,17 @@ public:
                 }
 
                 if (p.os_info.size() > 0) {
-                    os_information *os_infos = (os_information*)malloc(p.os_info.size() * sizeof(*os_infos));
-                    int i = 0;
+
+                    // create a vector of os_information structs, whose char * makes
+                    // use of the os_dictionary
+                    //
+                    process_os_info_vector.push_back(std::vector<struct os_information>{});
+                    std::vector<struct os_information> &os_info_vector = process_os_info_vector.back();
                     for (const auto &os_and_count : p.os_info) {
-                        os_infos[i].os_name = (char*)malloc(os_and_count.first.length()+1);
-                        strcpy(os_infos[i].os_name, os_and_count.first.c_str());
-                        os_infos[i].os_prevalence = os_and_count.second;
-                        i++;
+                        const char *os = os_dictionary.get(os_and_count.first);
+                        struct os_information tmp{(char *)os, os_and_count.second};
+                        os_info_vector.push_back(tmp);
                     }
-                    os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
-                } else {
-                    os_information *os_infos = NULL;
-                    os_info.push_back(std::make_pair(os_infos, p.os_info.size()));
                 }
 
                 constexpr floating_point_type as_weight = 0.13924;
@@ -267,50 +278,40 @@ public:
 
     }
 
+    ~fingerprint_data() {
+    }
+
     void print(FILE *f) {
         fprintf(f, ",\"total_count\":%" PRIu64, total_count);
         fprintf(f, ",\"process_info\":[");
 
-        // TBD: fix
+        // TBD: fingerprint_data::print() output should be a JSON representation of object
 
-        // char comma = ' ';
-        // for (auto &p : process_data) {
-        //     fputc(comma, f);
-        //     p.print(f);
-        //     comma = ',';
-        // }
-#if 0
-            if (false) {
-                // dump info to stderr
-                //
-                for (size_t i=0; i < processes.size(); i++) {
-                    fprintf(stderr, "process: %s\tprob: %Le\n", process_name[i].c_str(), process_prob[i]);
-                }
-                fprintf(stderr, "as_number_updates:\n");
-                for (const auto &asn_and_updates : as_number_updates) {
-                    fprintf(stderr, "\t%u:\n", asn_and_updates.first);
-                    for (const auto &update : asn_and_updates.second) {
-                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
-                    }
-                }
-                //std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
-                fprintf(stderr, "hostname_domain_updates:\n");
-                for (const auto &domain_and_updates : hostname_domain_updates) {
-                    fprintf(stderr, "\t%s:\n", domain_and_updates.first.c_str());
-                    for (const auto &update : domain_and_updates.second) {
-                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
-                    }
-                }
-                fprintf(stderr, "port_updates:\n");
-                for (const auto &port_and_updates : port_updates) {
-                    fprintf(stderr, "\t%u:\n", port_and_updates.first);
-                    for (const auto &update : port_and_updates.second) {
-                        fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
-                    }
-                }
+        for (size_t i=0; i < process_name.size(); i++) {
+            fprintf(stderr, "process: %s\tprob: %Le\n", process_name[i].c_str(), process_prob[i]);
+        }
+        fprintf(stderr, "as_number_updates:\n");
+        for (const auto &asn_and_updates : as_number_updates) {
+            fprintf(stderr, "\t%u:\n", asn_and_updates.first);
+            for (const auto &update : asn_and_updates.second) {
+                fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
             }
-#endif // 0
-
+        }
+        //std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
+        fprintf(stderr, "hostname_domain_updates:\n");
+        for (const auto &domain_and_updates : hostname_domain_updates) {
+            fprintf(stderr, "\t%s:\n", domain_and_updates.first.c_str());
+            for (const auto &update : domain_and_updates.second) {
+                fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+            }
+        }
+        fprintf(stderr, "port_updates:\n");
+        for (const auto &port_and_updates : port_updates) {
+            fprintf(stderr, "\t%u:\n", port_and_updates.first);
+            for (const auto &update : port_and_updates.second) {
+                fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+            }
+        }
         fprintf(f, "]");
     }
 
@@ -341,7 +342,7 @@ public:
     }
 
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port) {
-        uint32_t asn_int = get_asn_info(dst_ip);
+        uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
         std::string server_name_str(server_name);
@@ -424,11 +425,13 @@ public:
             }
         }
 
+        // set os_info (to NULL if unavailable)
+        //
         os_information *os_info_data = NULL;
         uint16_t os_info_size = 0;
-        if (os_info.size() > 0) {
-            os_info_data = os_info[index_max].first;
-            os_info_size = os_info[index_max].second;
+        if (process_os_info_vector.size() > 0) {
+            os_info_data = process_os_info_vector[index_max].data();
+            os_info_size = process_os_info_vector[index_max].size();
         }
         if (malware_db) {
             return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size,
@@ -540,6 +543,10 @@ private:
 class classifier {
     bool MALWARE_DB = false;
     bool EXTENDED_FP_METADATA = false;
+
+    ptr_dict os_dictionary;  // used to hold/compact OS CPE strings
+
+    subnet_data subnets;     // holds ASN/subnet information
 
     std::unordered_map<std::string, class fingerprint_data> fpdb;
     fingerprint_prevalence fp_prevalence{100000};
@@ -699,7 +706,7 @@ public:
                 class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni, os_info);
                 process_vector.push_back(process);
             }
-            class fingerprint_data fp_data(total_count, process_vector);
+            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets);
             // fp_data.print(stderr);
 
             if (fpdb.find(fp_string) != fpdb.end()) {
@@ -709,11 +716,15 @@ public:
         }
     }
 
-    classifier(const char *resource_archive_file, float fp_proc_threshold, float proc_dst_threshold, bool report_os) : fpdb{}, resource_version{} {
+    classifier(class encrypted_compressed_archive &archive,
+               float fp_proc_threshold,
+               float proc_dst_threshold,
+               bool report_os) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
 
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
-        class compressed_archive archive{resource_archive_file};
+        bool got_version = false;
+        //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
             throw "error: could not read any entries from resource archive file";
@@ -739,15 +750,22 @@ public:
                     while (archive.getline(line_str)) {
                         resource_version += line_str;
                     }
-                    got_fp_db = true;
+                    got_version = true;
+
+                } else if (name == "pyasn.db") {
+                    while (archive.getline(line_str)) {
+                        subnets.process_line(line_str);
+                    }
+                    got_version = true;
                 }
             }
-            if (got_fp_db && got_fp_prevalence) {
+            if (got_fp_db && got_fp_prevalence && got_version) {   // TODO: Do we want to require a VERSION file?
                 break; // got all data, we're done here
             }
             entry = archive.get_next_entry();
         }
 
+        subnets.process_final();
     }
 
     void print(FILE *f) {
@@ -796,6 +814,9 @@ public:
     }
 
     struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
+
+        // fp_stats.observe(fp_str, server_name, dst_ip, dst_port); // TBD - decide where this call should go
+
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
             if (fp_prevalence.contains(fp_str)) {
@@ -810,30 +831,6 @@ public:
 
         return fp_data.perform_analysis(server_name, dst_ip, dst_port);
     }
-
-#if 0
-    struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
-                                                        const struct key &key) {
-        uint16_t dst_port = flow_key_get_dst_port(key);
-        char dst_ip_str[MAX_DST_ADDR_LEN];
-        flow_key_sprintf_dst_addr(key, dst_ip_str);
-
-        // copy fingerprint string
-        char fp_str[MAX_FP_STR_LEN] = { 0 };
-        struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
-        hello.write_fingerprint(fp_buf);
-        fp_buf.write_char('\0'); // null-terminate
-        // fprintf(stderr, "fingerprint: '%s'\n", fp_str);
-
-        char sn_str[MAX_SNI_LEN] = { 0 };
-        struct datum sn{NULL, NULL};
-        hello.extensions.set_server_name(sn);
-        sn.strncpy(sn_str, MAX_SNI_LEN);
-        // fprintf(stderr, "server_name: '%.*s'\tcopy: '%s'\n", (int)sn.length(), sn.data, sn_str);
-
-        return this->perform_analysis(fp_str, sn_str, dst_ip_str, dst_port);
-    }
-#endif
 
     bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
                                                     const struct destination_context &dc,
