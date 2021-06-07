@@ -191,7 +191,7 @@ public:
             process_prob.reserve(processes.size());
             malware.reserve(processes.size());
 
-            base_prior = log(1.0 / total_count);
+            base_prior = log(0.1 / total_count);
             size_t index = 0;
             for (const auto &p : processes) {
                 process_name.push_back(p.name);

@@ -14,6 +14,7 @@ from distutils.extension import Extension
 # "-std=c++11" is needed due to c++11 dependency
 
 sources = ['mercury.pyx',
+           '../libmerc/asn1/oid.cc',
            '../libmerc/dns.cc',
            '../libmerc/utils.cc',
            '../libmerc/datum.cc',
@@ -29,6 +30,7 @@ sources = ['mercury.pyx',
            '../libmerc/http.cc',
            '../libmerc/pkt_proc.cc',
            '../libmerc/tls.cc',
+           '../libmerc/asn1.cc',
 ]
 
 setup(ext_modules=[Extension("mercury",
