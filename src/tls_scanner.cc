@@ -27,6 +27,7 @@
 #include "libmerc/x509.h"
 #include "libmerc/http.h"
 #include "libmerc/json_object.h"
+#include "libmerc/dns.h"
 
 #include "options.h"
 
@@ -620,44 +621,7 @@ private:
 
     std::vector<std::string> hosts_visited;
 
-public:
-
-    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni) : print_cert{cert}, print_response_body{response_body}, print_src_links{src_links}, omit_sni{no_sni}, user_agent{user_agent_default}, hosts_visited{} { }
-
-    // note: scan() should be rewritten so that its input strings are const; as written,
-    // those strings could be changed
-    //
-    void scan(std::string &hostname, std::string &inner_hostname, const std::string ua_search_string) {
-        std::string redirect = "";
-        std::string &http_host_field = inner_hostname;
-        bool trim_hostname = false;
-        if (inner_hostname == "") {
-            http_host_field = hostname;
-            trim_hostname = true;
-        }
-
-        // set path, if there is one, and trim the path off of the
-        // host string(s) as needed
-        //
-        std::string path = "/";
-        size_t idx = http_host_field.find("/");
-        if (idx != std::string::npos) {
-            path = http_host_field.substr(idx, std::string::npos);
-            http_host_field.resize(idx);
-            if (trim_hostname) {
-                hostname.resize(idx);
-            }
-        }
-
-        // fprintf(stderr, "hostname:   %s\n", hostname.c_str());
-        // fprintf(stderr, "inner host: %s\n", inner_hostname.c_str());
-        // fprintf(stderr, "host field: %s\n", http_host_field.c_str());
-        // fprintf(stderr, "path:       %s\n", path.c_str());
-
-        if (hostname == "") {
-            //fprintf(stderr, "warning: empty hostname found\n");
-            return;
-        }
+    BIO *tls_connection_open(std::string &hostname) {
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
         SSL_library_init();
@@ -685,7 +649,7 @@ public:
         if (BIO_do_connect(bio) <= 0) {
             fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
             //throw "error: could not connect to %s\n";
-            return;
+            return nullptr;
         }
 
         BIO *tls_bio = BIO_new_ssl(ctx, 1);
@@ -760,15 +724,91 @@ public:
         // X509_check_host() called automatically
 #endif
 
+        return tls_bio;
+    }
+
+    void tls_connection_close(BIO *tls_bio) {
+        BIO_ssl_shutdown(tls_bio);
+        //
+        // TODO: more openssl shutdown is needed; this should be
+        // implemented in order to allow scanner re-use across
+        // multiple queries (valgrind shows leaks from BIO_new_ssl)
+    }
+
+public:
+
+    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni) : print_cert{cert}, print_response_body{response_body}, print_src_links{src_links}, omit_sni{no_sni}, user_agent{user_agent_default}, hosts_visited{} { }
+
+    bool set_user_agent(const std::string ua_search_string) {
         if (ua_search_string != "") {
             std::regex ua_regex(ua_search_string);
             for (std::string s : ua_strings) {
                 if (std::regex_search(s, ua_regex)) {
                     user_agent = s + "\r\n";
                     fprintf(stderr, "user_agent: \"%s\"\n", s.c_str());
-                    break;
+                    return true;  // found match
                 }
             }
+        }
+        return false;  // no match found; user_agent is still default value
+    }
+
+    // note: scan() should be rewritten so that its input strings are const; as written,
+    // those strings could be changed
+    //
+    void scan(std::string &hostname, std::string &inner_hostname, bool doh=false) {
+        std::string redirect = "";
+        std::string &http_host_field = inner_hostname;
+        bool trim_hostname = false;
+        if (inner_hostname == "") {
+            http_host_field = hostname;
+            trim_hostname = true;
+        }
+
+        // set path, if there is one, and trim the path off of the
+        // host string(s) as needed
+        //
+        std::string path = "/";
+        size_t idx = http_host_field.find("/");
+        if (idx != std::string::npos) {
+            path = http_host_field.substr(idx, std::string::npos);
+            http_host_field.resize(idx);
+            if (trim_hostname) {
+                hostname.resize(idx);
+            }
+            if (doh) {
+                fprintf(stderr, "error: path set for DoH query\n");
+                return;
+            }
+        }
+
+        if (doh) {
+            uint8_t dns_message[2048];
+            dns_hdr *header = (dns_hdr *)&dns_message[0];
+            header->id = 0xabcd; // TODO: should be random
+            header->flags = 0x0; // ??
+            header->qdcount = 1;
+            header->ancount = 0;
+            header->nscount = 0;
+            header->arcount = 0;
+            (void)header;
+            path += "dns-query?dns=";
+            path += "AAABAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB";
+        }
+
+        // fprintf(stderr, "hostname:   %s\n", hostname.c_str());
+        // fprintf(stderr, "inner host: %s\n", inner_hostname.c_str());
+        // fprintf(stderr, "host field: %s\n", http_host_field.c_str());
+        // fprintf(stderr, "path:       %s\n", path.c_str());
+
+        if (hostname == "") {
+            //fprintf(stderr, "warning: empty hostname found\n");
+            return;
+        }
+
+        BIO *tls_bio = tls_connection_open(hostname);
+        if (tls_bio == nullptr) {
+            return;  // error: could not connect to host
         }
 
         // send HTTP request
@@ -894,17 +934,18 @@ public:
                     if (!was_previously_visited(host)) {
                         // append path to host, since scan() expects that
                         host += u.path.get_string();
-                        scan(host, host, ua_search_string);
+                        scan(host, host);
                     }
                 }
             }
 
+            tls_connection_close(tls_bio);
         }
 
         // follow redirect, if any, by recursing
         if (redirect != "") {
             if (!was_previously_visited(redirect)) {
-                scan(redirect, redirect, ua_search_string);
+                scan(redirect, redirect);
             }
         }
 
@@ -944,7 +985,9 @@ int main(int argc, char *argv[]) {
         "Scans an HTTPS server for its certificate, HTTP response headers, response\n"
         "body, redirect links, and src= links, and reports its findings to standard\n"
         "output.  To check for domain fronting, set the inner_hostname to be\n"
-        "distinct from hostname.\n\n"
+        "distinct from hostname.\n"
+        "\ttls_scanner <hostname> <query_name> --doh\n"
+        "\n"
         "OPTIONS\n";
 
     class option_processor opt({
@@ -955,6 +998,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--list-user-agents", "print out user agent strings, most prevalent first" },
         { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
         { argument::none,       "--body",             "prints out HTTP response body" },
+        { argument::none,       "--doh",              "send DoH query" },
         { argument::none,       "--help",             "prints out help message" }
     });
 
@@ -970,6 +1014,7 @@ int main(int argc, char *argv[]) {
     bool omit_sni    = opt.is_set("--no-server-name");
     bool print_certs = opt.is_set("--certs");
     bool print_body  = opt.is_set("--body");
+    bool doh         = opt.is_set("--doh");
     bool print_help  = opt.is_set("--help");
 
     if (print_help) {
@@ -995,7 +1040,10 @@ int main(int argc, char *argv[]) {
                             true,        // print src links
                             omit_sni     // omit TLS server name
                             );
-        scanner.scan(hostname, inner_hostname, ua_search_string);
+        if (ua_is_set) {
+            scanner.set_user_agent(ua_search_string);
+        }
+        scanner.scan(hostname, inner_hostname, doh);
 
         fprintf(stdout, "\nhostnames visited:\n");
         scanner.print_history(stdout);
