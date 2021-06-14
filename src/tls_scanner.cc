@@ -28,6 +28,7 @@
 #include "libmerc/http.h"
 #include "libmerc/json_object.h"
 #include "libmerc/dns.h"
+#include "libmerc/base64.h"
 
 #include "options.h"
 
@@ -783,17 +784,63 @@ public:
         }
 
         if (doh) {
+            path += "dns-query?dns=";
+
             uint8_t dns_message[2048];
             dns_hdr *header = (dns_hdr *)&dns_message[0];
-            header->id = 0xabcd; // TODO: should be random
-            header->flags = 0x0; // ??
-            header->qdcount = 1;
-            header->ancount = 0;
-            header->nscount = 0;
-            header->arcount = 0;
-            (void)header;
-            path += "dns-query?dns=";
-            path += "AAABAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB";
+            header->id = 0x0000;    // TODO: should be random
+            header->flags = htons(0x0100);
+            header->qdcount = htons(1);
+            header->ancount = htons(0);
+            header->nscount = htons(0);
+            header->arcount = htons(0);
+
+            uint8_t *rr_start = &dns_message[sizeof(dns_hdr)];
+
+            fprintf(stderr, "%s\n", inner_hostname.c_str());
+            uint8_t *s = (uint8_t *)inner_hostname.c_str();
+            while (true) {
+                uint8_t *t = s;
+                while (true) {
+                    fprintf(stderr, "visiting %c (%u)\n", *t, *t);
+                    if (*t == '.' || *t == 0) {
+                        break;
+                    }
+                    t++;
+                }
+                if (t == s) {
+                    break;
+                }
+                *rr_start++ = (uint8_t) (t - s);
+                memcpy(rr_start, s, (t-s));
+                rr_start += (t - s);
+                if (*t == 0) {
+                    break;
+                }
+                t++;
+                s = t;
+            }
+            *rr_start++ = 0;
+
+            // note: AAAA queries are sometimes appropriate
+            //
+            *rr_start++ = 0x00; // qtype in network byte order (A)
+            *rr_start++ = 0x01;
+            *rr_start++ = 0x00; // qclass in network byte order (IN)
+            *rr_start++ = 0x01;
+
+            size_t dns_message_len = rr_start - &dns_message[0];
+
+            std::string dns_json = dns_get_json_string((const char *)dns_message, dns_message_len);
+            fprintf(stderr, "dns query: %s\n", dns_json.c_str());
+
+            std::string dns_string = base64_encode(dns_message, dns_message_len);
+            path += dns_string;
+
+            fprintf(stderr, "dns_string: %s\n", dns_string.c_str());
+            fprintf(stderr, "path:       %s\n", path.c_str());
+            //    path += "AAABAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB";
+
         }
 
         // fprintf(stderr, "hostname:   %s\n", hostname.c_str());
@@ -817,6 +864,9 @@ public:
         request += "Host: " + http_host_field + "\r\n";
         request += "User-Agent: " + user_agent;
         request += "Connection: close\r\n";
+        if (false) {
+            request += "Accept: application/dns-message\r\n";
+        }
         request += "\r\n";
         BIO_write(tls_bio, request.data(), request.size());
         BIO_flush(tls_bio);
