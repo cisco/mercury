@@ -378,8 +378,6 @@ void datum_init_from_outer_parser(struct datum *p,
 enum status datum_set_data_length(struct datum *p,
                                   unsigned int data_len);
 
-unsigned int datum_process_tls_server(struct datum *p);
-
 enum status datum_read_and_skip_uint(struct datum *p,
                                      unsigned int num_bytes,
                                      size_t *output);
@@ -390,9 +388,6 @@ enum status datum_skip(struct datum *p,
 enum status datum_read_uint(struct datum *p,
                             unsigned int num_bytes,
                             size_t *output);
-
-void datum_init_packet(struct datum *p, const unsigned char *data, unsigned int length);
-
 
 ptrdiff_t datum_get_data_length(struct datum *p);
 
@@ -427,21 +422,8 @@ enum status datum_read_and_skip_byte_string(struct datum *p,
  * start of protocol parsing functions
  */
 
-unsigned int datum_process_eth(struct datum *p, size_t *ethertype);
-
-/*
- * The function datum_process_tcp processes a TCP packet.  The
- * parser MUST have previously been initialized with its data
- * pointer set to the initial octet of a TCP header.
- */
-
-unsigned int datum_process_tcp(struct datum *p);
-
 unsigned int datum_process_ipv4(struct datum *p, size_t *transport_protocol, struct key *k);
 
 unsigned int datum_process_ipv6(struct datum *p, size_t *transport_protocol, struct key *k);
-
-unsigned int datum_process_packet(struct datum *p);
-
 
 #endif /* DATUM_H */
