@@ -34,7 +34,7 @@ enum enc_key_type {
 };
 
 /**
- * @breif struct libmerc_config represents the complete configuration
+ * @brief struct libmerc_config represents the complete configuration
  * of the libmerc library.
  *
  * To initialize libmerc, create a libmerc_config structure and pass
