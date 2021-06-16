@@ -784,6 +784,12 @@ public:
         }
 
         if (doh) {
+
+            // experimental support for DoH queries
+            //
+            // TODO: encapsulate DNS encoding within DNS classes for
+            // the sake of maintainability
+
             path += "dns-query?dns=";
 
             uint8_t dns_message[2048];
@@ -797,12 +803,10 @@ public:
 
             uint8_t *rr_start = &dns_message[sizeof(dns_hdr)];
 
-            fprintf(stderr, "%s\n", inner_hostname.c_str());
             uint8_t *s = (uint8_t *)inner_hostname.c_str();
             while (true) {
                 uint8_t *t = s;
                 while (true) {
-                    fprintf(stderr, "visiting %c (%u)\n", *t, *t);
                     if (*t == '.' || *t == 0) {
                         break;
                     }
@@ -820,26 +824,28 @@ public:
                 t++;
                 s = t;
             }
-            *rr_start++ = 0;
+            *rr_start++ = 0; // terminate name with zero-length label
 
-            // note: AAAA queries are sometimes appropriate
-            //
-            *rr_start++ = 0x00; // qtype in network byte order (A)
-            *rr_start++ = 0x01;
+            if (true) {
+                *rr_start++ = 0x00; // qtype in network byte order (A)
+                *rr_start++ = 0x01;
+            } else {
+                *rr_start++ = 0x00; // qtype in network byte order (AAAA)
+                *rr_start++ = 0x1c;
+            }
             *rr_start++ = 0x00; // qclass in network byte order (IN)
             *rr_start++ = 0x01;
 
             size_t dns_message_len = rr_start - &dns_message[0];
 
-            std::string dns_json = dns_get_json_string((const char *)dns_message, dns_message_len);
-            fprintf(stderr, "dns query: %s\n", dns_json.c_str());
+            std::string dns_query = dns_get_json_string((const char *)dns_message, dns_message_len);
+            fprintf(stdout, "{\"dns\":%s}\n", dns_query.c_str());
 
-            std::string dns_string = base64_encode(dns_message, dns_message_len);
+            std::string dns_string = base64_encode(dns_message, dns_message_len, base64url_table);
             path += dns_string;
 
-            fprintf(stderr, "dns_string: %s\n", dns_string.c_str());
-            fprintf(stderr, "path:       %s\n", path.c_str());
-            //    path += "AAABAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB";
+            // fprintf(stderr, "dns_string: '%s'\n", dns_string.c_str());
+            // fprintf(stderr, "path:       %s\n", path.c_str());
 
         }
 
@@ -864,7 +870,7 @@ public:
         request += "Host: " + http_host_field + "\r\n";
         request += "User-Agent: " + user_agent;
         request += "Connection: close\r\n";
-        if (false) {
+        if (doh) {
             request += "Accept: application/dns-message\r\n";
         }
         request += "\r\n";
@@ -939,7 +945,11 @@ public:
                     uint8_t app_type_dns[] = { 'a', 'p', 'p', 'l', 'i', 'c', 'a', 't', 'i', 'o', 'n', '/', 'd', 'n', 's', '-', 'm', 'e', 's', 's', 'a', 'g', 'e' };
                     struct datum app_type_dns_datum{app_type_dns, app_type_dns + sizeof(app_type_dns)};
                     if (content_type.case_insensitive_match(app_type_dns_datum)) {
-                        fprintf(stderr, "got DNS response\n");
+
+                        // output response as JSON object
+                        std::string dns_response = dns_get_json_string((const char *)http.data, http.length());
+                        fprintf(stdout, "{\"dns\":%s}\n", dns_response.c_str());
+
                     }
                 }
 
@@ -1030,13 +1040,14 @@ int main(int argc, char *argv[]) {
     const char summary[] =
         "usage:\n"
         "\ttls_scanner <hostname>[/<path>] [OPTIONS]\n"
-        "\ttls_scanner <hostname> <inner_hostname>[/<path>] [OPTIONS]\n\n"
-        "where <path> is the path used in the HTTP URI (e.g. /en-us/)\n\n"
+        "\ttls_scanner <hostname> <second_hostname>[/<path>] [OPTIONS]\n\n"
+        "\ttls_scanner <hostname> <query_name> --doh [OPTIONS]\n\n"
         "Scans an HTTPS server for its certificate, HTTP response headers, response\n"
         "body, redirect links, and src= links, and reports its findings to standard\n"
-        "output.  To check for domain fronting, set the inner_hostname to be\n"
-        "distinct from hostname.\n"
-        "\ttls_scanner <hostname> <query_name> --doh\n"
+        "output.  Here <path> is the path used in the HTTP URI (e.g. /en-us/).\n"
+        "To check for domain fronting, set <second_hostname> to be distinct from\n"
+        "<hostname>.  To check for DoH, set <second_hostname> to the DNS query name,\n"
+        "and use the option --doh.\n"
         "\n"
         "OPTIONS\n";
 
@@ -1095,8 +1106,12 @@ int main(int argc, char *argv[]) {
         }
         scanner.scan(hostname, inner_hostname, doh);
 
-        fprintf(stdout, "\nhostnames visited:\n");
-        scanner.print_history(stdout);
+        if (!doh) {
+            // report all hosts visited due to redirects and src= links
+            //
+            fprintf(stdout, "\nhostnames visited:\n");
+            scanner.print_history(stdout);
+        }
     }
     catch (const char *s) {
         fprintf(stderr, "%s", s);
