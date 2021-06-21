@@ -794,7 +794,7 @@ public:
 
             uint8_t dns_message[2048];
             dns_hdr *header = (dns_hdr *)&dns_message[0];
-            header->id = 0x0000;    // TODO: should be random
+            header->id = 0x0000;           // DoH clients SHOULD use 0 in each request
             header->flags = htons(0x0100);
             header->qdcount = htons(1);
             header->ancount = htons(0);
@@ -867,11 +867,12 @@ public:
         // send HTTP request
         std::string line = "GET " + path + " HTTP/1.1";
         std::string request = line + "\r\n";
-        request += "Host: " + http_host_field + "\r\n";
         request += "User-Agent: " + user_agent;
         request += "Connection: close\r\n";
         if (doh) {
             request += "Accept: application/dns-message\r\n";
+        } else {
+            request += "Host: " + http_host_field + "\r\n";
         }
         request += "\r\n";
         BIO_write(tls_bio, request.data(), request.size());
