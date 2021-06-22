@@ -435,7 +435,7 @@ int main(int , char *[]) {
     libmerc_config config_lite{};
     config_lite.do_analysis = true;
     config_lite.do_stats = true;
-    std::string resources_lite_path = "../resources/resources_lite.tgz";
+    std::string resources_lite_path = "../resources/resources.tgz";  // note: just different, not really lite
     config_lite.resources = (char*) resources_lite_path.c_str();
 
     bool perform_double_bind_test = true;
