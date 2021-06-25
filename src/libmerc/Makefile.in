@@ -79,6 +79,8 @@ LIBMERC     += tls.cc
 LIBMERC     += udp.cc
 LIBMERC     += utils.cc
 LIBMERC     += wireguard.cc
+LIBMERC     += asn1.cc
+LIBMERC     += asn1/oid.cc
 LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
@@ -109,6 +111,8 @@ LIBMERC_H   += version.h
 LIBMERC_H   += wireguard.h
 LIBMERC_H   += quic.h
 LIBMERC_H   += smtp.h
+LIBMERC_H   += asn1.h
+LIBMERC_H   += asn1/oid.h
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
@@ -198,8 +202,7 @@ endif
 # implicit rule for building object files from .cc files
 #
 %.o: %.cc
-	$(CXX) $(CFLAGS) -c $<
-
+	$(CXX) $(CFLAGS) -c $< -o $@
 
 # rule to build the cython/python analysis engine in python-inference
 #
