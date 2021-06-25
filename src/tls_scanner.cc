@@ -870,7 +870,7 @@ public:
         request += "User-Agent: " + user_agent;
         request += "Connection: close\r\n";
         if (doh) {
-            request += "Accept: application/dns-message\r\n";
+            request += "Accept: application/dns-message\r\nHost: " + hostname + "\r\n";
         } else {
             request += "Host: " + http_host_field + "\r\n";
         }
