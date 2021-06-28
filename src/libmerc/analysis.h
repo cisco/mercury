@@ -341,7 +341,7 @@ public:
         return server_name;
     }
 
-    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port) {
+    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port, bool is_randomized) {
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
@@ -435,9 +435,9 @@ public:
         }
         if (malware_db) {
             return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size,
-                                   malware[index_max], malware_prob);
+                                   malware[index_max], malware_prob, is_randomized);
         }
-        return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size);
+        return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size, is_randomized);
     }
 
     static uint16_t remap_port(uint16_t dst_port) {
@@ -829,12 +829,12 @@ public:
                     return analysis_result(true);
                 }
                 class fingerprint_data &fp_data = fpdb_entry_randomized->second;
-                return fp_data.perform_analysis(server_name, dst_ip, dst_port);
+                return fp_data.perform_analysis(server_name, dst_ip, dst_port, true);
             }
         }
         class fingerprint_data &fp_data = fpdb_entry->second;
 
-        return fp_data.perform_analysis(server_name, dst_ip, dst_port);
+        return fp_data.perform_analysis(server_name, dst_ip, dst_port, false);
     }
 
     bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,

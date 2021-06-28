@@ -143,10 +143,10 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
 enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac) {
 
     if (ac) {
-        if (ac->result.valid) {
-            return fingerprint_status_labeled;
-        } else if (ac->result.randomized) {
+        if (ac->result.randomized) {
             return fingerprint_status_randomized;
+        } else if (ac->result.valid) {
+            return fingerprint_status_labeled;
         } else {
             return fingerprint_status_unlabled;
         }

@@ -48,13 +48,13 @@ public:
 
     analysis_result(const bool is_randomized) : valid{false}, randomized{is_randomized}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
-    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len) :
-        valid{true}, randomized{false}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
+    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len, bool is_randomized) :
+        valid{true}, randomized{is_randomized}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
-    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob) :
-        valid{true}, randomized{false}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
+    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob, bool is_randomized) :
+        valid{true}, randomized{is_randomized}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
@@ -74,6 +74,9 @@ public:
                     os_json.print_key_uint(os_info[i].os_name, os_info[i].os_prevalence);
                 }
                 os_json.close();
+            }
+            if (randomized) {
+                analysis.print_key_string("status", "randomized_fingerprint");
             }
         } else if (randomized) {
             analysis.print_key_string("status", "randomized_fingerprint");
