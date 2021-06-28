@@ -210,10 +210,10 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
  * observed.
  */
 enum fingerprint_status {
-    fingerprint_status_no_info_available = 0,  /**< fingerprint status is unknown                */
-    fingerprint_status_labeled           = 1,  /**< fingerprint is in FPDB                       */
-    fingerprint_status_randomized        = 2,  /**< fingerprint is in randomized FP set          */
-    fingerprint_status_unlabled          = 3   /**< fingerprint is not in FPDB or randomized set */
+    fingerprint_status_no_info_available = 0,  /**< fingerprint status is unknown                       */
+    fingerprint_status_labeled           = 1,  /**< fingerprint is in FPDB                              */
+    fingerprint_status_randomized        = 2,  /**< fingerprint is not in FPDB or unlabeled set         */
+    fingerprint_status_unlabled          = 3   /**< fingerprint is not in FPDB, but is in unlabeled set */
 };
 
 /**
