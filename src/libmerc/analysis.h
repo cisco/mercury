@@ -824,7 +824,12 @@ public:
                 return analysis_result();
             } else {
                 fp_prevalence.update(fp_str);
-                return analysis_result(true);
+                const auto fpdb_entry_randomized = fpdb.find("randomized");
+                if (fpdb_entry_randomized == fpdb.end()) {
+                    return analysis_result(true);
+                }
+                class fingerprint_data &fp_data = fpdb_entry_randomized->second;
+                return fp_data.perform_analysis(server_name, dst_ip, dst_port);
             }
         }
         class fingerprint_data &fp_data = fpdb_entry->second;
