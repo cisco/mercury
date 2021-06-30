@@ -511,53 +511,5 @@ unsigned int datum_process_ipv6(struct datum *p, size_t *transport_protocol, str
 }
 
 
-/*
- * ethernet (including .1q)
- *
- * frame format is outlined in the file eth.h
- */
-
-unsigned int datum_process_eth(struct datum *p, size_t *ethertype) {
-
-    mercury_debug("%s: processing ethernet (len %td)\n", __func__, datum_get_data_length(p));
-
-    *ethertype = ETH_TYPE_NONE;
-
-    if (datum_skip(p, ETH_ADDR_LEN * 2) == status_err) {
-        return 0;
-    }
-    if (datum_read_and_skip_uint(p, sizeof(uint16_t), ethertype) == status_err) {
-        return 0;
-    }
-    if (*ethertype == ETH_TYPE_1AD) {
-        if (datum_skip(p, sizeof(uint16_t)) == status_err) { // TCI
-            return 0;
-        }
-        if (datum_read_and_skip_uint(p, sizeof(uint16_t), ethertype) == status_err) {
-            return 0;
-        }
-    }
-    if (*ethertype == ETH_TYPE_VLAN) {
-        if (datum_skip(p, sizeof(uint16_t)) == status_err) { // TCI
-            return 0;
-        }
-        if (datum_read_and_skip_uint(p, sizeof(uint16_t), ethertype) == status_err) {
-            return 0;
-        }
-    }
-    if (*ethertype == ETH_TYPE_MPLS) {
-        size_t mpls_label = 0;
-
-        while (!(mpls_label & MPLS_BOTTOM_OF_STACK)) {
-            if (datum_read_and_skip_uint(p, sizeof(uint32_t), &mpls_label) == status_err) {
-                return 0;
-            }
-        }
-        *ethertype = ETH_TYPE_IP;   // assume IPv4 for now
-    }
-
-    return 0;  /* we don't extract any data, but this is not a failure */
-}
-
 
 

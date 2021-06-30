@@ -419,8 +419,8 @@ size_t stateful_pkt_proc::write_json(void *buffer,
                                      struct tcp_reassembler *reassembler) {
 
     struct datum pkt{packet, packet+length};
-    size_t ethertype = 0;
-    datum_process_eth(&pkt, &ethertype);
+    eth ethernet_frame{pkt};
+    uint16_t ethertype = ethernet_frame.get_ethertype();
 
     switch(ethertype) {
     case ETH_TYPE_IP:
