@@ -7,6 +7,7 @@ from libcpp.unordered_map cimport unordered_map
 from libcpp.string cimport string
 from libcpp cimport bool
 from libc.stdio cimport *
+from libc.stdint cimport *
 from posix.time cimport timespec
 
 ### BUILD INSTRUCTIONS
@@ -30,6 +31,19 @@ cdef extern from "../libmerc/pkt_proc.h":
 cdef extern from "../libmerc/result.h":
     cdef struct analysis_context:
         pass
+    cdef struct analysis_result:
+        bool valid
+        bool randomized
+        char max_proc[256]
+        long double max_score
+        bool max_mal
+        long double malware_prob
+
+cdef extern from "../libmerc/analysis.h":
+    classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
+                                           float fp_proc_threshold, float proc_dst_threshold, bool report_os);
+    cdef cppclass classifier:
+        analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port)
 
 cdef extern from "../libmerc/libmerc.h":
     cdef struct libmerc_config:
@@ -43,6 +57,8 @@ cdef extern from "../libmerc/libmerc.h":
         pass
     enum fingerprint_type:
         pass
+    enum enc_key_type:
+        enc_key_type_none
 
     # mercury constructors/destructors
     mercury* mercury_init(const libmerc_config *vars, int verbosity)
@@ -65,6 +81,7 @@ cdef extern from "../libmerc/libmerc.h":
     # get process info
     bool analysis_context_get_process_info(const analysis_context *ac, const char **probable_process, double *probability_score)
     bool analysis_context_get_malware_info(const analysis_context *ac, bool *probable_process_is_malware, double *probability_malware)
+
 
 
 fp_status_dict = {
@@ -92,8 +109,11 @@ cdef class Mercury:
     cdef const analysis_context* ac
     cdef timespec default_ts
     cdef dict py_config
+    cdef classifier* clf
+    cdef bool do_analysis
 
     def __init__(self, bool do_analysis, bytes resources):
+        self.do_analysis = do_analysis
         self.py_config = {
             'do_analysis': do_analysis,
             'resources':   resources
@@ -101,6 +121,10 @@ cdef class Mercury:
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
+        cdef char* resources_c = resources
+        cdef enc_key_type ekt = enc_key_type_none
+        if do_analysis:
+            self.clf = analysis_init_from_archive(0, resources_c, NULL, ekt, 0.0, 0.0, False)
 
     cpdef int mercury_init(self, unsigned int verbosity=0):
         cdef libmerc_config config = self.py_config
@@ -148,6 +172,38 @@ cdef class Mercury:
         return result
 
 
+    cpdef dict perform_analysis(self, str fp_str, str server_name, str dst_ip, int dst_port):
+        if not self.do_analysis:
+            print(f'error: classifier not loaded (is do_analysis set to True?)')
+            return None
+
+        cdef bytes fp_str_b = fp_str.encode()
+        cdef char* fp_str_c = fp_str_b
+        cdef bytes server_name_b = server_name.encode()
+        cdef char* server_name_c = server_name_b
+        cdef bytes dst_ip_b = dst_ip.encode()
+        cdef char* dst_ip_c = dst_ip_b
+
+        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port)
+
+        fp_status = 'unlabeled'
+        if ar.randomized:
+            fp_status = 'randomized'
+        elif ar.valid:
+            fp_status = 'labeled'
+
+        cdef dict result = {}
+        result['fingerprint_info'] = {}
+        result['fingerprint_info']['status'] = fp_status
+        result['analysis'] = {}
+        result['analysis']['process']   = ar.max_proc.decode('UTF-8')
+        result['analysis']['score']     = ar.max_score
+        result['analysis']['malware']   = ar.max_mal
+        result['analysis']['p_malware'] = ar.malware_prob
+
+        return result
+
+
     cdef str get_server_name(self, const analysis_context* ac):
         cdef const char* server_name = analysis_context_get_server_name(ac)
         if server_name == NULL:
@@ -181,10 +237,6 @@ cdef class Mercury:
         mercury_packet_processor_destruct(<mercury_packet_processor>self.mpp)
         cdef int retval = mercury_finalize(<mercury_context>self.mercury_context)
         return retval
-
-
-
-
 
 
 # parse_dns
