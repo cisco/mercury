@@ -42,7 +42,7 @@
 /*
  * expanded set of static extensions
  */
-#define num_static_extension_types 34
+#define num_static_extension_types 18
 
 /*
  * extension types used in normalization
@@ -71,23 +71,7 @@ static uint16_t static_extension_types[num_static_extension_types] = {
         43,        /* supported_versions                     */
         45,        /* psk_key_exchange_modes                 */
         50,        /* signature algorithms cert              */
-        2570,      /* GREASE                                 */
-        6682,      /* GREASE                                 */
-        10794,     /* GREASE                                 */
-        14906,     /* GREASE                                 */
-        19018,     /* GREASE                                 */
         21760,     /* token binding (old)                    */
-        23130,     /* GREASE                                 */
-        27242,     /* GREASE                                 */
-        31354,     /* GREASE                                 */
-        35466,     /* GREASE                                 */
-        39578,     /* GREASE                                 */
-        43690,     /* GREASE                                 */
-        47802,     /* GREASE                                 */
-        51914,     /* GREASE                                 */
-        56026,     /* GREASE                                 */
-        60138,     /* GREASE                                 */
-        64250      /* GREASE                                 */
     };
 
 uint16_t degrease_uint16(uint16_t x) {

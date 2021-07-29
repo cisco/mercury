@@ -21,7 +21,6 @@ grease_single_int_ = set([10,26,42,58,74,90,106,122,138,154,170,186,202,218,234,
 ext_data_extract_ = set(['0001','0005','0007','0008','0009','000a','000b',
                          '000d','000f','0010','0011','0013','0014','0018',
                          '001b','001c','002b','002d','0032','5500'])
-ext_data_extract_ = ext_data_extract_.union(grease_)
 
 
 imp_date_cs_file = find_resource_path('resources/implementation_date_cs.json.gz')
