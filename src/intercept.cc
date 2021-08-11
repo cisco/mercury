@@ -21,6 +21,14 @@
 
 #define GREEN(S) COLOR_ON S COLOR_OFF
 
+
+// read environment variables that configure intercept.so, and apply
+// configuration as needed
+//
+const char *MAX_PT_LEN = getenv("INTERCEPT_MAX_PT_LEN");
+
+ssize_t max_pt_len = MAX_PT_LEN ? atol(MAX_PT_LEN) : 0;
+
 void print_cmd(int pid) {
     char filename[FILENAME_MAX];
     int retval = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
@@ -62,6 +70,14 @@ void print_flow_key(const SSL *context) {
 }
 
 void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=false) {
+
+    // if max_pt_len set, then restrict output length to (at most) that value
+    //
+    if (max_pt_len) {
+        if (bytes > max_pt_len) {
+            bytes = max_pt_len;
+        }
+    }
 
     if (filter && bytes < 3 || memcmp(buffer, "GET", 3) != 0) {
         return;
