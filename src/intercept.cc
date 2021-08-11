@@ -2,7 +2,7 @@
 //
 // plaintext intercept shared object library
 //
-// compile as g++ intercept.cc -o intercept.so -fPIC -shared -lssl -lnss -D_GNU_SOURCE -fpermissive
+// compile as g++ intercept.cc -o intercept.so -fPIC -shared -lssl -lnspr4 -D_GNU_SOURCE -fpermissive
 // then export LD_PRELOAD="/home/mcgrew/mercury-transition/src/intercept.so"
 
 #include <stdio.h>
