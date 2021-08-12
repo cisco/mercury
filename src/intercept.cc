@@ -2,25 +2,24 @@
 //
 // plaintext intercept shared object library
 //
-// compile as g++ intercept.cc -o intercept.so -fPIC -shared -lssl -lnspr4 -D_GNU_SOURCE -fpermissive
+// compile as g++ intercept.cc -o intercept.so -fPIC -shared -lssl -lnspr4 -lgnutls -D_GNU_SOURCE -fpermissive -I/usr/include/nspr/
 // then export LD_PRELOAD="/home/mcgrew/mercury-transition/src/intercept.so"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <errno.h>
 #include <dlfcn.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <openssl/ssl.h>
 
-
 #define COLOR_ON  "\033[32m"
 #define COLOR_OFF "\033[39m"
 
 #define GREEN(S) COLOR_ON S COLOR_OFF
-
 
 // read environment variables that configure intercept.so, and apply
 // configuration as needed
@@ -50,23 +49,30 @@ void print_cmd(int pid) {
     }
 }
 
-void print_flow_key(const SSL *context) {
+bool print_flow_key(int fd) {
 
     // read network socket info from fd
     //
-    int fd = SSL_get_fd(context);
     struct sockaddr_in address;
     bzero(&address, sizeof(address));
     socklen_t address_len = sizeof(address);
-    getsockname(fd, (struct sockaddr *) &address, &address_len);
-    char addr[17];
-    inet_ntop(AF_INET, &address.sin_addr, addr, sizeof(addr));
-    uint16_t port = ntohs(address.sin_port);
-    fprintf(stderr, GREEN("%s:%u"), addr, port);
-    getpeername(fd, (struct sockaddr *) &address, &address_len);
-    inet_ntop(AF_INET, &address.sin_addr, addr, sizeof(addr));
-    port = ntohs(address.sin_port);
-    fprintf(stderr, GREEN(" -> %s:%u\n"), addr, port);
+    int retval = getsockname(fd, (struct sockaddr *) &address, &address_len);
+    if (retval == 0) {
+        if (address.sin_family == AF_INET) {
+            char addr[17];
+            inet_ntop(AF_INET, &address.sin_addr, addr, sizeof(addr));
+            uint16_t port = ntohs(address.sin_port);
+            fprintf(stderr, GREEN("%s:%u"), addr, port);
+            getpeername(fd, (struct sockaddr *) &address, &address_len);
+            inet_ntop(AF_INET, &address.sin_addr, addr, sizeof(addr));
+            port = ntohs(address.sin_port);
+            fprintf(stderr, GREEN(" -> %s:%u\n"), addr, port);
+        }
+        // TBD: handle IPv6 case here
+        return true;
+    }
+    fprintf(stderr, GREEN("fd %d is not a socket (%s)\n"), fd, strerror(errno));
+    return false;  // not a network socket
 }
 
 void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=false) {
@@ -104,7 +110,7 @@ int SSL_write(SSL *context, const void *buffer, int bytes) {
     fprintf(stderr, GREEN("intercepted %s\n") , __func__);
     int pid = getpid();
     print_cmd(pid);
-    print_flow_key(context);
+    print_flow_key(SSL_get_fd(context));
     write_data_to_file(pid, buffer, bytes);
 
     return original_SSL_write(context, buffer, bytes);
@@ -117,13 +123,14 @@ int SSL_read(SSL *context, const void *buffer, int bytes) {
     fprintf(stderr, GREEN("intercepted %s\n"), __func__);
     int pid = getpid();
     print_cmd(pid);
-    print_flow_key(context);
+    print_flow_key(SSL_get_fd(context));
     write_data_to_file(pid, buffer, bytes);
 
     return original_SSL_read(context, buffer, bytes);
 }
 
 #include "nspr/prio.h"
+#include "nspr/private/pprio.h"
 
 PRInt32 PR_Write(PRFileDesc *fd, const void *buf, PRInt32 amount) {
 
@@ -136,12 +143,47 @@ PRInt32 PR_Write(PRFileDesc *fd, const void *buf, PRInt32 amount) {
 
     fprintf(stderr, GREEN("note: intercepted %s\n"), __func__);
     int pid = getpid();
-    print_cmd(pid);
-    // TBD: how to print flow key???
-    write_data_to_file(pid, buf, amount, true);
+    int native_fd = PR_FileDesc2NativeHandle(fd);
+    if (print_flow_key(native_fd) == true) {
+        print_cmd(pid);
+        write_data_to_file(pid, buf, amount);
+    }
 
     return original_PR_Write(fd, buf, amount);
 }
+
+
+// GNUTLS support
+//
+
+#include <gnutls/gnutls.h>
+
+ssize_t gnutls_record_send(gnutls_session_t session,
+                           const void * data,
+                           size_t data_size) {
+
+    fprintf(stderr, GREEN("note: intercepted %s\n"), __func__);
+
+    ssize_t (*original_gnutls_record_send)(gnutls_session_t session, const void * data, size_t data_size);
+    original_gnutls_record_send = dlsym(RTLD_NEXT, "gnutls_record_send");
+    if (original_gnutls_record_send == nullptr) {
+        fprintf(stderr, "note: could not load symbol gnutls_record_send()\n");
+        exit(EXIT_FAILURE);
+        return 0;
+    }
+
+    int pid = getpid();
+    print_cmd(pid);
+    fprintf(stderr, GREEN("fd?: %d\n"), gnutls_transport_get_int(session));
+    int r = 0, s = 0;
+    gnutls_transport_get_int2(session, &r, &s);
+    fprintf(stderr, GREEN("fd2: %d\t%d\n"), r, s);
+    print_flow_key(r);
+    write_data_to_file(pid, data, data_size);
+
+    return original_gnutls_record_send(session, data, data_size);
+}
+
 
 //
 // ATTIC
