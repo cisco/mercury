@@ -5,6 +5,20 @@
 // compile as g++ intercept.cc -o intercept.so -fPIC -shared -lssl -lnspr4 -lgnutls -D_GNU_SOURCE -fpermissive -I/usr/include/nspr/
 // then export LD_PRELOAD="/home/mcgrew/mercury-transition/src/intercept.so"
 
+// Notes
+//
+// To intercept a function, the signature of the replacement function
+// must exactly match that of the original.  Adding 'const' to a
+// pointer will confuse a C++ compiler with an extraneous function
+// overload, for example.
+//
+// Function interception seems to interfere with interrupt handling,
+// based on experience.  Hitting Ctl^C during the run of an
+// intercepted program sometimes causes problems to be reported by the
+// application.  This issue deserves further investiation.
+//
+//
+
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -16,6 +30,8 @@
 #include <arpa/inet.h>
 #include <openssl/ssl.h>
 
+// Macros to colorize output
+//
 #define COLOR_ON  "\033[32m"
 #define COLOR_OFF "\033[39m"
 
@@ -28,6 +44,9 @@ const char *MAX_PT_LEN = getenv("INTERCEPT_MAX_PT_LEN");
 
 ssize_t max_pt_len = MAX_PT_LEN ? atol(MAX_PT_LEN) : 0;
 
+// Support functions for obtaining additional context from the
+// application or OS, and writing data output
+//
 void print_cmd(int pid) {
     char filename[FILENAME_MAX];
     int retval = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
@@ -35,7 +54,8 @@ void print_cmd(int pid) {
         fprintf(stderr, GREEN("warning: filename \"%s\" was truncated\n"), filename);
     }
     fprintf(stderr, GREEN("%s="), filename);
-    // read network socket information from /proc filesystem
+
+    // read command associated with process from /proc filesystem
     //
     FILE *cmd_file = fopen(filename, "r");
     char *line = nullptr;
@@ -67,8 +87,10 @@ bool print_flow_key(int fd) {
             inet_ntop(AF_INET, &address.sin_addr, addr, sizeof(addr));
             port = ntohs(address.sin_port);
             fprintf(stderr, GREEN(" -> %s:%u\n"), addr, port);
+        } else if (address.sin_family == AF_INET6) {
+            // TBD: handle IPv6 case here
+            fprintf(stderr, GREEN("warning: IPv6 addresses not yet handled\n"));
         }
-        // TBD: handle IPv6 case here
         return true;
     }
     fprintf(stderr, GREEN("fd %d is not a socket (%s)\n"), fd, strerror(errno));
@@ -85,9 +107,14 @@ void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=
         }
     }
 
-    if (filter && bytes < 3 || memcmp(buffer, "GET", 3) != 0) {
-        return;
-    }
+    // If we want to filter the data that is written to disk, this is
+    // a good place to do so.  This obsolete code is left here just to
+    // facilitate experimentation with filtering.
+    //
+    // if (filter && bytes < 3 || memcmp(buffer, "GET", 3) != 0) {
+    //     return;
+    // }
+
     char filename[FILENAME_MAX];
     int retval = snprintf(filename, sizeof(filename), "plaintext-%d", pid);
     if (retval >= sizeof(filename)) {
@@ -104,8 +131,7 @@ void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=
 }
 
 int SSL_write(SSL *context, const void *buffer, int bytes) {
-    int (*original_SSL_write)(SSL *context, const void *buffer, int bytes);
-    original_SSL_write = dlsym(RTLD_NEXT, "SSL_write");
+    decltype(SSL_write) *original_SSL_write = (decltype(original_SSL_write)) dlsym(RTLD_NEXT, "SSL_write");
 
     fprintf(stderr, GREEN("intercepted %s\n") , __func__);
     int pid = getpid();
@@ -116,9 +142,8 @@ int SSL_write(SSL *context, const void *buffer, int bytes) {
     return original_SSL_write(context, buffer, bytes);
 }
 
-int SSL_read(SSL *context, const void *buffer, int bytes) {
-    int (*original_SSL_read)(SSL *context, const void *buffer, int bytes);
-    original_SSL_read = dlsym(RTLD_NEXT, "SSL_read");
+int SSL_read(SSL *context, void *buffer, int bytes) {
+    decltype(SSL_read) *original_SSL_read = (decltype(original_SSL_read)) dlsym(RTLD_NEXT, "SSL_read");
 
     fprintf(stderr, GREEN("intercepted %s\n"), __func__);
     int pid = getpid();
@@ -133,9 +158,7 @@ int SSL_read(SSL *context, const void *buffer, int bytes) {
 #include "nspr/private/pprio.h"
 
 PRInt32 PR_Write(PRFileDesc *fd, const void *buf, PRInt32 amount) {
-
-    PRInt32 (*original_PR_Write)(PRFileDesc *fd, const void *buf, PRInt32 amount);
-    original_PR_Write = dlsym(RTLD_NEXT, "PR_Write");
+    decltype(PR_Write) *original_PR_Write = (decltype(original_PR_Write)) dlsym(RTLD_NEXT, "PR_Write");
     if (original_PR_Write == nullptr) {
         fprintf(stderr, "note: could not load symbol PR_Write()\n");
         return 0;
@@ -163,9 +186,7 @@ ssize_t gnutls_record_send(gnutls_session_t session,
                            size_t data_size) {
 
     fprintf(stderr, GREEN("note: intercepted %s\n"), __func__);
-
-    ssize_t (*original_gnutls_record_send)(gnutls_session_t session, const void * data, size_t data_size);
-    original_gnutls_record_send = dlsym(RTLD_NEXT, "gnutls_record_send");
+    decltype(gnutls_record_send) *original_gnutls_record_send = (decltype(original_gnutls_record_send)) dlsym(RTLD_NEXT, "gnutls_record_send");
     if (original_gnutls_record_send == nullptr) {
         fprintf(stderr, "note: could not load symbol gnutls_record_send()\n");
         exit(EXIT_FAILURE);
@@ -184,41 +205,3 @@ ssize_t gnutls_record_send(gnutls_session_t session,
     return original_gnutls_record_send(session, data, data_size);
 }
 
-
-//
-// ATTIC
-//
-
-#if 0
-#include <openssl/bio.h>
-int BIO_write(BIO *b, const void *data, int dlen) {
-    fprintf(stderr, "intercept invoked\n");
-    return BIO_write(BIO *b, const void *data, int dlen);
-}
-#endif
-
-#if 0
-    // read network socket information from /proc filesystem
-    //
-    FILE *tcp_file = fopen(filename, "r");
-    char *line = nullptr;
-    size_t n = 0;
-    ssize_t nread;
-    while ((nread = getline(&line, &n, tcp_file)) != -1) {
-        // printf("Retrieved line of length %zu:\n", nread);
-        fwrite(line, nread, 1, stderr);
-        uint32_t src_addr = 0, dst_addr = 0;
-        unsigned int src_port = 0, dst_port = 0;
-        unsigned int ignore = 0;
-        sscanf(line, "%u: %08x:%04x %08x:%04x", &ignore, &src_addr, &src_port, &dst_addr, &dst_port);
-        if (dst_addr && dst_port) {
-            fprintf(stderr, "pid: %u\t", pid);
-            unsigned char *src_a = (unsigned char *)&src_addr;
-            unsigned char *dst_a = (unsigned char *)&dst_addr;
-            fprintf(stderr, "[%u.%u.%u.%u]:%u", src_a[0], src_a[1], src_a[2], src_a[3], src_port);
-            fprintf(stderr, " -> ");
-            fprintf(stderr, "[%u.%u.%u.%u]:%u\n", dst_a[0], dst_a[1], dst_a[2], dst_a[3], dst_port);
-        }
-    }
-    fclose(tcp_file);
-#endif
