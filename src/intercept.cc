@@ -130,6 +130,22 @@ void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=
     }
 }
 
+
+// init/fini functions
+//
+
+void __attribute__ ((constructor)) intercept_init(void) {
+    fprintf(stderr, GREEN("%s\n"), __func__);
+}
+
+void __attribute__ ((destructor)) intercept_fini(void) {
+    fprintf(stderr, GREEN("%s\n"), __func__);
+}
+
+
+// intercepts
+//
+
 int SSL_write(SSL *context, const void *buffer, int bytes) {
     decltype(SSL_write) *original_SSL_write = (decltype(original_SSL_write)) dlsym(RTLD_NEXT, "SSL_write");
 
