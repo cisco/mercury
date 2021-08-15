@@ -7,6 +7,33 @@
 
 // Notes
 //
+// This shared object library implements function interception on
+// Linux, which is sometimes called 'the LD_PRELOAD trick'.  The trick
+// is to create a shared object library that contains a function with
+// the exact same signature as the one that you want to intercept, and
+// then cause the library to be loaded into the dynamic linker search
+// path before the library containing that function.  A common use
+// case for function interception is to avoid changing the behavior of
+// the intercepted function, but to create side effects such as
+// writing log entries based on the arguments passed to the
+// intercepted function.  To make that easy, this library uses dlsym()
+// to look up the original function, then invokes that function and
+// passes its return value to the caller of the intercepted function.
+// This implementation is hidden behind C macros, which hide much of
+// the 'boilerplate' complexity of interception.
+//
+// To intercept a function int foo(char *bar) in the library
+// libfoobar.so, it is necessary to add a function with the exact same
+// signature in the intercept library, and add -lfoobar in the list of
+// libraries to which the intercept library is linked.
+//
+// Linux uses the ELF standard for executable and library formats, and
+// thus each process that links with a shared object gets its own copy
+// of the global and static variables in the intercept library.  The
+// library uses static variables to memoize the results of function
+// calls like getpid(), to avoid performance degradation of needless
+// repeated invocations of those functions.
+//
 // To intercept a function, the signature of the replacement function
 // must exactly match that of the original.  Adding 'const' to a
 // pointer will confuse a C++ compiler with an extraneous function
@@ -44,32 +71,66 @@ const char *MAX_PT_LEN = getenv("INTERCEPT_MAX_PT_LEN");
 
 ssize_t max_pt_len = MAX_PT_LEN ? atol(MAX_PT_LEN) : 0;
 
+const char *INTERCEPT_DIR = "/usr/local/var/intercept/";
+
+const char *VERBOSE = getenv("INTERCEPT_VERBOSE");
+
+long int verbose = VERBOSE ? atol(VERBOSE) : 0;
+
 // Support functions for obtaining additional context from the
 // application or OS, and writing data output
 //
 void print_cmd(int pid) {
     char filename[FILENAME_MAX];
     int retval = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
-    if (retval >= sizeof(filename)) {
+    if (retval < 0) {
+        fprintf(stderr, GREEN("error: could not write filename for PID=%d\n"), pid);
+    }
+    if (retval >= (int)sizeof(filename)) {
         fprintf(stderr, GREEN("warning: filename \"%s\" was truncated\n"), filename);
     }
-    fprintf(stderr, GREEN("%s="), filename);
 
-    // read command associated with process from /proc filesystem
-    //
-    FILE *cmd_file = fopen(filename, "r");
-    char *line = nullptr;
-    size_t n = 0;
-    ssize_t nread;
-    char cmd[256];
-    if (cmd_file) {
-        nread = fread(cmd, 1, sizeof(cmd), cmd_file);
-        fprintf(stderr, GREEN("%s\n"), cmd);
-        fclose(cmd_file);
-    }
+    static int have_cmd = 0;
+    if (have_cmd == 0) {
+        fprintf(stderr, GREEN("%s="), filename);
+
+        // read command associated with process from /proc filesystem
+        //
+        FILE *cmd_file = fopen(filename, "r");
+        char cmd[256];
+        if (cmd_file) {
+            fread(cmd, 1, sizeof(cmd), cmd_file);  // TBD: should verify that cmd is nonzero
+            fprintf(stderr, GREEN("%s\n"), cmd);
+            have_cmd = 1;
+            fclose(cmd_file);
+        }
+     }
 }
 
-bool print_flow_key(int fd) {
+#include <sys/stat.h>
+
+bool fd_is_socket(int fd) {
+    struct stat statbuf;
+    if (fstat(fd, &statbuf) == 0) {
+        return S_ISSOCK(statbuf.st_mode);
+    }
+    return false;
+}
+
+void print_flow_key(int fd) {
+
+    if (!fd_is_socket(fd)) {
+        return;
+    }
+
+    // TBD: should have an array of flow_keys/booleans, one for each
+    // file descriptor, so that we correctly handle processes with
+    // multiple sockets
+    //
+    static bool have_flow_key = false;
+    if (have_flow_key == true) {
+        return;
+    }
 
     // read network socket info from fd
     //
@@ -91,10 +152,10 @@ bool print_flow_key(int fd) {
             // TBD: handle IPv6 case here
             fprintf(stderr, GREEN("warning: IPv6 addresses not yet handled\n"));
         }
-        return true;
+        have_flow_key = true;
+        return;
     }
     fprintf(stderr, GREEN("fd %d is not a socket (%s)\n"), fd, strerror(errno));
-    return false;  // not a network socket
 }
 
 void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=false) {
@@ -116,40 +177,64 @@ void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=
     // }
 
     char filename[FILENAME_MAX];
-    int retval = snprintf(filename, sizeof(filename), "plaintext-%d", pid);
-    if (retval >= sizeof(filename)) {
+    strncpy(filename, INTERCEPT_DIR, sizeof(filename));
+    size_t offset = strlen(filename);
+    int retval = snprintf(filename + offset, sizeof(filename) - offset, "plaintext-%d", pid);
+    if (retval >= (int)(sizeof(filename) - offset)) {
         fprintf(stderr, GREEN("warning: filename \"%s\" was truncated\n"), filename);
     }
     FILE *plaintext_file = fopen(filename, "a+");
     if (plaintext_file) {
         fwrite(buffer, 1, bytes, plaintext_file);
         fclose(plaintext_file);
-        fprintf(stderr, GREEN("wrote data to file %s\n"), filename);
+        if (verbose) { fprintf(stderr, GREEN("wrote data to file %s\n"), filename); }
     } else {
         fprintf(stderr, GREEN("error: could not write data to file %s\n"), filename);
     }
 }
 
+void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
+    const unsigned char *x = data;
+    const unsigned char *end = data + len;
+
+    while (x < end) {
+        fprintf(f, "%02x", *x++);
+    }
+}
 
 // init/fini functions
 //
 
 void __attribute__ ((constructor)) intercept_init(void) {
-    fprintf(stderr, GREEN("%s\n"), __func__);
+    if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
 }
 
 void __attribute__ ((destructor)) intercept_fini(void) {
-    fprintf(stderr, GREEN("%s\n"), __func__);
+    if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
 }
 
+
+// the get_original() macro declares a function pointer, sets it to
+// the original function being intercepted, and verifies that it is
+// non-null
+//
+#define get_original(SSL_read)                                                                \
+static decltype(SSL_read) *original_ ## SSL_read = nullptr;                                   \
+if (original_ ## SSL_read == nullptr) {                                                       \
+    original_ ## SSL_read = (decltype(original_ ## SSL_read)) dlsym(RTLD_NEXT, #SSL_read);    \
+}                                                                                             \
+if (original_ ## SSL_read == nullptr) {                                                       \
+   fprintf(stderr, "error: could not load symbol " #SSL_read "\n");                           \
+   exit(EXIT_FAILURE);                                                                        \
+}                                                                                             \
+if (verbose) { fprintf(stderr, GREEN("intercepted %s\n") , __func__); }
 
 // intercepts
 //
 
 int SSL_write(SSL *context, const void *buffer, int bytes) {
-    decltype(SSL_write) *original_SSL_write = (decltype(original_SSL_write)) dlsym(RTLD_NEXT, "SSL_write");
+    get_original(SSL_write);
 
-    fprintf(stderr, GREEN("intercepted %s\n") , __func__);
     int pid = getpid();
     print_cmd(pid);
     print_flow_key(SSL_get_fd(context));
@@ -159,9 +244,8 @@ int SSL_write(SSL *context, const void *buffer, int bytes) {
 }
 
 int SSL_read(SSL *context, void *buffer, int bytes) {
-    decltype(SSL_read) *original_SSL_read = (decltype(original_SSL_read)) dlsym(RTLD_NEXT, "SSL_read");
+    get_original(SSL_read);
 
-    fprintf(stderr, GREEN("intercepted %s\n"), __func__);
     int pid = getpid();
     print_cmd(pid);
     print_flow_key(SSL_get_fd(context));
@@ -174,16 +258,12 @@ int SSL_read(SSL *context, void *buffer, int bytes) {
 #include "nspr/private/pprio.h"
 
 PRInt32 PR_Write(PRFileDesc *fd, const void *buf, PRInt32 amount) {
-    decltype(PR_Write) *original_PR_Write = (decltype(original_PR_Write)) dlsym(RTLD_NEXT, "PR_Write");
-    if (original_PR_Write == nullptr) {
-        fprintf(stderr, "note: could not load symbol PR_Write()\n");
-        return 0;
-    }
+    get_original(PR_Write);
 
-    fprintf(stderr, GREEN("note: intercepted %s\n"), __func__);
     int pid = getpid();
     int native_fd = PR_FileDesc2NativeHandle(fd);
-    if (print_flow_key(native_fd) == true) {
+    if (fd_is_socket(native_fd)) {
+        print_flow_key(native_fd);
         print_cmd(pid);
         write_data_to_file(pid, buf, amount);
     }
@@ -201,13 +281,13 @@ ssize_t gnutls_record_send(gnutls_session_t session,
                            const void * data,
                            size_t data_size) {
 
-    fprintf(stderr, GREEN("note: intercepted %s\n"), __func__);
-    decltype(gnutls_record_send) *original_gnutls_record_send = (decltype(original_gnutls_record_send)) dlsym(RTLD_NEXT, "gnutls_record_send");
-    if (original_gnutls_record_send == nullptr) {
-        fprintf(stderr, "note: could not load symbol gnutls_record_send()\n");
-        exit(EXIT_FAILURE);
-        return 0;
-    }
+    get_original(gnutls_record_send);
+    // decltype(gnutls_record_send) *original_gnutls_record_send = (decltype(original_gnutls_record_send)) dlsym(RTLD_NEXT, "gnutls_record_send");
+    // if (original_gnutls_record_send == nullptr) {
+    //     fprintf(stderr, "note: could not load symbol gnutls_record_send()\n");
+    //     exit(EXIT_FAILURE);
+    //     return 0;
+    // }
 
     int pid = getpid();
     print_cmd(pid);
@@ -221,3 +301,40 @@ ssize_t gnutls_record_send(gnutls_session_t session,
     return original_gnutls_record_send(session, data, data_size);
 }
 
+// networking functions interception
+//
+
+#include <sys/types.h>
+#include <sys/socket.h>
+
+ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
+    get_original(send);
+    fprintf(stderr, GREEN("send()ing %zu bytes\n"), len);
+    uint8_t *data = (uint8_t *)buf;
+    if (len > 2 && data[0] == 0x16 && data[1] == 0x03) {
+        fprintf(stderr, GREEN("tls_handshake: "));
+        fprintf_raw_as_hex(stderr, (uint8_t *)buf, len);
+    }
+    return original_send(sockfd, buf, len, flags);
+}
+
+ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
+    get_original(sendmsg);
+    return original_sendmsg(sockfd, msg, flags);
+}
+
+#include <unistd.h>
+
+ssize_t write(int fd, const void *buf, size_t count) {
+    get_original(write);
+
+    if (fd_is_socket(fd)) {
+        uint8_t *data = (uint8_t *)buf;
+        if (count > 2 && data[0] == 0x16 && data[1] == 0x03) {
+            fprintf(stderr, GREEN("tls_handshake: "));
+            fprintf_raw_as_hex(stderr, (uint8_t *)buf, count);
+        }
+    }
+
+    return original_write(fd, buf, count);
+}
