@@ -44,7 +44,8 @@
 // intercepted program sometimes causes problems to be reported by the
 // application.  This issue deserves further investiation.
 //
-//
+// A good reference on Linux shared object libraries is
+// https://tldp.org/HOWTO/Program-Library-HOWTO/shared-libraries.html
 
 #include <stdio.h>
 #include <string.h>
@@ -59,10 +60,14 @@
 
 // Macros to colorize output
 //
-#define COLOR_ON  "\033[32m"
+#define RED_ON    "\033[31m"
+#define GREEN_ON  "\033[32m"
+#define YELLOW_ON "\033[33m"
 #define COLOR_OFF "\033[39m"
 
-#define GREEN(S) COLOR_ON S COLOR_OFF
+#define GREEN(S)  GREEN_ON  S COLOR_OFF
+#define YELLOW(S) YELLOW_ON S COLOR_OFF
+#define RED(S)    RED_ON    S COLOR_OFF
 
 // read environment variables that configure intercept.so, and apply
 // configuration as needed
@@ -84,10 +89,10 @@ void print_cmd(int pid) {
     char filename[FILENAME_MAX];
     int retval = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
     if (retval < 0) {
-        fprintf(stderr, GREEN("error: could not write filename for PID=%d\n"), pid);
+        fprintf(stderr, RED("error: could not write filename for PID=%d\n"), pid);
     }
     if (retval >= (int)sizeof(filename)) {
-        fprintf(stderr, GREEN("warning: filename \"%s\" was truncated\n"), filename);
+        fprintf(stderr, YELLOW("warning: filename \"%s\" was truncated\n"), filename);
     }
 
     static int have_cmd = 0;
@@ -158,7 +163,7 @@ void print_flow_key(int fd) {
     fprintf(stderr, GREEN("fd %d is not a socket (%s)\n"), fd, strerror(errno));
 }
 
-void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=false) {
+void write_data_to_file(int pid, const void *buffer, ssize_t bytes, int fd=0) {
 
     // if max_pt_len set, then restrict output length to (at most) that value
     //
@@ -179,7 +184,12 @@ void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=
     char filename[FILENAME_MAX];
     strncpy(filename, INTERCEPT_DIR, sizeof(filename));
     size_t offset = strlen(filename);
-    int retval = snprintf(filename + offset, sizeof(filename) - offset, "plaintext-%d", pid);
+    int retval;
+    if (fd) {
+        retval = snprintf(filename + offset, sizeof(filename) - offset, "plaintext-%d-%d", pid, fd);
+    } else {
+        retval = snprintf(filename + offset, sizeof(filename) - offset, "plaintext-%d", pid);
+    }
     if (retval >= (int)(sizeof(filename) - offset)) {
         fprintf(stderr, GREEN("warning: filename \"%s\" was truncated\n"), filename);
     }
@@ -189,7 +199,7 @@ void write_data_to_file(int pid, const void *buffer, ssize_t bytes, bool filter=
         fclose(plaintext_file);
         if (verbose) { fprintf(stderr, GREEN("wrote data to file %s\n"), filename); }
     } else {
-        fprintf(stderr, GREEN("error: could not write data to file %s\n"), filename);
+        fprintf(stderr, RED("error: could not write data to file %s\n"), filename);
     }
 }
 
@@ -201,6 +211,51 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
         fprintf(f, "%02x", *x++);
     }
 }
+
+// libmerc
+//
+
+//#include "libmerc/libmerc.h"
+#include "libmerc/tls.h"
+
+// high level functions for processing network traffic
+//
+
+void process_outbound(const uint8_t *data, size_t length) {
+    if (length > 2 && data[0] == 0x16 && data[1] == 0x03) {
+        fprintf(stderr, GREEN("tls_handshake: "));
+        //  fprintf_raw_as_hex(stderr, data, length);
+        fputc('\n', stderr);
+
+        struct datum tcp_data{data, data+length};
+
+        struct tls_record rec;
+        rec.parse(tcp_data);
+        struct tls_handshake handshake;
+        handshake.parse(rec.fragment);
+        if (handshake.additional_bytes_needed) {
+            fprintf(stderr, YELLOW("note: tls_handshake needs additional data\n"));
+        }
+        tls_client_hello hello;
+        hello.parse(handshake.body);
+
+        if (hello.is_not_empty()) {
+            struct fingerprint fp;
+            hello.compute_fingerprint(fp);
+
+            char buffer[8*1024];
+            struct buffer_stream buf(buffer, sizeof(buffer));
+            struct json_object record{&buf};
+            fp.write(record);
+            hello.write_json(record, true);
+            record.close();
+            buf.write(stderr);
+            fputc('\n', stderr);
+        }
+
+    }
+}
+
 
 // init/fini functions
 //
@@ -224,7 +279,7 @@ if (original_ ## SSL_read == nullptr) {                                         
     original_ ## SSL_read = (decltype(original_ ## SSL_read)) dlsym(RTLD_NEXT, #SSL_read);    \
 }                                                                                             \
 if (original_ ## SSL_read == nullptr) {                                                       \
-   fprintf(stderr, "error: could not load symbol " #SSL_read "\n");                           \
+   fprintf(stderr, RED("error: could not load symbol ") #SSL_read "\n");                      \
    exit(EXIT_FAILURE);                                                                        \
 }                                                                                             \
 if (verbose) { fprintf(stderr, GREEN("intercepted %s\n") , __func__); }
@@ -237,8 +292,9 @@ int SSL_write(SSL *context, const void *buffer, int bytes) {
 
     int pid = getpid();
     print_cmd(pid);
-    print_flow_key(SSL_get_fd(context));
-    write_data_to_file(pid, buffer, bytes);
+    int fd = SSL_get_fd(context);
+    print_flow_key(fd);
+    write_data_to_file(pid, buffer, bytes, fd);
 
     return original_SSL_write(context, buffer, bytes);
 }
@@ -248,8 +304,9 @@ int SSL_read(SSL *context, void *buffer, int bytes) {
 
     int pid = getpid();
     print_cmd(pid);
-    print_flow_key(SSL_get_fd(context));
-    write_data_to_file(pid, buffer, bytes);
+    int fd = SSL_get_fd(context);
+    print_flow_key(fd);
+    write_data_to_file(pid, buffer, bytes, fd);
 
     return original_SSL_read(context, buffer, bytes);
 }
@@ -265,7 +322,7 @@ PRInt32 PR_Write(PRFileDesc *fd, const void *buf, PRInt32 amount) {
     if (fd_is_socket(native_fd)) {
         print_flow_key(native_fd);
         print_cmd(pid);
-        write_data_to_file(pid, buf, amount);
+        write_data_to_file(pid, buf, amount, native_fd);
     }
 
     return original_PR_Write(fd, buf, amount);
@@ -282,12 +339,6 @@ ssize_t gnutls_record_send(gnutls_session_t session,
                            size_t data_size) {
 
     get_original(gnutls_record_send);
-    // decltype(gnutls_record_send) *original_gnutls_record_send = (decltype(original_gnutls_record_send)) dlsym(RTLD_NEXT, "gnutls_record_send");
-    // if (original_gnutls_record_send == nullptr) {
-    //     fprintf(stderr, "note: could not load symbol gnutls_record_send()\n");
-    //     exit(EXIT_FAILURE);
-    //     return 0;
-    // }
 
     int pid = getpid();
     print_cmd(pid);
@@ -310,16 +361,13 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
     get_original(send);
     fprintf(stderr, GREEN("send()ing %zu bytes\n"), len);
-    uint8_t *data = (uint8_t *)buf;
-    if (len > 2 && data[0] == 0x16 && data[1] == 0x03) {
-        fprintf(stderr, GREEN("tls_handshake: "));
-        fprintf_raw_as_hex(stderr, (uint8_t *)buf, len);
-    }
+    process_outbound((uint8_t *)buf, len);
     return original_send(sockfd, buf, len, flags);
 }
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
     get_original(sendmsg);
+    if (verbose) { fprintf(stderr, YELLOW("sendmsg() invoked\n")); }
     return original_sendmsg(sockfd, msg, flags);
 }
 
@@ -329,11 +377,7 @@ ssize_t write(int fd, const void *buf, size_t count) {
     get_original(write);
 
     if (fd_is_socket(fd)) {
-        uint8_t *data = (uint8_t *)buf;
-        if (count > 2 && data[0] == 0x16 && data[1] == 0x03) {
-            fprintf(stderr, GREEN("tls_handshake: "));
-            fprintf_raw_as_hex(stderr, (uint8_t *)buf, count);
-        }
+        process_outbound((uint8_t *)buf, count);
     }
 
     return original_write(fd, buf, count);

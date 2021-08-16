@@ -221,8 +221,8 @@ libmerc_driver: clean debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in
 # intercept.so
 #
 
-intercept.so: intercept.cc
-	g++ -Wall intercept.cc -D_GNU_SOURCE -fPIC -shared -lssl -lnspr4 -lgnutls -I/usr/include/nspr/ -o intercept.so 
+intercept.so: intercept.cc libmerc.a
+	g++ -std=c++17 -Wall -Wno-narrowing intercept.cc libmerc/pkt_proc.cc -D_GNU_SOURCE -I/usr/include/nspr/ -fPIC -shared -lssl -lnspr4 -lgnutls libmerc/libmerc.a -o intercept.so
 
 # special targets
 #
