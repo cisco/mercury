@@ -2,10 +2,24 @@
 //
 // plaintext intercept shared object library
 //
-// compile as g++ intercept.cc -o intercept.so -fPIC -shared -lssl -lnspr4 -lgnutls -D_GNU_SOURCE -fpermissive -I/usr/include/nspr/
-// then export LD_PRELOAD="/home/mcgrew/mercury-transition/src/intercept.so"
+// compile as
+//
+//     make intercept.so
+//
+// then
+//
+//     export LD_PRELOAD="/usr/local/lib/intercept.so"
+//
+// in the shell where you want to perform TLS interception, replacing
+// the path with one appropriate for your system.  This will cause TLS
+// interception for all processes invoked in an environment with this
+// variable set.  Data is written to the directory
+// /usr/local/var/intercept, and to stderr.  You can use the variables
+// INTERCEPT_VERBOSE and INTERCEPT_MAX_PT_LEN to set the verbosity (to
+// 0 or 1) and maximum plaintext length that is captured for each
+// intercepted read/write call (to a positive integer).
 
-// Notes
+// Implementation Notes
 //
 // This shared object library implements function interception on
 // Linux, which is sometimes called 'the LD_PRELOAD trick'.  The trick
