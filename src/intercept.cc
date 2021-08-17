@@ -306,6 +306,44 @@ if (verbose) { fprintf(stderr, GREEN("intercepted %s\n") , __func__); }
 // intercepts
 //
 
+// openssl and libcrypt functions
+//
+
+// #define INTERCEPT_EVP_CIPHER
+#ifdef INTERCEPT_EVP_CIPHER
+
+// Warning: EVP_Cipher interception is verbose
+//
+// TBD: determine enc/dec from CTX
+//
+
+#include <openssl/evp.h>
+
+int EVP_Cipher(EVP_CIPHER_CTX *c,
+               unsigned char *out,
+               const unsigned char *in,
+               unsigned int inl) {
+
+    get_original(EVP_Cipher);
+
+    fprintf(stderr, GREEN("intercepted %s (encrypting %u bytes)\n"), __func__, inl);
+
+    const unsigned char *d = in;
+    const unsigned char *d_end = in + inl;
+    while (d < d_end) {
+        if (isprint(*d)) {
+            fputc(*d, stderr);
+        } else {
+            fputc('.', stderr);
+        }
+        d++;
+    }
+
+    return original_EVP_Cipher(c, out, in, inl);
+}
+
+#endif // INTERCEPT_EVP_CIPHER
+
 int SSL_write(SSL *context, const void *buffer, int bytes) {
     get_original(SSL_write);
 
@@ -401,3 +439,4 @@ ssize_t write(int fd, const void *buf, size_t count) {
 
     return original_write(fd, buf, count);
 }
+
