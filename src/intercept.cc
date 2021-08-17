@@ -72,6 +72,11 @@
 #include <arpa/inet.h>
 #include <openssl/ssl.h>
 
+// check to see if stderr is a TTY; this enables us to suppress
+// colorized output if needed
+//
+int tty = isatty(fileno(stderr));
+
 // Macros to colorize output
 //
 #define RED_ON    "\033[31m"
@@ -79,9 +84,9 @@
 #define YELLOW_ON "\033[33m"
 #define COLOR_OFF "\033[39m"
 
-#define GREEN(S)  GREEN_ON  S COLOR_OFF
-#define YELLOW(S) YELLOW_ON S COLOR_OFF
-#define RED(S)    RED_ON    S COLOR_OFF
+#define GREEN(S)  tty ? (GREEN_ON  S COLOR_OFF) : S
+#define YELLOW(S) tty ? (YELLOW_ON S COLOR_OFF) : S
+#define RED(S)    tty ? (RED_ON    S COLOR_OFF) : S
 
 // read environment variables that configure intercept.so, and apply
 // configuration as needed
