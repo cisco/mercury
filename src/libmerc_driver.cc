@@ -1,5 +1,5 @@
 /*
- * libmerc_test.c
+ * libmerc_driver.cc
  *
  * main() file for libmerc.so test driver program
  *
