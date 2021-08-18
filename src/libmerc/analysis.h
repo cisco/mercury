@@ -288,28 +288,28 @@ public:
         // TBD: fingerprint_data::print() output should be a JSON representation of object
 
         for (size_t i=0; i < process_name.size(); i++) {
-            fprintf(stderr, "process: %s\tprob: %Le\n", process_name[i].c_str(), process_prob[i]);
+            fprintf(f, "process: %s\tprob: %Le\n", process_name[i].c_str(), process_prob[i]);
         }
-        fprintf(stderr, "as_number_updates:\n");
+        fprintf(f, "as_number_updates:\n");
         for (const auto &asn_and_updates : as_number_updates) {
-            fprintf(stderr, "\t%u:\n", asn_and_updates.first);
+            fprintf(f, "\t%u:\n", asn_and_updates.first);
             for (const auto &update : asn_and_updates.second) {
-                fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+                fprintf(f, "\t\t{ %u, %Le }\n", update.index, update.value);
             }
         }
         //std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
-        fprintf(stderr, "hostname_domain_updates:\n");
+        fprintf(f, "hostname_domain_updates:\n");
         for (const auto &domain_and_updates : hostname_domain_updates) {
-            fprintf(stderr, "\t%s:\n", domain_and_updates.first.c_str());
+            fprintf(f, "\t%s:\n", domain_and_updates.first.c_str());
             for (const auto &update : domain_and_updates.second) {
-                fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+                fprintf(f, "\t\t{ %u, %Le }\n", update.index, update.value);
             }
         }
-        fprintf(stderr, "port_updates:\n");
+        fprintf(f, "port_updates:\n");
         for (const auto &port_and_updates : port_updates) {
-            fprintf(stderr, "\t%u:\n", port_and_updates.first);
+            fprintf(f, "\t%u:\n", port_and_updates.first);
             for (const auto &update : port_and_updates.second) {
-                fprintf(stderr, "\t\t{ %u, %Le }\n", update.index, update.value);
+                fprintf(f, "\t\t{ %u, %Le }\n", update.index, update.value);
             }
         }
         fprintf(f, "]");
