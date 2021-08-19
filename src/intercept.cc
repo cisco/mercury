@@ -79,14 +79,20 @@ int tty = isatty(fileno(stderr));
 
 // Macros to colorize output
 //
-#define RED_ON    "\033[31m"
-#define GREEN_ON  "\033[32m"
-#define YELLOW_ON "\033[33m"
-#define COLOR_OFF "\033[39m"
+#define RED_ON     "\033[31m"
+#define GREEN_ON   "\033[32m"
+#define YELLOW_ON  "\033[33m"
+#define BLUE_ON    "\033[34m"
+#define MAGENTA_ON "\033[35m"
+#define CYAN_ON    "\033[36m"
+#define COLOR_OFF  "\033[39m"
 
-#define GREEN(S)  tty ? (GREEN_ON  S COLOR_OFF) : S
-#define YELLOW(S) tty ? (YELLOW_ON S COLOR_OFF) : S
-#define RED(S)    tty ? (RED_ON    S COLOR_OFF) : S
+#define RED(S)     tty ? (RED_ON     S COLOR_OFF) : S
+#define GREEN(S)   tty ? (GREEN_ON   S COLOR_OFF) : S
+#define YELLOW(S)  tty ? (YELLOW_ON  S COLOR_OFF) : S
+#define BLUE(S)    tty ? (BLUE_ON    S COLOR_OFF) : S
+#define MAGENTA(S) tty ? (MAGENTA_ON S COLOR_OFF) : S
+#define CYAN(S)    tty ? (CYAN_ON    S COLOR_OFF) : S
 
 // read environment variables that configure intercept.so, and apply
 // configuration as needed
@@ -184,6 +190,12 @@ void print_flow_key(int fd) {
 
 void write_data_to_file(int pid, const void *buffer, ssize_t bytes, int fd=0) {
 
+    // sanity check
+    //
+    if (bytes < 0 || bytes > 0x8000000) {
+        fprintf(stderr, "note: unexpected length (%zd)\n", bytes);
+    }
+
     // if max_pt_len set, then restrict output length to (at most) that value
     //
     if (max_pt_len) {
@@ -231,6 +243,41 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
     }
 }
 
+// class intercept controls the behavior of this program; you can
+// define totally new behavior by defining a class that inherits from
+// this one
+//
+
+class intercept {
+    int pid;
+
+public:
+
+    intercept() : pid{getpid()} {
+        if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
+        fprintf(stderr, BLUE("%s\n"), __func__);
+        print_cmd(pid);
+    }
+
+    void process_outbound(const uint8_t *data, ssize_t length);
+
+    void process_outbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
+        // fprintf(stderr, BLUE("%s\n"), __func__);
+        print_flow_key(fd);
+        write_data_to_file(pid, data, length, fd);
+    }
+
+    void process_inbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
+        // fprintf(stderr, BLUE("%s\n"), __func__);
+        print_flow_key(fd);
+        write_data_to_file(pid, data, length, fd);
+    }
+
+};
+
+
+class intercept *intrcptr = new intercept;
+
 // libmerc
 //
 
@@ -240,7 +287,7 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
 // high level functions for processing network traffic
 //
 
-void process_outbound(const uint8_t *data, size_t length) {
+void intercept::process_outbound(const uint8_t *data, ssize_t length) {
     if (length > 2 && data[0] == 0x16 && data[1] == 0x03) {
         fprintf(stderr, GREEN("tls_handshake: "));
         //  fprintf_raw_as_hex(stderr, data, length);
@@ -303,6 +350,24 @@ if (original_ ## SSL_read == nullptr) {                                         
 }                                                                                             \
 if (verbose) { fprintf(stderr, GREEN("intercepted %s\n") , __func__); }
 
+
+// the get_original() macro declares a function pointer, sets it to
+// the original function being intercepted, and verifies that it is
+// non-null
+//
+#define invoke_original(func, ...)                                                        \
+static decltype(func) *original_ ## func = nullptr;                                       \
+if (original_ ## func == nullptr) {                                                       \
+    original_ ## func = (decltype(original_ ## func)) dlsym(RTLD_NEXT, #func);            \
+}                                                                                         \
+if (original_ ## func == nullptr) {                                                       \
+   fprintf(stderr, RED("error: could not load symbol ") #func "\n");                      \
+   exit(EXIT_FAILURE);                                                                    \
+}                                                                                         \
+if (verbose) { fprintf(stderr, GREEN("intercepted %s\n") , __func__); }                   \
+return original_ ## func (__VA_ARGS__)
+
+
 // intercepts
 //
 
@@ -345,44 +410,27 @@ int EVP_Cipher(EVP_CIPHER_CTX *c,
 #endif // INTERCEPT_EVP_CIPHER
 
 int SSL_write(SSL *context, const void *buffer, int bytes) {
-    get_original(SSL_write);
 
-    int pid = getpid();
-    print_cmd(pid);
-    int fd = SSL_get_fd(context);
-    print_flow_key(fd);
-    write_data_to_file(pid, buffer, bytes, fd);
-
-    return original_SSL_write(context, buffer, bytes);
+    intrcptr->process_outbound_plaintext(SSL_get_fd(context), (uint8_t *)buffer, bytes);
+    invoke_original(SSL_write, context, buffer, bytes);
 }
 
 int SSL_read(SSL *context, void *buffer, int bytes) {
-    get_original(SSL_read);
 
-    int pid = getpid();
-    print_cmd(pid);
-    int fd = SSL_get_fd(context);
-    print_flow_key(fd);
-    write_data_to_file(pid, buffer, bytes, fd);
-
-    return original_SSL_read(context, buffer, bytes);
+    intrcptr->process_inbound_plaintext(SSL_get_fd(context), (uint8_t *)buffer, bytes);
+    invoke_original(SSL_read, context, buffer, bytes);
 }
 
 #include "nspr/prio.h"
 #include "nspr/private/pprio.h"
 
 PRInt32 PR_Write(PRFileDesc *fd, const void *buf, PRInt32 amount) {
-    get_original(PR_Write);
 
-    int pid = getpid();
     int native_fd = PR_FileDesc2NativeHandle(fd);
     if (fd_is_socket(native_fd)) {
-        print_flow_key(native_fd);
-        print_cmd(pid);
-        write_data_to_file(pid, buf, amount, native_fd);
+        intrcptr->process_outbound_plaintext(native_fd, (uint8_t *)buf, amount);
     }
-
-    return original_PR_Write(fd, buf, amount);
+    invoke_original(PR_Write, fd, buf, amount);
 }
 
 
@@ -418,7 +466,7 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
     get_original(send);
     fprintf(stderr, GREEN("send()ing %zu bytes\n"), len);
-    process_outbound((uint8_t *)buf, len);
+    intrcptr->process_outbound((uint8_t *)buf, len);
     return original_send(sockfd, buf, len, flags);
 }
 
@@ -434,7 +482,7 @@ ssize_t write(int fd, const void *buf, size_t count) {
     get_original(write);
 
     if (fd_is_socket(fd)) {
-        process_outbound((uint8_t *)buf, count);
+        intrcptr->process_outbound((uint8_t *)buf, count);
     }
 
     return original_write(fd, buf, count);
