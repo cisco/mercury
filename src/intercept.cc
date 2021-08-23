@@ -101,7 +101,11 @@ const char *MAX_PT_LEN = getenv("INTERCEPT_MAX_PT_LEN");
 
 ssize_t max_pt_len = MAX_PT_LEN ? atol(MAX_PT_LEN) : 0;
 
-const char *INTERCEPT_DIR = "/usr/local/var/intercept/";
+#define DEFAULT_INTERCEPT_DIR "/usr/local/var/intercept/"
+
+const char *ENV_INTERCEPT_DIR = getenv("INTERCEPT_DIR");
+
+const char *INTERCEPT_DIR = ENV_INTERCEPT_DIR ? ENV_INTERCEPT_DIR : DEFAULT_INTERCEPT_DIR;
 
 const char *VERBOSE = getenv("INTERCEPT_VERBOSE");
 
@@ -248,6 +252,8 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
 // this one
 //
 
+#include <syslog.h>
+
 class intercept {
     int pid;
 
@@ -255,14 +261,20 @@ public:
 
     intercept() : pid{getpid()} {
         if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
-        fprintf(stderr, BLUE("%s\n"), __func__);
+        // fprintf(stderr, BLUE("%s\n"), __func__);
+        openlog ("intercept", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+        syslog(LOG_INFO, "pid: %d", pid);
         print_cmd(pid);
+        // fprintf(stderr, "ppid: %d\n", getppid());
     }
+
+    ~intercept() { closelog(); }
 
     void process_outbound(const uint8_t *data, ssize_t length);
 
     void process_outbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
         // fprintf(stderr, BLUE("%s\n"), __func__);
+
         print_flow_key(fd);
         write_data_to_file(pid, data, length, fd);
     }
@@ -273,6 +285,9 @@ public:
         write_data_to_file(pid, data, length, fd);
     }
 
+    void process_dns_lookup(const char *dns_name, const char *service) {
+        fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, dns_name, service);
+    }
 };
 
 
@@ -464,27 +479,63 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 #include <sys/socket.h>
 
 ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
-    get_original(send);
-    fprintf(stderr, GREEN("send()ing %zu bytes\n"), len);
     intrcptr->process_outbound((uint8_t *)buf, len);
-    return original_send(sockfd, buf, len, flags);
+    invoke_original(send, sockfd, buf, len, flags);
 }
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
-    get_original(sendmsg);
-    if (verbose) { fprintf(stderr, YELLOW("sendmsg() invoked\n")); }
-    return original_sendmsg(sockfd, msg, flags);
+    if (verbose) { fprintf(stderr, YELLOW("sendmsg() invoked\n")); }  // note: no processing happening yet
+    invoke_original(sendmsg, sockfd, msg, flags);
 }
 
 #include <unistd.h>
 
 ssize_t write(int fd, const void *buf, size_t count) {
-    get_original(write);
 
     if (fd_is_socket(fd)) {
         intrcptr->process_outbound((uint8_t *)buf, count);
     }
-
-    return original_write(fd, buf, count);
+    invoke_original(write, fd, buf, count);
 }
 
+// dns interception
+//
+
+#include <netdb.h>
+
+struct hostent *gethostbyname(const char *name) {
+
+    fprintf(stderr, BLUE("gethostbyname: %s\n"), name);
+
+    invoke_original(gethostbyname, name);
+}
+
+int getaddrinfo(const char *node,
+                const char *service,
+                const struct addrinfo *hints,
+                struct addrinfo **res) {
+
+    //    fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, node, service);
+    intrcptr->process_dns_lookup(node, service);
+
+    invoke_original(getaddrinfo, node, service, hints, res);
+}
+
+int getnameinfo(const struct sockaddr *addr,
+                socklen_t addrlen,
+                char *host,
+                socklen_t hostlen,
+                char *serv,
+                socklen_t servlen,
+                int flags) {
+
+    intrcptr->process_dns_lookup(host, serv);
+
+    invoke_original(getnameinfo, addr, addrlen, host, hostlen, serv, servlen, flags);
+}
+
+// resolv.h
+//
+// #include <resolv/resolv.h>
+//
+// struct hostent *_gethtbyaddr (const char *addr, size_t __len, int __af);
