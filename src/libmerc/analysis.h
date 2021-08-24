@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <algorithm>
+#include <assert.h>
 #include "packet.h"
 #include "addr.h"
 #include "json_object.h"
@@ -161,13 +162,10 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
-    //std::vector<std::pair<os_information*,uint16_t>> os_info; // TODO: delete
     std::vector<std::vector<struct os_information>> process_os_info_vector;
-    //std::vector<std::vector<std::string>> process_os_names;
     floating_point_type base_prior;
 
     static bool malware_db;
-    static bool report_os;
 
     const subnet_data *subnet_data_ptr = nullptr;
 
@@ -190,6 +188,7 @@ public:
             process_name.reserve(processes.size());
             process_prob.reserve(processes.size());
             malware.reserve(processes.size());
+            process_os_info_vector.reserve(processes.size());
 
             base_prior = log(0.1 / total_count);
             size_t index = 0;
@@ -200,12 +199,12 @@ public:
                     malware_db = true;
                 }
 
+                process_os_info_vector.push_back(std::vector<struct os_information>{});
                 if (p.os_info.size() > 0) {
 
                     // create a vector of os_information structs, whose char * makes
                     // use of the os_dictionary
                     //
-                    process_os_info_vector.push_back(std::vector<struct os_information>{});
                     std::vector<struct os_information> &os_info_vector = process_os_info_vector.back();
                     for (const auto &os_and_count : p.os_info) {
                         const char *os = os_dictionary.get(os_and_count.first);
@@ -275,6 +274,15 @@ public:
 
                 ++index;
             }
+
+            // process_name, process_prob, malware, and
+            // process_os_info_vector should all have the same number
+            // of elements as the input vector process
+            //
+            assert(process_name.size() == processes.size());
+            assert(process_prob.size() == processes.size());
+            assert(malware.size() == processes.size());
+            assert(process_os_info_vector.size() == processes.size());
 
     }
 
