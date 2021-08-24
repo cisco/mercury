@@ -51,6 +51,11 @@ cdef extern from "../libmerc/libmerc.h":
     cdef struct libmerc_config:
         bool do_analysis
         char* resources
+        bool output_tcp_initial_data
+        bool output_udp_initial_data
+        char* packet_filter_cfg
+        bool metadata_output
+        bool dns_json_output
     cdef struct mercury_context:
         pass
     cdef struct mercury_packet_processor:
@@ -118,11 +123,17 @@ cdef class Mercury:
     cdef classifier* clf
     cdef bool do_analysis
 
-    def __init__(self, bool do_analysis, bytes resources):
+    def __init__(self, bool do_analysis, bytes resources, bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
+                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True):
         self.do_analysis = do_analysis
         self.py_config = {
+            'output_tcp_initial_data': output_tcp_initial_data,
+            'output_udp_initial_data': output_udp_initial_data,
+            'packet_filter_cfg': packet_filter_cfg,
+            'metadata_output': metadata_output,
+            'dns_json_output': dns_json_output,
             'do_analysis': do_analysis,
-            'resources':   resources
+            'resources':   resources,
         }
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
