@@ -15,6 +15,7 @@
 #include <strings.h>
 #include <pthread.h>
 #include <array>
+#include <stdexcept>
 
 #include "libmerc/libmerc.h"
 
@@ -159,7 +160,7 @@ struct libmerc_api {
 
     libmerc_api(const char *lib_path) {
         if (bind(lib_path) != 0) {
-            throw "error: could not initialize libmerc_api";
+            throw std::runtime_error("error: could not initialize libmerc_api");
         }
     }
 
