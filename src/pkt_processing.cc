@@ -6,6 +6,7 @@
  */
 
 #include <string.h>
+#include <stdexcept>
 #include "pcap_file_io.h"
 #include "rnd_pkt_drop.h"
 #include "pkt_processing.h"
@@ -26,7 +27,7 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
 
             status = filename_append(outfile, cfg->write_filename, "/", NULL);
             if (status) {
-                throw "error in filename";
+                throw std::runtime_error("error in filename");
             }
             if (cfg->verbosity) {
                 fprintf(stderr, "initializing thread function %x with filename %s\n", pid, outfile);

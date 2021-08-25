@@ -18,6 +18,7 @@
 #include <set>
 #include <regex>
 #include <array>
+#include <stdexcept>
 
 #include <openssl/bio.h>
 #include <openssl/err.h>
@@ -636,26 +637,26 @@ private:
         ctx = SSL_CTX_new(TLS_client_method());
 #endif
         if (ctx == NULL) {
-            throw "error: could not initialize TLS context\n";
+            throw std::runtime_error("error: could not initialize TLS context\n");
         }
         if (SSL_CTX_set_default_verify_paths(ctx) != 1) {
-            throw "error: could not initialize TLS verification\n";
+            throw std::runtime_error("error: could not initialize TLS verification\n");
         }
 
         std::string host_and_port = hostname + ":443";
         BIO *bio = BIO_new_connect(host_and_port.c_str());
         if (bio == nullptr) {
-            throw "error: could not create BIO\n";
+            throw std::runtime_error("error: could not create BIO\n");
         }
         if (BIO_do_connect(bio) <= 0) {
             fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
-            //throw "error: could not connect to %s\n";
+            //throw std::runtime_error("error: could not connect to %s\n");
             return nullptr;
         }
 
         BIO *tls_bio = BIO_new_ssl(ctx, 1);
         if (tls_bio == NULL) {
-            throw "error: BIO_new_ssl() returned NULL\n";
+            throw std::runtime_error("error: BIO_new_ssl() returned NULL\n");
         }
 
         BIO_push(tls_bio, bio);
@@ -663,7 +664,7 @@ private:
         SSL *tls = NULL;
         BIO_get_ssl(tls_bio, &tls);
         if (tls == NULL) {
-            throw "error: could not initialize TLS context\n";
+            throw std::runtime_error("error: could not initialize TLS context\n");
         }
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -672,7 +673,7 @@ private:
             int status = SSL_set_min_proto_version(tls, TLS1_3_VERSION);
             if (status != 1) {
                 fprintf(stderr, "warning: could not set protocol version to 1.3 (status=%d)\n", status);
-                // throw "error: could not set protocol version to 1.2\n";
+                // throw std::runtime_error("error: could not set protocol version to 1.2\n");
             }
         }
 #endif
@@ -680,7 +681,7 @@ private:
         // status = SSL_set_cipher_list(tls, tlsv1_3_only);
         // if (status != 1) {
         //     fprintf(stderr, "warning: SSL_CTX_set_cipher_list() returned %d\n", status);
-        //     // throw "error: could not set TLSv1.3-only ciphersuites\n";
+        //     // throw std::runtime_error("error: could not set TLSv1.3-only ciphersuites\n");
         // }
 
         if (!omit_sni) {
@@ -691,7 +692,7 @@ private:
         }
 
         if (BIO_do_handshake(tls_bio) <= 0) {
-            throw "error: TLS handshake failed\n";
+            throw std::runtime_error("error: TLS handshake failed\n");
         }
 
         // record successful visit to host

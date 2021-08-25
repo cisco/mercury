@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include <stdexcept>
 #include "pcap_file_io.h"
 #include "rnd_pkt_drop.h"
 #include "llq.h"
@@ -89,7 +90,7 @@ struct pkt_proc_pcap_writer : public pkt_proc {
     pkt_proc_pcap_writer(const char *outfile, int flags) {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
-            throw "could not open PCAP output file";
+            throw std::runtime_error("could not open PCAP output file");
         }
     }
 
@@ -127,7 +128,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
     pkt_proc_filter_pcap_writer(mercury_context mc, const char *outfile, int flags) : processor{mc, PREALLOC_SIZE} {
         enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
         if (status) {
-            throw "could not open PCAP output file";
+            throw std::runtime_error("could not open PCAP output file");
         }
     }
 
@@ -189,7 +190,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
         llq = llq_ptr;
         processor = mercury_packet_processor_construct(mc);
         if (processor == nullptr) {
-            throw "error: could not construct packet processor";
+            throw std::runtime_error("error: could not construct packet processor");
         }
     }
 
