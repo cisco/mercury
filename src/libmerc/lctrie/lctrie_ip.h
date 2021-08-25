@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <string.h>
 #include <limits>
+#include <stdexcept>
 
 #include "common.h"
 
@@ -131,7 +132,7 @@ int get_address_family() {
     } else if (typeid(T) == typeid(__uint128_t)) {
         address_family = AF_INET6;
     } else {
-        throw "unsupported address family";
+        throw std::runtime_error("unsupported address family");
     }
     return address_family;
 }

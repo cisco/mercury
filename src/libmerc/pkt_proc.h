@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include <stdexcept>
 #include "extractor.h"
 #include "packet.h"
 #include "analysis.h"
@@ -36,7 +37,7 @@ struct mercury {
         global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy
         enum status status = proto_ident_config(vars->packet_filter_cfg);
         if (status) {
-            throw (const char *)"error: proto_ident_config() failed"; // failure
+            throw std::runtime_error("error: proto_ident_config() failed"); // failure
         }
         if (global_vars.do_analysis) {
             c = analysis_init_from_archive(verbosity, global_vars.resources,
@@ -45,11 +46,10 @@ struct mercury {
                                            global_vars.proc_dst_threshold,
                                            global_vars.report_os);
             if (c == nullptr) {
-                throw (const char *)"error: analysis_init_from_archive() failed"; // failure
+                throw std::runtime_error("error: analysis_init_from_archive() failed"); // failure
             }
         }
     }
-
 
     ~mercury() {
         analysis_finalize(c);
@@ -86,7 +86,7 @@ struct stateful_pkt_proc {
         // set config and classifier to (refer to) context m
         //
         if (m->c == nullptr && m->global_vars.do_analysis) {
-            throw "error: classifier pointer is null";
+            throw std::runtime_error("error: classifier pointer is null");
         }
         this->c = m->c;
         this->global_vars = m->global_vars;
@@ -98,7 +98,7 @@ struct stateful_pkt_proc {
             ag = &m->aggregator;
             mq = ag->add_producer();
             if (mq == nullptr) {
-                throw "error: could not initialize event queue";
+                throw std::runtime_error("error: could not initialize event queue");
             }
         }
 

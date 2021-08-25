@@ -8,6 +8,8 @@
 #ifndef ASN1_H
 #define ASN1_H
 
+#include <stdexcept>
+
 #include "datum.h"
 #include "json_object.h"
 #include "utils.h"
@@ -348,7 +350,7 @@ struct tlv {
         (void)tlv_name;
 #endif
 #ifdef THROW
-        throw msg;
+        throw std::runtime_error(msg);
 #endif
     }
     void parse(struct datum *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
@@ -407,7 +409,7 @@ struct tlv {
         size_t first_octet = 0;
         datum_read_and_skip_uint(&value, 1, &first_octet);
         if (first_octet) {
-            // throw "error removing bitstring encoding";
+            // throw std::runtime_error("error removing bitstring encoding");
             value.set_null();
         }
         if (length > 0) {

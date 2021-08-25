@@ -5,6 +5,7 @@
 
 #include <map>
 #include <algorithm>
+#include <stdexcept>
 
 #include "libmerc.h"
 #include "version.h"
@@ -45,16 +46,11 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     }
 
     try {
-
         m = new mercury{vars, verbosity};
         return m;  // success
-
     }
-    catch (const char *s) {
-        fprintf(stderr, "%s\n", s);
-    }
-    catch (...) {
-        ;
+    catch (std::exception &e) {
+        fprintf(stderr, "%s\n", e.what());
     }
     if (m) {
         delete m;
@@ -75,11 +71,8 @@ size_t mercury_packet_processor_write_json(mercury_packet_processor processor, v
     try {
         return processor->write_json(buffer, buffer_size, packet, length, ts, NULL);
     }
-    catch (char const *s) {
-        fprintf(stderr, "%s\n", s);
-    }
-    catch (...) {
-        ;
+    catch (std::exception &e) {
+        fprintf(stderr, "%s\n", e.what());
     }
     return 0;
 }
@@ -89,11 +82,8 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
     try {
         return processor->ip_write_json(buffer, buffer_size, packet, length, ts, NULL);
     }
-    catch (char const *s) {
-        fprintf(stderr, "%s\n", s);
-    }
-    catch (...) {
-        ;
+    catch (std::exception &e) {
+        fprintf(stderr, "%s\n", e.what());
     }
     return 0;
 }
@@ -110,11 +100,8 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
             return &processor->analysis;
         }
     }
-    catch (char const *s) {
-        fprintf(stderr, "%s\n", s);
-    }
-    catch (...) {
-        ;
+    catch (std::exception &e) {
+        fprintf(stderr, "%s\n", e.what());
     }
     return NULL;
 }
@@ -131,11 +118,8 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
             }
         }
     }
-    catch (char const *s) {
-        fprintf(stderr, "%s\n", s);
-    }
-    catch (...) {
-        ;
+    catch (std::exception &e) {
+        fprintf(stderr, "%s\n", e.what());
     }
     return NULL;
 }
@@ -366,11 +350,8 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
         return tmp;
     }
-    catch (const char *s) {
-        fprintf(stderr, "%s\n", s);
-    }
-    catch (...) {
-        ; // error, return NULL
+    catch (std::exception &e) {
+        fprintf(stderr, "%s\n", e.what());
     }
     return NULL;
 }
@@ -382,7 +363,8 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
             delete mpp;
         }
     }
-    catch (...) {
+    catch (std::exception &e) {
+        fprintf(stderr, "%s\n", e.what());
     }
 }
 

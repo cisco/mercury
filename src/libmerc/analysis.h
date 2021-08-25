@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <algorithm>
+#include <stdexcept>
 #include <assert.h>
 #include "packet.h"
 #include "addr.h"
@@ -602,7 +603,7 @@ public:
                 }
                 if (x.HasMember("malware") && x["malware"].IsBool()) {
                     if (MALWARE_DB == false && process_number > 1) {
-                        throw "error: malware data expected, but not present";
+                        throw std::runtime_error("error: malware data expected, but not present");
                     }
                     MALWARE_DB = true;
                     malware = x["malware"].GetBool();
@@ -651,7 +652,7 @@ public:
                                     fprintf(stderr, "note: found string \"%s\" in ip_as\n", y.name.GetString());
                                 }
                                 if (as_number > 0xffffffff) {
-                                    throw "error: as number too high";
+                                    throw std::runtime_error("error: as number too high");
                                 }
                                 ip_as[as_number] = y.value.GetUint64();
 
@@ -667,8 +668,8 @@ public:
                             uint16_t tmp_port = 0;
                             auto port_it = string_to_port.find(y.name.GetString());
                             if (port_it == string_to_port.end()) {
-                                // throw "error: unexpected string in classes_port_applications";
-                                fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
+                                throw std::runtime_error("error: unexpected string in classes_port_applications");
+                                //fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
                             } else {
                                 tmp_port = port_it->second;
                             }
@@ -678,7 +679,7 @@ public:
                 }
                 if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
                     if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                        throw "error: extended fingerprint metadata expected, but not present";
+                        throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
                     }
                     EXTENDED_FP_METADATA = true;
                     //fprintf(stderr, "\tclasses_ip_ip\n");
@@ -692,7 +693,7 @@ public:
                 }
                 if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
                     if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                        throw "error: extended fingerprint metadata expected, but not present";
+                        throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
                     }
                     EXTENDED_FP_METADATA = true;
                     //fprintf(stderr, "\tclasses_hostname_sni\n");
@@ -735,7 +736,7 @@ public:
         //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
-            throw "error: could not read any entries from resource archive file";
+            throw std::runtime_error("error: could not read any entries from resource archive file");
         }
         while (entry != nullptr) {
             if (entry->is_regular_file()) {
