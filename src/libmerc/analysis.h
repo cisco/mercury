@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <algorithm>
+#include <stdexcept>
+#include <assert.h>
 #include "packet.h"
 #include "addr.h"
 #include "json_object.h"
@@ -161,13 +163,10 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
-    //std::vector<std::pair<os_information*,uint16_t>> os_info; // TODO: delete
     std::vector<std::vector<struct os_information>> process_os_info_vector;
-    //std::vector<std::vector<std::string>> process_os_names;
     floating_point_type base_prior;
 
     static bool malware_db;
-    static bool report_os;
 
     const subnet_data *subnet_data_ptr = nullptr;
 
@@ -190,6 +189,7 @@ public:
             process_name.reserve(processes.size());
             process_prob.reserve(processes.size());
             malware.reserve(processes.size());
+            process_os_info_vector.reserve(processes.size());
 
             base_prior = log(0.1 / total_count);
             size_t index = 0;
@@ -200,12 +200,12 @@ public:
                     malware_db = true;
                 }
 
+                process_os_info_vector.push_back(std::vector<struct os_information>{});
                 if (p.os_info.size() > 0) {
 
                     // create a vector of os_information structs, whose char * makes
                     // use of the os_dictionary
                     //
-                    process_os_info_vector.push_back(std::vector<struct os_information>{});
                     std::vector<struct os_information> &os_info_vector = process_os_info_vector.back();
                     for (const auto &os_and_count : p.os_info) {
                         const char *os = os_dictionary.get(os_and_count.first);
@@ -275,6 +275,15 @@ public:
 
                 ++index;
             }
+
+            // process_name, process_prob, malware, and
+            // process_os_info_vector should all have the same number
+            // of elements as the input vector process
+            //
+            assert(process_name.size() == processes.size());
+            assert(process_prob.size() == processes.size());
+            assert(malware.size() == processes.size());
+            assert(process_os_info_vector.size() == processes.size());
 
     }
 
@@ -594,7 +603,7 @@ public:
                 }
                 if (x.HasMember("malware") && x["malware"].IsBool()) {
                     if (MALWARE_DB == false && process_number > 1) {
-                        throw "error: malware data expected, but not present";
+                        throw std::runtime_error("error: malware data expected, but not present");
                     }
                     MALWARE_DB = true;
                     malware = x["malware"].GetBool();
@@ -643,7 +652,7 @@ public:
                                     fprintf(stderr, "note: found string \"%s\" in ip_as\n", y.name.GetString());
                                 }
                                 if (as_number > 0xffffffff) {
-                                    throw "error: as number too high";
+                                    throw std::runtime_error("error: as number too high");
                                 }
                                 ip_as[as_number] = y.value.GetUint64();
 
@@ -659,8 +668,8 @@ public:
                             uint16_t tmp_port = 0;
                             auto port_it = string_to_port.find(y.name.GetString());
                             if (port_it == string_to_port.end()) {
-                                // throw "error: unexpected string in classes_port_applications";
-                                fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
+                                throw std::runtime_error("error: unexpected string in classes_port_applications");
+                                //fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
                             } else {
                                 tmp_port = port_it->second;
                             }
@@ -670,7 +679,7 @@ public:
                 }
                 if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
                     if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                        throw "error: extended fingerprint metadata expected, but not present";
+                        throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
                     }
                     EXTENDED_FP_METADATA = true;
                     //fprintf(stderr, "\tclasses_ip_ip\n");
@@ -684,7 +693,7 @@ public:
                 }
                 if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
                     if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                        throw "error: extended fingerprint metadata expected, but not present";
+                        throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
                     }
                     EXTENDED_FP_METADATA = true;
                     //fprintf(stderr, "\tclasses_hostname_sni\n");
@@ -727,7 +736,7 @@ public:
         //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
-            throw "error: could not read any entries from resource archive file";
+            throw std::runtime_error("error: could not read any entries from resource archive file");
         }
         while (entry != nullptr) {
             if (entry->is_regular_file()) {

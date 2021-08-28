@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <string>
 #include <atomic>
+#include <stdexcept>
 #include "rotator.h"
 #include "libmerc/libmerc.h"
 
@@ -27,7 +28,7 @@ public:
         has_run_at_least_once{false}
     {
         if (mc == nullptr) {
-            throw "error: null mercury context passed to control thread";
+            throw std::runtime_error("error: null mercury context passed to control thread");
         }
         start();
     }

@@ -12,6 +12,7 @@
 #define ADDR_H
 
 #include <string>
+#include <stdexcept>
 #include "archive.h"
 
 #include "lctrie/lctrie.h"
@@ -42,7 +43,7 @@ public:
         ipv4_subnet_array = nullptr;
         prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), BGP_MAX_ENTRIES);
         if (prefix == nullptr) {
-            throw "error: could not initialize subnet_data";
+            throw std::runtime_error("error: could not initialize subnet_data");
         }
         // start with the RFC 1918 and 3927 private and link local
         // subnets as a basis for any table set

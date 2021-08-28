@@ -13,6 +13,7 @@
 #include <map>
 #include <set>
 #include <algorithm>
+#include <stdexcept>
 
 
 void oid_print(std::vector<uint32_t> oid, const char *label) {
@@ -250,7 +251,7 @@ struct oid_set {
             return oid_dict[syn->second];
         }
         std::cerr << "error: unknown OID keyword '" << keyword << "'\n";
-        throw "parse error";
+        throw std::runtime_error("parse error");
     }
 
     void add_oid(const std::string &name,
@@ -381,7 +382,7 @@ void parse_asn1_line(std::list<std::string> &tokens) {
         assignment.name = *t;
     } else {
         cout << "error: expected string, got '" << *t << "'\n";
-        throw "parse error";
+        throw std::runtime_error("parse error");
     }
     ++t;
 
@@ -404,7 +405,7 @@ void parse_asn1_line(std::list<std::string> &tokens) {
             if (type(*t) == token_str && *t == "IDENTIFIER") {
                 assignment.type = type_oid;
             } else {
-                throw "parse error";
+                throw std::runtime_error("parse error");
             }
         } else {
             return;
@@ -415,19 +416,19 @@ void parse_asn1_line(std::list<std::string> &tokens) {
 
     } else {
         cout << "error: expected OBJECT IDENTIFIER or ::=, got '" << *t << "'\n";
-        throw "parse error";
+        throw std::runtime_error("parse error");
     }
     ++t;
 
     if (type(*t) != token_assignment) {
         cout << "error: expected '::=', got '" << *t << "'\n";
-        throw "parse error";
+        throw std::runtime_error("parse error");
     }
     ++t;
 
     if (type(*t) != token_lbrace) {
         cout << "error: expected '{', got '" << *t << "'\n";
-        throw "parse error";
+        throw std::runtime_error("parse error");
     }
     ++t;
 

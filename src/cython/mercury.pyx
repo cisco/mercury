@@ -8,7 +8,9 @@ from libcpp.string cimport string
 from libcpp cimport bool
 from libc.stdio cimport *
 from libc.stdint cimport *
+from libc.string cimport memset
 from posix.time cimport timespec
+
 
 ### BUILD INSTRUCTIONS
 # To build in-place:
@@ -49,6 +51,11 @@ cdef extern from "../libmerc/libmerc.h":
     cdef struct libmerc_config:
         bool do_analysis
         char* resources
+        bool output_tcp_initial_data
+        bool output_udp_initial_data
+        char* packet_filter_cfg
+        bool metadata_output
+        bool dns_json_output
     cdef struct mercury_context:
         pass
     cdef struct mercury_packet_processor:
@@ -82,6 +89,10 @@ cdef extern from "../libmerc/libmerc.h":
     bool analysis_context_get_process_info(const analysis_context *ac, const char **probable_process, double *probability_score)
     bool analysis_context_get_malware_info(const analysis_context *ac, bool *probable_process_is_malware, double *probability_malware)
 
+    # get json object
+    size_t mercury_packet_processor_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size,
+                                               uint8_t *packet, size_t length, timespec* ts)
+
 
 
 fp_status_dict = {
@@ -112,11 +123,17 @@ cdef class Mercury:
     cdef classifier* clf
     cdef bool do_analysis
 
-    def __init__(self, bool do_analysis, bytes resources):
+    def __init__(self, bool do_analysis, bytes resources, bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
+                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True):
         self.do_analysis = do_analysis
         self.py_config = {
+            'output_tcp_initial_data': output_tcp_initial_data,
+            'output_udp_initial_data': output_udp_initial_data,
+            'packet_filter_cfg': packet_filter_cfg,
+            'metadata_output': metadata_output,
+            'dns_json_output': dns_json_output,
             'do_analysis': do_analysis,
-            'resources':   resources
+            'resources':   resources,
         }
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
@@ -139,6 +156,43 @@ cdef class Mercury:
             return 1
 
         return 0
+
+
+    cpdef dict get_mercury_json(self, bytes pkt_data):
+        cdef unsigned char* pkt_data_ref = pkt_data
+
+        cdef char buf[8192]
+        memset(buf, 0, 8192)
+
+        mercury_packet_processor_write_json(<mercury_packet_processor>self.mpp, buf, 8192, pkt_data_ref, len(pkt_data), &self.default_ts)
+
+        cdef str json_str = buf.decode('UTF-8')
+        if json_str != None:
+            try:
+                return json.loads(json_str.strip())
+            except:
+                return None
+        else:
+            return None
+
+
+    cpdef dict get_fingerprint(self, bytes pkt_data):
+        cdef unsigned char* pkt_data_ref = pkt_data
+        cdef const analysis_context* ac = mercury_packet_processor_get_analysis_context(<mercury_packet_processor>self.mpp,
+                                                                                        pkt_data_ref, len(pkt_data), &self.default_ts);
+        if ac == NULL:
+            return None
+
+        cdef fingerprint_status fp_status = analysis_context_get_fingerprint_status(ac)
+        cdef fingerprint_type fp_type = analysis_context_get_fingerprint_type(ac)
+        cdef const char* fp_string = analysis_context_get_fingerprint_string(ac)
+
+        result = {}
+        result['status']   = fp_status_dict[fp_status]
+        result['type']     = fp_type_dict[fp_type]
+        result['str_repr'] = fp_string.decode('UTF-8')
+
+        return result
 
 
     cpdef dict analyze_packet(self, bytes pkt_data):

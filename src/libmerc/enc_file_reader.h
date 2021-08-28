@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdexcept>
 
 #include <fcntl.h>
 #include <sys/types.h>
@@ -44,7 +45,7 @@ public:
             size_t raw_bytes = hex_to_raw(value, N, null_terminated_hex_string);
             if (raw_bytes != N) {
                 fprintf(stderr, "error: expected %zu bytes in key, only got %zu\n", N, raw_bytes);
-                throw "too few bytes in key initialization";
+                throw std::runtime_error("too few bytes in key initialization");
             }
         } else {
             memset(value, 0, N);
@@ -183,7 +184,7 @@ public:
         file = fopen(filename, "r");
         if (file == nullptr) {
             fprintf(stderr, "error: could not open file %s\n", filename);
-            throw "error: cannot open file";
+            throw std::runtime_error("error: cannot open file");
         }
 
         if (key.is_null()) {
@@ -194,7 +195,7 @@ public:
         // create and initialize decryption context
         ctx = EVP_CIPHER_CTX_new();
         if(!ctx) {
-            throw "error: cannot allocate EVP_CIPHER_CTX";
+            throw std::runtime_error("error: cannot allocate EVP_CIPHER_CTX");
         }
 
         // Initialise the decryption context, using a key and IV size
@@ -202,7 +203,7 @@ public:
         // 16-byte IV
         //
         if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key.value, iv.value)) {
-            throw "error: cannot initialize EVP_CIPHER_CTX";
+            throw std::runtime_error("error: cannot initialize EVP_CIPHER_CTX");
         }
 
         // if no initialization vector (iv) has been provided, it was
@@ -212,7 +213,7 @@ public:
             uint8_t aes_block[16];
             ssize_t bytes_read = read(aes_block, sizeof(aes_block));
             if (bytes_read != 16) {
-                throw "error: could not read first block from encrypted file";
+                throw std::runtime_error("error: could not read first block from encrypted file");
             }
         }
     }
