@@ -277,6 +277,7 @@ public:
 
         print_flow_key(fd);
         write_data_to_file(pid, data, length, fd);
+        process_http_request(data, length);
     }
 
     void process_inbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
@@ -288,6 +289,9 @@ public:
     void process_dns_lookup(const char *dns_name, const char *service) {
         fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, dns_name, service);
     }
+
+    void process_http_request(const uint8_t *data, ssize_t length);
+
 };
 
 
@@ -298,15 +302,38 @@ class intercept *intrcptr = new intercept;
 
 //#include "libmerc/libmerc.h"
 #include "libmerc/tls.h"
+#include "libmerc/http.h"
+#include <ctype.h>
 
 // high level functions for processing network traffic
 //
 
+
+void intercept::process_http_request(const uint8_t *data, ssize_t length) {
+    struct datum tcp_data{data, data+length};
+    struct http_request http_req;
+    http_req.parse(tcp_data);
+    if (http_req.is_not_empty() && isalnum(data[0])) {  // TODO: improve is_not_empty() with method check
+
+        char buffer[8*1024];
+        struct buffer_stream buf(buffer, sizeof(buffer));
+        struct json_object record{&buf};
+        http_req.write_json(record, true);
+        record.close();
+        if (tty) { fprintf(stderr, GREEN_ON); }
+        buf.write(stderr);
+        if (tty) { fprintf(stderr, COLOR_OFF); }
+        fputc('\n', stderr);
+
+    } else {
+        if (verbose) { fprintf(stderr, RED("http_request unrecognized\n")); }
+    }
+}
+
 void intercept::process_outbound(const uint8_t *data, ssize_t length) {
     if (length > 2 && data[0] == 0x16 && data[1] == 0x03) {
-        fprintf(stderr, GREEN("tls_handshake: "));
-        //  fprintf_raw_as_hex(stderr, data, length);
-        fputc('\n', stderr);
+        if (verbose) { fprintf(stderr, GREEN("tls_handshake: ")); }
+        //  fprintf_raw_as_hex(stderr, data, length); fputc('\n', stderr);
 
         struct datum tcp_data{data, data+length};
 
@@ -330,7 +357,9 @@ void intercept::process_outbound(const uint8_t *data, ssize_t length) {
             fp.write(record);
             hello.write_json(record, true);
             record.close();
+            if (tty) { fprintf(stderr, GREEN_ON); }
             buf.write(stderr);
+            if (tty) { fprintf(stderr, COLOR_OFF); }
             fputc('\n', stderr);
         }
 
@@ -455,21 +484,52 @@ PRInt32 PR_Write(PRFileDesc *fd, const void *buf, PRInt32 amount) {
 #include <gnutls/gnutls.h>
 
 ssize_t gnutls_record_send(gnutls_session_t session,
-                           const void * data,
+                           const void *data,
                            size_t data_size) {
 
     get_original(gnutls_record_send);
 
     int pid = getpid();
     print_cmd(pid);
-    fprintf(stderr, GREEN("fd?: %d\n"), gnutls_transport_get_int(session));
+    //    fprintf(stderr, GREEN("%s: %.*s\n"), __func__, (int)data_size, (char *)data);
+    // fprintf(stderr, GREEN("fd?: %d\n"), gnutls_transport_get_int(session));
     int r = 0, s = 0;
     gnutls_transport_get_int2(session, &r, &s);
-    fprintf(stderr, GREEN("fd2: %d\t%d\n"), r, s);
+    // fprintf(stderr, GREEN("fd2: %d\t%d\n"), r, s);
+    // gnutls_transport_ptr_t tp;
+    // tp = gnutls_transport_get_ptr(session);
+    // fprintf(stderr, GREEN("tp: %p\n"), tp);
+
+    int fd = (r < 32 && r > 0) ? r : 0;
+    intrcptr->process_outbound_plaintext(fd, (uint8_t *)data, (ssize_t) data_size);
     print_flow_key(r);
     write_data_to_file(pid, data, data_size);
 
     return original_gnutls_record_send(session, data, data_size);
+}
+
+// the following gnutls functions are not yet supported; if
+// intercepted, thier names will show up in the output, but no other
+// actions will be performed
+//
+ssize_t gnutls_record_send2 (gnutls_session_t session, const void * data, size_t data_size, size_t pad, unsigned flags) {
+    fprintf(stderr, RED("%s\n"), __func__);
+    invoke_original(gnutls_record_send2, session, data, data_size, pad, flags);
+}
+
+ssize_t gnutls_record_send_early_data (gnutls_session_t session, const void * data, size_t data_size) {
+    fprintf(stderr, RED("%s\n"), __func__);
+    invoke_original(gnutls_record_send_early_data, session, data, data_size);
+}
+
+ssize_t gnutls_record_send_range (gnutls_session_t session, const void * data, size_t data_size, const gnutls_range_st * range) {
+    fprintf(stderr, RED("%s\n"), __func__);
+    invoke_original(gnutls_record_send_range, session, data, data_size, range);
+}
+
+void gnutls_transport_set_push_function(gnutls_session_t session,  gnutls_push_func push_func) {
+    fprintf(stderr, RED("%s\n"), __func__);
+    invoke_original(gnutls_transport_set_push_function, session, push_func);
 }
 
 // networking functions interception
