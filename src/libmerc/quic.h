@@ -137,28 +137,50 @@ struct quic_initial_packet {
     }
 };
 
+class quic_parameters {
+    std::unordered_map<uint32_t, uint8_t*> quic_initial_salt;
 
-size_t salt_length = 20;
-uint8_t salt_d22[]     = {0x7f,0xbc,0xdb,0x0e,0x7c,0x66,0xbb,0xe9,0x19,0x3a,0x96,0xcd,0x21,0x51,0x9e,0xbd,0x7a,0x02,0x64,0x4a};
-uint8_t salt_d23_d28[] = {0xc3,0xee,0xf7,0x12,0xc7,0x2e,0xbb,0x5a,0x11,0xa7,0xd2,0x43,0x2b,0xb4,0x63,0x65,0xbe,0xf9,0xf5,0x02};
-uint8_t salt_d29_d32[] = {0xaf,0xbf,0xec,0x28,0x99,0x93,0xd2,0x4c,0x9e,0x97,0x86,0xf1,0x9c,0x61,0x11,0xe0,0x43,0x90,0xa8,0x99};
-uint8_t salt_d33_v1[]  = {0x38,0x76,0x2c,0xf7,0xf5,0x59,0x34,0xb3,0x4d,0x17,0x9a,0xe6,0xa4,0xc8,0x0c,0xad,0xcc,0xbb,0x7f,0x0a};
-std::unordered_map<uint32_t, uint8_t*> quic_initial_salt = {
-    {4278190102, salt_d22},     // draft-22
-    {4278190103, salt_d23_d28}, // draft-23
-    {4278190104, salt_d23_d28}, // draft-24
-    {4278190105, salt_d23_d28}, // draft-25
-    {4278190106, salt_d23_d28}, // draft-26
-    {4278190107, salt_d23_d28}, // draft-27
-    {4278190108, salt_d23_d28}, // draft-28
-    {4278190109, salt_d29_d32}, // draft-29
-    {4278190110, salt_d29_d32}, // draft-30
-    {4278190111, salt_d29_d32}, // draft-31
-    {4278190112, salt_d29_d32}, // draft-32
-    {4278190113, salt_d33_v1},  // draft-33
-    {4278190114, salt_d33_v1},  // draft-34
-    {1,          salt_d33_v1},  // version-1
+public:
+
+    quic_parameters() {
+        uint8_t salt_d22[]     = {0x7f,0xbc,0xdb,0x0e,0x7c,0x66,0xbb,0xe9,0x19,0x3a,0x96,0xcd,0x21,0x51,0x9e,0xbd,0x7a,0x02,0x64,0x4a};
+        uint8_t salt_d23_d28[] = {0xc3,0xee,0xf7,0x12,0xc7,0x2e,0xbb,0x5a,0x11,0xa7,0xd2,0x43,0x2b,0xb4,0x63,0x65,0xbe,0xf9,0xf5,0x02};
+        uint8_t salt_d29_d32[] = {0xaf,0xbf,0xec,0x28,0x99,0x93,0xd2,0x4c,0x9e,0x97,0x86,0xf1,0x9c,0x61,0x11,0xe0,0x43,0x90,0xa8,0x99};
+        uint8_t salt_d33_v1[]  = {0x38,0x76,0x2c,0xf7,0xf5,0x59,0x34,0xb3,0x4d,0x17,0x9a,0xe6,0xa4,0xc8,0x0c,0xad,0xcc,0xbb,0x7f,0x0a};
+
+        std::unordered_map<uint32_t, uint8_t*> quic_initial_salt = {
+            {4278190102, salt_d22},     // draft-22
+            {4278190103, salt_d23_d28}, // draft-23
+            {4278190104, salt_d23_d28}, // draft-24
+            {4278190105, salt_d23_d28}, // draft-25
+            {4278190106, salt_d23_d28}, // draft-26
+            {4278190107, salt_d23_d28}, // draft-27
+            {4278190108, salt_d23_d28}, // draft-28
+            {4278190109, salt_d29_d32}, // draft-29
+            {4278190110, salt_d29_d32}, // draft-30
+            {4278190111, salt_d29_d32}, // draft-31
+            {4278190112, salt_d29_d32}, // draft-32
+            {4278190113, salt_d33_v1},  // draft-33
+            {4278190114, salt_d33_v1},  // draft-34
+            {1,          salt_d33_v1},  // version-1
+        };
+    }
+
+    uint8_t *get_initial_salt(uint32_t version) {
+        auto pair = quic_initial_salt.find(version);
+        if (pair != quic_initial_salt.end()) {
+            return pair->second;
+        } else {
+            return nullptr;
+        }
+    }
+
+    static quic_parameters &create() {
+        static quic_parameters *quic_params = new quic_parameters;
+        return *quic_params;
+    }
 };
+
 
 struct quic_initial_packet_crypto {
     bool valid;
@@ -167,6 +189,8 @@ struct quic_initial_packet_crypto {
     constexpr static const uint8_t quic_key_label[]  = "tls13 quic key";
     constexpr static const uint8_t quic_iv_label[]   = "tls13 quic iv";
     constexpr static const uint8_t quic_hp_label[]   = "tls13 quic hp";
+
+    size_t salt_length = 20;
 
     uint8_t quic_key[EVP_MAX_MD_SIZE] = {0};
     unsigned int quic_key_len = 0;
@@ -187,11 +211,9 @@ struct quic_initial_packet_crypto {
         size_t dcid_len = quic_pkt.dcid.length();
         uint32_t version = ntohl(*((uint32_t*)quic_pkt.version.data));
 
-        uint8_t *initial_salt;
-        auto pair = quic_initial_salt.find(version);
-        if (pair != quic_initial_salt.end()) {
-            initial_salt = pair->second;
-        } else {
+        static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
+        uint8_t *initial_salt = quic_params.get_initial_salt(version);
+        if (initial_salt == nullptr) {
             valid = false;
             return;
         }

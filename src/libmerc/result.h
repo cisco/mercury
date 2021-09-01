@@ -11,6 +11,8 @@
 #ifndef __cplusplus
 #include <stdbool.h>
 #else
+
+#include "libmerc.h"
 #include "json_object.h"
 #include "tls.h"
 #include "addr.h"
@@ -32,8 +34,7 @@ struct malware_result {
 };
 
 struct analysis_result {
-    bool valid;  // = false;
-    bool randomized; // = false;
+    enum fingerprint_status status;
     char max_proc[max_proc_len];
     long double max_score;
     bool max_mal;
@@ -44,24 +45,24 @@ struct analysis_result {
 
 #ifdef __cplusplus
 public:
-    analysis_result() : valid{false}, randomized{false}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result() : status{fingerprint_status_no_info_available}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
-    analysis_result(const bool is_randomized) : valid{false}, randomized{is_randomized}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result(enum fingerprint_status s) : status{s}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
-    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len, bool is_randomized) :
-        valid{true}, randomized{is_randomized}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
+    analysis_result(enum fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len) :
+        status{s}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
-    analysis_result(const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob, bool is_randomized) :
-        valid{true}, randomized{is_randomized}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
+    analysis_result(fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob) :
+        status{s}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
 
     void write_json(struct json_object &o, const char *key) {
         struct json_object analysis{o, key};
-        if (valid) {
+        if (status == fingerprint_status_labeled) {
             analysis.print_key_string("process", max_proc);
             analysis.print_key_float("score", max_score);
             if (classify_malware) {
@@ -75,18 +76,20 @@ public:
                 }
                 os_json.close();
             }
-            if (randomized) {
+            if (status == fingerprint_status_randomized) {
                 analysis.print_key_string("status", "randomized_fingerprint");
             }
-        } else if (randomized) {
+        } else if (status == fingerprint_status_randomized) {
             analysis.print_key_string("status", "randomized_fingerprint");
-        } else {
+        } else if (status == fingerprint_status_unlabled) {
             analysis.print_key_string("status", "unlabeled_fingerprint");
+        } else {
+            analysis.print_key_string("status", "unknown");
         }
         analysis.close();
     }
 
-    bool is_valid() const { return valid; }
+    bool is_valid() const { return status != fingerprint_status_no_info_available; }
 #endif
 };
 
