@@ -141,6 +141,29 @@ void print_cmd(int pid) {
      }
 }
 
+void get_cmd(int pid, char cmd[256], size_t cmd_len) {
+    char filename[FILENAME_MAX];
+    int retval = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
+    if (retval < 0) {
+        fprintf(stderr, RED("error: could not write filename for PID=%d\n"), pid);
+    }
+    if (retval >= (int)sizeof(filename)) {
+        fprintf(stderr, YELLOW("warning: filename \"%s\" was truncated\n"), filename);
+    }
+
+    static int have_cmd = 0;
+    if (have_cmd == 0) {
+        // read command associated with process from /proc filesystem
+        //
+        FILE *cmd_file = fopen(filename, "r");
+        if (cmd_file) {
+            fread(cmd, 1, cmd_len, cmd_file);  // TBD: should verify that cmd is nonzero
+            have_cmd = 1;
+            fclose(cmd_file);
+        }
+     }
+}
+
 #include <sys/stat.h>
 
 bool fd_is_socket(int fd) {
@@ -247,6 +270,15 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
     }
 }
 
+// libmerc
+//
+
+//#include "libmerc/libmerc.h"
+#include "libmerc/tls.h"
+#include "libmerc/http.h"
+#include "libmerc/json_object.h"
+#include <ctype.h>
+
 // class intercept controls the behavior of this program; you can
 // define totally new behavior by defining a class that inherits from
 // this one
@@ -256,16 +288,23 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
 
 class intercept {
     int pid;
+    FILE *outfile = nullptr;
+    char cmd[256];
+    char buffer[8*1024];
 
 public:
 
     intercept() : pid{getpid()} {
         if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
+
+        outfile = fopen("intercept.json", "a+");
         // fprintf(stderr, BLUE("%s\n"), __func__);
-        openlog ("intercept", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
-        syslog(LOG_INFO, "pid: %d", pid);
-        print_cmd(pid);
+        // openlog ("intercept", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+        // syslog(LOG_INFO, "pid: %d", pid);
+        // print_cmd(pid);
+        get_cmd(pid, cmd, sizeof(cmd));
         // fprintf(stderr, "ppid: %d\n", getppid());
+
     }
 
     ~intercept() { closelog(); }
@@ -275,39 +314,75 @@ public:
     void process_outbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
         // fprintf(stderr, BLUE("%s\n"), __func__);
 
+        struct buffer_stream buf(buffer, sizeof(buffer));
+        struct json_object record{&buf};
+
+        // write pid into record
+        record.print_key_uint16("pid", pid);
+        record.print_key_string("cmd", cmd);
+        record.print_key_uint16("fd", fd);
+
         print_flow_key(fd);
         write_data_to_file(pid, data, length, fd);
-        process_http_request(data, length);
+        //  process_http_request(data, length);
+
+        struct datum tcp_data{data, data+length};
+        struct http_request http_req;
+        http_req.parse(tcp_data);
+        if (http_req.is_not_empty() && isalnum(data[0])) {  // TODO: improve is_not_empty() with method check
+            http_req.write_json(record, true);
+        } else {
+            if (verbose) { fprintf(stderr, RED("http_request unrecognized\n")); }
+        }
+
+        record.close();
+        if (tty) { fprintf(stderr, GREEN_ON); }
+        buf.write_line(outfile);
+        if (tty) { fprintf(stderr, COLOR_OFF); }
+
     }
 
     void process_inbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
         // fprintf(stderr, BLUE("%s\n"), __func__);
-        print_flow_key(fd);
-        write_data_to_file(pid, data, length, fd);
+        //print_flow_key(fd);
+        //write_data_to_file(pid, data, length, fd);
     }
 
     void process_dns_lookup(const char *dns_name, const char *service) {
-        fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, dns_name, service);
+        // fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, dns_name, service);
+
+        struct buffer_stream buf(buffer, sizeof(buffer));
+        struct json_object record{&buf};
+
+        // write pid into record
+        record.print_key_uint16("pid", pid);
+        record.print_key_string("cmd", cmd);
+
+        // write dns info into record
+        json_object dns_object{record, "dns"};
+        dns_object.print_key_string("name", dns_name);
+        //dns_object.print_key_string("service", service);
+        dns_object.close();
+        record.close();
+        if (tty) { fprintf(stderr, GREEN_ON); }
+        buf.write_line(outfile);
+        if (tty) { fprintf(stderr, COLOR_OFF); }
+
     }
 
     void process_http_request(const uint8_t *data, ssize_t length);
+
+    void process_tls_client_hello(const uint8_t *data, ssize_t length);
 
 };
 
 
 class intercept *intrcptr = new intercept;
 
-// libmerc
-//
 
-//#include "libmerc/libmerc.h"
-#include "libmerc/tls.h"
-#include "libmerc/http.h"
-#include <ctype.h>
 
 // high level functions for processing network traffic
 //
-
 
 void intercept::process_http_request(const uint8_t *data, ssize_t length) {
     struct datum tcp_data{data, data+length};
@@ -315,22 +390,21 @@ void intercept::process_http_request(const uint8_t *data, ssize_t length) {
     http_req.parse(tcp_data);
     if (http_req.is_not_empty() && isalnum(data[0])) {  // TODO: improve is_not_empty() with method check
 
-        char buffer[8*1024];
         struct buffer_stream buf(buffer, sizeof(buffer));
         struct json_object record{&buf};
         http_req.write_json(record, true);
         record.close();
         if (tty) { fprintf(stderr, GREEN_ON); }
-        buf.write(stderr);
+        buf.write_line(outfile);
         if (tty) { fprintf(stderr, COLOR_OFF); }
-        fputc('\n', stderr);
 
     } else {
         if (verbose) { fprintf(stderr, RED("http_request unrecognized\n")); }
     }
 }
 
-void intercept::process_outbound(const uint8_t *data, ssize_t length) {
+void intercept::process_tls_client_hello(const uint8_t *data, ssize_t length) {
+
     if (length > 2 && data[0] == 0x16 && data[1] == 0x03) {
         if (verbose) { fprintf(stderr, GREEN("tls_handshake: ")); }
         //  fprintf_raw_as_hex(stderr, data, length); fputc('\n', stderr);
@@ -351,19 +425,27 @@ void intercept::process_outbound(const uint8_t *data, ssize_t length) {
             struct fingerprint fp;
             hello.compute_fingerprint(fp);
 
-            char buffer[8*1024];
             struct buffer_stream buf(buffer, sizeof(buffer));
             struct json_object record{&buf};
+
+            // write pid into record
+            record.print_key_uint16("pid", pid);
+            record.print_key_string("cmd", cmd);
+            //record.print_key_uint16("fd", fd);
+
+            // write fingerprint into record
             fp.write(record);
             hello.write_json(record, true);
             record.close();
             if (tty) { fprintf(stderr, GREEN_ON); }
-            buf.write(stderr);
+            buf.write_line(outfile);
             if (tty) { fprintf(stderr, COLOR_OFF); }
-            fputc('\n', stderr);
         }
-
     }
+}
+
+void intercept::process_outbound(const uint8_t *data, ssize_t length) {
+    process_tls_client_hello(data, length);
 }
 
 
@@ -489,8 +571,8 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 
     get_original(gnutls_record_send);
 
-    int pid = getpid();
-    print_cmd(pid);
+    //int pid = getpid();
+    //print_cmd(pid);
     //    fprintf(stderr, GREEN("%s: %.*s\n"), __func__, (int)data_size, (char *)data);
     // fprintf(stderr, GREEN("fd?: %d\n"), gnutls_transport_get_int(session));
     int r = 0, s = 0;
@@ -502,8 +584,9 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 
     int fd = (r < 32 && r > 0) ? r : 0;
     intrcptr->process_outbound_plaintext(fd, (uint8_t *)data, (ssize_t) data_size);
-    print_flow_key(r);
-    write_data_to_file(pid, data, data_size);
+
+    //print_flow_key(r);
+    //write_data_to_file(pid, data, data_size);
 
     return original_gnutls_record_send(session, data, data_size);
 }
