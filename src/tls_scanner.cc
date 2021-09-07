@@ -647,7 +647,7 @@ private:
         if (bio == nullptr) {
             throw "error: could not create BIO\n";
         }
-        if (BIO_do_connect(bio) <= 0) {
+        if (BIO_do_connect(bio) <= 0) {  // TODO: set/add timeout
             fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
             //throw "error: could not connect to %s\n";
             return nullptr;
@@ -789,6 +789,13 @@ public:
             //
             // TODO: encapsulate DNS encoding within DNS classes for
             // the sake of maintainability
+
+            // TODO: add POST URI=/dns-query technique
+            //
+            // TODO: add other GET technique
+            //
+            // curl -i -H 'accept: application/dns-json' 'https://doh.facebook-dns.com/dns-query?name=cisco.com&type=A'
+            // curl -i -H 'accept: application/dns-message' https://one.one.one.one/dns-query?dns=AAABAAABAAAAAAAABWNpc2NvA2NvbQAAAQAB
 
             path += "dns-query?dns=";
 
