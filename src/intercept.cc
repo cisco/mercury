@@ -65,6 +65,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <dlfcn.h>
 #include <sys/file.h>
@@ -72,6 +73,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <openssl/ssl.h>
+
+
 
 // check to see if stderr is a TTY; this enables us to suppress
 // colorized output if needed
@@ -142,7 +145,7 @@ void print_cmd(int pid) {
      }
 }
 
-void get_cmd(int pid, char cmd[256], size_t cmd_len) {
+void get_cmd(int pid, char *cmd, size_t cmd_len) {
     char filename[FILENAME_MAX];
     int retval = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
     if (retval < 0) {
@@ -152,17 +155,34 @@ void get_cmd(int pid, char cmd[256], size_t cmd_len) {
         fprintf(stderr, YELLOW("warning: filename \"%s\" was truncated\n"), filename);
     }
 
-    static int have_cmd = 0;
-    if (have_cmd == 0) {
-        // read command associated with process from /proc filesystem
+    // read command associated with process from /proc filesystem
+    //
+    FILE *cmd_file = fopen(filename, "r");
+    if (cmd_file) {
+        // read command line from /proc filesystem, reserving last byte for null terminator
         //
-        FILE *cmd_file = fopen(filename, "r");
-        if (cmd_file) {
-            fread(cmd, 1, cmd_len, cmd_file);  // TBD: should verify that cmd is nonzero
-            have_cmd = 1;
-            fclose(cmd_file);
+        size_t bytes_read = fread(cmd, 1, cmd_len-1, cmd_file);
+        fclose(cmd_file);
+        if (bytes_read > cmd_len) {  // this should never happen
+            fprintf(stderr, YELLOW("warning: intercepter command line truncated\n"));
+            cmd[0] = '\0';
         }
-     }
+
+        // cmd will be formatted as one or more consecutive
+        // null-terminated strings; we need to convert it into a
+        // single null-terminated string with spaces between the
+        // printable words
+        //
+        cmd[cmd_len-1] = '\0'; // null terminate buffer, to defend against truncation
+        size_t last_null=0;
+        for (size_t i=0; i < bytes_read; i++) {
+            if (cmd[i] == '\0') {
+                cmd[i] = ' ';
+                last_null = i;
+            }
+        }
+        cmd[last_null] = '\0';  // avoid trailing space
+    }
 }
 
 #include <sys/stat.h>
@@ -287,6 +307,9 @@ struct http_request_x : public http_request {
 
     bool method_is_valid() {
 
+        // method_is_valid() returns true if and only if the HTTP
+        // method field in this request is one of the standard methods
+
         //fprintf(stderr, "method: %.*s\n", (int)method.length(), method.data);
 
         std::string method_from_packet = method.get_string();
@@ -341,18 +364,41 @@ struct http_request_x : public http_request {
 //
 
 #include <syslog.h>
+#include <semaphore.h>
 
 class intercept {
     int pid, ppid;
     FILE *outfile = nullptr;
+    sem_t *outfile_sem = nullptr;
     static constexpr size_t buffer_length = 8*1024;
 
 public:
 
     intercept() : pid{getpid()}, ppid{getppid()} {
+
         if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
 
-        outfile = fopen("intercept.json", "a+");
+        // fprintf(stderr, GREEN("intercepter build %s\t%s\n"), __DATE__, __TIME__);
+
+        //  use a named semaphore to ensure that writes to outfile are
+        //  not overlapping
+        //
+        if ((outfile_sem = sem_open ("/intercept", O_CREAT, 0666, 1)) == SEM_FAILED) {
+            perror ("sem_open");
+            exit (1);
+        }
+
+        std::string outfile_name = "/home/mcgrew/intercept"; // INTERCEPT_DIR;
+        outfile_name += "/intercept.json";
+        outfile = fopen(outfile_name.c_str(), "a+");
+        if (outfile ==nullptr) {
+            fprintf(stderr, RED("%s: could not open file %s (%s)\n"), __func__, outfile_name.c_str(), strerror(errno));
+        }
+
+        // force file to close on exec
+        //
+        fcntl(fileno(outfile), F_SETFD, FD_CLOEXEC);
+
         // fprintf(stderr, BLUE("%s\n"), __func__);
         // openlog ("intercept", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
         // syslog(LOG_INFO, "pid: %d", pid);
@@ -377,12 +423,26 @@ public:
         record.print_key_string("cmd", cmd);
         record.print_key_uint16("ppid", ppid);
         record.print_key_string("pcmd", pcmd);
+
+        // write time into record
+        struct timespec ts;
+        timespec_get(&ts, TIME_UTC);
+        record.print_key_timestamp("event_start", &ts);
+
         record.close();
         write_buffer_to_file(buf, outfile);
 
     }
 
-    ~intercept() { closelog(); }
+    ~intercept() {
+        if (outfile) {
+            fclose(outfile);
+        }
+        if (outfile_sem != SEM_FAILED) {
+            sem_close(outfile_sem);
+        }
+        // closelog();
+    }
 
     void process_outbound(int fd, const uint8_t *data, ssize_t length);
 
@@ -437,6 +497,7 @@ public:
 
         // write pid into record
         record.print_key_uint16("pid", pid);
+        record.print_key_uint16("ppid", ppid);
 
         // write dns info into record
         json_object dns_object{record, "dns"};
@@ -450,13 +511,60 @@ public:
 
     void write_buffer_to_file(struct buffer_stream &buf, FILE *outfile) {
         // if (tty) { fprintf(stderr, GREEN_ON); }
+
+#if 0
+        int outfile_fd = fileno(outfile);
+
+        // obtain advisory lock on output file that will not be
+        // inherited across fork() and exec()
+        //
+        struct flock outfile_lock = { F_WRLCK, SEEK_SET, 0, 0, 0 };
+        if (fcntl(outfile_fd, F_SETLKW, &outfile_lock) != 0) {
+            fprintf(stderr, "error: could not lock output file (%s)\n", strerror(errno));
+            return;
+        }
+        fprintf(stderr, YELLOW("pid %d locked output file\n"), pid);
+        fseek(outfile, 0, SEEK_END); // move to end of file
+        buf.write_line(outfile);
+        struct flock outfile_unlock = { F_UNLCK, SEEK_SET, 0, 0, 0 };
+        if (fcntl(outfile_fd, F_SETLKW, &outfile_unlock) != 0) {
+            fprintf(stderr, "error: could not unlock output file (%s)\n", strerror(errno));
+        }
+        fprintf(stderr, YELLOW("pid %d unlocked output file\n"), pid);
+
+#elif 0
+
+        // BSD (flock) style advisory file locking
+        //
         int outfile_fd = fileno(outfile);
         if (flock(outfile_fd, LOCK_EX) != 0) {
             fprintf(stderr, "error: could not flock() file (%s)\n", strerror(errno));
         }
+        fseek(outfile, 0, SEEK_END); // move to end of file
         buf.write_line(outfile);
         flock(outfile_fd, LOCK_UN);
-        // if (tty) { fprintf(stderr, COLOR_OFF); }
+        if (tty) { fprintf(stderr, COLOR_OFF); }
+
+
+#else
+        // POSIX semaphores for file locking
+        //
+        if (sem_wait(outfile_sem) == -1) {
+            perror ("sem_wait");
+            exit (1);
+        }
+        // fprintf(stderr, GREEN("pid %d acquired semaphore\n"), pid);
+
+        fseek(outfile, 0, SEEK_END); // move to end of file
+        buf.write_line(outfile);
+
+        // fprintf(stderr, GREEN("pid %d releasing semaphore\n"), pid);
+        if (sem_post(outfile_sem) == -1) {
+            perror ("sem_post");
+            exit (1);
+        }
+
+#endif
     }
 
     void process_http_request(const uint8_t *data, ssize_t length);
@@ -464,10 +572,6 @@ public:
     void process_tls_client_hello(int fd, const uint8_t *data, ssize_t length);
 
 };
-
-
-class intercept *intrcptr = new intercept;
-
 
 
 // high level functions for processing network traffic
@@ -538,15 +642,31 @@ void intercept::process_outbound(int fd, const uint8_t *data, ssize_t length) {
 }
 
 
+// global variable intrcptr
+//
+class intercept *intrcptr  = nullptr; // = new intercept;
+
+
 // init/fini functions
 //
 
 void __attribute__ ((constructor)) intercept_init(void) {
+
     if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
+
+    // allocate global intercept object
+    //
+    intrcptr = new intercept;
+
 }
 
 void __attribute__ ((destructor)) intercept_fini(void) {
+
     if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
+
+    // free global intercept object
+    //
+    delete intrcptr;
 }
 
 
@@ -594,7 +714,7 @@ return original_ ## func (__VA_ARGS__)
 
 // Warning: EVP_Cipher interception is verbose
 //
-// TBD: determine enc/dec from CTX
+// TODO: determine enc/dec from CTX
 //
 
 #include <openssl/evp.h>
