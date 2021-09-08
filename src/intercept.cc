@@ -68,18 +68,13 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <dlfcn.h>
+#include <dirent.h>
 #include <sys/file.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <openssl/ssl.h>
 
-
-
-// check to see if stderr is a TTY; this enables us to suppress
-// colorized output if needed
-//
-int tty = isatty(fileno(stderr));
 
 // Macros to colorize output
 //
@@ -91,27 +86,33 @@ int tty = isatty(fileno(stderr));
 #define CYAN_ON    "\033[36m"
 #define COLOR_OFF  "\033[39m"
 
-#define RED(S)     tty ? (RED_ON     S COLOR_OFF) : S
-#define GREEN(S)   tty ? (GREEN_ON   S COLOR_OFF) : S
-#define YELLOW(S)  tty ? (YELLOW_ON  S COLOR_OFF) : S
-#define BLUE(S)    tty ? (BLUE_ON    S COLOR_OFF) : S
-#define MAGENTA(S) tty ? (MAGENTA_ON S COLOR_OFF) : S
-#define CYAN(S)    tty ? (CYAN_ON    S COLOR_OFF) : S
+#define sRED(S)     (RED_ON     S COLOR_OFF)
+#define sGREEN(S)   (GREEN_ON   S COLOR_OFF)
+#define sYELLOW(S)  (YELLOW_ON  S COLOR_OFF)
+#define sBLUE(S)    (BLUE_ON    S COLOR_OFF)
+#define sMAGENTA(S) (MAGENTA_ON S COLOR_OFF)
+#define sCYAN(S)    (CYAN_ON    S COLOR_OFF)
+
+#define RED(colorize, S)     colorize ? (sRED(S))     : S
+#define GREEN(colorize, S)   colorize ? (sGREEN(S))   : S
+#define YELLOW(colorize, S)  colorize ? (sYELLOW(S))  : S
+#define BLUE(colorize, S)    colorize ? (sBLUE(S))    : S
+#define MAGENTA(colorize, S) colorize ? (sMAGENTA(S)) : S
+#define CYAN(colorize, S)    colorize ? (sCYAN(S))    : S
+
+// tty is 1 if stderr is a TTY, and 0 otherwise; it enables us to
+// suppress colorized output if needed
+//
+int tty = 0;
 
 // read environment variables that configure intercept.so, and apply
 // configuration as needed
 //
-const char *MAX_PT_LEN = getenv("INTERCEPT_MAX_PT_LEN");
+const char *MAX_PT_LEN = getenv("intercept_max_pt_len");
 
 ssize_t max_pt_len = MAX_PT_LEN ? atol(MAX_PT_LEN) : 0;
 
-#define DEFAULT_INTERCEPT_DIR "/usr/local/var/intercept/"
-
-const char *ENV_INTERCEPT_DIR = getenv("INTERCEPT_DIR");
-
-const char *INTERCEPT_DIR = ENV_INTERCEPT_DIR ? ENV_INTERCEPT_DIR : DEFAULT_INTERCEPT_DIR;
-
-const char *VERBOSE = getenv("INTERCEPT_VERBOSE");
+const char *VERBOSE = getenv("intercept_verbose");
 
 long int verbose = VERBOSE ? atol(VERBOSE) : 0;
 
@@ -122,15 +123,15 @@ void print_cmd(int pid) {
     char filename[FILENAME_MAX];
     int retval = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
     if (retval < 0) {
-        fprintf(stderr, RED("error: could not write filename for PID=%d\n"), pid);
+        fprintf(stderr, RED(tty,  "error: could not write filename for PID=%d\n"), pid);
     }
     if (retval >= (int)sizeof(filename)) {
-        fprintf(stderr, YELLOW("warning: filename \"%s\" was truncated\n"), filename);
+        fprintf(stderr, YELLOW(tty, "warning: filename \"%s\" was truncated\n"), filename);
     }
 
     static int have_cmd = 0;
     if (have_cmd == 0) {
-        fprintf(stderr, GREEN("%s="), filename);
+        fprintf(stderr, GREEN(tty, "%s="), filename);
 
         // read command associated with process from /proc filesystem
         //
@@ -138,7 +139,7 @@ void print_cmd(int pid) {
         char cmd[256];
         if (cmd_file) {
             fread(cmd, 1, sizeof(cmd), cmd_file);  // TBD: should verify that cmd is nonzero
-            fprintf(stderr, GREEN("%s\n"), cmd);
+            fprintf(stderr, GREEN(tty, "%s\n"), cmd);
             have_cmd = 1;
             fclose(cmd_file);
         }
@@ -149,10 +150,10 @@ void get_cmd(int pid, char *cmd, size_t cmd_len) {
     char filename[FILENAME_MAX];
     int retval = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
     if (retval < 0) {
-        fprintf(stderr, RED("error: could not write filename for PID=%d\n"), pid);
+        fprintf(stderr, RED(tty, "error: could not write filename for PID=%d\n"), pid);
     }
     if (retval >= (int)sizeof(filename)) {
-        fprintf(stderr, YELLOW("warning: filename \"%s\" was truncated\n"), filename);
+        fprintf(stderr, YELLOW(tty, "warning: filename \"%s\" was truncated\n"), filename);
     }
 
     // read command associated with process from /proc filesystem
@@ -164,7 +165,7 @@ void get_cmd(int pid, char *cmd, size_t cmd_len) {
         size_t bytes_read = fread(cmd, 1, cmd_len-1, cmd_file);
         fclose(cmd_file);
         if (bytes_read > cmd_len) {  // this should never happen
-            fprintf(stderr, YELLOW("warning: intercepter command line truncated\n"));
+            fprintf(stderr, YELLOW(tty, "warning: intercepter command line truncated\n"));
             cmd[0] = '\0';
         }
 
@@ -221,65 +222,19 @@ void print_flow_key(int fd) {
             char addr[17];
             inet_ntop(AF_INET, &address.sin_addr, addr, sizeof(addr));
             uint16_t port = ntohs(address.sin_port);
-            fprintf(stderr, GREEN("%s:%u"), addr, port);
+            fprintf(stderr, GREEN(tty, "%s:%u"), addr, port);
             getpeername(fd, (struct sockaddr *) &address, &address_len);
             inet_ntop(AF_INET, &address.sin_addr, addr, sizeof(addr));
             port = ntohs(address.sin_port);
-            fprintf(stderr, GREEN(" -> %s:%u\n"), addr, port);
+            fprintf(stderr, GREEN(tty, " -> %s:%u\n"), addr, port);
         } else if (address.sin_family == AF_INET6) {
             // TBD: handle IPv6 case here
-            fprintf(stderr, GREEN("warning: IPv6 addresses not yet handled\n"));
+            fprintf(stderr, GREEN(tty, "warning: IPv6 addresses not yet handled\n"));
         }
         have_flow_key = true;
         return;
     }
-    fprintf(stderr, GREEN("fd %d is not a socket (%s)\n"), fd, strerror(errno));
-}
-
-void write_data_to_file(int pid, const void *buffer, ssize_t bytes, int fd=0) {
-
-    // sanity check
-    //
-    if (bytes < 0 || bytes > 0x8000000) {
-        fprintf(stderr, "note: unexpected length (%zd)\n", bytes);
-    }
-
-    // if max_pt_len set, then restrict output length to (at most) that value
-    //
-    if (max_pt_len) {
-        if (bytes > max_pt_len) {
-            bytes = max_pt_len;
-        }
-    }
-
-    // If we want to filter the data that is written to disk, this is
-    // a good place to do so.  This obsolete code is left here just to
-    // facilitate experimentation with filtering.
-    //
-    // if (filter && bytes < 3 || memcmp(buffer, "GET", 3) != 0) {
-    //     return;
-    // }
-
-    char filename[FILENAME_MAX];
-    strncpy(filename, INTERCEPT_DIR, sizeof(filename));
-    size_t offset = strlen(filename);
-    int retval;
-    if (fd) {
-        retval = snprintf(filename + offset, sizeof(filename) - offset, "plaintext-%d-%d", pid, fd);
-    } else {
-        retval = snprintf(filename + offset, sizeof(filename) - offset, "plaintext-%d", pid);
-    }
-    if (retval >= (int)(sizeof(filename) - offset)) {
-        fprintf(stderr, GREEN("warning: filename \"%s\" was truncated\n"), filename);
-    }
-    FILE *plaintext_file = fopen(filename, "a+");
-    if (plaintext_file) {
-        fwrite(buffer, 1, bytes, plaintext_file);
-        fclose(plaintext_file);
-        if (verbose) { fprintf(stderr, GREEN("wrote data to file %s\n"), filename); }
-    } else {
-        fprintf(stderr, RED("error: could not write data to file %s\n"), filename);
-    }
+    fprintf(stderr, GREEN(tty, "fd %d is not a socket (%s)\n"), fd, strerror(errno));
 }
 
 void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
@@ -371,58 +326,83 @@ class intercept {
     FILE *outfile = nullptr;
     sem_t *outfile_sem = nullptr;
     static constexpr size_t buffer_length = 8*1024;
+    const char *INTERCEPT_DIR = nullptr;   // TODO: merge with ENV_INTERCEPT_DIR
+    char cmd[256];
+    char pcmd[256];
 
 public:
 
+    // data_level is an enumeration that specifies the amount of data
+    // to be reported in output
+    //
+    enum data_level { minimal_data = 0, full_data=1 };
+
+    enum data_level output_level = minimal_data;
+
     intercept() : pid{getpid()}, ppid{getppid()} {
 
-        if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
+        if (verbose) { fprintf(stderr, GREEN(tty, "%s\n"), __func__); }
 
-        // fprintf(stderr, GREEN("intercepter build %s\t%s\n"), __DATE__, __TIME__);
+        // fprintf(stderr, GREEN(tty, "intercepter build %s\t%s\n"), __DATE__, __TIME__);
 
         //  use a named semaphore to ensure that writes to outfile are
         //  not overlapping
         //
+        //  On a modern Linux system, this semaphore is located at
+        //  /dev/shm/sem.intercept.  If there is a problem, you may
+        //  need to delete that file
+        //
         if ((outfile_sem = sem_open ("/intercept", O_CREAT, 0666, 1)) == SEM_FAILED) {
-            perror ("sem_open");
-            exit (1);
+            perror ("intercept: sem_open()");
+            exit(EXIT_FAILURE);
         }
 
-        std::string outfile_name = "/home/mcgrew/intercept"; // INTERCEPT_DIR;
+        const char *intercept_output_level = getenv("intercept_output_level");
+        if (intercept_output_level && strcmp(intercept_output_level, "full") == 0) {
+            output_level = full_data;
+        }
+
+        std::string outfile_name = "/usr/local/var/intercept/";  // default directory
+        const char *ENV_INTERCEPT_DIR = getenv("intercept_dir");
+        if (ENV_INTERCEPT_DIR) {
+            if (strlen(ENV_INTERCEPT_DIR) > 0 && ENV_INTERCEPT_DIR[0] == '/') {
+                outfile_name = ENV_INTERCEPT_DIR;
+            } else {
+                fprintf(stderr, "intercept: warning: %s is not an absolute directory path\n", ENV_INTERCEPT_DIR);
+            }
+        }
+
+        // verify that we can access the output directory
+        //
+        if (access(outfile_name.c_str(), R_OK | W_OK) != 0) {
+            fprintf(stderr,
+                    RED(tty, "intercept: could not access directory %s (%s)\n"),
+                    outfile_name.c_str(),
+                    strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+
         outfile_name += "/intercept.json";
         outfile = fopen(outfile_name.c_str(), "a+");
         if (outfile ==nullptr) {
-            fprintf(stderr, RED("%s: could not open file %s (%s)\n"), __func__, outfile_name.c_str(), strerror(errno));
+            fprintf(stderr, RED(tty, "%s: could not open file %s (%s)\n"), __func__, outfile_name.c_str(), strerror(errno));
+            exit(EXIT_FAILURE);
         }
 
-        // force file to close on exec
-        //
-        fcntl(fileno(outfile), F_SETFD, FD_CLOEXEC);
-
-        // fprintf(stderr, BLUE("%s\n"), __func__);
+        // fprintf(stderr, BLUE(tty, "%s\n"), __func__);
         // openlog ("intercept", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
         // syslog(LOG_INFO, "pid: %d", pid);
         // print_cmd(pid);
-        char cmd[256];
-        char pcmd[256];
+
+        // set cmd and pcmd
+        //
         get_cmd(pid, cmd, sizeof(cmd));
         get_cmd(ppid, pcmd, sizeof(pcmd));
-        // fprintf(stderr, "ppid: %d\n", getppid());
 
-        // write out process data:
-        //
-        //    pid: process ID
-        //    cmd: command line
-        //    ppid: parent process ID
-        //    pcmd: parent command line
-        //
         char buffer[buffer_length];
         struct buffer_stream buf(buffer, sizeof(buffer));
         struct json_object record{&buf};
-        record.print_key_uint16("pid", pid);
-        record.print_key_string("cmd", cmd);
-        record.print_key_uint16("ppid", ppid);
-        record.print_key_string("pcmd", pcmd);
+        write_process_info(record, full_data);
 
         // write time into record
         struct timespec ts;
@@ -444,6 +424,23 @@ public:
         // closelog();
     }
 
+    // write_process_info() writes information about the current
+    // process to a json object with the following keys:
+    //
+    //    pid: process ID
+    //    cmd: command line
+    //    ppid: parent process ID
+    //    pcmd: parent command line
+    //
+    void write_process_info(struct json_object &record, data_level level) {
+        record.print_key_uint16("pid", pid);
+        if (level) {
+            record.print_key_string("cmd", cmd);
+            record.print_key_uint16("ppid", ppid);
+            record.print_key_string("pcmd", pcmd);
+        }
+    }
+
     void process_outbound(int fd, const uint8_t *data, ssize_t length);
 
     void process_outbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
@@ -456,14 +453,14 @@ public:
         struct datum tcp_data{data, data+length};
         struct http_request_x http_req;
         http_req.parse(tcp_data);
-        if (http_req.is_not_empty() && http_req.method_is_valid() && isupper(data[0])) {  // TODO: improve is_not_empty() with method check
+        if (http_req.is_not_empty() && http_req.method_is_valid()) {
 
             char buffer[buffer_length];
             struct buffer_stream buf(buffer, sizeof(buffer));
             struct json_object record{&buf};
 
             // write pid into record
-            record.print_key_uint16("pid", pid);
+            write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
 
             http_req.write_json(record, true);
@@ -477,7 +474,7 @@ public:
             write_buffer_to_file(buf, outfile);
 
         } else {
-            if (verbose) { fprintf(stderr, RED("http_request unrecognized\n")); }
+            if (verbose) { fprintf(stderr, RED(tty, "http_request unrecognized\n")); }
         }
 
     }
@@ -495,9 +492,10 @@ public:
         struct buffer_stream buf(buffer, sizeof(buffer));
         struct json_object record{&buf};
 
-        // write pid into record
-        record.print_key_uint16("pid", pid);
-        record.print_key_uint16("ppid", ppid);
+        write_process_info(record, output_level);
+        // // write pid into record
+        // record.print_key_uint16("pid", pid);
+        // record.print_key_uint16("ppid", ppid);
 
         // write dns info into record
         json_object dns_object{record, "dns"};
@@ -510,7 +508,6 @@ public:
     }
 
     void write_buffer_to_file(struct buffer_stream &buf, FILE *outfile) {
-        // if (tty) { fprintf(stderr, GREEN_ON); }
 
 #if 0
         int outfile_fd = fileno(outfile);
@@ -523,14 +520,12 @@ public:
             fprintf(stderr, "error: could not lock output file (%s)\n", strerror(errno));
             return;
         }
-        fprintf(stderr, YELLOW("pid %d locked output file\n"), pid);
         fseek(outfile, 0, SEEK_END); // move to end of file
         buf.write_line(outfile);
         struct flock outfile_unlock = { F_UNLCK, SEEK_SET, 0, 0, 0 };
         if (fcntl(outfile_fd, F_SETLKW, &outfile_unlock) != 0) {
             fprintf(stderr, "error: could not unlock output file (%s)\n", strerror(errno));
         }
-        fprintf(stderr, YELLOW("pid %d unlocked output file\n"), pid);
 
 #elif 0
 
@@ -543,28 +538,88 @@ public:
         fseek(outfile, 0, SEEK_END); // move to end of file
         buf.write_line(outfile);
         flock(outfile_fd, LOCK_UN);
-        if (tty) { fprintf(stderr, COLOR_OFF); }
-
 
 #else
+
         // POSIX semaphores for file locking
         //
-        if (sem_wait(outfile_sem) == -1) {
-            perror ("sem_wait");
-            exit (1);
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += 1;
+        if (sem_timedwait(outfile_sem, &ts) == -1) {   // use timedwait for resiliency
+            perror ("intercept: sem_wait()");
+
+            // failsafe: to recover from situations in which the
+            // semaphore is not being released for whatever reason,
+            // delete the semaphore and then create a new one
+            //
+            unlink("/dev/shm/sem.intercept");
+            if ((outfile_sem = sem_open ("/intercept", O_CREAT, 0666, 1)) == SEM_FAILED) {
+                perror ("intercept: sem_open()");
+                exit(EXIT_FAILURE);
+            }
         }
-        // fprintf(stderr, GREEN("pid %d acquired semaphore\n"), pid);
+        // fprintf(stderr, GREEN(tty, "pid %d acquired semaphore\n"), pid);
 
         fseek(outfile, 0, SEEK_END); // move to end of file
-        buf.write_line(outfile);
+        if (buf.write_line(outfile) < 0) {
+            perror ("intercept: write()");
+            exit(EXIT_FAILURE);
+        }
 
-        // fprintf(stderr, GREEN("pid %d releasing semaphore\n"), pid);
+        // fprintf(stderr, GREEN(tty, "pid %d releasing semaphore\n"), pid);
         if (sem_post(outfile_sem) == -1) {
-            perror ("sem_post");
-            exit (1);
+            perror ("intercept: sem_post()");
+            exit(EXIT_FAILURE);
         }
 
 #endif
+    }
+
+    void write_data_to_file(const void *buffer, ssize_t bytes, int fd=0) {
+
+        // sanity check
+        //
+        if (bytes < 0 || bytes > 0x8000000) {
+            fprintf(stderr, "note: unexpected length (%zd)\n", bytes);
+        }
+
+        // if max_pt_len set, then restrict output length to (at most) that value
+        //
+        if (max_pt_len) {
+            if (bytes > max_pt_len) {
+                bytes = max_pt_len;
+            }
+        }
+
+        // If we want to filter the data that is written to disk, this is
+        // a good place to do so.  This obsolete code is left here just to
+        // facilitate experimentation with filtering.
+        //
+        // if (filter && bytes < 3 || memcmp(buffer, "GET", 3) != 0) {
+        //     return;
+        // }
+
+        char filename[FILENAME_MAX];
+        strncpy(filename, INTERCEPT_DIR, sizeof(filename));
+        size_t offset = strlen(filename);
+        int retval;
+        if (fd) {
+            retval = snprintf(filename + offset, sizeof(filename) - offset, "plaintext-%d-%d", pid, fd);
+        } else {
+            retval = snprintf(filename + offset, sizeof(filename) - offset, "plaintext-%d", pid);
+        }
+        if (retval >= (int)(sizeof(filename) - offset)) {
+            fprintf(stderr, GREEN(tty, "warning: filename \"%s\" was truncated\n"), filename);
+        }
+        FILE *plaintext_file = fopen(filename, "a+");
+        if (plaintext_file) {
+            fwrite(buffer, 1, bytes, plaintext_file);
+            fclose(plaintext_file);
+            if (verbose) { fprintf(stderr, GREEN(tty, "wrote data to file %s\n"), filename); }
+        } else {
+            fprintf(stderr, RED(tty, "error: could not write data to file %s\n"), filename);
+        }
     }
 
     void process_http_request(const uint8_t *data, ssize_t length);
@@ -589,19 +644,17 @@ void intercept::process_http_request(const uint8_t *data, ssize_t length) {
         struct json_object record{&buf};
         http_req.write_json(record, true);
         record.close();
-        if (tty) { fprintf(stderr, GREEN_ON); }
         write_buffer_to_file(buf, outfile);
-        if (tty) { fprintf(stderr, COLOR_OFF); }
 
     } else {
-        if (verbose) { fprintf(stderr, RED("http_request unrecognized\n")); }
+        if (verbose) { fprintf(stderr, RED(tty, "http_request unrecognized\n")); }
     }
 }
 #endif
 void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t length) {
 
     if (length > 2 && data[0] == 0x16 && data[1] == 0x03) {
-        if (verbose) { fprintf(stderr, GREEN("tls_handshake: ")); }
+        if (verbose) { fprintf(stderr, GREEN(tty, "tls_handshake: ")); }
         //  fprintf_raw_as_hex(stderr, data, length); fputc('\n', stderr);
 
         struct datum tcp_data{data, data+length};
@@ -611,7 +664,7 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
         struct tls_handshake handshake;
         handshake.parse(rec.fragment);
         if (handshake.additional_bytes_needed) {
-            fprintf(stderr, YELLOW("note: tls_handshake needs additional data\n"));
+            fprintf(stderr, YELLOW(tty, "note: tls_handshake needs additional data\n"));
         }
         tls_client_hello hello;
         hello.parse(handshake.body);
@@ -625,7 +678,7 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             struct json_object record{&buf};
 
             // write pid into record
-            record.print_key_uint16("pid", pid);
+            write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
 
             // write fingerprint into record
@@ -646,13 +699,17 @@ void intercept::process_outbound(int fd, const uint8_t *data, ssize_t length) {
 //
 class intercept *intrcptr  = nullptr; // = new intercept;
 
-
 // init/fini functions
 //
 
 void __attribute__ ((constructor)) intercept_init(void) {
 
-    if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
+    // check to see if stderr is a TTY, and suppress colorized output
+    // if it is not
+    //
+    tty = isatty(fileno(stderr));
+
+    if (verbose) { fprintf(stderr, GREEN(tty, "%s\n"), __func__); }
 
     // allocate global intercept object
     //
@@ -662,7 +719,7 @@ void __attribute__ ((constructor)) intercept_init(void) {
 
 void __attribute__ ((destructor)) intercept_fini(void) {
 
-    if (verbose) { fprintf(stderr, GREEN("%s\n"), __func__); }
+    if (verbose) { fprintf(stderr, GREEN(tty, "%s\n"), __func__); }
 
     // free global intercept object
     //
@@ -680,10 +737,10 @@ if (original_ ## SSL_read == nullptr) {                                         
     original_ ## SSL_read = (decltype(original_ ## SSL_read)) dlsym(RTLD_NEXT, #SSL_read);    \
 }                                                                                             \
 if (original_ ## SSL_read == nullptr) {                                                       \
-   fprintf(stderr, RED("error: could not load symbol ") #SSL_read "\n");                      \
-   exit(EXIT_FAILURE);                                                                        \
+    fprintf(stderr, RED(tty, "error: could not load symbol ") #SSL_read "\n");                \
+    exit(EXIT_FAILURE);                                                                       \
 }                                                                                             \
-if (verbose) { fprintf(stderr, GREEN("intercepted %s\n") , __func__); }
+if (verbose) { fprintf(stderr, GREEN(tty, "intercepted %s\n") , __func__); }
 
 
 // the get_original() macro declares a function pointer, sets it to
@@ -696,10 +753,10 @@ if (original_ ## func == nullptr) {                                             
     original_ ## func = (decltype(original_ ## func)) dlsym(RTLD_NEXT, #func);            \
 }                                                                                         \
 if (original_ ## func == nullptr) {                                                       \
-   fprintf(stderr, RED("error: could not load symbol ") #func "\n");                      \
+   fprintf(stderr, RED(tty, "error: could not load symbol ") #func "\n");                      \
    exit(EXIT_FAILURE);                                                                    \
 }                                                                                         \
-if (verbose) { fprintf(stderr, GREEN("intercepted %s\n") , __func__); }                   \
+if (verbose) { fprintf(stderr, GREEN(tty, "intercepted %s\n") , __func__); }              \
 return original_ ## func (__VA_ARGS__)
 
 
@@ -726,7 +783,7 @@ int EVP_Cipher(EVP_CIPHER_CTX *c,
 
     get_original(EVP_Cipher);
 
-    fprintf(stderr, GREEN("intercepted %s (encrypting %u bytes)\n"), __func__, inl);
+    fprintf(stderr, GREEN(tty, "intercepted %s (encrypting %u bytes)\n"), __func__, inl);
 
     const unsigned char *d = in;
     const unsigned char *d_end = in + inl;
@@ -782,14 +839,14 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 
     //int pid = getpid();
     //print_cmd(pid);
-    //    fprintf(stderr, GREEN("%s: %.*s\n"), __func__, (int)data_size, (char *)data);
-    // fprintf(stderr, GREEN("fd?: %d\n"), gnutls_transport_get_int(session));
+    //    fprintf(stderr, GREEN(tty, "%s: %.*s\n"), __func__, (int)data_size, (char *)data);
+    // fprintf(stderr, GREEN(tty, "fd?: %d\n"), gnutls_transport_get_int(session));
     int r = 0, s = 0;
     gnutls_transport_get_int2(session, &r, &s);
-    // fprintf(stderr, GREEN("fd2: %d\t%d\n"), r, s);
+    // fprintf(stderr, GREEN(tty, "fd2: %d\t%d\n"), r, s);
     // gnutls_transport_ptr_t tp;
     // tp = gnutls_transport_get_ptr(session);
-    // fprintf(stderr, GREEN("tp: %p\n"), tp);
+    // fprintf(stderr, GREEN(tty, "tp: %p\n"), tp);
 
     int fd = (r < 32 && r > 0) ? r : 0;
     intrcptr->process_outbound_plaintext(fd, (uint8_t *)data, (ssize_t) data_size);
@@ -805,22 +862,22 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 // actions will be performed
 //
 ssize_t gnutls_record_send2 (gnutls_session_t session, const void * data, size_t data_size, size_t pad, unsigned flags) {
-    fprintf(stderr, RED("%s\n"), __func__);
+    fprintf(stderr, RED(tty, "%s\n"), __func__);
     invoke_original(gnutls_record_send2, session, data, data_size, pad, flags);
 }
 
 ssize_t gnutls_record_send_early_data (gnutls_session_t session, const void * data, size_t data_size) {
-    fprintf(stderr, RED("%s\n"), __func__);
+    fprintf(stderr, RED(tty, "%s\n"), __func__);
     invoke_original(gnutls_record_send_early_data, session, data, data_size);
 }
 
 ssize_t gnutls_record_send_range (gnutls_session_t session, const void * data, size_t data_size, const gnutls_range_st * range) {
-    fprintf(stderr, RED("%s\n"), __func__);
+    fprintf(stderr, RED(tty, "%s\n"), __func__);
     invoke_original(gnutls_record_send_range, session, data, data_size, range);
 }
 
 void gnutls_transport_set_push_function(gnutls_session_t session,  gnutls_push_func push_func) {
-    fprintf(stderr, RED("%s\n"), __func__);
+    fprintf(stderr, RED(tty, "%s\n"), __func__);
     invoke_original(gnutls_transport_set_push_function, session, push_func);
 }
 
@@ -836,7 +893,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
 }
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
-    if (verbose) { fprintf(stderr, YELLOW("sendmsg() invoked\n")); }  // note: no processing happening yet
+    if (verbose) { fprintf(stderr, YELLOW(tty, "sendmsg() invoked\n")); }  // note: no processing happening yet
     invoke_original(sendmsg, sockfd, msg, flags);
 }
 
@@ -857,7 +914,7 @@ ssize_t write(int fd, const void *buf, size_t count) {
 
 struct hostent *gethostbyname(const char *name) {
 
-    fprintf(stderr, BLUE("gethostbyname: %s\n"), name);
+    fprintf(stderr, BLUE(tty, "gethostbyname: %s\n"), name);
 
     invoke_original(gethostbyname, name);
 }
@@ -867,7 +924,7 @@ int getaddrinfo(const char *node,
                 const struct addrinfo *hints,
                 struct addrinfo **res) {
 
-    //    fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, node, service);
+    //    fprintf(stderr, BLUE(tty, "%s: %s\t%s\n"), __func__, node, service);
     intrcptr->process_dns_lookup(node, service);
 
     invoke_original(getaddrinfo, node, service, hints, res);
