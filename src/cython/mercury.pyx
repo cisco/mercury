@@ -30,23 +30,6 @@ cdef extern from "../libmerc/pkt_proc.h":
     cdef struct stateful_pkt_proc:
         pass
 
-cdef extern from "../libmerc/result.h":
-    cdef struct analysis_context:
-        pass
-    cdef struct analysis_result:
-        bool valid
-        bool randomized
-        char max_proc[256]
-        long double max_score
-        bool max_mal
-        long double malware_prob
-
-cdef extern from "../libmerc/analysis.h":
-    classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
-                                           float fp_proc_threshold, float proc_dst_threshold, bool report_os);
-    cdef cppclass classifier:
-        analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port)
-
 cdef extern from "../libmerc/libmerc.h":
     cdef struct libmerc_config:
         bool do_analysis
@@ -93,6 +76,22 @@ cdef extern from "../libmerc/libmerc.h":
     size_t mercury_packet_processor_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size,
                                                uint8_t *packet, size_t length, timespec* ts)
 
+
+cdef extern from "../libmerc/result.h":
+    cdef struct analysis_context:
+        pass
+    cdef struct analysis_result:
+        fingerprint_status status
+        char max_proc[256]
+        long double max_score
+        bool max_mal
+        long double malware_prob
+
+cdef extern from "../libmerc/analysis.h":
+    classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
+                                           float fp_proc_threshold, float proc_dst_threshold, bool report_os);
+    cdef cppclass classifier:
+        analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port)
 
 
 fp_status_dict = {
@@ -240,11 +239,8 @@ cdef class Mercury:
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port)
 
-        fp_status = 'unlabeled'
-        if ar.randomized:
-            fp_status = 'randomized'
-        elif ar.valid:
-            fp_status = 'labeled'
+        cdef fingerprint_status fp_status_enum = ar.status
+        fp_status = fp_status_dict[fp_status_enum]
 
         cdef dict result = {}
         result['fingerprint_info'] = {}

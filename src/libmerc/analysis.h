@@ -350,7 +350,7 @@ public:
         return server_name;
     }
 
-    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port, bool is_randomized) {
+    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port, enum fingerprint_status status) {
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
@@ -443,10 +443,10 @@ public:
             os_info_size = process_os_info_vector[index_max].size();
         }
         if (malware_db) {
-            return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size,
-                                   malware[index_max], malware_prob, is_randomized);
+            return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size,
+                                   malware[index_max], malware_prob);
         }
-        return analysis_result(process_name[index_max].c_str(), max_score, os_info_data, os_info_size, is_randomized);
+        return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size);
     }
 
     static uint16_t remap_port(uint16_t dst_port) {
@@ -830,20 +830,20 @@ public:
         if (fpdb_entry == fpdb.end()) {
             if (fp_prevalence.contains(fp_str)) {
                 fp_prevalence.update(fp_str);
-                return analysis_result();
+                return analysis_result(fingerprint_status_unlabled);
             } else {
                 fp_prevalence.update(fp_str);
                 const auto fpdb_entry_randomized = fpdb.find("randomized");
                 if (fpdb_entry_randomized == fpdb.end()) {
-                    return analysis_result(true);
+                    return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
                 }
                 class fingerprint_data &fp_data = fpdb_entry_randomized->second;
-                return fp_data.perform_analysis(server_name, dst_ip, dst_port, true);
+                return fp_data.perform_analysis(server_name, dst_ip, dst_port, fingerprint_status_randomized);
             }
         }
         class fingerprint_data &fp_data = fpdb_entry->second;
 
-        return fp_data.perform_analysis(server_name, dst_ip, dst_port, false);
+        return fp_data.perform_analysis(server_name, dst_ip, dst_port, fingerprint_status_labeled);
     }
 
     bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
