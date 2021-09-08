@@ -29,13 +29,13 @@
 #define DEFAULT_RESOURCE_FILE "/usr/local/share/mercury/resources.tgz"
 #endif
 
-classifier *analysis_init_from_archive(int verbosity,
-                               const char *archive_name,
-                               const uint8_t *enc_key,
-                               enum enc_key_type key_type,
-                               const float fp_proc_threshold,
-                               const float proc_dst_threshold,
-                               const bool report_os) {
+classifier *analysis_init_from_archive(int, //verbosity
+                                       const char *archive_name,
+                                       const uint8_t *enc_key,
+                                       enum enc_key_type key_type,
+                                       const float fp_proc_threshold,
+                                       const float proc_dst_threshold,
+                                       const bool report_os) {
 
     if (enc_key != NULL || key_type != enc_key_type_none) {
         //fprintf(stderr, "note: decryption key provided in configuration\n");
@@ -47,14 +47,6 @@ classifier *analysis_init_from_archive(int verbosity,
 
     encrypted_compressed_archive archive{archive_name, enc_key}; // TODO: key type
     return new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os);
-
-    // TBD: move warnings to appropriate place(s)
-
-    if (verbosity > 0) {
-        fprintf(stderr, "warning: could not open resource archive '%s'\n", archive_name);
-    }
-    fprintf(stderr, "warning: could not initialize analysis module\n");
-    return nullptr;
 }
 
 
