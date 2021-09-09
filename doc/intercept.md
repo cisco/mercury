@@ -1,4 +1,4 @@
-Interceptor: a shared object library for plaintext interception
+# Interceptor: a shared object library for plaintext interception
 
 The interceptor library provides deep visibility into the plaintext
 communication inside of encrypted sessions, by hooking into
@@ -12,6 +12,8 @@ per line.  Interceptor is configurable via environment variables.
 The data provided by interceptor can be used for host security
 monitoring, troubleshooting and debugging, security and privacy
 research, and forensics.
+
+## Building
 
 To build interceptor:
 
@@ -29,6 +31,8 @@ To build interceptor:
    5.  Copy intercept.so to some location where it is globally
        accessible, like /usr/local/lib/.
 
+## Running
+
 To run interceptor:
 
    1.  In the shell where you want to perform TLS interception, run
@@ -44,19 +48,13 @@ To run interceptor:
        are using it.  The environment variables are listed below.
 
 
-       Environment Variable    Default Value              Type
-
-       -----------------------------------------------------------
-
-       intercept_dir           /usr/local/var/intercept   String
-
-       intercept_verbose       0                          Integer
-
-       intercept_max_pt_len    0                          Integer
-
-       intercept_output_level  minimum or full            String
-
-
+       | Environment Variable   |  Default Value            | Type     |
+       |------------------------|---------------------------|----------|
+       | intercept_dir          |  /usr/local/var/intercept | String   |
+       | intercept_verbose      |  0                        | Integer  |
+       | intercept_max_pt_len   |  0                        | Integer  |
+       | intercept_output_level |  minimum or full          | String   |
+       -----------------------------------------------------------------
 
 Don't forget to 'export' these variables, or to 'unset' them when you
 want to remove a variable that you have previously set and exported.
@@ -66,20 +64,19 @@ whatever intercept_dir is set to), and if intercept_verbose is set to
 1 or a warning or error condition is encountered, some messages are
 written to standard error as well.
 
-Function interception is implemented for these libraries:
+## Supported Libraries
 
-    Library     Debian/Ubuntu Package
+Function interception is currently implemented for these libraries (listed
+with their Debian/Ubuntu package names):
 
-    -----------------------------------
+* openssl (libssl-dev)            
+* NSS (libnss3-dev)           
+* GNUtls (libgnutls28-dev)       
+    
 
-    openssl     libssl-dev
-
-    NSS         libnss3-dev
-
-    GNUtls      libgnutls28-dev
-
+## Disclaimer
 
 The interceptor library is experimental, and will continue to evolve.
 Please do not use it in mission-critical environments.  Feedback is
-welcome; please send to mcgrew@cisco.com.
+welcome; please send to [mcgrew@cisco.com.](mcgrew@cisco.com).
 
