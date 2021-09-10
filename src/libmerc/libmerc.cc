@@ -44,8 +44,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     if (verbosity > 0) {
         // sanity check, to help with shared object library development
-        printf_err("libmerc build time: %s %s\n", __DATE__, __TIME__);
-        //fprintf(stderr, "libmerc build time: %s %s\n", __DATE__, __TIME__);
+        printf_err(log_none, "libmerc build time: %s %s\n", __DATE__, __TIME__);
     }
 
     try {
