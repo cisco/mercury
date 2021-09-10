@@ -202,7 +202,6 @@ struct libmerc_api {
 
     decltype(mercury_init)                                  *init = nullptr;
     decltype(mercury_finalize)                              *finalize = nullptr;
-    decltype(mercury_packet_processor_get_analysis_context) *analyze = nullptr;
     decltype(mercury_packet_processor_construct)            *packet_processor_construct = nullptr;
     decltype(mercury_packet_processor_destruct)             *packet_processor_destruct = nullptr;
     decltype(mercury_packet_processor_get_analysis_context) *get_analysis_context = nullptr;
@@ -226,7 +225,6 @@ struct libmerc_api {
 
         init =                       (decltype(init))                       dlsym(dl_handle, "mercury_init");
         finalize =                   (decltype(finalize))                   dlsym(dl_handle, "mercury_finalize");
-        analyze =                    (decltype(analyze))                    dlsym(dl_handle, "mercury_packet_processor_get_analysis_context");
         packet_processor_construct = (decltype(packet_processor_construct)) dlsym(dl_handle, "mercury_packet_processor_construct");
         packet_processor_destruct =  (decltype(packet_processor_destruct))  dlsym(dl_handle, "mercury_packet_processor_destruct");
         get_analysis_context =       (decltype(get_analysis_context))       dlsym(dl_handle, "mercury_packet_processor_get_analysis_context");
@@ -238,7 +236,6 @@ struct libmerc_api {
 
         if (init                       == nullptr ||
             finalize                   == nullptr ||
-            analyze                    == nullptr ||
             packet_processor_construct == nullptr ||
             packet_processor_destruct  == nullptr ||
             get_analysis_context       == nullptr ||
