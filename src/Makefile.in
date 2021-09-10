@@ -61,7 +61,9 @@ CFLAGS += -fno-builtin-malloc
 CFLAGS += -fno-builtin-calloc
 CFLAGS += -fno-builtin-realloc
 CFLAGS += -fno-builtin-free
+ifeq ($(CXX),g++)
 CFLAGS += -fno-gnu-unique
+endif
 
 # MERC and MERC_H hold the core source and header files, respectively
 #
