@@ -509,7 +509,6 @@ private:
     unsigned char buffer[512];
     ssize_t next_entry;
     ssize_t end_of_file;
-    unsigned char file_buffer[512];
 
 public:
 

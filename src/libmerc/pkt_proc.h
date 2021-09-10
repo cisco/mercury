@@ -63,7 +63,7 @@ struct stateful_pkt_proc {
     struct tcp_reassembler *reassembler_ptr;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
-    struct message_queue *mq;
+    class message_queue *mq;
     mercury_context m;
     classifier *c;
     data_aggregator *ag;

@@ -37,7 +37,7 @@
 void flow_key_sprintf_src_addr(const struct flow_key *key,
                                char *src_addr_str);
 
-struct classifier *analysis_init_from_archive(int verbosity,
+class classifier *analysis_init_from_archive(int verbosity,
                                const char *archive_name,
                                const uint8_t *enc_key,
                                enum enc_key_type key_type,
