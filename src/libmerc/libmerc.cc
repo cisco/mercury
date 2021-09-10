@@ -12,12 +12,14 @@
 #include "analysis.h"
 #include "extractor.h"  // for proto_ident_config()
 #include "pkt_proc.h"
+#include "err.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
 #define  MERCURY_SEMANTIC_VERSION 0,0,0
 #endif
 
+extern printf_err_ptr printf_err;  // defined in err.cc
 
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
@@ -42,7 +44,8 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     if (verbosity > 0) {
         // sanity check, to help with shared object library development
-        fprintf(stderr, "libmerc build time: %s %s\n", __DATE__, __TIME__);
+        printf_err("libmerc build time: %s %s\n", __DATE__, __TIME__);
+        //fprintf(stderr, "libmerc build time: %s %s\n", __DATE__, __TIME__);
     }
 
     try {
