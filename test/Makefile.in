@@ -79,7 +79,7 @@ BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
 BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
 .PHONY: all clean
-all: clean comp analysis cert-check memcheck dummy-capture json-validity-test stats libmerc_driver
+all: clean comp analysis cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
