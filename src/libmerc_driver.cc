@@ -18,8 +18,8 @@
 #include <stdexcept>
 
 #include "libmerc/libmerc.h"
-#include "libmerc/catch2/catch.hpp"
 #include "libmerc/pkt_proc.h"
+#include "libmerc/catch2/catch.hpp"
 
 namespace snort {
 #define SO_PUBLIC
@@ -732,7 +732,7 @@ SCENARIO("test_write_stats_data") {
 
         WHEN("") {
             THEN("write stats file") {
-                REQUIRE(mercury_write_stats_data(mc, stats_file) == true);
+                REQUIRE(mercury_write_stats_data(mc, stats_file));
             }
         }
 
@@ -775,10 +775,18 @@ SCENARIO("test packet_processor_get_analysis_context") {
         WHEN("get analysis context") {
             mercury_packet_processor_get_analysis_context(mpp, nullptr, 0, &time);
             THEN("not a valid result") {
-                REQUIRE_FALSE(mpp->analysis.result.valid);
+                REQUIRE_FALSE(mpp->analysis.result.is_valid());
 
                 mercury_packet_processor_destruct(mpp);
             }
         }
+
+        WHEN("get analysis context") {
+            mercury_packet_processor_get_analysis_context(mpp, tcp_syn, sizeof(tcp_syn), &time);
+            THEN("a valid result  exist") {
+                REQUIRE(mpp->analysis.result.is_valid());
+            }
+        }
     }
 }
+
