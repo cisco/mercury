@@ -95,7 +95,7 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
         //
         uint8_t buffer[4096]; // buffer for (ignored) json output
 
-        processor->analysis.result.valid = false;
+        processor->analysis.result.status = fingerprint_status_no_info_available;
         if (processor->ip_write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {
             return &processor->analysis;
         }
@@ -111,9 +111,9 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
     try {
         uint8_t buffer[4096]; // buffer for (ignored) json output
 
-        processor->analysis.result.valid = false;
+        processor->analysis.result.status = fingerprint_status_no_info_available;
         if (processor->write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {  // TODO: replace with get_context!
-            if (processor->analysis.result.valid) {
+            if (processor->analysis.result.is_valid()) {
                 return &processor->analysis;
             }
         }
@@ -127,13 +127,7 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
 enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac) {
 
     if (ac) {
-        if (ac->result.randomized) {
-            return fingerprint_status_randomized;
-        } else if (ac->result.valid) {
-            return fingerprint_status_labeled;
-        } else {
-            return fingerprint_status_unlabled;
-        }
+        return ac->result.status;
     }
     return fingerprint_status_no_info_available;
 }
@@ -167,7 +161,7 @@ bool analysis_context_get_process_info(const struct analysis_context *ac, // inp
                                        double *probability_score          // output
                                        ) {
 
-    if (ac && ac->result.valid) {
+    if (ac && ac->result.is_valid() && ac->result.status != fingerprint_status_unlabled) {
         *probable_process = ac->result.max_proc;
         *probability_score = ac->result.max_score;
         return true;
@@ -180,7 +174,7 @@ bool analysis_context_get_malware_info(const struct analysis_context *ac, // inp
                                        double *probability_malware        // output
                                        ) {
 
-    if (ac && ac->result.valid && ac->result.classify_malware) {
+    if (ac && ac->result.is_valid() && ac->result.classify_malware) {
         *probable_process_is_malware = ac->result.max_mal;
         *probability_malware = ac->result.malware_prob;
         return true;
@@ -193,7 +187,7 @@ bool analysis_context_get_os_info(const struct analysis_context *ac, // input
                                   size_t *os_info_len                // output
                                   ) {
 
-    if (ac && ac->result.valid && ac->result.os_info != NULL) {
+    if (ac && ac->result.is_valid() && ac->result.os_info != NULL) {
         *os_info = ac->result.os_info;
         *os_info_len = ac->result.os_info_len;
         return true;

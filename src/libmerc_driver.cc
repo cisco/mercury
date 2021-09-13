@@ -1,5 +1,5 @@
 /*
- * libmerc_test.c
+ * libmerc_driver.cc
  *
  * main() file for libmerc.so test driver program
  *
@@ -154,6 +154,38 @@ unsigned char client_hello_no_server_name_eth[] = {
   0x02, 0x01, 0x02, 0x02, 0x02, 0x03, 0x00, 0x0f, 0x00, 0x01, 0x01
 };
 
+unsigned char unlabeled_data[] = {
+  0x00, 0x26, 0x98, 0x0b, 0x01, 0x42, 0x00, 0x23, 0xac, 0x67, 0xb6, 0x41,
+  0x08, 0x00, 0x45, 0x00, 0x01, 0x3d, 0x9e, 0x7d, 0x40, 0x00, 0x3e, 0x06,
+  0xb9, 0x64, 0x40, 0x66, 0xff, 0x28, 0x40, 0x44, 0x64, 0x06, 0xf0, 0x57,
+  0x01, 0xbb, 0xef, 0xd3, 0xc2, 0x62, 0x7a, 0x26, 0x64, 0x19, 0x50, 0x18,
+  0x10, 0x12, 0xcd, 0x86, 0x00, 0x00, 0x16, 0x03, 0x01, 0x01, 0x10, 0x01,
+  0x00, 0x01, 0x0c, 0x03, 0x03, 0x59, 0x97, 0x6f, 0xb2, 0x0f, 0x5b, 0xeb,
+  0xad, 0xc5, 0x4c, 0xa2, 0xdf, 0xb0, 0x7d, 0x96, 0xea, 0x71, 0xbf, 0x8c,
+  0x83, 0xcb, 0xf6, 0xda, 0x88, 0x8c, 0xf9, 0xb4, 0x3d, 0x74, 0x44, 0x77,
+  0x5f, 0x00, 0x00, 0x70, 0xc0, 0x2f, 0xc0, 0x2b, 0xc0, 0x30, 0xc0, 0x2c,
+  0x00, 0x9e, 0xc0, 0x27, 0x00, 0x67, 0xc0, 0x28, 0x00, 0x6b, 0x00, 0xa3,
+  0x00, 0x9f, 0xcc, 0xa9, 0xcc, 0xa8, 0xcc, 0xaa, 0xc0, 0xaf, 0xc0, 0xad,
+  0xc0, 0xa3, 0xc0, 0x9f, 0xc0, 0x5d, 0xc0, 0x61, 0xc0, 0x57, 0xc0, 0x53,
+  0x00, 0xa2, 0xc0, 0xae, 0xc0, 0xac, 0xc0, 0xa2, 0xc0, 0x9e, 0xc0, 0x5c,
+  0xc0, 0x60, 0xc0, 0x56, 0xc0, 0x52, 0xc0, 0x24, 0x00, 0x6a, 0xc0, 0x23,
+  0x00, 0x40, 0xc0, 0x0a, 0xc0, 0x14, 0x00, 0x39, 0x00, 0x38, 0xc0, 0x09,
+  0xc0, 0x13, 0x00, 0x33, 0x00, 0x32, 0x00, 0x9d, 0xc0, 0xa1, 0xc0, 0x9d,
+  0xc0, 0x51, 0x00, 0x9c, 0xc0, 0xa0, 0xc0, 0x9c, 0xc0, 0x50, 0x00, 0x3d,
+  0x00, 0x3c, 0x00, 0x35, 0x00, 0x2f, 0x00, 0xff, 0x01, 0x00, 0x00, 0x73,
+  0x00, 0x00, 0x00, 0x17, 0x00, 0x15, 0x00, 0x00, 0x12, 0x69, 0x64, 0x62,
+  0x72, 0x6f, 0x6b, 0x65, 0x72, 0x2e, 0x77, 0x65, 0x62, 0x65, 0x78, 0x2e,
+  0x63, 0x6f, 0x6d, 0x00, 0x0b, 0x00, 0x04, 0x03, 0x00, 0x01, 0x02, 0x00,
+  0x0a, 0x00, 0x0c, 0x00, 0x0a, 0x00, 0x1d, 0x00, 0x17, 0x00, 0x1e, 0x00,
+  0x19, 0x00, 0x18, 0x00, 0x23, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00,
+  0x17, 0x00, 0x00, 0x00, 0x0d, 0x00, 0x30, 0x00, 0x2e, 0x04, 0x03, 0x05,
+  0x03, 0x06, 0x03, 0x08, 0x07, 0x08, 0x08, 0x08, 0x09, 0x08, 0x0a, 0x08,
+  0x0b, 0x08, 0x04, 0x08, 0x05, 0x08, 0x06, 0x04, 0x01, 0x05, 0x01, 0x06,
+  0x01, 0x03, 0x03, 0x02, 0x03, 0x03, 0x01, 0x02, 0x01, 0x03, 0x02, 0x02,
+  0x02, 0x04, 0x02, 0x05, 0x02, 0x06, 0x02
+};
+
+
 // end of packet data
 
 typedef void (*dummy_func)();
@@ -174,7 +206,6 @@ struct libmerc_api {
 
     decltype(mercury_init)                                  *init = nullptr;
     decltype(mercury_finalize)                              *finalize = nullptr;
-    decltype(mercury_packet_processor_get_analysis_context) *analyze = nullptr;
     decltype(mercury_packet_processor_construct)            *packet_processor_construct = nullptr;
     decltype(mercury_packet_processor_destruct)             *packet_processor_destruct = nullptr;
     decltype(mercury_packet_processor_get_analysis_context) *get_analysis_context = nullptr;
@@ -198,7 +229,6 @@ struct libmerc_api {
 
         init =                       (decltype(init))                       dlsym(dl_handle, "mercury_init");
         finalize =                   (decltype(finalize))                   dlsym(dl_handle, "mercury_finalize");
-        analyze =                    (decltype(analyze))                    dlsym(dl_handle, "mercury_packet_processor_get_analysis_context");
         packet_processor_construct = (decltype(packet_processor_construct)) dlsym(dl_handle, "mercury_packet_processor_construct");
         packet_processor_destruct =  (decltype(packet_processor_destruct))  dlsym(dl_handle, "mercury_packet_processor_destruct");
         get_analysis_context =       (decltype(get_analysis_context))       dlsym(dl_handle, "mercury_packet_processor_get_analysis_context");
@@ -210,7 +240,6 @@ struct libmerc_api {
 
         if (init                       == nullptr ||
             finalize                   == nullptr ||
-            analyze                    == nullptr ||
             packet_processor_construct == nullptr ||
             packet_processor_destruct  == nullptr ||
             get_analysis_context       == nullptr ||
@@ -235,6 +264,80 @@ struct libmerc_api {
     }
 
 };
+
+
+// The function fprint_analysis_context() prints out all of the
+// information available about an analysis context.  It is an example
+// of how the libmerc.h interface can be used.  It makes more calls
+// that are necessary, to illustrate how the library responds.  In
+// particular, if the analysis_context is NULL, then it is unnecessary
+// to call any other functions, and if fingerprint_type is
+// fingerprint_type_unknown, then it is unnecessary to call
+// analysis_context_get_fingerprint_string().
+//
+void fprint_analysis_context(FILE *f,
+                             const struct libmerc_api *merc,
+                             const struct analysis_context *ctx) {
+
+    fprintf(f, "---------- start of %s ----------\n", __func__);
+    if (ctx == NULL) {
+        fprintf(f, "null analysis_context (no analysis present)\n");
+    }
+    enum fingerprint_type type = analysis_context_get_fingerprint_type(ctx);
+    if (type == fingerprint_type_tls) {
+        fprintf(f, "fingerprint_type: tls\n");
+    } else if (type == fingerprint_type_unknown) {
+        fprintf(f, "fingerprint_type: unknown\n");
+    } else {
+        fprintf(f, "fingerprint_type: not tls (type code %u)\n", type);
+    }
+    const char *fp_string = analysis_context_get_fingerprint_string(ctx);
+    if (fp_string) {
+        fprintf(f, "fingerprint_string: %s\n", fp_string);
+    } else {
+        fprintf(f, "fingerprint_string: not present (null)\n");
+    }
+    enum fingerprint_status fp_status = analysis_context_get_fingerprint_status(ctx);
+    if (fp_status == fingerprint_status_labeled) {
+        fprintf(f, "fingerprint_status: labeled\n");
+    } else if (fp_status == fingerprint_status_unlabled) {
+        fprintf(f, "fingerprint_status: unlabeled\n");
+    } else if (fp_status == fingerprint_status_randomized) {
+        fprintf(f, "fingerprint_status: randomized\n");
+    } else if (fp_status == fingerprint_status_no_info_available) {
+        fprintf(f, "fingerprint_status: no info available\n");
+    } else {
+        fprintf(f, "fingerprint_status: unknown status code (%d)\n", fp_status);
+    }
+
+    const char *server_name = analysis_context_get_server_name(ctx);
+    if (server_name) {
+        fprintf(f, "server_name: %s\n", server_name);
+    } else {
+        fprintf(f, "server_name: not present (null)\n");
+    }
+    const char *probable_process = NULL;
+    double probability_score = 0.0;
+    if (merc->get_process_info(ctx,
+                               &probable_process,
+                               &probability_score)) {
+        fprintf(f,
+                "probable_process: %s\tprobability_score: %f\n",
+                probable_process,
+                probability_score);
+    }
+    bool probable_process_is_malware = false;
+    double probability_malware = 0.0;
+    if (merc->get_malware_info(ctx,
+                               &probable_process_is_malware,
+                               &probability_malware)) {
+        fprintf(f,
+                "probable_process_is_malware: %s\tprobability_malware: %f\n",
+                probable_process_is_malware ? "true" : "false",
+                probability_malware);
+    }
+    fprintf(f, "----------  end of %s  ----------\n", __func__);
+}
 
 struct packet_processor_state {
     unsigned int thread_number;
@@ -270,7 +373,7 @@ void *packet_processor(void *arg) {
     struct timespec time;
     time.tv_sec = time.tv_nsec = 0;  // set to January 1st, 1970 (the Epoch)
 
-    fprintf(stderr, "packet_processor() has libmerc_api=%p and mercury_context=%p\n", (void *)merc, (void *)pp->mc);
+    // fprintf(stderr, "packet_processor() has libmerc_api=%p and mercury_context=%p\n", (void *)merc, (void *)pp->mc);
 
     // create mercury packet processor
     mercury_packet_processor mpp = merc->packet_processor_construct(pp->mc);
@@ -279,31 +382,34 @@ void *packet_processor(void *arg) {
         return NULL;
     }
 
-    // get analysis results and print process name and score
+    // get analysis result and write it out
     //
-    const char *probable_process = NULL;
-    double probability_score = 0.0;
     const struct analysis_context *ctx = merc->get_analysis_context(mpp, client_hello_eth, client_hello_eth_len, &time);
-    if (ctx == NULL) {
-        fprintf(stderr, "error in get_analysis_context()\n");
-        return NULL;
-    }
-    if (merc->get_process_info(ctx, &probable_process, &probability_score)) {
-        fprintf(stderr, "thread: %u\tprobable_process: %s\tscore: %f\n", pp->thread_number, probable_process, probability_score);
-    }
+    fprintf(stderr, "\nanalyzing TLS client hello\n");
+    fprint_analysis_context(stderr, merc, ctx);
 
     // try it on another packet
     //
-    probable_process = NULL;
-    probability_score = 0.0;
     ctx = merc->get_analysis_context(mpp, client_hello_no_server_name_eth, sizeof(client_hello_no_server_name_eth), &time);
-    if (ctx == NULL) {
-        fprintf(stderr, "error in get_analysis_context()\n");
-        return NULL;
-    }
-    if (merc->get_process_info(ctx, &probable_process, &probability_score)) {
-        fprintf(stderr, "thread: %u\tprobable_process: %s\tscore: %f\n", pp->thread_number, probable_process, probability_score);
-    }
+    fprintf(stderr, "\nanalyzing TLS client hello without server name\n");
+    fprint_analysis_context(stderr, merc, ctx);
+
+    // try it on a packet with an unlabeled fingerprint
+    //
+    ctx = merc->get_analysis_context(mpp, unlabeled_data, sizeof(unlabeled_data), &time);
+    fprintf(stderr, "\nanalyzing TLS client hello with an unlabeled fingerprint\n");
+    fprint_analysis_context(stderr, merc, ctx);
+
+    // try it on a tcp syn packet
+    //
+    ctx = merc->get_analysis_context(mpp, tcp_syn, sizeof(tcp_syn), &time);
+    fprintf(stderr, "\nanalyzing TCP SYN packet\n");
+    fprint_analysis_context(stderr, merc, ctx);
+
+    // pass null analysis_context
+    //
+    fprintf(stderr, "\nanalyzing NULL context\n");
+    fprint_analysis_context(stderr, merc, nullptr);
 
     // destroy packet processor
     merc->packet_processor_destruct(mpp);

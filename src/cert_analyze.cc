@@ -201,7 +201,7 @@ struct json_file_reader : public file_reader {
                             // fprintf(stderr, "%s ", c.GetString());
                             std::string s = c.GetString();
                             cert_len = base64::decode(outbuf, outbuf_len, s.c_str(), s.size());
-                            break; // just process first cert for now
+                            break; // just process first cert for now // TODO: process all certs
                         }
                         free(line);
                         return cert_len;
