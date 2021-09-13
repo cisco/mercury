@@ -89,9 +89,9 @@ else
 endif
 
 .PHONY: libmerc_driver
-libmerc_driver: 
+libmerc_driver:
 	@echo "running unit tests from libmerc_driver"
-	./../src/libmerc_driver -s
+	cd ./../src/; ./libmerc_driver -s
 
 .PHONY: json-validity-test
 json-validity-test:

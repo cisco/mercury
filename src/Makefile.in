@@ -155,7 +155,7 @@ libmerc:
 	$(MAKE) --directory=libmerc libmerc.a
 
 .PHONY: debug-libmerc.a
-debug-libmerc.a:
+debug-libmerc.a: libmerc-clean
 	$(MAKE) -j --directory=libmerc debug-libmerc.a
 
 .PHONY: debug-libmerc
@@ -214,12 +214,12 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 	$(CC) -Wall -std=c17 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
-libmerc_driver: clean debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
+libmerc_driver: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
 	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp libmerc/libmerc.so libmerc/libmerc.so.alt
 
-libmerc_driver_coverage: clean debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
+libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
 	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp libmerc/libmerc.so libmerc/libmerc.so.alt
@@ -228,14 +228,17 @@ libmerc_driver_coverage: clean debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Mak
 #
 
 .PHONY: clean
-clean:
+clean: libmerc-clean
 	rm -rf mercury libmerc_test libmerc_driver tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o
-	cd libmerc && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	find -type f -name "*.gcno" -delete
 	find -type f -name "*.gcda" -delete
 	find -type f -name "*.gcov" -delete
+
+.PHONY: libmerc-clean
+libmerc-clean:
+	cd libmerc && $(MAKE) clean
 
 .PHONY: distclean
 distclean: clean
