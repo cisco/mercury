@@ -191,6 +191,7 @@ unsigned char unlabeled_data[] = {
 typedef void (*dummy_func)();
 
 int verbosity = 0;
+std::string default_resources_path = "../resources/resources.tgz";
 
 struct libmerc_api {
 
@@ -362,8 +363,7 @@ libmerc_config create_config() {
     libmerc_config config{};
     config.do_analysis = true;
     config.do_stats = true;
-    std::string* resources_path = new std::string("../resources/resources.tgz");
-    config.resources = (char*) resources_path->c_str();
+    config.resources = (char*) default_resources_path.c_str();      
     return config;
 }
 
@@ -665,29 +665,40 @@ SCENARIO("test_packet_processor_construct") {
         mercury_context mc = initialize_mercury(config);
         WHEN("Mercury context is correct") {
             THEN("packet processor created") {
-                REQUIRE(mercury_packet_processor_construct(mc) != NULL);
+                auto mpp = mercury_packet_processor_construct(mc);
+                REQUIRE(mpp != NULL);
+
+                /*avoid memory leaks*/
+                mercury_packet_processor_destruct(mpp);
             }
         }
 
-        WHEN("Mercury context is finalized") { /*failed: no check for mercury_context is nullptr*/
-            mercury_finalize(mc);
-            THEN("packet processor set to NULL") {
-              //  REQUIRE(mercury_packet_processor_construct(mc) == NULL);
-            }
-        }
+        // WHEN("Mercury context is finalized") { /*failed: no check for mercury_context is nullptr*/
+        //      mercury_finalize(mc);
+        //      THEN("packet processor set to NULL") {
+        //          REQUIRE(mercury_packet_processor_construct(mc) == NULL);
+        //      }
+        // }
 
         WHEN("mercury classifier is nullptr") {
+            delete mc->c; /*avoid memory leaks*/ 
             mc->c = nullptr;
             THEN("packet processor set to NULL") {
-                REQUIRE(mercury_packet_processor_construct(mc) == NULL);
+                auto mpp = mercury_packet_processor_construct(mc);
+                REQUIRE(mpp == NULL);
             }
         }
 
         WHEN("mercury classifier is nullptr and analysis isn`t needed") {
+            delete mc->c; /*avoid memory leaks*/
             mc->c = nullptr;
             mc->global_vars.do_analysis = false;
-            THEN("packet processor set to NULL") {
-                REQUIRE(mercury_packet_processor_construct(mc) != NULL);
+            THEN("packet processor created") {
+                auto mpp = mercury_packet_processor_construct(mc);
+                REQUIRE(mpp != NULL);
+
+                /*avoid memory leaks*/
+                mercury_packet_processor_destruct(mpp);
             }
         }
 
