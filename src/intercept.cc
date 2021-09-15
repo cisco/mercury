@@ -258,7 +258,190 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
 #include <unordered_set>
 #include <string>
 
+
+// http parsing
+//
+
+// HPACK - HTTP2 Header [De]Compression
+//
+
+/* From RFC 7541
+
+          | 1     | :authority                  |               |
+          | 2     | :method                     | GET           |
+          | 3     | :method                     | POST          |
+          | 4     | :path                       | /             |
+          | 5     | :path                       | /index.html   |
+          | 6     | :scheme                     | http          |
+          | 7     | :scheme                     | https         |
+          | 8     | :status                     | 200           |
+          | 9     | :status                     | 204           |
+          | 10    | :status                     | 206           |
+          | 11    | :status                     | 304           |
+          | 12    | :status                     | 400           |
+          | 13    | :status                     | 404           |
+          | 14    | :status                     | 500           |
+          | 15    | accept-charset              |               |
+          | 16    | accept-encoding             | gzip, deflate |
+          | 17    | accept-language             |               |
+          | 18    | accept-ranges               |               |
+          | 19    | accept                      |               |
+          | 20    | access-control-allow-origin |               |
+          | 21    | age                         |               |
+          | 22    | allow                       |               |
+          | 23    | authorization               |               |
+          | 24    | cache-control               |               |
+          | 25    | content-disposition         |               |
+          | 26    | content-encoding            |               |
+          | 27    | content-language            |               |
+          | 28    | content-length              |               |
+          | 29    | content-location            |               |
+          | 30    | content-range               |               |
+          | 31    | content-type                |               |
+          | 32    | cookie                      |               |
+          | 33    | date                        |               |
+          | 34    | etag                        |               |
+          | 35    | expect                      |               |
+          | 36    | expires                     |               |
+          | 37    | from                        |               |
+          | 38    | host                        |               |
+          | 39    | if-match                    |               |
+          | 40    | if-modified-since           |               |
+          | 41    | if-none-match               |               |
+          | 42    | if-range                    |               |
+          | 43    | if-unmodified-since         |               |
+          | 44    | last-modified               |               |
+          | 45    | link                        |               |
+          | 46    | location                    |               |
+          | 47    | max-forwards                |               |
+          | 48    | proxy-authenticate          |               |
+          | 49    | proxy-authorization         |               |
+          | 50    | range                       |               |
+          | 51    | referer                     |               |
+          | 52    | refresh                     |               |
+          | 53    | retry-after                 |               |
+          | 54    | server                      |               |
+          | 55    | set-cookie                  |               |
+          | 56    | strict-transport-security   |               |
+          | 57    | transfer-encoding           |               |
+          | 58    | user-agent                  |               |
+          | 59    | vary                        |               |
+          | 60    | via                         |               |
+          | 61    | www-authenticate            |               |
+*/
+
+// Headers Frame (following RFC7540)
+//
+//    +---------------+
+//    |Pad Length? (8)|
+//    +-+-------------+-----------------------------------------------+
+//    |E|                 Stream Dependency? (31)                     |
+//    +-+-------------+-----------------------------------------------+
+//    |  Weight? (8)  |
+//    +-+-------------+-----------------------------------------------+
+//    |                   Header Block Fragment (*)                 ...
+//    +---------------------------------------------------------------+
+//    |                           Padding (*)                       ...
+//    +---------------------------------------------------------------+
+
+class http2_headers {
+    uint8_t pad_length;
+    uint32_t e_stream_dependency;
+    uint8_t weight;
+    datum header_block_fragment;
+
+public:
+    http2_headers() : pad_length{0}, e_stream_dependency{0}, weight{0}, header_block_fragment{NULL, NULL} { }
+
+    void parse(datum &d, bool padded=false, bool priority=false) {
+        if (padded) {
+            d.read_uint8(&pad_length);
+        }
+        if (priority) {
+            d.read_uint32(&e_stream_dependency);
+            d.read_uint8(&weight);
+        }
+        header_block_fragment = d;
+    }
+
+    void write_json(json_object &o) {
+        json_object json_frame(o, "headers");
+        json_frame.print_key_uint("pad_length", pad_length);
+        // json_frame.print_key_uint("e", e_stream_dependency);  // TODO: need bit accessor function
+        json_frame.print_key_uint("stream_dependency", e_stream_dependency);
+        json_frame.print_key_hex("header_block_fragment", header_block_fragment);
+        json_frame.close();
+    }
+};
+
+
+//  Frame Format (following RFC 7540)
+//
+//    +-----------------------------------------------+
+//    |                 Length (24)                   |
+//    +---------------+---------------+---------------+
+//    |   Type (8)    |   Flags (8)   |
+//    +-+-------------+---------------+-------------------------------+
+//    |R|                 Stream Identifier (31)                      |
+//    +=+=============================================================+
+//    |                   Frame Payload (0...)                      ...
+//    +---------------------------------------------------------------+
+//
+
+class http2_frame {
+    uint64_t length;
+    uint8_t type;
+    uint8_t flags;
+    uint32_t stream_id;
+    datum payload;
+
+public:
+
+    enum type : uint8_t {
+        DATA          = 0x0,
+        HEADERS       = 0x1,
+        PRIORITY      = 0x2,
+        RST_STREAM    = 0x3,
+        SETTINGS      = 0x4,
+        PUSH_PROMISE  = 0x5,
+        PING          = 0x6,
+        GOAWAY        = 0x7,
+        WINDOW_UPDATE = 0x8,
+        CONTINUATION  = 0x9
+    };
+
+    http2_frame() : length{0}, type{0}, flags{0}, stream_id{0}, payload{NULL, NULL} {}
+
+    void parse(struct datum &d) {
+        d.read_uint(&length, 3);
+        d.read_uint8(&type);
+        d.read_uint8(&flags);
+        d.read_uint32(&stream_id);
+        payload = d;
+    }
+
+    void write_json(struct json_object &o) {
+        json_object json_frame(o, "frame");
+        json_frame.print_key_uint("length", length);
+        json_frame.print_key_uint("type", type);
+        json_frame.print_key_uint("flags", flags);
+        json_frame.print_key_uint("stream_id", stream_id);
+        json_frame.print_key_hex("payload", payload);
+
+        if (type == HEADERS) {
+            http2_headers h;
+            h.parse(payload);
+            h.write_json(o);
+        }
+
+        json_frame.close();
+    }
+};
+
+
+
 struct http_request_x : public http_request {
+    struct datum trailing_data;
 
     bool method_is_valid() {
 
@@ -310,6 +493,18 @@ struct http_request_x : public http_request {
             "VERSION-CONTROL"
         };
         return (standard_methods.find(method_from_packet) != standard_methods.end());
+    }
+
+    void parse(struct datum &p) {
+        http_request::parse(p);
+        trailing_data = p;
+    }
+
+    void write_json(struct json_object &o, bool output_metadata) {
+        http_request::write_json(o, output_metadata);
+        if (trailing_data.is_not_empty()) {
+            o.print_key_hex("trailing_data", trailing_data);
+        }
     }
 };
 
@@ -444,6 +639,9 @@ public:
     void process_outbound(int fd, const uint8_t *data, ssize_t length);
 
     void process_outbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
+
+        static constexpr bool process_http2_frames = false;
+
         // fprintf(stderr, BLUE("%s\n"), __func__);
 
         //print_flow_key(fd);
@@ -473,8 +671,40 @@ public:
             record.close();
             write_buffer_to_file(buf, outfile);
 
-        } else {
+        } else if (process_http2_frames) {
+
             if (verbose) { fprintf(stderr, RED(tty, "http_request unrecognized\n")); }
+
+            // write out plaintext data stream
+            //
+            struct datum tcp_data{data, data+length};
+            if (tcp_data.is_not_empty()) {
+
+                char buffer[buffer_length];
+                struct buffer_stream buf(buffer, sizeof(buffer));
+                struct json_object record{&buf};
+
+                // write pid into record
+                write_process_info(record, output_level);
+                record.print_key_uint("fd", fd);
+
+                record.print_key_hex("tcp_data", tcp_data);
+
+                // parse as http2_frame
+                //
+                http2_frame frame;
+                frame.parse(tcp_data);
+                frame.write_json(record);
+
+                // write time into record
+                struct timespec ts;
+                timespec_get(&ts, TIME_UTC);
+                record.print_key_timestamp("event_start", &ts);
+
+                record.close();
+                write_buffer_to_file(buf, outfile);
+            }
+
         }
 
     }
