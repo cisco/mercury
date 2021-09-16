@@ -502,6 +502,7 @@ int double_bind_test(const struct libmerc_config *config, const struct libmerc_c
         mercury_context mc_alt = mercury_alt.init(config2, verbosity);
         if (mc_alt == nullptr) {
             fprintf(stderr, "error: mercury_init() returned null in second init\n");
+            mercury.finalize(mc);
             return -1;
         }
 
