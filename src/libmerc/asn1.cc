@@ -5,9 +5,14 @@
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
+
+#include <unordered_map>
+#include <string>
 #include "asn1.h"
+#include "bytestring.h"
 
-
+extern std::unordered_map<std::basic_string<uint8_t>, std::string> oid_dict; // in asn1/oid.cc
+extern std::unordered_map<std::basic_string<uint8_t>, enum oid> oid_to_enum;
 
 void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;

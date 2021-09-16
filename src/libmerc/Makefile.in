@@ -116,6 +116,12 @@ LIBMERC_H   += smtp.h
 LIBMERC_H   += asn1.h
 LIBMERC_H   += asn1/oid.h
 
+# asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
+# asn1 subdirectory; this is a pattern target that builds both files
+#
+asn1/oid%cc asn1/oid%h:
+	cd asn1 && $(MAKE)
+
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
 # CDEFS     += -Wl,--no-as-needed -ldl -lutil $(shell pkg-config --libs --cflags python3)
@@ -216,6 +222,7 @@ endif
 .PHONY: clean
 clean:
 	rm -rf libmerc.so libmerc.so.* debug-libmerc.so unstripped-libmerc.so libmerc.a *.o .depend
+	cd asn1 && $(MAKE) clean
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done

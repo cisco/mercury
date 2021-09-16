@@ -8,6 +8,8 @@
 #ifndef BYTESTRING_H
 #define BYTESTRING_H
 
+#include <string>
+
 // tell the C++ STL how to hash a basic string of uint8_t values, by
 // creating a specialized struct hash<> template for that type
 //
