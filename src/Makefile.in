@@ -154,11 +154,13 @@ libmerc:
 	$(MAKE) --directory=libmerc libmerc.a
 
 .PHONY: debug-libmerc.a
-debug-libmerc.a: libmerc-clean
+debug-libmerc.a:
+	$(MAKE) --directory=libmerc clean
 	$(MAKE) -j --directory=libmerc debug-libmerc.a
 
 .PHONY: debug-libmerc
 debug-libmerc:
+	$(MAKE) --directory=libmerc clean
 	$(MAKE) -j --directory=libmerc debug-libmerc.so
 
 .PHONY: unstripped-libmerc
