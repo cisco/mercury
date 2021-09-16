@@ -112,13 +112,13 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: libmerc-and-mercury libmerc_test cert_analyze # tls_scanner batch_gcd
+all: mercury libmerc_test cert_analyze # tls_scanner batch_gcd
 
 # the target libmerc-and-mercury checks to see if libmerc.a needs to
 # be rebuilt, rebuilds it if needed, and then builds mercury.
 #
-.PHONY: libmerc-and-mercury
-libmerc-and-mercury: libmerc.a mercury
+#.PHONY: libmerc-and-mercury
+#libmerc-and-mercury: libmerc.a mercury # TODO: delete
 
 # implicit rules for building object files from .c and .cc files
 #
@@ -131,7 +131,7 @@ libmerc-and-mercury: libmerc.a mercury
 # libmerc.a file, but it does not trigger any check to see if
 # libmerc.a itself needs to be rebuild
 #
-mercury: mercury.c $(MERC_OBJ) $(MERC_H) libmerc/libmerc.a Makefile.in
+mercury: mercury.c $(MERC_OBJ) $(MERC_H) libmerc.a Makefile.in
 	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -pthread libmerc/libmerc.a -lz -lcrypto -o mercury
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 
@@ -142,7 +142,6 @@ debug-mercury: debug-libmerc.a mercury
 setcap: mercury
 	sudo setcap $(CAP) $<
 
-.PHONY: libmerc.a
 libmerc.a:
 	$(MAKE) -j --directory=libmerc libmerc.a
 
@@ -156,10 +155,12 @@ libmerc:
 
 .PHONY: debug-libmerc.a
 debug-libmerc.a:
+	$(MAKE) --directory=libmerc clean
 	$(MAKE) -j --directory=libmerc debug-libmerc.a
 
 .PHONY: debug-libmerc
 debug-libmerc:
+	$(MAKE) --directory=libmerc clean
 	$(MAKE) -j --directory=libmerc debug-libmerc.so
 
 .PHONY: unstripped-libmerc
@@ -214,8 +215,13 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 	$(CC) -Wall -std=c17 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
-libmerc_driver: clean debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in
-	$(CXX) $(CFLAGS) libmerc_driver.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
+libmerc_driver: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
+	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
+	@echo "creating copy of libmerc.so for testing purposes"
+	cp libmerc/libmerc.so libmerc/libmerc.so.alt
+
+libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
+	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp libmerc/libmerc.so libmerc/libmerc.so.alt
 
@@ -223,11 +229,17 @@ libmerc_driver: clean debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in
 #
 
 .PHONY: clean
-clean:
-	rm -rf mercury libmerc_test libmerc_driver tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o
-	cd libmerc && $(MAKE) clean
+clean: libmerc-clean
+	rm -rf mercury libmerc_test libmerc_driver tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+	find -type f -name "*.gcno" -delete
+	find -type f -name "*.gcda" -delete
+	find -type f -name "*.gcov" -delete
+
+.PHONY: libmerc-clean
+libmerc-clean:
+	cd libmerc && $(MAKE) clean
 
 .PHONY: distclean
 distclean: clean
@@ -273,7 +285,7 @@ cppcheck: $(MERC)
 	cd libmerc && $(MAKE) cppcheck
 
 .PHONY: test
-test: mercury
+test: mercury libmerc_driver
 	cd ../test && $(MAKE)
 
 major=$(shell cat ../VERSION | grep -o "^[0-9]*")

@@ -79,7 +79,7 @@ BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
 BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
 .PHONY: all clean
-all: clean comp analysis cert-check memcheck dummy-capture json-validity-test stats
+all: clean comp analysis cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
@@ -87,6 +87,11 @@ else
 	@echo $(COLOR_YELLOW) "warning: some tests could not be performed due to missing dependancies" $(COLOR_OFF)
 	@echo $(COLOR_YELLOW) "please install the missing packages mentioned above and re-run ./configure" $(COLOR_OFF)
 endif
+
+.PHONY: libmerc_driver
+libmerc_driver:
+	@echo "running unit tests from libmerc_driver"
+	cd ./../src/; ./libmerc_driver -s
 
 .PHONY: json-validity-test
 json-validity-test:

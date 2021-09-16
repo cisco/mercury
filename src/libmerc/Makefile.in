@@ -193,7 +193,7 @@ lctrie/liblctrie.a:
 # -MM option, which is essential for correctly handling changes to
 # header file
 #
-.depend:
+.depend: $(LIBMERC) $(LIBMERC_H)
 	$(CXX) $(CFLAGS) -MM $(LIBMERC) $(LIBMERC_H) > ./.depend
 
 ifeq (,$(findstring $(MAKECMDGOALS),clean))

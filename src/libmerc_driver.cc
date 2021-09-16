@@ -18,6 +18,8 @@
 #include <stdexcept>
 
 #include "libmerc/libmerc.h"
+#include "libmerc/pkt_proc.h"
+#include "libmerc/catch2/catch.hpp"
 
 namespace snort {
 #define SO_PUBLIC
@@ -188,6 +190,9 @@ unsigned char unlabeled_data[] = {
 
 typedef void (*dummy_func)();
 
+int verbosity = 0;
+std::string default_resources_path = "../resources/resources.tgz";
+
 struct libmerc_api {
 
     libmerc_api(const char *lib_path) {
@@ -344,6 +349,24 @@ struct packet_processor_state {
 
 };
 
+mercury_context initialize_mercury(libmerc_config& config) {
+    // bind libmerc
+    libmerc_api mercury("./libmerc/libmerc.so");
+    
+    // init mercury
+    mercury_context mc = mercury.init(&config, verbosity);
+
+    return mc;
+}
+
+libmerc_config create_config() {
+    libmerc_config config{};
+    config.do_analysis = true;
+    config.do_stats = true;
+    config.resources = (char*) default_resources_path.c_str();      
+    return config;
+}
+
 void *packet_processor(void *arg) {
     packet_processor_state *pp = (packet_processor_state *)arg;
     struct libmerc_api *merc = pp->mercury;
@@ -479,6 +502,7 @@ int double_bind_test(const struct libmerc_config *config, const struct libmerc_c
         mercury_context mc_alt = mercury_alt.init(config2, verbosity);
         if (mc_alt == nullptr) {
             fprintf(stderr, "error: mercury_init() returned null in second init\n");
+            mercury.finalize(mc);
             return -1;
         }
 
@@ -526,55 +550,255 @@ int double_bind_test(const struct libmerc_config *config, const struct libmerc_c
     return 0;
 }
 
+TEST_CASE("double_bind_test") {  
+    libmerc_config config = create_config();
+    libmerc_config config_lite = create_config(); // note: just different, not really lite
 
-int main(int , char *[]) {
-    int verbosity = 1;
+    // perform double bind/init test
+    int retval = double_bind_test(&config_lite, &config);
+    REQUIRE_FALSE(retval);
+}
 
+TEST_CASE("flow_test") {
     // initialize libmerc's global configuration by creating a
     // libmerc_config structure and then passing it into mercury_init
-    //
-    libmerc_config config{};
-    config.do_analysis = true;
-    config.do_stats = true;
-    std::string resources_path = "../resources/resources.tgz";
-    config.resources = (char*) resources_path.c_str();
+    libmerc_config config = create_config();
 
-    libmerc_config config_lite{};
-    config_lite.do_analysis = true;
-    config_lite.do_stats = true;
-    std::string resources_lite_path = "../resources/resources.tgz";  // note: just different, not really lite
-    config_lite.resources = (char*) resources_lite_path.c_str();
-
-    bool perform_double_bind_test = true;
-    if (perform_double_bind_test) {
-
-        // perform double bind/init test
-        int retval = double_bind_test(&config_lite, &config);
-        if (retval) {
-            fprintf(stderr, "double_bind_test() error (code %d)\n", retval);
-            return EXIT_FAILURE;
-        }
-    }
+    libmerc_config config_lite = create_config(); // note: just different, not really lite
 
     int retval = test_libmerc(&config, verbosity);
-    if (retval) {
-        fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
-        return EXIT_FAILURE;
-    }
+    REQUIRE_FALSE(retval);
 
     retval = test_libmerc(&config_lite, verbosity);
-    if (retval) {
-        fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
-        return EXIT_FAILURE;
-    }
+    REQUIRE_FALSE(retval);
 
     // repeat test with original config
-    //
     retval = test_libmerc(&config, verbosity);
-    if (retval) {
-        fprintf(stderr, "test_libmerc() error (code %d)\n", retval);
-        return EXIT_FAILURE;
-    }
-
-    return 0;
+    REQUIRE_FALSE(retval);
 }
+
+//TODO: make a scenario
+TEST_CASE("check_global_vars_configuration") {
+    libmerc_config config = create_config();
+    
+    // init mercury
+    mercury_context mc = initialize_mercury(config);
+    REQUIRE(mc != nullptr);
+
+    //check correctness of config set
+    CHECK(mc->global_vars.dns_json_output == config.dns_json_output);
+    CHECK(mc->global_vars.do_analysis == config.do_analysis);
+    CHECK(mc->global_vars.do_stats == config.do_stats);
+    CHECK(mc->global_vars.enc_key == config.enc_key);
+    CHECK(mc->global_vars.fp_proc_threshold == config.fp_proc_threshold);
+    CHECK(mc->global_vars.key_type == config.key_type);
+    CHECK(mc->global_vars.max_stats_entries == config.max_stats_entries);
+    CHECK(mc->global_vars.metadata_output == config.metadata_output);
+    CHECK(mc->global_vars.output_tcp_initial_data == config.output_tcp_initial_data);
+    CHECK(mc->global_vars.output_udp_initial_data == config.output_udp_initial_data);
+    CHECK(mc->global_vars.packet_filter_cfg == config.packet_filter_cfg);
+    CHECK(mc->global_vars.proc_dst_threshold == config.proc_dst_threshold);
+    CHECK(mc->global_vars.report_os == config.report_os);
+    CHECK(mc->global_vars.resources == config.resources);
+
+}
+
+SCENARIO("test_mercury_init") {
+    GIVEN("mecrury config") {
+        libmerc_config config = create_config();
+    
+        WHEN("After initialize") {
+            THEN("merciry initialized ") {
+                mercury_context mc = initialize_mercury(config);
+                REQUIRE(mc != nullptr);
+            }
+        }
+
+        // WHEN("Set resources to nullptr") { /*failed: mercury context created in this case*/
+        //     config.resources = nullptr;
+        //     THEN("Cannot initialize mercury context: return nullptr") {
+        //         REQUIRE(mercury_init(&config, verbosity) == nullptr);
+        //     }
+        // }
+
+        WHEN("Set resources to empty") {
+            config.resources = (char *) "";
+            THEN("Cannot initialize mercury context: return nullptr") {
+                REQUIRE(mercury_init(&config, verbosity) == nullptr);
+            }
+        }
+    }
+}
+
+SCENARIO("test_mercury_finalize") {
+    GIVEN("mecrury context") {
+        libmerc_config config = create_config();
+    
+        // init mercury
+        mercury_context mc = initialize_mercury(config);
+
+        WHEN("After initialize") {
+            THEN("merciry initialized ") {
+                REQUIRE(mc != nullptr);
+            }
+        }
+
+        WHEN("Finish") {
+            THEN("Correct finilize: return 0") {
+                REQUIRE(mercury_finalize(mc) == 0);
+            }
+        }
+
+        // WHEN("Finish two times") { /*failed: facing exception instead of -1, because mc deleted but pointer not nullptr*/
+        //     THEN("Incorrect behaviour: return -1") {
+        //         REQUIRE(mercury_finalize(mc) == 0);
+        //         CHECK(mc == nullptr);
+        //         //CHECK(mc->global_vars.certs_json_output == false); /*exception as memory under pointer already dealocated*/
+        //         //CHECK(mercury_finalize(mc) == -1);  /*check in ~mercury() also needed*/
+        //     }
+        // }
+    }  
+}
+
+SCENARIO("test_packet_processor_construct") {
+    GIVEN("mercury context") {
+        libmerc_config config = create_config();
+        mercury_context mc = initialize_mercury(config);
+        WHEN("Mercury context is correct") {
+            THEN("packet processor created") {
+                auto mpp = mercury_packet_processor_construct(mc);
+                REQUIRE(mpp != NULL);
+
+                /*avoid memory leaks*/
+                mercury_packet_processor_destruct(mpp);
+            }
+        }
+
+        // WHEN("Mercury context is finalized") { /*failed: no check for mercury_context is nullptr*/
+        //      mercury_finalize(mc);
+        //      THEN("packet processor set to NULL") {
+        //          REQUIRE(mercury_packet_processor_construct(mc) == NULL);
+        //      }
+        // }
+
+        WHEN("mercury classifier is nullptr") {
+            delete mc->c; /*avoid memory leaks*/ 
+            mc->c = nullptr;
+            THEN("packet processor set to NULL") {
+                auto mpp = mercury_packet_processor_construct(mc);
+                REQUIRE(mpp == NULL);
+            }
+        }
+
+        WHEN("mercury classifier is nullptr and analysis isn`t needed") {
+            delete mc->c; /*avoid memory leaks*/
+            mc->c = nullptr;
+            mc->global_vars.do_analysis = false;
+            THEN("packet processor created") {
+                auto mpp = mercury_packet_processor_construct(mc);
+                REQUIRE(mpp != NULL);
+
+                /*avoid memory leaks*/
+                mercury_packet_processor_destruct(mpp);
+            }
+        }
+
+        //TODO: WHEN("Do_stats and message queue is empty") {}
+    }
+}
+
+SCENARIO("test_packet_processor_destruct") {
+    GIVEN("packet processor") {
+        libmerc_config config = create_config();
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+
+        WHEN("destruct packet processor") {
+            THEN("no throws catched") {
+                REQUIRE_NOTHROW(mercury_packet_processor_destruct(mpp));
+            }
+        }  
+
+        // WHEN("destruct twice") {
+        //     THEN("throws catched") {
+        //         REQUIRE_NOTHROW(mercury_packet_processor_destruct(mpp));
+        //         REQUIRE_THROWS(mercury_packet_processor_destruct(mpp));
+        //     }
+        // }
+
+        // WHEN("packet processor is nullptr") { /*failed: no exception. memory leak*/
+        //     mpp = nullptr;
+        //     THEN("throws catched") {
+        //         REQUIRE_THROWS(mercury_packet_processor_destruct(mpp));
+        //     }
+        // } 
+    }
+}
+
+SCENARIO("test_write_stats_data") {
+    GIVEN("mercury context and stats file") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = "tls";
+        mercury_context mc = initialize_mercury(config);
+        char * stats_file = "merc_stats_0.json.gz";
+
+        WHEN("") {
+            THEN("write stats file") {
+                REQUIRE(mercury_write_stats_data(mc, stats_file));
+            }
+        }
+
+        WHEN("mercury context is null") {
+            THEN("codn`t write stats file") {
+                REQUIRE_FALSE(mercury_write_stats_data(nullptr, stats_file));
+            }
+        }
+
+       /* WHEN("mercury finalized") { //seg fault
+            mercury_finalize(mc);
+            THEN("couldn`t write stats file") {
+                REQUIRE_FALSE(mercury_write_stats_data(mc, stats_file));
+            }
+        }*/
+
+        WHEN("empty stats file name") {
+            THEN("couldn`t write stats file") {
+                REQUIRE_FALSE(mercury_write_stats_data(mc, ""));
+            }
+        }
+
+        WHEN("stats file is null") {
+            stats_file = nullptr;
+            THEN("couldn`t write stats file") {
+                REQUIRE_FALSE(mercury_write_stats_data(mc, stats_file));
+            }
+        }
+    }
+}
+
+SCENARIO("test packet_processor_get_analysis_context") {
+    GIVEN("mercury packet processor") {
+        libmerc_config config = create_config();
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+
+        struct timespec time;
+        time.tv_sec = time.tv_nsec = 0;  // set to January 1st, 1970 (the Epoch)
+        WHEN("get analysis context") {
+            mercury_packet_processor_get_analysis_context(mpp, nullptr, 0, &time);
+            THEN("not a valid result") {
+                REQUIRE_FALSE(mpp->analysis.result.is_valid());
+
+                mercury_packet_processor_destruct(mpp);
+            }
+        }
+
+        // WHEN("get analysis context") {
+        //     mercury_packet_processor_get_analysis_context(mpp, tcp_syn, sizeof(tcp_syn), &time);
+        //     THEN("a valid result  exist") {
+        //         REQUIRE(mpp->analysis.result.is_valid());
+        //     }
+        // }
+    }
+}
+
