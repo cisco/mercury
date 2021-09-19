@@ -64,7 +64,7 @@ struct attribute {
 
     void print_as_json(struct json_object_asn1 &o) const {
         if (attribute_type.is_not_null()) {
-            const char *oid_string = datum_get_oid_string(&attribute_type.value);
+            const char *oid_string = oid::get_string(&attribute_type.value);
             if (oid_string != oid_empty_string) {
                 attribute_value.print_as_json_escaped_string(o, oid_string);
             } else {
@@ -174,7 +174,7 @@ struct ext_key_usage {
         struct datum p = sequence.value;
         while (p.is_not_empty()) {
             struct tlv key_purpose_id(&p);
-            const char *oid_string = datum_get_oid_string(&key_purpose_id.value);
+            const char *oid_string = oid::get_string(&key_purpose_id.value);
             if (oid_string != oid_empty_string) {
                 a.print_string(oid_string);
             } else {
@@ -961,10 +961,10 @@ struct extension {
 
     void print_as_json(struct json_object_asn1 &o) const {
         if (sequence.is_constructed()) {
-            enum oid oid_type = oid::unknown;
+            enum oid::type oid_type = oid::unknown;
             bool critical_flag = false;
             if (extnID.tag == tlv::OBJECT_IDENTIFIER) {
-                oid_type = datum_get_oid_enum(&extnID.value);
+                oid_type = oid::get_enum(&extnID.value);
             }
             if (critical.tag == tlv::BOOLEAN) {
                 critical_flag = true;
@@ -1301,7 +1301,7 @@ struct algorithm_identifier {
                     parameters.print_as_json_oid(alg_id, "parameters");
 
                 } else if (parameters.tag == tlv::SEQUENCE) {
-                    if (datum_get_oid_enum(&algorithm.value) == oid::id_dsa) {
+                    if (oid::get_enum(&algorithm.value) == oid::id_dsa) {
                         // DSA parameters consist of a SEQUENCE of three integers
                         struct tlv tmp = parameters;
                         struct dsa_parameters dsa(&tmp.value);
@@ -1317,16 +1317,16 @@ struct algorithm_identifier {
         }
     }
 
-    enum oid type() const {
+    enum oid::type type() const {
         if (algorithm.is_not_null()) {
-            return datum_get_oid_enum(&algorithm.value);
+            return oid::get_enum(&algorithm.value);
         }
         return oid::unknown;
     }
 
-    enum oid get_parameters() const {
+    enum oid::type get_parameters() const {
         if (parameters.is_not_null()) {
-            return datum_get_oid_enum(&parameters.value);
+            return oid::get_enum(&parameters.value);
         }
         return oid::unknown;
     }
@@ -1629,7 +1629,7 @@ struct x509_cert {
         }
         if (!signature.value.is_not_readable()) {
 
-            enum oid alg_oid = signature_algorithm.type();
+            enum oid::type alg_oid = signature_algorithm.type();
             if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
                 struct tlv tmp_sig = signature;
                 tmp_sig.remove_bitstring_encoding();
@@ -1648,7 +1648,7 @@ struct x509_cert {
     }
 
     unsigned int bits_in_signature() const {
-        enum oid alg_oid = signature_algorithm.type();
+        enum oid::type alg_oid = signature_algorithm.type();
         if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
             struct tlv tmp_sig = signature;
             tmp_sig.remove_bitstring_encoding();
@@ -1674,8 +1674,8 @@ struct x509_cert {
             return false;  // missing data
         }
 
-        enum oid alg_type = subjectPublicKeyInfo.algorithm.type();
-        if (alg_type == rsaEncryption) {
+        enum oid::type alg_type = subjectPublicKeyInfo.algorithm.type();
+        if (alg_type == oid::type::rsaEncryption) {
             struct tlv tmp_key = subjectPublicKeyInfo.subject_public_key;  // make copy to leave original intact
             tmp_key.remove_bitstring_encoding();
             struct rsa_public_key pub_key(&tmp_key.value);
@@ -1685,8 +1685,8 @@ struct x509_cert {
             if (pub_key.bits_in_exponent() < 17) {
                 return true;
             }
-        } else if (alg_type == id_ecPublicKey) {
-            enum oid parameters = subjectPublicKeyInfo.algorithm.get_parameters();
+        } else if (alg_type == oid::type::id_ecPublicKey) {
+            enum oid::type parameters = subjectPublicKeyInfo.algorithm.get_parameters();
             std::unordered_set<unsigned int> strong_ec_parameters {
                 oid::prime256v1, // oid::secp256r1
                 oid::secp384r1,
@@ -1695,13 +1695,13 @@ struct x509_cert {
             if (strong_ec_parameters.find(parameters) == strong_ec_parameters.end()) {
                 return true;
             }
-        } else if (alg_type == id_dsa) {
+        } else if (alg_type == oid::type::id_dsa) {
             if (subjectPublicKeyInfo.subject_public_key.value.bits_in_data() < 2048) {
                 return true;
             }
-        } else if (alg_type == id_Ed25519) {
+        } else if (alg_type == oid::type::id_Ed25519) {
             ;
-        } else if (alg_type == id_Ed448) {
+        } else if (alg_type == oid::type::id_Ed448) {
             ;
         } else {
             return true; // uknown subject public key type 
@@ -1722,7 +1722,7 @@ struct x509_cert {
                 { oid::ecdsa_with_SHA1, 256 }
             };
 
-            enum oid alg_oid = signature_algorithm.type();
+            enum oid::type alg_oid = signature_algorithm.type();
             std::unordered_map<unsigned int, unsigned int>::const_iterator ecdsa_alg = strong_ecdsa_algs.find(alg_oid);
             if (ecdsa_alg != strong_ecdsa_algs.end()) {
 
@@ -1785,8 +1785,8 @@ struct x509_cert {
         if (signature_algorithm.algorithm.is_truncated() || signature_identifier.algorithm.is_truncated()) {
             return false;  // missing data
         }
-        enum oid sig_alg_type = signature_algorithm.type();
-        enum oid tbs_sig_alg_type = signature_identifier.type();
+        enum oid::type sig_alg_type = signature_algorithm.type();
+        enum oid::type tbs_sig_alg_type = signature_identifier.type();
         if (sig_alg_type != tbs_sig_alg_type) {
             if (sig_alg_type == oid::unknown) {
                 return false;  // assume missing data (TBD: ?)
@@ -1907,7 +1907,7 @@ struct x509_cert {
         }
         if (!signature.is_null()) {
 
-            enum oid alg_oid = signature_algorithm.type();
+            enum oid::type alg_oid = signature_algorithm.type();
             if (ecdsa_algorithms.find(alg_oid) != ecdsa_algorithms.end()) {
                 struct tlv tmp_sig = signature;
                 tmp_sig.remove_bitstring_encoding();

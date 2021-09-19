@@ -58,17 +58,13 @@ inline uint8_t hex_to_raw(const char *hex);
 void hex_string_print_as_oid(FILE *f, const char *c, size_t length);
 void raw_string_print_as_oid(FILE *f, const uint8_t *raw, size_t length);
 void raw_string_print_as_oid(struct buffer_stream &buf, const uint8_t *raw, size_t length);
-const char *datum_get_oid_string(const struct datum *p);
-enum oid datum_get_oid_enum(const struct datum *p);
-
-static const char *oid_empty_string = "";
-
-
 
 
 /*
  * json_object extensions for printing to TLVs
  */
+
+static const char *oid_empty_string = "";
 
 struct json_object_asn1 : public json_object {
     explicit json_object_asn1(struct buffer_stream *buf) : json_object(buf) {}
@@ -81,7 +77,7 @@ struct json_object_asn1 : public json_object {
     explicit json_object_asn1(struct json_array &array);
 
     void print_key_oid(const char *k, const struct datum &value) {
-        const char *output = datum_get_oid_string(&value);
+        const char *output = oid::get_string(&value);
         write_comma(comma);
         if (output != oid_empty_string) {
             b->snprintf("\"%s\":\"%s\"", k, output);
@@ -226,7 +222,7 @@ struct json_array_asn1 : public json_array {
     explicit json_array_asn1(struct buffer_stream *b) : json_array(b) { }
     explicit json_array_asn1(struct json_object &object, const char *name) : json_array(object, name) { }
     void print_oid(const struct datum &value) {
-        const char *output = datum_get_oid_string(&value);
+        const char *output = oid::get_string(&value);
         write_comma(comma);
         if (output != oid_empty_string) {
             b->snprintf("\"%s\"", output);
@@ -387,7 +383,7 @@ struct tlv {
             }
             if (datum_read_and_skip_uint(p, num_octets_in_length, &length) == status_err) {
                 p->set_empty();  // parser is no longer good for reading
-                // fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, datum_get_data_length(p));
+                // fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, oid::datum_get_data_length(p));
                 handle_parse_error("warning: could not read length", tlv_name);
                 return;
             }
@@ -704,7 +700,7 @@ struct tlv {
         }
         fprintf(f, format_string, name);
 
-        const char *output = datum_get_oid_string(&value);
+        const char *output = oid::datum_get_oid_string(&value);
         if (output != oid_empty_string) {
             fprintf(f, "\"%s\"", output);
         } else {
@@ -843,7 +839,7 @@ struct tlv {
         }
         buf.snprintf(format_string, name);
 
-        const char *output = datum_get_oid_string(&value);
+        const char *output = oid::datum_get_oid_string(&value);
         if (output != oid_empty_string) {
             buf.snprintf("\"%s\"", output);
         } else {

@@ -616,13 +616,24 @@ void oid_set::dump_oid_enum_dict_sorted(char *progname) {
     cc << "#include \"../bytestring.h\"\n";
     cc << "#include <unordered_map>\n";
     cc << "#include <string>\n\n";
-    cc << "std::unordered_map<std::basic_string<uint8_t>, std::string> oid_dict = {\n";
+    cc << "std::unordered_map<std::basic_string<uint8_t>, std::string> &oid::get_oid_dict() {\n";
+    cc << "\tstatic std::unordered_map<std::basic_string<uint8_t>, std::string> oid_dict = {\n";
     for (pair <string, vector<uint32_t>> x : ordered_dict) {
-        cc << "\t{ " << oid_to_hex_array(x.second) << ", \"" <<  x.first << "\" },\n";
+        cc << "\t\t{ " << oid_to_hex_array(x.second) << ", \"" <<  x.first << "\" },\n";
     }
-    cc << "};\n";
+    cc << "\t};\n";
+    cc << "\treturn oid_dict;\n";
+    cc << "}\n\n";
 
-    h << "enum oid {\n";
+    h << "#include \"../datum.h\"\n";
+    h << "#include \"../bytestring.h\"\n";  // TODO: eliminate parent directory reference
+    h << "#include <unordered_map>\n";
+    h << "#include <string>\n";
+    h << "#include <stdint.h>\n";
+    h << "\n";
+    h << "class oid {\n";
+    h << "public:\n\n";
+    h << "enum type : uint32_t {\n";
     unsigned int oid_num = 0;
     h << "\t" << "unknown" << " = " <<  oid_num++ << ",\n";
     for (pair <string, vector<uint32_t>> x : ordered_dict) {
@@ -644,18 +655,53 @@ void oid_set::dump_oid_enum_dict_sorted(char *progname) {
 
         oid_num++;
     }
-    h << "};\n";
+    h << "};\n\n";
+    h << "static std::unordered_map<std::basic_string<uint8_t>, std::string> &get_oid_dict();\n\n";
+    h << "static std::unordered_map<std::basic_string<uint8_t>, uint32_t> &get_oid_to_enum();\n";
+    h << "\n";
+    h << "static constexpr char oid_empty_string[] = { '\\0' };\n\n";
+    h << "// datum_get_oid_string() returns a null-terminated printable string\n"
+         "// associated with the OID represented by its argument, or NULL if the\n"
+        "// OID is unknown\n"
+        "//\n"
+        "static const char *get_string(const struct datum *p) {\n"
+        "    std::basic_string<uint8_t> s = p->get_bytestring();\n"
+        "    static std::unordered_map<std::basic_string<uint8_t>, std::string> &oid_dict = get_oid_dict();\n"
+        "    auto pair = oid_dict.find(s);\n"
+        "    if (pair == oid_dict.end()) {\n"
+        "        return oid_empty_string;\n"
+        "    }\n"
+        "    return pair->second.c_str();\n"
+        "}\n"
+        "\n"
+        "// datum_get_oid_enum() returns an enumeration associated with the OID\n"
+        "// represented by its argument; if there is no known OID that matches\n"
+        "// the argument, then oid::unknown is returned\n"
+        "//\n"
+        "static enum type get_enum(const struct datum *p) {\n"
+        "    std::basic_string<uint8_t> s = p->get_bytestring();\n"
+        "    static std::unordered_map<std::basic_string<uint8_t>, uint32_t> &oid_to_enum = get_oid_to_enum();\n"
+        "    auto pair = oid_to_enum.find(s);\n"
+        "    if (pair == oid_to_enum.end()) {\n"
+        "        return type::unknown;\n"
+        "    }\n"
+        "    return static_cast<type>(pair->second);\n"
+        "}\n";
+    h << "};\n"; // end of class oid
 
     cc << "\n";
-    cc << "std::unordered_map<std::basic_string<uint8_t>, enum oid> oid_to_enum = {\n";
+    cc << "std::unordered_map<std::basic_string<uint8_t>, uint32_t> &oid::get_oid_to_enum() {\n";
+    cc << "\tstatic std::unordered_map<std::basic_string<uint8_t>, uint32_t> oid_to_enum = {\n";
     for (pair <string, vector<uint32_t>> x : ordered_dict) {
         std::string tmp_string(x.first);
         std::replace(tmp_string.begin(), tmp_string.end(), '-', '_');
         std::replace(tmp_string.begin(), tmp_string.end(), '[', '_');
         std::replace(tmp_string.begin(), tmp_string.end(), ']', '_');
-        cc << "\t{ " << oid_to_hex_array(x.second) << ", " <<  tmp_string << " },\n";
+        cc << "\t\t{ " << oid_to_hex_array(x.second) << ", " <<  "oid::type::" << tmp_string << " },\n";
     }
-    cc << "};\n";
+    cc << "\t};\n";
+    cc << "\treturn oid_to_enum;\n";
+    cc << "}\n";
 }
 
 void oid_set::verify_oid_dict() {

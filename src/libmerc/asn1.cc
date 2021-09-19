@@ -9,10 +9,6 @@
 #include <unordered_map>
 #include <string>
 #include "asn1.h"
-#include "bytestring.h"
-
-extern std::unordered_map<std::basic_string<uint8_t>, std::string> oid_dict; // in asn1/oid.cc
-extern std::unordered_map<std::basic_string<uint8_t>, enum oid> oid_to_enum;
 
 void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len) {
     const unsigned char *x = data;
@@ -419,24 +415,6 @@ void raw_string_print_as_oid(struct buffer_stream &buf, const uint8_t *raw, size
             component = 0;
         }
     }
-}
-
-const char *datum_get_oid_string(const struct datum *p) {
-    std::basic_string<uint8_t> s = p->get_bytestring();
-    auto pair = oid_dict.find(s);
-    if (pair == oid_dict.end()) {
-        return oid_empty_string;
-    }
-    return pair->second.c_str();
-}
-
-enum oid datum_get_oid_enum(const struct datum *p) {
-    std::basic_string<uint8_t> s = p->get_bytestring();
-    auto pair = oid_to_enum.find(s);
-    if (pair == oid_to_enum.end()) {
-        return oid::unknown;
-    }
-    return pair->second;
 }
 
 json_object_asn1::json_object_asn1(struct json_array &array) : json_object(array) { }
