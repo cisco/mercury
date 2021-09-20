@@ -215,27 +215,24 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 	$(CC) -Wall -std=c17 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
-libmerc_driver: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
-	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
-	@echo "creating copy of libmerc.so for testing purposes"
-	cp libmerc/libmerc.so libmerc/libmerc.so.alt
+#libmerc_driver: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
+#	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
+#	@echo "creating copy of libmerc.so for testing purposes"
+#	cp libmerc/libmerc.so libmerc/libmerc.so.alt
 
-libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
-	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
-	@echo "creating copy of libmerc.so for testing purposes"
-	cp libmerc/libmerc.so libmerc/libmerc.so.alt
+#libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
+#	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
+#	@echo "creating copy of libmerc.so for testing purposes"
+#	cp libmerc/libmerc.so libmerc/libmerc.so.alt
 
 # special targets
 #
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test libmerc_driver tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-	find -type f -name "*.gcno" -delete
-	find -type f -name "*.gcda" -delete
-	find -type f -name "*.gcov" -delete
 
 .PHONY: libmerc-clean
 libmerc-clean:
@@ -287,6 +284,9 @@ cppcheck: $(MERC)
 .PHONY: test
 test: mercury libmerc_driver
 	cd ../test && $(MAKE)
+
+libmerc_driver:
+	cd ../libmerc_driver && $(MAKE)
 
 major=$(shell cat ../VERSION | grep -o "^[0-9]*")
 minor=$(subst .,,$(shell cat ../VERSION | grep -o "\.[0-9]*\."))

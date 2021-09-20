@@ -1,0 +1,63 @@
+#make file for testing and evaluate coverage for libmerc with libmerc_driver
+
+LIBMERC_FOLDER = ../src/libmerc/
+LIBMERC_SO = $(LIBMERC_FOLDER)libmerc.so
+
+
+CXX     = @CXX@
+CC      = @CC@
+CFLAGS  = --std=c++17
+CFLAGS += -O3
+# CFLAGS += -march=x86-64 -mtune=generic
+CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
+CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
+CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
+CFLAGS += $(OPTFLAGS)
+
+# extra flags
+CFLAGS += -fno-rtti
+CFLAGS += -Wformat
+CLFAGS += -Wformat-security
+CFLAGS += -Wno-deprecated-declarations
+CFLAGS += -Wno-long-long
+CFLAGS += -Wmissing-noreturn
+CFLAGS += -Wunreachable-code
+CFLAGS += -fvisibility=hidden
+CFLAGS += -DNDEBUG
+# CFLAGS += -g
+# CFLAGS += -ggdb
+CFLAGS += -fno-builtin-malloc
+CFLAGS += -fno-builtin-calloc
+CFLAGS += -fno-builtin-realloc
+CFLAGS += -fno-builtin-free
+ifeq ($(CXX),g++)
+CFLAGS += -fno-gnu-unique
+endif
+
+# implicit rules for building object files from .cc files
+%.o: %.cc
+	$(CXX) $(CFLAGS) -c $<
+
+libmerc_driver: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in catch2/catch.hpp
+	$(CXX) $(CFLAGS) libmerc_driver.cc catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
+	@echo "creating copy of libmerc.so for testing purposes"
+	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
+
+libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in catch2/catch.hpp
+	$(CXX) $(CFLAGS) libmerc_driver.cc catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
+	@echo "creating copy of libmerc.so for testing purposes"
+	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
+
+.PHONY: debug-libmerc
+debug-libmerc: 
+	cd ../src && $(MAKE) debug-libmerc
+
+.PHONY: clean
+clean:
+	rm -rf libmerc_driver
+	rm -rf *.json.gz 
+	find -type f -name "*.gcno" -delete
+	find -type f -name "*.gcda" -delete
+	find -type f -name "*.gcov" -delete
+
+# EOF

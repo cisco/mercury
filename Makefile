@@ -134,6 +134,7 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 else
 	cd src && $(MAKE) clean
 	cd test && $(MAKE) clean
+	cd libmerc_driver && $(MAKE) clean
 	rm -rf doc/latex
 endif
 
