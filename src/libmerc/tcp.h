@@ -431,7 +431,7 @@ struct tcp_segment {
                 bytes_needed = tcp_segment::buffer_length - length;
             } else {
                 // packet is longer than buffer; it should be processed immediately
-                fprintf(stderr, "processing immediately as packet is longer than buffer\n");
+                printf_err(log_warning, "processing immediately as packet is longer than buffer\n");
                 return false;
             }
         }
@@ -444,9 +444,9 @@ struct tcp_segment {
         last_byte_needed = length + bytes_needed;
         timestamp = sec;
         if (debug) {
-            fprintf(stderr, "inserted flow key with seq %u and packet length %zu\n", ntohl(tcp->seq), length);
-            fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
-                    __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
+            printf_err(log_debug, "inserted flow key with seq %u and packet length %zu\n", ntohl(tcp->seq), length);
+            printf_err(log_debug, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
+                       __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
         }
 
         const uint8_t *src_start = (const uint8_t*)tcp;
@@ -455,9 +455,8 @@ struct tcp_segment {
         uint32_t copy_len = length;
         memcpy(dst_start, src_start, copy_len);
         if (debug) {
-            fprintf(stderr, "\tcopying %u bytes", copy_len);
-            fprintf(stderr, "\tsegment: [%u,%u]\n", 0, index);
-            //fprintf_json_string_escaped(stderr, "segment", dst_start, copy_len); fprintf(stderr, "\n");
+            printf_err(log_debug, "\tcopying %u bytes", copy_len);
+            printf_err(log_debug, "\tsegment: [%u,%u]\n", 0, index);
         }
         return true;
     }
@@ -466,8 +465,8 @@ struct tcp_segment {
         (void)sec;
 
         if (debug) {
-            fprintf(stderr, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
-                    __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
+            printf_err(log_debug, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
+                       __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
         }
 
         const uint8_t *src_start = (const uint8_t*)tcp;
@@ -477,7 +476,7 @@ struct tcp_segment {
         uint32_t pkt_end   = pkt_start + length;
         if (pkt_start == index) {
             if (debug) {
-                fprintf(stderr, "==");
+                printf_err(log_debug, "==");
             }
 
             if (pkt_end >= last_byte_needed) {
@@ -486,10 +485,9 @@ struct tcp_segment {
                 memcpy(dst_start, src_start, copy_len);
                 index += copy_len;
                 if (debug) {
-                    fprintf(stderr, "\tcopying %u bytes", copy_len);
-                    fprintf(stderr, "\tsegment: [%u,%u]", 0, index);
-                    fprintf(stderr, "\tDONE\n");
-                    //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
+                    printf_err(log_debug, "\tcopying %u bytes", copy_len);
+                    printf_err(log_debug, "\tsegment: [%u,%u]", 0, index);
+                    printf_err(log_debug, "\tDONE\n");
                 }
                 // fprintf(stderr, "reassembled packet\n");
                 // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
@@ -501,8 +499,8 @@ struct tcp_segment {
                 memcpy(dst_start, src_start, copy_len);
                 index += copy_len;
                 if (debug) {
-                    fprintf(stderr, "\tcopying %u bytes", copy_len);
-                    fprintf(stderr, "\tsegment: [%u,%u]\n", 0, index);
+                    printf_err(log_debug, "\tcopying %u bytes", copy_len);
+                    printf_err(log_debug, "\tsegment: [%u,%u]\n", 0, index);
                 }
                 return nullptr;
             }
@@ -515,28 +513,28 @@ struct tcp_segment {
                 memcpy(dst_start, src_start, copy_len);
                 index += copy_len;
                 if (debug) {
-                    fprintf(stderr, "\tcopying %u bytes", copy_len);
-                    fprintf(stderr, "\tsegment: [%u,%u]", 0, index);
-                    fprintf(stderr, "\tDONE\n");
+                    printf_err(log_debug, "\tcopying %u bytes", copy_len);
+                    printf_err(log_debug, "\tsegment: [%u,%u]", 0, index);
+                    printf_err(log_debug, "\tDONE\n");
                     //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
                 }
-                fprintf(stderr, "reassembled packet\n");
-                // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
+                printf_err(log_debug, "reassembled packet\n");
+                // printf_err(log_debug, "reassembled packet age: %u\n", sec - timestamp);
                 return this;
             } else {
-                fprintf(stderr, "pkt_end < last_byte_needed\n");
+                printf_err(log_debug, "pkt_end < last_byte_needed\n");
             }
             if (debug) {
-                fprintf(stderr, ">\n");
+                printf_err(log_debug, ">\n");
             }
 
         } else if (pkt_start > index) { // pkt_start > index
-            //            fprintf(stderr, "pkt_start > index (difference: %u, pkt_start: %u, index: %u)\n", pkt_start - index, pkt_start, index);
+            //            printf_err(log_debug, "pkt_start > index (difference: %u, pkt_start: %u, index: %u)\n", pkt_start - index, pkt_start, index);
         } else {
-            fprintf(stderr, "wtf?\n");
+            printf_err(log_debug, "wtf?\n");
         }
         if (debug) {
-            fprintf(stderr, "\n");
+            printf_err(log_debug, "\n");
         }
         return nullptr;
     }
@@ -563,13 +561,13 @@ struct tcp_reassembler {
     tcp_reassembler(unsigned int size) : segment_table{}, reap_it{segment_table.end()} {
         segment_table.reserve(size);
         reap_it = segment_table.end();
-        // fprintf(stderr, "tcp_reassembler segment_table size: %zu bytes\n", size * sizeof(tcp_segment));
+        // printf_err(log_debug, "tcp_reassembler segment_table size: %zu bytes\n", size * sizeof(tcp_segment));
     }
 
     bool copy_packet(const struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
 
         if (length == 0) {
-            fprintf(stderr, "warning: got length=0 in copy_packet()\n");
+            printf_err(log_debug, "warning: got length=0 in copy_packet()\n");
             //            return;
         }
 
@@ -596,8 +594,8 @@ struct tcp_reassembler {
         // check for expired elements
 
         if (reap_it != segment_table.end() && reap_it->second.is_too_old(sec)) {
-            // fprintf(stderr, "processing expired segment\n");
-            // fprintf(stderr, "processing expired segment (age: %u seconds)\n", sec - reap_it->second.timestamp);
+            // printf_err(log_debug, "processing expired segment\n");
+            // printf_err(log_debug, "processing expired segment (age: %u seconds)\n", sec - reap_it->second.timestamp);
             return reap_it;  // not fully reassembled, but expired
         }
         return segment_table.end();
@@ -620,7 +618,7 @@ struct tcp_reassembler {
     void count_all() {
         auto it = segment_table.begin();
         while (it != segment_table.end()) {
-            fprintf(stderr, "counting segment\n");
+            printf_err(log_debug, "counting segment\n");
             it = segment_table.erase(it);
         }
     }
@@ -642,12 +640,12 @@ struct flow_table {
         if (it != table.end() && (sec - it->second < flow_table::timeout)) {
             it->second = sec;
             reap(sec);
-            //fprintf(stderr, "FLOW OLD\n");
+            //printf_err(log_debug, "FLOW OLD\n");
             return false;
         }
         auto tmp = table.insert({k, sec}).first;
         update_reap_iterator(tmp);
-        //fprintf(stderr, "FLOW NEW\n");
+        //printf_err(log_debug, "FLOW NEW\n");
         return true;
     }
 
@@ -714,7 +712,7 @@ struct flow_table_tcp {
         auto it = table.find(k);
         if (it == table.end()) {
             table.insert({k, {sec, seq}});
-            // fprintf(stderr, "tcp_flow_table size: %zu\n", table.size());
+            // printf_err(log_debug, "tcp_flow_table size: %zu\n", table.size());
         }
     }
 

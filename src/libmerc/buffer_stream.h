@@ -13,6 +13,12 @@
 #include <time.h>
 #include <stdint.h>
 
+#ifdef DONT_USE_STDERR
+#include "libmerc.h"
+#else
+#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 /* append_null(...)
  * This is a special append function because all other append_...() functions
  * leave room for a null in the buffer but don't actually put a null there.
@@ -56,7 +62,7 @@ static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
 
     /* Check for truncation */
     if (r >= dlen - *doff) {
-        fprintf(stderr, "Truncation occurred in substr_snprintf(...). Space available: %d; needed: %d\n",
+        printf_err(log_warning, "Truncation occurred in substr_snprintf(). Space available: %d; needed: %d\n",
                 dlen - *doff, r);
 
         r = (dlen - *doff) - 1;
@@ -741,7 +747,7 @@ struct buffer_stream {
 
         /* Check for truncation */
         if (r >= dlen - doff) {
-            fprintf(stderr, "Truncation occurred in substr_snprintf(...). Space available: %d; needed: %d\n",
+            printf_err(log_warning, "Truncation occurred in substr_snprintf(...). Space available: %d; needed: %d\n",
                     dlen - doff, r);
 
             r = (dlen - doff) - 1;

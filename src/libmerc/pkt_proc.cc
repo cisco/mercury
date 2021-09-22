@@ -615,12 +615,14 @@ using tcp_protocol = std::variant<std::monostate,
                                   unknown_initial_packet
                                   >;
 
-
+// the function enumerate_tcp_protocol_types() prints out the types in
+// the tcp_protocol variant
+//
 template <size_t I = 0>
-void enumerate_tcp_protocol_types() {
+void enumerate_tcp_protocol_types(FILE *f) {
     if constexpr (I < std::variant_size_v<tcp_protocol>) {
         std::variant_alternative_t<I, tcp_protocol> tmp;
-        fprintf(stderr, "I=%zu\n", I);
+        fprintf(f, "I=%zu\n", I);
         enumerate_tcp_protocol_types<I + 1>();
     }
 }

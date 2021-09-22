@@ -58,6 +58,8 @@ CFLAGS += -fno-builtin-realloc
 CFLAGS += -fno-builtin-free
 CFLAGS += -fno-gnu-unique
 
+CFLAGS += -DDONT_USE_STDERR # use printf_err defined in libmerc.cc
+
 CFLAGS += $(OPTFLAGS)
 
 # libmerc.so performs selective packet parsing and fingerprint extraction
@@ -68,7 +70,6 @@ LIBMERC     =  analysis.cc
 LIBMERC     += addr.cc
 LIBMERC     += dns.cc
 LIBMERC     += datum.cc
-LIBMERC     += err.cc
 LIBMERC     += extractor.cc
 LIBMERC     += http.cc
 LIBMERC     += libmerc.cc
@@ -90,7 +91,6 @@ LIBMERC_H   += buffer_stream.h
 LIBMERC_H   += dhcp.h
 LIBMERC_H   += dns.h
 LIBMERC_H   += eth.h
-LIBMERC_H   += err.h
 LIBMERC_H   += extractor.h
 LIBMERC_H   += fingerprint.h
 LIBMERC_H   += http.h
