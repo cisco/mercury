@@ -118,6 +118,10 @@ libs:
 test:
 	cd src && $(MAKE) test
 
+.PHONY: unit_tests
+unit_tests:
+	cd unit_tests && $(MAKE) libmerc_driver
+
 .PHONY: doc
 doc: doc/mercury.pdf
 
@@ -134,7 +138,7 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 else
 	cd src && $(MAKE) clean
 	cd test && $(MAKE) clean
-	cd libmerc_driver && $(MAKE) clean
+	cd unit_tests && $(MAKE) clean
 	rm -rf doc/latex
 endif
 

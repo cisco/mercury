@@ -17,9 +17,9 @@
 #include <array>
 #include <stdexcept>
 
-#include "../src/libmerc/libmerc.h"
-#include "../src/libmerc/pkt_proc.h"
-#include "catch2/catch.hpp"
+#include "libmerc.h"
+#include "pkt_proc.h"
+#include "catch.hpp"
 
 namespace snort {
 #define SO_PUBLIC
