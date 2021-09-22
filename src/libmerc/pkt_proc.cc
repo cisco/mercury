@@ -152,11 +152,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 struct json_object record{&buf};
 
                 if (global_vars.metadata_output) {
-                    std::visit(ip_pkt_write_json{record}, ip_pkt);
+                    // std::visit(ip_pkt_write_json{record}, ip_pkt); // TODO: add ip metadata
                 }
 
                 struct json_object fps{record, "fingerprints"};
-                std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);  // TODO: verify fp format
+                //std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);  // TODO: add ip fingerprints
                 fps.print_key_value("tcp", tcp_pkt);
                 fps.close();
                 if (global_vars.metadata_output) {
