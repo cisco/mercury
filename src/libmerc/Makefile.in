@@ -23,44 +23,8 @@ datarootdir = @datarootdir@/mercury
 # STRIP determines whether or not strip is run on shared object files
 STRIP = strip
 
-# set parameters from configure (autoconf)
-#
-python      = @PY@
-have_py3    = @PYTHON3@
-have_pip3   = @PIP3@
-have_tpkt3  = @HAVE_TPACKET_V3@
-CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
-
-CXX      = @CXX@
-CFLAGS  = --std=c++17
-CFLAGS += -O3
 CFLAGS += -fPIC
-# CFLAGS += -march=x86-64 -mtune=generic
-CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
-CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
-CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
-
-# extra flags
-CFLAGS += -fno-rtti
-CFLAGS += -Wformat
-CLFAGS += -Wformat-security
-CFLAGS += -Wno-deprecated-declarations
-CFLAGS += -Wno-long-long
-CFLAGS += -Wmissing-noreturn
-CFLAGS += -Wunreachable-code
-CFLAGS += -fvisibility=hidden
-CFLAGS += -DNDEBUG
-# CFLAGS += -g
-# CFLAGS += -ggdb
-CFLAGS += -fno-builtin-malloc
-CFLAGS += -fno-builtin-calloc
-CFLAGS += -fno-builtin-realloc
-CFLAGS += -fno-builtin-free
-ifeq ($(CXX),g++)
-CFLAGS += -fno-gnu-unique
-endif
-
-CFLAGS += $(OPTFLAGS)
+unexport
 
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
@@ -221,7 +185,7 @@ endif
 
 .PHONY: clean
 clean:
-	rm -rf libmerc.so libmerc.so.* debug-libmerc.so unstripped-libmerc.so libmerc.a *.o .depend
+	rm -rf libmerc.so libmerc.so.* ../../lib/debug-libmerc.so unstripped-libmerc.so libmerc.a *.o .depend
 	cd asn1 && $(MAKE) clean
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
