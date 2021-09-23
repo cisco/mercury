@@ -127,6 +127,11 @@ struct datum {
             data_end = data;
         }
     }
+    void trim_to_length(size_t length) {
+        if (data && (data + length <= data_end)) {
+            data_end = data + length;
+        }
+    }
     bool case_insensitive_match(const struct datum r) const {
         if (length() != r.length()) {
             return false;

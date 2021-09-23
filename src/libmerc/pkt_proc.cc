@@ -62,9 +62,15 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     // o.b->snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
-static constexpr bool report_GRE = false;
-static constexpr bool report_ICMP = false;
-static constexpr bool report_SYN_ACK = false;
+// constant expression variables that control JSON output; these
+// variables can be used as compile-time options.  In the future, they
+// will probably become run-time options.
+//
+static constexpr bool report_IP       = false;
+static constexpr bool report_GRE      = false;
+static constexpr bool report_ICMP     = false;
+static constexpr bool report_OSPF     = false;
+static constexpr bool report_SYN_ACK  = false;
 
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
                                         size_t buffer_size,
@@ -76,37 +82,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     struct buffer_stream buf{(char *)buffer, buffer_size};
     struct key k;
     struct datum pkt{ip_packet, ip_packet+length};
-    //    size_t transport_proto = 0;
-
-    // ipv4_packet ipv4;
-    // ipv6_packet ipv6;
     ip ip_pkt;
     set_ip_packet(ip_pkt, pkt, k);
     size_t transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
-
-    // size_t ip_version;
-    // if (datum_read_uint(&pkt, 1, &ip_version) == status_err) {
-    //     return 0;
-    // }
-    // ip_version &= 0xf0;
-    // switch(ip_version) {
-    // case 0x40:
-    //     //datum_process_ipv4(&pkt, &transport_proto, &k);
-    //     {
-    //         ipv4.parse(pkt, k);
-    //         transport_proto = ipv4.get_transport_protocol();
-    //     }
-    //     break;
-    // case 0x60:
-    //     //datum_process_ipv6(&pkt, &transport_proto, &k);
-    //     {
-    //         ipv6.parse(pkt, k);
-    //         transport_proto = ipv6.get_transport_protocol();
-    //     }
-    //     break;
-    // default:
-    //     return 0;  // unsupported IP version
-    // }
 
     if (report_ICMP && (transport_proto == 1 || transport_proto == 58)) {
 
@@ -121,8 +99,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         write_flow_key(record, k);
         record.print_key_timestamp("event_start", ts);
         record.close();
-    }
-    if (report_GRE && transport_proto == 47) {
+
+    } else if (report_GRE && transport_proto == 47) {
         gre_header gre{pkt};
         switch(gre.get_protocol_type()) {
         case ETH_TYPE_IP:
@@ -135,8 +113,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             ;
         }
 
-    }
-    if (transport_proto == 6) {
+    } else if (transport_proto == 6) { // TCP
         struct tcp_packet tcp_pkt;
         tcp_pkt.parse(pkt);
         if (tcp_pkt.header == nullptr) {
@@ -151,12 +128,14 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (select_tcp_syn) {
                 struct json_object record{&buf};
 
-                if (global_vars.metadata_output) {
-                    // std::visit(ip_pkt_write_json{record}, ip_pkt); // TODO: add ip metadata
+                if (report_IP && global_vars.metadata_output) {
+                    std::visit(ip_pkt_write_json{record}, ip_pkt);
                 }
 
                 struct json_object fps{record, "fingerprints"};
-                //std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);  // TODO: add ip fingerprints
+                if (report_IP) {
+                    std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);
+                }
                 fps.print_key_value("tcp", tcp_pkt);
                 fps.close();
                 if (global_vars.metadata_output) {
@@ -218,7 +197,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
         }
 
-    } else if (transport_proto == 17) {
+    } else if (transport_proto == 17) { // UDP
         struct udp_packet udp_pkt;
         udp_pkt.parse(pkt);
         udp_pkt.set_key(k);
@@ -346,6 +325,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         case udp_msg_type_unknown:
             if (is_new) {
                 struct json_object record{&buf};
+                // std::visit(ip_pkt_write_json{record}, ip_pkt);
                 struct json_object udp{record, "udp"};
                 udp.print_key_hex("data", pkt);
                 // udp.print_key_json_string("data_string", pkt);
@@ -356,6 +336,15 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
             break;
         }
+    } else if (report_OSPF && transport_proto == 89) { // OSPF
+        struct json_object record{&buf};
+        std::visit(ip_pkt_write_json{record}, ip_pkt);
+        struct json_object ospf_record{record, "ospf"};
+        ospf_record.print_key_hex("data", pkt);
+        ospf_record.close();
+        write_flow_key(record, k);
+        record.print_key_timestamp("event_start", ts);
+        record.close();
     }
 
     if (buf.length() != 0 && buf.trunc == 0) {

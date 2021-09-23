@@ -8,22 +8,25 @@
 
 #include "datum.h"
 #include "json_object.h"
+#include <variant>
 
-// IP (v4 and v6) parsing
+
+// IP (v4 and v6) packet parsing, fingerprinting, and metadata reporting
 //
 
+
+// TTL mask is used to zeroize the low-order bits of the TTL (v4) and
+// Hop Count (v6) field, while creating IP fingerprints
+//
 #define TTL_MASK 0xe0
 
-// IPv6 header length
-#define IPV6_HDR_LENGTH    40
-#define IPV6_EXT_HDR_LEN    8
 
 // IPv4 header (following RFC 791)
 //
 //    0                   1                   2                   3
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//  |Version|  IHL  |Type of Service|          Total Length         |
+//   |Version|  IHL  |Type of Service|          Total Length         |
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //   |         Identification        |Flags|      Fragment Offset    |
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -55,9 +58,7 @@ class ipv4_packet {
 
  public:
 
-    ipv4_packet() : header{NULL} {
-        // defer parsing until later; TODO: clean this up
-    }
+    ipv4_packet() : header{NULL} { }
 
     ipv4_packet(struct datum *p, struct key *k) : header{NULL} {
         parse(*p, *k);
@@ -80,19 +81,10 @@ class ipv4_packet {
         k.protocol = header->prot;
         k.ip_vers = 4;  // ipv4
 
-        // check Total Length field, and trim data from parser if appropriate
-        //
-        datum_set_data_length(&p, ntohs(header->len));
+        p.trim_to_length(ntohs(header->len));
         p.skip(sizeof(struct ipv4_header));
 
         // TODO: parse options
-    }
-
-    void debug_output() {
-        if (header) {
-            fprintf(stderr, "ipv4.ttl: %x (%x)\n", header->ttl, header->ttl & 0xe0);   // TODO: deleteme
-            //fprintf(stderr, "ipv4.id: %zu\n", id);   // TODO: deleteme
-        }
     }
 
     // fingerprinting
@@ -161,7 +153,18 @@ class ipv4_packet {
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //
 //
-// ipv6 extension header format (from RFC 6564)
+
+
+// IPv6 extension header format (from RFC 6564)
+//
+// This format is used for these extensions:
+//
+//   Hop-by-Hop          (https://www.rfc-editor.org/rfc/rfc8200.html#section-4.3)
+//   Routing             (https://www.rfc-editor.org/rfc/rfc8200.html#section-4.4)
+//   Destination Options (https://www.rfc-editor.org/rfc/rfc8200.html#section-4.6)
+//   Mobility            (https://www.rfc-editor.org/rfc/rfc6275.html#section-6.1.1)
+//   HIP (?)             (https://www.rfc-editor.org/rfc/rfc8200.html#section-4.6)
+//   Shim6               (https://www.rfc-editor.org/rfc/rfc5533.html#section-5.2)
 //
 //      0                   1                   2                   3
 //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -189,61 +192,115 @@ class ipv4_packet {
 //
 //
 
-#define L_ipv6_version_tc_hi         1
-#define L_ipv6_tc_lo_flow_label_hi   1
-#define L_ipv6_flow_label_lo         2
-#define L_ipv6_payload_length        2
-#define L_ipv6_next_header           1
-#define L_ipv6_hop_limit             1
-#define L_ipv6_source_address       16
-#define L_ipv6_destination_address  16
-#define L_ipv6_hdr_ext_len           1
-#define L_ipv6_ext_hdr_base          8
+//  Fragment Header (from RFC 2460)
+//
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |  Next Header  |   Reserved    |      Fragment Offset    |Res|M|
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                         Identification                        |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//   Reserved field is set to zero.
+//
 
-class ipv6_extension_header : public datum {
+// Authentication Header (from RFC 4302)
+//
+//     0                   1                   2                   3
+//     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   | Next Header   |  Payload Len  |          RESERVED             |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                 Security Parameters Index (SPI)               |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                    Sequence Number Field                      |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                                                               |
+//   +                Integrity Check Value-ICV (variable)           |
+//   |                                                               |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//   The Payload Len field specifies the length of AH in 4-octet
+//   units, minus "2".  For IPv6, this value must be a multiple of
+//   eight octets.
+
+class ipv6_extension_header {
     uint8_t next_header;
-    uint8_t length;
+    uint8_t hdr_ext_len;
+    datum data;
 
 public:
 
-    // following https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#extension-header
+    // The IPv6 next_header field can hold either an IP protocol
+    // number or an extension header type.  To correctly parse an IPv6
+    // packet, extension headers must be identified so that they can
+    // be processed.  The IANA lists the extension types at
+    // https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#extension-header.
+    // We use that list here, after removing ESP, which is more like a
+    // protocol than an extension.
+    //
+    // Different extension types have different formats
     //
     enum type : uint8_t  {
         hop_by_hop = 0,   // IPv6 Hop-by-Hop Option [RFC8200]
         routing    = 43,  // Routing Header for IPv6 [RFC8200][RFC5095]
         fragment   = 44,  // Fragment Header for IPv6 [RFC8200]
-        esp        = 50,  // Encapsulating Security Payload [RFC4303]
         ah         = 51,  // Authentication Header	[RFC4302]
-        none       = 59,  // No next header [RFC8200]
         dest_opt   = 60,  // Destination Options for IPv6 [RFC8200]
         mobility   = 135, // Mobility Header [RFC6275]
         hip        = 139, // Host Identity Protocol [RFC7401]
         shim6      = 140, // Shim6 Protocol [RFC5533]
         reserved   = 255
     };
-    // 253 = Use for experimentation and testing [RFC3692][RFC4727]
-    // 254 = Use for experimentation and testing [RFC3692][RFC4727]
+    // The type codes that we exclude because they don't really act as
+    // extensions (ESP) or there is no published format (253, 254)
+    // are:
+    //
+    // esp  = 50  Encapsulating Security Payload [RFC4303]
+    // none = 59  No next header [RFC8200]
+    // 253        Use for experimentation and testing [RFC3692][RFC4727]
+    // 254        Use for experimentation and testing [RFC3692][RFC4727]
 
-    ipv6_extension_header() { }
-
-    void parse(struct datum &p) {
-
-        p.read_uint8(&next_header);
-
-        switch(next_header) {
+    static bool is_extension(uint8_t type) {
+        switch (type) {
         case hop_by_hop:
         case routing:
         case fragment:
-        case esp:
         case ah:
         case dest_opt:
         case mobility:
         case hip:
         case shim6:
-            p.read_uint8(&length);
-            datum::parse(p, length*8 - 6); // header-specific data field
+            return true;
             break;
-        case none: // ????
+        case reserved:
+        default:
+            break;
+        }
+        return false;
+    }
+
+    ipv6_extension_header(struct datum &p, uint8_t header) : next_header{type::reserved}, hdr_ext_len{0}, data{} { parse(p, header); }
+
+    void parse(struct datum &p, uint8_t header) {
+
+        p.read_uint8(&next_header);
+
+        switch(header) {
+        case hop_by_hop:
+        case routing:
+        case dest_opt:
+        case mobility:
+        case hip:
+        case shim6:
+            p.read_uint8(&hdr_ext_len);
+            data.parse(p, hdr_ext_len*8 + 6);
+            break;
+        case fragment:
+            data.parse(p, 7);
+            break;
+        case ah:
+            p.read_uint8(&hdr_ext_len);
+            data.parse(p, hdr_ext_len*4 + 6);
             break;
         case reserved:
         default:
@@ -253,36 +310,18 @@ public:
 
     uint8_t get_next_header() const { return next_header; }
 
-    static bool is_extension(uint8_t type) {
-        switch (type) {
-        case hop_by_hop:
-        case routing:
-        case fragment:
-        case esp:
-        case ah:
-        case dest_opt:
-        case mobility:
-        case hip:
-        case shim6:
-            return true;
-            break;
-        case none: // ????
-        case reserved:
-        default:
-            break;
-        }
-        return false;
+    void debug_output(FILE *f) {
+        fprintf(f, "(nh: %u, l: %u, d.length(): %zd)", next_header, hdr_ext_len, data.length());
     }
-
 };
 
 struct ipv6_header {
     uint8_t bytes[4];
-    unsigned short  len;      /* payload length         */
-    unsigned char   nxh;      /* next header            */
-    unsigned char   ttl;      /* hop limit (time to live) */
-    ipv6_address    src_addr; /* source address         */
-    ipv6_address    dst_addr; /* destination address    */
+    unsigned short  len;      // payload length
+    unsigned char   nxh;      // next header
+    unsigned char   ttl;      // hop limit (time to live)
+    ipv6_address    src_addr; // source address
+    ipv6_address    dst_addr; // destination address
 
     uint8_t version() const {
         return bytes[0] & 0xf0;
@@ -301,23 +340,19 @@ struct ipv6_header {
 
 class ipv6_packet {
     const struct ipv6_header *header;
+    datum extension_headers;
     uint8_t transport_protocol;
 
 public:
 
-    ipv6_packet() : header{NULL}, transport_protocol{255} {
-        // defer parsing until later; TODO: clean this up
-    }
+    ipv6_packet() : header{NULL}, transport_protocol{ipv6_extension_header::type::reserved} { }
 
-    ipv6_packet(struct datum *p, struct key *k) : header{NULL}, transport_protocol{255} {
+    ipv6_packet(struct datum *p, struct key *k) : header{NULL}, extension_headers{}, transport_protocol{ipv6_extension_header::type::reserved} {
         parse(*p, *k);
     }
 
     uint8_t get_transport_protocol() const {
-        if (header) {
-            return header->nxh;
-        }
-        return ipv6_extension_header::type::reserved; // indicate error by returning reserved value
+        return transport_protocol;
     }
 
     void parse(struct datum &p, struct key &k) {
@@ -327,37 +362,26 @@ public:
         header = (const struct ipv6_header *)p.data;
         k.addr.ipv6.src = header->src_addr;
         k.addr.ipv6.dst = header->dst_addr;
-        k.ip_vers = 6;  // ipv4
+        k.ip_vers = 6;  // ipv6
+
         p.skip(sizeof(struct ipv6_header));
+        p.trim_to_length(ntohs(header->len));
 
-        // check payload length field, and trim data from parser if appropriate
-        //
-        datum_set_data_length(&p, ntohs(header->len));
-
-        //        fprintf(stderr, "nh: ");
+        extension_headers.data = p.data; // remember start of extension headers
 
         // loop over extensions headers until we find an upper layer protocol
         //
         uint8_t next_header = header->nxh;
         while (p.length() > 0) {
-            //fprintf(stderr, "%u:", next_header);
             if (!ipv6_extension_header::is_extension(next_header)) {
                 break;
             }
-            class ipv6_extension_header ext_hdr;
-            ext_hdr.parse(p);
+            class ipv6_extension_header ext_hdr{p, next_header};
             next_header = ext_hdr.get_next_header();
         }
         k.protocol = transport_protocol = next_header;
 
-        // fprintf(stderr, "\n");
-        //        fprintf(stderr, "ipv6.transport_protcol: %u\n", transport_protocol);
-    }
-
-    void debug_output() {
-        if (header) {
-            fprintf(stderr, "ipv6.ttl: %x (%x)\n", header->ttl, header->ttl & 0xe0);   // TODO: deleteme
-        }
+        extension_headers.data_end = p.data; // set end of extension headers
     }
 
     // fingerprinting
@@ -399,14 +423,15 @@ public:
             json_ip.print_key_uint("version", header->version() >> 4);
             json_ip.print_key_uint("ttl", header->ttl);
             json_ip.print_key_uint("id", header->flow_label());
+            if (extension_headers.length() > 0) {
+                json_ip.print_key_hex("extensions", extension_headers);
+            }
             json_ip.close();
         }
     }
 
 };
 
-
-#include <variant>
 
 using ip = std::variant<std::monostate, ipv4_packet, ipv6_packet>;
 
@@ -442,7 +467,7 @@ struct get_transport_protocol {
     }
 
     uint8_t operator()(std::monostate &) {
-        return 255;  // reserved, meaning 'none'
+        return ipv6_extension_header::type::reserved;  // no transport protocol
     }
 };
 
