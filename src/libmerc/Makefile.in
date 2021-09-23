@@ -1,6 +1,8 @@
 # makefile for mercury fast fingerprint / packet metadata capture program
 #
 
+include ../../Makefile_helper.mk
+
 LIBMERC_SONUMBER = 0
 LIBMERC_SONAME = libmerc.so.$(LIBMERC_SONUMBER)
 
@@ -24,7 +26,6 @@ datarootdir = @datarootdir@/mercury
 STRIP = strip
 
 CFLAGS += -fPIC
-unexport
 
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,

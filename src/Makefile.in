@@ -30,7 +30,7 @@ have_pip3   = @PIP3@
 have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
-export
+include ../Makefile_helper.mk
 
 # MERC and MERC_H hold the core source and header files, respectively
 #

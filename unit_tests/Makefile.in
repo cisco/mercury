@@ -1,19 +1,26 @@
 #make file for testing and evaluate coverage for libmerc with libmerc_driver
 
+include ../Makefile_helper.mk
+
 LIBMERC_FOLDER = ../src/libmerc/
 LIBMERC_SO = $(LIBMERC_FOLDER)libmerc.so
+
+UNIT_TESTS = catch2main.cc
+UNIT_TESTS += libmerc_driver.cc
+
+UNIT_TESTS_H = catch.hpp
 
 # implicit rules for building object files from .cc files
 %.o: %.cc
 	$(CXX) $(CFLAGS) -c $<
 
-libmerc_driver: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in catch.hpp
-	$(CXX) $(CFLAGS) -I../src/libmerc libmerc_driver.cc catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
+libmerc_driver: debug-libmerc $(UNIT_TESTS) $(LIBMERC_SO) Makefile.in $(UNIT_TESTS_H)
+	$(CXX) $(CFLAGS) -I../src/libmerc $(UNIT_TESTS) -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 
-libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in catch.hpp
-	$(CXX) $(CFLAGS) libmerc_driver.cc catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
+libmerc_driver_coverage: debug-libmerc $(UNIT_TESTS) $(LIBMERC_SO) Makefile.in $(UNIT_TESTS_H)
+	$(CXX) $(CFLAGS) $(UNIT_TESTS) -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 
