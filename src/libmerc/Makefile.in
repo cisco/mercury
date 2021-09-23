@@ -185,7 +185,7 @@ endif
 
 .PHONY: clean
 clean:
-	rm -rf libmerc.so libmerc.so.* ../../lib/debug-libmerc.so unstripped-libmerc.so libmerc.a *.o .depend
+	rm -rf libmerc.so libmerc.so.* ../../lib/debug-libmerc.so unstripped-libmerc.so libmerc.a *.o .depend cppclean_report.txt
 	cd asn1 && $(MAKE) clean
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
@@ -207,6 +207,13 @@ cppcheck: $(MERC) $(LIBMERC)
 .PHONY: test
 test: mercury
 	cd ../test && $(MAKE)
+
+.PHONY: cppclean_check
+cppclean_check:
+	rm -rf cppclean_report.txt
+	#if statement provided to avoid makefile fault because of cppclean disability to parse tcp.h and rapidjson/document.h files
+	#to install ccppclean use command "pip install --upgrade cppclean"
+	for F in $(LIBMERC) $(LIBMERC_H); do if cppclean "$$F" >> cppclean_report.txt; then : ; fi; done
 
 major=$(shell cat ../../VERSION | grep -o "^[0-9]*")
 minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
