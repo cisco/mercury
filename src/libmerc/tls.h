@@ -183,6 +183,21 @@ struct tls_record {
         }
         return true;
     }
+
+    size_t packet_metadata_length() const {
+        if (!is_valid()) {
+            return 0;
+        }
+        switch ((tls_content_type)content_type) {
+        case tls_content_type::alert:
+        case tls_content_type::handshake:
+            return length;
+            break;
+        default:
+            return sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint16_t);
+        }
+    }
+
 };
 
 enum class handshake_type : uint8_t {
