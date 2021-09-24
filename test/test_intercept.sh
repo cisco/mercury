@@ -4,6 +4,13 @@
 #
 # tests the intercept.so library
 
+retain=0
+if [ $# -eq 1 ]; then
+    if [ $1 == "--retain" ]; then
+        retain=1
+    fi
+fi
+
 echo "testing intercept.so library for plaintext interception"
 
 # set up shell variables, and change working directory
@@ -39,7 +46,12 @@ echo "intercept JSON output is valid"
 
 cd ..
 
-# note: we could retain the tmpdir/ directory, but for now we remove it
-rm -rf tmpdir/
+# remove or retain the tmpdir/ directory, based on command line option
+#
+if [ $retain == "1" ]; then
+    echo "retaining files"
+else
+    rm -rf tmpdir/
+fi
 
 # EOF
