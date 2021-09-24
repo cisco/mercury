@@ -1,11 +1,6 @@
 # Makefile for mercury
 #
-
-# definitions for colorized output
-COLOR_RED    = "\033[0;31m"
-COLOR_GREEN  = "\033[0;32m"
-COLOR_YELLOW = "\033[0;33m"
-COLOR_OFF    = "\033[0m"
+include Makefile_helper.mk
 
 INSTALL = /usr/bin/install -c
 INSTALLDATA = /usr/bin/install -c -m 644
@@ -118,6 +113,10 @@ libs:
 test:
 	cd src && $(MAKE) test
 
+.PHONY: unit_tests
+unit_tests:
+	cd unit_tests && $(MAKE) libmerc_driver
+
 .PHONY: doc
 doc: doc/mercury.pdf
 
@@ -134,6 +133,7 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 else
 	cd src && $(MAKE) clean
 	cd test && $(MAKE) clean
+	cd unit_tests && $(MAKE) clean
 	rm -rf doc/latex
 endif
 
