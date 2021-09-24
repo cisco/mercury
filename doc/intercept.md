@@ -16,7 +16,7 @@ To build interceptor:
 
    4.  In the src/ subdirectory, run 'make intercept.so'
 
-      5.  Copy intercept.so to some location where it is globally accessible, like /usr/local/lib/.
+   5.  Copy intercept.so to some location where it is globally accessible, like /usr/local/lib/.
 
 ## Running
 
