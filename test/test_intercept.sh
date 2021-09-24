@@ -21,6 +21,13 @@ mkdir $intercept_dir
 echo "using output directory $intercept_dir"
 cd $intercept_dir
 
+# verify that library is present
+#
+if [ ! -f $LD_PRELOAD ]; then
+    echo "error: file $LD_PRELOAD not found"
+    exit
+fi
+
 sites=(accounts.google.com amazon.com apple.com bbc.com bp.blogspot.com cloudflare.com cnn.com creativecommons.org developers.google.com docs.google.com drive.google.com dropbox.com en.wikipedia.org es.wikipedia.org europa.eu facebook.com fr.wikipedia.org github.com google.de googleusercontent.com gstatic.com issuu.com istockphoto.com line.me linkedin.com mail.google.com maps.google.com mozilla.org myspace.com netvibes.com paypal.com play.google.com plus.google.com Root Domain sites.google.com support.google.com t.me uol.com.br vimeo.com vk.com whatsapp.com who.int wordpress.org www.blogger.com www.google.com www.yahoo.com youtu.be youtube.com)
 
 # start interception by exporting variables
