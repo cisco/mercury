@@ -69,6 +69,8 @@
 #include <errno.h>
 #include <dlfcn.h>
 #include <dirent.h>
+#include <syslog.h>
+#include <semaphore.h>
 #include <sys/file.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -146,7 +148,7 @@ void print_cmd(int pid) {
      }
 }
 
-void get_cmd(int pid, char *cmd, size_t cmd_len) {
+size_t get_cmd(int pid, char *cmd, size_t cmd_len) {
     char filename[FILENAME_MAX];
     int retval = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
     if (retval < 0) {
@@ -159,10 +161,11 @@ void get_cmd(int pid, char *cmd, size_t cmd_len) {
     // read command associated with process from /proc filesystem
     //
     FILE *cmd_file = fopen(filename, "r");
+    size_t bytes_read;
     if (cmd_file) {
         // read command line from /proc filesystem, reserving last byte for null terminator
         //
-        size_t bytes_read = fread(cmd, 1, cmd_len-1, cmd_file);
+        bytes_read = fread(cmd, 1, cmd_len-1, cmd_file);
         fclose(cmd_file);
         if (bytes_read > cmd_len) {  // this should never happen
             fprintf(stderr, YELLOW(tty, "warning: intercepter command line truncated\n"));
@@ -184,6 +187,7 @@ void get_cmd(int pid, char *cmd, size_t cmd_len) {
         }
         cmd[last_null] = '\0';  // avoid trailing space
     }
+    return bytes_read - 1;
 }
 
 #include <sys/stat.h>
@@ -508,37 +512,24 @@ struct http_request_x : public http_request {
     }
 };
 
-// class intercept controls the behavior of this program; you can
-// define totally new behavior by defining a class that inherits from
-// this one
+// class output is responsible for data output - its interface
+// abstracts away the details of where data goes and how it gets there
 //
 
-#include <syslog.h>
-#include <semaphore.h>
+struct output {
+    virtual void write_buffer(struct buffer_stream &buf) = 0;
+    virtual ~output() {};
+};
 
-class intercept {
-    int pid, ppid;
+
+class file_output : public output {
     FILE *outfile = nullptr;
     sem_t *outfile_sem = nullptr;
     static constexpr size_t buffer_length = 8*1024;
-    const char *INTERCEPT_DIR = nullptr;   // TODO: merge with ENV_INTERCEPT_DIR
-    char cmd[256];
-    char pcmd[256];
 
 public:
 
-    // data_level is an enumeration that specifies the amount of data
-    // to be reported in output
-    //
-    enum data_level { minimal_data = 0, full_data=1 };
-
-    enum data_level output_level = minimal_data;
-
-    intercept() : pid{getpid()}, ppid{getppid()} {
-
-        if (verbose) { fprintf(stderr, GREEN(tty, "%s\n"), __func__); }
-
-        // fprintf(stderr, GREEN(tty, "intercepter build %s\t%s\n"), __DATE__, __TIME__);
+    file_output() {
 
         //  use a named semaphore to ensure that writes to outfile are
         //  not overlapping
@@ -550,11 +541,6 @@ public:
         if ((outfile_sem = sem_open ("/intercept", O_CREAT, 0666, 1)) == SEM_FAILED) {
             perror ("intercept: sem_open()");
             exit(EXIT_FAILURE);
-        }
-
-        const char *intercept_output_level = getenv("intercept_output_level");
-        if (intercept_output_level && strcmp(intercept_output_level, "full") == 0) {
-            output_level = full_data;
         }
 
         std::string outfile_name = "/usr/local/var/intercept/";  // default directory
@@ -584,6 +570,90 @@ public:
             exit(EXIT_FAILURE);
         }
 
+    }
+
+    ~file_output() {
+        if (outfile) {
+            fclose(outfile);
+        }
+        if (outfile_sem != SEM_FAILED) {
+            sem_close(outfile_sem);
+        }
+        // closelog();
+    }
+
+    void write_buffer(struct buffer_stream &buf) {
+
+        // POSIX semaphores for file locking
+        //
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += 1;
+        if (sem_timedwait(outfile_sem, &ts) == -1) {   // use timedwait for resiliency
+            perror ("intercept: sem_wait()");
+
+            // failsafe: to recover from situations in which the
+            // semaphore is not being released for whatever reason,
+            // delete the semaphore and then create a new one
+            //
+            unlink("/dev/shm/sem.intercept");
+            if ((outfile_sem = sem_open ("/intercept", O_CREAT, 0666, 1)) == SEM_FAILED) {
+                perror ("intercept: sem_open()");
+                exit(EXIT_FAILURE);
+            }
+        }
+        // fprintf(stderr, GREEN(tty, "pid %d acquired semaphore\n"), pid);
+
+        fseek(outfile, 0, SEEK_END); // move to end of file
+        if (buf.write_line(outfile) < 0) {
+            perror ("intercept: write()");
+            exit(EXIT_FAILURE);
+        }
+
+        // fprintf(stderr, GREEN(tty, "pid %d releasing semaphore\n"), pid);
+        if (sem_post(outfile_sem) == -1) {
+            perror ("intercept: sem_post()");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+};
+
+// class intercept controls the behavior of this program; you can
+// define totally new behavior by defining a class that inherits from
+// this one
+//
+
+class intercept {
+    int pid, ppid;
+    file_output out;
+    static constexpr size_t buffer_length = 8*1024;
+    const char *INTERCEPT_DIR = nullptr;   // TODO: merge with ENV_INTERCEPT_DIR
+    char cmd[256];
+    size_t cmd_len = 0;
+    char pcmd[256];
+    size_t pcmd_len = 0;
+
+public:
+
+    // data_level is an enumeration that specifies the amount of data
+    // to be reported in output
+    //
+    enum data_level { minimal_data = 0, full_data=1 };
+
+    enum data_level output_level = minimal_data;
+
+    intercept() : pid{getpid()}, ppid{getppid()}, out{} {
+
+        if (verbose) { fprintf(stderr, GREEN(tty, "%s\n"), __func__); }
+
+        // fprintf(stderr, GREEN(tty, "intercepter build %s\t%s\n"), __DATE__, __TIME__);
+
+        const char *intercept_output_level = getenv("intercept_output_level");
+        if (intercept_output_level && strcmp(intercept_output_level, "full") == 0) {
+            output_level = full_data;
+        }
+
         // fprintf(stderr, BLUE(tty, "%s\n"), __func__);
         // openlog ("intercept", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
         // syslog(LOG_INFO, "pid: %d", pid);
@@ -591,8 +661,8 @@ public:
 
         // set cmd and pcmd
         //
-        get_cmd(pid, cmd, sizeof(cmd));
-        get_cmd(ppid, pcmd, sizeof(pcmd));
+        cmd_len = get_cmd(pid, cmd, sizeof(cmd));
+        pcmd_len = get_cmd(ppid, pcmd, sizeof(pcmd));
 
         char buffer[buffer_length];
         struct buffer_stream buf(buffer, sizeof(buffer));
@@ -605,19 +675,12 @@ public:
         record.print_key_timestamp("event_start", &ts);
 
         record.close();
-        write_buffer_to_file(buf, outfile);
+        // write_buffer_to_file(buf, outfile);
+        out.write_buffer(buf);
 
     }
 
-    ~intercept() {
-        if (outfile) {
-            fclose(outfile);
-        }
-        if (outfile_sem != SEM_FAILED) {
-            sem_close(outfile_sem);
-        }
-        // closelog();
-    }
+    ~intercept() { }
 
     // write_process_info() writes information about the current
     // process to a json object with the following keys:
@@ -630,9 +693,9 @@ public:
     void write_process_info(struct json_object &record, data_level level) {
         record.print_key_uint16("pid", pid);
         if (level) {
-            record.print_key_string("cmd", cmd);
+            record.print_key_json_string("cmd", (uint8_t *)cmd, cmd_len);
             record.print_key_uint16("ppid", ppid);
-            record.print_key_string("pcmd", pcmd);
+            record.print_key_json_string("pcmd", (uint8_t *)pcmd, pcmd_len);
         }
     }
 
@@ -669,7 +732,7 @@ public:
             record.print_key_timestamp("event_start", &ts);
 
             record.close();
-            write_buffer_to_file(buf, outfile);
+            out.write_buffer(buf);
 
         } else if (process_http2_frames) {
 
@@ -702,7 +765,7 @@ public:
                 record.print_key_timestamp("event_start", &ts);
 
                 record.close();
-                write_buffer_to_file(buf, outfile);
+                out.write_buffer(buf);
             }
 
         }
@@ -729,47 +792,16 @@ public:
 
         // write dns info into record
         json_object dns_object{record, "dns"};
-        dns_object.print_key_string("name", dns_name);
-        //dns_object.print_key_string("service", service);
+        dns_object.print_key_json_string("name", (uint8_t *)dns_name, strlen(dns_name));
+        //dns_object.print_key_json_string("service", service);
         dns_object.close();
         record.close();
-        write_buffer_to_file(buf, outfile);
+        out.write_buffer(buf);
 
     }
 
-    void write_buffer_to_file(struct buffer_stream &buf, FILE *outfile) {
-
 #if 0
-        int outfile_fd = fileno(outfile);
-
-        // obtain advisory lock on output file that will not be
-        // inherited across fork() and exec()
-        //
-        struct flock outfile_lock = { F_WRLCK, SEEK_SET, 0, 0, 0 };
-        if (fcntl(outfile_fd, F_SETLKW, &outfile_lock) != 0) {
-            fprintf(stderr, "error: could not lock output file (%s)\n", strerror(errno));
-            return;
-        }
-        fseek(outfile, 0, SEEK_END); // move to end of file
-        buf.write_line(outfile);
-        struct flock outfile_unlock = { F_UNLCK, SEEK_SET, 0, 0, 0 };
-        if (fcntl(outfile_fd, F_SETLKW, &outfile_unlock) != 0) {
-            fprintf(stderr, "error: could not unlock output file (%s)\n", strerror(errno));
-        }
-
-#elif 0
-
-        // BSD (flock) style advisory file locking
-        //
-        int outfile_fd = fileno(outfile);
-        if (flock(outfile_fd, LOCK_EX) != 0) {
-            fprintf(stderr, "error: could not flock() file (%s)\n", strerror(errno));
-        }
-        fseek(outfile, 0, SEEK_END); // move to end of file
-        buf.write_line(outfile);
-        flock(outfile_fd, LOCK_UN);
-
-#else
+    void write_buffer_to_file(struct buffer_stream &buf, FILE *outfile) {
 
         // POSIX semaphores for file locking
         //
@@ -802,10 +834,8 @@ public:
             perror ("intercept: sem_post()");
             exit(EXIT_FAILURE);
         }
-
-#endif
     }
-
+#endif
     void write_data_to_file(const void *buffer, ssize_t bytes, int fd=0) {
 
         // sanity check
@@ -915,7 +945,7 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             fp.write(record);
             hello.write_json(record, true);
             record.close();
-            write_buffer_to_file(buf, outfile);
+            out.write_buffer(buf);
         }
     }
 }
