@@ -90,8 +90,8 @@ endif
 
 .PHONY: libmerc_driver
 libmerc_driver:
-	@echo "running unit tests from libmerc_driver"
-	cd ./../src/; ./libmerc_driver -s
+	@echo "running unit tests"
+	cd ../unit_tests/; ./libmerc_driver -s
 
 .PHONY: json-validity-test
 json-validity-test:

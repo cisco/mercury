@@ -1,11 +1,6 @@
 # makefile for mercury fast fingerprint / packet metadata capture program
 #
 
-# definitions for colorized output
-COLOR_RED    = "\033[0;31m"
-COLOR_GREEN  = "\033[0;32m"
-COLOR_YELLOW = "\033[0;33m"
-COLOR_OFF    = "\033[0m"
 
 SHELL = /bin/sh
 
@@ -35,35 +30,7 @@ have_pip3   = @PIP3@
 have_tpkt3  = @HAVE_TPACKET_V3@
 CDEFS       = $(filter -DHAVE_PYTHON3=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
-CXX     = @CXX@
-CC      = @CC@
-CFLAGS  = --std=c++17
-CFLAGS += -O3
-# CFLAGS += -march=x86-64 -mtune=generic
-CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
-CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
-CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
-CFLAGS += $(OPTFLAGS)
-
-# extra flags
-CFLAGS += -fno-rtti
-CFLAGS += -Wformat
-CLFAGS += -Wformat-security
-CFLAGS += -Wno-deprecated-declarations
-CFLAGS += -Wno-long-long
-CFLAGS += -Wmissing-noreturn
-CFLAGS += -Wunreachable-code
-CFLAGS += -fvisibility=hidden
-CFLAGS += -DNDEBUG
-# CFLAGS += -g
-# CFLAGS += -ggdb
-CFLAGS += -fno-builtin-malloc
-CFLAGS += -fno-builtin-calloc
-CFLAGS += -fno-builtin-realloc
-CFLAGS += -fno-builtin-free
-ifeq ($(CXX),g++)
-CFLAGS += -fno-gnu-unique
-endif
+include ../Makefile_helper.mk
 
 # MERC and MERC_H hold the core source and header files, respectively
 #
@@ -215,27 +182,22 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 	$(CC) -Wall -std=c17 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
-libmerc_driver: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
-	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
-	@echo "creating copy of libmerc.so for testing purposes"
-	cp libmerc/libmerc.so libmerc/libmerc.so.alt
+libmerc_driver:
+	cd ../unit_tests; $(MAKE) libmerc_driver
 
-libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
-	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
-	@echo "creating copy of libmerc.so for testing purposes"
-	cp libmerc/libmerc.so libmerc/libmerc.so.alt
+#libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
+#	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
+#	@echo "creating copy of libmerc.so for testing purposes"
+#	cp libmerc/libmerc.so libmerc/libmerc.so.alt
 
 # special targets
 #
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test libmerc_driver tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test tls_scanner cert_analyze os_identifier archive_reader batch_gcd string gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-	find -type f -name "*.gcno" -delete
-	find -type f -name "*.gcda" -delete
-	find -type f -name "*.gcov" -delete
 
 .PHONY: libmerc-clean
 libmerc-clean:

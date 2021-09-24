@@ -17,9 +17,9 @@
 #include <array>
 #include <stdexcept>
 
-#include "libmerc/libmerc.h"
-#include "libmerc/pkt_proc.h"
-#include "libmerc/catch2/catch.hpp"
+#include "libmerc.h"
+#include "pkt_proc.h"
+#include "catch.hpp"
 
 namespace snort {
 #define SO_PUBLIC
@@ -191,7 +191,9 @@ unsigned char unlabeled_data[] = {
 typedef void (*dummy_func)();
 
 int verbosity = 0;
-std::string default_resources_path = "../resources/resources.tgz";
+char * default_resources_path = "../resources/resources.tgz";
+
+const char * path_to_libmerc_library = "../src/libmerc/libmerc.so";
 
 struct libmerc_api {
 
@@ -351,7 +353,7 @@ struct packet_processor_state {
 
 mercury_context initialize_mercury(libmerc_config& config) {
     // bind libmerc
-    libmerc_api mercury("./libmerc/libmerc.so");
+    libmerc_api mercury(path_to_libmerc_library);
     
     // init mercury
     mercury_context mc = mercury.init(&config, verbosity);
@@ -359,12 +361,57 @@ mercury_context initialize_mercury(libmerc_config& config) {
     return mc;
 }
 
-libmerc_config create_config() {
-    libmerc_config config{};
-    config.do_analysis = true;
-    config.do_stats = true;
-    config.resources = (char*) default_resources_path.c_str();      
+libmerc_config create_config(bool dns_json_output = false,
+                             bool certs_json_output = false,
+                             bool metadata_output = false,
+                             bool do_analysis = true,
+                             bool do_stats = true,
+                             bool report_os = false,
+                             bool output_tcp_initial_data = false,
+                             bool output_udp_initial_data = false,
+                             char *resources = default_resources_path,
+                             const uint8_t * enc_key = NULL,
+                             enc_key_type key_type = enc_key_type_none,
+                             char *packet_filter_cfg = NULL,
+                             float fp_proc_threshold = 0.0,
+                             float proc_dst_threshold = 0.0,
+                             size_t max_stats_entries = 0) 
+{
+    libmerc_config config{};     
+    
+    config.dns_json_output = dns_json_output;
+    config.do_analysis = do_analysis;
+    config.do_stats = do_stats;
+    config.enc_key = enc_key;
+    config.fp_proc_threshold = fp_proc_threshold;
+    config.key_type = key_type;
+    config.max_stats_entries = max_stats_entries;
+    config.metadata_output = metadata_output;
+    config.output_tcp_initial_data = output_tcp_initial_data;
+    config.output_udp_initial_data = output_udp_initial_data;
+    config.packet_filter_cfg = packet_filter_cfg;
+    config.proc_dst_threshold = proc_dst_threshold;
+    config.report_os = report_os;
+    config.resources = resources;
     return config;
+}
+
+void check_global_configuraton(mercury_context &mc, libmerc_config &config) {
+    //check correctness of config set
+    CHECK(mc->global_vars.dns_json_output == config.dns_json_output);
+    CHECK(mc->global_vars.do_analysis == config.do_analysis);
+    CHECK(mc->global_vars.do_stats == config.do_stats);
+    CHECK(mc->global_vars.enc_key == config.enc_key);
+    CHECK(mc->global_vars.fp_proc_threshold == config.fp_proc_threshold);
+    CHECK(mc->global_vars.key_type == config.key_type);
+    CHECK(mc->global_vars.max_stats_entries == config.max_stats_entries);
+    CHECK(mc->global_vars.metadata_output == config.metadata_output);
+    CHECK(mc->global_vars.output_tcp_initial_data == config.output_tcp_initial_data);
+    CHECK(mc->global_vars.output_udp_initial_data == config.output_udp_initial_data);
+    CHECK(mc->global_vars.packet_filter_cfg == config.packet_filter_cfg);
+    CHECK(mc->global_vars.proc_dst_threshold == config.proc_dst_threshold);
+    CHECK(mc->global_vars.report_os == config.report_os);
+    CHECK(mc->global_vars.resources == config.resources);
 }
 
 void *packet_processor(void *arg) {
@@ -425,7 +472,7 @@ int test_libmerc(const struct libmerc_config *config, int verbosity, bool fail=f
         fprintf(stderr, "loop: %d\n", i);
 
         // bind libmerc
-        libmerc_api mercury("./libmerc/libmerc.so");
+        libmerc_api mercury("../src/libmerc/libmerc.so");
 
         // init mercury
         mercury_context mc = mercury.init(config, verbosity);
@@ -488,7 +535,7 @@ int double_bind_test(const struct libmerc_config *config, const struct libmerc_c
         fprintf(stderr, "loop: %d\n", i);
 
         // bind libmerc
-        libmerc_api mercury("./libmerc/libmerc.so");
+        libmerc_api mercury("../src/libmerc/libmerc.so");
 
         // init mercury
         mercury_context mc = mercury.init(config, verbosity);
@@ -498,7 +545,7 @@ int double_bind_test(const struct libmerc_config *config, const struct libmerc_c
         }
 
         // bind and init second mercury library
-        struct libmerc_api mercury_alt("./libmerc/libmerc.so.alt");
+        struct libmerc_api mercury_alt("../src/libmerc/libmerc.so.alt");
         mercury_context mc_alt = mercury_alt.init(config2, verbosity);
         if (mc_alt == nullptr) {
             fprintf(stderr, "error: mercury_init() returned null in second init\n");
@@ -577,6 +624,8 @@ TEST_CASE("flow_test") {
     REQUIRE_FALSE(retval);
 }
 
+
+
 //TODO: make a scenario
 TEST_CASE("check_global_vars_configuration") {
     libmerc_config config = create_config();
@@ -585,21 +634,8 @@ TEST_CASE("check_global_vars_configuration") {
     mercury_context mc = initialize_mercury(config);
     REQUIRE(mc != nullptr);
 
-    //check correctness of config set
-    CHECK(mc->global_vars.dns_json_output == config.dns_json_output);
-    CHECK(mc->global_vars.do_analysis == config.do_analysis);
-    CHECK(mc->global_vars.do_stats == config.do_stats);
-    CHECK(mc->global_vars.enc_key == config.enc_key);
-    CHECK(mc->global_vars.fp_proc_threshold == config.fp_proc_threshold);
-    CHECK(mc->global_vars.key_type == config.key_type);
-    CHECK(mc->global_vars.max_stats_entries == config.max_stats_entries);
-    CHECK(mc->global_vars.metadata_output == config.metadata_output);
-    CHECK(mc->global_vars.output_tcp_initial_data == config.output_tcp_initial_data);
-    CHECK(mc->global_vars.output_udp_initial_data == config.output_udp_initial_data);
-    CHECK(mc->global_vars.packet_filter_cfg == config.packet_filter_cfg);
-    CHECK(mc->global_vars.proc_dst_threshold == config.proc_dst_threshold);
-    CHECK(mc->global_vars.report_os == config.report_os);
-    CHECK(mc->global_vars.resources == config.resources);
+    check_global_configuraton(mc, config);
+
 
 }
 
