@@ -516,9 +516,26 @@ struct http_request_x : public http_request {
 // abstracts away the details of where data goes and how it gets there
 //
 
-struct output {
+class output {
+public:
     virtual void write_buffer(struct buffer_stream &buf) = 0;
     virtual ~output() {};
+
+    enum type { unknown=0, file, log };
+
+    static enum output::type get_type(const char *type_string) {
+        if (type_string == nullptr) {
+            return output::type::unknown;
+        }
+        std::string s{type_string};
+        if (s.compare("file") == 0) {
+            return output::type::file;
+        }
+        if (s.compare("log") == 0) {
+            return output::type::log;
+        }
+        return output::type::unknown;
+    }
 };
 
 
@@ -619,14 +636,32 @@ public:
 
 };
 
-// class intercept controls the behavior of this program; you can
+struct syslog_output : public output {
+
+    syslog_output() {
+        openlog("intercept", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+    }
+    void write_buffer(struct buffer_stream &buf) {
+        // buf.write_char('\n');
+        buf.write_char('\0');
+        syslog(LOG_INFO, "%s", buf.dstr);
+    };
+
+    ~syslog_output() {
+        closelog();
+    }
+};
+
+
+
+// class intercept controls the behavior of this library; you can
 // define totally new behavior by defining a class that inherits from
-// this one
+// this one and overrides one or more member functions
 //
 
 class intercept {
     int pid, ppid;
-    file_output out;
+    output *out;
     static constexpr size_t buffer_length = 8*1024;
     const char *INTERCEPT_DIR = nullptr;   // TODO: merge with ENV_INTERCEPT_DIR
     char cmd[256];
@@ -643,9 +678,20 @@ public:
 
     enum data_level output_level = minimal_data;
 
-    intercept() : pid{getpid()}, ppid{getppid()}, out{} {
+    intercept(output::type out_type) : pid{getpid()}, ppid{getppid()}, out{nullptr} {
 
         if (verbose) { fprintf(stderr, GREEN(tty, "%s\n"), __func__); }
+
+        // create output object of appropriate type
+        //
+        switch(out_type) {
+        case output::type::log:
+            out = new syslog_output;
+            break;
+        case output::type::file:
+        default:
+            out = new file_output;   // default to file output
+        }
 
         // fprintf(stderr, GREEN(tty, "intercepter build %s\t%s\n"), __DATE__, __TIME__);
 
@@ -653,11 +699,6 @@ public:
         if (intercept_output_level && strcmp(intercept_output_level, "full") == 0) {
             output_level = full_data;
         }
-
-        // fprintf(stderr, BLUE(tty, "%s\n"), __func__);
-        // openlog ("intercept", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
-        // syslog(LOG_INFO, "pid: %d", pid);
-        // print_cmd(pid);
 
         // set cmd and pcmd
         //
@@ -676,11 +717,13 @@ public:
 
         record.close();
         // write_buffer_to_file(buf, outfile);
-        out.write_buffer(buf);
+        out->write_buffer(buf);
 
     }
 
-    ~intercept() { }
+    ~intercept() {
+        delete out;
+    }
 
     // write_process_info() writes information about the current
     // process to a json object with the following keys:
@@ -732,7 +775,7 @@ public:
             record.print_key_timestamp("event_start", &ts);
 
             record.close();
-            out.write_buffer(buf);
+            out->write_buffer(buf);
 
         } else if (process_http2_frames) {
 
@@ -765,7 +808,7 @@ public:
                 record.print_key_timestamp("event_start", &ts);
 
                 record.close();
-                out.write_buffer(buf);
+                out->write_buffer(buf);
             }
 
         }
@@ -796,46 +839,10 @@ public:
         //dns_object.print_key_json_string("service", service);
         dns_object.close();
         record.close();
-        out.write_buffer(buf);
+        out->write_buffer(buf);
 
     }
 
-#if 0
-    void write_buffer_to_file(struct buffer_stream &buf, FILE *outfile) {
-
-        // POSIX semaphores for file locking
-        //
-        struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        ts.tv_sec += 1;
-        if (sem_timedwait(outfile_sem, &ts) == -1) {   // use timedwait for resiliency
-            perror ("intercept: sem_wait()");
-
-            // failsafe: to recover from situations in which the
-            // semaphore is not being released for whatever reason,
-            // delete the semaphore and then create a new one
-            //
-            unlink("/dev/shm/sem.intercept");
-            if ((outfile_sem = sem_open ("/intercept", O_CREAT, 0666, 1)) == SEM_FAILED) {
-                perror ("intercept: sem_open()");
-                exit(EXIT_FAILURE);
-            }
-        }
-        // fprintf(stderr, GREEN(tty, "pid %d acquired semaphore\n"), pid);
-
-        fseek(outfile, 0, SEEK_END); // move to end of file
-        if (buf.write_line(outfile) < 0) {
-            perror ("intercept: write()");
-            exit(EXIT_FAILURE);
-        }
-
-        // fprintf(stderr, GREEN(tty, "pid %d releasing semaphore\n"), pid);
-        if (sem_post(outfile_sem) == -1) {
-            perror ("intercept: sem_post()");
-            exit(EXIT_FAILURE);
-        }
-    }
-#endif
     void write_data_to_file(const void *buffer, ssize_t bytes, int fd=0) {
 
         // sanity check
@@ -945,7 +952,7 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             fp.write(record);
             hello.write_json(record, true);
             record.close();
-            out.write_buffer(buf);
+            out->write_buffer(buf);
         }
     }
 }
@@ -973,7 +980,7 @@ void __attribute__ ((constructor)) intercept_init(void) {
 
     // allocate global intercept object
     //
-    intrcptr = new intercept;
+    intrcptr = new intercept(output::get_type(getenv("intercept_output_type")));
 
 }
 
