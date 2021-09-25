@@ -15,6 +15,7 @@ bindir = @bindir@
 libdir = @libdir@
 localstatedir = @localstatedir@/mercury
 datarootdir = @datarootdir@/mercury
+interceptdir = @datarootdir@/intercept
 
 .SUFFIXES:
 .SUFFIXES: .c .o
@@ -190,6 +191,12 @@ libmerc_driver:
 #	@echo "creating copy of libmerc.so for testing purposes"
 #	cp libmerc/libmerc.so libmerc/libmerc.so.alt
 
+# intercept.so
+#
+
+intercept.so: intercept.cc libmerc.a
+	g++ -std=c++17 -Wall -Wno-narrowing intercept.cc libmerc/pkt_proc.cc -D_GNU_SOURCE -I/usr/include/nspr/ -fPIC -shared -lssl -lnspr4 -lgnutls libmerc/libmerc.a -o intercept.so
+
 # special targets
 #
 
@@ -224,6 +231,13 @@ install-nonroot: mercury
 	$(INSTALL) mercury $(bindir)
 	mkdir -p $(localstatedir)
 	$(INSTALL) -d $(localstatedir)
+
+.PHONY: install-intercept.so
+install-intercept.so: intercept.so
+	mkdir -p $(interceptdir)
+	chmod o+w $(interceptdir)
+	$(INSTALL) intercept.so $(libdir)
+	@echo "install complete; run 'export LD_PRELOAD=$(libdir)/intercept.so' to perform interception"
 
 .PHONY: uninstall
 uninstall:
