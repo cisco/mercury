@@ -630,6 +630,7 @@ PYTHON3
 PY
 LIBOBJS
 HAVE_TPACKET_V3
+USE_NO_GNU_UNIQUE
 ac_ct_CXX
 CXXFLAGS
 CXX
@@ -3893,6 +3894,43 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -fno-gnu-unique" >&5
+$as_echo_n "checking whether C compiler accepts -fno-gnu-unique... " >&6; }
+if ${ax_cv_check_cflags__Werror__fno_gnu_unique+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS -Werror -fno-gnu-unique"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags__Werror__fno_gnu_unique=yes
+else
+  ax_cv_check_cflags__Werror__fno_gnu_unique=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags__Werror__fno_gnu_unique" >&5
+$as_echo "$ax_cv_check_cflags__Werror__fno_gnu_unique" >&6; }
+if test "x$ax_cv_check_cflags__Werror__fno_gnu_unique" = xyes; then :
+  USE_NO_GNU_UNIQUE=yes
+
+else
+  USE_NO_GNU_UNIQUE=no
+
+fi
+
 for ac_header in linux/if_packet.h
 do :
   ac_fn_c_check_header_mongrel "$LINENO" "linux/if_packet.h" "ac_cv_header_linux_if_packet_h" "$ac_includes_default"
@@ -4868,7 +4906,7 @@ else
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&5
 $as_echo "$as_me: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&2;}
 fi
-ac_config_files="$ac_config_files src/libmerc/Makefile src/Makefile test/Makefile unit_tests/Makefile resources/Makefile install_mercury/mercury.service"
+ac_config_files="$ac_config_files src/libmerc/Makefile src/Makefile test/Makefile unit_tests/Makefile resources/Makefile Makefile_helper.mk install_mercury/mercury.service"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -5576,10 +5614,11 @@ for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
     "src/libmerc/Makefile") CONFIG_FILES="$CONFIG_FILES src/libmerc/Makefile" ;;
-    "libmerc_driver/Makefile") CONFIG_FILES="$CONFIG_FILES libmerc_driver/Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
+    "unit_tests/Makefile") CONFIG_FILES="$CONFIG_FILES unit_tests/Makefile" ;;
     "resources/Makefile") CONFIG_FILES="$CONFIG_FILES resources/Makefile" ;;
+    "Makefile_helper.mk") CONFIG_FILES="$CONFIG_FILES Makefile_helper.mk" ;;
     "install_mercury/mercury.service") CONFIG_FILES="$CONFIG_FILES install_mercury/mercury.service" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
