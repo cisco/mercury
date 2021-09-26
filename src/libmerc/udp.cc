@@ -36,7 +36,7 @@ struct pi_container dtls_client = {
 /* DTLS Server */
 unsigned char dtls_server_hello_mask[] = {
     0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
 };
 
 unsigned char dtls_server_hello_value[] = {
@@ -131,7 +131,7 @@ enum udp_msg_type udp_get_message_type(const uint8_t *udp_data,
         return udp_msg_type_dhcp;
     }
 
-    if (u32_compare_masked_data_to_value(udp_data,
+    if (u64_compare_masked_data_to_value(udp_data,
                                          dtls_client_hello_mask,
                                          dtls_client_hello_value)) {
         return udp_msg_type_dtls_client_hello;
@@ -141,12 +141,12 @@ enum udp_msg_type udp_get_message_type(const uint8_t *udp_data,
                                          dtls_server_hello_value)) {
         return udp_msg_type_dtls_server_hello;
     }
-    if (u64_compare_masked_data_to_value(udp_data,
+    if (u32_compare_masked_data_to_value(udp_data,
                                          dns_server_mask,
                                          dns_server_value)) {
         return udp_msg_type_dns;
     }
-    if (u64_compare_masked_data_to_value(udp_data,
+    if (u32_compare_masked_data_to_value(udp_data,
                                          dns_client_mask,
                                          dns_client_value)) {
         return udp_msg_type_dns;
