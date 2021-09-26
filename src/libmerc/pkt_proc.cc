@@ -304,6 +304,28 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
             break;
         case udp_msg_type_dtls_server_hello:
+            {
+                struct dtls_record dtls_rec;
+                dtls_rec.parse(pkt);
+                struct dtls_handshake handshake;
+                handshake.parse(dtls_rec.fragment);
+                if (handshake.msg_type == handshake_type::server_hello) {
+                    struct tls_server_hello hello;
+                    hello.parse(handshake.body);
+                    if (hello.is_not_empty()) {
+                        struct json_object record{&buf};
+                        struct json_object fps{record, "fingerprints"};
+                        fps.print_key_value("dtls", hello);
+                        fps.close();
+                        hello.write_json(record);
+                        write_flow_key(record, k);
+                        record.print_key_timestamp("event_start", ts);
+                        record.close();
+                    }
+                }
+
+            }
+            break;
         case udp_msg_type_dtls_certificate:
             // cases that fall through here are not yet supported
         case udp_msg_type_unknown:
