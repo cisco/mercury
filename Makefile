@@ -144,7 +144,7 @@ endif
 
 .PHONY: distclean
 distclean: clean
-	rm -rf autom4te.cache config.log config.status
+	rm -rf autom4te.cache config.log config.status Makefile_helper.mk
 	rm -f lib/*.so
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
@@ -178,11 +178,14 @@ format:
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
 	cd src; make increment-patchlevel
+	echo $(COLOR_GREEN) "created git tag; ready for 'git push origin <tagname>'"
 
 increment-minor-version:
 	cd src; make increment-minor-version
+	echo $(COLOR_GREEN) "created git tag; ready for 'git push origin <tagname>'"
 
 increment-major-version:
 	cd src; make increment-major-version
+	echo $(COLOR_GREEN) "created git tag; ready for 'git push origin <tagname>'"
 
 # EOF
