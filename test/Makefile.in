@@ -307,7 +307,7 @@ fuzz-test: afl-mercury
 afl-mercury:
 ifeq ($(have_afl),yes)
 	@echo "building afl-mercury for fuzz test, using afl-g++"
-	cd ../src && $(MAKE) clean && $(MAKE) CXX=afl-g++ CC=afl-g++ libmerc-and-mercury
+	cd ../src && $(MAKE) clean && $(MAKE) CXX=afl-g++ CC=afl-g++ mercury
 	mv ../src/mercury ./afl-mercury
 else
 	@echo $(COLOR_YELLOW) "afl unavailable; cannot perform fuzz test" $(COLOR_OFF)
