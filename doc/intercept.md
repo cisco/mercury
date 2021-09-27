@@ -16,7 +16,8 @@ To build interceptor:
 
    4.  In the src/ subdirectory, run 'make intercept.so'
 
-      5.  Copy intercept.so to some location where it is globally accessible, like /usr/local/lib/.
+   5.  Copy intercept.so to some location where it is globally accessible, like /usr/local/lib/.
+
 
 ## Running
 
@@ -41,6 +42,7 @@ Don't forget to `export` these variables, or to `unset` them when you want to re
 
 Output data is written to the directory `/usr/local/var/intercept` (or whatever intercept_dir is set to), and if intercept_verbose is set to 1, or a warning or error condition is encountered, some messages are written to standard error as well.
 
+The test program [test_intercept.sh](../test/test_intercept.sh) shows how the library can be used.
 
 
 ## Supported Libraries
