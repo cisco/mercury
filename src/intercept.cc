@@ -334,6 +334,84 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
           | 61    | www-authenticate            |               |
 */
 
+class hpack_decoder {
+
+public:
+    datum input;
+
+    hpack_decoder(datum &in) : input{in} {}
+
+    void get_next(FILE *f) {
+        fprintf(f, "\n%s:\t", __func__);
+
+        uint8_t first;
+        input.read_uint8(&first);
+
+        fprintf(f, "first: %02x\t", first);
+
+        if (first & 0x80) { // 1***: indexed header field
+            // parse integer
+
+            ssize_t value = decode(first, 7);
+            fprintf(f, "indexed header field\tvalue: %zd\t", value);
+
+        } else {  // literal header field
+
+            if (first & 0x40) { // 01**: literal header field with incremental indexing
+                //
+                fprintf(f, "literal header field\t");
+            }
+            else if ((first & 0xf0) == 0) {  // 0000: literal header field without indexing
+                //
+                fprintf(f, "literal header field without indexing\t");
+
+                ssize_t value = decode(first, 4);
+                fprintf(f, "value: %zd\t", value);
+                if (value > 0) {
+                    // LOOK UP value IN TABLE
+                } else {
+                    // READ VALUE FROM INPUT
+                }
+
+            }
+            else if ((first & 0xf0) == 1) {  // 0001: literal header field never indexed
+                //
+                fprintf(f, "literal header field never indexed\t");
+           }
+        }
+
+        fprintf(f, "\n");
+    }
+
+    ssize_t decode(uint8_t first_byte, unsigned int N) {
+        uint8_t mask;
+        if (N==7) { mask = 0x7f; }
+        if (N==6) { mask = 0x3f; }
+        if (N==5) { mask = 0x1f; }
+        if (N==4) { mask = 0x0f; }
+        if (N==3) { mask = 0x07; }
+        if (N==2) { mask = 0x03; }
+        if (N==1) { mask = 0x01; }
+
+        if ((first_byte & mask) < mask) {
+            return first_byte & mask;   // value occupies single byte
+        }
+
+        // recover value from remaining bytes
+        //
+        int multiplier = 128;
+        ssize_t tmp = 0;
+        uint8_t next_byte;
+        do {
+            input.read_uint8(&next_byte);
+            tmp += (next_byte & 0x7f) * multiplier;
+            multiplier *= 128;
+        } while(next_byte & 0x80 && input.is_not_empty());
+
+        return tmp + mask;
+    }
+};
+
 // Headers Frame (following RFC7540)
 //
 //    +---------------+
@@ -374,6 +452,17 @@ public:
         // json_frame.print_key_uint("e", e_stream_dependency);  // TODO: need bit accessor function
         json_frame.print_key_uint("stream_dependency", e_stream_dependency);
         json_frame.print_key_hex("header_block_fragment", header_block_fragment);
+        hpack_decoder headers{header_block_fragment};
+
+        while(headers.input.is_not_empty()) {
+            datum tmp = headers.input;
+            headers.get_next(stderr);
+            if (headers.input == tmp) {
+                // we are not advancing, so abandon this loop
+                fprintf(stderr, "break\n");
+                break;
+            }
+        }
         json_frame.close();
     }
 };
@@ -424,10 +513,27 @@ public:
         payload = d;
     }
 
+    const char *type_string(uint8_t t) {
+        switch(t) {
+        case DATA:           return "DATA";
+        case HEADERS:        return "HEADERS";
+        case PRIORITY:       return "PRIORITY";
+        case RST_STREAM:     return "RST_STREAM";
+        case SETTINGS:       return "SETTINGS";
+        case PUSH_PROMISE:   return "PUSH_PROMISE";
+        case PING:           return "PING";
+        case GOAWAY:         return "GOAWAY";
+        case WINDOW_UPDATE:  return "WINDOW_UPDATE";
+        case CONTINUATION:   return "CONTINUATION";
+        default:
+            return "unknown";
+        };
+    }
+
     void write_json(struct json_object &o) {
         json_object json_frame(o, "frame");
         json_frame.print_key_uint("length", length);
-        json_frame.print_key_uint("type", type);
+        json_frame.print_key_string("type", type_string(type));
         json_frame.print_key_uint("flags", flags);
         json_frame.print_key_uint("stream_id", stream_id);
         json_frame.print_key_hex("payload", payload);
