@@ -20,8 +20,13 @@
 #include <zlib.h>
 
 #include "enc_file_reader.h"
-#include "libmerc.h"
 #include "datum.h"
+
+#ifdef DONT_USE_STDERR
+#include "libmerc.h"
+#else
+#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 // for debugging
 //
@@ -140,7 +145,7 @@ public:
     archive(const char *filename) : file{nullptr}, entry{nullptr} {
         file = fopen(filename, "r");
         if (file == nullptr) {
-            fprintf(stderr, "error: could not open archive file %s\n", filename);
+            printf_err(log_err, "could not open archive file %s\n", filename);
         }
         // note: file may be nullptr after construction
     }
@@ -155,14 +160,14 @@ public:
 
             // advance to next block
             if (fseek(file, entry->bytes_until_next_block(), SEEK_CUR) == -1) {
-                fprintf(stderr, "error: attempt to advance %zu bytes in archive file failed\n", entry->get_size());
+                printf_err(log_err, "attempt to advance %zu bytes in archive file failed\n", entry->get_size());
                 return nullptr;
             }
         }
 
         size_t bytes_read = fread(buffer, 1, sizeof(buffer), file);
         if (bytes_read != sizeof(buffer)) {
-            fprintf(stderr, "error: attempt to read %zu bytes from archive file failed\n", sizeof(buffer));
+            printf_err(log_err, "attempt to read %zu bytes from archive file failed\n", sizeof(buffer));
             return nullptr;
         }
         entry = (class archive_node *)buffer;
@@ -191,7 +196,7 @@ public:
         fd = open(filename, O_RDONLY, "r");
         file = gzdopen(fd, "r");
         if (file == nullptr) {
-            fprintf(stderr, "error: could not open archive file %s\n", filename);
+            printf_err(log_err, "could not open archive file %s\n", filename);
         }
         // note: file may be nullptr after construction
     }
@@ -215,7 +220,7 @@ public:
 
             // advance to next block
             if (gzseek(file, next_entry, SEEK_SET) == -1) {
-                fprintf(stderr, "error: could not advance %zu bytes in archive file\n", entry->get_size());
+                printf_err(log_err, "could not advance %zu bytes in archive file\n", entry->get_size());
                 return nullptr;
             }
         }
@@ -226,7 +231,7 @@ public:
     class archive_node *read_block() {
         ssize_t bytes_read = gzread(file, buffer, sizeof(buffer));
         if (bytes_read != (ssize_t)sizeof(buffer)) {
-            fprintf(stderr, "error: attempt to read %zu bytes from archive file failed\n", sizeof(buffer));
+            printf_err(log_err, "attempt to read %zu bytes from archive file failed\n", sizeof(buffer));
             return nullptr;
         }
         entry = (class archive_node *)buffer;
@@ -349,7 +354,7 @@ public:
         // }
         ssize_t file_buffer_bytes = enc_file.read(file_buffer, sizeof(file_buffer));
         if (file_buffer_bytes < 0) { // (ssize_t)sizeof(file_buffer)) {
-            fprintf(stderr, "error: could not read archive file %s (%ld)\n", filename, file_buffer_bytes);
+            printf_err(log_err, "could not read archive file %s (%ld)\n", filename, file_buffer_bytes);
             return;  // error; not reading a compressed archive file
         }
 
@@ -370,7 +375,7 @@ public:
         // int err = inflateInit(&z);
         int err = inflateInit2(&z, MAX_WBITS + 32); // enable automatic header detection; see zlib.h version 1.2.1
         if (err != Z_OK) {
-            fprintf(stderr, "error in InflateInit (code %d)\n", err);
+            printf_err(log_err, "error in InflateInit (code %d)\n", err);
             //close(fd);
             //fd = 0;
         }
@@ -379,7 +384,7 @@ public:
     ~gz_file() {
         int retcode = inflateEnd(&z);
         if (retcode != Z_OK) {
-            fprintf(stderr, "warning: error code %d in %s\n", retcode, __func__);
+            printf_err(log_warning, "error code %d in %s\n", retcode, __func__);
         }
     }
 
@@ -398,7 +403,7 @@ public:
             if (z.avail_in == 0) {
                 ssize_t file_buffer_bytes = enc_file.read(file_buffer, sizeof(file_buffer));
                 if (file_buffer_bytes < 0) { // (ssize_t)sizeof(file_buffer)) {
-                    fprintf(stderr, "\terror: could not read archive file (%ld)\n", file_buffer_bytes);
+                    printf_err(log_err, "could not read archive file (%ld)\n", file_buffer_bytes);
                     return -1;  // error
                 }
                 z.next_in = file_buffer;
@@ -452,7 +457,7 @@ public:
             if (z.avail_in == 0) {
                 ssize_t file_buffer_bytes = enc_file.read(file_buffer, sizeof(file_buffer));
                 if (file_buffer_bytes < 0) { // (ssize_t)sizeof(file_buffer)) {
-                    fprintf(stderr, "\terror: could not read archive file (%ld)\n", file_buffer_bytes);
+                    printf_err(log_err, "could not read archive file (%ld)\n", file_buffer_bytes);
                     return -1;  // error
                 }
 
@@ -468,7 +473,7 @@ public:
             }
             //if (err) { fprintf(stderr, "got error code %d (message: %s)\n", err, z.msg); }
             if (err != Z_OK) {
-                fprintf(stderr, "error: zlib decompressor failed\n");
+                printf_err(log_err, "zlib decompressor failed\n");
                 return -1;
             }
             // dump buffer
@@ -542,7 +547,7 @@ public:
 
             // advance to next block
             if (gz.seek(next_entry) == -1) {
-                fprintf(stderr, "error: could not advance %zu bytes in archive file\n", entry->get_size());
+                printf_err(log_err, "could not advance %zu bytes in archive file\n", entry->get_size());
                 return nullptr;
             }
         }
@@ -555,7 +560,7 @@ public:
 
         ssize_t bytes_read = gz.read(buffer, sizeof(buffer));
         if (bytes_read != (ssize_t)sizeof(buffer)) {
-            fprintf(stderr, "error: attempt to read %zu bytes from archive file failed\n", sizeof(buffer));
+            printf_err(log_err, "attempt to read %zu bytes from archive file failed\n", sizeof(buffer));
             return nullptr;
         }
         entry = (class archive_node *)buffer;
@@ -563,7 +568,7 @@ public:
             if (entry_is_empty()) {
                 return nullptr;  // end-of-archive marker is two 512-byte null blocks
             }
-            fprintf(stderr, "error: archive entry is not valid\n");
+            printf_err(log_err, "archive entry is not valid\n");
             //fprintf_raw_as_hex(stderr, buffer, sizeof(buffer));
             //entry->print_all_fields(stderr);
             return nullptr;

@@ -649,7 +649,7 @@ public:
                                 unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
                                 if (errno) {
                                     as_number = 0; // "unknown"
-                                    fprintf(stderr, "note: found string \"%s\" in ip_as\n", y.name.GetString());
+                                    printf_err(log_notice, "found string \"%s\" in ip_as\n", y.name.GetString());
                                 }
                                 if (as_number > 0xffffffff) {
                                     throw std::runtime_error("error: as number too high");
@@ -685,7 +685,7 @@ public:
                     //fprintf(stderr, "\tclasses_ip_ip\n");
                     for (auto &y : x["classes_ip_ip"].GetObject()) {
                         if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                            fprintf(stderr, "warning: classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
+                            printf_err(log_warning, "classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
                             //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
                             ip_ip[y.name.GetString()] = y.value.GetUint64();
                         }
@@ -719,7 +719,7 @@ public:
             // fp_data.print(stderr);
 
             if (fpdb.find(fp_string) != fpdb.end()) {
-                fprintf(stderr, "warning: fingerprint database has duplicate entry for fingerprint %s\n", fp_string.c_str());
+                printf_err(log_warning, "fingerprint database has duplicate entry for fingerprint %s\n", fp_string.c_str());
             }
             fpdb[fp_string] = fp_data;
         }

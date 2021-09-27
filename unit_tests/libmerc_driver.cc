@@ -21,17 +21,6 @@
 #include "pkt_proc.h"
 #include "catch.hpp"
 
-namespace snort {
-#define SO_PUBLIC
-
-    SO_PUBLIC void LogMessage(const char*, ...) __attribute__((format (printf, 1, 2)));
-    SO_PUBLIC void LogMessage(FILE*, const char*, ...) __attribute__((format (printf, 2, 3)));
-    SO_PUBLIC void WarningMessage(const char*, ...) __attribute__((format (printf, 1, 2)));
-    SO_PUBLIC void ErrorMessage(const char*, ...) __attribute__((format (printf, 1, 2)));
-
-    [[noreturn]] SO_PUBLIC void FatalError(const char*, ...) __attribute__((format (printf, 1, 2)));
-}
-
 unsigned char client_hello_eth[] = {
   0x00, 0x50, 0x56, 0xe0, 0xb0, 0xbc, 0x00, 0x0c, 0x29, 0x74, 0x82, 0x2f,
   0x08, 0x00, 0x45, 0x00, 0x01, 0x61, 0xd5, 0xeb, 0x40, 0x00, 0x40, 0x06,
@@ -217,6 +206,7 @@ struct libmerc_api {
     decltype(analysis_context_get_process_info)             *get_process_info = nullptr;
     decltype(analysis_context_get_malware_info)             *get_malware_info = nullptr;
     decltype(mercury_write_stats_data)                      *write_stats_data = nullptr;
+    decltype(register_printf_err_callback)                  *register_printf_err = nullptr;
 
     void *dl_handle = nullptr;
 
@@ -230,6 +220,8 @@ struct libmerc_api {
             fprintf(stderr, "mercury: loading %s\n", lib_path);
         }
 
+        // libmerc v1 API
+        //
         init =                       (decltype(init))                       dlsym(dl_handle, "mercury_init");
         finalize =                   (decltype(finalize))                   dlsym(dl_handle, "mercury_finalize");
         packet_processor_construct = (decltype(packet_processor_construct)) dlsym(dl_handle, "mercury_packet_processor_construct");
@@ -241,6 +233,12 @@ struct libmerc_api {
         get_malware_info =           (decltype(get_malware_info))           dlsym(dl_handle, "analysis_context_get_malware_info");
         write_stats_data =           (decltype(write_stats_data))           dlsym(dl_handle, "mercury_write_stats_data");
 
+        // libmerc v2 API
+        //
+        register_printf_err =        (decltype(register_printf_err))        dlsym(dl_handle, "register_printf_err_callback");
+
+        // verify that all function symbols were found
+        //
         if (init                       == nullptr ||
             finalize                   == nullptr ||
             packet_processor_construct == nullptr ||
@@ -250,7 +248,8 @@ struct libmerc_api {
             get_fingerprint_status     == nullptr ||
             get_process_info           == nullptr ||
             get_malware_info           == nullptr ||
-            write_stats_data           == nullptr) {
+            write_stats_data           == nullptr ||
+            register_printf_err        == nullptr) {
             fprintf(stderr, "error: could not initialize one or more libmerc function pointers\n");
             return -1;
         }

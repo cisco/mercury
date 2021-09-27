@@ -16,6 +16,7 @@
 // interface to mercury's packet parsing and handling routines
 //
 #include "proto_identify.h"
+#include "ip.h"
 #include "tcp.h"
 #include "dns.h"
 #include "tls.h"
@@ -26,6 +27,7 @@
 #include "tcpip.h"
 #include "eth.h"
 #include "gre.h"
+#include "icmp.h"
 #include "udp.h"
 #include "quic.h"
 #include "smtp.h"
@@ -60,7 +62,15 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     // o.b->snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
-static constexpr bool report_GRE = false;
+// constant expression variables that control JSON output; these
+// variables can be used as compile-time options.  In the future, they
+// will probably become run-time options.
+//
+static constexpr bool report_IP       = false;
+static constexpr bool report_GRE      = false;
+static constexpr bool report_ICMP     = false;
+static constexpr bool report_OSPF     = false;
+static constexpr bool report_SYN_ACK  = false;
 
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
                                         size_t buffer_size,
@@ -72,25 +82,25 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     struct buffer_stream buf{(char *)buffer, buffer_size};
     struct key k;
     struct datum pkt{ip_packet, ip_packet+length};
-    size_t transport_proto = 0;
+    ip ip_pkt;
+    set_ip_packet(ip_pkt, pkt, k);
+    size_t transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
 
-    size_t ip_version;
-    if (datum_read_uint(&pkt, 1, &ip_version) == status_err) {
-        return 0;
-    }
-    ip_version &= 0xf0;
-    switch(ip_version) {
-    case 0x40:
-        datum_process_ipv4(&pkt, &transport_proto, &k);
-        break;
-    case 0x60:
-        datum_process_ipv6(&pkt, &transport_proto, &k);
-        break;
-    default:
-        return 0;  // unsupported IP version
-    }
+    if (report_ICMP && (transport_proto == 1 || transport_proto == 58)) {
 
-    if (report_GRE && transport_proto == 47) {
+        icmp_packet icmp;
+        icmp.parse(pkt);
+
+        struct json_object record{&buf};
+
+        std::visit(ip_pkt_write_json{record}, ip_pkt);
+        icmp.write_json(record);
+
+        write_flow_key(record, k);
+        record.print_key_timestamp("event_start", ts);
+        record.close();
+
+    } else if (report_GRE && transport_proto == 47) {
         gre_header gre{pkt};
         switch(gre.get_protocol_type()) {
         case ETH_TYPE_IP:
@@ -103,8 +113,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             ;
         }
 
-    }
-    if (transport_proto == 6) {
+    } else if (transport_proto == 6) { // TCP
         struct tcp_packet tcp_pkt;
         tcp_pkt.parse(pkt);
         if (tcp_pkt.header == nullptr) {
@@ -112,12 +121,21 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         tcp_pkt.set_key(k);
         if (tcp_pkt.is_SYN()) {
+
             if (global_vars.output_tcp_initial_data) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
             if (select_tcp_syn) {
                 struct json_object record{&buf};
+
+                if (report_IP && global_vars.metadata_output) {
+                    std::visit(ip_pkt_write_json{record}, ip_pkt);
+                }
+
                 struct json_object fps{record, "fingerprints"};
+                if (report_IP) {
+                    std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);
+                }
                 fps.print_key_value("tcp", tcp_pkt);
                 fps.close();
                 if (global_vars.metadata_output) {
@@ -134,8 +152,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
 
-#ifdef REPORT_SYN_ACK
-            if (select_tcp_syn) {
+            if (report_SYN_ACK && select_tcp_syn) {
                 struct json_object record{&buf};
                 struct json_object fps{record, "fingerprints"};
                 fps.print_key_value("tcp_server", tcp_pkt);
@@ -149,7 +166,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
                 // note: we could check for non-empty data field
             }
-#endif
 
         } else {
 
@@ -181,7 +197,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
         }
 
-    } else if (transport_proto == 17) {
+    } else if (transport_proto == 17) { // UDP
         struct udp_packet udp_pkt;
         udp_pkt.parse(pkt);
         udp_pkt.set_key(k);
@@ -331,6 +347,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         case udp_msg_type_unknown:
             if (is_new) {
                 struct json_object record{&buf};
+                // std::visit(ip_pkt_write_json{record}, ip_pkt);
                 struct json_object udp{record, "udp"};
                 udp.print_key_hex("data", pkt);
                 // udp.print_key_json_string("data_string", pkt);
@@ -341,6 +358,15 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
             break;
         }
+    } else if (report_OSPF && transport_proto == 89) { // OSPF
+        struct json_object record{&buf};
+        std::visit(ip_pkt_write_json{record}, ip_pkt);
+        struct json_object ospf_record{record, "ospf"};
+        ospf_record.print_key_hex("data", pkt);
+        ospf_record.close();
+        write_flow_key(record, k);
+        record.print_key_timestamp("event_start", ts);
+        record.close();
     }
 
     if (buf.length() != 0 && buf.trunc == 0) {
@@ -602,12 +628,14 @@ using tcp_protocol = std::variant<std::monostate,
                                   unknown_initial_packet
                                   >;
 
-
+// the function enumerate_tcp_protocol_types() prints out the types in
+// the tcp_protocol variant
+//
 template <size_t I = 0>
-void enumerate_tcp_protocol_types() {
+void enumerate_tcp_protocol_types(FILE *f) {
     if constexpr (I < std::variant_size_v<tcp_protocol>) {
         std::variant_alternative_t<I, tcp_protocol> tmp;
-        fprintf(stderr, "I=%zu\n", I);
+        fprintf(f, "I=%zu\n", I);
         enumerate_tcp_protocol_types<I + 1>();
     }
 }
@@ -746,11 +774,11 @@ struct do_analysis {
 struct do_observation {
     const struct key &k_;
     struct analysis_context &analysis_;
-    struct message_queue *mq_;
+    class message_queue *mq_;
 
     do_observation(const struct key &k,
                    struct analysis_context &analysis,
-                   struct message_queue *mq) :
+                   class message_queue *mq) :
         k_{k},
         analysis_{analysis},
         mq_{mq}

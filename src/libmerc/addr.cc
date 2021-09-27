@@ -59,7 +59,7 @@ int subnet_data::process_line(std::string &line_str) {
 
     // set the prefix[num] to the subnet and ASN found in line
     if (lct_subnet_set_from_string(&prefix[num], line_str.c_str()) != 0) {
-        fprintf(stderr, "error: could not parse subnet string '%s'\n", line_str.c_str());
+        printf_err(log_err, "could not parse subnet string '%s'\n", line_str.c_str());
         return -1;  // failure
     }
     num++;

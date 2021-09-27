@@ -127,6 +127,11 @@ struct datum {
             data_end = data;
         }
     }
+    void trim_to_length(size_t length) {
+        if (data && (data + length <= data_end)) {
+            data_end = data + length;
+        }
+    }
     bool case_insensitive_match(const struct datum r) const {
         if (length() != r.length()) {
             return false;
@@ -193,6 +198,18 @@ struct datum {
         }
         set_empty();
         return true;
+    }
+
+    // lookahead_uint8() reads a uint8_t in network byte order,
+    // without advancing the data pointer
+    //
+    void lookahead_uint8(uint8_t *output) {
+        if (data_end > data) {
+            *output = *data;
+            return;
+        }
+        set_null();
+        *output = 0;
     }
 
     // read_uint8() reads a uint8_t in network byte order, and advances the data pointer
