@@ -230,7 +230,7 @@ enum status pcap_file_open(struct pcap_file *f,
             if (file_header.magic_number == 0x0a0d0d0a) {
                 fprintf(stderr, "error: pcap-ng format found; this format is currently unsupported\n");
             }
-            exit(255);
+            exit(255); // TODO: return error, don't exit
         }
         if (f->byteswap) {
             file_header.version_major = htons(file_header.version_major);
@@ -239,6 +239,10 @@ enum status pcap_file_open(struct pcap_file *f,
             file_header.sigfigs = htonl(file_header.sigfigs);
             file_header.snaplen = htonl(file_header.snaplen);
             file_header.network = htons(file_header.network);
+        }
+        if (file_header.network != LINKTYPE_ETHERNET) {
+            fprintf(stderr, "error: pcap file linktype (%u) unsupported\n", file_header.network);
+            exit(255); // TODO: return error, don't exit
         }
     }
 

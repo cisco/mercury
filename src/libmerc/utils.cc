@@ -104,13 +104,13 @@ enum status drop_root_privileges(const char *username, const char *directory) {
         if (uid == 0) {
             const char *sudo_uid = getenv("SUDO_UID");
             if (sudo_uid == NULL) {
-                fprintf(stderr, "error: environment variable `SUDO_UID` not found; could not drop root privileges\n");
+                printf_err(log_err, "environment variable `SUDO_UID` not found; could not drop root privileges\n");
                 return status_err;
             }
             errno = 0;
             uid = (uid_t) strtoll(sudo_uid, NULL, 10);
             if (errno) {
-                perror("error converting SUDO_UID to int");
+                printf_err(log_err, "could not convert SUDO_UID to int (%s)\n", strerror(errno));
                 return status_err;
             }
         }
@@ -119,20 +119,20 @@ enum status drop_root_privileges(const char *username, const char *directory) {
         if (gid == 0) {
             const char *sudo_gid = getenv("SUDO_GID");
             if (sudo_gid == NULL) {
-                fprintf(stderr, "error: environment variable `SUDO_GID` not found; could not drop root privileges\n");
+                printf_err(log_err, "environment variable `SUDO_GID` not found; could not drop root privileges\n");
                 return status_err;
             }
             errno = 0;
             gid = (gid_t) strtoll(sudo_gid, NULL, 10);
             if (errno) {
-                perror("error converting SUDO_GID to int");
+                printf_err(log_err, "could not convert SUDO_GID to int (%s)\n", strerror(errno));
                 return status_err;
             }
         }
 
         new_username = getenv("SUDO_USER");
         if (new_username == NULL) {
-            fprintf(stderr, "error: environment variable `SUDO_USER` not found; could not drop root privileges\n");
+            printf_err(log_err, "environment variable `SUDO_USER` not found; could not drop root privileges\n");
             return status_err;
         }
 
@@ -144,25 +144,24 @@ enum status drop_root_privileges(const char *username, const char *directory) {
             gid = userdata->pw_gid;
             uid = userdata->pw_uid;
         } else {
-            fprintf(stderr, "error: could not find user '%.32s'\n", username);
+            printf_err(log_err, "could not find user '%.32s'\n", username);
             return status_err;
         }
     }
-
 
     /*
      * set gid, uid and groups
      */
     if (initgroups(new_username, gid)) {
-        perror("error setting groups");
+        printf_err(log_err, "could not set groups (%s)\n", strerror(errno));
         return status_err;
     }
     if (setgid(gid)) {
-        perror("error setting GID");
+        printf_err(log_err, "could not set GID (%s)\n", strerror(errno));
         return status_err;
     }
     if (setuid(uid)) {
-        perror("error setting UID");
+        printf_err(log_err, "could not set UID (%s)\n", strerror(errno));
         return status_err;
     }
 
@@ -170,7 +169,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
      * check to make sure that we achieved our goals
      */
     if (setuid(0) == 0 || seteuid(0) == 0) {
-        printf("failed to drop root privileges\n");
+        printf_err(log_err, "failed to drop root privileges\n");
         return status_err;
     }
 
@@ -179,7 +178,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
      */
     if (directory) {
         if (chdir(directory) != 0) {
-            perror("error changing current working directory");
+            printf_err(log_err, "could not change current working directory (%s)\n", strerror(errno));
             return status_err;
         }
     }
@@ -274,7 +273,7 @@ void timer_start(struct timer *t) {
     if (clock_gettime(CLOCK_REALTIME, &t->before) != 0) {
         // failed to get clock time, set the uninitialized struct to zero
         bzero(&t->before, sizeof(struct timespec));
-        perror("error: could not get clock time before fwrite file header\n");
+        printf_err(log_err, "could not get clock time (%s)\n", strerror(errno));
     }
 }
 
@@ -283,7 +282,7 @@ void timer_start(struct timer *t) {
 uint64_t timer_stop(struct timer *t) {
     uint64_t nano_sec = 0;
     if (clock_gettime(CLOCK_REALTIME, &t->after) != 0) {
-        perror("error: could not get clock time after fwrite file header\n");
+        printf_err(log_err, "could not get clock time (%s)\n", strerror(errno));
     } else {
         // It is assumed that if this call is successful, the previous call is also successful.
         // We got clock time after writting, now compute the time difference in nano seconds

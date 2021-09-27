@@ -18,7 +18,6 @@
 #define  MERCURY_SEMANTIC_VERSION 0,0,0
 #endif
 
-
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
@@ -42,7 +41,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     if (verbosity > 0) {
         // sanity check, to help with shared object library development
-        fprintf(stderr, "libmerc build time: %s %s\n", __DATE__, __TIME__);
+        printf_err(log_none, "libmerc build time: %s %s\n", __DATE__, __TIME__);
     }
 
     try {
@@ -50,7 +49,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
         return m;  // success
     }
     catch (std::exception &e) {
-        fprintf(stderr, "%s\n", e.what());
+        printf_err(log_err, "%s\n", e.what());
     }
     if (m) {
         delete m;
@@ -72,7 +71,7 @@ size_t mercury_packet_processor_write_json(mercury_packet_processor processor, v
         return processor->write_json(buffer, buffer_size, packet, length, ts, NULL);
     }
     catch (std::exception &e) {
-        fprintf(stderr, "%s\n", e.what());
+        printf_err(log_err, "%s\n", e.what());
     }
     return 0;
 }
@@ -83,7 +82,7 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
         return processor->ip_write_json(buffer, buffer_size, packet, length, ts, NULL);
     }
     catch (std::exception &e) {
-        fprintf(stderr, "%s\n", e.what());
+        printf_err(log_err, "%s\n", e.what());
     }
     return 0;
 }
@@ -101,7 +100,7 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
         }
     }
     catch (std::exception &e) {
-        fprintf(stderr, "%s\n", e.what());
+        printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
 }
@@ -119,7 +118,7 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
         }
     }
     catch (std::exception &e) {
-        fprintf(stderr, "%s\n", e.what());
+        printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
 }
@@ -270,7 +269,7 @@ enum status proto_ident_config(const char *config_string) {
         if (pair != protocols.end()) {
             pair->second = true;
         } else {
-            fprintf(stderr, "error: unrecognized filter command \"%s\"\n", token.c_str());
+            printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
             return status_err;
         }
     }
@@ -280,7 +279,7 @@ enum status proto_ident_config(const char *config_string) {
     if (pair != protocols.end()) {
         pair->second = true;
     } else {
-        fprintf(stderr, "error: unrecognized filter command \"%s\"\n", token.c_str());
+        printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
         return status_err;
     }
 
@@ -345,7 +344,7 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
         return tmp;
     }
     catch (std::exception &e) {
-        fprintf(stderr, "%s\n", e.what());
+        printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
 }
@@ -358,7 +357,7 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
         }
     }
     catch (std::exception &e) {
-        fprintf(stderr, "%s\n", e.what());
+        printf_err(log_err, "%s\n", e.what());
     }
 }
 
@@ -370,7 +369,7 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
 
     gzFile stats_data_file = gzopen(stats_data_file_path, "w");
     if (stats_data_file == nullptr) {
-        fprintf(stderr, "error: could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
+        printf_err(log_err, "could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
         return false;
     }
     mc->aggregator.gzprint(stats_data_file);
@@ -427,4 +426,69 @@ const char *mercury_get_license_string() {
     return license_string;
 }
 
+//
+// start of libmerc version 2 API
+//
 
+// flexible error reporting, using a printf-style interface and
+// syslog-style severity levels
+
+// printf_err_func() takes a severity level, a printf-style format
+// string, and the arguments assocaited with the format string, and
+// prints out a message on stderr.  On success, the number of
+// characters written is returned; if a failure occurs, a negative
+// number is returned.
+//
+// This function is suitable for use with
+// register_printf_err_callback().
+//
+int printf_err_func(log_level level, const char *format, ...) {
+
+    // output error level message
+    //
+    const char *msg = "";
+    switch(level) {
+    case log_emerg:   msg = "emergency: ";     break;
+    case log_alert:   msg = "alert: ";         break;
+    case log_crit:    msg = "critical: ";      break;
+    case log_err:     msg = "error: ";         break;
+    case log_warning: msg = "warning: ";       break;
+    case log_notice:  msg = "notice: ";        break;
+    case log_info:    msg = "informational: "; break;
+    case log_debug:   msg = "debug: ";         break;
+    case log_none:  break;  // leave msg empty
+    }
+    int retval = fprintf(stderr, "%s", msg);
+    if (retval < 0) {
+        return retval;
+    }
+    int sum = retval;
+
+    // output formatted argument list
+    //
+    va_list args;
+    va_start(args, format);
+    retval = vfprintf(stderr, format, args);
+    va_end(args);
+    if (retval < 0) {
+        return retval;
+    }
+    sum += retval;
+
+    return sum;
+}
+
+int silent_err_func(log_level, const char *, ...) {
+    return 0;
+}
+
+printf_err_ptr printf_err = printf_err_func;
+
+void register_printf_err_callback(printf_err_ptr callback) {
+
+    if (callback == nullptr) {
+        printf_err = silent_err_func;
+    } else {
+        printf_err = callback;
+    }
+}

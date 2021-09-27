@@ -15,6 +15,12 @@
 
 #include <openssl/evp.h>
 
+#ifdef DONT_USE_STDERR
+#include "libmerc.h"
+#else
+#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 // The encrypted_file class decrypts and reads files that are
 // encrypted in AES-128-CBC mode, with the Initialization Vector (IV)
 // included as the first 16 bytes of the file.  To encrypt a file
@@ -44,7 +50,7 @@ public:
         if (null_terminated_hex_string) {
             size_t raw_bytes = hex_to_raw(value, N, null_terminated_hex_string);
             if (raw_bytes != N) {
-                fprintf(stderr, "error: expected %zu bytes in key, only got %zu\n", N, raw_bytes);
+                printf_err(log_err, "expected %zu bytes in key, only got %zu\n", N, raw_bytes);
                 throw std::runtime_error("too few bytes in key initialization");
             }
         } else {
@@ -102,7 +108,7 @@ class encrypted_file {
             }
             ssize_t bytes_read = fread(ct_buffer, sizeof(unsigned char), sizeof(ct_buffer), file);
             if (bytes_read < 0) {
-                fprintf(stderr, "error: could not read data from file\n");
+                printf_err(log_err, "could not read data from file\n");
                 return true;    // could not read ciphertext from file
             }
             //fprintf(stderr, "read %zd bytes of ciphertext from file\n", bytes_read);
@@ -139,7 +145,7 @@ class encrypted_file {
                            unsigned char *plaintext)  {
 
         if (ctx == nullptr) {
-            fprintf(stderr, "error: nullptr in decrypt_update\n");
+            printf_err(log_err, "nullptr in decrypt_update\n");
             return -1;  // error: decryption context not initialized
         }
 
@@ -148,7 +154,7 @@ class encrypted_file {
         int num_plaintext_bytes;  // used to report the number of bytes of plaintext output
         int retcode = EVP_DecryptUpdate(ctx, plaintext, &num_plaintext_bytes, ciphertext, ciphertext_len);
         if(retcode != 1) {
-            fprintf(stderr, "error: decrypt_update failed\n");
+            printf_err(log_err, "decrypt_update failed\n");
             return -1;
         }
         return num_plaintext_bytes;
@@ -157,7 +163,7 @@ class encrypted_file {
     ssize_t decrypt_final(unsigned char *plaintext) {
 
         if (ctx == nullptr) {
-            fprintf(stderr, "error: nullptr in decrypt_final\n");
+            printf_err(log_err, "nullptr in decrypt_final\n");
             return -1;  // error: decryption context not initialized
         }
 
@@ -166,7 +172,7 @@ class encrypted_file {
         int num_plaintext_bytes;  // used to report the number of bytes of plaintext output
         int retcode = EVP_DecryptFinal_ex(ctx, plaintext, &num_plaintext_bytes);
         if (retcode != 1) {
-            fprintf(stderr, "error: decrypted plaintext has incorrect padding\n");
+            printf_err(log_err, "decrypted plaintext has incorrect padding\n");
             return -1; // error
         }
         return num_plaintext_bytes;
@@ -183,7 +189,7 @@ public:
 
         file = fopen(filename, "r");
         if (file == nullptr) {
-            fprintf(stderr, "error: could not open file %s\n", filename);
+            printf_err(log_err, "could not open file %s\n", filename);
             throw std::runtime_error("error: cannot open file");
         }
 

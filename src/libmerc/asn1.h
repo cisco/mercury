@@ -340,7 +340,7 @@ struct tlv {
     }
     void handle_parse_error(const char *msg, const char *tlv_name) {
 #ifdef TLV_ERR_INFO
-        fprintf(stderr, "%s in %s\n", msg, tlv_name ? tlv_name : "unknown TLV");
+        printf_err(log_none, "%s in %s\n", msg, tlv_name ? tlv_name : "unknown TLV");
 #else
         (void)msg;
         (void)tlv_name;

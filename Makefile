@@ -1,6 +1,11 @@
 # Makefile for mercury
 #
-include Makefile_helper.mk
+
+# definitions for colorized output
+COLOR_RED    = "\033[0;31m"
+COLOR_GREEN  = "\033[0;32m"
+COLOR_YELLOW = "\033[0;33m"
+COLOR_OFF    = "\033[0m"
 
 INSTALL = /usr/bin/install -c
 INSTALLDATA = /usr/bin/install -c -m 644
@@ -139,7 +144,7 @@ endif
 
 .PHONY: distclean
 distclean: clean
-	rm -rf autom4te.cache config.log config.status
+	rm -rf autom4te.cache config.log config.status Makefile_helper.mk
 	rm -f lib/*.so
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
@@ -173,11 +178,14 @@ format:
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
 	cd src; make increment-patchlevel
+	echo $(COLOR_GREEN) "created git tag; ready for 'git push origin <tagname>'"
 
 increment-minor-version:
 	cd src; make increment-minor-version
+	echo $(COLOR_GREEN) "created git tag; ready for 'git push origin <tagname>'"
 
 increment-major-version:
 	cd src; make increment-major-version
+	echo $(COLOR_GREEN) "created git tag; ready for 'git push origin <tagname>'"
 
 # EOF
