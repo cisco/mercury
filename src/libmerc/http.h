@@ -65,6 +65,8 @@ struct http_request {
     static unsigned char http_client_mask[8];
     static unsigned char http_client_value[8];
 
+    struct datum get_header(const std::basic_string<uint8_t> &header_name);
+
 };
 
 struct http_response {

@@ -360,6 +360,10 @@ void http_response::compute_fingerprint(struct fingerprint &fp) const {
     fp.set(*this, fingerprint_type_http_server);
 }
 
+struct datum http_request::get_header(const std::basic_string<uint8_t> &header_name) {
+    return headers.get_header(header_name);
+}
+
 struct datum http_response::get_header(const std::basic_string<uint8_t> &header_name) {
     return headers.get_header(header_name);
 }

@@ -850,9 +850,9 @@ public:
                                                     const struct destination_context &dc,
                                                     struct analysis_result &result) {
 
-        if (fp.type != fingerprint_type_tls) {
-            return false;  // cannot perform analysis
-        }
+        //if (fp.type != fingerprint_type_tls) {
+        //    return false;  // cannot perform analysis
+        //}
         result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port);
         return true;
     }

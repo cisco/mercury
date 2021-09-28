@@ -766,6 +766,11 @@ struct do_analysis {
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }
 
+    bool operator()(http_request &r) {
+        analysis_.destination.init(r, k_);
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    }
+
     template <typename T>
     bool operator()(T &) { return false; }
 
