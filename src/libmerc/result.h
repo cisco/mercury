@@ -14,8 +14,6 @@
 
 #include "libmerc.h"
 #include "json_object.h"
-#include "tls.h"
-#include "http.h"
 #include "addr.h"
 #include "fingerprint.h"
 
@@ -108,33 +106,8 @@ struct destination_context {
 #ifdef __cplusplus
     destination_context() : dst_port{0} {}
 
-    destination_context(const struct tls_client_hello &hello,
-                        const struct key &key) {
-        init(hello, key);
-    }
-
-    destination_context(const struct http_request &request,
-                        const struct key &key) {
-        init(request, key);
-    }
-
-    void init(const struct tls_client_hello &hello,
-              const struct key &key) {
-
-        struct datum sn{NULL, NULL};
-        hello.extensions.set_server_name(sn);
-        sn.strncpy(sn_str, MAX_SNI_LEN);
-        flow_key_sprintf_dst_addr(key, dst_ip_str);
-        dst_port = flow_key_get_dst_port(key);
-    }
-
-    void init(const struct http_request &request,
-              const struct key &key) {
-
-        std::basic_string<uint8_t> host_header = { 'h', 'o', 's', 't', ':', ' ' };
-        struct http_request& request_ref = const_cast <struct http_request&>(request);
-        struct datum host_data = request_ref.get_header(host_header);
-        host_data.strncpy(sn_str, MAX_SNI_LEN);
+    void init(struct datum domain, const struct key &key) {
+        domain.strncpy(sn_str, MAX_SNI_LEN);
         flow_key_sprintf_dst_addr(key, dst_ip_str);
         dst_port = flow_key_get_dst_port(key);
     }

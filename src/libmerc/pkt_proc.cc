@@ -1,8 +1,8 @@
 /*
  * pkt_proc.c
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <string.h>
@@ -580,6 +580,9 @@ public:
             hello(b);
         }
     }
+
+    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
+
 };
 
 class unknown_initial_packet {
@@ -607,6 +610,9 @@ public:
     }
 
     bool is_not_empty() { return tcp_data_field.is_not_empty(); }
+
+    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
+
 };
 
 // tcp_protocol is an alias for a variant record that holds the data
@@ -761,6 +767,7 @@ struct do_analysis {
         c_{c}
     {}
 
+/*
     bool operator()(tls_client_hello &r) {
         analysis_.destination.init(r, k_);
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
@@ -773,6 +780,14 @@ struct do_analysis {
 
     template <typename T>
     bool operator()(T &) { return false; }
+*/
+
+    template <typename T>
+    bool operator()(T &msg) {
+        return msg.do_analysis(k_, analysis_, c_);
+    }
+
+    bool operator()(std::monostate &) { return false; }
 
 };
 

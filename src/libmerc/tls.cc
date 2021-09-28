@@ -521,6 +521,15 @@ void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {
     fp.set(*this, fingerprint_type_tls);
 }
 
+bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+    struct datum sn{NULL, NULL};
+    extensions.set_server_name(sn);
+
+    analysis_.destination.init(sn, k_);
+
+    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+}
+
 unsigned char tls_client_hello::mask [8]= {
     0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00
 };

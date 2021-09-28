@@ -10,6 +10,7 @@
 #define HTTP_H
 
 #include "extractor.h"
+#include "analysis.h"
 #include "fingerprint.h"
 
 struct http_headers : public datum {
@@ -67,6 +68,8 @@ struct http_request {
 
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
 
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
+
 };
 
 struct http_response {
@@ -88,6 +91,8 @@ struct http_response {
     void compute_fingerprint(struct fingerprint &fp) const;
 
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
+
+    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
 
 };
 

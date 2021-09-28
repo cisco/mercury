@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "datum.h"
+#include "analysis.h"
 #include "json_object.h"
 #include "fingerprint.h"
 
@@ -125,6 +126,8 @@ struct ssh_init_packet {
             json_ssh.close();
         }
     }
+
+    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
 
 };
 
@@ -305,6 +308,8 @@ struct ssh_kex_init {
         fp_buf.write_char('\0'); // null-terminate
         fp.type = fingerprint_type_ssh_kex;
     }
+
+    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
 
 };
 

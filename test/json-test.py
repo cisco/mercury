@@ -96,6 +96,7 @@ mercury_schema = {
                          'score':     {'type': 'number'},
                          'malware':   {'type': 'number'},
                          'p_malware': {'type': 'number'},
+                         'status':    {'type': 'string'},
                      },
                      "additionalProperties": False
              },

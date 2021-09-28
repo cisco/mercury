@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "datum.h"
+#include "analysis.h"
 #include "json_object.h"
 #include "fingerprint.h"
 
@@ -162,6 +163,9 @@ public:
     void compute_fingerprint(struct fingerprint) const { };
 
     bool is_not_empty() const { return parameters.is_not_empty(); }
+
+    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
+
 };
 
 
@@ -226,6 +230,9 @@ public:
     }
 
     bool is_not_empty() const { return parameters.is_not_empty(); }
+
+    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
+
 };
 
 

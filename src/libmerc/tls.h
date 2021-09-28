@@ -10,6 +10,8 @@
 
 #include "fingerprint.h"
 #include "extractor.h"
+#include "analysis.h"
+
 
 struct tls_security_assessment {
     bool weak_version_offered;
@@ -149,7 +151,7 @@ struct tls_record {
         fragment.init_from_outer_parser(&d, length);
     }
 
-    bool is_not_empty() const { return fragment.is_not_empty(); } 
+    bool is_not_empty() const { return fragment.is_not_empty(); }
 
     static bool is_valid(const struct datum &d) {
         struct datum tmp = d;
@@ -356,6 +358,8 @@ struct tls_client_hello {
 
     static unsigned char mask[8];
     static unsigned char value[8];
+
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
 };
 

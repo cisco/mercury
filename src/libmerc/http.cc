@@ -367,3 +367,12 @@ struct datum http_request::get_header(const std::basic_string<uint8_t> &header_n
 struct datum http_response::get_header(const std::basic_string<uint8_t> &header_name) {
     return headers.get_header(header_name);
 }
+
+bool http_request::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+    std::basic_string<uint8_t> host_header = { 'h', 'o', 's', 't', ':', ' ' };
+    struct datum host_data = get_header(host_header);
+
+    analysis_.destination.init(host_data, k_);
+
+    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+}
