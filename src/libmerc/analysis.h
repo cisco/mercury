@@ -30,7 +30,7 @@
 #include <zlib.h>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
-#include "tcp.h"
+#include "util_obj.h"
 #include "archive.h"
 
 // TBD - move flow_key_sprintf_src_addr() to the right file
@@ -48,9 +48,6 @@ class classifier *analysis_init_from_archive(int verbosity,
 
 int analysis_finalize(classifier *c);
 
-
-//struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
-//                                                    const struct key &key);
 
 
 // process and malware classifier classes

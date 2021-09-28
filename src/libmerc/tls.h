@@ -11,6 +11,7 @@
 #include "fingerprint.h"
 #include "extractor.h"
 #include "analysis.h"
+#include "tcp.h"
 
 
 struct tls_security_assessment {
@@ -327,7 +328,7 @@ struct tls_extensions : public datum {
 };
 
 
-struct tls_client_hello {
+struct tls_client_hello : public tcp_base_protocol {
     struct datum protocol_version;
     struct datum random;
     struct datum session_id;
@@ -365,7 +366,7 @@ struct tls_client_hello {
 
 #include "match.h"
 
-struct tls_server_hello {
+struct tls_server_hello : public tcp_base_protocol {
     struct datum protocol_version;
     struct datum random;
     struct datum ciphersuite_vector;

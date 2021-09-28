@@ -487,7 +487,7 @@ size_t stateful_pkt_proc::write_json(void *buffer,
 
 //////////////////////////////////////////////////////////
 
-class tls_server_hello_and_certificate {
+class tls_server_hello_and_certificate : public tcp_base_protocol {
     struct tls_server_hello hello;
     struct tls_server_certificate certificate;
 
@@ -581,11 +581,9 @@ public:
         }
     }
 
-    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
-
 };
 
-class unknown_initial_packet {
+class unknown_initial_packet : public tcp_base_protocol {
     datum tcp_data_field;
 
 public:
@@ -610,8 +608,6 @@ public:
     }
 
     bool is_not_empty() { return tcp_data_field.is_not_empty(); }
-
-    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
 
 };
 
@@ -766,21 +762,6 @@ struct do_analysis {
         analysis_{analysis},
         c_{c}
     {}
-
-/*
-    bool operator()(tls_client_hello &r) {
-        analysis_.destination.init(r, k_);
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
-    }
-
-    bool operator()(http_request &r) {
-        analysis_.destination.init(r, k_);
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
-    }
-
-    template <typename T>
-    bool operator()(T &) { return false; }
-*/
 
     template <typename T>
     bool operator()(T &msg) {

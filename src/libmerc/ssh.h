@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "tcp.h"
 #include "datum.h"
 #include "analysis.h"
 #include "json_object.h"
@@ -57,7 +58,7 @@
 //
 #define VERS_LEN 8
 
-struct ssh_init_packet {
+struct ssh_init_packet : public tcp_base_protocol {
     struct datum protocol_string;
     struct datum comment_string;
 
@@ -126,8 +127,6 @@ struct ssh_init_packet {
             json_ssh.close();
         }
     }
-
-    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
 
 };
 
@@ -221,7 +220,7 @@ struct name_list : public datum {
  *     uint32       0 (reserved for future extension)
  *
  */
-struct ssh_kex_init {
+struct ssh_kex_init : public tcp_base_protocol {
     struct datum msg_type;
     struct datum cookie;
     struct name_list kex_algorithms;
@@ -308,8 +307,6 @@ struct ssh_kex_init {
         fp_buf.write_char('\0'); // null-terminate
         fp.type = fingerprint_type_ssh_kex;
     }
-
-    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
 
 };
 

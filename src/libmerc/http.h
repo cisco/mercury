@@ -9,6 +9,7 @@
 #ifndef HTTP_H
 #define HTTP_H
 
+#include "tcp.h"
 #include "extractor.h"
 #include "analysis.h"
 #include "fingerprint.h"
@@ -45,7 +46,7 @@ struct http_headers : public datum {
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
 };
 
-struct http_request {
+struct http_request : public tcp_base_protocol {
     struct datum method;
     struct datum uri;
     struct datum protocol;
@@ -72,7 +73,7 @@ struct http_request {
 
 };
 
-struct http_response {
+struct http_response : public tcp_base_protocol {
     struct datum version;
     struct datum status_code;
     struct datum status_reason;
@@ -91,8 +92,6 @@ struct http_response {
     void compute_fingerprint(struct fingerprint &fp) const;
 
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
-
-    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
 
 };
 
