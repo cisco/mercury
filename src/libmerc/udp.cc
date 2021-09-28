@@ -160,12 +160,12 @@ enum udp_msg_type udp_get_message_type(const uint8_t *udp_data,
                                          dns_client_value)) {
         return udp_msg_type_dns;
     }
-    if (u64_compare_masked_data_to_value(udp_data,
+    if (u32_compare_masked_data_to_value(udp_data,
                                          wireguard_mask,
                                          wireguard_value)) {
         return udp_msg_type_wireguard;
     }
-    if (u64_compare_masked_data_to_value(udp_data,
+    if (u32_compare_masked_data_to_value(udp_data,
                                          quic_mask,
                                          quic_value)) {
         return udp_msg_type_quic;
