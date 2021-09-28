@@ -9,6 +9,8 @@
 #ifndef HTTP_H
 #define HTTP_H
 
+#include <list>
+
 #include "extractor.h"
 #include "fingerprint.h"
 

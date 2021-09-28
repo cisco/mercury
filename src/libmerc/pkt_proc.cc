@@ -86,6 +86,23 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     set_ip_packet(ip_pkt, pkt, k);
     size_t transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
 
+    // process encapsulations
+    //
+    if (report_GRE && transport_proto == 47) {
+        gre_header gre{pkt};
+        switch(gre.get_protocol_type()) {
+        case ETH_TYPE_IP:
+        case ETH_TYPE_IPV6:
+            set_ip_packet(ip_pkt, pkt, k);  // note: overwriting outer ip header
+            transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
+            break;
+        default:
+            ;
+        }
+    }
+
+    // process transport/application protocols
+    //
     if (report_ICMP && (transport_proto == 1 || transport_proto == 58)) {
 
         icmp_packet icmp;
@@ -99,19 +116,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         write_flow_key(record, k);
         record.print_key_timestamp("event_start", ts);
         record.close();
-
-    } else if (report_GRE && transport_proto == 47) {
-        gre_header gre{pkt};
-        switch(gre.get_protocol_type()) {
-        case ETH_TYPE_IP:
-            datum_process_ipv4(&pkt, &transport_proto, &k);
-            break;
-        case ETH_TYPE_IPV6:
-            datum_process_ipv6(&pkt, &transport_proto, &k);
-            break;
-        default:
-            ;
-        }
 
     } else if (transport_proto == 6) { // TCP
         struct tcp_packet tcp_pkt;
@@ -382,79 +386,13 @@ bool stateful_pkt_proc::ip_set_analysis_result(struct analysis_result *r,
                                                struct timespec *ts,
                                                struct tcp_reassembler *reassembler) {
 
-    struct buffer_stream buf{NULL, 0};
-    struct key k;
-    struct datum pkt{ip_packet, ip_packet+length};
-    size_t transport_proto = 0;
-
-    size_t ip_version;
-    if (datum_read_uint(&pkt, 1, &ip_version) == status_err) {
-        return 0;
-    }
-    ip_version &= 0xf0;
-    switch(ip_version) {
-    case 0x40:
-        datum_process_ipv4(&pkt, &transport_proto, &k);
-        break;
-    case 0x60:
-        datum_process_ipv6(&pkt, &transport_proto, &k);
-        break;
-    default:
-        return 0;  // unsupported IP version
-    }
-
-    if (report_GRE && transport_proto == 47) {
-        gre_header gre{pkt};
-        switch(gre.get_protocol_type()) {
-        case ETH_TYPE_IP:
-            datum_process_ipv4(&pkt, &transport_proto, &k);
-            break;
-        case ETH_TYPE_IPV6:
-            datum_process_ipv6(&pkt, &transport_proto, &k);
-            break;
-        default:
-            ;
-        }
-
-    }
-    if (transport_proto == 6) {
-        struct tcp_packet tcp_pkt;
-        tcp_pkt.parse(pkt);
-        if (tcp_pkt.header == nullptr) {
-            return 0;  // incomplete tcp header; can't process packet
-        }
-        tcp_pkt.set_key(k);
-        if (tcp_pkt.is_SYN()) {
-
-        } else if (tcp_pkt.is_SYN_ACK()) {
-
-        } else {
-
-            if (reassembler) {
-                const struct tcp_segment *data_buf = reassembler->check_packet(k, ts->tv_sec, tcp_pkt.header, pkt.length());
-                if (data_buf) {
-                    //fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->index);
-                    struct datum reassembled_tcp_data = data_buf->reassembled_segment();
-                    tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler);
-                    reassembler->remove_segment(k);
-                } else {
-                    const uint8_t *tmp = pkt.data;
-                    tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler);
-                    if (pkt.data == tmp) {
-                        auto segment = reassembler->reap(ts->tv_sec);
-                        if (segment != reassembler->segment_table.end()) {
-                            //fprintf(stderr, "EXPIRED PARTIAL TCP PACKET (length: %u)\n", segment->second.index);
-                            struct datum reassembled_tcp_data = segment->second.reassembled_segment();
-                            tcp_data_write_json(buf, reassembled_tcp_data, segment->first, tcp_pkt, ts, nullptr);
-                            reassembler->remove_segment(segment);
-                        }
-                    }
-                }
-            } else {
-                return tcp_data_set_analysis_result(r, pkt, k, tcp_pkt, ts, nullptr);  // process packet without tcp reassembly
-            }
-        }
-    }
+    // TODO: rewrite this function based on ip_write_json()
+    //
+    (void)r;
+    (void)ip_packet;
+    (void)length;
+    (void)ts;
+    (void)reassembler;
 
     return false;
 }

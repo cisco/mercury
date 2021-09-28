@@ -26,6 +26,7 @@
 #include <unordered_set>
 #include <string>
 #include <vector>
+#include <list>
 #include <zlib.h>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"

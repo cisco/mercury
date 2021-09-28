@@ -20,6 +20,7 @@
 #include "analysis.h"
 #include "utils.h"
 #include "tls.h"
+#include "tcp.h"
 #include "libmerc.h"
 
 #include "rapidjson/document.h"

@@ -13,6 +13,15 @@
 #include "match.h"
 #include "utils.h"
 
+/*
+ * The mercury_debug macro is useful for debugging (but quite verbose)
+ */
+#ifndef DEBUG
+#define mercury_debug(...)
+#else
+#define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
+#endif
+
 /* DTLS Client */
 unsigned char dtls_client_hello_mask[] = {
     0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,

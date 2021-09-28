@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <stdexcept>
-#include "extractor.h"
+#include "tcp.h"
 #include "packet.h"
 #include "analysis.h"
 #include "libmerc.h"
