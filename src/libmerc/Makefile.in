@@ -100,9 +100,14 @@ endif
 
 VERSION=$(shell cat ../../VERSION)
 
-COMMIT=$(shell git log -n 1 | grep -o "commit [0-9a-f]*")
-
-CFLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT)\""
+COMMIT=$(shell git log -n 1 | egrep -o "commit [0-9a-f]+")
+GIT_DIFF=$(shell git diff | wc -l)
+ifeq ($(GIT_DIFF),0)
+  DIFF=
+else
+  DIFF=with local changes
+endif
+CFLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT) $(DIFF)\""
 
 # rule to build library
 #
