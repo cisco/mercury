@@ -100,6 +100,10 @@ endif
 
 VERSION=$(shell cat ../../VERSION)
 
+COMMIT=$(shell git log -n 1 | grep -o "commit [0-9a-f]*")
+
+CFLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT)\""
+
 # rule to build library
 #
 LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)

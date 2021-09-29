@@ -18,6 +18,13 @@
 #define  MERCURY_SEMANTIC_VERSION 0,0,0
 #endif
 
+#ifndef  GIT_COMMIT_ID
+#warning GIT_COMMIT_ID is not defined
+#define  GIT_COMMIT_ID "commit unknown"
+#endif
+
+const char *git_commit_id = GIT_COMMIT_ID;
+
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
@@ -42,6 +49,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     if (verbosity > 0) {
         // sanity check, to help with shared object library development
         printf_err(log_none, "libmerc build time: %s %s\n", __DATE__, __TIME__);
+        printf_err(log_info, "libmerc git id: %s\n", git_commit_id);
     }
 
     try {
