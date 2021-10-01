@@ -808,6 +808,28 @@ struct do_observation {
 
 };
 
+class protocol_identifier tcp_proto_id;
+
+bool proto_ident_init(const char *config_string) {
+    (void)config_string;
+
+    // TODO: invoke this function from libmerc.cc, take in
+    // configuration string, and set up protocol identificatoion as
+    // specified
+
+    tcp_proto_id.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
+    tcp_proto_id.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
+    tcp_proto_id.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
+    tcp_proto_id.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
+    tcp_proto_id.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
+    tcp_proto_id.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
+    tcp_proto_id.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
+    tcp_proto_id.add_protocol(http_response::matcher, tcp_msg_type_http_response);
+    tcp_proto_id.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+    tcp_proto_id.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+
+    return true;
+}
 
 void set_tcp_protocol(tcp_protocol &x,
                       struct datum &pkt,

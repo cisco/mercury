@@ -9,10 +9,9 @@
 #define TLS_H
 
 #include "fingerprint.h"
-#include "extractor.h"
+#include "proto_identify.h"
 #include "analysis.h"
 #include "tcp.h"
-
 
 struct tls_security_assessment {
     bool weak_version_offered;
@@ -289,8 +288,11 @@ struct tls_server_certificate {
 
     void write_json(struct json_array &a, bool json_output) const;
 
-    static unsigned char mask[8];
-    static unsigned char value[8];
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
+        { 0x16, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00 }
+    };
+
 };
 
 #define L_ExtensionType            2
@@ -362,6 +364,11 @@ struct tls_client_hello : public tcp_base_protocol {
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
+        { 0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 }
+    };
+
 };
 
 #include "match.h"
@@ -398,8 +405,10 @@ struct tls_server_hello : public tcp_base_protocol {
 
     void compute_fingerprint(struct fingerprint &fp) const;
 
-    static unsigned char mask[8]; // same as tls_client_hello_mask
-    static unsigned char value[8];
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
+        { 0x16, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00 }
+    };
 
 };
 

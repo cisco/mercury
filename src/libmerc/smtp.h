@@ -163,6 +163,11 @@ public:
 
     bool is_not_empty() const { return parameters.is_not_empty(); }
 
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+        { 0x45, 0x48, 0x4c, 0x4f, 0x20, 0x00, 0x00, 0x00 }
+    };
+
 };
 
 
@@ -229,6 +234,11 @@ public:
     bool is_not_empty() const { return parameters.is_not_empty(); }
 
     bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
+
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
+        { 0x32, 0x35, 0x30, 0x2d, 0x00, 0x00, 0x00, 0x00 }
+    };
 
 };
 

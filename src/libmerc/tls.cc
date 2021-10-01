@@ -615,13 +615,6 @@ void tls_server_hello::write_json(struct json_object &o) const {
     //o.print_key_value("fingerprint", *this); 
 }
 
-unsigned char tls_server_hello::mask[8] = {
-    0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00
-};
-unsigned char tls_server_hello::value[8] = {
-    0x16, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
-};
-
 void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
 
     struct datum tmp_cert_list = certificate_list;
@@ -663,9 +656,3 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
     }
 }
 
-unsigned char tls_server_certificate::mask[8] = {
-    0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00
-};
-unsigned char tls_server_certificate::value[8] = {
-    0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00
-};

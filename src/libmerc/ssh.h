@@ -1,3 +1,4 @@
+
 /*
  * ssh.h
  *
@@ -15,6 +16,7 @@
 #include "analysis.h"
 #include "json_object.h"
 #include "fingerprint.h"
+#include "proto_identify.h"
 
 #define L_ssh_version_string                   8
 #define L_ssh_packet_length                    4
@@ -127,6 +129,11 @@ struct ssh_init_packet : public tcp_base_protocol {
             json_ssh.close();
         }
     }
+
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
+        { 'S',  'S',  'H',  '-',  '2',  '.',  0x00, 0x00 }
+    };
 
 };
 
@@ -307,6 +314,21 @@ struct ssh_kex_init : public tcp_base_protocol {
         fp_buf.write_char('\0'); // null-terminate
         fp.type = fingerprint_type_ssh_kex;
     }
+
+    static constexpr mask_and_value<8> matcher{
+        {
+            0xff, 0xff, 0xf0, 0x00, // packet length
+            0x00,                   // padding length
+            0xff,                   // KEX code
+            0x00, 0x00              // ...
+        },
+        {
+            0x00, 0x00, 0x00, 0x00, // packet length
+            0x00,                   // padding length
+            0x14,                   // KEX code
+            0x00, 0x00              // ...
+        }
+    };
 
 };
 

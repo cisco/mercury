@@ -21,6 +21,11 @@
 #include "buffer_stream.h"
 #include "json_object.h"
 
+#include "tls.h"
+#include "http.h"
+#include "ssh.h"
+#include "smtp.h"
+
 /*
  * The mercury_debug macro is useful for debugging (but quite verbose)
  */
@@ -54,31 +59,16 @@ unsigned char tls_client_hello_value[] = {
     0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00
 };
 
-struct pi_container https_client = {
-    DIR_CLIENT,
-    HTTPS_PORT
-};
-
 #define tls_server_hello_mask tls_client_hello_mask
 
 unsigned char tls_server_hello_value[] = {
     0x16, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
 };
 
-struct pi_container https_server = {
-    DIR_SERVER,
-    HTTPS_PORT
-};
-
 #define tls_server_cert_mask tls_client_hello_mask
 
 unsigned char tls_server_cert_value[] = {
     0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00
-};
-
-struct pi_container https_server_cert = {
-    DIR_UNKNOWN,
-    HTTPS_PORT
 };
 
 unsigned char http_client_mask[] = {
@@ -121,11 +111,6 @@ unsigned char http_client_head_value[] = {
     'H', 'E', 'A', 'D', ' ', 0x00, 0x00, 0x00
 };
 
-struct pi_container http_client = {
-    DIR_CLIENT,
-    HTTP_PORT
-};
-
 /* http server matching value: HTTP/1 */
 
 unsigned char http_server_mask[] = {
@@ -136,11 +121,6 @@ unsigned char http_server_value[] = {
     'H', 'T', 'T', 'P', '/', '1', 0x00, 0x00
 };
 
-struct pi_container http_server = {
-    DIR_SERVER,
-    HTTP_PORT
-};
-
 /* SSH matching value: "SSH-2." */
 
 unsigned char ssh_mask[] = {
@@ -149,11 +129,6 @@ unsigned char ssh_mask[] = {
 
 unsigned char ssh_value[] = {
     'S', 'S', 'H', '-', '2', '.', 0x00, 0x00
-};
-
-struct pi_container ssh = {
-    DIR_CLIENT,
-    SSH_PORT
 };
 
 /* SSH KEX matching value */
@@ -170,11 +145,6 @@ unsigned char ssh_kex_value[] = {
     0x00,                   // padding length
     0x14,                   // KEX code
     0x00, 0x00              // ...
-};
-
-struct pi_container ssh_kex = {
-    DIR_CLIENT,
-    SSH_KEX
 };
 
 /* SMTP server matching value */
@@ -199,83 +169,33 @@ unsigned char smtp_client_value[] = {
 };
 
 
+
 enum tcp_msg_type get_message_type(const uint8_t *tcp_data,
                                    unsigned int len) {
 
-    if (len < sizeof(tls_client_hello_mask)) {
-        return tcp_msg_type_unknown;
+    if (len < tls_client_hello::matcher.length()) {
+        return tcp_msg_type_unknown;    // too short
     }
 
     // debug_print_u8_array(tcp_data);
 
-    /* note: tcp_data will be 32-bit aligned as per the standard */
+    // note: tcp_data should be 32-bit aligned as per the standard
 
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         tls_client_hello_mask,
-                                         tls_client_hello_value)) {
-        return tcp_msg_type_tls_client_hello;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         tls_server_hello_mask,
-                                         tls_server_hello_value)) {
-        return tcp_msg_type_tls_server_hello;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         tls_server_cert_mask,
-                                         tls_server_cert_value)) {
-        return tcp_msg_type_tls_certificate;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         http_client_mask,
-                                         http_client_value)) {
-        return tcp_msg_type_http_request;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         http_client_post_mask,
-                                         http_client_post_value)) {
-        return tcp_msg_type_http_request;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         http_client_connect_mask,
-                                         http_client_connect_value)) {
-        return tcp_msg_type_http_request;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         http_client_put_mask,
-                                         http_client_put_value)) {
-        return tcp_msg_type_http_request;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         http_client_head_mask,
-                                         http_client_head_value)) {
-        return tcp_msg_type_http_request;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         http_server_mask,
-                                         http_server_value)) {
-        return tcp_msg_type_http_response;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         ssh_mask,
-                                         ssh_value)) {
-        return tcp_msg_type_ssh;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         ssh_kex_mask,
-                                         ssh_kex_value)) {
-        return tcp_msg_type_ssh_kex;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         smtp_client_mask,
-                                         smtp_client_value)) {
-        return tcp_msg_type_smtp_client;
-    }
-    if (u32_compare_masked_data_to_value(tcp_data,
-                                         smtp_server_mask,
-                                         smtp_server_value)) {
-        return tcp_msg_type_smtp_server;
-    }
+    if (tls_client_hello::matcher.matches(tcp_data))     { return tcp_msg_type_tls_client_hello; }
+    if (tls_server_hello::matcher.matches(tcp_data))     { return tcp_msg_type_tls_server_hello; }
+    if (http_request::get_matcher.matches(tcp_data))     { return tcp_msg_type_http_request;     }
+    if (http_request::post_matcher.matches(tcp_data))    { return tcp_msg_type_http_request;     }
+    if (http_request::connect_matcher.matches(tcp_data)) { return tcp_msg_type_http_request;     }
+    if (http_request::put_matcher.matches(tcp_data))     { return tcp_msg_type_http_request;     }
+    if (http_request::head_matcher.matches(tcp_data))    { return tcp_msg_type_http_request;     }
+    if (http_response::matcher.matches(tcp_data))        { return tcp_msg_type_http_response;    }
+    if (ssh_init_packet::matcher.matches(tcp_data))      { return tcp_msg_type_ssh;              }
+    if (ssh_kex_init::matcher.matches(tcp_data))         { return tcp_msg_type_ssh_kex;          }
+    if (smtp_client::matcher.matches(tcp_data))          { return tcp_msg_type_smtp_client;      }
+    if (smtp_server::matcher.matches(tcp_data))          { return tcp_msg_type_smtp_server;      }
+
     return tcp_msg_type_unknown;
+
 }
 
 /*
