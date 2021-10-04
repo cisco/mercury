@@ -107,7 +107,17 @@ ifeq ($(GIT_DIFF),0)
 else
   DIFF=with local changes
 endif
-CFLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT) $(DIFF)\""
+GIT_COUNT=$(shell git rev-list --count HEAD)
+CFLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT) $(DIFF)\"" "-DGIT_COUNT=$(GIT_COUNT)"
+
+# variables for determining the semantic version
+#
+major=$(shell cat ../../VERSION | grep -o "^[0-9]*")
+minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
+patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
+version=$(major).$(minor).$(patch)
+MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+
 
 # rule to build library
 #
@@ -225,11 +235,8 @@ cppclean_check:
 	#to install ccppclean use command "pip install --upgrade cppclean"
 	for F in $(LIBMERC) $(LIBMERC_H); do if cppclean "$$F" >> cppclean_report.txt; then : ; fi; done
 
-major=$(shell cat ../../VERSION | grep -o "^[0-9]*")
-minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
-patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
-version=$(major).$(minor).$(patch)
-MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+# targets for incrementing semantic version
+#
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
 	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../../VERSION
