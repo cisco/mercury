@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <stdexcept>
 #include "mercury.h"
 
 /*
@@ -38,6 +39,16 @@ enum io_direction {
     io_direction_writer = 2
 };
 
+enum status pcap_file_open(struct pcap_file *f,
+                           const char *fname,
+                           enum io_direction dir,
+                           int flags);
+
+enum status pcap_file_read_packet(struct pcap_file *f,
+				  struct pcap_pkthdr *pkthdr, /* output */
+				  void *packet_data           /* output */
+				  );
+
 struct pcap_file {
     FILE *file_ptr;
     int fd;                /* file descriptor that is returned by fileno() */
@@ -49,20 +60,24 @@ struct pcap_file {
     uint64_t bytes_written; /* number of bytes written to this file       */
     uint64_t packets_written; /* number of packets written to this file   */
     uint16_t linktype;        /* data link type                           */
+
+    pcap_file(const char *fname, enum io_direction dir, int flags) {
+        if (pcap_file_open(this, fname, dir, flags) != status_ok) {
+            throw std::runtime_error("could not open pcap file");
+        }
+    }
+
+    enum status pcap_file_read_packet(struct pcap_pkthdr *pkthdr, /* output */
+                                      void *packet_data           /* output */
+                                      ) {
+        return pcap_file_read_packet(pkthdr, packet_data);
+    }
+
+    pcap_file() { } // TODO: eliminate vacuous constructor
 };
 
 #define pcap_file_init() { NULL, 0, 0, 0, NULL, NULL, NULL }
 
-enum status pcap_file_open(struct pcap_file *f,
-			   const char *fname,
-			   enum io_direction dir,
-			   int flags);
-
-
-enum status pcap_file_read_packet(struct pcap_file *f,
-				  struct pcap_pkthdr *pkthdr, /* output */
-				  void *packet_data           /* output */
-				  );
 
 enum status pcap_file_write_packet(struct pcap_file *f,
 				   const void *packet,
