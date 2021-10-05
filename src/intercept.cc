@@ -921,6 +921,47 @@ public:
 
     }
 
+    void process_inbound(int fd, uint8_t *data, size_t length) {
+        return; // TODO: fix this function
+
+        fprintf(stderr, BLUE(tty, "%s got tcp_data\n"), __func__);
+        fprintf_raw_as_hex(stderr, data, length); fputc('\n', stderr);
+
+        if (length > 2 && data[0] == 0x16 && data[1] == 0x03) {
+            if (verbose) { fprintf(stderr, GREEN(tty, "tls_handshake: ")); }
+            //  fprintf_raw_as_hex(stderr, data, length); fputc('\n', stderr);
+
+            struct datum tcp_data{data, data+length};
+
+            struct tls_record rec;
+            rec.parse(tcp_data);
+            struct tls_handshake handshake;
+            handshake.parse(rec.fragment);
+            if (handshake.additional_bytes_needed) {
+                fprintf(stderr, YELLOW(tty, "note: tls_handshake needs additional data\n"));
+            }
+            struct tls_server_hello hello;
+            hello.parse(handshake.body);
+            if (hello.is_not_empty()) {
+                fprintf(stderr, BLUE(tty, "%s got tls_server_hello\n"), __func__);
+
+                char buffer[buffer_length];
+                struct buffer_stream buf(buffer, sizeof(buffer));
+                struct json_object record{&buf};
+
+                // write pid into record
+                write_process_info(record, output_level);
+                record.print_key_uint("fd", fd);
+
+                hello.write_json(record);
+                record.close();
+                out->write_buffer(buf);
+
+            }
+        }
+
+    }
+
     void process_inbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
         // fprintf(stderr, BLUE("%s\n"), __func__);
         //print_flow_key(fd);
@@ -1270,6 +1311,12 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
     invoke_original(sendmsg, sockfd, msg, flags);
 }
 
+
+ssize_t recv(int sockfd, void *buf, size_t len, int flags) {
+    fprintf(stderr, YELLOW(tty, "recv() invoked\n"));  // note: no processing happening yet
+    invoke_original(recv, sockfd, buf, len, flags);
+}
+
 #include <unistd.h>
 
 ssize_t write(int fd, const void *buf, size_t count) {
@@ -1279,6 +1326,16 @@ ssize_t write(int fd, const void *buf, size_t count) {
     }
     invoke_original(write, fd, buf, count);
 }
+
+
+ssize_t read(int fd, void *buf, size_t count) {
+    if (fd_is_socket(fd)) {
+        intrcptr->process_inbound(fd, (uint8_t *)buf, count);
+    }
+    invoke_original(read, fd, buf, count);
+}
+
+
 
 // dns interception
 //
