@@ -10,6 +10,7 @@
 #define HTTP_H
 
 #include <list>
+#include <unordered_map>
 
 #include "extractor.h"
 #include "fingerprint.h"
