@@ -427,4 +427,152 @@ template <typename T> struct matching_substrings {
     }
 };
 
+inline uint8_t hamming_weight(uint8_t x)  {
+    uint8_t w[] = {
+        0,  // 00000000
+        1,  // 00000001
+        1,  // 00000010
+        2,  // 00000011
+        1,  // 00000100
+        2,  // 00000101
+        2,  // 00000110
+        3,  // 00000111
+        1,  // 00001000
+        2,  // 00001001
+        2,  // 00001010
+        3,  // 00001011
+        2,  // 00001100
+        3,  // 00001101
+        3,  // 00001110
+        4,  // 00001111
+    };
+
+    return w[x >> 4] + w[x & 0x0f];
+}
+
+inline std::pair<char, char> raw_to_hex(uint8_t x) {
+    const char hex[]= "0123456789abcdef";
+
+    return { hex[x >> 4], hex[x & 0x0f] };
+}
+
+inline uint8_t hex_to_raw(const char hex[2]) {
+
+    int value = 0;
+    if(*hex >= '0' && *hex <= '9') {
+        value = (*hex - '0');
+    } else if (*hex >= 'A' && *hex <= 'F') {
+        value = (10 + (*hex - 'A'));
+    } else if (*hex >= 'a' && *hex <= 'f') {
+        value = (10 + (*hex - 'a'));
+    }
+    value = value << 4;
+    hex++;
+    if(*hex >= '0' && *hex <= '9') {
+        value |= (*hex - '0');
+    } else if (*hex >= 'A' && *hex <= 'F') {
+        value |= (10 + (*hex - 'A'));
+    } else if (*hex >= 'a' && *hex <= 'f') {
+        value |= (10 + (*hex - 'a'));
+    }
+
+    return value;
+}
+
+std::basic_string<uint8_t> uint8_string_from_hex(const char *h) {
+    std::basic_string<uint8_t> s;
+    while (true) {
+        if (h[0] == '\0' || h[1] == '\0') {
+            break;
+        }
+        s.push_back(hex_to_raw(h));
+        h += 2;
+    }
+    return s;
+}
+
+void fprint_uint8_string(FILE *f, const std::basic_string<uint8_t> &s) {
+    for (const auto & x : s) {
+        std::pair<char, char> hi_and_lo = raw_to_hex(x);
+        fputc(hi_and_lo.first, f);
+        fputc(hi_and_lo.second, f);
+    }
+}
+
+// mask and value computation
+//
+// it is easy to understand a bitwise formulation of the problem:
+//
+//    find m and v such that (m & p) = v for p in { p1, p2, ..., pN }
+//
+// m = 1 if (p1 == p2 == ... == pN)
+// v = m & p
+//
+// (0,0) -> 1
+// (1,1) -> 1
+// (0,1) -> 0
+// (1,0) -> 0
+
+class mask_and_value {
+    std::basic_string<uint8_t> mask;
+    std::basic_string<uint8_t> val;
+    size_t len;
+    bool first;
+
+public:
+
+    mask_and_value(size_t N) : mask{}, val{}, len{N}, first{true} {
+        for (size_t i=0; i<len; i++) {
+            mask.push_back(0xff);
+            val.push_back(0xff);
+        }
+    }
+
+    void observe(const uint8_t *p, size_t N) {
+
+        // verify length
+        //
+        if (N != len) {
+            fprintf(stderr, "error: N=%zu, s=%.*s\n", N, (int)N, p);
+            throw std::runtime_error("bad length");
+        }
+
+        if (first) {
+            first = false;
+            // first value, so leave mask alone
+            //
+            for (size_t i=0; i<len; i++) {
+                val[i] = p[i];
+            }
+        }
+
+        // adjust mask and value so that (mask & p == value), with the
+        // largest possible mask (in the hamming weight sense)
+        //
+        for (size_t i=0; i<len; i++) {
+            uint8_t x = mask[i] & p[i];
+            // fprintf(stderr, "mask:  %02x\t", mask[i]);
+            // fprintf(stderr, "value: %02x\t", val[i]);
+            // fprintf(stderr, "p:     %02x\t", p[i]);
+            // fputc('\n', stderr);
+            if (x != val[i]) {
+                 mask[i] = ~(val[i] ^ x);
+                val[i] = x;
+            }
+        }
+    }
+
+    std::pair<std::basic_string<uint8_t>, std::basic_string<uint8_t>> value() const {
+        return { mask, val };
+    }
+
+    size_t weight() const {
+        size_t tmp = 0;
+        for (const auto & x : mask) {
+            tmp += hamming_weight(x);
+        }
+        return tmp;
+    }
+};
+
 #endif /* STRINGALGS_H */

@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--subsequence",   "method: compute longest common subsequence" },
         { argument::none,       "--substring",     "method: compute longest common substring" },
         { argument::none,       "--matching",      "method: compute matching substrings" },
+        { argument::none,       "--find-mask",     "method: find common mask and value" },
         { argument::none,       "--normalize",     "normalize distance to [0,1]" },
         { argument::none,       "--help",          "prints out help message" }
     });
@@ -41,10 +42,11 @@ int main(int argc, char *argv[]) {
     bool lcsubseq    = opt.is_set("--subsequence");
     bool lcsubstr    = opt.is_set("--substring");
     bool match_str   = opt.is_set("--matching");
+    bool find_mask   = opt.is_set("--find-mask");
     bool normalize   = opt.is_set("--normalize");
     bool print_help  = opt.is_set("--help");
 
-    if (!edit_dist && !lcsubseq && !lcsubstr && !match_str && !print_help) {
+    if (!edit_dist && !lcsubseq && !lcsubstr && !match_str && !find_mask && !print_help) {
         fprintf(stderr, "error: no analysis method specified\n");
         opt.usage(stderr, progname, summary);
         return EXIT_FAILURE;
@@ -66,9 +68,13 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
     }
+
+    // read in strings from input stream
+    //
     char *line = NULL;
     size_t len = 0;
     ssize_t nread;
+    size_t max_len = 0; // length of largest input string
 
     std::vector<std::basic_string<uint8_t>> s;
     while ((nread = getline(&line, &len, stream)) != -1) {
@@ -77,10 +83,15 @@ int main(int argc, char *argv[]) {
             tmp.erase(tmp.length()-1);
         }
         s.push_back(tmp);
+        if (tmp.length() > max_len) {
+            max_len = tmp.length();
+        }
     }
     free(line);
     fclose(stream);
 
+    // loop over each pair of strings, and apply method
+    //
     size_t s_len = s.size();
     for (size_t i=0; i<s_len; i++) {
         for (size_t j=0; j<s_len; j++) {
@@ -128,6 +139,25 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
+    }
+
+
+    // single-pass methods
+    //
+    if (find_mask) {
+        struct mask_and_value mv{max_len/2};
+        for (auto & x : s) {
+            std::basic_string<uint8_t> s = uint8_string_from_hex((const char *)x.c_str());
+            mv.observe(s.c_str(), s.length());
+        }
+        auto m_and_v = mv.value();
+        fprintf(stdout, "mask:   ");
+        fprint_uint8_string(stdout, m_and_v.first);
+        fputc('\n', stdout);
+        fprintf(stdout, "value:  ");
+        fprint_uint8_string(stdout, m_and_v.second);
+        fputc('\n', stdout);
+        fprintf(stdout, "weight: %zu\n", mv.weight());
     }
 
     return 0;
