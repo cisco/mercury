@@ -6,7 +6,7 @@
 
 Mercury is an open source package for network metadata capture and analysis.   It contains the standalone mercury application, the libmerc.so library, and several other supporting applications and libraries described below.
 
-[Mercury](../src/mercury.c) is a stand-alone application for high throughput network security monitoring using Linux native AF_PACKET TPACKETv3 interface.  It can process packets at high data rates, operate off of a span port or PCAP files, capture and report metadata including fingerprints for many protocols (using this [JSON schema](schema.md), and perform fingerprinting with destination context.
+[Mercury](../src/mercury.c) is a stand-alone application for high throughput network security monitoring using Linux native AF_PACKET TPACKETv3 interface.  It can process packets at high data rates, operate off of a span port or PCAP files, capture and report metadata including fingerprints for many protocols (using this [JSON schema](schema.md)), and perform fingerprinting with destination context.
 
 [Libmerc.so](../src/libmerc/libmerc.cc) is a shared object library that implements the packet-processing features of mercury; it can extract fingerprints and other metadata, and identify client processes and detect malware through [TLS Fingerprinting with Destination Context (FDC)](wnb.md).   
 
