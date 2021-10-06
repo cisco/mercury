@@ -397,8 +397,14 @@ public:
         }
     }
 
-    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; } // TODO: replace with actual analysis
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        struct datum sn{NULL, NULL};
+        hello.extensions.set_server_name(sn);
 
+        analysis_.destination.init(sn, k_);
+
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    }
 };
 
 
