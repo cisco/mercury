@@ -5,6 +5,7 @@
 #ifndef BASE64_H
 #define BASE64_H
 
+#include <string>
 
 std::string hex_encode(const unsigned char *src, size_t len) {
     char hex_table[] =
@@ -37,8 +38,6 @@ std::string hex_encode(const unsigned char *src, size_t len) {
 
 // 2016-12-12 - Gaspard Petit : Slightly modified to return a std::string 
 // instead of a buffer allocated with malloc.
-
-#include <string>
 
 static const unsigned char base64_table[65] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -185,7 +184,7 @@ int decode(void *outbuf, const size_t outlen, const void* data, const size_t len
     size_t str_size = L / 4 * 3 + pad;
 
     if (outlen < str_size) {
-        printf_err(log_err, "base64 decode needs %zu bytes, only has room for %zu\n", str_size, outlen);
+        // printf_err(log_err, "base64 decode needs %zu bytes, only has room for %zu\n", str_size, outlen);
         return 0;  // not enough room for output
     }
     size_t i, j;
