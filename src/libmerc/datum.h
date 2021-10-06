@@ -335,6 +335,13 @@ struct datum {
         }
         return std::numeric_limits<int>::min();
     }
+
+    void fprint_hex(FILE *f) const {
+        const uint8_t *x = data;
+        while (x < data_end) {
+            fprintf(f, "%02x", *x++);
+        }
+    }
 };
 
 template <size_t T> struct data_buffer {
