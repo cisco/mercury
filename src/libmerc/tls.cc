@@ -518,7 +518,13 @@ void tls_client_hello::operator()(struct buffer_stream &buf) const {
 }
 
 void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {
-    fp.set(*this, fingerprint_type_tls);
+    enum fingerprint_type type;
+    if (dtls) {
+        type = fingerprint_type_dtls;
+    } else {
+        type = fingerprint_type_tls;
+    }
+    fp.set(*this, type);
 }
 
 bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
@@ -566,6 +572,13 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
 
     compression_method.parse(record, L_CompressionMethod);
 
+    if (compression_method.is_not_empty()) {
+        // determine if this is DTLS or plain old TLS
+        if (protocol_version.data[0] == 0xfe) {
+            dtls = true;
+        }
+    }
+
     // parse extensions vector
     if (datum_read_and_skip_uint(&record, L_ExtensionsVectorLength, &tmp_len)) {
         return status_ok;  // could differentiate between err/ok
@@ -600,19 +613,6 @@ void tls_server_hello::operator()(struct buffer_stream &buf) const {
         extensions.fingerprint(buf, tls_role::server);
         buf.write_char(')');
     }
-}
-
-void tls_server_hello::write_json(struct json_object &o) const {
-    o.print_key_hex("version", protocol_version);
-    o.print_key_hex("random", random);
-    //o.print_key_hex("session_id", session_id);
-    //o.print_key_hex("cipher_suites", ciphersuite_vector);
-    o.print_key_hex("compression_method", compression_method);
-    //o.print_key_hex("extensions", hello.extensions);
-    //hello.extensions.print(o, "extensions");
-    extensions.print_server_name(o, "server_name");
-    extensions.print_session_ticket(o, "session_ticket");
-    //o.print_key_value("fingerprint", *this); 
 }
 
 void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {

@@ -12,6 +12,7 @@
 #include "proto_identify.h"
 #include "analysis.h"
 #include "tcp.h"
+#include "tcpip.h"
 
 struct tls_security_assessment {
     bool weak_version_offered;
@@ -379,6 +380,7 @@ struct tls_server_hello : public tcp_base_protocol {
     struct datum ciphersuite_vector;
     struct datum compression_method;
     struct tls_extensions extensions;
+    bool dtls = false;
 
     tls_server_hello() = default;
 
@@ -401,9 +403,29 @@ struct tls_server_hello : public tcp_base_protocol {
 
     enum status parse_tls_server_hello(struct datum &p);
 
-    void write_json(struct json_object &record) const;
+    void write_json(struct json_object &o, bool write_metadata=false) const {
+        (void)write_metadata;
 
-    void compute_fingerprint(struct fingerprint &fp) const;
+        o.print_key_hex("version", protocol_version);
+        o.print_key_hex("random", random);
+        //o.print_key_hex("session_id", session_id);
+        //o.print_key_hex("cipher_suites", ciphersuite_vector);
+        o.print_key_hex("compression_method", compression_method);
+        //o.print_key_hex("extensions", hello.extensions);
+        //hello.extensions.print(o, "extensions");
+        extensions.print_server_name(o, "server_name");
+        extensions.print_session_ticket(o, "session_ticket");
+    }
+
+    void compute_fingerprint(struct fingerprint &fp) const {
+        enum fingerprint_type type;
+        if (dtls) {
+            type = fingerprint_type_dtls;
+        } else {
+            type = fingerprint_type_tls;
+        }
+        fp.set(*this, type);
+    }
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
@@ -470,5 +492,140 @@ struct dtls_handshake {
 
 };
 
+class tls_server_hello_and_certificate : public tcp_base_protocol {
+    struct tls_server_hello hello;
+    struct tls_server_certificate certificate;
+
+public:
+    tls_server_hello_and_certificate() : hello{}, certificate{} {}
+
+    void parse(struct datum &pkt, struct tcp_packet *tcp_pkt) {
+        struct tls_record rec;
+        struct tls_handshake handshake;
+
+        // parse server_hello and/or certificate
+        //
+        rec.parse(pkt);
+        handshake.parse(rec.fragment);
+        if (handshake.msg_type == handshake_type::server_hello) {
+            hello.parse(handshake.body);
+            if (rec.is_not_empty()) {
+                struct tls_handshake h;
+                h.parse(rec.fragment);
+                certificate.parse(h.body);
+            }
+
+        } else if (handshake.msg_type == handshake_type::certificate) {
+            certificate.parse(handshake.body);
+        }
+        struct tls_record rec2;
+        rec2.parse(pkt);
+        struct tls_handshake handshake2;
+        handshake2.parse(rec2.fragment);
+        if (handshake2.msg_type == handshake_type::certificate) {
+            certificate.parse(handshake2.body);
+        }
+        if (tcp_pkt && certificate.additional_bytes_needed) {
+            tcp_pkt->reassembly_needed(certificate.additional_bytes_needed);
+        }
+    }
+
+    bool is_not_empty() {
+        return hello.is_not_empty() || certificate.is_not_empty();
+    }
+
+    void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
+
+        bool have_hello = hello.is_not_empty();
+        bool have_certificate = certificate.is_not_empty();
+        if (have_hello || have_certificate) {
+
+            // output certificate (always) and server_hello (if configured to)
+            //
+            if ((metadata_output && have_hello) || have_certificate) {
+                struct json_object tls{record, "tls"};
+                struct json_object tls_server{tls, "server"};
+                if (have_certificate) {
+                    struct json_array server_certs{tls_server, "certs"};
+                    certificate.write_json(server_certs, certs_json_output);
+                    server_certs.close();
+                }
+                if (metadata_output && have_hello) {
+                    hello.write_json(tls_server);
+                }
+                tls_server.close();
+                tls.close();
+            }
+        }
+    }
+
+    void write_fingerprint(struct json_object &object) {
+        if (hello.is_not_empty()) {
+            struct json_object fps{object, "fingerprints"};
+            fps.print_key_value("tls_server", hello);
+            fps.close();
+        }
+    }
+
+    void compute_fingerprint(struct fingerprint &fp) const {
+        if (hello.is_not_empty()) {
+            fp.set(hello, fingerprint_type_tls_server);
+        }
+    }
+
+    const char *get_name() {
+        if (hello.is_not_empty()) {
+            return "tls_server";
+        }
+        return nullptr;
+    }
+
+    void operator()(buffer_stream &b) {
+        if (hello.is_not_empty()) {
+            hello(b);
+        }
+    }
+
+};
+
+
+#if 0 // TODO: finish or delete???
+
+class dtls_client_hello {
+    tls_client_hello hello;
+ public:
+    dtls_client_hello(struct datum &pkt) : hello{} {
+        struct dtls_record dtls_rec;
+        dtls_rec.parse(pkt);
+        struct dtls_handshake handshake;
+        handshake.parse(dtls_rec.fragment);
+        if (handshake.msg_type == handshake_type::client_hello) {
+            hello.parse(handshake.body);
+        }
+    }
+
+    bool is_not_empty() const { return hello.is_not_empty(); }
+
+    void write_fingerprint(struct json_object &object) {
+        if (hello.is_not_empty()) {
+            struct json_object fps{object, "fingerprints"};
+            fps.print_key_value("dtls", hello);
+            fps.close();
+        }
+    }
+
+    void write_json(struct json_object &record, bool output_metadata) const {
+        ; 
+    }
+
+    void compute_fingerprint(struct fingerprint &fp) const {
+        if (hello.is_not_empty()) {
+            // fp.set(hello, fingerprint_type_dtls); // TODO: new fp type?
+        }
+    }
+
+};
+
+#endif // 0
 
 #endif /* TLS_H */

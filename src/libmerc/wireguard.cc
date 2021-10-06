@@ -8,7 +8,8 @@
 #include "wireguard.h"
 #include "json_object.h"
 
-void wireguard_handshake_init::write_json(struct json_object &o) {
+void wireguard_handshake_init::write_json(struct json_object &o, bool write_metadata) {
+    (void)write_metadata;
 
     if (sender_index.is_not_readable()) {
         return;

@@ -42,9 +42,10 @@ struct wireguard_handshake_init {
         valid = true;
     }
 
-    void write_json(struct json_object &o);
+    void write_json(struct json_object &o, bool write_metadata=false);
 
-    bool is_valid() { return valid; }
+    bool is_not_empty() { return valid; }
+
 };
 
 #endif /* WIREGUARD_H */

@@ -35,7 +35,10 @@ struct fingerprint {
             "ssh_kex",
             "tcp",
             "dhcp",
-            "smtp_server"
+            "smtp_server",
+            "dtls",
+            "dtls_server",
+            "quic",
         };
         if (type > (sizeof(name)/sizeof(const char *))) {
             type = fingerprint_type_unknown;  // error: unknown type

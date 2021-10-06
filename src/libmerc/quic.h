@@ -121,20 +121,23 @@ struct quic_initial_packet {
         return valid;
     }
 
-    void write_json(struct json_object &o) const {
+    void write_json(struct json_object &o, bool =false) const {
         if (!valid) {
             return;
         }
 
+        struct json_object json_quic{o, "quic"};
         struct uint8_bitfield bitfield{connection_info};
-        o.print_key_value("connection_info", bitfield);
-        o.print_key_hex("version", version);
-        o.print_key_hex("dcid", dcid);
-        o.print_key_hex("scid", scid);
-        o.print_key_hex("token", token);
-        o.print_key_hex("data", data);
+        json_quic.print_key_value("connection_info", bitfield);
+        json_quic.print_key_hex("version", version);
+        json_quic.print_key_hex("dcid", dcid);
+        json_quic.print_key_hex("scid", scid);
+        json_quic.print_key_hex("token", token);
+        json_quic.print_key_hex("data", data);
+        json_quic.close();
 
     }
+
 };
 
 class quic_parameters {
@@ -207,16 +210,17 @@ struct quic_initial_packet_crypto {
     unsigned char plaintext[1024] = {0};
     int16_t plaintext_len = 0;
 
-    quic_initial_packet_crypto(struct quic_initial_packet quic_pkt) {
+    quic_initial_packet_crypto(struct quic_initial_packet quic_pkt) : valid{false} {
+        if (!quic_pkt.is_not_empty()) {
+            return;
+        }
         const uint8_t *dcid = quic_pkt.dcid.data;
         size_t dcid_len = quic_pkt.dcid.length();
         uint32_t version = ntohl(*((uint32_t*)quic_pkt.version.data));
 
         static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
         uint8_t *initial_salt = quic_params.get_initial_salt(version);
-
         if (initial_salt == nullptr) {
-            valid = false;
             return;
         }
 
@@ -341,8 +345,13 @@ struct quic_initial_packet_crypto {
         delete[] new_label;
     }
 
-    bool is_not_empty() {
+    bool is_not_empty() const {
         return valid;
+    }
+
+    datum get_plaintext() const {
+        struct datum quic_plaintext{plaintext+8, plaintext+plaintext_len};
+        return quic_plaintext;
     }
 };
 
@@ -350,5 +359,48 @@ constexpr uint8_t quic_initial_packet_crypto::client_in_label[];
 constexpr uint8_t quic_initial_packet_crypto::quic_key_label[];
 constexpr uint8_t quic_initial_packet_crypto::quic_iv_label[];
 constexpr uint8_t quic_initial_packet_crypto::quic_hp_label[];
+
+
+// class quic_init represents an initial quic message
+//
+class quic_init {
+    quic_initial_packet initial_packet;
+    quic_initial_packet_crypto quic_pkt_crypto;
+    tls_client_hello hello;
+
+public:
+
+    quic_init(struct datum &d) : initial_packet{d}, quic_pkt_crypto{initial_packet}, hello{} {
+        if (quic_pkt_crypto.is_not_empty()) {
+            quic_pkt_crypto.decrypt(initial_packet.data.data, initial_packet.data.length());
+            datum plaintext = quic_pkt_crypto.get_plaintext();
+            hello.parse(plaintext);
+        }
+    }
+
+    bool is_not_empty() {
+        return initial_packet.is_not_empty();
+    }
+
+    void write_json(struct json_object &record, bool metadata_output=false) {
+        if (quic_pkt_crypto.is_not_empty()) {
+            if (hello.is_not_empty()) {
+                hello.write_json(record, metadata_output);
+            }
+        }
+        initial_packet.write_json(record);
+    }
+
+    void compute_fingerprint(struct fingerprint &fp) const {
+        if (quic_pkt_crypto.is_not_empty()) {
+            fp.set(hello, fingerprint_type_quic);
+        }
+    }
+
+    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; } // TODO: replace with actual analysis
+
+};
+
+
 
 #endif /* QUIC_H */

@@ -89,7 +89,12 @@ public:
         a.push_back(new_proto);
     }
 
-    enum tcp_msg_type get_protocol(const uint8_t *data, unsigned int len) {
+    void compile() {
+        // this function is a placeholder for now, but in the future,
+        // it may compile a jump table, reorder matchers, etc.
+    }
+
+    enum tcp_msg_type get_msg_type(const uint8_t *data, unsigned int len) {
         if (len < 8) {
             return tcp_msg_type_unknown;
         }

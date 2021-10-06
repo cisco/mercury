@@ -664,7 +664,7 @@ public:
 
     void compute_fingerprint(struct fingerprint &) const { }
 
-    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
+    bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
 
 };
 

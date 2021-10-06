@@ -62,6 +62,335 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     // o.b->snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
+
+// class unknown_initial_packet represents the initial data field of a
+// tcp or udp packet from an unknown protocol
+//
+class unknown_initial_packet : public tcp_base_protocol {
+    datum tcp_data_field;
+
+public:
+
+    unknown_initial_packet() : tcp_data_field{} { }
+
+    void parse(struct datum &pkt) {
+        // if this packet is a TLS record, ignore it
+        if (tls_record::is_valid(tcp_data_field)) {
+            tcp_data_field.set_empty();
+        } else {
+            tcp_data_field = pkt;
+        }
+    }
+
+    void operator()(buffer_stream &) { }
+
+    void write_json(json_object &record, bool) {
+        struct json_object tcp{record, "tcp"};
+        tcp.print_key_hex("data", tcp_data_field);
+        tcp.close();
+    }
+
+    bool is_not_empty() { return tcp_data_field.is_not_empty(); }
+
+};
+
+// udp_protocol is an alias for a variant record that holds the data
+// structure resulting from the parsing of the UDP data field.  The
+// default value of std::monostate indicates that the protocol matcher
+// did not recognize the packet.  The class unknown_initial_packet
+// represents the UDP data field of an unrecognized packet that is the
+// first data packet in a flow.
+//
+using udp_protocol = std::variant<std::monostate,
+                                  quic_init,
+                                  wireguard_handshake_init,
+                                  dns_packet,
+                                  tls_client_hello, // dtls
+                                  tls_server_hello, // dtls
+                                  dhcp_discover,
+                                  unknown_initial_packet
+                                  >;
+
+void set_udp_protocol(udp_protocol &x,
+                      struct datum &pkt,
+                      enum udp_msg_type msg_type,
+                      bool is_new) {
+
+    // note: std::get<T>() throws exceptions; it might be better to
+    // use get_if<T>(), which does not
+
+    // enum udp_msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
+    // if (msg_type == udp_msg_type_unknown) {
+    //     msg_type = udp_pkt.estimate_msg_type_from_ports();
+    // }
+    switch(msg_type) {
+    case udp_msg_type_dns:
+        {
+            x.emplace<dns_packet>();
+            auto &y = std::get<dns_packet>(x);
+            y.parse(pkt);
+        }
+        break;
+    case udp_msg_type_dhcp:
+        {
+            x.emplace<dhcp_discover>();
+            auto &y = std::get<dhcp_discover>(x);
+            y.parse(pkt);
+        }
+        break;
+    case udp_msg_type_quic:
+        x.emplace<quic_init>(pkt);
+        break;
+    case udp_msg_type_dtls_client_hello:
+        {
+            //x.emplace<dtls_client_hello>(pkt);
+
+            struct dtls_record dtls_rec;
+            dtls_rec.parse(pkt);
+            struct dtls_handshake handshake;
+            handshake.parse(dtls_rec.fragment);
+            if (handshake.msg_type == handshake_type::client_hello) {
+                x.emplace<tls_client_hello>();
+                auto &message = std::get<tls_client_hello>(x);
+                message.parse(handshake.body);
+            }
+        }
+        break;
+    case udp_msg_type_dtls_server_hello:
+        {
+            struct dtls_record dtls_rec;
+            dtls_rec.parse(pkt);
+            struct dtls_handshake handshake;
+            handshake.parse(dtls_rec.fragment);
+            if (handshake.msg_type == handshake_type::server_hello) {
+                x.emplace<tls_server_hello>();
+                auto &message = std::get<tls_server_hello>(x);
+                message.parse(handshake.body);
+            }
+        }
+        break;
+    case udp_msg_type_wireguard:
+        {
+            x.emplace<wireguard_handshake_init>();
+            auto &y = std::get<wireguard_handshake_init>(x);
+            y.parse(pkt);
+        }
+        break;
+    default:
+        if (is_new) {
+            x.emplace<unknown_initial_packet>();
+            auto &msg = std::get<unknown_initial_packet>(x);
+            msg.parse(pkt);
+        } else {
+            x.emplace<std::monostate>();
+        }
+        break;
+    }
+}
+
+// function objects that are applied to tcp_protocol and udp_protocol
+// std::variants
+//
+struct is_not_empty {
+    template <typename T>
+    bool operator()(T &r) {
+        return r.is_not_empty();
+    }
+
+    bool operator()(std::monostate &r) {
+        (void)r;
+        return false;
+    }
+};
+
+struct write_metadata {
+    struct json_object &record;
+    bool metadata_output_;
+    bool certs_json_output_;
+    bool dns_json_output_;
+
+    write_metadata(struct json_object &object,
+                   bool metadata_output,
+                   bool certs_json_output,
+                   bool dns_json_output=false) : record{object},
+                                             metadata_output_{metadata_output},
+                                             certs_json_output_{certs_json_output},
+                                             dns_json_output_{dns_json_output}
+    {}
+
+    template <typename T>
+    void operator()(T &r) {
+        r.write_json(record, metadata_output_);
+    }
+
+    void operator()(http_response &r) {
+        if (metadata_output_) {
+            r.write_json(record);
+        }
+    }
+
+    void operator()(dhcp_discover &r) {
+        if (metadata_output_) {
+            r.write_json(record);
+        }
+    }
+
+    void operator()(dns_packet &r) {
+        if (dns_json_output_) {
+            struct json_object json_dns{record, "dns"};
+            r.write_json(json_dns);
+            json_dns.close();
+        } else {
+            struct json_object json_dns{record, "dns"};
+            struct datum pkt = r.get_datum();  // get complete packet
+            json_dns.print_key_base64("base64", pkt);
+            json_dns.close();
+        }
+    }
+
+    void operator()(tls_server_hello_and_certificate &r) {
+        r.write_json(record, metadata_output_, certs_json_output_);
+    }
+    void operator()(std::monostate &r) {
+        (void) r;
+    }
+};
+
+struct compute_fingerprint {
+    struct fingerprint &fp_;
+
+    compute_fingerprint(struct fingerprint &fp) : fp_{fp} {
+        fp_.type = fingerprint_type_unknown;
+        fp.fp_str[0] = '\0';  // initialize fingerprint to 'emtpy'
+    }
+
+    template <typename T>
+    void operator()(T &msg) {
+        msg.compute_fingerprint(fp_);
+    }
+
+    // these protocols are not fingerprinted
+    //
+    void operator()(wireguard_handshake_init &) { }
+    void operator()(unknown_initial_packet &) { }
+    void operator()(dns_packet &) { }
+    void operator()(std::monostate &) { }
+
+};
+
+
+struct write_fingerprint {
+    struct json_object &record;
+
+    write_fingerprint(struct json_object &object) : record{object} {}
+
+    template <typename T>
+    void operator()(T &r) {
+        r.write_fingerprint(record);
+    }
+
+    void operator()(http_request &r) {
+        struct json_object fps{record, "fingerprints"};
+        fps.print_key_value("http", r);
+        fps.close();
+        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
+    }
+
+    void operator()(http_response &r) {
+        struct json_object fps{record, "fingerprints"};
+        fps.print_key_value("http_server", r);
+        fps.close();
+        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
+    }
+
+    void operator()(ssh_init_packet &r) {
+        struct json_object fps{record, "fingerprints"};
+        fps.print_key_value("ssh", r);
+        fps.close();
+    }
+
+    void operator()(ssh_kex_init &r) {
+        struct json_object fps{record, "fingerprints"};
+        fps.print_key_value("ssh_kex", r);
+        fps.close();
+    }
+
+    // these protocols are not fingerprinted
+    //
+    void operator()(wireguard_handshake_init &) { }
+    void operator()(unknown_initial_packet &) { }
+    void operator()(dns_packet &) { }
+    void operator()(std::monostate &) { }
+};
+
+struct do_analysis {
+    const struct key &k_;
+    struct analysis_context &analysis_;
+    classifier *c_;
+
+    do_analysis(const struct key &k,
+                struct analysis_context &analysis,
+                classifier *c) :
+        k_{k},
+        analysis_{analysis},
+        c_{c}
+    {}
+
+    bool operator()(tls_client_hello &msg) {
+        return msg.do_analysis(k_, analysis_, c_);
+    }
+    bool operator()(http_request &msg) {
+        return msg.do_analysis(k_, analysis_, c_);
+    }
+    bool operator()(quic_init &msg) {
+        return msg.do_analysis(k_, analysis_, c_);
+    }
+
+    template <typename T>
+    bool operator()(T &) {
+        return false;   // don't perform analysis for other types
+    }
+
+    bool operator()(std::monostate &) { return false; }
+
+};
+
+struct do_observation {
+    const struct key &k_;
+    struct analysis_context &analysis_;
+    class message_queue *mq_;
+
+    do_observation(const struct key &k,
+                   struct analysis_context &analysis,
+                   class message_queue *mq) :
+        k_{k},
+        analysis_{analysis},
+        mq_{mq}
+    {}
+
+    void operator()(tls_client_hello &) {
+        // create event and send it to the data/stats aggregator
+        //
+        char src_ip_str[MAX_ADDR_STR_LEN];
+        k_.sprint_src_addr(src_ip_str);
+        char dst_port_str[MAX_PORT_STR_LEN];
+        k_.sprint_dst_port(dst_port_str);
+        std::string event_string;
+        event_string.append("(");
+        event_string.append(src_ip_str).append(")#");
+        event_string.append(analysis_.fp.fp_str).append("#(");
+        event_string.append(analysis_.destination.sn_str).append(")(");
+        event_string.append(analysis_.destination.dst_ip_str).append(")(");
+        event_string.append(dst_port_str).append(")");
+        //fprintf(stderr, "note: observed event_string '%s'\n", event_string.c_str());
+        mq_->push((uint8_t *)event_string.c_str(), event_string.length()+1);
+    }
+
+    template <typename T>
+    void operator()(T &) { }
+
+};
+
 // constant expression variables that control JSON output; these
 // variables can be used as compile-time options.  In the future, they
 // will probably become run-time options.
@@ -198,166 +527,46 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
     } else if (transport_proto == 17) { // UDP
-        struct udp_packet udp_pkt;
-        udp_pkt.parse(pkt);
+        struct udp_packet udp_pkt{pkt};
         udp_pkt.set_key(k);
+        enum udp_msg_type msg_type = udp_pkt.get_msg_type();
         bool is_new = false;
         if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
-        enum udp_msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
-        if (msg_type == udp_msg_type_unknown) {
-            msg_type = udp_pkt.estimate_msg_type_from_ports();
-        }
-        switch(msg_type) {
-        case udp_msg_type_quic:
-            {
-                struct quic_initial_packet quic_pkt{pkt};
-                if (quic_pkt.is_not_empty()) {
-                    struct json_object json_record{&buf};
-                    struct quic_initial_packet_crypto quic_pkt_crypto{quic_pkt};
-                    quic_pkt_crypto.decrypt(quic_pkt.data.data, quic_pkt.data.length());
-                    if (quic_pkt_crypto.is_not_empty()) {
-                        struct tls_client_hello hello;
-                        struct datum quic_plaintext(quic_pkt_crypto.plaintext+8, quic_pkt_crypto.plaintext+quic_pkt_crypto.plaintext_len);
-                        hello.parse(quic_plaintext);
-                        if (hello.is_not_empty()) {
-                            struct json_object fps{json_record, "fingerprints"};
-                            fps.print_key_value("quic", hello);
-                            fps.close();
-                            hello.write_json(json_record, global_vars.metadata_output);
-                        }
-                    }
-                    struct json_object json_quic{json_record, "quic"};
-                    quic_pkt.write_json(json_quic);
-                    json_quic.close();
-                    write_flow_key(json_record, k);
-                    json_record.print_key_timestamp("event_start", ts);
-                    json_record.close();
-                }
-            }
-            break;
-        case udp_msg_type_wireguard:
-            {
-                wireguard_handshake_init wg;
-                wg.parse(pkt);
-                if (wg.is_valid()) {
-                    struct json_object record{&buf};
-                    wg.write_json(record);
-                    write_flow_key(record, k);
-                    record.print_key_timestamp("event_start", ts);
-                    record.close();
-                }
-            }
-            break;
-        case udp_msg_type_dns:
-            {
-                if (global_vars.dns_json_output) {
-                    struct dns_packet dns_pkt{pkt};
-                    if (dns_pkt.is_not_empty()) {
-                        struct json_object json_record{&buf};
-                        struct json_object json_dns{json_record, "dns"};
-                        dns_pkt.write_json(json_dns);
-                        json_dns.close();
-                        write_flow_key(json_record, k);
-                        json_record.print_key_timestamp("event_start", ts);
-                        json_record.close();
-                    }
-                } else {
-                    struct json_object json_record{&buf};
-                    struct json_object json_dns{json_record, "dns"};
-                    json_dns.print_key_base64("base64", pkt);
-                    json_dns.close();
-                    write_flow_key(json_record, k);
-                    json_record.print_key_timestamp("event_start", ts);
-                    json_record.close();
-                }
-            }
-            break;
-        case udp_msg_type_dtls_client_hello:
-            {
-                struct dtls_record dtls_rec;
-                dtls_rec.parse(pkt);
-                struct dtls_handshake handshake;
-                handshake.parse(dtls_rec.fragment);
-                if (handshake.msg_type == handshake_type::client_hello) {
-                    struct tls_client_hello hello;
-                    hello.parse(handshake.body);
-                    if (hello.is_not_empty()) {
-                        struct json_object record{&buf};
-                        struct json_object fps{record, "fingerprints"};
-                        fps.print_key_value("dtls", hello);
-                        fps.close();
-                        hello.write_json(record, global_vars.metadata_output);
-                        write_flow_key(record, k);
-                        record.print_key_timestamp("event_start", ts);
-                        record.close();
-                    }
-                }
-            }
-            break;
-        case udp_msg_type_dhcp:
-            {
-                struct dhcp_discover dhcp_disco;
-                dhcp_disco.parse(pkt);
-                if (dhcp_disco.is_not_empty()) {
-                    struct json_object record{&buf};
-                    struct json_object fps{record, "fingerprints"};
-                    fps.print_key_value("dhcp", dhcp_disco);
-                    fps.close();
-                    if (global_vars.metadata_output) {
-                        dhcp_disco.write_json(record);
-                    }
-                    write_flow_key(record, k);
-                    record.print_key_timestamp("event_start", ts);
-                    record.close();
-                }
-            }
-            break;
-        case udp_msg_type_vxlan:
-            {
-                // TBD: skip VXLAN header, then parse inner packet
-            }
-            break;
-        case udp_msg_type_dtls_server_hello:
-            {
-                struct dtls_record dtls_rec;
-                dtls_rec.parse(pkt);
-                struct dtls_handshake handshake;
-                handshake.parse(dtls_rec.fragment);
-                if (handshake.msg_type == handshake_type::server_hello) {
-                    struct tls_server_hello hello;
-                    hello.parse(handshake.body);
-                    if (hello.is_not_empty()) {
-                        struct json_object record{&buf};
-                        struct json_object fps{record, "fingerprints"};
-                        fps.print_key_value("dtls", hello);
-                        fps.close();
-                        hello.write_json(record);
-                        write_flow_key(record, k);
-                        record.print_key_timestamp("event_start", ts);
-                        record.close();
-                    }
-                }
+        udp_protocol x;
+        set_udp_protocol(x, pkt, msg_type, is_new);
+        if (std::visit(is_not_empty{}, x)) {
+            std::visit(compute_fingerprint{analysis.fp}, x);
+            bool output_analysis = false;
+            if (global_vars.do_analysis) {
+                output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
+                // note: we only perform observations when analysis is
+                // configured, because we rely on do_analysis to set the
+                // analysis_.destination
+                //
+                if (mq) {
+                    std::visit(do_observation{k, analysis, mq}, x);
+                }
             }
-            break;
-        case udp_msg_type_dtls_certificate:
-            // cases that fall through here are not yet supported
-        case udp_msg_type_unknown:
-            if (is_new) {
-                struct json_object record{&buf};
-                // std::visit(ip_pkt_write_json{record}, ip_pkt);
-                struct json_object udp{record, "udp"};
-                udp.print_key_hex("data", pkt);
-                // udp.print_key_json_string("data_string", pkt);
-                udp.close();
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
-                record.close();
+
+            if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
+
+            struct json_object record{&buf};
+            if (analysis.fp.get_type() != fingerprint_type_unknown) {
+                analysis.fp.write(record);
             }
-            break;
+            std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output}, x);
+
+            if (output_analysis) {
+                analysis.result.write_json(record, "analysis");
+            }
+            write_flow_key(record, k);
+            record.print_key_timestamp("event_start", ts);
+            record.close();
         }
+
     } else if (report_OSPF && transport_proto == 89) { // OSPF
         struct json_object record{&buf};
         std::visit(ip_pkt_write_json{record}, ip_pkt);
@@ -487,129 +696,6 @@ size_t stateful_pkt_proc::write_json(void *buffer,
 
 //////////////////////////////////////////////////////////
 
-class tls_server_hello_and_certificate : public tcp_base_protocol {
-    struct tls_server_hello hello;
-    struct tls_server_certificate certificate;
-
-public:
-    tls_server_hello_and_certificate() : hello{}, certificate{} {}
-
-    void parse(struct datum &pkt, struct tcp_packet *tcp_pkt) {
-        struct tls_record rec;
-        struct tls_handshake handshake;
-
-        // parse server_hello and/or certificate
-        //
-        rec.parse(pkt);
-        handshake.parse(rec.fragment);
-        if (handshake.msg_type == handshake_type::server_hello) {
-            hello.parse(handshake.body);
-            if (rec.is_not_empty()) {
-                struct tls_handshake h;
-                h.parse(rec.fragment);
-                certificate.parse(h.body);
-            }
-
-        } else if (handshake.msg_type == handshake_type::certificate) {
-            certificate.parse(handshake.body);
-        }
-        struct tls_record rec2;
-        rec2.parse(pkt);
-        struct tls_handshake handshake2;
-        handshake2.parse(rec2.fragment);
-        if (handshake2.msg_type == handshake_type::certificate) {
-            certificate.parse(handshake2.body);
-        }
-        if (tcp_pkt && certificate.additional_bytes_needed) {
-            tcp_pkt->reassembly_needed(certificate.additional_bytes_needed);
-        }
-    }
-
-    bool is_not_empty() {
-        return hello.is_not_empty() || certificate.is_not_empty();
-    }
-
-    void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
-
-        bool have_hello = hello.is_not_empty();
-        bool have_certificate = certificate.is_not_empty();
-        if (have_hello || have_certificate) {
-
-            // output certificate (always) and server_hello (if configured to)
-            //
-            if ((metadata_output && have_hello) || have_certificate) {
-                struct json_object tls{record, "tls"};
-                struct json_object tls_server{tls, "server"};
-                if (have_certificate) {
-                    struct json_array server_certs{tls_server, "certs"};
-                    certificate.write_json(server_certs, certs_json_output);
-                    server_certs.close();
-                }
-                if (metadata_output && have_hello) {
-                    hello.write_json(tls_server);
-                }
-                tls_server.close();
-                tls.close();
-            }
-        }
-    }
-
-    void write_fingerprint(struct json_object &object) {
-        if (hello.is_not_empty()) {
-            struct json_object fps{object, "fingerprints"};
-            fps.print_key_value("tls_server", hello);
-            fps.close();
-        }
-    }
-
-    void compute_fingerprint(struct fingerprint &fp) const {
-        if (hello.is_not_empty()) {
-            fp.set(hello, fingerprint_type_tls_server);
-        }
-    }
-
-    const char *get_name() {
-        if (hello.is_not_empty()) {
-            return "tls_server";
-        }
-        return nullptr;
-    }
-
-    void operator()(buffer_stream &b) {
-        if (hello.is_not_empty()) {
-            hello(b);
-        }
-    }
-
-};
-
-class unknown_initial_packet : public tcp_base_protocol {
-    datum tcp_data_field;
-
-public:
-
-    unknown_initial_packet() : tcp_data_field{} { }
-
-    void parse(struct datum &pkt) {
-        // if this packet is a TLS record, ignore it
-        if (tls_record::is_valid(tcp_data_field)) {
-            tcp_data_field.set_empty();
-        } else {
-            tcp_data_field = pkt;
-        }
-    }
-
-    void operator()(buffer_stream &) { }
-
-    void write_json(json_object &record, bool) {
-        struct json_object tcp{record, "tcp"};
-        tcp.print_key_hex("data", tcp_data_field);
-        tcp.close();
-    }
-
-    bool is_not_empty() { return tcp_data_field.is_not_empty(); }
-
-};
 
 // tcp_protocol is an alias for a variant record that holds the data
 // structure resulting from the parsing of the TCP data field.  The
@@ -642,181 +728,15 @@ void enumerate_tcp_protocol_types(FILE *f) {
     }
 }
 
-struct is_not_empty {
-    template <typename T>
-    bool operator()(T &r) {
-        return r.is_not_empty();
-    }
 
-    bool operator()(std::monostate &r) {
-        (void)r;
-        return false;
-    }
-};
-
-struct write_metadata {
-    struct json_object &record;
-    bool metadata_output_;
-    bool certs_json_output_;
-
-    write_metadata(struct json_object &object,
-                   bool metadata_output,
-                   bool certs_json_output) : record{object},
-                                             metadata_output_{metadata_output},
-                                             certs_json_output_{certs_json_output}
-    {}
-
-    template <typename T>
-    void operator()(T &r) {
-        r.write_json(record, metadata_output_);
-    }
-
-    void operator()(http_response &r) {
-        if (metadata_output_) {
-            r.write_json(record);
-        }
-    }
-
-    void operator()(tls_server_hello_and_certificate &r) {
-        r.write_json(record, metadata_output_, certs_json_output_);
-    }
-    void operator()(std::monostate &r) {
-        (void) r;
-    }
-};
-
-struct compute_fingerprint {
-    struct fingerprint &fp_;
-
-    compute_fingerprint(struct fingerprint &fp) : fp_{fp} {
-        fp_.type = fingerprint_type_unknown;
-        fp.fp_str[0] = '\0';  // initialize fingerprint to 'emtpy'
-    }
-
-    template <typename T>
-    void operator()(T &msg) {
-        msg.compute_fingerprint(fp_);
-    }
-
-    void operator()(std::monostate &) { }
-
-    void operator()(unknown_initial_packet &) { }
-
-};
-
-
-struct write_fingerprint {
-    struct json_object &record;
-
-    write_fingerprint(struct json_object &object) : record{object} {}
-
-    template <typename T>
-    void operator()(T &r) {
-        r.write_fingerprint(record);
-    }
-
-    void operator()(http_request &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("http", r);
-        fps.close();
-        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
-    }
-
-    void operator()(http_response &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("http_server", r);
-        fps.close();
-        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
-    }
-
-    void operator()(tls_client_hello &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("tls", r);
-        fps.close();
-    }
-
-    void operator()(ssh_init_packet &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("ssh", r);
-        fps.close();
-    }
-
-    void operator()(ssh_kex_init &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("ssh_kex", r);
-        fps.close();
-    }
-
-    void operator()(std::monostate &) { }
-};
-
-struct do_analysis {
-    const struct key &k_;
-    struct analysis_context &analysis_;
-    classifier *c_;
-
-    do_analysis(const struct key &k,
-                struct analysis_context &analysis,
-                classifier *c) :
-        k_{k},
-        analysis_{analysis},
-        c_{c}
-    {}
-
-    template <typename T>
-    bool operator()(T &msg) {
-        return msg.do_analysis(k_, analysis_, c_);
-    }
-
-    bool operator()(std::monostate &) { return false; }
-
-};
-
-struct do_observation {
-    const struct key &k_;
-    struct analysis_context &analysis_;
-    class message_queue *mq_;
-
-    do_observation(const struct key &k,
-                   struct analysis_context &analysis,
-                   class message_queue *mq) :
-        k_{k},
-        analysis_{analysis},
-        mq_{mq}
-    {}
-
-    void operator()(tls_client_hello &) {
-        // create event and send it to the data/stats aggregator
-        //
-        char src_ip_str[MAX_ADDR_STR_LEN];
-        k_.sprint_src_addr(src_ip_str);
-        char dst_port_str[MAX_PORT_STR_LEN];
-        k_.sprint_dst_port(dst_port_str);
-        std::string event_string;
-        event_string.append("(");
-        event_string.append(src_ip_str).append(")#");
-        event_string.append(analysis_.fp.fp_str).append("#(");
-        event_string.append(analysis_.destination.sn_str).append(")(");
-        event_string.append(analysis_.destination.dst_ip_str).append(")(");
-        event_string.append(dst_port_str).append(")");
-        //fprintf(stderr, "note: observed event_string '%s'\n", event_string.c_str());
-        mq_->push((uint8_t *)event_string.c_str(), event_string.length()+1);
-    }
-
-    template <typename T>
-    void operator()(T &) { }
-
-};
-
-class protocol_identifier tcp_proto_id;
-
-bool proto_ident_init(const char *config_string) {
+class protocol_identifier proto_ident_init(const char *config_string) {
     (void)config_string;
 
     // TODO: invoke this function from libmerc.cc, take in
     // configuration string, and set up protocol identificatoion as
     // specified
 
+    class protocol_identifier tcp_proto_id;
     tcp_proto_id.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
     tcp_proto_id.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
     tcp_proto_id.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
@@ -827,9 +747,15 @@ bool proto_ident_init(const char *config_string) {
     tcp_proto_id.add_protocol(http_response::matcher, tcp_msg_type_http_response);
     tcp_proto_id.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
     tcp_proto_id.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+    tcp_proto_id.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
+    tcp_proto_id.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
+    tcp_proto_id.compile();
 
-    return true;
+    return tcp_proto_id;
 }
+
+// class protocol_identifier tcp_proto_id = proto_ident_init(nullptr);
+
 
 void set_tcp_protocol(tcp_protocol &x,
                       struct datum &pkt,
@@ -839,6 +765,7 @@ void set_tcp_protocol(tcp_protocol &x,
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
 
+    // enum tcp_msg_type msg_type = tcp_proto_id.get_msg_type(pkt.data, pkt.length());
     enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
     switch(msg_type) {
     case tcp_msg_type_http_request:
@@ -1009,5 +936,4 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
 
     return false;
 }
-
 

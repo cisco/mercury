@@ -14,6 +14,9 @@
 
 extern bool select_mdns;                    // defined in extractor.cc
 
+
+enum udp_msg_type udp_get_message_type(const uint8_t *udp_data, unsigned int len);
+
 struct udp_header {
     uint16_t src_port;
     uint16_t dst_port;
@@ -23,8 +26,9 @@ struct udp_header {
 
 struct udp_packet {
     const struct udp_header *header;
+    enum udp_msg_type msg_type = udp_msg_type_unknown;
 
-    udp_packet() : header{NULL} {};
+    udp_packet(struct datum &d) : header{NULL} { parse(d); };
 
     void parse(struct datum &d) {
         if (d.length() < (int)sizeof(struct udp_header)) {
@@ -32,7 +36,14 @@ struct udp_packet {
         }
         header = (const struct udp_header *)d.data;
         d.skip(sizeof(struct udp_header));
+
+        msg_type = udp_get_message_type(d.data, d.length());
+        if (msg_type == udp_msg_type_unknown) {
+            msg_type = estimate_msg_type_from_ports();
+        }
     }
+
+    enum udp_msg_type get_msg_type() const { return msg_type; }
 
     void set_key(struct key &k) {
         if (header) {
@@ -43,19 +54,24 @@ struct udp_packet {
     }
 
     enum udp_msg_type estimate_msg_type_from_ports() {
-        if (select_mdns && header && (header->src_port == htons(5353) || header->dst_port == htons(5353))) {
-            return udp_msg_type_dns;
-        }
-        if (header && header->dst_port == htons(4789)) {
-            return udp_msg_type_vxlan;
+
+        // TODO: make select_mdns a function argument, not an extern
+        //
+        if (header) {
+            // if (header->src_port == htons(53) || header->dst_port == htons(53)) {
+            //     return udp_msg_type_dns;
+            // }
+            if (select_mdns && (header->src_port == htons(5353) || header->dst_port == htons(5353))) {
+                return udp_msg_type_dns;
+            }
+            if (header->dst_port == htons(4789)) {
+                return udp_msg_type_vxlan;
+            }
         }
         return udp_msg_type_unknown;
     }
 
 };
-
-enum udp_msg_type udp_get_message_type(const uint8_t *udp_data,
-                                       unsigned int len);
 
 //   From RFC 7348 (VXLAN)
 //
