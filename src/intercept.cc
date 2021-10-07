@@ -930,6 +930,11 @@ public:
     void process_dns_lookup(const char *dns_name, const char *service) {
         // fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, dns_name, service);
 
+        size_t dns_name_len = 0;
+        if (dns_name) {
+            dns_name_len = strlen(dns_name); // only run strlen() on valid pointers
+        }
+
         char buffer[buffer_length];
         struct buffer_stream buf(buffer, sizeof(buffer));
         struct json_object record{&buf};
@@ -941,7 +946,7 @@ public:
 
         // write dns info into record
         json_object dns_object{record, "dns"};
-        dns_object.print_key_json_string("name", (uint8_t *)dns_name, strlen(dns_name));
+        dns_object.print_key_json_string("name", (uint8_t *)dns_name, dns_name_len);
         //dns_object.print_key_json_string("service", service);
         dns_object.close();
         record.close();
