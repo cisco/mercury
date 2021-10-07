@@ -15,6 +15,7 @@
 #define PROTO_IDENTIFY_H
 
 #include <stdint.h>
+#include <vector>
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
