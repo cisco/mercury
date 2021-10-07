@@ -158,6 +158,9 @@ archive_reader: archive_reader.cc libmerc/archive.h
 string: string.cc stringalgs.h options.h
 	$(CXX) $(CFLAGS) string.cc -o string
 
+pcap: pcap.cc pcap_file_io.c pcap_file_io.h
+	$(CXX) $(CFLAGS) pcap.cc pcap_file_io.c -o pcap
+
 # implicit rule for building object files
 #
 %.o: %.c %.h
