@@ -31,11 +31,10 @@ struct udp_packet {
     udp_packet(struct datum &d) : header{NULL} { parse(d); };
 
     void parse(struct datum &d) {
-        if (d.length() < (int)sizeof(struct udp_header)) {
+        header = d.get_pointer<udp_header>();
+        if (header == nullptr) {
             return;
         }
-        header = (const struct udp_header *)d.data;
-        d.skip(sizeof(struct udp_header));
 
         msg_type = udp_get_message_type(d.data, d.length());
         if (msg_type == udp_msg_type_unknown) {

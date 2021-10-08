@@ -212,6 +212,22 @@ struct datum {
         *output = 0;
     }
 
+    // get_pointer<T> returns a pointer to type T and advances the
+    // data pointer, if there are sizeof(T) bytes available, and
+    // otherwise it returns nullptr
+    //
+    // if T is a struct, it SHOULD use the __attribute__((__packed__))
+    //
+    template <typename T>
+    T* get_pointer() {
+        if (data + sizeof(T) <= data_end) {
+            T *tmp = (T *)data;
+            data += sizeof(T);
+            return tmp;
+        }
+        return nullptr;
+    }
+
     // read_uint8() reads a uint8_t in network byte order, and advances the data pointer
     //
     bool read_uint8(uint8_t *output) {
