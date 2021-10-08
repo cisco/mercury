@@ -146,8 +146,14 @@ struct datum {
             return true;
         }
     }
-    bool operator==(const datum &p) const {
-        return (length() == p.length()) && memcmp(data, p.data, length()) == 0;
+    bool memcmp(const datum &p) const {
+        return ::memcmp(data, p.data, length());
+    }
+    bool operator==(const datum &rhs) const {
+        return data == rhs.data && data_end == rhs.data_end;
+    }
+    bool operator!=(const datum &rhs) const {
+        return data != rhs.data || data_end != rhs.data_end;
     }
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
         unsigned int bits = (data_end - data) * 8;
@@ -347,7 +353,7 @@ struct datum {
 
     int compare(const void *x, ssize_t x_len) {
         if (data && length() == x_len) {
-            return memcmp(x, data, x_len);
+            return ::memcmp(x, data, x_len);
         }
         return std::numeric_limits<int>::min();
     }
@@ -358,6 +364,7 @@ struct datum {
             fprintf(f, "%02x", *x++);
         }
     }
+
 };
 
 template <size_t T> struct data_buffer {
