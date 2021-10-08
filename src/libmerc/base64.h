@@ -185,7 +185,7 @@ int decode(void *outbuf, const size_t outlen, const void* data, const size_t len
     size_t str_size = L / 4 * 3 + pad;
 
     if (outlen < str_size) {
-        printf_err(log_err, "base64 decode needs %zu bytes, only has room for %zu\n", str_size, outlen);
+        // printf_err(log_err, "base64 decode needs %zu bytes, only has room for %zu\n", str_size, outlen);
         return 0;  // not enough room for output
     }
     size_t i, j;
