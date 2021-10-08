@@ -1,64 +1,23 @@
 // pcap.cc
 //
-// pcap file reader
+// a pcap file reader based on pcap_file_io.h
 //
 // compile as:
 //
 //   g++ -Wall -Wno-narrowing pcap.cc pcap_file_io.c -o pcap -std=c++17
 
 #include "pcap_file_io.h"
-#include "libmerc/datum.h"
 #include "libmerc/eth.h"
 #include "libmerc/ip.h"
 #include "libmerc/tcpip.h"
 #include "libmerc/udp.h"
 
-// class packet holds a network data packet (in buffer[]) and an
-// associated pcap_pkthdr structure, and can load packets from a pcap
-// file successively (using get_next())
+void dump_packet_info(struct datum &pkt_data);
+
+// sig_close_flag is a dummy variable, needed to compile this program
+// with pcap_file_io.c, which expects that variable as an 'extern'
 //
-template <size_t N>
-class packet {
-    uint8_t buffer[N];
-    struct pcap_pkthdr pkthdr;
-public:
-
-    // packet() initializes an empty (zero-length) packet
-    //
-    packet() : pkthdr{{0,0},0,0} {}
-
-    // get_next(file) sets this packet to the next one read from the
-    // packet capture file provided as an argument, and returns a
-    // datum representing the entirety of the packet data
-    //
-    struct datum get_next(struct pcap_file &pcap) {
-        enum status s = pcap_file_read_packet(&pcap, &pkthdr, buffer);
-        if (s != status_ok) {
-            return {nullptr, nullptr};
-        }
-        return datum{buffer, buffer + pkthdr.caplen};
-    }
-
-    // ts() returns the struct timeval associated with this packet
-    //
-    struct timeval ts() const { return pkthdr.ts; }
-
-    // caplen() returns the capture length associated with this packet
-    // (that is, the number of bytes of the packet that are actually
-    // available)
-    //
-    uint32_t caplen() const { return pkthdr.caplen; }
-
-    // len() returns the length of this packet (that is, the length
-    // that the packet claims to have)
-    //
-    uint32_t len() const { return pkthdr.len; }
-
-};
-
-void dump_packet(struct datum &pkt_data);
-
-int sig_close_flag;  // dummy variable, needed to compile with pcap_file_io.c
+int sig_close_flag = false;
 
 int main(int argc, char *argv[]) {
 
@@ -70,7 +29,8 @@ int main(int argc, char *argv[]) {
 
     size_t i=0;
     try {
-        struct pcap_file pcap(pcap_file_name, io_direction_reader, 0);
+        struct pcap_file pcap(pcap_file_name, io_direction_reader);
+        printf("linktype: %s\n", pcap.get_linktype());
         packet<65536> pkt;
         while (true) {
             datum pkt_data = pkt.get_next(pcap);
@@ -78,7 +38,7 @@ int main(int argc, char *argv[]) {
                 break;
             }
             //fprintf(stdout, "packet.caplen: %u\n", pkt.caplen());
-            //dump_packet(pkt_data);
+            dump_packet_info(pkt_data);
             i++;
         }
     }
@@ -96,7 +56,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void dump_packet(struct datum &pkt_data) {
+void dump_packet_info(struct datum &pkt_data) {
 
     eth ethernet{pkt_data};
     uint16_t ethertype = ethernet.get_ethertype();

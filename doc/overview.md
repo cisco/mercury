@@ -6,7 +6,7 @@
 
 Mercury is an open source package for network metadata capture and analysis.   It contains the standalone mercury application, the libmerc.so library, and several other supporting applications and libraries described below.
 
-[Mercury](../src/mercury.c) is a stand-alone application for high throughput network security monitoring using Linux native AF_PACKET TPACKETv3 interface.  It can process packets at high data rates, operate off of a span port or PCAP files, capture and report metadata including fingerprints for many protocols, and perform fingerprinting with destination context.
+[Mercury](../src/mercury.c) is a stand-alone application for high throughput network security monitoring using Linux native AF_PACKET TPACKETv3 interface.  It can process packets at high data rates, operate off of a span port or PCAP files, capture and report metadata including fingerprints for many protocols (using this [JSON schema](schema.md)), and perform fingerprinting with destination context.
 
 [Libmerc.so](../src/libmerc/libmerc.cc) is a shared object library that implements the packet-processing features of mercury; it can extract fingerprints and other metadata, and identify client processes and detect malware through [TLS Fingerprinting with Destination Context (FDC)](wnb.md).   
 
@@ -44,7 +44,7 @@ Mercury is an open source package for network metadata capture and analysis.   I
 
 - [libmerc](../src/libmerc/libmerc.cc) is the library for packet processing.   It can be compiled as a static library (.a) or shared object (.so).
 - [mercury.cpython-38-x86_64-linux-gnu.so](../src/cython/mercury.pyx) is a shared object library that makes some mercury functions usable through python.   See the [src/cython](../src/cython) directory for more information.
-- [intercept](../src/intercept.cc) is an experimental library for monitoring communications on a host.
+- [intercept](../src/intercept.cc) is an experimental library for monitoring communications on a host.  While it is a work in progress, it is usable, and its use is documented [here](intercept.md).
 
 
 
@@ -66,6 +66,12 @@ As shown below, mercury sets up a number of packet processing worker threads, ea
 
 ![Mercury Internals](mercury-internals.png)
 
+Most mercury processing is stateless, except for the features that track the first data packet of each TCP and UDP flow.   There is also experimental code for [on-demand TCP stream reassembly](odtcpr.md), which is a compile-time option that is off by default.
 
+### Libmerc
 
-Libmerc implements the packet analysis aspects of mercury, which does not include packet acquisition, file rotation, nor the tournament tree.
+Libmerc implements the packet analysis aspects of mercury, which does not include packet acquisition, file rotation, nor the tournament tree.  Its interface is defined in [libmerc.h](../src/libmerc/libmerc.h), and its [use and configuration](libmerc_config.md) is also documented.
+
+## Use Cases
+
+In addition to identifying client processes and malware, mercury supports the use case of [monitoring non-DNS host names for IoCs](tls-iocs.md).

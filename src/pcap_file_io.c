@@ -31,12 +31,6 @@
 #include "llq.h"
 
 
-enum linktype {
-    LINKTYPE_NULL =       0,  // BSD loopback encapsulation
-    LINKTYPE_ETHERNET =   1,  // Ethernet
-    LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
-};
-
 /*
  * constants used in file format
  */
@@ -98,7 +92,7 @@ enum status write_pcap_file_header(FILE *f) {
     file_header.thiszone = 0;     /* no GMT correction for now */
     file_header.sigfigs = 0;      /* we don't claim sigfigs for now */
     file_header.snaplen = 65535;
-    file_header.network = LINKTYPE_ETHERNET;
+    file_header.network = pcap_file::LINKTYPE_ETHERNET;
 
     size_t items_written = fwrite(&file_header, sizeof(file_header), 1, f);
     if (items_written == 0) {
@@ -240,7 +234,7 @@ enum status pcap_file_open(struct pcap_file *f,
             file_header.snaplen = htonl(file_header.snaplen);
             file_header.network = htons(file_header.network);
         }
-        if (file_header.network != LINKTYPE_ETHERNET) {
+        if (file_header.network != pcap_file::LINKTYPE_ETHERNET) {
             fprintf(stderr, "error: pcap file linktype (%u) unsupported\n", file_header.network);
             exit(255); // TODO: return error, don't exit
         }

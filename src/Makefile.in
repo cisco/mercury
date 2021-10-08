@@ -161,6 +161,9 @@ string: string.cc stringalgs.h options.h
 decode: decode.cc
 	$(CXX) $(CFLAGS) decode.cc -o decode
 
+pcap: pcap.cc pcap_file_io.c pcap_file_io.h
+	$(CXX) $(CFLAGS) pcap.cc pcap_file_io.c -o pcap
+
 # implicit rule for building object files
 #
 %.o: %.c %.h
@@ -205,7 +208,7 @@ intercept.so: intercept.cc libmerc.a
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode pcap format intercept.so gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
