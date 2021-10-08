@@ -71,19 +71,6 @@ class ipv4_packet {
         return 255; // indicate error by returning reserved value
     }
 
-    void new_parse(struct datum &p, struct key &k) {
-        header = p.get_pointer<ipv4_header>();
-        if (header == nullptr) {
-            return;  // too short
-        }
-        k.addr.ipv4.src = header->src_addr;
-        k.addr.ipv4.dst = header->dst_addr;
-        k.protocol = header->prot;
-        k.ip_vers = 4;  // ipv4
-
-        p.trim_to_length(ntohs(header->len) - sizeof(ipv4_header));
-    }
-
     void parse(struct datum &p, struct key &k) {
         header = p.get_pointer<ipv4_header>();
         if (header == nullptr) {
