@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--subsequence",   "method: compute longest common subsequence" },
         { argument::none,       "--substring",     "method: compute longest common substring" },
         { argument::none,       "--matching",      "method: compute matching substrings" },
+        { argument::none,       "--hamming",       "method: compute hamming distance" },
         { argument::none,       "--find-mask",     "method: find common mask and value" },
         { argument::none,       "--normalize",     "normalize distance to [0,1]" },
         { argument::none,       "--help",          "prints out help message" }
@@ -42,11 +43,12 @@ int main(int argc, char *argv[]) {
     bool lcsubseq    = opt.is_set("--subsequence");
     bool lcsubstr    = opt.is_set("--substring");
     bool match_str   = opt.is_set("--matching");
+    bool hamming     = opt.is_set("--hamming");
     bool find_mask   = opt.is_set("--find-mask");
     bool normalize   = opt.is_set("--normalize");
     bool print_help  = opt.is_set("--help");
 
-    if (!edit_dist && !lcsubseq && !lcsubstr && !match_str && !find_mask && !print_help) {
+    if (!edit_dist && !lcsubseq && !lcsubstr && !match_str && !find_mask && !hamming && !print_help) {
         fprintf(stderr, "error: no analysis method specified\n");
         opt.usage(stderr, progname, summary);
         return EXIT_FAILURE;
@@ -137,6 +139,10 @@ int main(int argc, char *argv[]) {
                 } else {
                     fprintf(stdout, "%d\t'%s'\t'%s'\n", ed.value(), s[i].c_str(), s[j].c_str());
                 }
+            }
+            if (hamming) {
+                struct edit_distance<uint32_t> ed(s[i].c_str(), s[i].size(), s[j].c_str(), s[j].size());
+                fprintf(stdout, "%d\t'%s'\t'%s'\n", ed.value(), s[i].c_str(), s[j].c_str());
             }
         }
     }

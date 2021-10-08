@@ -450,6 +450,14 @@ inline uint8_t hamming_weight(uint8_t x)  {
     return w[x >> 4] + w[x & 0x0f];
 }
 
+size_t weight(std::basic_string<uint8_t> z) {
+    size_t tmp = 0;
+      for (const auto & x : z) {
+          tmp += hamming_weight(x);
+    }
+    return tmp;
+}
+
 inline std::pair<char, char> raw_to_hex(uint8_t x) {
     const char hex[]= "0123456789abcdef";
 
