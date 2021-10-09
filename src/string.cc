@@ -6,8 +6,23 @@
  */
 
 #include <stdio.h>
+#include <algorithm>      // for std::sort()
+#include <numeric>        // for std::iota()
+#include <cassert>
 #include "stringalgs.h"
 #include "options.h"
+
+// create_sorted_index(v) returns a vector of indices that sort the
+// input vector v into ascending order
+//
+template <typename T>
+std::vector<size_t> create_sorted_index(std::vector<T> const& v) {
+    std::vector<size_t> idx(v.size());
+    std::iota(begin(idx), end(idx), static_cast<size_t>(0));
+    std::sort(begin(idx), end(idx), [&](size_t lhs, size_t rhs) { return v[lhs] < v[rhs]; } );
+    return idx;
+}
+
 
 int main(int argc, char *argv[]) {
 
@@ -27,6 +42,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--matching",      "method: compute matching substrings" },
         { argument::none,       "--hamming",       "method: compute hamming distance" },
         { argument::none,       "--find-mask",     "method: find common mask and value" },
+        { argument::none,       "--average",       "report average distance to all other strings" },
         { argument::none,       "--normalize",     "normalize distance to [0,1]" },
         { argument::none,       "--help",          "prints out help message" }
     });
@@ -45,6 +61,7 @@ int main(int argc, char *argv[]) {
     bool match_str   = opt.is_set("--matching");
     bool hamming     = opt.is_set("--hamming");
     bool find_mask   = opt.is_set("--find-mask");
+    bool average     = opt.is_set("--average");
     bool normalize   = opt.is_set("--normalize");
     bool print_help  = opt.is_set("--help");
 
@@ -91,6 +108,11 @@ int main(int argc, char *argv[]) {
     }
     free(line);
     fclose(stream);
+
+    // if we are computing average distances, create a vector to
+    // hold the running sums and initialize it to zero
+    //
+    std::vector<size_t> sum(s.size(), 0);
 
     // loop over each pair of strings, and apply method
     //
@@ -141,17 +163,35 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (hamming) {
-                struct edit_distance<uint32_t> ed(s[i].c_str(), s[i].size(), s[j].c_str(), s[j].size());
-                fprintf(stdout, "%d\t'%s'\t'%s'\n", ed.value(), s[i].c_str(), s[j].c_str());
+                std::basic_string<uint8_t> si = uint8_string_from_hex((const char *)s[i].c_str());
+                std::basic_string<uint8_t> sj = uint8_string_from_hex((const char *)s[j].c_str());
+                size_t d = hamming_distance(si, sj);
+                if (average) {
+                    // output average distance from each string to all others
+                    sum[j] += d;
+                    sum[i] += d;
+                } else {
+                    fprintf(stdout, "%zu\t'%s'\t'%s'\n", d, s[i].c_str(), s[j].c_str());
+                }
             }
         }
     }
 
+    // report average distances
+    //
+    if (average) {
+        std::vector<size_t> idx = create_sorted_index(sum);
+        assert(idx.size() == s_len);
+        for (size_t i=0; i<s_len; i++) {
+            size_t k = idx[i];
+            fprintf(stdout, "%f\t%s\n", (double)sum[k]/s_len, s[k].c_str());
+        }
+    }
 
     // single-pass methods
     //
     if (find_mask) {
-        struct mask_and_value mv{max_len/2};
+        class mask_and_value mv{max_len/2};
         for (auto & x : s) {
             std::basic_string<uint8_t> s = uint8_string_from_hex((const char *)x.c_str());
             mv.observe(s.c_str(), s.length());
@@ -164,6 +204,9 @@ int main(int argc, char *argv[]) {
         fprint_uint8_string(stdout, m_and_v.second);
         fputc('\n', stdout);
         fprintf(stdout, "weight: %zu\n", mv.weight());
+
+        assert(mv.check(s));
+
     }
 
     return 0;
