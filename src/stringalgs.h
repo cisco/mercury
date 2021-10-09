@@ -539,9 +539,11 @@ void fprint_uint8_string(FILE *f, const std::basic_string<uint8_t> &s) {
 // be used to for pattern recognition, such as identifying
 // particular protocol data elements.
 //
-// It is easy to understand a bitwise formulation of the problem:
-// let m, v, p, p1, p2, ..., pN be boolean variables.  For a given
-// set { p1, p2, ..., pN }, our goal is to find m and v such that:
+// It is easy to understand a bitwise formulation of the problem: let
+// m, v, p, p1, p2, ..., pN be boolean variables.  Here p1, p2, ...,
+// pN can represent the same bit location in N different packets, for
+// instance.  For a given set { p1, p2, ..., pN }, our goal is to find
+// m and v such that:
 //
 //    (m & p) = v for all p in { p1, p2, ..., pN }
 //
@@ -549,14 +551,17 @@ void fprint_uint8_string(FILE *f, const std::basic_string<uint8_t> &s) {
 //
 //    m = / 1 if (p1 == p2 == ... == pN)
 //        \ 0 otherwise
-//    v = m & p
+//    v = m & p1
 //
-// The variables m and v can be incrementally updated as follows:
+// The variables m and v can be incrementally updated, to process p1,
+// p2, ..., pN sequentially, as follows:
 //
 //    if m & p = v, then m and v do not need to be updated
 //    if m & p != v, then set m and v to 0
 //
-// The logic for how m is updated can be summarized with the following
+// To apply this logic, in parallel, to each bit in a byte, we can use
+// a boolean function that expresses the above update function. The
+// logic for how m is updated can be summarized with the following
 // truth table:
 //
 //     m | p | v | result
@@ -572,49 +577,10 @@ void fprint_uint8_string(FILE *f, const std::basic_string<uint8_t> &s) {
 //
 // ... and that truth table is that of the boolean function
 //
-//    result = m AND (NOT(p XOR v))
+//    result = m AND (NOT(p XOR v)).
 //
 // In C notation, m &= ~(p ^ v).  The variable v can be updated after
 // m is updated by simply computing m & p.
-//
-// To apply this logic, in parallel, to each bit in a byte, we can use
-// a boolean function that expresses the above update function.
-//
-//
-//
-//     m = NOT (v XOR (m AND p))
-//
-//     m | v | p | result
-//    --------------------
-//     0 | 0 | 0 |   0
-//     0 | 0 | 1 |   0
-//     0 | 0 | 0 |   0
-//     0 | 0 | 0 |   0
-//     0 | 0 | 0 |   0
-//     0 | 0 | 0 |   0
-//     0 | 0 | 0 |   0
-//     0 | 0 | 0 |   0
-//
-//
-//
-//
-//
-
-//
-//
-// Let M
-// and V denote bitvectors corresponding to m and v, and define X as
-//
-//    X = M & P
-//
-// That is, X 
-//
-//     m[i] = NOT ( v[i] ^ x[i])
-//
-//  (0,0) -> 1
-//  (1,1) -> 1
-//  (0,1) -> 0
-//  (1,0) -> 0
 //
 class mask_and_value {
     std::basic_string<uint8_t> mask;
