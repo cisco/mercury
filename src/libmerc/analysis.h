@@ -167,7 +167,7 @@ class fingerprint_data {
     std::vector<std::vector<struct os_information>> process_os_info_vector;
     floating_point_type base_prior;
 
-    static bool malware_db;
+    bool malware_db = false;
 
     const subnet_data *subnet_data_ptr = nullptr;
 
