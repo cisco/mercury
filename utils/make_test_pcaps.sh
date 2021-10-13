@@ -41,4 +41,6 @@ slice_file "tls.handshake.type==2" "tls.server_hello"
 slice_file "dtls.handshake.type==1" "dtls.client_hello"
 slice_file "dtls.handshake.type==2" "dtls.server_hello"
 slice_file "quic" "quic"                              # TODO: add filter detail
+slice_file "ssh.kex.reserved"      "ssh.kex"
+slice_file "ssh.protocol"          "ssh.init"
 
