@@ -533,6 +533,14 @@ void fprint_uint8_string(FILE *f, const std::basic_string<uint8_t> &s) {
     }
 }
 
+void fprint_uint8_string(FILE *f, const std::string &s) {
+    for (const auto & x : s) {
+        std::pair<char, char> hi_and_lo = raw_to_hex(x);
+        fputc(hi_and_lo.first, f);
+        fputc(hi_and_lo.second, f);
+    }
+}
+
 // class mask_and_value implements mask and value computation
 //
 // This procedure can be used to find a pair of bitvectors that can
@@ -599,18 +607,25 @@ public:
 
     void observe(const uint8_t *p, size_t N) {
 
-        // verify length
+        // if N < len, we observe the first N bytes and zeroize mask
+        // bytes N, N+1, ..., len.
         //
-        if (N != len) {
+        // if N > len, that's an error condition
+        //
+        if (N < len) {
+            for (size_t i=N; i<len; i++) {
+                mask[i] = 0x00;
+            }
+        } else if (N > len) {
             fprintf(stderr, "error: N=%zu, s=%.*s\n", N, (int)N, p);
-            throw std::runtime_error("bad length");
+            throw std::runtime_error("input string too long in observation");
         }
 
         if (first) {
             first = false;
             // first value, so leave mask alone
             //
-            for (size_t i=0; i<len; i++) {
+            for (size_t i=0; i<N; i++) {
                 val[i] = p[i];
             }
         }
@@ -618,7 +633,7 @@ public:
         // adjust mask and value so that (mask & p == value), with the
         // largest possible mask (in the hamming weight sense)
         //
-        for (size_t i=0; i<len; i++) {
+        for (size_t i=0; i<N; i++) {
             // uint8_t x = mask[i] & p[i];
             // if (x != val[i]) {
             //     mask[i] = ~(val[i] ^ x);
