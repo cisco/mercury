@@ -16,7 +16,6 @@
 #include "archive.h"
 
 #include "lctrie/lctrie.h"
-#include "lctrie/lctrie_bgp.h"
 
 // BGP_MAX_ENTRIES is the max number of subnets
 //

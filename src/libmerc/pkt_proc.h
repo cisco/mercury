@@ -16,8 +16,7 @@
 #include "packet.h"
 #include "analysis.h"
 #include "libmerc.h"
-
-//extern struct mercury *global_context; // defined in libmerc.cc  // TODO: delete
+#include "stats.h"
 
 extern bool select_tcp_syn;                 // defined in extractor.cc
 

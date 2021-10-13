@@ -12,7 +12,6 @@
 #include <list>
 #include <unordered_map>
 
-#include "extractor.h"
 #include "fingerprint.h"
 
 struct http_headers : public datum {

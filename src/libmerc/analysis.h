@@ -13,11 +13,9 @@
 #include <algorithm>
 #include <stdexcept>
 #include <assert.h>
-#include "packet.h"
 #include "addr.h"
-#include "json_object.h"
 #include "result.h"
-#include "stats.h"
+#include "dict.h"
 
 #include <mutex>
 #include <shared_mutex>
@@ -29,7 +27,6 @@
 #include <list>
 #include <zlib.h>
 #include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
 #include "tls.h"
 #include "archive.h"
 
@@ -47,10 +44,6 @@ class classifier *analysis_init_from_archive(int verbosity,
                                bool report_os);
 
 int analysis_finalize(classifier *c);
-
-
-struct analysis_result analyze_client_hello_and_key(const struct tls_client_hello &hello,
-                                                    const struct key &key);
 
 
 // process and malware classifier classes
