@@ -69,6 +69,70 @@ struct uint8_bitfield {
 };
 
 
+// parse_variable_length_integer() implements the QUIC variable-length
+// integer encoding (following RFC9000, Section 16).  If there is a
+// parse error, i.e. the datum being parsed is too short, then the datum
+// will be set to NULL state
+//
+//          +======+========+=============+=======================+
+//          | 2MSB | Length | Usable Bits | Range                 |
+//          +======+========+=============+=======================+
+//          | 00   | 1      | 6           | 0-63                  |
+//          +------+--------+-------------+-----------------------+
+//          | 01   | 2      | 14          | 0-16383               |
+//          +------+--------+-------------+-----------------------+
+//          | 10   | 4      | 30          | 0-1073741823          |
+//          +------+--------+-------------+-----------------------+
+//          | 11   | 8      | 62          | 0-4611686018427387903 |
+//          +------+--------+-------------+-----------------------+
+//
+ssize_t parse_variable_length_integer(datum &d) {
+    uint8_t b;
+    d.read_uint8(&b);
+    int len=0;
+    switch (b & 0xc0) {
+    case 0xc0:
+        len = 8;
+        break;
+    case 0x80:
+        len = 4;
+        break;
+    case 0x40:
+        len = 2;
+        break;
+    case 0x00:
+        len = 1;
+    }
+    ssize_t value = (b & 0x3f);
+    for (int i=1; i<len; i++) {
+        value *= 256;
+        d.read_uint8(&b);
+        value += (b & 0x3f);
+    }
+    if (d.is_null()) {
+        value = -1;    // perhaps should just leave at 0
+    }
+    return value;
+}
+
+//   Initial Packet {
+//     Header Form (1) = 1,
+//     Fixed Bit (1) = 1,
+//     Long Packet Type (2) = 0,
+//     Reserved Bits (2),
+//     Packet Number Length (2),
+//     Version (32),
+//     Destination Connection ID Length (8),
+//     Destination Connection ID (0..160),
+//     Source Connection ID Length (8),
+//     Source Connection ID (0..160),
+//     Token Length (i),
+//     Token (..),
+//     Length (i),
+//     Packet Number (8..32),
+//     Packet Payload (8..),
+//   }
+//
 struct quic_initial_packet {
     uint8_t connection_info;
     struct datum version;
@@ -100,9 +164,9 @@ struct quic_initial_packet {
         d.read_uint8(&scid_length);
         scid.parse(d, scid_length);
 
-        uint8_t token_length;
-        d.read_uint8(&token_length);
-        token.parse(d, token_length);
+        //variable_length_integer var_int;
+        ssize_t var_int = parse_variable_length_integer(d);
+        token.parse(d, var_int);
 
         // @TODO: need to handle actually handle QUIC's variable length encoding
         uint16_t data_length;
@@ -350,5 +414,80 @@ constexpr uint8_t quic_initial_packet_crypto::client_in_label[];
 constexpr uint8_t quic_initial_packet_crypto::quic_key_label[];
 constexpr uint8_t quic_initial_packet_crypto::quic_iv_label[];
 constexpr uint8_t quic_initial_packet_crypto::quic_hp_label[];
+
+
+//   Version Negotiation Packet {
+//     Header Form (1) = 1,
+//     Unused (7),
+//     Version (32) = 0,
+//     Destination Connection ID Length (8),
+//     Destination Connection ID (0..2040),
+//     Source Connection ID Length (8),
+//     Source Connection ID (0..2040),
+//     Supported Version (32) ...,
+//   }
+//
+struct quic_version_negotiation {
+    uint8_t connection_info;
+    struct datum dcid;
+    struct datum scid;
+    struct datum version_list;
+    bool valid;
+
+    quic_version_negotiation(struct datum &d) : connection_info{0}, dcid{NULL, NULL}, scid{NULL, NULL}, version_list{NULL, NULL}, valid{false} {
+        parse(d);
+    }
+
+    void parse(struct datum &d) {
+        d.read_uint8(&connection_info);
+        if ((connection_info & 0x80) != 0x80) {
+            return;
+        }
+        d.skip(4);  // skip version, it's 00000000
+
+        uint8_t dcid_length;
+        d.read_uint8(&dcid_length);
+        dcid.parse(d, dcid_length);
+
+        uint8_t scid_length;
+        d.read_uint8(&scid_length);
+        scid.parse(d, scid_length);
+
+        version_list = d;  // TODO: member function to get remainder
+
+        if ((version_list.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
+            return;  // invalid or incomplete packet
+        }
+        valid = true;
+    }
+
+    bool is_not_empty() {
+        return valid;
+    }
+
+    void write_json(struct json_object &o) const {
+        if (!valid) {
+            return;
+        }
+
+        struct uint8_bitfield bitfield{connection_info};
+        o.print_key_value("connection_info", bitfield);
+        o.print_key_hex("dcid", dcid);
+        o.print_key_hex("scid", scid);
+        json_array array{o, "versions"};
+        datum tmp = version_list;
+        while (tmp.is_not_empty()) {
+            datum version;
+            version.parse(version, 4);
+            array.print_hex(version);
+        }
+        array.close();
+    }
+
+    // TODO: add mask and value
+    //
+    // mask:  80ffffffff...
+    // value: 8000000000...
+};
 
 #endif /* QUIC_H */
