@@ -183,5 +183,3 @@ std::string get_domain_name(char* server_name) {
 
     return out_domain;
 }
-
-bool fingerprint_data::malware_db = false;
