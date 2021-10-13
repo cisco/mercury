@@ -24,11 +24,11 @@ inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
 void http_request::parse(struct datum &p) {
 
     /* parse request line */
-    method.parse_up_to_delim(p, ' ');
+    method.parse_up_to_delim(p, ' ');       // TODO: verify method.length() > 3
     p.skip(1);
     uri.parse_up_to_delim(p, ' ');
     p.skip(1);
-    protocol.parse_up_to_delim(p, '\r');
+    protocol.parse_up_to_delim(p, '\r');    // TODO: verify '\n'
     p.skip(2);
 
     /* parse headers */
