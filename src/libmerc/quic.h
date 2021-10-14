@@ -142,8 +142,6 @@ struct quic_initial_packet {
     struct datum data;
     bool valid;
 
-    static struct quick_initial_packet_crypto decrypter;
-
     quic_initial_packet(struct datum &d) : connection_info{0}, dcid{NULL, NULL}, scid{NULL, NULL}, token{NULL, NULL}, data{NULL, NULL}, valid{false} {
         parse(d);
     }
