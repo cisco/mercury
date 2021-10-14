@@ -43,4 +43,6 @@ slice_file "dtls.handshake.type==2" "dtls.server_hello"
 slice_file "quic" "quic"                              # TODO: add filter detail
 slice_file "ssh.kex.reserved"      "ssh.kex"
 slice_file "ssh.protocol"          "ssh.init"
+slice_file "smtp.req"              "smtp.client"
+slice_file "smtp.rsp"              "smtp.server"
 
