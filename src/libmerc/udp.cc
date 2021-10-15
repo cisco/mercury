@@ -7,8 +7,6 @@
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-
-#include "extractor.h"
 #include "proto_identify.h"
 #include "match.h"
 #include "utils.h"
@@ -36,12 +34,6 @@ unsigned char dtls_client_hello_value[] = {
 // DTLSv1.0 version: { 254, 255 } == { 0xfe, 0xff }
 // DTLSv1.2 version: { 254, 253 } == { 0xfe, 0xfd }
 
-struct pi_container dtls_client = {
-    DIR_CLIENT,
-    DTLS_PORT
-};
-
-
 /* DTLS Server */
 unsigned char dtls_server_hello_mask[] = {
     0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -53,11 +45,6 @@ unsigned char dtls_server_hello_value[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
 };
 
-struct pi_container dtls_server = {
-    DIR_SERVER,
-    DTLS_PORT
-};
-
 
 /* dhcp client */
 unsigned char dhcp_client_value[] = {
@@ -66,11 +53,6 @@ unsigned char dhcp_client_value[] = {
 
 unsigned char dhcp_client_mask[] = {
     0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00
-};
-
-struct pi_container dhcp_client = {
-    DIR_CLIENT,
-    DHCP_CLIENT_PORT
 };
 
 // weight=52 dns mask for both query and response packets
@@ -86,10 +68,6 @@ unsigned char dns_server_mask[] = {
 };
 unsigned char dns_server_value[] = {
     0x00, 0x00, 0x81, 0x80, 0x00, 0x00, 0x00, 0x00
-};
-struct pi_container dns_server = {
-    DIR_SERVER,
-    DNS_PORT
 };
 
 unsigned char dns_client_mask[] = {
@@ -108,10 +86,6 @@ unsigned char wireguard_mask[] = {
 unsigned char wireguard_value[] = {
     0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
-struct pi_container wireguard = {
-    DIR_CLIENT,
-    WIREGUARD_PORT
-};
 
 /*
  * quic
@@ -121,10 +95,6 @@ unsigned char quic_mask[] = {
 };
 unsigned char quic_value[] = {
     0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-struct pi_container quic = {
-    DIR_UNKNOWN,
-    QUIC_PORT
 };
 
 enum udp_msg_type udp_get_message_type(const uint8_t *udp_data,

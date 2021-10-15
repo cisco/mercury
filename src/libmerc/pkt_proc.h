@@ -19,9 +19,9 @@
 #include "stats.h"
 #include "proto_identify.h"
 
-extern bool select_tcp_syn;                 // defined in extractor.cc
+extern bool select_tcp_syn;  // global
 
-class protocol_identifier proto_ident_init(const char *config_string);  // TODO: find new home
+class protocol_identifier proto_ident_init(const char *config_string);
 
 /**
  * struct mercury holds state that is used by one or more
@@ -38,11 +38,7 @@ struct mercury {
         global_vars = *vars;
         global_vars.resources = vars->resources;
         tcp_proto_id = proto_ident_init(vars->packet_filter_cfg);
-        global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy
-        enum status status = proto_ident_config(vars->packet_filter_cfg);
-        if (status) {
-            throw std::runtime_error("error: proto_ident_config() failed"); // failure
-        }
+        global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy?
         if (global_vars.do_analysis) {
             c = analysis_init_from_archive(verbosity, global_vars.resources,
                                            vars->enc_key, vars->key_type,

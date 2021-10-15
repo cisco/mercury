@@ -105,6 +105,7 @@ public:
         }
         return tcp_msg_type_unknown;
     }
+
 };
 
 
@@ -127,22 +128,5 @@ public:
 #define DNS_PORT          53
 #define WIREGUARD_PORT 51820
 #define QUIC_PORT       4433
-
-/**
- * \brief Protocol Inference container
- */
-struct pi_container {
-    uint8_t dir;  /**< Flow direction */
-    uint16_t app; /**< Application protocol prediction */
-};
-
-int proto_identify_init(void);
-void proto_identify_cleanup(void);
-
-const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
-                                              unsigned int len);
-
-const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
-                                              unsigned int len);
 
 #endif /* PROTO_IDENTIFY_H */

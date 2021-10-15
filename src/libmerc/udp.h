@@ -10,9 +10,7 @@
 #ifndef UDP_H
 #define UDP_H
 
-#include "extractor.h"
-
-extern bool select_mdns;                    // defined in extractor.cc
+extern bool select_mdns; // global
 
 
 enum udp_msg_type udp_get_message_type(const uint8_t *udp_data, unsigned int len);
