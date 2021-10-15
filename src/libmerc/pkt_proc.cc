@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <variant>
+#include <set>
 
 #include "libmerc.h"
 #include "pkt_proc.h"
@@ -728,45 +729,151 @@ void enumerate_tcp_protocol_types(FILE *f) {
     }
 }
 
+// set_config(config_map, config_string) updates the std::map provided
+// as input, based on the configuration represented by config_string,
+// and returns false if that string could not be parsed correctly
+//
+// the format of config_string is a comma-separated list of keywords,
+// possibly including whitespace, such as like "tcp,ssh, tls"
+//
+bool set_config(std::map<std::string, bool> &config_map, const char *config_string) {
+    if (config_string == NULL) {
+        return true; // no updates needed
+    }
+
+    std::string s{config_string};
+    std::string delim{","};
+    size_t pos = 0;
+    std::string token;
+    while ((pos = s.find(delim)) != std::string::npos) {
+        token = s.substr(0, pos);
+        token.erase(std::remove_if(token.begin(), token.end(), isspace), token.end());
+        s.erase(0, pos + delim.length());
+
+        auto pair = config_map.find(token);
+        if (pair != config_map.end()) {
+            pair->second = true;
+        } else {
+            printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
+            return false;
+        }
+    }
+    token = s.substr(0, pos);
+    s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
+    auto pair = config_map.find(token);
+    if (pair != config_map.end()) {
+        pair->second = true;
+    } else {
+        printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
+        return false;
+    }
+    return true;
+}
 
 class protocol_identifier proto_ident_init(const char *config_string) {
-    (void)config_string;
 
-    // TODO: invoke this function from libmerc.cc, take in
-    // configuration string, and set up protocol identificatoion as
-    // specified
+    // a null configuration string defaults to all protocols
+    //
+    const char *all = "all";
+    if (config_string == nullptr) {
+        config_string = all;
+    }
+    // create a map of protocol names and booleans, then update it
+    // based on the configuration string
+    //
+    std::map<std::string, bool> protocols{
+        { "all",         false },
+        { "none",        false },
+        { "dhcp",        false },
+        { "dns",         false },
+        { "dtls",        false },
+        { "http",        false },
+        { "ssh",         false },
+        { "tcp",         false },
+        { "tcp.message", false },
+        { "tls",         false },
+        { "wireguard",   false },
+        { "quic",        false },
+        { "smtp",        false },
+    };
+    if (!set_config(protocols, config_string)) {
+        throw std::runtime_error("error: could not parse protocol identification configuration string");
+    }
+
+    // "none" is a special case; turn off all protocol selection
+    //
+    if (protocols["none"]) {
+        for (auto &pair : protocols) {
+            pair.second = false;
+        }
+    }
 
     class protocol_identifier tcp_proto_id;
-    tcp_proto_id.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
-    tcp_proto_id.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
-    tcp_proto_id.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_response::matcher, tcp_msg_type_http_response);
-    tcp_proto_id.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
-    tcp_proto_id.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
-    tcp_proto_id.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
-    tcp_proto_id.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
+    if (protocols["tls"] || protocols["all"]) {
+        tcp_proto_id.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
+        tcp_proto_id.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
+    }
+    if (protocols["http"] || protocols["all"]) {
+        tcp_proto_id.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
+        tcp_proto_id.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
+        tcp_proto_id.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
+        tcp_proto_id.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
+        tcp_proto_id.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
+        tcp_proto_id.add_protocol(http_response::matcher, tcp_msg_type_http_response);
+    }
+    if (protocols["ssh"] || protocols["all"]) {
+        tcp_proto_id.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+        tcp_proto_id.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+    }
+    if (protocols["smtp"] || protocols["all"]) {
+        tcp_proto_id.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
+        tcp_proto_id.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
+    }
+
+    // TCP and UDP not yet implemented
+    //
+    if (protocols["tcp"] == false) {
+        // select_tcp_syn = 0;
+    }
+    if (protocols["tcp.message"]) {
+        // select_tcp_syn = 0;
+        // tcp_message_filter_cutoff = 1;
+    }
+    if (protocols["dhcp"] == false) {
+        ;
+    }
+    if (protocols["dns"] == false) {
+        // select_mdns = false;
+    }
+    if (protocols["dtls"]) {
+        ;
+    }
+    if (protocols["wireguard"]) {
+        ;
+    }
+    if (protocols["quic"]) {
+        ;
+    }
+
+    // tell protocol_identification object to compile lookup tables
+    //
     tcp_proto_id.compile();
 
     return tcp_proto_id;
 }
 
-// class protocol_identifier tcp_proto_id = proto_ident_init(nullptr);
-
-
 void set_tcp_protocol(tcp_protocol &x,
                       struct datum &pkt,
+                      protocol_identifier &tcp_proto_id,
                       bool is_new,
                       struct tcp_packet *tcp_pkt) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
 
-    // enum tcp_msg_type msg_type = tcp_proto_id.get_msg_type(pkt.data, pkt.length());
-    enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
+    //enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length()); // TODO: delete
+
+    enum tcp_msg_type msg_type = tcp_proto_id.get_msg_type(pkt.data, pkt.length());
     switch(msg_type) {
     case tcp_msg_type_http_request:
         {
@@ -869,7 +976,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
     }
     tcp_protocol x;
-    set_tcp_protocol(x, pkt, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
+    set_tcp_protocol(x, pkt, tcp_proto_id, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
 
     if (tcp_pkt.additional_bytes_needed) {
         if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, tcp_pkt.additional_bytes_needed)) {
@@ -923,7 +1030,7 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
         return false;
     }
     tcp_protocol x;
-    set_tcp_protocol(x, pkt, false, nullptr);
+    set_tcp_protocol(x, pkt, tcp_proto_id, false, nullptr);
 
     if (std::visit(is_not_empty{}, x)) {
 
