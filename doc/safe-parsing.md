@@ -60,6 +60,27 @@ The overhead for this approach is low; it trades some storage for computation.  
 The function `http_request::parse(struct datum &data_buffer)` takes a datum as input, reads that data, and assigns the `method`, `uri`, `protocol`, and `headers` data elements.  Those elements are initialized to `NULL` values when the http_request is constructed.  If the parsing is completely successful, then all of the elements will point to the appropriate regions of memory.  But what happens if the data_buffer contains a truncated HTTP request?  If the parsing of the `protocol` element fails, for instance, then that element will be left in the `NULL` state.  Additionally, the data_buffer will be set in the`empty` state, so that the attempt to parse the `headers` element can detect the fact that the data_buffer can no longer be parsed.  Importantly, all of the parsing routines check to see if the datum they are reading from is in a `readable` state.  This provides safety, and allows for a very readable coding style in which data elements are successively parsed from a data buffer.  If that data buffer is not readable, there is a slight performance penalty for performing several `readable` checks, but this penalty may be acceptable, especially if
 the data buffer is typically readable.  If performance is a concern, then the parsing routine can check for readabiltiy and return early if need be, leaving the data elements corresponding to unparsed data in their `NULL` state.
 
+The function `http_request::parse(struct datum &data_buffer)` takes a datum as input, reads that data, and assigns the `method`, `uri`, `protocol`, and `headers` data elements.  Those elements are initialized to `NULL` values when the http_request is constructed.  If the parsing is completely successful, then all of the elements will point to the appropriate regions of memory.  But what happens if the data_buffer contains a truncated HTTP request?  If the parsing of the `protocol` element fails, for instance, then that element will be left in the `NULL` state.  Additionally, the data_buffer will be set in the`empty` state, so that the attempt to parse the `headers` element can detect the fact that the data_buffer can no longer be parsed.  Importantly, all of the parsing routines check to see if the datum they are reading from is in a `readable` state.  This provides safety, and allows for a very readable coding style in which data elements are successively parsed from a data buffer.  If that data buffer is not readable, there is a slight performance penalty for performing several `readable` checks, but this penalty may be acceptable, especially if
+the data buffer is typically readable.  If performance is a concern, then the parsing routine can check for readabiltiy and return early if need be, leaving the data elements corresponding to unparsed data in their `NULL` state.
+
+Often a data format starts with a short, fixed length header.   It is often convenient and efficient to handle these headers by using a packed structure.   The datum class accommodates this with the `get_pointer<typename T>()` member function, which returns a pointer to type T and advances the `data` pointer, if there are `sizeof(T)` bytes available, and otherwise returns `nullptr`.   A simple example: 
+
+```c++
+uint16_t get_udp_header_length(datum packet) {
+    struct udp_header {
+        uint16_t src_port;
+        uint16_t dst_port;
+        uint16_t length;
+        uint16_t checksum;
+    } __attribute__ ((__packed__));
+
+    udp_header *header = packet.get_pointer<udp_header>();
+    if (header == nullptr) {
+        return 0;  // too short
+    }
+    return ntohs(header->length);
+}
+```
 
 
 Often a data format starts with a short, fixed length header.   It is often convenient and efficient to handle these headers by using a packed structure.   The datum class accommodates this with the `get_pointer<typename T>()` member function, which returns a pointer to type T and advances the `data` pointer, if there are `sizeof(T)` bytes available, and otherwise returns `nullptr`.   A simple example: 

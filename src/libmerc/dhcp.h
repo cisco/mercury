@@ -510,6 +510,10 @@ struct dhcp_discover {
         }
     }
 
+    void compute_fingerprint(struct fingerprint &fp) const {
+        fp.set(*this, fingerprint_type_dhcp);
+    }
+
 };
 
 #endif /* DHCP_H */

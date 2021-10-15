@@ -12,6 +12,9 @@
 #include <list>
 #include <unordered_map>
 
+#include "tcp.h"
+#include "proto_identify.h"
+#include "analysis.h"
 #include "fingerprint.h"
 
 struct http_headers : public datum {
@@ -46,7 +49,7 @@ struct http_headers : public datum {
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
 };
 
-struct http_request {
+struct http_request : public tcp_base_protocol {
     struct datum method;
     struct datum uri;
     struct datum protocol;
@@ -67,9 +70,38 @@ struct http_request {
     static unsigned char http_client_mask[8];
     static unsigned char http_client_value[8];
 
+    struct datum get_header(const std::basic_string<uint8_t> &header_name);
+
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
+
+    static constexpr mask_and_value<8> get_matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
+        { 'G',  'E',  'T',  ' ',  0x00, 0x00, 0x00, 0x00 }
+    };
+
+    static constexpr mask_and_value<8> post_matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+        { 'P',  'O',  'S',  'T',  ' ',  0x00, 0x00, 0x00 }
+    };
+
+    static constexpr mask_and_value<8> connect_matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+        { 'C',  'O',  'N',  'N',  'E',  'C',  'T',  ' ' }
+    };
+
+    static constexpr mask_and_value<8> put_matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
+        { 'P',  'U',  'T',  ' ',  0x00, 0x00, 0x00, 0x00 }
+    };
+
+    static constexpr mask_and_value<8> head_matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+        { 'H',  'E',  'A',  'D',  ' ',  0x00, 0x00, 0x00 }
+    };
+
 };
 
-struct http_response {
+struct http_response : public tcp_base_protocol {
     struct datum version;
     struct datum status_code;
     struct datum status_reason;
@@ -88,6 +120,11 @@ struct http_response {
     void compute_fingerprint(struct fingerprint &fp) const;
 
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
+
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
+        { 'H',  'T',  'T',  'P',  '/',  '1',  0x00, 0x00 }
+    };
 
 };
 

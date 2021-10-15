@@ -344,6 +344,9 @@ enum fingerprint_type {
      fingerprint_type_tcp = 7,         /**< TCP SYN fingerprint                */
      fingerprint_type_dhcp = 8,        /**< DHCP client fingerprint            */
      fingerprint_type_smtp_server = 9, /**< SMTP server fingerprint            */
+     fingerprint_type_dtls = 10,       /**< DTLS client fingerprint            */
+     fingerprint_type_dtls_server = 11, /**< DTLS server fingerprint           */
+     fingerprint_type_quic = 12,       /** IETF QUIC                           */
 };
 
 /**

@@ -255,6 +255,7 @@ extern unsigned char dtls_client_hello_mask[8]; /* udp.c */
 extern unsigned char dtls_server_hello_mask[8]; /* udp.c */
 
 enum status proto_ident_config(const char *config_string) {
+
     if (config_string == NULL) {
         return status_ok;    /* use the default configuration */
     }

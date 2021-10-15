@@ -133,11 +133,10 @@ struct tcp_packet {
     tcp_packet() : header{NULL}, tcp_options{NULL, NULL}, data_length{0}, additional_bytes_needed{0} {};
 
     void parse(struct datum &p) {
-        if (p.length() < (int)sizeof(struct tcp_header)) {
-            return;
+        header = p.get_pointer<tcp_header>();
+        if (header == nullptr) {
+            return;  // too short
         }
-        header = (const struct tcp_header *)p.data;
-        p.skip(sizeof(struct tcp_header));
 
         tcp_options.parse(p, tcp_offrsv_get_length(header->offrsv) - TCP_FIXED_HDR_LEN);
         data_length = p.length();

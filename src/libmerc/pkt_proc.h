@@ -17,8 +17,11 @@
 #include "analysis.h"
 #include "libmerc.h"
 #include "stats.h"
+#include "proto_identify.h"
 
 extern bool select_tcp_syn;                 // defined in extractor.cc
+
+class protocol_identifier proto_ident_init(const char *config_string);  // TODO: find new home
 
 /**
  * struct mercury holds state that is used by one or more
@@ -29,10 +32,12 @@ struct mercury {
     struct libmerc_config global_vars;
     data_aggregator aggregator;
     classifier *c;
+    class protocol_identifier tcp_proto_id;
 
     mercury(const struct libmerc_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr} {
         global_vars = *vars;
         global_vars.resources = vars->resources;
+        tcp_proto_id = proto_ident_init(vars->packet_filter_cfg);
         global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy
         enum status status = proto_ident_config(vars->packet_filter_cfg);
         if (status) {
@@ -67,6 +72,7 @@ struct stateful_pkt_proc {
     classifier *c;
     data_aggregator *ag;
     libmerc_config global_vars;
+    class protocol_identifier tcp_proto_id;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
@@ -79,7 +85,8 @@ struct stateful_pkt_proc {
         m{mc},
         c{nullptr},
         ag{nullptr},
-        global_vars{}
+        global_vars{},
+        tcp_proto_id{mc->tcp_proto_id}
     {
 
         // set config and classifier to (refer to) context m

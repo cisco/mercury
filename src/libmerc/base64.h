@@ -5,6 +5,7 @@
 #ifndef BASE64_H
 #define BASE64_H
 
+#include <string>
 
 std::string hex_encode(const unsigned char *src, size_t len) {
     char hex_table[] =
@@ -37,8 +38,6 @@ std::string hex_encode(const unsigned char *src, size_t len) {
 
 // 2016-12-12 - Gaspard Petit : Slightly modified to return a std::string 
 // instead of a buffer allocated with malloc.
-
-#include <string>
 
 static const unsigned char base64_table[65] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

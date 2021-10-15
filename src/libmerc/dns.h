@@ -446,13 +446,13 @@ struct dns_resource_record {
 struct dns_packet {
     dns_hdr *header;
     struct datum records;
+    size_t length;
     uint16_t qdcount, ancount, nscount, arcount;
-
     static const uint16_t max_count = 32;
 
-    dns_packet() : header{NULL}, records{NULL, NULL} {  }
+    dns_packet() : header{NULL}, records{NULL, NULL}, length{0} {  }
 
-    dns_packet(struct datum &d) : header{NULL}, records{NULL, NULL} {
+    dns_packet(struct datum &d) : header{NULL}, records{NULL, NULL}, length{0} {
         parse(d);
     }
 
@@ -460,6 +460,7 @@ struct dns_packet {
         if (d.length() < (int)sizeof(dns_hdr)) {
             return;  // too short
         }
+        length = d.length();
         header = (dns_hdr *)d.data;
         d.skip(sizeof(dns_hdr));
         qdcount = ntohs(header->qdcount);
@@ -483,6 +484,14 @@ struct dns_packet {
             records.set_null();
             //fprintf(stderr, "notice: setting dns packet to null\n");
         }
+    }
+
+    struct datum get_datum() const {
+        if (header == nullptr) {
+            return {nullptr, nullptr};
+        }
+        uint8_t *pkt = (uint8_t *)header;
+        return {pkt, pkt + length};
     }
 
     bool is_not_empty() {

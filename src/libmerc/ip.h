@@ -73,17 +73,16 @@ class ipv4_packet {
     }
 
     void parse(struct datum &p, struct key &k) {
-        if (p.length() < (int)sizeof(struct ipv4_header)) {
-            return;
+        header = p.get_pointer<ipv4_header>();
+        if (header == nullptr) {
+            return;  // too short
         }
-        header = (const struct ipv4_header *)p.data;
+        p.trim_to_length(ntohs(header->len) - sizeof(ipv4_header));
+
         k.addr.ipv4.src = header->src_addr;
         k.addr.ipv4.dst = header->dst_addr;
         k.protocol = header->prot;
         k.ip_vers = 4;  // ipv4
-
-        p.trim_to_length(ntohs(header->len));
-        p.skip(sizeof(struct ipv4_header));
 
         // TODO: parse options
     }
@@ -357,16 +356,15 @@ public:
     }
 
     void parse(struct datum &p, struct key &k) {
-        if (p.length() < (int)sizeof(struct ipv6_header)) {
-            return;
+        header = p.get_pointer<ipv6_header>();
+        if (header == nullptr) {
+            return;  // too short
         }
-        header = (const struct ipv6_header *)p.data;
+        p.trim_to_length(ntohs(header->len));
+
         k.addr.ipv6.src = header->src_addr;
         k.addr.ipv6.dst = header->dst_addr;
         k.ip_vers = 6;  // ipv6
-
-        p.skip(sizeof(struct ipv6_header));
-        p.trim_to_length(ntohs(header->len));
 
         extension_headers.data = p.data; // remember start of extension headers
 

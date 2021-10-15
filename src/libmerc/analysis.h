@@ -20,6 +20,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <map>
+#include <list>
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
@@ -27,7 +28,8 @@
 #include <list>
 #include <zlib.h>
 #include "rapidjson/document.h"
-#include "tls.h"
+#include "rapidjson/stringbuffer.h"
+#include "util_obj.h"
 #include "archive.h"
 
 // TBD - move flow_key_sprintf_src_addr() to the right file
@@ -844,9 +846,10 @@ public:
                                                     const struct destination_context &dc,
                                                     struct analysis_result &result) {
 
-        if (fp.type != fingerprint_type_tls) {
-            return false;  // cannot perform analysis
-        }
+        // TODO: remove
+        //if (fp.type != fingerprint_type_tls) {
+        //    return false;  // cannot perform analysis
+        //}
         result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port);
         return true;
     }

@@ -10,7 +10,9 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "tcp.h"
 #include "datum.h"
+#include "analysis.h"
 #include "json_object.h"
 #include "fingerprint.h"
 
@@ -130,7 +132,7 @@ struct smtp_parameters : public datum {
  * mercury's processing: identify the EHLO line and report this information
  *   in the parameters list, i.e., "smtp": {"request": {"parameters": []}}
  */
-class smtp_client {
+class smtp_client : public tcp_base_protocol {
     struct smtp_parameters parameters;
 
 public:
@@ -159,9 +161,13 @@ public:
         }
     }
 
-    void compute_fingerprint(struct fingerprint) const { };
-
     bool is_not_empty() const { return parameters.is_not_empty(); }
+
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+        { 0x45, 0x48, 0x4c, 0x4f, 0x20, 0x00, 0x00, 0x00 }
+    };
+
 };
 
 
@@ -187,7 +193,7 @@ public:
  *   i.e., "smtp_server": {"response": {"parameters": []}}. We also
  *   generate a fingerprint string that reports all non-domain parameters.
  */
-class smtp_server {
+class smtp_server : public tcp_base_protocol {
     struct smtp_parameters parameters;
 
 public:
@@ -226,6 +232,14 @@ public:
     }
 
     bool is_not_empty() const { return parameters.is_not_empty(); }
+
+    bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
+
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
+        { 0x32, 0x35, 0x30, 0x2d, 0x00, 0x00, 0x00, 0x00 }
+    };
+
 };
 
 

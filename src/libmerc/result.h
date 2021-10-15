@@ -14,7 +14,6 @@
 
 #include "libmerc.h"
 #include "json_object.h"
-#include "tls.h"
 #include "addr.h"
 #include "fingerprint.h"
 
@@ -107,17 +106,8 @@ struct destination_context {
 #ifdef __cplusplus
     destination_context() : dst_port{0} {}
 
-    destination_context(const struct tls_client_hello &hello,
-                        const struct key &key) {
-        init(hello, key);
-    }
-
-    void init(const struct tls_client_hello &hello,
-              const struct key &key) {
-
-        struct datum sn{NULL, NULL};
-        hello.extensions.set_server_name(sn);
-        sn.strncpy(sn_str, MAX_SNI_LEN);
+    void init(struct datum domain, const struct key &key) {
+        domain.strncpy(sn_str, MAX_SNI_LEN);
         flow_key_sprintf_dst_addr(key, dst_ip_str);
         dst_port = flow_key_get_dst_port(key);
     }

@@ -518,7 +518,22 @@ void tls_client_hello::operator()(struct buffer_stream &buf) const {
 }
 
 void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {
-    fp.set(*this, fingerprint_type_tls);
+    enum fingerprint_type type;
+    if (dtls) {
+        type = fingerprint_type_dtls;
+    } else {
+        type = fingerprint_type_tls;
+    }
+    fp.set(*this, type);
+}
+
+bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+    struct datum sn{NULL, NULL};
+    extensions.set_server_name(sn);
+
+    analysis_.destination.init(sn, k_);
+
+    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }
 
 unsigned char tls_client_hello::mask [8]= {
@@ -557,6 +572,13 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
 
     compression_method.parse(record, L_CompressionMethod);
 
+    if (compression_method.is_not_empty()) {
+        // determine if this is DTLS or plain old TLS
+        if (protocol_version.data[0] == 0xfe) {
+            dtls = true;
+        }
+    }
+
     // parse extensions vector
     if (datum_read_and_skip_uint(&record, L_ExtensionsVectorLength, &tmp_len)) {
         return status_ok;  // could differentiate between err/ok
@@ -592,26 +614,6 @@ void tls_server_hello::operator()(struct buffer_stream &buf) const {
         buf.write_char(')');
     }
 }
-
-void tls_server_hello::write_json(struct json_object &o) const {
-    o.print_key_hex("version", protocol_version);
-    o.print_key_hex("random", random);
-    //o.print_key_hex("session_id", session_id);
-    //o.print_key_hex("cipher_suites", ciphersuite_vector);
-    o.print_key_hex("compression_method", compression_method);
-    //o.print_key_hex("extensions", hello.extensions);
-    //hello.extensions.print(o, "extensions");
-    extensions.print_server_name(o, "server_name");
-    extensions.print_session_ticket(o, "session_ticket");
-    //o.print_key_value("fingerprint", *this); 
-}
-
-unsigned char tls_server_hello::mask[8] = {
-    0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00
-};
-unsigned char tls_server_hello::value[8] = {
-    0x16, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
-};
 
 void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
 
@@ -654,9 +656,3 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
     }
 }
 
-unsigned char tls_server_certificate::mask[8] = {
-    0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00
-};
-unsigned char tls_server_certificate::value[8] = {
-    0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00
-};

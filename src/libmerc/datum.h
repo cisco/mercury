@@ -147,8 +147,14 @@ struct datum {
             return true;
         }
     }
-    bool operator==(const datum &p) const {
-        return (length() == p.length()) && memcmp(data, p.data, length()) == 0;
+    bool memcmp(const datum &p) const {
+        return ::memcmp(data, p.data, length());
+    }
+    bool operator==(const datum &rhs) const {
+        return data == rhs.data && data_end == rhs.data_end;
+    }
+    bool operator!=(const datum &rhs) const {
+        return data != rhs.data || data_end != rhs.data_end;
     }
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
         unsigned int bits = (data_end - data) * 8;
@@ -211,6 +217,22 @@ struct datum {
         }
         set_null();
         *output = 0;
+    }
+
+    // get_pointer<T> returns a pointer to type T and advances the
+    // data pointer, if there are sizeof(T) bytes available, and
+    // otherwise it returns nullptr
+    //
+    // if T is a struct, it SHOULD use the __attribute__((__packed__))
+    //
+    template <typename T>
+    T* get_pointer() {
+        if (data + sizeof(T) <= data_end) {
+            T *tmp = (T *)data;
+            data += sizeof(T);
+            return tmp;
+        }
+        return nullptr;
     }
 
     // read_uint8() reads a uint8_t in network byte order, and advances the data pointer
@@ -332,12 +354,12 @@ struct datum {
 
     int compare(const void *x, ssize_t x_len) {
         if (data && length() == x_len) {
-            return memcmp(x, data, x_len);
+            return ::memcmp(x, data, x_len);
         }
         return std::numeric_limits<int>::min();
     }
 
-    void fprint_hex(FILE *f) {
+    void fprint_hex(FILE *f) const {
         const uint8_t *x = data;
         while (x < data_end) {
             fprintf(f, "%02x", *x++);
