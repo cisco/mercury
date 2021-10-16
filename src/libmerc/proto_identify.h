@@ -73,20 +73,23 @@ public:
 
 };
 
+template <size_t N>
 struct matcher_and_type {
-    mask_and_value<8> mv;
+    mask_and_value<N> mv;
     enum tcp_msg_type type;
 };
 
 class protocol_identifier {
-    std::vector<matcher_and_type> a;
+    std::vector<matcher_and_type<8>> short_matchers;
 
 public:
-    protocol_identifier() : a{} {  }
 
-    void add_protocol(const mask_and_value<8> &mv, enum tcp_msg_type type) {
-        struct matcher_and_type new_proto{mv, type};
-        a.push_back(new_proto);
+    protocol_identifier() : short_matchers{} {  }
+
+    template <size_t N>
+    void add_protocol(const mask_and_value<N> &mv, enum tcp_msg_type type) {
+        struct matcher_and_type<N> new_proto{mv, type};
+        short_matchers.push_back(new_proto);
     }
 
     void compile() {
@@ -95,10 +98,13 @@ public:
     }
 
     enum tcp_msg_type get_msg_type(const uint8_t *data, unsigned int len) {
+
+        // TODO: process short data fields
+        //
         if (len < 8) {
             return tcp_msg_type_unknown;
         }
-        for (matcher_and_type p : a) {
+        for (matcher_and_type p : short_matchers) {
             if (p.mv.matches(data)) {
                 return p.type;
             }
