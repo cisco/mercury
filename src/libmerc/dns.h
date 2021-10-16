@@ -15,6 +15,7 @@
 
 #include "json_object.h"
 #include "util_obj.h"
+#include "match.h"
 
 /**
  * \file dns.h
@@ -553,6 +554,11 @@ struct dns_packet {
 
         dns_json.close();
     }
+
+    static constexpr mask_and_value<8> matcher {
+        { 0x00, 0x00, 0x50, 0x48, 0xff, 0xfe, 0xff, 0xe0 },
+        { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+    };
 };
 
 

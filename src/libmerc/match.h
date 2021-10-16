@@ -23,33 +23,35 @@ unsigned int u64_compare_masked_data_to_value(const void *data,
                                               const void *mask,
                                               const void *value);
 
-/*
- * keyword_matcher performs multiple string matching the
- * straightforward way.  It should be robust and maintainable, and
- * possibly useful for very short keyword lists, but its worst-case
- * and average case performance are not great (linear in the number of
- * keywords).
- *
- * This code will be replaced with a finite automaton keyword matcher
- * in the near future (once that code is tuned, tested, and debugged).
- *
- */
+template <size_t N>
+class mask_and_value {
+    uint8_t mask[N];
+    uint8_t value[N];
+public:
+    constexpr mask_and_value(std::array<uint8_t, N> m, std::array<uint8_t, N> v) : mask{}, value{} {
+        for (size_t i=0; i<N; i++) {
+            mask[i] = m[i];
+            value[i] = v[i];
+        }
+    }
 
-#define keyword_init(s) { s, sizeof(s)-1 }
+    bool matches(const uint8_t tcp_data[N]) const {
+        return u32_compare_masked_data_to_value(tcp_data, mask, value);  // TODO: verify that N=8
+    }
 
-typedef struct keyword {
-    const char *value;
-    size_t len;
-} keyword_t;
+    constexpr size_t length() const { return N; }
 
-typedef struct keyword_matcher {
-    keyword_t *case_insensitive;
-    keyword_t *case_sensitive;
-} keyword_matcher_t;
+    static unsigned int u32_compare_masked_data_to_value(const void *data_in,
+                                                         const void *mask_in,
+                                                         const void *value_in) {
+        const uint32_t *d = (const uint32_t *)data_in;
+        const uint32_t *m = (const uint32_t *)mask_in;
+        const uint32_t *v = (const uint32_t *)value_in;
 
-#define match_all_keywords NULL
+        return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
+    }
 
-bool keyword_matcher_check(const keyword_matcher_t *keywords,
-                           const unsigned char *string,
-                           size_t len);
+};
+
+
 #endif /* MATCH_H */

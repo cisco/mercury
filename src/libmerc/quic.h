@@ -86,7 +86,7 @@ struct uint8_bitfield {
 //          | 11   | 8      | 62          | 0-4611686018427387903 |
 //          +------+--------+-------------+-----------------------+
 //
-ssize_t parse_variable_length_integer(datum &d) {
+static ssize_t parse_variable_length_integer(datum &d) {
     uint8_t b;
     d.read_uint8(&b);
     int len=0;

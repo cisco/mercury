@@ -9,7 +9,7 @@
 #define TLS_H
 
 #include "fingerprint.h"
-#include "proto_identify.h"
+#include "match.h"
 #include "analysis.h"
 #include "tcp.h"
 #include "tcpip.h"
