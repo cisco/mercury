@@ -40,6 +40,17 @@ struct udp_packet {
         }
     }
 
+    // struct ports is a simple public helper used to return port info
+    //
+    struct ports { uint16_t src; uint16_t dst; };
+
+    struct ports get_ports() const {
+        if (header) {
+            return { header->src_port, header->dst_port };
+        }
+        return { 0, 0 };
+    }
+
     enum udp_msg_type get_msg_type() const { return msg_type; }
 
     void set_key(struct key &k) {

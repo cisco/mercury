@@ -15,6 +15,7 @@
 #define PROTO_IDENTIFY_H
 
 #include <stdint.h>
+
 #include <vector>
 #include <array>
 #include "match.h"
@@ -63,15 +64,15 @@ struct matcher_and_type {
 
 template <size_t N>
 class protocol_identifier {
-    std::vector<matcher_and_type<N>> short_matchers;
+    std::vector<matcher_and_type<N>> matchers;
 
 public:
 
-    protocol_identifier() : short_matchers{} {  }
+    protocol_identifier() : matchers{} {  }
 
     void add_protocol(const mask_and_value<N> &mv, size_t type) {
         struct matcher_and_type<N> new_proto{mv, type};
-        short_matchers.push_back(new_proto);
+        matchers.push_back(new_proto);
     }
 
     void compile() {
@@ -79,14 +80,14 @@ public:
         // it may compile a jump table, reorder matchers, etc.
     }
 
-    size_t get_msg_type(const uint8_t *data, unsigned int len) {
+    size_t get_msg_type(const uint8_t *data, unsigned int len) const {
 
         // TODO: process short data fields
         //
         if (len < 8) {
             return 0;   // type unknown;
         }
-        for (matcher_and_type p : short_matchers) {
+        for (matcher_and_type p : matchers) {
             if (p.mv.matches(data)) {
                 return p.type;
             }
@@ -104,6 +105,7 @@ bool set_config(std::map<std::string, bool> &config_map, const char *config_stri
 class traffic_selector {
     protocol_identifier<8> tcp;
     protocol_identifier<8> udp;
+    protocol_identifier<16> udp16;
 
 public:
 
@@ -168,27 +170,28 @@ public:
 
         // UDP and booleans not yet implemented
         //
-        if (protocols["tcp"]) {
+        if (protocols["tcp"] || protocols["all"]) {
             // select_tcp_syn = 0;
         }
         if (protocols["tcp.message"]) {
             // select_tcp_syn = 0;
             // tcp_message_filter_cutoff = 1;
         }
-        if (protocols["dhcp"]) {
+        if (protocols["dhcp"] || protocols["all"]) {
             //udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
         }
-        if (protocols["dns"]) {
+        if (protocols["dns"] || protocols["all"]) {
             // select_mdns = false;
             udp.add_protocol(dns_packet::matcher, udp_msg_type_dns);
         }
-        if (protocols["dtls"]) {
+        if (protocols["dtls"] || protocols["all"]) {
+            udp16.add_protocol(tls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
+            udp16.add_protocol(tls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
+        }
+        if (protocols["wireguard"] || protocols["all"]) {
             ;
         }
-        if (protocols["wireguard"]) {
-            ;
-        }
-        if (protocols["quic"]) {
+        if (protocols["quic"] || protocols["all"]) {
             ;
         }
 
@@ -198,8 +201,16 @@ public:
 
     }
 
-    size_t get_tcp_msg_type(const uint8_t *data, unsigned int len) {
+    size_t get_tcp_msg_type(const uint8_t *data, unsigned int len) const {
         return tcp.get_msg_type(data, len);
+    }
+
+    size_t get_udp_msg_type(const uint8_t *data, unsigned int len) const {
+        size_t type = udp.get_msg_type(data, len);
+        if (type == udp_msg_type_unknown)  {
+            type = udp16.get_msg_type(data, len);
+        }
+        return type;
     }
 
 };
