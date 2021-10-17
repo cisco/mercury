@@ -36,7 +36,11 @@ public:
     }
 
     bool matches(const uint8_t tcp_data[N]) const {
-        return u32_compare_masked_data_to_value(tcp_data, mask, value);  // TODO: verify that N=8
+        if (N == 8) {
+            return u32_compare_masked_data_to_value(tcp_data, mask, value);
+        } else {
+            return u64_compare_masked_data_to_value(tcp_data, mask, value);
+        }
     }
 
     constexpr size_t length() const { return N; }
@@ -47,6 +51,16 @@ public:
         const uint32_t *d = (const uint32_t *)data_in;
         const uint32_t *m = (const uint32_t *)mask_in;
         const uint32_t *v = (const uint32_t *)value_in;
+
+        return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
+    }
+
+    static unsigned int u64_compare_masked_data_to_value(const void *data,
+                                                         const void *mask,
+                                                         const void *value) {
+        const uint64_t *d = (const uint64_t *)data;
+        const uint64_t *m = (const uint64_t *)mask;
+        const uint64_t *v = (const uint64_t *)value;
 
         return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
     }

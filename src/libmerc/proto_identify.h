@@ -189,10 +189,10 @@ public:
             udp16.add_protocol(tls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
         }
         if (protocols["wireguard"] || protocols["all"]) {
-            ;
+            udp.add_protocol(wireguard_handshake_init::matcher, udp_msg_type_wireguard);
         }
         if (protocols["quic"] || protocols["all"]) {
-            ;
+            udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
         }
 
         // tell protocol_identification objects to compile lookup tables

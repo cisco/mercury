@@ -9,6 +9,7 @@
 #define WIREGUARD_H
 
 #include "datum.h"
+#include "match.h"
 
 struct wireguard_handshake_initiation {
     uint8_t  message_type;                       // 1
@@ -45,6 +46,11 @@ struct wireguard_handshake_init {
     void write_json(struct json_object &o, bool write_metadata=false);
 
     bool is_not_empty() { return valid; }
+
+    constexpr static mask_and_value<8> matcher = {
+       { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
+       { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+    };
 
 };
 

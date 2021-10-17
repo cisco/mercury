@@ -22,6 +22,7 @@
 #include <openssl/err.h>
 #include "json_object.h"
 #include "util_obj.h"
+#include "match.h"
 
 /*
  * QUIC header format (from draft-ietf-quic-transport-32):
@@ -199,6 +200,11 @@ struct quic_initial_packet {
         json_quic.close();
 
     }
+
+    constexpr static mask_and_value<8> matcher = {
+       { 0xf0, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
+       { 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+    };
 
 };
 
