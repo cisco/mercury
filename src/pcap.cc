@@ -76,9 +76,8 @@ void dump_packet_info(struct datum &pkt_data) {
                 tcp_pkt.set_key(k);
                 fprintf(stdout, "packet.ip.tcp.data.length: %zd\n", pkt_data.length());
             } else if (protocol == 17) {
-                struct udp_packet udp;
-                udp.parse(pkt_data);
-                udp.set_key(k);
+                class udp udp_pkt{pkt_data};
+                udp_pkt.set_key(k);
             }
         }
         break;
