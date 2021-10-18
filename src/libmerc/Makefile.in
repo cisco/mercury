@@ -42,7 +42,6 @@ LIBMERC     += packet.cc
 LIBMERC     += pkt_proc.cc
 LIBMERC     += ssh.cc
 LIBMERC     += tls.cc
-LIBMERC     += udp.cc
 LIBMERC     += utils.cc
 LIBMERC     += wireguard.cc
 LIBMERC     += asn1.cc

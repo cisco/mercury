@@ -532,17 +532,20 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
     } else if (transport_proto == 17) { // UDP
-        struct udp_packet udp_pkt{pkt};
+        struct udp udp_pkt{pkt};
         udp_pkt.set_key(k);
         enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt.data, pkt.length());
 
         if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
-            udp_packet::ports ports = udp_pkt.get_ports();
+            udp::ports ports = udp_pkt.get_ports();
+            // if (ports.src == htons(53) || ports.dst == htons(53)) {
+            //     msg_type = udp_msg_type_dns;
+            // }
             if (select_mdns && (ports.src == htons(5353) || ports.dst == htons(5353))) {
-                return udp_msg_type_dns;
+                msg_type = udp_msg_type_dns;
             }
             if (ports.dst == htons(4789)) {
-                return udp_msg_type_vxlan;
+                msg_type = udp_msg_type_vxlan;
             }
         }
 
