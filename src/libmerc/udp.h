@@ -10,8 +10,6 @@
 #ifndef UDP_H
 #define UDP_H
 
-extern bool select_mdns; // global
-
 //    UDP header (from RFC 768)
 //
 //                   0      7 8     15 16    23 24    31

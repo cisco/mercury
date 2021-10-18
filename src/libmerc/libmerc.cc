@@ -212,19 +212,6 @@ bool analysis_context_get_os_info(const struct analysis_context *ac, // input
     return false;
 }
 
-
-unsigned int tcp_message_filter_cutoff;  /* init tcp msg   */
-
-/*
- * select_tcp_syn selects TCP SYNs for extraction
- */
-bool select_tcp_syn = 1;
-
-/*
- * select_tcp_syn selects MDNS (port 5353)
- */
-bool select_mdns = true;
-
 mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) {
     try {
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};

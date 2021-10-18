@@ -107,9 +107,16 @@ class traffic_selector {
     protocol_identifier<8> udp;
     protocol_identifier<16> udp16;
 
+    bool select_tcp_syn;
+    bool select_mdns;
+
 public:
 
-    traffic_selector(const char *config_string) : tcp{}, udp{} {
+    bool tcp_syn() const { return select_tcp_syn; }
+
+    bool mdns() const { return select_mdns; }
+
+    traffic_selector(const char *config_string) : tcp{}, udp{}, select_tcp_syn{false} {
 
         // a null configuration string defaults to all protocols
         //
@@ -171,7 +178,7 @@ public:
         // UDP and booleans not yet implemented
         //
         if (protocols["tcp"] || protocols["all"]) {
-            // select_tcp_syn = 0;
+            select_tcp_syn = true;
         }
         if (protocols["tcp.message"]) {
             // select_tcp_syn = 0;

@@ -459,7 +459,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (global_vars.output_tcp_initial_data) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
-            if (select_tcp_syn) {
+            if (selector.tcp_syn()) {
                 struct json_object record{&buf};
 
                 if (report_IP && global_vars.metadata_output) {
@@ -486,7 +486,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
 
-            if (report_SYN_ACK && select_tcp_syn) {
+            if (report_SYN_ACK && selector.tcp_syn()) {
                 struct json_object record{&buf};
                 struct json_object fps{record, "fingerprints"};
                 fps.print_key_value("tcp_server", tcp_pkt);
@@ -541,7 +541,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             // if (ports.src == htons(53) || ports.dst == htons(53)) {
             //     msg_type = udp_msg_type_dns;
             // }
-            if (select_mdns && (ports.src == htons(5353) || ports.dst == htons(5353))) {
+            if (selector.mdns() && (ports.src == htons(5353) || ports.dst == htons(5353))) {
                 msg_type = udp_msg_type_dns;
             }
             if (ports.dst == htons(4789)) {

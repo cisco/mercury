@@ -19,8 +19,6 @@
 #include "stats.h"
 #include "proto_identify.h"
 
-extern bool select_tcp_syn;  // global
-
 /**
  * struct mercury holds state that is used by one or more
  * mercury_packet_processor
