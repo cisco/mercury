@@ -577,7 +577,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (analysis.fp.get_type() != fingerprint_type_unknown) {
                 analysis.fp.write(record);
             }
-            std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output}, x);
+            std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
             if (output_analysis) {
                 analysis.result.write_json(record, "analysis");
