@@ -111,14 +111,14 @@ struct mercury_record {
         if (d.accept('\"')) return;
         if (d.accept('}')) return;
 
-        if (datum_skip_upto_delim(&d, (const unsigned char *)"src_ip", sizeof("src_ip")-1)) return;
+        if (d.skip_up_to_delim((const unsigned char *)"src_ip", sizeof("src_ip")-1)) return;
         if (d.accept('\"')) return;
         if (d.accept(':')) return;
         if (d.accept('\"')) return;
         src_ip.parse_up_to_delim(d, '\"');
         if (d.accept('\"')) return;
 
-        if (datum_skip_upto_delim(&d, (const unsigned char *)"event_start", sizeof("event_start")-1)) return;
+        if (d.skip_up_to_delim((const unsigned char *)"event_start", sizeof("event_start")-1)) return;
         if (d.accept('\"')) return;
         if (d.accept(':')) return;
         event_start.parse_up_to_delim(d, '}');

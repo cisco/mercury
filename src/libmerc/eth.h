@@ -67,27 +67,27 @@ class eth {
 
     eth(struct datum &p) {
 
-        //mercury_debug("%s: processing ethernet (len %td)\n", __func__, datum_get_data_length(p));
+        //mercury_debug("%s: processing ethernet (len %td)\n", __func__, p.length());
 
-        if (datum_skip(&p, ETH_ADDR_LEN * 2) == status_err) {
+        if (p.skip(ETH_ADDR_LEN * 2) == status_err) {
             return;
         }
-        if (datum_read_and_skip_uint(&p, sizeof(uint16_t), &ethertype) == status_err) {
+        if (p.read_uint(&ethertype, sizeof(uint16_t)) == status_err) {
             return;
         }
         if (ethertype == ETH_TYPE_1AD) {
-            if (datum_skip(&p, sizeof(uint16_t)) == status_err) { // TCI
+            if (p.skip(sizeof(uint16_t)) == status_err) { // TCI
                 return;
             }
-            if (datum_read_and_skip_uint(&p, sizeof(uint16_t), &ethertype) == status_err) {
+            if (p.read_uint(&ethertype, sizeof(uint16_t)) == status_err) {
                 return;
             }
         }
         if (ethertype == ETH_TYPE_VLAN) {
-            if (datum_skip(&p, sizeof(uint16_t)) == status_err) { // TCI
+            if (p.skip(sizeof(uint16_t)) == status_err) { // TCI
                 return;
             }
-            if (datum_read_and_skip_uint(&p, sizeof(uint16_t), &ethertype) == status_err) {
+            if (p.read_uint(&ethertype, sizeof(uint16_t)) == status_err) {
                 return;
             }
         }
@@ -95,7 +95,7 @@ class eth {
             size_t mpls_label = 0;
 
             while (!(mpls_label & MPLS_BOTTOM_OF_STACK)) {
-                if (datum_read_and_skip_uint(&p, sizeof(uint32_t), &mpls_label) == status_err) {
+                if (p.read_uint(&mpls_label, sizeof(uint32_t)) == status_err) {
                     return;
                 }
             }

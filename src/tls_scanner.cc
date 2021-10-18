@@ -599,7 +599,7 @@ public:
     void parse(struct datum &d) {
         // find start of host
         uint8_t slash_pair[2] = { '/', '/' };
-        if (datum_skip_upto_delim(&d, slash_pair, sizeof(slash_pair)) == status_err) {
+        if (d.skip_up_to_delim(slash_pair, sizeof(slash_pair)) == status_err) {
             return;
         };
 

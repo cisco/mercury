@@ -597,7 +597,7 @@ bool stateful_pkt_proc::ip_set_analysis_result(struct analysis_result *r,
     size_t transport_proto = 0;
 
     size_t ip_version;
-    if (datum_read_uint(&pkt, 1, &ip_version) == status_err) {
+    if (pkt.lookahead_uint(1, &ip_version) == status_err) {
         return 0;
     }
     ip_version &= 0xf0;

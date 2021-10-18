@@ -46,13 +46,13 @@ void http_headers::print_matching_names(struct json_object &o, std::unordered_ma
     }
     struct datum p{this->data, this->data_end};  // create copy, to leave object unmodified
 
-    while (datum_get_data_length(&p) > 0) {
-        if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+    while (p.length() > 0) {
+        if (p.compare(crlf, sizeof(crlf)) == 0) {
             break;  /* at end of headers */
         }
 
         struct datum keyword{p.data, NULL};
-        if (datum_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
+        if (p.skip_up_to_delim(csp, sizeof(csp)) == status_err) {
             return;
         }
         keyword.data_end = p.data;
@@ -65,7 +65,7 @@ void http_headers::print_matching_names(struct json_object &o, std::unordered_ma
             header_name = (const char *)pair->second.c_str();
         }
         const uint8_t *value_start = p.data;
-        if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
             return;
         }
         const uint8_t *value_end = p.data - 2;
@@ -81,13 +81,13 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std
 
     struct datum p{this->data, this->data_end};  // create copy, to leave object unmodified
 
-    while (datum_get_data_length(&p) > 0) {
-        if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+    while (p.length() > 0) {
+        if (p.compare(crlf, sizeof(crlf)) == 0) {
             break;  /* at end of headers */
         }
 
         struct datum name{p.data, NULL};
-        if (datum_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
+        if (p.skip_up_to_delim(csp, sizeof(csp)) == status_err) {
             return;
         }
         name.data_end = p.data;
@@ -102,7 +102,7 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std
             include_value = pair->second;
         }
 
-        if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
             return;
         }
         const uint8_t *name_end = p.data - 2;
@@ -324,13 +324,13 @@ struct datum http_headers::get_header(const std::basic_string<uint8_t> &location
     }
     struct datum p{this->data, this->data_end};  // create copy, to leave object unmodified
 
-    while (datum_get_data_length(&p) > 0) {
-        if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+    while (p.length() > 0) {
+        if (p.compare(crlf, sizeof(crlf)) == 0) {
             break;  /* at end of headers */
         }
 
         struct datum keyword{p.data, NULL};
-        if (datum_skip_upto_delim(&p, csp, sizeof(csp)) == status_err) {
+        if (p.skip_up_to_delim(csp, sizeof(csp)) == status_err) {
             return output;
         }
         keyword.data_end = p.data;
@@ -342,7 +342,7 @@ struct datum http_headers::get_header(const std::basic_string<uint8_t> &location
             header_name = "location";
         }
         const uint8_t *value_start = p.data;
-        if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
             return output;
         }
         const uint8_t *value_end = p.data - 2;
