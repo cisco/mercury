@@ -532,7 +532,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
     } else if (transport_proto == 17) { // UDP
-        struct udp udp_pkt{pkt};
+        class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
         enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt.data, pkt.length());
 
