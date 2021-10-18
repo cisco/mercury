@@ -25,7 +25,7 @@
 #include "ssh.h"
 #include "smtp.h"
 
-//#include "dhcp.h"  // udp protocols
+#include "dhcp.h"  // udp protocols
 #include "quic.h"
 #include "dns.h"
 #include "wireguard.h"
@@ -185,7 +185,7 @@ public:
             // tcp_message_filter_cutoff = 1;
         }
         if (protocols["dhcp"] || protocols["all"]) {
-            //udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
+            udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
         }
         if (protocols["dns"] || protocols["all"]) {
             // select_mdns = false;

@@ -12,12 +12,12 @@
 #include <stdlib.h>
 #include "dhcp.h"
 #include "json_object.h"
-#include "oui.h"
 
 /*
  * DHCP protocol processing
  */
 
+#include "oui.h" // for oui:get_oui_dict()
 
 /*
  *
@@ -274,7 +274,7 @@ enum class dhcp_option_type : uint8_t {
 	End = 0x00ff
 };
 
-const char *hwtype_get_string(uint8_t hwtype) {
+static const char *hwtype_get_string(uint8_t hwtype) {
     switch(hwtype) {
     case 0: return "reserved";
     case 1: return "ethernet";
@@ -288,7 +288,7 @@ const char *hwtype_get_string(uint8_t hwtype) {
 // as per https://www.iana.org/assignments/bootp-dhcp-parameters/bootp-dhcp-parameters.xhtml#message-type-53
 // retrieved on Oct. 2020
 //
-const char *msg_type_get_string(uint8_t msg_type) {
+static const char *msg_type_get_string(uint8_t msg_type) {
     switch(msg_type) {
     case 1: return "discover";
     case 2: return "offer";
@@ -363,10 +363,7 @@ struct dhcp_option : public datum {
                     json_client_id.print_key_hex("address", *this);
                     size_t oui = 0;
                     datum_read_uint(this, 3, &oui);
-                    auto x = oui_dict.find(oui);
-                    if (x != oui_dict.end()) {
-                        json_client_id.print_key_string("oui", x->second);
-                    }
+                    json_client_id.print_key_string("oui", oui::get_string(oui));
                 } else if (hwtype == 255) {
                     uint32_t iaid;
                     datum::read_uint32(&iaid);
@@ -420,10 +417,7 @@ struct dhcp_option : public datum {
                 json_opt.print_key_hex("client_id", *this);
                 size_t oui = 0;
                 datum_read_uint(this, 3, &oui);
-                auto x = oui_dict.find(oui);
-                if (x != oui_dict.end()) {
-                    json_opt.print_key_string("oui", x->second);
-                }
+                json_opt.print_key_string("oui", oui::get_string(oui));
             }
             break;
         case dhcp_option_type::End:
