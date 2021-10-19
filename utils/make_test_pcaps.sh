@@ -32,7 +32,7 @@ function slice_file {
     fi
 }
 
-slice_file "dns.flags.response==1" "dns.query"
+slice_file "dns.flags.response==0" "dns.query"
 slice_file "dns.flags.response==1" "dns.response"
 slice_file "http.request"          "http.request"
 slice_file "http.response"         "http.response"
@@ -40,9 +40,8 @@ slice_file "tls.handshake.type==1" "tls.client_hello"
 slice_file "tls.handshake.type==2" "tls.server_hello"
 slice_file "dtls.handshake.type==1" "dtls.client_hello"
 slice_file "dtls.handshake.type==2" "dtls.server_hello"
-slice_file "quic" "quic"                              # TODO: add filter detail
+slice_file "quic"                   "quic"                # TODO: add filter detail
 slice_file "ssh.kex.reserved"      "ssh.kex"
 slice_file "ssh.protocol"          "ssh.init"
 slice_file "smtp.req"              "smtp.client"
 slice_file "smtp.rsp"              "smtp.server"
-
