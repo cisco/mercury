@@ -391,7 +391,6 @@ struct tlv {
 
         // set value
         value.init_from_outer_parser(p, length);
-        //datum_init_from_outer_parser(&value, p, length);
         if (p->skip(length) == status_err) {
             p->set_empty();   // parser is no longer good for reading
             handle_parse_error("warning: value field is truncated", tlv_name);

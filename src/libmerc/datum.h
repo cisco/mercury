@@ -180,6 +180,14 @@ struct datum {
         }
         return bits;
     }
+    /*
+     * find_delim(d, l) looks for the delimiter d with length l
+     * in the parser p's data buffer, until it reaches the delimiter d or
+     * the end of the data in the parser, whichever comes first.  In the
+     * first case, the function returns the number of bytes to the
+     * delimiter; in the second case, the function returns the number of
+     * bytes to the end of the data buffer.
+     */
     int find_delim(const unsigned char *delim, size_t length)
     {
         /* find delimiter, if present */
@@ -480,67 +488,6 @@ template <size_t T> struct data_buffer {
     void set_empty() { data_end = data = buffer; }
     ssize_t length() const { return data - buffer; }
 };
-
-
-/*
- * datum_init initializes a parser object with a data buffer
- * (holding the data to be parsed)
- */
-// void datum_init(struct datum *p,
-//                 const unsigned char *data,
-//                 unsigned int data_len);
-
-// unsigned int datum_match(struct datum *p,
-//                          const unsigned char *value,
-//                          size_t value_len,
-//                          const unsigned char *mask);
-
-// void datum_init_from_outer_parser(struct datum *p,
-//                                   const struct datum *outer,
-//                                   unsigned int data_len);
-
-// enum status datum_set_data_length(struct datum *p,
-//                                   unsigned int data_len);
-
-// enum status datum_read_and_skip_uint(struct datum *p,
-//                                      unsigned int num_bytes,
-//                                      size_t *output);
-
-// enum status datum_skip(struct datum *p,
-//                        unsigned int len);
-
-// enum status datum_read_uint(struct datum *p,
-//                             unsigned int num_bytes,
-//                             size_t *output);
-
-//ptrdiff_t datum_get_data_length(struct datum *p);
-
-/*
- * datum_find_delim(p, d, l) looks for the delimiter d with length l
- * in the parser p's data buffer, until it reaches the delimiter d or
- * the end of the data in the parser, whichever comes first.  In the
- * first case, the function returns the number of bytes to the
- * delimiter; in the second case, the function returns the number of
- * bytes to the end of the data buffer.
- */
-// int datum_find_delim(struct datum *p,
-//                      const unsigned char *delim,
-//                      size_t length);
-
-// enum status datum_skip_to(struct datum *p,
-//                           const unsigned char *location);
-
-// enum status datum_skip_upto_delim(struct datum *p,
-//                                   const unsigned char delim[],
-//                                   size_t length);
-
-// enum status datum_read_and_skip_uint(struct datum *p,
-//                                      unsigned int num_bytes,
-//                                      size_t *output);
-
-// enum status datum_read_and_skip_byte_string(struct datum *p,
-//                                             unsigned int num_bytes,
-//                                             uint8_t *output_string);
 
 /*
  * start of protocol parsing functions
