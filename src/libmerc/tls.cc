@@ -140,10 +140,10 @@ void tls_extensions::print(struct json_object &o, const char *key) const {
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
         if (ext_parser.skip(tmp_len) == status_err) {
@@ -167,10 +167,10 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
         if (ext_parser.skip(tmp_len) == status_err) {
@@ -198,10 +198,10 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
         if (ext_parser.skip(tmp_len) == status_err) {
@@ -226,10 +226,10 @@ void tls_extensions::set_server_name(struct datum &server_name) const {
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
         if (ext_parser.skip(tmp_len) == status_err) {
@@ -359,10 +359,10 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
         if (ext_parser.skip(tmp_len) == status_err) {
@@ -409,7 +409,7 @@ void tls_client_hello::parse(struct datum &p) {
     random.parse(p, L_Random);
 
     // parse SessionID
-    if (p.read_uint(&tmp_len, L_SessionIDLength) == status_err) {
+    if (p.read_uint(&tmp_len, L_SessionIDLength) == false) {
         return;
     }
     session_id.parse(p, tmp_len);
@@ -425,7 +425,7 @@ void tls_client_hello::parse(struct datum &p) {
     }
 
     // parse clientHello.Ciphersuites
-    if (p.read_uint(&tmp_len, L_CipherSuiteVectorLength)) {
+    if (p.read_uint(&tmp_len, L_CipherSuiteVectorLength) == false) {
         return;
     }
     if (tmp_len & 1) {
@@ -434,13 +434,13 @@ void tls_client_hello::parse(struct datum &p) {
     ciphersuite_vector.parse(p, tmp_len);
 
     // parse compression methods
-    if (p.read_uint(&tmp_len, L_CompressionMethodsLength) == status_err) {
+    if (p.read_uint(&tmp_len, L_CompressionMethodsLength) == false) {
         return;
     }
     compression_methods.parse(p, tmp_len);
 
     // parse extensions vector
-    if (p.read_uint(&tmp_len, L_ExtensionsVectorLength)) {
+    if (p.read_uint(&tmp_len, L_ExtensionsVectorLength) == false) {
         return;
     }
     extensions.parse_soft_fail(p, tmp_len);
@@ -580,7 +580,7 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
     }
 
     // parse extensions vector
-    if (record.read_uint(&tmp_len, L_ExtensionsVectorLength)) {
+    if (record.read_uint(&tmp_len, L_ExtensionsVectorLength) == false) {
         return status_ok;  // could differentiate between err/ok
     }
     extensions.parse(record, tmp_len);

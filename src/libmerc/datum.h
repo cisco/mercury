@@ -269,11 +269,11 @@ struct datum {
         *output = 0;
     }
 
-    status lookahead_uint(unsigned int num_bytes, size_t *output)
+    status lookahead_uint(unsigned int num_bytes, uint64_t *output)
     {
         if (data + num_bytes <= data_end)
         {
-            size_t tmp = 0;
+            uint64_t tmp = 0;
             const unsigned char *c;
 
             for (c = data; c < data + num_bytes; c++)
