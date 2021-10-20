@@ -69,14 +69,14 @@ class eth {
 
         //mercury_debug("%s: processing ethernet (len %td)\n", __func__, p.length());
 
-        if (p.skip(ETH_ADDR_LEN * 2) == status_err) {
+        if (p.skip(ETH_ADDR_LEN * 2) == false) {
             return;
         }
         if (p.read_uint(&ethertype, sizeof(uint16_t)) == false) {
             return;
         }
         if (ethertype == ETH_TYPE_1AD) {
-            if (p.skip(sizeof(uint16_t)) == status_err) { // TCI
+            if (p.skip(sizeof(uint16_t)) == false) { // TCI
                 return;
             }
             if (p.read_uint(&ethertype, sizeof(uint16_t)) == false) {
@@ -84,7 +84,7 @@ class eth {
             }
         }
         if (ethertype == ETH_TYPE_VLAN) {
-            if (p.skip(sizeof(uint16_t)) == status_err) { // TCI
+            if (p.skip(sizeof(uint16_t)) == false) { // TCI
                 return;
             }
             if (p.read_uint(&ethertype, sizeof(uint16_t)) == false) {

@@ -89,7 +89,7 @@ struct udp_packet {
 
 class vxlan : public datum {
     vxlan(datum &d) : datum{d} {
-        if (d.skip(VXLAN_HDR_LEN) != status_ok) {
+        if (d.skip(VXLAN_HDR_LEN) == false) {
             d.set_empty();
         }
     }

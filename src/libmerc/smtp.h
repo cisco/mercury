@@ -43,7 +43,7 @@ struct smtp_parameters : public datum {
             if (p.compare(crlf, sizeof(crlf)) == 0) {
                 break;  /* at end of parameters */
             }
-            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
+            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
                 break;
             }
         }
@@ -66,7 +66,7 @@ struct smtp_parameters : public datum {
             }
 
             struct datum param{p.data, NULL};
-            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
+            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
                 break;
             }
             param.data_end = p.data - 2;
@@ -99,7 +99,7 @@ struct smtp_parameters : public datum {
             }
 
             struct datum param{p.data, NULL};
-            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
+            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
                 break;
             }
             param.data_end = p.data - 2;

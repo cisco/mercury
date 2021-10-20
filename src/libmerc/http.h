@@ -28,7 +28,7 @@ struct http_headers : public datum {
                 complete = true;
                 break;  /* at end of headers */
             }
-            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
+            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
                 break;
             }
         }

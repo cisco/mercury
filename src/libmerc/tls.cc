@@ -146,7 +146,7 @@ void tls_extensions::print(struct json_object &o, const char *key) const {
         if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (ext_parser.skip(tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
 
@@ -173,7 +173,7 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
         if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (ext_parser.skip(tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
         const uint8_t *data_end = ext_parser.data;
@@ -204,7 +204,7 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
         if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (ext_parser.skip(tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
         const uint8_t *data_end = ext_parser.data;
@@ -232,7 +232,7 @@ void tls_extensions::set_server_name(struct datum &server_name) const {
         if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (ext_parser.skip(tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
         const uint8_t *data_end = ext_parser.data;
@@ -365,7 +365,7 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
         if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (ext_parser.skip(tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
 
@@ -416,10 +416,10 @@ void tls_client_hello::parse(struct datum &p) {
 
     if (dtls) {
         // skip over Cookie and CookieLen
-        if (p.lookahead_uint(L_DTLSCookieLength, &tmp_len) == status_err) {
+        if (p.lookahead_uint(L_DTLSCookieLength, &tmp_len) == false) {
             return;
         }
-        if (p.skip(tmp_len + L_DTLSCookieLength) == status_err) {
+        if (p.skip(tmp_len + L_DTLSCookieLength) == false) {
             return;
         }
     }
@@ -561,10 +561,10 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
     random.parse(record, L_Random);
 
     /* skip over SessionID and SessionIDLen */
-    if (record.lookahead_uint(L_SessionIDLength, &tmp_len) == status_err) {
+    if (record.lookahead_uint(L_SessionIDLength, &tmp_len) == false) {
 	    goto bail;
     }
-    if (record.skip(tmp_len + L_SessionIDLength) == status_err) {
+    if (record.skip(tmp_len + L_SessionIDLength) == false) {
 	    goto bail;
     }
 
@@ -650,7 +650,7 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
         /*
          * advance parser over certificate data
          */
-        if (tmp_cert_list.skip(tmp_len) == status_err) {
+        if (tmp_cert_list.skip(tmp_len) == false) {
             return;
         }
     }

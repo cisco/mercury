@@ -52,7 +52,7 @@ void http_headers::print_matching_names(struct json_object &o, std::unordered_ma
         }
 
         struct datum keyword{p.data, NULL};
-        if (p.skip_up_to_delim(csp, sizeof(csp)) == status_err) {
+        if (p.skip_up_to_delim(csp, sizeof(csp)) == false) {
             return;
         }
         keyword.data_end = p.data;
@@ -65,7 +65,7 @@ void http_headers::print_matching_names(struct json_object &o, std::unordered_ma
             header_name = (const char *)pair->second.c_str();
         }
         const uint8_t *value_start = p.data;
-        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
+        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
             return;
         }
         const uint8_t *value_end = p.data - 2;
@@ -87,7 +87,7 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std
         }
 
         struct datum name{p.data, NULL};
-        if (p.skip_up_to_delim(csp, sizeof(csp)) == status_err) {
+        if (p.skip_up_to_delim(csp, sizeof(csp)) == false) {
             return;
         }
         name.data_end = p.data;
@@ -102,7 +102,7 @@ void http_headers::fingerprint(struct buffer_stream &buf, std::unordered_map<std
             include_value = pair->second;
         }
 
-        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
+        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
             return;
         }
         const uint8_t *name_end = p.data - 2;
@@ -330,7 +330,7 @@ struct datum http_headers::get_header(const std::basic_string<uint8_t> &location
         }
 
         struct datum keyword{p.data, NULL};
-        if (p.skip_up_to_delim(csp, sizeof(csp)) == status_err) {
+        if (p.skip_up_to_delim(csp, sizeof(csp)) == false) {
             return output;
         }
         keyword.data_end = p.data;
@@ -342,7 +342,7 @@ struct datum http_headers::get_header(const std::basic_string<uint8_t> &location
             header_name = "location";
         }
         const uint8_t *value_start = p.data;
-        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == status_err) {
+        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
             return output;
         }
         const uint8_t *value_end = p.data - 2;

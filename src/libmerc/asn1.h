@@ -381,7 +381,7 @@ struct tlv {
                 handle_parse_error("error: invalid length field", tlv_name);
                 return;
             }
-            if (p->read_uint(&length, num_octets_in_length) == status_err) {
+            if (p->read_uint(&length, num_octets_in_length) == false) {
                 p->set_empty();  // parser is no longer good for reading
                 // fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, oid::datum_get_data_length(p));
                 handle_parse_error("warning: could not read length", tlv_name);
@@ -391,7 +391,7 @@ struct tlv {
 
         // set value
         value.init_from_outer_parser(p, length);
-        if (p->skip(length) == status_err) {
+        if (p->skip(length) == false) {
             p->set_empty();   // parser is no longer good for reading
             handle_parse_error("warning: value field is truncated", tlv_name);
         }

@@ -237,7 +237,7 @@ unsigned int datum_process_ipv4(struct datum *p, size_t *transport_protocol, str
 
     mercury_debug("%s: processing packet (len %td)\n", __func__, p->length());
 
-    if (p->lookahead_uint(L_ip_version_ihl, &version_ihl) == status_err) {
+    if (p->lookahead_uint(L_ip_version_ihl, &version_ihl) == false) {
         return 0;
     }
     if (!(version_ihl & 0x40)) {
@@ -251,33 +251,33 @@ unsigned int datum_process_ipv4(struct datum *p, size_t *transport_protocol, str
      * tcp/udp headers are 4 * IHL bytes from start of ip headers
      */
     transport_data = (uint8_t *)p->data + (version_ihl << 2);
-    if (p->skip(L_ip_version_ihl + L_ip_tos) == status_err) {
+    if (p->skip(L_ip_version_ihl + L_ip_tos) == false) {
         return 0;
     }
     /*
      *  check ip_total_length field, and trim data from parser if appropriate
      */
     size_t ip_total_length;
-    if (p->read_uint(&ip_total_length, L_ip_total_length) == status_err) {
+    if (p->read_uint(&ip_total_length, L_ip_total_length) == false) {
         return 0;
     }
     p->trim_to_length(ip_total_length - (L_ip_version_ihl + L_ip_tos + L_ip_total_length));
-    if (p->skip(L_ip_identification + L_ip_flags_frag_off + L_ip_ttl) == status_err) {
+    if (p->skip(L_ip_identification + L_ip_flags_frag_off + L_ip_ttl) == false) {
         return 0;
     }
-    if (p->read_uint(transport_protocol, L_ip_protocol) == status_err) {
+    if (p->read_uint(transport_protocol, L_ip_protocol) == false) {
         return 0;
     }
-    if (p->skip(L_ip_hdr_cksum) == status_err) {
+    if (p->skip(L_ip_hdr_cksum) == false) {
         return 0;
     }
-    if (p->read_bytestring(L_ip_src_addr, (uint8_t *)&k->addr.ipv4.src) == status_err) {
+    if (p->read_bytestring(L_ip_src_addr, (uint8_t *)&k->addr.ipv4.src) == false) {
         return 0;
     }
-    if (p->read_bytestring(L_ip_dst_addr, (uint8_t *)&k->addr.ipv4.dst) == status_err) {
+    if (p->read_bytestring(L_ip_dst_addr, (uint8_t *)&k->addr.ipv4.dst) == false) {
         return 0;
     }
-    if (p->skip_to(transport_data) == status_err) {
+    if (p->skip_to(transport_data) == false) {
         return 0;
     }
     k->ip_vers = 4;  // ipv4
@@ -359,31 +359,31 @@ unsigned int datum_process_ipv6(struct datum *p, size_t *transport_protocol, str
 
     mercury_debug("%s: processing packet (len %td)\n", __func__, p->length());
 
-    if (p->lookahead_uint(L_ipv6_version_tc_hi, &version_tc_hi) == status_err) {
+    if (p->lookahead_uint(L_ipv6_version_tc_hi, &version_tc_hi) == false) {
         return 0;
     }
     if (!(version_tc_hi & 0x60)) {
         return 0;  /* version is not IPv6 */
     }
-    if (p->skip(L_ipv6_version_tc_hi + L_ipv6_tc_lo_flow_label_hi + L_ipv6_flow_label_lo) == status_err) {
+    if (p->skip(L_ipv6_version_tc_hi + L_ipv6_tc_lo_flow_label_hi + L_ipv6_flow_label_lo) == false) {
         return 0;
     }
-    if (p->read_uint(&payload_length, L_ipv6_payload_length) == status_err) {
+    if (p->read_uint(&payload_length, L_ipv6_payload_length) == false) {
         return 0;
     }
     /*
      * should we check the payload length here?
      */
-    if (p->lookahead_uint(L_ipv6_next_header, &next_header) == status_err) {
+    if (p->lookahead_uint(L_ipv6_next_header, &next_header) == false) {
         return 0;
     }
-    if (p->skip(L_ipv6_next_header + L_ipv6_hop_limit) == status_err) {
+    if (p->skip(L_ipv6_next_header + L_ipv6_hop_limit) == false) {
         return 0;
     }
-    if (p->read_bytestring(L_ipv6_source_address, (uint8_t *)&k->addr.ipv6.src) == status_err) {
+    if (p->read_bytestring(L_ipv6_source_address, (uint8_t *)&k->addr.ipv6.src) == false) {
         return 0;
     }
-    if (p->read_bytestring(L_ipv6_destination_address, (uint8_t *)&k->addr.ipv6.dst) == status_err) {
+    if (p->read_bytestring(L_ipv6_destination_address, (uint8_t *)&k->addr.ipv6.dst) == false) {
         return 0;
     }
     k->ip_vers = 6;  // ipv6
@@ -401,13 +401,13 @@ unsigned int datum_process_ipv6(struct datum *p, size_t *transport_protocol, str
         case IPPROTO_ESP:
         case IPPROTO_AH:
         case IPPROTO_DSTOPTS:
-            if (p->read_uint(&next_header, L_ipv6_next_header) == status_err) {
+            if (p->read_uint(&next_header, L_ipv6_next_header) == false) {
                 return 0;
             }
-            if (p->lookahead_uint(L_ipv6_hdr_ext_len, &ext_hdr_len) == status_err) {
+            if (p->lookahead_uint(L_ipv6_hdr_ext_len, &ext_hdr_len) == false) {
                 return 0;
             }
-            if (p->skip(L_ipv6_ext_hdr_base + ext_hdr_len*8 - L_ipv6_next_header) == status_err) {
+            if (p->skip(L_ipv6_ext_hdr_base + ext_hdr_len*8 - L_ipv6_next_header) == false) {
                 return 0;
             }
 

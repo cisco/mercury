@@ -115,22 +115,22 @@ struct datum {
         }
         return 0;
     }
-    status skip(size_t length) {
+    bool skip(size_t length) {
         data += length;
         if (data > data_end) {
             data = data_end;
-            return status::status_err;
+            return false;
         }
-        return status::status_ok;
+        return true;
     }
-    status skip_to(const unsigned char *location)
+    bool skip_to(const unsigned char *location)
     {
         if (location <= data_end)
         {
             data = location;
-            return status::status_ok;
+            return true;
         }
-        return status::status_err;
+        return false;
     }
     void trim(size_t length) {
         data_end -= length;
@@ -217,7 +217,7 @@ struct datum {
             data++;
         }
     }
-    status skip_up_to_delim(const unsigned char delim[], size_t length)
+    bool skip_up_to_delim(const unsigned char delim[], size_t length)
     {
         int delim_index = find_delim(delim, length);
 
@@ -226,7 +226,7 @@ struct datum {
             return skip(delim_index);
         }
         
-        return status::status_err;
+        return false;
     }
 
     bool accept(uint8_t byte) {
@@ -269,7 +269,7 @@ struct datum {
         *output = 0;
     }
 
-    status lookahead_uint(unsigned int num_bytes, uint64_t *output)
+    bool lookahead_uint(unsigned int num_bytes, uint64_t *output)
     {
         if (data + num_bytes <= data_end)
         {
@@ -282,9 +282,9 @@ struct datum {
             }
             *output = tmp;
             mercury_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
-            return status::status_ok;
+            return true;
         }
-        return status::status_err;
+        return false;
     }
 
     // get_pointer<T> returns a pointer to type T and advances the
@@ -365,7 +365,7 @@ struct datum {
         return false;
     }
 
-    status read_bytestring(unsigned int num_bytes, uint8_t *output_string)
+    bool read_bytestring(unsigned int num_bytes, uint8_t *output_string)
     {
         if (data + num_bytes <= data_end)
         {
@@ -376,9 +376,9 @@ struct datum {
                 *output_string++ = *c;
             }
             data += num_bytes;
-            return status::status_ok;
+            return true;
         }
-        return status::status_err;
+        return false;
     }
 
     template <size_t N>
