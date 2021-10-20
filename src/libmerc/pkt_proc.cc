@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <variant>
+#include <set>
 
 #include "libmerc.h"
 #include "pkt_proc.h"
@@ -119,8 +120,8 @@ void set_udp_protocol(udp_protocol &x,
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
 
-    // enum udp_msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
-    // if (msg_type == udp_msg_type_unknown) {
+    // enum msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
+    // if (msg_type == msg_type_unknown) {
     //     msg_type = udp_pkt.estimate_msg_type_from_ports();
     // }
     switch(msg_type) {
@@ -415,6 +416,23 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     set_ip_packet(ip_pkt, pkt, k);
     size_t transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
 
+    // process encapsulations
+    //
+    if (report_GRE && transport_proto == 47) {
+        gre_header gre{pkt};
+        switch(gre.get_protocol_type()) {
+        case ETH_TYPE_IP:
+        case ETH_TYPE_IPV6:
+            set_ip_packet(ip_pkt, pkt, k);  // note: overwriting outer ip header
+            transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
+            break;
+        default:
+            ;
+        }
+    }
+
+    // process transport/application protocols
+    //
     if (report_ICMP && (transport_proto == 1 || transport_proto == 58)) {
 
         icmp_packet icmp;
@@ -429,19 +447,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         record.print_key_timestamp("event_start", ts);
         record.close();
 
-    } else if (report_GRE && transport_proto == 47) {
-        gre_header gre{pkt};
-        switch(gre.get_protocol_type()) {
-        case ETH_TYPE_IP:
-            datum_process_ipv4(&pkt, &transport_proto, &k);
-            break;
-        case ETH_TYPE_IPV6:
-            datum_process_ipv6(&pkt, &transport_proto, &k);
-            break;
-        default:
-            ;
-        }
-
     } else if (transport_proto == 6) { // TCP
         struct tcp_packet tcp_pkt;
         tcp_pkt.parse(pkt);
@@ -454,7 +459,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (global_vars.output_tcp_initial_data) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
-            if (select_tcp_syn) {
+            if (selector.tcp_syn()) {
                 struct json_object record{&buf};
 
                 if (report_IP && global_vars.metadata_output) {
@@ -481,7 +486,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
 
-            if (report_SYN_ACK && select_tcp_syn) {
+            if (report_SYN_ACK && selector.tcp_syn()) {
                 struct json_object record{&buf};
                 struct json_object fps{record, "fingerprints"};
                 fps.print_key_value("tcp_server", tcp_pkt);
@@ -527,9 +532,24 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
     } else if (transport_proto == 17) { // UDP
-        struct udp_packet udp_pkt{pkt};
+        class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
-        enum udp_msg_type msg_type = udp_pkt.get_msg_type();
+        enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt.data, pkt.length());
+
+        if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
+            udp::ports ports = udp_pkt.get_ports();
+            // if (ports.src == htons(53) || ports.dst == htons(53)) {
+            //     msg_type = udp_msg_type_dns;
+            // }
+            if (selector.mdns() && (ports.src == htons(5353) || ports.dst == htons(5353))) {
+                msg_type = udp_msg_type_dns;
+            }
+            if (ports.dst == htons(4789)) {
+                msg_type = udp_msg_type_vxlan;
+            }
+        }
+
+        //enum udp_msg_type msg_type = udp_pkt.get_msg_type();
         bool is_new = false;
         if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
@@ -557,7 +577,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (analysis.fp.get_type() != fingerprint_type_unknown) {
                 analysis.fp.write(record);
             }
-            std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output}, x);
+            std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
             if (output_analysis) {
                 analysis.result.write_json(record, "analysis");
@@ -591,79 +611,13 @@ bool stateful_pkt_proc::ip_set_analysis_result(struct analysis_result *r,
                                                struct timespec *ts,
                                                struct tcp_reassembler *reassembler) {
 
-    struct buffer_stream buf{NULL, 0};
-    struct key k;
-    struct datum pkt{ip_packet, ip_packet+length};
-    size_t transport_proto = 0;
-
-    size_t ip_version;
-    if (pkt.lookahead_uint(1, &ip_version) == false) {
-        return 0;
-    }
-    ip_version &= 0xf0;
-    switch(ip_version) {
-    case 0x40:
-        datum_process_ipv4(&pkt, &transport_proto, &k);
-        break;
-    case 0x60:
-        datum_process_ipv6(&pkt, &transport_proto, &k);
-        break;
-    default:
-        return 0;  // unsupported IP version
-    }
-
-    if (report_GRE && transport_proto == 47) {
-        gre_header gre{pkt};
-        switch(gre.get_protocol_type()) {
-        case ETH_TYPE_IP:
-            datum_process_ipv4(&pkt, &transport_proto, &k);
-            break;
-        case ETH_TYPE_IPV6:
-            datum_process_ipv6(&pkt, &transport_proto, &k);
-            break;
-        default:
-            ;
-        }
-
-    }
-    if (transport_proto == 6) {
-        struct tcp_packet tcp_pkt;
-        tcp_pkt.parse(pkt);
-        if (tcp_pkt.header == nullptr) {
-            return 0;  // incomplete tcp header; can't process packet
-        }
-        tcp_pkt.set_key(k);
-        if (tcp_pkt.is_SYN()) {
-
-        } else if (tcp_pkt.is_SYN_ACK()) {
-
-        } else {
-
-            if (reassembler) {
-                const struct tcp_segment *data_buf = reassembler->check_packet(k, ts->tv_sec, tcp_pkt.header, pkt.length());
-                if (data_buf) {
-                    //fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->index);
-                    struct datum reassembled_tcp_data = data_buf->reassembled_segment();
-                    tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler);
-                    reassembler->remove_segment(k);
-                } else {
-                    const uint8_t *tmp = pkt.data;
-                    tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler);
-                    if (pkt.data == tmp) {
-                        auto segment = reassembler->reap(ts->tv_sec);
-                        if (segment != reassembler->segment_table.end()) {
-                            //fprintf(stderr, "EXPIRED PARTIAL TCP PACKET (length: %u)\n", segment->second.index);
-                            struct datum reassembled_tcp_data = segment->second.reassembled_segment();
-                            tcp_data_write_json(buf, reassembled_tcp_data, segment->first, tcp_pkt, ts, nullptr);
-                            reassembler->remove_segment(segment);
-                        }
-                    }
-                }
-            } else {
-                return tcp_data_set_analysis_result(r, pkt, k, tcp_pkt, ts, nullptr);  // process packet without tcp reassembly
-            }
-        }
-    }
+    // TODO: rewrite this function based on ip_write_json()
+    //
+    (void)r;
+    (void)ip_packet;
+    (void)length;
+    (void)ts;
+    (void)reassembler;
 
     return false;
 }
@@ -728,45 +682,58 @@ void enumerate_tcp_protocol_types(FILE *f) {
     }
 }
 
+// set_config(config_map, config_string) updates the std::map provided
+// as input, based on the configuration represented by config_string,
+// and returns false if that string could not be parsed correctly
+//
+// the format of config_string is a comma-separated list of keywords,
+// possibly including whitespace, such as like "tcp,ssh, tls"
+//
+bool set_config(std::map<std::string, bool> &config_map, const char *config_string) {
+    if (config_string == NULL) {
+        return true; // no updates needed
+    }
 
-class protocol_identifier proto_ident_init(const char *config_string) {
-    (void)config_string;
+    std::string s{config_string};
+    std::string delim{","};
+    size_t pos = 0;
+    std::string token;
+    while ((pos = s.find(delim)) != std::string::npos) {
+        token = s.substr(0, pos);
+        token.erase(std::remove_if(token.begin(), token.end(), isspace), token.end());
+        s.erase(0, pos + delim.length());
 
-    // TODO: invoke this function from libmerc.cc, take in
-    // configuration string, and set up protocol identificatoion as
-    // specified
-
-    class protocol_identifier tcp_proto_id;
-    tcp_proto_id.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
-    tcp_proto_id.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
-    tcp_proto_id.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
-    tcp_proto_id.add_protocol(http_response::matcher, tcp_msg_type_http_response);
-    tcp_proto_id.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
-    tcp_proto_id.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
-    tcp_proto_id.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
-    tcp_proto_id.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
-    tcp_proto_id.compile();
-
-    return tcp_proto_id;
+        auto pair = config_map.find(token);
+        if (pair != config_map.end()) {
+            pair->second = true;
+        } else {
+            printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
+            return false;
+        }
+    }
+    token = s.substr(0, pos);
+    s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
+    auto pair = config_map.find(token);
+    if (pair != config_map.end()) {
+        pair->second = true;
+    } else {
+        printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
+        return false;
+    }
+    return true;
 }
-
-// class protocol_identifier tcp_proto_id = proto_ident_init(nullptr);
 
 
 void set_tcp_protocol(tcp_protocol &x,
                       struct datum &pkt,
+                      traffic_selector &sel,
                       bool is_new,
                       struct tcp_packet *tcp_pkt) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
 
-    // enum tcp_msg_type msg_type = tcp_proto_id.get_msg_type(pkt.data, pkt.length());
-    enum tcp_msg_type msg_type = get_message_type(pkt.data, pkt.length());
+    enum tcp_msg_type msg_type = (tcp_msg_type) sel.get_tcp_msg_type(pkt.data, pkt.length());
     switch(msg_type) {
     case tcp_msg_type_http_request:
         {
@@ -869,7 +836,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
     }
     tcp_protocol x;
-    set_tcp_protocol(x, pkt, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
+    set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
 
     if (tcp_pkt.additional_bytes_needed) {
         if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, tcp_pkt.additional_bytes_needed)) {
@@ -923,7 +890,7 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
         return false;
     }
     tcp_protocol x;
-    set_tcp_protocol(x, pkt, false, nullptr);
+    set_tcp_protocol(x, pkt, selector, false, nullptr);
 
     if (std::visit(is_not_empty{}, x)) {
 

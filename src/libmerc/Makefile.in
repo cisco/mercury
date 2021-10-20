@@ -34,7 +34,6 @@ CFLAGS += -fPIC
 LIBMERC     =  analysis.cc
 LIBMERC     += addr.cc
 LIBMERC     += dns.cc
-LIBMERC     += extractor.cc
 LIBMERC     += http.cc
 LIBMERC     += libmerc.cc
 LIBMERC     += match.cc
@@ -42,7 +41,6 @@ LIBMERC     += packet.cc
 LIBMERC     += pkt_proc.cc
 LIBMERC     += ssh.cc
 LIBMERC     += tls.cc
-LIBMERC     += udp.cc
 LIBMERC     += utils.cc
 LIBMERC     += wireguard.cc
 LIBMERC     += asn1.cc
@@ -55,7 +53,6 @@ LIBMERC_H   += buffer_stream.h
 LIBMERC_H   += dhcp.h
 LIBMERC_H   += dns.h
 LIBMERC_H   += eth.h
-LIBMERC_H   += extractor.h
 LIBMERC_H   += fingerprint.h
 LIBMERC_H   += http.h
 LIBMERC_H   += json_object.h
@@ -98,6 +95,25 @@ CYPREREQ   =
 endif
 
 VERSION=$(shell cat ../../VERSION)
+
+COMMIT=$(shell git log -n 1 | egrep -o "commit [0-9a-f]+")
+GIT_DIFF=$(shell git diff | wc -l)
+ifeq ($(GIT_DIFF),0)
+  DIFF=
+else
+  DIFF=with local changes
+endif
+GIT_COUNT=$(shell git rev-list --count HEAD)
+CFLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT) $(DIFF)\"" "-DGIT_COUNT=$(GIT_COUNT)"
+
+# variables for determining the semantic version
+#
+major=$(shell cat ../../VERSION | grep -o "^[0-9]*")
+minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
+patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
+version=$(major).$(minor).$(patch)
+MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+
 
 # rule to build library
 #
@@ -215,11 +231,8 @@ cppclean_check:
 	#to install ccppclean use command "pip install --upgrade cppclean"
 	for F in $(LIBMERC) $(LIBMERC_H); do if cppclean "$$F" >> cppclean_report.txt; then : ; fi; done
 
-major=$(shell cat ../../VERSION | grep -o "^[0-9]*")
-minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
-patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
-version=$(major).$(minor).$(patch)
-MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+# targets for incrementing semantic version
+#
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
 	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../../VERSION

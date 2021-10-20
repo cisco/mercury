@@ -7,6 +7,7 @@
 #define MERC_IP_H
 
 #include "datum.h"
+#include "tcp.h"
 #include "json_object.h"
 #include <variant>
 

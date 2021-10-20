@@ -10,13 +10,26 @@
 #include "libmerc.h"
 #include "version.h"
 #include "analysis.h"
-#include "extractor.h"  // for proto_ident_config()
 #include "pkt_proc.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
 #define  MERCURY_SEMANTIC_VERSION 0,0,0
 #endif
+
+#ifndef  GIT_COMMIT_ID
+#warning GIT_COMMIT_ID is not defined
+#define  GIT_COMMIT_ID "commit unknown"
+#endif
+
+#ifndef  GIT_COUNT
+#warning GIT_COUNT is not defined
+#define  GIT_COUNT 0
+#endif
+
+const char *git_commit_id = GIT_COMMIT_ID;
+
+const uint32_t git_count = GIT_COUNT;
 
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
@@ -40,8 +53,13 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     mercury *m = nullptr;
 
     if (verbosity > 0) {
-        // sanity check, to help with shared object library development
+        // bulid information, to help with shared object library development and use
+        //
         printf_err(log_none, "libmerc build time: %s %s\n", __DATE__, __TIME__);
+        struct semantic_version v(MERCURY_SEMANTIC_VERSION);
+        printf_err(log_info, "libmerc version: %u.%u.%u\n", v.major, v.minor, v.patchlevel);
+        printf_err(log_info, "libmerc build count: %u\n", git_count);
+        printf_err(log_info, "libmerc git commit id: %s\n", git_commit_id);
     }
 
     try {
@@ -192,151 +210,6 @@ bool analysis_context_get_os_info(const struct analysis_context *ac, // input
         return true;
     }
     return false;
-}
-
-
-/*
- * struct packet_filter implements a packet metadata filter
- */
-
-unsigned int tcp_message_filter_cutoff;  /* init tcp msg   */
-
-/*
- * select_tcp_syn selects TCP SYNs for extraction
- */
-bool select_tcp_syn = 1;
-
-/*
- * select_tcp_syn selects MDNS (port 5353)
- */
-bool select_mdns = true;
-
-/*
- * configuration for protocol identification
- */
-
-extern unsigned char tls_client_hello_mask[8];
-extern unsigned char http_client_mask[8];
-extern unsigned char http_client_post_mask[8];
-extern unsigned char http_client_connect_mask[8];
-extern unsigned char http_client_put_mask[8];
-extern unsigned char http_client_head_mask[8];
-extern unsigned char http_server_mask[8];
-extern unsigned char ssh_mask[8];
-extern unsigned char ssh_kex_mask[8];
-extern unsigned char smtp_client_mask[8];
-extern unsigned char smtp_server_mask[8];
-
-extern unsigned char dhcp_client_mask[8];  /* udp.c */
-extern unsigned char dns_server_mask[8];   /* udp.c */
-extern unsigned char dns_client_mask[8];   /* udp.c */
-extern unsigned char wireguard_mask[8];    /* udp.c */
-extern unsigned char quic_mask[8];         /* udp.c */
-extern unsigned char dtls_client_hello_mask[8]; /* udp.c */
-extern unsigned char dtls_server_hello_mask[8]; /* udp.c */
-
-enum status proto_ident_config(const char *config_string) {
-
-    if (config_string == NULL) {
-        return status_ok;    /* use the default configuration */
-    }
-
-    std::map<std::string, bool> protocols{
-        { "all",         false },
-        { "none",        false },
-        { "dhcp",        false },
-        { "dns",         false },
-        { "dtls",        false },
-        { "http",        false },
-        { "ssh",         false },
-        { "tcp",         false },
-        { "tcp.message", false },
-        { "tls",         false },
-        { "wireguard",   false },
-        { "quic",        false },
-        { "smtp",        false },
-    };
-
-    std::string s{config_string};
-    std::string delim{","};
-    size_t pos = 0;
-    std::string token;
-    while ((pos = s.find(delim)) != std::string::npos) {
-        token = s.substr(0, pos);
-        token.erase(std::remove_if(token.begin(), token.end(), isspace), token.end());
-        s.erase(0, pos + delim.length());
-
-        auto pair = protocols.find(token);
-        if (pair != protocols.end()) {
-            pair->second = true;
-        } else {
-            printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
-            return status_err;
-        }
-    }
-    token = s.substr(0, pos);
-    s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
-    auto pair = protocols.find(token);
-    if (pair != protocols.end()) {
-        pair->second = true;
-    } else {
-        printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
-        return status_err;
-    }
-
-    if (protocols["all"] == true) {
-        return status_ok;
-    }
-    if (protocols["none"] == true) {
-        for (auto &pair : protocols) {
-            pair.second = false;
-        }
-    }
-    if (protocols["dhcp"] == false) {
-        bzero(dhcp_client_mask, sizeof(dhcp_client_mask));
-    }
-    if (protocols["dns"] == false) {
-        bzero(dns_server_mask, sizeof(dns_server_mask));
-        bzero(dns_client_mask, sizeof(dns_client_mask));
-        select_mdns = false;
-    }
-    if (protocols["http"] == false) {
-        bzero(http_client_mask, sizeof(http_client_mask));
-        bzero(http_client_post_mask, sizeof(http_client_post_mask));
-        bzero(http_client_connect_mask, sizeof(http_client_connect_mask));
-        bzero(http_client_put_mask, sizeof(http_client_put_mask));
-        bzero(http_client_head_mask, sizeof(http_client_head_mask));
-        bzero(http_server_mask, sizeof(http_server_mask));
-    }
-    if (protocols["ssh"] == false) {
-        bzero(ssh_kex_mask, sizeof(ssh_kex_mask));
-        bzero(ssh_mask, sizeof(ssh_mask));
-    }
-    if (protocols["tcp"] == false) {
-        select_tcp_syn = 0;
-    }
-    if (protocols["tcp.message"] == true) {
-        select_tcp_syn = 0;
-        tcp_message_filter_cutoff = 1;
-    }
-    if (protocols["tls"] == false) {
-        bzero(tls_client_hello_mask, sizeof(tls_client_hello_mask));
-    }
-    if (protocols["dtls"] == false) {
-        bzero(dtls_client_hello_mask, sizeof(dtls_client_hello_mask));
-        bzero(dtls_server_hello_mask, sizeof(dtls_server_hello_mask));
-    }
-    if (protocols["wireguard"] == false) {
-        bzero(wireguard_mask, sizeof(wireguard_mask));
-    }
-    if (protocols["quic"] == false) {
-        bzero(quic_mask, sizeof(quic_mask));
-    }
-    if (protocols["smtp"] == false) {
-        bzero(smtp_client_mask, sizeof(smtp_client_mask));
-        bzero(smtp_server_mask, sizeof(smtp_server_mask));
-    }
-    return status_ok;
 }
 
 mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) {

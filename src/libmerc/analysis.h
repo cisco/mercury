@@ -13,11 +13,9 @@
 #include <algorithm>
 #include <stdexcept>
 #include <assert.h>
-#include "packet.h"
 #include "addr.h"
-#include "json_object.h"
 #include "result.h"
-#include "stats.h"
+#include "dict.h"
 
 #include <mutex>
 #include <shared_mutex>
@@ -27,6 +25,7 @@
 #include <unordered_set>
 #include <string>
 #include <vector>
+#include <list>
 #include <zlib.h>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -47,7 +46,6 @@ class classifier *analysis_init_from_archive(int verbosity,
                                bool report_os);
 
 int analysis_finalize(classifier *c);
-
 
 
 // process and malware classifier classes
@@ -164,7 +162,7 @@ class fingerprint_data {
     std::vector<std::vector<struct os_information>> process_os_info_vector;
     floating_point_type base_prior;
 
-    static bool malware_db;
+    bool malware_db = false;
 
     const subnet_data *subnet_data_ptr = nullptr;
 
@@ -848,6 +846,7 @@ public:
                                                     const struct destination_context &dc,
                                                     struct analysis_result &result) {
 
+        // TODO: remove
         //if (fp.type != fingerprint_type_tls) {
         //    return false;  // cannot perform analysis
         //}

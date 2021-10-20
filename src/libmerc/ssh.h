@@ -16,7 +16,7 @@
 #include "analysis.h"
 #include "json_object.h"
 #include "fingerprint.h"
-#include "proto_identify.h"
+#include "match.h"
 
 #define L_ssh_version_string                   8
 #define L_ssh_packet_length                    4

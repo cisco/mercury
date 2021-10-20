@@ -15,7 +15,20 @@
 #define PROTO_IDENTIFY_H
 
 #include <stdint.h>
+
 #include <vector>
+#include <array>
+#include "match.h"
+
+#include "tls.h"   // tcp protocols
+#include "http.h"
+#include "ssh.h"
+#include "smtp.h"
+
+#include "dhcp.h"  // udp protocols
+#include "quic.h"
+#include "dns.h"
+#include "wireguard.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -27,7 +40,7 @@ enum tcp_msg_type {
     tcp_msg_type_ssh,
     tcp_msg_type_ssh_kex,
     tcp_msg_type_smtp_client,
-    tcp_msg_type_smtp_server
+    tcp_msg_type_smtp_server,
 };
 
 enum udp_msg_type {
@@ -43,51 +56,23 @@ enum udp_msg_type {
 };
 
 template <size_t N>
-class mask_and_value {
-    uint8_t mask[N];
-    uint8_t value[N];
-public:
-    constexpr mask_and_value(std::array<uint8_t, N> m, std::array<uint8_t, N> v) : mask{}, value{} {
-        for (size_t i=0; i<N; i++) {
-            mask[i] = m[i];
-            value[i] = v[i];
-        }
-    }
-
-    bool matches(const uint8_t tcp_data[N]) const {
-        return u32_compare_masked_data_to_value(tcp_data, mask, value);  // TODO: verify that N=8
-    }
-
-    constexpr size_t length() const { return N; }
-
-    static unsigned int u32_compare_masked_data_to_value(const void *data_in,
-                                                         const void *mask_in,
-                                                         const void *value_in) {
-        const uint32_t *d = (const uint32_t *)data_in;
-        const uint32_t *m = (const uint32_t *)mask_in;
-        const uint32_t *v = (const uint32_t *)value_in;
-
-        mercury_debug("%s: data: %x, mask: %x, value: %x\n", __func__, d[0], m[0], v[0]);
-
-        return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
-    }
-
-};
-
 struct matcher_and_type {
-    mask_and_value<8> mv;
-    enum tcp_msg_type type;
+    mask_and_value<N> mv;
+    size_t type;
 };
 
+
+template <size_t N>
 class protocol_identifier {
-    std::vector<matcher_and_type> a;
+    std::vector<matcher_and_type<N>> matchers;
 
 public:
-    protocol_identifier() : a{} {  }
 
-    void add_protocol(const mask_and_value<8> &mv, enum tcp_msg_type type) {
-        struct matcher_and_type new_proto{mv, type};
-        a.push_back(new_proto);
+    protocol_identifier() : matchers{} {  }
+
+    void add_protocol(const mask_and_value<N> &mv, size_t type) {
+        struct matcher_and_type<N> new_proto{mv, type};
+        matchers.push_back(new_proto);
     }
 
     void compile() {
@@ -95,55 +80,146 @@ public:
         // it may compile a jump table, reorder matchers, etc.
     }
 
-    enum tcp_msg_type get_msg_type(const uint8_t *data, unsigned int len) {
+    size_t get_msg_type(const uint8_t *data, unsigned int len) const {
+
+        // TODO: process short data fields
+        //
         if (len < 8) {
-            return tcp_msg_type_unknown;
+            return 0;   // type unknown;
         }
-        for (matcher_and_type p : a) {
+        for (matcher_and_type p : matchers) {
             if (p.mv.matches(data)) {
                 return p.type;
             }
         }
-        return tcp_msg_type_unknown;
+        return 0;   // type unknown;
     }
+
 };
 
+bool set_config(std::map<std::string, bool> &config_map, const char *config_string); // in pkt_proc.cc
 
-/* Values indicating direction of the flow */
-#define DIR_UNKNOWN 0
-#define DIR_CLIENT 1
-#define DIR_SERVER 2
+// class selector implements a protocol selection policy for TCP and
+// UDP traffic
+//
+class traffic_selector {
+    protocol_identifier<8> tcp;
+    protocol_identifier<8> udp;
+    protocol_identifier<16> udp16;
 
+    bool select_tcp_syn;
+    bool select_mdns;
 
-/* destination port numbers for common protocols */
+public:
 
-#define HTTP_PORT         80
-#define HTTPS_PORT       443
-#define SSH_PORT          22
-#define SSH_KEX           23
-#define SMTP_PORT         25
-#define DHCP_CLIENT_PORT  67
-#define DHCP_SERVER_PORT  68
-#define DTLS_PORT         99
-#define DNS_PORT          53
-#define WIREGUARD_PORT 51820
-#define QUIC_PORT       4433
+    bool tcp_syn() const { return select_tcp_syn; }
 
-/**
- * \brief Protocol Inference container
- */
-struct pi_container {
-    uint8_t dir;  /**< Flow direction */
-    uint16_t app; /**< Application protocol prediction */
+    bool mdns() const { return select_mdns; }
+
+    traffic_selector(const char *config_string) : tcp{}, udp{}, select_tcp_syn{false} {
+
+        // a null configuration string defaults to all protocols
+        //
+        const char *all = "all";
+        if (config_string == nullptr) {
+            config_string = all;
+        }
+        // create a map of protocol names and booleans, then update it
+        // based on the configuration string
+        //
+        std::map<std::string, bool> protocols{
+            { "all",         false },
+            { "none",        false },
+            { "dhcp",        false },
+            { "dns",         false },
+            { "dtls",        false },
+            { "http",        false },
+            { "ssh",         false },
+            { "tcp",         false },
+            { "tcp.message", false },
+            { "tls",         false },
+            { "wireguard",   false },
+            { "quic",        false },
+            { "smtp",        false },
+        };
+        if (!set_config(protocols, config_string)) {
+            throw std::runtime_error("error: could not parse protocol identification configuration string");
+        }
+
+        // "none" is a special case; turn off all protocol selection
+        //
+        if (protocols["none"]) {
+            for (auto &pair : protocols) {
+                pair.second = false;
+            }
+        }
+
+        if (protocols["tls"] || protocols["all"]) {
+            tcp.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
+            tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
+        }
+        if (protocols["http"] || protocols["all"]) {
+            tcp.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
+        }
+        if (protocols["ssh"] || protocols["all"]) {
+            tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+            tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+        }
+        if (protocols["smtp"] || protocols["all"]) {
+            tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
+            tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
+        }
+
+        // UDP and booleans not yet implemented
+        //
+        if (protocols["tcp"] || protocols["all"]) {
+            select_tcp_syn = true;
+        }
+        if (protocols["tcp.message"]) {
+            // select_tcp_syn = 0;
+            // tcp_message_filter_cutoff = 1;
+        }
+        if (protocols["dhcp"] || protocols["all"]) {
+            udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
+        }
+        if (protocols["dns"] || protocols["all"]) {
+            // select_mdns = false;
+            udp.add_protocol(dns_packet::matcher, udp_msg_type_dns);
+        }
+        if (protocols["dtls"] || protocols["all"]) {
+            udp16.add_protocol(tls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
+            udp16.add_protocol(tls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
+        }
+        if (protocols["wireguard"] || protocols["all"]) {
+            udp.add_protocol(wireguard_handshake_init::matcher, udp_msg_type_wireguard);
+        }
+        if (protocols["quic"] || protocols["all"]) {
+            udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
+        }
+
+        // tell protocol_identification objects to compile lookup tables
+        //
+        tcp.compile();
+
+    }
+
+    size_t get_tcp_msg_type(const uint8_t *data, unsigned int len) const {
+        return tcp.get_msg_type(data, len);
+    }
+
+    size_t get_udp_msg_type(const uint8_t *data, unsigned int len) const {
+        size_t type = udp.get_msg_type(data, len);
+        if (type == udp_msg_type_unknown)  {
+            type = udp16.get_msg_type(data, len);
+        }
+        return type;
+    }
+
 };
-
-int proto_identify_init(void);
-void proto_identify_cleanup(void);
-
-const struct pi_container *proto_identify_tcp(const uint8_t *tcp_data,
-                                              unsigned int len);
-
-const struct pi_container *proto_identify_udp(const uint8_t *udp_data,
-                                              unsigned int len);
 
 #endif /* PROTO_IDENTIFY_H */

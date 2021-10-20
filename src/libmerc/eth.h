@@ -59,7 +59,7 @@ struct eth_dot1ad_tag {
  */
 
 class eth {
-    size_t ethertype = ETH_TYPE_NONE;
+    uint16_t ethertype = ETH_TYPE_NONE;
 
  public:
 
@@ -69,33 +69,31 @@ class eth {
 
         //mercury_debug("%s: processing ethernet (len %td)\n", __func__, p.length());
 
-        if (p.skip(ETH_ADDR_LEN * 2) == false) {
-            return;
-        }
-        if (p.read_uint(&ethertype, sizeof(uint16_t)) == false) {
+        p.skip(ETH_ADDR_LEN * 2);
+        if (!p.read_uint16(&ethertype)) {
+            ethertype = ETH_TYPE_NONE;
             return;
         }
         if (ethertype == ETH_TYPE_1AD) {
-            if (p.skip(sizeof(uint16_t)) == false) { // TCI
-                return;
-            }
-            if (p.read_uint(&ethertype, sizeof(uint16_t)) == false) {
+            p.skip(sizeof(uint16_t));  // TCI
+            if (!p.read_uint16(&ethertype)) {
+                ethertype = ETH_TYPE_NONE;
                 return;
             }
         }
         if (ethertype == ETH_TYPE_VLAN) {
-            if (p.skip(sizeof(uint16_t)) == false) { // TCI
-                return;
-            }
-            if (p.read_uint(&ethertype, sizeof(uint16_t)) == false) {
+            p.skip(sizeof(uint16_t));  // TCI
+            if (!p.read_uint16(&ethertype)) {
+                ethertype = ETH_TYPE_NONE;
                 return;
             }
         }
         if (ethertype == ETH_TYPE_MPLS) {
-            size_t mpls_label = 0;
+            uint32_t mpls_label = 0;
 
             while (!(mpls_label & MPLS_BOTTOM_OF_STACK)) {
-                if (p.read_uint(&mpls_label, sizeof(uint32_t)) == false) {
+                if (!p.read_uint32(&mpls_label)) {
+                    ethertype = ETH_TYPE_NONE;
                     return;
                 }
             }

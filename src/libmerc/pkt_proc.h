@@ -12,14 +12,12 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <stdexcept>
-#include "extractor.h"
+#include "tcp.h"
 #include "packet.h"
 #include "analysis.h"
 #include "libmerc.h"
-
-//extern struct mercury *global_context; // defined in libmerc.cc  // TODO: delete
-
-extern bool select_tcp_syn;                 // defined in extractor.cc
+#include "stats.h"
+#include "proto_identify.h"
 
 /**
  * struct mercury holds state that is used by one or more
@@ -30,15 +28,12 @@ struct mercury {
     struct libmerc_config global_vars;
     data_aggregator aggregator;
     classifier *c;
+    class traffic_selector selector;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr} {
+    mercury(const struct libmerc_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr}, selector{vars->packet_filter_cfg} {
         global_vars = *vars;
         global_vars.resources = vars->resources;
-        global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy
-        enum status status = proto_ident_config(vars->packet_filter_cfg);
-        if (status) {
-            throw std::runtime_error("error: proto_ident_config() failed"); // failure
-        }
+        global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy?
         if (global_vars.do_analysis) {
             c = analysis_init_from_archive(verbosity, global_vars.resources,
                                            vars->enc_key, vars->key_type,
@@ -65,9 +60,10 @@ struct stateful_pkt_proc {
     struct analysis_context analysis;
     class message_queue *mq;
     mercury_context m;
-    classifier *c;
+    classifier *c;        // TODO: change to reference
     data_aggregator *ag;
     libmerc_config global_vars;
+    class traffic_selector &selector;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
@@ -80,7 +76,8 @@ struct stateful_pkt_proc {
         m{mc},
         c{nullptr},
         ag{nullptr},
-        global_vars{}
+        global_vars{},
+        selector{mc->selector}
     {
 
         // set config and classifier to (refer to) context m

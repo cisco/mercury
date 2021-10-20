@@ -229,13 +229,12 @@ read_prefix_table(const char *filename,
   return num;
 }
 
-// read the ASN to description file
-// return number of entries read
+// read the ASN to description file return number of entries read;
 // return negative on failure
-extern int
-read_asn_table(char *filename,
-               lct_bgp_asn_t prefix[],
-               size_t prefix_size);
+//
+int read_asn_table(char *filename,
+                   lct_bgp_asn_t prefix[],
+                   size_t prefix_size);
 
 // end #ifndef guard
 #endif

@@ -9,8 +9,11 @@
 #ifndef HTTP_H
 #define HTTP_H
 
+#include <list>
+#include <unordered_map>
+
 #include "tcp.h"
-#include "proto_identify.h"
+#include "match.h"
 #include "analysis.h"
 #include "fingerprint.h"
 

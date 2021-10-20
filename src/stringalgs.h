@@ -7,8 +7,9 @@
 
 #include <string>
 #include <algorithm>
-
 #include <memory>
+#include <stdexcept>
+#include <cassert>
 
 // class matrix<T> is a dynamically-allocated two dimensional array of
 // type T, which is indexed starting at zero.  For efficient access,
@@ -425,6 +426,256 @@ template <typename T> struct matching_substrings {
     T length() {
         return len;
     }
+};
+
+inline uint8_t hamming_weight(uint8_t x)  {
+    uint8_t w[] = {
+        0,  // 00000000
+        1,  // 00000001
+        1,  // 00000010
+        2,  // 00000011
+        1,  // 00000100
+        2,  // 00000101
+        2,  // 00000110
+        3,  // 00000111
+        1,  // 00001000
+        2,  // 00001001
+        2,  // 00001010
+        3,  // 00001011
+        2,  // 00001100
+        3,  // 00001101
+        3,  // 00001110
+        4,  // 00001111
+    };
+
+    return w[x >> 4] + w[x & 0x0f];
+}
+
+size_t weight(std::basic_string<uint8_t> z) {
+    size_t tmp = 0;
+      for (const auto & x : z) {
+          tmp += hamming_weight(x);
+    }
+    return tmp;
+}
+
+std::basic_string<uint8_t> exor(std::basic_string<uint8_t> x, std::basic_string<uint8_t> y) {
+    std::basic_string<uint8_t> z;
+    assert(x.length() == y.length());
+    size_t len = x.length();          // TODO: generalize to nonequal lengths
+    for (size_t i=0; i<len; i++) {
+        z.push_back(x[i] ^ y[i]);
+    }
+    return z;
+}
+
+std::basic_string<uint8_t> s_and(std::basic_string<uint8_t> x, std::basic_string<uint8_t> y) {
+    std::basic_string<uint8_t> z;
+    assert(x.length() == y.length());
+    size_t len = x.length();          // TODO: generalize to nonequal lengths
+    for (size_t i=0; i<len; i++) {
+        z.push_back(x[i] & y[i]);
+    }
+    return z;
+}
+
+size_t hamming_distance(std::basic_string<uint8_t> x, std::basic_string<uint8_t> y) {
+    std::basic_string<uint8_t> z = exor(x, y);
+    return weight(z);
+}
+
+inline std::pair<char, char> raw_to_hex(uint8_t x) {
+    const char hex[]= "0123456789abcdef";
+
+    return { hex[x >> 4], hex[x & 0x0f] };
+}
+
+inline uint8_t hex_to_raw(const char hex[2]) {
+
+    int value = 0;
+    if(*hex >= '0' && *hex <= '9') {
+        value = (*hex - '0');
+    } else if (*hex >= 'A' && *hex <= 'F') {
+        value = (10 + (*hex - 'A'));
+    } else if (*hex >= 'a' && *hex <= 'f') {
+        value = (10 + (*hex - 'a'));
+    }
+    value = value << 4;
+    hex++;
+    if(*hex >= '0' && *hex <= '9') {
+        value |= (*hex - '0');
+    } else if (*hex >= 'A' && *hex <= 'F') {
+        value |= (10 + (*hex - 'A'));
+    } else if (*hex >= 'a' && *hex <= 'f') {
+        value |= (10 + (*hex - 'a'));
+    }
+
+    return value;
+}
+
+std::basic_string<uint8_t> uint8_string_from_hex(const char *h) {
+    std::basic_string<uint8_t> s;
+    while (true) {
+        if (h[0] == '\0' || h[1] == '\0') {
+            break;
+        }
+        s.push_back(hex_to_raw(h));
+        h += 2;
+    }
+    return s;
+}
+
+void fprint_uint8_string(FILE *f, const std::basic_string<uint8_t> &s) {
+    for (const auto & x : s) {
+        std::pair<char, char> hi_and_lo = raw_to_hex(x);
+        fputc(hi_and_lo.first, f);
+        fputc(hi_and_lo.second, f);
+    }
+}
+
+void fprint_uint8_string(FILE *f, const std::string &s) {
+    for (const auto & x : s) {
+        std::pair<char, char> hi_and_lo = raw_to_hex(x);
+        fputc(hi_and_lo.first, f);
+        fputc(hi_and_lo.second, f);
+    }
+}
+
+// class mask_and_value implements mask and value computation
+//
+// This procedure can be used to find a pair of bitvectors that can
+// be used to for pattern recognition, such as identifying
+// particular protocol data elements.
+//
+// It is easy to understand a bitwise formulation of the problem: let
+// m, v, p, p1, p2, ..., pN be boolean variables.  Here p1, p2, ...,
+// pN can represent the same bit location in N different packets, for
+// instance.  For a given set { p1, p2, ..., pN }, our goal is to find
+// m and v such that:
+//
+//    (m & p) = v for all p in { p1, p2, ..., pN }
+//
+// The solution can be expressed as
+//
+//    m = / 1 if (p1 == p2 == ... == pN)
+//        \ 0 otherwise
+//    v = m & p1
+//
+// The variables m and v can be incrementally updated, to process p1,
+// p2, ..., pN sequentially, as follows:
+//
+//    if m & p = v, then m and v do not need to be updated
+//    if m & p != v, then set m and v to 0
+//
+// To apply this logic, in parallel, to each bit in a byte, we can use
+// a boolean function that expresses the above update function. The
+// logic for how m is updated can be summarized with the following
+// truth table:
+//
+//     m | p | v | result
+//    --------------------
+//     0 | 0 | 0 |   0
+//     0 | 0 | 1 |   0
+//     0 | 1 | 0 |   0
+//     0 | 1 | 1 |   0
+//     1 | 0 | 0 |   1
+//     1 | 0 | 1 |   0
+//     1 | 1 | 0 |   0
+//     1 | 1 | 1 |   1
+//
+// ... and that truth table is that of the boolean function
+//
+//    result = m AND (NOT(p XOR v)).
+//
+// In C notation, m &= ~(p ^ v).  The variable v can be updated after
+// m is updated by simply computing m & p.
+//
+class mask_and_value {
+    std::basic_string<uint8_t> mask;
+    std::basic_string<uint8_t> val;
+    size_t len;
+    bool first;
+
+public:
+
+    mask_and_value(size_t N) : mask{}, val{}, len{N}, first{true} {
+        for (size_t i=0; i<len; i++) {
+            mask.push_back(0xff);
+            val.push_back(0xff);
+        }
+    }
+
+    void observe(const uint8_t *p, size_t N) {
+
+        // if N < len, we observe the first N bytes and zeroize mask
+        // bytes N, N+1, ..., len.
+        //
+        // if N > len, that's an error condition
+        //
+        if (N < len) {
+            for (size_t i=N; i<len; i++) {
+                mask[i] = 0x00;
+            }
+        } else if (N > len) {
+            fprintf(stderr, "error: N=%zu, s=%.*s\n", N, (int)N, p);
+            throw std::runtime_error("input string too long in observation");
+        }
+
+        if (first) {
+            first = false;
+            // first value, so leave mask alone
+            //
+            for (size_t i=0; i<N; i++) {
+                val[i] = p[i];
+            }
+        }
+
+        // adjust mask and value so that (mask & p == value), with the
+        // largest possible mask (in the hamming weight sense)
+        //
+        for (size_t i=0; i<N; i++) {
+            // uint8_t x = mask[i] & p[i];
+            // if (x != val[i]) {
+            //     mask[i] = ~(val[i] ^ x);
+            //     val[i] = x;
+            // }
+            mask[i] &= ~(p[i] ^ val[i]);
+            val[i] = mask[i] & val[i];
+        }
+    }
+
+    std::pair<std::basic_string<uint8_t>, std::basic_string<uint8_t>> value() const {
+        return { mask, val };
+    }
+
+    size_t weight() const {
+        return ::weight(mask);
+    }
+
+    // check(s) checks the mask and value against a vector of strings; this function
+    // can be used as a sanity check
+    //
+    bool check(std::vector<std::basic_string<uint8_t>> &s) {
+        for (auto & x : s) {
+            std::basic_string<uint8_t> s = uint8_string_from_hex((const char *)x.c_str());
+            std::basic_string<uint8_t> ms = s_and(mask, s);
+            std::basic_string<uint8_t> z = exor(ms, val);
+            fprintf(stdout, "--------------------------------------\n");
+            fprintf(stdout, "p:       %s\n", x.c_str());
+            fprintf(stdout, "m and p: ");
+            fprint_uint8_string(stdout, ms);
+            fputc('\n', stdout);
+            fprintf(stdout, "value:   ");
+            fprint_uint8_string(stdout, val);
+            fputc('\n', stdout);
+            fprintf(stdout, "difference: %zu\n", ::weight(z));
+            if (::weight(z) != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
 };
 
 #endif /* STRINGALGS_H */

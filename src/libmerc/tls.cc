@@ -5,7 +5,6 @@
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-#include "extractor.h"
 #include "json_object.h"
 #include "tls.h"
 #include "match.h"

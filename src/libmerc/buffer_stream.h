@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #ifdef DONT_USE_STDERR
 #include "libmerc.h"

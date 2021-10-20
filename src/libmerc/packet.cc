@@ -58,37 +58,7 @@ void eth_skip(uint8_t **packet, size_t *length, uint16_t *ether_type) {
 
 }
 
-struct ipv4_hdr {
-    uint8_t version_ihl;
-    uint8_t tos;
-    uint16_t total_length;
-    uint16_t identification;
-    uint16_t flags_fragment_offset;
-    uint8_t time_to_live;
-    uint8_t protocol;
-    uint16_t header_checksum;
-    uint32_t source_address;
-    uint32_t destination_address;
-};
-
-#define IPV6_ADDR_LEN 16
-
-struct ipv6_hdr {
-    uint8_t version_tc_hi;
-    uint8_t tc_lo_flow_label_hi;
-    uint16_t flow_label_lo;
-    uint16_t payload_length;
-    uint8_t next_header;
-    uint8_t hop_limit;
-    uint8_t source_address[IPV6_ADDR_LEN];
-    uint8_t destination_address[IPV6_ADDR_LEN];
-} __attribute__ ((__packed__));
-
-struct ipv6_header_extension {
-    uint8_t next_header;
-    uint8_t length;
-    uint8_t data[6];  /* 6 is *minimim* data size */
-};
+#ifdef USE_FLOWHASH
 
 /*
  * flowhash is an experimental function that computes a representation
@@ -132,3 +102,4 @@ uint64_t flowhash(const struct flow_key &k, uint32_t time_in_sec) {
 
 }
 
+#endif // USE_FLOWHASH
