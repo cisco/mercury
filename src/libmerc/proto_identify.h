@@ -190,6 +190,8 @@ public:
         if (protocols["dns"] || protocols["all"]) {
             // select_mdns = false;
             udp.add_protocol(dns_packet::matcher, udp_msg_type_dns);
+            // udp.add_protocol(dns_packet::client_matcher, udp_msg_type_dns); // older matcher
+            // udp.add_protocol(dns_packet::server_matcher, udp_msg_type_dns); // older matcher
         }
         if (protocols["dtls"] || protocols["all"]) {
             udp16.add_protocol(tls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
@@ -205,6 +207,8 @@ public:
         // tell protocol_identification objects to compile lookup tables
         //
         tcp.compile();
+        udp.compile();
+        udp16.compile();
 
     }
 
