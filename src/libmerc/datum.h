@@ -124,15 +124,6 @@ struct datum {
         }
         return true;
     }
-    bool skip_to(const unsigned char *location)
-    {
-        if (location <= data_end)
-        {
-            data = location;
-            return true;
-        }
-        return false;
-    }
     void trim(size_t length) {
         data_end -= length;
         if (data_end < data) {
