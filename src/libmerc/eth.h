@@ -67,7 +67,7 @@ class eth {
 
     eth(struct datum &p) {
 
-        //mercury_debug("%s: processing ethernet (len %td)\n", __func__, datum_get_data_length(p));
+        //mercury_debug("%s: processing ethernet (len %td)\n", __func__, p.length());
 
         p.skip(ETH_ADDR_LEN * 2);
         if (!p.read_uint16(&ethertype)) {
@@ -107,3 +107,4 @@ class eth {
 
 
 #endif  /* ETH_H */
+

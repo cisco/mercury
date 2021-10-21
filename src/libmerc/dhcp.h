@@ -362,7 +362,7 @@ struct dhcp_option : public datum {
                 if (hwtype == 1) { // Ethernet
                     json_client_id.print_key_hex("address", *this);
                     size_t oui = 0;
-                    datum_read_uint(this, 3, &oui);
+                    lookahead_uint(3, &oui);
                     json_client_id.print_key_string("oui", oui::get_string(oui));
                 } else if (hwtype == 255) {
                     uint32_t iaid;
@@ -416,7 +416,7 @@ struct dhcp_option : public datum {
                 json_opt.print_key_uint("hwtype", hwtype);
                 json_opt.print_key_hex("client_id", *this);
                 size_t oui = 0;
-                datum_read_uint(this, 3, &oui);
+                lookahead_uint(3, &oui);
                 json_opt.print_key_string("oui", oui::get_string(oui));
             }
             break;
@@ -509,8 +509,8 @@ struct dhcp_discover {
     }
 
     constexpr static mask_and_value<8> matcher = {
-       { 0x01, 0x01, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00 },
-       { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 }
+       { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
+       { 0x01, 0x01, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00 }
     };
 
 };

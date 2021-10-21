@@ -1504,8 +1504,7 @@ struct x509_cert {
 
     void parse(const void *buffer, unsigned int len) {
 
-        struct datum p;
-        datum_init(&p, (const unsigned char *)buffer, len);
+        struct datum p{(const unsigned char *)buffer, (const unsigned char *)buffer + len};
 
         certificate.parse(&p, tlv::SEQUENCE, "certificate");
 
@@ -1943,9 +1942,8 @@ struct x509_cert_prefix {
 
     void parse(const void *buffer, unsigned int len) {
 
-        struct datum p;
+        struct datum p{(const unsigned char *)buffer, (const unsigned char *)buffer + len};
         prefix.data = (const uint8_t *)buffer;
-        datum_init(&p, (const unsigned char *)buffer, len);
 
         struct tlv certificate(&p, tlv::SEQUENCE, "certificate");
 

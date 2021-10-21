@@ -134,18 +134,18 @@ void tls_extensions::print(struct json_object &o, const char *key) const {
 
     struct json_array array{o, key};
 
-    while (datum_get_data_length(&ext_parser) > 0) {
+    while (ext_parser.length() > 0) {
         size_t tmp_len = 0;
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (datum_skip(&ext_parser, tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
 
@@ -161,18 +161,18 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
 
     struct datum ext_parser{this->data, this->data_end};
 
-    while (datum_get_data_length(&ext_parser) > 0) {
+    while (ext_parser.length() > 0) {
         size_t tmp_len = 0;
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (datum_skip(&ext_parser, tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
         const uint8_t *data_end = ext_parser.data;
@@ -192,18 +192,18 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
 
     struct datum ext_parser{this->data, this->data_end};
 
-    while (datum_get_data_length(&ext_parser) > 0) {
+    while (ext_parser.length() > 0) {
         size_t tmp_len = 0;
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (datum_skip(&ext_parser, tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
         const uint8_t *data_end = ext_parser.data;
@@ -220,18 +220,18 @@ void tls_extensions::set_server_name(struct datum &server_name) const {
 
     struct datum ext_parser{this->data, this->data_end};
 
-    while (datum_get_data_length(&ext_parser) > 0) {
+    while (ext_parser.length() > 0) {
         size_t tmp_len = 0;
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (datum_skip(&ext_parser, tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
         const uint8_t *data_end = ext_parser.data;
@@ -305,7 +305,7 @@ void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) co
 
     struct datum ext_parser{this->data, this->data_end};
 
-    while (datum_get_data_length(&ext_parser) > 0) {
+    while (ext_parser.length() > 0) {
 
         tls_extension x{ext_parser};
         if (x.value.data == NULL) {
@@ -353,18 +353,18 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
 
     struct datum ext_parser{this->data, this->data_end};
 
-    while (datum_get_data_length(&ext_parser) > 0) {
+    while (ext_parser.length() > 0) {
         size_t tmp_len = 0;
         size_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionType, &tmp_type) == status_err) {
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
             break;
         }
-        if (datum_read_and_skip_uint(&ext_parser, L_ExtensionLength, &tmp_len) == status_err) {
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
             break;
         }
-        if (datum_skip(&ext_parser, tmp_len) == status_err) {
+        if (ext_parser.skip(tmp_len) == false) {
             break;
         }
 
@@ -408,23 +408,23 @@ void tls_client_hello::parse(struct datum &p) {
     random.parse(p, L_Random);
 
     // parse SessionID
-    if (datum_read_and_skip_uint(&p, L_SessionIDLength, &tmp_len) == status_err) {
+    if (p.read_uint(&tmp_len, L_SessionIDLength) == false) {
         return;
     }
     session_id.parse(p, tmp_len);
 
     if (dtls) {
         // skip over Cookie and CookieLen
-        if (datum_read_uint(&p, L_DTLSCookieLength, &tmp_len) == status_err) {
+        if (p.lookahead_uint(L_DTLSCookieLength, &tmp_len) == false) {
             return;
         }
-        if (datum_skip(&p, tmp_len + L_DTLSCookieLength) == status_err) {
+        if (p.skip(tmp_len + L_DTLSCookieLength) == false) {
             return;
         }
     }
 
     // parse clientHello.Ciphersuites
-    if (datum_read_and_skip_uint(&p, L_CipherSuiteVectorLength, &tmp_len)) {
+    if (p.read_uint(&tmp_len, L_CipherSuiteVectorLength) == false) {
         return;
     }
     if (tmp_len & 1) {
@@ -433,13 +433,13 @@ void tls_client_hello::parse(struct datum &p) {
     ciphersuite_vector.parse(p, tmp_len);
 
     // parse compression methods
-    if (datum_read_and_skip_uint(&p, L_CompressionMethodsLength, &tmp_len) == status_err) {
+    if (p.read_uint(&tmp_len, L_CompressionMethodsLength) == false) {
         return;
     }
     compression_methods.parse(p, tmp_len);
 
     // parse extensions vector
-    if (datum_read_and_skip_uint(&p, L_ExtensionsVectorLength, &tmp_len)) {
+    if (p.read_uint(&tmp_len, L_ExtensionsVectorLength) == false) {
         return;
     }
     extensions.parse_soft_fail(p, tmp_len);
@@ -560,10 +560,10 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
     random.parse(record, L_Random);
 
     /* skip over SessionID and SessionIDLen */
-    if (datum_read_uint(&record, L_SessionIDLength, &tmp_len) == status_err) {
+    if (record.lookahead_uint(L_SessionIDLength, &tmp_len) == false) {
 	    goto bail;
     }
-    if (datum_skip(&record, tmp_len + L_SessionIDLength) == status_err) {
+    if (record.skip(tmp_len + L_SessionIDLength) == false) {
 	    goto bail;
     }
 
@@ -579,7 +579,7 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
     }
 
     // parse extensions vector
-    if (datum_read_and_skip_uint(&record, L_ExtensionsVectorLength, &tmp_len)) {
+    if (record.read_uint(&tmp_len, L_ExtensionsVectorLength) == false) {
         return status_ok;  // could differentiate between err/ok
     }
     extensions.parse(record, tmp_len);
@@ -617,7 +617,7 @@ void tls_server_hello::operator()(struct buffer_stream &buf) const {
 void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
 
     struct datum tmp_cert_list = certificate_list;
-    while (datum_get_data_length(&tmp_cert_list) > 0) {
+    while (tmp_cert_list.length() > 0) {
 
         /* get certificate length */
         uint64_t tmp_len;
@@ -625,8 +625,8 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
             return;
         }
 
-        if (tmp_len > (unsigned)datum_get_data_length(&tmp_cert_list)) {
-            tmp_len = datum_get_data_length(&tmp_cert_list); /* truncate */
+        if (tmp_len > (unsigned)tmp_cert_list.length()) {
+            tmp_len = tmp_cert_list.length(); /* truncate */
         }
 
         if (tmp_len == 0) {
@@ -649,7 +649,7 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
         /*
          * advance parser over certificate data
          */
-        if (datum_skip(&tmp_cert_list, tmp_len) == status_err) {
+        if (tmp_cert_list.skip(tmp_len) == false) {
             return;
         }
     }

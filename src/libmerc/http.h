@@ -26,12 +26,12 @@ struct http_headers : public datum {
         unsigned char crlf[2] = { '\r', '\n' };
 
         data = p.data;
-        while (datum_get_data_length(&p) > 0) {
-            if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+        while (p.length() > 0) {
+            if (p.compare(crlf, sizeof(crlf)) == 0) {
                 complete = true;
                 break;  /* at end of headers */
             }
-            if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
                 break;
             }
         }

@@ -39,11 +39,11 @@ struct smtp_parameters : public datum {
         unsigned char crlf[2] = { '\r', '\n' };
 
         data = p.data;
-        while (datum_get_data_length(&p) > 0) {
-            if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+        while (p.length() > 0) {
+            if (p.compare(crlf, sizeof(crlf)) == 0) {
                 break;  /* at end of parameters */
             }
-            if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
                 break;
             }
         }
@@ -60,19 +60,19 @@ struct smtp_parameters : public datum {
         }
         struct datum p{this->data, this->data_end};
 
-        while (datum_get_data_length(&p) > 0) {
-            if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+        while (p.length() > 0) {
+            if (p.compare(crlf, sizeof(crlf)) == 0) {
                 break;  /* at end of parameters */
             }
 
             struct datum param{p.data, NULL};
-            if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
                 break;
             }
             param.data_end = p.data - 2;
 
-            if ((datum_find_delim(&param, domain, sizeof(domain)) == -1*(param.data_end - param.data)) &&
-                (datum_find_delim(&param, hello, sizeof(hello)) == -1*(param.data_end - param.data))) {
+            if ((param.find_delim(domain, sizeof(domain)) == -1*(param.data_end - param.data)) &&
+                (param.find_delim(hello, sizeof(hello)) == -1*(param.data_end - param.data))) {
                 buf.write_char('(');
                 buf.raw_as_hex(param.data, param.data_end - param.data);
                 buf.write_char(')');
@@ -93,19 +93,19 @@ struct smtp_parameters : public datum {
         }
         struct datum p{this->data, this->data_end};
 
-        while (datum_get_data_length(&p) > 0) {
-            if (datum_match(&p, crlf, sizeof(crlf), NULL) == status_ok) {
+        while (p.length() > 0) {
+            if (p.compare(crlf, sizeof(crlf)) == 0) {
                 break;  /* at end of parameters */
             }
 
             struct datum param{p.data, NULL};
-            if (datum_skip_upto_delim(&p, crlf, sizeof(crlf)) == status_err) {
+            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
                 break;
             }
             param.data_end = p.data - 2;
             param.data += offset;
 
-            if ((output_metadata) || (datum_find_delim(&param, domain_match, sizeof(domain_match)) > 0)) {
+            if ((output_metadata) || (param.find_delim(domain_match, sizeof(domain_match)) > 0)) {
                 a.print_json_string(param);
             }
         }
