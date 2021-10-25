@@ -17,6 +17,7 @@
 // interface to mercury's packet parsing and handling routines
 //
 #include "proto_identify.h"
+#include "arp.h"
 #include "ip.h"
 #include "tcp.h"
 #include "dns.h"
@@ -86,12 +87,34 @@ public:
     void operator()(buffer_stream &) { }
 
     void write_json(json_object &record, bool) {
-        struct json_object tcp{record, "tcp"};
+        struct json_object tcp{record, "tcp"};     // TODO: tcp or udp
         tcp.print_key_hex("data", tcp_data_field);
         tcp.close();
     }
 
     bool is_not_empty() { return tcp_data_field.is_not_empty(); }
+
+};
+
+// class unknown_udp_initial_packet represents the initial data field of a
+// udp packet from an unknown protocol
+//
+class unknown_udp_initial_packet {
+    datum udp_data_field;
+
+public:
+
+    unknown_udp_initial_packet(struct datum &pkt) : udp_data_field{pkt} { }
+
+    void operator()(buffer_stream &) { }
+
+    void write_json(json_object &record, bool) {
+        struct json_object udp{record, "udp"};
+        udp.print_key_hex("data", udp_data_field);
+        udp.close();
+    }
+
+    bool is_not_empty() { return udp_data_field.is_not_empty(); }
 
 };
 
@@ -109,7 +132,7 @@ using udp_protocol = std::variant<std::monostate,
                                   tls_client_hello, // dtls
                                   tls_server_hello, // dtls
                                   dhcp_discover,
-                                  unknown_initial_packet
+                                  unknown_udp_initial_packet
                                   >;
 
 void set_udp_protocol(udp_protocol &x,
@@ -179,9 +202,7 @@ void set_udp_protocol(udp_protocol &x,
         break;
     default:
         if (is_new) {
-            x.emplace<unknown_initial_packet>();
-            auto &msg = std::get<unknown_initial_packet>(x);
-            msg.parse(pkt);
+            x.emplace<unknown_udp_initial_packet>(pkt);
         } else {
             x.emplace<std::monostate>();
         }
@@ -274,6 +295,7 @@ struct compute_fingerprint {
     //
     void operator()(wireguard_handshake_init &) { }
     void operator()(unknown_initial_packet &) { }
+    void operator()(unknown_udp_initial_packet &) { }
     void operator()(dns_packet &) { }
     void operator()(std::monostate &) { }
 
@@ -622,6 +644,8 @@ bool stateful_pkt_proc::ip_set_analysis_result(struct analysis_result *r,
     return false;
 }
 
+constexpr bool report_ARP = false;
+
 size_t stateful_pkt_proc::write_json(void *buffer,
                                      size_t buffer_size,
                                      uint8_t *packet,
@@ -642,6 +666,21 @@ size_t stateful_pkt_proc::write_json(void *buffer,
                              pkt.length(),
                              ts,
                              reassembler);
+    case ETH_TYPE_ARP:
+        if (report_ARP) {
+            arp_packet arp{pkt};
+            if (arp.is_valid()) {
+                struct buffer_stream buf{(char *)buffer, buffer_size};
+                struct json_object record{&buf};
+                arp.write_json(record);
+                record.close();
+                if (buf.length() != 0 && buf.trunc == 0) {
+                    buf.strncpy("\n");
+                    return buf.length();
+                }
+            }
+        }
+        break;
     default:
         ;  // unsupported ethertype
     }

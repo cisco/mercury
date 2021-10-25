@@ -20,6 +20,7 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
+#include "tls.h"
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
@@ -177,6 +178,7 @@ struct quic_initial_packet {
             (dcid.is_not_empty() == false)) {
             return;  // invalid or incomplete packet
         }
+
         valid = true;
     }
 

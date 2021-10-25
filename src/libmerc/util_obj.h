@@ -157,5 +157,20 @@ struct key {
 
 };
 
+struct eth_addr : public datum {
+    static const unsigned int bytes_in_addr = 6;
+    eth_addr() : datum{} { }
+
+    void parse(struct datum &d) {
+        datum::parse(d, bytes_in_addr);
+    }
+
+    void operator()(struct buffer_stream &b) const {
+        if (data) {
+            b.raw_as_hex(data, datum::length());  // TODO: write colon-delimited hex
+        }
+    }
+};
+
 #endif // UTIL_OBJ_H
 

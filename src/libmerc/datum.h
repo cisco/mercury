@@ -135,6 +135,18 @@ struct datum {
             data_end = data + length;
         }
     }
+    template <size_t N>
+    bool matches(std::array<uint8_t, N> a) {
+        const uint8_t *d = data;
+        for (uint8_t x : a) {
+            if (d < data_end && *d == x) {
+                d++;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
     bool case_insensitive_match(const struct datum r) const {
         if (length() != r.length()) {
             return false;
@@ -219,6 +231,18 @@ struct datum {
         }
         
         return false;
+    }
+
+    bool isupper() {
+        const uint8_t *d = data;
+        while (d < data_end) {
+            if (::isupper(*d)) {
+                ++d;
+            } else {
+                return false;
+            }
+        }
+        return true;
     }
 
     bool accept(uint8_t byte) {

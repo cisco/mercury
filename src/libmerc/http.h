@@ -59,7 +59,7 @@ struct http_request : public tcp_base_protocol {
 
     void parse(struct datum &p);
 
-    bool is_not_empty() const { return uri.is_not_empty(); }
+    bool is_not_empty() const { return protocol.is_not_empty(); }
 
     void write_json(struct json_object &record, bool output_metadata);
 

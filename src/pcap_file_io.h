@@ -166,6 +166,9 @@ public:
     //
     uint32_t len() const { return pkthdr.len; }
 
+    void write(struct pcap_file &pcap) {
+        pcap_file_write_packet_direct(&pcap, buffer, pkthdr.caplen, pkthdr.ts.tv_sec, pkthdr.ts.tv_usec);
+    }
 };
 
 

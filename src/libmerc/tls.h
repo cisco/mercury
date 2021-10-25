@@ -346,7 +346,7 @@ struct tls_client_hello : public tcp_base_protocol {
 
     void parse(struct datum &p);
 
-    bool is_not_empty() const { return ciphersuite_vector.is_not_empty(); };
+    bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
     void operator()(struct buffer_stream &buf) const;
 
