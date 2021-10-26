@@ -23,11 +23,6 @@ datum get_udp_data(struct datum eth_pkt);
 
 datum get_tcp_data(struct datum eth_pkt);
 
-// sig_close_flag is a dummy variable, needed to compile this program
-// with pcap_file_io.c, which expects that variable as an 'extern'
-//
-int sig_close_flag = false;
-
 int main(int argc, char *argv[]) {
 
     const char summary[] = "usage: %s --input <infile> --output <outfile> --pdu <pdu>\n"
