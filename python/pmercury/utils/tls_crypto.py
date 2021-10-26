@@ -48,7 +48,7 @@ class TLS_CRYPTO:
         for i in range(16):
             md5_material += self.hmac(secret_md5, MD5(), b'%s%s%s%s' % (cur_hash, label, sr, cr))
             cur_hash = self.hmac(secret_md5, MD5(), cur_hash)
-        
+
         sha_material = b''
         cur_hash = self.hmac(secret_sha, SHA1(), b'%s%s%s' % (label, sr, cr))
         for i in range(16):
