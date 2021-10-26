@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 
     const char summary[] = "usage: %s --input <infile> --output <outfile> --pdu <pdu>\n"
                            "\n"
-                           "   <pdu> = dns | quic | tls_client_hello | http_request\n"
+                           "   <pdu> = all | dns | quic | tls_client_hello | http_request\n"
                            "\n";
 
     class option_processor opt({{ argument::required, "--input",       "input file" },
@@ -53,6 +53,11 @@ int main(int argc, char *argv[]) {
 
     if (!input_file_is_set || !output_file_is_set || !protocol_is_set) {
         opt.usage(stderr, argv[0], summary);
+        return EXIT_FAILURE;
+    }
+
+    if (protocol != "all") {
+        fprintf(stderr, "error: only pdu=all is currently supported\n");
         return EXIT_FAILURE;
     }
 
