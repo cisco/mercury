@@ -12,10 +12,9 @@ void print_usage()
 {
     printf("Usage : verifier -r [pcap to read] -w [pcap to write] -f [filter] [OPTIONS]\n" 
            "Options : \n"
-           "\t-p - print HEX data\n"
+           "\t-p [number] - print HEX data, [number] declares first N bytes to print\n"
            "\t-h [file] - print hex data to [file]\n"
-           "\t-s - process output only for successfully parsed packages\n"
-           "Filters: tls-client-hello tls-server-hello http-reqeust http-response + from mercury config\n");
+           "\t-s - process output only for successfully parsed packages\n");
 }
 
 int main(int argc, char** argv)
