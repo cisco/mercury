@@ -10,8 +10,9 @@ int sig_close_flag = false;
 
 void print_usage()
 {
-    printf("Usage : verifier -r [pcap to read] -w [pcap to write] -f [filter] [OPTIONS]\n" 
+    printf("Usage : verifier -r [pcap to read] -f [filter] [OPTIONS]\n" 
            "Options : \n"
+           "\t-w [pcap to write] - write all parsed packages to [pcap to write]\n"
            "\t-p [number] - print HEX data, [number] declares first N bytes to print\n"
            "\t-h [file] - print hex data to [file]\n"
            "\t-s - process output only for successfully parsed packages\n");
@@ -63,7 +64,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if(_filter == nullptr || _write_file == nullptr || _read_file == nullptr)
+    if(_filter == nullptr || _read_file == nullptr)
     {
         return EXIT_FAILURE;
     }
@@ -91,7 +92,11 @@ int main(int argc, char** argv)
     time.tv_sec = 0;
 
     struct pcap_file _pcap(_read_file, io_direction_reader);
-    struct pcap_file _unmatched_pcap(_write_file, io_direction_writer);
+    struct pcap_file* _unmatched_pcap = nullptr;
+    if(_write_file != nullptr)
+    {
+        _unmatched_pcap = new pcap_file(_write_file, io_direction_writer);
+    }
     struct pcap_pkthdr _header;
 
     packet<65536> pkt;
@@ -149,13 +154,18 @@ int main(int argc, char** argv)
             else
                 printf("\n");
         }
-        if(!(!_separate_output == !success))
-            pcap_file_write_packet_direct(&_unmatched_pcap, data_packet.first, data_packet.second - data_packet.first, 0, 0);
+        if((!(!_separate_output == !success)) && (_unmatched_pcap != nullptr))
+            pcap_file_write_packet_direct(_unmatched_pcap, data_packet.first, data_packet.second - data_packet.first, 0, 0);
 
     }
 
     mercury_packet_processor_destruct(packet_processor);
     mercury_finalize(context);
+
+    if(_unmatched_pcap)
+    {
+        delete _unmatched_pcap;
+    }
 
     printf("\nParsed %d packets : \n\t Found %d requested pdu's \n\t Parsed %d uknown pdu's\n", overall_packet_count, found_fp_count, uknown_fp_count);
 
