@@ -22,7 +22,7 @@ from pmercury.protocols.tls import TLS
 
 
 class IQUIC(Protocol):
-    VERSIONS = set([22,23,24,25,26,27,28,29,30,31,32,33])
+    VERSIONS = set([22,23,24,25,26,27,28,29,30,31,32,33,1])
     QUIC_VERSION_PARAMETERS = {
         22: {'salt': bytes.fromhex('7fbcdb0e7c66bbe9193a96cd21519ebd7a02644a')},
         23: {'salt': bytes.fromhex('c3eef712c72ebb5a11a7d2432bb46365bef9f502')},
@@ -36,6 +36,7 @@ class IQUIC(Protocol):
         31: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
         32: {'salt': bytes.fromhex('afbfec289993d24c9e9786f19c6111e04390a899')},
         33: {'salt': bytes.fromhex('38762cf7f55934b34d179ae6a4c80cadccbb7f0a')},
+        1: {'salt': bytes.fromhex('38762cf7f55934b34d179ae6a4c80cadccbb7f0a')},
     }
     SAMPLE_SIZE = 16
 
@@ -138,7 +139,22 @@ class IQUIC(Protocol):
         cipher = Cipher(AES(key), GCM(iv), backend=default_backend())
         payload = cipher.decryptor().update(bytes(data[offset + pn_length:]))
 
-        return payload[4:]
+        return payload
+
+
+    @staticmethod
+    def extract_encoded_length(data):
+        if data == None or len(data) == 0:
+            1/0
+            return None, None
+        n_bytes = (data[0] >> 6)+1
+        if n_bytes > len(data) or n_bytes > 4:
+            1/0
+            return None, None
+        if n_bytes == 1:
+            return n_bytes, data[0] & 63 # and with b'\x3f'
+        high_order = (data[0] & 63) << ((n_bytes-1)*8)
+        return n_bytes, high_order | int.from_bytes(data[1:n_bytes], byteorder='big')
 
 
     @staticmethod
@@ -147,12 +163,60 @@ class IQUIC(Protocol):
         decrypted_data = IQUIC.decrypt_packet(encrypted_data)
         if decrypted_data == None:
             return None, None
-        if (decrypted_data[0] != 0x01 or
-            decrypted_data[4] != 0x03 or
-            decrypted_data[5] >  0x03):
+
+        # find correct location for client_hello
+        q_offset = 0
+        quic_crypto_frames = []
+        decrypt_data_len = len(decrypted_data[q_offset:])
+        while decrypt_data_len > 0:
+            if decrypted_data[q_offset] == 1:
+                q_offset += 1
+                decrypt_data_len -= 1
+                continue
+            elif decrypted_data[q_offset] == 0:
+                q_offset += 1
+                decrypt_data_len -= 1
+                while decrypted_data[q_offset] == 0 and decrypt_data_len > 0:
+                    q_offset += 1
+                    decrypt_data_len -= 1
+                continue
+            elif decrypted_data[q_offset] == 6:
+                q_offset += 1
+                decrypt_data_len -= 1
+                offset_len, offset_val = IQUIC.extract_encoded_length(decrypted_data[q_offset:])
+                if offset_len == None:
+                    return None, None
+                q_offset += offset_len
+                decrypt_data_len -= offset_len
+                crypto_len, crypto_len_val = IQUIC.extract_encoded_length(decrypted_data[q_offset:])
+                if crypto_len == None:
+                    return None, None
+                q_offset += crypto_len
+                decrypt_data_len -= crypto_len
+                if crypto_len_val > decrypt_data_len:
+                    return None, None
+                quic_crypto_frames.append((offset_val, decrypted_data[q_offset:q_offset+crypto_len_val]))
+                q_offset += crypto_len_val
+                decrypt_data_len -= crypto_len_val
+            else:
+                break
+
+        quic_crypto_data = b''
+        cur_offset = 0
+        for offset, crypto_frame in sorted(quic_crypto_frames):
+            if offset != cur_offset:
+                return None, None
+            quic_crypto_data += crypto_frame
+            cur_offset += len(crypto_frame)
+
+        if quic_crypto_data == b'':
+            return None, None
+        if (quic_crypto_data[0] != 0x01 or
+            quic_crypto_data[4] != 0x03 or
+            quic_crypto_data[5] >  0x03):
             return None, None
 
-        fp_, context = TLS.fingerprint(bytes.fromhex('1603030000') + decrypted_data, 0, len(decrypted_data)+5)
+        fp_, context = TLS.fingerprint(bytes.fromhex('1603030000') + quic_crypto_data, 0, len(quic_crypto_data)+5)
         if fp_ == None:
             return None, None
 

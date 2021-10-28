@@ -103,8 +103,7 @@ def pkt_proc(ts, data):
             elif buf[app_offset+13]  ==  2 and buf[app_offset+25] == 254:
                 fp_str_, context_ = DTLS_Server.fingerprint(data, app_offset, data_len)
                 fp_type = 'dtls_server'
-        elif (buf[app_offset+1] == 0xff and buf[app_offset+2] == 0x00 and
-              buf[app_offset+3] == 0x00):
+        elif (buf[app_offset+2] == 0x00 and buf[app_offset+3] == 0x00):
             fp_str_, context_ = IQUIC.fingerprint(data, app_offset, data_len)
             fp_type = 'iquic'
         elif data_len - app_offset < 240:
