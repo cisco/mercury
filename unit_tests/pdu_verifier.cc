@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <cstring>
 #include <utility>
+#include <getopt.h>
 
 int sig_close_flag = false;
 
@@ -18,6 +19,18 @@ void print_usage()
            "\t-s - process output only for successfully parsed packages\n");
 }
 
+[[noreturn]] void print_usage_and_fail()
+{
+    print_usage();
+    exit(EXIT_FAILURE);
+}
+
+[[noreturn]] void print_error_and_fail(const char* error)
+{
+    printf("Error:\n\t%s", error);
+    exit(EXIT_FAILURE);
+}
+
 int main(int argc, char** argv)
 {
     char* _read_file = nullptr;
@@ -28,45 +41,67 @@ int main(int argc, char** argv)
     bool _analyze_bits = false;
     bool _separate_output = false;
 
-    for(int opt_indx = 0; opt_indx < argc; opt_indx++)
+    static struct option long_opts[] = {
+        {"read", required_argument, NULL, 'r'},
+        {"filter", required_argument, NULL, 'f'},
+        {"write", required_argument, NULL, 'w'},
+        {"print", optional_argument, NULL, 'p'},
+        {"hex", required_argument, NULL, 'h'},
+        {"success", no_argument, NULL, 's'}
+    };
+
+    int c = 0;
+    int k = 0;
+
+    while(1)
     {
-        if(strcmp(argv[opt_indx], "-r") == 0)
+        c = getopt_long(argc, argv, "r:f:w:p:h:s", long_opts, &k);
+        if(c < 0)
+            break;
+        switch (c)
         {
-            _read_file = argv[++opt_indx];
-        }
-        if(strcmp(argv[opt_indx], "-w") == 0)
-        {
-            _write_file = argv[++opt_indx];
-        }
-        if(strcmp(argv[opt_indx], "-f") == 0)
-        {
-            _filter = argv[++opt_indx];
-        }
-        if(strcmp(argv[opt_indx], "-p") == 0)
-        {
+        case 'r':
+            if(!optarg)
+                print_usage_and_fail();
+            _read_file = optarg;
+            break;
+        case 'f':
+            if(!optarg)
+                print_usage_and_fail();
+            _filter = optarg;
+            break;
+        case 'w':
+            if(!optarg)
+                print_usage_and_fail();
+            _write_file = optarg;
+            break;
+        case 'p':
             _analyze_bits = true;
-            _printable_size = atoi(argv[opt_indx + 1]) / 2;
-            if(_printable_size != 0)
-                opt_indx++;
-        }
-        if(strcmp(argv[opt_indx], "-h") == 0)
-        {
-            _hex_file = argv[++opt_indx];
-        }
-        if(strcmp(argv[opt_indx], "-s") == 0)
-        {
+            _printable_size = optarg == nullptr ? 64 : atoi(optarg);
+            _printable_size = _printable_size / 2;
+            break;
+        case 'h':
+            if(!optarg)
+                print_usage_and_fail();
+            _analyze_bits = true;
+            _hex_file = optarg;
+            break;
+        case 's':
             _separate_output = true;
-        }
-        if(strcmp(argv[opt_indx], "--help") == 0)
-        {
-            print_usage();
-            return EXIT_SUCCESS;
+            break;
+        default:
+            break;
         }
     }
 
     if(_filter == nullptr || _read_file == nullptr)
     {
-        return EXIT_FAILURE;
+        print_usage_and_fail();
+    }
+
+    if(_printable_size == 0)
+    {
+        _printable_size = 32;
     }
 
     auto config = libmerc_config();
@@ -82,10 +117,10 @@ int main(int argc, char** argv)
 
     auto context = mercury_init(&config, 0);
     if(context == nullptr)
-        return EXIT_FAILURE;
+        print_error_and_fail("Cannot init mercury with provided config");
     auto packet_processor = mercury_packet_processor_construct(context);
     if(packet_processor == nullptr)
-        return EXIT_FAILURE;
+        print_error_and_fail("Cannot create packet processor");
 
     struct timespec time;
     time.tv_nsec = 0;
@@ -97,7 +132,6 @@ int main(int argc, char** argv)
     {
         _unmatched_pcap = new pcap_file(_write_file, io_direction_writer);
     }
-    struct pcap_pkthdr _header;
 
     packet<65536> pkt;
 
@@ -111,7 +145,7 @@ int main(int argc, char** argv)
     {
         _hex_output = fopen(_hex_file, "w");
         if(_hex_output == nullptr)
-            return EXIT_FAILURE;
+            print_error_and_fail("Cannot open hex file");
     }
 
     while(1)
@@ -154,7 +188,7 @@ int main(int argc, char** argv)
             else
                 printf("\n");
         }
-        if((!(!_separate_output == !success)) && (_unmatched_pcap != nullptr))
+        if((!(!_separate_output != !success)) && (_unmatched_pcap != nullptr))
             pcap_file_write_packet_direct(_unmatched_pcap, data_packet.first, data_packet.second - data_packet.first, 0, 0);
 
     }
@@ -165,6 +199,10 @@ int main(int argc, char** argv)
     if(_unmatched_pcap)
     {
         delete _unmatched_pcap;
+    }
+    if(_hex_output)
+    {
+        fclose(_hex_output);
     }
 
     printf("\nParsed %d packets : \n\t Found %d requested pdu's \n\t Parsed %d uknown pdu's\n", overall_packet_count, found_fp_count, uknown_fp_count);
