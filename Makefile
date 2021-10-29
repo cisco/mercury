@@ -128,6 +128,12 @@ test_libmerc_so: unit_tests
 unit_tests:
 	cd unit_tests && $(MAKE)
 
+.PHONY: coverage_report
+coverage_report:
+	cd unit_tests && $(MAKE) libmerc_driver_coverage
+	cd unit_tests && ./libmerc_driver
+	cd unit_tests && gcovr -r ../src/libmerc
+
 .PHONY: doc
 doc: doc/mercury.pdf
 

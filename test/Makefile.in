@@ -98,7 +98,8 @@ pdu_test:
 .PHONY: libmerc_driver
 libmerc_driver:
 	@echo "running unit tests"
-	cd ../unit_tests/; ./libmerc_driver -s
+	cd ../unit_tests/; ./libmerc_driver_tls_only -s
+	cd ../unit_tests/; ./libmerc_driver_multiprotocol -s
 
 .PHONY: json-validity-test
 json-validity-test:

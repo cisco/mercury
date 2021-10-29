@@ -134,6 +134,11 @@ debug-libmerc.a:
 	$(MAKE) --directory=libmerc clean
 	$(MAKE) -j --directory=libmerc debug-libmerc.a
 
+.PHONY: debug-libmerc_gcov
+debug-libmerc_gcov:
+	$(MAKE) --directory=libmerc clean
+	$(MAKE) -j --directory=libmerc debug-libmerc_gcov.so
+
 .PHONY: debug-libmerc
 debug-libmerc:
 	$(MAKE) --directory=libmerc clean
