@@ -205,7 +205,7 @@ int main(int argc, char** argv)
         fclose(_hex_output);
     }
 
-    printf("\nParsed %d packets : \n\t Found %d requested pdu's \n\t Parsed %d uknown pdu's\n", overall_packet_count, found_fp_count, uknown_fp_count);
+    printf("\nParsed %d packets : \n\t Found %d requested pdu's \n\t Parsed %d unknown pdu's\n", overall_packet_count, found_fp_count, uknown_fp_count);
 
     if(overall_packet_count != found_fp_count)
     {
