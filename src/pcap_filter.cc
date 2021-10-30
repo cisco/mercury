@@ -33,6 +33,7 @@ int main(int argc, char *argv[]) {
     class option_processor opt({{ argument::required, "--input",       "input file" },
                                 { argument::required, "--output",      "output file" },
                                 { argument::required, "--pdu",         "protocol data unit" },
+                                { argument::none,     "--json",        "output JSON representation"},
                                 { argument::none,     "--nonmatching", "output non-matching packets"}});
 
     if (!opt.process_argv(argc, argv)) {
@@ -43,6 +44,7 @@ int main(int argc, char *argv[]) {
     auto [ input_file_is_set, input_file ] = opt.get_value("--input");
     auto [ output_file_is_set, output_file ] = opt.get_value("--output");
     auto [ protocol_is_set, protocol ] = opt.get_value("--pdu");
+    bool json_output  = opt.is_set("--json");
     bool nonmatching  = opt.is_set("--nonmatching");
     bool expected_value = !nonmatching;
 
@@ -62,11 +64,11 @@ int main(int argc, char *argv[]) {
         // create input and output pcap files
         //
         struct pcap_file pcap(input_file.c_str(), io_direction_reader);
-        struct pcap_file out(("dns." + output_file).c_str(), io_direction_writer);
-        struct pcap_file quic_out(("quic." + output_file).c_str(), io_direction_writer);
-        struct pcap_file tls_out(("tls." + output_file).c_str(), io_direction_writer);
-        struct pcap_file http_out(("http." + output_file).c_str(), io_direction_writer);
-        struct pcap_file smtp_out(("smtp." + output_file).c_str(), io_direction_writer);
+        struct pcap_file dns_out(("dns_packet." + output_file).c_str(), io_direction_writer);
+        struct pcap_file quic_out(("quic_init." + output_file).c_str(), io_direction_writer);
+        struct pcap_file tls_out(("tls_client_hello." + output_file).c_str(), io_direction_writer);
+        struct pcap_file http_out(("http_request." + output_file).c_str(), io_direction_writer);
+        //struct pcap_file smtp_out(("smtp." + output_file).c_str(), io_direction_writer);
 
         packet<65536> pkt;
         while (true) {
@@ -83,14 +85,14 @@ int main(int argc, char *argv[]) {
                 datum udp_data_copy = udp_data;
                 dns_packet dns{udp_data_copy};
                 if (dns.is_not_empty() == expected_value) {
-                    pkt.write(out);
+                    pkt.write(dns_out);
                     ++i;
                 }
 
                 udp_data_copy = udp_data;
                 quic_init quic{udp_data_copy};
-                if (quic.is_not_empty() == expected_value) { // TODO: improve quic_initial_packet
-                    if (false) {
+                if (quic.is_not_empty() == expected_value) {
+                    if (json_output) {
 
                         // output json representation of alleged quic initial packet
                         //
