@@ -24,6 +24,7 @@
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
+//#include "quic-versions.h"
 
 /*
  * QUIC header format (from draft-ietf-quic-transport-32):
@@ -88,7 +89,7 @@ struct uint8_bitfield {
 //          | 11   | 8      | 62          | 0-4611686018427387903 |
 //          +------+--------+-------------+-----------------------+
 //
-static ssize_t parse_variable_length_integer(datum &d) {
+static uint64_t parse_variable_length_integer(datum &d) {
     uint8_t b;
     d.read_uint8(&b);
     int len=0;
@@ -117,6 +118,233 @@ static ssize_t parse_variable_length_integer(datum &d) {
     return value;
 }
 
+class variable_length_integer {
+    uint64_t value_;
+
+public:
+
+    variable_length_integer(datum &d) : value_{0} {
+        uint8_t b;
+        d.read_uint8(&b);
+        int len=0;
+        switch (b & 0xc0) {
+        case 0xc0:
+            len = 8;
+            break;
+        case 0x80:
+            len = 4;
+            break;
+        case 0x40:
+            len = 2;
+            break;
+        case 0x00:
+            len = 1;
+        }
+        value_ = (b & 0x3f);
+        for (int i=1; i<len; i++) {
+            value_ *= 256;
+            d.read_uint8(&b);
+            value_ += (b & 0x3f);
+        }
+    }
+
+    uint64_t value() const { return value_; }
+};
+
+
+// quic frames
+//
+
+struct frame : public datum {
+    uint8_t type;
+
+    frame() : datum{}, type{0} {};
+
+    void parse(struct datum &p) {
+        p.read_uint8(&type);
+        //        datum::parse(p, len - 2);
+    }
+
+};
+
+
+
+// PADDING Frame {
+//   Type (i) = 0x00,
+// }
+//
+// PING Frame {
+//   Type (i) = 0x01,
+// }
+//
+// ACK Frame {
+//   Type (i) = 0x02..0x03,
+//   Largest Acknowledged (i),
+//   ACK Delay (i),
+//   ACK Range Count (i),
+//   First ACK Range (i),
+//   ACK Range (..) ...,
+//   [ECN Counts (..)],
+// }
+//
+// ACK Range {
+//   Gap (i),
+//   ACK Range Length (i),
+// }
+//
+// ECN Counts {
+//   ECT0 Count (i),
+//   ECT1 Count (i),
+//   ECN-CE Count (i),
+// }
+//
+// RESET_STREAM Frame {
+//   Type (i) = 0x04,
+//   Stream ID (i),
+//   Application Protocol Error Code (i),
+//   Final Size (i),
+// }
+//
+// STOP_SENDING Frame {
+//   Type (i) = 0x05,
+//   Stream ID (i),
+//   Application Protocol Error Code (i),
+// }
+//
+// CRYPTO Frame {
+//   Type (i) = 0x06,
+//   Offset (i),
+//   Length (i),
+//   Crypto Data (..),
+// }
+//
+class crypto {
+    variable_length_integer offset;
+    variable_length_integer length;
+    datum data;
+
+public:
+    crypto(datum &p) : offset{p}, length{p}, data{p, length.value()} {
+        // if (is_valid()) {
+        //     fprintf(stderr, "crypto.offset: %lu\n", offset.value());
+        //     fprintf(stderr, "crypto.length: %lu\n", length.value());
+        // } else {
+        //     fprintf(stderr, "crypto.not valid\n");
+        // }
+    }
+
+    bool is_valid() const { return data.is_not_empty(); }
+
+    datum &get_data() { return data; } // note: function is not const
+};
+
+// NEW_TOKEN Frame {
+//   Type (i) = 0x07,
+//   Token Length (i),
+//   Token (..),
+// }
+//
+// STREAM Frame {
+//   Type (i) = 0x08..0x0f,
+//   Stream ID (i),
+//   [Offset (i)],
+//   [Length (i)],
+//   Stream Data (..),
+// }
+//
+// MAX_DATA Frame {
+//   Type (i) = 0x10,
+//   Maximum Data (i),
+// }
+//
+// MAX_STREAM_DATA Frame {
+//   Type (i) = 0x11,
+//   Stream ID (i),
+//   Maximum Stream Data (i),
+// }
+//
+// MAX_STREAMS Frame {
+//   Type (i) = 0x12..0x13,
+//   Maximum Streams (i),
+// }
+//
+// DATA_BLOCKED Frame {
+//   Type (i) = 0x14,
+//   Maximum Data (i),
+// }
+//
+// STREAM_DATA_BLOCKED Frame {
+//   Type (i) = 0x15,
+//   Stream ID (i),
+//   Maximum Stream Data (i),
+// }
+//
+// STREAMS_BLOCKED Frame {
+//   Type (i) = 0x16..0x17,
+//   Maximum Streams (i),
+// }
+//
+// NEW_CONNECTION_ID Frame {
+//   Type (i) = 0x18,
+//   Sequence Number (i),
+//   Retire Prior To (i),
+//   Length (8),
+//   Connection ID (8..160),
+//   Stateless Reset Token (128),
+// }
+//
+// RETIRE_CONNECTION_ID Frame {
+//   Type (i) = 0x19,
+//   Sequence Number (i),
+// }
+//
+// PATH_CHALLENGE Frame {
+//   Type (i) = 0x1a,
+//   Data (64),
+// }
+//
+// PATH_RESPONSE Frame {
+//   Type (i) = 0x1b,
+//   Data (64),
+// }
+//
+// CONNECTION_CLOSE Frame {
+//   Type (i) = 0x1c..0x1d,
+//   Error Code (i),
+//   [Frame Type (i)],
+//   Reason Phrase Length (i),
+//   Reason Phrase (..),
+// }
+//
+class connection_close {
+    variable_length_integer error_code;
+    variable_length_integer frame_type;
+    variable_length_integer reason_phrase_length;
+    datum reason_phrase;
+
+public:
+    connection_close(datum &p) : error_code{p}, frame_type{p}, reason_phrase_length{p}, reason_phrase{p, reason_phrase_length.value()} {
+        // if (is_valid()) {
+        //     fprintf(stderr, "connection_close.error_code: %lu\n", error_code.value());
+        //     fprintf(stderr, "connection_close.frame_type: %lu\n", frame_type.value());
+        //     fprintf(stderr, "connection_close.reason_phrase_length: %lu\n", reason_phrase_length.value());
+        //     fprintf(stderr, "connection_close.reason_phrase: %s\n", reason_phrase.get_string().c_str());
+        // } else {
+        //     fprintf(stderr, "connection_close.not valid\n");
+        // }
+    }
+
+    bool is_valid() const { return reason_phrase.is_not_empty(); }
+
+};
+
+
+// HANDSHAKE_DONE Frame {
+//   Type (i) = 0x1e,
+// }
+
+
+
 //   Initial Packet {
 //     Header Form (1) = 1,
 //     Fixed Bit (1) = 1,
@@ -141,44 +369,80 @@ struct quic_initial_packet {
     struct datum dcid;
     struct datum scid;
     struct datum token;
-    struct datum data;
+    uint64_t packet_number;
+    struct datum payload;
     bool valid;
 
-    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{NULL, NULL}, scid{NULL, NULL}, token{NULL, NULL}, data{NULL, NULL}, valid{false} {
+    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{NULL, NULL}, scid{NULL, NULL}, token{NULL, NULL}, packet_number{0}, payload{NULL, NULL}, valid{false} {
         parse(d);
     }
 
     void parse(struct datum &d) {
+
+        // connection information octet for initial packets:
+        //
+        // Header Form        (1)        1
+        // Fixed Bit          (1)        1 (or 0?)
+        // Long Packet Type   (2)        00
+        // Type-Specific Bits (4)        ??
+        //
+        uint8_t conn_info_mask  = 0b10110000;
+        uint8_t conn_info_value = 0b10000000;
         d.read_uint8(&connection_info);
-        if ((connection_info & 0x30) != 0) {
+        if ((connection_info & conn_info_mask) != conn_info_value) {
             return;
         }
 
         version.parse(d, 4);
 
+        // don't process non-standard versions
+        //
+        uint64_t v = 0;
+        version.lookahead_uint(4, &v);
+        if (v == 0x51303433    // Google QUIC Q043
+            || v == 0x51303436 // Google QUIC Q046
+            || v == 0x51303530 // Google QUIC Q050
+            ) {
+            return;
+        }
+
         uint8_t dcid_length;
         d.read_uint8(&dcid_length);
+        if (dcid_length > 20) {
+            return;  // dcid too long
+        }
         dcid.parse(d, dcid_length);
 
         uint8_t scid_length;
         d.read_uint8(&scid_length);
+        if (scid_length > 20) {
+            return;  // scid too long
+        }
         scid.parse(d, scid_length);
 
         //variable_length_integer var_int;
-        ssize_t var_int = parse_variable_length_integer(d);
-        token.parse(d, var_int);
+        uint64_t token_length = parse_variable_length_integer(d);
+        token.parse(d, token_length);
 
-        // @TODO: need to handle actually handle QUIC's variable length encoding
-        uint16_t data_length;
-        d.read_uint16(&data_length);
-        data_length = data_length & 0x3FFF;
-        data.parse(d, data_length);
+        uint64_t length = parse_variable_length_integer(d); // length of packet number and packet payload
+        // fprintf(stderr, "difference: %zd\td.length(): %zd\tlength: %zu\tversion: ", d.length()-length, d.length(), length);
+        // version.fprint_hex(stderr);
+        // fputc('\t', stderr);
 
-        if ((data.is_not_empty() == false) || (data_length < 32) ||
-            (dcid.is_not_empty() == false)) {
+        if (d.length() < (ssize_t)length || length < 64) { // TODO: get length bound; reject shorter than MTU?
+            //fprintf(stderr, "invalid\n");
+            return;
+        }
+        payload.parse(d, length);
+
+        if ((payload.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
+            //fprintf(stderr, "invalid\n");
             return;  // invalid or incomplete packet
         }
-
+        datum tmp = payload;
+        packet_number = parse_variable_length_integer(tmp);
+        // fprintf(stderr, "packet_number: %16lx\t", packet_number);
+        // fprintf(stderr, "VALID\n");
         valid = true;
     }
 
@@ -198,14 +462,14 @@ struct quic_initial_packet {
         json_quic.print_key_hex("dcid", dcid);
         json_quic.print_key_hex("scid", scid);
         json_quic.print_key_hex("token", token);
-        json_quic.print_key_hex("data", data);
+        json_quic.print_key_hex("data", payload);
         json_quic.close();
 
     }
 
     constexpr static mask_and_value<8> matcher = {
-       { 0xf0, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
-       { 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+       { 0b10110000, 0x00, 0x00, 0x00, 0x00, 0xe0, 0x00, 0x00 },
+       { 0b10000000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
     };
 
 };
@@ -308,13 +572,13 @@ struct quic_initial_packet_crypto {
         AES_KEY enc_key;
         AES_set_encrypt_key(quic_hp, 128, &enc_key);
         uint8_t buf[32] = {0};
-        AES_encrypt(quic_pkt.data.data+4, buf, &enc_key);
+        AES_encrypt(quic_pkt.payload.data+4, buf, &enc_key);   // TODO: improve encapsulation
         pn_length = quic_pkt.connection_info ^ (buf[0] & 0x0f);
         pn_length = (pn_length & 0x03) + 1;
 
 
         for (uint8_t i = quic_iv_len-pn_length; i < quic_iv_len; i++) {
-            quic_iv[i] ^= (buf[(i-(quic_iv_len-pn_length))+1] ^ *(quic_pkt.data.data + (i-(quic_iv_len-pn_length))));
+            quic_iv[i] ^= (buf[(i-(quic_iv_len-pn_length))+1] ^ *(quic_pkt.payload.data + (i-(quic_iv_len-pn_length))));
         }
 
         valid = true;
@@ -420,7 +684,7 @@ struct quic_initial_packet_crypto {
     }
 
     datum get_plaintext() const {
-        struct datum quic_plaintext{plaintext+8, plaintext+plaintext_len};
+        struct datum quic_plaintext{plaintext, plaintext+plaintext_len};
         return quic_plaintext;
     }
 };
@@ -499,12 +763,7 @@ struct quic_version_negotiation {
         array.close();
     }
 
-    // TODO: add mask and value
-    //
-    // mask:  80ffffffff...
-    // value: 8000000000...
 };
-
 
 // class quic_init represents an initial quic message
 //
@@ -517,14 +776,42 @@ public:
 
     quic_init(struct datum &d) : initial_packet{d}, quic_pkt_crypto{initial_packet}, hello{} {
         if (quic_pkt_crypto.is_not_empty()) {
-            quic_pkt_crypto.decrypt(initial_packet.data.data, initial_packet.data.length());
+            quic_pkt_crypto.decrypt(initial_packet.payload.data, initial_packet.payload.length());
             datum plaintext = quic_pkt_crypto.get_plaintext();
-            hello.parse(plaintext);
+
+            // parse plaintext as a sequence of frames
+            //
+            while (plaintext.is_not_empty()) {
+                uint8_t type = 0;
+                plaintext.read_uint8(&type);
+                //  fprintf(stderr, "plaintext.type: %02x\n", type);
+                if (type == 0x06) {
+                    crypto c{plaintext};
+                    tls_handshake handshake{c.get_data()};
+                    hello.parse(handshake.body);
+                    // if (!hello.is_not_empty()) {
+                    //     fprintf(stderr, "plaintext could not be parsed as tls_client_hello\n");
+                    // } else {
+                    //     fprintf(stderr, "SUCCESS\n");
+                    // }
+                } else if (type == 0x1c) {
+                    connection_close c{plaintext};
+                } else if (type == 0x00) {
+                    ; // padding frame
+                } else if (type == 0x01) {
+                    ; // ping frame
+                }
+            }
+
         }
     }
 
     bool is_not_empty() {
         return initial_packet.is_not_empty();
+    }
+
+    bool has_tls() {
+        return hello.is_not_empty();
     }
 
     void write_json(struct json_object &record, bool metadata_output=false) {

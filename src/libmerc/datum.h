@@ -40,6 +40,9 @@ struct datum {
 
     datum() : data{NULL}, data_end{NULL} {}
     datum(const unsigned char *first, const unsigned char *last) : data{first}, data_end{last} {}
+    datum(datum &d, size_t length) {
+        parse(d, length);
+    }
     datum(std::pair<const unsigned char *, const unsigned char *> p) : data{p.first}, data_end{p.second} {}
     //parser(const unsigned char *d, const unsigned char *e) : data{d}, data_end{e} {}
     //parser(const unsigned char *d, size_t length) : data{d}, data_end{d+length} {}
@@ -56,7 +59,7 @@ struct datum {
         if (r.length() < (ssize_t)num_bytes) {
             r.set_null();
             set_null();
-            // fprintf(stderr, "warning: not enough data in parse\n");
+            //fprintf(stderr, "warning: not enough data in parse (need %zu, have %zd)\n", num_bytes, length());
             return;
         }
         data = r.data;
@@ -161,9 +164,18 @@ struct datum {
             return true;
         }
     }
-    bool memcmp(const datum &p) const {
+    int memcmp(const datum &p) const {
         return ::memcmp(data, p.data, length());
     }
+
+    template <size_t N>
+    bool cmp(const std::array<uint8_t, N> a) const {
+        if (length() == N) {
+            return ::memcmp(data, a.data, N) == 0;
+        }
+        return false;
+    }
+
     bool operator==(const datum &rhs) const {
         return data == rhs.data && data_end == rhs.data_end;
     }
