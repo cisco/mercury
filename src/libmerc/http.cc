@@ -379,7 +379,7 @@ bool http_request::do_analysis(const struct key &k_, struct analysis_context &an
     if (user_agent_data.is_null()) {
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     } else {
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination,
-                                                               user_agent_data.get_string().c_str(), analysis_.result);
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result,
+                                                               user_agent_data.get_string().c_str());
     }
 }

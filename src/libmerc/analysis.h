@@ -883,19 +883,8 @@ public:
 
     bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
                                                      const struct destination_context &dc,
-                                                     struct analysis_result &result) {
-        // TODO: remove
-        //if (fp.type != fingerprint_type_tls) {
-        //    return false;  // cannot perform analysis
-        //}
-        result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port, NULL);
-        return true;
-    }
-
-    bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
-                                                     const struct destination_context &dc,
-                                                     const char *user_agent,
-                                                     struct analysis_result &result) {
+                                                     struct analysis_result &result,
+                                                     const char *user_agent = NULL) {
 
         // TODO: remove
         //if (fp.type != fingerprint_type_tls) {
