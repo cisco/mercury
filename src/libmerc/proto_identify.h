@@ -141,6 +141,10 @@ public:
             { "wireguard",   false },
             { "quic",        false },
             { "smtp",        false },
+            { "tls.client_hello", false},
+            { "tls.server_hello", false},
+            { "http.request", false},
+            { "http.response", false},
         };
         if (!set_config(protocols, config_string)) {
             throw std::runtime_error("error: could not parse protocol identification configuration string");
@@ -158,12 +162,32 @@ public:
             tcp.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
             tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
         }
+        else if(protocols["tls.client_hello"])
+        {
+            tcp.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
+        }
+        else if(protocols["tls.server_hello"])
+        {
+            tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
+        }
         if (protocols["http"] || protocols["all"]) {
             tcp.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
             tcp.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
             tcp.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
             tcp.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
             tcp.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
+        }
+        else if(protocols["http.request"])
+        {
+            tcp.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
+            tcp.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
+        }
+        else if(protocols["http.response"])
+        {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
         }
         if (protocols["ssh"] || protocols["all"]) {
