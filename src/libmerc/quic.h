@@ -15,6 +15,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <arpa/inet.h>
 #include <openssl/aes.h>
 #include <openssl/hmac.h>
@@ -71,53 +72,6 @@ struct uint8_bitfield {
     }
 };
 
-
-// parse_variable_length_integer() implements the QUIC variable-length
-// integer encoding (following RFC9000, Section 16).  If there is a
-// parse error, i.e. the datum being parsed is too short, then the datum
-// will be set to NULL state
-//
-//          +======+========+=============+=======================+
-//          | 2MSB | Length | Usable Bits | Range                 |
-//          +======+========+=============+=======================+
-//          | 00   | 1      | 6           | 0-63                  |
-//          +------+--------+-------------+-----------------------+
-//          | 01   | 2      | 14          | 0-16383               |
-//          +------+--------+-------------+-----------------------+
-//          | 10   | 4      | 30          | 0-1073741823          |
-//          +------+--------+-------------+-----------------------+
-//          | 11   | 8      | 62          | 0-4611686018427387903 |
-//          +------+--------+-------------+-----------------------+
-//
-//static uint64_t parse_variable_length_integer(datum &d) {
-//    uint8_t b;
-//    d.read_uint8(&b);
-//    int len=0;
-//    switch (b & 0xc0) {
-//    case 0xc0:
-//        len = 8;
-//        break;
-//    case 0x80:
-//        len = 4;
-//        break;
-//    case 0x40:
-//        len = 2;
-//        break;
-//    case 0x00:
-//        len = 1;
-//    }
-//    ssize_t value = (b & 0x3f);
-//    for (int i=1; i<len; i++) {
-//        value *= 256;
-//        d.read_uint8(&b);
-//        value += b;
-//    }
-//    if (d.is_null()) {
-//        value = -1;    // perhaps should just leave at 0
-//    }
-//    return value;
-//}
-
 // class variable_length_integer implements the QUIC variable-length
 // integer encoding (following RFC9000, Section 16).  If there is a
 // parse error, i.e. the datum being parsed is too short, then the datum
@@ -171,22 +125,9 @@ public:
 };
 
 
-// quic frames
+// quic frames are defined by a set of classes and the std::variant
+// quic_frame, defined below
 //
-
-struct frame : public datum {
-    uint8_t type;
-
-    frame() : datum{}, type{0} {};
-
-    void parse(struct datum &p) {
-        p.read_uint8(&type);
-        //        datum::parse(p, len - 2);
-    }
-
-};
-
-
 
 // PADDING Frame {
 //   Type (i) = 0x00,
@@ -777,8 +718,6 @@ struct quic_version_negotiation {
 
 };
 
-#include <variant>
-
 class padding {
     size_t pad_len;
 public:
@@ -813,7 +752,7 @@ using quic_frame = std::variant<padding, ping, crypto, connection_close, std::mo
 static quic_frame frame(datum &d) {
 	uint8_t type = 0;
 	d.read_uint8(&type);
-    //  fprintf(stderr, "plaintext.type: %02x\n", type);
+    //  fprintf(stderr, "frame type: %02x\n", type);
     if (type == 0x06) {
     	return crypto{d};
     } else if (type == 0x1c) {
@@ -823,7 +762,7 @@ static quic_frame frame(datum &d) {
     } else if (type == 0x01) {
         return ping{d};
     }
-    fprintf(stderr, "unknown frame type %u\n", type);
+    fprintf(stderr, "unknown frame type %02x\n", type);
     return std::monostate{};
 }
 
@@ -864,6 +803,9 @@ public:
                 fputc('\n', stderr);
             	quic_frame f = frame(plaintext_copy);
             	std::visit(write_frame{stderr}, f);
+                if (std::holds_alternative<std::monostate>(f)) {
+                    break;  // parse error
+                }
             }
 
             while (plaintext.is_not_empty()) {
