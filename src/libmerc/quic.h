@@ -89,35 +89,54 @@ struct uint8_bitfield {
 //          | 11   | 8      | 62          | 0-4611686018427387903 |
 //          +------+--------+-------------+-----------------------+
 //
-static uint64_t parse_variable_length_integer(datum &d) {
-    uint8_t b;
-    d.read_uint8(&b);
-    int len=0;
-    switch (b & 0xc0) {
-    case 0xc0:
-        len = 8;
-        break;
-    case 0x80:
-        len = 4;
-        break;
-    case 0x40:
-        len = 2;
-        break;
-    case 0x00:
-        len = 1;
-    }
-    ssize_t value = (b & 0x3f);
-    for (int i=1; i<len; i++) {
-        value *= 256;
-        d.read_uint8(&b);
-        value += (b & 0x3f);
-    }
-    if (d.is_null()) {
-        value = -1;    // perhaps should just leave at 0
-    }
-    return value;
-}
+//static uint64_t parse_variable_length_integer(datum &d) {
+//    uint8_t b;
+//    d.read_uint8(&b);
+//    int len=0;
+//    switch (b & 0xc0) {
+//    case 0xc0:
+//        len = 8;
+//        break;
+//    case 0x80:
+//        len = 4;
+//        break;
+//    case 0x40:
+//        len = 2;
+//        break;
+//    case 0x00:
+//        len = 1;
+//    }
+//    ssize_t value = (b & 0x3f);
+//    for (int i=1; i<len; i++) {
+//        value *= 256;
+//        d.read_uint8(&b);
+//        value += b;
+//    }
+//    if (d.is_null()) {
+//        value = -1;    // perhaps should just leave at 0
+//    }
+//    return value;
+//}
 
+// class variable_length_integer implements the QUIC variable-length
+// integer encoding (following RFC9000, Section 16).  If there is a
+// parse error, i.e. the datum being parsed is too short, then the datum
+// reference passed to the constructor will be set to NULL state.  The
+// value of the variable length integer is returned by the member function
+// value().
+//
+//          +======+========+=============+=======================+
+//          | 2MSB | Length | Usable Bits | Range                 |
+//          +======+========+=============+=======================+
+//          | 00   | 1      | 6           | 0-63                  |
+//          +------+--------+-------------+-----------------------+
+//          | 01   | 2      | 14          | 0-16383               |
+//          +------+--------+-------------+-----------------------+
+//          | 10   | 4      | 30          | 0-1073741823          |
+//          +------+--------+-------------+-----------------------+
+//          | 11   | 8      | 62          | 0-4611686018427387903 |
+//          +------+--------+-------------+-----------------------+
+//
 class variable_length_integer {
     uint64_t value_;
 
@@ -144,7 +163,7 @@ public:
         for (int i=1; i<len; i++) {
             value_ *= 256;
             d.read_uint8(&b);
-            value_ += (b & 0x3f);
+            value_ += b;
         }
     }
 
@@ -224,18 +243,20 @@ class crypto {
     datum data;
 
 public:
-    crypto(datum &p) : offset{p}, length{p}, data{p, length.value()} {
-        // if (is_valid()) {
-        //     fprintf(stderr, "crypto.offset: %lu\n", offset.value());
-        //     fprintf(stderr, "crypto.length: %lu\n", length.value());
-        // } else {
-        //     fprintf(stderr, "crypto.not valid\n");
-        // }
-    }
+    crypto(datum &p) : offset{p}, length{p}, data{p, length.value()} {    }
 
     bool is_valid() const { return data.is_not_empty(); }
 
     datum &get_data() { return data; } // note: function is not const
+
+	void write(FILE *f) {
+        if (is_valid()) {
+        	fprintf(f, "crypto.offset: %lu\n", offset.value());
+        	fprintf(f, "crypto.length: %lu\n", length.value());
+        } else {
+        	fprintf(f, "crypto.not valid\n");
+       	}
+    }
 };
 
 // NEW_TOKEN Frame {
@@ -323,19 +344,20 @@ class connection_close {
     datum reason_phrase;
 
 public:
-    connection_close(datum &p) : error_code{p}, frame_type{p}, reason_phrase_length{p}, reason_phrase{p, reason_phrase_length.value()} {
-        // if (is_valid()) {
-        //     fprintf(stderr, "connection_close.error_code: %lu\n", error_code.value());
-        //     fprintf(stderr, "connection_close.frame_type: %lu\n", frame_type.value());
-        //     fprintf(stderr, "connection_close.reason_phrase_length: %lu\n", reason_phrase_length.value());
-        //     fprintf(stderr, "connection_close.reason_phrase: %s\n", reason_phrase.get_string().c_str());
-        // } else {
-        //     fprintf(stderr, "connection_close.not valid\n");
-        // }
-    }
+    connection_close(datum &p) : error_code{p}, frame_type{p}, reason_phrase_length{p}, reason_phrase{p, reason_phrase_length.value()} { }
 
     bool is_valid() const { return reason_phrase.is_not_empty(); }
 
+	void write(FILE *f) { 
+    	if (is_valid()) {
+        	fprintf(f, "connection_close.error_code: %lu\n", error_code.value());
+        	fprintf(f, "connection_close.frame_type: %lu\n", frame_type.value());
+        	fprintf(f, "connection_close.reason_phrase_length: %lu\n", reason_phrase_length.value());
+        	fprintf(f, "connection_close.reason_phrase: %s\n", reason_phrase.get_string().c_str());
+        } else {
+        	fprintf(f, "connection_close.not valid\n");
+        }
+    }
 };
 
 
@@ -369,11 +391,10 @@ struct quic_initial_packet {
     struct datum dcid;
     struct datum scid;
     struct datum token;
-    uint64_t packet_number;
     struct datum payload;
     bool valid;
 
-    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{NULL, NULL}, scid{NULL, NULL}, token{NULL, NULL}, packet_number{0}, payload{NULL, NULL}, valid{false} {
+    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false} {
         parse(d);
     }
 
@@ -420,31 +441,26 @@ struct quic_initial_packet {
         }
         scid.parse(d, scid_length);
 
-        //variable_length_integer var_int;
-        uint64_t token_length = parse_variable_length_integer(d);
-        token.parse(d, token_length);
+        variable_length_integer token_length{d};
+        token.parse(d, token_length.value());
 
-        uint64_t length = parse_variable_length_integer(d); // length of packet number and packet payload
-        // fprintf(stderr, "difference: %zd\td.length(): %zd\tlength: %zu\tversion: ", d.length()-length, d.length(), length);
-        // version.fprint_hex(stderr);
-        // fputc('\t', stderr);
-
-        if (d.length() < (ssize_t)length || length < 64) { // TODO: get length bound; reject shorter than MTU?
+        variable_length_integer length{d}; // length of packet number and packet payload
+        // fprintf(stderr, "length: %08lu\td.length(): %08zu\tversion: %08lx\n", length.value(), d.length(), v);
+        if (d.length() < (ssize_t)length.value() || length.value() < min_len_pn_and_payload) {  
             //fprintf(stderr, "invalid\n");
             return;
         }
-        payload.parse(d, length);
+        payload.parse(d, length.value());
 
         if ((payload.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
             //fprintf(stderr, "invalid\n");
             return;  // invalid or incomplete packet
         }
-        datum tmp = payload;
-        packet_number = parse_variable_length_integer(tmp);
-        // fprintf(stderr, "packet_number: %16lx\t", packet_number);
         // fprintf(stderr, "VALID\n");
         valid = true;
     }
+
+	static constexpr size_t min_len_pn_and_payload = 64;  // TODO: determine best length bound
 
     bool is_not_empty() {
         return valid;
@@ -520,6 +536,9 @@ public:
 };
 
 
+
+#define pt_buf_len 1024 // plaintext buffer length
+
 struct quic_initial_packet_crypto {
     bool valid;
 
@@ -541,7 +560,7 @@ struct quic_initial_packet_crypto {
 
     uint8_t pn_length = 0;
 
-    unsigned char plaintext[1024] = {0};
+    unsigned char plaintext[pt_buf_len] = {0};
     int16_t plaintext_len = 0;
 
     quic_initial_packet_crypto(struct quic_initial_packet quic_pkt) : valid{false} {
@@ -576,7 +595,6 @@ struct quic_initial_packet_crypto {
         pn_length = quic_pkt.connection_info ^ (buf[0] & 0x0f);
         pn_length = (pn_length & 0x03) + 1;
 
-
         for (uint8_t i = quic_iv_len-pn_length; i < quic_iv_len; i++) {
             quic_iv[i] ^= (buf[(i-(quic_iv_len-pn_length))+1] ^ *(quic_pkt.payload.data + (i-(quic_iv_len-pn_length))));
         }
@@ -585,7 +603,7 @@ struct quic_initial_packet_crypto {
     }
 
     void decrypt(const uint8_t *data, unsigned int length) {
-        uint16_t cipher_len = (length-pn_length < 1024) ? length-pn_length : 1024;
+        uint16_t cipher_len = (length-pn_length < pt_buf_len) ? length-pn_length : pt_buf_len;
         plaintext_len = gcm_decrypt(data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
         if (plaintext_len == -1) { // error
             valid = false;
@@ -689,12 +707,6 @@ struct quic_initial_packet_crypto {
     }
 };
 
-constexpr uint8_t quic_initial_packet_crypto::client_in_label[];
-constexpr uint8_t quic_initial_packet_crypto::quic_key_label[];
-constexpr uint8_t quic_initial_packet_crypto::quic_iv_label[];
-constexpr uint8_t quic_initial_packet_crypto::quic_hp_label[];
-
-
 //   Version Negotiation Packet {
 //     Header Form (1) = 1,
 //     Unused (7),
@@ -713,7 +725,7 @@ struct quic_version_negotiation {
     struct datum version_list;
     bool valid;
 
-    quic_version_negotiation(struct datum &d) : connection_info{0}, dcid{NULL, NULL}, scid{NULL, NULL}, version_list{NULL, NULL}, valid{false} {
+    quic_version_negotiation(struct datum &d) : connection_info{0}, dcid{}, scid{}, version_list{}, valid{false} {
         parse(d);
     }
 
@@ -765,6 +777,69 @@ struct quic_version_negotiation {
 
 };
 
+#include <variant>
+
+class padding {
+    size_t pad_len;
+public:
+	padding(datum &d) {
+        while (true) {
+            uint8_t type = 0;
+            d.lookahead_uint8(&type);
+            if (type != 0 || !d.is_not_empty()) {
+                break;
+            }
+            d.skip(1);
+            ++pad_len;
+        }
+    }
+
+	void write(FILE *f) {
+		fprintf(f, "padding length %zu\n", pad_len);
+	}
+};
+
+class ping {
+public:
+	ping(datum &) {}
+
+	void write(FILE *f) {
+		fprintf(f, "ping\n");
+	}
+};
+
+using quic_frame = std::variant<padding, ping, crypto, connection_close, std::monostate>;
+
+static quic_frame frame(datum &d) {
+	uint8_t type = 0;
+	d.read_uint8(&type);
+    //  fprintf(stderr, "plaintext.type: %02x\n", type);
+    if (type == 0x06) {
+    	return crypto{d};
+    } else if (type == 0x1c) {
+        return connection_close{d};
+    } else if (type == 0x00) {
+		return padding{d};
+    } else if (type == 0x01) {
+        return ping{d};
+    }
+    fprintf(stderr, "unknown frame type %u\n", type);
+    return std::monostate{};
+}
+
+class write_frame {
+	FILE *f_;
+
+public:
+	write_frame(FILE *f) : f_{f} { }
+
+	template <typename T> void operator()(T &x) {
+		x.write(f_);
+	}
+
+	void operator()(std::monostate &) { }
+};
+
 // class quic_init represents an initial quic message
 //
 class quic_init {
@@ -781,6 +856,16 @@ public:
 
             // parse plaintext as a sequence of frames
             //
+            fprintf(stderr, "----------------------------------------\n");
+            datum plaintext_copy = plaintext;
+            while (plaintext_copy.is_not_empty()) {
+                fprintf(stderr, "plaintext: ");
+                plaintext_copy.fprint_hex(stderr);
+                fputc('\n', stderr);
+            	quic_frame f = frame(plaintext_copy);
+            	std::visit(write_frame{stderr}, f);
+            }
+
             while (plaintext.is_not_empty()) {
                 uint8_t type = 0;
                 plaintext.read_uint8(&type);
