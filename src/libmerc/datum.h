@@ -471,9 +471,14 @@ struct datum {
         return std::numeric_limits<int>::min();
     }
 
-    void fprint_hex(FILE *f) const {
+    void fprint_hex(FILE *f, size_t length=0) const {
         const uint8_t *x = data;
-        while (x < data_end) {
+        const uint8_t *end = data_end;
+        if (length) {
+            end = data + length;
+            end = end < data_end ? end : data_end;
+        }
+        while (x < end) {
             fprintf(f, "%02x", *x++);
         }
     }

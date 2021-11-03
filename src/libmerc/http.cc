@@ -22,7 +22,7 @@ inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
 }
 
 void http_request::parse(struct datum &p) {
-    std::array<uint8_t, 4> proto_string{'H', 'T', 'T', 'P'};
+    std::array<uint8_t, 6> proto_string{'H', 'T', 'T', 'P', '/', '1'};
 
     /* parse request line */
     method.parse_up_to_delim(p, ' ');

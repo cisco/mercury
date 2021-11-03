@@ -67,12 +67,16 @@ struct http_request : public tcp_base_protocol {
 
     void compute_fingerprint(struct fingerprint &fp) const;
 
-    static unsigned char http_client_mask[8];
-    static unsigned char http_client_value[8];
-
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
+
+    // weight 14 bitmask that matches all HTTP methods
+    //
+    static constexpr mask_and_value<8> matcher{
+        { 0xe0, 0xe0, 0xe0, 0x80, 0x80, 0x80, 0x80, 0x80 },
+        { 0x40, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00 }
+    };
 
     static constexpr mask_and_value<8> get_matcher{
         { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },

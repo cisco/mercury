@@ -762,7 +762,7 @@ static quic_frame frame(datum &d) {
     } else if (type == 0x01) {
         return ping{d};
     }
-    fprintf(stderr, "unknown frame type %02x\n", type);
+    //fprintf(stderr, "unknown frame type %02x\n", type);
     return std::monostate{};
 }
 
@@ -795,14 +795,14 @@ public:
 
             // parse plaintext as a sequence of frames
             //
-            fprintf(stderr, "----------------------------------------\n");
+            //fprintf(stderr, "----------------------------------------\n");
             datum plaintext_copy = plaintext;
             while (plaintext_copy.is_not_empty()) {
-                fprintf(stderr, "plaintext: ");
-                plaintext_copy.fprint_hex(stderr);
-                fputc('\n', stderr);
+                // fprintf(stderr, "plaintext: ");
+                // plaintext_copy.fprint_hex(stderr);
+                // fputc('\n', stderr);
             	quic_frame f = frame(plaintext_copy);
-            	std::visit(write_frame{stderr}, f);
+            	// std::visit(write_frame{stderr}, f);
                 if (std::holds_alternative<std::monostate>(f)) {
                     break;  // parse error
                 }

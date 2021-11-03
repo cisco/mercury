@@ -25,14 +25,13 @@ datum get_tcp_data(struct datum eth_pkt);
 
 int main(int argc, char *argv[]) {
 
-    const char summary[] = "usage: %s --input <infile> --output <outfile> --pdu <pdu>\n"
+    const char summary[] = "usage: %s --input <infile> --output <output-file-suffix>\n"
                            "\n"
                            "   <pdu> = all | dns | quic | tls_client_hello | http_request\n"
                            "\n";
 
     class option_processor opt({{ argument::required, "--input",       "input file" },
-                                { argument::required, "--output",      "output file" },
-                                { argument::required, "--pdu",         "protocol data unit" },
+                                { argument::required, "--output",      "output file suffix" },
                                 { argument::none,     "--json",        "output JSON representation"},
                                 { argument::none,     "--nonmatching", "output non-matching packets"}});
 
@@ -43,18 +42,12 @@ int main(int argc, char *argv[]) {
 
     auto [ input_file_is_set, input_file ] = opt.get_value("--input");
     auto [ output_file_is_set, output_file ] = opt.get_value("--output");
-    auto [ protocol_is_set, protocol ] = opt.get_value("--pdu");
     bool json_output  = opt.is_set("--json");
     bool nonmatching  = opt.is_set("--nonmatching");
     bool expected_value = !nonmatching;
 
-    if (!input_file_is_set || !output_file_is_set || !protocol_is_set) {
+    if (!input_file_is_set || !output_file_is_set) {
         opt.usage(stderr, argv[0], summary);
-        return EXIT_FAILURE;
-    }
-
-    if (protocol != "all") {
-        fprintf(stderr, "error: only pdu=all is currently supported\n");
         return EXIT_FAILURE;
     }
 
@@ -65,6 +58,7 @@ int main(int argc, char *argv[]) {
         //
         struct pcap_file pcap(input_file.c_str(), io_direction_reader);
         struct pcap_file dns_out(("dns_packet." + output_file).c_str(), io_direction_writer);
+        struct pcap_file bad_dns_out(("bad_dns_packet." + output_file).c_str(), io_direction_writer);
         struct pcap_file quic_out(("quic_init." + output_file).c_str(), io_direction_writer);
         struct pcap_file tls_out(("tls_client_hello." + output_file).c_str(), io_direction_writer);
         struct pcap_file http_out(("http_request." + output_file).c_str(), io_direction_writer);
@@ -86,6 +80,16 @@ int main(int argc, char *argv[]) {
                 dns_packet dns{udp_data_copy};
                 if (dns.is_not_empty() == expected_value) {
                     pkt.write(dns_out);
+
+                    // verify that this PDU matches the appropriate bitmask
+                    if (dns_packet::matcher.matches(udp_data.data, udp_data.length()) == false) {
+                        fprintf(stderr, "warning: valid dns_packet does not match bitmask\t");
+                        udp_data.fprint_hex(stderr, 16);
+                        fputc('\n', stderr);
+
+                        pkt.write(bad_dns_out);
+                    }
+
                     ++i;
                 }
 
@@ -105,6 +109,14 @@ int main(int argc, char *argv[]) {
                     }
 
                     pkt.write(quic_out);
+
+                    // verify that this PDU matches the appropriate bitmask
+                    if (quic_initial_packet::matcher.matches(udp_data.data, udp_data.length()) == false) {
+                        fprintf(stderr, "warning: valid quic_initial_packet does not match bitmask\t");
+                        udp_data.fprint_hex(stderr, 16);
+                        fputc('\n', stderr);
+                    }
+
                 }
                 ++transport;
             }
@@ -115,12 +127,23 @@ int main(int argc, char *argv[]) {
                 datum tcp_data_copy = tcp_data;
                 struct tls_record rec;
                 rec.parse(tcp_data_copy);
-                struct tls_handshake handshake;
-                handshake.parse(rec.fragment);
-                tls_client_hello client_hello;
-                client_hello.parse(handshake.body);
-                if (client_hello.is_not_empty() == expected_value) {
-                    pkt.write(tls_out);
+                if (rec.type() == tls_content_type::handshake) {
+                    struct tls_handshake handshake;
+                    handshake.parse(rec.fragment);
+                     if (handshake.type() == handshake_type::client_hello) {
+                        tls_client_hello client_hello;
+                        client_hello.parse(handshake.body);
+                        if (client_hello.is_not_empty() == expected_value) {
+                            pkt.write(tls_out);
+
+                            // verify that this PDU matches the appropriate bitmask
+                            if (tls_client_hello::matcher.matches(tcp_data.data, tcp_data.length()) == false) {
+                                fprintf(stderr, "warning: valid tls_client_hello does not match bitmask\t");
+                                tcp_data.fprint_hex(stderr, 16);
+                                fputc('\n', stderr);
+                            }
+                        }
+                    }
                 }
 
                 tcp_data_copy = tcp_data;
@@ -128,6 +151,13 @@ int main(int argc, char *argv[]) {
                 request.parse(tcp_data_copy);
                 if (request.is_not_empty() == expected_value) {
                     pkt.write(http_out);
+
+                    // verify that this PDU matches the appropriate bitmask
+                    if (http_request::matcher.matches(tcp_data.data, tcp_data.length()) == false) {
+                        fprintf(stderr, "warning: valid http_request does not match bitmask\t");
+                        tcp_data.fprint_hex(stderr, 16);
+                        fputc('\n', stderr);
+                    }
                 }
 
             }
@@ -136,12 +166,12 @@ int main(int argc, char *argv[]) {
         }
     }
     catch (std::exception &e) {
-        fprintf(stderr, "error processing processing pcap_file %s (%s)\n", input_file.c_str(), e.what());
+        fprintf(stderr, "error processing pcap_file %s (%s)\n", input_file.c_str(), e.what());
         exit(EXIT_FAILURE);
     }
 
-    fprintf(stdout, "output packet count:    %zu\n", i);
-    fprintf(stdout, "transport packet count: %zu\n", transport);
+    // fprintf(stdout, "output packet count:    %zu\n", i);
+    // fprintf(stdout, "transport packet count: %zu\n", transport);
     fprintf(stdout, "total packet count:     %zu\n", total);
     return 0;
 }

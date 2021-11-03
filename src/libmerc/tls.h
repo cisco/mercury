@@ -201,6 +201,7 @@ struct tls_record {
         }
     }
 
+    tls_content_type type() const { return (tls_content_type)content_type; }
 };
 
 enum class handshake_type : uint8_t {
@@ -246,6 +247,8 @@ struct tls_handshake {
         body.init_from_outer_parser(&d, length);
         additional_bytes_needed = length - body.length();
     }
+
+    handshake_type type() const { return msg_type; }
 };
 
 /*
