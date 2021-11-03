@@ -104,16 +104,24 @@ static ssize_t parse_variable_length_integer(datum &d) {
     case 0x00:
         len = 1;
     }
-    ssize_t value = (b & 0x3f);
-    for (int i=1; i<len; i++) {
-        value *= 256;
-        d.read_uint8(&b);
-        value += (b & 0x3f);
+    if(len == 1)
+    {
+        return b;
     }
-    if (d.is_null()) {
-        value = -1;    // perhaps should just leave at 0
-    }
-    return value;
+    uint64_t v;
+    d.read_uint(&v, len - 1);
+    return pow(256, len - 1) * (b & 0x0f) + v;
+
+    // ssize_t value = (b & 0x3f);
+    // for (int i=1; i<len; i++) {
+    //     value *= 256;
+    //     d.read_uint8(&b);
+    //     value += b;//(b & 0x3f);
+    // }
+    // if (d.is_null()) {
+    //     value = -1;    // perhaps should just leave at 0
+    // }
+    // return value;
 }
 
 //   Initial Packet {
@@ -275,7 +283,7 @@ struct quic_initial_packet_crypto {
 
     uint8_t pn_length = 0;
 
-    unsigned char plaintext[1024] = {0};
+    unsigned char plaintext[2048] = {0};
     int16_t plaintext_len = 0;
 
     quic_initial_packet_crypto(struct quic_initial_packet quic_pkt) : valid{false} {
@@ -319,17 +327,17 @@ struct quic_initial_packet_crypto {
     }
 
     void decrypt(const uint8_t *data, unsigned int length) {
-        uint16_t cipher_len = (length-pn_length < 1024) ? length-pn_length : 1024;
+        uint16_t cipher_len = (length-pn_length < 2048) ? length-pn_length : 2048;
         plaintext_len = gcm_decrypt(data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
         if (plaintext_len == -1) { // error
             valid = false;
             return;
         }
 
-        if ((plaintext[4] != 0x01) || (plaintext[8] != 0x03) || (plaintext[9] != 0x03)) {
-            valid = false;
-            return;
-        }
+        // if ((plaintext[4] != 0x01) || (plaintext[8] != 0x03) || (plaintext[9] != 0x03)) {
+        //     valid = false;
+        //     return;
+        // }
 
     }
 
@@ -417,9 +425,39 @@ struct quic_initial_packet_crypto {
         return valid;
     }
 
-    datum get_plaintext() const {
-        struct datum quic_plaintext{plaintext+8, plaintext+plaintext_len};
-        return quic_plaintext;
+    char buffer[2048] = {  };
+    datum construct_crypto_frame(unsigned char* begin, unsigned char* end)
+    {
+        struct datum packet{begin, end};
+        size_t buff_len = 0;
+        unsigned char delim = 0x06;
+        while(packet.find_delim(&delim, 1) > 0)
+        {
+            packet.skip_up_to_delim(0x06);
+            if(packet.skip(1) == false)
+            {
+                break;
+            }
+
+            auto crypto_offset = parse_variable_length_integer(packet);
+            auto crypto_length = parse_variable_length_integer(packet);
+
+            //packet.copy(buffer + crypto_offset, crypto_length);
+            if(packet.data + crypto_length > packet.data_end)
+                break;
+            memcpy(buffer + crypto_offset, packet.data, crypto_length);
+            packet.skip(crypto_length);
+            buff_len += crypto_length;
+        }
+        auto res = datum{(unsigned char*)buffer + 4, (unsigned char*)(buffer + buff_len)};
+        return res;
+    }
+
+    datum get_plaintext() {
+        struct datum crypto_frame = construct_crypto_frame(plaintext, plaintext + plaintext_len);
+
+        //struct datum quic_plaintext{plaintext+8, plaintext+plaintext_len};
+        return crypto_frame;
     }
 };
 
