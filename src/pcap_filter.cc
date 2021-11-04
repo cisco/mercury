@@ -25,13 +25,10 @@ datum get_tcp_data(struct datum eth_pkt);
 
 int main(int argc, char *argv[]) {
 
-    const char summary[] = "usage: %s --input <infile> --output <output-file-suffix>\n"
-                           "\n"
-                           "   <pdu> = all | dns | quic | tls_client_hello | http_request\n"
-                           "\n";
+    const char summary[] = "usage: %s --input <infile> --output <outfile>\n\n";
 
     class option_processor opt({{ argument::required, "--input",       "input file" },
-                                { argument::required, "--output",      "output file suffix" },
+                                { argument::required, "--output",      "output file" },
                                 { argument::none,     "--json",        "output JSON representation"},
                                 { argument::none,     "--nonmatching", "output non-matching packets"}});
 
@@ -57,12 +54,12 @@ int main(int argc, char *argv[]) {
         // create input and output pcap files
         //
         struct pcap_file pcap(input_file.c_str(), io_direction_reader);
-        struct pcap_file dns_out(("dns_packet." + output_file).c_str(), io_direction_writer);
-        struct pcap_file bad_dns_out(("bad_dns_packet." + output_file).c_str(), io_direction_writer);
-        struct pcap_file quic_out(("quic_init." + output_file).c_str(), io_direction_writer);
-        struct pcap_file tls_out(("tls_client_hello." + output_file).c_str(), io_direction_writer);
-        struct pcap_file http_out(("http_request." + output_file).c_str(), io_direction_writer);
-        //struct pcap_file smtp_out(("smtp." + output_file).c_str(), io_direction_writer);
+        struct pcap_file dns_out((output_file + "dns_packet.pcap").c_str(), io_direction_writer);
+        struct pcap_file bad_dns_out((output_file + "bad_dns_packet.pcap").c_str(), io_direction_writer);
+        struct pcap_file quic_out((output_file + "quic_init.pcap").c_str(), io_direction_writer);
+        struct pcap_file tls_out((output_file + "tls_client_hello.pcap").c_str(), io_direction_writer);
+        struct pcap_file http_out((output_file + "http_request.pcap").c_str(), io_direction_writer);
+        //struct pcap_file smtp_out(output_file + ("smtp.").c_str(), io_direction_writer);
 
         packet<65536> pkt;
         while (true) {
