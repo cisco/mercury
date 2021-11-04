@@ -363,9 +363,6 @@ struct tls_client_hello : public tcp_base_protocol {
 
     struct tls_security_assessment security_assesment();
 
-    static unsigned char mask[8];
-    static unsigned char value[8];
-
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
     static constexpr mask_and_value<8> matcher{

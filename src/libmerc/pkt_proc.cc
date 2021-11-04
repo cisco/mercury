@@ -37,7 +37,7 @@
 #include "buffer_stream.h"
 #include "stats.h"
 
-double malware_prob_threshold = -1.0; // TODO: document hidden option
+// double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
@@ -593,7 +593,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 }
             }
 
-            if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
+            // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
 
             struct json_object record{&buf};
             if (analysis.fp.get_type() != fingerprint_type_unknown) {
@@ -899,7 +899,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             }
         }
 
-        if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return; } // TODO - expose hidden command
+        // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return; } // TODO - expose hidden command
 
         struct json_object record{&buf};
         if (analysis.fp.get_type() != fingerprint_type_unknown) {
