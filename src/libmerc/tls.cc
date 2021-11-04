@@ -535,13 +535,6 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }
 
-unsigned char tls_client_hello::mask [8]= {
-    0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00
-};
-unsigned char tls_client_hello::value[8] = {
-    0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00
-};
-
 void tls_server_hello::parse(struct datum &p) {
     mercury_debug("%s: processing packet with %td bytes\n", __func__, p.data_end - p.data);
 

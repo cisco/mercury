@@ -22,13 +22,21 @@ inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
 }
 
 void http_request::parse(struct datum &p) {
+    std::array<uint8_t, 6> proto_string{'H', 'T', 'T', 'P', '/', '1'};
 
     /* parse request line */
-    method.parse_up_to_delim(p, ' ');       // TODO: verify method.length() > 3
+    method.parse_up_to_delim(p, ' ');
+    if (method.length() < 3 || method.length() > 16 || !method.isupper()) {
+        return;            // invalid format; not an HTTP method
+    }
     p.skip(1);
     uri.parse_up_to_delim(p, ' ');
     p.skip(1);
-    protocol.parse_up_to_delim(p, '\r');    // TODO: verify '\n'
+    protocol.parse_up_to_delim(p, '\r');
+    if (!protocol.matches(proto_string)) {
+        protocol.set_null();
+        return;            // invalid format; unrecognized protocol
+    }
     p.skip(2);
 
     /* parse headers */

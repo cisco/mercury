@@ -27,9 +27,9 @@
 #define  GIT_COUNT 0
 #endif
 
-const char *git_commit_id = GIT_COMMIT_ID;
+static const char *git_commit_id = GIT_COMMIT_ID;
 
-const uint32_t git_count = GIT_COUNT;
+static const uint32_t git_count = GIT_COUNT;
 
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
@@ -356,13 +356,21 @@ int silent_err_func(log_level, const char *, ...) {
     return 0;
 }
 
-printf_err_ptr printf_err = printf_err_func;
+static printf_err_ptr printf_err_static = printf_err_func;
+
+int printf_err(enum log_level level, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int retval = printf_err_static(level, format, args);
+    va_end(args);
+    return retval;
+}
 
 void register_printf_err_callback(printf_err_ptr callback) {
 
     if (callback == nullptr) {
-        printf_err = silent_err_func;
+        printf_err_static = silent_err_func;
     } else {
-        printf_err = callback;
+        printf_err_static = callback;
     }
 }

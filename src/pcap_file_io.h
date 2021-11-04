@@ -108,7 +108,8 @@ enum status pcap_file_close(struct pcap_file *f);
 
 enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                                              struct pkt_proc *pkt_processor,
-                                             int loop_count);
+                                             int loop_count,
+                                             int &sig_close_flag);
 
 
 // pcap_queue_write() sends a packet to a lockless queue
@@ -166,6 +167,9 @@ public:
     //
     uint32_t len() const { return pkthdr.len; }
 
+    void write(struct pcap_file &pcap) {
+        pcap_file_write_packet_direct(&pcap, buffer, pkthdr.caplen, pkthdr.ts.tv_sec, pkthdr.ts.tv_usec);
+    }
 };
 
 

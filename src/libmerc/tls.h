@@ -201,6 +201,7 @@ struct tls_record {
         }
     }
 
+    tls_content_type type() const { return (tls_content_type)content_type; }
 };
 
 enum class handshake_type : uint8_t {
@@ -246,6 +247,8 @@ struct tls_handshake {
         body.init_from_outer_parser(&d, length);
         additional_bytes_needed = length - body.length();
     }
+
+    handshake_type type() const { return msg_type; }
 };
 
 /*
@@ -346,7 +349,7 @@ struct tls_client_hello : public tcp_base_protocol {
 
     void parse(struct datum &p);
 
-    bool is_not_empty() const { return ciphersuite_vector.is_not_empty(); };
+    bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
     void operator()(struct buffer_stream &buf) const;
 
@@ -359,9 +362,6 @@ struct tls_client_hello : public tcp_base_protocol {
     void write_json(struct json_object &record, bool output_metadata) const;
 
     struct tls_security_assessment security_assesment();
-
-    static unsigned char mask[8];
-    static unsigned char value[8];
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
