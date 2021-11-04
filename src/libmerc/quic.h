@@ -361,10 +361,26 @@ struct quic_initial_packet {
         //
         uint64_t v = 0;
         version.lookahead_uint(4, &v);
-        if (v == 0x51303433    // Google QUIC Q043
-            || v == 0x51303436 // Google QUIC Q046
-            || v == 0x51303530 // Google QUIC Q050
-            ) {
+        switch(v) {
+        case 4278190102:   // draft-22
+        case 4278190103:   // draft-23
+        case 4278190104:   // draft-24
+        case 4278190105:   // draft-25
+        case 4278190106:   // draft-26
+        case 4278190107:   // draft-27
+        case 4278190108:   // draft-28
+        case 4278190109:   // draft-29
+        case 4278190110:   // draft-30
+        case 4278190111:   // draft-31
+        case 4278190112:   // draft-32
+        case 4278190113:   // draft-33
+        case 4278190114:   // draft-34
+        case 1:            // version-1
+        case 0x51303433:   // Google QUIC Q043
+        case 0x51303436:   // Google QUIC Q046
+        case 0x51303530:   // Google QUIC Q050
+            break;
+        default:
             return;
         }
 
