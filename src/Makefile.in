@@ -165,7 +165,7 @@ pcap: pcap.cc pcap_file_io.c pcap_file_io.h
 	$(CXX) $(CFLAGS) pcap.cc pcap_file_io.c -o pcap
 
 pcap_filter: pcap_filter.cc pcap_file_io.c libmerc
-	$(CXX) $(CFLAGS) pcap_filter.cc pcap_file_io.c libmerc/libmerc.a -lz -lcrypto -o pcap_filter
+	$(CXX) $(CFLAGS) pcap_filter.cc pcap_file_io.c libmerc/libmerc.a -lz -lcrypto -pthread -o pcap_filter
 
 # implicit rule for building object files
 #
