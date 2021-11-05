@@ -43,6 +43,13 @@ public:
         }
     }
 
+    bool matches(const uint8_t *data, size_t length) const {
+        if (data == nullptr || length < N) {
+            return false;
+        }
+        return matches(data);
+    }
+
     constexpr size_t length() const { return N; }
 
     static unsigned int u32_compare_masked_data_to_value(const void *data_in,

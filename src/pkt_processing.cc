@@ -46,8 +46,6 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
             return new pkt_proc_json_writer_llq(mc, llq, cfg->output_block);
 
         }
-        // note: we no longer have a 'packet dumper' option
-        //    return new pkt_proc_dumper();
 
     }
     catch (const char *s) {

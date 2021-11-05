@@ -449,7 +449,7 @@ struct dns_packet {
     struct datum records;
     size_t length;
     uint16_t qdcount, ancount, nscount, arcount;
-    static const uint16_t max_count = 32;
+    static const uint16_t max_count = 256;
 
     dns_packet() : header{NULL}, records{NULL, NULL}, length{0} {  }
 
@@ -458,17 +458,17 @@ struct dns_packet {
     }
 
     void parse(struct datum &d) {
-        if (d.length() < (int)sizeof(dns_hdr)) {
-            return;  // too short
-        }
         length = d.length();
-        header = (dns_hdr *)d.data;
-        d.skip(sizeof(dns_hdr));
+        header = d.get_pointer<dns_hdr>();
+        if (header == nullptr) {
+            return;         // too short
+        }
         qdcount = ntohs(header->qdcount);
         ancount = ntohs(header->ancount);
         nscount = ntohs(header->nscount);
         arcount = ntohs(header->arcount);
-        if (qdcount > dns_packet::max_count
+        if (qdcount == 0
+            || qdcount > dns_packet::max_count
             || ancount > dns_packet::max_count
             || nscount > dns_packet::max_count
             || arcount > dns_packet::max_count) {
@@ -478,11 +478,15 @@ struct dns_packet {
         }
         records = d;
 
+        // format check
+        //fprintf(stderr, "qd: %u\tan: %u\tns: %u\tar: %u\tlength: %zu\tweighted sum: %zu\n", qdcount, ancount, nscount, arcount, length, qdcount * 5 + (ancount + nscount + arcount) * 15 - sizeof(dns_hdr));
+
         // trial parsing, just to verify dns packet formatting
         dns_question_record question_record;
         question_record.parse(d, records);
         if (question_record.is_not_empty() == false) {
             records.set_null();
+            header = NULL;
             //fprintf(stderr, "notice: setting dns packet to null\n");
         }
     }
@@ -554,6 +558,22 @@ struct dns_packet {
 
         dns_json.close();
     }
+
+    // mask:   0040fe8eff00ff00fee0
+    // value:  00000000000000000000
+
+    static constexpr mask_and_value<16> matcher_new {
+        { 0x00, 0x00, // ID
+          0x00, 0x00, // Flags
+          0xff, 0x00, // QDCOUNT
+          0xff, 0x00, // ANCOUNT
+          0xff, 0x00, // NSCOUNT
+          0xff, 0x00, // ARCOUNT
+          0x00, 0x00,
+          0x00, 0x00
+        },
+        { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+    };
 
     static constexpr mask_and_value<8> matcher {
         { 0x00, 0x00, 0x50, 0x48, 0xff, 0xfe, 0xff, 0xe0 },

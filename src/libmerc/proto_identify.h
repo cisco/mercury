@@ -171,12 +171,8 @@ public:
             tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
         }
         if (protocols["http"] || protocols["all"]) {
-            tcp.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
+            tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
+            tcp.add_protocol(http_request::matcher, tcp_msg_type_http_request);
         }
         else if(protocols["http.request"])
         {
@@ -199,7 +195,7 @@ public:
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
         }
 
-        // UDP and booleans not yet implemented
+        // booleans not yet implemented
         //
         if (protocols["tcp"] || protocols["all"]) {
             select_tcp_syn = true;

@@ -14,11 +14,6 @@
 
 void dump_packet_info(struct datum &pkt_data);
 
-// sig_close_flag is a dummy variable, needed to compile this program
-// with pcap_file_io.c, which expects that variable as an 'extern'
-//
-int sig_close_flag = false;
-
 int main(int argc, char *argv[]) {
 
     if (argc != 2) {
@@ -65,17 +60,16 @@ void dump_packet_info(struct datum &pkt_data) {
     case ETH_TYPE_IPV6:
         fprintf(stdout, "packet.ethertype: %u\n", ethertype);
         {
-            ip ip_pkt;
             key k;
-            set_ip_packet(ip_pkt, pkt_data, k);
-            uint8_t protocol = std::visit(get_transport_protocol{}, ip_pkt);
+            ip ip_pkt{pkt_data, k};
+            ip::protocol protocol = ip_pkt.transport_protocol();
             fprintf(stdout, "packet.ip.protocol: %u\n", protocol);
-            if (protocol == 6) {
+            if (protocol == ip::protocol::tcp) {
                 struct tcp_packet tcp_pkt;
                 tcp_pkt.parse(pkt_data);
                 tcp_pkt.set_key(k);
                 fprintf(stdout, "packet.ip.tcp.data.length: %zd\n", pkt_data.length());
-            } else if (protocol == 17) {
+            } else if (protocol == ip::protocol::udp) {
                 class udp udp_pkt{pkt_data};
                 udp_pkt.set_key(k);
             }

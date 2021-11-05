@@ -11,6 +11,8 @@
 #include "pkt_processing.h"
 #include "libmerc/utils.h"
 
+extern int sig_close_flag;  // defined in signal_handling.c
+
 #define BILLION 1000000000L
 
 enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_thread_context *tc,
@@ -53,7 +55,7 @@ void *pcap_file_processing_thread_func(void *userdata) {
     struct pcap_reader_thread_context *tc = (struct pcap_reader_thread_context *)userdata;
     enum status status;
 
-    status = pcap_file_dispatch_pkt_processor(&tc->rf, tc->pkt_processor, tc->loop_count);
+    status = pcap_file_dispatch_pkt_processor(&tc->rf, tc->pkt_processor, tc->loop_count, sig_close_flag);
     if (status) {
         printf("error in pcap file dispatch (code: %d)\n", (int)status);
         return NULL;

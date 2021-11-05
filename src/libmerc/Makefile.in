@@ -26,6 +26,7 @@ datarootdir = @datarootdir@/mercury
 STRIP = strip
 
 CFLAGS += -fPIC
+CFLAGS += -DDONT_USE_STDERR
 
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,

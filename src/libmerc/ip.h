@@ -61,8 +61,8 @@ class ipv4_packet {
 
     ipv4_packet() : header{NULL} { }
 
-    ipv4_packet(struct datum *p, struct key *k) : header{NULL} {
-        parse(*p, *k);
+    ipv4_packet(struct datum &p, struct key &k) : header{NULL} {
+        parse(p, k);
     }
 
     uint8_t get_transport_protocol() const {
@@ -347,8 +347,8 @@ public:
 
     ipv6_packet() : header{NULL}, transport_protocol{ipv6_extension_header::type::reserved} { }
 
-    ipv6_packet(struct datum *p, struct key *k) : header{NULL}, extension_headers{}, transport_protocol{ipv6_extension_header::type::reserved} {
-        parse(*p, *k);
+    ipv6_packet(struct datum &p, struct key &k) : header{NULL}, extension_headers{}, transport_protocol{ipv6_extension_header::type::reserved} {
+        parse(p, k);
     }
 
     uint8_t get_transport_protocol() const {
@@ -432,31 +432,7 @@ public:
 };
 
 
-using ip = std::variant<std::monostate, ipv4_packet, ipv6_packet>;
-
-void set_ip_packet(ip &packet, datum &d, key &k) {
-    uint8_t version;
-    d.lookahead_uint8(&version);  // peek at first half-byte for version field
-    switch(version & 0xf0) {
-    case 0x40:
-        {
-            packet.emplace<ipv4_packet>();
-            auto &p = std::get<ipv4_packet>(packet);
-            p.parse(d, k);
-            break;
-        }
-    case 0x60:
-        {
-            packet.emplace<ipv6_packet>();
-            auto &p = std::get<ipv6_packet>(packet);
-            p.parse(d, k);
-            break;
-        }
-    default:
-        packet.emplace<std::monostate>();
-        break;
-    }
-}
+//using ip = std::variant<std::monostate, ipv4_packet, ipv6_packet>;
 
 struct get_transport_protocol {
 
@@ -497,6 +473,87 @@ struct ip_pkt_write_fingerprint {
     }
 
     void operator()(std::monostate &) {
+    }
+};
+
+class ip {
+    std::variant<std::monostate, ipv4_packet, ipv6_packet> packet;
+
+public:
+
+    enum protocol : uint8_t {
+        hopopt     = 0,     // IPv6 Hop-by-Hop Option                 [RFC8200]
+        icmp       = 1,     // Internet Control Message               [RFC792]
+        igmp       = 2,     // Internet Group Management              [RFC1112]
+        ggp        = 3,     // Gateway-to-Gateway                     [RFC823]
+        ipv4       = 4,     // IPv4 encapsulation                     [RFC2003]
+        st         = 5,     // Stream                                 [RFC1190][RFC1819]
+        tcp        = 6,     // Transmission Control Protocol          [RFC793]
+        egp        = 8,     // Exterior Gateway Protocol              [RFC888]
+        igp        = 9,     // any private interior gateway protocol
+        udp        = 17,    // User Datagram Protocol                 [RFC768]
+        dccp       = 33,    // Datagram Congestion Control Protocol   [RFC4340]
+        ipv6       = 41,    // IPv6 encapsulation                     [RFC2473]
+        ipv6_route = 43,    // Routing Header for IPv6
+        ipv6_frag  = 44,    // Fragment Header for IPv6
+        idrp       = 45,    // Inter-Domain Routing Protocol
+        rsvp       = 46,    // Reservation Protocol                   [RFC2205][RFC3209]
+        gre        = 47,    // Generic Routing Encapsulation          [RFC2784]
+        esp        = 50,    // Encap Security Payload                 [RFC4303]
+        ah         = 51,    // Authentication Header                  [RFC4302]
+        mobile     = 55,    // IP Mobility
+        IPv6_ICMP  = 58,    // ICMP for IPv6                          [RFC8200]
+        IPv6_NoNxt = 59,    // No Next Header for IPv6                [RFC8200]
+        IPv6_Opts  = 60,    // Destination Options for IPv6           [RFC8200]
+        eigrp      = 88,    // EIGRP                                  [RFC7868]
+        ospfigp    = 89,    // OSPFIGP                                [RFC1583][RFC2328][RFC5340]
+        etherip    = 97,    // Ethernet-within-IP Encapsulation       [RFC3378]
+        pim        = 103,   // Protocol Independent Multicast         [RFC7761]
+        ipcomp     = 108,   // IP Payload Compression Protocol        [RFC2393]
+        l2tp       = 115,   // Layer Two Tunneling Protocol           [RFC3931]
+        sctp       = 132,   // Stream Control Transmission Protocol
+        fc         = 133,   // Fibre Channel                          [RFC6172]
+        mobility   = 135,   // Mobility Header                        [RFC6275]
+        udplite    = 136,   // [RFC3828]
+        mpls_in_ip = 137,   // [RFC4023]
+        manet      = 138,   // MANET Protocols                        [RFC5498]
+        hip        = 139,   // /Host Identity Protocol                [RFC7401]
+        shim6      = 140,   // Shim6 Protocol                         [RFC5533]
+        wesp       = 141,   // Wrapped Encapsulating Security Payload [RFC5840]
+        rohc       = 142,   // Robust Header Compression              [RFC5858]
+        ethernet   = 143,   // Ethernet                               [RFC8986]
+        reserved   = 255
+    };
+
+    ip(datum &d, key &k) {
+        parse(d, k);
+    }
+
+    void parse(datum &d, key &k) {
+        uint8_t version;
+        d.lookahead_uint8(&version);  // peek at first half-byte for version field
+        switch(version & 0xf0) {
+        case 0x40:
+            packet.emplace<ipv4_packet>(d, k);
+            break;
+        case 0x60:
+            packet.emplace<ipv6_packet>(d, k);
+            break;
+        default:
+            packet.emplace<std::monostate>();
+        }
+    }
+
+    void write_json(json_object &o) {
+        std::visit(ip_pkt_write_json{o}, packet);
+    }
+
+    void write_fingerprint(json_object &o) {
+        std::visit(ip_pkt_write_fingerprint{o}, packet);
+    }
+
+    ip::protocol transport_protocol() {  // TODO: should be const
+        return static_cast<ip::protocol>(std::visit(get_transport_protocol{}, packet));
     }
 };
 
