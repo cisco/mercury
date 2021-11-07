@@ -434,9 +434,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     struct buffer_stream buf{(char *)buffer, buffer_size};
     struct key k;
     struct datum pkt{ip_packet, ip_packet+length};
-    ip ip_pkt;
-    set_ip_packet(ip_pkt, pkt, k);
-    size_t transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
+    ip ip_pkt{pkt, k};
+    uint8_t transport_proto = ip_pkt.transport_protocol();
 
     // process encapsulations
     //
@@ -445,8 +444,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         switch(gre.get_protocol_type()) {
         case ETH_TYPE_IP:
         case ETH_TYPE_IPV6:
-            set_ip_packet(ip_pkt, pkt, k);  // note: overwriting outer ip header
-            transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
+            ip_pkt.parse(pkt, k);    // note: overwriting outer ip header in key
+            transport_proto = ip_pkt.transport_protocol();
             break;
         default:
             ;
@@ -462,7 +461,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         struct json_object record{&buf};
 
-        std::visit(ip_pkt_write_json{record}, ip_pkt);
+        ip_pkt.write_json(record);
         icmp.write_json(record);
 
         write_flow_key(record, k);
@@ -485,12 +484,13 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 struct json_object record{&buf};
 
                 if (report_IP && global_vars.metadata_output) {
-                    std::visit(ip_pkt_write_json{record}, ip_pkt);
+                    ip_pkt.write_json(record);
                 }
 
                 struct json_object fps{record, "fingerprints"};
                 if (report_IP) {
-                    std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);
+                    ip_pkt.write_fingerprint(fps);
+                    //  std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);
                 }
                 fps.print_key_value("tcp", tcp_pkt);
                 fps.close();
@@ -611,7 +611,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
     } else if (report_OSPF && transport_proto == 89) { // OSPF
         struct json_object record{&buf};
-        std::visit(ip_pkt_write_json{record}, ip_pkt);
+        ip_pkt.write_json(record);
         struct json_object ospf_record{record, "ospf"};
         ospf_record.print_key_hex("data", pkt);
         ospf_record.close();

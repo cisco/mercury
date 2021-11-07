@@ -61,7 +61,11 @@ extern "C"
 #endif
 typedef int (*printf_err_ptr)(enum log_level level, const char *format, ...);
 
+#ifdef DONT_USE_STDERR
 int printf_err(enum log_level level, const char *format, ...);
+#else
+#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 // register_printf_err_callback() registers a callback function for
 // printing error messages with a printf-style function.  The function

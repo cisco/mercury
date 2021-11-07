@@ -11,13 +11,12 @@
 #include "libmerc/ip.h"
 #include "libmerc/tcpip.h"
 #include "libmerc/udp.h"
+
 #include "libmerc/dns.h"
 #include "libmerc/quic.h"
 #include "libmerc/tls.h"
 #include "libmerc/http.h"
 #include "options.h"
-
-bool parse_as_dns(struct datum pkt_data);
 
 datum get_udp_data(struct datum eth_pkt);
 
@@ -173,39 +172,6 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-bool parse_as_dns(struct datum pkt_data) {
-
-    // TODO: handle GRE, IPinIP, etc.
-
-    eth ethernet{pkt_data};
-    uint16_t ethertype = ethernet.get_ethertype();
-    switch(ethertype) {
-    case ETH_TYPE_IP:
-    case ETH_TYPE_IPV6:
-        {
-            ip ip_pkt;
-            key k;
-            set_ip_packet(ip_pkt, pkt_data, k);
-            uint8_t protocol = std::visit(get_transport_protocol{}, ip_pkt);
-            //fprintf(stdout, "packet.ip.protocol: %u\n", protocol);
-            if (protocol == 17) {
-                class udp udp_pkt{pkt_data};
-                udp_pkt.set_key(k);
-                struct dns_packet dns;
-                dns.parse(pkt_data);
-                if (dns.is_not_empty()) {
-                    return true;
-                }
-            }
-        }
-        break;
-    default:
-        ;   // ignore other ethertypes
-    }
-
-    return false;
-}
-
 datum get_udp_data(struct datum eth_pkt) {
 
     // TODO: handle GRE, IPinIP, etc.
@@ -216,11 +182,10 @@ datum get_udp_data(struct datum eth_pkt) {
     case ETH_TYPE_IP:
     case ETH_TYPE_IPV6:
         {
-            ip ip_pkt;
             key k;
-            set_ip_packet(ip_pkt, eth_pkt, k);
-            uint8_t protocol = std::visit(get_transport_protocol{}, ip_pkt);
-            if (protocol == 17) {
+            ip ip_pkt{eth_pkt, k};
+            ip::protocol protocol = ip_pkt.transport_protocol();
+            if (protocol == ip::protocol::udp) {
                 class udp udp_pkt{eth_pkt};
                 //udp_pkt.set_key(k);
                 return eth_pkt;
@@ -244,11 +209,11 @@ datum get_tcp_data(struct datum eth_pkt) {
     case ETH_TYPE_IP:
     case ETH_TYPE_IPV6:
         {
-            ip ip_pkt;
             key k;
-            set_ip_packet(ip_pkt, eth_pkt, k);
-            uint8_t protocol = std::visit(get_transport_protocol{}, ip_pkt);
-            if (protocol == 6) {
+            ip ip_pkt{eth_pkt, k};
+
+            ip::protocol protocol = ip_pkt.transport_protocol();
+            if (protocol == ip::protocol::tcp) {
                 tcp_packet tcp;
                 tcp.parse(eth_pkt);
                 //tcp.set_key(k);
