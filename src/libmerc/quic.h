@@ -181,34 +181,31 @@ public:
 // }
 //
 class crypto {
+    variable_length_integer offset;
+    variable_length_integer length;
     datum data;
-    size_t _buf_len = 0;
-    unsigned char _buffer[pt_buf_len] = {};
+
 public:
-    crypto() : data{&_buffer[0], &_buffer[0] + pt_buf_len} {};
-    crypto(datum &p) : data{&_buffer[0], &_buffer[0] + pt_buf_len} { extend(p); }
+    crypto(datum &p) : offset{p}, length{p}, data{p, length.value()} {    }
 
-    bool is_valid() const { return _buf_len > 0; }
+    bool is_valid() const { return data.is_not_empty(); }
 
-    datum &get_data() {  data.trim_to_length(_buf_len); return data; } // note: function is not const
+    datum &get_data() { return data; } // note: function is not const
 
-    void extend(datum& d)
+    uint64_t get_offset() const
     {
-        auto offset = variable_length_integer(d);
-        auto length = variable_length_integer(d);
+        return offset.value();
+    }
 
-        if(length.value() == 0 || d.data + length.value() > d.data_end)
-            return;
-
-        //runtime error possible, may be memmove would be better here?
-        memmove(_buffer + offset.value(), d.data, length.value());
-        d.skip(length.value());
-        _buf_len += length.value();
+    uint64_t get_length() const
+    {
+        return length.value();
     }
 
 	void write(FILE *f) {
         if (is_valid()) {
-        	fprintf(f, "crypto.valid");
+        	fprintf(f, "crypto.offset: %lu\n", offset.value());
+        	fprintf(f, "crypto.length: %lu\n", length.value());
         } else {
         	fprintf(f, "crypto.not valid\n");
        	}
@@ -800,6 +797,23 @@ public:
 	void operator()(std::monostate &) { }
 };
 
+struct cryptographic_buffer
+{
+    uint64_t buf_len = 0;
+    unsigned char buffer[pt_buf_len] = {};
+
+    void extend(crypto& d)
+    {
+        memmove(buffer + d.get_offset(), d.get_data().data, d.get_length());
+        buf_len += d.get_length();
+    }
+
+    bool is_valid()
+    {
+        return buf_len > 0;
+    }
+};
+
 // class quic_init represents an initial quic message
 //
 class quic_init {
@@ -828,13 +842,15 @@ public:
                     break;  // parse error
                 }
             }
-            crypto c;
+            cryptographic_buffer crypto_buffer;
             while (plaintext.is_not_empty()) {
                 uint8_t type = 0;
                 plaintext.read_uint8(&type);
                 //  fprintf(stderr, "plaintext.type: %02x\n", type);
                 if (type == 0x06) {
-                    c.extend(plaintext);
+                    crypto c{plaintext};
+                    if(c.is_valid())
+                        crypto_buffer.extend(c);
                 } else if (type == 0x1c) {
                     connection_close c{plaintext};
                 } else if (type == 0x00) {
@@ -843,9 +859,9 @@ public:
                     ; // ping frame
                 }
             }
-            if(c.is_valid())
-            {
-                tls_handshake tls{c.get_data()};
+            if(crypto_buffer.is_valid()){
+                struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
+                tls_handshake tls{d};
                 hello.parse(tls.body);
                 // if (!hello.is_not_empty()) {
                 //     fprintf(stderr, "plaintext could not be parsed as tls_client_hello\n");
