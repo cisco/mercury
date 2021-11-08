@@ -689,7 +689,8 @@ public:
                             uint16_t tmp_port = 0;
                             auto port_it = string_to_port.find(y.name.GetString());
                             if (port_it == string_to_port.end()) {
-                                throw std::runtime_error("error: unexpected string in classes_port_applications");
+                                tmp_port = 0; // set port to unknown
+                                //throw std::runtime_error("error: unexpected string in classes_port_applications");
                                 //fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
                             } else {
                                 tmp_port = port_it->second;
