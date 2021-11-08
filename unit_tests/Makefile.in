@@ -24,6 +24,9 @@ libmerc_driver_coverage: debug-libmerc $(UNIT_TESTS) $(LIBMERC_SO) Makefile.in $
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 
+verifier:
+	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc -o verifier pdu_verifier.cc ./../src/pcap_file_io.c -L./libmerc $(LIBMERC_SO)
+
 .PHONY: debug-libmerc
 debug-libmerc: 
 	cd ../src && $(MAKE) debug-libmerc
@@ -31,6 +34,7 @@ debug-libmerc:
 .PHONY: clean
 clean:
 	rm -rf libmerc_driver
+	rm -rf verifier
 	rm -rf *.json.gz 
 	find -type f -name "*.gcno" -delete
 	find -type f -name "*.gcda" -delete

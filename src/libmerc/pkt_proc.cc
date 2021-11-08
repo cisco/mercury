@@ -17,6 +17,7 @@
 // interface to mercury's packet parsing and handling routines
 //
 #include "proto_identify.h"
+#include "arp.h"
 #include "ip.h"
 #include "tcp.h"
 #include "dns.h"
@@ -36,7 +37,7 @@
 #include "buffer_stream.h"
 #include "stats.h"
 
-double malware_prob_threshold = -1.0; // TODO: document hidden option
+// double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
     if (k.ip_vers == 6) {
@@ -86,12 +87,34 @@ public:
     void operator()(buffer_stream &) { }
 
     void write_json(json_object &record, bool) {
-        struct json_object tcp{record, "tcp"};
+        struct json_object tcp{record, "tcp"};     // TODO: tcp or udp
         tcp.print_key_hex("data", tcp_data_field);
         tcp.close();
     }
 
     bool is_not_empty() { return tcp_data_field.is_not_empty(); }
+
+};
+
+// class unknown_udp_initial_packet represents the initial data field of a
+// udp packet from an unknown protocol
+//
+class unknown_udp_initial_packet {
+    datum udp_data_field;
+
+public:
+
+    unknown_udp_initial_packet(struct datum &pkt) : udp_data_field{pkt} { }
+
+    void operator()(buffer_stream &) { }
+
+    void write_json(json_object &record, bool) {
+        struct json_object udp{record, "udp"};
+        udp.print_key_hex("data", udp_data_field);
+        udp.close();
+    }
+
+    bool is_not_empty() { return udp_data_field.is_not_empty(); }
 
 };
 
@@ -109,7 +132,7 @@ using udp_protocol = std::variant<std::monostate,
                                   tls_client_hello, // dtls
                                   tls_server_hello, // dtls
                                   dhcp_discover,
-                                  unknown_initial_packet
+                                  unknown_udp_initial_packet
                                   >;
 
 void set_udp_protocol(udp_protocol &x,
@@ -179,9 +202,7 @@ void set_udp_protocol(udp_protocol &x,
         break;
     default:
         if (is_new) {
-            x.emplace<unknown_initial_packet>();
-            auto &msg = std::get<unknown_initial_packet>(x);
-            msg.parse(pkt);
+            x.emplace<unknown_udp_initial_packet>(pkt);
         } else {
             x.emplace<std::monostate>();
         }
@@ -274,6 +295,7 @@ struct compute_fingerprint {
     //
     void operator()(wireguard_handshake_init &) { }
     void operator()(unknown_initial_packet &) { }
+    void operator()(unknown_udp_initial_packet &) { }
     void operator()(dns_packet &) { }
     void operator()(std::monostate &) { }
 
@@ -412,9 +434,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     struct buffer_stream buf{(char *)buffer, buffer_size};
     struct key k;
     struct datum pkt{ip_packet, ip_packet+length};
-    ip ip_pkt;
-    set_ip_packet(ip_pkt, pkt, k);
-    size_t transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
+    ip ip_pkt{pkt, k};
+    uint8_t transport_proto = ip_pkt.transport_protocol();
 
     // process encapsulations
     //
@@ -423,8 +444,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         switch(gre.get_protocol_type()) {
         case ETH_TYPE_IP:
         case ETH_TYPE_IPV6:
-            set_ip_packet(ip_pkt, pkt, k);  // note: overwriting outer ip header
-            transport_proto = std::visit(get_transport_protocol{}, ip_pkt);
+            ip_pkt.parse(pkt, k);    // note: overwriting outer ip header in key
+            transport_proto = ip_pkt.transport_protocol();
             break;
         default:
             ;
@@ -440,7 +461,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         struct json_object record{&buf};
 
-        std::visit(ip_pkt_write_json{record}, ip_pkt);
+        ip_pkt.write_json(record);
         icmp.write_json(record);
 
         write_flow_key(record, k);
@@ -463,12 +484,13 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 struct json_object record{&buf};
 
                 if (report_IP && global_vars.metadata_output) {
-                    std::visit(ip_pkt_write_json{record}, ip_pkt);
+                    ip_pkt.write_json(record);
                 }
 
                 struct json_object fps{record, "fingerprints"};
                 if (report_IP) {
-                    std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);
+                    ip_pkt.write_fingerprint(fps);
+                    //  std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);
                 }
                 fps.print_key_value("tcp", tcp_pkt);
                 fps.close();
@@ -571,7 +593,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 }
             }
 
-            if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
+            // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
 
             struct json_object record{&buf};
             if (analysis.fp.get_type() != fingerprint_type_unknown) {
@@ -589,7 +611,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
     } else if (report_OSPF && transport_proto == 89) { // OSPF
         struct json_object record{&buf};
-        std::visit(ip_pkt_write_json{record}, ip_pkt);
+        ip_pkt.write_json(record);
         struct json_object ospf_record{record, "ospf"};
         ospf_record.print_key_hex("data", pkt);
         ospf_record.close();
@@ -622,6 +644,8 @@ bool stateful_pkt_proc::ip_set_analysis_result(struct analysis_result *r,
     return false;
 }
 
+constexpr bool report_ARP = false;
+
 size_t stateful_pkt_proc::write_json(void *buffer,
                                      size_t buffer_size,
                                      uint8_t *packet,
@@ -642,6 +666,21 @@ size_t stateful_pkt_proc::write_json(void *buffer,
                              pkt.length(),
                              ts,
                              reassembler);
+    case ETH_TYPE_ARP:
+        if (report_ARP) {
+            arp_packet arp{pkt};
+            if (arp.is_valid()) {
+                struct buffer_stream buf{(char *)buffer, buffer_size};
+                struct json_object record{&buf};
+                arp.write_json(record);
+                record.close();
+                if (buf.length() != 0 && buf.trunc == 0) {
+                    buf.strncpy("\n");
+                    return buf.length();
+                }
+            }
+        }
+        break;
     default:
         ;  // unsupported ethertype
     }
@@ -860,7 +899,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
             }
         }
 
-        if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return; } // TODO - expose hidden command
+        // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return; } // TODO - expose hidden command
 
         struct json_object record{&buf};
         if (analysis.fp.get_type() != fingerprint_type_unknown) {

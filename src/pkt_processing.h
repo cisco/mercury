@@ -309,24 +309,6 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
 };
 
 /*
- * pkt_proc_dumper writes a JSON object summarizing each packet to
- * stdout
- */
-struct pkt_proc_dumper : public pkt_proc {
-
-    pkt_proc_dumper() {}
-
-    void apply(struct packet_info *pi, uint8_t *eth) override {
-        packet_fprintf(stdout, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
-    }
-
-    void finalize() override { }
-
-    void flush() override {
-    }
-};
-
-/*
  * the function pkt_proc_new_from_config() takes as input a
  * configuration structure, a thread number, and a pointer to a
  * fileset identifier, and returns a pointer to a new packet processor

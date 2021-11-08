@@ -61,6 +61,12 @@ extern "C"
 #endif
 typedef int (*printf_err_ptr)(enum log_level level, const char *format, ...);
 
+#ifdef DONT_USE_STDERR
+int printf_err(enum log_level level, const char *format, ...);
+#else
+#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 // register_printf_err_callback() registers a callback function for
 // printing error messages with a printf-style function.  The function
 // int printf_err_func() in err.cc provides an example of how to
@@ -77,7 +83,7 @@ void register_printf_err_callback(printf_err_ptr callback);
 
 // printf_err() should be called to invoke the callback function
 //
-extern printf_err_ptr printf_err;  // defined in libmerc.cc
+//extern printf_err_ptr printf_err;  // defined in libmerc.cc
 
 //
 // start of libmerc version 1 API
