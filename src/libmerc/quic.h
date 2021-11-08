@@ -27,6 +27,8 @@
 #include "match.h"
 //#include "quic-versions.h"
 
+#define pt_buf_len 2048 // plaintext buffer length
+
 /*
  * QUIC header format (from draft-ietf-quic-transport-32):
  *
@@ -189,6 +191,16 @@ public:
     bool is_valid() const { return data.is_not_empty(); }
 
     datum &get_data() { return data; } // note: function is not const
+
+    uint64_t get_offset() const
+    {
+        return offset.value();
+    }
+
+    uint64_t get_length() const
+    {
+        return length.value();
+    }
 
 	void write(FILE *f) {
         if (is_valid()) {
@@ -492,10 +504,6 @@ public:
     }
 };
 
-
-
-#define pt_buf_len 1024 // plaintext buffer length
-
 struct quic_initial_packet_crypto {
     bool valid;
 
@@ -566,12 +574,6 @@ struct quic_initial_packet_crypto {
             valid = false;
             return;
         }
-
-        if ((plaintext[4] != 0x01) || (plaintext[8] != 0x03) || (plaintext[9] != 0x03)) {
-            valid = false;
-            return;
-        }
-
     }
 
     // adapted from https://wiki.openssl.org/index.php/EVP_Authenticated_Encryption_and_Decryption
@@ -795,6 +797,23 @@ public:
 	void operator()(std::monostate &) { }
 };
 
+struct cryptographic_buffer
+{
+    uint64_t buf_len = 0;
+    unsigned char buffer[pt_buf_len] = {};
+
+    void extend(crypto& d)
+    {
+        memmove(buffer + d.get_offset(), d.get_data().data, d.get_length());
+        buf_len += d.get_length();
+    }
+
+    bool is_valid()
+    {
+        return buf_len > 0;
+    }
+};
+
 // class quic_init represents an initial quic message
 //
 class quic_init {
@@ -823,20 +842,15 @@ public:
                     break;  // parse error
                 }
             }
-
+            cryptographic_buffer crypto_buffer;
             while (plaintext.is_not_empty()) {
                 uint8_t type = 0;
                 plaintext.read_uint8(&type);
                 //  fprintf(stderr, "plaintext.type: %02x\n", type);
                 if (type == 0x06) {
                     crypto c{plaintext};
-                    tls_handshake handshake{c.get_data()};
-                    hello.parse(handshake.body);
-                    // if (!hello.is_not_empty()) {
-                    //     fprintf(stderr, "plaintext could not be parsed as tls_client_hello\n");
-                    // } else {
-                    //     fprintf(stderr, "SUCCESS\n");
-                    // }
+                    if(c.is_valid())
+                        crypto_buffer.extend(c);
                 } else if (type == 0x1c) {
                     connection_close c{plaintext};
                 } else if (type == 0x00) {
@@ -845,7 +859,20 @@ public:
                     ; // ping frame
                 }
             }
-
+            if(crypto_buffer.is_valid()){
+                struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
+                tls_handshake tls{d};
+                hello.parse(tls.body);
+                // if (!hello.is_not_empty()) {
+                //     fprintf(stderr, "plaintext could not be parsed as tls_client_hello\n");
+                // } else {
+                //     fprintf(stderr, "SUCCESS\n");
+                // }
+            }
+            else
+            {
+                quic_pkt_crypto.valid = false;
+            }
         }
     }
 
