@@ -139,6 +139,20 @@ public:
 //   Type (i) = 0x01,
 // }
 //
+//
+// ACK Range {
+//   Gap (i),
+//   ACK Range Length (i),
+// }
+//
+class ack_range {
+    variable_length_integer gap;
+    variable_length_integer length;
+public:
+
+    ack_range(datum &d) : gap{d}, length{d} { }
+};
+
 // ACK Frame {
 //   Type (i) = 0x02..0x03,
 //   Largest Acknowledged (i),
@@ -149,10 +163,50 @@ public:
 //   [ECN Counts (..)],
 // }
 //
-// ACK Range {
-//   Gap (i),
-//   ACK Range Length (i),
-// }
+class ack {
+    variable_length_integer largest_acked;
+    variable_length_integer ack_delay;
+    variable_length_integer ack_range_count;
+    variable_length_integer first_ack_range;
+    bool valid;
+
+public:
+    ack(datum &d) : largest_acked{d}, ack_delay{d}, ack_range_count{d}, first_ack_range{d}, valid{false} {
+        for (unsigned i=0; i<ack_range_count.value(); i++) {
+            ack_range range{d};
+        }
+        if (d.is_null()) {
+            return;
+        }
+        valid = true;
+    }
+
+    bool is_valid() const { return valid; }
+
+    void write_json(json_object &o) {
+        if (is_valid()) {
+            json_object a{o, "ack"};
+            a.print_key_uint("largest_acked", largest_acked.value());
+            a.print_key_uint("ack_delay", ack_delay.value());
+            a.print_key_uint("ack_range_count", ack_range_count.value());
+            a.print_key_uint("first_ack_range", first_ack_range.value());
+            a.close();
+        }
+    }
+
+	void write(FILE *f) {
+    	if (is_valid()) {
+        	fprintf(f, "ack.largest_acked: %lu\n", largest_acked.value());
+        	fprintf(f, "ack.ack_delay: %lu\n", ack_delay.value());
+        	fprintf(f, "ack.ack_range_count: %lu\n", ack_range_count.value());
+        	fprintf(f, "ack.first_ack_range: %lu\n", first_ack_range.value());
+        } else {
+        	fprintf(f, "ack.not valid\n");
+        }
+    }
+
+};
+
 //
 // ECN Counts {
 //   ECT0 Count (i),
@@ -563,16 +617,21 @@ public:
     }
 
     datum decrypt(const quic_initial_packet &quic_pkt) {
-        process_initial_packet(quic_pkt);
+        if (!quic_pkt.is_not_empty()) {
+            return {nullptr, nullptr};
+        }
+        if (process_initial_packet(quic_pkt) == false) {
+            return {nullptr, nullptr};
+        }
         decrypt__(quic_pkt.payload.data, quic_pkt.payload.length());
         return {plaintext, plaintext+plaintext_len};
     }
 
 private:
 
-    void process_initial_packet(const quic_initial_packet &quic_pkt) {
+    bool process_initial_packet(const quic_initial_packet &quic_pkt) {
         if (!quic_pkt.is_not_empty()) {
-            return;
+            return false;
         }
         const uint8_t *dcid = quic_pkt.dcid.data;
         size_t dcid_len = quic_pkt.dcid.length();
@@ -581,7 +640,7 @@ private:
         static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
         uint8_t *initial_salt = quic_params.get_initial_salt(version);
         if (initial_salt == nullptr) {
-            return;
+            return false;
         }
 
         uint8_t initial_secret[EVP_MAX_MD_SIZE];
@@ -619,6 +678,7 @@ private:
             quic_iv[i] ^= (mask[(i-(quic_iv_len-pn_length))+1] ^ *(quic_pkt.payload.data + (i-(quic_iv_len-pn_length))));
         }
 
+        return true;
     }
 
     void decrypt__(const uint8_t *data, unsigned int length) {
@@ -809,7 +869,7 @@ public:
 };
 
 class quic_frame {
-    std::variant<std::monostate, padding, ping, crypto, connection_close> frame;
+    std::variant<std::monostate, padding, ping, ack, crypto, connection_close> frame;
 
 public:
 
@@ -825,8 +885,10 @@ public:
             frame.emplace<padding>(d);
         } else if (type == 0x01) {
             frame.emplace<ping>(d);
+        } else if (type == 0x02) {
+            frame.emplace<ack>(d);
         } else {
-            fprintf(stderr, "unknown frame type %02x\n", type);
+            // fprintf(stderr, "unknown frame type %02x\n", type);  // TODO: report through JSON
             frame.emplace<std::monostate>();
         }
     }
@@ -835,6 +897,11 @@ public:
 
     bool is_valid() const {
         return std::holds_alternative<std::monostate>(frame) == false;
+    }
+
+    template <typename T>
+    bool has_type() const {
+        return std::holds_alternative<T>(frame) == true;
     }
 
     template <typename T>
@@ -911,13 +978,16 @@ public:
         // parse plaintext as a sequence of frames
         //
         datum plaintext_copy = plaintext;
-        // fprintf(stderr, "----------------------------------------\n");
-        // fprintf(stderr, "plaintext length: %zd\n", plaintext.length());
-        // fprintf(stderr, "plaintext: ");
-        // plaintext_copy.fprint_hex(stderr);
-        // fputc('\n', stderr);
+        // if (plaintext.is_not_empty()) {
+        //     fprintf(stderr, "----------------------------------------\n");
+        //     fprintf(stderr, "plaintext length: %zd\n", plaintext.length());
+        //     fprintf(stderr, "plaintext: ");
+        //     plaintext_copy.fprint_hex(stderr);
+        //     fputc('\n', stderr);
+        // }
         while (plaintext_copy.is_not_empty()) {
             quic_frame frame{plaintext_copy};
+            //frame.write(stderr);
             if (!frame.is_valid()) {
                 break;
             }
@@ -926,7 +996,7 @@ public:
             if (c && c->is_valid()) {
                 crypto_buffer.extend(*c);
             }
-            if (frame.get_if<connection_close>()) {
+            if (frame.has_type<connection_close>() || frame.has_type<ack>()) {
                 cc = frame;
             }
         }
@@ -954,7 +1024,14 @@ public:
         if (cc.is_valid()) {
             cc.write_json(quic_record);
         }
-        //quic_record.print_key_hex("plaintext", plaintext);
+        quic_record.print_key_hex("plaintext", plaintext);
+        // json_object frame_dump{record, "frame_dump"};
+        // datum plaintext_copy = plaintext;
+        // while (plaintext_copy.is_not_empty()) {
+        //     quic_frame frame{plaintext_copy};
+        //     frame.write_json(frame_dump);
+        // }
+        // frame_dump.close();
         quic_record.close();
     }
 
