@@ -562,9 +562,9 @@ public:
         }
     }
 
-    datum get_plaintext(const quic_initial_packet &quic_pkt) {
+    datum decrypt(const quic_initial_packet &quic_pkt) {
         process_initial_packet(quic_pkt);
-        decrypt(quic_pkt.payload.data, quic_pkt.payload.length());
+        decrypt__(quic_pkt.payload.data, quic_pkt.payload.length());
         return {plaintext, plaintext+plaintext_len};
     }
 
@@ -595,20 +595,33 @@ private:
         kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, 12, quic_iv, &quic_iv_len);
         kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, 16, quic_hp, &quic_hp_len);
 
+        // remove header protection (RFC9001, Section 5.4.1)
+        //
         AES_KEY enc_key;
         AES_set_encrypt_key(quic_hp, 128, &enc_key);
-        uint8_t buf[32] = {0};
-        AES_encrypt(quic_pkt.payload.data+4, buf, &enc_key);   // TODO: improve encapsulation
-        pn_length = quic_pkt.connection_info ^ (buf[0] & 0x0f);
+        uint8_t mask[32] = {0};
+        AES_encrypt(quic_pkt.payload.data+4, mask, &enc_key);   // TODO: improve encapsulation
+        pn_length = quic_pkt.connection_info ^ (mask[0] & 0x0f);
         pn_length = (pn_length & 0x03) + 1;
 
+        // reconstruct packet number
+        //
+        uint32_t packet_number = 0;
+        for (int i=0; i<pn_length; i++) {
+            packet_number *= 256;
+            packet_number += mask[i+1] ^ quic_pkt.payload.data[i];
+        }
+        // fprintf(stderr, "pn: %08x\n", packet_number);
+
+        // construct AEAD iv
+        //
         for (uint8_t i = quic_iv_len-pn_length; i < quic_iv_len; i++) {
-            quic_iv[i] ^= (buf[(i-(quic_iv_len-pn_length))+1] ^ *(quic_pkt.payload.data + (i-(quic_iv_len-pn_length))));
+            quic_iv[i] ^= (mask[(i-(quic_iv_len-pn_length))+1] ^ *(quic_pkt.payload.data + (i-(quic_iv_len-pn_length))));
         }
 
     }
 
-    void decrypt(const uint8_t *data, unsigned int length) {
+    void decrypt__(const uint8_t *data, unsigned int length) {
         uint16_t cipher_len = (length-pn_length < pt_buf_len) ? length-pn_length : pt_buf_len;
         plaintext_len = gcm_decrypt(data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
         if (plaintext_len == -1) {
@@ -893,7 +906,7 @@ public:
 
     quic_init(struct datum &d) : initial_packet{d}, quic_crypto{}, crypto_buffer{}, hello{}, plaintext{} {
 
-        plaintext = quic_crypto.get_plaintext(initial_packet);
+        plaintext = quic_crypto.decrypt(initial_packet);
 
         // parse plaintext as a sequence of frames
         //
