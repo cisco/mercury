@@ -55,9 +55,15 @@ struct ipv4_header {
 } __attribute__((packed));
 
 class ipv4_packet {
-    const struct ipv4_header *header;
+    struct ipv4_header *header;
 
  public:
+
+    void set_src_ip(uint32_t new_addr) {
+        if (header) {
+            header->src_addr = new_addr;
+        }
+    }
 
     ipv4_packet() : header{NULL} { }
 
