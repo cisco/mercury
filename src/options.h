@@ -25,7 +25,8 @@
  * TODO: detect ambiguous situations, such as argument::optional that
  * appear before positional parameters
  */
-
+namespace mercury_option
+{
 
 enum class argument {
     required,
@@ -35,6 +36,7 @@ enum class argument {
 };
 
 class option {
+protected:
     std::string name;
     argument arg;
     std::string documentation;
@@ -102,6 +104,17 @@ public:
         return false;
     }
 
+    bool set_optional_parameter(const char* arg)
+    {
+        for (option &o : option_vector) {
+            if (o.arg_type(argument::optional) && !o.is_set()) {
+                o.set_value(arg);
+                return true;
+            }
+        }
+        return false;
+    }
+
     option *find_option_by_name(const char *arg) {
         for (option &o : option_vector) {
             if (o.matches(arg)) {
@@ -120,7 +133,7 @@ public:
         return false;
     }
 
-    bool process_argv(int argc, char *argv[]) {
+    bool process_argv(int argc, char *argv[], bool exit_on_unrecignized = true) {
         if (argc <= 1) {
             return false;  // no options
         }
@@ -128,30 +141,44 @@ public:
 
         option *last_option = nullptr;
         for (int i=0; i<argc; i++) {
-            if (last_option) {
-                if (last_option->arg_type(argument::required)) {
+            if (last_option)
+            {
+                bool option_found = false;
+                if (last_option->arg_type(argument::required))
+                {
                     last_option->set_value(argv[i]);
                     last_option = nullptr;
-
-                } else if (last_option->arg_type(argument::optional)) {
-                    if (!string_matches_option_name(argv[i])) {
+                }
+                else if (last_option->arg_type(argument::optional))
+                {
+                    if (!string_matches_option_name(argv[i]))
+                    {
                         last_option->set_value(argv[i]);
                         last_option = nullptr;
                     }
-                }
-
-            } else {
-                last_option = find_option_by_name(argv[i]);
-                if (last_option == nullptr) {
-                    if (!set_positional_parameter(argv[i])) {
-                        fprintf(stderr, "error: \"%s\" does not match any option name or positional parameter\n", argv[i]);
-                        return false;
+                    else
+                    {
+                        option_found = true;
                     }
                 }
-                if (last_option && (last_option->arg_type(argument::none) || last_option->arg_type(argument::optional))) {
-                    last_option->set_value();
-                    last_option = nullptr;
+                if(!option_found)
+                    continue;
+            }
+            last_option = find_option_by_name(argv[i]);
+            if (last_option == nullptr)
+            {
+                if (!set_positional_parameter(argv[i]))
+                {
+                    fprintf(stderr, "error: \"%s\" does not match any option name or positional parameter\n", argv[i]);
+                    if(exit_on_unrecignized)
+                        return false;
                 }
+            }
+            if (last_option && (last_option->arg_type(argument::none) || last_option->arg_type(argument::optional)))
+            {
+                last_option->set_value();
+                if (last_option->arg_type(argument::none))
+                    last_option = nullptr;
             }
         }
         if (last_option && last_option->arg_type(argument::required)) {
@@ -248,5 +275,5 @@ public:
     }
 
 };
-
+}
 #endif // OPTIONS_H
