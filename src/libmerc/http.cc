@@ -379,8 +379,15 @@ struct datum http_response::get_header(const std::basic_string<uint8_t> &header_
 bool http_request::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
     std::basic_string<uint8_t> host_header = { 'h', 'o', 's', 't', ':', ' ' };
     struct datum host_data = get_header(host_header);
+    std::basic_string<uint8_t> user_agent_header = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
+    struct datum user_agent_data = get_header(user_agent_header);
 
     analysis_.destination.init(host_data, k_);
 
-    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    if (user_agent_data.is_null()) {
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    } else {
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result,
+                                                               user_agent_data.get_string().c_str());
+    }
 }

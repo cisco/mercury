@@ -75,10 +75,22 @@ public:
                 }
                 os_json.close();
             }
-            if (status == fingerprint_status_randomized) {
-                analysis.print_key_string("status", "randomized_fingerprint");
-            }
         } else if (status == fingerprint_status_randomized) {
+            if (max_proc != NULL) {
+                analysis.print_key_string("process", max_proc);
+                analysis.print_key_float("score", max_score);
+                if (classify_malware) {
+                    analysis.print_key_uint("malware", max_mal);
+                    analysis.print_key_float("p_malware", malware_prob);
+                }
+                if ((os_info != NULL) && (os_info_len > 0)) { /* print operating system info */
+                    struct json_object os_json{analysis, "os_info"};
+                    for (uint16_t i = 0; i < os_info_len; i++) {
+                        os_json.print_key_uint(os_info[i].os_name, os_info[i].os_prevalence);
+                    }
+                    os_json.close();
+                }
+            }
             analysis.print_key_string("status", "randomized_fingerprint");
         } else if (status == fingerprint_status_unlabled) {
             analysis.print_key_string("status", "unlabeled_fingerprint");
