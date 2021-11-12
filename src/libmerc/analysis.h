@@ -400,7 +400,7 @@ public:
                 process_score[x.index] += x.value;
             }
         }
-        if (user_agent != NULL) {
+        if (user_agent != nullptr) {
             std::string user_agent_str(user_agent);
             auto user_agent_update = user_agent_updates.find(user_agent_str);
             if (user_agent_update != user_agent_updates.end()) {
@@ -885,7 +885,7 @@ public:
     bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
                                                      const struct destination_context &dc,
                                                      struct analysis_result &result,
-                                                     const char *user_agent = NULL) {
+                                                     const char *user_agent = nullptr) {
 
         // TODO: remove
         //if (fp.type != fingerprint_type_tls) {
