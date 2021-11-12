@@ -195,6 +195,7 @@ public:
 // into an array of char * (with the get_vector() method).  Its member
 // functions are not const because they may update the fp_dict dict
 // member.
+
 //
 class event_encoder {
     dict fp_dict;
@@ -272,46 +273,48 @@ public:
 
     void compress_event_string(std::string &s) {
 
-        const char *c = s.c_str();
-        const char *head = c;
+        std::string::iterator c = s.begin();
+        const std::string::iterator head = c;
         while (*c != '\0') {
             if (*c == '#') {
                 break;
             }
             c++;
         }
-        s[c - head] = '\0';      // replace # with null
+        std::string addr{head, c};
+
         c++;                     // advance past #
-        const char *fp = c;
+        const std::string::iterator fp = c;
         while (*c != '\0') {
             if (*c == '#') {
                 break;
             }
             c++;
         }
-        s[c - head] = '\0';      // replace # with null
+        std::string fngr{fp, c};
+
         c++;                     // advance past #
-        const char *tail = c;
+        const std::string::iterator suffix = c;
+        while (*c != '\0') {
+            c++;
+        }
+        std::string tail{suffix, c};
 
         // compress source address string, for anonymization (regardless of ANON_SRC_IP)
         char src_addr_buf[9];
-        addr_dict.compress(head, src_addr_buf);
-        head = src_addr_buf;
+        addr_dict.compress(addr, src_addr_buf);
 
         // compress fingerprint string
         char compressed_fp_buf[9];
-        fp_dict.compress(fp, compressed_fp_buf);
-
-        //fprintf(stderr, "%s\t%s\t%s\n", s.c_str(), head, compressed_fp_buf);
+        fp_dict.compress(fngr, compressed_fp_buf);
 
         // create new string (in a tmp, to avoid overlapping append() calls) then return it
         std::string tmp;
-        tmp.append(head).append("#");
+        tmp.append(src_addr_buf).append("#");
         tmp.append(compressed_fp_buf).append("#");
         tmp.append(tail);
         s = tmp;
 
-        //fprintf(stderr, "compressed event string: %s\n", s.c_str());
     }
 
 };

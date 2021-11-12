@@ -15,6 +15,8 @@ struct message {
     uint8_t buffer[1024];   // data buffer
     size_t length;          // number of bytes of data in buffer
 
+    message() : length{0} { }
+
     bool copy(const uint8_t *data, size_t data_length) {
         if (data_length > sizeof(buffer)) {
             // fprintf(stderr, "error: data too long in %s (length: %zu)\n", __func__, data_length);
