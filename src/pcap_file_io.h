@@ -50,16 +50,18 @@ enum status pcap_file_read_packet(struct pcap_file *f,
 				  );
 
 struct pcap_file {
-    FILE *file_ptr;
-    int fd;                /* file descriptor that is returned by fileno() */
-    int flags;
-    unsigned int byteswap; /* boolean, indicates if swap needed after read */
-    size_t buf_len;        /* number of bytes in buffer                    */
-    unsigned char *buffer; /* buffer used for disk i/o                     */
-    off_t  allocated_size; /* file size allocated using posix_fallocate    */
-    uint64_t bytes_written; /* number of bytes written to this file       */
-    uint64_t packets_written; /* number of packets written to this file   */
-    uint16_t linktype;        /* data link type                           */
+    FILE *file_ptr = nullptr;
+    int fd = 0;                      // file descriptor returned by fileno()
+    int flags = 0;                   // flags passed to open()
+    unsigned int byteswap = false;   // true if swap needed after read
+    size_t buf_len = 0;              // number of bytes in buffer
+    unsigned char *buffer = nullptr; // buffer used for disk i/o
+    off_t  allocated_size = 0;       // file size allocated using posix_fallocate
+    uint64_t bytes_written = 0;      // number of bytes written to this file
+    uint64_t packets_written = 0;    // number of packets written to this file
+    uint16_t linktype = 0;           // data link type
+
+    pcap_file() { }
 
     pcap_file(const char *fname, enum io_direction dir, int flags=0) {
         if (pcap_file_open(this, fname, dir, flags) != status_ok) {
@@ -88,7 +90,6 @@ struct pcap_file {
         return "unknown";
     }
 
-    pcap_file() { } // TODO: eliminate vacuous constructor
 };
 
 #define pcap_file_init() { NULL, 0, 0, 0, NULL, NULL, NULL }
