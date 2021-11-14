@@ -33,6 +33,8 @@
 #include "udp.h"
 #include "quic.h"
 #include "smtp.h"
+#include "cdp.h"
+#include "lldp.h"
 #include "analysis.h"
 #include "buffer_stream.h"
 #include "stats.h"
@@ -681,6 +683,36 @@ size_t stateful_pkt_proc::write_json(void *buffer,
             }
         }
         break;
+    case ETH_TYPE_CDP:
+        {
+            cdp cdp_packet{pkt};
+            if (cdp_packet.is_not_empty()) {
+                struct buffer_stream buf{(char *)buffer, buffer_size};
+                struct json_object record{&buf};
+                cdp_packet.write_json(record);
+                record.close();
+                if (buf.length() != 0) {
+                      buf.strncpy("\n");
+                      return buf.length();
+               }
+            }
+            return 0;
+        }
+        break;
+    case ETH_TYPE_LLDP:
+        {
+            lldp lldp_packet{pkt};
+            if (lldp_packet.is_not_empty()) {
+                struct buffer_stream buf{(char *)buffer, buffer_size};
+                struct json_object record{&buf};
+                lldp_packet.write_json(record);
+                record.close();
+                if (buf.length() != 0) {
+                      buf.strncpy("\n");
+                      return buf.length();
+               }
+            }
+        }
     default:
         ;  // unsupported ethertype
     }

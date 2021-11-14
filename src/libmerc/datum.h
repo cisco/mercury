@@ -139,7 +139,7 @@ struct datum {
         }
     }
     template <size_t N>
-    bool matches(std::array<uint8_t, N> a) {
+    bool matches(std::array<uint8_t, N> a) const {
         const uint8_t *d = data;
         for (uint8_t x : a) {
             if (d < data_end && *d == x) {
