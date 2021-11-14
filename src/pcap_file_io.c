@@ -235,8 +235,12 @@ enum status pcap_file_open(struct pcap_file *f,
             file_header.network = htons(file_header.network);
         }
         if (file_header.network != pcap_file::LINKTYPE_ETHERNET) {
-            fprintf(stderr, "error: pcap file linktype (%u) unsupported\n", file_header.network);
-            exit(255); // TODO: return error, don't exit
+            if (file_header.network == pcap_file::LINKTYPE_NULL) {
+                fprintf(stderr, "warning: pcap file linktype is NULL (0), assuming ETHERNET\n");
+            } else {
+                fprintf(stderr, "error: pcap file linktype (%u) unsupported\n", file_header.network);
+                exit(EXIT_FAILURE); // TODO: return error, don't exit
+            }
         }
     }
 
