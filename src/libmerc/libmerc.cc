@@ -12,6 +12,7 @@
 #include "analysis.h"
 #include "pkt_proc.h"
 #include "config_generator.h"
+#include "global_config.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -49,6 +50,16 @@ const char *mercury_get_resource_version(struct mercury *mc) {
     return nullptr;
 }
 
+void setup_extended_fields(global_config& lc, const std::string& config)
+{
+    std::vector<libmerc_option> options = 
+    {
+        {"select", "-s", "--select", SETTER_FUNCTION(&lc){ lc.set_protocols(s); }}
+    };
+
+    parse_additional_options(options, config, lc);
+}
+
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
@@ -64,18 +75,17 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     }
 
     try {
+        global_config copy(*vars);
         if(config_contains_delims(vars->packet_filter_cfg))
         {
-            libmerc_config copy = *vars;
-            reconfigure_libmerc_config(copy, "select=" + std::string(vars->packet_filter_cfg));
-            m = new mercury{&copy, verbosity};
-            return m;
+            setup_extended_fields(copy, "select=" + std::string(vars->packet_filter_cfg));
         }
         else
         {
-            m = new mercury{vars, verbosity};
-            return m;  // success
+            copy.set_protocols(copy.packet_filter_cfg);
         }
+        m = new mercury{&copy, verbosity};
+        return m;
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());

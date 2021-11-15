@@ -18,6 +18,7 @@
 #include "libmerc.h"
 #include "stats.h"
 #include "proto_identify.h"
+#include "global_config.h"
 
 /**
  * struct mercury holds state that is used by one or more
@@ -25,12 +26,12 @@
  *
  */
 struct mercury {
-    struct libmerc_config global_vars;
+    struct global_config global_vars;
     data_aggregator aggregator;
     classifier *c;
     class traffic_selector selector;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr}, selector{vars->packet_filter_cfg} {
+    mercury(const struct global_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr}, selector{vars->protocols} {
         global_vars = *vars;
         global_vars.resources = vars->resources;
         global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy?
@@ -62,7 +63,7 @@ struct stateful_pkt_proc {
     mercury_context m;
     classifier *c;        // TODO: change to reference
     data_aggregator *ag;
-    libmerc_config global_vars;
+    global_config global_vars;
     class traffic_selector &selector;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :

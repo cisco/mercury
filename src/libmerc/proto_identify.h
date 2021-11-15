@@ -116,39 +116,39 @@ public:
 
     bool mdns() const { return select_mdns; }
 
-    traffic_selector(const char *config_string) : tcp{}, udp{}, select_tcp_syn{false} {
+    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false} {
 
         // a null configuration string defaults to all protocols
         //
-        const char *all = "all";
-        if (config_string == nullptr) {
-            config_string = all;
-        }
-        // create a map of protocol names and booleans, then update it
-        // based on the configuration string
-        //
-        std::map<std::string, bool> protocols{
-            { "all",         false },
-            { "none",        false },
-            { "dhcp",        false },
-            { "dns",         false },
-            { "dtls",        false },
-            { "http",        false },
-            { "ssh",         false },
-            { "tcp",         false },
-            { "tcp.message", false },
-            { "tls",         false },
-            { "wireguard",   false },
-            { "quic",        false },
-            { "smtp",        false },
-            { "tls.client_hello", false},
-            { "tls.server_hello", false},
-            { "http.request", false},
-            { "http.response", false},
-        };
-        if (!set_config(protocols, config_string)) {
-            throw std::runtime_error("error: could not parse protocol identification configuration string");
-        }
+        // const char *all = "all";
+        // if (config_string == nullptr) {
+        //     config_string = all;
+        // }
+        // // create a map of protocol names and booleans, then update it
+        // // based on the configuration string
+        // //
+        // std::map<std::string, bool> protocols{
+        //     { "all",         false },
+        //     { "none",        false },
+        //     { "dhcp",        false },
+        //     { "dns",         false },
+        //     { "dtls",        false },
+        //     { "http",        false },
+        //     { "ssh",         false },
+        //     { "tcp",         false },
+        //     { "tcp.message", false },
+        //     { "tls",         false },
+        //     { "wireguard",   false },
+        //     { "quic",        false },
+        //     { "smtp",        false },
+        //     { "tls.client_hello", false},
+        //     { "tls.server_hello", false},
+        //     { "http.request", false},
+        //     { "http.response", false},
+        // };
+        // if (!set_config(protocols, config_string)) {
+        //     throw std::runtime_error("error: could not parse protocol identification configuration string");
+        // }
 
         // "none" is a special case; turn off all protocol selection
         //
