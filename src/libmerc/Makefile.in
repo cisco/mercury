@@ -46,6 +46,7 @@ LIBMERC     += utils.cc
 LIBMERC     += wireguard.cc
 LIBMERC     += asn1.cc
 LIBMERC     += asn1/oid.cc
+LIBMERC 	+= config_generator.cc
 LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
@@ -77,6 +78,8 @@ LIBMERC_H   += quic.h
 LIBMERC_H   += smtp.h
 LIBMERC_H   += asn1.h
 LIBMERC_H   += asn1/oid.h
+LIBMERC_H   += config_generator.h
+LIBMERC_H   += global_config.h
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files
