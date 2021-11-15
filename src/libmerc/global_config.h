@@ -9,8 +9,25 @@
 
 struct global_config : public libmerc_config
 {
+private:
+    std::string resource_file;
+
+public:
     global_config() : libmerc_config() {};
-    global_config(const libmerc_config& c) : libmerc_config(c) {}
+    global_config(const libmerc_config& c) : libmerc_config(c) {
+         if(c.resources)
+            resource_file = c.resources;
+         }
+
+    const char* get_resource_file()
+    {
+        return resource_file.c_str();
+    }
+
+    void set_resource_file(const std::string& res)
+    {
+        resource_file = res;
+    }
 
     std::map<std::string, bool> protocols{
             { "all",         false },

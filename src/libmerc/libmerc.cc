@@ -50,15 +50,18 @@ const char *mercury_get_resource_version(struct mercury *mc) {
     return nullptr;
 }
 
-void setup_extended_fields(global_config& lc, const std::string& config)
+void setup_extended_fields(global_config* lc, const std::string& config)
 {
     std::vector<libmerc_option> options = 
     {
-        {"select", "-s", "--select", SETTER_FUNCTION(&lc){ lc.set_protocols(s); }}
+        {"select", "-s", "--select", SETTER_FUNCTION(lc){ lc->set_protocols(s); }},
+        {"resources", "", "", SETTER_FUNCTION(&lc){ lc->set_resource_file(s); }}
     };
 
-    parse_additional_options(options, config, lc);
+    parse_additional_options(options, config, *lc);
 }
+
+global_config* gc = nullptr;
 
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
@@ -75,16 +78,21 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     }
 
     try {
-        global_config copy(*vars);
+        if(gc != nullptr)
+        {
+            delete gc;
+            gc = nullptr;
+        }
+        gc = new global_config(*vars);
         if(vars->packet_filter_cfg && config_contains_delims(vars->packet_filter_cfg))
         {
-            setup_extended_fields(copy, "select=" + std::string(vars->packet_filter_cfg));
+            setup_extended_fields(gc, "select=" + std::string(vars->packet_filter_cfg));
         }
         else
         {
-            copy.set_protocols(copy.packet_filter_cfg ? copy.packet_filter_cfg : "all");
+            gc->set_protocols(gc->packet_filter_cfg ? gc->packet_filter_cfg : "all");
         }
-        m = new mercury{&copy, verbosity};
+        m = new mercury{gc, verbosity};
         return m;
     }
     catch (std::exception &e) {
@@ -100,6 +108,11 @@ int mercury_finalize(mercury_context mc) {
     if (mc) {
         delete mc;
         return 0; // success
+    }
+    if(gc)
+    {
+        delete gc;
+        gc = nullptr;
     }
     return -1;    // error
 }

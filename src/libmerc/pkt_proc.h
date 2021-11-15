@@ -36,7 +36,7 @@ struct mercury {
         global_vars.resources = vars->resources;
         global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy?
         if (global_vars.do_analysis) {
-            c = analysis_init_from_archive(verbosity, global_vars.resources,
+            c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
                                            global_vars.fp_proc_threshold,
                                            global_vars.proc_dst_threshold,
