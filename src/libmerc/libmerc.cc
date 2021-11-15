@@ -76,13 +76,13 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     try {
         global_config copy(*vars);
-        if(config_contains_delims(vars->packet_filter_cfg))
+        if(vars->packet_filter_cfg && config_contains_delims(vars->packet_filter_cfg))
         {
             setup_extended_fields(copy, "select=" + std::string(vars->packet_filter_cfg));
         }
         else
         {
-            copy.set_protocols(copy.packet_filter_cfg);
+            copy.set_protocols(copy.packet_filter_cfg ? copy.packet_filter_cfg : "all");
         }
         m = new mercury{&copy, verbosity};
         return m;

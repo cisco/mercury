@@ -137,7 +137,7 @@ struct libmerc_config {
     bool output_udp_initial_data; /* write initial data field     */
 
     char *resources;             /* archive containing resource files       */
-    uint8_t *enc_key;            /* (optional) decryption key for archive   */
+    const uint8_t *enc_key;            /* (optional) decryption key for archive   */
     enum enc_key_type key_type;  /* key type (none=0 if key not present)    */
 
     char *packet_filter_cfg; /* packet filter configuration string             */

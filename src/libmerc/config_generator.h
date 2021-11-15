@@ -8,6 +8,9 @@
 
 #define SETTER_FUNCTION(context) [context]([[maybe_unused]] const std::string& s, [[maybe_unused]] libmerc_config& c)
 
+#define DEFAULT_DELIM ';'
+#define DEFAULT_ASSIGN '='
+
 class libmerc_option
 {
 private:
@@ -50,17 +53,17 @@ public:
     }
 };
 
-libmerc_config create_config(std::string config, const char& delim = ';', const char& assignment = '=');
+libmerc_config create_config(std::string config, const char& delim = DEFAULT_DELIM, const char& assignment = DEFAULT_ASSIGN);
 
 libmerc_config create_config_from_arguments(char** argv, int argc);
 
-bool reconfigure_libmerc_config(libmerc_config& config, std::string line, const char& delim = ';', const char& assignment = '=');
+bool reconfigure_libmerc_config(libmerc_config& config, std::string line, const char& delim = DEFAULT_DELIM, const char& assignment = DEFAULT_ASSIGN);
 
-libmerc_config create_config_from_lines(std::vector<std::string> lines, const char& assignment = '=');
+libmerc_config create_config_from_lines(std::vector<std::string> lines, const char& assignment = DEFAULT_ASSIGN);
 
-bool config_contains_delims(const std::string& config, const char& delim = ';');
+bool config_contains_delims(const std::string& config, const char& delim = DEFAULT_DELIM);
 
-void parse_additional_options(std::vector<libmerc_option> options, std::string config, libmerc_config& lc, const char& delim = ';', const char& assignment = '=');
+void parse_additional_options(std::vector<libmerc_option> options, std::string config, libmerc_config& lc, const char& delim = DEFAULT_DELIM, const char& assignment = DEFAULT_ASSIGN);
 
 void dump_config(FILE* f, const libmerc_config& c);
 
