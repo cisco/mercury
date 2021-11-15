@@ -71,8 +71,8 @@ public:
 
 static std::vector<libmerc_option> config_mapper = {
     {"analysis", "-a", "--analysis", SETTER_FUNCTION { c.do_analysis = true; }},
-    {"resources", "", "",            SETTER_FUNCTION { c.resources = strdup(s.c_str()); }},
-    {"select", "-s", "--select",     SETTER_FUNCTION{ c.packet_filter_cfg = strdup(s.c_str()); }},
+    {"resources", "", "",            SETTER_FUNCTION { strcpy(c.resources, s.c_str()); }},
+    {"select", "-s", "--select",     SETTER_FUNCTION{ strcpy(c.packet_filter_cfg, s.c_str()); }},
     {"dns-json", "", "",             SETTER_FUNCTION{ c.dns_json_output = true; }},
     {"certs-json", "", "",           SETTER_FUNCTION{c.certs_json_output = true; }},
     {"metadata", "", "",             SETTER_FUNCTION{c.metadata_output = true; }},
@@ -80,7 +80,7 @@ static std::vector<libmerc_option> config_mapper = {
     {"report_os", "", "",            SETTER_FUNCTION{c.report_os = true; }},
     {"nonselected-tcp-data", "", "", SETTER_FUNCTION{c.output_tcp_initial_data = true; }},
     {"nonselected-udp-data", "", "", SETTER_FUNCTION{c.output_udp_initial_data = true; }},
-    {"enc_key", "", "",              SETTER_FUNCTION{c.enc_key = (uint8_t*)strdup(s.c_str()); }},
+    {"enc_key", "", "",              SETTER_FUNCTION{ memcpy(c.enc_key, s.c_str(), s.length()); }},
     {"key_type", "", "",             SETTER_FUNCTION{c.key_type = (enc_key_type)atoi(s.c_str()); }},
     {"fp_proc_threshold", "", "",    SETTER_FUNCTION{c.fp_proc_threshold = std::stof(s); }},
     {"proc_dst_threshold", "", "",   SETTER_FUNCTION{c.proc_dst_threshold = std::stof(s); }},
@@ -112,38 +112,7 @@ libmerc_config create_config(std::string config, const char& delim, const char& 
 {
     libmerc_config result;
 
-    std::vector<config_token> tokens;
-    size_t indx = config.find(delim);
-    while(indx != std::string::npos)
-    {
-        if(config.empty())
-            break;
-            
-        std::string data = config.substr(0, indx);
-        trim(data);
-        
-        if(data.empty() == false)
-        {
-            tokens.push_back(config_token::parse(data, assignment));
-        }
-        
-        config = config.substr(indx + 1);
-        indx = config.find(delim);
-    }
-
-    if(config.empty() == false)
-    {
-        tokens.push_back(config_token::parse(config, assignment));
-    }
-
-    for(const auto& token : tokens)
-    {
-        for(libmerc_option op : config_mapper)
-        {
-            if(op.perform_option_check(token.key_))
-                op.perform_setter(token.value_, result);
-        }
-    }
+    reconfigure_libmerc_config(result, config, delim, assignment);
 
     return result;
 }
@@ -181,18 +150,42 @@ libmerc_config create_config_from_arguments(char** argv, int argc)
     return result;
 }
 
-bool reconfigure_libmerc_config(libmerc_config& config, std::string line, const char& assignment)
+bool reconfigure_libmerc_config(libmerc_config& result, std::string config, const char& delim, const char& assignment)
 {
-    auto token = config_token::parse(line, assignment);
-    for(libmerc_option op : config_mapper)
+    std::vector<config_token> tokens;
+    size_t indx = config.find(delim);
+    while(indx != std::string::npos)
+    {
+        if(config.empty())
+            break;
+            
+        std::string data = config.substr(0, indx);
+        trim(data);
+        
+        if(data.empty() == false)
+        {
+            tokens.push_back(config_token::parse(data, assignment));
+        }
+        
+        config = config.substr(indx + 1);
+        indx = config.find(delim);
+    }
+
+    if(config.empty() == false)
+    {
+        tokens.push_back(config_token::parse(config, assignment));
+    }
+
+    for(const auto& token : tokens)
+    {
+        for(libmerc_option op : config_mapper)
         {
             if(op.perform_option_check(token.key_))
-            {
-                op.perform_setter(token.value_, config);
-                return true;
-            }
+                op.perform_setter(token.value_, result);
         }
-    return false;
+    }
+
+    return true;
 }
 
 libmerc_config create_config_from_lines(std::vector<std::string> lines, const char& assignment)
@@ -203,6 +196,11 @@ libmerc_config create_config_from_lines(std::vector<std::string> lines, const ch
         reconfigure_libmerc_config(result, line, assignment);
     }
     return result;
+}
+
+bool config_contains_delims(const std::string& config, const char& delim)
+{
+    return config.find(delim) != std::string::npos;
 }
 
 void dump_config(FILE* f, const libmerc_config& c)

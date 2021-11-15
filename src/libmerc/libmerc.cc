@@ -11,6 +11,7 @@
 #include "version.h"
 #include "analysis.h"
 #include "pkt_proc.h"
+#include "config_generator.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -63,8 +64,18 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     }
 
     try {
-        m = new mercury{vars, verbosity};
-        return m;  // success
+        if(config_contains_delims(vars->packet_filter_cfg))
+        {
+            libmerc_config copy = *vars;
+            reconfigure_libmerc_config(copy, "select=" + std::string(vars->packet_filter_cfg));
+            m = new mercury{&copy, verbosity};
+            return m;
+        }
+        else
+        {
+            m = new mercury{vars, verbosity};
+            return m;  // success
+        }
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
