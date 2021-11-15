@@ -148,16 +148,6 @@ bool reconfigure_libmerc_config(libmerc_config& result, std::string config, cons
     return true;
 }
 
-libmerc_config create_config_from_lines(std::vector<std::string> lines, const char& assignment)
-{
-    libmerc_config result;
-    for(const auto& line : lines)
-    {
-        reconfigure_libmerc_config(result, line, assignment);
-    }
-    return result;
-}
-
 bool config_contains_delims(const std::string& config, const char& delim)
 {
     return config.find(delim) != std::string::npos;
@@ -177,23 +167,4 @@ void parse_additional_options(std::vector<libmerc_option> options, std::string c
                 op.perform_setter(token.value_, lc);
         }
     }
-}
-
-void dump_config(FILE* f, const libmerc_config& c)
-{
-    fprintf(f, "dns_json_output = %s\n", c.dns_json_output ? "true" : "false");
-    fprintf(f, "certs_json_output = %s\n", c.certs_json_output ? "true" : "false");
-    fprintf(f, "metadata_output = %s\n", c.metadata_output ? "true" : "false");
-    fprintf(f, "do_analysis = %s\n", c.do_analysis ? "true" : "false");
-    fprintf(f, "do_stats = %s\n", c.do_stats ? "true" : "false");
-    fprintf(f, "report_os = %s\n", c.report_os ? "true" : "false");
-    fprintf(f, "output_tcp_initial_data = %s\n", c.output_tcp_initial_data ? "true" : "false");
-    fprintf(f, "output_udp_initial_data = %s\n", c.output_udp_initial_data ? "true" : "false");
-    fprintf(f, "resources = %s\n", c.resources);
-    fprintf(f, "enc_key = %s\n", c.enc_key);
-    fprintf(f, "key_type = %d\n", c.key_type);
-    fprintf(f, "packet_filter_cfg = %s\n", c.packet_filter_cfg);
-    fprintf(f, "fp_proc_threshold = %f\n", c.fp_proc_threshold);
-    fprintf(f, "proc_dst_threshold = %f\n", c.proc_dst_threshold);
-    fprintf(f, "max_stats_entries = %ld\n", c.max_stats_entries);
 }

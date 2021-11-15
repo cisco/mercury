@@ -59,12 +59,8 @@ libmerc_config create_config_from_arguments(char** argv, int argc);
 
 bool reconfigure_libmerc_config(libmerc_config& config, std::string line, const char& delim = DEFAULT_DELIM, const char& assignment = DEFAULT_ASSIGN);
 
-libmerc_config create_config_from_lines(std::vector<std::string> lines, const char& assignment = DEFAULT_ASSIGN);
-
 bool config_contains_delims(const std::string& config, const char& delim = DEFAULT_DELIM);
 
 void parse_additional_options(std::vector<libmerc_option> options, std::string config, libmerc_config& lc, const char& delim = DEFAULT_DELIM, const char& assignment = DEFAULT_ASSIGN);
-
-void dump_config(FILE* f, const libmerc_config& c);
 
 #endif
