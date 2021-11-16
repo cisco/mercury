@@ -22,6 +22,8 @@ struct fingerprint {
         type = fp_type;
     }
 
+    bool is_null() const { return fp_str[0] == '\0'; }
+
     enum fingerprint_type get_type() { return type; }
 
     void write(struct json_object &record) {

@@ -887,10 +887,9 @@ public:
                                                      struct analysis_result &result,
                                                      const char *user_agent = nullptr) {
 
-        // TODO: remove
-        //if (fp.type != fingerprint_type_tls) {
-        //    return false;  // cannot perform analysis
-        //}
+        if (fp.is_null()) {
+            return true;  // no fingerprint to analyze
+        }
         result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port, user_agent);
         return true;
     }
