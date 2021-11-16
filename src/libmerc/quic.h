@@ -235,34 +235,34 @@ public:
 // }
 //
 class crypto {
-    variable_length_integer offset;
-    variable_length_integer length;
-    datum data;
+    variable_length_integer _offset;
+    variable_length_integer _length;
+    datum _data;
 
 public:
-    crypto(datum &p) : offset{p}, length{p}, data{p, length.value()} {    }
+    crypto(datum &p) : _offset{p}, _length{p}, _data{p, _length.value()} {    }
 
-    bool is_valid() const { return data.is_not_empty(); }
+    bool is_valid() const { return _data.is_not_empty(); }
 
-    datum &get_data() { return data; } // note: function is not const
+    datum &data() { return _data; } // note: function is not const
 
-    uint64_t get_offset() const
+    uint64_t offset() const
     {
-        return offset.value();
+        return _offset.value();
     }
 
-    uint64_t get_length() const
+    uint64_t length() const
     {
-        return length.value();
+        return _length.value();
     }
 
-	void write(FILE *f) {
+    void write(FILE *f) {
         if (is_valid()) {
-        	fprintf(f, "crypto.offset: %lu\n", offset.value());
-        	fprintf(f, "crypto.length: %lu\n", length.value());
+            fprintf(f, "crypto.offset: %lu\n", _offset.value());
+            fprintf(f, "crypto.length: %lu\n", _length.value());
         } else {
-        	fprintf(f, "crypto.not valid\n");
-       	}
+            fprintf(f, "crypto.not valid\n");
+        }
     }
 };
 
@@ -949,8 +949,13 @@ struct cryptographic_buffer
 
     void extend(crypto& d)
     {
-        memmove(buffer + d.get_offset(), d.get_data().data, d.get_length());
-        buf_len += d.get_length();
+        if (d.offset() + d.length() <= sizeof(buffer)) {
+            memcpy(buffer + d.offset(), d.data().data, d.length());
+            if (d.offset() + d.length() > buf_len) {
+                buf_len = d.offset() + d.length();
+            }
+        }
+        // TODO: track segments to verify that all are present
     }
 
     bool is_valid()
