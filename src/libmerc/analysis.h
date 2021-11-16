@@ -178,7 +178,9 @@ public:
     fingerprint_data(uint64_t count,
                      const std::vector<class process_info> &processes,
                      ptr_dict &os_dictionary,
-                     const subnet_data *subnets) :
+                     const subnet_data *subnets,
+                     bool malware_database) :
+        malware_db{malware_database},
         subnet_data_ptr{subnets},
         total_count{count} {
 
@@ -196,9 +198,6 @@ public:
             for (const auto &p : processes) {
                 process_name.push_back(p.name);
                 malware.push_back(p.malware);
-                if (p.malware) {
-                    malware_db = true;
-                }
 
                 process_os_info_vector.push_back(std::vector<struct os_information>{});
                 if (p.os_info.size() > 0) {
@@ -750,7 +749,7 @@ public:
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
-            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets);
+            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, MALWARE_DB);
             // fp_data.print(stderr);
 
             if (fpdb.find(fp_string) != fpdb.end()) {
