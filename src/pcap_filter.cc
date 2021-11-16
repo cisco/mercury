@@ -18,6 +18,8 @@
 #include "libmerc/http.h"
 #include "options.h"
 
+using namespace mercury_option;
+
 datum get_udp_data(struct datum eth_pkt);
 
 datum get_tcp_data(struct datum eth_pkt);

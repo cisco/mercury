@@ -189,12 +189,7 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
         if (nread > 1) {
             line[nread-1] = 0; /* replace CR with null terminator */
             string_remove_whitespace(line);
-            bool is_parsed = false;
-
-            is_parsed = mercury_config_parse_line(&cfg, global_vars, line);
-            is_parsed |= reconfigure_libmerc_config(global_vars, line);
-
-            if(!is_parsed)
+            if(mercury_config_parse_line(&cfg, global_vars, line))
             {
                 fprintf(stderr, "warning: ignoring unparseable command line '%s'\n", line);
             }

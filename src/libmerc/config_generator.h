@@ -53,11 +53,7 @@ public:
     }
 };
 
-libmerc_config create_config(std::string config, const char& delim = DEFAULT_DELIM, const char& assignment = DEFAULT_ASSIGN);
-
-libmerc_config create_config_from_arguments(char** argv, int argc);
-
-bool reconfigure_libmerc_config(libmerc_config& config, std::string line, const char& delim = DEFAULT_DELIM, const char& assignment = DEFAULT_ASSIGN);
+std::string create_config_from_arguments(char** argv, int& argc);
 
 bool config_contains_delims(const std::string& config, const char& delim = DEFAULT_DELIM);
 

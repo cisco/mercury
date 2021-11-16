@@ -61,24 +61,17 @@ struct config_token
     }
 };
 
-libmerc_config create_config(std::string config, const char& delim, const char& assignment)
-{
-    libmerc_config result;
-
-    reconfigure_libmerc_config(result, config, delim, assignment);
-
-    return result;
-}
-
-libmerc_config create_config_from_arguments(char** argv, int argc)
+std::string create_config_from_arguments(char** argv, int& argc)
 {
     std::vector<mercury_option::option> option_list;
-    libmerc_config result;
-
+    std::vector<std::string> processed_options;
+    std::string result;
     for(libmerc_option op : config_mapper)
     {
-        option_list.push_back({mercury_option::argument::optional, op.get_long_option_name(), ""});
-        option_list.push_back({mercury_option::argument::optional, op.get_short_option_name(), ""});
+        if(op.get_long_option_name().length() > 0)
+            option_list.push_back({mercury_option::argument::optional, op.get_long_option_name(), ""});
+        if(op.get_short_option_name().length() > 0)
+            option_list.push_back({mercury_option::argument::optional, op.get_short_option_name(), ""});
     }
 
     mercury_option::option_processor proc(option_list);
@@ -87,18 +80,41 @@ libmerc_config create_config_from_arguments(char** argv, int argc)
     
     for(auto i = config_mapper.begin(); i != config_mapper.end(); i++)
     {
-        auto res = proc.get_value(i->get_long_option_name().c_str());
+        const char* tmp_long_name = i->get_long_option_name().c_str();
+        auto res = proc.get_value(tmp_long_name);
         if(res.first)
         {
-            i->perform_setter(res.second, result);
+            result += ";" + i->get_long_option_name() + "=" + res.second;
+            processed_options.push_back(i->get_long_option_name());
+            processed_options.push_back(res.second);
             continue;
         }
-        res = proc.get_value(i->get_short_option_name().c_str());
+        const char* tmp_short_name = i->get_short_option_name().c_str();
+        res = proc.get_value(tmp_short_name);
         if(res.first)
         {
-            i->perform_setter(res.second, result);
+            result += ";" + i->get_short_option_name() + "=" + res.second;
+            processed_options.push_back(i->get_short_option_name());
+            processed_options.push_back(res.second);
         }
     }
+
+    int new_argc = 0;
+    for(int i = 0; i < argc; i++)
+    {
+        bool found = false;
+        for(auto op : processed_options)
+        {
+            if(strcmp(argv[i], op.c_str()) == 0)
+            {
+                found = true;
+                break;
+            }
+        }
+        if(!found)
+            argv[new_argc++] = argv[i];
+    }
+    argc = new_argc;
 
     return result;
 }
@@ -129,22 +145,6 @@ std::vector<config_token> parse_tokens(std::string config, const char& delim, co
         tokens.push_back(config_token::parse(config, assignment));
     }
     return tokens;
-}
-
-bool reconfigure_libmerc_config(libmerc_config& result, std::string config, const char& delim, const char& assignment)
-{
-    std::vector<config_token> tokens = parse_tokens(config, delim, assignment);
-
-    for(const auto& token : tokens)
-    {
-        for(libmerc_option op : config_mapper)
-        {
-            if(op.perform_option_check(token.key_))
-                op.perform_setter(token.value_, result);
-        }
-    }
-
-    return true;
 }
 
 bool config_contains_delims(const std::string& config, const char& delim)

@@ -169,9 +169,11 @@ public:
             {
                 if (!set_positional_parameter(argv[i]))
                 {
-                    fprintf(stderr, "error: \"%s\" does not match any option name or positional parameter\n", argv[i]);
                     if(exit_on_unrecignized)
+                    {
+                        fprintf(stderr, "error: \"%s\" does not match any option name or positional parameter\n", argv[i]);
                         return false;
+                    }
                 }
             }
             if (last_option && (last_option->arg_type(argument::none) || last_option->arg_type(argument::optional)))

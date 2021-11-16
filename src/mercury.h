@@ -13,7 +13,6 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "libmerc/libmerc.h"
-#include "libmerc/config_generator.h"
 
 #define MAX_HEX 16
 
