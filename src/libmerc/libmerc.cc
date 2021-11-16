@@ -316,7 +316,7 @@ const char *mercury_get_license_string() {
 // This function is suitable for use with
 // register_printf_err_callback().
 //
-int printf_err_func(log_level level, const char *format, ...) {
+int printf_err_func(enum log_level level, const char *format, va_list args) {
 
     // output error level message
     //
@@ -340,10 +340,7 @@ int printf_err_func(log_level level, const char *format, ...) {
 
     // output formatted argument list
     //
-    va_list args;
-    va_start(args, format);
     retval = vfprintf(stderr, format, args);
-    va_end(args);
     if (retval < 0) {
         return retval;
     }
@@ -352,11 +349,13 @@ int printf_err_func(log_level level, const char *format, ...) {
     return sum;
 }
 
-int silent_err_func(log_level, const char *, ...) {
+int silent_err_func(log_level, const char *, va_list) {
     return 0;
 }
 
 static printf_err_ptr printf_err_static = printf_err_func;
+
+#ifdef DONT_USE_STDERR
 
 int printf_err(enum log_level level, const char *format, ...) {
     va_list args;
@@ -365,6 +364,8 @@ int printf_err(enum log_level level, const char *format, ...) {
     va_end(args);
     return retval;
 }
+
+#endif
 
 void register_printf_err_callback(printf_err_ptr callback) {
 

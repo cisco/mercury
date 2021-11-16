@@ -59,7 +59,7 @@ enum log_level {
 #ifdef __cplusplus
 extern "C"
 #endif
-typedef int (*printf_err_ptr)(enum log_level level, const char *format, ...);
+typedef int (*printf_err_ptr)(enum log_level level, const char *format, va_list args);
 
 #ifdef DONT_USE_STDERR
 int printf_err(enum log_level level, const char *format, ...);
