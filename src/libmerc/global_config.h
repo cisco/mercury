@@ -21,7 +21,7 @@ public:
 
     const char* get_resource_file()
     {
-        return resource_file.c_str();
+        return resource_file.empty() ? resources : resource_file.c_str();
     }
 
     void set_resource_file(const std::string& res)
