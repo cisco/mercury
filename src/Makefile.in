@@ -80,7 +80,14 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: mercury libmerc_test cert_analyze # tls_scanner batch_gcd
+all: compiler_version mercury libmerc_test cert_analyze # tls_scanner batch_gcd
+
+# the version target just reports the c++ compiler version; we report
+# this so that it is present in e.g. Jenkins logs
+#
+.PHONY: compiler_version
+compiler_version:
+	$(CXX) --version
 
 # the target libmerc-and-mercury checks to see if libmerc.a needs to
 # be rebuilt, rebuilds it if needed, and then builds mercury.
