@@ -80,7 +80,7 @@ struct cdp_tlv : public datum {
                 if (this->data[0] == 0x80) {
                     o.print_key_bool("full_duplex", true);
                 } else {
-                    o.print_key_bool("full_duplex", true);
+                    o.print_key_bool("full_duplex", false);
                 }
             }
             // error condition
