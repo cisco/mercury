@@ -46,11 +46,12 @@
 /*
  * extension types used in normalization
  */
-#define type_sni                       0x0000
-#define type_supported_groups          0x000a
-#define type_supported_versions        0x002b
-#define type_session_ticket            0x0023
-#define type_quic_transport_parameters 0xffa5
+#define type_sni                             0x0000
+#define type_supported_groups                0x000a
+#define type_supported_versions              0x002b
+#define type_session_ticket                  0x0023
+#define type_quic_transport_parameters       0x0039
+#define type_quic_transport_parameters_draft 0xffa5
 
 static uint16_t static_extension_types[num_static_extension_types] = {
         1,         /* max fragment length                    */
@@ -211,6 +212,9 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
         if (tmp_type == type_quic_transport_parameters) {
             struct datum ext{data, data_end};
             o.print_key_hex(key, ext);
+        } else if (tmp_type == type_quic_transport_parameters_draft) {
+            struct datum ext{data, data_end};
+            o.print_key_hex("quic_transport_parameters_draft", ext);
         }
     }
 
