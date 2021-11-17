@@ -441,7 +441,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
     // process encapsulations
     //
-    if (report_GRE && transport_proto == 47) {
+    if (report_GRE && transport_proto == ip::protocol::gre) {
         gre_header gre{pkt};
         switch(gre.get_protocol_type()) {
         case ETH_TYPE_IP:
@@ -456,7 +456,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
     // process transport/application protocols
     //
-    if (report_ICMP && (transport_proto == 1 || transport_proto == 58)) {
+    if (report_ICMP && (transport_proto == ip::protocol::icmp || transport_proto == ip::protocol::ipv6_icmp)) {
 
         icmp_packet icmp;
         icmp.parse(pkt);
@@ -470,7 +470,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         record.print_key_timestamp("event_start", ts);
         record.close();
 
-    } else if (transport_proto == 6) { // TCP
+    } else if (transport_proto == ip::protocol::tcp) {
         struct tcp_packet tcp_pkt;
         tcp_pkt.parse(pkt);
         if (tcp_pkt.header == nullptr) {
@@ -555,7 +555,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
         }
 
-    } else if (transport_proto == 17) { // UDP
+    } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
         enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt.data, pkt.length());
@@ -611,7 +611,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             record.close();
         }
 
-    } else if (report_OSPF && transport_proto == 89) { // OSPF
+    } else if (report_OSPF && transport_proto == ip::protocol::ospfigp) {
         struct json_object record{&buf};
         ip_pkt.write_json(record);
         struct json_object ospf_record{record, "ospf"};
