@@ -53,11 +53,11 @@ int main(int argc, char *argv[]) {
         // create input and output pcap files
         //
         struct pcap_file pcap(input_file.c_str(), io_direction_reader);
-        struct pcap_file dns_out(("dns_packet." + output_file + ".pcap").c_str(), io_direction_writer);
-        struct pcap_file bad_dns_out(("bad_dns_packet." + output_file + ".pcap").c_str(), io_direction_writer);
-        struct pcap_file quic_out(("quic_init." + output_file + ".pcap").c_str(), io_direction_writer);
-        struct pcap_file tls_out(("tls_client_hello." + output_file + ".pcap").c_str(), io_direction_writer);
-        struct pcap_file http_out(("http_request." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file dns_out(("dns." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file bad_dns_out(("bad_dns." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file quic_out(("quic." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file tls_out(("tls.client_hello." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file http_out(("http.request." + output_file + ".pcap").c_str(), io_direction_writer);
 
         packet<65536> pkt;
         while (true) {

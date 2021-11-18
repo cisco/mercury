@@ -13,10 +13,10 @@ void print_usage()
 {
     printf("Usage : verifier -r [pcap to read] -f [filter] [OPTIONS]\n" 
            "Options : \n"
-           "\t-w [pcap to write] - write all parsed packages to [pcap to write]\n"
+           "\t-w [pcap to write] - write all parsed packets to [pcap to write]\n"
            "\t-p [number] - print HEX data, [number] declares first N bytes to print\n"
            "\t-h [file] - print hex data to [file]\n"
-           "\t-s - process output only for successfully parsed packages\n");
+           "\t-s - process output only for successfully parsed packets\n");
 }
 
 [[noreturn]] void print_usage_and_fail()
@@ -113,6 +113,7 @@ int main(int argc, char** argv)
     config.report_os = false;
     config.output_tcp_initial_data = false;
     config.output_udp_initial_data = false;
+    config.resources = (char *)"../resources/resources.tgz";
     config.packet_filter_cfg = _filter;
 
     auto context = mercury_init(&config, 0);

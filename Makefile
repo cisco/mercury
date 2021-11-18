@@ -115,12 +115,12 @@ libs:
 	$(MAKE) --directory=src unstripped-libmerc
 
 .PHONY: test
-test:
+test: unit_tests
 	cd src && $(MAKE) test
 
 .PHONY: unit_tests
 unit_tests:
-	cd unit_tests && $(MAKE) libmerc_driver
+	cd unit_tests && $(MAKE)
 
 .PHONY: doc
 doc: doc/mercury.pdf
