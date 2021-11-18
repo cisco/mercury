@@ -115,7 +115,7 @@ libs:
 	$(MAKE) --directory=src unstripped-libmerc
 
 .PHONY: test
-test: unit_tests
+test:
 	cd src && $(MAKE) test
 
 .PHONY: unit_tests
