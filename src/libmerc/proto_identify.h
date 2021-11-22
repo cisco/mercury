@@ -99,6 +99,21 @@ public:
 
 bool set_config(std::map<std::string, bool> &config_map, const char *config_string); // in pkt_proc.cc
 
+// the preprocessor directive STATIC_CFG_SELECT can be used as a
+// compile-time option to select the protocols that mercury will
+// process; it must hold a quoted string that contains one of
+// mercury's selector strings, and it can be passed to the compiler
+// using the -D flag.  For example,
+//
+//    make OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls.client_hello\"'
+//
+// will ensure that only tls client hello messages are selected, and all other
+// packet types are ignored
+//
+#ifndef STATIC_CFG_SELECT
+#define STATIC_CFG_SELECT nullptr
+#endif
+
 // class selector implements a protocol selection policy for TCP and
 // UDP traffic
 //
@@ -110,6 +125,8 @@ class traffic_selector {
     bool select_tcp_syn;
     bool select_mdns;
 
+    static constexpr const char *static_selector_string = STATIC_CFG_SELECT;
+
 public:
 
     bool tcp_syn() const { return select_tcp_syn; }
@@ -117,6 +134,10 @@ public:
     bool mdns() const { return select_mdns; }
 
     traffic_selector(const char *config_string) : tcp{}, udp{}, select_tcp_syn{false} {
+
+        if (static_selector_string) {
+            config_string = static_selector_string;
+        }
 
         // a null configuration string defaults to all protocols
         //
