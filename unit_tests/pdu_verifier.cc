@@ -7,8 +7,6 @@
 #include <utility>
 #include <getopt.h>
 
-int sig_close_flag = false;
-
 void print_usage()
 {
     printf("Usage : verifier -r [pcap to read] -f [filter] [OPTIONS]\n" 
