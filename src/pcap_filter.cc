@@ -81,7 +81,10 @@ int main(int argc, char *argv[]) {
                         fprintf(stderr, "warning: valid dns_packet does not match bitmask\t");
                         udp_data.fprint_hex(stderr, 16);
                         fputc('\n', stderr);
-
+                        std::array<uint8_t, 8> x = dns_packet::matcher.nonmatching(udp_data.data, udp_data.length());
+                        fprintf(stderr, "nonmatching:                                    \t");
+                        for (const auto &c : x) { fprintf(stderr, "%02x", c); }
+                        fputc('\n', stderr);
                         pkt.write(bad_dns_out);
                     }
 

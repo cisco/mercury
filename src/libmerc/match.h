@@ -72,6 +72,21 @@ public:
         return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
     }
 
+    // nonmatching(data) returns an array of uint8_t that indicates
+    // the bit positions in the bytes {data, data+len} that do not
+    // match the mask and value
+    //
+    std::array<uint8_t, N> nonmatching(const uint8_t *data, size_t len) const {
+        std::array<uint8_t, N> output{};
+        if (len < N) {
+            return output;
+        }
+        for (size_t i=0; i<N; i++) {
+            output[i] = (data[i] & mask[i]) ^ value[i];
+        }
+        return output;
+    }
+
 };
 
 
