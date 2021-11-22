@@ -565,9 +565,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             // if (ports.src == htons(53) || ports.dst == htons(53)) {
             //     msg_type = udp_msg_type_dns;
             // }
-            if (selector.mdns() && (ports.src == htons(5353) || ports.dst == htons(5353))) {
-                msg_type = udp_msg_type_dns;
-            }
+            // if (selector.mdns() && (ports.src == htons(5353) || ports.dst == htons(5353))) {
+            //     msg_type = udp_msg_type_dns;
+            // }
             if (ports.dst == htons(4789)) {
                 msg_type = udp_msg_type_vxlan;
             }
