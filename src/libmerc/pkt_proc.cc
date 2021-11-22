@@ -646,7 +646,9 @@ bool stateful_pkt_proc::ip_set_analysis_result(struct analysis_result *r,
     return false;
 }
 
-constexpr bool report_ARP = false;
+constexpr bool report_ARP  = false;
+constexpr bool report_CDP  = false;
+constexpr bool report_LLDP = false;
 
 size_t stateful_pkt_proc::write_json(void *buffer,
                                      size_t buffer_size,
@@ -684,7 +686,7 @@ size_t stateful_pkt_proc::write_json(void *buffer,
         }
         break;
     case ETH_TYPE_CDP:
-        {
+        if (report_CDP) {
             cdp cdp_packet{pkt};
             if (cdp_packet.is_not_empty()) {
                 struct buffer_stream buf{(char *)buffer, buffer_size};
@@ -700,7 +702,7 @@ size_t stateful_pkt_proc::write_json(void *buffer,
         }
         break;
     case ETH_TYPE_LLDP:
-        {
+        if (report_LLDP) {
             lldp lldp_packet{pkt};
             if (lldp_packet.is_not_empty()) {
                 struct buffer_stream buf{(char *)buffer, buffer_size};
