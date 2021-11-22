@@ -670,10 +670,10 @@ private:
             packet_number *= 256;
             packet_number += mask[i+1] ^ quic_pkt.payload.data[i];
         }
-        if (packet_number != 0) {
+        // fprintf(stderr, "pn: %08x\n", packet_number);
+        if (packet_number > 1) {
             return false;  // not a client initial packet
         }
-        // fprintf(stderr, "pn: %08x\n", packet_number);
 
         // construct AEAD iv
         //
