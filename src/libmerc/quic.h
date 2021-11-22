@@ -670,6 +670,9 @@ private:
             packet_number *= 256;
             packet_number += mask[i+1] ^ quic_pkt.payload.data[i];
         }
+        if (packet_number != 0) {
+            return false;  // not a client initial packet
+        }
         // fprintf(stderr, "pn: %08x\n", packet_number);
 
         // construct AEAD iv
@@ -1013,7 +1016,7 @@ public:
     }
 
     bool is_not_empty() {
-        return initial_packet.is_not_empty();
+        return plaintext.is_not_empty();
     }
 
     bool has_tls() {
