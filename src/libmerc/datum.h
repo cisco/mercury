@@ -498,8 +498,13 @@ template <size_t T> struct data_buffer {
         }
         *data++ = x;
     }
-    // void copy(uint8_t *array, size_t length) {
-    // }
+    void copy(const uint8_t *rdata, size_t num_bytes) {
+        if (data_end - data < (int)num_bytes) {
+            num_bytes = data_end - data;
+        }
+        memcpy(data, rdata, num_bytes);
+        data += num_bytes;
+    }
     void copy(struct datum &r, size_t num_bytes) {
         if (r.length() < (ssize_t)num_bytes) {
             r.set_null();
@@ -520,6 +525,8 @@ template <size_t T> struct data_buffer {
     bool is_not_empty() const { return data != buffer && data < data_end; }
     void set_empty() { data_end = data = buffer; }
     ssize_t length() const { return data - buffer; }
+
+    datum contents() const { return {buffer, data}; }
 };
 
 /*

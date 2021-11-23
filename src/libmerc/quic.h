@@ -25,7 +25,6 @@
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
-//#include "quic-versions.h"
 
 #define pt_buf_len 2048 // plaintext buffer length
 
@@ -411,12 +410,18 @@ struct quic_initial_packet {
     struct datum payload;
     bool valid;
     bool gquic;
+    const uint8_t *aad_start = nullptr;
+    const uint8_t *aad_end = nullptr;
 
     quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false}, gquic{false} {
         parse(d);
     }
 
     void parse(struct datum &d) {
+
+        // additional authenticated data (aad) is used in authenticated decryption
+        //
+        aad_start = d.data;
 
         if (d.length() < min_len_pdu) {
             return;  // packet too short to be valid
@@ -425,7 +430,7 @@ struct quic_initial_packet {
         // connection information octet for initial packets:
         //
         // Header Form        (1)        1
-        // Fixed Bit          (1)        1 (or 0?)
+        // Fixed Bit          (1)        ?
         // Long Packet Type   (2)        00
         // Type-Specific Bits (4)        ??
         //
@@ -490,6 +495,11 @@ struct quic_initial_packet {
             //fprintf(stderr, "invalid\n");
             return;
         }
+
+        // remember where aad ends
+        //
+        aad_end = d.data;
+
         payload.parse(d, length.value());
 
         if ((payload.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
@@ -620,16 +630,31 @@ public:
         if (!quic_pkt.is_not_empty()) {
             return {nullptr, nullptr};
         }
-        if (process_initial_packet(quic_pkt) == false) {
+
+        // copy the additional authenticated data into a buffer, where
+        // it can be edited to remove header protection
+        //
+        data_buffer<1024> aad;
+        // uint8_t aad_buffer[1024];
+        // size_t aad_len = quic_pkt.aad_end - quic_pkt.aad_start;
+        // if (aad_len < sizeof(aad_buffer)) {
+        //     memcpy(aad_buffer, quic_pkt.aad_start, aad_len);
+        // } else {
+        //     fprintf(stderr, "warning: need aad_buffer[%zu], only have %zu\n", sizeof(aad_buffer), aad_len);
+        // }
+        // datum aad{aad_buffer, aad_buffer+aad_len};
+
+        if (process_initial_packet(aad, quic_pkt) == false) {
             return {nullptr, nullptr};
         }
-        decrypt__(quic_pkt.payload.data, quic_pkt.payload.length());
+        decrypt__(aad.buffer, aad.length(),
+                  quic_pkt.payload.data, quic_pkt.payload.length());
         return {plaintext, plaintext+plaintext_len};
     }
 
 private:
 
-    bool process_initial_packet(const quic_initial_packet &quic_pkt) {
+    bool process_initial_packet(data_buffer<1024> &aad, const quic_initial_packet &quic_pkt) {
         if (!quic_pkt.is_not_empty()) {
             return false;
         }
@@ -656,12 +681,16 @@ private:
 
         // remove header protection (RFC9001, Section 5.4.1)
         //
+        static constexpr size_t sample_offset = 4;
         AES_KEY enc_key;
         AES_set_encrypt_key(quic_hp, 128, &enc_key);
         uint8_t mask[32] = {0};
-        AES_encrypt(quic_pkt.payload.data+4, mask, &enc_key);   // TODO: improve encapsulation
+        AES_encrypt(quic_pkt.payload.data + sample_offset, mask, &enc_key);
         pn_length = quic_pkt.connection_info ^ (mask[0] & 0x0f);
         pn_length = (pn_length & 0x03) + 1;
+
+        aad.copy(quic_pkt.connection_info ^ (mask[0] & 0x0f));
+        aad.copy(quic_pkt.aad_start + 1, (quic_pkt.aad_end - quic_pkt.aad_start) - 1);
 
         // reconstruct packet number
         //
@@ -669,10 +698,7 @@ private:
         for (int i=0; i<pn_length; i++) {
             packet_number *= 256;
             packet_number += mask[i+1] ^ quic_pkt.payload.data[i];
-        }
-        // fprintf(stderr, "pn: %08x\n", packet_number);
-        if (packet_number > 1) {
-            return false;  // not a client initial packet
+            aad.copy(quic_pkt.payload.data[i] ^ mask[i+1]);
         }
 
         // construct AEAD iv
@@ -684,46 +710,69 @@ private:
         return true;
     }
 
-    void decrypt__(const uint8_t *data, unsigned int length) {
+    void decrypt__(const uint8_t *ad, unsigned int ad_len, const uint8_t *data, unsigned int length) {
+
+        // trim ciphertext length so that plaintext length fits in buffer, if needed
+        //
         uint16_t cipher_len = (length-pn_length < pt_buf_len) ? length-pn_length : pt_buf_len;
-        plaintext_len = gcm_decrypt(data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
+        plaintext_len = gcm_decrypt(ad, ad_len, data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
         if (plaintext_len == -1) {
             plaintext_len = 0;  // error; indicate that there is no plaintext in buffer
         }
     }
 
-    // adapted from https://wiki.openssl.org/index.php/EVP_Authenticated_Encryption_and_Decryption
-    int gcm_decrypt(const unsigned char *ciphertext, int ciphertext_len,
-                    unsigned char *key, unsigned char *iv,
+    // gcm_decrypt() is adapted from openSSL documentation; see "GCM Mode" at
+    // https://github.com/majek/openssl/blob/master/doc/crypto/EVP_EncryptInit.pod and
+    // https://wiki.openssl.org/index.php/EVP_Authenticated_Encryption_and_Decryption
+    //
+    int gcm_decrypt(const uint8_t *ad,
+                    unsigned int ad_len,
+                    const unsigned char *ciphertext,
+                    int ciphertext_len,
+                    unsigned char *key,
+                    unsigned char *iv,
                     unsigned char *plaintext)
     {
         int len;
         int plaintext_len;
 
-        ciphertext_len -= 16;       // 16 bytes of authentication tag at end
+        static constexpr size_t tag_len = 16;
+
+        ciphertext_len -= tag_len;  // final 16 bytes of ciphertext is auth tag
         if (ciphertext_len < 0) {
             return -1;              // too short
         }
+        const uint8_t *tag = ciphertext + ciphertext_len;
 
-        /* Initialise key and IV */
+        // initialize context with key and iv
+        //
         if(!EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv)) {
             return -1;
         }
 
-        /*
-         * Provide the message to be decrypted, and obtain the plaintext output.
-         * EVP_DecryptUpdate can be called multiple times if necessary
-         */
+        // set the associated data
+        //
+        EVP_DecryptUpdate(ctx, NULL, &len, ad, ad_len);
+
+        // decrypt ciphertext into plaintext buffer
+        //
+        // TODO: move length bound check here
+        //
         if(!EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
             return -1;
         }
         plaintext_len = len;
 
-        /*
-         * Finalise the decryption. A positive return value indicates success,
-         * anything else is a failure - the plaintext is not trustworthy.
-         */
-        EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
+        // set the expected tag value
+        //
+        EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tag_len, (void *)tag);
+
+        // finalize decryption, and check for an authentication failure
+        //
+        int retval = EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
+        if (retval <= 0) {
+            return -1;     // authentication check failed
+        }
 
         plaintext_len += len;
 
@@ -843,23 +892,34 @@ struct quic_version_negotiation {
 };
 
 class padding {
-    size_t pad_len = 0;
+
 public:
 	padding(datum &) {
-        // while (true) {
-        //     uint8_t type = 0;
-        //     d.lookahead_uint8(&type);
-        //     if (type != 0 || !d.is_not_empty()) {
-        //         break;
-        //     }
-        //     d.skip(1);
-        //     ++pad_len;
-        // }
     }
 
-	void write(FILE *) {
-        //		fprintf(f, "padding length %zu\n", pad_len);
+	void write(FILE *f) {
+		fprintf(f, "padding\n");
 	}
+
+private:
+
+    // the function parse_consecutive_padding() reads consecutive padding
+    // frames and reports their number; it might be handy if you want to
+    // print out frames.
+    //
+    size_t parse_consecutive_padding(datum &d) {
+        size_t pad_len = 0;
+        while (true) {
+            uint8_t type = 0;
+            d.lookahead_uint8(&type);
+            if (type != 0 || !d.is_not_empty()) {
+                break;
+            }
+            d.skip(1);
+            ++pad_len;
+        }
+        return pad_len;
+    }
 };
 
 class ping {
@@ -986,13 +1046,6 @@ public:
         // parse plaintext as a sequence of frames
         //
         datum plaintext_copy = plaintext;
-        // if (plaintext.is_not_empty()) {
-        //     fprintf(stderr, "----------------------------------------\n");
-        //     fprintf(stderr, "plaintext length: %zd\n", plaintext.length());
-        //     fprintf(stderr, "plaintext: ");
-        //     plaintext_copy.fprint_hex(stderr);
-        //     fputc('\n', stderr);
-        // }
         while (plaintext_copy.is_not_empty()) {
             quic_frame frame{plaintext_copy};
             //frame.write(stderr);
@@ -1016,7 +1069,8 @@ public:
     }
 
     bool is_not_empty() {
-        return plaintext.is_not_empty();
+        return initial_packet.is_not_empty();
+        // note: plaintext.is_not_empty() could be used in output logic
     }
 
     bool has_tls() {
