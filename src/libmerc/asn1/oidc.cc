@@ -713,8 +713,8 @@ int main(int argc, char *argv[]) {
 
     // redirect cerr to /dev/null, for silent running
     //
-    ofstream dev_null("/dev/null");
-    cerr.rdbuf(dev_null.rdbuf());
+    // ofstream dev_null("/dev/null");
+    // cerr.rdbuf(dev_null.rdbuf());
 
 #if 0
     auto unknown_oids =
