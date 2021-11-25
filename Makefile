@@ -1,6 +1,8 @@
 # Makefile for mercury
 #
 
+export OPTFLAGS
+
 # definitions for colorized output
 COLOR_RED    = "\033[0;31m"
 COLOR_GREEN  = "\033[0;32m"
@@ -117,6 +119,10 @@ libs:
 .PHONY: test
 test:
 	cd src && $(MAKE) test
+
+.PHONY: test_libmerc_so
+test_libmerc_so: unit_tests
+	cd test && $(MAKE) test_libmerc_so
 
 .PHONY: unit_tests
 unit_tests:

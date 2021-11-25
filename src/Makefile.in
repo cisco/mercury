@@ -229,6 +229,7 @@ libmerc-clean:
 .PHONY: distclean
 distclean: clean
 	rm -rf Makefile autom4te.cache config.log config.status
+	cd libmerc && $(MAKE) distclean
 
 .PHONY: install
 install: libmerc mercury

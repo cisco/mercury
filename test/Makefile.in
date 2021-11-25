@@ -88,6 +88,13 @@ else
 	@echo $(COLOR_YELLOW) "please install the missing packages mentioned above and re-run ./configure" $(COLOR_OFF)
 endif
 
+.PHONY: test_libmerc_so
+test_libmerc_so: libmerc_driver # pdu_test
+
+.PHONY: pdu_test
+pdu_test:
+	./pdu_test.sh
+
 .PHONY: libmerc_driver
 libmerc_driver:
 	@echo "running unit tests"

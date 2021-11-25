@@ -707,6 +707,15 @@ void oid_set::dump_oid_enum_dict_sorted(char *progname) {
 int main(int argc, char *argv[]) {
     using namespace std;
 
+    // improve performance by not using stdio with iostreams
+    //
+    std::ios::sync_with_stdio(false);
+
+    // redirect cerr to /dev/null, for silent running
+    //
+    ofstream dev_null("/dev/null");
+    cerr.rdbuf(dev_null.rdbuf());
+
 #if 0
     auto unknown_oids =
         {
