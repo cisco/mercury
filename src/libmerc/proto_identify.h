@@ -182,6 +182,7 @@ public:
         if (protocols["tls"] || protocols["all"]) {
             tcp.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
             tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
+            tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
         }
         else if(protocols["tls.client_hello"])
         {
@@ -190,6 +191,10 @@ public:
         else if(protocols["tls.server_hello"])
         {
             tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
+        }
+        else if(protocols["tls.server_certificate"])
+        {
+            tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
         }
         if (protocols["http"] || protocols["all"]) {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
