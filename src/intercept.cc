@@ -861,8 +861,7 @@ public:
         //  process_http_request(data, length);
 
         struct datum tcp_data{data, data+length};
-        struct http_request_x http_req;
-        http_req.parse(tcp_data);
+        struct http_request_x http_req{tcp_data};
         if (http_req.is_not_empty() && http_req.method_is_valid()) {
 
             char buffer[buffer_length];
@@ -933,8 +932,7 @@ public:
 
             struct datum tcp_data{data, data+length};
 
-            struct tls_record rec;
-            rec.parse(tcp_data);
+            struct tls_record rec{tcp_data};
             struct tls_handshake handshake;
             handshake.parse(rec.fragment);
             if (handshake.additional_bytes_needed) {
@@ -1078,15 +1076,12 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
 
         struct datum tcp_data{data, data+length};
 
-        struct tls_record rec;
-        rec.parse(tcp_data);
-        struct tls_handshake handshake;
-        handshake.parse(rec.fragment);
+        struct tls_record rec{tcp_data};
+        struct tls_handshake handshake{rec.fragment};
         if (handshake.additional_bytes_needed) {
             fprintf(stderr, YELLOW(tty, "note: tls_handshake needs additional data\n"));
         }
-        tls_client_hello hello;
-        hello.parse(handshake.body);
+        tls_client_hello hello{handshake.body};
 
         if (hello.is_not_empty()) {
             struct fingerprint fp;

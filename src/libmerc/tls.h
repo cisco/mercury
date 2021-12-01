@@ -140,7 +140,7 @@ struct tls_record {
     uint16_t length;
     struct datum fragment;
 
-    tls_record() : content_type{0}, protocol_version{0}, length{0}, fragment{NULL, NULL} {}
+    tls_record(datum &d) : content_type{0}, protocol_version{0}, length{0}, fragment{NULL, NULL} { parse(d); }
 
     void parse(struct datum &d) {
         if (d.length() < (int)(sizeof(content_type) + sizeof(protocol_version) + sizeof(length))) {
@@ -156,8 +156,7 @@ struct tls_record {
 
     static bool is_valid(const struct datum &d) {
         struct datum tmp = d;
-        struct tls_record record;
-        record.parse(tmp);
+        struct tls_record record{tmp};
         return record.is_valid();
     }
 
@@ -342,12 +341,14 @@ struct tls_client_hello : public tcp_base_protocol {
     struct datum ciphersuite_vector;
     struct datum compression_methods;
     struct tls_extensions extensions;
-    bool dtls;
-    size_t additional_bytes_needed;
+    bool dtls = false;
+    size_t additional_bytes_needed = 0;
 
-    tls_client_hello() : protocol_version{NULL, NULL}, random{NULL, NULL}, session_id{NULL, NULL}, cookie{NULL, NULL}, ciphersuite_vector{NULL, NULL}, compression_methods{NULL, NULL}, extensions{NULL, NULL}, dtls{false}, additional_bytes_needed{0} {}
+    tls_client_hello() { }
 
-    void parse(struct datum &p);
+    tls_client_hello(datum &p) { parse(p); }
+
+    void parse(datum &p);
 
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
@@ -393,7 +394,9 @@ struct tls_server_hello : public tcp_base_protocol {
     struct tls_extensions extensions;
     bool dtls = false;
 
-    tls_server_hello() = default;
+    tls_server_hello() {  }
+
+    tls_server_hello(datum &p) { parse(p); }
 
     void parse(struct datum &p);
 
@@ -467,7 +470,9 @@ struct dtls_record {
     uint16_t length;
     struct datum fragment;
 
-    dtls_record() : content_type{0}, protocol_version{0}, epoch{0}, sequence_number{0}, length{0}, fragment{NULL, NULL} {}
+    dtls_record(datum &d) : content_type{0}, protocol_version{0}, epoch{0}, sequence_number{0}, length{0}, fragment{NULL, NULL} {
+        parse(d);
+    }
 
     void parse(struct datum &d) {
         if (d.length() < (int)(sizeof(content_type) + sizeof(protocol_version) + sizeof(length))) {
@@ -519,16 +524,16 @@ class tls_server_hello_and_certificate : public tcp_base_protocol {
     struct tls_server_certificate certificate;
 
 public:
-    tls_server_hello_and_certificate() : hello{}, certificate{} {}
+    tls_server_hello_and_certificate(struct datum &pkt, struct tcp_packet *tcp_pkt) : hello{}, certificate{} {
+        parse(pkt, tcp_pkt);
+    }
 
     void parse(struct datum &pkt, struct tcp_packet *tcp_pkt) {
-        struct tls_record rec;
-        struct tls_handshake handshake;
 
         // parse server_hello and/or certificate
         //
-        rec.parse(pkt);
-        handshake.parse(rec.fragment);
+        struct tls_record rec{pkt};
+        struct tls_handshake handshake{rec.fragment};
         if (handshake.msg_type == handshake_type::server_hello) {
             hello.parse(handshake.body);
             if (rec.is_not_empty()) {
@@ -540,10 +545,8 @@ public:
         } else if (handshake.msg_type == handshake_type::certificate) {
             certificate.parse(handshake.body);
         }
-        struct tls_record rec2;
-        rec2.parse(pkt);
-        struct tls_handshake handshake2;
-        handshake2.parse(rec2.fragment);
+        struct tls_record rec2{pkt};
+        struct tls_handshake handshake2{rec2.fragment};
         if (handshake2.msg_type == handshake_type::certificate) {
             certificate.parse(handshake2.body);
         }

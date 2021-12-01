@@ -444,7 +444,7 @@ struct dhcp_option : public datum {
 struct dhcp_discover {
     struct datum options;
 
-    dhcp_discover() = default;
+    dhcp_discover(datum &p) { parse(p); };
 
     void parse(struct datum &p) {
         p.skip(L_dhcp_fixed_header);

@@ -473,8 +473,6 @@ struct dns_packet {
     uint16_t qdcount, ancount, nscount, arcount;
     static const uint16_t max_count = 256;
 
-    dns_packet() : header{NULL}, records{NULL, NULL}, length{0} {  }
-
     dns_packet(struct datum &d) : header{NULL}, records{NULL, NULL}, length{0} {
         parse(d);
     }

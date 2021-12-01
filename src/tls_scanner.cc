@@ -889,8 +889,7 @@ public:
         // parse HTTP request for JSON output
         const uint8_t *http_req_buffer = (const uint8_t *)request.data();
         struct datum http_req_data{http_req_buffer, http_req_buffer + request.length()};
-        http_request req;
-        req.parse(http_req_data);
+        http_request req{http_req_data};
 
         // report http request
         char output_buffer[1024*16];
@@ -921,8 +920,7 @@ public:
             const unsigned char *tmp = (const unsigned char *)http_buffer;
             struct datum http{tmp, tmp+http_response_len};
             if (parse_response) {
-                http_response response;
-                response.parse(http);
+                http_response response{http};
 
                 output_buffer_stream = {output_buffer, sizeof(output_buffer)}; // reset
                 struct json_object http_record{&output_buffer_stream};

@@ -483,12 +483,9 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
 // static function
 //
 void tls_client_hello::write_json(struct datum &data, struct json_object &record, bool output_metadata) {
-    struct tls_record rec;
-    rec.parse(data);
-    struct tls_handshake handshake;
-    handshake.parse(rec.fragment);
-    struct tls_client_hello hello;
-    hello.parse(handshake.body);
+    struct tls_record rec{data};
+    struct tls_handshake handshake{rec.fragment};
+    struct tls_client_hello hello{handshake.body};
     hello.write_json(record, output_metadata);
 }
 

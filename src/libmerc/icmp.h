@@ -113,7 +113,9 @@ class icmp_packet : public datum {
     uint8_t code;
 
 public:
-    icmp_packet() : type{0}, code{0} {}
+    icmp_packet(datum &d) : type{0}, code{0} {
+        parse(d);
+    }
 
     void parse(datum &d) {
         d.read_uint8(&type);
@@ -122,6 +124,8 @@ public:
         data = d.data;           // TODO: create datum::operator=()
         data_end = d.data_end;
     }
+
+    bool is_valid() const { return datum::is_not_empty(); }
 
     void write_json(json_object &o) const {
          if (data) {

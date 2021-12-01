@@ -137,7 +137,7 @@ class smtp_client : public tcp_base_protocol {
 
 public:
 
-    smtp_client() : parameters{} { }
+    smtp_client(datum &pkt) : parameters{} { parse(pkt); }
 
     void parse(struct datum &pkt) {
         parameters.parse(pkt);
@@ -198,7 +198,7 @@ class smtp_server : public tcp_base_protocol {
 
 public:
 
-    smtp_server() : parameters{} { }
+    smtp_server(datum &pkt) : parameters{} { parse(pkt); }
 
     void parse(struct datum &pkt) {
         parameters.parse(pkt);

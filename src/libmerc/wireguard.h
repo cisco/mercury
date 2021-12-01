@@ -27,7 +27,7 @@ struct wireguard_handshake_init {
     struct datum unencrypted_ephemeral;
     bool valid;
 
-    wireguard_handshake_init() : sender_index{NULL, NULL}, unencrypted_ephemeral{NULL, NULL}, valid{false} {}
+    wireguard_handshake_init(datum &p) : sender_index{NULL, NULL}, unencrypted_ephemeral{NULL, NULL}, valid{false} { parse(p); }
 
     void parse(struct datum &p) {
         valid = false;
