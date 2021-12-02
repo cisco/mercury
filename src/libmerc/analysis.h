@@ -677,7 +677,7 @@ public:
                                 ip_as[as_number] = y.value.GetUint64();
 
                             }
-
+  
                         }
                     }
                 }

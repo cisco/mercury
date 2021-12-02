@@ -67,6 +67,20 @@ class eth {
 
  public:
 
+    static bool get_ip(datum &pkt) {
+        eth ethernet_frame{pkt};
+        uint16_t ethertype = ethernet_frame.get_ethertype();
+        switch(ethertype) {
+        case ETH_TYPE_IP:
+        case ETH_TYPE_IPV6:
+            return true;
+            break;
+        default:
+            ;
+        }
+        return false;  // not an IP packet
+    }
+
     uint16_t get_ethertype() const { return ethertype; }
 
     eth(struct datum &p) {

@@ -44,17 +44,17 @@ struct analysis_result {
 
 #ifdef __cplusplus
 public:
-    analysis_result() : status{fingerprint_status_no_info_available}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result() : status{fingerprint_status_no_info_available}, max_proc{ { '\0' } }, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
-    analysis_result(enum fingerprint_status s) : status{s}, max_proc{0}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result(enum fingerprint_status s) : status{s}, max_proc{  { '\0' } }, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
     analysis_result(enum fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len) :
-        status{s}, max_proc{0}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
+        status{s}, max_proc{  { '\0' } }, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
     analysis_result(fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob) :
-        status{s}, max_proc{0}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
+        status{s}, max_proc{  { '\0' } }, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
@@ -76,7 +76,7 @@ public:
                 os_json.close();
             }
         } else if (status == fingerprint_status_randomized) {
-            if (max_proc != NULL) {
+            if (max_proc[0] != '\0') {
                 analysis.print_key_string("process", max_proc);
                 analysis.print_key_float("score", max_score);
                 if (classify_malware) {
@@ -100,7 +100,53 @@ public:
         analysis.close();
     }
 
-    bool is_valid() const { return status != fingerprint_status_no_info_available; }
+    bool is_valid() const {
+        return status != fingerprint_status_no_info_available;
+    }
+
+    void reinit() {
+        status = fingerprint_status_no_info_available;
+        max_proc[0] = '\0';
+        os_info = NULL;
+        classify_malware = false;
+    }
+
+    bool get_process_info(const char **probable_process,     // output
+                          double *probability_score          // output
+                          ) const {
+
+        if (is_valid() && max_proc[0] != '\0' ) {
+            *probable_process = max_proc;
+            *probability_score = max_score;
+            return true;
+        }
+        return false;
+    }
+
+    bool get_malware_info(bool *probable_process_is_malware, // output
+                          double *probability_malware        // output
+                          ) const {
+
+        if (is_valid() && classify_malware) {
+            *probable_process_is_malware = max_mal;
+            *probability_malware = malware_prob;
+            return true;
+        }
+        return false;
+    }
+
+    bool get_os_info(const struct os_information **os_info_,   // output
+                     size_t *os_info_len_                      // output
+                     ) const {
+
+        if (is_valid() && os_info != NULL) {
+            *os_info_ = os_info;
+            *os_info_len_ = os_info_len;
+            return true;
+        }
+        return false;
+    }
+
 #endif
 };
 
@@ -136,6 +182,14 @@ struct analysis_context {
 #ifdef __cplusplus
     analysis_context() : fp{}, destination{}, result{} {}
     // could add structs needed for 'scratchwork'
+
+    const char *get_server_name() const {
+        if (destination.sn_str[0] != '\0') {
+            return destination.sn_str;
+        }
+        return NULL;
+    }
+
 #endif
 };
 

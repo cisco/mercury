@@ -395,6 +395,17 @@ struct do_observation {
 
 };
 
+
+std::variant<std::monostate, tcp_packet, udp, gre_header, icmp_packet, ospf> ip_protocol;
+//
+// protocols:
+//    gre_header -> reentrant
+//    icmp_packet
+//    ospf
+//    tcp_packet: SYN, SYN_ACK, tcp_data_write_json
+//    udp
+
+
 // constant expression variables that control JSON output; these
 // variables can be used as compile-time options.  In the future, they
 // will probably become run-time options.
@@ -550,7 +561,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
         }
 
-        //enum udp_msg_type msg_type = udp_pkt.get_msg_type();
         bool is_new = false;
         if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
@@ -602,23 +612,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         return buf.length();
     }
     return 0;
-}
-
-bool stateful_pkt_proc::ip_set_analysis_result(struct analysis_result *r,
-                                               const uint8_t *ip_packet,
-                                               size_t length,
-                                               struct timespec *ts,
-                                               struct tcp_reassembler *reassembler) {
-
-    // TODO: rewrite this function based on ip_write_json()
-    //
-    (void)r;
-    (void)ip_packet;
-    (void)length;
-    (void)ts;
-    (void)reassembler;
-
-    return false;
 }
 
 constexpr bool report_ARP  = false;
@@ -919,3 +912,91 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
     return false;
 }
 
+bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
+                                          size_t length,
+                                          struct timespec *,
+                                          struct tcp_reassembler *reassembler) {
+
+    // re-initialize the structure that holds analysis results
+    //
+    analysis.result.reinit();
+    bool output_analysis = false;
+
+    struct datum pkt{packet, packet+length};
+
+    struct key k;
+    ip ip_pkt{pkt, k};
+    uint8_t transport_proto = ip_pkt.transport_protocol();
+
+    if (transport_proto == ip::protocol::tcp) {
+        tcp_packet tcp_pkt{pkt};
+        if (!tcp_pkt.is_valid()) {
+            return 0;  // incomplete tcp header; can't process packet
+         }
+        tcp_pkt.set_key(k);
+
+        //tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, nullptr);  // process packet without tcp reassembly
+        tcp_protocol x;
+        set_tcp_protocol(x, pkt, selector, false, reassembler == nullptr ? nullptr : &tcp_pkt);
+        if (std::visit(is_not_empty{}, x)) {
+
+            std::visit(compute_fingerprint{analysis.fp}, x);
+
+            if (global_vars.do_analysis) {
+                output_analysis = std::visit(do_analysis{k, analysis, c}, x);
+
+                // note: we only perform observations when analysis is
+                // configured, because we rely on do_analysis to set the
+                // analysis_.destination
+                //
+                if (mq) {
+                    std::visit(do_observation{k, analysis, mq}, x);
+                }
+            }
+        }
+
+    } else if (transport_proto == ip::protocol::udp) {
+        class udp udp_pkt{pkt};
+        udp_pkt.set_key(k);
+        enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt.data, pkt.length());
+
+        if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
+            udp::ports ports = udp_pkt.get_ports();
+            if (ports.dst == htons(4789)) {
+                msg_type = udp_msg_type_vxlan; // could parse VXLAN header here
+            }
+        }
+
+        udp_protocol x;
+        set_udp_protocol(x, pkt, msg_type, false);
+        if (std::visit(is_not_empty{}, x)) {
+            std::visit(compute_fingerprint{analysis.fp}, x);
+            if (global_vars.do_analysis) {
+                output_analysis = std::visit(do_analysis{k, analysis, c}, x);
+
+                // note: we only perform observations when analysis is
+                // configured, because we rely on do_analysis to set the
+                // analysis_.destination
+                //
+                if (mq) {
+                    std::visit(do_observation{k, analysis, mq}, x);
+                }
+            }
+        }
+    }
+
+    return output_analysis;
+}
+
+bool stateful_pkt_proc::analyze_eth_packet(const uint8_t *packet,
+                                           size_t length,
+                                           struct timespec *ts,
+                                           struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    if (!eth::get_ip(pkt)) {
+        return false;   // not an IP packet
+    }
+
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}

@@ -127,7 +127,7 @@ struct stateful_pkt_proc {
         return write_json(buffer, buffer_size, packet, length, ts, reassembler_ptr);
     }
 
-    LIBMERC_DLL_EXPORTED
+    //    LIBMERC_DLL_EXPORTED  // TODO: check that we need this
     size_t write_json(void *buffer,
                       size_t buffer_size,
                       uint8_t *packet,
@@ -149,11 +149,15 @@ struct stateful_pkt_proc {
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler);
 
-    bool ip_set_analysis_result(struct analysis_result *r,
-                                const uint8_t *ip_packet,
-                                size_t length,
-                                struct timespec *ts,
-                                struct tcp_reassembler *reassembler);
+    bool analyze_eth_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler);
+
+    bool analyze_ip_packet(const uint8_t *ip_packet,
+                           size_t length,
+                           struct timespec *ts,
+                           struct tcp_reassembler *reassembler);
 
     bool tcp_data_set_analysis_result(struct analysis_result *r,
                                       struct datum &pkt,
