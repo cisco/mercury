@@ -581,6 +581,8 @@ class classifier {
 
     std::string resource_version;  // as reported by VERSION file in resource archive
 
+    std::vector<fingerprint_type> fp_types;
+
 public:
 
     void process_fp_prevalence_line(std::string &line_str) {
@@ -677,7 +679,6 @@ public:
                                 ip_as[as_number] = y.value.GetUint64();
 
                             }
-  
                         }
                     }
                 }
@@ -763,6 +764,8 @@ public:
                float fp_proc_threshold,
                float proc_dst_threshold,
                bool report_os) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
+
+        fp_types.push_back(fingerprint_type_tls);
 
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
@@ -888,6 +891,9 @@ public:
 
         if (fp.is_null()) {
             return true;  // no fingerprint to analyze
+        }
+        if (std::find(fp_types.begin(), fp_types.end(), fp.type) == fp_types.end()) {
+            return true;  // not configured to analyze fingerprints of this type
         }
         result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port, user_agent);
         return true;
