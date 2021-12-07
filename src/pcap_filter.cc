@@ -123,8 +123,7 @@ int main(int argc, char *argv[]) {
             if (tcp_data.is_not_empty()) {
 
                 datum tcp_data_copy = tcp_data;
-                struct tls_record rec;
-                rec.parse(tcp_data_copy);
+                struct tls_record rec{tcp_data_copy};
                 if (rec.type() == tls_content_type::handshake) {
                     struct tls_handshake handshake;
                     handshake.parse(rec.fragment);
@@ -145,8 +144,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 tcp_data_copy = tcp_data;
-                http_request request;
-                request.parse(tcp_data_copy);
+                http_request request{tcp_data_copy};
                 if (request.is_not_empty() == expected_value) {
                     pkt.write(http_out);
 
@@ -216,8 +214,7 @@ datum get_tcp_data(struct datum eth_pkt) {
 
             ip::protocol protocol = ip_pkt.transport_protocol();
             if (protocol == ip::protocol::tcp) {
-                tcp_packet tcp;
-                tcp.parse(eth_pkt);
+                tcp_packet tcp{eth_pkt};
                 //tcp.set_key(k);
                 return eth_pkt;
             }
