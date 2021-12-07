@@ -396,7 +396,7 @@ struct do_observation {
 };
 
 
-std::variant<std::monostate, tcp_packet, udp, gre_header, icmp_packet, ospf> ip_protocol;
+//std::variant<std::monostate, tcp_packet, udp, gre_header, icmp_packet, ospf> ip_protocol;
 //
 // protocols:
 //    gre_header -> reentrant

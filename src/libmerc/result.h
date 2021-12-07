@@ -44,17 +44,17 @@ struct analysis_result {
 
 #ifdef __cplusplus
 public:
-    analysis_result() : status{fingerprint_status_no_info_available}, max_proc{ { '\0' } }, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result() : status{fingerprint_status_no_info_available}, max_proc{'\0'}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
-    analysis_result(enum fingerprint_status s) : status{s}, max_proc{  { '\0' } }, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result(enum fingerprint_status s) : status{s}, max_proc{'\0'}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
 
     analysis_result(enum fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len) :
-        status{s}, max_proc{  { '\0' } }, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
+        status{s}, max_proc{'\0'}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
     analysis_result(fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob) :
-        status{s}, max_proc{  { '\0' } }, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
+        status{s}, max_proc{'\0'}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
         os_info{os}, os_info_len{os_len} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
