@@ -125,6 +125,7 @@ libmerc/libmerc.so:
 
 .PHONY: libmerc
 libmerc:
+	$(MAKE) --directory=libmerc clean
 	$(MAKE) --directory=libmerc
 	$(MAKE) --directory=libmerc libmerc.a
 
