@@ -585,6 +585,17 @@ class classifier {
 
 public:
 
+    static fingerprint_type get_fingerprint_type(const std::string &s) {
+        if (s == "tls") {
+            return fingerprint_type_tls;
+        } else if (s == "http") {
+            return fingerprint_type_http;
+        } else if (s == "quic") {
+            return fingerprint_type_quic;
+        }
+        return fingerprint_type_unknown;
+    }
+
     void process_fp_prevalence_line(std::string &line_str) {
         if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
             line_str.erase(line_str.length()-1);
@@ -601,6 +612,18 @@ public:
         if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
             fp_string = fp["str_repr"].GetString();
             //fprintf(stderr, "%s\n", fp_string.c_str());
+        }
+
+        fingerprint_type fp_type_code = fingerprint_type_tls;
+        std::string fp_type_string;
+        if (fp.HasMember("fp_type") && fp["fp_type"].IsString()) {
+            fp_type_string = fp["fp_type"].GetString();
+            fp_type_code = get_fingerprint_type(fp_type_string.c_str());
+        }
+        if (fp_type_code != fingerprint_type_unknown) {
+            if (std::find(fp_types.begin(), fp_types.end(), fp_type_code) == fp_types.end()) {
+                fp_types.push_back(fp_type_code);
+            }
         }
 
         uint64_t total_count = 0;
@@ -765,6 +788,8 @@ public:
                float proc_dst_threshold,
                bool report_os) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
 
+        // by default, we expect that tls fingerprints will be present in the resource file
+        //
         fp_types.push_back(fingerprint_type_tls);
 
         bool got_fp_prevalence = false;
