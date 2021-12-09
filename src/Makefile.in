@@ -141,6 +141,7 @@ debug-libmerc:
 
 .PHONY: unstripped-libmerc
 unstripped-libmerc:
+	$(MAKE) --directory=libmerc clean
 	$(MAKE) -j --directory=libmerc unstripped-libmerc.so unstripped-libmerc.a
 
 .PHONY: stripped-libmerc
