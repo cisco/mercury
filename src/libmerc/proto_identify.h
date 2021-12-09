@@ -196,6 +196,14 @@ public:
         {
             tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
         }
+        if (protocols["ssh"] || protocols["all"]) {
+            tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+            tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+        }
+        if (protocols["smtp"] || protocols["all"]) {
+            tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
+            tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
+        }
         if (protocols["http"] || protocols["all"]) {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
             tcp.add_protocol(http_request::matcher, tcp_msg_type_http_request);
@@ -211,14 +219,6 @@ public:
         else if(protocols["http.response"])
         {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
-        }
-        if (protocols["ssh"] || protocols["all"]) {
-            tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
-            tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
-        }
-        if (protocols["smtp"] || protocols["all"]) {
-            tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
-            tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
         }
 
         // booleans not yet implemented

@@ -418,25 +418,32 @@ struct tls_server_hello : public tcp_base_protocol {
     enum status parse_tls_server_hello(struct datum &p);
 
     void write_json(struct json_object &o, bool write_metadata=false) const {
-        (void)write_metadata;
-
-        o.print_key_hex("version", protocol_version);
-        o.print_key_hex("random", random);
-        //o.print_key_hex("session_id", session_id);
-        //o.print_key_hex("cipher_suites", ciphersuite_vector);
-        o.print_key_hex("compression_method", compression_method);
-        //o.print_key_hex("extensions", hello.extensions);
-        //hello.extensions.print(o, "extensions");
-        extensions.print_server_name(o, "server_name");
-        extensions.print_session_ticket(o, "session_ticket");
+        if (ciphersuite_vector.is_not_readable()) {
+            return;
+        }
+        const char *label = "tls";
+        if (dtls) {
+            label = "dtls";
+        }
+        struct json_object tls{o, label};
+        struct json_object tls_server{tls, "server"};
+        if (write_metadata) {
+            tls_server.print_key_hex("version", protocol_version);
+            tls_server.print_key_hex("random", random);
+            tls_server.print_key_hex("selected_cipher_suite", ciphersuite_vector);
+            tls_server.print_key_hex("compression_methods", compression_method);
+            extensions.print_session_ticket(tls_server, "session_ticket");
+        }
+        tls_server.close();
+        tls.close();
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
         enum fingerprint_type type;
         if (dtls) {
-            type = fingerprint_type_dtls;
+            type = fingerprint_type_dtls_server;
         } else {
-            type = fingerprint_type_tls;
+            type = fingerprint_type_tls_server;
         }
         fp.set(*this, type);
     }
