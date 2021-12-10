@@ -28,6 +28,7 @@ oid.h: oidc $(wildcard *.asn1)
 .PHONY: clean
 clean:
 	rm -rf oidc                # remove OID compiler
+	rm -f oid.o                # remove OID object file
 	for file in cert-analyze.cc oidc.cc Makefile README.md configure.ac $(wildcard *.asn1); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
 .PHONY: distclean
