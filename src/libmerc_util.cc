@@ -39,13 +39,10 @@ struct libmerc_printer : public libmerc_api {
             fprintf(f, "null analysis_context (no analysis present)\n");
         }
         enum fingerprint_type type = this->get_fingerprint_type(ctx);
-        if (type == fingerprint_type_tls) {
-            fprintf(f, "fingerprint_type: tls\n");
-        } else if (type == fingerprint_type_unknown) {
-            fprintf(f, "fingerprint_type: unknown\n");
-        } else {
-            fprintf(f, "fingerprint_type: not tls (type code %u)\n", type);
-        }
+        const char *fp_type_str = fingerprint_type_string(type);
+        fprintf(f, "fingerprint_type: %s\n", fp_type_str);
+        fprintf(f, "fingerprint_type_code: %u\n", type);
+
         const char *fp_string = this->get_fingerprint_string(ctx);
         if (fp_string) {
             fprintf(f, "fingerprint_string: %s\n", fp_string);
@@ -95,7 +92,6 @@ struct libmerc_printer : public libmerc_api {
         fprintf(f, "----------  end of %s  ----------\n", __func__);
     }
 
-
     void fprint_json_analysis_context(FILE *f, const struct analysis_context *ctx) {
 
         constexpr size_t buffer_len = 4096;
@@ -105,13 +101,8 @@ struct libmerc_printer : public libmerc_api {
 
         if (ctx != NULL) {
             enum fingerprint_type type = this->get_fingerprint_type(ctx);
-            if (type == fingerprint_type_tls) {
-                json.print_key_string("fingerprint_type", "tls");
-            } else if (type == fingerprint_type_unknown) {
-                json.print_key_string("fingerprint_type", "unknown");
-            } else {
-                json.print_key_string("fingerprint_type", "not tls");
-            }
+            const char *fp_type_str = fingerprint_type_string(type);
+            json.print_key_string("fingerprint_type", fp_type_str);
             json.print_key_uint("fingerprint_type_code", type);
 
             const char *fp_string = this->get_fingerprint_string(ctx);
@@ -158,6 +149,26 @@ struct libmerc_printer : public libmerc_api {
         buf.write_line(f);
     }
 
+    const char *fingerprint_type_string(fingerprint_type fp_type) {
+        switch(fp_type) {
+        case fingerprint_type_unknown:     return "unknown";
+        case fingerprint_type_tls:         return "tls";
+        case fingerprint_type_tls_server:  return "tls_server";
+        case fingerprint_type_http:        return "http";
+        case fingerprint_type_http_server: return "http_server";
+        case fingerprint_type_ssh:         return "ssh";
+        case fingerprint_type_ssh_kex:     return "ssh_kex";
+        case fingerprint_type_tcp:         return "tcp";
+        case fingerprint_type_dhcp:        return "dhcp";
+        case fingerprint_type_smtp_server: return "smtp_server";
+        case fingerprint_type_dtls:        return "dtls";
+        case fingerprint_type_dtls_server: return "dtls_server";
+        case fingerprint_type_quic:        return "quic";
+        default:
+            ;
+        }
+        return "unregistered fingerprint type";
+    }
 };
 
 int main(int argc, char *argv[]) {
