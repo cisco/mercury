@@ -621,11 +621,5 @@ extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *mercury_get_resource_version(mercury_context mc);
 
-// OTHER FUNCTIONS
-//
-enum status proto_ident_config(const char *config_string);
-
-enum status static_data_config(const char *config_string);
-
 
 #endif /* LIBMERC_H */
