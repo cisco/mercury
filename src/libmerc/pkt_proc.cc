@@ -251,6 +251,18 @@ struct write_metadata {
         }
     }
 
+    void operator()(tls_server_hello &r) {
+        const char *label = "tls";
+        if (r.dtls) {
+            label = "dtls";
+        }
+        struct json_object tls{record, label};
+        struct json_object tls_server{tls, "server"};
+        r.write_json(tls_server, metadata_output_);
+        tls_server.close();
+        tls.close();
+    }
+
     void operator()(tls_server_hello_and_certificate &r) {
         r.write_json(record, metadata_output_, certs_json_output_);
     }

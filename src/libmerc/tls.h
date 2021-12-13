@@ -421,21 +421,14 @@ struct tls_server_hello : public tcp_base_protocol {
         if (ciphersuite_vector.is_not_readable()) {
             return;
         }
-        const char *label = "tls";
-        if (dtls) {
-            label = "dtls";
-        }
-        struct json_object tls{o, label};
-        struct json_object tls_server{tls, "server"};
+
         if (write_metadata) {
-            tls_server.print_key_hex("version", protocol_version);
-            tls_server.print_key_hex("random", random);
-            tls_server.print_key_hex("selected_cipher_suite", ciphersuite_vector);
-            tls_server.print_key_hex("compression_methods", compression_method);
-            extensions.print_session_ticket(tls_server, "session_ticket");
+            o.print_key_hex("version", protocol_version);
+            o.print_key_hex("random", random);
+            o.print_key_hex("selected_cipher_suite", ciphersuite_vector);
+            o.print_key_hex("compression_methods", compression_method);
+            extensions.print_session_ticket(o, "session_ticket");
         }
-        tls_server.close();
-        tls.close();
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
@@ -583,7 +576,7 @@ public:
                     server_certs.close();
                 }
                 if (metadata_output && have_hello) {
-                    hello.write_json(tls_server);
+                    hello.write_json(tls_server, metadata_output);
                 }
                 tls_server.close();
                 tls.close();
