@@ -56,6 +56,8 @@ struct libmerc_printer : public libmerc_api {
             fprintf(f, "fingerprint_status: unlabeled\n");
         } else if (fp_status == fingerprint_status_randomized) {
             fprintf(f, "fingerprint_status: randomized\n");
+        } else if (fp_status == fingerprint_status_unanalyzed) {
+            fprintf(f, "fingerprint_status: unanalyzed\n");
         } else if (fp_status == fingerprint_status_no_info_available) {
             fprintf(f, "fingerprint_status: no info available\n");
         } else {
@@ -116,6 +118,8 @@ struct libmerc_printer : public libmerc_api {
                 fp_status_string = "unlabeled";
             } else if (fp_status == fingerprint_status_randomized) {
                fp_status_string = "randomized";
+            } else if (fp_status == fingerprint_status_unanalyzed) {
+                fp_status_string = "unanalyzed";
             } else if (fp_status == fingerprint_status_no_info_available) {
                 fp_status_string = "no info available";
             } else {

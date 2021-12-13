@@ -918,6 +918,7 @@ public:
             return true;  // no fingerprint to analyze
         }
         if (std::find(fp_types.begin(), fp_types.end(), fp.type) == fp_types.end()) {
+            result = analysis_result(fingerprint_status_unanalyzed);
             return true;  // not configured to analyze fingerprints of this type
         }
         result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port, user_agent);
