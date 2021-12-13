@@ -579,8 +579,8 @@ public:
     }
 
     static quic_parameters &create() {
-        static quic_parameters *quic_params = new quic_parameters;
-        return *quic_params;
+        static quic_parameters quic_params;
+        return quic_params;
     }
 };
 
