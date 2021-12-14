@@ -25,8 +25,7 @@
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
-
-#define pt_buf_len 2048 // plaintext buffer length
+#include "crypto_engine.h"
 
 /*
  * QUIC header format (from draft-ietf-quic-transport-32):
@@ -586,6 +585,8 @@ public:
 
 class quic_crypto_engine {
 
+    crypto_engine core_crypto;
+
     constexpr static const uint8_t client_in_label[] = "tls13 client in";
     constexpr static const uint8_t quic_key_label[]  = "tls13 quic key";
     constexpr static const uint8_t quic_iv_label[]   = "tls13 quic iv";
@@ -607,24 +608,7 @@ class quic_crypto_engine {
     unsigned char plaintext[pt_buf_len] = {0};
     int16_t plaintext_len = 0;
 
-    EVP_CIPHER_CTX *ctx = nullptr;
-
 public:
-
-    quic_crypto_engine() : ctx{EVP_CIPHER_CTX_new()} {
-        if (ctx == nullptr) {
-            throw std::runtime_error("could not create EVP_CIPHER_CTX");
-        }
-        if(!EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL)) {
-            throw std::runtime_error("could not initialize EVP_CIPHER_CTX");
-        }
-    }
-
-    ~quic_crypto_engine() {
-        if (ctx) {
-            EVP_CIPHER_CTX_free(ctx);
-        }
-    }
 
     datum decrypt(const quic_initial_packet &quic_pkt) {
         if (!quic_pkt.is_not_empty()) {
@@ -674,18 +658,16 @@ private:
 
         uint8_t c_initial_secret[EVP_MAX_MD_SIZE] = {0};
         unsigned int c_initial_secret_len = 0;
-        kdf_tls13(initial_secret, initial_secret_len, client_in_label, sizeof(client_in_label)-1, 32, c_initial_secret, &c_initial_secret_len);
-        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_key_label, sizeof(quic_key_label)-1, 16, quic_key, &quic_key_len);
-        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, 12, quic_iv, &quic_iv_len);
-        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, 16, quic_hp, &quic_hp_len);
+        core_crypto.kdf_tls13(initial_secret, initial_secret_len, client_in_label, sizeof(client_in_label)-1, 32, c_initial_secret, &c_initial_secret_len);
+        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_key_label, sizeof(quic_key_label)-1, 16, quic_key, &quic_key_len);
+        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, 12, quic_iv, &quic_iv_len);
+        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, 16, quic_hp, &quic_hp_len);
 
         // remove header protection (RFC9001, Section 5.4.1)
         //
         static constexpr size_t sample_offset = 4;
-        AES_KEY enc_key;
-        AES_set_encrypt_key(quic_hp, 128, &enc_key);
         uint8_t mask[32] = {0};
-        AES_encrypt(quic_pkt.payload.data + sample_offset, mask, &enc_key);
+        core_crypto.ecb_encrypt(quic_hp,mask,quic_pkt.payload.data + sample_offset,16);
         pn_length = quic_pkt.connection_info ^ (mask[0] & 0x0f);
         pn_length = (pn_length & 0x03) + 1;
 
@@ -712,112 +694,19 @@ private:
 
     void decrypt__(const uint8_t *ad, unsigned int ad_len, const uint8_t *data, unsigned int length) {
 
-        // trim ciphertext length so that plaintext length fits in buffer, if needed
-        //
-        uint16_t cipher_len = (length-pn_length < pt_buf_len) ? length-pn_length : pt_buf_len;
-        plaintext_len = gcm_decrypt(ad, ad_len, data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
+        uint16_t cipher_len = length - pn_length;
+        plaintext_len = core_crypto.gcm_decrypt(ad, ad_len, data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
         if (plaintext_len == -1) {
             plaintext_len = 0;  // error; indicate that there is no plaintext in buffer
         }
+        
+        // reset buffer states after decryption 
+        //
+        quic_key_len = 0;
+        quic_iv_len = 0;
+        quic_hp_len = 0;
+        pn_length = 0; 
     }
-
-    // gcm_decrypt() is adapted from openSSL documentation; see "GCM Mode" at
-    // https://github.com/majek/openssl/blob/master/doc/crypto/EVP_EncryptInit.pod and
-    // https://wiki.openssl.org/index.php/EVP_Authenticated_Encryption_and_Decryption
-    //
-    int gcm_decrypt(const uint8_t *ad,
-                    unsigned int ad_len,
-                    const unsigned char *ciphertext,
-                    int ciphertext_len,
-                    unsigned char *key,
-                    unsigned char *iv,
-                    unsigned char *plaintext)
-    {
-        int len;
-        int plaintext_len;
-
-        static constexpr size_t tag_len = 16;
-
-        ciphertext_len -= tag_len;  // final 16 bytes of ciphertext is auth tag
-        if (ciphertext_len < 0) {
-            return -1;              // too short
-        }
-        const uint8_t *tag = ciphertext + ciphertext_len;
-
-        // initialize context with key and iv
-        //
-        if(!EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv)) {
-            return -1;
-        }
-
-        // set the associated data
-        //
-        EVP_DecryptUpdate(ctx, NULL, &len, ad, ad_len);
-
-        // decrypt ciphertext into plaintext buffer
-        //
-        // TODO: move length bound check here
-        //
-        if(!EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
-            return -1;
-        }
-        plaintext_len = len;
-
-        // set the expected tag value
-        //
-        EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tag_len, (void *)tag);
-
-        // finalize decryption, and check for an authentication failure
-        //
-        int retval = EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
-        if (retval <= 0) {
-            return -1;     // authentication check failed
-        }
-
-        plaintext_len += len;
-
-        return plaintext_len;
-    }
-
-    void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
-                   uint8_t length, uint8_t *out_, unsigned int *out_len) {
-
-        uint8_t *new_label = new uint8_t[4+label_len]();   // TODO: eliminate dynamic memory allocation
-        new_label[1] = length;
-        new_label[2] = label_len;
-        for (uint i = 0; i < label_len; i++) {
-            new_label[3+i] = label[i];
-        }
-
-        uint8_t ind = 0;
-        uint8_t block[EVP_MAX_MD_SIZE];
-        uint8_t new_block[512] = {0};
-        unsigned int block_len = 0;
-        while (*out_len < length) {
-            ind++;
-
-            for (unsigned int i = 0; i < block_len; i++) {
-                new_block[i] = block[i];
-            }
-            for (unsigned int i = block_len; i < block_len+label_len+4; i++) {
-                new_block[i] = new_label[i];
-            }
-            new_block[block_len+label_len+4] = ind;
-
-            HMAC(EVP_sha256(), secret, secret_length, new_block, block_len+label_len+5, block, &block_len);
-
-            for (unsigned int i = 0; i < block_len; i++) {
-                out_[*out_len] = block[i];
-                (*out_len)++;
-                if (*out_len >= length) {
-                    delete[] new_label;
-                    return ;
-                }
-            }
-        }
-        delete[] new_label;
-    }
-
 
 };
 
@@ -1008,7 +897,7 @@ public:
 struct cryptographic_buffer
 {
     uint64_t buf_len = 0;
-    unsigned char buffer[pt_buf_len] = {};
+    unsigned char buffer[pt_buf_len] = {}; // pt_buf_len - decryption buffer trim size for gcm_decrypt
 
     void extend(crypto& d)
     {
@@ -1031,7 +920,7 @@ struct cryptographic_buffer
 //
 class quic_init {
     quic_initial_packet initial_packet;
-    quic_crypto_engine quic_crypto;
+    quic_crypto_engine &quic_crypto;
     cryptographic_buffer crypto_buffer;
     tls_client_hello hello;
     datum plaintext;
@@ -1039,7 +928,7 @@ class quic_init {
 
 public:
 
-    quic_init(struct datum &d) : initial_packet{d}, quic_crypto{}, crypto_buffer{}, hello{}, plaintext{} {
+    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{} {
 
         plaintext = quic_crypto.decrypt(initial_packet);
 

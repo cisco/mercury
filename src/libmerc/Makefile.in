@@ -74,6 +74,7 @@ LIBMERC_H   += utils.h
 LIBMERC_H   += version.h
 LIBMERC_H   += wireguard.h
 LIBMERC_H   += quic.h
+LIBMERC_H   += crypto_engine.h
 LIBMERC_H   += smtp.h
 LIBMERC_H   += asn1.h
 LIBMERC_H   += asn1/oid.h

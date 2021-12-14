@@ -18,6 +18,7 @@
 #include "libmerc.h"
 #include "stats.h"
 #include "proto_identify.h"
+#include "quic.h"
 
 /**
  * struct mercury holds state that is used by one or more
@@ -64,6 +65,7 @@ struct stateful_pkt_proc {
     data_aggregator *ag;
     libmerc_config global_vars;
     class traffic_selector &selector;
+    quic_crypto_engine quic_crypto;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
@@ -77,7 +79,8 @@ struct stateful_pkt_proc {
         c{nullptr},
         ag{nullptr},
         global_vars{},
-        selector{mc->selector}
+        selector{mc->selector},
+        quic_crypto{}
     {
 
         // set config and classifier to (refer to) context m

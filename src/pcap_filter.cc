@@ -47,6 +47,8 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    quic_crypto_engine quic_crypto{}; // initialize quic_crypto_engine for quic decryption
+
     size_t i=0, total=0, transport=0;
     try {
 
@@ -92,7 +94,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 udp_data_copy = udp_data;
-                quic_init quic{udp_data_copy};
+                quic_init quic{udp_data_copy, quic_crypto};
                 if (quic.is_not_empty() == expected_value) {
                     if (json_output) {
 

@@ -141,7 +141,8 @@ using udp_protocol = std::variant<std::monostate,
 void set_udp_protocol(udp_protocol &x,
                       struct datum &pkt,
                       enum udp_msg_type msg_type,
-                      bool is_new) {
+                      bool is_new,
+                      quic_crypto_engine &quic_crypto) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -158,7 +159,7 @@ void set_udp_protocol(udp_protocol &x,
         x.emplace<dhcp_discover>(pkt);
         break;
     case udp_msg_type_quic:
-        x.emplace<quic_init>(pkt);
+        x.emplace<quic_init>(pkt, quic_crypto);
         break;
     case udp_msg_type_dtls_client_hello:
         {
@@ -578,7 +579,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
         udp_protocol x;
-        set_udp_protocol(x, pkt, msg_type, is_new);
+        set_udp_protocol(x, pkt, msg_type, is_new, quic_crypto);
         if (std::visit(is_not_empty{}, x)) {
             std::visit(compute_fingerprint{analysis.fp}, x);
             bool output_analysis = false;
@@ -980,7 +981,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         }
 
         udp_protocol x;
-        set_udp_protocol(x, pkt, msg_type, false);
+        set_udp_protocol(x, pkt, msg_type, false, quic_crypto);
         if (std::visit(is_not_empty{}, x)) {
             std::visit(compute_fingerprint{analysis.fp}, x);
             if (global_vars.do_analysis) {
