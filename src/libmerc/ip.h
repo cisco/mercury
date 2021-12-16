@@ -100,7 +100,7 @@ class ipv4_packet {
             o.print_key_value("ip", *this);
         }
     }
-    void operator() (struct buffer_stream &buf) {
+    void fingerprint (struct buffer_stream &buf) {
         if (header) {
             // version
             //
@@ -396,7 +396,7 @@ public:
             o.print_key_value("ip", *this);
         }
     }
-    void operator() (struct buffer_stream &buf) {
+    void fingerprint (struct buffer_stream &buf) {
         if (header) {
 
             // version

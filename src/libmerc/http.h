@@ -63,7 +63,7 @@ struct http_request : public tcp_base_protocol {
 
     void write_json(struct json_object &record, bool output_metadata);
 
-    void operator()(struct buffer_stream &b) const;
+    void fingerprint(struct buffer_stream &b) const;
 
     void compute_fingerprint(struct fingerprint &fp) const;
 
@@ -119,7 +119,7 @@ struct http_response : public tcp_base_protocol {
 
     void write_json(struct json_object &record);
 
-    void operator()(struct buffer_stream &buf) const;
+    void fingerprint(struct buffer_stream &buf) const;
 
     void compute_fingerprint(struct fingerprint &fp) const;
 

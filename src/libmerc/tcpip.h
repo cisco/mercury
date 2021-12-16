@@ -165,7 +165,7 @@ struct tcp_packet {
             k.dst_port = ntohs(header->dst_port);
         }
     }
-    void operator() (struct buffer_stream &buf) {
+    void fingerprint (struct buffer_stream &buf) {
         if (header == NULL) {
             return;
         }

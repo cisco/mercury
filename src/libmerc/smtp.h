@@ -145,7 +145,7 @@ public:
         return;
     }
 
-    void operator()(buffer_stream &) const { }
+    void fingerprint(buffer_stream &) const { }
 
     void write_json(json_object &record, bool) {
         if (this->is_not_empty()) {
@@ -206,7 +206,7 @@ public:
         return;
     }
 
-    void operator()(buffer_stream &buf) const {
+    void fingerprint(buffer_stream &buf) const {
         if (is_not_empty() == false) {
             return;
         }
