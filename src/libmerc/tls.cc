@@ -9,6 +9,7 @@
 #include "tls.h"
 #include "match.h"
 #include "x509.h"
+#include "quic.h"
 #include "fingerprint.h"
 
 /* TLS Constants */
@@ -41,7 +42,7 @@
 /*
  * expanded set of static extensions
  */
-#define num_static_extension_types 18
+#define num_static_extension_types 20
 
 /*
  * extension types used in normalization
@@ -68,10 +69,12 @@ static uint16_t static_extension_types[num_static_extension_types] = {
         24,        /* token binding                          */
         27,        /* compressed certificate                 */
         28,        /* record size limit                      */
+        type_quic_transport_parameters,
         43,        /* supported_versions                     */
         45,        /* psk_key_exchange_modes                 */
         50,        /* signature algorithms cert              */
         21760,     /* token binding (old)                    */
+        type_quic_transport_parameters_draft
     };
 
 uint16_t degrease_uint16(uint16_t x) {
@@ -335,6 +338,28 @@ void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) co
                     x.write_degreased_value(b, 0);
                 }
                 b.write_char(')');
+
+            } else if (x.type == type_quic_transport_parameters || x.type == type_quic_transport_parameters_draft) {
+                b.write_char('(');
+                b.write_char('(');
+                x.write_degreased_type(b);
+                b.write_char(')');
+
+                // loop over quic transport parameters, write each type code
+                //
+                b.write_char('(');
+                while (x.value.is_not_null()) {
+                    quic_transport_parameter qtp{x.value};
+                    if (qtp.is_not_empty()) {
+                        b.write_char('(');
+                        qtp.write_id(b);
+                        b.write_char(')');
+                    }
+                }
+                b.write_char(')');
+                // x.write_length(b);
+                // x.write_value(b);  // just dump the whole thing for now
+
 
             } else {
                 b.write_char('(');
