@@ -362,8 +362,9 @@ struct tlv {
         }
 
         if (expected_tag && p->data[0] != expected_tag) {
-            // fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
+            fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
             // p->set_empty();  // TODO: do we want this?  parser is no longer good for reading
+
             handle_parse_error("note: unexpected type", tlv_name);
             return;  // unexpected type
         }
@@ -383,21 +384,24 @@ struct tlv {
             }
             if (p->read_uint(&length, num_octets_in_length) == false) {
                 p->set_empty();  // parser is no longer good for reading
-                // fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, oid::datum_get_data_length(p));
+                // fprintf(stderr, "error: could not read length (want %lu bytes, only %ld bytes remaining)\n", length, p->length());
                 handle_parse_error("warning: could not read length", tlv_name);
                 return;
             }
         }
 
+        // we could check if value field is truncated here, but we don't for now
+        //
+        // if (p->length() < (signed)length) {
+        //     fprintf(stderr, "warning: value field is truncated (wanted %lu bytes, only %zd bytes remaining)\n", length, p->length());
+        // }
+
         // set value
         value.init_from_outer_parser(p, length);
-        if (p->skip(length) == false) {
-            p->set_empty();   // parser is no longer good for reading
-            handle_parse_error("warning: value field is truncated", tlv_name);
-        }
 
 #ifdef ASN1_DEBUG
         fprint_tlv(stderr, tlv_name);
+        // fprintf(stderr, "remainder:\t"); p->fprint_hex(stderr); fprintf(stderr, "\n");
 #endif
     }
 
@@ -509,7 +513,7 @@ struct tlv {
             } else {
                 fprintf(f, "T:%02x (%u:%u:%u, %s)\tL:%08zu\tV:", tag, tag_class, constructed, tag_number, type[tag_number], length);
             }
-            fprintf_raw_as_hex(f, value.data, value.data_end - value.data);
+            value.fprint_hex(f);
             if (tlv_name) {
                 fprintf(f, "\t(%s)\n", tlv_name);
             } else {
