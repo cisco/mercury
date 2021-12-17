@@ -481,7 +481,7 @@ struct dhcp_discover {
         json_dhcp.close();
     }
 
-    void operator()(struct buffer_stream &b) const {
+    void fingerprint(struct buffer_stream &b) const {
 
         struct datum tmp = options;
         while (tmp.is_not_empty()) {

@@ -217,7 +217,7 @@ void http_response::write_json(struct json_object &record) {
 
 }
 
-void http_request::operator()(struct buffer_stream &b) const {
+void http_request::fingerprint(struct buffer_stream &b) const {
     if (is_not_empty() == false) {
         return;
     }
@@ -250,7 +250,7 @@ void http_request::operator()(struct buffer_stream &b) const {
     headers.fingerprint(b, http_static_keywords);
 }
 
-void http_response::operator()(struct buffer_stream &buf) const {
+void http_response::fingerprint(struct buffer_stream &buf) const {
     if (is_not_empty() == false) {
         return;
     }

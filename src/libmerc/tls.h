@@ -352,7 +352,7 @@ struct tls_client_hello : public tcp_base_protocol {
 
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
-    void operator()(struct buffer_stream &buf) const;
+    void fingerprint(struct buffer_stream &buf) const;
 
     void write_fingerprint(struct buffer_stream &buf) const;
 
@@ -413,7 +413,7 @@ struct tls_server_hello : public tcp_base_protocol {
         return ciphersuite_vector.is_not_empty();
     };
 
-    void operator()(struct buffer_stream &buf) const;
+    void fingerprint(struct buffer_stream &buf) const;
 
     enum status parse_tls_server_hello(struct datum &p);
 
@@ -605,9 +605,9 @@ public:
         return nullptr;
     }
 
-    void operator()(buffer_stream &b) {
+    void fingerprint(buffer_stream &b) {
         if (hello.is_not_empty()) {
-            hello(b);
+            hello.fingerprint(b);
         }
     }
 

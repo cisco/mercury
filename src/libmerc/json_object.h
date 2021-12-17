@@ -153,7 +153,7 @@ struct json_object {
         b->write_char('\"');
         b->puts(k);
         b->puts("\":\"");
-        w(*b);
+        w.fingerprint(*b);
         b->write_char('\"');
      }
     void print_key_ipv4_addr(const char *k, const uint8_t *a) {

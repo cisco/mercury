@@ -11,15 +11,24 @@
 struct fingerprint {
     enum fingerprint_type type;
     char fp_str[MAX_FP_STR_LEN];
+    struct buffer_stream fp_buf;
 
-    fingerprint() : type{fingerprint_type_unknown} {}
-
+    fingerprint() : type{fingerprint_type_unknown},
+                    fp_buf{fp_str,MAX_FP_STR_LEN} {}
+    // add - allows to add sections of fp
+    // set - allows to add one/last section of fp
+    //
     template <typename T>
     void set(T &msg, enum fingerprint_type fp_type) {
-        struct buffer_stream fp_buf{fp_str, MAX_FP_STR_LEN};
-        msg(fp_buf);
+        msg.fingerprint(fp_buf);
         fp_buf.write_char('\0'); // null-terminate
         type = fp_type;
+    }
+    
+    template <typename T>
+    void add(T &msg) {
+        //msg(fp_buf);
+        msg.fingerprint(fp_buf);
     }
 
     bool is_null() const { return fp_str[0] == '\0'; }
@@ -48,6 +57,10 @@ struct fingerprint {
         struct json_object fps{record, "fingerprints"};
         fps.print_key_string(name[type], fp_str);
         fps.close();
+        // reset fp_buf after dump
+        fp_buf.dstr = fp_str;
+        fp_buf.doff = 0;
+        fp_buf.trunc = 0;
     }
 };
 

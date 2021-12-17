@@ -513,7 +513,7 @@ void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
     buf.write_char(')');
 }
 
-void tls_client_hello::operator()(struct buffer_stream &buf) const {
+void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
     write_fingerprint(buf);
 }
 
@@ -584,7 +584,7 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
     return status_err;
 }
 
-void tls_server_hello::operator()(struct buffer_stream &buf) const {
+void tls_server_hello::fingerprint(struct buffer_stream &buf) const {
     if (is_not_empty()) {
 
         /*

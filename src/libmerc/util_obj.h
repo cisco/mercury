@@ -20,7 +20,7 @@ struct ipv4_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void operator()(struct buffer_stream &b) const {
+    void fingerprint(struct buffer_stream &b) const {
         if (data) {
             b.write_ipv4_addr(data);
         }
@@ -35,7 +35,7 @@ struct ipv6_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void operator()(struct buffer_stream &b) const {
+    void fingerprint(struct buffer_stream &b) const {
         if (data) {
             b.write_ipv6_addr(data);
         }
@@ -166,7 +166,7 @@ struct eth_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void operator()(struct buffer_stream &b) const {
+    void fingerprint(struct buffer_stream &b) const {
         if (data) {
             b.raw_as_hex(data, datum::length());  // TODO: write colon-delimited hex
         }

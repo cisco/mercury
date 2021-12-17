@@ -82,7 +82,7 @@ struct ssh_init_packet : public tcp_base_protocol {
         return protocol_string.is_not_empty();
     }
 
-    void operator()(struct buffer_stream &buf) const {
+    void fingerprint(struct buffer_stream &buf) const {
         if (protocol_string.is_not_readable()) {
             return;
         }
@@ -110,7 +110,7 @@ struct ssh_init_packet : public tcp_base_protocol {
 
     void compute_fingerprint(struct fingerprint &fp) const {
         struct buffer_stream fp_buf{fp.fp_str, MAX_FP_STR_LEN};
-        operator()(fp_buf);
+        fingerprint(fp_buf);
         fp_buf.write_char('\0'); // null-terminate
         fp.type = fingerprint_type_ssh;
     }
@@ -274,7 +274,7 @@ struct ssh_kex_init : public tcp_base_protocol {
         buf.write_char(')');
     }
 
-    void operator()(struct buffer_stream &buf) const {
+    void fingerprint(struct buffer_stream &buf) const {
         if (kex_algorithms.is_not_readable()) {
             return;
         }
@@ -314,7 +314,7 @@ struct ssh_kex_init : public tcp_base_protocol {
 
     void compute_fingerprint(struct fingerprint &fp) const {
         struct buffer_stream fp_buf{fp.fp_str, MAX_FP_STR_LEN};
-        operator()(fp_buf);
+        fingerprint(fp_buf);
         fp_buf.write_char('\0'); // null-terminate
         fp.type = fingerprint_type_ssh_kex;
     }

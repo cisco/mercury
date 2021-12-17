@@ -61,7 +61,7 @@ struct uint8_bitfield {
 
     uint8_bitfield(uint8_t x) : value{x} {}
 
-    void operator()(struct buffer_stream &b) {
+    void fingerprint(struct buffer_stream &b) {
         for (uint8_t x = 0x80; x > 0; x=x>>1) {
             if (x & value) {
                 b.write_char('1');
@@ -916,6 +916,20 @@ struct cryptographic_buffer
     }
 };
 
+struct quic_hdr_fp {
+    const datum &version;
+
+    quic_hdr_fp(const datum &version_) : version{version_} {};
+    
+    void fingerprint(struct buffer_stream &buf) const {
+        //add version
+        //
+        buf.write_char('(');
+        buf.raw_as_hex(version.data, version.length());
+        buf.write_char(')');
+    } 
+};
+
 // class quic_init represents an initial quic message
 //
 class quic_init {
@@ -987,7 +1001,9 @@ public:
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        // TODO: extend fingerprint to include version
+        // fp format :(quic_version)(tls_fp);
+        quic_hdr_fp hdr_fp(initial_packet.version);
+        fp.add(hdr_fp);
         if (hello.is_not_empty()) {
             fp.set(hello, fingerprint_type_quic);
         }
