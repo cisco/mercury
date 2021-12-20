@@ -362,7 +362,7 @@ struct tlv {
         }
 
         if (expected_tag && p->data[0] != expected_tag) {
-            fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
+            // fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
             // p->set_empty();  // TODO: do we want this?  parser is no longer good for reading
 
             handle_parse_error("note: unexpected type", tlv_name);
