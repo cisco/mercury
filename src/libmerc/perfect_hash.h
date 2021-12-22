@@ -10,8 +10,7 @@ template<typename T>
 struct perfect_hash_entry
 {
     public:
-    perfect_hash_entry(const char* key, size_t key_len, T value)
-    {
+    perfect_hash_entry(const char* key, size_t key_len, T value) {
         _value = value;
         _key = key;
         _key_len = key_len;
@@ -21,7 +20,7 @@ struct perfect_hash_entry
     const char* _key = nullptr;
     uint32_t _hash = 0;
 
-    union { T _value;};
+    T _value;
 };
 
 template<typename T>
@@ -30,19 +29,18 @@ struct perfect_hash
     private:
     std::vector<std::vector<perfect_hash_entry<T>>> _buckets;
 
-    long* _g_table;
+    int64_t* _g_table;
     perfect_hash_entry<T>** _values;
 
     size_t _key_set_len;
     size_t _lookup_len;
 
     public:
-    void cleanup()
-    {
+
+    void cleanup() {
         _buckets.clear();
         delete[] _g_table;
-        for(size_t i = 0; i < _key_set_len; i++)
-        {
+        for(size_t i = 0; i < _key_set_len; i++){
             delete _values[i];
         }
         delete[] _values;
@@ -55,134 +53,69 @@ struct perfect_hash
         return k;
     }
 
-    inline uint32_t rotl32 ( uint32_t x, int8_t r )
-    {
-        return (x << r) | (x >> (32 - r));
-    }
-
-    inline uint32_t fmix32 ( uint32_t h )
-    {
-      h ^= h >> 16;
-      h *= 0x85ebca6b;
-      h ^= h >> 13;
-      h *= 0xc2b2ae35;
-      h ^= h >> 16;
-
-      return h;
-    }
-
     //Murmur2
-    inline uint32_t hash(const char* key, size_t len, const uint32_t& res)
-    {
+    inline uint32_t hash(const char* key, size_t len, const uint32_t& res) {
         /* 'm' and 'r' are mixing constants generated offline.
-     They're not really 'magic', they just happen to work well.  */
+        They're not really 'magic', they just happen to work well.  */
 
-  const uint32_t m = 0x5bd1e995;
-  const int r = 24;
+        const uint32_t m = 0x5bd1e995;
+        const int r = 24;
 
-  /* Initialize the hash to a 'random' value */
+        /* Initialize the hash to a 'random' value */
 
-  uint32_t h = res ^ len;
+        uint32_t h = res ^ len;
 
-  /* Mix 4 bytes at a time into the hash */
+        /* Mix 4 bytes at a time into the hash */
 
-  const unsigned char * data = (const unsigned char *)key;
+        const unsigned char * data = (const unsigned char *)key;
 
-  while(len >= 4)
-  {
-    uint32_t k = *(uint32_t*)data;
+        while(len >= 4)
+        {
+          uint32_t k = *(uint32_t*)data;
 
-    k *= m;
-    k ^= k >> r;
-    k *= m;
+          k *= m;
+          k ^= k >> r;
+          k *= m;
 
-    h *= m;
-    h ^= k;
+          h *= m;
+          h ^= k;
 
-    data += 4;
-    len -= 4;
-  }
+          data += 4;
+          len -= 4;
+        }
 
-  /* Handle the last few bytes of the input array  */
+        /* Handle the last few bytes of the input array  */
 
-  switch(len)
-  {
-  case 3: h ^= data[2] << 16;
-  case 2: h ^= data[1] << 8;
-  case 1: h ^= data[0];
-      h *= m;
-  };
+        switch(len)
+        {
+        case 3: h ^= data[2] << 16;
+        [[fallthrough]];
+        case 2: h ^= data[1] << 8;
+        [[fallthrough]];
+        case 1: h ^= data[0];
+            h *= m;
+        };
 
-  /* Do a few final mixes of the hash to ensure the last few
-  // bytes are well-incorporated.  */
+        /* Do a few final mixes of the hash to ensure the last few
+        // bytes are well-incorporated.  */
 
-  h ^= h >> 13;
-  h *= m;
-  h ^= h >> 15;
+        h ^= h >> 13;
+        h *= m;
+        h ^= h >> 15;
 
-  return h;
-        // uint32_t h = res;
-        // uint32_t k;
-        // /* Read in groups of 4. */
-        // for (size_t i = len >> 2; i; --i) {
-        //     // Here is a source of differing results across endiannesses.
-        //     // A swap here has no effects on hash properties though.
-        //     memcpy(&k, key, sizeof(uint32_t));
-        //     key += sizeof(uint32_t);
-        //     h ^= murmur_32_scramble(k);
-        //     h = (h << 13) | (h >> 19);
-        //     h = h * 5 + 0xe6546b64;
-        // }
-        // /* Read the rest. */
-        // k = 0;
-        // for (size_t i = len & 3; i; --i) {
-        //     k <<= 8;
-        //     k |= key[i - 1];
-        // }
-        // // A swap is *not* necessary here because the preceding loop already
-        // // places the low bytes in the low places according to whatever endianness
-        // // we use. Swaps only apply when the memory is copied in a chunk.
-        // h ^= murmur_32_scramble(k);
-        // /* Finalize. */
-	    // h ^= len;
-	    // h ^= h >> 16;
-	    // h *= 0x85ebca6b;
-	    // h ^= h >> 13;
-	    // h *= 0xc2b2ae35;
-	    // h ^= h >> 16;
-	    // return h;
+        return h;
     }
 
-    bool contains_value(size_t* arr, size_t len, size_t val)
-    {
-        for(size_t i = 0; i < len; i++)
-        {
+    bool contains_value(int64_t* arr, size_t len, int64_t val) {
+        for(size_t i = 0; i < len; i++) {
             if(arr[i] == val)
                 return true;
         }
         return false;
     }
 
-    size_t next_pow2(size_t s)
-    {
-        size_t res = 1;
-        while(s > res)
-        {
-            res *= 2;
-        }
-        return res;
-    }
-
-    size_t hash_to_indx(uint32_t hash, size_t size)
-    {
-        return hash & (size-1);
-    }
-
-    void create_perfect_hash_table(std::vector<perfect_hash_entry<T>>& data_set, size_t load_factor)
-    {
+    void create_perfect_hash_table(std::vector<perfect_hash_entry<T>>& data_set, size_t load_factor) {
         _key_set_len = data_set.size();
-
-        _key_set_len = next_pow2(_key_set_len);
 
         _lookup_len = (load_factor * _key_set_len) / 100;
 
@@ -200,7 +133,7 @@ struct perfect_hash
 
         for(const auto& data : data_set)
         {
-            auto tmp_indx = hash_to_indx(hash(data._key, data._key_len, 0), _lookup_len);
+            auto tmp_indx = hash(data._key, data._key_len, 0) % _lookup_len;
             _buckets.at(tmp_indx).push_back(data);
         }
         
@@ -209,48 +142,47 @@ struct perfect_hash
             return rv.size() > lv.size();
         });
         
-        _g_table = new long[_lookup_len];
+        _g_table = new int64_t[_lookup_len];
+        std::fill_n(_g_table, _lookup_len, 0L);
 
-        size_t* pslots = nullptr;
+        int64_t* pslots = nullptr;
 
-        for(size_t indx = 0; indx < _lookup_len; indx++)
-        {
+        for(size_t indx = 0; indx < _lookup_len; indx++) {
             if(_buckets[indx].size() <= 1) break;
 
             auto bucket = _buckets[indx];
 
-            size_t d, item;
+            uint32_t d;
+            size_t item;
             d = 1;
             item = 0;
 
             if(pslots == nullptr)
-                pslots = new size_t[bucket.size()];
+                pslots = new int64_t[bucket.size()];
 
-            std::fill_n(pslots, bucket.size(), -1);
+            std::fill_n(pslots, bucket.size(), 0L);
             
-            while(item < bucket.size())
-            {
-                size_t slot = hash_to_indx(hash(bucket.at(item)._key, bucket.at(item)._key_len, d), _key_set_len);
-                if(_values[slot] != nullptr || contains_value(pslots, item, slot))
-                {
+            while(item < bucket.size()) {
+
+                size_t slot = hash(bucket.at(item)._key, bucket.at(item)._key_len, d) % _key_set_len;
+
+                if(_values[slot] != nullptr || contains_value(pslots, item, slot)) {
                     d += 1;
                     if(d < 0) break;
                     item = 0;
                     
                     std::fill_n(pslots, bucket.size(), -1);
                 }
-                else
-                {
+                else{
                     pslots[item] = slot;
                     item += 1;
                 }
             }
-            if(d < 0)
-            {
-                exit(1);
+            if(d < 0) {
+                exit(1);//TODO:: check
             }
             
-            _g_table[hash(bucket[0]._key, bucket[0]._key_len, 0) % _lookup_len] = d;
+            _g_table[hash(bucket[0]._key, bucket[0]._key_len, 0) % _lookup_len] = static_cast<int64_t>(d);
             for(size_t c = 0; c < bucket.size(); c++)
             {
                 _values[pslots[c]] = new perfect_hash_entry<T>(bucket[c]);
@@ -259,32 +191,28 @@ struct perfect_hash
         }
         delete[] pslots;
 
-
-        std::vector<long> free_list;
-        for(size_t i = 0; i < _key_set_len; i++)
-        {
+        std::vector<int64_t> free_list;
+        for(size_t i = 0; i < _key_set_len; i++) {
             if(_values[i] == nullptr)
                 free_list.push_back(i);
         }
                 
-        for(size_t b = 0; b < _lookup_len; b++)
-        {
+        for(size_t b = 0; b < _lookup_len; b++) {
             auto bucket = _buckets[b];
             if(bucket.size() == 0 || bucket.size() > 1) continue;
             auto slot = free_list.back();
             free_list.pop_back();
-            _g_table[hash_to_indx(hash(bucket[0]._key, bucket[0]._key_len, 0), _lookup_len)] = -slot-1;
+            _g_table[hash(bucket[0]._key, bucket[0]._key_len, 0) % _lookup_len] = -slot-1;
             _values[slot] = new perfect_hash_entry<T>(bucket[0]);
             _values[slot]->_hash = hash(bucket[0]._key, bucket[0]._key_len, 0);
         }
     }
 
-    inline T* lookup(const char* key, const size_t& key_len, bool& isValid)
-    {
+    inline T* lookup(const char* key, const size_t& key_len, bool& isValid) {
         const uint32_t& first_hash = hash(key, key_len, 0);
-        const long& d = _g_table[first_hash % _lookup_len];
+        const int64_t& d = _g_table[first_hash % _lookup_len];
 
-        auto& item = d < 0 ? _values[-d-1] : _values[hash_to_indx(hash(key, key_len, d), _key_set_len)];
+        auto& item = d < 0 ? _values[-d-1] : _values[hash(key, key_len, d) % _key_set_len];
         
         isValid = first_hash == item->_hash;
             
@@ -293,72 +221,187 @@ struct perfect_hash
 };
 
 #define PERFECT_HASH_TABLE_LEN 4
-enum perfect_hash_table_type 
-{
+enum perfect_hash_table_type {
     HTTP_REQUEST_FP = 0,
     HTTP_RESPONSE_FP = 1,
     HTTP_REQEUST_HEADERS = 2,
     HTTP_RESPONSE_HEADERS = 3
 };
 
-struct perfect_hash_visitor
-{
+struct perfect_hash_visitor {
+
     perfect_hash<bool> _ph_http_request_fp;
     perfect_hash<bool> _ph_http_response_fp;
     perfect_hash<const char*> _ph_http_request_headers;
     perfect_hash<const char*> _ph_http_response_headers;
 
-    void init_perfect_hash_table_bool(perfect_hash_table_type type, std::vector<perfect_hash_entry<bool>> data)
-    {
-        switch(type)
-        {
+    perfect_hash_visitor() {
+        std::vector<perfect_hash_entry<bool>> fp_data_reqeust = {
+            { "accept: ", 8, true },
+            { "accept-encoding: ", 17, true },
+            { "connection: ", 12, true },
+            { "dnt: ", 5, true },
+            { "dpr: ", 5, true },
+            { "upgrade-insecure-requests: ", 27, true },
+            { "x-requested-with: ", 18, true },
+            { "accept-charset: ", 16, false },
+            { "accept-language: ", 17, false },
+            { "authorization: ", 15, false },
+            { "cache-control: ", 15, false },
+            { "host: ", 6, false },
+            { "if-modified-since: ", 19, false },
+            { "keep-alive: ", 12, false },
+            { "user-agent: ", 12, false },
+            { "x-flash-version: ", 17, false },
+            { "x-p2p-peerdist: ", 16, false } 
+        };
+
+        std::vector<perfect_hash_entry<bool>> fp_data_response = {
+            { "access-control-allow-credentials: ", 34, true },
+            { "access-control-allow-headers: ", 30, true },
+            { "access-control-allow-methods: ", 30, true },
+            { "access-control-expose-headers: ", 31, true },
+            { "cache-control: ", 15, true },
+            { "code: ", 6, true },
+            { "connection: ", 12, true },
+            { "content-language: ", 18, true },
+            { "content-transfer-encoding: ", 27, true },
+            { "p3p: ", 5, true },
+            { "pragma: ", 8, true },
+            { "reason: ", 8, true },
+            { "server: ", 8, true },
+            { "strict-transport-security: ", 27, true },
+            { "version: ", 9, true },
+            { "x-aspnetmvc-version: ", 21, true },
+            { "x-aspnet-version: ", 18, true },
+            { "x-cid: ", 7, true },
+            { "x-ms-version: ", 14, true },
+            { "x-xss-protection: ", 18, true },
+            { "appex-activity-id: ", 20, false },
+            { "cdnuuid: ", 9, false },
+            { "cf-ray: ", 8, false },
+            { "content-range: ", 15, false },
+            { "content-type: ", 14, false },
+            { "date: ", 6, false },
+            { "etag: ", 6, false },
+            { "expires: ", 9, false },
+            { "flow_context: ", 14, false },
+            { "ms-cv: ", 7, false },
+            { "msregion: ", 10, false },
+            { "ms-requestid: ", 14, false },
+            { "request-id: ", 12, false },
+            { "vary: ", 6, false },
+            { "x-amz-cf-pop: ", 14, false },
+            { "x-amz-request-id: ", 18, false },
+            { "x-azure-ref-originshield: ", 26, false },
+            { "x-cache: ", 9, false },
+            { "x-cache-hits: ", 14, false },
+            { "x-ccc: ", 7, false },
+            { "x-diagnostic-s: ", 16, false },
+            { "x-feserver: ", 12, false },
+            { "x-hw: ", 6, false },
+            { "x-msedge-ref: ", 14, false },
+            { "x-ocsp-responder-id: ", 21, false },
+            { "x-requestid: ", 13, false },
+            { "x-served-by: ", 13, false },
+            { "x-timer: ", 9, false },
+            { "x-trace-context: ", 17, false }
+        };
+
+        std::vector<perfect_hash_entry<const char*>> header_data_request = {
+            { "user-agent: ", 12, "user_agent" },
+            { "host: ", 6, "host"},
+            { "x-forwarded-for: ", 17, "x_forwarded_for"},
+            { "via: ", 5, "via"},
+            { "upgrade: ", 9, "upgrade"},
+            { "referer: ", 9, "referer"}
+        };
+
+        std::vector<perfect_hash_entry<const char*>> header_data_response = {
+            { "content-type: ", 14, "content_type"},
+            { "content-length: ", 16, "content_length"},
+            { "server: ", 9, "server"},
+            { "via: ", 5, "via"}
+        };
+        
+        init_perfect_hash_table_bool(perfect_hash_table_type::HTTP_REQUEST_FP, fp_data_reqeust);
+        init_perfect_hash_table_bool(perfect_hash_table_type::HTTP_RESPONSE_FP, fp_data_response);
+        init_perfect_hash_table_string(perfect_hash_table_type::HTTP_REQEUST_HEADERS, header_data_request);
+        init_perfect_hash_table_string(perfect_hash_table_type::HTTP_RESPONSE_HEADERS, header_data_response);
+    }
+
+    ~perfect_hash_visitor() { clean(); }
+
+    void init_perfect_hash_table_bool(perfect_hash_table_type type, std::vector<perfect_hash_entry<bool>> data) {
+        switch(type) {
             case perfect_hash_table_type::HTTP_REQUEST_FP:
                 _ph_http_request_fp.create_perfect_hash_table(data, 100);
-            break;
+                break;
             case perfect_hash_table_type::HTTP_RESPONSE_FP:
                 _ph_http_response_fp.create_perfect_hash_table(data, 100);
-            break;
+                break;
+            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
+            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
+            default:
+                break;
         }
     }
 
-    void init_perfect_hash_table_string(perfect_hash_table_type type, std::vector<perfect_hash_entry<const char*>> data)
-    {
-        switch(type)
-        {
+    void init_perfect_hash_table_string(perfect_hash_table_type type, std::vector<perfect_hash_entry<const char*>> data) {
+        switch(type) {
             case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
                 _ph_http_request_headers.create_perfect_hash_table(data, 100);
-            break;
+                break;
             case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
                 _ph_http_response_headers.create_perfect_hash_table(data, 100);
-            break;
+                break;
+            case perfect_hash_table_type::HTTP_REQUEST_FP:
+            case perfect_hash_table_type::HTTP_RESPONSE_FP:
+                break;
         }
     }
 
-    const char** lookup_string(perfect_hash_table_type type, const char* key, bool& success)
-    {
-        switch(type)
-        {
+    const char** lookup_string(perfect_hash_table_type type, const char* key, bool& success) {
+        switch(type) {
             case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
                 return _ph_http_request_headers.lookup(key, strlen(key), success);
             case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
                 return _ph_http_response_headers.lookup(key, strlen(key), success);
+            case perfect_hash_table_type::HTTP_REQUEST_FP:
+            case perfect_hash_table_type::HTTP_RESPONSE_FP:
             default:
+                success = false;
                 return nullptr;
         }
     }
 
-    bool* lookup_bool(perfect_hash_table_type type, const char* key, bool& success)
-    {
-        switch(type)
-        {
+    bool* lookup_bool(perfect_hash_table_type type, const char* key, bool& success) {
+        switch(type) {
             case perfect_hash_table_type::HTTP_REQUEST_FP:
                 return _ph_http_request_fp.lookup(key, strlen(key), success);
             case perfect_hash_table_type::HTTP_RESPONSE_FP:
                 return _ph_http_response_fp.lookup(key, strlen(key), success);
+            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
+            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
             default:
+                success = false;
                 return nullptr;
         }
     }
+
+    void clean() {
+        _ph_http_request_fp.cleanup();
+        _ph_http_request_headers.cleanup();
+        _ph_http_response_fp.cleanup();
+        _ph_http_response_headers.cleanup();
+    }
+
+    static perfect_hash_visitor& get_default_perfect_hash_visitor() {
+        static perfect_hash_visitor ph_visitor;
+        return ph_visitor;
+    }
 };
+
+
 
 #endif

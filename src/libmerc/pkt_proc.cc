@@ -782,7 +782,8 @@ void set_tcp_protocol(tcp_protocol &x,
                       struct datum &pkt,
                       traffic_selector &sel,
                       bool is_new,
-                      struct tcp_packet *tcp_pkt) {
+                      struct tcp_packet *tcp_pkt,
+                      struct perfect_hash_visitor& ph_visitor) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -790,10 +791,10 @@ void set_tcp_protocol(tcp_protocol &x,
     enum tcp_msg_type msg_type = (tcp_msg_type) sel.get_tcp_msg_type(pkt.data, pkt.length());
     switch(msg_type) {
     case tcp_msg_type_http_request:
-        x.emplace<http_request>(pkt);
+        x.emplace<http_request>(pkt, ph_visitor);
         break;
     case tcp_msg_type_http_response:
-        x.emplace<http_response>(pkt);
+        x.emplace<http_response>(pkt, ph_visitor);
         break;
     case tcp_msg_type_tls_client_hello:
         {
@@ -857,7 +858,7 @@ void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
         is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
     }
     tcp_protocol x;
-    set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
+    set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt, ph_visitor);
 
     if (tcp_pkt.additional_bytes_needed) {
         if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, tcp_pkt.additional_bytes_needed)) {
@@ -911,7 +912,7 @@ bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
         return false;
     }
     tcp_protocol x;
-    set_tcp_protocol(x, pkt, selector, false, nullptr);
+    set_tcp_protocol(x, pkt, selector, false, nullptr, ph_visitor);
 
     if (std::visit(is_not_empty{}, x)) {
 
@@ -950,7 +951,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
         //tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, nullptr);  // process packet without tcp reassembly
         tcp_protocol x;
-        set_tcp_protocol(x, pkt, selector, false, reassembler == nullptr ? nullptr : &tcp_pkt);
+        set_tcp_protocol(x, pkt, selector, false, reassembler == nullptr ? nullptr : &tcp_pkt, ph_visitor);
         if (std::visit(is_not_empty{}, x)) {
 
             std::visit(compute_fingerprint{analysis.fp}, x);
