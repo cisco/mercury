@@ -1,6 +1,9 @@
 #ifndef PERFECT_HASH_H
 #define PERFECT_HASH_H
 
+//Hash, displace, and compress algorithm was taken as reference
+//https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.568.130&rep=rep1&type=pdf
+
 #include <string>
 #include <cstring>
 #include <vector>
@@ -23,38 +26,10 @@ struct perfect_hash_entry
     T _value;
 };
 
-template<typename T>
-struct perfect_hash
-{
-    private:
-    std::vector<std::vector<perfect_hash_entry<T>>> _buckets;
+//MurmurHash By Austin Appleby https://sites.google.com/site/murmurhash/
+struct murmur2_hash {
 
-    int64_t* _g_table;
-    perfect_hash_entry<T>** _values;
-
-    size_t _key_set_len;
-    size_t _lookup_len;
-
-    public:
-
-    void cleanup() {
-        _buckets.clear();
-        delete[] _g_table;
-        for(size_t i = 0; i < _key_set_len; i++){
-            delete _values[i];
-        }
-        delete[] _values;
-    }
-
-    static inline uint32_t murmur_32_scramble(uint32_t k) {
-        k *= 0xcc9e2d51;
-        k = (k << 15) | (k >> 17);
-        k *= 0x1b873593;
-        return k;
-    }
-
-    //Murmur2
-    inline uint32_t hash(const char* key, size_t len, const uint32_t& res) {
+    uint32_t operator() (const char* key, size_t len, const uint32_t& res) {
         /* 'm' and 'r' are mixing constants generated offline.
         They're not really 'magic', they just happen to work well.  */
 
@@ -71,17 +46,17 @@ struct perfect_hash
 
         while(len >= 4)
         {
-          uint32_t k = *(uint32_t*)data;
+            uint32_t k = *(uint32_t*)data;
 
-          k *= m;
-          k ^= k >> r;
-          k *= m;
+            k *= m;
+            k ^= k >> r;
+            k *= m;
 
-          h *= m;
-          h ^= k;
+            h *= m;
+            h ^= k;
 
-          data += 4;
-          len -= 4;
+            data += 4;
+            len -= 4;
         }
 
         /* Handle the last few bytes of the input array  */
@@ -105,6 +80,40 @@ struct perfect_hash
 
         return h;
     }
+};
+
+template<typename T>
+struct perfect_hash {
+
+    private:
+    int64_t* _g_table;
+    perfect_hash_entry<T>** _values;
+
+    size_t _key_set_len;
+    size_t _lookup_len;
+
+    murmur2_hash hash;
+
+    public:
+
+    ~perfect_hash() {
+        cleanup();
+    }
+
+    void cleanup() {
+        delete[] _g_table;
+        for(size_t i = 0; i < _key_set_len; i++){
+            delete _values[i];
+        }
+        delete[] _values;
+    }
+
+    static inline uint32_t murmur_32_scramble(uint32_t k) {
+        k *= 0xcc9e2d51;
+        k = (k << 15) | (k >> 17);
+        k *= 0x1b873593;
+        return k;
+    }
 
     bool contains_value(int64_t* arr, size_t len, int64_t val) {
         for(size_t i = 0; i < len; i++) {
@@ -120,6 +129,8 @@ struct perfect_hash
         _lookup_len = (load_factor * _key_set_len) / 100;
 
         _values = new perfect_hash_entry<T>*[_key_set_len];
+
+        std::vector<std::vector<perfect_hash_entry<T>>> _buckets;
 
         for(size_t i = 0; i < _key_set_len; i++)
         {
@@ -179,7 +190,7 @@ struct perfect_hash
                 }
             }
             if(d < 0) {
-                exit(1);//TODO:: check
+                exit(1);//TODO:: check if exit is expected
             }
             
             _g_table[hash(bucket[0]._key, bucket[0]._key_len, 0) % _lookup_len] = static_cast<int64_t>(d);
@@ -214,7 +225,7 @@ struct perfect_hash
 
         auto& item = d < 0 ? _values[-d-1] : _values[hash(key, key_len, d) % _key_set_len];
         
-        isValid = first_hash == item->_hash;
+        isValid = strcmp(key, item->_key) == 0;
             
         return &item->_value;
     }
@@ -235,6 +246,69 @@ struct perfect_hash_visitor {
     perfect_hash<const char*> _ph_http_request_headers;
     perfect_hash<const char*> _ph_http_response_headers;
 
+    void init_perfect_hash_table_bool(perfect_hash_table_type type, std::vector<perfect_hash_entry<bool>> data) {
+        switch(type) {
+            case perfect_hash_table_type::HTTP_REQUEST_FP:
+                _ph_http_request_fp.create_perfect_hash_table(data, 100);
+                break;
+            case perfect_hash_table_type::HTTP_RESPONSE_FP:
+                _ph_http_response_fp.create_perfect_hash_table(data, 100);
+                break;
+            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
+            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
+            default:
+                break;
+        }
+    }
+
+    void init_perfect_hash_table_string(perfect_hash_table_type type, std::vector<perfect_hash_entry<const char*>> data) {
+        switch(type) {
+            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
+                _ph_http_request_headers.create_perfect_hash_table(data, 100);
+                break;
+            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
+                _ph_http_response_headers.create_perfect_hash_table(data, 100);
+                break;
+            case perfect_hash_table_type::HTTP_REQUEST_FP:
+            case perfect_hash_table_type::HTTP_RESPONSE_FP:
+                break;
+        }
+    }
+
+    const char** lookup_string(perfect_hash_table_type type, const char* key, bool& success) {
+        switch(type) {
+            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
+                return _ph_http_request_headers.lookup(key, strlen(key), success);
+            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
+                return _ph_http_response_headers.lookup(key, strlen(key), success);
+            case perfect_hash_table_type::HTTP_REQUEST_FP:
+            case perfect_hash_table_type::HTTP_RESPONSE_FP:
+            default:
+                success = false;
+                return nullptr;
+        }
+    }
+
+    bool* lookup_bool(perfect_hash_table_type type, const char* key, bool& success) {
+        switch(type) {
+            case perfect_hash_table_type::HTTP_REQUEST_FP:
+                return _ph_http_request_fp.lookup(key, strlen(key), success);
+            case perfect_hash_table_type::HTTP_RESPONSE_FP:
+                return _ph_http_response_fp.lookup(key, strlen(key), success);
+            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
+            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
+            default:
+                success = false;
+                return nullptr;
+        }
+    }
+
+    static perfect_hash_visitor& get_default_perfect_hash_visitor() {
+        static perfect_hash_visitor ph_visitor;
+        return ph_visitor;
+    }
+
+    private:
     perfect_hash_visitor() {
         std::vector<perfect_hash_entry<bool>> fp_data_reqeust = {
             { "accept: ", 8, true },
@@ -329,79 +403,6 @@ struct perfect_hash_visitor {
         init_perfect_hash_table_string(perfect_hash_table_type::HTTP_REQEUST_HEADERS, header_data_request);
         init_perfect_hash_table_string(perfect_hash_table_type::HTTP_RESPONSE_HEADERS, header_data_response);
     }
-
-    ~perfect_hash_visitor() { clean(); }
-
-    void init_perfect_hash_table_bool(perfect_hash_table_type type, std::vector<perfect_hash_entry<bool>> data) {
-        switch(type) {
-            case perfect_hash_table_type::HTTP_REQUEST_FP:
-                _ph_http_request_fp.create_perfect_hash_table(data, 100);
-                break;
-            case perfect_hash_table_type::HTTP_RESPONSE_FP:
-                _ph_http_response_fp.create_perfect_hash_table(data, 100);
-                break;
-            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-            default:
-                break;
-        }
-    }
-
-    void init_perfect_hash_table_string(perfect_hash_table_type type, std::vector<perfect_hash_entry<const char*>> data) {
-        switch(type) {
-            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-                _ph_http_request_headers.create_perfect_hash_table(data, 100);
-                break;
-            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-                _ph_http_response_headers.create_perfect_hash_table(data, 100);
-                break;
-            case perfect_hash_table_type::HTTP_REQUEST_FP:
-            case perfect_hash_table_type::HTTP_RESPONSE_FP:
-                break;
-        }
-    }
-
-    const char** lookup_string(perfect_hash_table_type type, const char* key, bool& success) {
-        switch(type) {
-            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-                return _ph_http_request_headers.lookup(key, strlen(key), success);
-            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-                return _ph_http_response_headers.lookup(key, strlen(key), success);
-            case perfect_hash_table_type::HTTP_REQUEST_FP:
-            case perfect_hash_table_type::HTTP_RESPONSE_FP:
-            default:
-                success = false;
-                return nullptr;
-        }
-    }
-
-    bool* lookup_bool(perfect_hash_table_type type, const char* key, bool& success) {
-        switch(type) {
-            case perfect_hash_table_type::HTTP_REQUEST_FP:
-                return _ph_http_request_fp.lookup(key, strlen(key), success);
-            case perfect_hash_table_type::HTTP_RESPONSE_FP:
-                return _ph_http_response_fp.lookup(key, strlen(key), success);
-            case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-            case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-            default:
-                success = false;
-                return nullptr;
-        }
-    }
-
-    void clean() {
-        _ph_http_request_fp.cleanup();
-        _ph_http_request_headers.cleanup();
-        _ph_http_response_fp.cleanup();
-        _ph_http_response_headers.cleanup();
-    }
-
-    static perfect_hash_visitor& get_default_perfect_hash_visitor() {
-        static perfect_hash_visitor ph_visitor;
-        return ph_visitor;
-    }
 };
-
-
 
 #endif

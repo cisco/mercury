@@ -37,7 +37,7 @@ void prepare_data(size_t l, size_t k)
     }
 }
 
-SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 1000")
+SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
 {
     prepare_data(loop_count_1, key_len_1);
 
@@ -60,18 +60,17 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 1000")
     }
     
     std::vector<int*> res;
-    res.reserve(loop_count_1 * 100);
+    res.reserve(loop_count_1);
     bool valid = false;
     BENCHMARK("Perfect Hash lookup")
     {
-        for(int i = 0; i < loop_count_1 * 100; i++)
-        for(auto s : _test_data)
+        for(size_t i = 0; i < loop_count_1; i++)
         {
-            res[i] = ph.lookup(s.c_str(), s.length(), valid);
+            res[i] = ph.lookup(_test_data[i].c_str(), _test_data[i].length(), valid);
         }
     }
     valid = false;
-    for(int i = 0; i < loop_count_1; i++)
+    for(int i = 0; i < (int)loop_count_1; i++)
     {
         valid |= *res[i] != i;
         printf("\n\n%d\n\n", *res[i]);
@@ -82,7 +81,6 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 1000")
         free((char*)d._key);
         d._key = nullptr;
     }
-    ph.cleanup();
 }
 
 SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 1000")
@@ -99,10 +97,9 @@ SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 1000")
     res.reserve(loop_count_1 * 100);
     BENCHMARK("Unordered Map lookup")
     {
-        for(int i = 0; i < 100 * loop_count_1; i++)
-        for(auto s : _test_data)
+        for(size_t i = 0; i < loop_count_1; i++)
         {
-            res[i] = test_data.find(s)->second;
+            res[i] = test_data.find(_test_data[i])->second;
         }
     }
     for(auto s : res)
@@ -110,7 +107,10 @@ SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 1000")
         printf("\n\n%d\n\n", *s);
     }
 
-    test_data.clear();
+    for(size_t i = 0; i < loop_count_1; i++)
+    {
+        delete test_data.find(_test_data[i])->second;
+    }
 }
 
 SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
@@ -138,7 +138,7 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
     }
     
     std::vector<int*> res;
-    res.reserve(loop_count_1);
+    res.reserve(loop_count_2);
     bool valid = false;
     BENCHMARK("Perfect Hash lookup")
     {
@@ -148,9 +148,9 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
         }
     }
     valid = false;
-    for(int i = 0; i < loop_count_2; i++)
+    for(size_t i = 0; i < loop_count_2; i++)
     {
-        valid |= *res[i] != i;
+        valid |= *res[i] != (int)i;
         printf("%d\n", *res[i]);
     }
     REQUIRE_FALSE(valid);
@@ -159,7 +159,6 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
         free((char*)d._key);
         d._key = nullptr;
     }
-    ph.cleanup();
 }
 
 SCENARIO("Unordered Map. Key len = 50; Elements = 100000; Lookup count = 100000")
@@ -186,5 +185,8 @@ SCENARIO("Unordered Map. Key len = 50; Elements = 100000; Lookup count = 100000"
         printf("\n\n%d\n\n", *s);
     }
 
-    test_data.clear();
+    for(size_t i = 0; i < loop_count_2; i++)
+    {
+        delete test_data.find(_test_data[i])->second;
+    }
 }
