@@ -100,7 +100,7 @@ class ipv4_packet {
             o.print_key_value("ip", *this);
         }
     }
-    void operator() (struct buffer_stream &buf) {
+    void fingerprint (struct buffer_stream &buf) {
         if (header) {
             // version
             //
@@ -396,7 +396,7 @@ public:
             o.print_key_value("ip", *this);
         }
     }
-    void operator() (struct buffer_stream &buf) {
+    void fingerprint (struct buffer_stream &buf) {
         if (header) {
 
             // version
@@ -508,9 +508,9 @@ public:
         esp        = 50,    // Encap Security Payload                 [RFC4303]
         ah         = 51,    // Authentication Header                  [RFC4302]
         mobile     = 55,    // IP Mobility
-        IPv6_ICMP  = 58,    // ICMP for IPv6                          [RFC8200]
-        IPv6_NoNxt = 59,    // No Next Header for IPv6                [RFC8200]
-        IPv6_Opts  = 60,    // Destination Options for IPv6           [RFC8200]
+        ipv6_icmp  = 58,    // ICMP for IPv6                          [RFC8200]
+        ipv6_nonxt = 59,    // No Next Header for IPv6                [RFC8200]
+        ipv6_opts  = 60,    // Destination Options for IPv6           [RFC8200]
         eigrp      = 88,    // EIGRP                                  [RFC7868]
         ospfigp    = 89,    // OSPFIGP                                [RFC1583][RFC2328][RFC5340]
         etherip    = 97,    // Ethernet-within-IP Encapsulation       [RFC3378]

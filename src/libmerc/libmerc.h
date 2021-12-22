@@ -59,7 +59,7 @@ enum log_level {
 #ifdef __cplusplus
 extern "C"
 #endif
-typedef int (*printf_err_ptr)(enum log_level level, const char *format, ...);
+typedef int (*printf_err_ptr)(enum log_level level, const char *format, va_list args);
 
 #ifdef DONT_USE_STDERR
 int printf_err(enum log_level level, const char *format, ...);
@@ -275,7 +275,8 @@ enum fingerprint_status {
     fingerprint_status_no_info_available = 0,  /**< fingerprint status is unknown                       */
     fingerprint_status_labeled           = 1,  /**< fingerprint is in FPDB                              */
     fingerprint_status_randomized        = 2,  /**< fingerprint is not in FPDB or unlabeled set         */
-    fingerprint_status_unlabled          = 3   /**< fingerprint is not in FPDB, but is in unlabeled set */
+    fingerprint_status_unlabled          = 3,  /**< fingerprint is not in FPDB, but is in unlabeled set */
+    fingerprint_status_unanalyzed        = 4,  /**< fingerprint unanalyzed (no FPDB for this fp type)   */
 };
 
 /**
@@ -620,12 +621,6 @@ uint32_t mercury_get_version_number();
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *mercury_get_resource_version(mercury_context mc);
-
-// OTHER FUNCTIONS
-//
-enum status proto_ident_config(const char *config_string);
-
-enum status static_data_config(const char *config_string);
 
 
 #endif /* LIBMERC_H */

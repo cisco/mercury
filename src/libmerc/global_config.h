@@ -7,10 +7,27 @@
 #include <string>
 #include <algorithm>
 
-struct global_config : public libmerc_config
-{
+// the preprocessor directive STATIC_CFG_SELECT can be used as a
+// compile-time option to select the protocols that mercury will
+// process; it must hold a quoted string that contains one of
+// mercury's selector strings, and it can be passed to the compiler
+// using the -D flag.  For example,
+//
+//    make OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls.client_hello\"'
+//
+// will ensure that only tls client hello messages are selected, and all other
+// packet types are ignored
+//
+#ifndef STATIC_CFG_SELECT
+#define STATIC_CFG_SELECT nullptr
+#endif
+
+struct global_config : public libmerc_config {
+
 private:
     std::string resource_file;
+
+    static constexpr const char *static_selector_string = STATIC_CFG_SELECT;
 
 public:
     global_config() : libmerc_config() {};
@@ -19,17 +36,15 @@ public:
             resource_file = c.resources;
          }
 
-    const char* get_resource_file()
-    {
+    const char* get_resource_file() {
         return resource_file.empty() ? resources : resource_file.c_str();
     }
 
-    void set_resource_file(const std::string& res)
-    {
+    void set_resource_file(const std::string& res) {
         resource_file = res;
     }
 
-    std::map<std::string, bool> protocols{
+    std::map<std::string, bool> protocols {
             { "all",         false },
             { "none",        false },
             { "dhcp",        false },
@@ -45,13 +60,14 @@ public:
             { "smtp",        false },
             { "tls.client_hello", false},
             { "tls.server_hello", false},
+            { "tls.server_certificate", false},
             { "http.request", false},
             { "http.response", false},
         };
 
-    bool set_protocols(const std::string& data)
-    {
-        std::string s = data.empty() ? "all" : data;
+    bool set_protocols(const std::string& data) {
+
+        std::string s = static_selector_string ? static_selector_string : ( data.empty() ? "all" : data );
         std::string delim{","};
         size_t pos = 0;
         std::string token;

@@ -406,6 +406,31 @@ static inline int append_uint16_hex(char *dstr, int *doff, int dlen, int *trunc,
     return r;
 }
 
+static inline int append_uint32_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint32_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[8]; /* 8 hex chars */
+
+    outs[0] = hex_table[(n & 0xf0000000) >> 28];
+    outs[1] = hex_table[(n & 0x0f000000) >> 24];
+    outs[2] = hex_table[(n & 0x00f00000) >> 20];
+    outs[3] = hex_table[(n & 0x000f0000) >> 16];
+    outs[4] = hex_table[(n & 0x0000f000) >> 12];
+    outs[5] = hex_table[(n & 0x00000f00) >> 8];
+    outs[6] = hex_table[(n & 0x000000f0) >> 4];
+    outs[7] = hex_table[ n & 0x0000000f];
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 8);
+
+    return r;
+}
+
 
 static inline int append_ipv6_addr(char *dstr, int *doff, int dlen, int *trunc,
                                     const uint8_t *v6) {
@@ -826,6 +851,10 @@ struct buffer_stream {
 
     void write_hex_uint16(uint16_t n) {
         append_uint16_hex(dstr, &doff, dlen, &trunc, n);
+    }
+
+    void write_hex_uint32(uint32_t n) {
+        append_uint32_hex(dstr, &doff, dlen, &trunc, n);
     }
 
     void write_ipv6_addr(const uint8_t *v6) {

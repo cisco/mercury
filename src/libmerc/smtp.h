@@ -137,7 +137,7 @@ class smtp_client : public tcp_base_protocol {
 
 public:
 
-    smtp_client() : parameters{} { }
+    smtp_client(datum &pkt) : parameters{} { parse(pkt); }
 
     void parse(struct datum &pkt) {
         parameters.parse(pkt);
@@ -145,7 +145,7 @@ public:
         return;
     }
 
-    void operator()(buffer_stream &) const { }
+    void fingerprint(buffer_stream &) const { }
 
     void write_json(json_object &record, bool) {
         if (this->is_not_empty()) {
@@ -198,7 +198,7 @@ class smtp_server : public tcp_base_protocol {
 
 public:
 
-    smtp_server() : parameters{} { }
+    smtp_server(datum &pkt) : parameters{} { parse(pkt); }
 
     void parse(struct datum &pkt) {
         parameters.parse(pkt);
@@ -206,7 +206,7 @@ public:
         return;
     }
 
-    void operator()(buffer_stream &buf) const {
+    void fingerprint(buffer_stream &buf) const {
         if (is_not_empty() == false) {
             return;
         }

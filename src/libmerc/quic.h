@@ -25,9 +25,7 @@
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
-//#include "quic-versions.h"
-
-#define pt_buf_len 2048 // plaintext buffer length
+#include "crypto_engine.h"
 
 /*
  * QUIC header format (from draft-ietf-quic-transport-32):
@@ -63,7 +61,7 @@ struct uint8_bitfield {
 
     uint8_bitfield(uint8_t x) : value{x} {}
 
-    void operator()(struct buffer_stream &b) {
+    void fingerprint(struct buffer_stream &b) {
         for (uint8_t x = 0x80; x > 0; x=x>>1) {
             if (x & value) {
                 b.write_char('1');
@@ -124,8 +122,79 @@ public:
     }
 
     uint64_t value() const { return value_; }
+
 };
 
+class variable_length_integer_datum : public datum {
+
+public:
+
+    variable_length_integer_datum(datum &d) {
+        uint8_t b;
+        d.lookahead_uint8(&b);
+        int len=0;
+        switch (b & 0xc0) {
+        case 0xc0:
+            len = 8;
+            break;
+        case 0x80:
+            len = 4;
+            break;
+        case 0x40:
+            len = 2;
+            break;
+        case 0x00:
+            len = 1;
+        }
+        datum::parse(d, len);
+    }
+
+    void write(buffer_stream &b) const {
+        b.raw_as_hex(data, length());
+    }
+
+    bool is_grease() const {
+        datum tmp = *this;               // copy to avoid changing *this
+        variable_length_integer v{tmp};
+        return v.value() % 31 == 27;
+    }
+};
+
+
+// quic_transport_parameters are carried in a TLS extension; see
+// https://datatracker.ietf.org/doc/html/rfc9000#section-18 and
+// https://www.iana.org/assignments/quic/quic.xhtml#quic-transport
+//
+//   Transport Parameter {
+//     Transport Parameter ID (i),
+//     Transport Parameter Length (i),
+//     Transport Parameter Value (..),
+//   }
+//
+class quic_transport_parameter {
+    variable_length_integer_datum _id;
+    variable_length_integer _length;
+    datum _value;
+
+public:
+
+    quic_transport_parameter(datum &d) : _id{d}, _length{d}, _value{d, _length.value()} { }
+
+    bool is_not_empty() const {
+        return _value.is_not_null(); // note: zero-length value is possible
+    }
+
+    void write_id(buffer_stream &b) const {
+        if (!_id.is_grease()) {
+            _id.write(b);
+        } else {
+            // write out the smallest GREASE value (0x1b == 27)
+            b.write_char('1');
+            b.write_char('b');
+        }
+    }
+
+};
 
 // quic frames are defined by a set of classes and the std::variant
 // quic_frame, defined below
@@ -139,6 +208,20 @@ public:
 //   Type (i) = 0x01,
 // }
 //
+//
+// ACK Range {
+//   Gap (i),
+//   ACK Range Length (i),
+// }
+//
+class ack_range {
+    variable_length_integer gap;
+    variable_length_integer length;
+public:
+
+    ack_range(datum &d) : gap{d}, length{d} { }
+};
+
 // ACK Frame {
 //   Type (i) = 0x02..0x03,
 //   Largest Acknowledged (i),
@@ -149,10 +232,50 @@ public:
 //   [ECN Counts (..)],
 // }
 //
-// ACK Range {
-//   Gap (i),
-//   ACK Range Length (i),
-// }
+class ack {
+    variable_length_integer largest_acked;
+    variable_length_integer ack_delay;
+    variable_length_integer ack_range_count;
+    variable_length_integer first_ack_range;
+    bool valid;
+
+public:
+    ack(datum &d) : largest_acked{d}, ack_delay{d}, ack_range_count{d}, first_ack_range{d}, valid{false} {
+        for (unsigned i=0; i<ack_range_count.value(); i++) {
+            ack_range range{d};
+        }
+        if (d.is_null()) {
+            return;
+        }
+        valid = true;
+    }
+
+    bool is_valid() const { return valid; }
+
+    void write_json(json_object &o) {
+        if (is_valid()) {
+            json_object a{o, "ack"};
+            a.print_key_uint("largest_acked", largest_acked.value());
+            a.print_key_uint("ack_delay", ack_delay.value());
+            a.print_key_uint("ack_range_count", ack_range_count.value());
+            a.print_key_uint("first_ack_range", first_ack_range.value());
+            a.close();
+        }
+    }
+
+	void write(FILE *f) {
+    	if (is_valid()) {
+        	fprintf(f, "ack.largest_acked: %lu\n", largest_acked.value());
+        	fprintf(f, "ack.ack_delay: %lu\n", ack_delay.value());
+        	fprintf(f, "ack.ack_range_count: %lu\n", ack_range_count.value());
+        	fprintf(f, "ack.first_ack_range: %lu\n", first_ack_range.value());
+        } else {
+        	fprintf(f, "ack.not valid\n");
+        }
+    }
+
+};
+
 //
 // ECN Counts {
 //   ECT0 Count (i),
@@ -181,34 +304,34 @@ public:
 // }
 //
 class crypto {
-    variable_length_integer offset;
-    variable_length_integer length;
-    datum data;
+    variable_length_integer _offset;
+    variable_length_integer _length;
+    datum _data;
 
 public:
-    crypto(datum &p) : offset{p}, length{p}, data{p, length.value()} {    }
+    crypto(datum &p) : _offset{p}, _length{p}, _data{p, _length.value()} {    }
 
-    bool is_valid() const { return data.is_not_empty(); }
+    bool is_valid() const { return _data.is_not_empty(); }
 
-    datum &get_data() { return data; } // note: function is not const
+    datum &data() { return _data; } // note: function is not const
 
-    uint64_t get_offset() const
+    uint64_t offset() const
     {
-        return offset.value();
+        return _offset.value();
     }
 
-    uint64_t get_length() const
+    uint64_t length() const
     {
-        return length.value();
+        return _length.value();
     }
 
-	void write(FILE *f) {
+    void write(FILE *f) {
         if (is_valid()) {
-        	fprintf(f, "crypto.offset: %lu\n", offset.value());
-        	fprintf(f, "crypto.length: %lu\n", length.value());
+            fprintf(f, "crypto.offset: %lu\n", _offset.value());
+            fprintf(f, "crypto.length: %lu\n", _length.value());
         } else {
-        	fprintf(f, "crypto.not valid\n");
-       	}
+            fprintf(f, "crypto.not valid\n");
+        }
     }
 };
 
@@ -301,7 +424,17 @@ public:
 
     bool is_valid() const { return reason_phrase.is_not_empty(); }
 
-	void write(FILE *f) { 
+	void write_json(json_object &o) {
+        if (is_valid()) {
+            json_object cc{o, "connection_close"};
+            cc.print_key_uint("error_code", error_code.value());
+            cc.print_key_uint("frame_type", frame_type.value());
+            cc.print_key_json_string("reason_phrase", reason_phrase);
+            cc.close();
+        }
+    }
+
+	void write(FILE *f) {
     	if (is_valid()) {
         	fprintf(f, "connection_close.error_code: %lu\n", error_code.value());
         	fprintf(f, "connection_close.frame_type: %lu\n", frame_type.value());
@@ -346,17 +479,28 @@ struct quic_initial_packet {
     struct datum token;
     struct datum payload;
     bool valid;
+    bool gquic;
+    const uint8_t *aad_start = nullptr;
+    const uint8_t *aad_end = nullptr;
 
-    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false} {
+    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false}, gquic{false} {
         parse(d);
     }
 
     void parse(struct datum &d) {
 
+        // additional authenticated data (aad) is used in authenticated decryption
+        //
+        aad_start = d.data;
+
+        if (d.length() < min_len_pdu) {
+            return;  // packet too short to be valid
+        }
+
         // connection information octet for initial packets:
         //
         // Header Form        (1)        1
-        // Fixed Bit          (1)        1 (or 0?)
+        // Fixed Bit          (1)        ?
         // Long Packet Type   (2)        00
         // Type-Specific Bits (4)        ??
         //
@@ -388,12 +532,14 @@ struct quic_initial_packet {
         case 4278190113:   // draft-33
         case 4278190114:   // draft-34
         case 1:            // version-1
+            break;
         case 0x51303433:   // Google QUIC Q043
         case 0x51303436:   // Google QUIC Q046
         case 0x51303530:   // Google QUIC Q050
+            gquic=true;    // TODO: report gquic, but don't decrypt it
             break;
         default:
-            return;
+            return; // TODO: parse and report non-standard quic
         }
 
         uint8_t dcid_length;
@@ -414,11 +560,16 @@ struct quic_initial_packet {
         token.parse(d, token_length.value());
 
         variable_length_integer length{d}; // length of packet number and packet payload
-        // fprintf(stderr, "length: %08lu\td.length(): %08zu\tversion: %08lx\n", length.value(), d.length(), v);
-        if (d.length() < (ssize_t)length.value() || length.value() < min_len_pn_and_payload) {  
+        //fprintf(stderr, "length: %08lu\td.length(): %08zu\tversion: %08lx\n", length.value(), d.length(), v);
+        if (d.length() < (ssize_t)length.value() || length.value() < min_len_pn_and_payload) {
             //fprintf(stderr, "invalid\n");
             return;
         }
+
+        // remember where aad ends
+        //
+        aad_end = d.data;
+
         payload.parse(d, length.value());
 
         if ((payload.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
@@ -430,17 +581,17 @@ struct quic_initial_packet {
     }
 
 	static constexpr size_t min_len_pn_and_payload = 64;  // TODO: determine best length bound
+	static constexpr ssize_t min_len_pdu = 1200;          // TODO: determine best length bound
 
-    bool is_not_empty() {
+    bool is_not_empty() const {
         return valid;
     }
 
-    void write_json(struct json_object &o, bool =false) const {
+    void write_json(struct json_object &json_quic, bool =false) const {
         if (!valid) {
             return;
         }
 
-        struct json_object json_quic{o, "quic"};
         struct uint8_bitfield bitfield{connection_info};
         json_quic.print_key_value("connection_info", bitfield);
         json_quic.print_key_hex("version", version);
@@ -448,7 +599,6 @@ struct quic_initial_packet {
         json_quic.print_key_hex("scid", scid);
         json_quic.print_key_hex("token", token);
         json_quic.print_key_hex("data", payload);
-        json_quic.close();
 
     }
 
@@ -499,13 +649,14 @@ public:
     }
 
     static quic_parameters &create() {
-        static quic_parameters *quic_params = new quic_parameters;
-        return *quic_params;
+        static quic_parameters quic_params;
+        return quic_params;
     }
 };
 
-struct quic_initial_packet_crypto {
-    bool valid;
+class quic_crypto_engine {
+
+    crypto_engine core_crypto;
 
     constexpr static const uint8_t client_in_label[] = "tls13 client in";
     constexpr static const uint8_t quic_key_label[]  = "tls13 quic key";
@@ -528,9 +679,39 @@ struct quic_initial_packet_crypto {
     unsigned char plaintext[pt_buf_len] = {0};
     int16_t plaintext_len = 0;
 
-    quic_initial_packet_crypto(struct quic_initial_packet quic_pkt) : valid{false} {
+public:
+
+    datum decrypt(const quic_initial_packet &quic_pkt) {
         if (!quic_pkt.is_not_empty()) {
-            return;
+            return {nullptr, nullptr};
+        }
+
+        // copy the additional authenticated data into a buffer, where
+        // it can be edited to remove header protection
+        //
+        data_buffer<1024> aad;
+        // uint8_t aad_buffer[1024];
+        // size_t aad_len = quic_pkt.aad_end - quic_pkt.aad_start;
+        // if (aad_len < sizeof(aad_buffer)) {
+        //     memcpy(aad_buffer, quic_pkt.aad_start, aad_len);
+        // } else {
+        //     fprintf(stderr, "warning: need aad_buffer[%zu], only have %zu\n", sizeof(aad_buffer), aad_len);
+        // }
+        // datum aad{aad_buffer, aad_buffer+aad_len};
+
+        if (process_initial_packet(aad, quic_pkt) == false) {
+            return {nullptr, nullptr};
+        }
+        decrypt__(aad.buffer, aad.length(),
+                  quic_pkt.payload.data, quic_pkt.payload.length());
+        return {plaintext, plaintext+plaintext_len};
+    }
+
+private:
+
+    bool process_initial_packet(data_buffer<1024> &aad, const quic_initial_packet &quic_pkt) {
+        if (!quic_pkt.is_not_empty()) {
+            return false;
         }
         const uint8_t *dcid = quic_pkt.dcid.data;
         size_t dcid_len = quic_pkt.dcid.length();
@@ -539,7 +720,7 @@ struct quic_initial_packet_crypto {
         static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
         uint8_t *initial_salt = quic_params.get_initial_salt(version);
         if (initial_salt == nullptr) {
-            return;
+            return false;
         }
 
         uint8_t initial_secret[EVP_MAX_MD_SIZE];
@@ -548,122 +729,56 @@ struct quic_initial_packet_crypto {
 
         uint8_t c_initial_secret[EVP_MAX_MD_SIZE] = {0};
         unsigned int c_initial_secret_len = 0;
-        kdf_tls13(initial_secret, initial_secret_len, client_in_label, sizeof(client_in_label)-1, 32, c_initial_secret, &c_initial_secret_len);
-        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_key_label, sizeof(quic_key_label)-1, 16, quic_key, &quic_key_len);
-        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, 12, quic_iv, &quic_iv_len);
-        kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, 16, quic_hp, &quic_hp_len);
+        core_crypto.kdf_tls13(initial_secret, initial_secret_len, client_in_label, sizeof(client_in_label)-1, 32, c_initial_secret, &c_initial_secret_len);
+        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_key_label, sizeof(quic_key_label)-1, 16, quic_key, &quic_key_len);
+        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, 12, quic_iv, &quic_iv_len);
+        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, 16, quic_hp, &quic_hp_len);
 
-        AES_KEY enc_key;
-        AES_set_encrypt_key(quic_hp, 128, &enc_key);
-        uint8_t buf[32] = {0};
-        AES_encrypt(quic_pkt.payload.data+4, buf, &enc_key);   // TODO: improve encapsulation
-        pn_length = quic_pkt.connection_info ^ (buf[0] & 0x0f);
+        // remove header protection (RFC9001, Section 5.4.1)
+        //
+        static constexpr size_t sample_offset = 4;
+        uint8_t mask[32] = {0};
+        core_crypto.ecb_encrypt(quic_hp,mask,quic_pkt.payload.data + sample_offset,16);
+        pn_length = quic_pkt.connection_info ^ (mask[0] & 0x0f);
         pn_length = (pn_length & 0x03) + 1;
 
+        aad.copy(quic_pkt.connection_info ^ (mask[0] & 0x0f));
+        aad.copy(quic_pkt.aad_start + 1, (quic_pkt.aad_end - quic_pkt.aad_start) - 1);
+
+        // reconstruct packet number
+        //
+        uint32_t packet_number = 0;
+        for (int i=0; i<pn_length; i++) {
+            packet_number *= 256;
+            packet_number += mask[i+1] ^ quic_pkt.payload.data[i];
+            aad.copy(quic_pkt.payload.data[i] ^ mask[i+1]);
+        }
+
+        // construct AEAD iv
+        //
         for (uint8_t i = quic_iv_len-pn_length; i < quic_iv_len; i++) {
-            quic_iv[i] ^= (buf[(i-(quic_iv_len-pn_length))+1] ^ *(quic_pkt.payload.data + (i-(quic_iv_len-pn_length))));
+            quic_iv[i] ^= (mask[(i-(quic_iv_len-pn_length))+1] ^ *(quic_pkt.payload.data + (i-(quic_iv_len-pn_length))));
         }
 
-        valid = true;
+        return true;
     }
 
-    void decrypt(const uint8_t *data, unsigned int length) {
-        uint16_t cipher_len = (length-pn_length < pt_buf_len) ? length-pn_length : pt_buf_len;
-        plaintext_len = gcm_decrypt(data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
-        if (plaintext_len == -1) { // error
-            valid = false;
-            return;
+    void decrypt__(const uint8_t *ad, unsigned int ad_len, const uint8_t *data, unsigned int length) {
+
+        uint16_t cipher_len = length - pn_length;
+        plaintext_len = core_crypto.gcm_decrypt(ad, ad_len, data+pn_length, cipher_len, quic_key, quic_iv, plaintext);
+        if (plaintext_len == -1) {
+            plaintext_len = 0;  // error; indicate that there is no plaintext in buffer
         }
+        
+        // reset buffer states after decryption 
+        //
+        quic_key_len = 0;
+        quic_iv_len = 0;
+        quic_hp_len = 0;
+        pn_length = 0; 
     }
 
-    // adapted from https://wiki.openssl.org/index.php/EVP_Authenticated_Encryption_and_Decryption
-    int gcm_decrypt(const unsigned char *ciphertext, int ciphertext_len,
-                    unsigned char *key, unsigned char *iv,
-                    unsigned char *plaintext)
-    {
-        EVP_CIPHER_CTX *ctx;
-        int len;
-        int plaintext_len;
-
-        /* Create and initialise the context */
-        if(!(ctx = EVP_CIPHER_CTX_new()))
-            return -1;
-
-        /* Initialise the decryption operation. */
-        if(!EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL))
-            return -1;
-
-        /* Initialise key and IV */
-        if(!EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv))
-            return -1;
-
-        /*
-         * Provide the message to be decrypted, and obtain the plaintext output.
-         * EVP_DecryptUpdate can be called multiple times if necessary
-         */
-        if(!EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
-            return -1;
-        plaintext_len = len;
-
-        /*
-         * Finalise the decryption. A positive return value indicates success,
-         * anything else is a failure - the plaintext is not trustworthy.
-         */
-        EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
-
-        /* Clean up */
-        EVP_CIPHER_CTX_free(ctx);
-
-        plaintext_len += len;
-        return plaintext_len;
-    }
-
-    void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
-                   uint8_t length, uint8_t *out_, unsigned int *out_len) {
-        uint8_t *new_label = new uint8_t[4+label_len]();
-        new_label[1] = length;
-        new_label[2] = label_len;
-        for (uint i = 0; i < label_len; i++) {
-            new_label[3+i] = label[i];
-        }
-
-        uint8_t ind = 0;
-        uint8_t block[EVP_MAX_MD_SIZE];
-        uint8_t new_block[512] = {0};
-        unsigned int block_len = 0;
-        while (*out_len < length) {
-            ind++;
-
-            for (unsigned int i = 0; i < block_len; i++) {
-                new_block[i] = block[i];
-            }
-            for (unsigned int i = block_len; i < block_len+label_len+4; i++) {
-                new_block[i] = new_label[i];
-            }
-            new_block[block_len+label_len+4] = ind;
-
-            HMAC(EVP_sha256(), secret, secret_length, new_block, block_len+label_len+5, block, &block_len);
-
-            for (unsigned int i = 0; i < block_len; i++) {
-                out_[*out_len] = block[i];
-                (*out_len)++;
-                if (*out_len >= length) {
-                    delete[] new_label;
-                    return ;
-                }
-            }
-        }
-        delete[] new_label;
-    }
-
-    bool is_not_empty() const {
-        return valid;
-    }
-
-    datum get_plaintext() const {
-        struct datum quic_plaintext{plaintext, plaintext+plaintext_len};
-        return quic_plaintext;
-    }
 };
 
 //   Version Negotiation Packet {
@@ -737,9 +852,23 @@ struct quic_version_negotiation {
 };
 
 class padding {
-    size_t pad_len;
+
 public:
-	padding(datum &d) {
+	padding(datum &) {
+    }
+
+	void write(FILE *f) {
+		fprintf(f, "padding\n");
+	}
+
+private:
+
+    // the function parse_consecutive_padding() reads consecutive padding
+    // frames and reports their number; it might be handy if you want to
+    // print out frames.
+    //
+    size_t parse_consecutive_padding(datum &d) {
+        size_t pad_len = 0;
         while (true) {
             uint8_t type = 0;
             d.lookahead_uint8(&type);
@@ -749,11 +878,8 @@ public:
             d.skip(1);
             ++pad_len;
         }
+        return pad_len;
     }
-
-	void write(FILE *f) {
-		fprintf(f, "padding length %zu\n", pad_len);
-	}
 };
 
 class ping {
@@ -765,47 +891,94 @@ public:
 	}
 };
 
-using quic_frame = std::variant<padding, ping, crypto, connection_close, std::monostate>;
-
-static quic_frame frame(datum &d) {
-	uint8_t type = 0;
-	d.read_uint8(&type);
-    //  fprintf(stderr, "frame type: %02x\n", type);
-    if (type == 0x06) {
-    	return crypto{d};
-    } else if (type == 0x1c) {
-        return connection_close{d};
-    } else if (type == 0x00) {
-		return padding{d};
-    } else if (type == 0x01) {
-        return ping{d};
-    }
-    //fprintf(stderr, "unknown frame type %02x\n", type);
-    return std::monostate{};
-}
-
-class write_frame {
-	FILE *f_;
+class quic_frame {
+    std::variant<std::monostate, padding, ping, ack, crypto, connection_close> frame;
 
 public:
-	write_frame(FILE *f) : f_{f} { }
 
-	template <typename T> void operator()(T &x) {
-		x.write(f_);
-	}
+    quic_frame(datum &d) {
+        uint8_t type = 0;
+        if (d.read_uint8(&type) == false) {
+            frame.emplace<std::monostate>();   // invalid; no data to read
+        } else if (type == 0x06) {
+            frame.emplace<crypto>(d);
+        } else if (type == 0x1c) {
+            frame.emplace<connection_close>(d);
+        } else if (type == 0x00) {
+            frame.emplace<padding>(d);
+        } else if (type == 0x01) {
+            frame.emplace<ping>(d);
+        } else if (type == 0x02) {
+            frame.emplace<ack>(d);
+        } else {
+            // fprintf(stderr, "unknown frame type %02x\n", type);  // TODO: report through JSON
+            frame.emplace<std::monostate>();
+        }
+    }
 
-	void operator()(std::monostate &) { }
+    quic_frame() : frame{} { }
+
+    bool is_valid() const {
+        return std::holds_alternative<std::monostate>(frame) == false;
+    }
+
+    template <typename T>
+    bool has_type() const {
+        return std::holds_alternative<T>(frame) == true;
+    }
+
+    template <typename T>
+    T *get_if() {
+        return std::get_if<T>(&frame);
+    }
+
+    class write_visitor {
+        FILE *f_;
+    public:
+        write_visitor(FILE *f) : f_{f} { }
+
+        template <typename T> void operator()(T &x) { x.write(f_); }
+
+        void operator()(std::monostate &) { }
+    };
+
+    void write(FILE *f) {
+        std::visit(write_visitor{f}, frame);
+    }
+
+    class write_json_visitor {
+        json_object &o;
+    public:
+        write_json_visitor(json_object &json) : o{json} { }
+
+        template <typename T> void operator()(T &x) { x.write_json(o); }
+
+        void operator()(padding &) { }
+        void operator()(ping &) { }
+        void operator()(crypto &) { }
+        void operator()(std::monostate &) { }
+    };
+
+    void write_json(json_object &o) {
+        std::visit(write_json_visitor{o}, frame);
+    }
+
 };
 
 struct cryptographic_buffer
 {
     uint64_t buf_len = 0;
-    unsigned char buffer[pt_buf_len] = {};
+    unsigned char buffer[pt_buf_len] = {}; // pt_buf_len - decryption buffer trim size for gcm_decrypt
 
     void extend(crypto& d)
     {
-        memmove(buffer + d.get_offset(), d.get_data().data, d.get_length());
-        buf_len += d.get_length();
+        if (d.offset() + d.length() <= sizeof(buffer)) {
+            memcpy(buffer + d.offset(), d.data().data, d.length());
+            if (d.offset() + d.length() > buf_len) {
+                buf_len = d.offset() + d.length();
+            }
+        }
+        // TODO: track segments to verify that all are present
     }
 
     bool is_valid()
@@ -814,70 +987,64 @@ struct cryptographic_buffer
     }
 };
 
+struct quic_hdr_fp {
+    const datum &version;
+
+    quic_hdr_fp(const datum &version_) : version{version_} {};
+    
+    void fingerprint(struct buffer_stream &buf) const {
+        //add version
+        //
+        buf.write_char('(');
+        buf.raw_as_hex(version.data, version.length());
+        buf.write_char(')');
+    } 
+};
+
 // class quic_init represents an initial quic message
 //
 class quic_init {
     quic_initial_packet initial_packet;
-    quic_initial_packet_crypto quic_pkt_crypto;
+    quic_crypto_engine &quic_crypto;
+    cryptographic_buffer crypto_buffer;
     tls_client_hello hello;
+    datum plaintext;
+    quic_frame cc;
 
 public:
 
-    quic_init(struct datum &d) : initial_packet{d}, quic_pkt_crypto{initial_packet}, hello{} {
-        if (quic_pkt_crypto.is_not_empty()) {
-            quic_pkt_crypto.decrypt(initial_packet.payload.data, initial_packet.payload.length());
-            datum plaintext = quic_pkt_crypto.get_plaintext();
+    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{} {
 
-            // parse plaintext as a sequence of frames
-            //
-            //fprintf(stderr, "----------------------------------------\n");
-            datum plaintext_copy = plaintext;
-            while (plaintext_copy.is_not_empty()) {
-                // fprintf(stderr, "plaintext: ");
-                // plaintext_copy.fprint_hex(stderr);
-                // fputc('\n', stderr);
-            	quic_frame f = frame(plaintext_copy);
-            	// std::visit(write_frame{stderr}, f);
-                if (std::holds_alternative<std::monostate>(f)) {
-                    break;  // parse error
-                }
+        plaintext = quic_crypto.decrypt(initial_packet);
+
+        // parse plaintext as a sequence of frames
+        //
+        datum plaintext_copy = plaintext;
+        while (plaintext_copy.is_not_empty()) {
+            quic_frame frame{plaintext_copy};
+            //frame.write(stderr);
+            if (!frame.is_valid()) {
+                break;
             }
-            cryptographic_buffer crypto_buffer;
-            while (plaintext.is_not_empty()) {
-                uint8_t type = 0;
-                plaintext.read_uint8(&type);
-                //  fprintf(stderr, "plaintext.type: %02x\n", type);
-                if (type == 0x06) {
-                    crypto c{plaintext};
-                    if(c.is_valid())
-                        crypto_buffer.extend(c);
-                } else if (type == 0x1c) {
-                    connection_close c{plaintext};
-                } else if (type == 0x00) {
-                    ; // padding frame
-                } else if (type == 0x01) {
-                    ; // ping frame
-                }
+
+            crypto *c = frame.get_if<crypto>();
+            if (c && c->is_valid()) {
+                crypto_buffer.extend(*c);
             }
-            if(crypto_buffer.is_valid()){
-                struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
-                tls_handshake tls{d};
-                hello.parse(tls.body);
-                // if (!hello.is_not_empty()) {
-                //     fprintf(stderr, "plaintext could not be parsed as tls_client_hello\n");
-                // } else {
-                //     fprintf(stderr, "SUCCESS\n");
-                // }
+            if (frame.has_type<connection_close>() || frame.has_type<ack>()) {
+                cc = frame;
             }
-            else
-            {
-                quic_pkt_crypto.valid = false;
-            }
+        }
+        if(crypto_buffer.is_valid()){
+            struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
+            tls_handshake tls{d};
+            hello.parse(tls.body);
         }
     }
 
     bool is_not_empty() {
         return initial_packet.is_not_empty();
+        // note: plaintext.is_not_empty() could be used in output logic
     }
 
     bool has_tls() {
@@ -885,16 +1052,30 @@ public:
     }
 
     void write_json(struct json_object &record, bool metadata_output=false) {
-        if (quic_pkt_crypto.is_not_empty()) {
-            if (hello.is_not_empty()) {
-                hello.write_json(record, metadata_output);
-            }
+        if (hello.is_not_empty()) {
+            hello.write_json(record, metadata_output);
         }
-        initial_packet.write_json(record);
+        json_object quic_record{record, "quic"};
+        initial_packet.write_json(quic_record);
+        if (cc.is_valid()) {
+            cc.write_json(quic_record);
+        }
+        quic_record.print_key_hex("plaintext", plaintext);
+        // json_object frame_dump{record, "frame_dump"};
+        // datum plaintext_copy = plaintext;
+        // while (plaintext_copy.is_not_empty()) {
+        //     quic_frame frame{plaintext_copy};
+        //     frame.write_json(frame_dump);
+        // }
+        // frame_dump.close();
+        quic_record.close();
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        if (quic_pkt_crypto.is_not_empty()) {
+        // fp format :(quic_version)(tls_fp);
+        quic_hdr_fp hdr_fp(initial_packet.version);
+        fp.add(hdr_fp);
+        if (hello.is_not_empty()) {
             fp.set(hello, fingerprint_type_quic);
         }
     }

@@ -308,6 +308,28 @@ struct dns_name : public data_buffer<256> {
             }
         }
     }
+
+    // is_netbios() returns true if and only if this name is a NetBIOS
+    // name, as defined in RFC 1001.
+    //
+    bool is_netbios() const {
+        if (length() == 33) {
+            for (const uint8_t *b=buffer; b < data; b++) {
+                if (is_netbios_char(*b) == false) {
+                    break;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool is_netbios_char(uint8_t c) const {
+        if (c < 'A' || c > 'P') {
+            return false;
+        }
+        return true;
+    }
+
 };
 
 struct dns_question_record {
@@ -451,8 +473,6 @@ struct dns_packet {
     uint16_t qdcount, ancount, nscount, arcount;
     static const uint16_t max_count = 256;
 
-    dns_packet() : header{NULL}, records{NULL, NULL}, length{0} {  }
-
     dns_packet(struct datum &d) : header{NULL}, records{NULL, NULL}, length{0} {
         parse(d);
     }
@@ -482,13 +502,24 @@ struct dns_packet {
         //fprintf(stderr, "qd: %u\tan: %u\tns: %u\tar: %u\tlength: %zu\tweighted sum: %zu\n", qdcount, ancount, nscount, arcount, length, qdcount * 5 + (ancount + nscount + arcount) * 15 - sizeof(dns_hdr));
 
         // trial parsing, just to verify dns packet formatting
-        dns_question_record question_record;
-        question_record.parse(d, records);
-        if (question_record.is_not_empty() == false) {
-            records.set_null();
-            header = NULL;
-            //fprintf(stderr, "notice: setting dns packet to null\n");
+        struct datum record_list = records; // leave records element unchanged (const)
+        for (unsigned int count = 0; count < qdcount; count++) {
+            dns_question_record question_record;
+            question_record.parse(record_list, records);
+            if (question_record.is_not_empty() == false) {
+                records.set_null();
+                header = NULL;
+                // fprintf(stderr, "notice: trial parsing setting dns packet to null on question_record %u\n", count);
+                break;
+            }
+
+            // check for NetBIOS
+            if (question_record.name.is_netbios()) {
+                // fprintf(stderr, "NetBIOS\n");
+            }
         }
+        // TODO: if qdcount == 0, which can happen in mDNS, then
+        // attempt a parse of a resource record
     }
 
     struct datum get_datum() const {
@@ -576,7 +607,7 @@ struct dns_packet {
     };
 
     static constexpr mask_and_value<8> matcher {
-        { 0x00, 0x00, 0x50, 0x48, 0xff, 0xfe, 0xff, 0xe0 },
+        { 0x00, 0x00, 0x10, 0x48, 0xff, 0x00, 0xff, 0x80 },
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
     };
 

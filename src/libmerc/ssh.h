@@ -64,7 +64,9 @@ struct ssh_init_packet : public tcp_base_protocol {
     struct datum protocol_string;
     struct datum comment_string;
 
-    ssh_init_packet() : protocol_string{NULL, NULL}, comment_string{NULL, NULL} { }
+    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL} {
+        parse(p);
+    }
 
     void parse(struct datum &p) {
         uint8_t delim = protocol_string.parse_up_to_delimeters(p, '\n', ' ');
@@ -80,7 +82,7 @@ struct ssh_init_packet : public tcp_base_protocol {
         return protocol_string.is_not_empty();
     }
 
-    void operator()(struct buffer_stream &buf) const {
+    void fingerprint(struct buffer_stream &buf) const {
         if (protocol_string.is_not_readable()) {
             return;
         }
@@ -108,7 +110,7 @@ struct ssh_init_packet : public tcp_base_protocol {
 
     void compute_fingerprint(struct fingerprint &fp) const {
         struct buffer_stream fp_buf{fp.fp_str, MAX_FP_STR_LEN};
-        operator()(fp_buf);
+        fingerprint(fp_buf);
         fp_buf.write_char('\0'); // null-terminate
         fp.type = fingerprint_type_ssh;
     }
@@ -162,7 +164,9 @@ struct ssh_binary_packet {
     // random padding
     // mac
 
-    ssh_binary_packet() : packet_length{0}, padding_length{0}, payload{NULL, NULL}, additional_bytes_needed{0} {}
+    ssh_binary_packet(datum &p) : packet_length{0}, padding_length{0}, payload{NULL, NULL}, additional_bytes_needed{0} {
+        parse(p);
+    }
 
     void parse(struct datum &p) {
         additional_bytes_needed = 0;
@@ -241,7 +245,7 @@ struct ssh_kex_init : public tcp_base_protocol {
     struct name_list languages_client_to_server;
     struct name_list languages_server_to_client;
 
-    ssh_kex_init() = default;
+    ssh_kex_init(datum &p) { parse(p); };
 
     void parse(struct datum &p) {
 
@@ -270,7 +274,7 @@ struct ssh_kex_init : public tcp_base_protocol {
         buf.write_char(')');
     }
 
-    void operator()(struct buffer_stream &buf) const {
+    void fingerprint(struct buffer_stream &buf) const {
         if (kex_algorithms.is_not_readable()) {
             return;
         }
@@ -310,7 +314,7 @@ struct ssh_kex_init : public tcp_base_protocol {
 
     void compute_fingerprint(struct fingerprint &fp) const {
         struct buffer_stream fp_buf{fp.fp_str, MAX_FP_STR_LEN};
-        operator()(fp_buf);
+        fingerprint(fp_buf);
         fp_buf.write_char('\0'); // null-terminate
         fp.type = fingerprint_type_ssh_kex;
     }

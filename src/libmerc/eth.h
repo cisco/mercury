@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include "datum.h"
+#include "cdp.h"
 
 #define ETH_ADDR_LEN 6
 
@@ -37,6 +38,8 @@ struct eth_dot1ad_tag {
  */
 #define ETH_TYPE_NONE          0x0000
 
+#define ETH_TYPE_MIN           0x0600  // smallest ethertype
+
 #define ETH_TYPE_PUP           0x0200
 #define ETH_TYPE_SPRITE        0x0500
 #define ETH_TYPE_IP            0x0800
@@ -51,17 +54,32 @@ struct eth_dot1ad_tag {
 #define ETH_TYPE_LOOPBACK      0x9000
 #define ETH_TYPE_TRAIL         0x1000
 #define ETH_TYPE_MPLS          0x8847
+#define ETH_TYPE_LLDP          0x88cc
+#define ETH_TYPE_CDP           0xffff  // overload reserved type for CDP
 
 /*
  * ethernet (including .1q)
  *
- * frame format is outlined in the file eth.h
  */
 
 class eth {
     uint16_t ethertype = ETH_TYPE_NONE;
 
  public:
+
+    static bool get_ip(datum &pkt) {
+        eth ethernet_frame{pkt};
+        uint16_t ethertype = ethernet_frame.get_ethertype();
+        switch(ethertype) {
+        case ETH_TYPE_IP:
+        case ETH_TYPE_IPV6:
+            return true;
+            break;
+        default:
+            ;
+        }
+        return false;  // not an IP packet
+    }
 
     uint16_t get_ethertype() const { return ethertype; }
 
@@ -73,6 +91,12 @@ class eth {
         if (!p.read_uint16(&ethertype)) {
             ethertype = ETH_TYPE_NONE;
             return;
+        }
+        if (ethertype < ETH_TYPE_MIN) {
+            if (p.matches(cdp::prefix)) {
+                ethertype = ETH_TYPE_CDP;
+                return;
+            }
         }
         if (ethertype == ETH_TYPE_1AD) {
             p.skip(sizeof(uint16_t));  // TCI
@@ -97,7 +121,7 @@ class eth {
                     return;
                 }
             }
-            ethertype = ETH_TYPE_IP;   // assume IPv4 for now (TODO: check IP version)
+            ethertype = ETH_TYPE_IP;   // assume caller will check IP version field
         }
 
         return;

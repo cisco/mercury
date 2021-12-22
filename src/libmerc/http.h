@@ -55,7 +55,7 @@ struct http_request : public tcp_base_protocol {
     struct datum protocol;
     struct http_headers headers;
 
-    http_request() : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{} {}
+    http_request(datum &p) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{} { parse(p); }
 
     void parse(struct datum &p);
 
@@ -63,7 +63,7 @@ struct http_request : public tcp_base_protocol {
 
     void write_json(struct json_object &record, bool output_metadata);
 
-    void operator()(struct buffer_stream &b) const;
+    void fingerprint(struct buffer_stream &b) const;
 
     void compute_fingerprint(struct fingerprint &fp) const;
 
@@ -111,7 +111,7 @@ struct http_response : public tcp_base_protocol {
     struct datum status_reason;
     struct http_headers headers;
 
-    http_response() : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{} {}
+    http_response(datum &p) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{} { parse(p); }
 
     void parse(struct datum &p);
 
@@ -119,7 +119,7 @@ struct http_response : public tcp_base_protocol {
 
     void write_json(struct json_object &record);
 
-    void operator()(struct buffer_stream &buf) const;
+    void fingerprint(struct buffer_stream &buf) const;
 
     void compute_fingerprint(struct fingerprint &fp) const;
 

@@ -142,13 +142,10 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
 const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
-        // TODO: eliminate ignored JSON output
-        //
-        uint8_t buffer[4096]; // buffer for (ignored) json output
-
-        processor->analysis.result.status = fingerprint_status_no_info_available;
-        if (processor->ip_write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {
-            return &processor->analysis;
+        if (processor->analyze_ip_packet(packet, length, ts, NULL)) {
+            if (processor->analysis.result.is_valid()) {
+                return &processor->analysis;
+            }
         }
     }
     catch (std::exception &e) {
@@ -160,10 +157,7 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
 const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
-        uint8_t buffer[4096]; // buffer for (ignored) json output
-
-        processor->analysis.result.status = fingerprint_status_no_info_available;
-        if (processor->write_json(buffer, sizeof(buffer), packet, length, ts, NULL) > 0) {  // TODO: replace with get_context!
+        if (processor->analyze_eth_packet(packet, length, ts, NULL)) {
             if (processor->analysis.result.is_valid()) {
                 return &processor->analysis;
             }
@@ -176,7 +170,6 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
 }
 
 enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac) {
-
     if (ac) {
         return ac->result.status;
     }
@@ -184,7 +177,6 @@ enum fingerprint_status analysis_context_get_fingerprint_status(const struct ana
 }
 
 enum fingerprint_type analysis_context_get_fingerprint_type(const struct analysis_context *ac) {
-
     if (ac) {
         return ac->fp.type;
     }
@@ -200,9 +192,7 @@ const char *analysis_context_get_fingerprint_string(const struct analysis_contex
 
 const char *analysis_context_get_server_name(const struct analysis_context *ac) {
     if (ac) {
-        if (ac->destination.sn_str[0] != '\0') {
-            return ac->destination.sn_str;
-        }
+        return ac->get_server_name();
     }
     return NULL;
 }
@@ -211,11 +201,8 @@ bool analysis_context_get_process_info(const struct analysis_context *ac, // inp
                                        const char **probable_process,     // output
                                        double *probability_score          // output
                                        ) {
-
-    if (ac && ac->result.is_valid() && ac->result.status != fingerprint_status_unlabled) {
-        *probable_process = ac->result.max_proc;
-        *probability_score = ac->result.max_score;
-        return true;
+    if (ac) {
+        return ac->result.get_process_info(probable_process, probability_score);
     }
     return false;
 }
@@ -225,10 +212,8 @@ bool analysis_context_get_malware_info(const struct analysis_context *ac, // inp
                                        double *probability_malware        // output
                                        ) {
 
-    if (ac && ac->result.is_valid() && ac->result.classify_malware) {
-        *probable_process_is_malware = ac->result.max_mal;
-        *probability_malware = ac->result.malware_prob;
-        return true;
+    if (ac) {
+        return ac->result.get_malware_info(probable_process_is_malware, probability_malware);
     }
     return false;
 }
@@ -238,10 +223,8 @@ bool analysis_context_get_os_info(const struct analysis_context *ac, // input
                                   size_t *os_info_len                // output
                                   ) {
 
-    if (ac && ac->result.is_valid() && ac->result.os_info != NULL) {
-        *os_info = ac->result.os_info;
-        *os_info_len = ac->result.os_info_len;
-        return true;
+    if (ac) {
+        return ac->result.get_os_info(os_info, os_info_len);
     }
     return false;
 }
@@ -350,7 +333,7 @@ const char *mercury_get_license_string() {
 // This function is suitable for use with
 // register_printf_err_callback().
 //
-int printf_err_func(log_level level, const char *format, ...) {
+int printf_err_func(enum log_level level, const char *format, va_list args) {
 
     // output error level message
     //
@@ -374,10 +357,7 @@ int printf_err_func(log_level level, const char *format, ...) {
 
     // output formatted argument list
     //
-    va_list args;
-    va_start(args, format);
     retval = vfprintf(stderr, format, args);
-    va_end(args);
     if (retval < 0) {
         return retval;
     }
@@ -386,11 +366,13 @@ int printf_err_func(log_level level, const char *format, ...) {
     return sum;
 }
 
-int silent_err_func(log_level, const char *, ...) {
+int silent_err_func(log_level, const char *, va_list) {
     return 0;
 }
 
 static printf_err_ptr printf_err_static = printf_err_func;
+
+#ifdef DONT_USE_STDERR
 
 int printf_err(enum log_level level, const char *format, ...) {
     va_list args;
@@ -399,6 +381,8 @@ int printf_err(enum log_level level, const char *format, ...) {
     va_end(args);
     return retval;
 }
+
+#endif
 
 void register_printf_err_callback(printf_err_ptr callback) {
 

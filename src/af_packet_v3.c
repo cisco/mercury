@@ -462,9 +462,10 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
   /*
    * each thread has its own mmaped buffer
    */
-  uint8_t *mapped_buffer = (uint8_t*)mmap(NULL, thread_stor->ring_params.tp_block_size * thread_stor->ring_params.tp_block_nr,
-					  PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED,
-					  sockfd, 0);
+  size_t map_buf_len = thread_stor->ring_params.tp_block_size * thread_stor->ring_params.tp_block_nr;
+  uint8_t *mapped_buffer = (uint8_t*)mmap(NULL, map_buf_len,
+                                          PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED,
+                                          sockfd, 0);
   if (mapped_buffer == MAP_FAILED) {
     fprintf(stderr, "%s: mmap failed for thread %d\n", strerror(errno), thread_stor->tnum);
     return -1;
@@ -480,6 +481,8 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
   struct tpacket_block_desc **block_header = (struct tpacket_block_desc**)malloc(thread_stor->ring_params.tp_block_nr * sizeof(struct tpacket_hdr_v1 *));
   if (block_header == NULL) {
     fprintf(stderr, "error: could not allocate block_header pointer array for thread %d\n", thread_stor->tnum);
+    munmap(mapped_buffer, map_buf_len);
+    return -1;
   }
 
   /* Now store this block pointer array the thread storage */

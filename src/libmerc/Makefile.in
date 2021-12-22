@@ -75,6 +75,7 @@ LIBMERC_H   += utils.h
 LIBMERC_H   += version.h
 LIBMERC_H   += wireguard.h
 LIBMERC_H   += quic.h
+LIBMERC_H   += crypto_engine.h
 LIBMERC_H   += smtp.h
 LIBMERC_H   += asn1.h
 LIBMERC_H   += asn1/oid.h
@@ -125,7 +126,7 @@ LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
 libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o -lz -lcrypto
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o -lz -lcrypto -o libmerc.so
 	$(STRIP) libmerc.so
 	ldconfig -n .
 
@@ -210,6 +211,11 @@ clean:
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+
+.PHONY: distclean
+distclean: clean
+	rm -rf Makefile
+	cd asn1 && $(MAKE) distclean
 
 #  To build mercury for profiling using gprof, run
 #

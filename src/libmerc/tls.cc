@@ -9,6 +9,7 @@
 #include "tls.h"
 #include "match.h"
 #include "x509.h"
+#include "quic.h"
 #include "fingerprint.h"
 
 /* TLS Constants */
@@ -41,16 +42,17 @@
 /*
  * expanded set of static extensions
  */
-#define num_static_extension_types 18
+#define num_static_extension_types 20
 
 /*
  * extension types used in normalization
  */
-#define type_sni                       0x0000
-#define type_supported_groups          0x000a
-#define type_supported_versions        0x002b
-#define type_session_ticket            0x0023
-#define type_quic_transport_parameters 0xffa5
+#define type_sni                             0x0000
+#define type_supported_groups                0x000a
+#define type_supported_versions              0x002b
+#define type_session_ticket                  0x0023
+#define type_quic_transport_parameters       0x0039
+#define type_quic_transport_parameters_draft 0xffa5
 
 static uint16_t static_extension_types[num_static_extension_types] = {
         1,         /* max fragment length                    */
@@ -67,10 +69,12 @@ static uint16_t static_extension_types[num_static_extension_types] = {
         24,        /* token binding                          */
         27,        /* compressed certificate                 */
         28,        /* record size limit                      */
+        type_quic_transport_parameters,
         43,        /* supported_versions                     */
         45,        /* psk_key_exchange_modes                 */
         50,        /* signature algorithms cert              */
         21760,     /* token binding (old)                    */
+        type_quic_transport_parameters_draft
     };
 
 uint16_t degrease_uint16(uint16_t x) {
@@ -211,6 +215,9 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
         if (tmp_type == type_quic_transport_parameters) {
             struct datum ext{data, data_end};
             o.print_key_hex(key, ext);
+        } else if (tmp_type == type_quic_transport_parameters_draft) {
+            struct datum ext{data, data_end};
+            o.print_key_hex("quic_transport_parameters_draft", ext);
         }
     }
 
@@ -331,6 +338,28 @@ void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) co
                     x.write_degreased_value(b, 0);
                 }
                 b.write_char(')');
+
+            } else if (x.type == type_quic_transport_parameters || x.type == type_quic_transport_parameters_draft) {
+                b.write_char('(');
+                b.write_char('(');
+                x.write_degreased_type(b);
+                b.write_char(')');
+
+                // loop over quic transport parameters, write each type code
+                //
+                b.write_char('(');
+                while (x.value.is_not_null()) {
+                    quic_transport_parameter qtp{x.value};
+                    if (qtp.is_not_empty()) {
+                        b.write_char('(');
+                        qtp.write_id(b);
+                        b.write_char(')');
+                    }
+                }
+                b.write_char(')');
+                // x.write_length(b);
+                // x.write_value(b);  // just dump the whole thing for now
+
 
             } else {
                 b.write_char('(');
@@ -479,12 +508,9 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
 // static function
 //
 void tls_client_hello::write_json(struct datum &data, struct json_object &record, bool output_metadata) {
-    struct tls_record rec;
-    rec.parse(data);
-    struct tls_handshake handshake;
-    handshake.parse(rec.fragment);
-    struct tls_client_hello hello;
-    hello.parse(handshake.body);
+    struct tls_record rec{data};
+    struct tls_handshake handshake{rec.fragment};
+    struct tls_client_hello hello{handshake.body};
     hello.write_json(record, output_metadata);
 }
 
@@ -512,7 +538,7 @@ void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
     buf.write_char(')');
 }
 
-void tls_client_hello::operator()(struct buffer_stream &buf) const {
+void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
     write_fingerprint(buf);
 }
 
@@ -583,7 +609,7 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
     return status_err;
 }
 
-void tls_server_hello::operator()(struct buffer_stream &buf) const {
+void tls_server_hello::fingerprint(struct buffer_stream &buf) const {
     if (is_not_empty()) {
 
         /*

@@ -118,38 +118,6 @@ public:
 
     traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false} {
 
-        // a null configuration string defaults to all protocols
-        //
-        // const char *all = "all";
-        // if (config_string == nullptr) {
-        //     config_string = all;
-        // }
-        // // create a map of protocol names and booleans, then update it
-        // // based on the configuration string
-        // //
-        // std::map<std::string, bool> protocols{
-        //     { "all",         false },
-        //     { "none",        false },
-        //     { "dhcp",        false },
-        //     { "dns",         false },
-        //     { "dtls",        false },
-        //     { "http",        false },
-        //     { "ssh",         false },
-        //     { "tcp",         false },
-        //     { "tcp.message", false },
-        //     { "tls",         false },
-        //     { "wireguard",   false },
-        //     { "quic",        false },
-        //     { "smtp",        false },
-        //     { "tls.client_hello", false},
-        //     { "tls.server_hello", false},
-        //     { "http.request", false},
-        //     { "http.response", false},
-        // };
-        // if (!set_config(protocols, config_string)) {
-        //     throw std::runtime_error("error: could not parse protocol identification configuration string");
-        // }
-
         // "none" is a special case; turn off all protocol selection
         //
         if (protocols["none"]) {
@@ -161,6 +129,7 @@ public:
         if (protocols["tls"] || protocols["all"]) {
             tcp.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
             tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
+            tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
         }
         else if(protocols["tls.client_hello"])
         {
@@ -169,6 +138,18 @@ public:
         else if(protocols["tls.server_hello"])
         {
             tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
+        }
+        else if(protocols["tls.server_certificate"])
+        {
+            tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
+        }
+        if (protocols["ssh"] || protocols["all"]) {
+            tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+            tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+        }
+        if (protocols["smtp"] || protocols["all"]) {
+            tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
+            tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
         }
         if (protocols["http"] || protocols["all"]) {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
@@ -185,14 +166,6 @@ public:
         else if(protocols["http.response"])
         {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
-        }
-        if (protocols["ssh"] || protocols["all"]) {
-            tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
-            tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
-        }
-        if (protocols["smtp"] || protocols["all"]) {
-            tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
-            tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
         }
 
         // booleans not yet implemented

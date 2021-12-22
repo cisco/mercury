@@ -87,12 +87,7 @@ struct pkt_proc_pcap_writer : public pkt_proc {
      * and flags passed as arguments; that file is opened by this
      * invocation, with those flags.
      */
-    pkt_proc_pcap_writer(const char *outfile, int flags) {
-        enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
-        if (status) {
-            throw std::runtime_error("could not open PCAP output file");
-        }
-    }
+    pkt_proc_pcap_writer(const char *outfile, int flags) : pcap_file{outfile, io_direction_writer, flags} { }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
         extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
@@ -125,12 +120,8 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
     struct pcap_file pcap_file;
     struct stateful_pkt_proc processor;
 
-    pkt_proc_filter_pcap_writer(mercury_context mc, const char *outfile, int flags) : processor{mc, PREALLOC_SIZE} {
-        enum status status = pcap_file_open(&pcap_file, outfile, io_direction_writer, flags);
-        if (status) {
-            throw std::runtime_error("could not open PCAP output file");
-        }
-    }
+    pkt_proc_filter_pcap_writer(mercury_context mc, const char *outfile, int flags) :
+        pcap_file{outfile, io_direction_writer, flags}, processor{mc, PREALLOC_SIZE} { }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
         uint8_t *packet = eth;

@@ -137,7 +137,8 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
         { { 'h', 'o', 's', 't', ':', ' ' }, "host"},
         { { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' }, "x_forwarded_for"},
         { { 'v', 'i', 'a', ':', ' ' }, "via"},
-        { { 'u', 'p', 'g', 'r', 'a', 'd', 'e', ':', ' ' }, "upgrade"}
+        { { 'u', 'p', 'g', 'r', 'a', 'd', 'e', ':', ' ' }, "upgrade"},
+        { { 'r', 'e', 'f', 'e', 'r', 'e', 'r', ':', ' ' }, "referer"}
     };
 
     if (this->is_not_empty()) {
@@ -217,7 +218,7 @@ void http_response::write_json(struct json_object &record) {
 
 }
 
-void http_request::operator()(struct buffer_stream &b) const {
+void http_request::fingerprint(struct buffer_stream &b) const {
     if (is_not_empty() == false) {
         return;
     }
@@ -250,7 +251,7 @@ void http_request::operator()(struct buffer_stream &b) const {
     headers.fingerprint(b, http_static_keywords);
 }
 
-void http_response::operator()(struct buffer_stream &buf) const {
+void http_response::fingerprint(struct buffer_stream &buf) const {
     if (is_not_empty() == false) {
         return;
     }
@@ -379,8 +380,15 @@ struct datum http_response::get_header(const std::basic_string<uint8_t> &header_
 bool http_request::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
     std::basic_string<uint8_t> host_header = { 'h', 'o', 's', 't', ':', ' ' };
     struct datum host_data = get_header(host_header);
+    std::basic_string<uint8_t> user_agent_header = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
+    struct datum user_agent_data = get_header(user_agent_header);
 
     analysis_.destination.init(host_data, k_);
 
-    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    if (user_agent_data.is_null()) {
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    } else {
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result,
+                                                               user_agent_data.get_string().c_str());
+    }
 }

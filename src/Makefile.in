@@ -80,7 +80,14 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: mercury libmerc_test cert_analyze # tls_scanner batch_gcd
+all: compiler_version mercury libmerc_test cert_analyze libmerc_util # tls_scanner batch_gcd
+
+# the version target just reports the c++ compiler version; we report
+# this so that it is present in e.g. Jenkins logs
+#
+.PHONY: compiler_version
+compiler_version:
+	$(CXX) --version
 
 # the target libmerc-and-mercury checks to see if libmerc.a needs to
 # be rebuilt, rebuilds it if needed, and then builds mercury.
@@ -118,6 +125,7 @@ libmerc/libmerc.so:
 
 .PHONY: libmerc
 libmerc:
+	$(MAKE) --directory=libmerc clean
 	$(MAKE) --directory=libmerc
 	$(MAKE) --directory=libmerc libmerc.a
 
@@ -133,11 +141,15 @@ debug-libmerc:
 
 .PHONY: unstripped-libmerc
 unstripped-libmerc:
+	$(MAKE) --directory=libmerc clean
 	$(MAKE) -j --directory=libmerc unstripped-libmerc.so unstripped-libmerc.a
 
 .PHONY: stripped-libmerc
 stripped-libmerc:
 	$(MAKE) -j --directory=libmerc stripped-libmerc.so
+
+libmerc_util: libmerc_util.cc libmerc_api.h
+	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -pthread -ldl -std=c++17 -o libmerc_util
 
 tls_scanner: tls_scanner.cc libmerc
 	$(CXX) $(CFLAGS) tls_scanner.cc libmerc/libmerc.a -pthread -lssl -lcrypto -lz -o tls_scanner
@@ -211,7 +223,7 @@ intercept.so: intercept.cc libmerc.a
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode pcap pcap_filter format intercept.so gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test libmerc_util tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode pcap pcap_filter format intercept.so gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
@@ -222,6 +234,7 @@ libmerc-clean:
 .PHONY: distclean
 distclean: clean
 	rm -rf Makefile autom4te.cache config.log config.status
+	cd libmerc && $(MAKE) distclean
 
 .PHONY: install
 install: libmerc mercury

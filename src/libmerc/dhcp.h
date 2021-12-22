@@ -444,7 +444,7 @@ struct dhcp_option : public datum {
 struct dhcp_discover {
     struct datum options;
 
-    dhcp_discover() = default;
+    dhcp_discover(datum &p) { parse(p); };
 
     void parse(struct datum &p) {
         p.skip(L_dhcp_fixed_header);
@@ -481,7 +481,7 @@ struct dhcp_discover {
         json_dhcp.close();
     }
 
-    void operator()(struct buffer_stream &b) const {
+    void fingerprint(struct buffer_stream &b) const {
 
         struct datum tmp = options;
         while (tmp.is_not_empty()) {

@@ -235,8 +235,12 @@ enum status pcap_file_open(struct pcap_file *f,
             file_header.network = htons(file_header.network);
         }
         if (file_header.network != pcap_file::LINKTYPE_ETHERNET) {
-            fprintf(stderr, "error: pcap file linktype (%u) unsupported\n", file_header.network);
-            exit(255); // TODO: return error, don't exit
+            if (file_header.network == pcap_file::LINKTYPE_NULL) {
+                fprintf(stderr, "warning: pcap file linktype is NULL (0), assuming ETHERNET\n");
+            } else {
+                fprintf(stderr, "error: pcap file linktype (%u) unsupported\n", file_header.network);
+                exit(EXIT_FAILURE); // TODO: return error, don't exit
+            }
         }
     }
 
@@ -316,9 +320,14 @@ enum status pcap_file_write_packet_direct(struct pcap_file *f,
     size_t items_written;
     struct pcap_packet_hdr packet_hdr;
 
+    if (packet == nullptr) {
+        fprintf(stderr, "warning: null pointer in %s\n", __func__);
+        return status_err;
+    }
+
     if (packet && !length) {
-	printf("warning: attempt to write an empty packet\n");
-	return status_ok;
+        fprintf(stderr, "warning: attempt to write an empty packet\n");
+        return status_ok;
     }
 
     /* note: we never perform byteswap when writing */
@@ -362,8 +371,7 @@ enum status pcap_file_write_packet_direct(struct pcap_file *f,
 enum status advance(FILE *f, size_t length) {
     if (f == stdin) {
         for (size_t i=0; i < length; i++) {
-            uint8_t tmp = getc(f);
-            (void)tmp;
+            (void)getc(f);
         }
     } else {
         if (fseek(f, length, SEEK_CUR) != 0) {
@@ -426,7 +434,7 @@ enum status pcap_file_read_packet(struct pcap_file *f,
          * The packet length is much bigger than BUFLEN.
          * Read BUFLEN bytes to process the packet and skip the remaining bytes.
          */
-        if (fread(packet_data, BUFLEN, 1, f->file_ptr) == 0) {
+        if (fread(packet_data, 1, BUFLEN, f->file_ptr) != BUFLEN) {
             fprintf(stderr, "error: could not read %d bytes of the packet from file\n", (int)BUFLEN);
             return status_err;          /* could not read packet from file */
         }
@@ -509,7 +517,7 @@ enum status pcap_file_close(struct pcap_file *f) {
 
 
 /*
- * start of serialized output code - first cut
+ * start of serialized output code
  */
 
 void pcap_queue_write(struct ll_queue *llq,
@@ -518,6 +526,10 @@ void pcap_queue_write(struct ll_queue *llq,
                       unsigned int sec,
                       unsigned int nsec,
                       bool blocking) {
+
+    if (packet == nullptr) {
+        return;  // error
+    }
 
     if (blocking) {
         while (llq->msgs[llq->widx].used != 0) {

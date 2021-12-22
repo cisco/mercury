@@ -19,6 +19,7 @@
 #include "stats.h"
 #include "proto_identify.h"
 #include "global_config.h"
+#include "quic.h"
 
 /**
  * struct mercury holds state that is used by one or more
@@ -65,6 +66,7 @@ struct stateful_pkt_proc {
     data_aggregator *ag;
     global_config global_vars;
     class traffic_selector &selector;
+    quic_crypto_engine quic_crypto;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
@@ -78,7 +80,8 @@ struct stateful_pkt_proc {
         c{nullptr},
         ag{nullptr},
         global_vars{},
-        selector{mc->selector}
+        selector{mc->selector},
+        quic_crypto{}
     {
 
         // set config and classifier to (refer to) context m
@@ -128,7 +131,7 @@ struct stateful_pkt_proc {
         return write_json(buffer, buffer_size, packet, length, ts, reassembler_ptr);
     }
 
-    LIBMERC_DLL_EXPORTED
+    //    LIBMERC_DLL_EXPORTED  // TODO: check that we need this
     size_t write_json(void *buffer,
                       size_t buffer_size,
                       uint8_t *packet,
@@ -150,11 +153,15 @@ struct stateful_pkt_proc {
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler);
 
-    bool ip_set_analysis_result(struct analysis_result *r,
-                                const uint8_t *ip_packet,
-                                size_t length,
-                                struct timespec *ts,
-                                struct tcp_reassembler *reassembler);
+    bool analyze_eth_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler);
+
+    bool analyze_ip_packet(const uint8_t *ip_packet,
+                           size_t length,
+                           struct timespec *ts,
+                           struct tcp_reassembler *reassembler);
 
     bool tcp_data_set_analysis_result(struct analysis_result *r,
                                       struct datum &pkt,

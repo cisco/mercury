@@ -91,7 +91,7 @@ cdef extern from "../libmerc/analysis.h":
     classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
                                            float fp_proc_threshold, float proc_dst_threshold, bool report_os);
     cdef cppclass classifier:
-        analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port)
+        analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
 
 
 fp_status_dict = {
@@ -101,16 +101,19 @@ fp_status_dict = {
     3: 'unlabled',
 }
 fp_type_dict = {
-    0: 'unknown',
-    1: 'tls',
-    2: 'tls_server',
-    3: 'http',
-    4: 'http_server',
-    5: 'ssh',
-    6: 'ssh_kex',
-    7: 'tcp',
-    8: 'dhcp',
-    9: 'smtp_server',
+    0:  'unknown',
+    1:  'tls',
+    2:  'tls_server',
+    3:  'http',
+    4:  'http_server',
+    5:  'ssh',
+    6:  'ssh_kex',
+    7:  'tcp',
+    8:  'dhcp',
+    9:  'smtp_server',
+    10: 'dtls',
+    11: 'dtls_server',
+    12: 'quic',
 }
 
 cdef class Mercury:
@@ -237,7 +240,38 @@ cdef class Mercury:
         cdef bytes dst_ip_b = dst_ip.encode()
         cdef char* dst_ip_c = dst_ip_b
 
-        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port)
+        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, NULL)
+
+        cdef fingerprint_status fp_status_enum = ar.status
+        fp_status = fp_status_dict[fp_status_enum]
+
+        cdef dict result = {}
+        result['fingerprint_info'] = {}
+        result['fingerprint_info']['status'] = fp_status
+        result['analysis'] = {}
+        result['analysis']['process']   = ar.max_proc.decode('UTF-8')
+        result['analysis']['score']     = ar.max_score
+        result['analysis']['malware']   = ar.max_mal
+        result['analysis']['p_malware'] = ar.malware_prob
+
+        return result
+
+
+    cpdef dict perform_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
+        if not self.do_analysis:
+            print(f'error: classifier not loaded (is do_analysis set to True?)')
+            return None
+
+        cdef bytes fp_str_b = fp_str.encode()
+        cdef char* fp_str_c = fp_str_b
+        cdef bytes server_name_b = server_name.encode()
+        cdef char* server_name_c = server_name_b
+        cdef bytes dst_ip_b = dst_ip.encode()
+        cdef char* dst_ip_c = dst_ip_b
+        cdef bytes user_agent_b = user_agent.encode()
+        cdef char* user_agent_c = user_agent_b
+
+        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
 
         cdef fingerprint_status fp_status_enum = ar.status
         fp_status = fp_status_dict[fp_status_enum]

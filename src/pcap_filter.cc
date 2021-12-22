@@ -49,17 +49,19 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    quic_crypto_engine quic_crypto{}; // initialize quic_crypto_engine for quic decryption
+
     size_t i=0, total=0, transport=0;
     try {
 
         // create input and output pcap files
         //
         struct pcap_file pcap(input_file.c_str(), io_direction_reader);
-        struct pcap_file dns_out(("dns_packet." + output_file + ".pcap").c_str(), io_direction_writer);
-        struct pcap_file bad_dns_out(("bad_dns_packet." + output_file + ".pcap").c_str(), io_direction_writer);
-        struct pcap_file quic_out(("quic_init." + output_file + ".pcap").c_str(), io_direction_writer);
-        struct pcap_file tls_out(("tls_client_hello." + output_file + ".pcap").c_str(), io_direction_writer);
-        struct pcap_file http_out(("http_request." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file dns_out(("dns." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file bad_dns_out(("bad_dns." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file quic_out(("quic." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file tls_out(("tls.client_hello." + output_file + ".pcap").c_str(), io_direction_writer);
+        struct pcap_file http_out(("http.request." + output_file + ".pcap").c_str(), io_direction_writer);
 
         packet<65536> pkt;
         while (true) {
@@ -83,7 +85,10 @@ int main(int argc, char *argv[]) {
                         fprintf(stderr, "warning: valid dns_packet does not match bitmask\t");
                         udp_data.fprint_hex(stderr, 16);
                         fputc('\n', stderr);
-
+                        std::array<uint8_t, 8> x = dns_packet::matcher.nonmatching(udp_data.data, udp_data.length());
+                        fprintf(stderr, "nonmatching:                                    \t");
+                        for (const auto &c : x) { fprintf(stderr, "%02x", c); }
+                        fputc('\n', stderr);
                         pkt.write(bad_dns_out);
                     }
 
@@ -91,7 +96,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 udp_data_copy = udp_data;
-                quic_init quic{udp_data_copy};
+                quic_init quic{udp_data_copy, quic_crypto};
                 if (quic.is_not_empty() == expected_value) {
                     if (json_output) {
 
@@ -122,8 +127,7 @@ int main(int argc, char *argv[]) {
             if (tcp_data.is_not_empty()) {
 
                 datum tcp_data_copy = tcp_data;
-                struct tls_record rec;
-                rec.parse(tcp_data_copy);
+                struct tls_record rec{tcp_data_copy};
                 if (rec.type() == tls_content_type::handshake) {
                     struct tls_handshake handshake;
                     handshake.parse(rec.fragment);
@@ -144,8 +148,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 tcp_data_copy = tcp_data;
-                http_request request;
-                request.parse(tcp_data_copy);
+                http_request request{tcp_data_copy};
                 if (request.is_not_empty() == expected_value) {
                     pkt.write(http_out);
 
@@ -215,8 +218,7 @@ datum get_tcp_data(struct datum eth_pkt) {
 
             ip::protocol protocol = ip_pkt.transport_protocol();
             if (protocol == ip::protocol::tcp) {
-                tcp_packet tcp;
-                tcp.parse(eth_pkt);
+                tcp_packet tcp{eth_pkt};
                 //tcp.set_key(k);
                 return eth_pkt;
             }

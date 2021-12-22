@@ -130,7 +130,9 @@ struct tcp_packet {
     uint32_t data_length;
     uint32_t additional_bytes_needed;
 
-    tcp_packet() : header{NULL}, tcp_options{NULL, NULL}, data_length{0}, additional_bytes_needed{0} {};
+    tcp_packet(datum &p) : header{NULL}, tcp_options{NULL, NULL}, data_length{0}, additional_bytes_needed{0} {
+        parse(p);
+    };
 
     void parse(struct datum &p) {
         header = p.get_pointer<tcp_header>();
@@ -142,6 +144,8 @@ struct tcp_packet {
         data_length = p.length();
         //        fprintf(stderr, "tcp.data_length: %u\n", data_length);
     }
+
+    bool is_valid() { return header != nullptr; }
 
     void reassembly_needed(uint32_t num_bytes_needed) {
         additional_bytes_needed = num_bytes_needed;
@@ -161,7 +165,7 @@ struct tcp_packet {
             k.dst_port = ntohs(header->dst_port);
         }
     }
-    void operator() (struct buffer_stream &buf) {
+    void fingerprint (struct buffer_stream &buf) {
         if (header == NULL) {
             return;
         }

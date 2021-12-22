@@ -241,7 +241,7 @@ struct oid_set {
 
     void dump_oid_dict_sorted();
     void dump_oid_enum_dict_sorted(char *progname);
-    void verify_oid_dict();
+
     std::vector<uint32_t> get_vector_from_keyword(const std::string &keyword) {
         auto x = oid_dict.find(keyword);
         if (x != oid_dict.end()) {
@@ -704,48 +704,17 @@ void oid_set::dump_oid_enum_dict_sorted(char *progname) {
     cc << "}\n";
 }
 
-void oid_set::verify_oid_dict() {
-    using namespace std;
-
-    struct pair_cmp {
-        inline bool operator() (const pair<string, vector<uint32_t>> &s1, const pair<string, vector<uint32_t>> &s2) {
-            return (s1.second < s2.second);
-        }
-    };
-    vector<pair<string, vector<uint32_t>>> ordered_dict(oid_dict.begin(), oid_dict.end());
-    sort(ordered_dict.begin(), ordered_dict.end(), pair_cmp());
-
-    for (pair <string, vector<uint32_t>> x : ordered_dict) {
-        string s = oid_to_hex_string(x.second);
-        vector<uint32_t> v = hex_string_to_oid(s);
-        if (v != x.second) {
-
-            cout << "error with oid " << oid_to_hex_string(x.second) << "\n";
-
-            auto iv = v.begin();
-            auto ix = x.second.begin();
-
-            while (iv != v.end() || ix != x.second.end()) {
-                if (iv != v.end()) {
-                    cout << "v: " << *iv;
-                    if (*iv != *ix) {
-                        cout << "\t***";
-                    }
-                    cout << endl;
-                    iv++;
-                }
-                if (ix != x.second.end()) {
-                    cout << "x: " << *ix << endl;
-                    ix++;
-                }
-            }
-        }
-    }
-
-}
-
 int main(int argc, char *argv[]) {
     using namespace std;
+
+    // improve performance by not using stdio with iostreams
+    //
+    std::ios::sync_with_stdio(false);
+
+    // redirect cerr to /dev/null, for silent running
+    //
+    // ofstream dev_null("/dev/null");
+    // cerr.rdbuf(dev_null.rdbuf());
 
 #if 0
     auto unknown_oids =
@@ -829,7 +798,6 @@ int main(int argc, char *argv[]) {
 
     oid_set.remove_nonterminals();
     oid_set.dump_oid_enum_dict_sorted(argv[0]);
-    // oid_set.verify_oid_dict();
 
     //    for (auto &x : oid_set.keyword_dict) {
     //        cout << x.first << "\t" << x.second << endl;

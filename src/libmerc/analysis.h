@@ -61,6 +61,7 @@ public:
     std::unordered_map<uint16_t, uint64_t>    portname_applications;
     std::unordered_map<std::string, uint64_t> ip_ip;
     std::unordered_map<std::string, uint64_t> hostname_sni;
+    std::unordered_map<std::string, uint64_t> user_agent;
     std::map<std::string, uint64_t> os_info;
     bool extended_fp_metadata = false;
 
@@ -72,6 +73,7 @@ public:
                  const std::unordered_map<uint16_t, uint64_t> &ports,
                  const std::unordered_map<std::string, uint64_t> &ip,
                  const std::unordered_map<std::string, uint64_t> &sni,
+                 const std::unordered_map<std::string, uint64_t> &ua,
                  const std::map<std::string, uint64_t> &oses) :
         name{proc_name},
         malware{is_malware},
@@ -81,6 +83,7 @@ public:
         portname_applications{ports},
         ip_ip{ip},
         hostname_sni{sni},
+        user_agent{ua},
         os_info{oses} {
             if (!ip.empty() && !sni.empty()) {
                 extended_fp_metadata = true;
@@ -159,6 +162,7 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
+    std::unordered_map<std::string, std::vector<class update>> user_agent_updates;
     std::vector<std::vector<struct os_information>> process_os_info_vector;
     floating_point_type base_prior;
 
@@ -174,7 +178,9 @@ public:
     fingerprint_data(uint64_t count,
                      const std::vector<class process_info> &processes,
                      ptr_dict &os_dictionary,
-                     const subnet_data *subnets) :
+                     const subnet_data *subnets,
+                     bool malware_database) :
+        malware_db{malware_database},
         subnet_data_ptr{subnets},
         total_count{count} {
 
@@ -192,9 +198,6 @@ public:
             for (const auto &p : processes) {
                 process_name.push_back(p.name);
                 malware.push_back(p.malware);
-                if (p.malware) {
-                    malware_db = true;
-                }
 
                 process_os_info_vector.push_back(std::vector<struct os_information>{});
                 if (p.os_info.size() > 0) {
@@ -215,13 +218,14 @@ public:
                 constexpr floating_point_type port_weight = 0.00528;
                 constexpr floating_point_type ip_weight = 0.56735;
                 constexpr floating_point_type sni_weight = 0.96941;
+                constexpr floating_point_type ua_weight = 1.0;
 
                 //fprintf(stderr, "compiling process \"%s\"\n", p.name.c_str());
 
                 floating_point_type proc_prior = log(.1);
                 floating_point_type prob_process_given_fp = (floating_point_type)p.count / total_count;
                 floating_point_type score = log(prob_process_given_fp);
-                process_prob.push_back(fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight));
+                process_prob.push_back(fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight));
 
                 for (const auto &as_and_count : p.ip_as) {
                     const auto x = as_number_updates.find(as_and_count.first);
@@ -266,6 +270,15 @@ public:
                         x->second.push_back(u);
                     } else {
                         hostname_sni_updates[sni_and_count.first] = { u };
+                    }
+                }
+                for (const auto &ua_and_count : p.user_agent) {
+                    const auto x = user_agent_updates.find(ua_and_count.first);
+                    class update u{ index, (log((floating_point_type)ua_and_count.second / total_count) - base_prior) * ua_weight };
+                    if (x != user_agent_updates.end()) {
+                        x->second.push_back(u);
+                    } else {
+                        user_agent_updates[ua_and_count.first] = { u };
                     }
                 }
 
@@ -346,7 +359,8 @@ public:
         return server_name;
     }
 
-    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port, enum fingerprint_status status) {
+    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
+                                            const char *user_agent, enum fingerprint_status status) {
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
@@ -383,6 +397,15 @@ public:
         if (hostname_sni_update != hostname_sni_updates.end()) {
             for (const auto &x : hostname_sni_update->second) {
                 process_score[x.index] += x.value;
+            }
+        }
+        if (user_agent != nullptr) {
+            std::string user_agent_str(user_agent);
+            auto user_agent_update = user_agent_updates.find(user_agent_str);
+            if (user_agent_update != user_agent_updates.end()) {
+                for (const auto &x : user_agent_update->second) {
+                    process_score[x.index] += x.value;
+                }
             }
         }
 
@@ -558,7 +581,20 @@ class classifier {
 
     std::string resource_version;  // as reported by VERSION file in resource archive
 
+    std::vector<fingerprint_type> fp_types;
+
 public:
+
+    static fingerprint_type get_fingerprint_type(const std::string &s) {
+        if (s == "tls") {
+            return fingerprint_type_tls;
+        } else if (s == "http") {
+            return fingerprint_type_http;
+        } else if (s == "quic") {
+            return fingerprint_type_quic;
+        }
+        return fingerprint_type_unknown;
+    }
 
     void process_fp_prevalence_line(std::string &line_str) {
         if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
@@ -576,6 +612,18 @@ public:
         if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
             fp_string = fp["str_repr"].GetString();
             //fprintf(stderr, "%s\n", fp_string.c_str());
+        }
+
+        fingerprint_type fp_type_code = fingerprint_type_tls;
+        std::string fp_type_string;
+        if (fp.HasMember("fp_type") && fp["fp_type"].IsString()) {
+            fp_type_string = fp["fp_type"].GetString();
+            fp_type_code = get_fingerprint_type(fp_type_string.c_str());
+        }
+        if (fp_type_code != fingerprint_type_unknown) {
+            if (std::find(fp_types.begin(), fp_types.end(), fp_type_code) == fp_types.end()) {
+                fp_types.push_back(fp_type_code);
+            }
         }
 
         uint64_t total_count = 0;
@@ -617,6 +665,7 @@ public:
                 std::unordered_map<uint16_t, uint64_t>    portname_applications;
                 std::unordered_map<std::string, uint64_t> ip_ip;
                 std::unordered_map<std::string, uint64_t> hostname_sni;
+                std::unordered_map<std::string, uint64_t> user_agent;
                 std::map<std::string, uint64_t> os_info;
 
                 std::string name;
@@ -653,7 +702,6 @@ public:
                                 ip_as[as_number] = y.value.GetUint64();
 
                             }
-
                         }
                     }
                 }
@@ -664,7 +712,8 @@ public:
                             uint16_t tmp_port = 0;
                             auto port_it = string_to_port.find(y.name.GetString());
                             if (port_it == string_to_port.end()) {
-                                throw std::runtime_error("error: unexpected string in classes_port_applications");
+                                tmp_port = 0; // set port to unknown
+                                //throw std::runtime_error("error: unexpected string in classes_port_applications");
                                 //fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
                             } else {
                                 tmp_port = port_it->second;
@@ -700,6 +749,18 @@ public:
                         }
                     }
                 }
+                if (x.HasMember("classes_user_agent") && x["classes_user_agent"].IsObject()) {
+                    if (EXTENDED_FP_METADATA == false && process_number > 1) {
+                        throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
+                    }
+                    EXTENDED_FP_METADATA = true;
+                    for (auto &y : x["classes_user_agent"].GetObject()) {
+                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                            user_agent[y.name.GetString()] = y.value.GetUint64();
+                        }
+                    }
+                }
                 if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
                     for (auto &y : x["os_info"].GetObject()) {
                         if (std::string(y.name.GetString()) != "") {
@@ -708,10 +769,11 @@ public:
                     }
                 }
 
-                class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications, ip_ip, hostname_sni, os_info);
+                class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications,
+                                           ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
-            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets);
+            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, MALWARE_DB);
             // fp_data.print(stderr);
 
             if (fpdb.find(fp_string) != fpdb.end()) {
@@ -725,6 +787,10 @@ public:
                float fp_proc_threshold,
                float proc_dst_threshold,
                bool report_os) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
+
+        // by default, we expect that tls fingerprints will be present in the resource file
+        //
+        fp_types.push_back(fingerprint_type_tls);
 
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
@@ -818,7 +884,8 @@ public:
 
     }
 
-    struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
+    struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
+                                            uint16_t dst_port, const char *user_agent) {
 
         // fp_stats.observe(fp_str, server_name, dst_ip, dst_port); // TBD - decide where this call should go
 
@@ -834,23 +901,27 @@ public:
                     return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
                 }
                 class fingerprint_data &fp_data = fpdb_entry_randomized->second;
-                return fp_data.perform_analysis(server_name, dst_ip, dst_port, fingerprint_status_randomized);
+                return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
             }
         }
         class fingerprint_data &fp_data = fpdb_entry->second;
 
-        return fp_data.perform_analysis(server_name, dst_ip, dst_port, fingerprint_status_labeled);
+        return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
     }
 
     bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
-                                                    const struct destination_context &dc,
-                                                    struct analysis_result &result) {
+                                                     const struct destination_context &dc,
+                                                     struct analysis_result &result,
+                                                     const char *user_agent = nullptr) {
 
-        // TODO: remove
-        //if (fp.type != fingerprint_type_tls) {
-        //    return false;  // cannot perform analysis
-        //}
-        result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port);
+        if (fp.is_null()) {
+            return true;  // no fingerprint to analyze
+        }
+        if (std::find(fp_types.begin(), fp_types.end(), fp.type) == fp_types.end()) {
+            result = analysis_result(fingerprint_status_unanalyzed);
+            return true;  // not configured to analyze fingerprints of this type
+        }
+        result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port, user_agent);
         return true;
     }
 
