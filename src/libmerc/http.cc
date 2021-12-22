@@ -73,10 +73,7 @@ void http_headers::print_matching_name(struct json_object &o, const char *key, c
         {
             header_name = name;
         }
-        // auto pair = name_dict.find(name_lowercase);
-        // if (pair != name_dict.end()) {
-        //     header_name = (const char *)pair->second.c_str();
-        // }
+        
         const uint8_t *value_start = p.data;
         if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
             return;
@@ -115,10 +112,7 @@ void http_headers::print_matching_names(struct json_object &o, perfect_hash_visi
         header_name = *name_dict.lookup_string(type, (const char*)name_lowercase.data(), is_header_found);
         if(!is_header_found)
             header_name = nullptr;
-        // auto pair = name_dict.find(name_lowercase);
-        // if (pair != name_dict.end()) {
-        //     header_name = (const char *)pair->second.c_str();
-        // }
+        
         const uint8_t *value_start = p.data;
         if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
             return;
@@ -151,11 +145,6 @@ void http_headers::fingerprint(struct buffer_stream &buf, perfect_hash_visitor& 
         std::basic_string<uint8_t> name_lowercase;
         to_lower(name_lowercase, name);
         const bool include_value = *(ph.lookup_bool(type, (const char*)name_lowercase.data(), include_name));
-        // auto pair = name_dict.find(name_lowercase);
-        // if (pair != name_dict.end()) {
-        //     include_name = true;
-        //     include_value = pair->second;
-        // }
 
         if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
             return;
@@ -177,16 +166,6 @@ void http_headers::fingerprint(struct buffer_stream &buf, perfect_hash_visitor& 
 
 void http_request::write_json(struct json_object &record, bool output_metadata) {
 
-    // list of http header names to be printed out
-    //
-    // std::unordered_map<std::basic_string<uint8_t>, std::string> header_names_to_print = {
-    //     { { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' }, "user_agent" },
-    //     { { 'h', 'o', 's', 't', ':', ' ' }, "host"},
-    //     { { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' }, "x_forwarded_for"},
-    //     { { 'v', 'i', 'a', ':', ' ' }, "via"},
-    //     { { 'u', 'p', 'g', 'r', 'a', 'd', 'e', ':', ' ' }, "upgrade"}
-    // };
-
     if (this->is_not_empty()) {
         struct json_object http{record, "http"};
         struct json_object http_request{http, "request"};
@@ -205,11 +184,6 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
             //http_request.print_key_value("fingerprint", *this);
 
         } else {
-
-            // output only the user-agent
-            // std::unordered_map<std::basic_string<uint8_t>, std::string> ua_only = {
-            //     { { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' }, "user_agent" }
-            // };
             headers.print_matching_name(http_request, "user-agent: ", "user_agent" );
         }
         http_request.close();
@@ -235,15 +209,6 @@ void http_response::parse(struct datum &p) {
 }
 
 void http_response::write_json(struct json_object &record) {
-
-    // list of http header names to be printed out
-    //
-    // std::unordered_map<std::basic_string<uint8_t>, std::string> header_names_to_print = {
-    //     { { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 't', 'y', 'p', 'e', ':', ' ' }, "content_type"},
-    //     { { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 'l', 'e', 'n', 'g', 't', 'h', ':', ' ' }, "content_length"},
-    //     { { 's', 'e', 'r', 'v', 'e', 'r', ':', ' ' }, "server"},
-    //     { { 'v', 'i', 'a', ':', ' ' }, "via"}
-    // };
 
     struct json_object http{record, "http"};
     struct json_object http_response{http, "response"};
@@ -275,25 +240,6 @@ void http_request::fingerprint(struct buffer_stream &b) const {
     b.raw_as_hex(protocol.data, protocol.data_end - protocol.data);
     b.write_char(')');
 
-    // std::unordered_map<std::basic_string<uint8_t>, bool> http_static_keywords = {
-    //     { { 'a', 'c', 'c', 'e', 'p', 't', ':', ' ' }, true },
-    //     { { 'a', 'c', 'c', 'e', 'p', 't', '-', 'e', 'n', 'c', 'o', 'd', 'i', 'n', 'g', ':', ' '}, true },
-    //     { { 'c', 'o', 'n', 'n', 'e', 'c', 't', 'i', 'o', 'n', ':', ' ' }, true },
-    //     { { 'd', 'n', 't', ':', ' ' }, true },
-    //     { { 'd', 'p', 'r', ':', ' ' }, true },
-    //     { { 'u', 'p', 'g', 'r', 'a', 'd', 'e', '-', 'i', 'n', 's', 'e', 'c', 'u', 'r', 'e', '-', 'r', 'e', 'q', 'u', 'e', 's', 't', 's', ':', ' ' }, true },
-    //     { { 'x', '-', 'r', 'e', 'q', 'u', 'e', 's', 't', 'e', 'd', '-', 'w', 'i', 't', 'h', ':', ' ' }, true },
-    //     { { 'a', 'c', 'c', 'e', 'p', 't', '-', 'c', 'h', 'a', 'r', 's', 'e', 't', ':', ' ' }, false },
-    //     { { 'a', 'c', 'c', 'e', 'p', 't', '-', 'l', 'a', 'n', 'g', 'u', 'a', 'g', 'e', ':', ' ' }, false },
-    //     { { 'a', 'u', 't', 'h', 'o', 'r', 'i', 'z', 'a', 't', 'i', 'o', 'n', ':', ' ' }, false },
-    //     { { 'c', 'a', 'c', 'h', 'e', '-', 'c', 'o', 'n', 't', 'r', 'o', 'l', ':', ' ' }, false },
-    //     { { 'h', 'o', 's', 't', ':', ' ' }, false },
-    //     { { 'i', 'f', '-', 'm', 'o', 'd', 'i', 'f', 'i', 'e', 'd', '-', 's', 'i', 'n', 'c', 'e', ':', ' ' }, false },
-    //     { { 'k', 'e', 'e', 'p', '-', 'a', 'l', 'i', 'v', 'e', ':', ' ' }, false },
-    //     { { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' }, false },
-    //     { { 'x', '-', 'f', 'l', 'a', 's', 'h', '-', 'v', 'e', 'r', 's', 'i', 'o', 'n', ':', ' ' }, false },
-    //     { { 'x', '-', 'p', '2', 'p', '-', 'p', 'e', 'e', 'r', 'd', 'i', 's', 't', ':', ' ' }, false } 
-    // };
     headers.fingerprint(b, ph_visitor, perfect_hash_table_type::HTTP_REQUEST_FP);
 }
 
@@ -311,57 +257,6 @@ void http_response::fingerprint(struct buffer_stream &buf) const {
     buf.raw_as_hex(status_reason.data, status_reason.data_end - status_reason.data);
     buf.write_char(')');
 
-    // std::unordered_map<std::basic_string<uint8_t>, bool> http_static_keywords = {
-    //     { (uint8_t *)"access-control-allow-credentials: ", true },
-    //     { (uint8_t *)"access-control-allow-headers: ", true },
-    //     { (uint8_t *)"access-control-allow-methods: ", true },
-    //     { (uint8_t *)"access-control-expose-headers: ", true },
-    //     { (uint8_t *)"cache-control: ", true },
-    //     { (uint8_t *)"code: ", true },
-    //     { (uint8_t *)"connection: ", true },
-    //     { (uint8_t *)"content-language: ", true },
-    //     { (uint8_t *)"content-transfer-encoding: ", true },
-    //     { (uint8_t *)"p3p: ", true },
-    //     { (uint8_t *)"pragma: ", true },
-    //     { (uint8_t *)"reason: ", true },
-    //     { (uint8_t *)"server: ", true },
-    //     { (uint8_t *)"strict-transport-security: ", true },
-    //     { (uint8_t *)"version: ", true },
-    //     { (uint8_t *)"x-aspnetmvc-version: ", true },
-    //     { (uint8_t *)"x-aspnet-version: ", true },
-    //     { (uint8_t *)"x-cid: ", true },
-    //     { (uint8_t *)"x-ms-version: ", true },
-    //     { (uint8_t *)"x-xss-protection: ", true },
-    //     { (uint8_t *)"appex-activity-id: ", false },
-    //     { (uint8_t *)"cdnuuid: ", false },
-    //     { (uint8_t *)"cf-ray: ", false },
-    //     { (uint8_t *)"content-range: ", false },
-    //     { (uint8_t *)"content-type: ", false },
-    //     { (uint8_t *)"date: ", false },
-    //     { (uint8_t *)"etag: ", false },
-    //     { (uint8_t *)"expires: ", false },
-    //     { (uint8_t *)"flow_context: ", false },
-    //     { (uint8_t *)"ms-cv: ", false },
-    //     { (uint8_t *)"msregion: ", false },
-    //     { (uint8_t *)"ms-requestid: ", false },
-    //     { (uint8_t *)"request-id: ", false },
-    //     { (uint8_t *)"vary: ", false },
-    //     { (uint8_t *)"x-amz-cf-pop: ", false },
-    //     { (uint8_t *)"x-amz-request-id: ", false },
-    //     { (uint8_t *)"x-azure-ref-originshield: ", false },
-    //     { (uint8_t *)"x-cache: ", false },
-    //     { (uint8_t *)"x-cache-hits: ", false },
-    //     { (uint8_t *)"x-ccc: ", false },
-    //     { (uint8_t *)"x-diagnostic-s: ", false },
-    //     { (uint8_t *)"x-feserver: ", false },
-    //     { (uint8_t *)"x-hw: ", false },
-    //     { (uint8_t *)"x-msedge-ref: ", false },
-    //     { (uint8_t *)"x-ocsp-responder-id: ", false },
-    //     { (uint8_t *)"x-requestid: ", false },
-    //     { (uint8_t *)"x-served-by: ", false },
-    //     { (uint8_t *)"x-timer: ", false },
-    //     { (uint8_t *)"x-trace-context: ", false }
-    // };
     headers.fingerprint(buf, ph_visitor, perfect_hash_table_type::HTTP_RESPONSE_FP);
 }
 
