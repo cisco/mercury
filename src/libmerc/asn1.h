@@ -92,7 +92,7 @@ struct json_object_asn1 : public json_object {
 
     void print_key_bitstring_flags(const char *name, const struct datum &value, char * const *flags) {
         struct json_array a{*this, name};
-        if (value.data) {
+        if (value.is_not_empty()) {
             struct datum p = value;
             char *const *tmp = flags;
             uint8_t number_of_unused_bits = 0;
@@ -110,18 +110,19 @@ struct json_object_asn1 : public json_object {
                 }
                 p.data++;
             }
-            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
-            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                if (x & *p.data) {
+            if (p.is_not_empty()) {
+                uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
+                for (uint8_t x = 0x80; x > terminus; x=x>>1) {
+                    if (x & *p.data) {
+                        if (*tmp) {
+                            a.print_string(*tmp);
+                        }         // note: we don't report excess length
+                    }
                     if (*tmp) {
-                        a.print_string(*tmp);
-                    }         // note: we don't report excess length
-                }
-                if (*tmp) {
-                    tmp++;
+                        tmp++;
+                    }
                 }
             }
-
         }
         a.close();
         comma = true;
@@ -362,7 +363,7 @@ struct tlv {
         }
 
         if (expected_tag && p->data[0] != expected_tag) {
-            fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
+            // fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
             // p->set_empty();  // TODO: do we want this?  parser is no longer good for reading
 
             handle_parse_error("note: unexpected type", tlv_name);
