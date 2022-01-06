@@ -276,8 +276,7 @@ struct compute_fingerprint {
     struct fingerprint &fp_;
 
     compute_fingerprint(struct fingerprint &fp) : fp_{fp} {
-        fp_.type = fingerprint_type_unknown;
-        fp.fp_str[0] = '\0';  // initialize fingerprint to 'emtpy'
+        fp.init();
     }
 
     template <typename T>
@@ -395,7 +394,7 @@ struct do_observation {
         std::string event_string;
         event_string.append("(");
         event_string.append(src_ip_str).append(")#");
-        event_string.append(analysis_.fp.fp_str).append("#(");
+        event_string.append(analysis_.fp.string()).append("#(");
         event_string.append(analysis_.destination.sn_str).append(")(");
         event_string.append(analysis_.destination.dst_ip_str).append(")(");
         event_string.append(dst_port_str).append(")");

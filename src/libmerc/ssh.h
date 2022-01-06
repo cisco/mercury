@@ -97,7 +97,7 @@ struct ssh_init_packet : public tcp_base_protocol {
             tmp.trim(1);
             buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
         } else {
-            tmp.trim(1);                         // trim the trailing '\n'
+            tmp.trim(1);                     // trim the trailing '\n'
             buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
             buf.write_char('2');             // represent SP between protocol and comment strings
             buf.write_char('0');             // represent SP between protocol and comment strings
@@ -109,10 +109,7 @@ struct ssh_init_packet : public tcp_base_protocol {
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        struct buffer_stream fp_buf{fp.fp_str, MAX_FP_STR_LEN};
-        fingerprint(fp_buf);
-        fp_buf.write_char('\0'); // null-terminate
-        fp.type = fingerprint_type_ssh;
+        fp.set(*this, fingerprint_type_ssh);
     }
 
     void write_json(json_object &o, bool output_metadata) {
@@ -313,10 +310,7 @@ struct ssh_kex_init : public tcp_base_protocol {
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        struct buffer_stream fp_buf{fp.fp_str, MAX_FP_STR_LEN};
-        fingerprint(fp_buf);
-        fp_buf.write_char('\0'); // null-terminate
-        fp.type = fingerprint_type_ssh_kex;
+        fp.set(*this, fingerprint_type_ssh_kex);
     }
 
     static constexpr mask_and_value<8> matcher{
