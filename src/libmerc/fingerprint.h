@@ -48,6 +48,11 @@ public:
     enum fingerprint_type get_type() const { return type; }
 
     void write(struct json_object &record) {
+
+        // note: the array name[] corresponds to the enumeration
+        // values in fingerprint_type in libmerc.h; if you change one,
+        // you *must* change the other, to keep them in sync
+        //
         const char *name[] = {
             "unknown",
             "tls",
@@ -62,6 +67,7 @@ public:
             "dtls",
             "dtls_server",
             "quic",
+            "tcp_server",
         };
         if (type > (sizeof(name)/sizeof(const char *))) {
             type = fingerprint_type_unknown;  // error: unknown type

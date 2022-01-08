@@ -119,7 +119,8 @@ using protocol = std::variant<std::monostate,
                               dhcp_discover,
                               unknown_udp_initial_packet,
                               icmp_packet,                        // start of ip protocols
-                              ospf
+                              ospf,
+                              tcp_packet
                               >;
 
 // set_tcp_protocol() sets the protocol variant record to the data
@@ -562,83 +563,29 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
             if (selector.tcp_syn()) {
-
-                struct json_object record{&buf};  // TODO: replace with visitors at end of function
-
                 if (report_IP && global_vars.metadata_output) {
-                    ip_pkt.write_json(record);
+                    // ip_pkt.write_json(record);  // TODO: move to end of function
                 }
-
-                struct json_object fps{record, "fingerprints"};
-                if (report_IP) {
-                    ip_pkt.write_fingerprint(fps);
-                    //  std::visit(ip_pkt_write_fingerprint{fps}, ip_pkt);
-                }
-                fps.print_key_value("tcp", tcp_pkt);
-                fps.close();
-                if (global_vars.metadata_output) {
-                    tcp_pkt.write_json(fps);
-                }
-                // note: we could check for non-empty data field
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
-                record.close();
+                x = tcp_pkt; // process tcp syn
             }
+            // note: we could check for non-empty data field
 
-        } else if (tcp_pkt.is_SYN_ACK()) {
+         } else if (tcp_pkt.is_SYN_ACK()) {
             if (global_vars.output_tcp_initial_data) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
-
             if (report_SYN_ACK && selector.tcp_syn()) {
-                struct json_object record{&buf};                // TODO: replace with visitors at end of function
-                struct json_object fps{record, "fingerprints"};
-                fps.print_key_value("tcp_server", tcp_pkt);
-                fps.close();
-                if (global_vars.metadata_output) {
-                    tcp_pkt.write_json(fps);
-                }
-                write_flow_key(record, k);
-                record.print_key_timestamp("event_start", ts);
-                record.close();
-
-                // note: we could check for non-empty data field
+                x = tcp_pkt;
             }
+            // note: we could check for non-empty data field
 
         } else {
 
-            // fprintf(stderr, "ip_flow_table.table.size(): %zu\n", ip_flow_table.table.size());
-            // fprintf(stderr, "reassembler->segment_table.size(): %zu\n", reassembler->segment_table.size());
-
-            if (reassembler) {
-                const struct tcp_segment *data_buf = reassembler->check_packet(k, ts->tv_sec, tcp_pkt.header, pkt.length());
-                if (data_buf) {
-                    //fprintf(stderr, "REASSEMBLED TCP PACKET (length: %u)\n", data_buf->index);
-                    struct datum reassembled_tcp_data = data_buf->reassembled_segment();
-                    tcp_data_write_json(buf, reassembled_tcp_data, k, tcp_pkt, ts, reassembler);
-                    reassembler->remove_segment(k);
-                } else {
-                    const uint8_t *tmp = pkt.data;
-                    tcp_data_write_json(buf, pkt, k, tcp_pkt, ts, reassembler);
-                    if (pkt.data == tmp) {
-                        auto segment = reassembler->reap(ts->tv_sec);
-                        if (segment != reassembler->segment_table.end()) {
-                            //fprintf(stderr, "EXPIRED PARTIAL TCP PACKET (length: %u)\n", segment->second.index);
-                            struct datum reassembled_tcp_data = segment->second.reassembled_segment();
-                            tcp_data_write_json(buf, reassembled_tcp_data, segment->first, tcp_pkt, ts, nullptr);
-                            reassembler->remove_segment(segment);
-                        }
-                    }
-                }
-            } else {
-
-                bool is_new = false;
-                if (global_vars.output_tcp_initial_data) {
-                    is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
-                }
-                set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
-
+            bool is_new = false;
+            if (global_vars.output_tcp_initial_data) {
+                is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
+            set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
         }
 
     } else if (transport_proto == ip::protocol::udp) {
@@ -666,6 +613,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         set_udp_protocol(x, pkt, msg_type, is_new, quic_crypto);
     }
 
+    // process transport/application protocol
+    //
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp}, x);
         bool output_analysis = false;
@@ -674,6 +623,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
             // note: we only perform observations when analysis is
             // configured, because we rely on do_analysis to set the
+
             // analysis_.destination
             //
             if (mq) {
@@ -819,93 +769,6 @@ bool set_config(std::map<std::string, bool> &config_map, const char *config_stri
         return false;
     }
     return true;
-}
-
-
-// tcp_data_write_json() parses TCP data and writes metadata into
-// a buffer stream, if any is found
-//
-void stateful_pkt_proc::tcp_data_write_json(struct buffer_stream &buf,
-                                            struct datum &pkt,
-                                            const struct key &k,
-                                            struct tcp_packet &tcp_pkt,
-                                            struct timespec *ts,
-                                            struct tcp_reassembler *reassembler) {
-
-    if (pkt.is_not_empty() == false) {
-        return;
-    }
-    bool is_new = false;
-    if (global_vars.output_tcp_initial_data) {
-        is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
-    }
-    protocol x;
-    set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
-
-    if (tcp_pkt.additional_bytes_needed) {
-        if (reassembler->copy_packet(k, ts->tv_sec, tcp_pkt.header, tcp_pkt.data_length, tcp_pkt.additional_bytes_needed)) {
-            return;
-        }
-    }
-    if (std::visit(is_not_empty{}, x)) {
-
-        std::visit(compute_fingerprint{analysis.fp}, x);
-
-        bool output_analysis = false;
-        if (global_vars.do_analysis) {
-            output_analysis = std::visit(do_analysis{k, analysis, c}, x);
-
-            // note: we only perform observations when analysis is
-            // configured, because we rely on do_analysis to set the
-            // analysis_.destination
-            //
-            if (mq) {
-                std::visit(do_observation{k, analysis, mq}, x);
-            }
-        }
-
-        // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return; } // TODO - expose hidden command
-
-        struct json_object record{&buf};
-        if (analysis.fp.get_type() != fingerprint_type_unknown) {
-            analysis.fp.write(record);
-        }
-
-        std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output}, x);
-
-        if (output_analysis) {
-            analysis.result.write_json(record, "analysis");
-        }
-        write_flow_key(record, k);
-        record.print_key_timestamp("event_start", ts);
-        record.close();
-    }
-
-}
-
-bool stateful_pkt_proc::tcp_data_set_analysis_result(struct analysis_result *r,
-                                                     struct datum &pkt,
-                                                     const struct key &k,
-                                                     struct tcp_packet &,
-                                                     struct timespec *,
-                                                     struct tcp_reassembler *) {
-
-    if (pkt.is_not_empty() == false) {
-        return false;
-    }
-    protocol x;
-    set_tcp_protocol(x, pkt, selector, false, nullptr);
-
-    if (std::visit(is_not_empty{}, x)) {
-
-        std::visit(compute_fingerprint{analysis.fp}, x);
-        if (std::visit(do_analysis{k, analysis, c}, x)) {
-            *r = analysis.result;
-            return true;
-        }
-    }
-
-    return false;
 }
 
 bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,

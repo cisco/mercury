@@ -339,6 +339,11 @@ enum fingerprint_status analysis_context_get_fingerprint_status(const struct ana
 /**
  * enum fingerprint_type identifies a type of fingerprint for the
  * struct fingerprint.
+ *
+ *    note: these enumeration values correspond to the array name[] in
+ *    fingerprint::write() in fingerprint.h; if you change one, you
+ *    *must* change the other, to keep them in sync
+ *
  */
 enum fingerprint_type {
      fingerprint_type_unknown = 0,     /**< The fingerprint type is not known. */
@@ -353,7 +358,8 @@ enum fingerprint_type {
      fingerprint_type_smtp_server = 9, /**< SMTP server fingerprint            */
      fingerprint_type_dtls = 10,       /**< DTLS client fingerprint            */
      fingerprint_type_dtls_server = 11, /**< DTLS server fingerprint           */
-     fingerprint_type_quic = 12,       /** IETF QUIC                           */
+     fingerprint_type_quic = 12,       /**< IETF QUIC                          */
+     fingerprint_type_tcp_server = 13, /**< TCP SYN ACK fingerprint            */
 };
 
 /**
