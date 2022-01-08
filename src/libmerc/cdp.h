@@ -126,7 +126,9 @@ struct cdp {
         tlv_list = d;
     }
 
-    void write_json(json_object &o) const {
+    void write_json(json_object &o, bool metadata=false) const {
+        (void)metadata;  // ignore parameter
+
         //o.print_key_hex("cdp", tlv_list);
         json_array a{o, "cdp"};
         datum tmp = tlv_list;
