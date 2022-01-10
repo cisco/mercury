@@ -6,15 +6,26 @@
 
 #include "json_object.h"
 
-#define MAX_FP_STR_LEN 4096
-
-struct fingerprint {
+class fingerprint {
     enum fingerprint_type type;
+    static const size_t MAX_FP_STR_LEN = 4096;
     char fp_str[MAX_FP_STR_LEN];
     struct buffer_stream fp_buf;
 
+public:
+
     fingerprint() : type{fingerprint_type_unknown},
-                    fp_buf{fp_str,MAX_FP_STR_LEN} {}
+                    fp_buf{fp_str, MAX_FP_STR_LEN} {}
+
+    void init() {
+        type = fingerprint_type_unknown;
+        fp_buf = buffer_stream{fp_str, MAX_FP_STR_LEN};
+    }
+
+    const char *string() const {
+        return fp_str;
+    }
+
     // add - allows to add sections of fp
     // set - allows to add one/last section of fp
     //
@@ -24,18 +35,24 @@ struct fingerprint {
         fp_buf.write_char('\0'); // null-terminate
         type = fp_type;
     }
-    
+
     template <typename T>
     void add(T &msg) {
-        //msg(fp_buf);
         msg.fingerprint(fp_buf);
     }
 
-    bool is_null() const { return fp_str[0] == '\0'; }
+    bool is_null() const {
+        return type == fingerprint_type_unknown;
+    }
 
-    enum fingerprint_type get_type() { return type; }
+    enum fingerprint_type get_type() const { return type; }
 
     void write(struct json_object &record) {
+
+        // note: the array name[] corresponds to the enumeration
+        // values in fingerprint_type in libmerc.h; if you change one,
+        // you *must* change the other, to keep them in sync
+        //
         const char *name[] = {
             "unknown",
             "tls",
@@ -50,6 +67,7 @@ struct fingerprint {
             "dtls",
             "dtls_server",
             "quic",
+            "tcp_server",
         };
         if (type > (sizeof(name)/sizeof(const char *))) {
             type = fingerprint_type_unknown;  // error: unknown type
@@ -57,10 +75,6 @@ struct fingerprint {
         struct json_object fps{record, "fingerprints"};
         fps.print_key_string(name[type], fp_str);
         fps.close();
-        // reset fp_buf after dump
-        fp_buf.dstr = fp_str;
-        fp_buf.doff = 0;
-        fp_buf.trunc = 0;
     }
 };
 

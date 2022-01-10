@@ -260,7 +260,9 @@ public:
 
     lldp(datum &d) : tlv_sequence{d} { }
 
-    void write_json(json_object &o) const {
+    void write_json(json_object &o, bool metadata=false) const {
+        (void)metadata;  // ignore parameter
+
         datum tmp = tlv_sequence;
         json_array lldp_obj{o, "lldp"};
         while (tmp.is_not_empty()) {
