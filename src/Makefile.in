@@ -210,7 +210,7 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 libmerc_driver:
-	cd ../unit_tests; $(MAKE) libmerc_driver
+	cd ../unit_tests/ && $(MAKE) all
 
 #libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
 #	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage

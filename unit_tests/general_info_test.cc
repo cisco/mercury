@@ -8,9 +8,10 @@
 
 #include "libmerc_driver_helper.hpp"
 
-TEST_CASE("version_number") {
+TEST_CASE("version_number")
+{
     uint8_t v = mercury_get_version_number();
-    REQUIRE(v == 0);
+    CHECK(v == 0);
 }
 
 TEST_CASE("mercury_get_license_string")
@@ -61,24 +62,56 @@ TEST_CASE("mercury_get_license_string")
     REQUIRE(is_equal == 0);
 }
 
-SCENARIO("test_mercury_get_resource_version") {
-    GIVEN("mercury config") {
-        libmerc_config config = create_config();    
+std::string get_version_from_archive(std::string n_archive)
+{
+    std::string recourse_version{};
+    encrypted_compressed_archive archive{n_archive.c_str(), NULL};
+    const class archive_node *entry = archive.get_next_entry();
+    while (entry != nullptr)
+    {
+        if (entry->is_regular_file())
+        {
+            std::string line_str;
 
-        WHEN("mecrury initialized") {
-            mercury_context mc = initialize_mercury(config);
-            
-            THEN("valid resource version") {
-                auto version = mercury_get_resource_version(mc);
-                const char * v = "2021.03.19";
-                REQUIRE(strcmp(version, v) == 0);
+            std::string name = entry->get_name();
+            if (name == "VERSION")
+            {
+                while (archive.getline(line_str))
+                {
+                    recourse_version += line_str;
+                }
+                break;
             }
         }
-        WHEN("mercury is nullptr") {
+    }
+    return recourse_version;
+}
+
+SCENARIO("test_mercury_get_resource_version")
+{
+    GIVEN("mercury config")
+    {
+        libmerc_config config = create_config();
+
+        WHEN("mecrury initialized")
+        {
+            mercury_context mc = initialize_mercury(config);
+
+            THEN("valid resource version")
+            {
+                auto version = mercury_get_resource_version(mc);
+                auto version_checker = get_version_from_archive(default_resources_path);
+
+                REQUIRE(strcmp(version, version_checker.c_str()) == 0);
+            }
+        }
+        WHEN("mercury is nullptr")
+        {
             mercury_context mc = nullptr;
-            THEN("return 0") {
+            THEN("return 0")
+            {
                 REQUIRE_FALSE(mercury_get_resource_version(mc));
             }
         }
-    }  
+    }
 }

@@ -20,7 +20,7 @@ UNIT_TESTS_H += libmerc_fixture.h
 
 UNIT_TESTS_TLS_ONLY = $(UNIT_TESTS)
 UNIT_TESTS_TLS_ONLY += general_info_test.cc
-#UNIT_TESTS_TLS_ONLY += libmerc_flow_test.cc
+UNIT_TESTS_TLS_ONLY += libmerc_flow_test.cc
 UNIT_TESTS_TLS_ONLY += libmerc_tlsdb_test.cc
 UNIT_TESTS_TLS_ONLY += libmerc_driver.cc
 
@@ -35,10 +35,12 @@ UNIT_TESTS_TLS_HTTP_QUIC += libmerc_dbmultiprotocol_test.cc
 #
 all: libmerc_driver_tls_only libmerc_driver_multiprotocol pdu_verifier
 
+libmerc_driver_tls_only: CFLAGS += -DSTATIC_CFG_SELECT="\"tls.client_hello,http.request,quic\""
 libmerc_driver_tls_only: debug-libmerc $(UNIT_TESTS_TLS_ONLY) $(LIBMERC_SO) Makefile.in $(UNIT_TESTS_H)
 	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp $(LIBMERC_SO) $(LIBMERC_SO_tls).alt
+	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 	cp $(LIBMERC_SO) $(LIBMERC_SO_tls)
 	
 libmerc_driver_multiprotocol: CFLAGS += -DSTATIC_CFG_SELECT="\"tls.client_hello,http.request,quic\""
@@ -48,10 +50,21 @@ libmerc_driver_multiprotocol: debug-libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) $(LIBMER
 	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)
 	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol).alt
 
-libmerc_driver_coverage: debug-libmerc_gcov $(UNIT_TESTS) $(LIBMERC_SO) Makefile.in $(UNIT_TESTS_H)
-	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS) -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz --coverage
+libmerc_driver_coverage: libmerc_driver_tls_only_coverage libmerc_driver_multiprotocol_coverage
+
+libmerc_driver_tls_only_coverage: debug-libmerc_gcov $(UNIT_TESTS_TLS_ONLY) $(LIBMERC_SO) Makefile.in $(UNIT_TESTS_H)
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz --coverage
 	@echo "creating copy of libmerc.so for testing purposes"
+	cp $(LIBMERC_SO) $(LIBMERC_SO_tls).alt
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
+	cp $(LIBMERC_SO) $(LIBMERC_SO_tls)
+
+libmerc_driver_multiprotocol_coverage: CFLAGS += -DSTATIC_CFG_SELECT="\"tls.client_hello,http.request,quic\""
+libmerc_driver_multiprotocol_coverage: debug-libmerc_gcov $(UNIT_TESTS_TLS_HTTP_QUIC) $(LIBMERC_SO) Makefile.in $(UNIT_TESTS_H)
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz --coverage
+	@echo "creating copy of libmerc.so for testing purposes"
+	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)
+	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol).alt
 
 pdu_verifier: pdu_verifier.cc
 	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc pdu_verifier.cc ./../src/pcap_file_io.c -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz -o pdu_verifier

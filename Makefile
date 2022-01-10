@@ -131,7 +131,8 @@ unit_tests:
 .PHONY: coverage_report
 coverage_report:
 	cd unit_tests && $(MAKE) libmerc_driver_coverage
-	cd unit_tests && ./libmerc_driver
+	cd unit_tests && ./libmerc_driver_tls_only
+	cd unit_tests && ./libmerc_driver_multiprotocol
 	cd unit_tests && gcovr -r ../src/libmerc
 
 .PHONY: doc
