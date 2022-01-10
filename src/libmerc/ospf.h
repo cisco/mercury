@@ -96,8 +96,12 @@ public:
     static constexpr size_t header_length = 24;
 
     bool is_valid() const { return body.is_not_empty(); }
+    bool is_not_empty() const { return
+            body.is_not_empty(); }
 
-    void write_json(json_object &o) const {
+    void write_json(json_object &o, bool metadata=false) const {
+        (void)metadata;  // ignore parameter
+
         if (is_valid()) {
             json_object json{o, "ospf"};
             json.print_key_uint("vesion", version);

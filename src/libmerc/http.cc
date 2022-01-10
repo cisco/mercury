@@ -137,7 +137,8 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
         { { 'h', 'o', 's', 't', ':', ' ' }, "host"},
         { { 'x', '-', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'e', 'd', '-', 'f', 'o', 'r', ':', ' ' }, "x_forwarded_for"},
         { { 'v', 'i', 'a', ':', ' ' }, "via"},
-        { { 'u', 'p', 'g', 'r', 'a', 'd', 'e', ':', ' ' }, "upgrade"}
+        { { 'u', 'p', 'g', 'r', 'a', 'd', 'e', ':', ' ' }, "upgrade"},
+        { { 'r', 'e', 'f', 'e', 'r', 'e', 'r', ':', ' ' }, "referer"}
     };
 
     if (this->is_not_empty()) {

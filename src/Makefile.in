@@ -154,7 +154,7 @@ stripped-libmerc:
 	$(MAKE) -j --directory=libmerc stripped-libmerc.so
 
 libmerc_util: libmerc_util.cc libmerc_api.h
-	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -pthread -ldl -std=c++17 -o libmerc_util
+	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -lasan -pthread -ldl -std=c++17 -o libmerc_util
 
 tls_scanner: tls_scanner.cc libmerc
 	$(CXX) $(CFLAGS) tls_scanner.cc libmerc/libmerc.a -pthread -lssl -lcrypto -lz -o tls_scanner

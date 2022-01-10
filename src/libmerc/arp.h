@@ -79,7 +79,9 @@ public:
         addresses = p;
     }
 
-    void write_json(json_object &o) {
+    void write_json(json_object &o, bool metadata=false) {
+        (void)metadata;  // ignore parameter
+
         json_object arp_obj{o, "arp"};
         if (hdr) {
 
@@ -117,6 +119,7 @@ public:
     }
 
     bool is_valid() const { return hdr != nullptr; }
+    bool is_not_empty() const { return hdr != nullptr; }
 };
 
 

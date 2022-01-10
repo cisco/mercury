@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
         }
     }
     catch (std::exception &e) {
-        fprintf(stderr, "error processing processing pcap_file %s\n", pcap_file_name);
+        fprintf(stderr, "error processing pcap_file %s\n", pcap_file_name);
         fprintf(stderr, "%s\n", e.what());
         exit(EXIT_FAILURE);
     }

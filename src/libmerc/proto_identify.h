@@ -164,6 +164,7 @@ public:
             { "smtp",        false },
             { "tls.client_hello", false},
             { "tls.server_hello", false},
+            { "tls.server_certificate", false},
             { "http.request", false},
             { "http.response", false},
         };

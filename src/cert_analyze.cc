@@ -676,7 +676,8 @@ int main(int argc, char *argv[]) {
                         if (key_and_cert != keys_to_certs.end()) {
                             if (verbose) {
                                 fprintf(stdout, "found duplicate for key ");
-                                fprintf_raw_as_hex(stdout, k.c_str(), k.length());
+                                datum tmp{k.c_str(), k.c_str() + k.length()};
+                                tmp.fprint_hex(stdout);
                                 fputc('\n', stdout);
                             }
 

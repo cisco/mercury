@@ -280,7 +280,7 @@ int main(int argc, char *argv[]) {
         mercury.finalize(mc);
     }
     catch (std::exception &e) {
-        fprintf(stderr, "error processing processing pcap_file %s\n", pcap_file.c_str());
+        fprintf(stderr, "error processing pcap_file %s\n", pcap_file.c_str());
         fprintf(stderr, "%s\n", e.what());
         exit(EXIT_FAILURE);
     }
