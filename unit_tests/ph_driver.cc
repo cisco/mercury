@@ -56,7 +56,7 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
 
     BENCHMARK("Perfect Hash generation table")
     {
-        ph.create_perfect_hash_table(test_data, 100);
+        ph.create_perfect_hash_table(test_data, perfect_hash_load_factor::DEFAULT);
     }
     
     std::vector<int*> res;
@@ -134,7 +134,7 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
 
     BENCHMARK("Perfect Hash generation table")
     {
-        ph.create_perfect_hash_table(test_data, 100);
+        ph.create_perfect_hash_table(test_data, perfect_hash_load_factor::DEFAULT);
     }
     
     std::vector<int*> res;
