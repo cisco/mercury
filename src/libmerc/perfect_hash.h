@@ -90,35 +90,13 @@ template<typename T>
 struct perfect_hash {
 
 private:
-    int64_t* _g_table;
-    perfect_hash_entry<T>** _values;
+    int64_t* _g_table = nullptr;
+    perfect_hash_entry<T>** _values = nullptr;
 
     size_t _key_set_len;
     size_t _lookup_len;
 
     murmur2_hash hash;
-
-public:
-
-    ~perfect_hash() {
-        cleanup();
-    }
-
-    void cleanup() {
-        delete[] _g_table;
-        for(size_t i = 0; i < _key_set_len; i++){
-            delete _values[i];
-        }
-        delete[] _values;
-    }
-
-    bool contains_value(int64_t* arr, size_t len, int64_t val) {
-        for(size_t i = 0; i < len; i++) {
-            if(arr[i] == val)
-                return true;
-        }
-        return false;
-    }
 
     void create_perfect_hash_table(std::vector<perfect_hash_entry<T>>& data_set, size_t load_factor) {
         _key_set_len = data_set.size();
@@ -212,6 +190,30 @@ public:
         }
     }
 
+    bool contains_value(int64_t* arr, size_t len, int64_t val) {
+        for(size_t i = 0; i < len; i++) {
+            if(arr[i] == val)
+                return true;
+        }
+        return false;
+    }
+
+public:
+
+    perfect_hash(std::vector<perfect_hash_entry<T>>& data_set, size_t load_factor) {
+        create_perfect_hash_table(data_set, load_factor);
+    }
+
+    ~perfect_hash() {
+        if(_g_table && _values) {
+            delete[] _g_table;
+            for(size_t i = 0; i < _key_set_len; i++){
+                delete _values[i];
+            }
+            delete[] _values;
+        }
+    }
+
     inline T* lookup(const char* key, const size_t& key_len, bool& isValid) {
         const uint32_t& first_hash = hash(key, key_len, 0);
         const int64_t& d = _g_table[first_hash % _lookup_len];
@@ -234,46 +236,12 @@ enum perfect_hash_table_type {
 
 struct perfect_hash_visitor {
 
-    perfect_hash<bool> _ph_http_request_fp;
-    perfect_hash<bool> _ph_http_response_fp;
-    perfect_hash<const char*> _ph_http_request_headers;
-    perfect_hash<const char*> _ph_http_response_headers;
-
-    void init_perfect_hash_table_bool(perfect_hash_table_type type, std::vector<perfect_hash_entry<bool>> data) {
-        switch(type) {
-        case perfect_hash_table_type::HTTP_REQUEST_FP:
-            _ph_http_request_fp.create_perfect_hash_table(data, perfect_hash_load_factor::DEFAULT);
-            break;
-        case perfect_hash_table_type::HTTP_RESPONSE_FP:
-            _ph_http_response_fp.create_perfect_hash_table(data, perfect_hash_load_factor::DEFAULT);
-            break;
-        case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-        case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-        default:
-            break;
-        }
-    }
-
-    void init_perfect_hash_table_string(perfect_hash_table_type type, std::vector<perfect_hash_entry<const char*>> data) {
-        switch(type) {
-        case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-            _ph_http_request_headers.create_perfect_hash_table(data, perfect_hash_load_factor::DEFAULT);
-            break;
-        case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-            _ph_http_response_headers.create_perfect_hash_table(data, perfect_hash_load_factor::DEFAULT);
-            break;
-        case perfect_hash_table_type::HTTP_REQUEST_FP:
-        case perfect_hash_table_type::HTTP_RESPONSE_FP:
-            break;
-        }
-    }
-
     const char** lookup_string(perfect_hash_table_type type, const char* key, bool& success) {
         switch(type) {
         case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-            return _ph_http_request_headers.lookup(key, strlen(key), success);
+            return _ph_http_request_headers->lookup(key, strlen(key), success);
         case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-            return _ph_http_response_headers.lookup(key, strlen(key), success);
+            return _ph_http_response_headers->lookup(key, strlen(key), success);
         case perfect_hash_table_type::HTTP_REQUEST_FP:
         case perfect_hash_table_type::HTTP_RESPONSE_FP:
         default:
@@ -285,9 +253,9 @@ struct perfect_hash_visitor {
     bool* lookup_bool(perfect_hash_table_type type, const char* key, bool& success) {
         switch(type) {
         case perfect_hash_table_type::HTTP_REQUEST_FP:
-            return _ph_http_request_fp.lookup(key, strlen(key), success);
+            return _ph_http_request_fp->lookup(key, strlen(key), success);
         case perfect_hash_table_type::HTTP_RESPONSE_FP:
-            return _ph_http_response_fp.lookup(key, strlen(key), success);
+            return _ph_http_response_fp->lookup(key, strlen(key), success);
         case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
         case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
         default:
@@ -301,7 +269,20 @@ struct perfect_hash_visitor {
         return ph_visitor;
     }
 
+    ~perfect_hash_visitor()
+    {
+        delete _ph_http_request_fp;
+        delete _ph_http_response_fp;
+        delete _ph_http_request_headers;
+        delete _ph_http_response_headers;
+    }
+
 private:
+    perfect_hash<bool>* _ph_http_request_fp;
+    perfect_hash<bool>* _ph_http_response_fp;
+    perfect_hash<const char*>* _ph_http_request_headers;
+    perfect_hash<const char*>* _ph_http_response_headers;
+
     perfect_hash_visitor() {
         std::vector<perfect_hash_entry<bool>> fp_data_reqeust = {
                                                                  { "accept: ", 8, true },
@@ -391,10 +372,10 @@ private:
                                                                              { "via: ", 5, "via"}
         };
 
-        init_perfect_hash_table_bool(perfect_hash_table_type::HTTP_REQUEST_FP, fp_data_reqeust);
-        init_perfect_hash_table_bool(perfect_hash_table_type::HTTP_RESPONSE_FP, fp_data_response);
-        init_perfect_hash_table_string(perfect_hash_table_type::HTTP_REQEUST_HEADERS, header_data_request);
-        init_perfect_hash_table_string(perfect_hash_table_type::HTTP_RESPONSE_HEADERS, header_data_response);
+        _ph_http_request_fp = new perfect_hash<bool>(fp_data_reqeust, perfect_hash_load_factor::DEFAULT);
+        _ph_http_response_fp = new perfect_hash<bool>(fp_data_response, perfect_hash_load_factor::DEFAULT);
+        _ph_http_request_headers = new perfect_hash<const char*>(header_data_request, perfect_hash_load_factor::DEFAULT);
+        _ph_http_response_headers = new perfect_hash<const char*>(header_data_response, perfect_hash_load_factor::DEFAULT);
     }
 };
 
