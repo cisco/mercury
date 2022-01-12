@@ -8,12 +8,7 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
-
-enum perfect_hash_load_factor {
-    FASTEST_GENERATION_TIME = 100,      // requires 8 * N bytes additional memory allocation, provides fastest lookup table genaration
-    SMALLEST_LOOKUP_TABLE_SIZE = 20,    // requires 8 * (N/5) bytes additional memory allocation, provides smallest lookup table size
-    DEFAULT = FASTEST_GENERATION_TIME
-};
+#include <stdexcept>
 
 template<typename T>
 struct perfect_hash_entry
@@ -23,6 +18,14 @@ public:
         _value = value;
         _key = key;
         _key_len = key_len;
+    }
+
+    perfect_hash_entry(const char* key,     // must be null-terminated
+                       T value)
+    {
+        _value = value;
+        _key = key;
+        _key_len = strlen(key);
     }
 
     size_t _key_len = -1;
@@ -39,8 +42,8 @@ struct murmur2_hash {
         /* 'm' and 'r' are mixing constants generated offline.
            They're not really 'magic', they just happen to work well.  */
 
-        const uint32_t m = 0x5bd1e995;
-        const int r = 24;
+        static constexpr uint32_t m = 0x5bd1e995;
+        static constexpr int r = 24;
 
         /* Initialize the hash to a 'random' value */
 
@@ -88,6 +91,12 @@ struct murmur2_hash {
 
 template<typename T>
 struct perfect_hash {
+
+    enum load_factor : size_t {
+        FASTEST_GENERATION_TIME = 100,      // requires 8 * N bytes additional memory allocation, provides fastest lookup table genaration
+        SMALLEST_LOOKUP_TABLE_SIZE = 20,    // requires 8 * (N/5) bytes additional memory allocation, provides smallest lookup table size
+        DEFAULT = FASTEST_GENERATION_TIME
+    };
 
 private:
     int64_t* _g_table = nullptr;
@@ -162,7 +171,7 @@ private:
                 }
             }
             if(d == UINT32_MAX) {
-                exit(1);//TODO:: check if exit is expected
+                throw std::runtime_error("could not create perfect hash function");
             }
 
             _g_table[hash(bucket[0]._key, bucket[0]._key_len, 0) % _lookup_len] = static_cast<int64_t>(d);
@@ -200,8 +209,16 @@ private:
 
 public:
 
-    perfect_hash(std::vector<perfect_hash_entry<T>>& data_set, size_t load_factor) {
+    perfect_hash(std::vector<perfect_hash_entry<T>>& data_set, size_t load_factor=DEFAULT) {
         create_perfect_hash_table(data_set, load_factor);
+    }
+
+    perfect_hash(std::vector<std::pair<std::string, T>> data, size_t load_factor=DEFAULT) {
+        std::vector<perfect_hash_entry<T>> tmp_data;
+        for(size_t i = 0; i < data.size(); i++) {
+            tmp_data.push_back({strdup(data[i].first.c_str()), data[i].first.length(), data[i].second});
+        }
+        create_perfect_hash_table(tmp_data, load_factor);
     }
 
     ~perfect_hash() {
@@ -223,6 +240,20 @@ public:
         isValid = item->_key_len == key_len && memcmp(key, item->_key, key_len) == 0;
 
         return &item->_value;
+    }
+
+    std::optional<T> lookup(const char* key, const size_t& key_len) {
+        const uint32_t& first_hash = hash(key, key_len, 0);
+        const int64_t& d = _g_table[first_hash % _lookup_len];
+
+        perfect_hash_entry<T> *item = d < 0 ? _values[-d-1] : _values[hash(key, key_len, d) % _key_set_len];
+
+        bool isValid = item->_key_len == key_len && memcmp(key, item->_key, key_len) == 0;
+
+        if (isValid) {
+            return item->_value;
+        }
+        return std::nullopt;
     }
 };
 
@@ -285,97 +316,97 @@ private:
 
     perfect_hash_visitor() {
         std::vector<perfect_hash_entry<bool>> fp_data_reqeust = {
-                                                                 { "accept: ", 8, true },
-                                                                 { "accept-encoding: ", 17, true },
-                                                                 { "connection: ", 12, true },
-                                                                 { "dnt: ", 5, true },
-                                                                 { "dpr: ", 5, true },
-                                                                 { "upgrade-insecure-requests: ", 27, true },
-                                                                 { "x-requested-with: ", 18, true },
-                                                                 { "accept-charset: ", 16, false },
-                                                                 { "accept-language: ", 17, false },
-                                                                 { "authorization: ", 15, false },
-                                                                 { "cache-control: ", 15, false },
-                                                                 { "host: ", 6, false },
-                                                                 { "if-modified-since: ", 19, false },
-                                                                 { "keep-alive: ", 12, false },
-                                                                 { "user-agent: ", 12, false },
-                                                                 { "x-flash-version: ", 17, false },
-                                                                 { "x-p2p-peerdist: ", 16, false }
+            { "accept: ", true },
+            { "accept-encoding: ", true },
+            { "connection: ", true },
+            { "dnt: ", true },
+            { "dpr: ", true },
+            { "upgrade-insecure-requests: ", true },
+            { "x-requested-with: ", true },
+            { "accept-charset: ", false },
+            { "accept-language: ", false },
+            { "authorization: ", false },
+            { "cache-control: ", false },
+            { "host: ", false },
+            { "if-modified-since: ", false },
+            { "keep-alive: ", false },
+            { "user-agent: ", false },
+            { "x-flash-version: ", false },
+            { "x-p2p-peerdist: ", false }
         };
 
         std::vector<perfect_hash_entry<bool>> fp_data_response = {
-                                                                  { "access-control-allow-credentials: ", 34, true },
-                                                                  { "access-control-allow-headers: ", 30, true },
-                                                                  { "access-control-allow-methods: ", 30, true },
-                                                                  { "access-control-expose-headers: ", 31, true },
-                                                                  { "cache-control: ", 15, true },
-                                                                  { "code: ", 6, true },
-                                                                  { "connection: ", 12, true },
-                                                                  { "content-language: ", 18, true },
-                                                                  { "content-transfer-encoding: ", 27, true },
-                                                                  { "p3p: ", 5, true },
-                                                                  { "pragma: ", 8, true },
-                                                                  { "reason: ", 8, true },
-                                                                  { "server: ", 8, true },
-                                                                  { "strict-transport-security: ", 27, true },
-                                                                  { "version: ", 9, true },
-                                                                  { "x-aspnetmvc-version: ", 21, true },
-                                                                  { "x-aspnet-version: ", 18, true },
-                                                                  { "x-cid: ", 7, true },
-                                                                  { "x-ms-version: ", 14, true },
-                                                                  { "x-xss-protection: ", 18, true },
-                                                                  { "appex-activity-id: ", 20, false },
-                                                                  { "cdnuuid: ", 9, false },
-                                                                  { "cf-ray: ", 8, false },
-                                                                  { "content-range: ", 15, false },
-                                                                  { "content-type: ", 14, false },
-                                                                  { "date: ", 6, false },
-                                                                  { "etag: ", 6, false },
-                                                                  { "expires: ", 9, false },
-                                                                  { "flow_context: ", 14, false },
-                                                                  { "ms-cv: ", 7, false },
-                                                                  { "msregion: ", 10, false },
-                                                                  { "ms-requestid: ", 14, false },
-                                                                  { "request-id: ", 12, false },
-                                                                  { "vary: ", 6, false },
-                                                                  { "x-amz-cf-pop: ", 14, false },
-                                                                  { "x-amz-request-id: ", 18, false },
-                                                                  { "x-azure-ref-originshield: ", 26, false },
-                                                                  { "x-cache: ", 9, false },
-                                                                  { "x-cache-hits: ", 14, false },
-                                                                  { "x-ccc: ", 7, false },
-                                                                  { "x-diagnostic-s: ", 16, false },
-                                                                  { "x-feserver: ", 12, false },
-                                                                  { "x-hw: ", 6, false },
-                                                                  { "x-msedge-ref: ", 14, false },
-                                                                  { "x-ocsp-responder-id: ", 21, false },
-                                                                  { "x-requestid: ", 13, false },
-                                                                  { "x-served-by: ", 13, false },
-                                                                  { "x-timer: ", 9, false },
-                                                                  { "x-trace-context: ", 17, false }
+            { "access-control-allow-credentials: ", true },
+            { "access-control-allow-headers: ", true },
+            { "access-control-allow-methods: ", true },
+            { "access-control-expose-headers: ", true },
+            { "cache-control: ", true },
+            { "code: ", true },
+            { "connection: ", true },
+            { "content-language: ", true },
+            { "content-transfer-encoding: ", true },
+            { "p3p: ", true },
+            { "pragma: ", true },
+            { "reason: ", true },
+            { "server: ", true },
+            { "strict-transport-security: ", true },
+            { "version: ", true },
+            { "x-aspnetmvc-version: ", true },
+            { "x-aspnet-version: ", true },
+            { "x-cid: ", true },
+            { "x-ms-version: ", true },
+            { "x-xss-protection: ", true },
+            { "appex-activity-id: ", false },
+            { "cdnuuid: ", false },
+            { "cf-ray: ", false },
+            { "content-range: ", false },
+            { "content-type: ", false },
+            { "date: ", false },
+            { "etag: ", false },
+            { "expires: ", false },
+            { "flow_context: ", false },
+            { "ms-cv: ", false },
+            { "msregion: ", false },
+            { "ms-requestid: ", false },
+            { "request-id: ", false },
+            { "vary: ", false },
+            { "x-amz-cf-pop: ", false },
+            { "x-amz-request-id: ", false },
+            { "x-azure-ref-originshield: ", false },
+            { "x-cache: ", false },
+            { "x-cache-hits: ", false },
+            { "x-ccc: ", false },
+            { "x-diagnostic-s: ", false },
+            { "x-feserver: ", false },
+            { "x-hw: ", false },
+            { "x-msedge-ref: ", false },
+            { "x-ocsp-responder-id: ", false },
+            { "x-requestid: ", false },
+            { "x-served-by: ", false },
+            { "x-timer: ", false },
+            { "x-trace-context: ", false }
         };
 
         std::vector<perfect_hash_entry<const char*>> header_data_request = {
-                                                                            { "user-agent: ", 12, "user_agent" },
-                                                                            { "host: ", 6, "host"},
-                                                                            { "x-forwarded-for: ", 17, "x_forwarded_for"},
-                                                                            { "via: ", 5, "via"},
-                                                                            { "upgrade: ", 9, "upgrade"},
-                                                                            { "referer: ", 9, "referer"}
+            { "user-agent: ", "user_agent" },
+            { "host: ", "host"},
+            { "x-forwarded-for: ", "x_forwarded_for"},
+            { "via: ", "via"},
+            { "upgrade: ", "upgrade"},
+            { "referer: ", "referer"}
         };
 
         std::vector<perfect_hash_entry<const char*>> header_data_response = {
-                                                                             { "content-type: ", 14, "content_type"},
-                                                                             { "content-length: ", 16, "content_length"},
-                                                                             { "server: ", 9, "server"},
-                                                                             { "via: ", 5, "via"}
+            { "content-type: ", "content_type"},
+            { "content-length: ", "content_length"},
+            { "server: ", "server"},
+            { "via: ", "via"}
         };
 
-        _ph_http_request_fp = new perfect_hash<bool>(fp_data_reqeust, perfect_hash_load_factor::DEFAULT);
-        _ph_http_response_fp = new perfect_hash<bool>(fp_data_response, perfect_hash_load_factor::DEFAULT);
-        _ph_http_request_headers = new perfect_hash<const char*>(header_data_request, perfect_hash_load_factor::DEFAULT);
-        _ph_http_response_headers = new perfect_hash<const char*>(header_data_response, perfect_hash_load_factor::DEFAULT);
+        _ph_http_request_fp = new perfect_hash<bool>(fp_data_reqeust);
+        _ph_http_response_fp = new perfect_hash<bool>(fp_data_response);
+        _ph_http_request_headers = new perfect_hash<const char*>(header_data_request);
+        _ph_http_response_headers = new perfect_hash<const char*>(header_data_response);
     }
 };
 
