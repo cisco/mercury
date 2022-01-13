@@ -41,7 +41,7 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
 {
     prepare_data(loop_count_1, key_len_1);
 
-    perfect_hash<int> ph;
+    
 
     std::vector<perfect_hash_entry<int>> test_data;
     
@@ -54,9 +54,11 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
         test_data.push_back({strdup(_test_data[i].c_str()), _test_data[i].length(), i});
     }
 
+    perfect_hash<int>* ph = nullptr;
+
     BENCHMARK("Perfect Hash generation table")
     {
-        ph.create_perfect_hash_table(test_data, perfect_hash_load_factor::DEFAULT);
+        ph = new perfect_hash<int>(test_data);
     }
     
     std::vector<int*> res;
@@ -66,7 +68,7 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
     {
         for(size_t i = 0; i < loop_count_1; i++)
         {
-            res[i] = ph.lookup(_test_data[i].c_str(), _test_data[i].length(), valid);
+            res[i] = ph->lookup(_test_data[i].c_str(), _test_data[i].length(), valid);
         }
     }
     valid = false;
@@ -119,8 +121,6 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
 
     prepare_data(loop_count_2, key_len_2);
 
-    perfect_hash<int> ph;
-
     std::vector<perfect_hash_entry<int>> test_data;
     
     std::string select = {};
@@ -132,9 +132,11 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
         test_data.push_back({strdup(_test_data[i].c_str()), _test_data[i].length(), i});
     }
 
+    perfect_hash<int>* ph = nullptr;
+
     BENCHMARK("Perfect Hash generation table")
     {
-        ph.create_perfect_hash_table(test_data, perfect_hash_load_factor::DEFAULT);
+        ph = new perfect_hash<int>(test_data);
     }
     
     std::vector<int*> res;
@@ -144,7 +146,7 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
     {
         for(size_t i = 0; i < loop_count_2; i++)
         {
-            res[i] = ph.lookup(_test_data[i].c_str(), _test_data[i].length(), valid);
+            res[i] = ph->lookup(_test_data[i].c_str(), _test_data[i].length(), valid);
         }
     }
     valid = false;
