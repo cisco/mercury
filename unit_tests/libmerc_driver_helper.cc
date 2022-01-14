@@ -167,13 +167,13 @@ unsigned char unlabeled_data[] = {
 
 int verbosity = 0;
 
-char * default_resources_path = (char *)"../resources/resources.tgz";
-char * resources_lite_path = (char *)"../resources/resources_lite.tgz";
-char * resources_mp_path = (char *)"../resources/resources-mp.tgz";
+char * default_resources_path = "../resources/resources.tgz";
+char * resources_lite_path = "../resources/resources_lite.tgz";
+char * resources_mp_path = "../resources/resources-mp.tgz";
 
 
-const char * path_to_libmerc_library = (char *)"../src/libmerc/libmerc.so";
-const char * path_to_libmerc_alt_library = (char *)"../src/libmerc/libmerc.so.alt";
+const char * path_to_libmerc_library = LIBMERC_SO_PATH;
+const char * path_to_libmerc_alt_library = "../src/libmerc/libmerc.so.alt";
 
 /*variables end */
 

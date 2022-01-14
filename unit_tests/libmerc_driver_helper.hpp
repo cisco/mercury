@@ -8,7 +8,11 @@
  */
 
 #include "libmerc_api.hpp"
-    
+
+#ifndef LIBMERC_SO_PATH
+#define LIBMERC_SO_PATH "./../src/libmerc/libmerc.so"
+#endif
+
 /*variables*/
 extern unsigned char client_hello_eth[];
 extern size_t client_hello_eth_len;

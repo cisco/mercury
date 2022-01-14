@@ -3,7 +3,7 @@
 int sig_close_flag = false;
 
 
-TEST_CASE_METHOD(LibmercMultiprotocolTestFixture, "test http with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test http with recources-mp")
 {
        auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -32,7 +32,7 @@ TEST_CASE_METHOD(LibmercMultiprotocolTestFixture, "test http with recources-mp")
         {test_config{{.do_analysis{true},
                       .resources{resources_mp_path},
                       .packet_filter_cfg{"http"}},
-                     "http_request.capture2.pcap"},
+                     "http.request.capture2.pcap"},
          397},
         {test_config{{.resources{resources_mp_path},
                       .packet_filter_cfg{"http"}},
@@ -52,7 +52,7 @@ TEST_CASE_METHOD(LibmercMultiprotocolTestFixture, "test http with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercMultiprotocolTestFixture, "test quic with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp")
 {
     
     auto quic_check = [&](int expected_count, const struct libmerc_config &config)
@@ -78,7 +78,7 @@ TEST_CASE_METHOD(LibmercMultiprotocolTestFixture, "test quic with recources-mp")
         {test_config{{.do_analysis{true},
                       .resources{resources_mp_path},
                       .packet_filter_cfg{"quic"}},
-                     "http_request.capture2.pcap"},
+                     "http.request.capture2.pcap"},
          0},
          {test_config{{.resources{resources_mp_path},
                       .packet_filter_cfg{"quic"}},

@@ -2,7 +2,7 @@
 
 int sig_close_flag = false;
 
-TEST_CASE_METHOD(LibmercTLSTestFixture, "proccesing null packet")
+TEST_CASE_METHOD(LibmercTestFixture, "proccesing null packet")
 {
     initialize();
    // check_global_configuraton();
@@ -11,7 +11,7 @@ TEST_CASE_METHOD(LibmercTLSTestFixture, "proccesing null packet")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTLSTestFixture, "test tcp filtering")
+TEST_CASE_METHOD(LibmercTestFixture, "test tcp filtering")
 {
     
     auto tcp_check = [&](int expected_count, const struct libmerc_config &config)
@@ -51,7 +51,7 @@ TEST_CASE_METHOD(LibmercTLSTestFixture, "test tcp filtering")
     }
 }
 
-TEST_CASE_METHOD(LibmercTLSTestFixture, "test tls filtering")
+TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering")
 {
     auto tls_check = [&](int expected_count, const struct libmerc_config &config, fingerprint_type fp_t, std::function<void(const analysis_context *)> callback, fingerprint_type fp_t2 = fingerprint_type_unknown)
     {
@@ -108,7 +108,7 @@ TEST_CASE_METHOD(LibmercTLSTestFixture, "test tls filtering")
     }
 }
 
-TEST_CASE_METHOD(LibmercTLSTestFixture, "test http filtering")
+TEST_CASE_METHOD(LibmercTestFixture, "test http filtering")
 {
     auto http_check = [&](int expected_count, const struct libmerc_config &config)
     {
@@ -152,7 +152,7 @@ TEST_CASE_METHOD(LibmercTLSTestFixture, "test http filtering")
     }
 }
 
-TEST_CASE_METHOD(LibmercTLSTestFixture, "test quic filtering")
+TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
 {
     
     auto http_check = [&](int expected_count, const struct libmerc_config &config)
@@ -197,7 +197,7 @@ TEST_CASE_METHOD(LibmercTLSTestFixture, "test quic filtering")
     }
 }
 
-TEST_CASE_METHOD(LibmercTLSTestFixture, "test dhcp filtering")
+TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering")
 {
     auto dhcp_check = [&](int expected_count, const struct libmerc_config &config)
     {

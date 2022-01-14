@@ -5,12 +5,13 @@ LibmercTestFixture::LibmercTestFixture()
 {
     m_pcap_file_name = nullptr;
     m_pcap = nullptr;
+    m_libmerc_library_path = LIBMERC_SO_PATH;
 }
 
 LibmercTestFixture::~LibmercTestFixture()
 {
     if(m_pcap) delete m_pcap;
-    if(m_pcap_file_name) delete [] m_pcap_file_name;
+    if(m_pcap_file_name) free(m_pcap_file_name);
 }
 
 void LibmercTestFixture::initialize()
@@ -70,13 +71,12 @@ void LibmercTestFixture::set_pcap(const char * fname)
 {
     /*to avoid memory leak we need to delete previous record if exist.*/
     if(m_pcap) delete m_pcap; 
-    if(m_pcap_file_name) delete  [] m_pcap_file_name;
+    if(m_pcap_file_name) free(m_pcap_file_name);
 
-    const char pcap_f[8] = "/pcaps/";
-    m_pcap_file_name = new char [strlen("/home/vdber/mercury/mercury-transition/unit_tests") + strlen(pcap_f) + strlen(fname) +1];
-    strcpy(m_pcap_file_name, "/home/vdber/mercury/mercury-transition/unit_tests");
-    strcat(m_pcap_file_name, pcap_f);
-    strcat(m_pcap_file_name, fname);
+    const char pcap_f[9] = "./pcaps/";
+    asprintf(&m_pcap_file_name, "%s%s", pcap_f, fname);
+
+    printf("\n\n%s\n\n", m_pcap_file_name);
     
     m_pcap = new pcap_file(m_pcap_file_name, io_direction_reader);
 }

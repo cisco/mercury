@@ -49,26 +49,6 @@ protected:
     std::string m_pcap_folder_name;
 };
 
-class LibmercTLSTestFixture : public LibmercTestFixture
-{
-public:
-    LibmercTLSTestFixture()
-    {
-        m_libmerc_library_path = "../src/libmerc/libmerc_tls.so";
-        m_path_to_libmerc_alt_library = "../src/libmerc/libmerc_tls.so.alt";
-    }
-};
-
-class LibmercMultiprotocolTestFixture : public LibmercTestFixture
-{
-public:
-    LibmercMultiprotocolTestFixture()
-    {
-        m_libmerc_library_path = "../src/libmerc/libmerc_multiprotocol.so";
-        m_path_to_libmerc_alt_library = "../src/libmerc/libmerc_multiprotocol.so.alt";
-    }
-};
-
 struct test_config
 {
     struct libmerc_config m_lc;                //libmerc config
