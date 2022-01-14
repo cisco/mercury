@@ -135,7 +135,8 @@ void set_tcp_protocol(protocol &x,
                       struct datum &pkt,
                       traffic_selector &sel,
                       bool is_new,
-                      struct tcp_packet *tcp_pkt) {
+                      struct tcp_packet *tcp_pkt,
+                      struct perfect_hash_visitor& ph_visitor) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -143,10 +144,10 @@ void set_tcp_protocol(protocol &x,
     enum tcp_msg_type msg_type = (tcp_msg_type) sel.get_tcp_msg_type(pkt.data, pkt.length());
     switch(msg_type) {
     case tcp_msg_type_http_request:
-        x.emplace<http_request>(pkt);
+        x.emplace<http_request>(pkt, ph_visitor);
         break;
     case tcp_msg_type_http_response:
-        x.emplace<http_response>(pkt);
+        x.emplace<http_response>(pkt, ph_visitor);
         break;
     case tcp_msg_type_tls_client_hello:
         {
@@ -585,7 +586,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (global_vars.output_tcp_initial_data) {
                 is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
-            set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
+            set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt, ph_visitor);
         }
 
     } else if (transport_proto == ip::protocol::udp) {
@@ -788,7 +789,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             return 0;  // incomplete tcp header; can't process packet
          }
         tcp_pkt.set_key(k);
-        set_tcp_protocol(x, pkt, selector, false, reassembler == nullptr ? nullptr : &tcp_pkt);
+        set_tcp_protocol(x, pkt, selector, false, reassembler == nullptr ? nullptr : &tcp_pkt, ph_visitor);
 
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
