@@ -335,7 +335,7 @@ public:
 
 class gz_file {
     unsigned char file_buffer[512];
-    z_stream_s z;
+    z_stream_s z = {};
     encrypted_file enc_file;
 
 public:

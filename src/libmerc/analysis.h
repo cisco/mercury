@@ -164,7 +164,7 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
     std::unordered_map<std::string, std::vector<class update>> user_agent_updates;
     std::vector<std::vector<struct os_information>> process_os_info_vector;
-    floating_point_type base_prior;
+    floating_point_type base_prior = 0;
 
     bool malware_db = false;
 
@@ -651,6 +651,10 @@ public:
                     }
                     MALWARE_DB = true;
                     malware = x["malware"].GetBool();
+                }
+                if (count == 0) {
+                    throw std::runtime_error("error: process_fp_db_line() count 0");
+                    continue;
                 }
                 /* do not load process into memory if prevalence is below threshold */
                 if ((process_number > 1) && ((float)count/total_count < fp_proc_threshold) && (malware != true)) {

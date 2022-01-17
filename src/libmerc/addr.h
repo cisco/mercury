@@ -39,6 +39,10 @@ public:
     subnet_data() {
         ipv4_subnet_trie.root = nullptr;
         ipv4_subnet_trie.bases = nullptr;
+        ipv4_subnet_trie.ncount = 0;
+        ipv4_subnet_trie.bcount = 0;
+        ipv4_subnet_trie.shortest = 0;
+        ipv4_subnet_trie.nets = 0;
         ipv4_subnet_array = nullptr;
         prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), BGP_MAX_ENTRIES);
         if (prefix == nullptr) {

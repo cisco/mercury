@@ -338,7 +338,7 @@ struct dns_question_record {
     uint16_t rr_class;
     bool cache;
 
-    dns_question_record() : name{}, rr_type{0}, rr_class{0} {}
+    dns_question_record() : name{}, rr_type{0}, rr_class{0}, cache{false} {}
 
     void parse(struct datum &d, const struct datum &dns_body) {
         name.parse(d, dns_body);
