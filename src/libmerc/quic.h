@@ -1072,11 +1072,17 @@ public:
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        // fp format :(quic_version)(tls_fp);
-        quic_hdr_fp hdr_fp(initial_packet.version);
-        fp.add(hdr_fp);
+
+        // fingerprint format:  quic:(quic_version)(tls fingerprint)
+        //
+        // TODO: do we want to report anything if !hello.is_not_empty() ?
+
         if (hello.is_not_empty()) {
-            fp.set(hello, fingerprint_type_quic);
+            fp.set_type(fingerprint_type_quic);
+            quic_hdr_fp hdr_fp(initial_packet.version);
+            fp.add(hdr_fp);
+            fp.add(hello);
+            fp.final();
         }
     }
 

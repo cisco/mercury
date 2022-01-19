@@ -438,7 +438,9 @@ struct tls_server_hello : public tcp_base_protocol {
         } else {
             type = fingerprint_type_tls_server;
         }
-        fp.set(*this, type);
+        fp.set_type(type);
+        fp.add(*this);
+        fp.final();
     }
 
     static constexpr mask_and_value<8> matcher{
@@ -594,7 +596,7 @@ public:
 
     void compute_fingerprint(struct fingerprint &fp) const {
         if (hello.is_not_empty()) {
-            fp.set(hello, fingerprint_type_tls_server);
+            hello.compute_fingerprint(fp);
         }
     }
 

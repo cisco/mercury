@@ -192,7 +192,9 @@ struct tcp_packet {
 
         // note: we assume that this function is invoked only on a syn or syn/ack packet
         //
-        fp.set(*this, is_SYN_ACK() ? fingerprint_type_tcp_server : fingerprint_type_tcp);
+        fp.set_type(is_SYN_ACK() ? fingerprint_type_tcp_server : fingerprint_type_tcp);
+        fp.add(*this);
+        fp.final();
     }
 
     void write_timestamp(struct json_object &json_tcp) {

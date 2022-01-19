@@ -505,7 +505,9 @@ struct dhcp_discover {
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        fp.set(*this, fingerprint_type_dhcp);
+        fp.set_type(fingerprint_type_dhcp);
+        fp.add(*this);
+        fp.final();
     }
 
     constexpr static mask_and_value<8> matcher = {
