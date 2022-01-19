@@ -275,6 +275,8 @@ struct tls_extension {
 
     bool is_not_empty() { return value.is_not_empty(); }
 
+    bool is_grease() const { return degrease_uint16(type) == 0x0a0a;}
+
     void write_degreased_type(struct buffer_stream &b) {
         if (type_ptr) {
             raw_as_hex_degrease(b, type_ptr, sizeof(uint16_t));
@@ -375,6 +377,135 @@ void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) co
         }
 
     }
+
+}
+
+void tls_extensions::fingerprint_quic_tls(struct buffer_stream &b, enum tls_role role) const {
+
+    struct datum ext_parser{this->data, this->data_end};
+
+    std::vector<tls_extension> tls_ext_vec;
+
+    // push all extensions for sorting
+    //
+    while (ext_parser.length() > 0) {
+
+        tls_extension x{ext_parser};
+        if (x.value.data == NULL) {
+            break;
+        }
+        tls_ext_vec.push_back(x);
+    }
+
+    //sort extensions based on type and memcmp in case of same type
+    std::sort(tls_ext_vec.begin(),tls_ext_vec.end(),
+              [](const tls_extension &a, const tls_extension &b) {
+                  if (a.is_grease()) {
+                      if (b.is_grease()) {
+                          return false;
+                      }
+                      return true;
+                      } else if (b.is_grease()) {
+                          return false;
+                      }
+                  if (a.type != b.type)
+                    return a.type < b.type;
+                  else
+                    return a.value.memcmp(b.value) < 0;
+              }
+              );
+
+    b.write_char('[');
+    for (auto &x : tls_ext_vec) {
+        if (uint16_match(x.type, static_extension_types, num_static_extension_types) == true) {
+            if (x.type == type_supported_groups) {
+                // fprintf(stderr, "I am degreasing supported groups\n");
+                b.write_char('(');
+                x.write_degreased_type(b);
+                x.write_length(b);
+                x.write_degreased_value(b, L_NamedGroupListLen);
+                b.write_char(')');
+
+            } else if (x.type == type_supported_versions) {
+                // fprintf(stderr, "I am degreasing supported versions\n");
+                b.write_char('(');
+                x.write_degreased_type(b);
+                x.write_length(b);
+                if (role == tls_role::client) {
+                    x.write_degreased_value(b, L_ProtocolVersionListLen);
+                } else {
+                    x.write_degreased_value(b, 0);
+                }
+                b.write_char(')');
+
+            } else if (x.type == type_quic_transport_parameters || x.type == type_quic_transport_parameters_draft) {
+                b.write_char('(');
+                b.write_char('(');
+                x.write_degreased_type(b);
+                b.write_char(')');
+
+                // sort quic transport parameter ids, then write them
+                // into the fingerprint
+                //
+                std::vector<variable_length_integer_datum> id_vector;
+                while (x.value.is_not_null()) {
+                    quic_transport_parameter qtp{x.value};
+                    if (qtp.is_not_empty()) {
+                        //b.write_char('(');
+                        //qtp.write_id(b);
+                        //b.write_char(')');
+                        id_vector.push_back(qtp.get_id());
+                    }
+                }
+                std::sort(id_vector.begin(),
+                          id_vector.end(),
+                          [](const variable_length_integer_datum &a, const variable_length_integer_datum &b) {
+                              // convention: a GREASE ID is lower than
+                              // any other ID value, except another
+                              // GREASE ID
+                              //
+                              if (a.is_grease()) {
+                                  if (b.is_grease()) {
+                                      return false;
+                                  }
+                                  return true;
+                              } else if (b.is_grease()) {
+                                  return false;
+                              }
+                              return a.memcmp(b) < 0;
+                          }
+                          );
+                b.write_char('[');
+                for (const auto &id : id_vector) {
+                    b.write_char('(');
+                    if (!id.is_grease()) {
+                        id.write(b);
+                    } else {
+                        // write out the smallest GREASE value (0x1b == 27)
+                        b.write_char('1');
+                        b.write_char('b');
+                    }
+                    b.write_char(')');
+                }
+                b.write_char(']');
+                b.write_char(')');
+
+
+            } else {
+                b.write_char('(');
+                x.write_degreased_type(b);
+                x.write_length(b);
+                x.write_value(b);
+                b.write_char(')');
+            }
+        } else {
+            b.write_char('(');
+            x.write_degreased_type(b);
+            b.write_char(')');
+        }
+
+    }
+    b.write_char(']');
 
 }
 
@@ -534,7 +665,10 @@ void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
      * copy extensions vector
      */
     buf.write_char('(');
-    extensions.fingerprint(buf, tls_role::client);
+    if (is_quic_hello)
+        extensions.fingerprint_quic_tls(buf, tls_role::client);
+    else
+        extensions.fingerprint(buf, tls_role::client);
     buf.write_char(')');
 }
 

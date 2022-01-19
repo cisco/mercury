@@ -329,6 +329,8 @@ struct tls_extensions : public datum {
 
     void print_session_ticket(struct json_object &o, const char *key) const;
 
+    void fingerprint_quic_tls(struct buffer_stream &b, enum tls_role role) const;
+
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
 };
 
@@ -342,6 +344,7 @@ struct tls_client_hello : public tcp_base_protocol {
     struct datum compression_methods;
     struct tls_extensions extensions;
     bool dtls = false;
+    bool is_quic_hello = false;
     size_t additional_bytes_needed = 0;
 
     tls_client_hello() { }
