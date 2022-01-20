@@ -747,7 +747,7 @@ struct buffer_stream {
         return write(f);
     }
 
-    size_t length() { return doff; }
+    size_t length() const { return doff; }
 
     void add_null() {
         append_null(dstr, &doff, dlen, &trunc);

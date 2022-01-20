@@ -20,6 +20,7 @@
 #include "proto_identify.h"
 #include "global_config.h"
 #include "quic.h"
+#include "perfect_hash.h"
 
 /**
  * struct mercury holds state that is used by one or more
@@ -67,6 +68,7 @@ struct stateful_pkt_proc {
     global_config global_vars;
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
+    perfect_hash_visitor& ph_visitor;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
@@ -81,7 +83,8 @@ struct stateful_pkt_proc {
         ag{nullptr},
         global_vars{},
         selector{mc->selector},
-        quic_crypto{}
+        quic_crypto{},
+        ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()}
     {
 
         // set config and classifier to (refer to) context m

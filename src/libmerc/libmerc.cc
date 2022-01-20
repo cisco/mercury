@@ -178,14 +178,14 @@ enum fingerprint_status analysis_context_get_fingerprint_status(const struct ana
 
 enum fingerprint_type analysis_context_get_fingerprint_type(const struct analysis_context *ac) {
     if (ac) {
-        return ac->fp.type;
+        return ac->fp.get_type();
     }
     return fingerprint_type_unknown;
 }
 
 const char *analysis_context_get_fingerprint_string(const struct analysis_context *ac) {
     if (ac) {
-        return ac->fp.fp_str;
+        return ac->fp.string();
     }
     return NULL;
 }

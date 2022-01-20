@@ -92,7 +92,7 @@ struct json_object_asn1 : public json_object {
 
     void print_key_bitstring_flags(const char *name, const struct datum &value, char * const *flags) {
         struct json_array a{*this, name};
-        if (value.data) {
+        if (value.is_not_empty()) {
             struct datum p = value;
             char *const *tmp = flags;
             uint8_t number_of_unused_bits = 0;
@@ -110,18 +110,19 @@ struct json_object_asn1 : public json_object {
                 }
                 p.data++;
             }
-            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
-            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                if (x & *p.data) {
+            if (p.is_not_empty()) {
+                uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
+                for (uint8_t x = 0x80; x > terminus; x=x>>1) {
+                    if (x & *p.data) {
+                        if (*tmp) {
+                            a.print_string(*tmp);
+                        }         // note: we don't report excess length
+                    }
                     if (*tmp) {
-                        a.print_string(*tmp);
-                    }         // note: we don't report excess length
-                }
-                if (*tmp) {
-                    tmp++;
+                        tmp++;
+                    }
                 }
             }
-
         }
         a.close();
         comma = true;

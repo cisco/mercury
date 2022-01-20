@@ -35,10 +35,17 @@ pdu_verifier: pdu_verifier.cc
 debug-libmerc:
 	cd ../src && $(MAKE) debug-libmerc
 
+
+.PHONY: perfect-hash-test
+perfect-hash-test:
+	$(CXX) $(CFLAGS) -I ../src/libmerc ph_driver.cc -o ph_driver
+	./ph_driver | grep -e 'Unordered Map lookup' -e 'Perfect Hash generation table' -e 'Perfect Hash lookup' -e 'failed' -e 'Perfect Hash.' -e 'Unordered Map.'
+
 .PHONY: clean
 clean:
 	rm -rf libmerc_driver
-	rm -rf verifier
+	rm -rf pdu_verifier
+	rm -rf ph_driver
 	rm -rf *.json.gz
 	find -type f -name "*.gcno" -delete
 	find -type f -name "*.gcda" -delete
