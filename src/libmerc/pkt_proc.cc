@@ -135,7 +135,8 @@ void set_tcp_protocol(protocol &x,
                       struct datum &pkt,
                       traffic_selector &sel,
                       bool is_new,
-                      struct tcp_packet *tcp_pkt) {
+                      struct tcp_packet *tcp_pkt,
+                      struct perfect_hash_visitor& ph_visitor) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -143,10 +144,10 @@ void set_tcp_protocol(protocol &x,
     enum tcp_msg_type msg_type = (tcp_msg_type) sel.get_tcp_msg_type(pkt.data, pkt.length());
     switch(msg_type) {
     case tcp_msg_type_http_request:
-        x.emplace<http_request>(pkt);
+        x.emplace<http_request>(pkt, ph_visitor);
         break;
     case tcp_msg_type_http_response:
-        x.emplace<http_response>(pkt);
+        x.emplace<http_response>(pkt, ph_visitor);
         break;
     case tcp_msg_type_tls_client_hello:
         {
@@ -468,6 +469,49 @@ struct do_analysis {
 
 };
 
+class event_string
+{
+    const struct key &k;
+    const struct analysis_context &analysis;
+    std::string ev_str;
+
+    inline void append_to_ev_str (const std::string &str) {
+        ev_str.append("(");
+        ev_str.append(str);
+        ev_str.append(")");
+    };
+    inline void append_to_ev_str_with_delim (const std::string &str) {
+        ev_str.append("(");
+        ev_str.append(str); 
+        ev_str.append(")#");
+    };
+public:
+    event_string(const struct key &k, const struct analysis_context &analysis) :
+        k{k}, analysis{analysis} {  }
+
+    void construct_event_string() {
+        char src_ip_str[MAX_ADDR_STR_LEN];
+        k.sprint_src_addr(src_ip_str);
+        char dst_port_str[MAX_PORT_STR_LEN];
+        k.sprint_dst_port(dst_port_str);
+        std::tuple<std::string, std::string, std::string> dest_context(analysis.destination.sn_str,
+                                                                       analysis.destination.dst_ip_str,
+                                                                       dst_port_str); 
+        //Enclose each parameter within () brackets
+        append_to_ev_str_with_delim(src_ip_str);
+        //Fingerprint string is already formatted. so skipping to add braces
+        ev_str.append(analysis.fp.string());
+        ev_str.append("#");
+        //Destination context - SNI, Dst ip and Dst port
+        append_to_ev_str(std::get<0>(dest_context));
+        append_to_ev_str(std::get<1>(dest_context));
+        append_to_ev_str(std::get<2>(dest_context));
+    }
+    std::string get_event_string() const {
+        return ev_str;
+    }
+};
+
 struct do_observation {
     const struct key &k_;
     struct analysis_context &analysis_;
@@ -483,20 +527,18 @@ struct do_observation {
 
     void operator()(tls_client_hello &) {
         // create event and send it to the data/stats aggregator
-        //
-        char src_ip_str[MAX_ADDR_STR_LEN];
-        k_.sprint_src_addr(src_ip_str);
-        char dst_port_str[MAX_PORT_STR_LEN];
-        k_.sprint_dst_port(dst_port_str);
-        std::string event_string;
-        event_string.append("(");
-        event_string.append(src_ip_str).append(")#");
-        event_string.append(analysis_.fp.string()).append("#(");
-        event_string.append(analysis_.destination.sn_str).append(")(");
-        event_string.append(analysis_.destination.dst_ip_str).append(")(");
-        event_string.append(dst_port_str).append(")");
-        //fprintf(stderr, "note: observed event_string '%s'\n", event_string.c_str());
-        mq_->push((uint8_t *)event_string.c_str(), event_string.length()+1);
+        event_string ev_str{k_, analysis_};
+        ev_str.construct_event_string();
+        //fprintf(stderr, "note: observed event_string '%s'\n", ev_str.get_event_string().c_str());
+        mq_->push((uint8_t *)ev_str.get_event_string().c_str(), ev_str.get_event_string().length()+1);
+    }
+
+    void operator()(quic_init &) {
+        // create event and send it to the data/stats aggregator
+        event_string ev_str{k_, analysis_};
+        ev_str.construct_event_string();
+        //fprintf(stderr, "note: observed event_string '%s'\n", ev_str.get_event_string().c_str());
+        mq_->push((uint8_t *)ev_str.get_event_string().c_str(), ev_str.get_event_string().length()+1);
     }
 
     template <typename T>
@@ -585,7 +627,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (global_vars.output_tcp_initial_data) {
                 is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
-            set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
+            set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt, ph_visitor);
         }
 
     } else if (transport_proto == ip::protocol::udp) {
@@ -788,7 +830,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             return 0;  // incomplete tcp header; can't process packet
          }
         tcp_pkt.set_key(k);
-        set_tcp_protocol(x, pkt, selector, false, reassembler == nullptr ? nullptr : &tcp_pkt);
+        set_tcp_protocol(x, pkt, selector, false, reassembler == nullptr ? nullptr : &tcp_pkt, ph_visitor);
 
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};

@@ -82,6 +82,10 @@ divide-pcap: nfs-download
 	cp ./../src/pcap_filter ./../unit_tests/pcaps/
 	cd ./pcaps/ && ./pcap_filter --input ./capture2.pcap --output capture2
 
+.PHONY: perfect-hash-test
+perfect-hash-test:
+	$(CXX) $(CFLAGS) -I ../src/libmerc ph_driver.cc -o ph_driver
+	./ph_driver | grep -e 'Unordered Map lookup' -e 'Perfect Hash generation table' -e 'Perfect Hash lookup' -e 'failed' -e 'Perfect Hash.' -e 'Unordered Map.'
 
 .PHONY: clean
 clean:

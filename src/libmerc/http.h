@@ -16,6 +16,7 @@
 #include "match.h"
 #include "analysis.h"
 #include "fingerprint.h"
+#include "perfect_hash.h"
 
 struct http_headers : public datum {
     bool complete;
@@ -40,11 +41,12 @@ struct http_headers : public datum {
 
     void print_host(struct json_object &o, const char *key) const;
     void print_matching_name(struct json_object &o, const char *key, struct datum &name) const;
+    void print_matching_name(struct json_object &o, const char *key, const char* name) const;
     void print_matching_names(struct json_object &o, const char *key, std::list<struct datum> &name) const;
     void print_matching_names(struct json_object &o, std::list<std::pair<struct datum, std::string>> &name_list) const;
-    void print_matching_names(struct json_object &o, std::unordered_map<std::basic_string<uint8_t>, std::string> &name_dict) const;
+    void print_matching_names(struct json_object &o, perfect_hash_visitor &name_dict, perfect_hash_table_type type) const;
 
-    void fingerprint(struct buffer_stream &buf, std::unordered_map<std::basic_string<uint8_t>, bool> &name_dict) const;
+    void fingerprint(struct buffer_stream &buf, perfect_hash_visitor &name_dict, perfect_hash_table_type type) const;
 
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
 };
@@ -54,8 +56,10 @@ struct http_request : public tcp_base_protocol {
     struct datum uri;
     struct datum protocol;
     struct http_headers headers;
+    struct perfect_hash_visitor& ph_visitor;
 
-    http_request(datum &p) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{} { parse(p); }
+    http_request(datum &p, perfect_hash_visitor& visitor) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{}, ph_visitor{visitor} { parse(p); }
+    http_request(datum &p) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{}, ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()} { parse(p); }
 
     void parse(struct datum &p);
 
@@ -110,8 +114,10 @@ struct http_response : public tcp_base_protocol {
     struct datum status_code;
     struct datum status_reason;
     struct http_headers headers;
+    struct perfect_hash_visitor& ph_visitor;
 
-    http_response(datum &p) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{} { parse(p); }
+    http_response(datum &p, perfect_hash_visitor& visitor) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{}, ph_visitor{visitor} { parse(p); }
+    http_response(datum &p) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{}, ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()} { parse(p); }
 
     void parse(struct datum &p);
 
