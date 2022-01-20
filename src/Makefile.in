@@ -212,11 +212,6 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 libmerc_driver:
 	cd ../unit_tests/ && $(MAKE) all
 
-#libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
-#	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
-#	@echo "creating copy of libmerc.so for testing purposes"
-#	cp libmerc/libmerc.so libmerc/libmerc.so.alt
-
 # intercept.so
 #
 

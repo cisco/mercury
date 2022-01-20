@@ -21,12 +21,13 @@ UNIT_TESTS_H += libmerc_fixture.h
 
 UNIT_TESTS_TLS_ONLY = $(UNIT_TESTS)
 UNIT_TESTS_TLS_ONLY += general_info_test.cc
-#UNIT_TESTS_TLS_ONLY += libmerc_flow_test.cc
+UNIT_TESTS_TLS_ONLY += libmerc_flow_test.cc
 UNIT_TESTS_TLS_ONLY += libmerc_tlsdb_test.cc
 UNIT_TESTS_TLS_ONLY += libmerc_driver.cc
 
 UNIT_TESTS_TLS_HTTP_QUIC = $(UNIT_TESTS)
 UNIT_TESTS_TLS_HTTP_QUIC += libmerc_dbmultiprotocol_test.cc
+UNIT_TESTS_TLS_HTTP_QUIC += performance_test.cc
 
 # implicit rules for building object files from .cc files
 %.o: %.cc
@@ -41,25 +42,39 @@ libmerc_driver_tls_only: debug-libmerc-tls $(UNIT_TESTS_TLS_ONLY) Makefile.in $(
 	cp $(LIBMERC_SO) $(LIBMERC_SO_tls)
 	mv $(LIBMERC_SO) $(LIBMERC_SO_tls).alt
 	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_tls)\"" -fsanitize=address -lasan -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_tls) -lcrypto -ldl -lz
-	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER)
 	
 libmerc_driver_multiprotocol: debug-libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) Makefile.in $(UNIT_TESTS_H)
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)
 	mv $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol).alt
 	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" -fsanitize=address -lasan -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz
-	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER)
 
-libmerc_driver_coverage: CFLAGS+=--coverage
-libmerc_driver_coverage: debug-libmerc_gcov 
-libmerc_driver_coverage: libmerc_driver_multiprotocol 
-libmerc_driver_coverage: libmerc_driver_tls_only
+
+libmerc_driver_coverage: libmerc_driver_multiprotocol_coverage libmerc_driver_tls_coverage
+
+libmerc_driver_tls_coverage: debug-libmerc_tls_gcov $(UNIT_TESTS_TLS_ONLY) Makefile.in $(UNIT_TESTS_H)
+	@echo "creating copy of libmerc.so for testing purposes"
+	cp $(LIBMERC_SO) $(LIBMERC_SO_tls)
+	mv $(LIBMERC_SO) $(LIBMERC_SO_tls).alt
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_tls)\"" -fsanitize=address -lasan -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_tls) -lcrypto -ldl -lz --coverage
+	
+libmerc_driver_multiprotocol_coverage: debug-libmerc_gcov $(UNIT_TESTS_TLS_HTTP_QUIC) Makefile.in $(UNIT_TESTS_H)
+	@echo "creating copy of libmerc.so for testing purposes"
+	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)
+	mv $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol).alt
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" -fsanitize=address -lasan -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz --coverage
 
 pdu_verifier: debug-libmerc pdu_verifier.cc
 	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc pdu_verifier.cc ./../src/pcap_file_io.c -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz -o pdu_verifier
 
+.PHONY: debug-libmerc_tls_gcov
+debug-libmerc_tls_gcov:
+	mkdir -p $(LIBMERC_DEBUG_FOLDER)
+	cd ../src && $(MAKE) OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls.client_hello\"' debug-libmerc_gcov
+
 .PHONY: debug-libmerc_gcov
 debug-libmerc_gcov: 
+	mkdir -p $(LIBMERC_DEBUG_FOLDER)
 	cd ../src && $(MAKE) debug-libmerc_gcov
 
 .PHONY: debug-libmerc
@@ -86,6 +101,13 @@ divide-pcap: nfs-download
 perfect-hash-test:
 	$(CXX) $(CFLAGS) -I ../src/libmerc ph_driver.cc -o ph_driver
 	./ph_driver | grep -e 'Unordered Map lookup' -e 'Perfect Hash generation table' -e 'Perfect Hash lookup' -e 'failed' -e 'Perfect Hash.' -e 'Unordered Map.'
+
+.PHONY: run
+run:
+	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_tls_only -s
+	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_multiprotocol -s
 
 .PHONY: clean
 clean:

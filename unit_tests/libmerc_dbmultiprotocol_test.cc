@@ -126,12 +126,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smtp with recources-mp")
                       .resources{resources_mp_path},
                       .packet_filter_cfg{"smtp"}},
                      "top_100_fingerprints.pcap"},
-         0},
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{"smtp"}},
-                     "Slot2Port3Hostnp2-0.1636605890362.pcap"},
-         45154}
+         0}
     };
 
     for (auto &[config, count] : test_set_up)
