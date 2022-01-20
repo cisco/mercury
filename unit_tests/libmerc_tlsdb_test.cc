@@ -28,10 +28,10 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tcp filtering")
                       .resources{default_resources_path},
                       .packet_filter_cfg{"tcp"}},
                      "capture2.pcap"},
-         9477 /*12618 -- correct answear*/}, 
+         12618}, 
         {test_config{{.packet_filter_cfg{"tcp"}},
                      "capture2.pcap"},
-          9477 /*12618 -- correct answear*/}, // TODO: to understand why not 0 as do_analysis == false by default
+         12618},
         {test_config{{.do_analysis{true},
                       .resources{resources_mp_path},
                       .packet_filter_cfg{"tcp"}},
@@ -85,13 +85,13 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering")
                       .packet_filter_cfg{"tls.client_hello"}},
                      "capture2.pcap",
                      fingerprint_type_tls},
-         6246}, //4301 - correct number; actual result in check;
+         4301},
         {test_config{{.do_analysis{true},
                       .resources{default_resources_path},
                       .packet_filter_cfg{"tls"}},
                      "capture2.pcap",
                      fingerprint_type_tls},
-         12814} //10829 -correct number; curent result in check
+         10829}
     };
 
     for (auto &[config, count] : test_set_up)
@@ -125,12 +125,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http filtering")
                       .packet_filter_cfg{"http"}},
                      "capture2.pcap"},
          397},
-        {test_config{{.resources{resources_mp_path},
+        {test_config{{.resources{default_resources_path},
                       .packet_filter_cfg{"http"}},
                      "capture2.pcap"},
          397},
         {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
+                      .resources{default_resources_path},
                       .packet_filter_cfg{"http"}},
                      "http_request.capture2.pcap"},
          397},
@@ -174,7 +174,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
                       .resources{default_resources_path},
                       .packet_filter_cfg{"quic"}},
                      "quic-crypto-packets.pcap"},
-         0 /*684 - correct answear*/},
+         684},
         {test_config{{.do_analysis{true},
                       .resources{default_resources_path},
                       .packet_filter_cfg{"quic"}},
@@ -216,7 +216,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering")
          123},
         {test_config{{.packet_filter_cfg{"dhcp"}},
                      "capture2.pcap"},
-         123}, // TODO: to understand why not 0 as do_analysis == false by default
+         123},
         {test_config{{.do_analysis{true},
                       .resources{resources_mp_path},
                       .packet_filter_cfg{"dhcp"}},

@@ -2,7 +2,7 @@ config.*
 Makefile
 src/Makefile
 test/Makefile
-src/*.o
+*.o
 src/lctrie/.d/
 src/lctrie/*.o
 src/lctrie/*.a
@@ -14,3 +14,9 @@ python/pmercury/protocols/.#*
 python/pmercury/utils/.#*
 *.deb
 *.rpm
+unit_tests/pcaps/*.pcap
+.vscode/
+*.mk
+*.tgz
+src/libmerc/asn1/oid.cc
+src/libmerc/asn1/oid.h

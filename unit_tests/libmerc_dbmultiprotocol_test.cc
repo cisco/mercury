@@ -1,13 +1,14 @@
 #include "libmerc_fixture.h"
+#include <iostream>
 
 int sig_close_flag = false;
 
 
 TEST_CASE_METHOD(LibmercTestFixture, "test http with recources-mp")
 {
-       auto destination_check_callback = [](const analysis_context *ac)
+    auto destination_check_callback = [](const analysis_context *ac)
     {
-       // CHECK(ac->fp.type == 3);
+        CHECK(analysis_context_get_fingerprint_type(ac) == 3);
     }; 
     
     auto http_check = [&](int expected_count, const struct libmerc_config &config)
@@ -32,7 +33,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with recources-mp")
         {test_config{{.do_analysis{true},
                       .resources{resources_mp_path},
                       .packet_filter_cfg{"http"}},
-                     "http.request.capture2.pcap"},
+                     "http_request.capture2.pcap"},
          397},
         {test_config{{.resources{resources_mp_path},
                       .packet_filter_cfg{"http"}},
@@ -78,7 +79,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp")
         {test_config{{.do_analysis{true},
                       .resources{resources_mp_path},
                       .packet_filter_cfg{"quic"}},
-                     "http.request.capture2.pcap"},
+                     "http_request.capture2.pcap"},
          0},
          {test_config{{.resources{resources_mp_path},
                       .packet_filter_cfg{"quic"}},
@@ -94,5 +95,102 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp")
     {
         set_pcap(config.m_pc.c_str());
         quic_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test smtp with recources-mp")
+{
+    
+    auto smtp_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{{.do_analysis{true},
+                      .resources{resources_mp_path},
+                      .packet_filter_cfg{"smtp"}},
+                     "capture2.pcap"},
+         0},
+        {test_config{{.dns_json_output{true},
+                      .do_analysis{true},
+                      .resources{resources_mp_path},
+                      .packet_filter_cfg{"smtp"}},
+                     "capture2.pcap"},
+         0},
+        {test_config{{.do_analysis{true},
+                      .resources{resources_mp_path},
+                      .packet_filter_cfg{"smtp"}},
+                     "top_100_fingerprints.pcap"},
+         0},
+        {test_config{{.do_analysis{true},
+                      .resources{resources_mp_path},
+                      .packet_filter_cfg{"smtp"}},
+                     "Slot2Port3Hostnp2-0.1636605890362.pcap"},
+         45154}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        smtp_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test dns and mdns with recources-mp")
+{
+    auto dns_output_check = [&]() {
+        bool dns_output_provided = strstr(m_output, "base64") ? false : true;
+        /* to not provide thousands of CHECKs, do one only in case of failure */
+        if(!(m_mpp->global_vars.dns_json_output ? dns_output_provided : !dns_output_provided))
+            CHECK(false);
+    };
+
+    auto dns_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter(fingerprint_type::fingerprint_type_unknown, dns_output_check));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{{.do_analysis{true},
+                      .resources{resources_mp_path},
+                      .packet_filter_cfg{"dns"}},
+                     "capture2.pcap"},
+         22568},
+        {test_config{{.dns_json_output{true},
+                      .do_analysis{true},
+                      .resources{resources_mp_path},
+                      .packet_filter_cfg{"dns"}},
+                     "capture2.pcap"},
+         22568},
+        {test_config{{.do_analysis{true},
+                      .resources{resources_mp_path},
+                      .packet_filter_cfg{"dns"}},
+                     "mdns_capture.pcap"},
+         3141},
+        {test_config{{.do_analysis{true},
+                      .resources{resources_mp_path},
+                      .packet_filter_cfg{"dns"}},
+                     "dns_packet.capture2.pcap"},
+         22568},
+        {test_config{{.do_analysis{true},
+                      .resources{resources_mp_path},
+                      .packet_filter_cfg{(char *)"dns"}},
+                     "top_100_fingerprints.pcap"},
+         0}
+        };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        dns_check(count, config.m_lc);
     }
 }

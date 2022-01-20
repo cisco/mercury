@@ -89,7 +89,7 @@ else
 endif
 
 .PHONY: test_libmerc_so
-test_libmerc_so: libmerc_driver # pdu_test
+test_libmerc_so: libmerc_driver_tls_only libmerc_driver_multiprotocol # pdu_test
 
 .PHONY: pdu_test
 pdu_test:

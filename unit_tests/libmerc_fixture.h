@@ -7,7 +7,7 @@ using std::filesystem::current_path;
 class LibmercTestFixture {
 public:
     LibmercTestFixture();
-    virtual ~LibmercTestFixture() = 0;
+    ~LibmercTestFixture();
 
 protected:
     void initialize();
@@ -26,6 +26,7 @@ protected:
     int counter();
     int counter(fingerprint_type fp_type, fingerprint_type fp_type2 = fingerprint_type_unknown);
     int counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback);
+    int counter(fingerprint_type fp_type, std::function<void()> callback);
     
     void check_global_configuraton(libmerc_config config);
     
@@ -40,7 +41,6 @@ protected:
     struct libmerc_config m_config;
     char m_output[4096];
 
-protected:
     std::string m_libmerc_library_path;
     std::string m_path_to_libmerc_alt_library;
     struct pcap_file *m_pcap;

@@ -121,10 +121,10 @@ int LibmercTestFixture::counter(fingerprint_type fp_type, fingerprint_type fp_ty
         auto json = mercury_packet_processor_write_json(m_mpp, m_output, 4096, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time);
         if (json > 0)
         {
-            if (m_mpp->analysis.fp.get_type() == fp_type) 
+            if (m_mpp->analysis.fp.get_type() == fp_type)
                 count_of_packets++;
             if(fp_type2 != fingerprint_type_unknown)
-                if (m_mpp->analysis.fp.get_type() == fp_type2) 
+                if (m_mpp->analysis.fp.get_type() == fp_type2)
                     count_of_packets++;
         }
     }
@@ -155,3 +155,29 @@ int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void(con
     return count_of_packets;
 }
 
+int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void()> callback)
+{
+    int count_of_packets = 0;
+    while (1)
+    {
+        if (read_next_data_packet())
+        {
+            break;
+        }
+        
+        auto json = mercury_packet_processor_write_json(m_mpp, m_output, 4096,
+                                                        (unsigned char *)m_data_packet.first,
+                                                        m_data_packet.second - m_data_packet.first,
+                                                        &m_time);
+        if (json > 0) {
+            if (m_mpp->analysis.fp.get_type() == fp_type) 
+            {
+                count_of_packets++;
+            
+            if (callback)
+                callback();
+            }
+        }
+    }
+    return count_of_packets;
+}

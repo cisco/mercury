@@ -118,6 +118,10 @@ libs:
 
 .PHONY: test
 test:
+	cd src && $(MAKE) -i test
+
+.PHONY: test_strict
+test_strict:
 	cd src && $(MAKE) test
 
 .PHONY: test_libmerc_so
