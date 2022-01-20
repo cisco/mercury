@@ -482,6 +482,21 @@ struct ip_pkt_write_fingerprint {
     }
 };
 
+struct ip_pkt_fingerprint {
+    buffer_stream &buf;
+
+    ip_pkt_fingerprint(buffer_stream &b) : buf{b} {}
+
+    // fingerprinting
+    //
+    template <typename T>
+    void operator()(T &r) {
+        r.fingerprint(buf);
+    }
+
+    void operator()(std::monostate &) { }
+};
+
 class ip {
     std::variant<std::monostate, ipv4_packet, ipv6_packet> packet;
 
@@ -556,6 +571,10 @@ public:
 
     void write_fingerprint(json_object &o) {
         std::visit(ip_pkt_write_fingerprint{o}, packet);
+    }
+
+    void fingerprint(buffer_stream &buf) {
+        std::visit(ip_pkt_fingerprint{buf}, packet);
     }
 
     ip::protocol transport_protocol() {  // TODO: should be const
