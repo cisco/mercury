@@ -22,6 +22,9 @@
 #define STATIC_CFG_SELECT nullptr
 #endif
 
+struct global_config;
+static void setup_extended_fields(global_config* lc, const std::string& config);
+
 struct global_config : public libmerc_config {
 
 private:
@@ -32,9 +35,15 @@ private:
 public:
     global_config() : libmerc_config() {};
     global_config(const libmerc_config& c) : libmerc_config(c) {
-         if(c.resources)
-            resource_file = c.resources;
-         }
+        if(c.resources)
+           resource_file = c.resources;
+
+        if(c.packet_filter_cfg && config_contains_delims(c.packet_filter_cfg)) {
+            setup_extended_fields(this, "select=" + std::string(c.packet_filter_cfg));
+        } else {
+            set_protocols(c.packet_filter_cfg ? c.packet_filter_cfg : "all");
+        }
+    }
 
     const char* get_resource_file() {
         return resource_file.empty() ? resources : resource_file.c_str();
@@ -97,5 +106,15 @@ public:
     }
     
 };
+
+static void setup_extended_fields(global_config* lc, const std::string& config) {
+
+    std::vector<libmerc_option> options = {
+        {"select", "-s", "--select", SETTER_FUNCTION(&lc){ lc->set_protocols(s); }},
+        {"resources", "", "", SETTER_FUNCTION(&lc){ lc->set_resource_file(s); }}
+    };
+
+    parse_additional_options(options, config, *lc);
+}
 
 #endif

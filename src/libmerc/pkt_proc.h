@@ -33,10 +33,7 @@ struct mercury {
     classifier *c;
     class traffic_selector selector;
 
-    mercury(const struct global_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr}, selector{vars->protocols} {
-        global_vars = *vars;
-        global_vars.resources = vars->resources;
-        global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy?
+    mercury(const struct libmerc_config *vars, int verbosity) : global_vars{*vars}, aggregator{global_vars.max_stats_entries}, c{nullptr}, selector{global_vars.protocols} {
         if (global_vars.do_analysis) {
             c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
