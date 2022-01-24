@@ -9,6 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <stdexcept>
+#include <optional>
 
 template<typename T>
 struct perfect_hash_entry
