@@ -848,6 +848,45 @@ public:
         }
     }
 
+    // write_flow_key() reads network socket info from the file
+    // descriptor fd, then writes addresses and ports into json_object
+    //
+    void write_flow_key(struct json_object &record, int fd) {
+
+        if (!fd_is_socket(fd)) {
+            return;
+        }
+
+        // TODO: investigate performance, and determine if caching is
+        // needed
+
+        struct sockaddr_in address;
+        bzero(&address, sizeof(address));
+        socklen_t address_len = sizeof(address);
+        int retval = getsockname(fd, (struct sockaddr *) &address, &address_len);
+        if (retval == 0) {
+            if (address.sin_family == AF_INET || address.sin_family == AF_INET6) {
+
+                // report source address and source port
+                //
+                char addr[INET6_ADDRSTRLEN];
+                inet_ntop(address.sin_family, &address.sin_addr, addr, sizeof(addr));
+                uint16_t port = ntohs(address.sin_port);
+                record.print_key_string("src_ip", addr);
+                record.print_key_uint("src_port", port);
+
+                // report destination address and destination port
+                //
+                getpeername(fd, (struct sockaddr *) &address, &address_len);
+                inet_ntop(address.sin_family, &address.sin_addr, addr, sizeof(addr));
+                port = ntohs(address.sin_port);
+                record.print_key_string("dst_ip", addr);
+                record.print_key_uint("dst_port", port);
+
+            }
+        }
+    }
+
     void process_outbound(int fd, const uint8_t *data, ssize_t length);
 
     void process_outbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
@@ -871,6 +910,7 @@ public:
             // write pid into record
             write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
+            write_flow_key(record, fd);
 
             http_req.write_json(record, true);
 
@@ -898,6 +938,7 @@ public:
                 // write pid into record
                 write_process_info(record, output_level);
                 record.print_key_uint("fd", fd);
+                write_flow_key(record, fd);
 
                 record.print_key_hex("tcp_data", tcp_data);
 
@@ -950,6 +991,7 @@ public:
                 // write pid into record
                 write_process_info(record, output_level);
                 record.print_key_uint("fd", fd);
+                write_flow_key(record, fd);
 
                 hello.write_json(record);
                 record.close();
@@ -1094,6 +1136,7 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             // write pid into record
             write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
+            write_flow_key(record, fd);
 
             // write fingerprint into record
             fp.write(record);
