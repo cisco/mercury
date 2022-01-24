@@ -194,6 +194,8 @@ public:
         }
     }
 
+    variable_length_integer_datum get_id() const { return _id; }
+
 };
 
 // quic frames are defined by a set of classes and the std::variant
@@ -1039,6 +1041,7 @@ public:
             struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
             tls_handshake tls{d};
             hello.parse(tls.body);
+            hello.is_quic_hello = true;
         }
     }
 
