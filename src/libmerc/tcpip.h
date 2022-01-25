@@ -178,6 +178,10 @@ struct tcp_packet {
         buf.write_char('(');
         buf.raw_as_hex((const uint8_t *)&header->window, sizeof(header->window));
         buf.write_char(')');
+
+        // process sequence of TCP options
+        //
+        buf.write_char('(');
         struct datum tmp = tcp_options;
         while (tmp.length() > 0) {
             struct tcp_option opt;
@@ -190,6 +194,7 @@ struct tcp_packet {
             }
             buf.write_char(')');
         }
+        buf.write_char(')');
     }
 
     void compute_fingerprint(class fingerprint &fp) {

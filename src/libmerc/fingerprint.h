@@ -4,6 +4,9 @@
 #ifndef FINGERPRINT_H
 #define FINGERPRINT_H
 
+#include <cctype>
+#include <cassert>
+#include <vector>
 #include "json_object.h"
 
 class fingerprint {
@@ -37,7 +40,7 @@ public:
     void set_type(fingerprint_type fp_type) {
         type = fp_type;
         fp_buf.puts(get_type_name(fp_type));
-        fp_buf.write_char(':');
+        fp_buf.write_char('/');
     }
 
     template <typename T>
@@ -45,8 +48,59 @@ public:
         msg.fingerprint(fp_buf);
     }
 
+    // the function is_well_formed() checks the fingerprint in fp_buf
+    // and verifies that it consists of balanced parenthesis and
+    // even-numbered hex strings
+    //
+    bool is_well_formed() {
+        std::vector<char> stack;
+        const char *c = &fp_str[0];
+
+        // loop over fingerprint type
+        //
+        while (*c != '\0' && *c != '/') {
+            if (!(isalpha(*c) && islower(*c)) && (*c != '_')) {
+                return false;  // ill-formed fingerprint type string
+            }
+            c++;
+        }
+        c++;  // accept '/'
+
+        // loop over balanced parens / tree data
+        //
+        while (*c != '\0') {
+            switch (*c) {
+            case '(':
+            case '[':
+                stack.push_back(*c);
+                break;
+            case ')':
+                if (stack.back() == '(') {
+                    stack.pop_back();
+                } else {
+                    return false; // error
+                }
+                break;
+            case ']':
+                if (stack.back() == ']') {
+                    stack.pop_back();
+                } else {
+                    return false; // error
+                }
+                break;
+            default:
+                if (!isxdigit(*c) || isupper(*c)) {
+                    return false;  // non hex digit in string
+                }
+            }
+            c++;
+        }
+        return true;
+    }
+
     void final() {
         fp_buf.write_char('\0'); // null-terminate
+        assert(("fingerprint is well-formed", is_well_formed()));
     }
 
     bool is_null() const {

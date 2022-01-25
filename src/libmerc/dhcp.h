@@ -483,6 +483,7 @@ struct dhcp_discover {
 
     void fingerprint(struct buffer_stream &b) const {
 
+        b.write_char('(');
         struct datum tmp = options;
         while (tmp.is_not_empty()) {
             struct dhcp_option opt;
@@ -502,6 +503,7 @@ struct dhcp_discover {
                 b.write_char(')');
             }
         }
+        b.write_char(')');
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {

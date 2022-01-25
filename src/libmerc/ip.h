@@ -110,7 +110,8 @@ class ipv4_packet {
             //
             buf.write_char('(');
             if (header->id == 0) {
-                buf.raw_as_hex((const uint8_t *)&header->id, sizeof(header->id));
+                buf.write_char('0');
+                buf.write_char('0');
             }
             buf.write_char(')');
 
@@ -408,7 +409,8 @@ public:
             buf.write_char('(');
             uint32_t flow_label = header->flow_label();
             if (flow_label == 0) {
-                buf.raw_as_hex((const uint8_t *)&flow_label, sizeof(flow_label));  // TODO: we ought to print this as a 24-bit value
+                buf.write_char('0');
+                buf.write_char('0');
             }
             buf.write_char(')');
 
