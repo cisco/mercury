@@ -158,6 +158,12 @@ public:
         variable_length_integer v{tmp};
         return v.value() % 31 == 27;
     }
+
+    uint64_t value() const {
+        datum tmp = *this;               // copy to avoid changing *this
+        variable_length_integer v{tmp};
+        return v.value();
+    }
 };
 
 

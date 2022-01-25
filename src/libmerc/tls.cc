@@ -404,14 +404,17 @@ void tls_extensions::fingerprint_quic_tls(struct buffer_stream &b, enum tls_role
                       if (b.is_grease()) {
                           return false;
                       }
-                      return true;
+                      return 0x0a0a < b.type;
                       } else if (b.is_grease()) {
-                          return false;
+                          return a.type < 0x0a0a;
                       }
-                  if (a.type != b.type)
-                    return a.type < b.type;
-                  else
-                    return a.value.memcmp(b.value) < 0;
+                  if (a.type != b.type) {
+                      return a.type < b.type;
+                  }
+                  if (a.length != b.length) {
+                      return a.length < b.length;
+                  }
+                  return a.value.memcmp(b.value) < 0;
               }
               );
 
@@ -460,17 +463,13 @@ void tls_extensions::fingerprint_quic_tls(struct buffer_stream &b, enum tls_role
                 std::sort(id_vector.begin(),
                           id_vector.end(),
                           [](const variable_length_integer_datum &a, const variable_length_integer_datum &b) {
-                              // convention: a GREASE ID is lower than
-                              // any other ID value, except another
-                              // GREASE ID
-                              //
                               if (a.is_grease()) {
                                   if (b.is_grease()) {
                                       return false;
                                   }
-                                  return true;
+                                  return 0x1b < b.value();
                               } else if (b.is_grease()) {
-                                  return false;
+                                  return a.value() < 0x1b;
                               }
                               return a.memcmp(b) < 0;
                           }
