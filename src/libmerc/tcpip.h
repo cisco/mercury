@@ -9,6 +9,7 @@
 #define TCPIP_H
 
 #include "tcp.h"
+#include "ip.h"
 #include "datum.h"
 #include "json_object.h"
 #include "fingerprint.h"
@@ -21,6 +22,8 @@
  * list.  The length and data for the MSS and WS TCP options are
  * included, but are not for other option kinds.
  */
+
+static constexpr bool report_IP = false;  // compile-time option
 
 /*
  * TCP header as per RFC 793
@@ -126,12 +129,13 @@ struct tcp_option : public datum {
 };
 
 struct tcp_packet {
-    const struct tcp_header *header;
+    const struct tcp_header *header = nullptr;
     struct datum tcp_options;
-    uint32_t data_length;
-    uint32_t additional_bytes_needed;
+    ip *ip_pkt = nullptr;          // TODO: make this const?
+    uint32_t data_length = 0;
+    uint32_t additional_bytes_needed = 0;
 
-    tcp_packet(datum &p) : header{NULL}, tcp_options{NULL, NULL}, data_length{0}, additional_bytes_needed{0} {
+    tcp_packet(datum &p, ip *outer=nullptr) : ip_pkt{outer} {
         parse(p);
     };
 
@@ -146,8 +150,8 @@ struct tcp_packet {
         //        fprintf(stderr, "tcp.data_length: %u\n", data_length);
     }
 
-    bool is_valid() const { return header != nullptr; }
-    bool is_not_empty() const { return header != nullptr; }
+    bool is_valid()     const { return header != nullptr && ip_pkt != nullptr; }
+    bool is_not_empty() const { return header != nullptr && ip_pkt != nullptr; }
 
     void reassembly_needed(uint32_t num_bytes_needed) {
         additional_bytes_needed = num_bytes_needed;
@@ -174,6 +178,10 @@ struct tcp_packet {
         buf.write_char('(');
         buf.raw_as_hex((const uint8_t *)&header->window, sizeof(header->window));
         buf.write_char(')');
+
+        // process sequence of TCP options
+        //
+        buf.write_char('(');
         struct datum tmp = tcp_options;
         while (tmp.length() > 0) {
             struct tcp_option opt;
@@ -186,13 +194,17 @@ struct tcp_packet {
             }
             buf.write_char(')');
         }
+        buf.write_char(')');
     }
 
     void compute_fingerprint(class fingerprint &fp) {
 
         // note: we assume that this function is invoked only on a syn or syn/ack packet
         //
-        fp.set(*this, is_SYN_ACK() ? fingerprint_type_tcp_server : fingerprint_type_tcp);
+        fp.set_type(is_SYN_ACK() ? fingerprint_type_tcp_server : fingerprint_type_tcp);
+        fp.add(*ip_pkt);
+        fp.add(*this);
+        fp.final();
     }
 
     void write_timestamp(struct json_object &json_tcp) {
@@ -214,17 +226,22 @@ struct tcp_packet {
         }
     }
     void write_json(struct json_object &o, bool metadata=false) {
+
         if (metadata) {
             if (is_SYN()) {
+                if (report_IP) {
+                    ip_pkt->write_json(o);
+                }
                 struct json_object json_tcp{o, "tcp"};
-                //json_tcp.print_key_value("fingerprint", *this);
                 json_tcp.print_key_uint("seq", htonl(header->seq));
                 write_timestamp(json_tcp);
                 json_tcp.close();
 
             } else if (is_SYN_ACK()) {
+                if (report_IP) {
+                    ip_pkt->write_json(o);
+                }
                 struct json_object json_tcp{o, "tcp_server"};
-                //json_tcp.print_key_value("fingerprint", *this);
                 json_tcp.print_key_uint("seq", htonl(header->seq));
                 write_timestamp(json_tcp);
                 json_tcp.close();

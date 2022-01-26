@@ -384,7 +384,8 @@ struct do_observation {
 // variables can be used as compile-time options.  In the future, they
 // will probably become run-time options.
 //
-static constexpr bool report_IP       = false;
+// note: static constexpr bool report_IP is in tcpip.h
+//
 static constexpr bool report_GRE      = false;
 static constexpr bool report_ICMP     = false;
 static constexpr bool report_OSPF     = false;
@@ -561,7 +562,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         x.emplace<ospf>(pkt);
 
     } else if (transport_proto == ip::protocol::tcp) {
-        tcp_packet tcp_pkt{pkt};
+        tcp_packet tcp_pkt{pkt, &ip_pkt};
         if (!tcp_pkt.is_valid()) {
             return 0;  // incomplete tcp header; can't process packet
         }
@@ -572,19 +573,16 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
             if (selector.tcp_syn()) {
-                if (report_IP && global_vars.metadata_output) {
-                    // ip_pkt.write_json(record);  // TODO: move to end of function
-                }
                 x = tcp_pkt; // process tcp syn
             }
             // note: we could check for non-empty data field
 
-         } else if (tcp_pkt.is_SYN_ACK()) {
+        } else if (tcp_pkt.is_SYN_ACK()) {
             if (global_vars.output_tcp_initial_data) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
             if (report_SYN_ACK && selector.tcp_syn()) {
-                x = tcp_pkt;
+                x = tcp_pkt;  // process tcp syn/ack
             }
             // note: we could check for non-empty data field
 
@@ -792,7 +790,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     protocol x;
     uint8_t transport_proto = ip_pkt.transport_protocol();
     if (transport_proto == ip::protocol::tcp) {
-        tcp_packet tcp_pkt{pkt};
+        tcp_packet tcp_pkt{pkt, &ip_pkt};
         if (!tcp_pkt.is_valid()) {
             return 0;  // incomplete tcp header; can't process packet
          }

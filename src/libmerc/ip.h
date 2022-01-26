@@ -110,7 +110,8 @@ class ipv4_packet {
             //
             buf.write_char('(');
             if (header->id == 0) {
-                buf.raw_as_hex((const uint8_t *)&header->id, sizeof(header->id));
+                buf.write_char('0');
+                buf.write_char('0');
             }
             buf.write_char(')');
 
@@ -408,7 +409,8 @@ public:
             buf.write_char('(');
             uint32_t flow_label = header->flow_label();
             if (flow_label == 0) {
-                buf.raw_as_hex((const uint8_t *)&flow_label, sizeof(flow_label));  // TODO: we ought to print this as a 24-bit value
+                buf.write_char('0');
+                buf.write_char('0');
             }
             buf.write_char(')');
 
@@ -480,6 +482,21 @@ struct ip_pkt_write_fingerprint {
 
     void operator()(std::monostate &) {
     }
+};
+
+struct ip_pkt_fingerprint {
+    buffer_stream &buf;
+
+    ip_pkt_fingerprint(buffer_stream &b) : buf{b} {}
+
+    // fingerprinting
+    //
+    template <typename T>
+    void operator()(T &r) {
+        r.fingerprint(buf);
+    }
+
+    void operator()(std::monostate &) { }
 };
 
 class ip {
@@ -556,6 +573,10 @@ public:
 
     void write_fingerprint(json_object &o) {
         std::visit(ip_pkt_write_fingerprint{o}, packet);
+    }
+
+    void fingerprint(buffer_stream &buf) {
+        std::visit(ip_pkt_fingerprint{buf}, packet);
     }
 
     ip::protocol transport_protocol() {  // TODO: should be const

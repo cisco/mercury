@@ -359,9 +359,7 @@ void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) co
                     }
                 }
                 b.write_char(')');
-                // x.write_length(b);
-                // x.write_value(b);  // just dump the whole thing for now
-
+                b.write_char(')');
 
             } else {
                 b.write_char('(');
@@ -682,7 +680,9 @@ void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {
     } else {
         type = fingerprint_type_tls;
     }
-    fp.set(*this, type);
+    fp.set_type(type);
+    fp.add(*this);
+    fp.final();
 }
 
 bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {

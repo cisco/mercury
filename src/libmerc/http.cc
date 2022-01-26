@@ -261,7 +261,9 @@ void http_response::fingerprint(struct buffer_stream &buf) const {
 }
 
 void http_request::compute_fingerprint(struct fingerprint &fp) const {
-    fp.set(*this, fingerprint_type_http);
+    fp.set_type(fingerprint_type_http);
+    fp.add(*this);
+    fp.final();
 }
 
 struct datum http_headers::get_header(const std::basic_string<uint8_t> &location) {
@@ -307,7 +309,9 @@ struct datum http_headers::get_header(const std::basic_string<uint8_t> &location
 }
 
 void http_response::compute_fingerprint(struct fingerprint &fp) const {
-    fp.set(*this, fingerprint_type_http_server);
+    fp.set_type(fingerprint_type_http_server);
+    fp.add(*this);
+    fp.final();
 }
 
 struct datum http_request::get_header(const std::basic_string<uint8_t> &header_name) {
