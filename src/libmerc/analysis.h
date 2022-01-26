@@ -600,6 +600,13 @@ public:
         if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
             line_str.erase(line_str.length()-1);
         }
+        // if a fingerprint string does not contain a protocol name,
+        // add 'tls' in order to provide backwards compatibility with
+        // resource files with the older fingerprint format
+        //
+        if (line_str.at(0) == '(') {
+            line_str = "tls/" + line_str;
+        }
         //fprintf(stderr, "loading fp_prevalence_line '%s'\n", line_str.c_str());
         fp_prevalence.initial_add(line_str);
     }
@@ -624,6 +631,15 @@ public:
             if (std::find(fp_types.begin(), fp_types.end(), fp_type_code) == fp_types.end()) {
                 fp_types.push_back(fp_type_code);
             }
+        }
+
+        // if a TLS fingerprint string does not contain a protocol
+        // name, and is not 'randomized', add it in order to provide
+        // backwards compatibility with resource files with the older
+        // fingerprint format
+        //
+        if (fp_type_code == fingerprint_type_tls && fp_string.at(0) == '(') {
+            fp_string = "tls/" + fp_string;
         }
 
         uint64_t total_count = 0;
