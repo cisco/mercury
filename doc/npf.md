@@ -15,7 +15,7 @@ Network protocol fingerprinting is a form of pattern recognition that aims to id
 
 In this note, a fingerprint is a summarization of a packet that is characteristic of one or more implementations.  Selected bytes from the packet are copied into a fingerprint, after being normalized.  Each fingerprint type defines the byte strings that are extracted from the packet and how they are normalized.
 
-A fingerprint is formally defined an an ordered, multi-way tree of byte strings, where the tree corresponds to a parsing of a packet.  Balanced parenthesis are used to represent the tree structure, and hexadecimal is used to represent the byte strings.  Whenever possible, the byte substrings in the fingerprint correspond directly to byte substrings of the packet, to preserve information, and to aid implementation and debugging.  While it is necessary to define fingerprints in terms of protocol specifications,  this note aims to minimize dependencies on externally defined data formats.
+A fingerprint is formally defined as an ordered, multi-way tree of byte strings, where the tree corresponds to a parsing of a packet.  Balanced parenthesis are used to represent the tree structure, and hexadecimal is used to represent the byte strings.  Whenever possible, the byte substrings in the fingerprint correspond directly to byte substrings of the packet, to preserve information, and to aid implementation and debugging.  While it is necessary to define fingerprints in terms of protocol specifications,  this note aims to minimize dependencies on externally defined data formats.
 
 ## Definitions and Notation
 
@@ -27,13 +27,13 @@ When a byte string appears in a fingerprint, it is surrounded by parenthesis, su
 
 Contiguous sequences of similarly encoded elements, such as TCP Options or TLS Extensions, appear in many protocols, and are important in fingerprinting.  In NPF, those sequences are processed by handling each element in the sequence in the same way, and in the same order in which they appear in the packet.  This results in a (possibly sorted) list of strings, one for each element.
 
-A list, or a sorted list, may contain another list, or sorted list, as an element.  For example, `((ffa5)[(04)(05)(06)(07)(09)(0e)(0f)])` is a list consisting of the string `(ffa5)` followed by the sorted list `(04)(05)(06)(07)(09)(0e)(0f)]`.
+A list, or a sorted list, may contain another list, or sorted list, as an element.  For example, `((ffa5)[(04)(05)(06)(07)(09)(0e)(0f)])` is a list consisting of the string `(ffa5)` followed by the sorted list `[(04)(05)(06)(07)(09)(0e)(0f)]`.
 
 The *string representation* of a fingerprint is a printable string containing one or more elements, each of which is either a string, list, or sorted list.  The *hash representation* (see below) is computed by applying a cryptographic hash to this string.
 
 ### Functions
 
-Some fingerprint definitions make use of functions.  The function `MAP` takes as input a string S, and integer N, and a function F that accepts an N-byte string and returns another string, and returns the string formed by breaking S into N-byte values, applying F to each value, and concatenating the results.   For instance, given the function ODD defined by
+Some fingerprint definitions make use of functions.  The function `MAP` takes as input a string S, an integer N, and a function F that accepts an N-byte string and returns another string, and returns the string formed by breaking S into N-byte values, applying F to each value, and concatenating the results.   For instance, given the function ODD defined by
 
     ODD(x) = 0x01 if x is an odd number, and 0x00 otherwise,
 
@@ -73,7 +73,7 @@ Fingerprint rules and fingerprints are named using Uniform Resource Indicators (
 
 A fingerprint name is **fully qualified** if it includes a specification, a rule, and either a hash value or a string representation.
 
-NPF URIs can be used as components of HTTPS URIs; for instance, https://npf.org/tls/r1/cfb2a31d1f2142e5c163a5892e696334 can represent a resource with information about that fingerprint.  
+NPF URIs can be used as components of HTTPS URIs; for instance, https://npf.io/tls/r1/cfb2a31d1f2142e5c163a5892e696334 can represent a resource with information about that fingerprint.  
 
 The NPF URI scheme is formally defined as follows:
 
@@ -241,7 +241,7 @@ Several network fingerprinting systems are in use to recognize clients, servers,
 NPF's goals are:
 
 - to enable fingerprint systems to accommodate new protocol extensions and new protocol behaviors, while at the same time being backwards compatible with fingerprints generated according to older specifications, 
-- to make it easier to share and automatically process fingerprint data, by explicitly including metadata about protocols and specification versions in the fingerprint identifiers,
+- to make it easier to share and automatically process fingerprint data, by explicitly including metadata about protocols and specifying versions in the fingerprint identifiers,
 - to support partial matching as well as exact matching, and
 - to facilitate interoperability and exchange between different fingerprinting systems.
 
