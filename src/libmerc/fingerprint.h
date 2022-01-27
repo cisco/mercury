@@ -48,11 +48,11 @@ public:
         msg.fingerprint(fp_buf);
     }
 
-    // the function is_well_formed() checks the fingerprint in fp_buf
-    // and verifies that it consists of balanced parenthesis and
-    // even-numbered hex strings
+    // the function fingerprint_is_well_formed() checks the
+    // fingerprint in fp_buf and verifies that it consists of balanced
+    // parenthesis and even-numbered hex strings
     //
-    bool is_well_formed() {
+    bool fingerprint_is_well_formed() {
         std::vector<char> stack;
         const char *c = &fp_str[0];
 
@@ -82,9 +82,10 @@ public:
                 }
                 break;
             case ']':
-                if (stack.back() == ']') {
+                if (stack.back() == '[') {
                     stack.pop_back();
                 } else {
+                    fprintf(stderr, "error: expected ']', got %c\n", stack.back());
                     return false; // error
                 }
                 break;
@@ -95,12 +96,15 @@ public:
             }
             c++;
         }
+        if (stack.size() != 0) {
+            return false;
+        }
         return true;
     }
 
     void final() {
         fp_buf.write_char('\0'); // null-terminate
-        assert(("fingerprint is well-formed", is_well_formed()));
+        assert(fingerprint_is_well_formed());
     }
 
     bool is_null() const {

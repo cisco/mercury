@@ -661,12 +661,13 @@ void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
     /*
      * copy extensions vector
      */
-    buf.write_char('(');
-    if (is_quic_hello)
+    if (is_quic_hello) {
         extensions.fingerprint_quic_tls(buf, tls_role::client);
-    else
+    } else {
+        buf.write_char('(');
         extensions.fingerprint(buf, tls_role::client);
-    buf.write_char(')');
+        buf.write_char(')');
+    }
 }
 
 void tls_client_hello::fingerprint(struct buffer_stream &buf) const {

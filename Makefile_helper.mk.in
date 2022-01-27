@@ -23,7 +23,6 @@ CFLAGS += -O3
 CFLAGS += -Wall -Wpedantic -Wextra -Wno-deprecated $(CDEFS) $(MSV)
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
-CFLAGS += $(OPTFLAGS)
 
 # extra flags
 CFLAGS += -fno-rtti
@@ -45,5 +44,6 @@ ifeq ($(use_no_gnu_unique),yes)
 CFLAGS += -fno-gnu-unique
 endif
 
+CFLAGS += $(OPTFLAGS)
 
 # EOF
