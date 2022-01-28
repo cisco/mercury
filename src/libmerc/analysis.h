@@ -618,7 +618,16 @@ public:
         std::string fp_string;
         if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
             fp_string = fp["str_repr"].GetString();
-            //fprintf(stderr, "%s\n", fp_string.c_str());
+
+            if (fp_string.length() == 0) {
+                printf_err(log_warning, "ignoring zero-length fingerprint string in resource file\n");
+                return;  // can't process this entry, so skip it
+            }
+
+            if (fp_string.length() >= fingerprint::max_length()) {
+                printf_err(log_warning, "ignoring length %zu fingerprint string in resource file; too long\n", fp_string.length());
+                return;  // can't process this entry, so skip it
+            }
         }
 
         fingerprint_type fp_type_code = fingerprint_type_tls;

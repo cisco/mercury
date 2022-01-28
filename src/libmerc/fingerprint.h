@@ -146,6 +146,8 @@ public:
         fps.print_key_string(get_type_name(type), fp_str);
         fps.close();
     }
+
+    static size_t max_length() { return MAX_FP_STR_LEN; }
 };
 
 #endif // FINGERPRINT_H
