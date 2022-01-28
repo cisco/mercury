@@ -226,51 +226,6 @@ struct compute_fingerprint {
 
 };
 
-
-struct write_fingerprint {
-    struct json_object &record;
-
-    write_fingerprint(struct json_object &object) : record{object} {}
-
-    template <typename T>
-    void operator()(T &r) {
-        r.write_fingerprint(record);
-    }
-
-    void operator()(http_request &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("http", r);
-        fps.close();
-        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
-    }
-
-    void operator()(http_response &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("http_server", r);
-        fps.close();
-        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
-    }
-
-    void operator()(ssh_init_packet &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("ssh", r);
-        fps.close();
-    }
-
-    void operator()(ssh_kex_init &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("ssh_kex", r);
-        fps.close();
-    }
-
-    // these protocols are not fingerprinted
-    //
-    void operator()(wireguard_handshake_init &) { }
-    void operator()(unknown_initial_packet &) { }
-    void operator()(dns_packet &) { }
-    void operator()(std::monostate &) { }
-};
-
 struct do_analysis {
     const struct key &k_;
     struct analysis_context &analysis_;

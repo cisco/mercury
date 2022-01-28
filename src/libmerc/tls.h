@@ -357,8 +357,6 @@ struct tls_client_hello : public tcp_base_protocol {
 
     void fingerprint(struct buffer_stream &buf) const;
 
-    void write_fingerprint(struct buffer_stream &buf) const;
-
     void compute_fingerprint(struct fingerprint &fp) const;
 
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
@@ -586,14 +584,6 @@ public:
                 tls_server.close();
                 tls.close();
             }
-        }
-    }
-
-    void write_fingerprint(struct json_object &object) {
-        if (hello.is_not_empty()) {
-            struct json_object fps{object, "fingerprints"};
-            fps.print_key_value("tls_server", hello);
-            fps.close();
         }
     }
 
