@@ -46,6 +46,10 @@ for s in ${sites[@]}; do
 done
 echo "done $blank"
 
+# run some tools
+#
+apt-get download g++
+
 # verify that output JSON file is valid
 cat intercept.json | jq . > /dev/null
 
