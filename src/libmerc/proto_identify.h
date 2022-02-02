@@ -133,7 +133,7 @@ public:
 
     bool mdns() const { return select_mdns; }
 
-    traffic_selector(const char *config_string) : tcp{}, udp{}, select_tcp_syn{false} {
+    traffic_selector(const char *config_string) : tcp{}, udp{}, select_tcp_syn{false}, select_mdns{false} {
 
         if (static_selector_string) {
             config_string = static_selector_string;

@@ -23,7 +23,7 @@ class icmp_echo {
     datum data;
 
 public:
-    icmp_echo() { }
+    icmp_echo() : identifier{0}, sequence_number{0} { }
 
     void parse(datum &d) {
         d.read_uint16(&identifier);
@@ -79,7 +79,7 @@ class icmp_packet_too_big {
     datum original_datagram;
 
 public:
-    icmp_packet_too_big() { }
+    icmp_packet_too_big() : mtu{0} { }
 
     void parse(datum &d) {
         d.read_uint32(&mtu);

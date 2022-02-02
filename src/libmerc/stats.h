@@ -164,27 +164,35 @@ public:
         }
 
         // output unique elements
+        int gz_ret = 1;
         switch(num_matching) {
         case 0:
             if (!first_loop) {
-                gzprintf(gzf, "}]}]}\n");
+                gz_ret = gzprintf(gzf, "}]}]}\n");
             }
-            gzprintf(gzf, "{\"src_ip\":\"%s\",\"fingerprints\":[{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[0], v[1], v[2], count);
+            if (gz_ret <= 0)
+                throw std::runtime_error("error in gzprintf");
+            gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\",\"fingerprints\":[{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[0], v[1], v[2], count);
             break;
         case 1:
-            gzprintf(gzf, "}]},{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1], v[2], count);
+            gz_ret = gzprintf(gzf, "}]},{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1], v[2], count);
             break;
         case 2:
-            gzprintf(gzf, "},{\"dst\":\"%s\",\"count\":%u", v[2], count);
+            gz_ret = gzprintf(gzf, "},{\"dst\":\"%s\",\"count\":%u", v[2], count);
             break;
         default:
             ;
         }
         first_loop = false;
-
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
     }
 
-    void process_final() { gzprintf(gzf, "}]}]}\n"); }
+    void process_final() {
+        int gz_ret = gzprintf(gzf, "}]}]}\n");
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
+    }
 
 };
 

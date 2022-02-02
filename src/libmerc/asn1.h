@@ -354,6 +354,7 @@ struct tlv {
 
         if (p->data == NULL) {
             handle_parse_error("warning: NULL data", tlv_name ? tlv_name : "unknown TLV");
+            return;
         }
         if (p->length() < 2) {
             p->set_empty();  // parser is no longer good for reading

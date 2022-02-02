@@ -183,7 +183,7 @@ static inline int append_raw_as_hex(char *dstr, int *doff, int dlen, int *trunc,
         outb[oi]     = hex_table[(data[i] & 0xf0) >> 4];
         outb[oi + 1] = hex_table[data[i] & 0x0f];
 
-        if (oi < 254) {
+        if (oi < 253) {
             oi += 2;
         } else {
             r += append_memcpy(dstr, doff, dlen, trunc,
@@ -667,7 +667,7 @@ static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *tru
         outb[oi + 2] = encoding_table[(trip >> (1 * 6)) & 0x3F];
         outb[oi + 3] = encoding_table[(trip >> (0 * 6)) & 0x3F];
 
-        if (oi < 252) {
+        if (oi < 249) {
             oi += 4;
         } else {
             r += append_memcpy(dstr, doff, dlen, trunc,
