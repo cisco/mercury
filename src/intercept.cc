@@ -782,7 +782,7 @@ public:
     //
     enum data_level { minimal_data = 0, full_data=1 };
 
-    enum data_level output_level = full_data;
+    enum data_level output_level = minimal_data;
 
     intercept(output::type out_type) : pid{getpid()}, ppid{getppid()}, out{nullptr} {
 
@@ -804,9 +804,6 @@ public:
         const char *intercept_output_level = getenv("intercept_output_level");
         if (intercept_output_level && strcmp(intercept_output_level, "full") == 0) {
             output_level = full_data;
-        }
-        if (intercept_output_level && strcmp(intercept_output_level, "minimal") == 0) {
-            output_level = minimal_data;
         }
 
         // set cmd and pcmd
@@ -1084,7 +1081,7 @@ public:
         }
     }
 
-    void process_http_request(int fd, const uint8_t *data, ssize_t length);
+    void process_http_request(const uint8_t *data, ssize_t length);
 
     void process_tls_client_hello(int fd, const uint8_t *data, ssize_t length);
 
@@ -1094,33 +1091,25 @@ public:
 // high level functions for processing network traffic
 //
 
-void intercept::process_http_request(int fd, const uint8_t *data, ssize_t length) {
+#if 0
+void intercept::process_http_request(const uint8_t *data, ssize_t length) {
     struct datum tcp_data{data, data+length};
-    struct http_request http_req{tcp_data};
-    if (http_req.is_not_empty()) {  // TODO: improve is_not_empty() with method check
+    struct http_request http_req;
+    http_req.parse(tcp_data);
+    if (http_req.is_not_empty() && isalnum(data[0])) {  // TODO: improve is_not_empty() with method check
 
         char buffer[buffer_length];
         struct buffer_stream buf(buffer, sizeof(buffer));
         struct json_object record{&buf};
-
-        // write pid into record
-        write_process_info(record, output_level);
-        record.print_key_uint("fd", fd);
-        write_flow_key(record, fd);
-
-        // write fingerprint into record
-        struct fingerprint fp;
-        http_req.compute_fingerprint(fp);
-        fp.write(record);
         http_req.write_json(record, true);
-
         record.close();
+        write_buffer_to_file(buf, outfile);
 
     } else {
         if (verbose) { fprintf(stderr, RED(tty, "http_request unrecognized\n")); }
     }
 }
-
+#endif
 void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t length) {
 
     if (length > 2 && data[0] == 0x16 && data[1] == 0x03) {
@@ -1160,7 +1149,6 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
 
 void intercept::process_outbound(int fd, const uint8_t *data, ssize_t length) {
     process_tls_client_hello(fd, data, length);
-    process_http_request(fd, data, length);
 }
 
 
