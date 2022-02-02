@@ -2,13 +2,32 @@
 
 include ../Makefile_helper.mk
 
-LIBMERC_FOLDER = ../src/libmerc/
-LIBMERC_SO = $(LIBMERC_FOLDER)libmerc.so
+export LD_LIBRARY_PATH =../src/libmerc
 
+LIBMERC_FOLDER = ../src/libmerc/
+LIBMERC_DEBUG_FOLDER = ./debug-libs/
+LIBMERC_SO = $(LIBMERC_FOLDER)libmerc.so
+LIBMERC_SO_tls = $(LIBMERC_DEBUG_FOLDER)libmerc_tls.so
+LIBMERC_SO_multiprotocol = $(LIBMERC_DEBUG_FOLDER)libmerc_multiprotocol.so
 UNIT_TESTS = catch2main.cc
-UNIT_TESTS += libmerc_driver.cc
+UNIT_TESTS += ../src/pcap_file_io.c
+UNIT_TESTS += libmerc_driver_helper.cc
+UNIT_TESTS += libmerc_fixture.cc
 
 UNIT_TESTS_H = catch.hpp
+UNIT_TESTS_H += libmerc_driver_helper.hpp
+UNIT_TESTS_H += libmerc_api.hpp
+UNIT_TESTS_H += libmerc_fixture.h
+
+UNIT_TESTS_TLS_ONLY = $(UNIT_TESTS)
+UNIT_TESTS_TLS_ONLY += general_info_test.cc
+UNIT_TESTS_TLS_ONLY += libmerc_flow_test.cc
+UNIT_TESTS_TLS_ONLY += libmerc_tlsdb_test.cc
+UNIT_TESTS_TLS_ONLY += libmerc_driver.cc
+
+UNIT_TESTS_TLS_HTTP_QUIC = $(UNIT_TESTS)
+UNIT_TESTS_TLS_HTTP_QUIC += libmerc_dbmultiprotocol_test.cc
+UNIT_TESTS_TLS_HTTP_QUIC += performance_test.cc
 
 # implicit rules for building object files from .cc files
 %.o: %.cc
@@ -16,37 +35,87 @@ UNIT_TESTS_H = catch.hpp
 
 # target to build all executables
 #
-all: libmerc_driver pdu_verifier
+all: libmerc_driver_tls_only libmerc_driver_multiprotocol
 
-libmerc_driver: debug-libmerc $(UNIT_TESTS) $(LIBMERC_SO) Makefile.in $(UNIT_TESTS_H)
-	$(CXX) $(CFLAGS) -I../src/libmerc $(UNIT_TESTS) -pthread -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz -o libmerc_driver
+libmerc_driver_tls_only: debug-libmerc-tls $(UNIT_TESTS_TLS_ONLY) Makefile.in $(UNIT_TESTS_H)
 	@echo "creating copy of libmerc.so for testing purposes"
-	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
-
-libmerc_driver_coverage: debug-libmerc $(UNIT_TESTS) $(LIBMERC_SO) Makefile.in $(UNIT_TESTS_H)
-	$(CXX) $(CFLAGS) $(UNIT_TESTS) -pthread -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage -o libmerc_driver
+	cp $(LIBMERC_SO) $(LIBMERC_SO_tls)
+	mv $(LIBMERC_SO) $(LIBMERC_SO_tls).alt
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_tls)\"" -fsanitize=address -lasan -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_tls) -lcrypto -ldl -lz
+	
+libmerc_driver_multiprotocol: debug-libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) Makefile.in $(UNIT_TESTS_H)
 	@echo "creating copy of libmerc.so for testing purposes"
-	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
+	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)
+	mv $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol).alt
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" -fsanitize=address -lasan -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz
 
-pdu_verifier: pdu_verifier.cc
+
+libmerc_driver_coverage: libmerc_driver_multiprotocol_coverage libmerc_driver_tls_coverage
+
+libmerc_driver_tls_coverage: debug-libmerc_tls_gcov $(UNIT_TESTS_TLS_ONLY) Makefile.in $(UNIT_TESTS_H)
+	@echo "creating copy of libmerc.so for testing purposes"
+	cp $(LIBMERC_SO) $(LIBMERC_SO_tls)
+	mv $(LIBMERC_SO) $(LIBMERC_SO_tls).alt
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_tls)\"" -fsanitize=address -lasan -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_tls) -lcrypto -ldl -lz --coverage
+	
+libmerc_driver_multiprotocol_coverage: debug-libmerc_gcov $(UNIT_TESTS_TLS_HTTP_QUIC) Makefile.in $(UNIT_TESTS_H)
+	@echo "creating copy of libmerc.so for testing purposes"
+	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)
+	mv $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol).alt
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" -fsanitize=address -lasan -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz --coverage
+
+pdu_verifier: debug-libmerc pdu_verifier.cc
 	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc pdu_verifier.cc ./../src/pcap_file_io.c -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz -o pdu_verifier
+
+.PHONY: debug-libmerc_tls_gcov
+debug-libmerc_tls_gcov:
+	mkdir -p $(LIBMERC_DEBUG_FOLDER)
+	cd ../src && $(MAKE) OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls.client_hello\"' debug-libmerc_gcov
+
+.PHONY: debug-libmerc_gcov
+debug-libmerc_gcov: 
+	mkdir -p $(LIBMERC_DEBUG_FOLDER)
+	cd ../src && $(MAKE) debug-libmerc_gcov
 
 .PHONY: debug-libmerc
 debug-libmerc:
+	mkdir -p $(LIBMERC_DEBUG_FOLDER)
 	cd ../src && $(MAKE) debug-libmerc
 
+.PHONY: debug-libmerc-tls
+debug-libmerc-tls:
+	mkdir -p $(LIBMERC_DEBUG_FOLDER)
+	cd ../src && $(MAKE) OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls.client_hello\"' debug-libmerc
+
+.PHONY: nfs-download
+nfs-download:
+	cp /nfs/QA/Mercury/pcap/ ./pcaps/
+
+.PHONY: divide-pcap
+divide-pcap: nfs-download
+	cd ../src && $(MAKE) pcap_filter
+	cp ./../src/pcap_filter ./../unit_tests/pcaps/
+	cd ./pcaps/ && ./pcap_filter --input ./capture2.pcap --output capture2
 
 .PHONY: perfect-hash-test
 perfect-hash-test:
 	$(CXX) $(CFLAGS) -I ../src/libmerc ph_driver.cc -o ph_driver
 	./ph_driver | grep -e 'Unordered Map lookup' -e 'Perfect Hash generation table' -e 'Perfect Hash lookup' -e 'failed' -e 'Perfect Hash.' -e 'Unordered Map.'
 
+.PHONY: run
+run:
+	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_tls_only -s
+	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_multiprotocol -s
+
 .PHONY: clean
 clean:
-	rm -rf libmerc_driver
+	rm -rf libmerc_driver_multiprotocol
+	rm -rf libmerc_driver_tls_only
 	rm -rf pdu_verifier
-	rm -rf ph_driver
 	rm -rf *.json.gz
+	rm -rf $(LIBMERC_DEBUG_FOLDER)
 	find -type f -name "*.gcno" -delete
 	find -type f -name "*.gcda" -delete
 	find -type f -name "*.gcov" -delete

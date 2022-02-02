@@ -89,7 +89,7 @@ else
 endif
 
 .PHONY: test_libmerc_so
-test_libmerc_so: libmerc_driver # pdu_test
+test_libmerc_so: libmerc_driver_tls_only libmerc_driver_multiprotocol # pdu_test
 
 .PHONY: pdu_test
 pdu_test:
@@ -98,7 +98,7 @@ pdu_test:
 .PHONY: libmerc_driver
 libmerc_driver:
 	@echo "running unit tests"
-	cd ../unit_tests/; ./libmerc_driver -s
+	cd ../unit_tests && $(MAKE) run
 
 .PHONY: json-validity-test
 json-validity-test:
