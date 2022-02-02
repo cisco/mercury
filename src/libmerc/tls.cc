@@ -642,7 +642,7 @@ void tls_client_hello::write_json(struct datum &data, struct json_object &record
     hello.write_json(record, output_metadata);
 }
 
-void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
+void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
     if (is_not_empty() == false) {
         return;
     }
@@ -668,10 +668,6 @@ void tls_client_hello::write_fingerprint(struct buffer_stream &buf) const {
         extensions.fingerprint(buf, tls_role::client);
         buf.write_char(')');
     }
-}
-
-void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
-    write_fingerprint(buf);
 }
 
 void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {

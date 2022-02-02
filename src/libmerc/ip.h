@@ -95,11 +95,6 @@ class ipv4_packet {
 
     // fingerprinting
     //
-    void write_fingerprint(json_object &o) {
-        if (header) {
-            o.print_key_value("ip", *this);
-        }
-    }
     void fingerprint (struct buffer_stream &buf) {
         if (header) {
             // version
@@ -392,11 +387,6 @@ public:
 
     // fingerprinting
     //
-    void write_fingerprint(json_object &o) {
-        if (header) {
-            o.print_key_value("ip", *this);
-        }
-    }
     void fingerprint (struct buffer_stream &buf) {
         if (header) {
 
@@ -462,22 +452,6 @@ struct ip_pkt_write_json {
     template <typename T>
     void operator()(T &r) {
         r.write_json(json_record);
-    }
-
-    void operator()(std::monostate &) {
-    }
-};
-
-struct ip_pkt_write_fingerprint {
-    struct json_object &json_record;
-
-    ip_pkt_write_fingerprint(json_object &record) : json_record{record} {}
-
-    // fingerprinting
-    //
-    template <typename T>
-    void operator()(T &r) {
-        r.write_fingerprint(json_record);
     }
 
     void operator()(std::monostate &) {
@@ -569,10 +543,6 @@ public:
 
     void write_json(json_object &o) {
         std::visit(ip_pkt_write_json{o}, packet);
-    }
-
-    void write_fingerprint(json_object &o) {
-        std::visit(ip_pkt_write_fingerprint{o}, packet);
     }
 
     void fingerprint(buffer_stream &buf) {
