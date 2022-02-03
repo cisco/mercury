@@ -22,9 +22,9 @@ extern unsigned char unlabeled_data[];
 extern unsigned char client_hello_no_server_name_eth[];
 extern unsigned char firefox_client_hello_eth[];
 extern int verbosity;
-extern char * default_resources_path;
-extern char * resources_lite_path;
-extern char * resources_mp_path;
+extern char default_resources_path[];
+extern char resources_lite_path[];
+extern char resources_mp_path[];
 extern const char * path_to_libmerc_library;
 extern const char * path_to_libmerc_alt_library;
 /*variables end*/

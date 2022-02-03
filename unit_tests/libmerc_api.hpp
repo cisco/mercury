@@ -38,9 +38,9 @@ struct libmerc_api {
 
     libmerc_api(const char *lib_path) {
         if (bind(lib_path) != 0) {
-            printf(lib_path);  
-            printf("\n");          
-            throw std::runtime_error("error: could not initialize libmerc_api");
+            std::string err = "error: could not initialize libmerc_api on lib_path ";
+            err.append(lib_path);
+            throw std::runtime_error(err.c_str());
         }
     }
 

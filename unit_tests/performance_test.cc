@@ -24,7 +24,7 @@ SCENARIO("test single packet http analysis and performance") {
     libmerc_config config = create_config();
     config.do_analysis = true;
     config.metadata_output = true;
-    config.packet_filter_cfg = "http";
+    config.packet_filter_cfg = (char *)"http";
     mercury_context mc = initialize_mercury(config);
     mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
 
@@ -33,7 +33,9 @@ SCENARIO("test single packet http analysis and performance") {
 
     const analysis_context* a;
 
-    BENCHMARK("performance of 10 http context lookups")
+    // TODO: fix this code to work with catch.hpp version 2.13.8
+    //
+    //    BENCHMARK("performance of 10 http context lookups")
     {
         for(size_t i = 0; i < 10; i++)
         {

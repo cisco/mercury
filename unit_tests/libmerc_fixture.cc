@@ -74,7 +74,10 @@ void LibmercTestFixture::set_pcap(const char * fname)
     if(m_pcap_file_name) free(m_pcap_file_name);
 
     const char pcap_f[9] = "./pcaps/";
-    asprintf(&m_pcap_file_name, "%s%s", pcap_f, fname);
+    if (asprintf(&m_pcap_file_name, "%s%s", pcap_f, fname) < 0) {
+        fprintf(stderr, "error in asprintf in %s\n", __func__);
+        return; // TODO: indicate error
+    }
 
     printf("\n\n%s\n\n", m_pcap_file_name);
     
