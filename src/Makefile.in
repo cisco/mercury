@@ -80,7 +80,7 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: compiler_version mercury libmerc_test cert_analyze libmerc_util # tls_scanner batch_gcd
+all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
 # this so that it is present in e.g. Jenkins logs
@@ -155,6 +155,9 @@ stripped-libmerc:
 
 libmerc_util: libmerc_util.cc libmerc_api.h
 	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -lasan -pthread -ldl -std=c++17 -o libmerc_util
+
+intercept_server: intercept_server.cc
+	$(CXX) $(CFLAGS) intercept_server.cc -std=c++17 -o intercept_server
 
 tls_scanner: tls_scanner.cc libmerc
 	$(CXX) $(CFLAGS) tls_scanner.cc libmerc/libmerc.a -pthread -lssl -lcrypto -lz -o tls_scanner

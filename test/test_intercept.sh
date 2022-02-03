@@ -42,12 +42,18 @@ echo "testing intercept.so library for plaintext interception"
 
 # set up shell variables, and change working directory
 #
+export intercept_output_type="daemon"
 export intercept_output_level="full"
 intercept_dir=`pwd`/tmpdir
 LD_PRELOAD=`pwd`/../src/intercept.so
 mkdir $intercept_dir
 echo "using output directory $intercept_dir"
 cd $intercept_dir
+
+# start intercept_server, to collect output and write it to the file
+# intercept.json
+#
+../../src/intercept_server intercept.json & echo $! > intercept_server.PID
 
 # verify that library is present
 #
@@ -103,6 +109,13 @@ else
     exit 1
 fi
 
+# shut down intercept_server
+#
+while kill -s INT `cat intercept_server.PID`; do echo "waiting for intercept_server to halt"; sleep 1; done
+rm intercept_server.PID
+
+# back to original directory
+#
 cd ..
 
 # remove or retain the tmpdir/ directory, based on command line option

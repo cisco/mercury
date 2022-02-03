@@ -77,6 +77,12 @@
 #include <arpa/inet.h>
 #include <openssl/ssl.h>
 
+// for daemon_output
+//
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
 
 // Macros to colorize output
 //
@@ -548,8 +554,6 @@ public:
     }
 };
 
-
-
 struct http_request_x : public http_request {
     struct datum trailing_data;
 
@@ -627,7 +631,7 @@ public:
     virtual void write_buffer(struct buffer_stream &buf) = 0;
     virtual ~output() {};
 
-    enum type { unknown=0, file, log };
+    enum type { unknown=0, file, log, daemon };
 
     static enum output::type get_type(const char *type_string) {
         if (type_string == nullptr) {
@@ -639,6 +643,9 @@ public:
         }
         if (s.compare("log") == 0) {
             return output::type::log;
+        }
+        if (s.compare("daemon") == 0) {
+            return output::type::daemon;
         }
         return output::type::unknown;
     }
@@ -759,6 +766,39 @@ struct syslog_output : public output {
 };
 
 
+struct daemon_output : public output {
+    int sock;
+    struct sockaddr_un name;
+    static constexpr const char *socket_name = "/tmp/intercept.socket";
+
+    daemon_output() {
+
+        // create socket and name
+        //
+        sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+        if (sock < 0) {
+            perror("opening datagram socket");
+        }
+        name.sun_family = AF_UNIX;
+        strcpy(name.sun_path, socket_name);
+
+    }
+    void write_buffer(struct buffer_stream &buf) {
+
+        buf.write_char('\0');
+        if (sendto(sock, buf.dstr, buf.length(), 0,
+                   (const sockaddr *)&name, sizeof(struct sockaddr_un)) < 0) {
+            perror("sending datagram message");
+        }
+
+    };
+
+    ~daemon_output() {
+        close(sock);
+    }
+};
+
+
 
 // class intercept controls the behavior of this library; you can
 // define totally new behavior by defining a class that inherits from
@@ -793,6 +833,9 @@ public:
         switch(out_type) {
         case output::type::log:
             out = new syslog_output;
+            break;
+        case output::type::daemon:
+            out = new daemon_output;
             break;
         case output::type::file:
         default:
@@ -890,7 +933,10 @@ public:
         }
     }
 
-    void process_outbound(int fd, const uint8_t *data, ssize_t length);
+    void process_outbound(int fd, const uint8_t *data, ssize_t length) {
+        process_tls_client_hello(fd, data, length);
+        process_http_request(fd, data, length);
+    }
 
     void process_outbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
 
@@ -1156,11 +1202,6 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             out->write_buffer(buf);
         }
     }
-}
-
-void intercept::process_outbound(int fd, const uint8_t *data, ssize_t length) {
-    process_tls_client_hello(fd, data, length);
-    process_http_request(fd, data, length);
 }
 
 
