@@ -71,18 +71,22 @@ short_list_sites=(www.google.com)
 export intercept_dir
 export LD_PRELOAD
 
+run() {
+    "$1" "${@:2}" >> "$1".txt 2>&1 & echo $! > "$1".PID && sleep 5 && kill $(cat "$1".PID); rm "$1".PID
+}
+
 # loop over sites
 #
 echo "looping over all web servers"
 blank="                                                       "
 for s in ${short_list_sites[@]}; do
     echo -ne "visiting $s $blank \r\c" >> /dev/stderr
-    wget --prefer-family=IPv6 https://$s >> wget-output.txt 2>&1
-    curl --verbose https://$s > $s.curl >> curl-output.txt 2>&1
-    firefox https://$s       >> firefox-output.txt 2>&1
-    google-chrome https://$s >> google-chrome.txt 2>&1
-    epiphany https://$s      >> epiphany.txt 2>&1
-    konqueror https://$s     >> epiphany.txt 2>&1
+    run wget --prefer-family=IPv6 https://$s  &
+    run curl --verbose https://$s > $s.curl   &
+    run firefox https://$s                    &
+    run google-chrome https://$s              &
+    run epiphany https://$s                   &
+    run konqueror https://$s                  &
 done
 echo "done $blank"
 
@@ -98,7 +102,7 @@ export LD_PRELOAD=""
 # verify that output JSON file is valid, after a pause to give JSON
 # output time to get into file
 #
-sleep 2
+sleep 5
 cat intercept.json | jq . > /dev/null
 retval=$?
 if [ retval==0 ]; then
@@ -111,7 +115,7 @@ fi
 
 # shut down intercept_server
 #
-while kill -s INT `cat intercept_server.PID`; do echo "waiting for intercept_server to halt"; sleep 1; done
+kill -s INT `cat intercept_server.PID`
 rm intercept_server.PID
 
 # back to original directory
