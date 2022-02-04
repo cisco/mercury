@@ -102,8 +102,11 @@ export LD_PRELOAD=""
 # verify that output JSON file is valid, after a pause to give JSON
 # output time to get into file
 #
-sleep 5
-cat intercept.json | jq . > /dev/null
+# note: the sleep interval used below should exceed that used in the
+# 'run' function above
+#
+sleep 7
+jq . intercept.json > /dev/null
 retval=$?
 if [ retval==0 ]; then
     echo "intercept JSON output is valid"
