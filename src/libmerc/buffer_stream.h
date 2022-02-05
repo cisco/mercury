@@ -431,9 +431,149 @@ static inline int append_uint32_hex(char *dstr, int *doff, int dlen, int *trunc,
     return r;
 }
 
+// ipv6 address textual representation based on RFC 5952, Section 4
+// https://www.rfc-editor.org/rfc/rfc5952#section-4
+//
+//  * the leading zeros of each 16-bit field MUST be suppressed
+//
+//  * the use of the symbol "::" MUST be used to its maximum capability.
+//
+//  * the symbol "::" MUST NOT be used to shorten just one 16-bit 0 field.
+//
+//  * when there is an alternative choice in the placement of a "::",
+//    the longest run of consecutive 16-bit 0 fields MUST be
+//    shortened.  When the length of the consecutive 16-bit 0 fields
+//    are equal (i.e., 2001:db8:0:0:1:0:0:1), the first sequence of
+//    zero bits MUST be shortened.  For example, 2001:db8::1:0:0:1 is
+//    correct representation.
+//
+//  test cases:
+//
+//    2604:2dc0:0100:2393:0000:0000:0000:0000 -> 2604:2dc0:100:2393::
 
 static inline int append_ipv6_addr(char *dstr, int *doff, int dlen, int *trunc,
                                     const uint8_t *v6) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outbuf[(4 * 8) + (1 * 7)]; /* 8 groups of 4 hex chars; 7 colons */
+    char *outs = outbuf;
+
+    // find the longest run of consecutive zero fields; if there are
+    // two zero-runs of equal length, find the leftmost
+    //
+    uint16_t *u = (uint16_t *)v6;  // array of eight uint16_t
+    uint16_t *u_end = u + 8;
+    uint16_t *run = nullptr;
+    unsigned int run_len = 0;
+    uint16_t *longest_run = nullptr;
+    unsigned int longest_run_len = 0;
+    while (u < u_end) {
+        if (*u == 0) {
+            if (run_len == 0) {  // starting new run
+                run = u;
+            }
+            run_len++;
+        } else {
+            if (run_len != 0) {  // ending run
+                if (longest_run_len < run_len) {
+                    longest_run_len = run_len;
+                    longest_run = run;
+                    run_len = 0;
+                }
+            }
+        }
+        u++;
+    }
+    if (longest_run_len < run_len) {
+        longest_run_len = run_len;
+        longest_run = run;
+    }
+    if (longest_run_len == 1) { // dont compress length=1 runs
+        longest_run_len = 0;
+        longest_run = u;
+    }
+
+    // print out the fields before and after the longest run, with a
+    // pair of colons in the middle; if there is no run, then just
+    // print out all fields with colons between them
+    //
+    u = (uint16_t *)v6;         // rewind to start of address
+    while (u < longest_run) {
+
+        // write out *u in the fewest hex characters possible
+        //
+        uint8_t *v = (uint8_t *)u++;
+        int num_out_chars = 1;
+        if (v[0] & 0xf0) {
+            num_out_chars = 4;
+        } else if (v[0] & 0x0f) {
+            num_out_chars = 3;
+        } else if (v[1] & 0xf0) {
+            num_out_chars = 2;
+        }
+        switch (num_out_chars) {
+        case 4:
+            *outs++ = hex_table[(v[0] & 0xf0) >> 4];      [[fallthrough]];
+        case 3:
+            *outs++ = hex_table[v[0] & 0x0f];             [[fallthrough]];
+        case 2:
+            *outs++ = hex_table[(v[1] & 0xf0) >> 4];      [[fallthrough]];
+        case 1:
+        default:
+            *outs++ = hex_table[v[1] & 0x0f];
+        }
+        if (u != longest_run) {
+            *outs++ = ':';
+        }
+    }
+    u += longest_run_len;
+    if (longest_run_len != 0) {
+        *outs++ = ':';
+        *outs++ = ':';
+    }
+    if (u < u_end) {
+        while (u < u_end) {
+
+            // write out *u in the fewest hex characters possible
+            //
+            uint8_t *v = (uint8_t *)u++;
+            int num_out_chars = 1;
+            if (v[0] & 0xf0) {
+                num_out_chars = 4;
+            } else if (v[0] & 0x0f) {
+                num_out_chars = 3;
+            } else if (v[1] & 0xf0) {
+                num_out_chars = 2;
+            }
+            switch (num_out_chars) {
+            case 4:
+                *outs++ = hex_table[(v[0] & 0xf0) >> 4];      [[fallthrough]];
+            case 3:
+                *outs++ = hex_table[v[0] & 0x0f];             [[fallthrough]];
+            case 2:
+                *outs++ = hex_table[(v[1] & 0xf0) >> 4];      [[fallthrough]];
+            case 1:
+            default:
+                *outs++ = hex_table[v[1] & 0x0f];
+            }
+            if (u != u_end) {
+                *outs++ = ':';
+            }
+        }
+    }
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outbuf, outs - outbuf);
+
+    return r;
+}
+
+static inline int append_ipv6_addr_uncompressed(char *dstr, int *doff, int dlen, int *trunc,
+                                       const uint8_t *v6) {
 
     if (*trunc == 1) {
         return 0;
