@@ -17,23 +17,25 @@ tlds = set([])
 if os.name == 'nt':
     import gzip
     public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
-    for line in gzip.open(public_suffix_file_raw, 'r'):
-        line = line.strip()
-        if line.startswith(b'//') or line == b'':
-            continue
-        if line.startswith(b'*'):
-            line = line[2:]
-        tlds.add(line.decode())
+    if public_suffix_file_raw != None:
+        for line in gzip.open(public_suffix_file_raw, 'r'):
+            line = line.strip()
+            if line.startswith(b'//') or line == b'':
+                continue
+            if line.startswith(b'*'):
+                line = line[2:]
+            tlds.add(line.decode())
 else:
     public_suffix_file_raw = find_resource_path('resources/public_suffix_list.dat.gz')
-    cmd = 'gzcat' if sys.platform == 'darwin' else 'zcat'
-    for line in os.popen(cmd + ' %s' % (public_suffix_file_raw)):
-        line = line.strip()
-        if line.startswith('//') or line == '':
-            continue
-        if line.startswith('*'):
-            line = line[2:]
-        tlds.add(line)
+    if public_suffix_file_raw != None:
+        cmd = 'gzcat' if sys.platform == 'darwin' else 'zcat'
+        for line in os.popen(cmd + ' %s' % (public_suffix_file_raw)):
+            line = line.strip()
+            if line.startswith('//') or line == '':
+                continue
+            if line.startswith('*'):
+                line = line[2:]
+            tlds.add(line)
 
 
 

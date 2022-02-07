@@ -17,7 +17,7 @@ def parse_config(f_):
     protocols = set(['http','http_server'])
 
     config_file = find_resource_path(f_)
-    if not os.path.exists(config_file):
+    if config_file == None or not os.path.exists(config_file):
         return None
 
     with open(config_file, 'r') as yaml_cfg:

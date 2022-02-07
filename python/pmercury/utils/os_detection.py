@@ -31,7 +31,8 @@ class OSDetection:
         self.fingerprint_db_http = self.read_db('resources/fingerprint-db-http-os.json.gz')
 
         coef, intc, labels, self.os_map, self.os_len = self.get_model('resources/os_detection_model.json')
-        self.clf = clf = LogR(coef, intc, labels)
+        if coef != None:
+            self.clf = clf = LogR(coef, intc, labels)
 
 
     def classify(self, fps):
@@ -49,9 +50,10 @@ class OSDetection:
     def read_db(self, fname):
         fname = find_resource_path(fname)
         db = {}
-        for line in gzip.open(fname):
-            fp = json.loads(line)
-            db[fp['str_repr']] = fp
+        if fname != None:
+            for line in gzip.open(fname):
+                fp = json.loads(line)
+                db[fp['str_repr']] = fp
         return db
 
 
@@ -63,11 +65,13 @@ class OSDetection:
 
     def get_model(self, path):
         path = find_resource_path(path)
-        for line in open(path):
-            model = json.loads(line)
-            break
-
-        return model['coefficients'], model['intercepts'], model['labels'], model['os_map'], model['os_len']
+        if path != None:
+            for line in open(path):
+                model = json.loads(line)
+                break
+            return model['coefficients'], model['intercepts'], model['labels'], model['os_map'], model['os_len']
+        else:
+            return None, None, None, None, None
 
 
     def update_sample(self, sample, str_repr, fp_type):

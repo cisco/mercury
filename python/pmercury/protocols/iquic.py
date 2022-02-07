@@ -216,13 +216,13 @@ class IQUIC(Protocol):
             quic_crypto_data[5] >  0x03):
             return None, None
 
-        fp_, context = TLS.fingerprint(bytes.fromhex('1603030000') + quic_crypto_data, 0, len(quic_crypto_data)+5)
+        fp_, context = TLS.fingerprint(bytes.fromhex('1603030000') + quic_crypto_data, 0, len(quic_crypto_data)+5, quic=True)
         if fp_ == None:
             return None, None
 
         quic_version = encrypted_data[1:5].hex()
 
-        return '('+quic_version+')'+fp_, context
+        return 'quic/('+quic_version+')'+fp_.replace('tls/',''), context
 
 
     def get_human_readable(self, fp_str_):

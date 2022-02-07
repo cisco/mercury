@@ -16,8 +16,11 @@ from pmercury.utils.pmercury_utils import *
 from pmercury.utils.os_detection import *
 
 strong_domains_file = find_resource_path('resources/domain_indicators.json.gz')
-with gzip.open(strong_domains_file) as in_:
-    strong_domains = json.loads(in_.readline())
+if strong_domains_file != None:
+    with gzip.open(strong_domains_file) as in_:
+        strong_domains = json.loads(in_.readline())
+else:
+    strong_domains = {}
 
 os_model = OSDetection()
 
