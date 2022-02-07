@@ -154,7 +154,7 @@ stripped-libmerc:
 	$(MAKE) -j --directory=libmerc stripped-libmerc.so
 
 libmerc_util: libmerc_util.cc libmerc_api.h
-	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -lasan -pthread -ldl -std=c++17 -o libmerc_util
+	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -fsanitize=address -pthread -ldl -std=c++17 -o libmerc_util
 
 intercept_server: intercept_server.cc
 	$(CXX) $(CFLAGS) intercept_server.cc -std=c++17 -o intercept_server
