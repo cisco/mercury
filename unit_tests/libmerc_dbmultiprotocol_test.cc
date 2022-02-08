@@ -21,28 +21,30 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with recources-mp")
     };
 
     std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"http"}},
-                     "capture2.pcap"},
-         397},
-        {test_config{{.resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"http"}},
-                     "capture2.pcap"},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"http"},
+             .m_pc{"capture2.pcap"}},
+         127},
+        {test_config{
+             .m_lc{.resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"http"},
+             .m_pc{"capture2.pcap"}},
          0},
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"http"}},
-                     "http_request.capture2.pcap"},
-         397},
-        {test_config{{.resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"http"}},
-                     "multi_packet_http_request.pcap"},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"http"},
+             .m_pc{"http_request.capture2.pcap"}},
+         109},
+        {test_config{
+             .m_lc{.resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"http"},
+             .m_pc{"multi_packet_http_request.pcap"}},
          0},
-         {test_config{{.do_analysis{true},
-                       .resources{resources_mp_path},
-                       .packet_filter_cfg{(char *)"http"}},
-                     "multi_packet_http_request.pcap"},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"http"},
+             .m_pc{"multi_packet_http_request.pcap"}},
          1}
     };
 
@@ -66,29 +68,31 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp")
     };
 
     std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"quic"}},
-                     "capture2.pcap"},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"quic"},
+             .m_pc{"capture2.pcap"}},
          2},
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"quic"}},
-                     "quic-crypto-packets.pcap"},
-         0 /*684 - corret answear*/},
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"quic"}},
-                     "http_request.capture2.pcap"},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"quic"},
+             .m_pc{"quic-crypto-packets.pcap"}},
+         0 /*684 - correct answer*/},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"quic"},
+             .m_pc{"http_request.capture2.pcap"}},
          0},
-         {test_config{{.resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"quic"}},
-                     "quic_init.capture2.pcap"},
-         2},
-         {test_config{{.resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"quic"}},
-                     "mdns_capture.pcap"},
-         0}
+        {test_config{
+             .m_lc{.resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"quic"},
+             .m_pc{"quic_init.capture2.pcap"}},
+        2},
+        {test_config{
+             .m_lc{.resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"quic"},
+             .m_pc{"mdns_capture.pcap"}},
+        0}
     };
 
     for (auto &[config, count] : test_set_up)
@@ -111,21 +115,21 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smtp with recources-mp")
     };
 
     std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"smtp"}},
-                     "capture2.pcap"},
-         0},
-        {test_config{{.dns_json_output{true},
-                      .do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"smtp"}},
-                     "capture2.pcap"},
-         0},
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"smtp"}},
-                     "top_100_fingerprints.pcap"},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"smtp"},
+             .m_pc{"capture2.pcap"}},
+         1},
+        {test_config{
+             .m_lc{.dns_json_output = true, .do_analysis = true,
+                .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"smtp"},
+             .m_pc{"capture2.pcap"}},
+         1},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"smtp"},
+             .m_pc{"top_100_fingerprints.pcap"}},
          0}
     };
 
@@ -155,31 +159,31 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dns and mdns with recources-mp")
     };
 
     std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"dns"}},
-                     "capture2.pcap"},
-         22568},
-        {test_config{{.dns_json_output{true},
-                      .do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"dns"}},
-                     "capture2.pcap"},
-         22568},
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"dns"}},
-                     "mdns_capture.pcap"},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"dns"},
+             .m_pc{"capture2.pcap"}},
+         809},
+        {test_config{
+             .m_lc{.dns_json_output = true, .do_analysis = true,
+                .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"dns"},
+             .m_pc{"capture2.pcap"}},
+         809},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"dns"},
+             .m_pc{"mdns_capture.pcap"}},
          3141},
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"dns"}},
-                     "dns_packet.capture2.pcap"},
-         22568},
-        {test_config{{.do_analysis{true},
-                      .resources{resources_mp_path},
-                      .packet_filter_cfg{(char *)"dns"}},
-                     "top_100_fingerprints.pcap"},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"dns"},
+             .m_pc{"dns_packet.capture2.pcap"}},
+         809},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"dns"},
+             .m_pc{"top_100_fingerprints.pcap"}},
          0}
         };
 
