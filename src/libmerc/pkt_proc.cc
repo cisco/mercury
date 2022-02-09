@@ -298,7 +298,10 @@ struct do_observation {
         mq_{mq}
     {}
 
-    void operator()(tls_client_hello &) {
+    void operator()(tls_client_hello &client_hello) {
+        if (client_hello.dtls) {
+            return; // we only want to observe tls, not dtls
+        }
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_};
         mq_->push(ev_str.construct_event_string());
@@ -758,7 +761,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     //
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp}, x);
-        if (global_vars.do_analysis) {
+        if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             // re-initialize the structure that holds analysis results
             //
