@@ -23,144 +23,44 @@
 #include "dict.h"
 #include "queue.h"
 
-// class event_processor coverts a sequence of sorted event strings into a
-// JSON representation
-//
-class event_processor {
-    std::vector<std::string> prev;
-    bool first_loop;
-    FILE *f;
-
-public:
-    event_processor(FILE *file) : prev{"", "", ""}, first_loop{true}, f{file} {}
-
-    void process_init() {
-        first_loop = true;
-        prev = { "", "", "" };
-    }
-
-    void process_update(std::array<const char *, 3> v, uint32_t count) {
-
-        // find number of elements that match previous vector
-        size_t num_matching = 0;
-        for (num_matching=0; num_matching<2; num_matching++) {
-            if (prev[num_matching].compare(v[num_matching]) != 0) {
-                break;
-            }
-        }
-        // set mismatched previous values
-        for (size_t i=num_matching; i<2; i++) {
-            prev[i] = v[i];
-        }
-
-        // output unique elements
-        switch(num_matching) {
-        case 0:
-            if (!first_loop) {
-                fputs("}}}\n", f);
-            }
-            fprintf(f, "{\"%s\":{\"%s\":{\"%s\":%u", v[0], v[1], v[2], count);
-            break;
-        case 1:
-            fprintf(f, "},\"%s\":{\"%s\":%u", v[1], v[2], count);
-            break;
-        case 2:
-            fprintf(f, ",\"%s\":%u", v[2], count);
-            break;
-        default:
-            ;
-        }
-        first_loop = false;
-
-    }
-
-    void process_final() { fputs("}}}\n", f); }
-
-};
-
-// class event_processor_alt coverts a sequence of sorted event
-// strings into an alternative JSON representation
-//
-class event_processor_alt {
-    std::vector<std::string> prev;
-    bool first_loop;
-    FILE *f;
-
-public:
-    event_processor_alt(FILE *file) : prev{"", "", ""}, first_loop{true}, f{file} {}
-
-    void process_init() {
-        first_loop = true;
-        prev = { "", "", "" };
-    }
-
-    void process_update(std::array<const char *, 3> v, uint32_t count) {
-
-        // find number of elements that match previous vector
-        size_t num_matching = 0;
-        for (num_matching=0; num_matching<2; num_matching++) {
-            if (prev[num_matching].compare(v[num_matching]) != 0) {
-                break;
-            }
-        }
-        // set mismatched previous values
-        for (size_t i=num_matching; i<2; i++) {
-            prev[i] = v[i];
-        }
-
-        // output unique elements
-        switch(num_matching) {
-        case 0:
-            if (!first_loop) {
-                fputs("}]}]}\n", f);
-            }
-            fprintf(f, "{\"src_ip\":\"%s\",\"fingerprints\":[{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[0], v[1], v[2], count);
-            break;
-        case 1:
-            fprintf(f, "}]},{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1], v[2], count);
-            break;
-        case 2:
-            fprintf(f, "},{\"dst\":\"%s\",\"count\":%u", v[2], count);
-            break;
-        default:
-            ;
-        }
-        first_loop = false;
-
-    }
-
-    void process_final() { fputs("}]}]}\n", f); }
-
-};
-
-// class event_processor_alt coverts a sequence of sorted event
+// class event_processor_gz coverts a sequence of sorted event
 // strings into an alternative JSON representation
 //
 class event_processor_gz {
     std::vector<std::string> prev;
     bool first_loop;
     gzFile gzf;
+    std::array<std::string, 4> v;
 
 public:
-    event_processor_gz(gzFile gzfile) : prev{"", "", ""}, first_loop{true}, gzf{gzfile} {}
+    event_processor_gz(gzFile gzfile) : prev{"", "", "", ""}, first_loop{true}, gzf{gzfile} {}
 
     void process_init() {
         first_loop = true;
-        prev = { "", "", "" };
+        prev = { "", "", "", "" };
     }
 
-    void process_update(std::array<const char *, 3> v, uint32_t count) {
+    void process_update(const event_msg &event, uint32_t count) {
+
+        std::tie(v[0], v[1], v[2], v[3]) = event;
 
         // find number of elements that match previous vector
         size_t num_matching = 0;
-        for (num_matching=0; num_matching<2; num_matching++) {
+        for (num_matching=0; num_matching<3; num_matching++) {
             if (prev[num_matching].compare(v[num_matching]) != 0) {
                 break;
             }
         }
         // set mismatched previous values
-        for (size_t i=num_matching; i<2; i++) {
+        for (size_t i=num_matching; i<3; i++) {
             prev[i] = v[i];
+        }
+
+        //Format the optional parameter user-agent only if it is present
+        //Extra 15 bytes is to account for additional data required for json
+        char user_agent[MAX_USER_AGENT_LEN + 15]{"\0"};
+        if(v[2][0] != '\0') {
+            snprintf(user_agent, MAX_USER_AGENT_LEN - 1, "\"user-agent\":\"%s\", ", v[2].c_str());
         }
 
         // output unique elements
@@ -168,17 +68,20 @@ public:
         switch(num_matching) {
         case 0:
             if (!first_loop) {
-                gz_ret = gzprintf(gzf, "}]}]}\n");
+                gz_ret = gzprintf(gzf, "}]}]}]}\n");
             }
             if (gz_ret <= 0)
                 throw std::runtime_error("error in gzprintf");
-            gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\",\"fingerprints\":[{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[0], v[1], v[2], count);
+            gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\",\"fingerprints\":[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[0].c_str(), v[1].c_str(), user_agent, v[3].c_str(), count);
             break;
         case 1:
-            gz_ret = gzprintf(gzf, "}]},{\"str_repr\":\"%s\",\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1], v[2], count);
+            gz_ret = gzprintf(gzf, "}]}]},{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1].c_str(), user_agent, v[3].c_str(), count);
             break;
         case 2:
-            gz_ret = gzprintf(gzf, "},{\"dst\":\"%s\",\"count\":%u", v[2], count);
+            gzprintf(gzf, "}]},{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", user_agent, v[3].c_str(), count);
+            break;
+        case 3:
+            gz_ret = gzprintf(gzf, "},{\"dst\":\"%s\",\"count\":%u", v[3].c_str(), count);
             break;
         default:
             ;
@@ -189,7 +92,7 @@ public:
     }
 
     void process_final() {
-        int gz_ret = gzprintf(gzf, "}]}]}\n");
+        int gz_ret = gzprintf(gzf, "}]}]}]}\n");
         if (gz_ret <= 0)
             throw std::runtime_error("error in gzprintf");
     }
@@ -198,115 +101,39 @@ public:
 
 #define ANON_SRC_IP
 
-// class event_encoder converts a bunch of variables to an event
-// string (with the set_string() method) and converts an event string
-// into an array of char * (with the get_vector() method).  Its member
-// functions are not const because they may update the fp_dict dict
+// class event_encoder provides methods to compress/decompress event string.
+// Its member functions are not const because they may update the dict
 // member.
 
-//
 class event_encoder {
     dict fp_dict;
     dict addr_dict;
+    dict ua_dict;
+
 public:
 
-    event_encoder() : fp_dict{} {}
+    event_encoder() : fp_dict{}, addr_dict{}, ua_dict{} {}
 
     bool compute_inverse_map() {
-        return fp_dict.compute_inverse_map() && addr_dict.compute_inverse_map();
+        return fp_dict.compute_inverse_map() && addr_dict.compute_inverse_map() && ua_dict.compute_inverse_map();
     }
 
-    void set_string(std::string &tmp,  const char *src_ip, const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port) {
+    void get_inverse(event_msg &event) {
+        const std::string &fngr = std::get<1>(event);
+        const std::string &ua   = std::get<2>(event);
 
-#ifdef ANON_SRC_IP
-        // compress source address string, for anonymization
-        char src_addr_buf[9];
-        addr_dict.compress(src_ip, src_addr_buf);
-#endif
+        size_t compressed_fp_num = strtol(fngr.c_str(), NULL, 16);
+        size_t compressed_ua_num = strtol(ua.c_str(), NULL, 16);
 
-        // compress fingerprint string
-        char compressed_fp_buf[9];
-        fp_dict.compress(fp_str, compressed_fp_buf);
-
-        tmp.clear();
-        tmp.append(src_addr_buf);      // tmp.append(src_ip);
-        tmp += '#';
-        tmp.append(compressed_fp_buf); // tmp.append(fp); to omit compression
-        tmp += '#';
-        tmp.append("(");
-        tmp.append(server_name);
-        tmp += ')';
-        tmp += '(';
-        tmp.append(dst_ip);
-        char dst_port_string[8];
-        sprintf(dst_port_string, "%hu", htons(dst_port));
-        tmp += ')';
-        tmp += '(';
-        tmp.append(dst_port_string);
-        tmp += ')';
+        std::get<1>(event) = fp_dict.get_inverse(compressed_fp_num);
+        std::get<2>(event) = ua_dict.get_inverse(compressed_ua_num);
     }
 
-    std::array<const char *, 3> get_vector(std::string &s) {
+    void compress_event_string(event_msg& event) {
 
-        const char *c = s.c_str();
-        const char *head = c;
-        while (*c != '\0') {
-            if (*c == '#') {
-                break;
-            }
-            c++;
-        }
-        s[c - head] = '\0';      // replace # with null
-        c++;                     // advance past #
-        const char *comp_fp = c;
-        while (*c != '\0') {
-            if (*c == '#') {
-                break;
-            }
-            c++;
-        }
-        s[c - head] = '\0';      // replace # with null
-        c++;                     // advance past #
-        const char *tail = c;
-
-#ifdef COMP_SRC_ADDR
-        size_t compressed_addr_num = strtol(head, NULL, 16);
-        head = addr_dict.get_inverse(compressed_addr_num);
-#endif
-        size_t compressed_fp_num = strtol(comp_fp, NULL, 16);
-        const char *decomp_fp = fp_dict.get_inverse(compressed_fp_num); // TODO
-
-        return {head, decomp_fp, tail};
-    }
-
-    void compress_event_string(std::string &s) {
-
-        std::string::iterator c = s.begin();
-        const std::string::iterator head = c;
-        while (*c != '\0') {
-            if (*c == '#') {
-                break;
-            }
-            c++;
-        }
-        std::string addr{head, c};
-
-        c++;                     // advance past #
-        const std::string::iterator fp = c;
-        while (*c != '\0') {
-            if (*c == '#') {
-                break;
-            }
-            c++;
-        }
-        std::string fngr{fp, c};
-
-        c++;                     // advance past #
-        const std::string::iterator suffix = c;
-        while (*c != '\0') {
-            c++;
-        }
-        std::string tail{suffix, c};
+        const std::string &addr = std::get<0>(event);
+        const std::string &fngr = std::get<1>(event);
+        const std::string &ua   = std::get<2>(event);
 
         // compress source address string, for anonymization (regardless of ANON_SRC_IP)
         char src_addr_buf[9];
@@ -316,15 +143,27 @@ public:
         char compressed_fp_buf[9];
         fp_dict.compress(fngr, compressed_fp_buf);
 
-        // create new string (in a tmp, to avoid overlapping append() calls) then return it
-        std::string tmp;
-        tmp.append(src_addr_buf).append("#");
-        tmp.append(compressed_fp_buf).append("#");
-        tmp.append(tail);
-        s = tmp;
+        char compressed_ua_buf[9];
+        ua_dict.compress(ua, compressed_ua_buf);
+
+        std::get<0>(event) = src_addr_buf;
+        std::get<1>(event) = compressed_fp_buf;
+        std::get<2>(event) = compressed_ua_buf;
 
     }
 
+};
+
+struct hash_tuple {
+    template <class T1, class T2, class T3, class T4>
+
+    size_t operator()(const std::tuple<T1, T2, T3, T4>& x) const {
+        std::hash<std::string> hasher;
+        return hasher(std::get<0>(x))
+                ^ hasher(std::get<1>(x))
+                ^ hasher(std::get<2>(x))
+                ^ hasher(std::get<3>(x));
+    }
 };
 
 // class stats_aggregator manages all of the data needed to gather and
@@ -332,7 +171,7 @@ public:
 // events
 //
 class stats_aggregator {
-    std::unordered_map<std::string, uint64_t> event_table;
+    std::unordered_map<event_msg, uint64_t, hash_tuple> event_table;
     event_encoder encoder;
     std::string observation;  // used as preallocated temporary variable
     size_t num_entries;
@@ -344,7 +183,7 @@ public:
 
     ~stats_aggregator() {  }
 
-    void observe_event_string(std::string &obs) {
+    void observe_event_string(event_msg &obs) {
 
         encoder.compress_event_string(obs);
 
@@ -375,7 +214,7 @@ public:
             return;  // error; unable to compute fingerprint decompression map
         }
 
-        std::vector<std::pair<std::string, uint64_t>> v(event_table.begin(), event_table.end());
+        std::vector<std::pair<event_msg, uint64_t>> v(event_table.begin(), event_table.end());
         event_table.clear();
         num_entries = 0;
         std::sort(v.begin(), v.end(), [](auto &l, auto &r){ return l.first < r.first; } );
@@ -383,7 +222,8 @@ public:
         event_processor_gz ep(f);
         ep.process_init();
         for (auto &entry : v) {
-            ep.process_update(encoder.get_vector(entry.first), entry.second);
+            encoder.get_inverse(entry.first);
+            ep.process_update(entry.first, entry.second);
         }
         ep.process_final();
 
@@ -418,12 +258,10 @@ class data_aggregator {
 
     void empty_event_queue(message_queue *q) {
         //fprintf(stderr, "note: emptying message queue in %p\n", (void *)this);
-        message *msg = q->pop();
-        while (msg) {
+        event_msg event;
+        while (q->pop(event)) {
             //fprintf(stderr, "note: got message\n");
-            std::string event{(char *)msg->buffer, msg->length};  // TODO: move string constructor outside of loop
             ag->observe_event_string(event);
-            msg = q->pop();
         }
     }
 

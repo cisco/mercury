@@ -10,32 +10,17 @@
 
 #include <string.h>
 #include <mutex>
+#include <tuple>
 
-struct message {
-    uint8_t buffer[1024];   // data buffer
-    size_t length;          // number of bytes of data in buffer
-
-    message() : length{0} { }
-
-    bool copy(const uint8_t *data, size_t data_length) {
-        if (data_length > sizeof(buffer)) {
-            // fprintf(stderr, "error: data too long in %s (length: %zu)\n", __func__, data_length);
-            return false;  // error: data too long
-        }
-        memcpy(buffer, data, data_length);
-        length = data_length;
-        return true;
-    }
-};
+typedef std::tuple<std::string, std::string, std::string, std::string> event_msg;
+#define EVENT_BUF_SIZE 256
 
 class message_queue {
     std::mutex m;
     size_t first;
     size_t last;
     long unsigned int err_count;
-    message msg_buf[256];
-
-    constexpr static size_t msg_buf_size = sizeof(msg_buf) / sizeof(message);
+    event_msg msg_buf[EVENT_BUF_SIZE];
 
 public:
     message_queue() : m{}, first{0}, last{0}, err_count{0} { }
@@ -49,34 +34,28 @@ public:
         fprintf(f, "STATE: first: %zu\tlast: %zu\n", first, last);
     }
 
-    bool push(uint8_t *data, size_t data_length) {
+    bool push(const event_msg& ev_str) {
         std::unique_lock<std::mutex> m_lock(m);
         if (is_full()) {
             err_count++;
             //fprintf(stderr, "%s: queue %p is full\n", __func__, (void *)this);
             return false; // error: no room in queue
         }
-        //fprintf(stderr, "%s: queue size: %zd\n", __func__, size());
-        if (msg_buf[last].copy(data, data_length)) {
-            increment(last);
-            //fprintf(stderr, "%s (length %zu)\n", __func__, data_length);
-            return true;
-        }
-        err_count++;
-        // fprintf(stderr, "%s: message could not be copied to queue %p\n", __func__, (void *)this);
-        return false;  // error: message could not be copied
+        //fprintf(stderr, "src_ip = %s, fp = %s, user-agent= %s, dest_info= %s\n", std::get<0>(ev_str).c_str(), std::get<1>(ev_str).c_str(), std::get<2>(ev_str).c_str(), std::get<3>(ev_str).c_str());
+        msg_buf[last] = ev_str;
+        increment(last);
+        return true;
     }
 
-    message *pop() {
+    bool pop(event_msg &entry) {
         std::unique_lock<std::mutex> m_lock(m);
         //fprintf(stderr, "%s: queue size: %zd\n", __func__, size());
         if (is_empty()) {
-            return nullptr;
+            return false;
         }
-        message *entry = &msg_buf[first];
+        entry = msg_buf[first];
         increment(first);
-        //fprintf(stderr, "%s (length %zu)\n", __func__, entry->length);
-        return entry;
+        return true;
     }
 
     void increment(size_t &idx) {
@@ -85,7 +64,7 @@ public:
 
     size_t next_index(size_t idx) const {
         size_t tmp = idx + 1;
-        if (tmp == msg_buf_size) {
+        if (tmp == EVENT_BUF_SIZE) {
             return 0;
         }
         return tmp;
@@ -104,7 +83,7 @@ public:
         if (last >= first) {
             return last - first;
         }
-        return msg_buf_size - (first - last);
+        return EVENT_BUF_SIZE - (first - last);
     }
 };
 
