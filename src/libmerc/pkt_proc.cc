@@ -567,7 +567,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp}, x);
         bool output_analysis = false;
-        if (global_vars.do_analysis) {
+        if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
             // note: we only perform observations when analysis is
