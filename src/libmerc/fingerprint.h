@@ -22,6 +22,7 @@ public:
 
     void init() {
         type = fingerprint_type_unknown;
+        fp_str[0] = '\0';
         fp_buf = buffer_stream{fp_str, MAX_FP_STR_LEN};
     }
 
