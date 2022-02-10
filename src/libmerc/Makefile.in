@@ -146,7 +146,9 @@ DBGFLAGS += -g
 DBGFLAGS += -ggdb
 DBGFLAGS += -O0
 DBGFLAGS += -UNDEBUG
+ifeq ($(use_fsanitize),yes)
 DBGFLAGS += -fsanitize=address
+endif
 DBGFLAGS += -fno-omit-frame-pointer
 DBGFLAGS += -fvisibility=default
 # DBGFLAGS += -DDEBUG # this option triggers voluminous detailed output

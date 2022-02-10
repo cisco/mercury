@@ -110,8 +110,11 @@ mercury: mercury.c $(MERC_OBJ) $(MERC_H) libmerc.a Makefile.in
 	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -pthread libmerc/libmerc.a -lz -lcrypto -o mercury
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 
+ifeq ($(use_fsanitize),yes)
+FSANITIZE = -fsanitize=address -static-libasan
+endif
 debug-mercury: CFLAGS += -DDEBUG -g -O0
-debug-mercury: CFLAGS += -fsanitize=address -static-libasan
+debug-mercury: CFLAGS += $(FSANITIZE)
 debug-mercury: debug-libmerc.a mercury
 
 setcap: mercury
@@ -153,8 +156,11 @@ unstripped-libmerc:
 stripped-libmerc:
 	$(MAKE) -j --directory=libmerc stripped-libmerc.so
 
+ifeq ($(use_fsanitize),yes)
+	libmerc_util: CFLAGS += -fsanitize=address
+endif
 libmerc_util: libmerc_util.cc libmerc_api.h
-	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -fsanitize=address -pthread -ldl -std=c++17 -o libmerc_util
+	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -pthread -ldl -std=c++17 -o libmerc_util
 
 intercept_server: intercept_server.cc
 	$(CXX) $(CFLAGS) intercept_server.cc -std=c++17 -o intercept_server

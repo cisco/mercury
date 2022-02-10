@@ -15,6 +15,11 @@ COLOR_OFF    = "\033[0m"
 #
 use_no_gnu_unique = @USE_NO_GNU_UNIQUE@
 
+# The variable use_fsanitize controls the compiler option with the
+# corresponding name, which is used when present in some build targets
+#
+use_fsanitize = @USE_FSANITIZE@
+
 CXX     = @CXX@
 CC      = @CC@
 CFLAGS  = --std=c++17
