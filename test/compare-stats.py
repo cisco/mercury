@@ -24,21 +24,33 @@ def read_merc_data(in_file):
     total_count = 0
     for line in open(in_file):
         r = json.loads(line)
-        if 'fingerprints' not in r or 'tls' not in r['fingerprints']:
+        if 'fingerprints' not in r:
             continue
 
-        # extract data elements
-        str_repr    = r['fingerprints']['tls']
-        src_ip      = r['src_ip']
-        dst_ip      = r['dst_ip']
-        dst_port    = r['dst_port']
-        server_name = ''
-        if 'client' in r['tls'] and 'server_name' in r['tls']['client']:
-            server_name = r['tls']['client']['server_name']
+        if 'tls' in r['fingerprints']:
+            # extract data elements
+            str_repr    = r['fingerprints']['tls']
+            src_ip      = r['src_ip']
+            dst_ip      = r['dst_ip']
+            dst_port    = r['dst_port']
+            server_name = ''
+            if 'client' in r['tls'] and 'server_name' in r['tls']['client']:
+                server_name = r['tls']['client']['server_name']
 
-        # update stats database
-        update_stats_db(stats_db, src_ip, str_repr, f'({server_name})({dst_ip})({dst_port})', 1)
-        total_count += 1
+            # update stats database
+            update_stats_db(stats_db, src_ip, str_repr, f'({server_name})({dst_ip})({dst_port})', 1)
+            total_count += 1
+
+        if 'http' in r['fingerprints']:
+            str_repr    = r['fingerprints']['http']
+            src_ip      = r['src_ip']
+            dst_ip      = r['dst_ip']
+            dst_port    = r['dst_port']
+            server_name = ''
+
+            # update stats database
+            update_stats_db(stats_db, src_ip, str_repr, f'({server_name})({dst_ip})({dst_port})', 1)
+            total_count += 1
 
     return stats_db, total_count
 
@@ -51,13 +63,15 @@ def read_merc_stats(in_file):
         src_ip = r['src_ip']
         for x in r['fingerprints']:
             str_repr = x['str_repr']
-            for y in x['dest_info']:
-                dst_info = y['dst']
-                count    = y['count']
+            sessions = x['sessions']
+            for s in sessions:
+                for y in s['dest_info']:
+                    dst_info = y['dst']
+                    count    = y['count']
 
-                # update stats database
-                update_stats_db(stats_db, src_ip, str_repr, dst_info, count)
-                total_count += count
+                    # update stats database
+                    update_stats_db(stats_db, src_ip, str_repr, dst_info, count)
+                    total_count += count
 
     return stats_db, total_count
 
