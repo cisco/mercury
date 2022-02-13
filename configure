@@ -630,6 +630,7 @@ PYTHON3
 PY
 LIBOBJS
 HAVE_TPACKET_V3
+USE_FSANITIZE
 USE_NO_GNU_UNIQUE
 ac_ct_CXX
 CXXFLAGS
@@ -3931,6 +3932,43 @@ else
 
 fi
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -fsanitize=address" >&5
+$as_echo_n "checking whether C compiler accepts -fsanitize=address... " >&6; }
+if ${ax_cv_check_cflags__Werror__fsanitize_address+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS -Werror -fsanitize=address"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags__Werror__fsanitize_address=yes
+else
+  ax_cv_check_cflags__Werror__fsanitize_address=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags__Werror__fsanitize_address" >&5
+$as_echo "$ax_cv_check_cflags__Werror__fsanitize_address" >&6; }
+if test "x$ax_cv_check_cflags__Werror__fsanitize_address" = xyes; then :
+  USE_FSANITIZE=yes
+
+else
+  USE_FSANITIZE=no
+
+fi
+
 for ac_header in linux/if_packet.h
 do :
   ac_fn_c_check_header_mongrel "$LINENO" "linux/if_packet.h" "ac_cv_header_linux_if_packet_h" "$ac_includes_default"
@@ -4905,6 +4943,12 @@ if test "x$VALGRIND" = xyes; then :
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&5
 $as_echo "$as_me: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&2;}
+fi
+if test "x$USE_FSANITIZE" = xyes; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: -fsanitize not supported; debug targets will not use address sanitization" >&5
+$as_echo "$as_me: WARNING: -fsanitize not supported; debug targets will not use address sanitization" >&2;}
 fi
 ac_config_files="$ac_config_files src/libmerc/Makefile src/Makefile test/Makefile unit_tests/Makefile resources/Makefile Makefile_helper.mk install_mercury/mercury.service"
 
