@@ -49,6 +49,7 @@
  */
 #define type_sni                             0x0000
 #define type_supported_groups                0x000a
+#define type_alpn                            0x0010
 #define type_supported_versions              0x002b
 #define type_session_ticket                  0x0023
 #define type_quic_transport_parameters       0x0039
@@ -187,6 +188,91 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
             // o.print_key_json_string(key, ext.data + SNI_HDR_LEN, ext.length() - SNI_HDR_LEN);
             ext.skip(SNI_HDR_LEN);
             o.print_key_json_string(key, ext);
+        }
+    }
+
+}
+
+
+//   Application Layer Protocol Negotiation (following RFC 7301)
+//
+//   enum {
+//       application_layer_protocol_negotiation(16), (65535)
+//   } ExtensionType;
+//
+//   The "extension_data" field of the
+//   ("application_layer_protocol_negotiation(16)") extension SHALL
+//   contain a "ProtocolNameList" value.
+//
+//   opaque ProtocolName<1..2^8-1>;
+//
+//   struct {
+//       ProtocolName protocol_name_list<2..2^16-1>
+//   } ProtocolNameList;
+//
+//   "ProtocolNameList" contains the list of protocols advertised by the
+//   client, in descending order of preference.  Protocols are named by
+//   IANA-registered, opaque, non-empty byte strings, as described further
+//   in Section 6 ("IANA Considerations") of this document.  Empty strings
+//   MUST NOT be included and byte strings MUST NOT be truncated.
+//
+//
+
+class protocol_name : public datum {
+public:
+    protocol_name(datum &d) {
+        uint8_t length = 0;
+        d.read_uint8(&length);
+        parse(d, length);
+    }
+};
+
+class protocol_name_list {
+    datum data;
+
+public:
+
+    protocol_name_list(datum &d) {
+        uint16_t length;
+        d.read_uint16(&length);
+        data.parse(d, length);
+    }
+
+    void write_json(json_object &o, const char *key) {
+        json_array alpn_array{o, key};
+        while (data.is_not_empty()) {
+            protocol_name name{data};
+            alpn_array.print_json_string(name);
+        }
+        alpn_array.close();
+    }
+};
+
+void tls_extensions::print_alpn(struct json_object &o, const char *key) const {
+
+    struct datum ext_parser{this->data, this->data_end};
+
+    while (ext_parser.length() > 0) {
+        size_t tmp_len = 0;
+        size_t tmp_type;
+
+        const uint8_t *data = ext_parser.data;
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
+            break;
+        }
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
+            break;
+        }
+        if (ext_parser.skip(tmp_len) == false) {
+            break;
+        }
+        const uint8_t *data_end = ext_parser.data;
+
+        if (tmp_type == type_alpn) {
+            struct datum ext{data, data_end};
+            ext.skip(L_ExtensionType + L_ExtensionLength);
+            protocol_name_list pnl{ext};
+            pnl.write_json(o, key);
         }
     }
 
@@ -627,6 +713,7 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
     extensions.print_server_name(tls_client, "server_name");
     extensions.print_quic_transport_parameters(tls_client, "quic_transport_parameters");
     if (output_metadata) {
+        extensions.print_alpn(tls_client, "application_layer_protocol_negotiation");
         extensions.print_session_ticket(tls_client, "session_ticket");
     }
     tls_client.close();
