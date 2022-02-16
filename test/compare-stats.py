@@ -22,17 +22,25 @@ def update_stats_db(stats, src_ip, str_repr, dst_info, count):
 def read_merc_data(in_file):
     stats_db    = {}
     total_count = 0
+    addr_dict   = {}
     for line in open(in_file):
         r = json.loads(line)
         if 'fingerprints' not in r:
             continue
 
+        src_ip      = r['src_ip']
+        dst_ip      = r['dst_ip']
+        dst_port    = r['dst_port']
+
+        # dictionary encode src_ip
+        #
+        if src_ip not in addr_dict:
+            addr_dict[src_ip] = len(addr_dict)
+        src_ip = addr_dict[src_ip]
+
         if 'tls' in r['fingerprints']:
             # extract data elements
             str_repr    = r['fingerprints']['tls']
-            src_ip      = r['src_ip']
-            dst_ip      = r['dst_ip']
-            dst_port    = r['dst_port']
             server_name = ''
             if 'client' in r['tls'] and 'server_name' in r['tls']['client']:
                 server_name = r['tls']['client']['server_name']
@@ -43,10 +51,7 @@ def read_merc_data(in_file):
 
         if 'http' in r['fingerprints']:
             str_repr    = r['fingerprints']['http']
-            src_ip      = r['src_ip']
-            dst_ip      = r['dst_ip']
-            dst_port    = r['dst_port']
-            server_name = ''
+            server_name = r['http']['request']['host'] # TODO: verify that 'host' is in http.request
 
             # update stats database
             update_stats_db(stats_db, src_ip, str_repr, f'({server_name})({dst_ip})({dst_port})', 1)
