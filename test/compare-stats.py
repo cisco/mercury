@@ -57,6 +57,15 @@ def read_merc_data(in_file):
             update_stats_db(stats_db, src_ip, str_repr, f'({server_name})({dst_ip})({dst_port})', 1)
             total_count += 1
 
+        if 'quic' in r['fingerprints']:
+            str_repr    = r['fingerprints']['quic']
+            if 'client' in r['tls'] and 'server_name' in r['tls']['client']:
+                server_name = r['tls']['client']['server_name']
+
+            # update stats database
+            update_stats_db(stats_db, src_ip, str_repr, f'({server_name})({dst_ip})({dst_port})', 1)
+            total_count += 1
+
     return stats_db, total_count
 
 
