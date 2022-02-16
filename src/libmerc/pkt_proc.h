@@ -80,6 +80,7 @@ struct dhcp_discover;
 class unknown_udp_initial_packet;
 class icmp_packet;                        // start of ip protocols
 class ospf;
+class esp;
 struct tcp_packet;
 
 using protocol = std::variant<std::monostate,
@@ -101,6 +102,7 @@ using protocol = std::variant<std::monostate,
                               unknown_udp_initial_packet,
                               icmp_packet,                        // start of ip protocols
                               ospf,
+                              esp,
                               tcp_packet
                               >;
 

@@ -36,6 +36,7 @@
 #include "cdp.h"
 #include "lldp.h"
 #include "ospf.h"
+#include "esp.h"
 #include "analysis.h"
 #include "buffer_stream.h"
 #include "stats.h"
@@ -217,6 +218,7 @@ struct compute_fingerprint {
     // these protocols are not fingerprinted
     //
     void operator()(ospf &) { }
+    void operator()(esp &) { }
     void operator()(icmp_packet &) { }
     void operator()(wireguard_handshake_init &) { }
     void operator()(unknown_initial_packet &) { }
@@ -334,6 +336,7 @@ struct do_observation {
 static constexpr bool report_GRE      = false;
 static constexpr bool report_ICMP     = false;
 static constexpr bool report_OSPF     = false;
+static constexpr bool report_ESP      = true;
 static constexpr bool report_SYN_ACK  = false;
 
 // set_tcp_protocol() sets the protocol variant record to the data
@@ -505,6 +508,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
     } else if (report_OSPF && transport_proto == ip::protocol::ospfigp) {
         x.emplace<ospf>(pkt);
+
+    } else if (report_ESP && transport_proto == ip::protocol::esp) {
+        x.emplace<esp>(pkt);
 
     } else if (transport_proto == ip::protocol::tcp) {
         tcp_packet tcp_pkt{pkt, &ip_pkt};
