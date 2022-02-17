@@ -4,7 +4,7 @@ import argparse
 from collections import defaultdict
 
 
-def update_stats_db(stats, src_ip, str_repr, dst_info, count):
+def update_stats_db(stats, src_ip, str_repr, user_agent, dst_info, count):
     # set up stats entries
     if src_ip not in stats:
         stats[src_ip] = {}
@@ -16,6 +16,7 @@ def update_stats_db(stats, src_ip, str_repr, dst_info, count):
     # update database counts
     stats[src_ip]['count'] += count
     stats[src_ip]['fingerprints'][str_repr]['count']  += count
+    stats[src_ip]['fingerprints'][str_repr][user_agent] += count
     stats[src_ip]['fingerprints'][str_repr][dst_info] += count
 
 
@@ -31,6 +32,8 @@ def read_merc_data(in_file):
         src_ip      = r['src_ip']
         dst_ip      = r['dst_ip']
         dst_port    = r['dst_port']
+        user_agent = ''
+        server_name = ''
 
         # dictionary encode src_ip
         #
@@ -41,20 +44,23 @@ def read_merc_data(in_file):
         if 'tls' in r['fingerprints']:
             # extract data elements
             str_repr    = r['fingerprints']['tls']
-            server_name = ''
             if 'client' in r['tls'] and 'server_name' in r['tls']['client']:
                 server_name = r['tls']['client']['server_name']
 
             # update stats database
-            update_stats_db(stats_db, src_ip, str_repr, f'({server_name})({dst_ip})({dst_port})', 1)
+            update_stats_db(stats_db, src_ip, str_repr, user_agent, '({server_name})({dst_ip})({dst_port})', 1)
             total_count += 1
 
         if 'http' in r['fingerprints']:
             str_repr    = r['fingerprints']['http']
-            server_name = r['http']['request']['host'] # TODO: verify that 'host' is in http.request
+            if 'http' in r and 'request' in r['http']:
+                if 'host' in r['http']['request']:
+                    server_name = r['http']['request']['host']
+                if 'user_agent' in r['http']['request']:
+                    user_agent = r['http']['request']['user_agent']
 
             # update stats database
-            update_stats_db(stats_db, src_ip, str_repr, f'({server_name})({dst_ip})({dst_port})', 1)
+            update_stats_db(stats_db, src_ip, str_repr, user_agent, f'({server_name})({dst_ip})({dst_port})', 1)
             total_count += 1
 
         if 'quic' in r['fingerprints']:
@@ -63,7 +69,7 @@ def read_merc_data(in_file):
                 server_name = r['tls']['client']['server_name']
 
             # update stats database
-            update_stats_db(stats_db, src_ip, str_repr, f'({server_name})({dst_ip})({dst_port})', 1)
+            update_stats_db(stats_db, src_ip, str_repr, user_agent, f'({server_name})({dst_ip})({dst_port})', 1)
             total_count += 1
 
     return stats_db, total_count
@@ -79,12 +85,15 @@ def read_merc_stats(in_file):
             str_repr = x['str_repr']
             sessions = x['sessions']
             for s in sessions:
+                user_agent  = ''
+                if 'user-agent' in s:
+                    user_agent = s['user-agent']
                 for y in s['dest_info']:
                     dst_info = y['dst']
                     count    = y['count']
 
                     # update stats database
-                    update_stats_db(stats_db, src_ip, str_repr, dst_info, count)
+                    update_stats_db(stats_db, src_ip, str_repr, user_agent, dst_info, count)
                     total_count += count
 
     return stats_db, total_count
