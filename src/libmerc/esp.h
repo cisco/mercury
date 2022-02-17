@@ -34,27 +34,51 @@
 //   Only the low-order 32 bits of the sequence number are transmitted in
 //   the plaintext ESP header of each packet.
 //
+//   The SPI value of zero (0) is reserved for local, implementation-
+//   specific use and MUST NOT be sent on the wire.
+//
+//   The sequence number is a monotonically increasing unsigned 32-bit
+//   integer in network byte order.  The first ESP packet sent for a
+//   given SPI has a value of 1.
 
 // class esp represents an ESP packet observed on the wire
+//
+// ESP can be carried in UDP (RFC 3948), in which case the
+// non_esp_marker is used to distinguish ESP from IKE
 //
 class esp {
     datum spi;
     datum seq;
+    datum payload;
+    bool valid = false;
 
 public:
 
-    esp(datum &d) : spi{d, 4}, seq{d, 4} { }
+    esp(datum &d) : spi{d, 4}, seq{d, 4}, payload{d} {
+        std::array<uint8_t, 4> non_esp_marker = { 0x00, 0x00, 0x00, 0x00 };
+        if (d.is_not_empty() and spi.cmp(non_esp_marker) == false) {
+            valid = true;
+        }
+    }
 
     bool is_not_empty() {
-        return true;
+        return valid;
     }
 
     void write_json(json_object &o, bool metadata_output=false) const {
         (void)metadata_output;
-        json_object esp_json{o, "esp"};
-        esp_json.print_key_hex("spi", spi);
-        esp_json.print_key_hex("seq", seq);
-        esp_json.close();
+        if (valid) {
+            json_object esp_json{o, "esp"};
+            esp_json.print_key_hex("spi", spi);
+            esp_json.print_key_hex("seq", seq);
+
+            // print out initial bytes of payload
+            //
+            datum tmp = payload;
+            tmp.trim_to_length(32);
+            esp_json.print_key_hex("payload", tmp);
+            esp_json.close();
+        }
     }
 };
 

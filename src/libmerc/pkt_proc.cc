@@ -462,6 +462,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     case udp_msg_type_wireguard:
         x.emplace<wireguard_handshake_init>(pkt);
         break;
+    case udp_msg_type_esp:
+        x.emplace<esp>(pkt);
+        break;
     default:
         if (is_new) {
             x.emplace<unknown_udp_initial_packet>(pkt);
@@ -561,6 +564,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             // }
             if (ports.dst == htons(4789)) {
                 msg_type = udp_msg_type_vxlan;
+            }
+            if (ports.dst == htons(4500)) {
+                msg_type = udp_msg_type_esp;
             }
         }
 

@@ -52,7 +52,8 @@ enum udp_msg_type {
     udp_msg_type_dtls_certificate,
     udp_msg_type_wireguard,
     udp_msg_type_quic,
-    udp_msg_type_vxlan
+    udp_msg_type_vxlan,
+    udp_msg_type_esp
 };
 
 template <size_t N>
