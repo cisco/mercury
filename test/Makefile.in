@@ -98,7 +98,7 @@ pdu_test:
 .PHONY: libmerc_driver
 libmerc_driver:
 	@echo "running unit tests"
-	cd ../unit_tests && $(MAKE) run
+	cd ../unit_tests && $(MAKE) -i run
 
 .PHONY: json-validity-test
 json-validity-test:
@@ -259,7 +259,7 @@ endif
 .PHONY: stats
 stats:
 	@echo "running stats test"
-	$(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources/resources.tgz --stats=stats
+	$(MERCURY) -r data/top-https.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=stats
 	bash -c "$(python) ./compare-stats.py -m tmp.json -s <(zcat stats.json.gz)"
 	@echo $(COLOR_GREEN) "passed stats test" $(COLOR_OFF)
 	rm -f tmp.json stats.json.gz

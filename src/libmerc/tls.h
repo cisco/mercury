@@ -325,6 +325,8 @@ struct tls_extensions : public datum {
 
     void print_quic_transport_parameters(struct json_object &o, const char *key) const;
 
+    void print_alpn(struct json_object &o, const char *key) const;
+
     void set_server_name(struct datum &server_name) const;
 
     void print_session_ticket(struct json_object &o, const char *key) const;
@@ -428,6 +430,7 @@ struct tls_server_hello : public tcp_base_protocol {
             o.print_key_hex("random", random);
             o.print_key_hex("selected_cipher_suite", ciphersuite_vector);
             o.print_key_hex("compression_methods", compression_method);
+            extensions.print_alpn(o, "application_layer_protocol_negotiation");
             extensions.print_session_ticket(o, "session_ticket");
         }
     }

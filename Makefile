@@ -118,7 +118,7 @@ libs:
 
 .PHONY: test
 test:
-	cd src && $(MAKE) -i test
+	cd src && $(MAKE) test
 
 .PHONY: test_strict
 test_strict:

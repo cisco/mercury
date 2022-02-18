@@ -264,12 +264,18 @@ cdef class Mercury:
 
         cdef bytes fp_str_b = fp_str.encode()
         cdef char* fp_str_c = fp_str_b
+        if server_name == None:
+            server_name = 'None'
         cdef bytes server_name_b = server_name.encode()
         cdef char* server_name_c = server_name_b
         cdef bytes dst_ip_b = dst_ip.encode()
         cdef char* dst_ip_c = dst_ip_b
+        if user_agent == None:
+            user_agent = 'None'
         cdef bytes user_agent_b = user_agent.encode()
         cdef char* user_agent_c = user_agent_b
+        if user_agent == 'None':
+            user_agent_c = NULL
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
 
