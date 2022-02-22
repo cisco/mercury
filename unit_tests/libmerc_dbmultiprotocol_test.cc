@@ -58,11 +58,16 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with recources-mp")
 TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp")
 {
     
+    auto destination_check_callback = [](const analysis_context *ac)
+    {
+        CHECK(analysis_context_get_fingerprint_type(ac) == 12);
+    };
+
     auto quic_check = [&](int expected_count, const struct libmerc_config &config)
     {
         initialize(config);
 
-        CHECK(expected_count == counter());
+        CHECK(expected_count == counter(fingerprint_type_quic,destination_check_callback));
 
         deinitialize();
     };
@@ -72,12 +77,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp")
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"capture2.pcap"}},
-         2},
+         0},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic-crypto-packets.pcap"}},
-         0 /*684 - correct answer*/},
+         620},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"quic"},
@@ -87,7 +92,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp")
              .m_lc{.resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_init.capture2.pcap"}},
-        2},
+        0},
         {test_config{
              .m_lc{.resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"quic"},

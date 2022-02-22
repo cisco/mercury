@@ -161,7 +161,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
     {
         initialize(config);
 
-        CHECK(expected_count == counter());
+        CHECK(expected_count == counter(fingerprint_type_quic));
 
         deinitialize();
     };
@@ -176,7 +176,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
              .m_lc{.do_analysis = true, .resources = default_resources_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic-crypto-packets.pcap"}},
-         684},
+         0},
         {test_config{
              .m_lc{.do_analysis = true, .resources = default_resources_path,
                 .packet_filter_cfg = (char *)"quic"},
@@ -186,7 +186,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
              .m_lc{.resources = default_resources_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_init.capture2.pcap"}},
-         2},
+         0},
         {test_config{
              .m_lc{.resources = default_resources_path,
                 .packet_filter_cfg = (char *)"quic"},
