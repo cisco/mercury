@@ -202,7 +202,17 @@ quic/(ff00001d)(0303)(0a0a130113021303)[(0a0a)(0a0a)(0000)(000500050100000000)(0
 
 ## HTTP
 
-*TBD*
+HTTP fingerprints are computed from HTTP request packets, for version 1.1 or 1.0 of that protocol.  The fingerprint format is 
+
+```
+"http/" (Method) (Protocol) ((Header))
+```
+
+where
+
+- `Method` is the 
+- URI is the
+- Header is 
 
 
 
