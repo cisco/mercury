@@ -247,15 +247,6 @@ void print_flow_key(int fd) {
     fprintf(stderr, GREEN(tty, "fd %d is not a socket (%s)\n"), fd, strerror(errno));
 }
 
-void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-
-    while (x < end) {
-        fprintf(f, "%02x", *x++);
-    }
-}
-
 // libmerc
 //
 
