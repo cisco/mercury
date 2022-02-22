@@ -83,7 +83,6 @@ struct libmerc_api {
             fprintf(stderr, "error: could not initialize one or more libmerc function pointers\n");
             return -1;
         }
-        return 0;
 
         fprintf(stderr, "mercury_bind() succeeded with handle %p\n", dl_handle);
 

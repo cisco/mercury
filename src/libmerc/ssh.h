@@ -109,7 +109,9 @@ struct ssh_init_packet : public tcp_base_protocol {
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        fp.set(*this, fingerprint_type_ssh);
+        fp.set_type(fingerprint_type_ssh);
+        fp.add(*this);
+        fp.final();
     }
 
     void write_json(json_object &o, bool output_metadata) {
@@ -310,7 +312,9 @@ struct ssh_kex_init : public tcp_base_protocol {
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        fp.set(*this, fingerprint_type_ssh_kex);
+        fp.set_type(fingerprint_type_ssh_kex);
+        fp.add(*this);
+        fp.final();
     }
 
     static constexpr mask_and_value<8> matcher{

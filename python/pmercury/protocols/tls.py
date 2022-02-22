@@ -44,27 +44,30 @@ class TLS():
             transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
             self.transition_probs = {}
             import gzip
-            for line in gzip.open(transition_probs_file, 'r'):
-                t_ = line.strip().split(b',')
-                if t_[1].decode() not in self.transition_probs:
-                    self.transition_probs[t_[1].decode()] = {}
-                self.transition_probs[t_[1].decode()][t_[2].decode()] = float(t_[0])
+            if transition_probs_file != None:
+                for line in gzip.open(transition_probs_file, 'r'):
+                    t_ = line.strip().split(b',')
+                    if t_[1].decode() not in self.transition_probs:
+                        self.transition_probs[t_[1].decode()] = {}
+                    self.transition_probs[t_[1].decode()][t_[2].decode()] = float(t_[0])
         else:
             transition_probs_file = find_resource_path('resources/transition_probs.csv.gz')
             self.transition_probs = {}
             cmd = 'gzcat' if sys.platform == 'darwin' else 'zcat'
-            for line in os.popen(cmd + ' %s' % (transition_probs_file), mode='r', buffering=8192*256):
-                t_ = line.strip().split(',')
-                if t_[1] not in self.transition_probs:
-                    self.transition_probs[t_[1]] = {}
-                self.transition_probs[t_[1]][t_[2]] = float(t_[0])
+            if transition_probs_file != None:
+                for line in os.popen(cmd + ' %s' % (transition_probs_file), mode='r', buffering=8192*256):
+                    t_ = line.strip().split(',')
+                    if t_[1] not in self.transition_probs:
+                        self.transition_probs[t_[1]] = {}
+                    self.transition_probs[t_[1]][t_[2]] = float(t_[0])
 
         app_families_file = find_resource_path('resources/app_families.txt')
         self.app_families = {}
-        for line in open(app_families_file, 'r'):
-            tokens = line.strip().split(',')
-            for i in range(1, len(tokens)):
-                self.app_families[tokens[i]] = tokens[0]
+        if app_families_file != None:
+            for line in open(app_families_file, 'r'):
+                tokens = line.strip().split(',')
+                for i in range(1, len(tokens)):
+                    self.app_families[tokens[i]] = tokens[0]
 
         self.aligner = SequenceAlignment(f_similarity, 0.0)
 
@@ -105,7 +108,7 @@ class TLS():
 
 
     @staticmethod
-    def fingerprint(data, offset, data_len):
+    def fingerprint(data, offset, data_len, quic=False):
         offset += 5
 
         # extract handshake version
@@ -151,29 +154,47 @@ class TLS():
             return ''.join(c), None
 
         # parse/extract/skip extension type/length/values
-        c.append('(')
+        if quic:
+            c.append('[')
+        else:
+            c.append('(')
         server_name = None
         context = None
+        sorted_exts = []
         while ext_total_len > 0:
             if offset >= data_len:
-                c.append(')')
+                if quic:
+                    c.append(']')
+                else:
+                    c.append(')')
                 return ''.join(c), context
 
             # extract server name for process/malware identification
-            if int.from_bytes(data[offset:offset+2], byteorder='big') == 0:
+            ext_type_int = int.from_bytes(data[offset:offset+2], byteorder='big')
+            if ext_type_int == 0:
                 server_name = extract_server_name(data, offset+2, data_len)
                 context = [{'name':'server_name', 'data':server_name}]
 
             tmp_fp_ext, offset, ext_len = parse_extension(data, offset)
             if ext_len+4 > ext_total_len:
-                c.append(')')
+                if quic:
+                    c.append(']')
+                else:
+                    c.append(')')
                 return ''.join(c), context
-            c.append('(%s)' % tmp_fp_ext)
+            if quic:
+                sorted_exts.append((ext_type_int, '(%s)' % tmp_fp_ext))
+            else:
+                c.append('(%s)' % tmp_fp_ext)
 
             ext_total_len -= 4 + ext_len
-        c.append(')')
+        if quic:
+            c.extend([x for _,x in sorted(sorted_exts)])
+            c.append(']')
+        else:
+            c.append(')')
 
-        return  ''.join(c), context
+        return  'tls/'+''.join(c), context
 
 
     def proc_identify(self, fp_str_, context_, dest_addr, dest_port, list_procs=0, endpoint=None, approx=True, debug=None):

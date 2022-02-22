@@ -261,7 +261,9 @@ void http_response::fingerprint(struct buffer_stream &buf) const {
 }
 
 void http_request::compute_fingerprint(struct fingerprint &fp) const {
-    fp.set(*this, fingerprint_type_http);
+    fp.set_type(fingerprint_type_http);
+    fp.add(*this);
+    fp.final();
 }
 
 struct datum http_headers::get_header(const std::basic_string<uint8_t> &location) {
@@ -307,7 +309,9 @@ struct datum http_headers::get_header(const std::basic_string<uint8_t> &location
 }
 
 void http_response::compute_fingerprint(struct fingerprint &fp) const {
-    fp.set(*this, fingerprint_type_http_server);
+    fp.set_type(fingerprint_type_http_server);
+    fp.add(*this);
+    fp.final();
 }
 
 struct datum http_request::get_header(const std::basic_string<uint8_t> &header_name) {
@@ -329,6 +333,7 @@ bool http_request::do_analysis(const struct key &k_, struct analysis_context &an
     if (user_agent_data.is_null()) {
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     } else {
+        strncpy(analysis_.user_agent, user_agent_data.get_string().c_str(), MAX_USER_AGENT_LEN - 1);
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result,
                                                                user_agent_data.get_string().c_str());
     }

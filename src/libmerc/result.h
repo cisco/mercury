@@ -174,13 +174,16 @@ struct destination_context {
 
 };
 
+#define MAX_USER_AGENT_LEN 512
+
 struct analysis_context {
     struct fingerprint fp;
     struct destination_context destination;
     struct analysis_result result;
+    char user_agent[MAX_USER_AGENT_LEN];
 
 #ifdef __cplusplus
-    analysis_context() : fp{}, destination{}, result{} {}
+    analysis_context() : fp{}, destination{}, result{}, user_agent{"\0"} {}
     // could add structs needed for 'scratchwork'
 
     const char *get_server_name() const {
@@ -188,6 +191,10 @@ struct analysis_context {
             return destination.sn_str;
         }
         return NULL;
+    }
+
+    void reset_user_agent() {
+        user_agent[0] = '\0';
     }
 
 #endif

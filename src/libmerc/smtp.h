@@ -228,7 +228,9 @@ public:
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        fp.set(*this, fingerprint_type_smtp_server);
+        fp.set_type(fingerprint_type_smtp_server);
+        fp.add(*this);
+        fp.final();
     }
 
     bool is_not_empty() const { return parameters.is_not_empty(); }

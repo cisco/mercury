@@ -93,109 +93,6 @@ public:
 
 };
 
-// protocol is an alias for a std::variant that can hold any protocol
-// data element.  The default value of std::monostate indicates that
-// the protocol matcher did not recognize the packet.
-//
-// The classes unknown_initial_packet and unknown_udp_initial_packet
-// represents the TCP and UDP data fields, respectively, of an
-// unrecognized packet that is the first data packet in a flow.
-//
-using protocol = std::variant<std::monostate,
-                              http_request,                      // start of tcp protocols
-                              http_response,
-                              tls_client_hello,
-                              tls_server_hello_and_certificate,
-                              ssh_init_packet,
-                              ssh_kex_init,
-                              smtp_client,
-                              smtp_server,
-                              unknown_initial_packet,
-                              quic_init,                         // start of udp protocols
-                              wireguard_handshake_init,
-                              dns_packet,
-                              tls_client_hello,                  // dtls
-                              tls_server_hello,                  // dtls
-                              dhcp_discover,
-                              unknown_udp_initial_packet,
-                              icmp_packet,                        // start of ip protocols
-                              ospf,
-                              tcp_packet
-                              >;
-
-// set_tcp_protocol() sets the protocol variant record to the data
-// structure resulting from the parsing of the TCP data field, which
-// will be one of the TCP protocols in that variant.  The default
-// value of std::monostate indicates that the protocol matcher did not
-// recognize, or could not parse, the packet.  The class
-// unknown_initial_packet represents the TCP data field of an
-// unrecognized packet that is the first data packet in a flow.
-//
-void set_tcp_protocol(protocol &x,
-                      struct datum &pkt,
-                      traffic_selector &sel,
-                      bool is_new,
-                      struct tcp_packet *tcp_pkt,
-                      struct perfect_hash_visitor& ph_visitor) {
-
-    // note: std::get<T>() throws exceptions; it might be better to
-    // use get_if<T>(), which does not
-
-    enum tcp_msg_type msg_type = (tcp_msg_type) sel.get_tcp_msg_type(pkt.data, pkt.length());
-    switch(msg_type) {
-    case tcp_msg_type_http_request:
-        x.emplace<http_request>(pkt, ph_visitor);
-        break;
-    case tcp_msg_type_http_response:
-        x.emplace<http_response>(pkt, ph_visitor);
-        break;
-    case tcp_msg_type_tls_client_hello:
-        {
-            struct tls_record rec{pkt};
-            struct tls_handshake handshake{rec.fragment};
-            if (tcp_pkt && handshake.additional_bytes_needed) {
-                tcp_pkt->reassembly_needed(handshake.additional_bytes_needed);
-                return;
-            }
-            x.emplace<3>(handshake.body);
-            // x.emplace<tls_client_hello>(handshake.body);
-            break;
-        }
-    case tcp_msg_type_tls_server_hello:
-    case tcp_msg_type_tls_certificate:
-        x.emplace<4>(pkt, tcp_pkt);
-        // x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
-        break;
-    case tcp_msg_type_ssh:
-        x.emplace<ssh_init_packet>(pkt);
-        break;
-    case tcp_msg_type_ssh_kex:
-        {
-            struct ssh_binary_packet ssh_pkt{pkt};
-            if (tcp_pkt && ssh_pkt.additional_bytes_needed) {
-                tcp_pkt->reassembly_needed(ssh_pkt.additional_bytes_needed);
-                return;
-            }
-            x.emplace<ssh_kex_init>(ssh_pkt.payload);
-            break;
-        }
-    case tcp_msg_type_smtp_client:
-        x.emplace<smtp_client>(pkt);
-        break;
-    case tcp_msg_type_smtp_server:
-        x.emplace<smtp_server>(pkt);
-        break;
-    default:
-        if (is_new) {
-            x.emplace<unknown_initial_packet>(pkt);
-        } else {
-            x.emplace<std::monostate>();
-        }
-        break;
-    }
-}
-
-
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
@@ -223,69 +120,6 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     // o.b->snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
-// set_udp_protocol() sets the protocol variant record to the data
-// structure resulting from the parsing of the UDP data field, which
-// will be one of the UDP protcols in that variant.  The default value
-// of std::monostate indicates that the protocol matcher did not
-// recognize, or could not parse, the packet.  The class
-// unknown_udp_initial_packet represents the UDP data field of an
-// unrecognized packet that is the first data packet in a flow.
-//
-void set_udp_protocol(protocol &x,
-                      struct datum &pkt,
-                      enum udp_msg_type msg_type,
-                      bool is_new,
-                      quic_crypto_engine &quic_crypto) {
-
-    // note: std::get<T>() throws exceptions; it might be better to
-    // use get_if<T>(), which does not
-
-    // enum msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
-    // if (msg_type == msg_type_unknown) {
-    //     msg_type = udp_pkt.estimate_msg_type_from_ports();
-    // }
-    switch(msg_type) {
-    case udp_msg_type_dns:
-        x.emplace<dns_packet>(pkt);
-        break;
-    case udp_msg_type_dhcp:
-        x.emplace<dhcp_discover>(pkt);
-        break;
-    case udp_msg_type_quic:
-        x.emplace<quic_init>(pkt, quic_crypto);
-        break;
-    case udp_msg_type_dtls_client_hello:
-        {
-            struct dtls_record dtls_rec{pkt};
-            struct dtls_handshake handshake{dtls_rec.fragment};
-            if (handshake.msg_type == handshake_type::client_hello) {
-                // x.emplace<tls_client_hello>(handshake.body);
-                x.emplace<13>(handshake.body);
-            }
-        }
-        break;
-    case udp_msg_type_dtls_server_hello:
-        {
-            struct dtls_record dtls_rec{pkt};
-            struct dtls_handshake handshake{dtls_rec.fragment};
-            if (handshake.msg_type == handshake_type::server_hello) {
-                // x.emplace<tls_server_hello>(handshake.body);
-                x.emplace<14>(handshake.body);
-            }
-        }
-        break;
-    case udp_msg_type_wireguard:
-        x.emplace<wireguard_handshake_init>(pkt);
-        break;
-    default:
-        if (is_new) {
-            x.emplace<unknown_udp_initial_packet>(pkt);
-        } else {
-            x.emplace<std::monostate>();
-        }
-        break;
-    }
-}
 
 // function objects that are applied to the protocol std::variant (and
 // any other variant that can hold a subset of its protocol data
@@ -392,51 +226,6 @@ struct compute_fingerprint {
 
 };
 
-
-struct write_fingerprint {
-    struct json_object &record;
-
-    write_fingerprint(struct json_object &object) : record{object} {}
-
-    template <typename T>
-    void operator()(T &r) {
-        r.write_fingerprint(record);
-    }
-
-    void operator()(http_request &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("http", r);
-        fps.close();
-        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
-    }
-
-    void operator()(http_response &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("http_server", r);
-        fps.close();
-        //record.print_key_string("complete", r.headers.complete ? "yes" : "no"); // TBD: (re)move?
-    }
-
-    void operator()(ssh_init_packet &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("ssh", r);
-        fps.close();
-    }
-
-    void operator()(ssh_kex_init &r) {
-        struct json_object fps{record, "fingerprints"};
-        fps.print_key_value("ssh_kex", r);
-        fps.close();
-    }
-
-    // these protocols are not fingerprinted
-    //
-    void operator()(wireguard_handshake_init &) { }
-    void operator()(unknown_initial_packet &) { }
-    void operator()(dns_packet &) { }
-    void operator()(std::monostate &) { }
-};
-
 struct do_analysis {
     const struct key &k_;
     struct analysis_context &analysis_;
@@ -473,42 +262,26 @@ class event_string
 {
     const struct key &k;
     const struct analysis_context &analysis;
-    std::string ev_str;
+    std::string dest_context;
+    event_msg event;
 
-    inline void append_to_ev_str (const std::string &str) {
-        ev_str.append("(");
-        ev_str.append(str);
-        ev_str.append(")");
-    };
-    inline void append_to_ev_str_with_delim (const std::string &str) {
-        ev_str.append("(");
-        ev_str.append(str); 
-        ev_str.append(")#");
-    };
 public:
     event_string(const struct key &k, const struct analysis_context &analysis) :
         k{k}, analysis{analysis} {  }
 
-    void construct_event_string() {
+    event_msg construct_event_string() {
         char src_ip_str[MAX_ADDR_STR_LEN];
         k.sprint_src_addr(src_ip_str);
         char dst_port_str[MAX_PORT_STR_LEN];
         k.sprint_dst_port(dst_port_str);
-        std::tuple<std::string, std::string, std::string> dest_context(analysis.destination.sn_str,
-                                                                       analysis.destination.dst_ip_str,
-                                                                       dst_port_str); 
-        //Enclose each parameter within () brackets
-        append_to_ev_str_with_delim(src_ip_str);
-        //Fingerprint string is already formatted. so skipping to add braces
-        ev_str.append(analysis.fp.string());
-        ev_str.append("#");
-        //Destination context - SNI, Dst ip and Dst port
-        append_to_ev_str(std::get<0>(dest_context));
-        append_to_ev_str(std::get<1>(dest_context));
-        append_to_ev_str(std::get<2>(dest_context));
-    }
-    std::string get_event_string() const {
-        return ev_str;
+
+        dest_context.append("(");
+        dest_context.append(analysis.destination.sn_str).append(")(");
+        dest_context.append(analysis.destination.dst_ip_str).append(")(");
+        dest_context.append(dst_port_str).append(")");
+
+        event = std::make_tuple(src_ip_str, analysis.fp.string(), analysis.user_agent, dest_context);
+        return event;
     }
 };
 
@@ -525,20 +298,26 @@ struct do_observation {
         mq_{mq}
     {}
 
-    void operator()(tls_client_hello &) {
+    void operator()(tls_client_hello &client_hello) {
+        if (client_hello.dtls) {
+            return; // we only want to observe tls, not dtls
+        }
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_};
-        ev_str.construct_event_string();
-        //fprintf(stderr, "note: observed event_string '%s'\n", ev_str.get_event_string().c_str());
-        mq_->push((uint8_t *)ev_str.get_event_string().c_str(), ev_str.get_event_string().length()+1);
+        mq_->push(ev_str.construct_event_string());
     }
 
     void operator()(quic_init &) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_};
-        ev_str.construct_event_string();
-        //fprintf(stderr, "note: observed event_string '%s'\n", ev_str.get_event_string().c_str());
-        mq_->push((uint8_t *)ev_str.get_event_string().c_str(), ev_str.get_event_string().length()+1);
+        mq_->push(ev_str.construct_event_string());
+    }
+
+    void operator()(http_request &) {
+        // create event and send it to the data/stats aggregator
+        event_string ev_str{k_, analysis_};
+        mq_->push(ev_str.construct_event_string());
+        analysis_.reset_user_agent();
     }
 
     template <typename T>
@@ -550,11 +329,145 @@ struct do_observation {
 // variables can be used as compile-time options.  In the future, they
 // will probably become run-time options.
 //
-static constexpr bool report_IP       = false;
+// note: static constexpr bool report_IP is in tcpip.h
+//
 static constexpr bool report_GRE      = false;
 static constexpr bool report_ICMP     = false;
 static constexpr bool report_OSPF     = false;
 static constexpr bool report_SYN_ACK  = false;
+
+// set_tcp_protocol() sets the protocol variant record to the data
+// structure resulting from the parsing of the TCP data field, which
+// will be one of the TCP protocols in that variant.  The default
+// value of std::monostate indicates that the protocol matcher did not
+// recognize, or could not parse, the packet.  The class
+// unknown_initial_packet represents the TCP data field of an
+// unrecognized packet that is the first data packet in a flow.
+//
+void stateful_pkt_proc::set_tcp_protocol(protocol &x,
+                      struct datum &pkt,
+                      bool is_new,
+                      struct tcp_packet *tcp_pkt) {
+
+    // note: std::get<T>() throws exceptions; it might be better to
+    // use get_if<T>(), which does not
+
+    enum tcp_msg_type msg_type = (tcp_msg_type) selector.get_tcp_msg_type(pkt.data, pkt.length());
+    switch(msg_type) {
+    case tcp_msg_type_http_request:
+        x.emplace<http_request>(pkt, ph_visitor);
+        break;
+    case tcp_msg_type_http_response:
+        x.emplace<http_response>(pkt, ph_visitor);
+        break;
+    case tcp_msg_type_tls_client_hello:
+        {
+            struct tls_record rec{pkt};
+            struct tls_handshake handshake{rec.fragment};
+            if (tcp_pkt && handshake.additional_bytes_needed) {
+                tcp_pkt->reassembly_needed(handshake.additional_bytes_needed);
+                return;
+            }
+            x.emplace<3>(handshake.body);
+            // x.emplace<tls_client_hello>(handshake.body);
+            break;
+        }
+    case tcp_msg_type_tls_server_hello:
+    case tcp_msg_type_tls_certificate:
+        x.emplace<4>(pkt, tcp_pkt);
+        // x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
+        break;
+    case tcp_msg_type_ssh:
+        x.emplace<ssh_init_packet>(pkt);
+        break;
+    case tcp_msg_type_ssh_kex:
+        {
+            struct ssh_binary_packet ssh_pkt{pkt};
+            if (tcp_pkt && ssh_pkt.additional_bytes_needed) {
+                tcp_pkt->reassembly_needed(ssh_pkt.additional_bytes_needed);
+                return;
+            }
+            x.emplace<ssh_kex_init>(ssh_pkt.payload);
+            break;
+        }
+    case tcp_msg_type_smtp_client:
+        x.emplace<smtp_client>(pkt);
+        break;
+    case tcp_msg_type_smtp_server:
+        x.emplace<smtp_server>(pkt);
+        break;
+    default:
+        if (is_new) {
+            x.emplace<unknown_initial_packet>(pkt);
+        } else {
+            x.emplace<std::monostate>();
+        }
+        break;
+    }
+}
+
+// set_udp_protocol() sets the protocol variant record to the data
+// structure resulting from the parsing of the UDP data field, which
+// will be one of the UDP protcols in that variant.  The default value
+// of std::monostate indicates that the protocol matcher did not
+// recognize, or could not parse, the packet.  The class
+// unknown_udp_initial_packet represents the UDP data field of an
+// unrecognized packet that is the first data packet in a flow.
+//
+void stateful_pkt_proc::set_udp_protocol(protocol &x,
+                      struct datum &pkt,
+                      enum udp_msg_type msg_type,
+                      bool is_new) {
+
+    // note: std::get<T>() throws exceptions; it might be better to
+    // use get_if<T>(), which does not
+
+    // enum msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
+    // if (msg_type == msg_type_unknown) {
+    //     msg_type = udp_pkt.estimate_msg_type_from_ports();
+    // }
+    switch(msg_type) {
+    case udp_msg_type_dns:
+        x.emplace<dns_packet>(pkt);
+        break;
+    case udp_msg_type_dhcp:
+        x.emplace<dhcp_discover>(pkt);
+        break;
+    case udp_msg_type_quic:
+        x.emplace<quic_init>(pkt, quic_crypto);
+        break;
+    case udp_msg_type_dtls_client_hello:
+        {
+            struct dtls_record dtls_rec{pkt};
+            struct dtls_handshake handshake{dtls_rec.fragment};
+            if (handshake.msg_type == handshake_type::client_hello) {
+                // x.emplace<tls_client_hello>(handshake.body);
+                x.emplace<13>(handshake.body);
+            }
+        }
+        break;
+    case udp_msg_type_dtls_server_hello:
+        {
+            struct dtls_record dtls_rec{pkt};
+            struct dtls_handshake handshake{dtls_rec.fragment};
+            if (handshake.msg_type == handshake_type::server_hello) {
+                // x.emplace<tls_server_hello>(handshake.body);
+                x.emplace<14>(handshake.body);
+            }
+        }
+        break;
+    case udp_msg_type_wireguard:
+        x.emplace<wireguard_handshake_init>(pkt);
+        break;
+    default:
+        if (is_new) {
+            x.emplace<unknown_udp_initial_packet>(pkt);
+        } else {
+            x.emplace<std::monostate>();
+        }
+        break;
+    }
+}
 
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
                                         size_t buffer_size,
@@ -594,7 +507,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         x.emplace<ospf>(pkt);
 
     } else if (transport_proto == ip::protocol::tcp) {
-        tcp_packet tcp_pkt{pkt};
+        tcp_packet tcp_pkt{pkt, &ip_pkt};
         if (!tcp_pkt.is_valid()) {
             return 0;  // incomplete tcp header; can't process packet
         }
@@ -605,19 +518,16 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
             if (selector.tcp_syn()) {
-                if (report_IP && global_vars.metadata_output) {
-                    // ip_pkt.write_json(record);  // TODO: move to end of function
-                }
                 x = tcp_pkt; // process tcp syn
             }
             // note: we could check for non-empty data field
 
-         } else if (tcp_pkt.is_SYN_ACK()) {
+        } else if (tcp_pkt.is_SYN_ACK()) {
             if (global_vars.output_tcp_initial_data) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
             if (report_SYN_ACK && selector.tcp_syn()) {
-                x = tcp_pkt;
+                x = tcp_pkt;  // process tcp syn/ack
             }
             // note: we could check for non-empty data field
 
@@ -627,7 +537,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (global_vars.output_tcp_initial_data) {
                 is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             }
-            set_tcp_protocol(x, pkt, selector, is_new, reassembler == nullptr ? nullptr : &tcp_pkt, ph_visitor);
+            set_tcp_protocol(x, pkt, is_new, reassembler == nullptr ? nullptr : &tcp_pkt);
         }
 
     } else if (transport_proto == ip::protocol::udp) {
@@ -652,7 +562,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
-        set_udp_protocol(x, pkt, msg_type, is_new, quic_crypto);
+        set_udp_protocol(x, pkt, msg_type, is_new);
     }
 
     // process transport/application protocol
@@ -660,7 +570,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp}, x);
         bool output_analysis = false;
-        if (global_vars.do_analysis) {
+        if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
             // note: we only perform observations when analysis is
@@ -825,12 +735,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     protocol x;
     uint8_t transport_proto = ip_pkt.transport_protocol();
     if (transport_proto == ip::protocol::tcp) {
-        tcp_packet tcp_pkt{pkt};
+        tcp_packet tcp_pkt{pkt, &ip_pkt};
         if (!tcp_pkt.is_valid()) {
             return 0;  // incomplete tcp header; can't process packet
          }
         tcp_pkt.set_key(k);
-        set_tcp_protocol(x, pkt, selector, false, reassembler == nullptr ? nullptr : &tcp_pkt, ph_visitor);
+        set_tcp_protocol(x, pkt, false, reassembler == nullptr ? nullptr : &tcp_pkt);
 
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
@@ -844,14 +754,14 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
         }
 
-        set_udp_protocol(x, pkt, msg_type, false, quic_crypto);
+        set_udp_protocol(x, pkt, msg_type, false);
     }
 
     // process protocol data element
     //
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp}, x);
-        if (global_vars.do_analysis) {
+        if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             // re-initialize the structure that holds analysis results
             //

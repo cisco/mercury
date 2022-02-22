@@ -51,6 +51,57 @@ struct mercury {
     }
 };
 
+// protocol is an alias for a std::variant that can hold any protocol
+// data element.  The default value of std::monostate indicates that
+// the protocol matcher did not recognize the packet.
+//
+// The classes unknown_initial_packet and unknown_udp_initial_packet
+// represents the TCP and UDP data fields, respectively, of an
+// unrecognized packet that is the first data packet in a flow.
+//
+//protocol structs forward declarations
+struct http_request;                      // start of tcp protocols
+struct http_response;
+struct tls_client_hello;
+class tls_server_hello_and_certificate;
+struct ssh_init_packet;
+struct ssh_kex_init;
+class smtp_client;
+class smtp_server;
+class unknown_initial_packet;
+class quic_init;                         // start of udp protocols
+struct wireguard_handshake_init;
+struct dns_packet;
+struct tls_client_hello;                  // dtls
+struct tls_server_hello;                  // dtls
+struct dhcp_discover;
+class unknown_udp_initial_packet;
+class icmp_packet;                        // start of ip protocols
+class ospf;
+struct tcp_packet;
+
+using protocol = std::variant<std::monostate,
+                              http_request,                      // start of tcp protocols
+                              http_response,
+                              tls_client_hello,
+                              tls_server_hello_and_certificate,
+                              ssh_init_packet,
+                              ssh_kex_init,
+                              smtp_client,
+                              smtp_server,
+                              unknown_initial_packet,
+                              quic_init,                         // start of udp protocols
+                              wireguard_handshake_init,
+                              dns_packet,
+                              tls_client_hello,                  // dtls
+                              tls_server_hello,                  // dtls
+                              dhcp_discover,
+                              unknown_udp_initial_packet,
+                              icmp_packet,                        // start of ip protocols
+                              ospf,
+                              tcp_packet
+                              >;
+
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
     struct flow_table_tcp tcp_flow_table;
@@ -169,6 +220,16 @@ struct stateful_pkt_proc {
                                       struct tcp_packet &tcp_pkt,
                                       struct timespec *ts,
                                       struct tcp_reassembler *reassembler);
+
+    void set_tcp_protocol(protocol &x,
+                          struct datum &pkt,
+                          bool is_new,
+                          struct tcp_packet *tcp_pkt);
+
+    void set_udp_protocol(protocol &x,
+                          struct datum &pkt,
+                          enum udp_msg_type msg_type,
+                          bool is_new);
 };
 
 #endif /* PKT_PROC_H */

@@ -325,9 +325,13 @@ struct tls_extensions : public datum {
 
     void print_quic_transport_parameters(struct json_object &o, const char *key) const;
 
+    void print_alpn(struct json_object &o, const char *key) const;
+
     void set_server_name(struct datum &server_name) const;
 
     void print_session_ticket(struct json_object &o, const char *key) const;
+
+    void fingerprint_quic_tls(struct buffer_stream &b, enum tls_role role) const;
 
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
 };
@@ -342,6 +346,7 @@ struct tls_client_hello : public tcp_base_protocol {
     struct datum compression_methods;
     struct tls_extensions extensions;
     bool dtls = false;
+    bool is_quic_hello = false;
     size_t additional_bytes_needed = 0;
 
     tls_client_hello() { }
@@ -353,8 +358,6 @@ struct tls_client_hello : public tcp_base_protocol {
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
     void fingerprint(struct buffer_stream &buf) const;
-
-    void write_fingerprint(struct buffer_stream &buf) const;
 
     void compute_fingerprint(struct fingerprint &fp) const;
 
@@ -427,6 +430,7 @@ struct tls_server_hello : public tcp_base_protocol {
             o.print_key_hex("random", random);
             o.print_key_hex("selected_cipher_suite", ciphersuite_vector);
             o.print_key_hex("compression_methods", compression_method);
+            extensions.print_alpn(o, "application_layer_protocol_negotiation");
             extensions.print_session_ticket(o, "session_ticket");
         }
     }
@@ -438,7 +442,9 @@ struct tls_server_hello : public tcp_base_protocol {
         } else {
             type = fingerprint_type_tls_server;
         }
-        fp.set(*this, type);
+        fp.set_type(type);
+        fp.add(*this);
+        fp.final();
     }
 
     static constexpr mask_and_value<8> matcher{
@@ -584,17 +590,9 @@ public:
         }
     }
 
-    void write_fingerprint(struct json_object &object) {
-        if (hello.is_not_empty()) {
-            struct json_object fps{object, "fingerprints"};
-            fps.print_key_value("tls_server", hello);
-            fps.close();
-        }
-    }
-
     void compute_fingerprint(struct fingerprint &fp) const {
         if (hello.is_not_empty()) {
-            fp.set(hello, fingerprint_type_tls_server);
+            hello.compute_fingerprint(fp);
         }
     }
 

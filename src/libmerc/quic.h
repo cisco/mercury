@@ -158,6 +158,12 @@ public:
         variable_length_integer v{tmp};
         return v.value() % 31 == 27;
     }
+
+    uint64_t value() const {
+        datum tmp = *this;               // copy to avoid changing *this
+        variable_length_integer v{tmp};
+        return v.value();
+    }
 };
 
 
@@ -193,6 +199,8 @@ public:
             b.write_char('b');
         }
     }
+
+    variable_length_integer_datum get_id() const { return _id; }
 
 };
 
@@ -1039,6 +1047,7 @@ public:
             struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
             tls_handshake tls{d};
             hello.parse(tls.body);
+            hello.is_quic_hello = true;
         }
     }
 
@@ -1072,11 +1081,17 @@ public:
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        // fp format :(quic_version)(tls_fp);
-        quic_hdr_fp hdr_fp(initial_packet.version);
-        fp.add(hdr_fp);
+
+        // fingerprint format:  quic:(quic_version)(tls fingerprint)
+        //
+        // TODO: do we want to report anything if !hello.is_not_empty() ?
+
         if (hello.is_not_empty()) {
-            fp.set(hello, fingerprint_type_quic);
+            fp.set_type(fingerprint_type_quic);
+            quic_hdr_fp hdr_fp(initial_packet.version);
+            fp.add(hdr_fp);
+            fp.add(hello);
+            fp.final();
         }
     }
 

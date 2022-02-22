@@ -130,6 +130,13 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	$(STRIP) libmerc.so
 	ldconfig -n .
 
+libmerc_coverage.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
+	ar -x lctrie/liblctrie.a
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o -lz -lcrypto --coverage
+	$(STRIP) libmerc_coverage.so
+	cp libmerc_coverage.so libmerc.so
+	ldconfig -n .
+
 # debug targets (debug-libmerc.a and debug-libmerc.so)
 #
 # These targets produce .a or .so libraries with the same name, but
@@ -142,7 +149,9 @@ DBGFLAGS += -g
 DBGFLAGS += -ggdb
 DBGFLAGS += -O0
 DBGFLAGS += -UNDEBUG
+ifeq ($(use_fsanitize),yes)
 DBGFLAGS += -fsanitize=address
+endif
 DBGFLAGS += -fno-omit-frame-pointer
 DBGFLAGS += -fvisibility=default
 # DBGFLAGS += -DDEBUG # this option triggers voluminous detailed output
@@ -155,6 +164,13 @@ debug-libmerc.so: STRIP = @echo "not running strip on"
 debug-libmerc.so: libmerc.so
 debug-libmerc.so:
 	cp libmerc.so ../../lib/debug-libmerc.so
+
+debug-libmerc_gcov.so: CFLAGS+= -fprofile-arcs -ftest-coverage
+debug-libmerc_gcov.so: CFLAGS += $(DBGFLAGS)
+debug-libmerc_gcov.so: STRIP = @echo "not running strip on"
+debug-libmerc_gcov.so: libmerc_coverage.so
+debug-libmerc_gcov.so:
+	cp libmerc.so ../../lib/debug-libmerc_gcov.so
 
 debug-libmerc.a: CFLAGS += $(DBGFLAGS)
 debug-libmerc.a: libmerc.a
@@ -211,6 +227,9 @@ clean:
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
+	find -type f -name "*.gcno" -delete
+	find -type f -name "*.gcda" -delete
+	find -type f -name "*.gcov" -delete
 
 .PHONY: distclean
 distclean: clean

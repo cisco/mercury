@@ -107,25 +107,27 @@ enum enc_key_type {
 struct libmerc_config {
 
 #ifdef __cplusplus
-    // constructor, for c++ only
-    libmerc_config() :
-        dns_json_output{false},
-        certs_json_output{false},
-        metadata_output{false},
-        do_analysis{false},
-        do_stats{false},
-        report_os{false},
-        output_tcp_initial_data{false},
-        output_udp_initial_data{false},
-        resources{NULL},
-        enc_key{NULL},
-        key_type{enc_key_type_none},
-        packet_filter_cfg{NULL},
-        fp_proc_threshold{0.0},
-        proc_dst_threshold{0.0},
-        max_stats_entries{0}
-    {}
-#endif
+    // default values, for c++ only
+    bool dns_json_output = false;         /* output DNS as JSON           */
+    bool certs_json_output = false;       /* output certificates as JSON  */
+    bool metadata_output = false;         /* output lots of metadata      */
+    bool do_analysis = false;             /* write analysys{} JSON object */
+    bool do_stats = false;                /* gather src/fp/dst statistics */
+    bool report_os = false;               /* report oses in analysis JSON */
+    bool output_tcp_initial_data = false; /* write initial data field     */
+    bool output_udp_initial_data = false; /* write initial data field     */
+
+    char *resources = NULL;             /* archive containing resource files       */
+    const uint8_t *enc_key = NULL;      /* (optional) decryption key for archive   */
+    enum enc_key_type key_type = enc_key_type_none;  /* key type (none=0 if key not present)    */
+
+    char *packet_filter_cfg = nullptr; /* packet filter configuration string             */
+
+    float fp_proc_threshold = 0.0;   /* remove processes with less than <var> weight    */
+    float proc_dst_threshold = 0.0;  /* remove destinations with less than <var> weight */
+    size_t max_stats_entries = 0;  /* max num entries in stats tables                 */
+
+#else
 
     bool dns_json_output;         /* output DNS as JSON           */
     bool certs_json_output;       /* output certificates as JSON  */
@@ -145,6 +147,7 @@ struct libmerc_config {
     float fp_proc_threshold;   /* remove processes with less than <var> weight    */
     float proc_dst_threshold;  /* remove destinations with less than <var> weight */
     size_t max_stats_entries;  /* max num entries in stats tables                 */
+#endif
 };
 
 /**

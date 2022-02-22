@@ -18,6 +18,51 @@ from pmercury.protocols.tls_certificate import TLS_Certificate
 
 from protocols.iquic import IQUIC
 
+parsers = {}
+parsers['tcp']          = TCP()
+parsers['tls']          = TLS()
+parsers['tls_server']   = TLS_Server()
+parsers['dtls']         = DTLS()
+parsers['dtls_server']  = DTLS_Server()
+parsers['http']         = HTTP()
+parsers['http_server']  = HTTP_Server()
+parsers['server_certs'] = TLS_Certificate()
+parsers['dhcp']         = DHCP()
+parsers['iquic']        = IQUIC()
+
+
+def convert_ipv6(buf, o_):
+    ipv6_addr = buf[o_:o_+2].hex().lstrip('0')
+    for i in range(2, 16, 2):
+        ipv6_addr += ':' + buf[o_+i:o_+i+2].hex().lstrip('0')
+    cur_max = 0
+    all_max = 0
+    for i in range(len(ipv6_addr)):
+        if ipv6_addr[i] != ':':
+            if cur_max > all_max:
+                all_max = cur_max
+            cur_max = 0
+        else:
+            cur_max += 1
+    if cur_max > all_max:
+        all_max = cur_max
+    out_ipv6_addr = ipv6_addr
+    if all_max > 1:
+        idx_ = ipv6_addr.find(':'*all_max)
+        ipv6_addr = ipv6_addr.replace(':'*all_max, '::', 1)
+        out_ipv6_addr = ''
+        for i in range(len(ipv6_addr)-1):
+            if i == idx_:
+                out_ipv6_addr += ipv6_addr[i]
+            elif ipv6_addr[i] == ':' and ipv6_addr[i+1] == ':':
+                out_ipv6_addr += ipv6_addr[i] + '0'
+            else:
+                out_ipv6_addr += ipv6_addr[i]
+        out_ipv6_addr += ipv6_addr[-1]
+
+    return out_ipv6_addr
+
+
 def pkt_proc(ts, data):
     buf = data
 
@@ -105,7 +150,7 @@ def pkt_proc(ts, data):
                 fp_type = 'dtls_server'
         elif (buf[app_offset+2] == 0x00 and buf[app_offset+3] == 0x00):
             fp_str_, context_ = IQUIC.fingerprint(data, app_offset, data_len)
-            fp_type = 'iquic'
+            fp_type = 'quic'
         elif data_len - app_offset < 240:
             return None
         elif (buf[app_offset+236] == 0x63 and
@@ -127,15 +172,9 @@ def pkt_proc(ts, data):
         dst_ip = f'{buf[o_]}.{buf[o_+1]}.{buf[o_+2]}.{buf[o_+3]}'
     else:
         o_ = prot_offset-32
-        src_ip = (f'{buf[o_]:02x}{buf[o_+1]:02x}:{buf[o_+2]:02x}{buf[o_+3]:02x}:'
-                  f'{buf[o_+4]:02x}{buf[o_+5]:02x}:{buf[o_+6]:02x}{buf[o_+7]:02x}:'
-                  f'{buf[o_+8]:02x}{buf[o_+9]:02x}:{buf[o_+10]:02x}{buf[o_+11]:02x}:'
-                  f'{buf[o_+12]:02x}{buf[o_+13]:02x}:{buf[o_+14]:02x}{buf[o_+15]:02x}')
+        src_ip = convert_ipv6(buf, o_)
         o_ += 16
-        dst_ip = (f'{buf[o_]:02x}{buf[o_+1]:02x}:{buf[o_+2]:02x}{buf[o_+3]:02x}:'
-                  f'{buf[o_+4]:02x}{buf[o_+5]:02x}:{buf[o_+6]:02x}{buf[o_+7]:02x}:'
-                  f'{buf[o_+8]:02x}{buf[o_+9]:02x}:{buf[o_+10]:02x}{buf[o_+11]:02x}:'
-                  f'{buf[o_+12]:02x}{buf[o_+13]:02x}:{buf[o_+14]:02x}{buf[o_+15]:02x}')
+        dst_ip = convert_ipv6(buf, o_)
 
     flow = {'src_ip':src_ip,
             'dst_ip':dst_ip,
@@ -149,12 +188,30 @@ def pkt_proc(ts, data):
     else:
         if 'tls' not in flow:
             flow['tls'] = {}
-        flow['tls'][fp_type] = fp_str_
+        if 'server' not in flow['tls']:
+            flow['tls']['server'] = {}
+        flow['tls']['server'][fp_type] = fp_str_
 
     if context_ != None and context_ != []:
-        flow[fp_type] = {}
-        for x_ in context_:
-            flow[fp_type][x_['name']]  = x_['data']
+        if fp_type == 'tls' or fp_type == 'quic':
+            flow['tls'] = {}
+            flow['tls']['client'] = {}
+            for x_ in context_:
+                flow['tls']['client'][x_['name']]  = x_['data']
+        elif fp_type == 'http':
+            flow['http'] = {}
+            flow['http']['request'] = {}
+            for x_ in context_:
+                flow['http']['request'][x_['name']]  = x_['data']
+        elif fp_type == 'http_server':
+            flow['http'] = {}
+            flow['http']['response'] = {}
+            for x_ in context_:
+                flow['http']['response'][x_['name']]  = x_['data']
+        else:
+            flow[fp_type] = {}
+            for x_ in context_:
+                flow[fp_type][x_['name']]  = x_['data']
 
     if fp_str_2_ != None:
         if fp_type_2 != 'server_certs':
@@ -162,7 +219,9 @@ def pkt_proc(ts, data):
         else:
             if 'tls' not in flow:
                 flow['tls'] = {}
-            flow['tls'][fp_type_2] = fp_str_2_
+            if 'server' not in flow['tls']:
+                flow['tls']['server'] = {}
+            flow['tls']['server'][fp_type_2] = fp_str_2_
 
         if context_2_ != None and context_2_ != []:
             flow[fp_type_2] = {}

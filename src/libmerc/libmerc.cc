@@ -66,6 +66,12 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
         printf_err(log_info, "libmerc git commit id: %s\n", git_commit_id);
     }
 
+    // if NDEBUG is not defined, the assert() macro will be used;
+    // report that fact through printf_err() to confirm that tests are
+    // taking place
+    //
+    assert(printf_err(log_info, "libmerc is running assert() tests\n") != 0);
+
     try {
         m = new mercury{vars, verbosity};
         return m;
