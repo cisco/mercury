@@ -18,29 +18,41 @@ grease_ = set(['0a0a','1a1a','2a2a','3a3a','4a4a','5a5a','6a6a','7a7a',
 
 grease_single_int_ = set([10,26,42,58,74,90,106,122,138,154,170,186,202,218,234,250])
 
-ext_data_extract_ = set(['0001','0005','0007','0008','0009','000a','000b',
-                         '000d','000f','0010','0011','0013','0014','0018',
-                         '001b','001c','002b','002d','0032','5500'])
-
+ext_data_extract_  = set(['0001','0005','0007','0008','0009','000a','000b',
+                          '000d','000f','0010','0011','0013','0014','0018',
+                          '001b','001c','002b','002d','0032','5500'])
+quic_ext_data      = set(['0039','ffa5'])
 
 imp_date_cs_file = find_resource_path('resources/implementation_date_cs.json.gz')
 imp_date_ext_file = find_resource_path('resources/implementation_date_ext.json.gz')
 if os.name == 'nt':
     import gzip
-    for line in gzip.open(imp_date_cs_file, 'r'):
-        imp_date_cs_data = json.loads(line)
-        break
-    for line in gzip.open(imp_date_ext_file, 'r'):
-        imp_date_ext_data = json.loads(line)
-        break
+    if imp_date_cs_file != None:
+        for line in gzip.open(imp_date_cs_file, 'r'):
+            imp_date_cs_data = json.loads(line)
+            break
+    else:
+        imp_date_cs_data = {}
+    if imp_date_ext_file != None:
+        for line in gzip.open(imp_date_ext_file, 'r'):
+            imp_date_ext_data = json.loads(line)
+            break
+    else:
+        imp_date_ext_data = {}
 else:
     cmd = 'gzcat' if sys.platform == 'darwin' else 'zcat'
-    for line in os.popen(cmd + ' %s' % (imp_date_cs_file)):
-        imp_date_cs_data = json.loads(line)
-        break
-    for line in os.popen(cmd + ' %s' % (imp_date_ext_file)):
-        imp_date_ext_data = json.loads(line)
-        break
+    if imp_date_cs_file != None:
+        for line in os.popen(cmd + ' %s' % (imp_date_cs_file)):
+            imp_date_cs_data = json.loads(line)
+            break
+    else:
+        imp_date_cs_data = {}
+    if imp_date_ext_file != None:
+        for line in os.popen(cmd + ' %s' % (imp_date_ext_file)):
+            imp_date_ext_data = json.loads(line)
+            break
+    else:
+        imp_date_ext_data = {}
 
 
 def extract_server_name(data, offset, data_len):
@@ -164,6 +176,9 @@ def parse_extension(data, offset):
     if tmp_ext_type in ext_data_extract_:
         tmp_ext_value = degrease_ext_data(data, offset, tmp_ext_type, ext_len, tmp_ext_value)
         fp_ext_ += '%04x%s' % (ext_len, tmp_ext_value.hex())
+    elif tmp_ext_type in quic_ext_data:
+        tmp_ext_value = extract_quic_transport_params(data, offset, ext_len)
+        fp_ext_ = f'({fp_ext_})[{tmp_ext_value}]'
     offset += ext_len
 
     return fp_ext_, offset, ext_len
@@ -174,6 +189,32 @@ def degrease_type_code(data, offset):
         return '0a0a'
     else:
         return data[offset:offset+2].hex()
+
+
+def extract_quic_transport_params(data, offset, ext_len):
+    exts = []
+
+    toffset = offset
+    while toffset < offset+ext_len:
+        qtp_type_len = 2**(data[toffset] >> 6)
+
+        qtp_type_normalized = ('%02x' % (data[toffset] & 0x3f)) + data[toffset+1:toffset+qtp_type_len].hex()
+        qtp_type = data[toffset:toffset+qtp_type_len].hex()
+        toffset += qtp_type_len
+
+        if int(qtp_type_normalized, 16) % 31 == 27:
+            qtp_type = '1b'
+
+        exts.append((int(qtp_type,16), qtp_type))
+
+        toffset += 1 + data[toffset]
+
+    exts = sorted(exts)
+    out_ = ''
+    for e in exts:
+        out_ += f'({e[1]})'
+
+    return out_
 
 
 # helper to normalize grease within supported_groups and supported_versions

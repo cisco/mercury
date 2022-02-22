@@ -11,6 +11,7 @@
 
 #include "datum.h"
 #include "buffer_stream.h"
+#include "utils.h"
 
 struct ipv4_addr : public datum {
     static const unsigned int bytes_in_addr = 4;
@@ -20,7 +21,7 @@ struct ipv4_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void operator()(struct buffer_stream &b) const {
+    void fingerprint(struct buffer_stream &b) const {
         if (data) {
             b.write_ipv4_addr(data);
         }
@@ -35,7 +36,7 @@ struct ipv6_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void operator()(struct buffer_stream &b) const {
+    void fingerprint(struct buffer_stream &b) const {
         if (data) {
             b.write_ipv6_addr(data);
         }
@@ -145,8 +146,7 @@ struct key {
             snprintf(src_addr, MAX_ADDR_STR_LEN, "%u.%u.%u.%u", sa[0], sa[1], sa[2], sa[3]);
         } else {
             uint8_t *sa = (uint8_t *)&addr.ipv6.src;
-            snprintf(src_addr, MAX_ADDR_STR_LEN, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
-                    sa[0], sa[1], sa[2], sa[3], sa[4], sa[5], sa[6], sa[7], sa[8], sa[9], sa[10], sa[11], sa[12], sa[13], sa[14], sa[15]);
+            sprintf_ipv6_addr(src_addr, sa);
         }
     }
 
@@ -166,7 +166,7 @@ struct eth_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void operator()(struct buffer_stream &b) const {
+    void fingerprint(struct buffer_stream &b) const {
         if (data) {
             b.raw_as_hex(data, datum::length());  // TODO: write colon-delimited hex
         }

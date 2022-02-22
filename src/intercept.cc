@@ -77,6 +77,12 @@
 #include <arpa/inet.h>
 #include <openssl/ssl.h>
 
+// for daemon_output
+//
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
 
 // Macros to colorize output
 //
@@ -241,314 +247,17 @@ void print_flow_key(int fd) {
     fprintf(stderr, GREEN(tty, "fd %d is not a socket (%s)\n"), fd, strerror(errno));
 }
 
-void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-
-    while (x < end) {
-        fprintf(f, "%02x", *x++);
-    }
-}
-
 // libmerc
 //
 
-//#include "libmerc/libmerc.h"
 #include "libmerc/tls.h"
 #include "libmerc/http.h"
+#include "libmerc/http2.h"
 #include "libmerc/json_object.h"
 #include <ctype.h>
 
 #include <unordered_set>
 #include <string>
-
-
-// http parsing
-//
-
-// HPACK - HTTP2 Header [De]Compression
-//
-
-/* From RFC 7541
-
-          | 1     | :authority                  |               |
-          | 2     | :method                     | GET           |
-          | 3     | :method                     | POST          |
-          | 4     | :path                       | /             |
-          | 5     | :path                       | /index.html   |
-          | 6     | :scheme                     | http          |
-          | 7     | :scheme                     | https         |
-          | 8     | :status                     | 200           |
-          | 9     | :status                     | 204           |
-          | 10    | :status                     | 206           |
-          | 11    | :status                     | 304           |
-          | 12    | :status                     | 400           |
-          | 13    | :status                     | 404           |
-          | 14    | :status                     | 500           |
-          | 15    | accept-charset              |               |
-          | 16    | accept-encoding             | gzip, deflate |
-          | 17    | accept-language             |               |
-          | 18    | accept-ranges               |               |
-          | 19    | accept                      |               |
-          | 20    | access-control-allow-origin |               |
-          | 21    | age                         |               |
-          | 22    | allow                       |               |
-          | 23    | authorization               |               |
-          | 24    | cache-control               |               |
-          | 25    | content-disposition         |               |
-          | 26    | content-encoding            |               |
-          | 27    | content-language            |               |
-          | 28    | content-length              |               |
-          | 29    | content-location            |               |
-          | 30    | content-range               |               |
-          | 31    | content-type                |               |
-          | 32    | cookie                      |               |
-          | 33    | date                        |               |
-          | 34    | etag                        |               |
-          | 35    | expect                      |               |
-          | 36    | expires                     |               |
-          | 37    | from                        |               |
-          | 38    | host                        |               |
-          | 39    | if-match                    |               |
-          | 40    | if-modified-since           |               |
-          | 41    | if-none-match               |               |
-          | 42    | if-range                    |               |
-          | 43    | if-unmodified-since         |               |
-          | 44    | last-modified               |               |
-          | 45    | link                        |               |
-          | 46    | location                    |               |
-          | 47    | max-forwards                |               |
-          | 48    | proxy-authenticate          |               |
-          | 49    | proxy-authorization         |               |
-          | 50    | range                       |               |
-          | 51    | referer                     |               |
-          | 52    | refresh                     |               |
-          | 53    | retry-after                 |               |
-          | 54    | server                      |               |
-          | 55    | set-cookie                  |               |
-          | 56    | strict-transport-security   |               |
-          | 57    | transfer-encoding           |               |
-          | 58    | user-agent                  |               |
-          | 59    | vary                        |               |
-          | 60    | via                         |               |
-          | 61    | www-authenticate            |               |
-*/
-
-class hpack_decoder {
-
-public:
-    datum input;
-
-    hpack_decoder(datum &in) : input{in} {}
-
-    void get_next(FILE *f) {
-        fprintf(f, "\n%s:\t", __func__);
-
-        uint8_t first;
-        input.read_uint8(&first);
-
-        fprintf(f, "first: %02x\t", first);
-
-        if (first & 0x80) { // 1***: indexed header field
-            // parse integer
-
-            ssize_t value = decode(first, 7);
-            fprintf(f, "indexed header field\tvalue: %zd\t", value);
-
-        } else {  // literal header field
-
-            if (first & 0x40) { // 01**: literal header field with incremental indexing
-                //
-                fprintf(f, "literal header field\t");
-            }
-            else if ((first & 0xf0) == 0) {  // 0000: literal header field without indexing
-                //
-                fprintf(f, "literal header field without indexing\t");
-
-                ssize_t value = decode(first, 4);
-                fprintf(f, "value: %zd\t", value);
-                if (value > 0) {
-                    // LOOK UP value IN TABLE
-                } else {
-                    // READ VALUE FROM INPUT
-                }
-
-            }
-            else if ((first & 0xf0) == 1) {  // 0001: literal header field never indexed
-                //
-                fprintf(f, "literal header field never indexed\t");
-           }
-        }
-
-        fprintf(f, "\n");
-    }
-
-    ssize_t decode(uint8_t first_byte, unsigned int N) {
-        uint8_t mask;
-        if (N==7) { mask = 0x7f; }
-        if (N==6) { mask = 0x3f; }
-        if (N==5) { mask = 0x1f; }
-        if (N==4) { mask = 0x0f; }
-        if (N==3) { mask = 0x07; }
-        if (N==2) { mask = 0x03; }
-        if (N==1) { mask = 0x01; }
-
-        if ((first_byte & mask) < mask) {
-            return first_byte & mask;   // value occupies single byte
-        }
-
-        // recover value from remaining bytes
-        //
-        int multiplier = 128;
-        ssize_t tmp = 0;
-        uint8_t next_byte;
-        do {
-            input.read_uint8(&next_byte);
-            tmp += (next_byte & 0x7f) * multiplier;
-            multiplier *= 128;
-        } while(next_byte & 0x80 && input.is_not_empty());
-
-        return tmp + mask;
-    }
-};
-
-// Headers Frame (following RFC7540)
-//
-//    +---------------+
-//    |Pad Length? (8)|
-//    +-+-------------+-----------------------------------------------+
-//    |E|                 Stream Dependency? (31)                     |
-//    +-+-------------+-----------------------------------------------+
-//    |  Weight? (8)  |
-//    +-+-------------+-----------------------------------------------+
-//    |                   Header Block Fragment (*)                 ...
-//    +---------------------------------------------------------------+
-//    |                           Padding (*)                       ...
-//    +---------------------------------------------------------------+
-
-class http2_headers {
-    uint8_t pad_length;
-    uint32_t e_stream_dependency;
-    uint8_t weight;
-    datum header_block_fragment;
-
-public:
-    http2_headers() : pad_length{0}, e_stream_dependency{0}, weight{0}, header_block_fragment{NULL, NULL} { }
-
-    void parse(datum &d, bool padded=false, bool priority=false) {
-        if (padded) {
-            d.read_uint8(&pad_length);
-        }
-        if (priority) {
-            d.read_uint32(&e_stream_dependency);
-            d.read_uint8(&weight);
-        }
-        header_block_fragment = d;
-    }
-
-    void write_json(json_object &o) {
-        json_object json_frame(o, "headers");
-        json_frame.print_key_uint("pad_length", pad_length);
-        // json_frame.print_key_uint("e", e_stream_dependency);  // TODO: need bit accessor function
-        json_frame.print_key_uint("stream_dependency", e_stream_dependency);
-        json_frame.print_key_hex("header_block_fragment", header_block_fragment);
-        hpack_decoder headers{header_block_fragment};
-
-        while(headers.input.is_not_empty()) {
-            datum tmp = headers.input;
-            headers.get_next(stderr);
-            if (headers.input == tmp) {
-                // we are not advancing, so abandon this loop
-                fprintf(stderr, "break\n");
-                break;
-            }
-        }
-        json_frame.close();
-    }
-};
-
-
-//  Frame Format (following RFC 7540)
-//
-//    +-----------------------------------------------+
-//    |                 Length (24)                   |
-//    +---------------+---------------+---------------+
-//    |   Type (8)    |   Flags (8)   |
-//    +-+-------------+---------------+-------------------------------+
-//    |R|                 Stream Identifier (31)                      |
-//    +=+=============================================================+
-//    |                   Frame Payload (0...)                      ...
-//    +---------------------------------------------------------------+
-//
-
-class http2_frame {
-    uint64_t length;
-    uint8_t type;
-    uint8_t flags;
-    uint32_t stream_id;
-    datum payload;
-
-public:
-
-    enum type : uint8_t {
-        DATA          = 0x0,
-        HEADERS       = 0x1,
-        PRIORITY      = 0x2,
-        RST_STREAM    = 0x3,
-        SETTINGS      = 0x4,
-        PUSH_PROMISE  = 0x5,
-        PING          = 0x6,
-        GOAWAY        = 0x7,
-        WINDOW_UPDATE = 0x8,
-        CONTINUATION  = 0x9
-    };
-
-    http2_frame() : length{0}, type{0}, flags{0}, stream_id{0}, payload{NULL, NULL} {}
-
-    void parse(struct datum &d) {
-        d.read_uint(&length, 3);
-        d.read_uint8(&type);
-        d.read_uint8(&flags);
-        d.read_uint32(&stream_id);
-        payload = d;
-    }
-
-    const char *type_string(uint8_t t) {
-        switch(t) {
-        case DATA:           return "DATA";
-        case HEADERS:        return "HEADERS";
-        case PRIORITY:       return "PRIORITY";
-        case RST_STREAM:     return "RST_STREAM";
-        case SETTINGS:       return "SETTINGS";
-        case PUSH_PROMISE:   return "PUSH_PROMISE";
-        case PING:           return "PING";
-        case GOAWAY:         return "GOAWAY";
-        case WINDOW_UPDATE:  return "WINDOW_UPDATE";
-        case CONTINUATION:   return "CONTINUATION";
-        default:
-            return "unknown";
-        };
-    }
-
-    void write_json(struct json_object &o) {
-        json_object json_frame(o, "frame");
-        json_frame.print_key_uint("length", length);
-        json_frame.print_key_string("type", type_string(type));
-        json_frame.print_key_uint("flags", flags);
-        json_frame.print_key_uint("stream_id", stream_id);
-        json_frame.print_key_hex("payload", payload);
-
-        if (type == HEADERS) {
-            http2_headers h;
-            h.parse(payload);
-            h.write_json(o);
-        }
-
-        json_frame.close();
-    }
-};
-
-
 
 struct http_request_x : public http_request {
     struct datum trailing_data;
@@ -627,7 +336,7 @@ public:
     virtual void write_buffer(struct buffer_stream &buf) = 0;
     virtual ~output() {};
 
-    enum type { unknown=0, file, log };
+    enum type { unknown=0, file, log, daemon };
 
     static enum output::type get_type(const char *type_string) {
         if (type_string == nullptr) {
@@ -639,6 +348,9 @@ public:
         }
         if (s.compare("log") == 0) {
             return output::type::log;
+        }
+        if (s.compare("daemon") == 0) {
+            return output::type::daemon;
         }
         return output::type::unknown;
     }
@@ -759,6 +471,39 @@ struct syslog_output : public output {
 };
 
 
+struct daemon_output : public output {
+    int sock;
+    struct sockaddr_un name;
+    static constexpr const char *socket_name = "/tmp/intercept.socket";
+
+    daemon_output() {
+
+        // create socket and name
+        //
+        sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+        if (sock < 0) {
+            perror("opening datagram socket");
+        }
+        name.sun_family = AF_UNIX;
+        strcpy(name.sun_path, socket_name);
+
+    }
+    void write_buffer(struct buffer_stream &buf) {
+
+        buf.write_char('\0');
+        if (sendto(sock, buf.dstr, buf.length(), 0,
+                   (const sockaddr *)&name, sizeof(struct sockaddr_un)) < 0) {
+            perror("sending datagram message");
+        }
+
+    };
+
+    ~daemon_output() {
+        close(sock);
+    }
+};
+
+
 
 // class intercept controls the behavior of this library; you can
 // define totally new behavior by defining a class that inherits from
@@ -782,7 +527,7 @@ public:
     //
     enum data_level { minimal_data = 0, full_data=1 };
 
-    enum data_level output_level = minimal_data;
+    enum data_level output_level = full_data;
 
     intercept(output::type out_type) : pid{getpid()}, ppid{getppid()}, out{nullptr} {
 
@@ -794,6 +539,9 @@ public:
         case output::type::log:
             out = new syslog_output;
             break;
+        case output::type::daemon:
+            out = new daemon_output;
+            break;
         case output::type::file:
         default:
             out = new file_output;   // default to file output
@@ -804,6 +552,9 @@ public:
         const char *intercept_output_level = getenv("intercept_output_level");
         if (intercept_output_level && strcmp(intercept_output_level, "full") == 0) {
             output_level = full_data;
+        }
+        if (intercept_output_level && strcmp(intercept_output_level, "minimal") == 0) {
+            output_level = minimal_data;
         }
 
         // set cmd and pcmd
@@ -848,7 +599,49 @@ public:
         }
     }
 
-    void process_outbound(int fd, const uint8_t *data, ssize_t length);
+    // write_flow_key() reads network socket info from the file
+    // descriptor fd, then writes addresses and ports into json_object
+    //
+    void write_flow_key(struct json_object &record, int fd) {
+
+        if (!fd_is_socket(fd)) {
+            return;
+        }
+
+        // TODO: investigate performance, and determine if caching is
+        // needed
+
+        struct sockaddr_in address;
+        bzero(&address, sizeof(address));
+        socklen_t address_len = sizeof(address);
+        int retval = getsockname(fd, (struct sockaddr *) &address, &address_len);
+        if (retval == 0) {
+            if (address.sin_family == AF_INET || address.sin_family == AF_INET6) {
+
+                // report source address and source port
+                //
+                char addr[INET6_ADDRSTRLEN];
+                inet_ntop(address.sin_family, &address.sin_addr, addr, sizeof(addr));
+                uint16_t port = ntohs(address.sin_port);
+                record.print_key_string("src_ip", addr);
+                record.print_key_uint("src_port", port);
+
+                // report destination address and destination port
+                //
+                getpeername(fd, (struct sockaddr *) &address, &address_len);
+                inet_ntop(address.sin_family, &address.sin_addr, addr, sizeof(addr));
+                port = ntohs(address.sin_port);
+                record.print_key_string("dst_ip", addr);
+                record.print_key_uint("dst_port", port);
+
+            }
+        }
+    }
+
+    void process_outbound(int fd, const uint8_t *data, ssize_t length) {
+        process_tls_client_hello(fd, data, length);
+        process_http_request(fd, data, length);
+    }
 
     void process_outbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
 
@@ -871,6 +664,7 @@ public:
             // write pid into record
             write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
+            write_flow_key(record, fd);
 
             http_req.write_json(record, true);
 
@@ -898,6 +692,7 @@ public:
                 // write pid into record
                 write_process_info(record, output_level);
                 record.print_key_uint("fd", fd);
+                write_flow_key(record, fd);
 
                 record.print_key_hex("tcp_data", tcp_data);
 
@@ -950,6 +745,7 @@ public:
                 // write pid into record
                 write_process_info(record, output_level);
                 record.print_key_uint("fd", fd);
+                write_flow_key(record, fd);
 
                 hello.write_json(record);
                 record.close();
@@ -1039,7 +835,7 @@ public:
         }
     }
 
-    void process_http_request(const uint8_t *data, ssize_t length);
+    void process_http_request(int fd, const uint8_t *data, ssize_t length);
 
     void process_tls_client_hello(int fd, const uint8_t *data, ssize_t length);
 
@@ -1049,25 +845,33 @@ public:
 // high level functions for processing network traffic
 //
 
-#if 0
-void intercept::process_http_request(const uint8_t *data, ssize_t length) {
+void intercept::process_http_request(int fd, const uint8_t *data, ssize_t length) {
     struct datum tcp_data{data, data+length};
-    struct http_request http_req;
-    http_req.parse(tcp_data);
-    if (http_req.is_not_empty() && isalnum(data[0])) {  // TODO: improve is_not_empty() with method check
+    struct http_request http_req{tcp_data};
+    if (http_req.is_not_empty()) {  // TODO: improve is_not_empty() with method check
 
         char buffer[buffer_length];
         struct buffer_stream buf(buffer, sizeof(buffer));
         struct json_object record{&buf};
+
+        // write pid into record
+        write_process_info(record, output_level);
+        record.print_key_uint("fd", fd);
+        write_flow_key(record, fd);
+
+        // write fingerprint into record
+        struct fingerprint fp;
+        http_req.compute_fingerprint(fp);
+        fp.write(record);
         http_req.write_json(record, true);
+
         record.close();
-        write_buffer_to_file(buf, outfile);
 
     } else {
         if (verbose) { fprintf(stderr, RED(tty, "http_request unrecognized\n")); }
     }
 }
-#endif
+
 void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t length) {
 
     if (length > 2 && data[0] == 0x16 && data[1] == 0x03) {
@@ -1094,6 +898,7 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             // write pid into record
             write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
+            write_flow_key(record, fd);
 
             // write fingerprint into record
             fp.write(record);
@@ -1102,10 +907,6 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             out->write_buffer(buf);
         }
     }
-}
-
-void intercept::process_outbound(int fd, const uint8_t *data, ssize_t length) {
-    process_tls_client_hello(fd, data, length);
 }
 
 
@@ -1140,26 +941,44 @@ void __attribute__ ((destructor)) intercept_fini(void) {
     delete intrcptr;
 }
 
-
-// the get_original() macro declares a function pointer, sets it to
-// the original function being intercepted, and verifies that it is
-// non-null
+// report_dl_info() writes information about the function at the
+// provided address to stderr
 //
-#define get_original(SSL_read)                                                                \
-static decltype(SSL_read) *original_ ## SSL_read = nullptr;                                   \
-if (original_ ## SSL_read == nullptr) {                                                       \
-    original_ ## SSL_read = (decltype(original_ ## SSL_read)) dlsym(RTLD_NEXT, #SSL_read);    \
-}                                                                                             \
-if (original_ ## SSL_read == nullptr) {                                                       \
-    fprintf(stderr, RED(tty, "error: could not load symbol ") #SSL_read "\n");                \
-    exit(EXIT_FAILURE);                                                                       \
-}                                                                                             \
+void report_dl_info(void *addr) {
+    Dl_info info;
+    if (dladdr(addr, &info) != 0) {
+        fprintf(stderr, "path: %s\t", info.dli_fname);
+        fprintf(stderr, "name: %s\n", info.dli_sname);
+    }
+}
+
+// the get_original() macro declares a static variable to hold a
+// function pointer, sets it to the original function being
+// intercepted on its first invocation, and verifies that it is
+// non-null.
+//
+// Because this macro uses a static variable, dlsym() will be called
+// only once.
+//
+#define get_original(func)                                                                \
+static decltype(func) *original_ ## func = nullptr;                                       \
+if (original_ ## func == nullptr) {                                                       \
+    original_ ## func = (decltype(original_ ## func)) dlsym(RTLD_NEXT, #func);            \
+}                                                                                         \
+if (original_ ## func == nullptr) {                                                       \
+    fprintf(stderr, RED(tty, "error: could not load symbol ") #func "\n");                \
+    exit(EXIT_FAILURE);                                                                   \
+}                                                                                         \
 if (verbose) { fprintf(stderr, GREEN(tty, "intercepted %s\n") , __func__); }
 
 
-// the get_original() macro declares a function pointer, sets it to
-// the original function being intercepted, and verifies that it is
-// non-null
+// the invoke_original() macro declares a static variable to hold
+// function pointer, sets it to the original function being
+// intercepted on its first invocation, verifies that it is non-null,
+// then invokes it.
+//
+// Because this macro uses a static variable, dlsym() will be called
+// only once.
 //
 #define invoke_original(func, ...)                                                        \
 static decltype(func) *original_ ## func = nullptr;                                       \
@@ -1167,7 +986,7 @@ if (original_ ## func == nullptr) {                                             
     original_ ## func = (decltype(original_ ## func)) dlsym(RTLD_NEXT, #func);            \
 }                                                                                         \
 if (original_ ## func == nullptr) {                                                       \
-   fprintf(stderr, RED(tty, "error: could not load symbol ") #func "\n");                      \
+   fprintf(stderr, RED(tty, "error: could not load symbol ") #func "\n");                 \
    exit(EXIT_FAILURE);                                                                    \
 }                                                                                         \
 if (verbose) { fprintf(stderr, GREEN(tty, "intercepted %s\n") , __func__); }              \

@@ -164,7 +164,7 @@ class fingerprint_data {
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
     std::unordered_map<std::string, std::vector<class update>> user_agent_updates;
     std::vector<std::vector<struct os_information>> process_os_info_vector;
-    floating_point_type base_prior;
+    floating_point_type base_prior = 0;
 
     bool malware_db = false;
 
@@ -600,6 +600,13 @@ public:
         if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
             line_str.erase(line_str.length()-1);
         }
+        // if a fingerprint string does not contain a protocol name,
+        // add 'tls' in order to provide backwards compatibility with
+        // resource files with the older fingerprint format
+        //
+        if (line_str.at(0) == '(') {
+            line_str = "tls/" + line_str;
+        }
         //fprintf(stderr, "loading fp_prevalence_line '%s'\n", line_str.c_str());
         fp_prevalence.initial_add(line_str);
     }
@@ -611,7 +618,16 @@ public:
         std::string fp_string;
         if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
             fp_string = fp["str_repr"].GetString();
-            //fprintf(stderr, "%s\n", fp_string.c_str());
+
+            if (fp_string.length() == 0) {
+                printf_err(log_warning, "ignoring zero-length fingerprint string in resource file\n");
+                return;  // can't process this entry, so skip it
+            }
+
+            if (fp_string.length() >= fingerprint::max_length()) {
+                printf_err(log_warning, "ignoring length %zu fingerprint string in resource file; too long\n", fp_string.length());
+                return;  // can't process this entry, so skip it
+            }
         }
 
         fingerprint_type fp_type_code = fingerprint_type_tls;
@@ -624,6 +640,15 @@ public:
             if (std::find(fp_types.begin(), fp_types.end(), fp_type_code) == fp_types.end()) {
                 fp_types.push_back(fp_type_code);
             }
+        }
+
+        // if a TLS fingerprint string does not contain a protocol
+        // name, and is not 'randomized', add it in order to provide
+        // backwards compatibility with resource files with the older
+        // fingerprint format
+        //
+        if (fp_type_code == fingerprint_type_tls && fp_string.at(0) == '(') {
+            fp_string = "tls/" + fp_string;
         }
 
         uint64_t total_count = 0;
@@ -651,6 +676,10 @@ public:
                     }
                     MALWARE_DB = true;
                     malware = x["malware"].GetBool();
+                }
+                if (count == 0) {
+                    throw std::runtime_error("error: process_fp_db_line() count 0");
+                    continue;
                 }
                 /* do not load process into memory if prevalence is below threshold */
                 if ((process_number > 1) && ((float)count/total_count < fp_proc_threshold) && (malware != true)) {
@@ -917,11 +946,11 @@ public:
         if (fp.is_null()) {
             return true;  // no fingerprint to analyze
         }
-        if (std::find(fp_types.begin(), fp_types.end(), fp.type) == fp_types.end()) {
+        if (std::find(fp_types.begin(), fp_types.end(), fp.get_type()) == fp_types.end()) {
             result = analysis_result(fingerprint_status_unanalyzed);
             return true;  // not configured to analyze fingerprints of this type
         }
-        result = this->perform_analysis(fp.fp_str, dc.sn_str, dc.dst_ip_str, dc.dst_port, user_agent);
+        result = this->perform_analysis(fp.string(), dc.sn_str, dc.dst_ip_str, dc.dst_port, user_agent);
         return true;
     }
 

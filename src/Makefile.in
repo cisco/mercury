@@ -80,7 +80,7 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-all: compiler_version mercury libmerc_test cert_analyze libmerc_util # tls_scanner batch_gcd
+all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
 # this so that it is present in e.g. Jenkins logs
@@ -110,8 +110,11 @@ mercury: mercury.c $(MERC_OBJ) $(MERC_H) libmerc.a Makefile.in
 	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -pthread libmerc/libmerc.a -lz -lcrypto -o mercury
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 
+ifeq ($(use_fsanitize),yes)
+FSANITIZE = -fsanitize=address -static-libasan
+endif
 debug-mercury: CFLAGS += -DDEBUG -g -O0
-debug-mercury: CFLAGS += -fsanitize=address -static-libasan
+debug-mercury: CFLAGS += $(FSANITIZE)
 debug-mercury: debug-libmerc.a mercury
 
 setcap: mercury
@@ -134,6 +137,11 @@ debug-libmerc.a:
 	$(MAKE) --directory=libmerc clean
 	$(MAKE) -j --directory=libmerc debug-libmerc.a
 
+.PHONY: debug-libmerc_gcov
+debug-libmerc_gcov:
+	$(MAKE) --directory=libmerc clean
+	$(MAKE) -j --directory=libmerc debug-libmerc_gcov.so
+
 .PHONY: debug-libmerc
 debug-libmerc:
 	$(MAKE) --directory=libmerc clean
@@ -148,8 +156,14 @@ unstripped-libmerc:
 stripped-libmerc:
 	$(MAKE) -j --directory=libmerc stripped-libmerc.so
 
+ifeq ($(use_fsanitize),yes)
+	libmerc_util: CFLAGS += -fsanitize=address
+endif
 libmerc_util: libmerc_util.cc libmerc_api.h
 	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -pthread -ldl -std=c++17 -o libmerc_util
+
+intercept_server: intercept_server.cc
+	$(CXX) $(CFLAGS) intercept_server.cc -std=c++17 -o intercept_server
 
 tls_scanner: tls_scanner.cc libmerc
 	$(CXX) $(CFLAGS) tls_scanner.cc libmerc/libmerc.a -pthread -lssl -lcrypto -lz -o tls_scanner
@@ -205,12 +219,7 @@ libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 libmerc_driver:
-	cd ../unit_tests; $(MAKE) libmerc_driver
-
-#libmerc_driver_coverage: debug-libmerc libmerc_driver.cc $(LIBMERC_SO) Makefile.in libmerc/catch2/catch.hpp
-#	$(CXX) $(CFLAGS) libmerc_driver.cc libmerc/catch2/catch2main.cc -pthread -o libmerc_driver -fsanitize=address -lasan -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz  --coverage
-#	@echo "creating copy of libmerc.so for testing purposes"
-#	cp libmerc/libmerc.so libmerc/libmerc.so.alt
+	cd ../unit_tests/ && $(MAKE) all
 
 # intercept.so
 #
@@ -223,7 +232,7 @@ intercept.so: intercept.cc libmerc.a
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test libmerc_util tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode pcap pcap_filter format intercept.so gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode pcap pcap_filter format intercept.so gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 

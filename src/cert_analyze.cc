@@ -307,17 +307,14 @@ struct pem_file_reader : public file_reader {
         char base64_buffer[8*8192];       // note: hardcoded length for now
         char *base64_buffer_end = base64_buffer + sizeof(base64_buffer);
         char *b_ptr = base64_buffer;
+        bool is_closed = false;
         while ((nread = getline(&line, &len, stream)) > 0 ) {
-            if (nread == -1) {
-                fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
-                free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
-                return -1; // empty line; PEM format incomplete
-            }
             ssize_t advance = 0;
             if (nread == 65) {
                 advance = nread-1;
             } else {
                 if ((size_t)nread >= sizeof(closing_line)-1 && strncmp(line, closing_line, sizeof(closing_line)-1) == 0) {
+                    is_closed = true;
                     break;
                 } else {
                     advance = nread;
@@ -331,6 +328,8 @@ struct pem_file_reader : public file_reader {
             b_ptr += advance;
         }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, base64_buffer, b_ptr - base64_buffer);
+        if (nread <= 0 && !is_closed)
+            fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
         return cert_len;
     }

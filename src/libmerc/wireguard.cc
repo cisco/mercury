@@ -17,7 +17,7 @@ class uint32_hbo {
     uint64_t value=0;
 public:
     uint32_hbo(datum d) { d.read_uint(&value, 4); }
-    void operator()(buffer_stream &b) { b.write_hex_uint32(ntohl(value)); }
+    void fingerprint(buffer_stream &b) { b.write_hex_uint32(ntohl(value)); }
 };
 
 void wireguard_handshake_init::write_json(struct json_object &o, bool write_metadata) {

@@ -14,6 +14,8 @@
 #include "libmerc/datum.h"
 #include "libmerc/json_object.h"
 
+using namespace mercury_option;  //from options.h
+
 // libmerc_printer is derived from libmerc_api, and adds functions for
 // printing out analysis results as json or text
 //
@@ -280,7 +282,7 @@ int main(int argc, char *argv[]) {
         mercury.finalize(mc);
     }
     catch (std::exception &e) {
-        fprintf(stderr, "error processing processing pcap_file %s\n", pcap_file.c_str());
+        fprintf(stderr, "error processing pcap_file %s\n", pcap_file.c_str());
         fprintf(stderr, "%s\n", e.what());
         exit(EXIT_FAILURE);
     }

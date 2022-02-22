@@ -120,6 +120,10 @@ libs:
 test:
 	cd src && $(MAKE) test
 
+.PHONY: test_strict
+test_strict:
+	cd src && $(MAKE) test
+
 .PHONY: test_libmerc_so
 test_libmerc_so: unit_tests
 	cd test && $(MAKE) test_libmerc_so
@@ -127,6 +131,12 @@ test_libmerc_so: unit_tests
 .PHONY: unit_tests
 unit_tests:
 	cd unit_tests && $(MAKE)
+
+.PHONY: coverage_report
+coverage_report: clean
+	cd unit_tests && $(MAKE) libmerc_driver_coverage
+	cd unit_tests && $(MAKE) run
+	cd unit_tests && gcovr -r ../src/libmerc
 
 .PHONY: doc
 doc: doc/mercury.pdf

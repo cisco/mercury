@@ -6,6 +6,7 @@ AC_USE_SYSTEM_EXTENSIONS
 #AC_PROG_CC
 AC_PROG_CXX
 AX_CHECK_COMPILE_FLAG([-fno-gnu-unique], [AC_SUBST([USE_NO_GNU_UNIQUE],yes)], [AC_SUBST([USE_NO_GNU_UNIQUE],no)] , [-Werror])
+AX_CHECK_COMPILE_FLAG([-fsanitize=address], [AC_SUBST([USE_FSANITIZE],yes)], [AC_SUBST([USE_FSANITIZE],no)] , [-Werror])
 AC_CHECK_HEADERS([linux/if_packet.h])
 AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[AC_SUBST(HAVE_TPACKET_V3,yes)],[AC_MSG_WARN([Linux AF_PACKET's TPACKET V3 is not available])],[[#include <linux/if_packet.h>]])
 #AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[],[AC_MSG_FAILURE([Linux AF_PACKET's TPACKET V3 is required, but not available])],[[#include <linux/if_packet.h>]])
@@ -73,5 +74,8 @@ AS_IF([test "x$WGET" = xyes],
 AS_IF([test "x$VALGRIND" = xyes],
     [],
     [AC_MSG_WARN([valgrind not found; test/Makefile memcheck test will not work])])
+AS_IF([test "x$USE_FSANITIZE" = xyes],
+    [],
+    [AC_MSG_WARN([-fsanitize not supported; debug targets will not use address sanitization])])
 AC_CONFIG_FILES(src/libmerc/Makefile src/Makefile test/Makefile unit_tests/Makefile resources/Makefile Makefile_helper.mk install_mercury/mercury.service)
 AC_OUTPUT

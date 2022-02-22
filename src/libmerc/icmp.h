@@ -23,7 +23,7 @@ class icmp_echo {
     datum data;
 
 public:
-    icmp_echo() { }
+    icmp_echo() : identifier{0}, sequence_number{0} { }
 
     void parse(datum &d) {
         d.read_uint16(&identifier);
@@ -79,7 +79,7 @@ class icmp_packet_too_big {
     datum original_datagram;
 
 public:
-    icmp_packet_too_big() { }
+    icmp_packet_too_big() : mtu{0} { }
 
     void parse(datum &d) {
         d.read_uint32(&mtu);
@@ -127,8 +127,10 @@ public:
 
     bool is_valid() const { return datum::is_not_empty(); }
 
-    void write_json(json_object &o) const {
-         if (data) {
+    void write_json(json_object &o, bool metadata=false) const {
+        (void)metadata; // ignore parameter for now
+
+        if (data) {
             struct json_object json{o, "icmp"};
             json.print_key_uint("type", type);
             json.print_key_uint("code", code);

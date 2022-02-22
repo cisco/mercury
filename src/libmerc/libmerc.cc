@@ -11,6 +11,8 @@
 #include "version.h"
 #include "analysis.h"
 #include "pkt_proc.h"
+#include "config_generator.h"
+#include "global_config.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -48,6 +50,8 @@ const char *mercury_get_resource_version(struct mercury *mc) {
     return nullptr;
 }
 
+global_config* gc = nullptr;
+
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
@@ -62,9 +66,15 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
         printf_err(log_info, "libmerc git commit id: %s\n", git_commit_id);
     }
 
+    // if NDEBUG is not defined, the assert() macro will be used;
+    // report that fact through printf_err() to confirm that tests are
+    // taking place
+    //
+    assert(printf_err(log_info, "libmerc is running assert() tests\n") != 0);
+
     try {
         m = new mercury{vars, verbosity};
-        return m;  // success
+        return m;
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
@@ -144,14 +154,14 @@ enum fingerprint_status analysis_context_get_fingerprint_status(const struct ana
 
 enum fingerprint_type analysis_context_get_fingerprint_type(const struct analysis_context *ac) {
     if (ac) {
-        return ac->fp.type;
+        return ac->fp.get_type();
     }
     return fingerprint_type_unknown;
 }
 
 const char *analysis_context_get_fingerprint_string(const struct analysis_context *ac) {
     if (ac) {
-        return ac->fp.fp_str;
+        return ac->fp.string();
     }
     return NULL;
 }

@@ -61,7 +61,7 @@ struct uint8_bitfield {
 
     uint8_bitfield(uint8_t x) : value{x} {}
 
-    void operator()(struct buffer_stream &b) {
+    void fingerprint(struct buffer_stream &b) {
         for (uint8_t x = 0x80; x > 0; x=x>>1) {
             if (x & value) {
                 b.write_char('1');
@@ -122,8 +122,87 @@ public:
     }
 
     uint64_t value() const { return value_; }
+
 };
 
+class variable_length_integer_datum : public datum {
+
+public:
+
+    variable_length_integer_datum(datum &d) {
+        uint8_t b;
+        d.lookahead_uint8(&b);
+        int len=0;
+        switch (b & 0xc0) {
+        case 0xc0:
+            len = 8;
+            break;
+        case 0x80:
+            len = 4;
+            break;
+        case 0x40:
+            len = 2;
+            break;
+        case 0x00:
+            len = 1;
+        }
+        datum::parse(d, len);
+    }
+
+    void write(buffer_stream &b) const {
+        b.raw_as_hex(data, length());
+    }
+
+    bool is_grease() const {
+        datum tmp = *this;               // copy to avoid changing *this
+        variable_length_integer v{tmp};
+        return v.value() % 31 == 27;
+    }
+
+    uint64_t value() const {
+        datum tmp = *this;               // copy to avoid changing *this
+        variable_length_integer v{tmp};
+        return v.value();
+    }
+};
+
+
+// quic_transport_parameters are carried in a TLS extension; see
+// https://datatracker.ietf.org/doc/html/rfc9000#section-18 and
+// https://www.iana.org/assignments/quic/quic.xhtml#quic-transport
+//
+//   Transport Parameter {
+//     Transport Parameter ID (i),
+//     Transport Parameter Length (i),
+//     Transport Parameter Value (..),
+//   }
+//
+class quic_transport_parameter {
+    variable_length_integer_datum _id;
+    variable_length_integer _length;
+    datum _value;
+
+public:
+
+    quic_transport_parameter(datum &d) : _id{d}, _length{d}, _value{d, _length.value()} { }
+
+    bool is_not_empty() const {
+        return _value.is_not_null(); // note: zero-length value is possible
+    }
+
+    void write_id(buffer_stream &b) const {
+        if (!_id.is_grease()) {
+            _id.write(b);
+        } else {
+            // write out the smallest GREASE value (0x1b == 27)
+            b.write_char('1');
+            b.write_char('b');
+        }
+    }
+
+    variable_length_integer_datum get_id() const { return _id; }
+
+};
 
 // quic frames are defined by a set of classes and the std::variant
 // quic_frame, defined below
@@ -916,6 +995,20 @@ struct cryptographic_buffer
     }
 };
 
+struct quic_hdr_fp {
+    const datum &version;
+
+    quic_hdr_fp(const datum &version_) : version{version_} {};
+    
+    void fingerprint(struct buffer_stream &buf) const {
+        //add version
+        //
+        buf.write_char('(');
+        buf.raw_as_hex(version.data, version.length());
+        buf.write_char(')');
+    } 
+};
+
 // class quic_init represents an initial quic message
 //
 class quic_init {
@@ -954,12 +1047,12 @@ public:
             struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
             tls_handshake tls{d};
             hello.parse(tls.body);
+            hello.is_quic_hello = true;
         }
     }
 
     bool is_not_empty() {
-        return initial_packet.is_not_empty();
-        // note: plaintext.is_not_empty() could be used in output logic
+        return plaintext.is_not_empty();
     }
 
     bool has_tls() {
@@ -987,9 +1080,17 @@ public:
     }
 
     void compute_fingerprint(struct fingerprint &fp) const {
-        // TODO: extend fingerprint to include version
+
+        // fingerprint format:  quic:(quic_version)(tls fingerprint)
+        //
+        // TODO: do we want to report anything if !hello.is_not_empty() ?
+
         if (hello.is_not_empty()) {
-            fp.set(hello, fingerprint_type_quic);
+            fp.set_type(fingerprint_type_quic);
+            quic_hdr_fp hdr_fp(initial_packet.version);
+            fp.add(hdr_fp);
+            fp.add(hello);
+            fp.final();
         }
     }
 
