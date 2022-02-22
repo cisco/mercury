@@ -99,21 +99,6 @@ public:
 
 bool set_config(std::map<std::string, bool> &config_map, const char *config_string); // in pkt_proc.cc
 
-// the preprocessor directive STATIC_CFG_SELECT can be used as a
-// compile-time option to select the protocols that mercury will
-// process; it must hold a quoted string that contains one of
-// mercury's selector strings, and it can be passed to the compiler
-// using the -D flag.  For example,
-//
-//    make OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls.client_hello\"'
-//
-// will ensure that only tls client hello messages are selected, and all other
-// packet types are ignored
-//
-#ifndef STATIC_CFG_SELECT
-#define STATIC_CFG_SELECT nullptr
-#endif
-
 // class selector implements a protocol selection policy for TCP and
 // UDP traffic
 //
@@ -125,52 +110,13 @@ class traffic_selector {
     bool select_tcp_syn;
     bool select_mdns;
 
-    static constexpr const char *static_selector_string = STATIC_CFG_SELECT;
-
 public:
 
     bool tcp_syn() const { return select_tcp_syn; }
 
     bool mdns() const { return select_mdns; }
 
-    traffic_selector(const char *config_string) : tcp{}, udp{}, select_tcp_syn{false}, select_mdns{false} {
-
-        if (static_selector_string) {
-            config_string = static_selector_string;
-        }
-
-        // a null configuration string defaults to all protocols
-        //
-        const char *all = "all";
-        if (config_string == nullptr) {
-            config_string = all;
-        }
-        // create a map of protocol names and booleans, then update it
-        // based on the configuration string
-        //
-        std::map<std::string, bool> protocols{
-            { "all",         false },
-            { "none",        false },
-            { "dhcp",        false },
-            { "dns",         false },
-            { "dtls",        false },
-            { "http",        false },
-            { "ssh",         false },
-            { "tcp",         false },
-            { "tcp.message", false },
-            { "tls",         false },
-            { "wireguard",   false },
-            { "quic",        false },
-            { "smtp",        false },
-            { "tls.client_hello", false},
-            { "tls.server_hello", false},
-            { "tls.server_certificate", false},
-            { "http.request", false},
-            { "http.response", false},
-        };
-        if (!set_config(protocols, config_string)) {
-            throw std::runtime_error("error: could not parse protocol identification configuration string");
-        }
+    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false} {
 
         // "none" is a special case; turn off all protocol selection
         //

@@ -18,6 +18,7 @@
 #include "libmerc.h"
 #include "stats.h"
 #include "proto_identify.h"
+#include "global_config.h"
 #include "quic.h"
 #include "perfect_hash.h"
 
@@ -27,17 +28,14 @@
  *
  */
 struct mercury {
-    struct libmerc_config global_vars;
+    struct global_config global_vars;
     data_aggregator aggregator;
     classifier *c;
     class traffic_selector selector;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr}, selector{vars->packet_filter_cfg} {
-        global_vars = *vars;
-        global_vars.resources = vars->resources;
-        global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy?
+    mercury(const struct libmerc_config *vars, int verbosity) : global_vars{*vars}, aggregator{global_vars.max_stats_entries}, c{nullptr}, selector{global_vars.protocols} {
         if (global_vars.do_analysis) {
-            c = analysis_init_from_archive(verbosity, global_vars.resources,
+            c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
                                            global_vars.fp_proc_threshold,
                                            global_vars.proc_dst_threshold,
@@ -115,7 +113,7 @@ struct stateful_pkt_proc {
     mercury_context m;
     classifier *c;        // TODO: change to reference
     data_aggregator *ag;
-    libmerc_config global_vars;
+    global_config global_vars;
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
     perfect_hash_visitor& ph_visitor;

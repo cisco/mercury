@@ -11,6 +11,8 @@
 #include "version.h"
 #include "analysis.h"
 #include "pkt_proc.h"
+#include "config_generator.h"
+#include "global_config.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -48,6 +50,8 @@ const char *mercury_get_resource_version(struct mercury *mc) {
     return nullptr;
 }
 
+global_config* gc = nullptr;
+
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
@@ -70,7 +74,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     try {
         m = new mercury{vars, verbosity};
-        return m;  // success
+        return m;
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
