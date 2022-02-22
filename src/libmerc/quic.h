@@ -1052,8 +1052,7 @@ public:
     }
 
     bool is_not_empty() {
-        return initial_packet.is_not_empty();
-        // note: plaintext.is_not_empty() could be used in output logic
+        return plaintext.is_not_empty();
     }
 
     bool has_tls() {
