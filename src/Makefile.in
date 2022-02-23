@@ -157,7 +157,7 @@ stripped-libmerc:
 	$(MAKE) -j --directory=libmerc stripped-libmerc.so
 
 ifeq ($(use_fsanitize),yes)
-	libmerc_util: CFLAGS += -fsanitize=address
+libmerc_util: CFLAGS += -fsanitize=address
 endif
 libmerc_util: libmerc_util.cc libmerc_api.h
 	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -pthread -ldl -std=c++17 -o libmerc_util
