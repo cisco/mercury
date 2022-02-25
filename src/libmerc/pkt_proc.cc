@@ -183,15 +183,19 @@ struct write_metadata {
     }
 
     void operator()(tls_server_hello &r) {
-        const char *label = "tls";
-        if (r.dtls) {
-            label = "dtls";
-        }
-        struct json_object tls{record, label};
+        struct json_object tls{record, "tls"};
         struct json_object tls_server{tls, "server"};
         r.write_json(tls_server, metadata_output_);
         tls_server.close();
         tls.close();
+    }
+
+    void operator()(dtls_server_hello &r) {
+        struct json_object dtls{record, "dtls"};
+        struct json_object dtls_server{dtls, "server"};
+        r.write_json(dtls_server, metadata_output_);
+        dtls_server.close();
+        dtls.close();
     }
 
     void operator()(tls_server_hello_and_certificate &r) {
@@ -298,11 +302,7 @@ struct do_observation {
         mq_{mq}
     {}
 
-    void operator()(tls_client_hello &client_hello) {
-        if (client_hello.dtls) {
-            return; // we only want to observe tls, not dtls
-        }
-        // create event and send it to the data/stats aggregator
+    void operator()(tls_client_hello &) {
         event_string ev_str{k_, analysis_};
         mq_->push(ev_str.construct_event_string());
     }
@@ -441,8 +441,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             struct dtls_record dtls_rec{pkt};
             struct dtls_handshake handshake{dtls_rec.fragment};
             if (handshake.msg_type == handshake_type::client_hello) {
-                // x.emplace<tls_client_hello>(handshake.body);
-                x.emplace<13>(handshake.body);
+                x.emplace<dtls_client_hello>(handshake.body);
             }
         }
         break;
@@ -451,8 +450,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             struct dtls_record dtls_rec{pkt};
             struct dtls_handshake handshake{dtls_rec.fragment};
             if (handshake.msg_type == handshake_type::server_hello) {
-                // x.emplace<tls_server_hello>(handshake.body);
-                x.emplace<14>(handshake.body);
+                x.emplace<dtls_server_hello>(handshake.body);
             }
         }
         break;
