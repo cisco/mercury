@@ -37,9 +37,7 @@ Some fingerprint definitions make use of functions.  The function `MAP` takes as
 
     ODD(x) = 0x01 if x is an odd number, and 0x00 otherwise,
 
-and the string S = (0001020304050607)
-
-then
+and the string S = (0001020304050607), then
 
     MAP(S, 1, ODD) = (0001000100010001).
 
@@ -215,12 +213,12 @@ where
 - `method` (string, variable length) is the first token in the request-line (e.g. GET, POST, etc.),
 - `request-target` (string, variable length) is the second token in the request line, which is derived from the Uniform Resource Indicator (URI),
 - `version` (string, variable length) is the last token in the request line.
-- The `selected-header` (sequence, variable length) elements represent successive `header-field`s in the request.  Each `header-field` has the form  `header-field   = field-name ":" OWS field-value OWS `, where OWS is optional whitespace, ":" is a literal colon character, and `field-name` and `field-value` are tokens, as per ([RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2), Section 3.2).  The `selected-header` fields corresponding to the headers in the request are defined as
+- The `selected-header` (sequence, variable length) elements represent successive headers in the request.  Each header has the form  `header = field-name ": " field-value `, where ": " is a literal string consisting of the ASCII characters with codes 0x3a and 0x20, and `field-name` and `field-value` are tokens, as per ([RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2), Section 3.2).  The `selected-header` fields corresponding to the headers in the request are defined as
 
 
 ```
-  selected-header = header-field             if TOLOWER(field-name) is in HTTP_REQUEST_NAME_AND_VALUE, else
-                    field-name               if TOLOWER(field-name) is in HTTP_REQUEST_NAME_ONLY.
+  selected-header = header           if TOLOWER(field-name) is in HTTP_REQUEST_NAME_AND_VALUE, else
+                    field-name       if TOLOWER(field-name) is in HTTP_REQUEST_NAME_ONLY.
 ```
 
 Note that no case transformation is performed on the field-name that is included in the fingerprint, though the comparison function used in the selected-header logic does process that field in a case-insensitive way.  The function TOLOWER is defined by
