@@ -240,7 +240,9 @@ void http_request::fingerprint(struct buffer_stream &b) const {
     b.raw_as_hex(protocol.data, protocol.data_end - protocol.data);
     b.write_char(')');
 
+    b.write_char('(');
     headers.fingerprint(b, ph_visitor, perfect_hash_table_type::HTTP_REQUEST_FP);
+    b.write_char(')');
 }
 
 void http_response::fingerprint(struct buffer_stream &buf) const {
@@ -257,7 +259,9 @@ void http_response::fingerprint(struct buffer_stream &buf) const {
     buf.raw_as_hex(status_reason.data, status_reason.data_end - status_reason.data);
     buf.write_char(')');
 
+    buf.write_char('(');
     headers.fingerprint(buf, ph_visitor, perfect_hash_table_type::HTTP_RESPONSE_FP);
+    buf.write_char(')');
 }
 
 void http_request::compute_fingerprint(struct fingerprint &fp) const {
