@@ -526,6 +526,9 @@ struct quic_initial_packet {
         uint64_t v = 0;
         version.lookahead_uint(4, &v);
         switch(v) {
+        case 4207849473:   // faceb001
+        case 4207849474:   // faceb002
+        case 4207849486:   // faceb00e
         case 4278190102:   // draft-22
         case 4278190103:   // draft-23
         case 4278190104:   // draft-24
@@ -630,6 +633,9 @@ public:
 
     quic_parameters() {
         quic_initial_salt = {
+            {4207849473, salt_d22},     // faceb001
+            {4207849474, salt_d23_d28}, // faceb002
+            {4207849486, salt_d23_d28}, // faceb00e
             {4278190102, salt_d22},     // draft-22
             {4278190103, salt_d23_d28}, // draft-23
             {4278190104, salt_d23_d28}, // draft-24
