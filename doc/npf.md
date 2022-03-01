@@ -202,17 +202,16 @@ quic/(ff00001d)(0303)(0a0a130113021303)[(0a0a)(0a0a)(0000)(000500050100000000)(0
 
 ## HTTP
 
-HTTP fingerprints are computed from HTTP request packets, for HTTP version 1.1 ([RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230#section-3), Section 3).  The fingerprint format is 
+HTTP fingerprints are computed from HTTP request packets, for HTTP version 1.1 ([RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230#section-3), Section 3) or earlier.  The fingerprint format is 
 
 ```
-"http/" (method) (request-target) (version) ((selected-header)*)
+"http/" (method) (version) ((selected-header)*)
 ```
 
 where
 
-- `method` (string, variable length) is the first token in the request-line (e.g. GET, POST, etc.),
-- `request-target` (string, variable length) is the second token in the request line, which is derived from the Uniform Resource Indicator (URI),
-- `version` (string, variable length) is the last token in the request line.
+- `method` (string, variable length) is the first token in the request-line (e.g. "GET"),
+- `version` (string, variable length) is the last token in the request line (e.g. "HTTP/1.1"),
 - The `selected-header` (sequence, variable length) elements represent successive headers in the request.  Each header has the form  `header = field-name ": " field-value `, where ": " is a literal string consisting of the ASCII characters with codes 0x3a and 0x20, and `field-name` and `field-value` are tokens, as per ([RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2), Section 3.2).  The `selected-header` fields corresponding to the headers in the request are defined as
 
 
