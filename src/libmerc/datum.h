@@ -344,6 +344,17 @@ struct datum {
         return false;
     }
 
+    bool read_uint8(uint16_t *output) {
+        if (data_end > data) {
+            *output = *data;
+            data += 1;
+            return true;
+        }
+        set_null();
+        *output = 0;
+        return false;
+    }
+
     // read_uint16() reads a uint16_t in network byte order, and advances the data pointer
     //
     bool read_uint16(uint16_t *output) {

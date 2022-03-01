@@ -39,6 +39,7 @@
 #include "analysis.h"
 #include "buffer_stream.h"
 #include "stats.h"
+#include "ppp.h"
 
 // class unknown_initial_packet represents the initial data field of a
 // tcp or udp packet from an unknown protocol
@@ -670,6 +671,46 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     return 0;
 }
 
+size_t stateful_pkt_proc::write_json(void *buffer,
+                                     size_t buffer_size,
+                                     uint8_t *packet,
+                                     size_t length,
+                                     struct timespec *ts,
+                                     struct tcp_reassembler *reassembler,
+                                     uint16_t linktype) {
+
+    struct datum pkt{packet, packet+length};
+
+    switch (linktype)
+    {
+    case LINKTYPE_ETHERNET:
+        return write_json(buffer, buffer_size, packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_PPP:
+       if(!ppp::get_ip(pkt))
+            return 0;
+        return ip_write_json(buffer,
+                             buffer_size,
+                             pkt.data,
+                             pkt.length(),
+                             ts,
+                             reassembler);
+        break;
+    case LINKTYPE_RAW:
+        return ip_write_json(buffer,
+                             buffer_size,
+                             pkt.data,
+                             pkt.length(),
+                             ts,
+                             reassembler);
+        break; 
+    default:
+        break;
+    }
+
+    return 0;
+}
+
 // the function enumerate_protocol_types() prints out the types in
 // the protocol variant
 //
@@ -793,5 +834,27 @@ bool stateful_pkt_proc::analyze_eth_packet(const uint8_t *packet,
         return false;   // not an IP packet
     }
 
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
+bool stateful_pkt_proc::analyze_ppp_packet(const uint8_t *packet,
+                                           size_t length,
+                                           struct timespec *ts,
+                                           struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    if (!ppp::get_ip(pkt)) {
+        return false;   // not an IP packet
+    }
+
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
+bool stateful_pkt_proc::analyze_raw_packet(const uint8_t *packet,
+                                           size_t length,
+                                           struct timespec *ts,
+                                           struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
     return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
 }

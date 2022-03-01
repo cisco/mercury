@@ -27,6 +27,7 @@ struct packet_info {
     struct timespec ts;   // timestamp
     uint32_t caplen;      // length of portion present
     uint32_t len;         // length this packet (off wire)
+    uint16_t linktype = LINKTYPE_ETHERNET;    // linktype of packet from pcap
 };
 
 /*
@@ -188,7 +189,7 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     void apply(struct packet_info *pi, uint8_t *eth) override {
         struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
         if (msg) {
-            size_t write_len = mercury_packet_processor_write_json(processor, msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts));
+            size_t write_len = mercury_packet_processor_write_json_linktype(processor, msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts), pi->linktype);
             if (write_len > 0) {
                 msg->send(write_len);
                 llq->increment_widx();

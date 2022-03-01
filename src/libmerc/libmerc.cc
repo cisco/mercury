@@ -104,6 +104,17 @@ size_t mercury_packet_processor_write_json(mercury_packet_processor processor, v
     return 0;
 }
 
+size_t mercury_packet_processor_write_json_linktype(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts, uint16_t linktype)
+{
+    try {
+        return processor->write_json(buffer, buffer_size, packet, length, ts, NULL, linktype);
+    }
+    catch (std::exception &e) {
+        printf_err(log_err, "%s\n", e.what());
+    }
+    return 0;
+}
+
 size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
@@ -140,6 +151,50 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
         }
     }
     catch (std::exception &e) {
+        printf_err(log_err, "%s\n", e.what());
+    }
+    return NULL;
+}
+
+const struct analysis_context *mercury_packet_processor_get_analysis_context_linktype(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts, uint16_t linktype)
+{
+    try
+    {
+        switch (linktype)
+        {
+        case LINKTYPE_ETHERNET:
+            if (processor->analyze_eth_packet(packet, length, ts, NULL))
+            {
+                if (processor->analysis.result.is_valid())
+                {
+                    return &processor->analysis;
+                }
+            }
+            break;
+        case LINKTYPE_PPP:
+            if (processor->analyze_ppp_packet(packet, length, ts, NULL))
+            {
+                if (processor->analysis.result.is_valid())
+                {
+                    return &processor->analysis;
+                }
+            }
+            break;
+        case LINKTYPE_RAW:
+            if (processor->analyze_raw_packet(packet, length, ts, NULL))
+            {
+                if (processor->analysis.result.is_valid())
+                {
+                    return &processor->analysis;
+                }
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    catch (std::exception &e)
+    {
         printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
