@@ -65,6 +65,10 @@ class ppp {
                 p.read_uint8(&control);
             }
         }
+        else if (curr_byte == PPP_ADDRESS_FIELD) {
+            p.read_uint8(&address);
+            p.read_uint8(&control);    
+        }
 
         p.lookahead_uint8(&curr_byte);
         if (curr_byte & PPP_PROTOCOL_MASK) {
