@@ -280,7 +280,7 @@ public:
         dest_context.append(analysis.destination.dst_ip_str).append(")(");
         dest_context.append(dst_port_str).append(")");
 
-        event = std::make_tuple(src_ip_str, analysis.fp.string(), analysis.user_agent, dest_context);
+        event = std::make_tuple(src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context);
         return event;
     }
 };

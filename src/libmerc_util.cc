@@ -73,6 +73,24 @@ struct libmerc_printer : public libmerc_api {
             fprintf(f, "server_name: not present (null)\n");
         }
 
+        const char *user_agent = this->get_user_agent(ctx);
+        if (user_agent) {
+            fprintf(f, "user_agent: %s\n", user_agent);
+        } else {
+            fprintf(f, "user_agent: not present (null)\n");
+        }
+
+        const char *alpns;
+        uint8_t row = 0, column = 0, i, j;
+
+        if (this->get_alpns(ctx, &alpns, &row, &column)) {
+            fprintf(f, "application_layer_protocol_negotiation: ");
+            for (i=0,j=0; i < row; i++, j+=column) {
+                fprintf(f, "%s ", (alpns+j));
+            }
+            fprintf(f, "\n");
+        }
+
         const char *probable_process = NULL;
         double probability_score = 0.0;
         if (merc->get_process_info(ctx,
@@ -132,6 +150,20 @@ struct libmerc_printer : public libmerc_api {
 
             const char *server_name = this->get_server_name(ctx);
             json.print_key_string("server_name", server_name ? server_name : "not present (null)");
+
+            const char *user_agent = this->get_user_agent(ctx);
+            json.print_key_string("user_agent", user_agent ? user_agent : "not present (null)");
+
+            const char *alpns;
+            uint8_t row = 0, column = 0, i, j;
+            if (this->get_alpns(ctx, &alpns, &row, &column))
+            {
+                struct json_array a{json, "application_layer_protocol_negotiation"};
+                for (i=0,j=0; i < row; i++, j+=column) {
+                    a.print_string(alpns+j);
+                }
+                a.close();
+            }
 
             const char *probable_process = NULL;
             double probability_score = 0.0;

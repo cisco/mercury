@@ -313,6 +313,7 @@ struct tls_server_certificate {
 
 enum class tls_role { client, server };
 
+
 struct tls_extensions : public datum {
 
     tls_extensions() = default;
@@ -327,11 +328,12 @@ struct tls_extensions : public datum {
 
     void print_alpn(struct json_object &o, const char *key) const;
 
-    void set_server_name(struct datum &server_name) const;
-
     void print_session_ticket(struct json_object &o, const char *key) const;
 
     void fingerprint_quic_tls(struct buffer_stream &b, enum tls_role role) const;
+    void set_meta_data(struct datum &server_name,
+                       struct datum &user_agent,
+                       std::vector<std::string>& alpn) const;
 
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
 };
