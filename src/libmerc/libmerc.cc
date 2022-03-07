@@ -50,8 +50,6 @@ const char *mercury_get_resource_version(struct mercury *mc) {
     return nullptr;
 }
 
-global_config* gc = nullptr;
-
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
