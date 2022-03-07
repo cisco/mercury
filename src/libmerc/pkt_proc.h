@@ -21,6 +21,7 @@
 #include "global_config.h"
 #include "quic.h"
 #include "perfect_hash.h"
+#include "dtls.h"
 
 /**
  * struct mercury holds state that is used by one or more
@@ -72,8 +73,8 @@ class unknown_initial_packet;
 class quic_init;                         // start of udp protocols
 struct wireguard_handshake_init;
 struct dns_packet;
-struct tls_client_hello;                  // dtls
-struct tls_server_hello;                  // dtls
+struct dtls_client_hello;
+struct dtls_server_hello;
 struct dhcp_discover;
 class unknown_udp_initial_packet;
 class icmp_packet;                        // start of ip protocols
@@ -93,8 +94,8 @@ using protocol = std::variant<std::monostate,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
                               dns_packet,
-                              tls_client_hello,                  // dtls
-                              tls_server_hello,                  // dtls
+                              dtls_client_hello,
+                              dtls_server_hello,
                               dhcp_discover,
                               unknown_udp_initial_packet,
                               icmp_packet,                        // start of ip protocols
