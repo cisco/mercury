@@ -191,6 +191,14 @@ struct stateful_pkt_proc {
                       struct timespec *ts,
                       struct tcp_reassembler *reassembler);
 
+    size_t write_json(void *buffer,
+                      size_t buffer_size,
+                      uint8_t *packet,
+                      size_t length,
+                      struct timespec *ts,
+                      struct tcp_reassembler *reassembler,
+                      uint16_t linktype);
+
     void tcp_data_write_json(struct buffer_stream &buf,
                              struct datum &pkt,
                              const struct key &k,
@@ -205,7 +213,23 @@ struct stateful_pkt_proc {
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler);
 
+    bool analyze_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler,
+                            uint16_t linktype);
+
     bool analyze_eth_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler);
+
+    bool analyze_ppp_packet(const uint8_t *ppp_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler);
+
+    bool analyze_raw_packet(const uint8_t *ppp_packet,
                             size_t length,
                             struct timespec *ts,
                             struct tcp_reassembler *reassembler);

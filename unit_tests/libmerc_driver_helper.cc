@@ -338,6 +338,12 @@ void *packet_processor(void *arg) {
     fprintf(stderr, "\nanalyzing TLS client hello\n");
     fprint_analysis_context(stderr, merc, ctx);
 
+    // get analysis result for eth linktype by passing correct linktype
+    //
+    ctx = merc->get_analysis_context_linktype(mpp, client_hello_eth, client_hello_eth_len, &time, LINKTYPE_ETHERNET);
+    fprintf(stderr, "\nanalyzing TLS client hello with linktype specified\n");
+    fprint_analysis_context(stderr, merc, ctx);
+
     // try it on another packet
     //
     ctx = merc->get_analysis_context(mpp, client_hello_no_server_name_eth, sizeof(client_hello_no_server_name_eth), &time);

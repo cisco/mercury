@@ -59,7 +59,7 @@ struct pcap_file {
     off_t  allocated_size = 0;       // file size allocated using posix_fallocate
     uint64_t bytes_written = 0;      // number of bytes written to this file
     uint64_t packets_written = 0;    // number of packets written to this file
-    uint16_t linktype = 0;           // data link type
+    uint16_t linktype = LINKTYPE_ETHERNET;           // data link type
 
     pcap_file() { }
 
@@ -75,16 +75,17 @@ struct pcap_file {
         return pcap_file_read_packet(this, pkthdr, packet_data);
     }
 
-    enum linktype : uint16_t {
-        LINKTYPE_NULL =       0,  // BSD loopback encapsulation
-        LINKTYPE_ETHERNET =   1,  // Ethernet
-        LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
-    };
+    // enum linktype : uint16_t {
+    //     LINKTYPE_NULL =       0,  // BSD loopback encapsulation
+    //     LINKTYPE_ETHERNET =   1,  // Ethernet
+    //     LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
+    // };
 
     const char *get_linktype() const {
         switch(linktype) {
         case LINKTYPE_NULL:     return "NULL";
         case LINKTYPE_ETHERNET: return "ETHERNET";
+        case LINKTYPE_PPP:      return "PPP";
         case LINKTYPE_RAW:      return "RAW";
         }
         return "unknown";
