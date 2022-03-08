@@ -17,32 +17,68 @@
 #define PPP_PROTOCOL_MASK   0x01
 
 /*
- * PPP protocol type definitions
-*/
-#define PPP_TYPE_NONE   0x0000
-
-#define PPP_TYPE_IP     0x0021
-#define PPP_TYPE_IPV6   0x0057
-
-/*
  * ppp
  *
  */
 
+// PPP frame (following RFC 1661)
+//
+//  +----------+----------+----------+----------+-------------+---------+------------+----------+
+//  | Flag     | Address  | Control  | Protocol | Information | Padding | Checksum   | Flag     |
+//  | 8 bits   | 8 bits   | 8 bits   | 8/16 bits|      *      |    *    | 16/32 bits |  8 bits  |
+//  +----------+----------+----------+----------+-------------+---------+------------+----------+
+
 class ppp {
-    uint16_t ppptype = PPP_TYPE_NONE;
+    
+    enum protocol : uint16_t {
+        type_none = 0x0000, 
+        ipv4      = 0x0021, // ipv4 encapsulation
+        ipv6      = 0x0057  // ipv6 encapsulation
+    };
+
+    class variable_len_proto {
+        ppp::protocol proto = ppp::type_none;
+
+    public:
+
+        void set_proto(datum &d) {
+            uint16_t value = 0;
+            uint8_t b;
+
+            d.lookahead_uint8(&b);
+            if (b & PPP_PROTOCOL_MASK) {
+                if (!d.read_uint8(&b)) {
+                    proto = ppp::type_none;
+                    return;
+                }
+                proto = (ppp::protocol)b;
+            }
+            else {
+                for (int i=0; i<2; i++) {
+                    value *= 256;
+                    d.read_uint8(&b);
+                    value += b;
+                }
+                proto = (ppp::protocol)value;
+            }
+        }
+
+        ppp::protocol get_proto_type() const { return proto; }    
+    };
+
+    variable_len_proto protocol_type;
     uint8_t flag = 0x00;
     uint8_t address = 0x00;
     uint8_t control = 0x00;
 
  public:
 
-    static bool get_ip(datum &pkt) {
+    static bool is_ip(datum &pkt) {
         ppp ppp_frame{pkt};
-        uint16_t ppptype = ppp_frame.get_ppptype();
+        ppp::protocol ppptype = ppp_frame.protocol_type.get_proto_type();
         switch(ppptype) {
-        case PPP_TYPE_IP:
-        case PPP_TYPE_IPV6:
+        case ppp::ipv4:
+        case ppp::ipv6:
             return true;
             break;
         default:
@@ -50,8 +86,6 @@ class ppp {
         }
         return false;  // not an IP packet
     }
-
-    uint16_t get_ppptype() const { return ppptype; }
 
     ppp(struct datum &p) {
         uint8_t curr_byte;
@@ -70,17 +104,7 @@ class ppp {
             p.read_uint8(&control);    
         }
 
-        p.lookahead_uint8(&curr_byte);
-        if (curr_byte & PPP_PROTOCOL_MASK) {
-            if (!p.read_uint8(&ppptype)) {
-                ppptype = PPP_TYPE_NONE;
-                return;
-            }
-        }
-        else {
-            if (!p.read_uint16(&ppptype))
-                ppptype = PPP_TYPE_NONE;
-        }
+        protocol_type.set_proto(p);
         
         return;
     }

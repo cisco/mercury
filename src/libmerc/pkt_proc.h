@@ -212,6 +212,12 @@ struct stateful_pkt_proc {
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler);
 
+    bool analyze_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler,
+                            uint16_t linktype);
+
     bool analyze_eth_packet(const uint8_t *eth_packet,
                             size_t length,
                             struct timespec *ts,

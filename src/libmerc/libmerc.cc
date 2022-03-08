@@ -160,37 +160,10 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context_lin
 {
     try
     {
-        switch (linktype)
-        {
-        case LINKTYPE_ETHERNET:
-            if (processor->analyze_eth_packet(packet, length, ts, NULL))
-            {
-                if (processor->analysis.result.is_valid())
-                {
-                    return &processor->analysis;
-                }
+        if (processor->analyze_packet(packet, length, ts, NULL, linktype)) {
+            if (processor->analysis.result.is_valid()) {
+                return &processor->analysis;
             }
-            break;
-        case LINKTYPE_PPP:
-            if (processor->analyze_ppp_packet(packet, length, ts, NULL))
-            {
-                if (processor->analysis.result.is_valid())
-                {
-                    return &processor->analysis;
-                }
-            }
-            break;
-        case LINKTYPE_RAW:
-            if (processor->analyze_raw_packet(packet, length, ts, NULL))
-            {
-                if (processor->analysis.result.is_valid())
-                {
-                    return &processor->analysis;
-                }
-            }
-            break;
-        default:
-            break;
         }
     }
     catch (std::exception &e)
