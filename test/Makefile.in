@@ -98,7 +98,7 @@ pdu_test:
 .PHONY: libmerc_driver
 libmerc_driver:
 	@echo "running unit tests"
-	cd ../unit_tests && $(MAKE) -i run
+	cd ../unit_tests && $(MAKE) run
 
 .PHONY: json-validity-test
 json-validity-test:
