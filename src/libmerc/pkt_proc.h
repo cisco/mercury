@@ -21,7 +21,6 @@
 #include "global_config.h"
 #include "quic.h"
 #include "perfect_hash.h"
-#include "dtls.h"
 
 /**
  * enum linktype is a 16-bit enumeration that identifies a protocol
