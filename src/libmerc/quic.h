@@ -523,6 +523,7 @@ struct quic_initial_packet {
 
         // don't process non-standard versions
         //
+        /*
         uint64_t v = 0;
         version.lookahead_uint(4, &v);
         switch(v) {
@@ -552,6 +553,7 @@ struct quic_initial_packet {
         default:
             return; // TODO: parse and report non-standard quic
         }
+        */
 
         uint8_t dcid_length;
         d.read_uint8(&dcid_length);
@@ -1058,7 +1060,8 @@ public:
     }
 
     bool is_not_empty() {
-        return plaintext.is_not_empty();
+        return initial_packet.is_not_empty();
+        //return plaintext.is_not_empty();
     }
 
     bool has_tls() {
@@ -1074,7 +1077,9 @@ public:
         if (cc.is_valid()) {
             cc.write_json(quic_record);
         }
-        quic_record.print_key_hex("plaintext", plaintext);
+        if (plaintext.is_not_empty()) {
+            quic_record.print_key_hex("plaintext", plaintext);
+        }
         // json_object frame_dump{record, "frame_dump"};
         // datum plaintext_copy = plaintext;
         // while (plaintext_copy.is_not_empty()) {
