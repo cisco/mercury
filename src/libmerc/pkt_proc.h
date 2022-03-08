@@ -24,6 +24,20 @@
 #include "dtls.h"
 
 /**
+ * enum linktype is a 16-bit enumeration that identifies a protocol
+ * type; it is defined by the PCAP internet draft
+ * [draft-gharris-opsawg-pcap-02], and is used here to indicate how a
+ * particular packet/frame should be parsed.  This enumeration defines
+ * all of the linktypes supported by the stateful_pkt_proc class.
+ */
+enum linktype : uint16_t {
+    LINKTYPE_NULL =       0,  // BSD loopback encapsulation
+    LINKTYPE_ETHERNET =   1,  // Ethernet
+    LINKTYPE_PPP      =   9,  // PPP
+    LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
+};
+
+/**
  * struct mercury holds state that is used by one or more
  * mercury_packet_processor
  *

@@ -679,15 +679,5 @@ extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *mercury_get_resource_version(mercury_context mc);
 
-/*
- * Link types supported
-*/
-enum linktype : uint16_t {
-        LINKTYPE_NULL =       0,  // BSD loopback encapsulation
-        LINKTYPE_ETHERNET =   1,  // Ethernet
-        LINKTYPE_PPP      =   9,  // PPP
-        LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
-    };
-
 
 #endif /* LIBMERC_H */
