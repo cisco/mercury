@@ -111,7 +111,7 @@ perfect-hash-test:
 	./ph_driver | grep -e 'Unordered Map lookup' -e 'Perfect Hash generation table' -e 'Perfect Hash lookup' -e 'failed' -e 'Perfect Hash.' -e 'Unordered Map.'
 
 .PHONY: run
-run:
+run: xtra/resources-mp.tgz # xtra data needed for unit tests
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_tls_only -s
 	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
