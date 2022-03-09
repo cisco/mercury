@@ -30,6 +30,8 @@ struct libmerc_api {
     decltype(analysis_context_get_fingerprint_status)                *get_fingerprint_status = nullptr;
     decltype(analysis_context_get_fingerprint_string)                *get_fingerprint_string = nullptr;
     decltype(analysis_context_get_server_name)                       *get_server_name = nullptr;
+    decltype(analysis_context_get_alpns)                             *get_alpns = nullptr;
+    decltype(analysis_context_get_user_agent)                        *get_user_agent = nullptr;
     decltype(analysis_context_get_process_info)                      *get_process_info = nullptr;
     decltype(analysis_context_get_malware_info)                      *get_malware_info = nullptr;
     decltype(mercury_write_stats_data)                               *write_stats_data = nullptr;
@@ -59,6 +61,8 @@ struct libmerc_api {
         get_fingerprint_status =        (decltype(get_fingerprint_status))        dlsym(dl_handle, "analysis_context_get_fingerprint_status");
         get_fingerprint_string =        (decltype(get_fingerprint_string))        dlsym(dl_handle, "analysis_context_get_fingerprint_string");
         get_server_name =               (decltype(get_server_name))               dlsym(dl_handle, "analysis_context_get_server_name");
+        get_alpns =                     (decltype(get_alpns))                     dlsym(dl_handle, "analysis_context_get_alpns");
+        get_user_agent =                (decltype(get_user_agent))                dlsym(dl_handle, "analysis_context_get_user_agent");
         get_process_info =              (decltype(get_process_info))              dlsym(dl_handle, "analysis_context_get_process_info");
         get_malware_info =              (decltype(get_malware_info))              dlsym(dl_handle, "analysis_context_get_malware_info");
         write_stats_data =              (decltype(write_stats_data))              dlsym(dl_handle, "mercury_write_stats_data");
@@ -79,6 +83,8 @@ struct libmerc_api {
             get_fingerprint_status        == nullptr ||
             get_fingerprint_string        == nullptr ||
             get_server_name               == nullptr ||
+            get_alpns                     == nullptr ||
+            get_user_agent                == nullptr ||
             get_process_info              == nullptr ||
             get_malware_info              == nullptr ||
             write_stats_data              == nullptr ||

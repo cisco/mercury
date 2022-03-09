@@ -456,7 +456,6 @@ extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *analysis_context_get_server_name(const struct analysis_context *ac);
 
-
 /**
  * analysis_context_get_process_info() writes the probable process and
  * its corresdponing probability score into the locations provided,
@@ -678,6 +677,65 @@ uint32_t mercury_get_version_number();
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *mercury_get_resource_version(mercury_context mc);
+
+//
+// start of libmerc version 3 API
+//
+/**
+ * analysis_context_get_user_agent() returns the printable,
+ * null-terminated string for the HTTP/QUIC user agent
+ * associated with an analysis_context, if there is one.
+ *
+ * @param ac (input) is an analysis_context pointer.
+ *
+ * @return a null-terminated, printable character string, if a HTTP/QUIC
+ * user agent was found by the library; otherwise, NULL.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+const char *analysis_context_get_user_agent(const struct analysis_context *ac);
+
+/**
+ * analysis_context_get_alpns() sets a pointer to an 2D array of
+ * alpns, for a given analysis_context.
+ *
+ * @param ac (input) is an analysis_context pointer.
+ *
+ * @param alpns is the location to which the alpns
+ * array pointer will be written.
+ *
+ * @param alpn_count (output) is the location to write the
+ * count of alpns.
+ *
+ * @param max_len (output) is the location to write max length
+ * of alpn.
+ *
+ * @return true if the alpn, alpn_count max_len point to
+ * valid data after the function returns, and false otherwise.
+ *
+ * example:
+ *                                                       max_len
+ *                                                          |
+ *                                                          V
+ *                0   1   2    3   4   5   6   7   8   9    10
+ * alpns -->    0 -------------------------------------------
+ *                | h | 2 | \0 |   |   |   |   |   |    |   |
+ *              1 -------------------------------------------
+ *                | h | t | t  | p | / | 1 | . | 1 | \0 |   |
+ * alpn_count ->2 -------------------------------------------
+ *                |   |   |    |   |   |   |   |   |    |   |
+ *              3 -------------------------------------------
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+bool analysis_context_get_alpns(const struct analysis_context *ac, // input
+                                const char** alpns,                // output
+                                uint8_t *alpn_count,               // output
+                                uint8_t *max_len                   // output
+                                );
 
 
 #endif /* LIBMERC_H */

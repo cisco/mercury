@@ -27,6 +27,7 @@
 #include "match.h"
 #include "crypto_engine.h"
 
+#define type_quic_user_agent 0x3129
 /*
  * QUIC header format (from draft-ietf-quic-transport-32):
  *
@@ -166,7 +167,6 @@ public:
     }
 };
 
-
 // quic_transport_parameters are carried in a TLS extension; see
 // https://datatracker.ietf.org/doc/html/rfc9000#section-18 and
 // https://www.iana.org/assignments/quic/quic.xhtml#quic-transport
@@ -199,8 +199,8 @@ public:
             b.write_char('b');
         }
     }
-
     variable_length_integer_datum get_id() const { return _id; }
+    datum  get_value() const { return _value; }
 
 };
 
@@ -1102,9 +1102,12 @@ public:
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         struct datum sn{NULL, NULL};
-        hello.extensions.set_server_name(sn);
+        struct datum user_agent {NULL, NULL};
+        std::vector<std::string> alpn;
 
-        analysis_.destination.init(sn, k_);
+        hello.extensions.set_meta_data(sn, user_agent, alpn);
+
+        analysis_.destination.init(sn, user_agent, alpn, k_);
 
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }

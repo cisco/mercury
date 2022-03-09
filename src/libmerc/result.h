@@ -155,35 +155,44 @@ public:
 
 #define MAX_DST_ADDR_LEN 48
 #define MAX_SNI_LEN     257
+#define MAX_USER_AGENT_LEN 512
+#define MAX_ALPN_LEN 32
+#define MAX_ALPN 16
 
 struct destination_context {
     char dst_ip_str[MAX_DST_ADDR_LEN];
     char sn_str[MAX_SNI_LEN];
+    char ua_str[MAX_USER_AGENT_LEN];
+    char alpn_str[MAX_ALPN][MAX_ALPN_LEN];
+    uint8_t alpn_count;
     uint16_t dst_port;
 
 #ifdef __cplusplus
     destination_context() : dst_port{0} {}
 
-    void init(struct datum domain, const struct key &key) {
+    void init(struct datum domain, struct datum user_agent, std::vector<std::string> alpn, const struct key &key) {
+        user_agent.strncpy(ua_str, MAX_USER_AGENT_LEN);
         domain.strncpy(sn_str, MAX_SNI_LEN);
         flow_key_sprintf_dst_addr(key, dst_ip_str);
         dst_port = flow_key_get_dst_port(key);
+
+        alpn_count = alpn.size() < MAX_ALPN ? alpn.size() : MAX_ALPN;
+        for (int i = 0; i < alpn_count; i++) {
+            strncpy(alpn_str[i], alpn[i].c_str(), MAX_ALPN_LEN-1);
+        }
     }
 
 #endif
 
 };
 
-#define MAX_USER_AGENT_LEN 512
-
 struct analysis_context {
     struct fingerprint fp;
     struct destination_context destination;
     struct analysis_result result;
-    char user_agent[MAX_USER_AGENT_LEN];
 
 #ifdef __cplusplus
-    analysis_context() : fp{}, destination{}, result{}, user_agent{"\0"} {}
+    analysis_context() : fp{}, destination{}, result{} {}
     // could add structs needed for 'scratchwork'
 
     const char *get_server_name() const {
@@ -193,10 +202,27 @@ struct analysis_context {
         return NULL;
     }
 
-    void reset_user_agent() {
-        user_agent[0] = '\0';
+    const char *get_user_agent() const {
+        if (destination.ua_str[0] != '\0') {
+            return destination.ua_str;
+        }
+        return NULL;
     }
 
+    bool get_alpns(const char** alpns, uint8_t *row, uint8_t *column) const {
+        if (destination.alpn_str[0][0] != '\0') {
+            *row = destination.alpn_count;
+            *column = MAX_ALPN_LEN;
+            *alpns = (char*)destination.alpn_str;
+            return true;
+        }
+
+        return false;
+    }
+
+    void reset_user_agent() {
+        destination.ua_str[0] = '\0';
+    }
 #endif
 };
 
