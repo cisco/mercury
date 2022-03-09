@@ -39,6 +39,7 @@
 #include "analysis.h"
 #include "buffer_stream.h"
 #include "stats.h"
+#include "ppp.h"
 
 // class unknown_initial_packet represents the initial data field of a
 // tcp or udp packet from an unknown protocol
@@ -183,15 +184,19 @@ struct write_metadata {
     }
 
     void operator()(tls_server_hello &r) {
-        const char *label = "tls";
-        if (r.dtls) {
-            label = "dtls";
-        }
-        struct json_object tls{record, label};
+        struct json_object tls{record, "tls"};
         struct json_object tls_server{tls, "server"};
         r.write_json(tls_server, metadata_output_);
         tls_server.close();
         tls.close();
+    }
+
+    void operator()(dtls_server_hello &r) {
+        struct json_object dtls{record, "dtls"};
+        struct json_object dtls_server{dtls, "server"};
+        r.write_json(dtls_server, metadata_output_);
+        dtls_server.close();
+        dtls.close();
     }
 
     void operator()(tls_server_hello_and_certificate &r) {
@@ -298,11 +303,7 @@ struct do_observation {
         mq_{mq}
     {}
 
-    void operator()(tls_client_hello &client_hello) {
-        if (client_hello.dtls) {
-            return; // we only want to observe tls, not dtls
-        }
-        // create event and send it to the data/stats aggregator
+    void operator()(tls_client_hello &) {
         event_string ev_str{k_, analysis_};
         mq_->push(ev_str.construct_event_string());
     }
@@ -441,8 +442,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             struct dtls_record dtls_rec{pkt};
             struct dtls_handshake handshake{dtls_rec.fragment};
             if (handshake.msg_type == handshake_type::client_hello) {
-                // x.emplace<tls_client_hello>(handshake.body);
-                x.emplace<13>(handshake.body);
+                x.emplace<dtls_client_hello>(handshake.body);
             }
         }
         break;
@@ -451,8 +451,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             struct dtls_record dtls_rec{pkt};
             struct dtls_handshake handshake{dtls_rec.fragment};
             if (handshake.msg_type == handshake_type::server_hello) {
-                // x.emplace<tls_server_hello>(handshake.body);
-                x.emplace<14>(handshake.body);
+                x.emplace<dtls_server_hello>(handshake.body);
             }
         }
         break;
@@ -670,6 +669,39 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     return 0;
 }
 
+size_t stateful_pkt_proc::write_json(void *buffer,
+                                     size_t buffer_size,
+                                     uint8_t *packet,
+                                     size_t length,
+                                     struct timespec *ts,
+                                     struct tcp_reassembler *reassembler,
+                                     uint16_t linktype) {
+
+    struct datum pkt{packet, packet+length};
+
+    switch (linktype)
+    {
+    case LINKTYPE_ETHERNET:
+        return write_json(buffer, buffer_size, packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_PPP:
+       if(!ppp::is_ip(pkt))
+            return 0;
+        break;
+    case LINKTYPE_RAW:
+        break; 
+    default:
+        break;
+    }
+
+    return ip_write_json(buffer,
+                         buffer_size,
+                         pkt.data,
+                         pkt.length(),
+                         ts,
+                         reassembler);
+}
+
 // the function enumerate_protocol_types() prints out the types in
 // the protocol variant
 //
@@ -794,4 +826,48 @@ bool stateful_pkt_proc::analyze_eth_packet(const uint8_t *packet,
     }
 
     return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
+bool stateful_pkt_proc::analyze_ppp_packet(const uint8_t *packet,
+                                           size_t length,
+                                           struct timespec *ts,
+                                           struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    if (!ppp::is_ip(pkt)) {
+        return false;   // not an IP packet
+    }
+
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
+bool stateful_pkt_proc::analyze_raw_packet(const uint8_t *packet,
+                                           size_t length,
+                                           struct timespec *ts,
+                                           struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
+bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler,
+                            uint16_t linktype) {
+    switch (linktype)
+    {
+    case LINKTYPE_ETHERNET:
+        return analyze_eth_packet(eth_packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_PPP:
+        return analyze_ppp_packet(eth_packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_RAW:
+        return analyze_raw_packet(eth_packet, length, ts, reassembler);
+        break;
+    default:
+        break;
+    }
+    return false;
 }

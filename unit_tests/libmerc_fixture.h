@@ -26,6 +26,7 @@ protected:
     int counter();
     int counter(fingerprint_type fp_type, fingerprint_type fp_type2 = fingerprint_type_unknown);
     int counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback);
+    int counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback, uint16_t linktype);
     int counter(fingerprint_type fp_type, std::function<void()> callback);
     
     void check_global_configuraton(libmerc_config config);

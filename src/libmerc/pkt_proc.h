@@ -23,6 +23,20 @@
 #include "perfect_hash.h"
 
 /**
+ * enum linktype is a 16-bit enumeration that identifies a protocol
+ * type; it is defined by the PCAP internet draft
+ * [draft-gharris-opsawg-pcap-02], and is used here to indicate how a
+ * particular packet/frame should be parsed.  This enumeration defines
+ * all of the linktypes supported by the stateful_pkt_proc class.
+ */
+enum linktype : uint16_t {
+    LINKTYPE_NULL =       0,  // BSD loopback encapsulation
+    LINKTYPE_ETHERNET =   1,  // Ethernet
+    LINKTYPE_PPP      =   9,  // PPP
+    LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
+};
+
+/**
  * struct mercury holds state that is used by one or more
  * mercury_packet_processor
  *
@@ -72,8 +86,8 @@ class unknown_initial_packet;
 class quic_init;                         // start of udp protocols
 struct wireguard_handshake_init;
 struct dns_packet;
-struct tls_client_hello;                  // dtls
-struct tls_server_hello;                  // dtls
+struct dtls_client_hello;
+struct dtls_server_hello;
 struct dhcp_discover;
 class unknown_udp_initial_packet;
 class icmp_packet;                        // start of ip protocols
@@ -93,8 +107,8 @@ using protocol = std::variant<std::monostate,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
                               dns_packet,
-                              tls_client_hello,                  // dtls
-                              tls_server_hello,                  // dtls
+                              dtls_client_hello,
+                              dtls_server_hello,
                               dhcp_discover,
                               unknown_udp_initial_packet,
                               icmp_packet,                        // start of ip protocols
@@ -190,6 +204,14 @@ struct stateful_pkt_proc {
                       struct timespec *ts,
                       struct tcp_reassembler *reassembler);
 
+    size_t write_json(void *buffer,
+                      size_t buffer_size,
+                      uint8_t *packet,
+                      size_t length,
+                      struct timespec *ts,
+                      struct tcp_reassembler *reassembler,
+                      uint16_t linktype);
+
     void tcp_data_write_json(struct buffer_stream &buf,
                              struct datum &pkt,
                              const struct key &k,
@@ -204,7 +226,23 @@ struct stateful_pkt_proc {
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler);
 
+    bool analyze_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler,
+                            uint16_t linktype);
+
     bool analyze_eth_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler);
+
+    bool analyze_ppp_packet(const uint8_t *ppp_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler);
+
+    bool analyze_raw_packet(const uint8_t *ppp_packet,
                             size_t length,
                             struct timespec *ts,
                             struct tcp_reassembler *reassembler);

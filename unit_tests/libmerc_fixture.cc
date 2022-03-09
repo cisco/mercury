@@ -158,6 +158,30 @@ int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void(con
     return count_of_packets;
 }
 
+int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback, uint16_t linktype)
+{
+    int count_of_packets = 0;
+    while (1)
+    {
+        if (read_next_data_packet())
+        {
+            break;
+        }
+
+        const analysis_context *ac = mercury_packet_processor_get_analysis_context_linktype(m_mpp, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time, linktype);
+        if (ac)
+        {
+            if (analysis_context_get_fingerprint_type(ac) == fp_type)
+            {
+                count_of_packets++;
+            }
+            if (callback)
+                callback(ac);
+        }
+    }
+    return count_of_packets;
+}
+
 int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void()> callback)
 {
     int count_of_packets = 0;
