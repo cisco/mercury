@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 
 #define SOCKET_PATH "/tmp/intercept.socket"
 
@@ -70,6 +71,7 @@ int main(int argc, char *argv[]) {
 
     // create socket, then bind it to name
     //
+    umask(0);
     int sock = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (sock < 0) {
         fprintf(stderr, "error: %s: could not create socket %s\n", strerror(errno), name.sun_path);
