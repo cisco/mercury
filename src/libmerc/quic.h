@@ -487,11 +487,10 @@ struct quic_initial_packet {
     struct datum token;
     struct datum payload;
     bool valid;
-    bool gquic;
     const uint8_t *aad_start = nullptr;
     const uint8_t *aad_end = nullptr;
 
-    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false}, gquic{false} {
+    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false} {
         parse(d);
     }
 
@@ -521,36 +520,40 @@ struct quic_initial_packet {
 
         version.parse(d, 4);
 
-        // don't process non-standard versions
+        // process non-standard QUIC versions, unless compile-time
+        // configuration says not to do so
         //
-        uint64_t v = 0;
-        version.lookahead_uint(4, &v);
-        switch(v) {
-        case 4207849473:   // faceb001
-        case 4207849474:   // faceb002
-        case 4207849486:   // faceb00e
-        case 4278190102:   // draft-22
-        case 4278190103:   // draft-23
-        case 4278190104:   // draft-24
-        case 4278190105:   // draft-25
-        case 4278190106:   // draft-26
-        case 4278190107:   // draft-27
-        case 4278190108:   // draft-28
-        case 4278190109:   // draft-29
-        case 4278190110:   // draft-30
-        case 4278190111:   // draft-31
-        case 4278190112:   // draft-32
-        case 4278190113:   // draft-33
-        case 4278190114:   // draft-34
-        case 1:            // version-1
-            break;
-        case 0x51303433:   // Google QUIC Q043
-        case 0x51303436:   // Google QUIC Q046
-        case 0x51303530:   // Google QUIC Q050
-            gquic=true;    // TODO: report gquic, but don't decrypt it
-            break;
-        default:
-            return; // TODO: parse and report non-standard quic
+        constexpr bool process_non_standard_versions = true;
+        if (!process_non_standard_versions) {
+            uint64_t v = 0;
+            version.lookahead_uint(4, &v);
+            switch(v) {
+            case 4207849473:   // faceb001
+            case 4207849474:   // faceb002
+            case 4207849486:   // faceb00e
+            case 4278190102:   // draft-22
+            case 4278190103:   // draft-23
+            case 4278190104:   // draft-24
+            case 4278190105:   // draft-25
+            case 4278190106:   // draft-26
+            case 4278190107:   // draft-27
+            case 4278190108:   // draft-28
+            case 4278190109:   // draft-29
+            case 4278190110:   // draft-30
+            case 4278190111:   // draft-31
+            case 4278190112:   // draft-32
+            case 4278190113:   // draft-33
+            case 4278190114:   // draft-34
+            case 1:            // version-1
+                break;
+            case 0x51303433:   // Google QUIC Q043
+            case 0x51303436:   // Google QUIC Q046
+            case 0x51303530:   // Google QUIC Q050
+                ;              // note: could report gquic
+                break;
+            default:
+                return;
+            }
         }
 
         uint8_t dcid_length;
@@ -1058,7 +1061,8 @@ public:
     }
 
     bool is_not_empty() {
-        return plaintext.is_not_empty();
+        return initial_packet.is_not_empty();
+        //return plaintext.is_not_empty();
     }
 
     bool has_tls() {
@@ -1074,7 +1078,9 @@ public:
         if (cc.is_valid()) {
             cc.write_json(quic_record);
         }
-        quic_record.print_key_hex("plaintext", plaintext);
+        if (plaintext.is_not_empty()) {
+            quic_record.print_key_hex("plaintext", plaintext);
+        }
         // json_object frame_dump{record, "frame_dump"};
         // datum plaintext_copy = plaintext;
         // while (plaintext_copy.is_not_empty()) {
