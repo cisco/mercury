@@ -41,7 +41,7 @@ public:
         if(c.packet_filter_cfg && config_contains_delims(c.packet_filter_cfg)) {
             setup_extended_fields(this, "select=" + std::string(c.packet_filter_cfg));
         } else {
-            set_protocols(c.packet_filter_cfg ? c.packet_filter_cfg : "all");
+            set_protocols(c.packet_filter_cfg ? c.packet_filter_cfg : "");
         }
     }
 
@@ -76,7 +76,7 @@ public:
 
     bool set_protocols(const std::string& data) {
 
-        std::string s = static_selector_string ? static_selector_string : ( data.empty() ? "all" : data );
+        std::string s = data.empty() ? (static_selector_string ? static_selector_string : "all") : data ;
         std::string delim{","};
         size_t pos = 0;
         std::string token;
