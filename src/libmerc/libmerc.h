@@ -329,52 +329,6 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
                                                                                 struct timespec* ts);
 
 /**
- * mercury_packet_processor_get_analysis_context() processes an
- * ethernet packet and timestamp and returns a pointer to an analysis
- * context if a fingerprint was found in the packet, and returns
- * nothing otherwise.
- *
- * @param processor (input) is a packet processor context to be used
- * @param buffer_size (input) - length of buffer in bytes
- * @param packet (input) - location of packet, starting with the ethernet header
- * @param ts (input) - pointer to timestamp associated with packet
- *
- * @return a pointer to an analysis_context, if a fingerprint was
- * found, otherwise NULL.
- */
-#ifdef __cplusplus
-extern "C" LIBMERC_DLL_EXPORTED
-#endif
-const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor,
-                                                                             uint8_t *packet,
-                                                                             size_t length,
-                                                                             struct timespec* ts);
-
-/**
- * mercury_packet_processor_get_analysis_context_linktype() processes a
- * packet of specified link type and timestamp and returns a pointer to 
- * an analysis context if a fingerprint was found in the packet, and 
- * returns nothing otherwise.
- *
- * @param processor (input) is a packet processor context to be used
- * @param buffer_size (input) - length of buffer in bytes
- * @param packet (input) - location of packet, starting with the ethernet header
- * @param ts (input) - pointer to timestamp associated with packet
- * @param linktype (input) - linktype used in the packet
- *
- * @return a pointer to an analysis_context, if a fingerprint was
- * found, otherwise NULL.
- */
-#ifdef __cplusplus
-extern "C" LIBMERC_DLL_EXPORTED
-#endif
-const struct analysis_context *mercury_packet_processor_get_analysis_context_linktype(mercury_packet_processor processor,
-                                                                             uint8_t *packet,
-                                                                             size_t length,
-                                                                             struct timespec* ts,
-                                                                             uint16_t linktype);
-
-/**
  * analysis_context_get_fingerprint_status() returns the fingerprint_status
  * associated with an analysis_context.
  *
@@ -681,6 +635,52 @@ const char *mercury_get_resource_version(mercury_context mc);
 //
 // start of libmerc version 3 API
 //
+
+/**
+ * mercury_packet_processor_get_analysis_context() processes an
+ * ethernet packet and timestamp and returns a pointer to an analysis
+ * context if a fingerprint was found in the packet, and returns
+ * nothing otherwise.
+ *
+ * @param processor (input) is a packet processor context to be used
+ * @param buffer_size (input) - length of buffer in bytes
+ * @param packet (input) - location of packet, starting with the ethernet header
+ * @param ts (input) - pointer to timestamp associated with packet
+ *
+ * @return a pointer to an analysis_context, if a fingerprint was
+ * found, otherwise NULL.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor,
+                                                                             uint8_t *packet,
+                                                                             size_t length,
+                                                                             struct timespec* ts);
+
+/**
+ * mercury_packet_processor_get_analysis_context_linktype() processes a
+ * packet of specified link type and timestamp and returns a pointer to
+ * an analysis context if a fingerprint was found in the packet, and
+ * returns nothing otherwise.
+ *
+ * @param processor (input) is a packet processor context to be used
+ * @param buffer_size (input) - length of buffer in bytes
+ * @param packet (input) - location of packet, starting with the ethernet header
+ * @param ts (input) - pointer to timestamp associated with packet
+ * @param linktype (input) - linktype used in the packet
+ *
+ * @return a pointer to an analysis_context, if a fingerprint was
+ * found, otherwise NULL.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+const struct analysis_context *mercury_packet_processor_get_analysis_context_linktype(mercury_packet_processor processor,
+                                                                             uint8_t *packet,
+                                                                             size_t length,
+                                                                             struct timespec* ts,
+                                                                             uint16_t linktype);
 /**
  * analysis_context_get_user_agent() returns the printable,
  * null-terminated string for the HTTP/QUIC user agent
