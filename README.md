@@ -280,7 +280,7 @@ see if the directories on your system differ.
 Mercury is intended for defensive network monitoring, security research and forensics.  Researchers, administrators, penetration testers, and security operations teams can use these tools to protect networks, detect vulnerabilities, and benefit the broader community through improved awareness and defensive posture. As with any packet monitoring tool, Mercury could potentially be misused. **Do not run it on any network of which you are not the owner or the administrator**.
 
 ## Credits
-Mercury and this package was developed by David McGrew, Brandon Enright, Blake Anderson, Lucas Messenger, Adam Weller, Andrew Chi, and Shekhar Acharya with input from Brian Long, Bill Hudson, and others.  Pmercury was developed by Blake Anderson, with input from the others.
+Mercury and this package was developed by David McGrew, Brandon Enright, Blake Anderson, Lucas Messenger, Adam Weller, Andrew Chi, Shekhar Acharya, Anastasiia-Mariia Antonyk, Oleksandr Stepanov, Vigneshwari Viswanathan, and Apoorv Raj, with input from Brian Long, Bill Hudson, and others.  Pmercury was developed by Blake Anderson, with input from others.
 
 ## Acknowledgments
 
