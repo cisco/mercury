@@ -92,7 +92,7 @@ enum status write_pcap_file_header(FILE *f) {
     file_header.thiszone = 0;     /* no GMT correction for now */
     file_header.sigfigs = 0;      /* we don't claim sigfigs for now */
     file_header.snaplen = 65535;
-    file_header.network = pcap_file::LINKTYPE_ETHERNET;
+    file_header.network = LINKTYPE_ETHERNET;
 
     size_t items_written = fwrite(&file_header, sizeof(file_header), 1, f);
     if (items_written == 0) {
@@ -234,9 +234,12 @@ enum status pcap_file_open(struct pcap_file *f,
             file_header.snaplen = htonl(file_header.snaplen);
             file_header.network = htons(file_header.network);
         }
-        if (file_header.network != pcap_file::LINKTYPE_ETHERNET) {
-            if (file_header.network == pcap_file::LINKTYPE_NULL) {
-                fprintf(stderr, "warning: pcap file linktype is NULL (0), assuming ETHERNET\n");
+        f->linktype = file_header.network;
+        if (file_header.network != LINKTYPE_ETHERNET &&
+                file_header.network != LINKTYPE_PPP  &&
+                file_header.network != LINKTYPE_RAW) {
+            if (file_header.network == LINKTYPE_NULL) {
+                fprintf(stderr, "warning: pcap file linktype is NULL (0), assuming ETHERNET or PPP\n");
             } else {
                 fprintf(stderr, "error: pcap file linktype (%u) unsupported\n", file_header.network);
                 exit(EXIT_FAILURE); // TODO: return error, don't exit
@@ -422,6 +425,7 @@ enum status pcap_file_read_packet(struct pcap_file *f,
             return status_err;
         }
     }
+
     if (pkthdr->caplen <= BUFLEN) {
         items_read = fread(packet_data, pkthdr->caplen, 1, f->file_ptr);
         if (items_read == 0) {
@@ -476,6 +480,7 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
             status = pcap_file_read_packet(f, &pkthdr, packet_data);
             if (status == status_ok) {
                 packet_info_init_from_pkthdr(&pi, &pkthdr);
+                pi.linktype = f->linktype;
                 // process the packet that was read
                 pkt_processor->apply(&pi, packet_data);
                 num_packets++;

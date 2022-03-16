@@ -240,7 +240,9 @@ void http_request::fingerprint(struct buffer_stream &b) const {
     b.raw_as_hex(protocol.data, protocol.data_end - protocol.data);
     b.write_char(')');
 
+    b.write_char('(');
     headers.fingerprint(b, ph_visitor, perfect_hash_table_type::HTTP_REQUEST_FP);
+    b.write_char(')');
 }
 
 void http_response::fingerprint(struct buffer_stream &buf) const {
@@ -257,7 +259,9 @@ void http_response::fingerprint(struct buffer_stream &buf) const {
     buf.raw_as_hex(status_reason.data, status_reason.data_end - status_reason.data);
     buf.write_char(')');
 
+    buf.write_char('(');
     headers.fingerprint(buf, ph_visitor, perfect_hash_table_type::HTTP_RESPONSE_FP);
+    buf.write_char(')');
 }
 
 void http_request::compute_fingerprint(struct fingerprint &fp) const {
@@ -328,13 +332,7 @@ bool http_request::do_analysis(const struct key &k_, struct analysis_context &an
     std::basic_string<uint8_t> user_agent_header = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
     struct datum user_agent_data = get_header(user_agent_header);
 
-    analysis_.destination.init(host_data, k_);
+    analysis_.destination.init(host_data, user_agent_data, {nullptr, nullptr}, k_);
 
-    if (user_agent_data.is_null()) {
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
-    } else {
-        strncpy(analysis_.user_agent, user_agent_data.get_string().c_str(), MAX_USER_AGENT_LEN - 1);
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result,
-                                                               user_agent_data.get_string().c_str());
-    }
+    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }

@@ -238,6 +238,10 @@ public:
         data.parse(d, length);
     }
 
+    datum get_data() const {
+        return data;
+    }
+
     void write_json(json_object &o, const char *key) {
         json_array alpn_array{o, key};
         while (data.is_not_empty()) {
@@ -275,7 +279,6 @@ void tls_extensions::print_alpn(struct json_object &o, const char *key) const {
             pnl.write_json(o, key);
         }
     }
-
 }
 
 void tls_extensions::print_quic_transport_parameters(struct json_object &o, const char *key) const {
@@ -299,17 +302,35 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
         const uint8_t *data_end = ext_parser.data;
 
         if (tmp_type == type_quic_transport_parameters) {
+            struct json_object tps{o, key};
             struct datum ext{data, data_end};
-            o.print_key_hex(key, ext);
+            tps.print_key_hex("value", ext);
+            tps.close();
         } else if (tmp_type == type_quic_transport_parameters_draft) {
             struct datum ext{data, data_end};
-            o.print_key_hex("quic_transport_parameters_draft", ext);
+            struct datum ext_parser{data, data_end};
+            struct json_object tps{o, "quic_transport_parameters_draft"};
+
+            ext_parser.skip(4);   // skip extension type and length
+            while (ext_parser.length() > 0) {
+                quic_transport_parameter qtp(ext_parser);
+                if (qtp.get_id().value() == type_quic_user_agent)
+                {
+                    tps.print_key_json_string("user_agent", qtp.get_value());
+                }
+            }
+            tps.print_key_hex("value", ext);
+            tps.close();
         }
     }
 
 }
 
-void tls_extensions::set_server_name(struct datum &server_name) const {
+void tls_extensions::set_meta_data(struct datum &server_name,
+                                   struct datum &user_agent,
+                                   //std::vector<std::string>& alpn
+                                   datum &alpn
+                                   ) const {
 
     struct datum ext_parser{this->data, this->data_end};
 
@@ -333,10 +354,31 @@ void tls_extensions::set_server_name(struct datum &server_name) const {
             struct datum ext{data, data_end};
             ext.skip(SNI_HDR_LEN);
             server_name = ext;
-            return;
+        }
+
+        if (tmp_type == type_quic_transport_parameters_draft) {
+            struct datum ext{data, data_end};
+            ext.skip(4);    // skip extension type and length
+            while (ext.length() > 0) {
+                quic_transport_parameter qtp(ext);
+                if (qtp.get_id().value() == type_quic_user_agent) {
+                    user_agent = qtp.get_value();
+                }
+            }
+        }
+
+        if (tmp_type == type_alpn) {
+            struct datum ext{data, data_end};
+            ext.skip(L_ExtensionType + L_ExtensionLength);
+            protocol_name_list pnl{ext};
+            alpn = pnl.get_data();
+            // datum data = pnl.get_data();
+            // while (data.is_not_empty()) {
+            //     protocol_name name{data};
+            //     alpn.push_back(name.get_string());
+            // }
         }
     }
-
 }
 
 struct tls_extension {
@@ -770,10 +812,13 @@ void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {
 }
 
 bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-    struct datum sn{NULL, NULL};
-    extensions.set_server_name(sn);
+    datum sn;
+    datum ua;
+    datum alpn;
 
-    analysis_.destination.init(sn, k_);
+    extensions.set_meta_data(sn, ua, alpn);
+
+    analysis_.destination.init(sn, ua, alpn, k_);
 
     return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }

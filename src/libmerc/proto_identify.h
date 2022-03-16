@@ -29,6 +29,7 @@
 #include "quic.h"
 #include "dns.h"
 #include "wireguard.h"
+#include "dtls.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -187,8 +188,8 @@ public:
             // udp.add_protocol(dns_packet::server_matcher, udp_msg_type_dns); // older matcher
         }
         if (protocols["dtls"] || protocols["all"]) {
-            udp16.add_protocol(tls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
-            udp16.add_protocol(tls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
+            udp16.add_protocol(dtls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
+            udp16.add_protocol(dtls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
         }
         if (protocols["wireguard"] || protocols["all"]) {
             udp.add_protocol(wireguard_handshake_init::matcher, udp_msg_type_wireguard);

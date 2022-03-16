@@ -155,35 +155,44 @@ public:
 
 #define MAX_DST_ADDR_LEN 48
 #define MAX_SNI_LEN     257
+#define MAX_USER_AGENT_LEN 512
+#define MAX_ALPN_LEN 32
+#define MAX_ALPN 16
+#define MAX_ALPN_STR_LEN 128
 
 struct destination_context {
     char dst_ip_str[MAX_DST_ADDR_LEN];
     char sn_str[MAX_SNI_LEN];
+    char ua_str[MAX_USER_AGENT_LEN];
+    uint8_t alpn_array[MAX_ALPN_STR_LEN];
+    size_t alpn_length;
     uint16_t dst_port;
 
 #ifdef __cplusplus
     destination_context() : dst_port{0} {}
 
-    void init(struct datum domain, const struct key &key) {
+    void init(struct datum domain, struct datum user_agent, datum alpn, const struct key &key) {
+        user_agent.strncpy(ua_str, MAX_USER_AGENT_LEN);
         domain.strncpy(sn_str, MAX_SNI_LEN);
         flow_key_sprintf_dst_addr(key, dst_ip_str);
         dst_port = flow_key_get_dst_port(key);
+
+        alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
+        alpn_length = alpn.length();
+
     }
 
 #endif
 
 };
 
-#define MAX_USER_AGENT_LEN 512
-
 struct analysis_context {
     struct fingerprint fp;
     struct destination_context destination;
     struct analysis_result result;
-    char user_agent[MAX_USER_AGENT_LEN];
 
 #ifdef __cplusplus
-    analysis_context() : fp{}, destination{}, result{}, user_agent{"\0"} {}
+    analysis_context() : fp{}, destination{}, result{} {}
     // could add structs needed for 'scratchwork'
 
     const char *get_server_name() const {
@@ -193,10 +202,25 @@ struct analysis_context {
         return NULL;
     }
 
-    void reset_user_agent() {
-        user_agent[0] = '\0';
+    const char *get_user_agent() const {
+        if (destination.ua_str[0] != '\0') {
+            return destination.ua_str;
+        }
+        return NULL;
     }
 
+    bool get_alpns(const uint8_t **alpns, size_t *len) const {
+        if (destination.alpn_array[0] != '\0') {
+            *alpns = destination.alpn_array;
+            *len = destination.alpn_length;
+            return true;
+        }
+        return false;
+    }
+
+    void reset_user_agent() {
+        destination.ua_str[0] = '\0';
+    }
 #endif
 };
 

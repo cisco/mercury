@@ -16,6 +16,39 @@
 
 using namespace mercury_option;  //from options.h
 
+class length_and_data {
+    const uint8_t *data;
+    const uint8_t *data_end;
+
+public:
+
+    length_and_data(const uint8_t *buffer, const uint8_t *buffer_end) : data{nullptr}, data_end{nullptr} {
+        if (buffer == nullptr) {
+            return;  // error
+        }
+        int length = *buffer++;
+        if (buffer + length > buffer_end) {
+            length = buffer_end - buffer;  // truncate length
+        }
+        data = buffer;
+        data_end = buffer + length;
+    }
+
+    size_t bytes_accepted() const {
+        if (data) {
+            return 1 + data_end - data;
+        }
+        return 0;
+    }
+
+    size_t length() const { return data_end - data; }
+
+    const uint8_t *value() const { return data; }
+
+    /*explicit*/ operator datum() const { return {data, data_end}; }
+
+};
+
 // libmerc_printer is derived from libmerc_api, and adds functions for
 // printing out analysis results as json or text
 //
@@ -71,6 +104,27 @@ struct libmerc_printer : public libmerc_api {
             fprintf(f, "server_name: %s\n", server_name);
         } else {
             fprintf(f, "server_name: not present (null)\n");
+        }
+
+        const char *user_agent = this->get_user_agent(ctx);
+        if (user_agent) {
+            fprintf(f, "user_agent: %s\n", user_agent);
+        } else {
+            fprintf(f, "user_agent: not present (null)\n");
+        }
+
+        const uint8_t *alpn_buffer;
+        size_t alpn_buffer_length;
+        fprintf(f, "application_layer_protocol_negotiation: ");
+        if (this->get_alpns(ctx, &alpn_buffer, &alpn_buffer_length)) {
+            const uint8_t *alpn = alpn_buffer;
+            const uint8_t *alpn_end = alpn + alpn_buffer_length;
+            while (alpn < alpn_end) {
+                length_and_data name{alpn, alpn_end};
+                fprintf(f, "%.*s ", (int)name.length(), name.value());
+                alpn += name.bytes_accepted(); // advance through buffer
+            }
+            fprintf(f, "\n");
         }
 
         const char *probable_process = NULL;
@@ -132,6 +186,24 @@ struct libmerc_printer : public libmerc_api {
 
             const char *server_name = this->get_server_name(ctx);
             json.print_key_string("server_name", server_name ? server_name : "not present (null)");
+
+            const char *user_agent = this->get_user_agent(ctx);
+            json.print_key_string("user_agent", user_agent ? user_agent : "not present (null)");
+
+            const uint8_t *alpn_buffer;
+            size_t alpn_buffer_length;
+            if (this->get_alpns(ctx, &alpn_buffer, &alpn_buffer_length)) {
+                struct json_array a{json, "application_layer_protocol_negotiation"};
+                const uint8_t *alpn = alpn_buffer;
+                const uint8_t *alpn_end = alpn + alpn_buffer_length;
+                while (alpn < alpn_end) {
+                    length_and_data name{alpn, alpn_end};
+                    datum tmp = name;
+                    a.print_json_string(tmp);
+                    alpn += name.bytes_accepted(); // advance through buffer
+                }
+                a.close();
+            }
 
             const char *probable_process = NULL;
             double probability_score = 0.0;

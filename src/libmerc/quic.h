@@ -27,6 +27,7 @@
 #include "match.h"
 #include "crypto_engine.h"
 
+#define type_quic_user_agent 0x3129
 /*
  * QUIC header format (from draft-ietf-quic-transport-32):
  *
@@ -166,7 +167,6 @@ public:
     }
 };
 
-
 // quic_transport_parameters are carried in a TLS extension; see
 // https://datatracker.ietf.org/doc/html/rfc9000#section-18 and
 // https://www.iana.org/assignments/quic/quic.xhtml#quic-transport
@@ -199,8 +199,8 @@ public:
             b.write_char('b');
         }
     }
-
     variable_length_integer_datum get_id() const { return _id; }
+    datum  get_value() const { return _value; }
 
 };
 
@@ -487,11 +487,10 @@ struct quic_initial_packet {
     struct datum token;
     struct datum payload;
     bool valid;
-    bool gquic;
     const uint8_t *aad_start = nullptr;
     const uint8_t *aad_end = nullptr;
 
-    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false}, gquic{false} {
+    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false} {
         parse(d);
     }
 
@@ -521,33 +520,40 @@ struct quic_initial_packet {
 
         version.parse(d, 4);
 
-        // don't process non-standard versions
+        // process non-standard QUIC versions, unless compile-time
+        // configuration says not to do so
         //
-        uint64_t v = 0;
-        version.lookahead_uint(4, &v);
-        switch(v) {
-        case 4278190102:   // draft-22
-        case 4278190103:   // draft-23
-        case 4278190104:   // draft-24
-        case 4278190105:   // draft-25
-        case 4278190106:   // draft-26
-        case 4278190107:   // draft-27
-        case 4278190108:   // draft-28
-        case 4278190109:   // draft-29
-        case 4278190110:   // draft-30
-        case 4278190111:   // draft-31
-        case 4278190112:   // draft-32
-        case 4278190113:   // draft-33
-        case 4278190114:   // draft-34
-        case 1:            // version-1
-            break;
-        case 0x51303433:   // Google QUIC Q043
-        case 0x51303436:   // Google QUIC Q046
-        case 0x51303530:   // Google QUIC Q050
-            gquic=true;    // TODO: report gquic, but don't decrypt it
-            break;
-        default:
-            return; // TODO: parse and report non-standard quic
+        constexpr bool process_non_standard_versions = true;
+        if (!process_non_standard_versions) {
+            uint64_t v = 0;
+            version.lookahead_uint(4, &v);
+            switch(v) {
+            case 4207849473:   // faceb001
+            case 4207849474:   // faceb002
+            case 4207849486:   // faceb00e
+            case 4278190102:   // draft-22
+            case 4278190103:   // draft-23
+            case 4278190104:   // draft-24
+            case 4278190105:   // draft-25
+            case 4278190106:   // draft-26
+            case 4278190107:   // draft-27
+            case 4278190108:   // draft-28
+            case 4278190109:   // draft-29
+            case 4278190110:   // draft-30
+            case 4278190111:   // draft-31
+            case 4278190112:   // draft-32
+            case 4278190113:   // draft-33
+            case 4278190114:   // draft-34
+            case 1:            // version-1
+                break;
+            case 0x51303433:   // Google QUIC Q043
+            case 0x51303436:   // Google QUIC Q046
+            case 0x51303530:   // Google QUIC Q050
+                ;              // note: could report gquic
+                break;
+            default:
+                return;
+            }
         }
 
         uint8_t dcid_length;
@@ -630,6 +636,9 @@ public:
 
     quic_parameters() {
         quic_initial_salt = {
+            {4207849473, salt_d22},     // faceb001
+            {4207849474, salt_d23_d28}, // faceb002
+            {4207849486, salt_d23_d28}, // faceb00e
             {4278190102, salt_d22},     // draft-22
             {4278190103, salt_d23_d28}, // draft-23
             {4278190104, salt_d23_d28}, // draft-24
@@ -1052,7 +1061,8 @@ public:
     }
 
     bool is_not_empty() {
-        return plaintext.is_not_empty();
+        return initial_packet.is_not_empty();
+        //return plaintext.is_not_empty();
     }
 
     bool has_tls() {
@@ -1068,7 +1078,9 @@ public:
         if (cc.is_valid()) {
             cc.write_json(quic_record);
         }
-        quic_record.print_key_hex("plaintext", plaintext);
+        if (plaintext.is_not_empty()) {
+            quic_record.print_key_hex("plaintext", plaintext);
+        }
         // json_object frame_dump{record, "frame_dump"};
         // datum plaintext_copy = plaintext;
         // while (plaintext_copy.is_not_empty()) {
@@ -1096,9 +1108,12 @@ public:
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         struct datum sn{NULL, NULL};
-        hello.extensions.set_server_name(sn);
+        struct datum user_agent {NULL, NULL};
+        datum alpn;
 
-        analysis_.destination.init(sn, k_);
+        hello.extensions.set_meta_data(sn, user_agent, alpn);
+
+        analysis_.destination.init(sn, user_agent, alpn, k_);
 
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }

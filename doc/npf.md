@@ -3,7 +3,7 @@
 **Pre-Publication Draft**
 
 David McGrew
-January 24, 2022
+February 28, 2022
 
 
 
@@ -37,9 +37,7 @@ Some fingerprint definitions make use of functions.  The function `MAP` takes as
 
     ODD(x) = 0x01 if x is an odd number, and 0x00 otherwise,
 
-and the string S = (0001020304050607)
-
-then
+and the string S = (0001020304050607), then
 
     MAP(S, 1, ODD) = (0001000100010001).
 
@@ -105,7 +103,9 @@ Where the elements are defined as follows:
                 option[0] otherwise.
 ```
 
-where the set`TCP_OPT_FIXED = { 0x02, 0x03 }`.
+where
+
+ the set `TCP_OPT_FIXED = { 0x02, 0x03 }`.
 
 **DESIGN QUESTION:** do we want SYN/ACK fingerprints?  Should we include those flags in the fingerprint, so that we can distinguish them?
 
@@ -202,17 +202,64 @@ quic/(ff00001d)(0303)(0a0a130113021303)[(0a0a)(0a0a)(0000)(000500050100000000)(0
 
 ## HTTP
 
-HTTP fingerprints are computed from HTTP request packets, for version 1.1 or 1.0 of that protocol.  The fingerprint format is 
+HTTP fingerprints are computed from HTTP request packets, for HTTP version 1.1 ([RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230#section-3), Section 3) or earlier.  The fingerprint format is 
 
 ```
-"http/" (Method) (Protocol) ((Header))
+"http/" (method) (version) ((selected-header)*)
 ```
 
 where
 
-- `Method` is the 
-- URI is the
-- Header is 
+- `method` (string, variable length) is the first token in the request-line (e.g. "GET"),
+- `version` (string, variable length) is the last token in the request line (e.g. "HTTP/1.1"),
+- The `selected-header` (sequence, variable length) elements represent successive headers in the request.  Each header has the form  `header = field-name ": " field-value `, where ": " is a literal string consisting of the ASCII characters with codes 0x3a and 0x20, and `field-name` and `field-value` are tokens, as per ([RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2), Section 3.2).  The `selected-header` fields corresponding to the headers in the request are defined as
+
+
+```
+  selected-header = header           if TOLOWER(field-name) is in HTTP_REQUEST_NAME_AND_VALUE, else
+                    field-name       if TOLOWER(field-name) is in HTTP_REQUEST_NAME_ONLY.
+```
+
+Note that no case transformation is performed on the field-name that is included in the fingerprint, though the comparison function used in the selected-header logic does process that field in a case-insensitive way.  The function TOLOWER is defined by
+
+    TOLOWER(S) = MAP(S, 1, CHAR_TOLOWER)
+
+where CHAR_TOLOWER(x) takes a single byte as input and returns a single byte, and is defined as
+
+
+```
+CHAR_TOLOWER(x) = x  	      if x < 0x41 or x > 0x5a, 
+                  x | 0x20    otherwise.
+```
+
+For instance, `TOLOWER("Host:") = "host:"`.
+
+The sets HTTP_REQUEST_NAME_AND_VALUE and HTTP_REQUEST_NAME_ONLY are defined as    
+
+```
+HTTP_REQUEST_NAME_AND_VALUE = {
+    "accept"
+    "accept-encoding",
+    "connection",
+    "dnt",
+    "dpr",
+    "upgrade-insecure-requests",
+    "x-requested-with"
+}
+
+HTTP_REQUEST_NAME_ONLY = {
+    "accept-charset",
+    "accept-language",
+    "authorization",
+    "cache-control",
+    "host",
+    "if-modified-since",
+    "keep-alive",
+    "user-agent", 
+    "x-flash-version",
+    "x-p2p-peerdist"
+}.
+```
 
 
 

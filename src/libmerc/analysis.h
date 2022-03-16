@@ -940,8 +940,8 @@ public:
 
     bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
                                                      const struct destination_context &dc,
-                                                     struct analysis_result &result,
-                                                     const char *user_agent = nullptr) {
+                                                     struct analysis_result &result
+                                                     ) {
 
         if (fp.is_null()) {
             return true;  // no fingerprint to analyze
@@ -950,7 +950,7 @@ public:
             result = analysis_result(fingerprint_status_unanalyzed);
             return true;  // not configured to analyze fingerprints of this type
         }
-        result = this->perform_analysis(fp.string(), dc.sn_str, dc.dst_ip_str, dc.dst_port, user_agent);
+        result = this->perform_analysis(fp.string(), dc.sn_str, dc.dst_ip_str, dc.dst_port, dc.ua_str);
         return true;
     }
 
