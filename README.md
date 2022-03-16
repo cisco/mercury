@@ -9,6 +9,23 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normalizing metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.
 
+## Version 2.5.3
+
+* Added support for reading and processing different LINKTYPEs; ETHERNET, RAW (IP), and PP are currently supported.
+* Added TLS and QUIC ALPN and user-agent reporting into libmerc.h API. 
+* Updated IANA values and added support for Facebook’s custom versions
+
+## Version 2.5.2
+* Improved QUIC fingerprinting.
+* Added support for HTTP and QUIC process identification.
+* Improved HTTP process identification by incorporating the User-Agent as additional context in the classifier.
+* Separated the DTLS class from the TLS class, and moved it into its own [separate header file](src/libmerc/dtls.h). 
+
+## Version 2.5.1
+* Extended the `stats` feature to report HTTP and QUIC metadata data, in addition to TLS data. Refactored the message queues to use tuples to serialise/deserialisze data features.
+* IPv6 addresses are now reported in compressed format in the JSON output and `stats` output.
+* Added  [libmerc_api.h](src/libmerc_api.h), a header-only C++ library that provides a clean interface into `libmerc.so`, and [libmerc_util](src/libmerc_util.cc), a test/example/driver program that dynamically loads a variant of that library.
+
 ## Version 2.5.0
 * Replaced resource directory with resource archive.  A single compressed archive (or `.tar.gz`) file holds all of the resources that mercury needs in order to run its classifier.  The --resources command line option now specifies the path of the resources archive.  This change makes it easier to configure and distribute the set of resource files as an atomic set.  The archive format is a conventional Unix Standard tape archive format (as defined by POSIX in IEEE P1003.1-1988, and widely used through the GNU `tar` utility), compressed with GZIP (as defined by RFC1952, and widely used through `gzip` and `pigz`).
 * Added the experimental `stats` feature, which computes and stores aggregate statistics regarding TLS fingerprints and destinations, and periodically writes those statistics out to a compressed JSON file.   The stats file output is independent from the normal session-oriented JSON output.  The number of stats entries can be limited in order to protect against memory exhaustion.  This feature is currently experimental, and is likely to evolve.  It uses these new command line options:
