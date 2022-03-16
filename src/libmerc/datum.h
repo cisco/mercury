@@ -483,6 +483,15 @@ struct datum {
         }
     }
 
+    ssize_t write_to_buffer(uint8_t *buffer, ssize_t len) {
+        if (data) {
+            ssize_t copy_len = length() < len ? length() : len;
+            memcpy(buffer, data, copy_len);
+            return copy_len;
+        }
+        return -1;
+    }
+
 };
 
 template <size_t T> struct data_buffer {

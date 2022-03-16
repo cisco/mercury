@@ -332,7 +332,7 @@ bool http_request::do_analysis(const struct key &k_, struct analysis_context &an
     std::basic_string<uint8_t> user_agent_header = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
     struct datum user_agent_data = get_header(user_agent_header);
 
-    analysis_.destination.init(host_data, user_agent_data, std::vector<std::string>(), k_);
+    analysis_.destination.init(host_data, user_agent_data, {nullptr, nullptr}, k_);
 
     return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }

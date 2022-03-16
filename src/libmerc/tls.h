@@ -331,9 +331,9 @@ struct tls_extensions : public datum {
     void print_session_ticket(struct json_object &o, const char *key) const;
 
     void fingerprint_quic_tls(struct buffer_stream &b, enum tls_role role) const;
-    void set_meta_data(struct datum &server_name,
-                       struct datum &user_agent,
-                       std::vector<std::string>& alpn) const;
+    void set_meta_data(datum &server_name,
+                       datum &user_agent,
+                       datum& alpn) const;
 
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
 };

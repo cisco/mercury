@@ -158,28 +158,28 @@ public:
 #define MAX_USER_AGENT_LEN 512
 #define MAX_ALPN_LEN 32
 #define MAX_ALPN 16
+#define MAX_ALPN_STR_LEN 128
 
 struct destination_context {
     char dst_ip_str[MAX_DST_ADDR_LEN];
     char sn_str[MAX_SNI_LEN];
     char ua_str[MAX_USER_AGENT_LEN];
-    char alpn_str[MAX_ALPN][MAX_ALPN_LEN];
-    uint8_t alpn_count;
+    uint8_t alpn_array[MAX_ALPN_STR_LEN];
+    size_t alpn_length;
     uint16_t dst_port;
 
 #ifdef __cplusplus
     destination_context() : dst_port{0} {}
 
-    void init(struct datum domain, struct datum user_agent, std::vector<std::string> alpn, const struct key &key) {
+    void init(struct datum domain, struct datum user_agent, datum alpn, const struct key &key) {
         user_agent.strncpy(ua_str, MAX_USER_AGENT_LEN);
         domain.strncpy(sn_str, MAX_SNI_LEN);
         flow_key_sprintf_dst_addr(key, dst_ip_str);
         dst_port = flow_key_get_dst_port(key);
 
-        alpn_count = alpn.size() < MAX_ALPN ? alpn.size() : MAX_ALPN;
-        for (int i = 0; i < alpn_count; i++) {
-            strncpy(alpn_str[i], alpn[i].c_str(), MAX_ALPN_LEN-1);
-        }
+        alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
+        alpn_length = alpn.length();
+
     }
 
 #endif
@@ -209,14 +209,12 @@ struct analysis_context {
         return NULL;
     }
 
-    bool get_alpns(const char** alpns, uint8_t *row, uint8_t *column) const {
-        if (destination.alpn_str[0][0] != '\0') {
-            *row = destination.alpn_count;
-            *column = MAX_ALPN_LEN;
-            *alpns = (char*)destination.alpn_str;
+    bool get_alpns(const uint8_t **alpns, size_t *len) const {
+        if (destination.alpn_array[0] != '\0') {
+            *alpns = destination.alpn_array;
+            *len = destination.alpn_length;
             return true;
         }
-
         return false;
     }
 

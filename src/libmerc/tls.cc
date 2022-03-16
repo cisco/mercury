@@ -328,7 +328,9 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
 
 void tls_extensions::set_meta_data(struct datum &server_name,
                                    struct datum &user_agent,
-                                   std::vector<std::string>& alpn) const {
+                                   //std::vector<std::string>& alpn
+                                   datum &alpn
+                                   ) const {
 
     struct datum ext_parser{this->data, this->data_end};
 
@@ -369,11 +371,12 @@ void tls_extensions::set_meta_data(struct datum &server_name,
             struct datum ext{data, data_end};
             ext.skip(L_ExtensionType + L_ExtensionLength);
             protocol_name_list pnl{ext};
-            datum data = pnl.get_data();
-            while (data.is_not_empty()) {
-                protocol_name name{data};
-                alpn.push_back(name.get_string());
-            }
+            alpn = pnl.get_data();
+            // datum data = pnl.get_data();
+            // while (data.is_not_empty()) {
+            //     protocol_name name{data};
+            //     alpn.push_back(name.get_string());
+            // }
         }
     }
 }
@@ -809,9 +812,9 @@ void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {
 }
 
 bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-    struct datum sn{NULL, NULL};
-    struct datum ua{NULL, NULL};
-    std::vector<std::string> alpn;
+    datum sn;
+    datum ua;
+    datum alpn;
 
     extensions.set_meta_data(sn, ua, alpn);
 

@@ -697,44 +697,28 @@ extern "C" LIBMERC_DLL_EXPORTED
 const char *analysis_context_get_user_agent(const struct analysis_context *ac);
 
 /**
- * analysis_context_get_alpns() sets a pointer to an 2D array of
- * alpns, for a given analysis_context.
+ * analysis_context_get_alpns() sets a pointer to a buffer containing
+ * zero or more protocol names from the application layer protocol
+ * negotiation (ALPN) extension, for a given analysis_context.
  *
  * @param ac (input) is an analysis_context pointer.
  *
- * @param alpns is the location to which the alpns
- * array pointer will be written.
+ * @param alpn_data (output) is the location to which the alpns array
+ * pointer will be written.
  *
- * @param alpn_count (output) is the location to write the
- * count of alpns.
+ * @param alpn_length (output) is the location to which the length of the
+ * alpn_data will be written.
  *
- * @param max_len (output) is the location to write max length
- * of alpn.
- *
- * @return true if the alpn, alpn_count max_len point to
- * valid data after the function returns, and false otherwise.
- *
- * example:
- *                                                       max_len
- *                                                          |
- *                                                          V
- *                0   1   2    3   4   5   6   7   8   9    10
- * alpns -->    0 -------------------------------------------
- *                | h | 2 | \0 |   |   |   |   |   |    |   |
- *              1 -------------------------------------------
- *                | h | t | t  | p | / | 1 | . | 1 | \0 |   |
- * alpn_count ->2 -------------------------------------------
- *                |   |   |    |   |   |   |   |   |    |   |
- *              3 -------------------------------------------
+ * @return true if the alpn_data and alpn_length point to valid data
+ * after the function returns, and false otherwise.
  *
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 bool analysis_context_get_alpns(const struct analysis_context *ac, // input
-                                const char** alpns,                // output
-                                uint8_t *alpn_count,               // output
-                                uint8_t *max_len                   // output
+                                const uint8_t **alpn_data,         // output
+                                size_t *alpn_length                // output
                                 );
 
 

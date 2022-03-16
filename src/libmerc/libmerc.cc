@@ -207,12 +207,11 @@ const char *analysis_context_get_user_agent(const struct analysis_context *ac) {
 }
 
 bool analysis_context_get_alpns(const struct analysis_context *ac, // input
-                                const char **alpns,                // output
-                                uint8_t *alpn_count,               // output
-                                uint8_t *max_len                   // output
+                                const uint8_t **alpn,              // output
+                                size_t *alpn_length                // output
                                 ) {
     if (ac) {
-        return ac->get_alpns(alpns, alpn_count, max_len);
+        return ac->get_alpns(alpn, alpn_length);
     }
 
     return false;

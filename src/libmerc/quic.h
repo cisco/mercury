@@ -1109,7 +1109,7 @@ public:
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         struct datum sn{NULL, NULL};
         struct datum user_agent {NULL, NULL};
-        std::vector<std::string> alpn;
+        datum alpn;
 
         hello.extensions.set_meta_data(sn, user_agent, alpn);
 
