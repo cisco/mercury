@@ -354,19 +354,18 @@ void tls_extensions::set_meta_data(struct datum &server_name,
             server_name = ext;
         }
 
-	if (tmp_type == type_quic_transport_parameters_draft) {
+        if (tmp_type == type_quic_transport_parameters_draft) {
             struct datum ext{data, data_end};
             ext.skip(4);    // skip extension type and length
             while (ext.length() > 0) {
                 quic_transport_parameter qtp(ext);
-                if (qtp.get_id().value() == type_quic_user_agent)
-                {
+                if (qtp.get_id().value() == type_quic_user_agent) {
                     user_agent = qtp.get_value();
                 }
             }
         }
 
-	if (tmp_type == type_alpn) {
+        if (tmp_type == type_alpn) {
             struct datum ext{data, data_end};
             ext.skip(L_ExtensionType + L_ExtensionLength);
             protocol_name_list pnl{ext};
