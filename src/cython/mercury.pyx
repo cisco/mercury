@@ -39,6 +39,7 @@ cdef extern from "../libmerc/libmerc.h":
         char* packet_filter_cfg
         bool metadata_output
         bool dns_json_output
+        bool certs_json_output
     cdef struct mercury_context:
         pass
     cdef struct mercury_packet_processor:
@@ -126,7 +127,7 @@ cdef class Mercury:
     cdef bool do_analysis
 
     def __init__(self, bool do_analysis, bytes resources, bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
-                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True):
+                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True):
         self.do_analysis = do_analysis
         self.py_config = {
             'output_tcp_initial_data': output_tcp_initial_data,
@@ -134,6 +135,7 @@ cdef class Mercury:
             'packet_filter_cfg': packet_filter_cfg,
             'metadata_output': metadata_output,
             'dns_json_output': dns_json_output,
+            'certs_json_output': certs_json_output,
             'do_analysis': do_analysis,
             'resources':   resources,
         }
