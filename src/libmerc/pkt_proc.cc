@@ -208,9 +208,9 @@ struct write_metadata {
 };
 
 struct compute_fingerprint {
-    struct fingerprint &fp_;
+    fingerprint &fp_;
 
-    compute_fingerprint(struct fingerprint &fp) : fp_{fp} {
+    compute_fingerprint(fingerprint &fp) : fp_{fp} {
         fp.init();
     }
 

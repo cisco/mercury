@@ -1,7 +1,7 @@
 // libmerc_api.h
 
 #ifndef LIBMERC_API_H
-#define LIBNERC_API_H
+#define LIBMERC_API_H
 
 #include "libmerc/libmerc.h"
 #include <dlfcn.h>

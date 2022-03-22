@@ -187,7 +187,7 @@ struct destination_context {
 };
 
 struct analysis_context {
-    struct fingerprint fp;
+    fingerprint fp;
     struct destination_context destination;
     struct analysis_result result;
 

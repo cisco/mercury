@@ -361,7 +361,7 @@ struct tls_client_hello : public tcp_base_protocol {
 
     void fingerprint(struct buffer_stream &buf) const;
 
-    void compute_fingerprint(struct fingerprint &fp) const;
+    void compute_fingerprint(class fingerprint &fp) const;
 
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
@@ -426,7 +426,7 @@ struct tls_server_hello : public tcp_base_protocol {
         }
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         enum fingerprint_type type;
         if (dtls) {
             type = fingerprint_type_dtls_server;
@@ -510,7 +510,7 @@ public:
         }
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(fingerprint &fp) const {
         if (hello.is_not_empty()) {
             hello.compute_fingerprint(fp);
         }
