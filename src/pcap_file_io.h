@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <utility>
 #include <stdexcept>
 #include "mercury.h"
 
