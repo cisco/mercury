@@ -201,7 +201,7 @@ class ascii_printer {
 public:
     ascii_printer(const uint8_t *d, size_t l) : data{d}, length{l} {}
 
-    void operator()(struct buffer_stream &b) {
+    void fingerprint(struct buffer_stream &b) {
 
         for (size_t i=0; i<length; i++) {
             uint8_t outchar = data[i];
