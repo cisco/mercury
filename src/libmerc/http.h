@@ -69,7 +69,7 @@ struct http_request : public tcp_base_protocol {
 
     void fingerprint(struct buffer_stream &b) const;
 
-    void compute_fingerprint(struct fingerprint &fp) const;
+    void compute_fingerprint(class fingerprint &fp) const;
 
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
 
@@ -127,7 +127,7 @@ struct http_response : public tcp_base_protocol {
 
     void fingerprint(struct buffer_stream &buf) const;
 
-    void compute_fingerprint(struct fingerprint &fp) const;
+    void compute_fingerprint(class fingerprint &fp) const;
 
     struct datum get_header(const std::basic_string<uint8_t> &header_name);
 

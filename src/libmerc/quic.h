@@ -770,6 +770,7 @@ private:
             packet_number += mask[i+1] ^ quic_pkt.payload.data[i];
             aad.copy(quic_pkt.payload.data[i] ^ mask[i+1]);
         }
+        (void)packet_number;  // not currently used
 
         // construct AEAD iv
         //
@@ -1091,7 +1092,7 @@ public:
         quic_record.close();
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
 
         // fingerprint format:  quic:(quic_version)(tls fingerprint)
         //

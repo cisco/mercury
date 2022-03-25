@@ -82,7 +82,7 @@ public:
         hello.fingerprint(buf);
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         fp.set_type(fingerprint_type_dtls);
         fp.add(*this);
         fp.final();
@@ -123,7 +123,7 @@ public:
         hello.write_json(o, write_metadata);
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         fp.set_type(fingerprint_type_dtls_server);
         fp.add(*this);
         fp.final();

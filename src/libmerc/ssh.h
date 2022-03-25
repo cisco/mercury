@@ -108,7 +108,7 @@ struct ssh_init_packet : public tcp_base_protocol {
         buf.write_char(')');
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         fp.set_type(fingerprint_type_ssh);
         fp.add(*this);
         fp.final();
@@ -311,7 +311,7 @@ struct ssh_kex_init : public tcp_base_protocol {
         }
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         fp.set_type(fingerprint_type_ssh_kex);
         fp.add(*this);
         fp.final();

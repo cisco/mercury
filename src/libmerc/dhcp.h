@@ -506,7 +506,7 @@ struct dhcp_discover {
         b.write_char(')');
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         fp.set_type(fingerprint_type_dhcp);
         fp.add(*this);
         fp.final();

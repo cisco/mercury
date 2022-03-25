@@ -806,7 +806,7 @@ void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
     }
 }
 
-void tls_client_hello::compute_fingerprint(struct fingerprint &fp) const {
+void tls_client_hello::compute_fingerprint(class fingerprint &fp) const {
     enum fingerprint_type type;
     if (dtls) {
         type = fingerprint_type_dtls;

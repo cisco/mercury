@@ -227,7 +227,7 @@ public:
         }
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         fp.set_type(fingerprint_type_smtp_server);
         fp.add(*this);
         fp.final();

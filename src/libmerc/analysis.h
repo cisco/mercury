@@ -938,9 +938,9 @@ public:
         return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
     }
 
-    bool analyze_fingerprint_and_destination_context(const struct fingerprint &fp,
-                                                     const struct destination_context &dc,
-                                                     struct analysis_result &result
+    bool analyze_fingerprint_and_destination_context(const fingerprint &fp,
+                                                     const destination_context &dc,
+                                                     analysis_result &result
                                                      ) {
 
         if (fp.is_null()) {
