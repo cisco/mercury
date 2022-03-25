@@ -302,25 +302,32 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
         const uint8_t *data_end = ext_parser.data;
 
         if (tmp_type == type_quic_transport_parameters) {
-            struct json_object tps{o, key};
             struct datum ext{data, data_end};
-            tps.print_key_hex("value", ext);
-            tps.close();
-        } else if (tmp_type == type_quic_transport_parameters_draft) {
-            struct datum ext{data, data_end};
-            struct datum ext_parser{data, data_end};
-            struct json_object tps{o, "quic_transport_parameters_draft"};
+            o.print_key_hex(key, ext);
 
-            ext_parser.skip(4);   // skip extension type and length
-            while (ext_parser.length() > 0) {
-                quic_transport_parameter qtp(ext_parser);
-                if (qtp.get_id().value() == type_quic_user_agent)
-                {
-                    tps.print_key_json_string("user_agent", qtp.get_value());
+            // print user_agent, if there is one in the quic transport parameters
+            //
+            ext.skip(4);   // skip extension type and length
+            while (ext.length() > 0) {
+                quic_transport_parameter qtp(ext);
+                if (qtp.get_id().value() == type_quic_user_agent) {
+                    o.print_key_json_string("google_user_agent", qtp.get_value());
                 }
             }
-            tps.print_key_hex("value", ext);
-            tps.close();
+
+        } else if (tmp_type == type_quic_transport_parameters_draft) {
+            struct datum ext{data, data_end};
+            o.print_key_hex("quick_transport_parameters_draft", ext);
+
+            // print user_agent, if there is one in the quic transport parameters
+            //
+            ext.skip(4);   // skip extension type and length
+            while (ext.length() > 0) {
+                quic_transport_parameter qtp(ext);
+                if (qtp.get_id().value() == type_quic_user_agent) {
+                    o.print_key_json_string("google_user_agent", qtp.get_value());
+                }
+            }
         }
     }
 
