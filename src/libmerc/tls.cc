@@ -317,7 +317,7 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
 
         } else if (tmp_type == type_quic_transport_parameters_draft) {
             struct datum ext{data, data_end};
-            o.print_key_hex("quick_transport_parameters_draft", ext);
+            o.print_key_hex("quic_transport_parameters_draft", ext);
 
             // print user_agent, if there is one in the quic transport parameters
             //
