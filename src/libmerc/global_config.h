@@ -8,15 +8,18 @@
 #include <algorithm>
 
 // the preprocessor directive STATIC_CFG_SELECT can be used as a
-// compile-time option to select the protocols that mercury will
-// process; it must hold a quoted string that contains one of
-// mercury's selector strings, and it can be passed to the compiler
-// using the -D flag.  For example,
+// compile-time option to select the default protocols that mercury
+// will process, if an empty select string is provided to the
+// global_config constructor.
+//
+// The STATIC_CFG_SELECT define must hold either nullptr or a quoted
+// string that contains one of mercury's selector strings, and it can
+// be passed to the compiler using the -D flag.  For example,
 //
 //    make OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls.client_hello\"'
 //
-// will ensure that only tls client hello messages are selected, and all other
-// packet types are ignored
+// will ensure that only tls client hello messages are selected, and
+// all other packet types are ignored
 //
 #ifndef STATIC_CFG_SELECT
 #define STATIC_CFG_SELECT nullptr
