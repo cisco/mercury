@@ -63,6 +63,7 @@ public:
     bool compute_inverse_map() {
 
         try {
+            inverse.clear();
             inverse.reserve(d.size());
             for (const auto &x : d) {
                 inverse.push_back({x.first.c_str(), x.second});
