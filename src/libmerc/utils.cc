@@ -253,7 +253,8 @@ enum status filename_append(char dst[FILENAME_MAX],
         if (strnlen(src, FILENAME_MAX) + strlen(tail) + 1 > FILENAME_MAX) {
             return status_err; /* filename too long */
         }
-        strncpy(dst, src, FILENAME_MAX);
+        if (src != dst)
+            strncpy(dst, src, FILENAME_MAX);
         strcat(dst, delim);
         strcat(dst, tail);
 

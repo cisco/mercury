@@ -52,6 +52,7 @@ char mercury_help[] =
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
+    "   --output-time=T                       # rotate output file after T seconds\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
     "   --certs-json                          # output certs as JSON, not base64\n"
     "   --metadata                            # output more protocol metadata in JSON\n"
@@ -197,7 +198,7 @@ int main(int argc, char *argv[]) {
     //extern double malware_prob_threshold;  // TODO - expose hidden command
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -212,6 +213,7 @@ int main(int argc, char *argv[]) {
             { "nonselected-udp-data", no_argument, NULL, udp_init_data },
             { "stats-limit", required_argument, NULL, stats_limit },
             { "stats-time",  required_argument, NULL, stats_time },
+            { "output-time", required_argument, NULL, output_time },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -444,6 +446,17 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option stats-limit requires a numeric argument", extended_help_off);
             }
             break;
+        case output_time:
+            if (option_is_valid(optarg)) {
+                errno = 0;
+                cfg.out_rotation_duration = strtol(optarg, NULL, 10);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                }
+            } else {
+                usage(argv[0], "option output-time requires a numeric argument", extended_help_off);
+            }
+            break;
         case 'p':
             if (option_is_valid(optarg)) {
                 errno = 0;
@@ -572,13 +585,17 @@ int main(int argc, char *argv[]) {
     /* init random number generator */
     srand(time(0));
 
+    struct output_file out_file;
+
     controller *ctl = nullptr;
     if (cfg.stats_filename) {
-        ctl = new controller{mc, cfg.stats_filename, cfg.stats_rotation_duration};
+        ctl = new controller{mc, cfg.stats_filename, cfg.stats_rotation_duration, &out_file, cfg, true};
+    }
+    else {
+        ctl = new controller{mc, "disabled", cfg.stats_rotation_duration, &out_file, cfg, false};
     }
 
     pthread_t output_thread;
-    struct output_file out_file;
     if (output_thread_init(output_thread, out_file, cfg) != 0) {
         fprintf(stderr, "error: unable to initialize output thread\n");
         return EXIT_FAILURE;
@@ -599,17 +616,17 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (ctl) {
-        delete ctl;  // delete control thread, which will flush stats output (if any)
-    }
-
-    mercury_finalize(mc);
-
     if (cfg.verbosity) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
     }
     output_thread_finalize(output_thread, &out_file);
 
+    //exit control thread after output thread
+    if (ctl) {
+        delete ctl;  // delete control thread, which will flush stats output (if any)
+    }
+
+    mercury_finalize(mc);
 
     return 0;
 }
