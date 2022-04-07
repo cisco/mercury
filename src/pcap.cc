@@ -65,10 +65,12 @@ void dump_packet_info(struct datum &pkt_data) {
             ip::protocol protocol = ip_pkt.transport_protocol();
             fprintf(stdout, "packet.ip.protocol: %u\n", protocol);
             if (protocol == ip::protocol::tcp) {
-                struct tcp_packet tcp_pkt;
-                tcp_pkt.parse(pkt_data);
+                struct tcp_packet tcp_pkt{pkt_data};
                 tcp_pkt.set_key(k);
                 fprintf(stdout, "packet.ip.tcp.data.length: %zd\n", pkt_data.length());
+                fprintf(stdout, "packet.ip.tcp.data:");
+                pkt_data.fprint_hex(stdout);
+                fputc('\n', stdout);
             } else if (protocol == ip::protocol::udp) {
                 class udp udp_pkt{pkt_data};
                 udp_pkt.set_key(k);
