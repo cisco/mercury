@@ -281,7 +281,15 @@ enum status output_file_rotate(struct output_file *ojf) {
             ojf->file_error = true;
             return status_err;
         }
-        open_outfile(ojf, false);
+
+        if (ojf->type == file_type_pcap) {
+            status = write_pcap_file_header(ojf->file_pri);
+            if (status) {
+                perror("error: could not write pcap file header");
+                ojf->file_error = true;
+                return status_err;
+            }
+        }
     }
     else {
         /*
@@ -297,29 +305,38 @@ enum status output_file_rotate(struct output_file *ojf) {
             if (status) {
                 return status_err;
             }
+
+            if (ojf->type == file_type_pcap) {
+                status = write_pcap_file_header(ojf->file_pri);
+                if (status) {
+                    perror("error: could not write pcap file header");
+                    ojf->file_error = true;
+                    return status_err;
+                }
+
+                status = write_pcap_file_header(ojf->file_sec);
+                if (status) {
+                    perror("error: could not write pcap file header");
+                    ojf->file_error = true;
+                    return status_err;
+                }
+            }
         }
         else {
             status = open_outfile(ojf, false);
             if (status) {
                 return status_err;
             }
-        }
-    }
 
-    if (ojf->type == file_type_pcap) {
-        status = write_pcap_file_header(ojf->file_pri);
-        if (status) {
-            perror("error: could not write pcap file header");
-            ojf->file_error = true;
-            return status_err;
+            if (ojf->type == file_type_pcap) {
+                status = write_pcap_file_header(ojf->file_sec);
+                if (status) {
+                    perror("error: could not write pcap file header");
+                    ojf->file_error = true;
+                    return status_err;
+                }
+            }
         }
-
-        status = write_pcap_file_header(ojf->file_sec);
-        if (status) {
-            perror("error: could not write pcap file header");
-            ojf->file_error = true;
-            return status_err;
-        } 
     }
 
     //set state before blocking io call
@@ -375,6 +392,11 @@ void close_outfiles (struct output_file* out_ctx) {
 }
 
 enum status limit_rotate (output_file* out_ctx) {
+    if (out_ctx->max_records == UINT64_MAX) {
+        out_ctx->record_countdown = out_ctx->max_records;
+        return status_ok;
+    }
+
     if (out_ctx->file_sec != nullptr) {
         return swap_rotated_files(out_ctx);
     }
