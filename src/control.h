@@ -106,7 +106,7 @@ private:
             }
         }
 
-        if (out_file->rotate_time) {
+        if (out_file->rotate_time != UINT64_MAX) {
             if (out_count == 0) {
                 if (out_file->time_rotation_req.load() == true) {
                     return; //wait till previous rotaion is completed
