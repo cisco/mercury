@@ -113,7 +113,6 @@ def read_merc_stats(in_file, mask_src_ip):
                     # update stats database
                     update_stats_db(stats_db, src_ip, str_repr, user_agent, dst_info, count)
                     total_count += count
-
     return stats_db, total_count
 
 def is_match(x, y):
@@ -183,7 +182,7 @@ def is_entry_match(x, y, unmatched_fps):
                 return False
     return True
 
-def compare_stats_rotate_dbs(merc_db, merc_stats):
+def approx_stats_compare_db(merc_db, merc_stats):
     unmatched_fps = []
     for k,_ in merc_stats.items():
         if k not in merc_db:
@@ -211,6 +210,9 @@ def main():
                       help='directory path for stats file', type=Path, default=os.getcwd())
     parser.add_argument('-s','--mercury-stats',action='store',dest='merc_stats',
                       help='mercury statistics file prefix',default=None)
+    parser.add_argument('-i', '--ignore-src', action='store_true', dest='ignore_src_ip',
+                      help='Ignore src ip while comparing',
+                      default='False')
     parser.add_argument('-a', '--approx-match', action='store_true', dest='approx_match',
                       help='approximate match of stats and json entries',
                       default='False')
@@ -223,7 +225,7 @@ def main():
         print('error: specify mercury statistics file')
         sys.exit(1)
 
-    merc_db, merc_count = read_merc_data(args.merc_out, args.approx_match)
+    merc_db, merc_count = read_merc_data(args.merc_out, args.ignore_src_ip)
     # Locate all the stats file that starts with prefix merc_stats
     # Unzip the file(s) and store the extracted data in a temp file tempstats.json
     file_list = [filename for filename in os.listdir(args.path) if filename.startswith(args.merc_stats)]
@@ -237,10 +239,10 @@ def main():
 
     fp.close()
 
-    merc_db_stats, merc_count_stats = read_merc_stats("tempstats.json", args.approx_match)
+    merc_db_stats, merc_count_stats = read_merc_stats("tempstats.json", args.ignore_src_ip)
 
     if args.approx_match is True:
-        if compare_stats_rotate_dbs(merc_db, merc_db_stats) == False:
+        if approx_stats_compare_db(merc_db, merc_db_stats) == False:
             print('error: stats database comparison failed')
             sys.exit(1)
 

@@ -259,13 +259,13 @@ endif
 .PHONY: stats
 stats:
 	@echo "running stats test"
-	$(MERCURY) -r ../unit_tests/xtra/test_pcaps/quic_tls_http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=stats
+	$(MERCURY) -r data/top-https.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=stats
 	bash -c "$(python) ./compare-stats.py -m tmp.json -s stats.json.gz"
 	@echo $(COLOR_GREEN) "passed stats test" $(COLOR_OFF)
 	rm -f tmp.json stats.json.gz
 	@echo "running stats rotate test"
-	$(MERCURY) -r ../unit_tests/xtra/test_pcaps/quic_tls_http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=statsfile --stats-time=1 -p 3 
-	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile -a"
+	$(MERCURY) -r data/quic_tls_http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=statsfile --stats-time=1
+	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile -i -a"
 	@echo $(COLOR_GREEN) "passed stats rotate test" $(COLOR_OFF)
 	rm -f tmp.json tempstats.json statsfile*
 
