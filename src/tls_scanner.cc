@@ -1041,6 +1041,7 @@ public:
 
 };
 
+using namespace mercury_option;
 
 int main(int argc, char *argv[]) {
 
@@ -1058,7 +1059,7 @@ int main(int argc, char *argv[]) {
         "\n"
         "OPTIONS\n";
 
-    class option_processor opt({
+    option_processor opt({
         { argument::positional, "hostname",           "is the name of the HTTPS host (e.g. example.com)" },
         { argument::positional, "inner_hostname",     "determines the name of the HTTP host field" },
         { argument::required,   "--user-agent",       "sets the user agent to the first matching <arg>" },
