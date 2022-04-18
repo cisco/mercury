@@ -115,7 +115,7 @@ public:
     event_encoder() : fp_dict{}, addr_dict{}, ua_dict{} {}
 
     bool compute_inverse_map() {
-        return fp_dict.compute_inverse_map() && addr_dict.compute_inverse_map() && ua_dict.compute_inverse_map();
+        return fp_dict.compute_inverse_map() && ua_dict.compute_inverse_map();
     }
 
     void get_inverse(event_msg &event) {

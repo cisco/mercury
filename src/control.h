@@ -87,6 +87,7 @@ private:
             if (stats_dump) {
                 if (count == 0) {
                     count = num_secs_between_writes;
+                    has_run_at_least_once = true;
                     const char *fname = stats_file.get_next_name();
                     if (mercury_write_stats_data(mc, fname) == false) {
                         fprintf(stderr, "error: could not write stats file %s\n", fname);
@@ -127,8 +128,8 @@ private:
         if(controller_thread.joinable()) {
             controller_thread.join();
         }
-        if (!has_run_at_least_once && stats_dump) {
-            const char *fname = stats_file.get_current_name();
+        if (stats_dump) {
+            const char *fname = has_run_at_least_once ? stats_file.get_next_name() : stats_file.get_current_name();
             if (mercury_write_stats_data(mc, fname) == false) {
                 fprintf(stderr, "error: could not write stats file %s\n", fname);
             }
