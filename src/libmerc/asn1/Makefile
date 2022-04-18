@@ -1,6 +1,10 @@
 # makefile for mercury asn1 tools
 #
 
+# read default Makefile variables from root directory
+#
+include ../../../Makefile_helper.mk
+
 SHELL = /bin/sh
 
 srcdir = .
