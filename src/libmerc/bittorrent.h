@@ -8,6 +8,323 @@
 #ifndef BITTORRENT_H
 #define BITTORRENT_H
 
+
+// class acceptor accepts and ignores a single character specified via
+// the template parameter C, setting d to null if the expected
+// character is not found
+//
+template <uint8_t C>
+class acceptor {
+public:
+    acceptor(datum &d) {
+        d.accept(C);
+    }
+};
+
+// class literal is a literal std::array of characters
+//
+template <size_t N>
+class literal {
+public:
+    literal(datum &d, const std::array<uint8_t, N> &a) {
+        for (const auto &c : a) {
+            d.accept(c);
+        }
+    }
+};
+
+
+// class ignore_char_class accepts and ignores a single character,
+// defined by the function static bool D::in_class(uint8_t), defined
+// in the class D.  This implementation uses the Curiously Recurring
+// Template Pattern (CRTP).
+//
+template <class D>
+class ignore_char_class {
+public:
+    ignore_char_class(datum &d) {
+        if (d.is_null()) {
+            return;
+        }
+        uint8_t tmp;
+        d.lookahead_uint8(&tmp);   // TODO: 0 == error
+        if (!D::in_class(tmp)) {   // character not in class
+            d.set_null();
+        }
+        d.skip(1);
+    }
+};
+
+class digit : public ignore_char_class<digit> {
+public:
+    inline static bool in_class(uint8_t x) {
+        return x >= '0' && x <= '9';
+    }
+};
+
+// class space implements HTTP 'linear white space' (LWS)
+//
+class space : public ignore_char_class<space> {
+public:
+    inline static bool in_class(uint8_t x) {
+        return x == ' ' || x == '\t';
+    }
+};
+
+// class one_or_more<char_class> parses a datum that holds one or more
+// uint8_ts in the character class char_class.  It is implemented
+// using the CRTP (Curiously Recurring Template Pattern).
+//
+template <class D>
+class one_or_more : public datum {
+public:
+    one_or_more(datum &d) {
+        if (d.is_null()) {
+            return;
+        }
+        this->data = d.data;
+        uint8_t tmp;
+        d.lookahead_uint8(&tmp);   // TODO: 0 == error
+        //fprintf(stderr, "one_or_more: %c\n", tmp);
+        if (!D::in_class(tmp)) {      // first character not in class
+            this->data = nullptr;
+            this->data_end = nullptr;
+        }
+        while (d.is_not_empty()) {
+            d.lookahead_uint8(&tmp); // TODO: 0 == error
+            //fprintf(stderr, "one_or_more: %c\n", tmp);
+            if (D::in_class(tmp)) {
+                d.skip(1);
+            } else {
+                break;
+            }
+        }
+        this->data_end = d.data;
+    }
+};
+
+//
+// start of new http_request implementation
+//
+
+namespace http {
+
+    class uri_chars : public one_or_more<uri_chars> {
+    public:
+        inline static bool in_class(uint8_t x) {
+            return x != ' ';
+        }
+    };
+
+    class uppercase : public one_or_more<uppercase> {
+    public:
+        inline static bool in_class(uint8_t x) {
+            return x >= 'A' && x <= 'Z';
+        }
+    };
+
+    class method : public one_or_more<method> {
+    public:
+        inline static bool in_class(uint8_t x) {
+            return (x >= 'A' && x <= 'Z') || x == '-';
+        }
+    };
+
+    //    token          = 1*<any CHAR except CTLs or separators>
+    //    separators     = "(" | ")" | "<" | ">" | "@"
+    //                   | "," | ";" | ":" | "\" | <">
+    //                   | "/" | "[" | "]" | "?" | "="
+    //                   | "{" | "}" | SP | HT
+
+
+
+    // Following RFC 2616 (HTTP/1.1)
+    //
+    //        OCTET          = <any 8-bit sequence of data>
+    //        CHAR           = <any US-ASCII character (octets 0 - 127)>
+    //        UPALPHA        = <any US-ASCII uppercase letter "A".."Z">
+    //        LOALPHA        = <any US-ASCII lowercase letter "a".."z">
+    //        ALPHA          = UPALPHA | LOALPHA
+    //        DIGIT          = <any US-ASCII digit "0".."9">
+    //        CTL            = <any US-ASCII control character
+    //                         (octets 0 - 31) and DEL (127)>
+    //        CR             = <US-ASCII CR, carriage return (13)>
+    //        LF             = <US-ASCII LF, linefeed (10)>
+    //        SP             = <US-ASCII SP, space (32)>
+    //        HT             = <US-ASCII HT, horizontal-tab (9)>
+    //        <">            = <US-ASCII double-quote mark (34)>
+
+    //  HTTP-Version   = "HTTP" "/" 1*DIGIT "." 1*DIGIT
+    //
+    class version : public datum {
+        literal<5> proto;
+        digit maj_digit;
+        literal<1> dot;
+        digit min_digit;
+    public:
+        version(datum &d) :
+            proto(d, { 'H', 'T', 'T', 'P', '/' }),
+            maj_digit{d},
+            dot{d, { '.' }},
+            min_digit{d}
+        { }
+    };
+
+    class request_line {
+        http::method method;
+        space sp1;
+        one_or_more<uri_chars> uri;
+        space sp2;
+        http::version version;
+        literal<2> crlf;
+        bool valid;
+
+    public:
+
+        request_line(datum &d) :
+            method{d},
+            sp1{d},
+            uri{d},
+            sp2{d},
+            version{d},
+            crlf{d, { '\r', '\n' }},
+            valid{d.is_not_null()}
+        { }
+
+        void print(FILE *f) const {
+            if (!valid) {
+                //            return;
+            }
+            fprintf(f, "method:  ");  method.fprint(f); fputc('\n', f);
+            fprintf(f, "uri:     ");     uri.fprint(f); fputc('\n', f);
+            fprintf(f, "version: "); version.fprint(f); fputc('\n', f);
+        }
+
+        bool is_valid() const { return valid; }
+    };
+
+
+    //    token          = 1*<any CHAR except CTLs or separators>
+    //
+    //    separators     = "(" | ")" | "<" | ">" | "@"
+    //                   | "," | ";" | ":" | "\" | <">
+    //                   | "/" | "[" | "]" | "?" | "="
+    //                   | "{" | "}" | SP | HT
+    //
+    //    message-header = field-name ":" [ field-value ]
+    //    field-name     = token
+    //    field-value    = *( field-content | LWS )
+    //    field-content  = <the OCTETs making up the field-value
+    //                     and consisting of either *TEXT or combinations
+    //                     of token, separators, and quoted-string>
+
+    class token : public one_or_more<token> {
+    public:
+        inline static bool in_class(uint8_t c) {
+            if (c > ' ' && c <= '~') {
+                switch (c) {
+                case '(':
+                case ')':
+                case '<':
+                case '>':
+                case '@':
+                case ',':
+                case ';':
+                    // case ':': // compatibility hack
+                case '\\':
+                case '"':
+                case '/':
+                case '[':
+                case ']':
+                case '?':
+                case '=':
+                case '{':
+                case '}':
+                case '\t':
+                    return false;
+                default:
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+
+    //  TEXT = <any OCTET except CTLs, but including LWS>
+    //
+    class text : public one_or_more<text> {
+    public:
+        inline static bool in_class(uint8_t x) {
+            return (x >= ' ' && x <= '~') || (x == '\t');
+        }
+    };
+
+    class http_header {
+        token name;
+        //    acceptor<':'> colon;
+        space sp;
+        text value;
+
+    public:
+
+        http_header(datum &d) :
+            name{d},
+            // colon{d},
+            sp{d},
+            value{d}
+        { }
+
+        void fprint(FILE *f) {
+            if (is_not_empty()) {
+                fprintf(f, "name:   ");  name.fprint(f); fputc('\n', f);
+                fprintf(f, "value:  "); value.fprint(f); fputc('\n', f);
+            }
+        }
+
+        bool is_not_empty() const { return value.is_not_empty(); }
+    };
+
+    class headers : public datum {
+    public:
+
+        headers(datum &d) : datum{d} { }
+
+        void print(FILE *f) const {
+            datum tmp{*this};
+            while (tmp.is_not_empty()) {
+                http_header h{tmp};
+                if (!h.is_not_empty()) {
+                    break;
+                }
+                h.fprint(f);
+                literal<2> crlf{tmp, { '\r', '\n' }};
+            }
+        }
+    };
+
+    class request {
+        http::request_line request_line;
+        http::headers headers;
+
+    public:
+
+        request(datum &d) :
+            request_line{d},
+            headers{d}
+        { }
+
+        void print(FILE *f) const {
+            request_line.print(f);
+            headers.print(f);
+        }
+    };
+
+};
+
+//
+// end of http_request implementation
+//
+
 namespace bencoding {
 
     // Bencoding, following "BitTorrentSpecification - TheoryOrg.html"
@@ -188,6 +505,13 @@ public:
 // port: port on which the bittorrent client is listening in base-10,
 // ascii
 //
+class digits : public one_or_more<digits> {
+public:
+    inline static bool in_class(uint8_t x) {
+        return x >= '0' && x <= '9';
+    }
+};
+
 // ihash: hex-encoded (40 character) infohash.  An announce may
 // contain multiple, consecutive Infohash headers to announce the
 // participation in more than one torrent. This may not be supported
@@ -198,13 +522,96 @@ public:
 // cookie: opaque value, allowing the sending client to filter out its
 // own announces if it receives them via multicast loopback
 
-class bittorrent {
+class bt_search {
+    literal<11> proto;
+    datum headers;
 
 public:
 
-    bittorrent(datum &) { }
+    bt_search(datum &d) :
+        proto{d, {'B', 'T', '-', 'S', 'E', 'A', 'R', 'C', 'H', '\r', '\n' } },
+        headers{d}
+    { }
 
 };
 
+// stolen from pcap.h
+//
+template <typename T>
+class data {
+    T val;
+
+public:
+
+    data(datum &d, bool little_endian=false) {
+        size_t tmp;
+        d.read_uint(&tmp, sizeof(val));
+        val = tmp;
+        if (little_endian) {
+            swap_byte_order();
+        }
+    }
+
+    data(const T& rhs) {
+        val = rhs;
+    }
+
+    operator T() const { return val; }
+
+    T value() const { return val; }
+
+    void swap_byte_order() {
+        if constexpr (sizeof(val) == 8) {
+            val = htobe64(val);
+        } else if constexpr (sizeof(val) == 4) {
+            val = ntohl(val);
+        } else if constexpr (sizeof(val) == 2) {
+            val = ntohs(val);
+        }
+    }
+
+    // TODO: add write(data_buffer) function
+};
+
+class bittorrent_handshake {
+    data<uint8_t> protocol_name_length;
+    datum protocol_name;
+    datum extension_bytes;
+    datum hash_of_info_dict;
+    datum peer_id;
+
+public:
+    bittorrent_handshake(datum &d) :
+        protocol_name_length{d},
+        protocol_name{d, protocol_name_length},
+        extension_bytes{d, 8},
+        hash_of_info_dict{d, 20},
+        peer_id{d, 20}
+    { }
+
+    bool is_valid() const { return peer_id.is_not_empty(); }
+
+    void fprint(FILE *f) const {
+        fprintf(f, "protocol_name:     ");  protocol_name.fprint(f);         fputc('\n', f);
+        fprintf(f, "extension_bytes:   ");  extension_bytes.fprint_hex(f);   fputc('\n', f);
+        fprintf(f, "hash_of_info_dict: ");  hash_of_info_dict.fprint_hex(f); fputc('\n', f);
+        fprintf(f, "peer_id:           ");  peer_id.fprint_hex(f);           fputc('\n', f);
+    }
+};
+
+// not sure we need to parse peer messages
+//
+class bittorrent_peer_message {
+    data<uint32_t> message_length;
+    data<uint8_t> message_type;
+
+public:
+
+    bittorrent_peer_message(datum &d) :
+        message_length{d},
+        message_type{d}
+    {
+    }
+};
 
 #endif // BITTORRENT_H

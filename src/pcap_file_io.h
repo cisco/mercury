@@ -129,6 +129,7 @@ void pcap_queue_write(struct ll_queue *llq,
 
 enum status write_pcap_file_header(FILE *f);
 
+#include "pcap.h"
 
 // class packet holds a network data packet (in buffer[]) and an
 // associated pcap_pkthdr structure, and can load packets from a pcap
@@ -156,6 +157,23 @@ public:
             return {nullptr, nullptr};
         }
         return {buffer, buffer + pkthdr.caplen};
+    }
+
+    // same as above, but for a pcap_ng file
+    //
+    std::pair<const uint8_t *, const uint8_t *> get_next(struct pcap_ng &pcap) {
+        return pcap.read_packet();
+    }
+
+    // same as above, but for a pcap file
+    //
+    std::pair<const uint8_t *, const uint8_t *> get_next(struct pcap &pcap) {
+        return pcap.read_packet();
+    }
+    // same as above, but for a pcap_file_reader file
+    //
+    std::pair<const uint8_t *, const uint8_t *> get_next(pcap_file_reader &pcap) {
+        return pcap.read_packet();
     }
 
     // ts() returns the struct timeval associated with this packet

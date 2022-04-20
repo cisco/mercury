@@ -11,6 +11,7 @@
 #include "libmerc/ip.h"
 #include "libmerc/tcpip.h"
 #include "libmerc/udp.h"
+#include "pcap.h"
 
 void dump_packet_info(struct datum &pkt_data);
 
@@ -24,7 +25,9 @@ int main(int argc, char *argv[]) {
 
     size_t i=0;
     try {
-        struct pcap_file pcap(pcap_file_name, io_direction_reader);
+        //struct pcap_file pcap(pcap_file_name, io_direction_reader);
+        pcap_file_reader pcap(pcap_file_name);
+        // pcap pcap(pcap_file_name);
         printf("linktype: %s\n", pcap.get_linktype());
         packet<65536> pkt;
         while (true) {
