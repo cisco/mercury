@@ -369,14 +369,12 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                 tcp_pkt->reassembly_needed(handshake.additional_bytes_needed);
                 return;
             }
-            x.emplace<3>(handshake.body);
-            // x.emplace<tls_client_hello>(handshake.body);
+            x.emplace<tls_client_hello>(handshake.body);
             break;
         }
     case tcp_msg_type_tls_server_hello:
     case tcp_msg_type_tls_certificate:
-        x.emplace<4>(pkt, tcp_pkt);
-        // x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
+        x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
         break;
     case tcp_msg_type_ssh:
         x.emplace<ssh_init_packet>(pkt);
