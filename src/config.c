@@ -152,6 +152,10 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         global_vars.output_udp_initial_data = true;
         return status_ok;
 
+    } else if ((arg = command_get_argument("tcp-reassembly", line)) != NULL) {
+        global_vars.tcp_reassembly = true;
+        return status_ok;
+
     } else {
         if (line[0] == '#') { /* comment line */
             return status_ok;

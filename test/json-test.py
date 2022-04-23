@@ -100,6 +100,13 @@ mercury_schema = {
                      },
                      "additionalProperties": False
              },
+        'flags': {'type': 'object',
+                     'properties': {
+                         'reassembled':     {'type': 'boolean'},
+                         'segment_overlap': {'type': 'boolean'},
+                     },
+                     "additionalProperties": False
+             },
         'dns': {'type': 'object',
                      'properties': {
                          'base64':   {'type': 'string'},

@@ -187,12 +187,16 @@ struct stateful_pkt_proc {
             }
         }
 
-#ifndef USE_TCP_REASSEMBLY
+        if (!global_vars.tcp_reassembly) {
+            reassembler_ptr = nullptr;
+        }
+
+//#ifndef USE_TCP_REASSEMBLY
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
-        reassembler_ptr = nullptr;
-#else
+//        reassembler_ptr = nullptr;
+//#else
       // #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
-#endif
+//#endif
 
     }
 
@@ -279,6 +283,13 @@ struct stateful_pkt_proc {
                                       struct timespec *ts,
                                       struct tcp_reassembler *reassembler);
 
+    bool process_tcp_data (protocol &x,
+                          struct datum &pkt,
+                          struct tcp_packet &tcp_pkt,
+                          struct key &k,
+                          struct timespec *ts, 
+                          struct tcp_reassembler *reassembler);
+    
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,
                           bool is_new,
@@ -289,6 +300,8 @@ struct stateful_pkt_proc {
                           enum udp_msg_type msg_type,
                           bool is_new,
                           const struct key& k);
+
+    bool dump_pkt ();
 };
 
 #endif /* PKT_PROC_H */

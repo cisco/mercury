@@ -116,6 +116,7 @@ struct libmerc_config {
     bool report_os = false;               /* report oses in analysis JSON */
     bool output_tcp_initial_data = false; /* write initial data field     */
     bool output_udp_initial_data = false; /* write initial data field     */
+    bool tcp_reassembly = false;          /* reassemble tcp segments      */
 
     char *resources = NULL;             /* archive containing resource files       */
     const uint8_t *enc_key = NULL;      /* (optional) decryption key for archive   */
