@@ -107,12 +107,11 @@ public:
 
 class event_encoder {
     dict fp_dict;
-    dict addr_dict;
     dict ua_dict;
 
 public:
 
-    event_encoder() : fp_dict{}, addr_dict{}, ua_dict{} {}
+    event_encoder() : fp_dict{}, ua_dict{} {}
 
     bool compute_inverse_map() {
         return fp_dict.compute_inverse_map() && ua_dict.compute_inverse_map();
@@ -129,7 +128,7 @@ public:
         std::get<2>(event) = ua_dict.get_inverse(compressed_ua_num);
     }
 
-    void compress_event_string(event_msg& event) {
+    void compress_event_string(event_msg& event, dict& addr_dict) {
 
         const std::string &addr = std::get<0>(event);
         const std::string &fngr = std::get<1>(event);
@@ -176,16 +175,17 @@ class stats_aggregator {
     std::string observation;  // used as preallocated temporary variable
     size_t num_entries;
     size_t max_entries;
+    dict &addr_dict;
 
 public:
 
-    stats_aggregator(size_t size_limit) : event_table{}, encoder{}, observation{}, num_entries{0}, max_entries{size_limit} { }
+    stats_aggregator(dict& _addr_dict, size_t size_limit) : event_table{}, encoder{}, observation{}, num_entries{0}, max_entries{size_limit}, addr_dict{_addr_dict} { }
 
     ~stats_aggregator() {  }
 
     void observe_event_string(event_msg &obs) {
 
-        encoder.compress_event_string(obs);
+        encoder.compress_event_string(obs, addr_dict);
 
         const auto entry = event_table.find(obs);
         if (entry != event_table.end()) {
@@ -240,6 +240,7 @@ class data_aggregator {
     std::vector<class message_queue *> q;
     stats_aggregator ag1, ag2, *ag;
     std::atomic<bool> shutdown_requested;
+    dict addr_dict;
     std::thread consumer_thread;
     std::mutex m;
     std::mutex output_mutex;
@@ -286,7 +287,7 @@ class data_aggregator {
 
 public:
 
-    data_aggregator(size_t size_limit=0) : q{}, ag1{size_limit}, ag2{size_limit}, ag{&ag1}, shutdown_requested{false} {
+    data_aggregator(size_t size_limit=0) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false} {
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
     }
