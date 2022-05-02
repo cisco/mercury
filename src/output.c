@@ -457,7 +457,11 @@ void *output_thread_func(void *arg) {
     // before file creation
     while (out_ctx->file_pri == nullptr)
     {
+        out_ctx->rotation_req = true;
         sleep(1);
+        if (out_ctx->file_error.load() == true) {
+            exit(EXIT_FAILURE);
+        }
     }
     out_ctx->record_countdown = out_ctx->max_records;
     /* This output thread uses a "tournament tree" algorithm

@@ -100,7 +100,7 @@ private:
     }
 
     void outfile_routine() {
-        if (out_file->file_pri == nullptr || out_file->rotation_req.load() == true) {
+        if (out_file->rotation_req.load() == true) {
             enum status status = output_file_rotate(out_file);
             if (status != status_ok) {
                 exit(EXIT_FAILURE);
