@@ -113,6 +113,7 @@ def read_merc_stats(in_file, mask_src_ip):
                     # update stats database
                     update_stats_db(stats_db, src_ip, str_repr, user_agent, dst_info, count)
                     total_count += count
+
     return stats_db, total_count
 
 def is_match(x, y):
@@ -242,6 +243,10 @@ def main():
     merc_db_stats, merc_count_stats = read_merc_stats("tempstats.json", args.ignore_src_ip)
 
     if args.approx_match is True:
+        if merc_count - merc_count_stats > 0.1 * merc_count:
+            print(f'error: Difference between merc_out count ({merc_count}) and merc_stats count ({merc_count_stats}) is greater then 10%')
+            sys.exit(1)
+
         if approx_stats_compare_db(merc_db, merc_db_stats) == False:
             print('error: stats database comparison failed')
             sys.exit(1)
