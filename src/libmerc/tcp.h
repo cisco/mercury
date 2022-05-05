@@ -423,24 +423,156 @@ struct tcp_segment {
 
 };
 
+struct prune_node {
+    unsigned int init_timestamp;
+    struct key seg_key;
+
+    static const unsigned int timeout = 30;
+
+    prune_node() : init_timestamp{0}, seg_key{} {}
+
+    void update(unsigned int ts, struct key k) {
+        init_timestamp = ts;
+        seg_key = k;
+    }
+
+    bool is_expired(unsigned int ts) {
+        return (ts - init_timestamp > timeout);
+    }
+};
+
+struct prune_table {
+    unsigned int last_prune_ts;     // timestamp of last time pruning
+    uint16_t index_start;           // start of ciruclar buffer, prune from this side
+    uint16_t index_end;             // end of circular buffer, add from this side
+    uint16_t node_count;            // entries count
+
+    static const unsigned int prune_time = 30;          // prune every 30 sec
+    static const uint16_t max_prune_entries = 8000;     // max entries in prune table
+    static const uint16_t prune_limit = 6000;           // force prune after entries reach this value
+
+    struct prune_node nodes[max_prune_entries];
+
+    prune_table() : last_prune_ts{0}, index_start{0}, index_end{0}, node_count{0}, nodes{} {}
+
+    bool remove_node(struct key k, std::unordered_map<struct key, struct tcp_segment> &table) {
+        auto it = table.find(k);
+        if (it != table.end()) {
+            table.erase(it);
+            return true;
+        }
+        return false;
+    }
+
+    void do_pruning (unsigned int ts, std::unordered_map<struct key, struct tcp_segment> &table) {
+        uint16_t prune_count = 0;
+        uint16_t curr_index = 0;
+        uint16_t temp_start = index_start;
+        //uint16_t temp_end = index_end;
+        uint16_t temp_node_count = node_count;
+
+        for (uint16_t i = 0; i < temp_node_count; i++) {
+            curr_index = (i+temp_start < max_prune_entries) ? (i+temp_start) : (i+temp_start) - max_prune_entries;
+            if (nodes[curr_index].is_expired(ts)) {
+                if (remove_node(nodes[curr_index].seg_key, table)) {
+                    prune_count++;
+                }
+                index_start++;
+                node_count--;
+            }
+            else {
+                // last expired entry, break
+                break;
+            }
+        }
+        if (index_start >= max_prune_entries) {
+            index_start -= max_prune_entries;
+        }
+    }
+
+    //  this tries to free up exactly one entry in the segment map forcefully
+    void do_force_pruning (std::unordered_map<struct key, struct tcp_segment> &table) {
+        uint16_t curr_index = 0;
+        uint16_t temp_start = index_start;
+        //uint16_t temp_end = index_end;
+        uint16_t temp_node_count = node_count;
+
+        for (uint16_t i = 0; i < temp_node_count; i++) {
+            curr_index = (i+temp_start < max_prune_entries) ? (i+temp_start) : (i+temp_start) - max_prune_entries;
+            index_start++;
+            node_count--;
+            if (index_start >= max_prune_entries) {
+                index_start -= max_prune_entries;
+            }
+            if (remove_node(nodes[curr_index].seg_key, table)) {
+                return;
+            }
+        }
+    }
+
+    void check_time_pruning (unsigned int ts, std::unordered_map<struct key, struct tcp_segment> &table) {
+        if ((ts - last_prune_ts) > prune_time) {
+            last_prune_ts = ts;     // update prune time
+            do_pruning(ts, table);
+        }
+    }
+
+    bool add_node(unsigned int ts, struct key k, std::unordered_map<struct key, struct tcp_segment> &table) {
+        bool force_pruned = false;
+        if (node_count >= prune_limit) {
+            do_pruning(ts, table);
+            if (node_count == max_prune_entries) {
+                // force remove oldest entry
+                if (remove_node(nodes[index_start].seg_key, table)) {
+                    force_pruned = true;
+                }
+                index_start++;
+                if (index_start >= max_prune_entries) {
+                    index_start -= max_prune_entries;
+                }
+                node_count--;
+            }
+        }
+
+        index_end++;
+        if (index_end >= max_prune_entries) {
+            index_end -= max_prune_entries;
+        }
+
+        nodes[index_end].update(ts, k);
+        node_count++;
+
+        return force_pruned;
+    }
+};
+
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
 
 struct tcp_reassembler {
-    bool dump_pkt;     // current pkt involved in reassembly, dump pkt regardless of json
+    bool dump_pkt;          // current pkt involved in reassembly, dump pkt regardless of json
+    struct prune_table pruner;
+    uint64_t force_prunes;
+
+    static const uint32_t max_map_entries = 5000;
+    static const uint32_t force_prune_count = 4000;
 
     std::unordered_map<struct key, struct tcp_segment> segment_table;
     std::unordered_map<struct key, struct tcp_segment>::iterator reap_it;
 
-    tcp_reassembler(unsigned int size) : dump_pkt{false}, segment_table{}, reap_it{segment_table.end()} {
+    tcp_reassembler(unsigned int size) : dump_pkt{false}, pruner{}, force_prunes{0}, segment_table{}, reap_it{segment_table.end()} {
         segment_table.reserve(size);
         reap_it = segment_table.end();
     }
 
     bool init_segment(const struct key &k, unsigned int sec, struct tcp_seg_context &tcp_pkt, uint32_t syn_seq, datum &p) {
+        active_prune(sec);     // try pruning before inserting
         tcp_segment segment;
         if (segment.init_from_pkt(sec, tcp_pkt, syn_seq, p)) {
             reap_it = segment_table.emplace(k, segment).first;
             ++reap_it;
+            if (pruner.add_node(sec,k,segment_table)) {
+                force_prunes++;
+            }
             return true;
         }
         return false;
@@ -484,6 +616,16 @@ struct tcp_reassembler {
         if (it != segment_table.end()) {
             reap_it = segment_table.erase(it);
         }
+    }
+
+    void active_prune(unsigned int ts) {
+        if (segment_table.size() >= force_prune_count) {
+            pruner.do_pruning(ts, segment_table);
+        }
+        if (segment_table.size() == max_map_entries) {
+            pruner.do_force_pruning(segment_table);
+        }
+        pruner.check_time_pruning(ts, segment_table);
     }
 
     void count_all() {
