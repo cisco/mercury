@@ -161,18 +161,18 @@ public:
 
     // same as above, but for a pcap_ng file
     //
-    std::pair<const uint8_t *, const uint8_t *> get_next(struct pcap_ng &pcap) {
+    std::pair<const uint8_t *, const uint8_t *> get_next(pcap::pcap_ng &pcap) {
         return pcap.read_packet();
     }
 
     // same as above, but for a pcap file
     //
-    std::pair<const uint8_t *, const uint8_t *> get_next(struct pcap &pcap) {
+    std::pair<const uint8_t *, const uint8_t *> get_next(pcap::pcap &pcap) {
         return pcap.read_packet();
     }
     // same as above, but for a pcap_file_reader file
     //
-    std::pair<const uint8_t *, const uint8_t *> get_next(pcap_file_reader &pcap) {
+    std::pair<const uint8_t *, const uint8_t *> get_next(pcap::file_reader &pcap) {
         return pcap.read_packet();
     }
 

@@ -13,6 +13,7 @@
 #include "analysis.h"
 #include "tcp.h"
 #include "tcpip.h"
+#include "crypto_assess.h"
 
 struct tls_security_assessment {
     bool weak_version_offered;
@@ -529,6 +530,70 @@ public:
         }
     }
 
+};
+
+
+
+// struct {
+//     public-key-encrypted PreMasterSecret pre_master_secret;
+// } EncryptedPreMasterSecret;
+
+class encrypted_premaster_secret {
+
+public:
+
+    encrypted_premaster_secret(datum &)
+    {}
+};
+
+//       enum { implicit, explicit } PublicValueEncoding;
+//
+//       implicit
+//          If the client has sent a certificate which contains a suitable
+//          Diffie-Hellman key (for fixed_dh client authentication), then
+//          Yc is implicit and does not need to be sent again.  In this
+//          case, the client key exchange message will be sent, but it MUST
+//          be empty.
+//
+//       explicit
+//          Yc needs to be sent.
+//
+//       struct {
+//           select (PublicValueEncoding) {
+//               case implicit: struct { };
+//               case explicit: opaque dh_Yc<1..2^16-1>;
+//           } dh_public;
+//       } ClientDiffieHellmanPublic;
+//
+class client_diffie_hellman_public {
+public:
+
+    client_diffie_hellman_public(datum &)
+    { }
+};
+
+// ClientKeyExchange format (following RFC 5246, TLSv1.2)
+//
+// struct {
+//     select (KeyExchangeAlgorithm) {
+//         case rsa:
+//             EncryptedPreMasterSecret;
+//         case dhe_dss:
+//         case dhe_rsa:
+//         case dh_dss:
+//         case dh_rsa:
+//         case dh_anon:
+//             ClientDiffieHellmanPublic;
+//     } exchange_keys;
+// } ClientKeyExchange;
+
+class client_key_exchange {
+    datum value;
+
+public:
+
+    client_key_exchange(datum &d) : value{d}
+    {}
 };
 
 #endif /* TLS_H */

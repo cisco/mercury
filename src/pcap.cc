@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     size_t i=0;
     try {
         //struct pcap_file pcap(pcap_file_name, io_direction_reader);
-        pcap_file_reader pcap(pcap_file_name);
+        pcap::file_reader pcap(pcap_file_name);
         // pcap pcap(pcap_file_name);
         printf("linktype: %s\n", pcap.get_linktype());
         packet<65536> pkt;
@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
         }
     }
     catch (std::exception &e) {
-        fprintf(stderr, "error processing pcap_file %s\n", pcap_file_name);
+        fprintf(stderr, "error processing pcap_file %s:\t", pcap_file_name);
         fprintf(stderr, "%s\n", e.what());
         exit(EXIT_FAILURE);
     }

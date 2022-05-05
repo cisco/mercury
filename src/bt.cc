@@ -2,6 +2,7 @@
 
 #include <array>
 #include "libmerc/bittorrent.h"
+#include "bench.h"
 #include "hex.h"
 
 
@@ -77,6 +78,40 @@ public:
 
 auto http_req2 = 0x474554202f20485454502f312e310d0a436f6e6e656374696f6e3a206b6565702d616c6976650d0a436f6e74656e742d547970653a20746578742f68746d6c0d0a486f73743a20736572766963652e627269676874636c6f75642e636f6d0d0a436f6e74656e742d4c656e6774683a203535310d0a582d494d466f7277617264733a2032300d0a5669613a20312e312072747031302d646d7a2d7773612d322e636973636f2e636f6d3a38302028436973636f2d5753412f58290d0a582d466f727761726465642d466f723a2031302e38332e35302e3234370d0a0d0a3c3f427269676874436c6f75642076657273696f6e3d626361702f312e313f3e3c626361703e3c7365716e756d3e32373c2f7365716e756d3e3c656e63727970742d747970653e656e63727970742d76313c2f656e63727970742d747970653e364441454338313936414341354441343631334643364237344535444535453035363231424132303643353145313838384139353535433444323930413239443431344644463941304237413144343633453534364636374637344531433231454430323833393644333443314232463734333144414532364235433035373835373138363843333443373638413641453345443445323441363834444445394630384141424246464331433735454136433432423232463243303644303438343041434332384546434631374135353945433237323038323635383838313431433446394336393046444238333135343243354335303241433634413939434635314536464245393438314538373632353130303431393237343531394241363346394138363439374245383538304541383037323830413043383738333635443544313033304430304135433537303646364330434430433841434444304537343344334633313343343330324242313334394341383042343530343642413730383834323333383632453736414436353532463541333538433732393833333837393737384231354134433444343830433630393034373945423438333c2f626361703e_hex;
 
+double http_request_cycles(size_t iterations, datum d) {
+
+    uint64_t count = 0;
+    uint64_t cc_sum = 0;
+    for (size_t i=0; i<iterations; i++) {
+        datum tmp = d;
+        benchmark::cycle_counter cc;
+        http::request req{tmp};
+        cc_sum += cc.delta();
+        count += req.is_valid();
+    }
+
+    size_t length = d.length();
+    http::request req{d};
+    size_t bytes_processed = length - d.length();
+    fprintf(stderr, "iterations: %zu\tcount: %zu\n", iterations, count);
+    return (double) cc_sum / iterations / bytes_processed;
+}
+
+double strlen_cycles(size_t iterations, const char *s) {
+
+    uint64_t count = 0;
+    uint64_t cc_sum = 0;
+    for (size_t i=0; i<iterations; i++) {
+        benchmark::cycle_counter cc;
+        count += strlen(s);
+        __sync_synchronize();
+        cc_sum += cc.delta();
+    }
+    size_t bytes_processed = count;
+    fprintf(stderr, "iterations: %zu\tcount: %zu\n", iterations, count);
+    return (double) cc_sum / iterations / bytes_processed;
+}
+
 int main() {
 
     datum bittorrent_handshake_data{(const uint8_t *)bt_handshake.data(), (const uint8_t *)bt_handshake.data()+bt_handshake.size()};
@@ -109,7 +144,7 @@ int main() {
     cow_spam cs(d4);
     cs.fprint(stdout);
 
-    // test literals
+    // test new http_request implementation
     //
     const unsigned char http_req[] = "VERSION-CONTROL / HTTP/1.1\r\nHeader: example\r\nHeader2: example2\r\n\r\n";
     datum http_data{http_req, http_req+strlen((char *)http_req)};
@@ -119,10 +154,23 @@ int main() {
     req.print(stdout);
 
     datum http_data2{(const uint8_t *)http_req2.data(), (const uint8_t *)http_req2.data()+http_req2.size()};
+    datum tmp = http_data2;
     http_data2.fprint(stdout); fputc('\n', stdout);
 
     http::request req2{http_data2};
     req2.print(stdout);
+
+    const unsigned char bad_http_req[] = "GET /XXXXXXXXXXXX HTTP/1.XXXXXXXXXXXXXXXXXXXXXX";
+    datum bad_http_data{bad_http_req, bad_http_req+strlen((char *)bad_http_req)};
+
+    const unsigned char bad_http_req2[] = "GET /YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY HTTP/1.XXXXXXXXXXXXXXXXXXXXXX";
+    datum bad_http_data2{bad_http_req2, bad_http_req2+strlen((char *)bad_http_req2)};
+
+    printf("avg:      %f CPB\n", http_request_cycles(10000000, tmp));
+    printf("bad avg:  %f CPB\n", http_request_cycles(10000000, bad_http_data));
+    printf("bad2 avg: %f CPB\n", http_request_cycles(10000000, bad_http_data2));
+
+    printf("strlen avg: %f CPB\n", strlen_cycles(10000000, (const char *)bad_http_req2));
 
     return 0;
 }

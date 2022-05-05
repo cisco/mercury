@@ -112,7 +112,8 @@ namespace http {
     class uri_chars : public one_or_more<uri_chars> {
     public:
         inline static bool in_class(uint8_t x) {
-            return x != ' ';
+            // return x != ' ';
+            return x > ' ' && x <= '~';
         }
     };
 
@@ -135,8 +136,6 @@ namespace http {
     //                   | "," | ";" | ":" | "\" | <">
     //                   | "/" | "[" | "]" | "?" | "="
     //                   | "{" | "}" | SP | HT
-
-
 
     // Following RFC 2616 (HTTP/1.1)
     //
@@ -317,6 +316,11 @@ namespace http {
             request_line.print(f);
             headers.print(f);
         }
+
+        bool is_valid() const {
+            return request_line.is_valid();
+        }
+
     };
 
 };

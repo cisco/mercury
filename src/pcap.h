@@ -14,7 +14,7 @@
 //   3.  Implement a basic PCAP-NG file writer
 //
 //   4.  Unify implementations into a single class that determines the
-//       format of a file from its initial bytes
+//       format of a file from its initial bytes [DONE]
 
 
 #ifndef PCAP_H
@@ -25,7 +25,73 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include <variant>
+
 #include "libmerc/datum.h"
+
+// class errno_exception is a thread-safe standard exception
+// runtime_error that holds the a C-library error message associated
+// with the errno variable.  It should be thrown immediately after the
+// function that caused the error.
+//
+// Implementation notes: strerror() is not thread-safe, and
+// strerror_r() is thread-safe but has portability issues across
+// POSIX/GNU.  In contrast, strerror_l() is thread-safe and has no
+// portability issues.
+//
+class errno_exception : public std::runtime_error {
+public:
+    errno_exception() : runtime_error{strerror_l(errno, (locale_t)0)} { };
+    //  errno_exception() : runtime_error{strerror_l(errno, uselocale((locale_t)0))} { };
+};
+
+// class file_datum represents a read-only file on disk; it inherits
+// the interface of class datum, and thus can be used to read and
+// parse files
+//
+class file_datum : public datum {
+    int fd = -1;
+    uint8_t *addr;
+    size_t file_length;
+
+public:
+
+    file_datum(const char *fname) : fd{open(fname, O_RDONLY)} {
+
+        if (fd < 0) {
+            throw errno_exception();
+        }
+        struct stat statbuf;
+        if (fstat(fd, &statbuf) != 0) {
+            throw errno_exception();
+        }
+        file_length = statbuf.st_size;
+        fprintf(stderr, "opened file of length %zd bytes\n", file_length);
+
+        data = (uint8_t *)mmap (0, file_length, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (data == MAP_FAILED) {
+            data = data_end = nullptr;
+            throw errno_exception();
+        }
+        data_end = data + file_length;
+        addr = (uint8_t *)data;
+    }
+
+    // no copy constructor, because we own a file descriptor
+    //
+    file_datum(file_datum &rhs) = delete;
+
+    ~file_datum() {
+        fprintf(stderr, "closing file of length %zd bytes\n", file_length);
+        if (munmap(addr, file_length) != 0) {
+            ; // error, but don't throw errno_exception() because we are in a destructor
+        }
+        if (close(fd) != 0) {
+            ; // error, but don't throw errno_exception() because we are in a destructor
+        }
+    }
+
+};
 
 template <typename T>
 class data {
@@ -83,9 +149,10 @@ public:
 
     ignore() { }
 
-    // TODO: write out sizeof(T) zeros for serialization?
+    // TODO: write out static constexpr value for serialization
 };
 
+#if 0
 template <typename T>
 T read(datum &d, bool little_endian=false) {
     size_t tmp;
@@ -101,10 +168,13 @@ T read(datum &d, bool little_endian=false) {
     }
     return static_cast<T>(tmp);
 }
+#endif
 
 //
 // PCAP
 //
+
+namespace pcap {
 
 // PCAP File Header format
 //                           1                   2                   3
@@ -458,6 +528,8 @@ class section_header_block {
     static constexpr size_t non_option_length = 28;
 
 public:
+
+    static constexpr uint32_t type = 0x0a0d0d0a;
 
     section_header_block(datum &d) {
         fprintf(stderr, "%s\n", __func__);
@@ -1166,75 +1238,7 @@ public:
     }
 };
 
-// class errno_exception is a thread-safe standard exception
-// runtime_error that holds the a C-library error message associated
-// with the errno variable.  It should be thrown immediately after the
-// function that caused the error.
-//
-// Implementation notes: strerror() is not thread-safe, and
-// strerror_r() is thread-safe but has portability issues across
-// POSIX/GNU.  In contrast, strerror_l() is thread-safe and has no
-// portability issues.
-//
-class errno_exception : public std::runtime_error {
-public:
-    errno_exception() : runtime_error{strerror_l(errno, (locale_t)0)} { };
-    //  errno_exception() : runtime_error{strerror_l(errno, uselocale((locale_t)0))} { };
-};
-
-// class file_datum represents a read-only file on disk; it inherits
-// the interface of class datum, and thus can be used to read and
-// parse files
-//
-class file_datum : public datum {
-    int fd = -1;
-    uint8_t *addr;
-    size_t file_length;
-
-public:
-
-    // file_datum(file_datum &&rhs) {
-    //     fd = rhs.fd;
-    //     addr = rhs.addr;
-    //     file_length = rhs.file_length;
-    //     data = rhs.data;
-    //     data_end = rhs.data_end;
-    // }
-
-    file_datum(const char *fname) : fd{open(fname, O_RDONLY)} {
-
-        if (fd < 0) {
-            throw errno_exception();
-        }
-        struct stat statbuf;
-        if (fstat(fd, &statbuf) != 0) {
-            throw errno_exception();
-        }
-        file_length = statbuf.st_size;
-        fprintf(stderr, "opened file of length %zd bytes\n", file_length);
-
-        data = (uint8_t *)mmap (0, file_length, PROT_READ, MAP_PRIVATE, fd, 0);
-        if (data == MAP_FAILED) {
-            data = data_end = nullptr;
-            throw errno_exception();
-        }
-        data_end = data + file_length;
-        addr = (uint8_t *)data;
-    }
-
-    ~file_datum() {
-        fprintf(stderr, "closing file of length %zd bytes\n", file_length);
-        if (munmap(addr, file_length) != 0) {
-            ; // error, but don't throw errno_exception() because we are in a destructor
-        }
-        if (close(fd) != 0) {
-            ; // error, but don't throw errno_exception() because we are in a destructor
-        }
-    }
-
-};
-
-// class pcap_file_reader reads packet capture files in either the
+// class pcap::file_reader reads packet capture files in either the
 // PCAP (traditional Berkeley Packet Capture) format or PCAP-NG (PCAP
 // Next Generation) format.  It is implemented as an abstract base
 // class, whose derived classes are readers for those two formats.
@@ -1403,49 +1407,60 @@ public:
             pcap_packet_record packet_record{file, swap_byte_order};
             packet_record.fprint(stderr);
             datum tmp = packet_record.get_packet();
-            return { tmp.data, tmp.data_end };  // TODO: add type conversion operator
+            return tmp;
         }
         return { nullptr, nullptr }; // no more packets in file
     }
 
-    // enum type_code {
-    //     simple_packet        = 3,
-    //     name_resolution      = 4,
-    //     interface_statistics = 5,
-    //     enhanced_packet      = 6,
-    // };
-
 };
 
-
-#include <variant>
-
-class pcap_file_reader {
+class file_reader {
     file_datum file;
-    using reader_variant = std::variant <pcap, pcap_ng>;
+    using reader_variant = std::variant<std::monostate, pcap, pcap_ng>;
     reader_variant reader;
 
     static reader_variant get_reader(file_datum &f) {
+
+        // read four-byte file prefix to determine file type
+        //
         size_t tmp = 0;
-        f.lookahead_uint(4, &tmp);
-        fprintf(stderr, "file prefix: %08zx\n", tmp);
-        if (tmp == 0x0a0d0d0a) {
-            fprintf(stderr, "found PCAP-NG file\n");
-            reader_variant tmp{std::in_place_type<pcap_ng>, f};
-            return tmp;
-            // reader.emplace<pcap_ng>(file);
-        } else if (tmp == pcap_file_header::magic || tmp == pcap_file_header::magic_nsec ) {
-            fprintf(stderr, "found PCAP file\n");
-            // reader.emplace<pcap>(file);
-            reader_variant tmp{std::in_place_type<pcap>, f};
-            return tmp;
+        if (f.lookahead_uint(4, &tmp) == false) {
+            throw std::runtime_error("too few bytes in pcap file header");
         }
+
+        if (tmp == section_header_block::type) {
+            return reader_variant{std::in_place_type<pcap_ng>, f};
+
+        } else if (tmp == pcap_file_header::magic || tmp == pcap_file_header::magic_nsec ) {
+            return reader_variant{std::in_place_type<pcap>, f};
+        }
+
+        // error: file prefix was unrecognized
+        //
+        char prefix[9];
+        snprintf(prefix, sizeof(prefix), "%08zx", tmp);
+        std::string err_msg{"unrecognized file prefix: 0x"};
+        err_msg += prefix;
+        throw std::runtime_error(err_msg);
     }
-    //    pcap_ng reader;
+
+    struct get_linktype_visitor {
+        const char *operator()(const pcap &r)          { return r.get_linktype(); }
+        const char *operator()(const pcap_ng &r)       { return r.get_linktype(); }
+        const char *operator()(const std::monostate &) { return nullptr; }
+    };
+
+    struct read_packet_visitor{
+        template <typename T>
+        std::pair<const uint8_t *, const uint8_t *> operator()(T &r) {
+            return r.read_packet();
+        }
+        std::pair<const uint8_t *, const uint8_t *> operator()(std::monostate &) { return { nullptr, nullptr }; }
+    };
 
 public:
 
-    pcap_file_reader(const char *fname) : file{fname}, reader{get_reader(file)} {
+    file_reader(const char *fname) : file{fname}, reader{get_reader(file)} {
     }
 
     enum LINKTYPE : uint16_t {
@@ -1457,63 +1472,19 @@ public:
     };
 
     const char *get_linktype() const {
-        return std::visit([](auto& r){ return r.get_linktype(); }, reader);
-        //          return reader.get_linktype();
+        return std::visit(get_linktype_visitor{}, reader);
     }
 
     std::pair<const uint8_t *, const uint8_t *> read_packet() {
-        fprintf(stderr, "file_datum: {%p,%p}\n", file.data, file.data_end);
-        return std::visit([](auto& r){ return r.read_packet(); }, reader);
-        //return reader.read_packet();
+        return std::visit(read_packet_visitor{}, reader);
     }
 
+    // TODO: add function that reports file version
 };
 
-#if 0
 
-// class pcap_file_reader reads packet capture files in either the
-// PCAP (traditional Berkeley Packet Capture) format or PCAP-NG (PCAP
-// Next Generation) format.
-//
-class pcap_file_reader {
-    file_datum file;
-    pcap_reader *reader;
+}; // end of namespace pcap
 
-public:
 
-    pcap_file_reader(const char *fname) : file{fname} {
-        size_t tmp = 0;
-        file.lookahead_uint(4, &tmp);
-        fprintf(stderr, "file prefix: %08zx\n", tmp);
-        if (tmp == 0x0a0d0d0a) {
-            fprintf(stderr, "found PCAP-NG file\n");
-            reader = new pcap_ng{file};
-        } else if (tmp == pcap_file_header::magic || tmp == pcap_file_header::magic_nsec ) {
-            fprintf(stderr, "found PCAP file\n");
-            reader = new pcap{file};
-        }
-    }
-
-    enum LINKTYPE : uint16_t {
-        NULL_    =   0,  // BSD loopback encapsulation
-        ETHERNET =   1,  // Ethernet
-        PPP      =   9,  // Point-to-Point Protocol (PPP)
-        RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
-        NONE     = 65535 // reserved, used here as 'none'
-    };
-
-    const char *get_linktype() const {
-        fprintf(stderr, "reader: %p\n", reader);
-        return reader->get_linktype();
-    }
-
-    std::pair<const uint8_t *, const uint8_t *> read_packet() {
-        fprintf(stderr, "reader: %p\n", reader);
-        return reader->read_packet();
-    }
-
-};
-
-#endif
 
 #endif // PCAP_H

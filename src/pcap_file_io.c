@@ -464,6 +464,8 @@ void packet_info_init_from_pkthdr(struct packet_info *pi,
     pi->ts.tv_nsec = pkthdr->ts.tv_usec * 1000;
 }
 
+#include "bench.h"
+
 enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                                              struct pkt_proc *pkt_processor,
                                              int loop_count,
@@ -475,6 +477,7 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
     unsigned long num_packets = 0;
     struct packet_info pi;
 
+    benchmark::statistics s;
     for (int i=0; i < loop_count && sig_close_flag == 0; i++) {
         do {
             status = pcap_file_read_packet(f, &pkthdr, packet_data);
@@ -482,7 +485,9 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                 packet_info_init_from_pkthdr(&pi, &pkthdr);
                 pi.linktype = f->linktype;
                 // process the packet that was read
+                benchmark::cycle_counter cc;
                 pkt_processor->apply(&pi, packet_data);
+                s += cc.delta();
                 num_packets++;
                 total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
             }
@@ -495,6 +500,10 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                 status = status_err;
             }
         }
+    }
+    if (true) {
+        fprintf(stderr, "cycles per packet: %f\n", s.mean());
+        fprintf(stderr, "cycles per byte:   %f\n", s.total() / total_length);
     }
 
     pkt_processor->finalize();  // clear out buffers
