@@ -29,6 +29,7 @@
 #include "signal_handling.h"
 #include "libmerc/utils.h"
 #include "llq.h"
+#include "bench.h"
 
 
 /*
@@ -464,8 +465,6 @@ void packet_info_init_from_pkthdr(struct packet_info *pi,
     pi->ts.tv_nsec = pkthdr->ts.tv_usec * 1000;
 }
 
-#include "bench.h"
-
 enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                                              struct pkt_proc *pkt_processor,
                                              int loop_count,
@@ -501,9 +500,11 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
             }
         }
     }
-    if (true) {
-        fprintf(stderr, "cycles per packet: %f\n", s.mean());
-        fprintf(stderr, "cycles per byte:   %f\n", s.total() / total_length);
+    if (loop_count > 1 && benchmark::is_valid) {
+        fprintf(stderr, "mean cycles per packet:     %f\n", s.mean());
+        fprintf(stderr, "mean cycles per byte:       %f\n", s.total() / total_length);
+        fprintf(stderr, "Gbps at 1GHz:               %f\n", (double) total_length / s.total() * 8);
+        fprintf(stderr, "packets per second at 1GHz: %e\n", (double) 1000000000 * num_packets / s.total());
     }
 
     pkt_processor->finalize();  // clear out buffers

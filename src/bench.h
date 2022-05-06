@@ -9,9 +9,19 @@
 // TODO: use autoconf to detect x86intrin.h, and add the corresponding
 // AMD equivalent
 //
-#include <x86intrin.h>
+
+#ifdef HAVE_X86INTRIN_H
+   #include <x86intrin.h>
+   #define read_timestamp_counter() __rdtsc()
+   #define benchmark_is_valid true
+#else
+   #define read_timestamp_counter() 0
+   #define benchmark_is_valid false
+#endif
 
 namespace benchmark {
+
+    static constexpr bool is_valid = benchmark_is_valid;
 
     // An object of class cycle_counter counts the number of clock
     // cycles between its construction and the invocation of the
@@ -22,9 +32,10 @@ namespace benchmark {
 
     public:
 
-    cycle_counter() : value{__rdtsc()} { }
+        cycle_counter() : value{read_timestamp_counter()} { }
 
-        uint64_t delta() const { return __rdtsc() - value; }
+        uint64_t delta() const { return read_timestamp_counter() - value; }
+
     };
 
     // An object of class statistics maintains a count, and mean, and
