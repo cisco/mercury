@@ -531,6 +531,8 @@ struct quic_initial_packet {
             case 4207849473:   // faceb001
             case 4207849474:   // faceb002
             case 4207849486:   // faceb00e
+            case 4207849490:   // faceb012
+            case 4207849491:   // faceb013
             case 4278190102:   // draft-22
             case 4278190103:   // draft-23
             case 4278190104:   // draft-24
@@ -639,6 +641,8 @@ public:
             {4207849473, salt_d22},     // faceb001
             {4207849474, salt_d23_d28}, // faceb002
             {4207849486, salt_d23_d28}, // faceb00e
+            {4207849490, salt_d23_d28}, // faceb012
+            {4207849491, salt_d23_d28}, // faceb013
             {4278190102, salt_d22},     // draft-22
             {4278190103, salt_d23_d28}, // draft-23
             {4278190104, salt_d23_d28}, // draft-24
