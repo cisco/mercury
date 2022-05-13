@@ -17,7 +17,8 @@
 #include <algorithm>
 #include <thread>
 #include <atomic>
-
+#include <chrono>
+#include <ctime>
 #include <zlib.h>
 
 #include "dict.h"
@@ -68,7 +69,7 @@ public:
         switch(num_matching) {
         case 0:
             if (!first_loop) {
-                gz_ret = gzprintf(gzf, "}]}]}]}\n");
+                gz_ret = gzprintf(gzf, "}]}]}]},");
             }
             if (gz_ret <= 0)
                 throw std::runtime_error("error in gzprintf");
@@ -92,7 +93,7 @@ public:
     }
 
     void process_final() {
-        int gz_ret = gzprintf(gzf, "}]}]}]}\n");
+        int gz_ret = gzprintf(gzf, "}]}]}]}]}\n");
         if (gz_ret <= 0)
             throw std::runtime_error("error in gzprintf");
     }
@@ -244,6 +245,7 @@ class data_aggregator {
     std::thread consumer_thread;
     std::mutex m;
     std::mutex output_mutex;
+    char init_time[128];
 
     // stop_processing() MUST NOT be called until all writing to the
     // message_queues has stopped
@@ -288,6 +290,8 @@ class data_aggregator {
 public:
 
     data_aggregator(size_t size_limit=0) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false} {
+        auto timenow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        strftime(init_time, sizeof(init_time) - 1, "%a %b %d %T %Y", gmtime(&timenow));
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
     }
@@ -354,6 +358,7 @@ public:
                 ag = &ag1;
             }
         }
+        gzprintf(f, "{\"mercury_init_time\" : \"%s\", \"stats\" : [", init_time);
         tmp->gzprint(f);
     }
 };

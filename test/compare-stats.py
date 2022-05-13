@@ -94,25 +94,27 @@ def read_merc_stats(in_file, mask_src_ip):
     total_count = 0
     for line in open(in_file):
         r = json.loads(line)
-        src_ip = int(r['src_ip'], 16)  # convert hex string to integer
 
-        if mask_src_ip is True:
-            src_ip = 0
+        for stats in r['stats']:
+            src_ip = int(stats['src_ip'], 16)  # convert hex string to integer
 
-        for x in r['fingerprints']:
-            str_repr = x['str_repr']
-            sessions = x['sessions']
-            for s in sessions:
-                user_agent  = ''
-                if 'user-agent' in s:
-                    user_agent = s['user-agent']
-                for y in s['dest_info']:
-                    dst_info = y['dst']
-                    count    = y['count']
+            if mask_src_ip is True:
+                src_ip = 0
 
-                    # update stats database
-                    update_stats_db(stats_db, src_ip, str_repr, user_agent, dst_info, count)
-                    total_count += count
+            for x in stats['fingerprints']:
+                str_repr = x['str_repr']
+                sessions = x['sessions']
+                for s in sessions:
+                    user_agent  = ''
+                    if 'user-agent' in s:
+                        user_agent = s['user-agent']
+                    for y in s['dest_info']:
+                        dst_info = y['dst']
+                        count    = y['count']
+
+                        # update stats database
+                        update_stats_db(stats_db, src_ip, str_repr, user_agent, dst_info, count)
+                        total_count += count
 
     return stats_db, total_count
 
