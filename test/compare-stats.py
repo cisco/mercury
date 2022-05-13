@@ -94,25 +94,28 @@ def read_merc_stats(in_file, mask_src_ip):
     total_count = 0
     for line in open(in_file):
         r = json.loads(line)
-        src_ip = int(r['src_ip'], 16)  # convert hex string to integer
 
-        if mask_src_ip is True:
-            src_ip = 0
+        for stats in r['stats']:
+            src_ip = int(stats['src_ip'], 16)  # convert hex string to integer
 
-        for x in r['fingerprints']:
-            str_repr = x['str_repr']
-            sessions = x['sessions']
-            for s in sessions:
-                user_agent  = ''
-                if 'user-agent' in s:
-                    user_agent = s['user-agent']
-                for y in s['dest_info']:
-                    dst_info = y['dst']
-                    count    = y['count']
+            if mask_src_ip is True:
+                src_ip = 0
 
-                    # update stats database
-                    update_stats_db(stats_db, src_ip, str_repr, user_agent, dst_info, count)
-                    total_count += count
+            for x in stats['fingerprints']:
+                str_repr = x['str_repr']
+                sessions = x['sessions']
+                for s in sessions:
+                    user_agent  = ''
+                    if 'user-agent' in s:
+                        user_agent = s['user-agent']
+                    for y in s['dest_info']:
+                        dst_info = y['dst']
+                        count    = y['count']
+
+                        # update stats database
+                        update_stats_db(stats_db, src_ip, str_repr, user_agent, dst_info, count)
+                        total_count += count
+
     return stats_db, total_count
 
 def is_match(x, y):
@@ -242,6 +245,10 @@ def main():
     merc_db_stats, merc_count_stats = read_merc_stats("tempstats.json", args.ignore_src_ip)
 
     if args.approx_match is True:
+        if merc_count - merc_count_stats > 0.1 * merc_count:
+            print(f'error: Difference between merc_out count ({merc_count}) and merc_stats count ({merc_count_stats}) is greater then 10%')
+            sys.exit(1)
+
         if approx_stats_compare_db(merc_db, merc_db_stats) == False:
             print('error: stats database comparison failed')
             sys.exit(1)
