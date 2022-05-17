@@ -163,6 +163,11 @@ enum class dns_rr_type : uint16_t {
     DLV      = 32769
 };
 
+enum class netbios_rr_type : uint16_t {
+    NB     = 32,   /* NetBIOS general Name Service Resource Record */
+    NBSTAT = 33    /* NetBIOS NODE STATUS Resource Record */
+};
+
 static const char UNKNOWN[] = "UNKNOWN";
 
 inline const char *dns_rr_type_name(dns_rr_type t) {
@@ -197,6 +202,23 @@ inline const char *dns_rr_type_name(dns_rr_type t) {
         break;
     }
     return UNKNOWN;
+}
+
+inline const char *netbios_rr_type_name(netbios_rr_type t) {
+    switch(t) {
+    case netbios_rr_type::NB:        return "NB";
+    case netbios_rr_type::NBSTAT:    return "NBSTAT";
+    default:
+        break;
+    }
+    return UNKNOWN;
+}
+
+inline const char* get_rr_type_name(uint16_t type, bool is_netbios) {
+    if(is_netbios) {
+        return(netbios_rr_type_name((netbios_rr_type) type));
+    }
+    return (dns_rr_type_name((dns_rr_type) type));
 }
 
 enum dns_rr_class : uint16_t {
@@ -263,11 +285,14 @@ struct dns_label_header {
     }
 };
 
+#define MAX_NETBIOS_NAME 16
 struct dns_name : public data_buffer<256> {
 
     static const unsigned int recursion_threshold = 16;  // prevents stack overflow
+    data_buffer<MAX_NETBIOS_NAME> netbios_name;
+    bool is_netbios_name;
 
-    dns_name() : data_buffer{} {}
+    dns_name() : data_buffer{}, is_netbios_name{false} {}
 
     void parse(struct datum &d, const struct datum &dns_body, unsigned int recursion_count=0) {
 
@@ -307,18 +332,51 @@ struct dns_name : public data_buffer<256> {
                 break;
             }
         }
+
+        if (check_netbios()) {
+            is_netbios_name = true;
+            uint8_t c;
+            /*
+             * NetBIOS names are 16 bytes long, but they are mapped to a 32-byte
+             * wide string of alphabet (A,B...O,P) using a
+             * reversible, half-ASCII, biased encoding.
+             *
+             * Encoding algorithm:
+             * Each 4-bit, half-octet of the NetBIOS name is treated as an 8-bit,
+             * right-adjusted, zero-filled binary number.  This number is added to 
+             * value of the ASCII character 'A' (hexidecimal 41).  The resulting
+             * 8-bit number is stored in the appropriate byte.
+             *
+             * Decoding is the reverse of the encoding process.
+             * Reference:
+             * https://datatracker.ietf.org/doc/html/rfc1001#section-14.1
+             */
+            for (int i = 0; i < MAX_NETBIOS_NAME; i++) {
+                c = (((uint8_t)buffer[2 * i] - int('A')) << 4) |
+                     (((uint8_t)buffer[2 * i + 1] - int('A')) & 0x0f);
+                netbios_name.copy(c);
+            }
+        }
     }
 
-    // is_netbios() returns true if and only if this name is a NetBIOS
+    bool is_netbios() const {
+        return is_netbios_name;
+    }
+
+    // check_netbios() returns true if and only if this name is a NetBIOS
     // name, as defined in RFC 1001.
     //
-    bool is_netbios() const {
+
+    bool check_netbios() const {
         if (length() == 33) {
-            for (const uint8_t *b=buffer; b < data; b++) {
+            for (const uint8_t *b=buffer; b < data - 1; b++) {
                 if (is_netbios_char(*b) == false) {
-                    break;
+                    return false;
                 }
             }
+        }
+        else {
+            return false;
         }
         return true;
     }
@@ -354,16 +412,27 @@ struct dns_question_record {
     void write_json(struct json_object &o, const char *key) const {
         if (name.is_not_empty()) {
             struct json_object rr{o, key};
-            rr.print_key_json_string("name", name.buffer, name.length());
+            if (name.is_netbios()) {
+                rr.print_key_json_string("name", name.netbios_name.buffer, name.netbios_name.length());
+            }
+            else {
+                rr.print_key_json_string("name", name.buffer, name.length());
+            }
             rr.print_key_uint("type", rr_type);
             rr.print_key_uint("class", rr_class);
             rr.close();
         }
     }
     void write_json(struct json_object &o) const {
+        bool is_netbios = false;
         if (name.is_not_empty()) {
-            o.print_key_json_string("name", name.buffer, name.length());
-            const char *type_name = dns_rr_type_name((dns_rr_type)rr_type);
+            if (name.is_netbios()) {
+                is_netbios = true;
+                o.print_key_json_string("name", name.netbios_name.buffer, name.netbios_name.length());
+            } else {
+                o.print_key_json_string("name", name.buffer, name.length());
+            }
+            const char *type_name = get_rr_type_name(rr_type, is_netbios);
             o.print_key_string("type", type_name);
             if (type_name == UNKNOWN) {
                 o.print_key_uint("type_code", rr_type);
@@ -425,7 +494,15 @@ struct dns_resource_record {
                     }
                     txt.close();
 
-                } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::SRV) {
+                /*
+                 * The type code 32 or 0x20 has different meaning in netbios.
+                 * In netbios, 
+                 * NBSTAT uses code 32
+                 * In DNS, mDNS,
+                 * SRV uses code 32
+                 */
+                } else if (!question_record.name.is_netbios() and
+                           (dns_rr_type)question_record.rr_type == dns_rr_type::SRV) {
                     struct json_object srv{rr, "srv"};
 
                     uint16_t priority;
@@ -446,6 +523,80 @@ struct dns_resource_record {
 
                     srv.close();
 
+                } else if (question_record.name.is_netbios() and
+                           (netbios_rr_type)question_record.rr_type == netbios_rr_type::NBSTAT) {
+
+                    struct json_object nbstat{rr, "nbstat"};
+                    uint8_t num_names;
+                    tmp_rdata.read_uint8(&num_names);
+                    datum nb_name; /* 16 byte fixed length netbios name - reference from rfc1002*/
+                    datum name_flags; /* 2 byte name flags */
+                    struct json_array names{nbstat, "names"};
+                    for (int i = 0; i < num_names; i++) {
+                        struct json_object name{names};
+                        nb_name.parse(tmp_rdata, 16);
+                        name.print_key_json_string("name", nb_name);
+                        name_flags.parse(tmp_rdata, 2);
+                        name.print_key_hex("name_flags", name_flags);
+                        name.close();
+                    }
+                    names.close();
+
+                    eth_addr unit_id{tmp_rdata};
+                    nbstat.print_key_value("unit_id", unit_id);
+
+                    encoded<uint8_t> jumpers(tmp_rdata);
+                    nbstat.print_key_uint8("jumpers", jumpers.value());
+
+                    encoded<uint8_t> test_result(tmp_rdata);
+                    nbstat.print_key_uint8("test_result", test_result.value());
+
+                    encoded<uint16_t> version_number(tmp_rdata);
+                    nbstat.print_key_uint16("version_number", version_number.value());
+
+                    encoded<uint16_t> period_of_stats(tmp_rdata);
+                    nbstat.print_key_uint16("period_of_statistics", period_of_stats.value());
+
+                    encoded<uint16_t> number_of_crcs(tmp_rdata);
+                    nbstat.print_key_uint16("number_of_crcs", number_of_crcs.value());
+
+                    encoded<uint16_t> align_errors(tmp_rdata);
+                    nbstat.print_key_uint16("number_of_alignment_errors", align_errors.value());
+
+                    encoded<uint16_t> collisions(tmp_rdata);
+                    nbstat.print_key_uint16("number_of_collisions", collisions.value());
+
+                    encoded<uint16_t> send_aborts(tmp_rdata);
+                    nbstat.print_key_uint16("number_of_send_aborts", send_aborts.value());
+
+                    encoded<uint32_t> good_sends(tmp_rdata);
+                    nbstat.print_key_uint("number_of_good_sends", good_sends.value());
+
+                    encoded<uint32_t> good_receives(tmp_rdata);
+                    nbstat.print_key_uint("number_of_good_receives", good_receives.value());
+
+                    encoded<uint16_t> retransmits(tmp_rdata);
+                    nbstat.print_key_uint16("number_of_retransmits", retransmits.value());
+
+                    encoded<uint16_t> no_res_cond(tmp_rdata);
+                    nbstat.print_key_uint16("number_of_no_resource_condition", no_res_cond.value());
+
+                    encoded<uint16_t> cmd_blocks(tmp_rdata);
+                    nbstat.print_key_uint16("number_of_command_blocks", cmd_blocks.value());
+
+                    encoded<uint16_t> pending_session(tmp_rdata);
+                    nbstat.print_key_uint16("number_of_pending_session", pending_session.value());
+
+                    encoded<uint16_t> max_pending_session(tmp_rdata);
+                    nbstat.print_key_uint16("number_of_max_pending_session", max_pending_session.value());
+
+                    encoded<uint16_t> max_session(tmp_rdata);
+                    nbstat.print_key_uint16("max_total_sessions_possible", max_session.value());
+
+                    encoded<uint16_t> packet_size(tmp_rdata);
+                    nbstat.print_key_uint16("session_data_packet_size", packet_size.value());
+
+                    nbstat.close();
                 } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::NSEC) {
 
                     struct json_object nsec{rr, "nsec"};
@@ -456,14 +607,32 @@ struct dns_resource_record {
 
                     nsec.print_key_hex("type_bit_maps", tmp_rdata);
                     nsec.close();
-                }
+                } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::PTR) {
 
+                    struct dns_name domain_name;
+                    domain_name.parse(tmp_rdata, body);
+                    rr.print_key_json_string("domain_name", domain_name.buffer, domain_name.length());
+                } else if ((netbios_rr_type)question_record.rr_type == netbios_rr_type::NB) {
+
+                    struct json_object nb{rr, "nb"};
+                    encoded<uint16_t> nb_flags(tmp_rdata);
+
+                    nb.print_key_uint8("group_name_flag", nb_flags.slice<0,1>());
+                    nb.print_key_uint8("owner_node_type", nb_flags.slice<1,3>());
+                    
+                    struct ipv4_addr addr;
+                    addr.parse(tmp_rdata);
+                    nb.print_key_value("ipv4_addr", addr);
+                    nb.close();
+                }
             } else {
                 rr.print_key_hex("rdata", tmp_rdata);
             }
             rr.close();
         }
     }
+
+    bool is_not_empty() const { return question_record.is_not_empty(); }
 };
 
 struct dns_packet {
@@ -472,8 +641,9 @@ struct dns_packet {
     size_t length;
     uint16_t qdcount, ancount, nscount, arcount;
     static const uint16_t max_count = 256;
+    bool is_netbios;
 
-    dns_packet(struct datum &d) : header{NULL}, records{NULL, NULL}, length{0} {
+    dns_packet(struct datum &d) : header{NULL}, records{NULL, NULL}, length{0}, is_netbios{false} {
         parse(d);
     }
 
@@ -487,7 +657,7 @@ struct dns_packet {
         ancount = ntohs(header->ancount);
         nscount = ntohs(header->nscount);
         arcount = ntohs(header->arcount);
-        if (qdcount == 0
+        if ((qdcount == 0 && ancount == 0)
             || qdcount > dns_packet::max_count
             || ancount > dns_packet::max_count
             || nscount > dns_packet::max_count
@@ -510,16 +680,31 @@ struct dns_packet {
                 records.set_null();
                 header = NULL;
                 // fprintf(stderr, "notice: trial parsing setting dns packet to null on question_record %u\n", count);
-                break;
+                return;
             }
 
             // check for NetBIOS
             if (question_record.name.is_netbios()) {
-                // fprintf(stderr, "NetBIOS\n");
+                is_netbios = true;
             }
         }
-        // TODO: if qdcount == 0, which can happen in mDNS, then
+        // If qdcount == 0, which can happen in mDNS, then
         // attempt a parse of a resource record
+        if (qdcount == 0) {
+            for (unsigned int count = 0; count < ancount; count++) {
+                dns_resource_record resource_record;
+                resource_record.parse(record_list, records);
+                if (resource_record.is_not_empty() == false) {
+                    records.set_null();
+                    header = NULL;
+                    return;
+                }
+
+                if (resource_record.question_record.name.is_netbios()) {
+                    is_netbios = true;
+                }
+            }
+        }
     }
 
     struct datum get_datum() const {
@@ -533,6 +718,11 @@ struct dns_packet {
     bool is_not_empty() {
         return (header != NULL);
     }
+
+    bool is_netbios() {
+        return is_netios;
+    }
+
     void write_json(struct json_object &o) const {
         if (header == NULL) {
             return;
