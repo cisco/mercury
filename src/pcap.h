@@ -93,42 +93,6 @@ public:
 
 };
 
-template <typename T>
-class data {
-    T val;
-
-public:
-
-    data(datum &d, bool little_endian=false) {
-        size_t tmp;
-        d.read_uint(&tmp, sizeof(val));
-        val = tmp;
-        if (little_endian) {
-            swap_byte_order();
-        }
-    }
-
-    data(const T& rhs) {
-        val = rhs;
-    }
-
-    operator T() const { return val; }
-
-    T value() const { return val; }
-
-    void swap_byte_order() {
-        if constexpr (sizeof(val) == 8) {
-            val = htobe64(val);
-        } else if constexpr (sizeof(val) == 4) {
-            val = ntohl(val);
-        } else if constexpr (sizeof(val) == 2) {
-            val = ntohs(val);
-        }
-    }
-
-    // TODO: add write(data_buffer) function
-};
-
 // class ignore<T> parses a data element of type T, but then ignores
 // (does not store) its value.  It can be used to check the format of
 // data that need not be stored.
@@ -151,24 +115,6 @@ public:
 
     // TODO: write out static constexpr value for serialization
 };
-
-#if 0
-template <typename T>
-T read(datum &d, bool little_endian=false) {
-    size_t tmp;
-    d.read_uint(&tmp, sizeof(T));
-    if (little_endian) {
-        if constexpr (sizeof(T) == 8) {
-            tmp = htobe64(tmp);
-        } else if constexpr (sizeof(T) == 4) {
-            tmp = ntohl(tmp);
-        } else if constexpr (sizeof(T) == 2) {
-            tmp = ntohs(tmp);
-        }
-    }
-    return static_cast<T>(tmp);
-}
-#endif
 
 //
 // PCAP
@@ -202,9 +148,9 @@ namespace pcap {
 //
 class pcap_file_header {
 
-    class magic_values : public data<uint32_t> {
+    class magic_values : public encoded<uint32_t> {
     public:
-        magic_values(datum &d) : data<uint32_t>{d} {
+        magic_values(datum &d) : encoded<uint32_t>{d} {
             if (this->value() == magic_nsec) {
                 char errmsg_buf[34] = "unsupported file magic: ";
                 sprintf(errmsg_buf + 25, "%08x", this->value());
@@ -216,16 +162,16 @@ class pcap_file_header {
                 throw std::runtime_error(errmsg_buf);
             }
         }
-        magic_values(uint32_t v) : data<uint32_t>{v} {}
+        magic_values(uint32_t v) : encoded<uint32_t>{v} {}
     };
 
     magic_values magic_number;
-    data<uint16_t> major_version;
-    data<uint16_t> minor_version;
+    encoded<uint16_t> major_version;
+    encoded<uint16_t> minor_version;
     ignore<uint32_t> reserved1;
     ignore<uint32_t> reserved2;
-    data<uint32_t> snaplen;
-    data<uint32_t> linktype;   // TODO: deal with FCS thing
+    encoded<uint32_t> snaplen;
+    encoded<uint32_t> linktype;   // TODO: deal with FCS thing
 
     static constexpr ssize_t size = sizeof(uint32_t) * 7; // number of bytes in header
 
@@ -296,10 +242,10 @@ public:
 //       +---------------------------------------------------------------+
 //
 class pcap_packet_record {
-    data<uint32_t> timestamp_sec;
-    data<uint32_t> timestamp_usec;
-    data<uint32_t> caplen;
-    data<uint32_t> len;
+    encoded<uint32_t> timestamp_sec;
+    encoded<uint32_t> timestamp_usec;
+    encoded<uint32_t> caplen;
+    encoded<uint32_t> len;
     datum packet_data;
 
 public:
@@ -348,8 +294,8 @@ static inline size_t pad_len(size_t length) {
 // all block fomats
 //
 class block_header {
-    data<uint32_t> block_type;
-    data<uint32_t> block_total_length;
+    encoded<uint32_t> block_type;
+    encoded<uint32_t> block_total_length;
 
 public:
 

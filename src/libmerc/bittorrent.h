@@ -539,46 +539,12 @@ public:
 
 };
 
-// stolen from pcap.h
-//
-template <typename T>
-class data {
-    T val;
 
-public:
 
-    data(datum &d, bool little_endian=false) {
-        size_t tmp;
-        d.read_uint(&tmp, sizeof(val));
-        val = tmp;
-        if (little_endian) {
-            swap_byte_order();
-        }
-    }
 
-    data(const T& rhs) {
-        val = rhs;
-    }
-
-    operator T() const { return val; }
-
-    T value() const { return val; }
-
-    void swap_byte_order() {
-        if constexpr (sizeof(val) == 8) {
-            val = htobe64(val);
-        } else if constexpr (sizeof(val) == 4) {
-            val = ntohl(val);
-        } else if constexpr (sizeof(val) == 2) {
-            val = ntohs(val);
-        }
-    }
-
-    // TODO: add write(data_buffer) function
-};
 
 class bittorrent_handshake {
-    data<uint8_t> protocol_name_length;
+    encoded<uint8_t> protocol_name_length;
     datum protocol_name;
     datum extension_bytes;
     datum hash_of_info_dict;
@@ -606,8 +572,8 @@ public:
 // not sure we need to parse peer messages
 //
 class bittorrent_peer_message {
-    data<uint32_t> message_length;
-    data<uint8_t> message_type;
+    encoded<uint32_t> message_length;
+    encoded<uint8_t> message_type;
 
 public:
 

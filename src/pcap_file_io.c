@@ -476,7 +476,7 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
     unsigned long num_packets = 0;
     struct packet_info pi;
 
-    benchmark::statistics s;
+    benchmark::mean_and_standard_deviation s;
     for (int i=0; i < loop_count && sig_close_flag == 0; i++) {
         do {
             status = pcap_file_read_packet(f, &pkthdr, packet_data);
@@ -501,7 +501,7 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
         }
     }
     if (loop_count > 1 && benchmark::is_valid) {
-        fprintf(stderr, "mean cycles per packet:     %f\n", s.mean());
+        fprintf(stderr, "mean cycles per packet:     %f +/- %f\n", s.mean(), s.standard_deviation());
         fprintf(stderr, "mean cycles per byte:       %f\n", s.total() / total_length);
         fprintf(stderr, "Gbps at 1GHz:               %f\n", (double) total_length / s.total() * 8);
         fprintf(stderr, "packets per second at 1GHz: %e\n", (double) 1000000000 * num_packets / s.total());
