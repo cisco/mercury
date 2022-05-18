@@ -29,13 +29,18 @@
 #define  GIT_COUNT 0
 #endif
 
-static const char *git_commit_id = GIT_COMMIT_ID;
+const char *git_commit_id = GIT_COMMIT_ID;
 
-static const uint32_t git_count = GIT_COUNT;
+const uint32_t git_count = GIT_COUNT;
 
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
+}
+
+void mercury_get_version_string(char *buf) {
+    struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
+    mercury_version.print_version_string(buf);
 }
 
 uint32_t mercury_get_version_number() {
