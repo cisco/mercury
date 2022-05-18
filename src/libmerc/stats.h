@@ -17,8 +17,6 @@
 #include <algorithm>
 #include <thread>
 #include <atomic>
-#include <chrono>
-#include <ctime>
 #include <zlib.h>
 
 #include "dict.h"
@@ -26,7 +24,7 @@
 
 extern const char *git_commit_id;
 extern const uint32_t git_count;
-
+extern char init_time[128];
 // class event_processor_gz coverts a sequence of sorted event
 // strings into an alternative JSON representation
 //
@@ -253,7 +251,6 @@ class data_aggregator {
     std::thread consumer_thread;
     std::mutex m;
     std::mutex output_mutex;
-    char init_time[128];
     char version[MAX_VERSION_STRING];
 
     // stop_processing() MUST NOT be called until all writing to the
@@ -299,8 +296,6 @@ class data_aggregator {
 public:
 
     data_aggregator(size_t size_limit=0) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false} {
-        auto timenow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        strftime(init_time, sizeof(init_time) - 1, "%a %b %d %T %Y", gmtime(&timenow));
         mercury_get_version_string(version);
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
