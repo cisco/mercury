@@ -31,8 +31,8 @@ struct semantic_version {
         fprintf(f, "%u.%u.%u\n", major, minor, patchlevel);
     }
 
-    void print_version_string (char* buf) const {
-        sprintf(buf, "%u.%u.%u", major, minor, patchlevel);
+    void print_version_string (char* buf, size_t size) const {
+        snprintf(buf, size - 1, "%u.%u.%u", major, minor, patchlevel);
     }
 
     bool is_less_than(struct semantic_version v) const {

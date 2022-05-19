@@ -623,7 +623,7 @@ uint32_t mercury_get_version_number();
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-void mercury_get_version_string(char *buf);
+void mercury_get_version_string(char *buf, size_t size);
 
 /**
  * @brief returns the resource archive VERSION

@@ -41,9 +41,9 @@ void mercury_print_version_string(FILE *f) {
     mercury_version.print(f);
 }
 
-void mercury_get_version_string(char *buf) {
+void mercury_get_version_string(char *buf, size_t size) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
-    mercury_version.print_version_string(buf);
+    mercury_version.print_version_string(buf, size);
 }
 
 uint32_t mercury_get_version_number() {
