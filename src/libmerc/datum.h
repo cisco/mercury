@@ -17,9 +17,6 @@
 #include <limits>
 #include <string>
 #include "libmerc.h"  // for enum status
-#ifndef NDEBUG
-#include "unit_test.h"
-#endif
 
 /*
  * The mercury_debug macro is useful for debugging (but quite verbose)
