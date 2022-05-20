@@ -522,6 +522,16 @@ struct datum {
 
 };
 
+// sanity checks on class datum
+//
+static_assert(sizeof(datum) == 2 * sizeof(uint8_t *));
+
+
+// data_buffer is a contiguous sequence of bytes into which data can
+// be copied sequentially; the data structure tracks the start of the
+// data (buffer), the location to which data can be written (data),
+// and the end of the data buffer (data_end)
+//
 template <size_t T> struct data_buffer {
     unsigned char buffer[T];
     unsigned char *data;                /* data being written        */
@@ -684,6 +694,13 @@ public:
 
 };
 
+// sanity checks on class encoded<T>
+//
+static_assert(sizeof(encoded<uint8_t>)  == 1);
+static_assert(sizeof(encoded<uint16_t>) == 2);
+static_assert(sizeof(encoded<uint32_t>) == 4);
+static_assert(sizeof(encoded<uint64_t>) == 8);
+
 #ifndef NDEBUG
 
 // template specializations of the encoded<T>::unit_test() functions,
@@ -734,13 +751,5 @@ inline bool encoded<uint32_t>::unit_test() {
 }
 
 #endif // NDEBUG
-
-/*
- * start of protocol parsing functions
- */
-
-unsigned int datum_process_ipv4(struct datum *p, size_t *transport_protocol, struct key *k);
-
-unsigned int datum_process_ipv6(struct datum *p, size_t *transport_protocol, struct key *k);
 
 #endif /* DATUM_H */
