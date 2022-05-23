@@ -1041,6 +1041,7 @@ public:
 
 };
 
+using namespace mercury_option;
 
 int main(int argc, char *argv[]) {
 
