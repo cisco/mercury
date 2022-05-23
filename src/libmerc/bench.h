@@ -44,11 +44,11 @@ namespace benchmark {
 
     };
 
-    // An object of class statistics maintains a count, and mean, and
-    // potentially other statistics about observed numbers.   Each observation
-    // is reported with the member function +=, e.g. 's += x' observes x.
+    // An object of class count_and_mean maintains a count and mean of
+    // all of the observed numbers.  Each observation is reported with
+    // the member function +=, e.g. 's += x' observes x.
     //
-    class statistics {
+    class mean_and_count {
         uint64_t counter = 0;
         uint64_t mean_ = 0;
     public:
@@ -58,8 +58,14 @@ namespace benchmark {
             mean_ += x;
         }
 
+        // mean() returns a floating point number representing the
+        // mean of all of the observations
+        //
         double mean() const { return (double) mean_ / counter; }
 
+        // total() returns a floating point number representing the
+        // sum of all of the observations
+        //
         double total() const { return (double) mean_; }
     };
 
@@ -89,6 +95,9 @@ namespace benchmark {
             }
         }
 
+        // mean() returns a floating point number representing the
+        // mean of all of the observations
+        //
         double mean() const {
             if (k < 1) {
                 return NAN; // too few observations to compute mean
@@ -96,6 +105,9 @@ namespace benchmark {
             return M;
         }
 
+        // standard_deviation() returns a floating point number representing the
+        // standard deviation of all of the observations
+        //
         double standard_deviation() const {
             if (k < 2) {
                 return NAN; // too few observations to compute standard deviation
@@ -103,6 +115,9 @@ namespace benchmark {
             return sqrt( S/(k-1) );
         }
 
+        // total() returns a floating point number representing the
+        // sum of all of the observations
+        //
         double total() const {
             return M * k;
         }

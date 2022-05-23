@@ -3,7 +3,7 @@
 #include <cassert>
 #include <array>
 #include "libmerc/bittorrent.h"
-#include "bench.h"
+#include "libmerc/bench.h"
 #include "hex.h"
 
 
@@ -190,7 +190,6 @@ int main() {
 
     benchmark::mean_and_standard_deviation ms3;
     fprintf(stderr, "mean and std dev: %f +/- %f\n", ms3.mean(), ms3.standard_deviation());
-    fprintf(stderr, "encoded_unit_test: %s\n", test_class_encoded() ? "passed" : "failed");
 
     printf("sizeof(encoded<uint8_t>): %zu\n", sizeof(encoded<uint8_t>));
     printf("sizeof(encoded<uint16_t>): %zu\n", sizeof(encoded<uint16_t>));
