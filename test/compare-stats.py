@@ -95,6 +95,9 @@ def read_merc_stats(in_file, mask_src_ip):
     for line in open(in_file):
         r = json.loads(line)
 
+        if 'stats' not in r:
+            continue
+
         for stats in r['stats']:
             src_ip = int(stats['src_ip'], 16)  # convert hex string to integer
 

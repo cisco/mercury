@@ -6,6 +6,7 @@
 #include <map>
 #include <algorithm>
 #include <stdexcept>
+#include <ctime>
 
 #include "libmerc.h"
 #include "version.h"
@@ -29,13 +30,20 @@
 #define  GIT_COUNT 0
 #endif
 
-static const char *git_commit_id = GIT_COMMIT_ID;
+const char *git_commit_id = GIT_COMMIT_ID;
 
-static const uint32_t git_count = GIT_COUNT;
+const uint32_t git_count = GIT_COUNT;
+
+char init_time[128];
 
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
+}
+
+void mercury_get_version_string(char *buf, size_t size) {
+    struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
+    mercury_version.print_version_string(buf, size);
 }
 
 uint32_t mercury_get_version_number() {
@@ -53,11 +61,13 @@ const char *mercury_get_resource_version(struct mercury *mc) {
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
-
+    std::time_t timenow = time(NULL);
+    strftime(init_time, sizeof(init_time) - 1, "%a %b %d %T %Y", gmtime(&timenow));
+    
     if (verbosity > 0) {
         // bulid information, to help with shared object library development and use
         //
-        printf_err(log_none, "libmerc build time: %s %s\n", __DATE__, __TIME__);
+        printf_err(log_none, "libmerc init time: %s\n", init_time);
         struct semantic_version v(MERCURY_SEMANTIC_VERSION);
         printf_err(log_info, "libmerc version: %u.%u.%u\n", v.major, v.minor, v.patchlevel);
         printf_err(log_info, "libmerc build count: %u\n", git_count);

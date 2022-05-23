@@ -17,13 +17,14 @@
 #include <algorithm>
 #include <thread>
 #include <atomic>
-#include <chrono>
-#include <ctime>
 #include <zlib.h>
 
 #include "dict.h"
 #include "queue.h"
 
+extern const char *git_commit_id;
+extern const uint32_t git_count;
+extern char init_time[128];
 // class event_processor_gz coverts a sequence of sorted event
 // strings into an alternative JSON representation
 //
@@ -39,6 +40,9 @@ public:
     void process_init() {
         first_loop = true;
         prev = { "", "", "", "" };
+        int gz_ret = gzprintf(gzf, ", \"stats\" : [");
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
     }
 
     void process_update(const event_msg &event, uint32_t count) {
@@ -93,7 +97,7 @@ public:
     }
 
     void process_final() {
-        int gz_ret = gzprintf(gzf, "}]}]}]}]}\n");
+        int gz_ret = gzprintf(gzf, "}]}]}]}]");
         if (gz_ret <= 0)
             throw std::runtime_error("error in gzprintf");
     }
@@ -237,6 +241,8 @@ public:
 
 };
 
+#define MAX_VERSION_STRING 15
+
 class data_aggregator {
     std::vector<class message_queue *> q;
     stats_aggregator ag1, ag2, *ag;
@@ -245,7 +251,7 @@ class data_aggregator {
     std::thread consumer_thread;
     std::mutex m;
     std::mutex output_mutex;
-    char init_time[128];
+    char version[MAX_VERSION_STRING];
 
     // stop_processing() MUST NOT be called until all writing to the
     // message_queues has stopped
@@ -290,8 +296,7 @@ class data_aggregator {
 public:
 
     data_aggregator(size_t size_limit=0) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false} {
-        auto timenow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        strftime(init_time, sizeof(init_time) - 1, "%a %b %d %T %Y", gmtime(&timenow));
+        mercury_get_version_string(version, MAX_VERSION_STRING);
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
     }
@@ -358,8 +363,14 @@ public:
                 ag = &ag1;
             }
         }
-        gzprintf(f, "{\"mercury_init_time\" : \"%s\", \"stats\" : [", init_time);
+        int gz_ret = gzprintf(f, "{\"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\", \"build_number\" : \"%u\", \"git_commit_id\": \"%s\"",
+                        init_time, version, git_count, git_commit_id);
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
         tmp->gzprint(f);
+        gz_ret = gzprintf(f, "}\n");
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
     }
 };
 
