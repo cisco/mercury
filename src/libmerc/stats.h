@@ -22,9 +22,6 @@
 #include "dict.h"
 #include "queue.h"
 
-extern const char *git_commit_id;
-extern const uint32_t git_count;
-extern char init_time[128];
 // class event_processor_gz coverts a sequence of sorted event
 // strings into an alternative JSON representation
 //
@@ -343,7 +340,11 @@ public:
         consumer_thread = std::thread( [this](){ consumer(); } );  // lambda just calls member function
     }
 
-    void gzprint(gzFile f) {
+    void gzprint(gzFile f,
+                 const char *git_commit_id,
+                 uint32_t git_count,
+                 const char *init_time
+                 ) {
 
         // ensure that only one print function is running at a time
         //
