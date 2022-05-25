@@ -719,8 +719,8 @@ struct dns_packet {
         return (header != NULL);
     }
 
-    bool is_netbios() {
-        return is_netios;
+    bool netbios() {
+        return is_netbios;
     }
 
     void write_json(struct json_object &o) const {

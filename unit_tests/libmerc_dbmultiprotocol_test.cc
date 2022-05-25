@@ -268,23 +268,23 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dns and mdns with recources-mp")
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"dns"},
              .m_pc{"capture2.pcap"}},
-         809},
+         785},
         {test_config{
              .m_lc{.dns_json_output = true, .do_analysis = true,
                 .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"dns"},
              .m_pc{"capture2.pcap"}},
-         809},
+         785},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"dns"},
+                .packet_filter_cfg = (char *)"mdns"},
              .m_pc{"mdns_capture.pcap"}},
          3141},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"dns"},
              .m_pc{"dns_packet.capture2.pcap"}},
-         809},
+         785},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"dns"},

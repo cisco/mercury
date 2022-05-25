@@ -173,7 +173,7 @@ struct write_metadata {
 
     void operator()(dns_packet &r) {
         std::string name{"dns"};
-        if (r.is_netbios()) {
+        if (r.netbios()) {
             name = "nbns";
         }
 
@@ -455,10 +455,10 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             x.emplace<mdns_packet>(pkt);
         } else {
             dns_packet packet{pkt};
-            if (packet.is_netbios() and !selector.nbns()) {
+            if (packet.netbios() and !selector.nbns()) {
                 return;
             }
-            if (!packet.is_netbios() and !selector.dns()) {
+            if (!packet.netbios() and !selector.dns()) {
                 return;
             }
             x = std::move(packet);
