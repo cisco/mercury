@@ -6,6 +6,7 @@
 #include <map>
 #include <algorithm>
 #include <stdexcept>
+#include <ctime>
 
 #include "libmerc.h"
 #include "version.h"
@@ -29,13 +30,26 @@
 #define  GIT_COUNT 0
 #endif
 
+// the variables git_commit_id and git_count represent the source code
+// used to build the library, and init_time holds its most recent
+// initialization time; they are declared static to maintain the ODR,
+// and are passed to some output routines below
+//
 static const char *git_commit_id = GIT_COMMIT_ID;
 
 static const uint32_t git_count = GIT_COUNT;
 
+static char init_time[128] = { '\0' };
+
+
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
+}
+
+void mercury_get_version_string(char *buf, size_t size) {
+    struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
+    mercury_version.print_version_string(buf, size);
 }
 
 uint32_t mercury_get_version_number() {
@@ -53,11 +67,13 @@ const char *mercury_get_resource_version(struct mercury *mc) {
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
-
+    std::time_t timenow = time(NULL);
+    strftime(init_time, sizeof(init_time) - 1, "%a %b %d %T %Y", gmtime(&timenow));
+    
     if (verbosity > 0) {
         // bulid information, to help with shared object library development and use
         //
-        printf_err(log_none, "libmerc build time: %s %s\n", __DATE__, __TIME__);
+        printf_err(log_none, "libmerc init time: %s\n", init_time);
         struct semantic_version v(MERCURY_SEMANTIC_VERSION);
         printf_err(log_info, "libmerc version: %u.%u.%u\n", v.major, v.minor, v.patchlevel);
         printf_err(log_info, "libmerc build count: %u\n", git_count);
@@ -283,7 +299,10 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
         printf_err(log_err, "could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
         return false;
     }
-    mc->aggregator.gzprint(stats_data_file);
+    mc->aggregator.gzprint(stats_data_file,
+                           git_commit_id,
+                           git_count,
+                           init_time);
     gzclose(stats_data_file);
 
     return true;

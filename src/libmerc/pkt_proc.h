@@ -86,8 +86,9 @@ class unknown_initial_packet;
 class quic_init;                         // start of udp protocols
 struct wireguard_handshake_init;
 struct dns_packet;
-struct dtls_client_hello;
-struct dtls_server_hello;
+class dtls_client_hello;
+class
+dtls_server_hello;
 struct dhcp_discover;
 class unknown_udp_initial_packet;
 class icmp_packet;                        // start of ip protocols

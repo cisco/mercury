@@ -68,6 +68,7 @@ public:
             return;
         }
         ciphertext_len += len;
+        (void)ciphertext_len;  // not currently used
 
         return;
     }

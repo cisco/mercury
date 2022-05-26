@@ -115,6 +115,9 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
     } else if ((arg = command_get_argument("limit=", line)) != NULL) {
         return argument_parse_as_uint64(arg, &cfg->rotate);
 
+    } else if ((arg = command_get_argument("output-time=", line)) != NULL) {
+        return argument_parse_as_uint64(arg, &cfg->out_rotation_duration);
+
     } else if ((arg = command_get_argument("user=", line)) != NULL) {
         cfg->user = strdup(arg);
         return status_ok;

@@ -35,7 +35,7 @@ setup(ext_modules=[Extension("mercury",
                              sources=sources,
                              language="c++",
                              extra_compile_args=["-std=c++17","-Wno-narrowing"],
-                             extra_link_args=["-std=c++17",],
+                             extra_link_args=["-std=c++17","-lz"],
                              libraries = ['crypto'],
                              runtime_library_dirs=['../'])
                   ],

@@ -224,63 +224,210 @@ void debug_print_tour_tree(struct tourn_tree *t_tree, const struct thread_queues
     fprintf(stderr, "\n");
 }
 
-enum status output_file_rotate(struct output_file *ojf) {
+enum status open_outfile(struct output_file *ojf, bool is_pri) {
     char outfile[FILENAME_MAX];
+    char file_num[MAX_HEX];
 
+    snprintf(file_num, MAX_HEX, "%x", ojf->file_num++);
+    enum status status = filename_append(outfile, ojf->outfile_name, "-", file_num);
+    if (status) {
+        ojf->file_error = true;
+        return status;
+    }
+
+    char time_str[128];
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    strftime(time_str, sizeof(time_str) - 1, "%Y%m%d%H%M%S", localtime(&now.tv_sec));
+    status = filename_append(outfile, outfile, "-", time_str);
+    if (status) {
+        ojf->file_error = true;
+        return status;
+    }
+
+    FILE* file = fopen(outfile, ojf->mode);
+    if (file == NULL) {
+        perror("error: could not open fingerprint output file");
+        ojf->file_error = true;
+        return status_err;
+    }
+
+    if (is_pri) {
+        ojf->file_pri = file;
+    }
+    else {
+        ojf->file_sec = file;
+    }
+
+    return status_ok;
+
+}
+
+enum status output_file_rotate(struct output_file *ojf) {
     if (ojf->type == file_type_stdout) {
-        ojf->file = stdout;
+        ojf->file_pri = stdout;
+        ojf->file_sec = stdout;
         return status_ok;
     }
 
-    if (ojf->file) {
-        // printf("rotating output file\n");
+    enum status status = status_ok;
+    
+    if (ojf->max_records == UINT64_MAX && ojf->rotate_time == UINT64_MAX) {
+        char outfile[FILENAME_MAX];
+        strncpy(outfile, ojf->outfile_name, FILENAME_MAX - 1);
+        ojf->file_pri = fopen(outfile, ojf->mode);
+        if (ojf->file_pri == NULL) {
+            perror("error: could not open fingerprint output file");
+            ojf->file_error = true;
+            return status_err;
+        }
 
-        if (fclose(ojf->file) != 0) {
-            perror("could not close json file");
+        if (ojf->type == file_type_pcap) {
+            status = write_pcap_file_header(ojf->file_pri);
+            if (status) {
+                perror("error: could not write pcap file header");
+                ojf->file_error = true;
+                return status_err;
+            }
         }
     }
-
-    if (ojf->max_records) {
+    else {
         /*
          * create filename that includes sequence number and date/timestamp
          */
-        char file_num[MAX_HEX];
-        snprintf(file_num, MAX_HEX, "%x", ojf->file_num++);
-        enum status status = filename_append(outfile, ojf->outfile_name, "-", file_num);
-        if (status) {
-            return status;
-        }
+        if (ojf->file_pri == nullptr) {
+            status = open_outfile(ojf, true);
+            if (status) {
+                return status_err;
+            }
 
-        char time_str[128];
-        struct timeval now;
-        gettimeofday(&now, NULL);
-        strftime(time_str, sizeof(time_str) - 1, "%Y%m%d%H%M%S", localtime(&now.tv_sec));
-        status = filename_append(outfile, outfile, "-", time_str);
-        if (status) {
-            return status;
+            status = open_outfile(ojf, false);
+            if (status) {
+                return status_err;
+            }
+
+            if (ojf->type == file_type_pcap) {
+                status = write_pcap_file_header(ojf->file_pri);
+                if (status) {
+                    perror("error: could not write pcap file header");
+                    ojf->file_error = true;
+                    return status_err;
+                }
+
+                status = write_pcap_file_header(ojf->file_sec);
+                if (status) {
+                    perror("error: could not write pcap file header");
+                    ojf->file_error = true;
+                    return status_err;
+                }
+            }
         }
-    } else {
-        ojf->max_records = UINT64_MAX;
-        strncpy(outfile, ojf->outfile_name, FILENAME_MAX - 1);
+        else {
+            status = open_outfile(ojf, false);
+            if (status) {
+                return status_err;
+            }
+
+            if (ojf->type == file_type_pcap) {
+                status = write_pcap_file_header(ojf->file_sec);
+                if (status) {
+                    perror("error: could not write pcap file header");
+                    ojf->file_error = true;
+                    return status_err;
+                }
+            }
+        }
     }
 
-    ojf->file = fopen(outfile, ojf->mode);
-    if (ojf->file == NULL) {
-        perror("error: could not open fingerprint output file");
-        return status_err;
-    }
-    if (ojf->type == file_type_pcap) {
-        enum status status = write_pcap_file_header(ojf->file);
-        if (status) {
-            perror("error: could not write pcap file header");
-            return status_err;
-        }
-    }
+    //set state before blocking io call
+    ojf->rotation_req = false;
 
-    ojf->record_countdown = ojf->max_records;
+    if (ojf->file_used) {
+        // printf("closing used output files\n");
+        if (fclose(ojf->file_used) != 0) {
+            perror("could not close json file");
+        }
+        ojf->file_used = nullptr;
+    }
 
     return status_ok;
 }
+
+enum status swap_rotated_files(struct output_file* out_ctx) {
+    if (out_ctx->file_error.load() == true) {
+        return status_err;
+    }
+
+    out_ctx->file_used = out_ctx->file_pri;
+    out_ctx->file_pri = out_ctx->file_sec;
+    out_ctx->file_sec = nullptr;
+    out_ctx->rotation_req = true;
+    out_ctx->record_countdown = out_ctx->max_records;
+
+    if (out_ctx->file_pri == nullptr) {
+        return status_err;
+    }
+
+    return status_ok;
+}
+
+void close_outfiles (struct output_file* out_ctx) {
+    if (out_ctx->file_pri) {
+        if (fclose(out_ctx->file_pri) != 0 ) {
+        perror("could not close primary json file");
+        }
+    }
+
+    if (out_ctx->file_sec) {
+        if (fclose(out_ctx->file_sec) != 0 ) {
+        perror("could not close secondary json file");
+        }
+    }
+
+    if (out_ctx->file_used) {
+        if (fclose(out_ctx->file_used) != 0 ) {
+        perror("could not close used json file");
+        }
+    } 
+}
+
+enum status limit_rotate (output_file* out_ctx) {
+    if (out_ctx->max_records == UINT64_MAX) {
+        out_ctx->record_countdown = out_ctx->max_records;
+        return status_ok;
+    }
+
+    if (out_ctx->file_sec != nullptr) {
+        return swap_rotated_files(out_ctx);
+    }
+    else {
+        while (out_ctx->file_sec == nullptr) {
+            out_ctx->rotation_req = true;
+            sleep (1);
+            if (out_ctx->file_error.load() == true) {
+                return status_err;
+            }
+        }
+            return swap_rotated_files(out_ctx);
+    }
+
+    return status_ok;
+}
+
+enum status time_rotate (output_file* out_ctx) {
+    if (out_ctx->rotation_req.load() == false) {
+        enum status status = swap_rotated_files(out_ctx);
+        if (status) {
+            return status_err;
+        }
+        out_ctx->time_rotation_req = false;
+    }
+    else {
+        out_ctx->time_rotation_req = false; //just rotated, skip
+    }
+
+    return status_ok;
+} 
 
 void *output_thread_func(void *arg) {
 
@@ -308,11 +455,15 @@ void *output_thread_func(void *arg) {
     // note: we wait until we get an output start condition before we
     // open any output files, so that drop_privileges() can be called
     // before file creation
-    enum status status = output_file_rotate(out_ctx);
-    if (status != status_ok) {
-        exit(EXIT_FAILURE);
+    while (out_ctx->file_pri == nullptr)
+    {
+        out_ctx->rotation_req = true;
+        sleep(1);
+        if (out_ctx->file_error.load() == true) {
+            exit(EXIT_FAILURE);
+        }
     }
-
+    out_ctx->record_countdown = out_ctx->max_records;
     /* This output thread uses a "tournament tree" algorithm
      * to perform a k-way merge of the lockless queues.
      *
@@ -373,6 +524,7 @@ void *output_thread_func(void *arg) {
     }
 
     int all_output_flushed = 0;
+    enum status status = status_ok;
     while (all_output_flushed == 0) {
 
         /* Bring the tree up-to-date */
@@ -393,7 +545,7 @@ void *output_thread_func(void *arg) {
 
             struct llq_msg *wmsg = &(out_ctx->qs.queue[wq].msgs[out_ctx->qs.queue[wq].ridx]);
             if (wmsg->used == 1) {
-                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
+                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file_pri);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
@@ -401,7 +553,17 @@ void *output_thread_func(void *arg) {
 
                 /* Handle rotating file if needed */
                 if (output_file_needs_rotation(out_ctx)) {
-                    output_file_rotate(out_ctx);
+                    status = limit_rotate(out_ctx);
+                    if (status) {
+                        break;
+                    }
+                }
+
+                if (out_ctx->time_rotation_req.load() == true) {
+                    status = time_rotate(out_ctx);
+                    if (status) {
+                        break;
+                    }
                 }
 
                 out_ctx->qs.queue[wq].ridx = (out_ctx->qs.queue[wq].ridx + 1) % LLQ_DEPTH;
@@ -447,7 +609,7 @@ void *output_thread_func(void *arg) {
                 break;
             } else if (time_less(&(wmsg->ts), &old_ts) == 1) {
                 //fprintf(stderr, "DEBUG: writing old message from queue %d\n", wq);
-                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file);
+                fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file_pri);
 
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
@@ -455,7 +617,17 @@ void *output_thread_func(void *arg) {
 
                 /* Handle rotating file if needed */
                 if (output_file_needs_rotation(out_ctx)) {
-                    output_file_rotate(out_ctx);
+                    status = limit_rotate(out_ctx);
+                    if (status) {
+                        break;
+                    }
+                }
+
+                if (out_ctx->time_rotation_req.load() == true) {
+                    status = time_rotate(out_ctx);
+                    if (status) {
+                        break;
+                    }
                 }
 
                 out_ctx->qs.queue[wq].ridx = (out_ctx->qs.queue[wq].ridx + 1) % LLQ_DEPTH;
@@ -481,8 +653,9 @@ void *output_thread_func(void *arg) {
     if (t_tree.tree) {
         free(t_tree.tree);
     }
-    if (fclose(out_ctx->file) != 0) {
-        perror("could not close json file");
+    
+    if (out_ctx->type != file_type_stdout) {
+        close_outfiles(out_ctx);
     }
 
     return NULL;
@@ -504,21 +677,6 @@ int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, co
         return -1;
     }
     out_ctx.t_output_p = 0;
-
-    out_ctx.file = NULL;
-    out_ctx.max_records = cfg.rotate;
-    out_ctx.record_countdown = 0;
-    if (cfg.fingerprint_filename) {
-        out_ctx.outfile_name = cfg.fingerprint_filename;
-        out_ctx.type = file_type_json;
-    } else if (cfg.write_filename) {
-        out_ctx.outfile_name = cfg.write_filename;
-        out_ctx.type = file_type_pcap;
-    } else {
-        out_ctx.type = file_type_stdout;  // default output type
-    }
-    out_ctx.file_num = 0;
-    out_ctx.mode = cfg.mode;
 
     //fprintf(stderr, "DEBUG: fingerprint filename: %s\n", cfg.fingerprint_filename);
     //fprintf(stderr, "DEBUG: max records: %ld\n", out_ctx.out_jf.max_records);

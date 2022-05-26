@@ -662,7 +662,7 @@ public:
 
     void write_json(struct json_object &) { }
 
-    void compute_fingerprint(struct fingerprint &) const { }
+    void compute_fingerprint(fingerprint &) const { }
 
     bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
 

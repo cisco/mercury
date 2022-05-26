@@ -23,6 +23,7 @@ AC_CHECK_HEADERS([stddef.h])
 AC_CHECK_HEADERS([sys/ioctl.h])
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([sys/time.h])
+AC_CHECK_HEADERS([x86intrin.h])
 AC_CHECK_TYPES([ptrdiff_t])
 AC_FUNC_MALLOC 
 AC_FUNC_MMAP 

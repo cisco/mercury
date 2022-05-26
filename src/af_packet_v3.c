@@ -373,10 +373,12 @@ void *stats_thread_func(void *statst_arg) {
     if (statst->verbosity) {
         fprintf(stderr,
                 "Stats: "
+                "Time %10.03f ; "
                 "%7.03f%s Packets/s; Data Rate %7.03f%s bytes/s; "
                 "Ethernet Rate (est.) %7.03f%s bits/s; "
                 "Socket Packets %7.03f%s; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
                 "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantaneous rbuf %4.1f%%\n",
+                (ts.tv_sec + (ts.tv_nsec / 1000000000.0)),
                 r_pps, r_pps_s, r_byps, r_byps_s,
                 r_ebips, r_ebips_s,
                 r_spps, r_spps_s, sdps, sfps,
@@ -656,7 +658,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
        */
 
       /* Track the number of blocks in a row in this streak */
-      time_d = time_elapsed(&ts); /* How long this streak lasted */
+      time_d = time_elapsed(&ts); /* How long this streak lasted (also updates ts struct with current time) */
 
       if (bstreak > thread_block_count) {
 	bstreak = thread_block_count;

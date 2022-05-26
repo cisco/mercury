@@ -38,12 +38,23 @@ struct datum {
     const unsigned char *data;          /* data being parsed/copied  */
     const unsigned char *data_end;      /* end of data buffer        */
 
+    const uint8_t *begin() const { return data; }
+    const uint8_t *end() const { return data_end; }
+    const uint8_t *cbegin() const { return data; }
+    const uint8_t *cend()   const { return data_end; }
+
     datum() : data{NULL}, data_end{NULL} {}
     datum(const unsigned char *first, const unsigned char *last) : data{first}, data_end{last} {}
     datum(datum &d, size_t length) {
         parse(d, length);
     }
     datum(std::pair<const unsigned char *, const unsigned char *> p) : data{p.first}, data_end{p.second} {}
+    template <size_t N> datum(const std::array<uint8_t, N> &a) : data{a.data()}, data_end{data + a.size()} { }
+
+    // implicit converstion to a pair of pointers
+    //
+    operator std::pair<const unsigned char *, const unsigned char *> () const { return { data, data_end }; }
+
     //parser(const unsigned char *d, const unsigned char *e) : data{d}, data_end{e} {}
     //parser(const unsigned char *d, size_t length) : data{d}, data_end{d+length} {}
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
@@ -483,6 +494,23 @@ struct datum {
         }
     }
 
+    void fprint(FILE *f, size_t length=0) const {
+        const uint8_t *x = data;
+        const uint8_t *end = data_end;
+        if (length) {
+            end = data + length;
+            end = end < data_end ? end : data_end;
+        }
+        while (x < end) {
+            if (isprint(*x)) {
+                fputc(*x, f);
+            } else {
+                fputc('.', f);
+            }
+            x++;
+        }
+    }
+
     ssize_t write_to_buffer(uint8_t *buffer, ssize_t len) {
         if (data) {
             ssize_t copy_len = length() < len ? length() : len;
@@ -494,12 +522,22 @@ struct datum {
 
 };
 
+// sanity checks on class datum
+//
+static_assert(sizeof(datum) == 2 * sizeof(uint8_t *));
+
+
+// data_buffer is a contiguous sequence of bytes into which data can
+// be copied sequentially; the data structure tracks the start of the
+// data (buffer), the location to which data can be written (data),
+// and the end of the data buffer (data_end)
+//
 template <size_t T> struct data_buffer {
     unsigned char buffer[T];
     unsigned char *data;                /* data being written        */
     const unsigned char *data_end;      /* end of data buffer        */
 
-    data_buffer<T>() : data{buffer}, data_end{buffer+T} {  }
+    data_buffer() : data{buffer}, data_end{buffer+T} {  }
 
     void copy(uint8_t x) {
         if (data + 1 > data_end) {
@@ -538,12 +576,180 @@ template <size_t T> struct data_buffer {
     datum contents() const { return {buffer, data}; }
 };
 
-/*
- * start of protocol parsing functions
- */
 
-unsigned int datum_process_ipv4(struct datum *p, size_t *transport_protocol, struct key *k);
+// integer decoding
+//
+#define bitsizeof(x) (sizeof(x) * 8)
 
-unsigned int datum_process_ipv6(struct datum *p, size_t *transport_protocol, struct key *k);
+// slice<i, j>(x) returns the unsigned integer represented by the bits
+// of x in between i and j-1, inclusive, where zero denotes the
+// leftmost (most significant) bit.  This indexing scheme is
+// compatible with that used in IETF standard notation (see RFC 1700).
+//
+// For example, slice<4,12>(0xa1b2c3d4) is 0x1b
+//
+// For example, the bitfields A, B, C, and D defined by
+//
+//     0                   1
+//     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
+//    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//    |A| B |    C    |     D         |
+//    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+// can be accessed as
+//
+//    A = slice<0,1>
+//    B = slice<1,3>
+//    C = slice<3,8>
+//    D = slice<8,16>
+//
+// Implementation note: the cast to type T is essential so that types
+// smaller than 'unsigned integer' will not be promoted to a larger
+// type.  That size promotion, if allowed, would break this function.
+//
+template <size_t i, size_t j, typename T>
+constexpr T slice(T s) {
+    return ((T)(s << i)) >> (bitsizeof(T)-(j-i));
+}
+
+// bit<i>(x) returns the value of the ith bit of x, as a boolean.
+//
+template <size_t i, typename T>
+bool bit(T s) {
+    return (bool) slice<i,i+1>(s);
+}
+
+// encoded<T> represents an integer type T that is read from a byte
+// stream
+//
+template <typename T>
+class encoded {
+    T val;
+
+public:
+
+    encoded(datum &d, bool little_endian=false) {
+        size_t tmp;
+        d.read_uint(&tmp, sizeof(val));
+        val = tmp;
+        if (little_endian) {
+            swap_byte_order();
+        }
+    }
+    //
+    // TODO: re-implement constructor in a way that avoids a temporary
+    // size_t variable, especially for smaller integer types
+
+    encoded(const T& rhs) {
+        val = rhs;
+    }
+
+    operator T() const { return val; }
+
+    T value() const { return val; }
+
+    void swap_byte_order() {
+        if constexpr (sizeof(val) == 8) {
+            val = htobe64(val);
+        } else if constexpr (sizeof(val) == 4) {
+            val = ntohl(val);
+        } else if constexpr (sizeof(val) == 2) {
+            val = ntohs(val);
+        }
+    }
+
+    // slice<i, j>() returns the unsigned integer given by the bits in
+    // between i and j-1, inclusive, where zero denotes the leftmost
+    // (most significant) bit.  This indexing scheme is compatible
+    // with that used in IETF standard notation (RFC 1700).  See the
+    // examples above.
+    //
+    template <size_t i, size_t j>
+    T slice() const {
+        return ::slice<i,j>(val);
+    }
+
+    // bit<i>() returns the ith bit of the value, where zero denotes
+    // the leftmost (most significant) bit.
+    //
+    template <size_t i>
+    bool bit() const {
+        return (bool) slice<i,i+1>();
+    }
+
+    // encoded<T>::unit_test() returns true if there is a unit test
+    // for typename T defined and that test passed; otherwise, it
+    // returns false.  The unit test functions are template
+    // specializations, and they are only defined when NDEBUG is not
+    // #defined.
+    //
+    static bool unit_test() {
+        return false;
+    }
+
+    // TODO: add a function slice<i,j>(T newvalue) that sets the bits
+    // associated with a slice
+
+    // TODO: add write(data_buffer) function
+
+};
+
+// sanity checks on class encoded<T>
+//
+static_assert(sizeof(encoded<uint8_t>)  == 1);
+static_assert(sizeof(encoded<uint16_t>) == 2);
+static_assert(sizeof(encoded<uint32_t>) == 4);
+static_assert(sizeof(encoded<uint64_t>) == 8);
+
+#ifndef NDEBUG
+
+// template specializations of the encoded<T>::unit_test() functions,
+// for several unsigned integer types.  To use these tests, do not
+// define NDEBUG (or undefine that variable), and call each one inside of
+// an assert() macro, or whatever unit test function is appropriate.
+//
+template <>
+inline bool encoded<uint8_t>::unit_test() {
+    encoded<uint8_t> x{0xaa};
+    return
+        x.bit<0>() == 1 &&
+        x.bit<1>() == 0 &&
+        x.bit<2>() == 1 &&
+        x.bit<3>() == 0 &&
+        x.bit<4>() == 1 &&
+        x.bit<5>() == 0 &&
+        x.bit<6>() == 1 &&
+        x.bit<7>() == 0;
+}
+
+template <>
+inline bool encoded<uint16_t>::unit_test() {
+    encoded<uint16_t> x{0x9f00};
+    return
+        x.slice<0,1>()  == 1  &&
+        x.slice<1,3>()  == 0  &&
+        x.slice<3,8>()  == 31 &&
+        x.slice<8,16>() == 0;
+}
+
+template <>
+inline bool encoded<uint32_t>::unit_test() {
+    encoded<uint32_t> y = 0xa1b2c3df;
+    return
+        ::slice<0,32>(y.value())  == 0xa1b2c3df &&
+        ::slice<0,8>(y.value())   == 0xa1       &&
+        ::slice<4,12>(y.value())  == 0x1b       &&
+        ::slice<8,16>(y.value())  == 0xb2       &&
+        ::slice<24,32>(y.value()) == 0xdf       &&
+        ::slice<16,32>(y.value()) == 0xc3df     &&
+        y.slice<0,32>()  == 0xa1b2c3df &&
+        y.slice<0,8>()   == 0xa1       &&
+        y.slice<4,12>()  == 0x1b       &&
+        y.slice<8,16>()  == 0xb2       &&
+        y.slice<24,32>() == 0xdf       &&
+        y.slice<16,32>() == 0xc3df;
+}
+
+#endif // NDEBUG
 
 #endif /* DATUM_H */

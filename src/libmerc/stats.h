@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <thread>
 #include <atomic>
-
 #include <zlib.h>
 
 #include "dict.h"
@@ -38,6 +37,9 @@ public:
     void process_init() {
         first_loop = true;
         prev = { "", "", "", "" };
+        int gz_ret = gzprintf(gzf, ", \"stats\" : [");
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
     }
 
     void process_update(const event_msg &event, uint32_t count) {
@@ -68,7 +70,7 @@ public:
         switch(num_matching) {
         case 0:
             if (!first_loop) {
-                gz_ret = gzprintf(gzf, "}]}]}]}\n");
+                gz_ret = gzprintf(gzf, "}]}]}]},");
             }
             if (gz_ret <= 0)
                 throw std::runtime_error("error in gzprintf");
@@ -92,7 +94,7 @@ public:
     }
 
     void process_final() {
-        int gz_ret = gzprintf(gzf, "}]}]}]}\n");
+        int gz_ret = gzprintf(gzf, "}]}]}]}]");
         if (gz_ret <= 0)
             throw std::runtime_error("error in gzprintf");
     }
@@ -107,15 +109,14 @@ public:
 
 class event_encoder {
     dict fp_dict;
-    dict addr_dict;
     dict ua_dict;
 
 public:
 
-    event_encoder() : fp_dict{}, addr_dict{}, ua_dict{} {}
+    event_encoder() : fp_dict{}, ua_dict{} {}
 
     bool compute_inverse_map() {
-        return fp_dict.compute_inverse_map() && addr_dict.compute_inverse_map() && ua_dict.compute_inverse_map();
+        return fp_dict.compute_inverse_map() && ua_dict.compute_inverse_map();
     }
 
     void get_inverse(event_msg &event) {
@@ -129,7 +130,7 @@ public:
         std::get<2>(event) = ua_dict.get_inverse(compressed_ua_num);
     }
 
-    void compress_event_string(event_msg& event) {
+    void compress_event_string(event_msg& event, dict& addr_dict) {
 
         const std::string &addr = std::get<0>(event);
         const std::string &fngr = std::get<1>(event);
@@ -176,16 +177,17 @@ class stats_aggregator {
     std::string observation;  // used as preallocated temporary variable
     size_t num_entries;
     size_t max_entries;
+    dict &addr_dict;
 
 public:
 
-    stats_aggregator(size_t size_limit) : event_table{}, encoder{}, observation{}, num_entries{0}, max_entries{size_limit} { }
+    stats_aggregator(dict& _addr_dict, size_t size_limit) : event_table{}, encoder{}, observation{}, num_entries{0}, max_entries{size_limit}, addr_dict{_addr_dict} { }
 
     ~stats_aggregator() {  }
 
     void observe_event_string(event_msg &obs) {
 
-        encoder.compress_event_string(obs);
+        encoder.compress_event_string(obs, addr_dict);
 
         const auto entry = event_table.find(obs);
         if (entry != event_table.end()) {
@@ -236,13 +238,17 @@ public:
 
 };
 
+#define MAX_VERSION_STRING 15
+
 class data_aggregator {
     std::vector<class message_queue *> q;
     stats_aggregator ag1, ag2, *ag;
     std::atomic<bool> shutdown_requested;
+    dict addr_dict;
     std::thread consumer_thread;
     std::mutex m;
     std::mutex output_mutex;
+    char version[MAX_VERSION_STRING];
 
     // stop_processing() MUST NOT be called until all writing to the
     // message_queues has stopped
@@ -286,7 +292,8 @@ class data_aggregator {
 
 public:
 
-    data_aggregator(size_t size_limit=0) : q{}, ag1{size_limit}, ag2{size_limit}, ag{&ag1}, shutdown_requested{false} {
+    data_aggregator(size_t size_limit=0) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false} {
+        mercury_get_version_string(version, MAX_VERSION_STRING);
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
     }
@@ -333,7 +340,11 @@ public:
         consumer_thread = std::thread( [this](){ consumer(); } );  // lambda just calls member function
     }
 
-    void gzprint(gzFile f) {
+    void gzprint(gzFile f,
+                 const char *git_commit_id,
+                 uint32_t git_count,
+                 const char *init_time
+                 ) {
 
         // ensure that only one print function is running at a time
         //
@@ -353,7 +364,14 @@ public:
                 ag = &ag1;
             }
         }
+        int gz_ret = gzprintf(f, "{\"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\", \"build_number\" : \"%u\", \"git_commit_id\": \"%s\"",
+                        init_time, version, git_count, git_commit_id);
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
         tmp->gzprint(f);
+        gz_ret = gzprintf(f, "}\n");
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
     }
 };
 

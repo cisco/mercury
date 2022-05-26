@@ -1,6 +1,9 @@
 import sys
 import json
 import argparse
+import os
+from pathlib import Path
+import gzip
 from collections import defaultdict
 
 
@@ -20,7 +23,7 @@ def update_stats_db(stats, src_ip, str_repr, user_agent, dst_info, count):
     stats[src_ip]['fingerprints'][str_repr][dst_info] += count
 
 
-def read_merc_data(in_file):
+def read_merc_data(in_file, mask_src_ip):
     stats_db    = {}
     total_count = 0
     addr_dict   = {}
@@ -39,6 +42,9 @@ def read_merc_data(in_file):
         if src_ip not in addr_dict:
             addr_dict[src_ip] = len(addr_dict)
         src_ip = addr_dict[src_ip]
+
+        if mask_src_ip is True:
+            src_ip = 0
 
         if 'tls' in r['fingerprints']:
             # extract data elements
@@ -69,8 +75,12 @@ def read_merc_data(in_file):
 
         if 'quic' in r['fingerprints']:
             str_repr    = r['fingerprints']['quic']
-            if 'client' in r['tls'] and 'server_name' in r['tls']['client']:
-                server_name = r['tls']['client']['server_name']
+            if 'tls' in r and 'client' in r['tls']:
+                if 'server_name' in r['tls']['client']:
+                    server_name = r['tls']['client']['server_name']
+
+                if 'google_user_agent' in r['tls']['client']:
+                    user_agent = r['tls']['client']['google_user_agent']
 
             # update stats database
             update_stats_db(stats_db, src_ip, str_repr, user_agent, f'({server_name})({dst_ip})({dst_port})', 1)
@@ -79,29 +89,37 @@ def read_merc_data(in_file):
     return stats_db, total_count
 
 
-def read_merc_stats(in_file):
+def read_merc_stats(in_file, mask_src_ip):
     stats_db    = {}
     total_count = 0
     for line in open(in_file):
         r = json.loads(line)
-        src_ip = int(r['src_ip'], 16)  # convert hex string to integer
-        for x in r['fingerprints']:
-            str_repr = x['str_repr']
-            sessions = x['sessions']
-            for s in sessions:
-                user_agent  = ''
-                if 'user-agent' in s:
-                    user_agent = s['user-agent']
-                for y in s['dest_info']:
-                    dst_info = y['dst']
-                    count    = y['count']
 
-                    # update stats database
-                    update_stats_db(stats_db, src_ip, str_repr, user_agent, dst_info, count)
-                    total_count += count
+        if 'stats' not in r:
+            continue
+
+        for stats in r['stats']:
+            src_ip = int(stats['src_ip'], 16)  # convert hex string to integer
+
+            if mask_src_ip is True:
+                src_ip = 0
+
+            for x in stats['fingerprints']:
+                str_repr = x['str_repr']
+                sessions = x['sessions']
+                for s in sessions:
+                    user_agent  = ''
+                    if 'user-agent' in s:
+                        user_agent = s['user-agent']
+                    for y in s['dest_info']:
+                        dst_info = y['dst']
+                        count    = y['count']
+
+                        # update stats database
+                        update_stats_db(stats_db, src_ip, str_repr, user_agent, dst_info, count)
+                        total_count += count
 
     return stats_db, total_count
-
 
 def is_match(x, y):
     for str_repr, v in x['fingerprints'].items():
@@ -158,13 +176,52 @@ def compare_stats_dbs(merc_db, merc_stats):
 
     return True
 
+def is_entry_match(x, y, unmatched_fps):
+    for str_repr, v in x['fingerprints'].items():
+        for dst,_ in v.items():
+            try:
+                if x['fingerprints'][str_repr][dst] > y['fingerprints'][str_repr][dst]:
+                    unmatched_fps.append(str_repr + "-->" + dst)
+                    return False
+            except KeyError:
+                unmatched_fps.append(str_repr)
+                return False
+    return True
+
+def approx_stats_compare_db(merc_db, merc_stats):
+    unmatched_fps = []
+    for k,_ in merc_stats.items():
+        if k not in merc_db:
+            unmatched_fps.append(k)
+            continue
+        if merc_stats[k]['count'] > merc_db[k]['count']:
+            unmatched_fps.append(k)
+            continue
+
+        is_entry_match(merc_stats[k], merc_db[k], unmatched_fps)
+
+    if len(unmatched_fps):
+        print('below fingerprint strings/destination parameters donot match')
+        for x in unmatched_fps:
+            print(x)
+        return False
+
+    return True
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-m','--mercury-output',action='store',dest='merc_out',
                       help='mercury output file',default=None)
+    parser.add_argument('-d', '--directory-path', action='store', dest = 'path',
+                      help='directory path for stats file', type=Path, default=os.getcwd())
     parser.add_argument('-s','--mercury-stats',action='store',dest='merc_stats',
-                      help='mercury statistics file',default=None)
+                      help='mercury statistics file prefix',default=None)
+    parser.add_argument('-i', '--ignore-src', action='store_true', dest='ignore_src_ip',
+                      help='Ignore src ip while comparing',
+                      default='False')
+    parser.add_argument('-a', '--approx-match', action='store_true', dest='approx_match',
+                      help='approximate match of stats and json entries',
+                      default='False')
 
     args = parser.parse_args()
     if args.merc_out == None:
@@ -174,19 +231,42 @@ def main():
         print('error: specify mercury statistics file')
         sys.exit(1)
 
-    merc_db, merc_count             = read_merc_data(args.merc_out)
-    merc_db_stats, merc_count_stats = read_merc_stats(args.merc_stats)
+    merc_db, merc_count = read_merc_data(args.merc_out, args.ignore_src_ip)
+    # Locate all the stats file that starts with prefix merc_stats
+    # Unzip the file(s) and store the extracted data in a temp file tempstats.json
+    file_list = [filename for filename in os.listdir(args.path) if filename.startswith(args.merc_stats)]
 
-    if merc_count != merc_count_stats:
-        print(f'error: merc_out count ({merc_count}) != merc_stats count ({merc_count_stats})')
-        sys.exit(1)
+    fp = open("tempstats.json", "w+b")
 
-    # print(merc_count)
-    # print(merc_count_stats)
+    for f in file_list:
+        with gzip.open(f) as file:
+            data = file.read()
+            fp.write(data)
 
-    if compare_stats_dbs(merc_db, merc_db_stats) == False:
-        print('error: stats database comparison failed')
-        sys.exit(1)
+    fp.close()
+
+    merc_db_stats, merc_count_stats = read_merc_stats("tempstats.json", args.ignore_src_ip)
+
+    if args.approx_match is True:
+        if merc_count - merc_count_stats > 0.1 * merc_count:
+            print(f'error: Difference between merc_out count ({merc_count}) and merc_stats count ({merc_count_stats}) is greater then 10%')
+            sys.exit(1)
+
+        if approx_stats_compare_db(merc_db, merc_db_stats) == False:
+            print('error: stats database comparison failed')
+            sys.exit(1)
+
+    else:
+        if merc_count != merc_count_stats:
+            print(f'error: merc_out count ({merc_count}) != merc_stats count ({merc_count_stats})')
+            sys.exit(1)
+
+        # print(merc_count)
+        # print(merc_count_stats)
+
+        if compare_stats_dbs(merc_db, merc_db_stats) == False:
+            print('error: stats database comparison failed')
+            sys.exit(1)
 
     print('success: stats databases match')
     sys.exit(0)

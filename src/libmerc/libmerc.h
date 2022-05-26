@@ -612,6 +612,20 @@ extern "C" LIBMERC_DLL_EXPORTED
 uint32_t mercury_get_version_number();
 
 /**
+ * @brief prints the mercury semantic version
+ *
+ * Prints the semantic version of mercury/libmerc to the buffer provided
+ * as input.
+ *
+ * @param [in] buffer to print semantic version on.
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+void mercury_get_version_string(char *buf, size_t size);
+
+/**
  * @brief returns the resource archive VERSION
  *
  * Returns a pointer to a NULL-terminated string containing the

@@ -11,6 +11,7 @@
 #include "libmerc/ip.h"
 #include "libmerc/tcpip.h"
 #include "libmerc/udp.h"
+#include "pcap.h"
 
 void dump_packet_info(struct datum &pkt_data);
 
@@ -24,7 +25,9 @@ int main(int argc, char *argv[]) {
 
     size_t i=0;
     try {
-        struct pcap_file pcap(pcap_file_name, io_direction_reader);
+        //struct pcap_file pcap(pcap_file_name, io_direction_reader);
+        pcap::file_reader pcap(pcap_file_name);
+        // pcap pcap(pcap_file_name);
         printf("linktype: %s\n", pcap.get_linktype());
         packet<65536> pkt;
         while (true) {
@@ -38,7 +41,7 @@ int main(int argc, char *argv[]) {
         }
     }
     catch (std::exception &e) {
-        fprintf(stderr, "error processing pcap_file %s\n", pcap_file_name);
+        fprintf(stderr, "error processing pcap_file %s:\t", pcap_file_name);
         fprintf(stderr, "%s\n", e.what());
         exit(EXIT_FAILURE);
     }
@@ -65,10 +68,12 @@ void dump_packet_info(struct datum &pkt_data) {
             ip::protocol protocol = ip_pkt.transport_protocol();
             fprintf(stdout, "packet.ip.protocol: %u\n", protocol);
             if (protocol == ip::protocol::tcp) {
-                struct tcp_packet tcp_pkt;
-                tcp_pkt.parse(pkt_data);
+                struct tcp_packet tcp_pkt{pkt_data};
                 tcp_pkt.set_key(k);
                 fprintf(stdout, "packet.ip.tcp.data.length: %zd\n", pkt_data.length());
+                fprintf(stdout, "packet.ip.tcp.data:");
+                pkt_data.fprint_hex(stdout);
+                fputc('\n', stdout);
             } else if (protocol == ip::protocol::udp) {
                 class udp udp_pkt{pkt_data};
                 udp_pkt.set_key(k);
