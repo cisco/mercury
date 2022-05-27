@@ -9,17 +9,30 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normalizing metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.
 
+## Version 2.5.5
+
+* Experimental: initial pcap-ng parsing code.
+* Initial microbenchmarking code to analyze pcap throughput.
+* Telemetry enhancements: performance optimizations and new fields such as the libmerc version and initialization time.
+* Added changes to prioritize packet filter config over STATIC_CFG_SELECT.
+
+## Version 2.5.4
+
+* Experimental: initial Android support for standalone mercury and cython integration.
+* New option for time-based output file rotation.
+* Telemetry bugfixes to address inconsistent data across telemetry files post-rotation.
+
 ## Version 2.5.3
 
-* Added support for reading and processing different LINKTYPEs; ETHERNET, RAW (IP), and PP are currently supported.
-* Added TLS and QUIC ALPN and user-agent reporting into libmerc.h API. 
+* Added support for reading and processing different LINKTYPEs; ETHERNET, RAW (IP), and PPP are currently supported.
+* Added TLS and QUIC ALPN and user-agent reporting into libmerc.h API.
 * Updated IANA values and added support for Facebook’s custom versions
 
 ## Version 2.5.2
 * Improved QUIC fingerprinting.
 * Added support for HTTP and QUIC process identification.
 * Improved HTTP process identification by incorporating the User-Agent as additional context in the classifier.
-* Separated the DTLS class from the TLS class, and moved it into its own [separate header file](src/libmerc/dtls.h). 
+* Separated the DTLS class from the TLS class, and moved it into its own [separate header file](src/libmerc/dtls.h).
 
 ## Version 2.5.1
 * Extended the `stats` feature to report HTTP and QUIC metadata data, in addition to TLS data. Refactored the message queues to use tuples to serialise/deserialisze data features.
