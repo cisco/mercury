@@ -627,49 +627,81 @@ struct quic_initial_packet {
 
 };
 
+enum quic_salts {
+    SALT_D22,
+    SALT_D23_D28,
+    SALT_D29_D32,
+    SALT_D33_V1
+};
+
+#define MAX_SALTS 4
+#define MAX_SALT_LEN 20
+#define MAX_QUIC_VERSIONS 30
 class quic_parameters {
-    std::unordered_map<uint32_t, uint8_t*> quic_initial_salt;
-
-    uint8_t salt_d22[20]     = {0x7f,0xbc,0xdb,0x0e,0x7c,0x66,0xbb,0xe9,0x19,0x3a,0x96,0xcd,0x21,0x51,0x9e,0xbd,0x7a,0x02,0x64,0x4a};
-    uint8_t salt_d23_d28[20] = {0xc3,0xee,0xf7,0x12,0xc7,0x2e,0xbb,0x5a,0x11,0xa7,0xd2,0x43,0x2b,0xb4,0x63,0x65,0xbe,0xf9,0xf5,0x02};
-    uint8_t salt_d29_d32[20] = {0xaf,0xbf,0xec,0x28,0x99,0x93,0xd2,0x4c,0x9e,0x97,0x86,0xf1,0x9c,0x61,0x11,0xe0,0x43,0x90,0xa8,0x99};
-    uint8_t salt_d33_v1[20]  = {0x38,0x76,0x2c,0xf7,0xf5,0x59,0x34,0xb3,0x4d,0x17,0x9a,0xe6,0xa4,0xc8,0x0c,0xad,0xcc,0xbb,0x7f,0x0a};
-
+    std::unordered_map<uint32_t, quic_salts> quic_initial_salt;
 
 public:
+    const uint8_t salts[MAX_SALTS][MAX_SALT_LEN] = {{0x7f,0xbc,0xdb,0x0e,0x7c,0x66,0xbb,0xe9,0x19,0x3a,0x96,0xcd,0x21,0x51,0x9e,0xbd,0x7a,0x02,0x64,0x4a},
+                                              {0xc3,0xee,0xf7,0x12,0xc7,0x2e,0xbb,0x5a,0x11,0xa7,0xd2,0x43,0x2b,0xb4,0x63,0x65,0xbe,0xf9,0xf5,0x02},
+                                              {0xaf,0xbf,0xec,0x28,0x99,0x93,0xd2,0x4c,0x9e,0x97,0x86,0xf1,0x9c,0x61,0x11,0xe0,0x43,0x90,0xa8,0x99},
+                                              {0x38,0x76,0x2c,0xf7,0xf5,0x59,0x34,0xb3,0x4d,0x17,0x9a,0xe6,0xa4,0xc8,0x0c,0xad,0xcc,0xbb,0x7f,0x0a}};
 
     quic_parameters() {
+        quic_initial_salt.reserve(MAX_QUIC_VERSIONS);
         quic_initial_salt = {
-            {4207849473, salt_d22},     // faceb001
-            {4207849474, salt_d23_d28}, // faceb002
-            {4207849486, salt_d23_d28}, // faceb00e
-            {4207849488, salt_d23_d28}, // faceb010
-            {4207849489, salt_d23_d28}, // faceb011
-            {4207849490, salt_d23_d28}, // faceb012
-            {4207849491, salt_d23_d28}, // faceb013
-            {4278190102, salt_d22},     // draft-22
-            {4278190103, salt_d23_d28}, // draft-23
-            {4278190104, salt_d23_d28}, // draft-24
-            {4278190105, salt_d23_d28}, // draft-25
-            {4278190106, salt_d23_d28}, // draft-26
-            {4278190107, salt_d23_d28}, // draft-27
-            {4278190108, salt_d23_d28}, // draft-28
-            {4278190109, salt_d29_d32}, // draft-29
-            {4278190110, salt_d29_d32}, // draft-30
-            {4278190111, salt_d29_d32}, // draft-31
-            {4278190112, salt_d29_d32}, // draft-32
-            {4278190113, salt_d33_v1},  // draft-33
-            {4278190114, salt_d33_v1},  // draft-34
-            {1,          salt_d33_v1},  // version-1
+            {4207849473, quic_salts::SALT_D22},     // faceb001
+            {4207849474, quic_salts::SALT_D23_D28}, // faceb002
+            {4207849486, quic_salts::SALT_D23_D28}, // faceb00e
+            {4207849488, quic_salts::SALT_D23_D28}, // faceb010
+            {4207849489, quic_salts::SALT_D23_D28}, // faceb011
+            {4207849490, quic_salts::SALT_D23_D28}, // faceb012
+            {4207849491, quic_salts::SALT_D23_D28}, // faceb013
+            {4278190102, quic_salts::SALT_D22},     // draft-22
+            {4278190103, quic_salts::SALT_D23_D28}, // draft-23
+            {4278190104, quic_salts::SALT_D23_D28}, // draft-24
+            {4278190105, quic_salts::SALT_D23_D28}, // draft-25
+            {4278190106, quic_salts::SALT_D23_D28}, // draft-26
+            {4278190107, quic_salts::SALT_D23_D28}, // draft-27
+            {4278190108, quic_salts::SALT_D23_D28}, // draft-28
+            {4278190109, quic_salts::SALT_D29_D32}, // draft-29
+            {4278190110, quic_salts::SALT_D29_D32}, // draft-30
+            {4278190111, quic_salts::SALT_D29_D32}, // draft-31
+            {4278190112, quic_salts::SALT_D29_D32}, // draft-32
+            {4278190113, quic_salts::SALT_D33_V1},  // draft-33
+            {4278190114, quic_salts::SALT_D33_V1},  // draft-34
+            {1,          quic_salts::SALT_D33_V1},  // version-1
         };
     }
 
-    uint8_t *get_initial_salt(uint32_t version) {
+    void add_salt_mapping(uint32_t version, quic_salts salt_num) {
+        if (quic_initial_salt.size() > MAX_QUIC_VERSIONS) {
+            return;
+        }
+        quic_initial_salt.emplace(version, salt_num);
+    }
+        
+    const uint8_t *get_initial_salt(uint32_t version, const char*& salt_str) {
         auto pair = quic_initial_salt.find(version);
         if (pair != quic_initial_salt.end()) {
-            return pair->second;
+            salt_str = get_salt_string(pair->second);
+            return salts[pair->second];
         } else {
             return nullptr;
+        }
+    }
+
+    const char* get_salt_string(quic_salts salt) {
+        switch(salt) {
+        case SALT_D22:
+            return "salt_d22";
+        case SALT_D23_D28:
+            return "salt_d23_28";
+        case SALT_D29_D32:
+            return "salt_d29_d32";
+        case SALT_D33_V1:
+            return "salt_d33_v1";
+        default:
+            return "unknown";
         }
     }
 
@@ -703,6 +735,8 @@ class quic_crypto_engine {
 
     unsigned char plaintext[pt_buf_len] = {0};
     int16_t plaintext_len = 0;
+    
+    const char *salt_str = nullptr;
 
 public:
 
@@ -723,34 +757,54 @@ public:
         //     fprintf(stderr, "warning: need aad_buffer[%zu], only have %zu\n", sizeof(aad_buffer), aad_len);
         // }
         // datum aad{aad_buffer, aad_buffer+aad_len};
+        uint32_t version = ntohl(*((uint32_t*)quic_pkt.version.data));
+        static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
+        const uint8_t *initial_salt = quic_params.get_initial_salt(version, salt_str);
 
-        if (process_initial_packet(aad, quic_pkt) == false) {
+        if (initial_salt) {
+
+            if (process_initial_packet(aad, quic_pkt, initial_salt) == false) {
+                return {nullptr, nullptr};
+            }
+            decrypt__(aad.buffer, aad.length(),
+                  quic_pkt.payload.data, quic_pkt.payload.length());
+            return {plaintext, plaintext+plaintext_len};
+        } else {
+            for (auto salt_num = 0; salt_num < MAX_SALTS; salt_num++) {
+                if (process_initial_packet(aad, quic_pkt, quic_params.salts[salt_num]) == false) {
+                    reset_buffers();
+                    continue;
+                }
+                decrypt__(aad.buffer, aad.length(),
+                  quic_pkt.payload.data, quic_pkt.payload.length());
+    
+                if (plaintext_len) {
+                    salt_str = quic_params.get_salt_string((quic_salts)salt_num);
+                    quic_params.add_salt_mapping(version, (quic_salts)salt_num);
+                    return {plaintext, plaintext+plaintext_len};
+                }
+                aad.reset();
+            }
             return {nullptr, nullptr};
         }
-        decrypt__(aad.buffer, aad.length(),
-                  quic_pkt.payload.data, quic_pkt.payload.length());
-        return {plaintext, plaintext+plaintext_len};
+    }
+
+    void write_json(struct json_object &record) {
+        record.print_key_string("salt_string", salt_str);
     }
 
 private:
 
-    bool process_initial_packet(data_buffer<1024> &aad, const quic_initial_packet &quic_pkt) {
+    bool process_initial_packet(data_buffer<1024> &aad, const quic_initial_packet &quic_pkt, const uint8_t* salt) {
         if (!quic_pkt.is_not_empty()) {
             return false;
         }
         const uint8_t *dcid = quic_pkt.dcid.data;
         size_t dcid_len = quic_pkt.dcid.length();
-        uint32_t version = ntohl(*((uint32_t*)quic_pkt.version.data));
-
-        static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
-        uint8_t *initial_salt = quic_params.get_initial_salt(version);
-        if (initial_salt == nullptr) {
-            return false;
-        }
 
         uint8_t initial_secret[EVP_MAX_MD_SIZE];
         unsigned int initial_secret_len = 0;
-        HMAC(EVP_sha256(), initial_salt, salt_length, dcid, dcid_len, initial_secret, &initial_secret_len);
+        HMAC(EVP_sha256(), salt, salt_length, dcid, dcid_len, initial_secret, &initial_secret_len);
 
         uint8_t c_initial_secret[EVP_MAX_MD_SIZE] = {0};
         unsigned int c_initial_secret_len = 0;
@@ -764,8 +818,33 @@ private:
         static constexpr size_t sample_offset = 4;
         uint8_t mask[32] = {0};
         core_crypto.ecb_encrypt(quic_hp,mask,quic_pkt.payload.data + sample_offset,16);
-        pn_length = quic_pkt.connection_info ^ (mask[0] & 0x0f);
-        pn_length = (pn_length & 0x03) + 1;
+
+        uint8_t unmasked_conn_info;
+        unmasked_conn_info = quic_pkt.connection_info ^ (mask[0] & 0x0f);
+        /*
+         * Reference from RFC 9000:
+         *
+         * Reserved Bits:  Two bits (those with a mask of 0x0c) of byte 0 are
+         * reserved across multiple packet types.  These bits are protected
+         * using header protection. The value included prior to protection MUST be
+         * set to 0.  An endpoint MUST treat receipt of a packet that has a
+         * non-zero value for these bits after removing both packet and header
+         * protection as a connection error of type PROTOCOL_VIOLATION.
+         * Discarding such a packet after only removing header protection can
+         * expose the endpoint to attacks;
+         *
+         * Refer to RFC 9001 for details on the above mentioned attack(section 9.5)
+         * https://www.rfc-editor.org/info/rfc9001
+         *
+         * Timing attacks are not applicable in the context of mercury
+         * Hence we can safely rely on checking if the reserved bit is zero after
+         * removing header protection.
+         */
+        if ((unmasked_conn_info & 0x0c) != 0) {
+            return false;
+        }
+
+        pn_length = (unmasked_conn_info & 0x03) + 1;
 
         aad.copy(quic_pkt.connection_info ^ (mask[0] & 0x0f));
         aad.copy(quic_pkt.aad_start + 1, (quic_pkt.aad_end - quic_pkt.aad_start) - 1);
@@ -789,6 +868,13 @@ private:
         return true;
     }
 
+    void reset_buffers() {
+        quic_key_len = 0;
+        quic_iv_len = 0;
+        quic_hp_len = 0;
+        pn_length = 0;
+    }
+
     void decrypt__(const uint8_t *ad, unsigned int ad_len, const uint8_t *data, unsigned int length) {
 
         uint16_t cipher_len = length - pn_length;
@@ -799,12 +885,8 @@ private:
         
         // reset buffer states after decryption 
         //
-        quic_key_len = 0;
-        quic_iv_len = 0;
-        quic_hp_len = 0;
-        pn_length = 0; 
+        reset_buffers();
     }
-
 };
 
 //   Version Negotiation Packet {
@@ -1088,6 +1170,7 @@ public:
             cc.write_json(quic_record);
         }
         if (plaintext.is_not_empty()) {
+            quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
         }
         // json_object frame_dump{record, "frame_dump"};
