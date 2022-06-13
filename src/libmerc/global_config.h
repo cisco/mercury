@@ -63,6 +63,8 @@ public:
             { "dns",         false },
             { "dtls",        false },
             { "http",        false },
+            { "mdns",        false },
+            { "nbns",        false },
             { "ssh",         false },
             { "tcp",         false },
             { "tcp.message", false },
