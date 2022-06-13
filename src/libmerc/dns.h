@@ -289,7 +289,6 @@ struct dns_label_header {
 struct dns_name : public data_buffer<256> {
 
     static const unsigned int recursion_threshold = 16;  // prevents stack overflow
-    data_buffer<MAX_NETBIOS_NAME> netbios_name;
     bool is_netbios_name;
 
     dns_name() : data_buffer{}, is_netbios_name{false} {}
@@ -335,30 +334,33 @@ struct dns_name : public data_buffer<256> {
 
         if (check_netbios()) {
             is_netbios_name = true;
-            uint8_t c;
-            /*
-             * NetBIOS names are 16 bytes long, but they are mapped to a 32-byte
-             * wide string of alphabet (A,B...O,P) using a
-             * reversible, half-ASCII, biased encoding.
-             *
-             * Encoding algorithm:
-             * Each 4-bit, half-octet of the NetBIOS name is treated as an 8-bit,
-             * right-adjusted, zero-filled binary number.  This number is added to 
-             * value of the ASCII character 'A' (hexidecimal 41).  The resulting
-             * 8-bit number is stored in the appropriate byte.
-             *
-             * Decoding is the reverse of the encoding process.
-             * Reference:
-             * https://datatracker.ietf.org/doc/html/rfc1001#section-14.1
-             */
-            for (int i = 0; i < MAX_NETBIOS_NAME; i++) {
-                c = (((uint8_t)buffer[2 * i] - int('A')) << 4) |
-                     (((uint8_t)buffer[2 * i + 1] - int('A')) & 0x0f);
-                netbios_name.copy(c);
-            }
         }
     }
 
+    void get_netbios_name (data_buffer<MAX_NETBIOS_NAME> &netbios_name) const {
+        uint8_t c;
+        /*
+         * NetBIOS names are 16 bytes long, but they are mapped to a 32-byte
+         * wide string of alphabet (A,B...O,P) using a
+         * reversible, half-ASCII, biased encoding.
+         *
+         * Encoding algorithm:
+         * Each 4-bit, half-octet of the NetBIOS name is treated as an 8-bit,
+         * right-adjusted, zero-filled binary number.  This number is added to 
+         * value of the ASCII character 'A' (hexidecimal 41).  The resulting
+         * 8-bit number is stored in the appropriate byte.
+         *
+         * Decoding is the reverse of the encoding process.
+         * Reference:
+         * https://datatracker.ietf.org/doc/html/rfc1001#section-14.1
+         */
+         for (int i = 0; i < MAX_NETBIOS_NAME; i++) {
+             c = (((uint8_t)buffer[2 * i] - int('A')) << 4) |
+                     (((uint8_t)buffer[2 * i + 1] - int('A')) & 0x0f);
+            netbios_name.copy(c);
+         }
+    }
+ 
     bool is_netbios() const {
         return is_netbios_name;
     }
@@ -413,7 +415,9 @@ struct dns_question_record {
         if (name.is_not_empty()) {
             struct json_object rr{o, key};
             if (name.is_netbios()) {
-                rr.print_key_json_string("name", name.netbios_name.buffer, name.netbios_name.length());
+                data_buffer<MAX_NETBIOS_NAME> netbios_name;
+                name.get_netbios_name(netbios_name);
+                rr.print_key_json_string("name", netbios_name.buffer, netbios_name.length());
             }
             else {
                 rr.print_key_json_string("name", name.buffer, name.length());
@@ -428,7 +432,9 @@ struct dns_question_record {
         if (name.is_not_empty()) {
             if (name.is_netbios()) {
                 is_netbios = true;
-                o.print_key_json_string("name", name.netbios_name.buffer, name.netbios_name.length());
+                data_buffer<MAX_NETBIOS_NAME> netbios_name;
+                name.get_netbios_name(netbios_name);
+                o.print_key_json_string("name", netbios_name.buffer, netbios_name.length());
             } else {
                 o.print_key_json_string("name", name.buffer, name.length());
             }

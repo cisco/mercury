@@ -38,29 +38,6 @@
  * the source UDP port is not 5353.
  */
 
-#define MDNS_V4ADDR 0xE00000FB /* Hex representation of 224.0.0.251 */
-/* Mdns Multicast IPv6 address ff02::fb */
-#define MDNS_V6_ADDR_0 0xff020000
-#define MDNS_V6_ADDR_1 0x0
-#define MDNS_V6_ADDR_2 0x0
-#define MDNS_V6_ADDR_3 0xFB
-
-bool check_if_mdns(const struct key& k) {
-    if (k.src_port == 5353 and k.dst_port == 5353) {
-        return true;
-    }
-    /* Below condition is to detect One shot multicast dns queries */
-    if (k.ip_vers == 4) {
-        return (k.addr.ipv4.dst == ntohl(MDNS_V4ADDR));
-    }
-    else {
-        return (k.addr.ipv6.dst.a ==  ntohl(MDNS_V6_ADDR_0)
-                and k.addr.ipv6.dst.b ==  ntohl(MDNS_V6_ADDR_1)
-                and k.addr.ipv6.dst.c ==  ntohl(MDNS_V6_ADDR_2)
-                and k.addr.ipv6.dst.d ==  ntohl(MDNS_V6_ADDR_3));
-    }
-}
-
 struct mdns_packet {
     dns_packet dns_pkt;
 
@@ -69,12 +46,36 @@ struct mdns_packet {
     struct datum get_datum() const {
         return (dns_pkt.get_datum());
     }
+
     bool is_not_empty() {
         return (dns_pkt.is_not_empty());
     }
 
     void write_json(struct json_object &o) const {
         dns_pkt.write_json(o);
+    }
+
+    static bool check_if_mdns(const struct key& k) {
+        static constexpr uint32_t mdns_v4_addr = 0xE00000FB; /* Hex representation of 224.0.0.251 */
+        /* Mdns Multicast IPv6 address ff02::fb */
+        static constexpr uint32_t mdns_v6_addr_0 = 0xff020000;
+        static constexpr uint32_t mdns_v6_addr_1 = 0;
+        static constexpr uint32_t mdns_v6_addr_2 = 0;
+        static constexpr uint32_t mdns_v6_addr_3 = 0xfb;
+
+        if (k.src_port == 5353 and k.dst_port == 5353) {
+            return true;
+        }
+        /* Below condition is to detect One shot multicast dns queries */
+        if (k.ip_vers == 4) {
+            return (k.addr.ipv4.dst == ntohl(mdns_v4_addr));
+        }
+        else {
+            return (k.addr.ipv6.dst.a ==  ntohl(mdns_v6_addr_0)
+                and k.addr.ipv6.dst.b ==  ntohl(mdns_v6_addr_1)
+                and k.addr.ipv6.dst.c ==  ntohl(mdns_v6_addr_2)
+                and k.addr.ipv6.dst.d ==  ntohl(mdns_v6_addr_3));
+        }
     }
 };
 

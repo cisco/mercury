@@ -448,17 +448,15 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     // }
     switch(msg_type) {
     case udp_msg_type_dns:
-        if (check_if_mdns(k)) {
+        if (mdns_packet::check_if_mdns(k)) {
             if (!selector.mdns()) {
                 return;
             }
             x.emplace<mdns_packet>(pkt);
         } else {
             dns_packet packet{pkt};
-            if (packet.netbios() and !selector.nbns()) {
-                return;
-            }
-            if (!packet.netbios() and !selector.dns()) {
+            if ((packet.netbios() and !selector.nbns()) or
+                (!packet.netbios() and !selector.dns())) {
                 return;
             }
             x = std::move(packet);
