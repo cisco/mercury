@@ -263,7 +263,8 @@ enum perfect_hash_table_type {
                               HTTP_REQUEST_FP = 0,
                               HTTP_RESPONSE_FP = 1,
                               HTTP_REQEUST_HEADERS = 2,
-                              HTTP_RESPONSE_HEADERS = 3
+                              HTTP_RESPONSE_HEADERS = 3,
+                              HTTP_SSDP_HEADERS = 4
 };
 
 struct perfect_hash_visitor {
@@ -272,6 +273,8 @@ struct perfect_hash_visitor {
         switch(type) {
         case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
             return _ph_http_request_headers->lookup(key, strlen(key), success);
+        case perfect_hash_table_type::HTTP_SSDP_HEADERS:
+            return _ph_http_ssdp_headers->lookup(key, strlen(key), success);
         case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
             return _ph_http_response_headers->lookup(key, strlen(key), success);
         case perfect_hash_table_type::HTTP_REQUEST_FP:
@@ -307,6 +310,7 @@ struct perfect_hash_visitor {
         delete _ph_http_response_fp;
         delete _ph_http_request_headers;
         delete _ph_http_response_headers;
+        delete _ph_http_ssdp_headers;
     }
 
 private:
@@ -314,6 +318,7 @@ private:
     perfect_hash<bool>* _ph_http_response_fp;
     perfect_hash<const char*>* _ph_http_request_headers;
     perfect_hash<const char*>* _ph_http_response_headers;
+    perfect_hash<const char*>* _ph_http_ssdp_headers;
 
     perfect_hash_visitor() {
         std::vector<perfect_hash_entry<bool>> fp_data_reqeust = {
@@ -404,10 +409,53 @@ private:
             { "via: ", "via"}
         };
 
+        // std::vector<perfect_hash_entry<const char*>> header_ssdp = {
+        //     { "HOST: ", "host"},
+        //     { "CACHE-CONTROL: ", "cache_control"},
+        //     { "LOCATION: ", "location"},
+        //     { "NT: ", "notify_type"},
+        //     { "NTS: ", "notify_subtype"},
+        //     { "SERVER: ", "server"},
+        //     { "USN: ", "usn"},
+        //     { "MX: ", "delay"},
+        //     { "ST: ", "target"},
+        //     { "USER-AGENT: ", "user_agent"},
+        //     { "DATE: ", "date"},
+        //     { "EXT: ", "ext"},
+        //     { "BOOTID.UPNP.ORG: ", "bootid"},
+        //     { "CONFIGID.UPNP.ORG: ", "conf_id"},
+        //     { "SEARCHPORT.UPNP.ORG: ", "searchport"},
+        //     { "OPT: ", "opt"},
+        //     { "01-NLS: ", "nls"},
+        //     { "MAN:", "man"}
+        // };
+
+        std::vector<perfect_hash_entry<const char*>> header_ssdp = {
+            { "host: ", "host"},
+            { "cache-control: ", "cache_control"},
+            { "location: ", "location"},
+            { "nt: ", "notify_type"},
+            { "nts: ", "notify_subtype"},
+            { "server: ", "server"},
+            { "usn: ", "usn"},
+            { "mx: ", "delay"},
+            { "st: ", "target"},
+            { "user-agent: ", "user_agent"},
+            { "date: ", "date"},
+            { "ext: ", "ext"},
+            { "bootid.upnp.org: ", "bootid"},
+            { "configid.upnp.org: ", "conf_id"},
+            { "searchport.upnp.org: ", "searchport"},
+            { "opt: ", "opt"},
+            { "01-nls: ", "nls"},
+            { "man:", "man"}
+        };
+
         _ph_http_request_fp = new perfect_hash<bool>(fp_data_reqeust);
         _ph_http_response_fp = new perfect_hash<bool>(fp_data_response);
         _ph_http_request_headers = new perfect_hash<const char*>(header_data_request);
         _ph_http_response_headers = new perfect_hash<const char*>(header_data_response);
+        _ph_http_ssdp_headers = new perfect_hash<const char*>(header_ssdp);
     }
 };
 

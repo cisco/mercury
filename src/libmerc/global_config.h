@@ -72,6 +72,7 @@ public:
             { "wireguard",   false },
             { "quic",        false },
             { "smtp",        false },
+            { "ssdp",        false },
             { "tls.client_hello", false},
             { "tls.server_hello", false},
             { "tls.server_certificate", false},

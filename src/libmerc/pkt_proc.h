@@ -91,6 +91,7 @@ class dtls_client_hello;
 class
 dtls_server_hello;
 struct dhcp_discover;
+class ssdp_notify;
 class unknown_udp_initial_packet;
 class icmp_packet;                        // start of ip protocols
 class ospf;
@@ -113,6 +114,7 @@ using protocol = std::variant<std::monostate,
                               dtls_client_hello,
                               dtls_server_hello,
                               dhcp_discover,
+                              ssdp_notify,
                               unknown_udp_initial_packet,
                               icmp_packet,                        // start of ip protocols
                               ospf,

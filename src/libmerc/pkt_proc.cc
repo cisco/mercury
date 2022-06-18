@@ -33,6 +33,7 @@
 #include "icmp.h"
 #include "udp.h"
 #include "quic.h"
+#include "ssdp.h"
 #include "smtp.h"
 #include "cdp.h"
 #include "lldp.h"
@@ -247,6 +248,7 @@ struct compute_fingerprint {
     void operator()(unknown_udp_initial_packet &) { }
     void operator()(dns_packet &) { }
     void operator()(mdns_packet &) { }
+    void operator()(ssdp_notify &) { }
     void operator()(std::monostate &) { }
 
 };
@@ -488,6 +490,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_wireguard:
         x.emplace<wireguard_handshake_init>(pkt);
+        break;
+    case udp_msg_type_ssdp:
+        x.emplace<ssdp_notify>(pkt, ph_visitor);
         break;
     default:
         if (is_new) {
