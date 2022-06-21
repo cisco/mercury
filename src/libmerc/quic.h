@@ -627,81 +627,90 @@ struct quic_initial_packet {
 
 };
 
-enum quic_salts {
-    SALT_D22,
-    SALT_D23_D28,
-    SALT_D29_D32,
-    SALT_D33_V1
-};
-
-#define MAX_SALTS 4
-#define MAX_SALT_LEN 20
-#define MAX_QUIC_VERSIONS 30
 class quic_parameters {
-    std::unordered_map<uint32_t, quic_salts> quic_initial_salt;
+public:
+
+    // salt_enum acts as an index for the array of salts
+    //
+    enum salt_enum {
+        D22     = 0,
+        D23_D28 = 1,
+        D29_D32 = 2,
+        D33_V1  = 3
+    };
+
+    // class salt holds a salt value and the printable name associated
+    // with it
+    //
+    class salt {
+        std::array<uint8_t, 20> value;
+        const char *name;
+
+    public:
+
+        salt(std::array<uint8_t, 20> v, const char *n) : value{v}, name{n} { }
+
+        const uint8_t *data() const { return value.data(); }
+
+        const char *get_name() const { return name; }
+    };
+
+    std::array<salt, 4> salts{
+        salt{{0x7f,0xbc,0xdb,0x0e,0x7c,0x66,0xbb,0xe9,0x19,0x3a,0x96,0xcd,0x21,0x51,0x9e,0xbd,0x7a,0x02,0x64,0x4a}, "d22"},
+        salt{{0xc3,0xee,0xf7,0x12,0xc7,0x2e,0xbb,0x5a,0x11,0xa7,0xd2,0x43,0x2b,0xb4,0x63,0x65,0xbe,0xf9,0xf5,0x02}, "d23_d28"},
+        salt{{0xaf,0xbf,0xec,0x28,0x99,0x93,0xd2,0x4c,0x9e,0x97,0x86,0xf1,0x9c,0x61,0x11,0xe0,0x43,0x90,0xa8,0x99}, "d29_d32"},
+        salt{{0x38,0x76,0x2c,0xf7,0xf5,0x59,0x34,0xb3,0x4d,0x17,0x9a,0xe6,0xa4,0xc8,0x0c,0xad,0xcc,0xbb,0x7f,0x0a}, "d33_v1"}
+    };
+
+private:
+
+    std::unordered_map<uint32_t, salt_enum> quic_initial_salt;
 
 public:
-    const uint8_t salts[MAX_SALTS][MAX_SALT_LEN] = {{0x7f,0xbc,0xdb,0x0e,0x7c,0x66,0xbb,0xe9,0x19,0x3a,0x96,0xcd,0x21,0x51,0x9e,0xbd,0x7a,0x02,0x64,0x4a},
-                                              {0xc3,0xee,0xf7,0x12,0xc7,0x2e,0xbb,0x5a,0x11,0xa7,0xd2,0x43,0x2b,0xb4,0x63,0x65,0xbe,0xf9,0xf5,0x02},
-                                              {0xaf,0xbf,0xec,0x28,0x99,0x93,0xd2,0x4c,0x9e,0x97,0x86,0xf1,0x9c,0x61,0x11,0xe0,0x43,0x90,0xa8,0x99},
-                                              {0x38,0x76,0x2c,0xf7,0xf5,0x59,0x34,0xb3,0x4d,0x17,0x9a,0xe6,0xa4,0xc8,0x0c,0xad,0xcc,0xbb,0x7f,0x0a}};
+
+    static constexpr size_t MAX_QUIC_VERSIONS{30};  // limit memory usage
 
     quic_parameters() {
+
         quic_initial_salt.reserve(MAX_QUIC_VERSIONS);
         quic_initial_salt = {
-            {4207849473, quic_salts::SALT_D22},     // faceb001
-            {4207849474, quic_salts::SALT_D23_D28}, // faceb002
-            {4207849486, quic_salts::SALT_D23_D28}, // faceb00e
-            {4207849488, quic_salts::SALT_D23_D28}, // faceb010
-            {4207849489, quic_salts::SALT_D23_D28}, // faceb011
-            {4207849490, quic_salts::SALT_D23_D28}, // faceb012
-            {4207849491, quic_salts::SALT_D23_D28}, // faceb013
-            {4278190102, quic_salts::SALT_D22},     // draft-22
-            {4278190103, quic_salts::SALT_D23_D28}, // draft-23
-            {4278190104, quic_salts::SALT_D23_D28}, // draft-24
-            {4278190105, quic_salts::SALT_D23_D28}, // draft-25
-            {4278190106, quic_salts::SALT_D23_D28}, // draft-26
-            {4278190107, quic_salts::SALT_D23_D28}, // draft-27
-            {4278190108, quic_salts::SALT_D23_D28}, // draft-28
-            {4278190109, quic_salts::SALT_D29_D32}, // draft-29
-            {4278190110, quic_salts::SALT_D29_D32}, // draft-30
-            {4278190111, quic_salts::SALT_D29_D32}, // draft-31
-            {4278190112, quic_salts::SALT_D29_D32}, // draft-32
-            {4278190113, quic_salts::SALT_D33_V1},  // draft-33
-            {4278190114, quic_salts::SALT_D33_V1},  // draft-34
-            {1,          quic_salts::SALT_D33_V1},  // version-1
+            {4207849473, salt_enum::D22},     // faceb001
+            {4207849474, salt_enum::D23_D28}, // faceb002
+            {4207849486, salt_enum::D23_D28}, // faceb00e
+            {4207849488, salt_enum::D23_D28}, // faceb010
+            {4207849489, salt_enum::D23_D28}, // faceb011
+            {4207849490, salt_enum::D23_D28}, // faceb012
+            {4207849491, salt_enum::D23_D28}, // faceb013
+            {4278190102, salt_enum::D22},     // draft-22
+            {4278190103, salt_enum::D23_D28}, // draft-23
+            {4278190104, salt_enum::D23_D28}, // draft-24
+            {4278190105, salt_enum::D23_D28}, // draft-25
+            {4278190106, salt_enum::D23_D28}, // draft-26
+            {4278190107, salt_enum::D23_D28}, // draft-27
+            {4278190108, salt_enum::D23_D28}, // draft-28
+            {4278190109, salt_enum::D29_D32}, // draft-29
+            {4278190110, salt_enum::D29_D32}, // draft-30
+            {4278190111, salt_enum::D29_D32}, // draft-31
+            {4278190112, salt_enum::D29_D32}, // draft-32
+            {4278190113, salt_enum::D33_V1},  // draft-33
+            {4278190114, salt_enum::D33_V1},  // draft-34
+            {1,          salt_enum::D33_V1},  // version-1
         };
     }
 
-    void add_salt_mapping(uint32_t version, quic_salts salt_num) {
+    void add_salt_mapping(uint32_t version, salt_enum salt_num) {
         if (quic_initial_salt.size() > MAX_QUIC_VERSIONS) {
             return;
         }
         quic_initial_salt.emplace(version, salt_num);
     }
-        
-    const uint8_t *get_initial_salt(uint32_t version, const char*& salt_str) {
+
+    const salt *get_initial_salt(uint32_t version) {
         auto pair = quic_initial_salt.find(version);
         if (pair != quic_initial_salt.end()) {
-            salt_str = get_salt_string(pair->second);
-            return salts[pair->second];
+            return &salts[pair->second];
         } else {
             return nullptr;
-        }
-    }
-
-    const char* get_salt_string(quic_salts salt) {
-        switch(salt) {
-        case SALT_D22:
-            return "salt_d22";
-        case SALT_D23_D28:
-            return "salt_d23_28";
-        case SALT_D29_D32:
-            return "salt_d29_d32";
-        case SALT_D33_V1:
-            return "salt_d33_v1";
-        default:
-            return "unknown";
         }
     }
 
@@ -735,7 +744,7 @@ class quic_crypto_engine {
 
     unsigned char plaintext[pt_buf_len] = {0};
     int16_t plaintext_len = 0;
-    
+
     const char *salt_str = nullptr;
 
 public:
@@ -745,42 +754,32 @@ public:
             return {nullptr, nullptr};
         }
 
-        // copy the additional authenticated data into a buffer, where
-        // it can be edited to remove header protection
-        //
         data_buffer<1024> aad;
-        // uint8_t aad_buffer[1024];
-        // size_t aad_len = quic_pkt.aad_end - quic_pkt.aad_start;
-        // if (aad_len < sizeof(aad_buffer)) {
-        //     memcpy(aad_buffer, quic_pkt.aad_start, aad_len);
-        // } else {
-        //     fprintf(stderr, "warning: need aad_buffer[%zu], only have %zu\n", sizeof(aad_buffer), aad_len);
-        // }
-        // datum aad{aad_buffer, aad_buffer+aad_len};
         uint32_t version = ntohl(*((uint32_t*)quic_pkt.version.data));
         static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
-        const uint8_t *initial_salt = quic_params.get_initial_salt(version, salt_str);
+        const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(version);
 
         if (initial_salt) {
-
-            if (process_initial_packet(aad, quic_pkt, initial_salt) == false) {
+            salt_str = initial_salt->get_name();
+            if (process_initial_packet(aad, quic_pkt, initial_salt->data()) == false) {
                 return {nullptr, nullptr};
             }
             decrypt__(aad.buffer, aad.length(),
                   quic_pkt.payload.data, quic_pkt.payload.length());
             return {plaintext, plaintext+plaintext_len};
         } else {
-            for (auto salt_num = 0; salt_num < MAX_SALTS; salt_num++) {
-                if (process_initial_packet(aad, quic_pkt, quic_params.salts[salt_num]) == false) {
+
+            for (size_t i = 0; i < quic_params.salts.size(); i++) {
+                if (process_initial_packet(aad, quic_pkt, quic_params.salts[i].data()) == false) {
                     reset_buffers();
                     continue;
                 }
                 decrypt__(aad.buffer, aad.length(),
                   quic_pkt.payload.data, quic_pkt.payload.length());
-    
+
                 if (plaintext_len) {
-                    salt_str = quic_params.get_salt_string((quic_salts)salt_num);
-                    quic_params.add_salt_mapping(version, (quic_salts)salt_num);
+                    salt_str = quic_params.salts[i].get_name();
+                    quic_params.add_salt_mapping(version, (quic_parameters::salt_enum)i);
                     return {plaintext, plaintext+plaintext_len};
                 }
                 aad.reset();
