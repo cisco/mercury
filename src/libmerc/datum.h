@@ -591,9 +591,9 @@ template <size_t T> struct data_buffer {
     // template specialization for datum
     //
     data_buffer<T> & operator<<(datum d) {
-
-        // TODO: implement this
-
+        if (d.is_not_null()) {
+            copy(d);
+        }
         return *this;
     }
 
