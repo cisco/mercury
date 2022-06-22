@@ -86,6 +86,7 @@ class unknown_initial_packet;
 class quic_init;                         // start of udp protocols
 struct wireguard_handshake_init;
 struct dns_packet;
+struct mdns_packet;
 class dtls_client_hello;
 class
 dtls_server_hello;
@@ -108,6 +109,7 @@ using protocol = std::variant<std::monostate,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
                               dns_packet,
+                              mdns_packet,
                               dtls_client_hello,
                               dtls_server_hello,
                               dhcp_discover,
@@ -268,7 +270,8 @@ struct stateful_pkt_proc {
     void set_udp_protocol(protocol &x,
                           struct datum &pkt,
                           enum udp_msg_type msg_type,
-                          bool is_new);
+                          bool is_new,
+                          const struct key& k);
 };
 
 #endif /* PKT_PROC_H */

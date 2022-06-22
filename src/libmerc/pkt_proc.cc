@@ -21,6 +21,7 @@
 #include "ip.h"
 #include "tcp.h"
 #include "dns.h"
+#include "mdns.h"
 #include "tls.h"
 #include "http.h"
 #include "wireguard.h"
@@ -171,15 +172,33 @@ struct write_metadata {
     }
 
     void operator()(dns_packet &r) {
+        std::string name{"dns"};
+        if (r.netbios()) {
+            name = "nbns";
+        }
+
         if (dns_json_output_) {
-            struct json_object json_dns{record, "dns"};
+            struct json_object json_dns{record, name.c_str()};
             r.write_json(json_dns);
             json_dns.close();
         } else {
-            struct json_object json_dns{record, "dns"};
+            struct json_object json_dns{record, name.c_str()};
             struct datum pkt = r.get_datum();  // get complete packet
             json_dns.print_key_base64("base64", pkt);
             json_dns.close();
+        }
+    }
+
+    void operator()(mdns_packet &r) {
+        if (dns_json_output_) {
+            struct json_object json_mdns{record, "mdns"};
+            r.write_json(json_mdns);
+            json_mdns.close();
+        } else {
+            struct json_object json_mdns{record, "mdns"};
+            struct datum pkt = r.get_datum();  // get complete packet
+            json_mdns.print_key_base64("base64", pkt);
+            json_mdns.close();
         }
     }
 
@@ -227,6 +246,7 @@ struct compute_fingerprint {
     void operator()(unknown_initial_packet &) { }
     void operator()(unknown_udp_initial_packet &) { }
     void operator()(dns_packet &) { }
+    void operator()(mdns_packet &) { }
     void operator()(std::monostate &) { }
 
 };
@@ -416,7 +436,8 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
 void stateful_pkt_proc::set_udp_protocol(protocol &x,
                       struct datum &pkt,
                       enum udp_msg_type msg_type,
-                      bool is_new) {
+                      bool is_new,
+                      const struct key& k) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -427,7 +448,19 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     // }
     switch(msg_type) {
     case udp_msg_type_dns:
-        x.emplace<dns_packet>(pkt);
+        if (mdns_packet::check_if_mdns(k)) {
+            if (!selector.mdns()) {
+                return;
+            }
+            x.emplace<mdns_packet>(pkt);
+        } else {
+            dns_packet packet{pkt};
+            if ((packet.netbios() and !selector.nbns()) or
+                (!packet.netbios() and !selector.dns())) {
+                return;
+            }
+            x = std::move(packet);
+        }
         break;
     case udp_msg_type_dhcp:
         x.emplace<dhcp_discover>(pkt);
@@ -559,7 +592,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
-        set_udp_protocol(x, pkt, msg_type, is_new);
+        set_udp_protocol(x, pkt, msg_type, is_new, k);
     }
 
     // process transport/application protocol
@@ -784,7 +817,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
         }
 
-        set_udp_protocol(x, pkt, msg_type, false);
+        set_udp_protocol(x, pkt, msg_type, false, k);
     }
 
     // process protocol data element
