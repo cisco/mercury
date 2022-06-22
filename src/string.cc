@@ -23,6 +23,7 @@ std::vector<size_t> create_sorted_index(std::vector<T> const& v) {
     return idx;
 }
 
+using namespace mercury_option;
 
 int main(int argc, char *argv[]) {
 
