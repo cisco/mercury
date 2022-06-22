@@ -9,7 +9,7 @@
 //
 //   1.  Implement traditional PCAP file format reader [DONE]
 //
-//   2.  Implement traditional PCAP file writer
+//   2.  Implement traditional PCAP file writer [DONE]
 //
 //   3.  Implement a basic PCAP-NG file writer
 //
@@ -93,6 +93,19 @@ public:
 
 };
 
+// class pad reads and ignores padding data
+//
+class pad {
+public:
+
+    pad(datum &d, size_t n) {
+        d.data += n;
+        if (d.data > d.data_end) {
+            d.set_null();
+        }
+    }
+};
+
 // class ignore<T> parses a data element of type T, but then ignores
 // (does not store) its value.  It can be used to check the format of
 // data that need not be stored.
@@ -122,6 +135,80 @@ public:
 
 namespace pcap {
 
+    enum LINKTYPE : uint16_t {
+        NULL_    =   0,  // BSD loopback encapsulation
+        ETHERNET =   1,  // Ethernet
+        PPP      =   9,  // Point-to-Point Protocol (PPP)
+        RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
+        NONE     = 65535 // reserved, used here as 'none'
+    };
+
+    // A magic_number is a 32-bit number that indicates both the
+    // endianness of the integer encoding used in a PCAP file, as well
+    // as its time resolution (microseconds or nanoseconds).
+    //
+    class magic_values : public encoded<uint32_t> {
+        bool byteswap = false;
+
+    public:
+
+        // The value of a Magic Number field is either 0xA1B2C3D4 or
+        // 0xA1B23C4D.  If it is 0xA1B2C3D4, time stamps in Packet
+        // Records are in seconds and microseconds; if it is
+        // 0xA1B23C4D, time stamps in Packet Records are in seconds
+        // and nanoseconds.
+        //
+        static constexpr uint32_t magic      = 0xa1b2c3d4;  // sec/usec
+        static constexpr uint32_t magic_nsec = 0xa1b23c4d;  // sec/nsec
+
+        magic_values(datum &d) : encoded<uint32_t>{d} {
+            encoded<uint32_t> alt{*this};
+            alt.swap_byte_order();
+
+            if (*this == magic || *this == magic_nsec) {
+                byteswap = false;
+            } else if (alt == magic || alt == magic_nsec) {
+                byteswap = true;
+            } else {
+
+                if (*this == magic_nsec || alt == magic_nsec) {
+                    char errmsg_buf[34] = "unsupported file magic: ";
+                    sprintf(errmsg_buf + 25, "%08x", this->value());
+                    throw std::runtime_error(errmsg_buf);
+                }
+
+                char errmsg_buf[34] = "unrecognized file magic: ";
+                sprintf(errmsg_buf + 25, "%08x", this->value());
+                throw std::runtime_error(errmsg_buf);
+            }
+        }
+        magic_values(uint32_t v) : encoded<uint32_t>{v} {}
+
+        // equals_any_byte_order(rhs) compares the value of this
+        // object with rhs, and returns true if and only if this
+        // equals either rhs or rhs.swap_byte_order()
+        //
+        // this comparison is convenient for pcap logic
+        //
+        bool equals_any_byte_order(uint32_t rhs) const {
+            encoded<uint32_t> alt{rhs};
+            alt.swap_byte_order();
+            fprintf(stderr, "comparing %x to %x and %x\n", this->value(), rhs, alt.value());
+            return this->value() == rhs || this->value() == alt.value();
+        }
+
+        bool is_big_endian() {
+            std::array<uint8_t, 4> magic{ 0xa1, 0xb2, 0xc3, 0xd4 };
+            datum nbo{magic};
+            encoded<uint32_t> tmp{nbo};
+
+            return this->value() == tmp.value();
+        }
+
+        bool byteswap_needed() const { return byteswap; }
+    };
+
+
 // PCAP File Header format
 //                           1                   2                   3
 //       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -139,74 +226,68 @@ namespace pcap {
 //   20 | FCS |f|                   LinkType                            |
 //      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //
-// The value of Magic Number is either 0xA1B2C3D4 or 0xA1B23C4D.  If
-// it is 0xA1B2C3D4, time stamps in Packet Records are in seconds and
-// microseconds; if it is 0xA1B23C4D, time stamps in Packet Records
-// are in seconds and nanoseconds.
-//
-// Major Version = 2, Minor Version = 4
+//   Magic Number = 0xA1B2C3D4 or 0xA1B23C4D (in any byte order)
+//   Major Version = 2
+//   Minor Version = 4
 //
 class pcap_file_header {
 
-    class magic_values : public encoded<uint32_t> {
-    public:
-        magic_values(datum &d) : encoded<uint32_t>{d} {
-            if (this->value() == magic_nsec) {
-                char errmsg_buf[34] = "unsupported file magic: ";
-                sprintf(errmsg_buf + 25, "%08x", this->value());
-                throw std::runtime_error(errmsg_buf);
-            }
-            if (this->value() != magic && this->value() != magic_nsec) {
-                char errmsg_buf[34] = "unrecognized file magic: ";
-                sprintf(errmsg_buf + 25, "%08x", this->value());
-                throw std::runtime_error(errmsg_buf);
-            }
-        }
-        magic_values(uint32_t v) : encoded<uint32_t>{v} {}
-    };
-
     magic_values magic_number;
+    bool byteswap;                   // logical, not part of header format
     encoded<uint16_t> major_version;
     encoded<uint16_t> minor_version;
     ignore<uint32_t> reserved1;
     ignore<uint32_t> reserved2;
     encoded<uint32_t> snaplen;
-    encoded<uint32_t> linktype;   // TODO: deal with FCS thing
+    encoded<uint32_t> linktype;      // TODO: deal with FCS thing
+    bool valid;                      // logical, not part of header format
 
     static constexpr ssize_t size = sizeof(uint32_t) * 7; // number of bytes in header
 
 public:
 
-    static constexpr uint32_t magic      = 0xd4c3b2a1;  // sec/usec
-    static constexpr uint32_t magic_nsec = 0x4d3cb2a1;  // sec/nsec
-
     pcap_file_header(datum &d) :
         magic_number{d},
-        major_version{d, magic_number == magic},
-        minor_version{d, magic_number == magic},
-        reserved1{d, magic_number == magic},
-        reserved2{d, magic_number == magic},
-        snaplen{d, magic_number == magic},
-        linktype{d, magic_number == magic}
-    { }
+        byteswap{magic_number.byteswap_needed()},
+        major_version{d, byteswap},
+        minor_version{d, byteswap},
+        reserved1{d, byteswap},
+        reserved2{d, byteswap},
+        snaplen{d, byteswap},
+        linktype{d, byteswap},
+        valid{d.is_not_null()}
+    {
+        fprintf(stderr, "is_big_endian: %u\n", magic_number.is_big_endian());
+    }
 
     // constructor for writing file_header
     //
     pcap_file_header(uint32_t snap, uint16_t lt) :
-        magic_number{magic},
+        magic_number{magic_values::magic},
+        byteswap{false},
         major_version{2},
         minor_version{4},
-        //reserved1{0},
-        //reserved2{0},
         snaplen{snap},
-        linktype{lt}
+        linktype{lt},
+        valid{true}
     { }
 
-    ssize_t write(datum &buf) {
-        if (buf.length() < size) {
-            return -1; // error: not enough room in buf
+    template <size_t N>
+    void write(data_buffer<N> &buf) {
+
+        if (!valid) {
+            buf.set_empty();  // TODO: indicate failure
+            return;
         }
-        // memcpy / std::copy()
+
+        buf << magic_number
+            << major_version
+            << minor_version
+            << encoded<uint32_t>{0} // reserved
+            << encoded<uint32_t>{0} // reserved
+            << snaplen
+            << linktype;
+
     }
 
     void fprint(FILE *f) {
@@ -219,7 +300,12 @@ public:
 
     uint32_t get_linktype() const { return linktype; }
 
-    bool byteswap() const { return magic_number == magic; }
+    bool byteswap_needed() const { return byteswap; }
+
+    static bool is_magic(uint32_t x) {
+        magic_values mx{x};
+        return mx.equals_any_byte_order(magic_values::magic) || mx.equals_any_byte_order(magic_values::magic_nsec);
+    }
 };
 
 // Packet Record format
@@ -257,6 +343,34 @@ public:
         len{d, swap_byte_order},
         packet_data{d, caplen}
     {  }
+
+    pcap_packet_record(uint32_t ts_sec,
+                       uint32_t ts_usec,
+                       datum pkt) :
+        timestamp_sec{ts_sec},
+        timestamp_usec{ts_usec},
+        caplen{pkt.length()},
+        len{pkt.length()},
+        packet_data{pkt}
+    { }
+
+    bool is_valid() const { return packet_data.is_not_null(); }
+
+    template <size_t N>
+    void write(data_buffer<N> &buf) {
+
+        if (!is_valid()) {
+            buf.set_empty();  // TODO: indicate failure
+            return;
+        }
+
+        buf << timestamp_sec
+            << timestamp_usec
+            << caplen
+            << len
+            << packet_data;
+
+    }
 
     void fprint(FILE *f) {
         fprintf(f, "timestamp_sec:  %u\n", timestamp_sec.value());
@@ -302,28 +416,7 @@ public:
     block_header(datum &d, bool byteswap_needed=false) :
         block_type{d, byteswap_needed},
         block_total_length{d, byteswap_needed}
-    {
-        // if (byteswap_needed) {
-        //     swap_byte_order();
-        // }
-    }
-    // block_header(datum &d, bool byteswap_needed=false) :
-    //     block_type{accept<uint32_t>(d)},
-    //     block_total_length{accept<uint32_t>(d)}
-    // {
-    //     if (byteswap_needed) {
-    //         swap_byte_order();
-    //     }
-    // }
-
-    // block_header(datum &d, bool byteswap_needed=false) {
-    //     d.read_uint32(&block_type);
-    //     d.read_uint32(&block_total_length);
-    //
-    //     if (byteswap_needed) {
-    //         swap_byte_order();
-    //     }
-    // }
+    { }
 
     static constexpr size_t length = 8;  // # bytes in block header
 
@@ -377,25 +470,23 @@ public:
 //
 
 class option {
-    uint16_t code;
-    uint16_t length;
+    encoded<uint16_t> code;
+    encoded<uint16_t> length;
     datum value;
+    pad padding;
 
 public:
 
-    option(datum &d, bool byteswap) {
+    option(datum &d, bool byteswap) :
+        code{d, byteswap},
+        length{d, byteswap},
+        value{d, length},
+        padding{d, pad_len(length)}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint16(&code);
-        d.read_uint16(&length);
-        if (byteswap) {
-            code = htons(code);
-            length = htons(length);
-        }
-        value.parse(d, length);
-        d.skip(pad_len(length));
 
-        fprintf(stderr, "code:   %u\n", code);
-        fprintf(stderr, "length: %u\n", length);
+        fprintf(stderr, "code:   %u\n", code.value());
+        fprintf(stderr, "length: %u\n", length.value());
         // value.fprint(stderr); fputc('\n', stderr);
     }
 
@@ -462,12 +553,12 @@ public:
 //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //
 class section_header_block {
-    uint32_t block_type;
-    uint32_t block_total_length;
-    uint32_t magic;
-    uint16_t major_version;
-    uint16_t minor_version;
-    uint64_t section_length;
+    encoded<uint32_t> block_type;
+    encoded<uint32_t> block_total_length;
+    encoded<uint32_t> magic;
+    encoded<uint16_t> major_version;
+    encoded<uint16_t> minor_version;
+    encoded<uint64_t> section_length;
     datum options;
     bool byteswap_needed = false;
 
@@ -477,14 +568,15 @@ public:
 
     static constexpr uint32_t type = 0x0a0d0d0a;
 
-    section_header_block(datum &d) {
+    section_header_block(datum &d) :
+        block_type{d},
+        block_total_length{d},
+        magic{d},
+        major_version{d},
+        minor_version{d},
+        section_length{d}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint32(&block_type);
-        d.read_uint32(&block_total_length);
-        d.read_uint32(&magic);
-        d.read_uint16(&major_version);
-        d.read_uint16(&minor_version);
-        d.read_uint(&section_length, 8);
 
         if (d.is_not_readable()) {
             return;
@@ -502,10 +594,10 @@ public:
         }
 
         if (byteswap_needed) {
-            block_total_length = ntohl(block_total_length);
-            major_version = ntohs(major_version);
-            minor_version = ntohs(minor_version);
-            section_length = htobe64(section_length);
+            block_total_length.swap_byte_order();
+            major_version.swap_byte_order();
+            minor_version.swap_byte_order();
+            section_length.swap_byte_order();
         }
 
         ssize_t options_length = block_total_length - non_option_length;
@@ -515,12 +607,12 @@ public:
         d.read_uint32(&tmp); // second block_length; ignore for now
 
         fprintf(stderr, "byteswap_needed:    %u\n", byteswap_needed);
-        fprintf(stderr, "block_type:         %x\n", block_type);
-        fprintf(stderr, "block_total_length: %u\n", block_total_length);
-        fprintf(stderr, "magic:              %x\n", magic);
-        fprintf(stderr, "major_version:      %u\n", major_version);
-        fprintf(stderr, "minor_version:      %u\n", minor_version);
-        fprintf(stderr, "section_length:     %lx\n", section_length);
+        fprintf(stderr, "block_type:         %x\n", block_type.value());
+        fprintf(stderr, "block_total_length: %u\n", block_total_length.value());
+        fprintf(stderr, "magic:              %x\n", magic.value());
+        fprintf(stderr, "major_version:      %u\n", major_version.value());
+        fprintf(stderr, "minor_version:      %u\n", minor_version.value());
+        fprintf(stderr, "section_length:     %lx\n", section_length.value());
         fprintf(stderr, "options_length:     %lx\n", options_length);
         options.fprint_hex(stderr); fputc('\n', stderr);
 
@@ -560,29 +652,30 @@ public:
 //
 
 class interface_description_block {
-    uint16_t linktype;
-    uint16_t reserved;
-    uint32_t snaplen;
+    encoded<uint16_t> linktype;
+    encoded<uint16_t> reserved;
+    encoded<uint32_t> snaplen;
     datum options;
 
     static constexpr size_t non_option_length = 20;
 
 public:
 
-    interface_description_block(datum &d, ssize_t block_total_length, bool byteswap_needed) {
+    interface_description_block(datum &d, ssize_t block_total_length, bool byteswap_needed) :
+        linktype{d, byteswap_needed},
+        reserved{d, byteswap_needed},
+        snaplen{d, byteswap_needed}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint16(&linktype);
-        d.read_uint16(&reserved);
-        d.read_uint32(&snaplen);
 
         if (d.is_null()) {
             return;
         }
 
-        if (byteswap_needed) {
-            linktype = ntohs(linktype);
-            snaplen = ntohl(snaplen);
-        }
+        // if (byteswap_needed) {
+        //     linktype = ntohs(linktype);
+        //     snaplen = ntohl(snaplen);
+        // }
 
         ssize_t options_length = block_total_length - non_option_length;
         options.parse(d, options_length);
@@ -591,9 +684,9 @@ public:
         d.read_uint32(&tmp); // second block_length; ignore for now
 
         fprintf(stderr, "byteswap_needed:    %u\n", byteswap_needed);
-        fprintf(stderr, "linktype:           %u\n", linktype);
-        fprintf(stderr, "reserved:           %u\n", reserved);
-        fprintf(stderr, "snaplen:            %u\n", snaplen);
+        fprintf(stderr, "linktype:           %u\n", linktype.value());
+        fprintf(stderr, "reserved:           %u\n", reserved.value());
+        fprintf(stderr, "snaplen:            %u\n", snaplen.value());
         fprintf(stderr, "options_length:     %lx\n", options_length);
         options.fprint_hex(stderr); fputc('\n', stderr);
 
@@ -656,13 +749,12 @@ public:
 //    value.
 //
 class nrb_record_ipv4 {
-    uint32_t addr;
+    encoded<uint32_t> addr;
     datum strings;
 
 public:
 
-    nrb_record_ipv4(datum &d) {
-        d.read_uint32(&addr);
+    nrb_record_ipv4(datum &d) : addr{d} {
         strings = d;
     }
 
@@ -699,22 +791,20 @@ public:
 
 
 class name_resolution_record {
-    uint16_t record_type;
-    uint16_t record_value_length;
+    encoded<uint16_t> record_type;
+    encoded<uint16_t> record_value_length;
     datum value;
+    pad padding;
 
 public:
 
-    name_resolution_record(datum &d, bool byteswap_needed) {
+    name_resolution_record(datum &d, bool byteswap_needed) :
+        record_type{d, byteswap_needed},
+        record_value_length{d, byteswap_needed},
+        value{d, record_value_length},
+        padding{d, pad_len(record_value_length)}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint16(&record_type);
-        d.read_uint16(&record_value_length);
-        if (byteswap_needed) {
-            record_type = ntohs(record_type);
-            record_value_length = ntohs(record_value_length);
-        }
-        value.parse(d, record_value_length);
-        d.skip(pad_len(record_value_length));
     }
 
     enum type : uint16_t {
@@ -805,14 +895,14 @@ public:
 //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 class enhanced_packet_block {
-    //    block_header header;
 
-    uint32_t interface_id;
-    uint32_t timestamp_hi;
-    uint32_t timestamp_lo;
-    uint32_t caplen;
-    uint32_t len;
+    encoded<uint32_t> interface_id;
+    encoded<uint32_t> timestamp_hi;
+    encoded<uint32_t> timestamp_lo;
+    encoded<uint32_t> caplen;
+    encoded<uint32_t> len;
     datum packet;
+    pad padding;
 
     // fixed_length holds the number of non-option bytes in block
     // header, except for the packet field and associated padding
@@ -831,30 +921,22 @@ class enhanced_packet_block {
 
 public:
 
-    enhanced_packet_block(datum &d, size_t block_length, bool byteswap_needed) { //: header{d, byteswap_needed} {
+    enhanced_packet_block(datum &d, size_t block_length, bool byteswap_needed) :
+        interface_id{d, byteswap_needed},
+        timestamp_hi{d, byteswap_needed},
+        timestamp_lo{d, byteswap_needed},
+        caplen{d, byteswap_needed},
+        len{d, byteswap_needed},
+        packet{d, caplen},
+        padding{d, pad_len(caplen)}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint32(&interface_id);
-        d.read_uint32(&timestamp_hi);
-        d.read_uint32(&timestamp_lo);
-        d.read_uint32(&caplen);
-        d.read_uint32(&len);
 
-        if (byteswap_needed) {
-            interface_id = ntohl(interface_id);
-            timestamp_hi = ntohl(timestamp_hi);
-            timestamp_lo = ntohl(timestamp_lo);
-            caplen       = ntohl(caplen);
-            len          = ntohl(len);
-        }
-
-        packet.parse(d, caplen);
-        d.skip(pad_len(caplen));
-
-        fprintf(stderr, "interface_id: %u\n", interface_id);
-        fprintf(stderr, "timestamp_hi: %u\n", timestamp_hi);
-        fprintf(stderr, "timestamp_lo: %u\n", timestamp_lo);
-        fprintf(stderr, "caplen: %u\n", caplen);
-        fprintf(stderr, "len: %u\n", len);
+        fprintf(stderr, "interface_id: %u\n", interface_id.value());
+        fprintf(stderr, "timestamp_hi: %u\n", timestamp_hi.value());
+        fprintf(stderr, "timestamp_lo: %u\n", timestamp_lo.value());
+        fprintf(stderr, "caplen: %u\n", caplen.value());
+        fprintf(stderr, "len: %u\n", len.value());
         packet.fprint_hex(stderr); fputc('\n', stderr);
 
         ssize_t options_length = block_length - fixed_length - (caplen + pad_len(caplen));
@@ -889,8 +971,9 @@ public:
 //
 //
 class simple_packet_block {
-    uint32_t original_packet_length;
+    encoded<uint32_t> original_packet_length;
     datum packet;
+    pad padding;
 
     // Original Packet Length (32 bits): an unsigned value indicating
     // the actual length of the packet when it was transmitted on the
@@ -919,19 +1002,15 @@ class simple_packet_block {
 
 public:
 
-    simple_packet_block(datum &d, size_t block_length, bool byteswap_needed) { //: header{d, byteswap_needed} {
+    simple_packet_block(datum &d, size_t block_length, bool byteswap_needed) :
+        original_packet_length{d, byteswap_needed},
+        packet{d, block_length - fixed_length},
+        padding{d, pad_len(block_length - fixed_length)}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint32(&original_packet_length);
-        if (byteswap_needed) {
-            original_packet_length = ntohl(original_packet_length);
-        }
 
-        ssize_t caplen = block_length - fixed_length;
-        packet.parse(d, caplen);
-        d.skip(pad_len(caplen));
-
-        fprintf(stderr, "caplen: %zd\n", caplen);
-        fprintf(stderr, "original_packet_length: %u\n", original_packet_length);
+        fprintf(stderr, "caplen: %zd\n", block_length - fixed_length);
+        fprintf(stderr, "original_packet_length: %u\n", original_packet_length.value());
         packet.fprint_hex(stderr); fputc('\n', stderr);
 
         // TODO: add block total length field
@@ -957,25 +1036,21 @@ public:
 // Interface Description Block referenced by this packet.
 
 class isb_starttime {
-    uint32_t timestamp_hi;
-    uint32_t timestamp_lo;
+    encoded<uint32_t> timestamp_hi;
+    encoded<uint32_t> timestamp_lo;
 
 public:
 
-    isb_starttime(datum &d, bool byteswap) {
+    isb_starttime(datum &d, bool byteswap) :
+        timestamp_hi{d, byteswap},
+        timestamp_lo{d, byteswap}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint32(&timestamp_hi);
-        d.read_uint32(&timestamp_lo);
-
-        if (byteswap) {
-            timestamp_hi = ntohl(timestamp_hi);
-            timestamp_lo = ntohl(timestamp_lo);
-        }
     }
 
     void fprint(FILE *f) const {
-        fprintf(f, "timestamp_hi: %u\n", timestamp_hi);
-        fprintf(f, "timestamp_lo: %u\n", timestamp_lo);
+        fprintf(f, "timestamp_hi: %u\n", timestamp_hi.value());
+        fprintf(f, "timestamp_lo: %u\n", timestamp_lo.value());
     }
 };
 
@@ -987,25 +1062,21 @@ public:
 // Description Block referenced by this packet.
 
 class isb_endtime {
-    uint32_t timestamp_hi;
-    uint32_t timestamp_lo;
+    encoded<uint32_t> timestamp_hi;
+    encoded<uint32_t> timestamp_lo;
 
 public:
 
-    isb_endtime(datum &d, bool byteswap) {
+    isb_endtime(datum &d, bool byteswap) :
+        timestamp_hi{d, byteswap},
+        timestamp_lo{d, byteswap}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint32(&timestamp_hi);
-        d.read_uint32(&timestamp_lo);
-
-        if (byteswap) {
-            timestamp_hi = ntohl(timestamp_hi);
-            timestamp_lo = ntohl(timestamp_lo);
-        }
     }
 
     void fprint(FILE *f) const {
-        fprintf(f, "timestamp_hi: %u\n", timestamp_hi);
-        fprintf(f, "timestamp_lo: %u\n", timestamp_lo);
+        fprintf(f, "timestamp_hi: %u\n", timestamp_hi.value());
+        fprintf(f, "timestamp_lo: %u\n", timestamp_lo.value());
     }
 };
 
@@ -1015,21 +1086,18 @@ public:
 //    from the beginning of the capture.
 //
 class isb_ifrecv {
-    uint64_t count;
+    encoded<uint64_t> count;
 
 public:
 
-    isb_ifrecv(datum &d, bool byteswap) {
+    isb_ifrecv(datum &d, bool byteswap) :
+        count{d, byteswap}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint(&count, 8);
-
-        if (byteswap) {
-            count = htobe64(count);
-        }
     }
 
     void fprint(FILE *f) const {
-        fprintf(f, "count: %lu\n", count);
+        fprintf(f, "count: %lu\n", count.value());
     }
 };
 
@@ -1038,21 +1106,18 @@ public:
 //    resources starting from the beginning of the capture.
 //
 class isb_ifdrop {
-    uint64_t count;
+    encoded<uint64_t> count;
 
 public:
 
-    isb_ifdrop(datum &d, bool byteswap) {
+    isb_ifdrop(datum &d, bool byteswap) :
+        count{d, byteswap}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint(&count, 8);
-
-        if (byteswap) {
-            count = htobe64(count);
-        }
     }
 
     void fprint(FILE *f) const {
-        fprintf(f, "count: %lu\n", count);
+        fprintf(f, "count: %lu\n", count.value());
     }
 };
 
@@ -1096,9 +1161,9 @@ public:
 //
 
 class interface_statistics_block {
-    uint32_t interface_id;
-    uint32_t timestamp_hi;
-    uint32_t timestamp_lo;
+    encoded<uint32_t> interface_id;
+    encoded<uint32_t> timestamp_hi;
+    encoded<uint32_t> timestamp_lo;
     datum options;
     bool swap_byte_order;
 
@@ -1109,17 +1174,12 @@ class interface_statistics_block {
 
 public:
 
-    interface_statistics_block(datum &d, size_t block_length, bool byteswap) {
+    interface_statistics_block(datum &d, size_t block_length, bool byteswap) :
+        interface_id{d, byteswap},
+        timestamp_hi{d, byteswap},
+        timestamp_lo{d, byteswap}
+    {
         fprintf(stderr, "%s\n", __func__);
-        d.read_uint32(&interface_id);
-        d.read_uint32(&timestamp_hi);
-        d.read_uint32(&timestamp_lo);
-
-        if (byteswap) {
-            interface_id = ntohl(interface_id);
-            timestamp_hi = ntohl(timestamp_hi);
-            timestamp_lo = ntohl(timestamp_lo);
-        }
 
         ssize_t options_length = block_length - fixed_length;
         options.parse(d, options_length);
@@ -1129,9 +1189,9 @@ public:
     }
 
     void fprint(FILE *f) const {
-        fprintf(f, "interface_id: %u\n", interface_id);
-        fprintf(f, "timestamp_hi: %u\n", timestamp_hi);
-        fprintf(f, "timestamp_lo: %u\n", timestamp_lo);
+        fprintf(f, "interface_id: %u\n", interface_id.value());
+        fprintf(f, "timestamp_hi: %u\n", timestamp_hi.value());
+        fprintf(f, "timestamp_lo: %u\n", timestamp_lo.value());
 
         options.fprint(f); fputc('\n', f);
         options.fprint_hex(f); fputc('\n', f);
@@ -1300,6 +1360,39 @@ public:
 
 };
 
+class pcap_writer {
+    int fd;
+    uint16_t linktype = LINKTYPE::NONE; // default
+
+    static constexpr size_t snaplen = 1024 * 4;
+
+public:
+
+    pcap_writer(const char *fname, uint16_t ltype=LINKTYPE::ETHERNET) :
+        fd{open(fname, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)},
+        linktype{ltype}
+    {
+        if (fd < 0) {
+            throw errno_exception();
+        }
+
+        data_buffer<1024 * 8> buf;
+        pcap_file_header file_header(snaplen, ltype);
+
+        file_header.write(buf);
+        buf.write(fd);
+
+    }
+
+    void write(datum pkt) {
+        pcap_packet_record record{0, 0, pkt};
+        data_buffer<1024 * 8> buf;
+        record.write(buf);
+        buf.write(fd);
+    }
+
+};
+
 // class pcap represents a file in the PCAP (traditional Berkeley
 // Packet Capture) format
 //
@@ -1310,22 +1403,11 @@ class pcap : public pcap_reader {
 
 public:
 
-    // pcap(const char *fname) : file{fname} {
-
-    //     pcap_file_header header{file};
-    //     header.fprint(stderr);
-    //     linktype = header.get_linktype();
-    //     swap_byte_order = header.byteswap();
-
-    // }
-
     pcap(file_datum &f) : file{f} {
-
         pcap_file_header header{file};
         header.fprint(stderr);
         linktype = header.get_linktype();
-        swap_byte_order = header.byteswap();
-
+        swap_byte_order = header.byteswap_needed();
     }
 
     enum LINKTYPE : uint16_t {
@@ -1377,7 +1459,7 @@ class file_reader {
         if (tmp == section_header_block::type) {
             return reader_variant{std::in_place_type<pcap_ng>, f};
 
-        } else if (tmp == pcap_file_header::magic || tmp == pcap_file_header::magic_nsec ) {
+        } else if (pcap_file_header::is_magic(tmp)) {
             return reader_variant{std::in_place_type<pcap>, f};
         }
 
@@ -1427,7 +1509,6 @@ public:
 
     // TODO: add function that reports file version
 };
-
 
 }; // end of namespace pcap
 
