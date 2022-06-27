@@ -13,7 +13,15 @@
 #include "match.h"
 #include "http.h"
 
-class ssdp_notify {
+/*
+ * ssdp
+ *
+ * Reference : RFC https://datatracker.ietf.org/doc/html/draft-cai-ssdp-v1-01 (outdated)
+ *           : UPnP Device Architecture Spec http://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v1.1.pdf
+ *           : UpnP Device Architecture Spec (updated) https://openconnectivity.org/upnp-specs/UPnP-arch-DeviceArchitecture-v2.0-20200417.pdf
+ */
+
+class ssdp {
 
     enum msg_type {
         notify          = 0,
@@ -43,7 +51,9 @@ class ssdp_notify {
             break;
         case 'H':
             type = response;
+            break;
         default:
+            type = max_msg_type;
             break;
         }
 
@@ -52,7 +62,7 @@ class ssdp_notify {
 
 public:
 
-    ssdp_notify(datum &p, perfect_hash_visitor &visitor) : method{NULL, NULL}, headers{}, ph_visitor{visitor}, type{notify} { parse(p); }
+    ssdp(datum &p, perfect_hash_visitor &visitor) : method{NULL, NULL}, headers{}, ph_visitor{visitor}, type{max_msg_type} { parse(p); }
 
     void parse(datum &p) {
         set_msg_type(p);
@@ -66,24 +76,19 @@ public:
         return;
     }
 
-    bool is_not_empty() const { return true; }
+    bool is_not_empty() const { return (type != max_msg_type); }
 
     void write_json(struct json_object &record, bool output_metadata) {
         if (this->is_not_empty()) {
             struct json_object ssdp{record, "ssdp"};
             struct json_object msg{ssdp, msg_str[type]};
-            if (output_metadata) {
-                msg.print_key_json_string("method", method);
 
-                // run the list of http headers to be printed out against
-                // all headers, and print the values corresponding to each
-                // of the matching names
-                //
-                headers.print_matching_names(msg, ph_visitor, perfect_hash_table_type::HTTP_SSDP_HEADERS);
-
-            } else {
-                msg.print_key_json_string("method", method);
-            }
+            // run the list of http headers to be printed out against
+            // all headers, and print the values corresponding to each
+            // of the matching names
+            //
+            msg.print_key_json_string("method", method);
+            headers.print_matching_names_ssdp(msg, ph_visitor, perfect_hash_table_type::HTTP_SSDP_HEADERS,output_metadata);
 
             msg.close();
             ssdp.close();
@@ -108,21 +113,6 @@ public:
     };
 
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #endif /* SSDP_H */

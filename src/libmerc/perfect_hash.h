@@ -273,8 +273,6 @@ struct perfect_hash_visitor {
         switch(type) {
         case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
             return _ph_http_request_headers->lookup(key, strlen(key), success);
-        case perfect_hash_table_type::HTTP_SSDP_HEADERS:
-            return _ph_http_ssdp_headers->lookup(key, strlen(key), success);
         case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
             return _ph_http_response_headers->lookup(key, strlen(key), success);
         case perfect_hash_table_type::HTTP_REQUEST_FP:
@@ -293,6 +291,16 @@ struct perfect_hash_visitor {
             return _ph_http_response_fp->lookup(key, strlen(key), success);
         case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
         case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
+        default:
+            success = false;
+            return nullptr;
+        }
+    }
+
+    const std::pair<const char*, bool>* lookup_pair(perfect_hash_table_type type, const char* key, bool& success) {
+        switch(type) {
+        case perfect_hash_table_type::HTTP_SSDP_HEADERS:
+            return _ph_http_ssdp_headers->lookup(key, strlen(key), success);
         default:
             success = false;
             return nullptr;
@@ -318,7 +326,7 @@ private:
     perfect_hash<bool>* _ph_http_response_fp;
     perfect_hash<const char*>* _ph_http_request_headers;
     perfect_hash<const char*>* _ph_http_response_headers;
-    perfect_hash<const char*>* _ph_http_ssdp_headers;
+    perfect_hash<std::pair<const char*, bool>>* _ph_http_ssdp_headers;
 
     perfect_hash_visitor() {
         std::vector<perfect_hash_entry<bool>> fp_data_reqeust = {
@@ -409,53 +417,34 @@ private:
             { "via: ", "via"}
         };
 
-        // std::vector<perfect_hash_entry<const char*>> header_ssdp = {
-        //     { "HOST: ", "host"},
-        //     { "CACHE-CONTROL: ", "cache_control"},
-        //     { "LOCATION: ", "location"},
-        //     { "NT: ", "notify_type"},
-        //     { "NTS: ", "notify_subtype"},
-        //     { "SERVER: ", "server"},
-        //     { "USN: ", "usn"},
-        //     { "MX: ", "delay"},
-        //     { "ST: ", "target"},
-        //     { "USER-AGENT: ", "user_agent"},
-        //     { "DATE: ", "date"},
-        //     { "EXT: ", "ext"},
-        //     { "BOOTID.UPNP.ORG: ", "bootid"},
-        //     { "CONFIGID.UPNP.ORG: ", "conf_id"},
-        //     { "SEARCHPORT.UPNP.ORG: ", "searchport"},
-        //     { "OPT: ", "opt"},
-        //     { "01-NLS: ", "nls"},
-        //     { "MAN:", "man"}
-        // };
-
-        std::vector<perfect_hash_entry<const char*>> header_ssdp = {
-            { "host: ", "host"},
-            { "cache-control: ", "cache_control"},
-            { "location: ", "location"},
-            { "nt: ", "notify_type"},
-            { "nts: ", "notify_subtype"},
-            { "server: ", "server"},
-            { "usn: ", "usn"},
-            { "mx: ", "delay"},
-            { "st: ", "target"},
-            { "user-agent: ", "user_agent"},
-            { "date: ", "date"},
-            { "ext: ", "ext"},
-            { "bootid.upnp.org: ", "bootid"},
-            { "configid.upnp.org: ", "conf_id"},
-            { "searchport.upnp.org: ", "searchport"},
-            { "opt: ", "opt"},
-            { "01-nls: ", "nls"},
-            { "man:", "man"}
+        // boolean sets output verbosity in absense of metadata option
+        //
+        std::vector<perfect_hash_entry<std::pair<const char*, bool>>> header_ssdp = {
+            { "host", {"host",true} },
+            { "cache-control", {"cache_control",false} },
+            { "location", {"location",true} },
+            { "nt", {"notify_type",true} },
+            { "nts", {"notify_subtype", false} },
+            { "server", {"server",true} },
+            { "usn", {"usn",false} },
+            { "mx", {"delay",false} },
+            { "st", {"target",true} },
+            { "user-agent", {"user_agent",true} },
+            { "date", {"date",false} },
+            { "ext", {"ext",false} },
+            { "bootid.upnp.org", {"bootid",false} },
+            { "configid.upnp.org", {"conf_id",false} },
+            { "searchport.upnp.org", {"searchport",false} },
+            { "opt", {"opt",false} },
+            { "01-nls", {"nls",false} },
+            { "man", {"man",false} }
         };
 
         _ph_http_request_fp = new perfect_hash<bool>(fp_data_reqeust);
         _ph_http_response_fp = new perfect_hash<bool>(fp_data_response);
         _ph_http_request_headers = new perfect_hash<const char*>(header_data_request);
         _ph_http_response_headers = new perfect_hash<const char*>(header_data_response);
-        _ph_http_ssdp_headers = new perfect_hash<const char*>(header_ssdp);
+        _ph_http_ssdp_headers = new perfect_hash<std::pair<const char*, bool>>(header_ssdp);
     }
 };
 
