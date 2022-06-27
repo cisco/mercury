@@ -95,16 +95,6 @@ debug-libmerc-tls:
 	mkdir -p $(LIBMERC_DEBUG_FOLDER)
 	cd ../src && $(MAKE) OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls\"' debug-libmerc
 
-.PHONY: nfs-download
-nfs-download:
-	cp /nfs/QA/Mercury/pcap/ ./pcaps/
-
-.PHONY: divide-pcap
-divide-pcap: nfs-download
-	cd ../src && $(MAKE) pcap_filter
-	cp ./../src/pcap_filter ./../unit_tests/pcaps/
-	cd ./pcaps/ && ./pcap_filter --input ./capture2.pcap --output capture2
-
 .PHONY: perfect-hash-test
 perfect-hash-test:
 	$(CXX) $(CFLAGS) -I ../src/libmerc ph_driver.cc -o ph_driver
