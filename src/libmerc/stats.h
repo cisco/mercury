@@ -37,12 +37,10 @@ public:
     void process_init() {
         first_loop = true;
         prev = { "", "", "", "" };
-        int gz_ret = gzprintf(gzf, ", \"stats\" : [");
-        if (gz_ret <= 0)
-            throw std::runtime_error("error in gzprintf");
     }
 
-    void process_update(const event_msg &event, uint32_t count) {
+    void process_update(const event_msg &event, uint32_t count, const char *version,
+                    const char *git_commit_id, uint32_t git_count, const char *init_time) {
 
         std::tie(v[0], v[1], v[2], v[3]) = event;
 
@@ -62,7 +60,7 @@ public:
         //Extra 15 bytes is to account for additional data required for json
         char user_agent[MAX_USER_AGENT_LEN + 15]{"\0"};
         if(v[2][0] != '\0') {
-            snprintf(user_agent, MAX_USER_AGENT_LEN - 1, "\"user-agent\":\"%s\", ", v[2].c_str());
+            snprintf(user_agent, MAX_USER_AGENT_LEN - 1, "\"user_agent\":\"%s\", ", v[2].c_str());
         }
 
         // output unique elements
@@ -70,11 +68,14 @@ public:
         switch(num_matching) {
         case 0:
             if (!first_loop) {
-                gz_ret = gzprintf(gzf, "}]}]}]},");
+                gz_ret = gzprintf(gzf, "}]}]}]}\n");
             }
             if (gz_ret <= 0)
                 throw std::runtime_error("error in gzprintf");
-            gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\",\"fingerprints\":[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[0].c_str(), v[1].c_str(), user_agent, v[3].c_str(), count);
+            gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\", \"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\","
+                                   " \"build_number\" : \"%u\", \"git_commit_id\": \"%s\", \"fingerprints\":"
+                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", 
+                v[0].c_str(), init_time, version, git_count, git_commit_id, v[1].c_str(), user_agent, v[3].c_str(), count);
             break;
         case 1:
             gz_ret = gzprintf(gzf, "}]}]},{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1].c_str(), user_agent, v[3].c_str(), count);
@@ -94,7 +95,7 @@ public:
     }
 
     void process_final() {
-        int gz_ret = gzprintf(gzf, "}]}]}]}]");
+        int gz_ret = gzprintf(gzf, "}]}]}]}\n");
         if (gz_ret <= 0)
             throw std::runtime_error("error in gzprintf");
     }
@@ -203,7 +204,9 @@ public:
 
     bool is_empty() const { return event_table.size() == 0; }
 
-    void gzprint(gzFile f) {
+    void gzprint(gzFile f, const char *version, const char *git_commit_id,
+                 uint32_t git_count,
+                 const char *init_time) {
 
         if (event_table.size() == 0) {
             return;  // nothing to report
@@ -225,7 +228,7 @@ public:
         ep.process_init();
         for (auto &entry : v) {
             encoder.get_inverse(entry.first);
-            ep.process_update(entry.first, entry.second);
+            ep.process_update(entry.first, entry.second, version, git_commit_id, git_count, init_time);
         }
         ep.process_final();
 
@@ -364,14 +367,8 @@ public:
                 ag = &ag1;
             }
         }
-        int gz_ret = gzprintf(f, "{\"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\", \"build_number\" : \"%u\", \"git_commit_id\": \"%s\"",
-                        init_time, version, git_count, git_commit_id);
-        if (gz_ret <= 0)
-            throw std::runtime_error("error in gzprintf");
-        tmp->gzprint(f);
-        gz_ret = gzprintf(f, "}\n");
-        if (gz_ret <= 0)
-            throw std::runtime_error("error in gzprintf");
+
+        tmp->gzprint(f, version, git_commit_id, git_count, init_time);
     }
 };
 
