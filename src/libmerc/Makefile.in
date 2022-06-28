@@ -193,6 +193,8 @@ libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 
 # lctrie ip address subnet matching library (in lctrie subdirectory)
 #
+export CXX
+export CC
 lctrie/liblctrie.a:
 	cd lctrie && $(MAKE) liblctrie.a
 
