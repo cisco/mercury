@@ -97,19 +97,29 @@ public:
         return;
     }
 
-    static constexpr mask_and_value<8> matcher_notify{
-        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
-        { 'N',  'O',  'T',  'I',  'F', 'Y', 0x00, 0x00 }
-    };
+    /*
+     *    Matchers for ssdp msg types
+     *    static constexpr mask_and_value<8> matcher_notify{
+     *        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
+     *        { 'N',  'O',  'T',  'I',  'F', 'Y', 0x00, 0x00 }
+     *   };
+     *
+     *    static constexpr mask_and_value<8> matcher_search{
+     *        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+     *        { 'M',  '-',  'S',  'E',  'A', 'R', 'C', 'H' }
+     *    };
+     *
+     *    static constexpr mask_and_value<8> matcher_response{
+     *        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+     *        { 'H',  'T',  'T',  'P',  '/', '1', '.', '1' }
+     *    };
+    */
 
-    static constexpr mask_and_value<8> matcher_search{
-        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
-        { 'M',  '-',  'S',  'E',  'A', 'R', 'C', 'H' }
-    };
-
-    static constexpr mask_and_value<8> matcher_response{
-        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
-        { 'H',  'T',  'T',  'P',  '/', '1', '.', '1' }
+    // common matcher for all three ssdp msg types
+    //
+    static constexpr mask_and_value<8> matcher{
+        { 0xe8, 0x84, 0xf0, 0xe0, 0x00, 0x90, 0x00, 0x00 },
+        { 0x48, 0x04, 0x50, 0x40, 0x00, 0x10, 0x00, 0x00 }
     };
 
 };

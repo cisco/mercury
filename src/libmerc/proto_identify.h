@@ -220,9 +220,7 @@ public:
         }
 
         if (protocols["ssdp"] || protocols["all"]) {
-            udp.add_protocol(ssdp::matcher_notify, udp_msg_type_ssdp);
-            udp.add_protocol(ssdp::matcher_search, udp_msg_type_ssdp);
-            udp.add_protocol(ssdp::matcher_response, udp_msg_type_ssdp); 
+            udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
         }
 
         // tell protocol_identification objects to compile lookup tables
