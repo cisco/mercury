@@ -257,6 +257,22 @@ struct datum {
         return false;
     }
 
+// trim_trail(t) skips/trims all instance of trailing char t
+//
+    void trim_trail(unsigned char trail) {
+        const unsigned char *tmp_data = data_end - 1;
+        if (*tmp_data != trail) {
+            return;
+        }
+        while (tmp_data >= data) {
+            if (*data != trail) { // end of trailing delimiter
+                data_end = tmp_data + 1;
+                return;
+            }
+            tmp_data--;
+        }
+    }
+
     bool isupper() {
         const uint8_t *d = data;
         while (d < data_end) {

@@ -45,6 +45,7 @@ struct http_headers : public datum {
     void print_matching_names(struct json_object &o, const char *key, std::list<struct datum> &name) const;
     void print_matching_names(struct json_object &o, std::list<std::pair<struct datum, std::string>> &name_list) const;
     void print_matching_names(struct json_object &o, perfect_hash_visitor &name_dict, perfect_hash_table_type type) const;
+    void print_matching_names_ssdp(struct json_object &o, perfect_hash_visitor &name_dict, perfect_hash_table_type type, bool metadata) const;
 
     void fingerprint(struct buffer_stream &buf, perfect_hash_visitor &name_dict, perfect_hash_table_type type) const;
 
