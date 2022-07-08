@@ -124,6 +124,14 @@ struct json_object {
         }
         b->write_char('\"');
     }
+    void print_key_hex(const char *k, const uint8_t *v, size_t length) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":\"");
+        b->raw_as_hex(v, length);
+        b->write_char('\"');
+    }
     void print_key_base64(const char *k, const struct datum &value) {
         write_comma(comma);
         b->write_char('\"');

@@ -1,5 +1,0 @@
-Linux 4.19.0-5-amd64 x86_64
-ext4
-/dev/sdb
-write throughput for /home/mcgrew/network-intelligence/mercury-test/perf : 10.1 MB/s
-read throughput for /home/mcgrew/network-intelligence/mercury-test/perf :  10.1 MB/s

@@ -30,6 +30,7 @@
 #include "dns.h"
 #include "wireguard.h"
 #include "dtls.h"
+#include "ssdp.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -53,7 +54,8 @@ enum udp_msg_type {
     udp_msg_type_dtls_certificate,
     udp_msg_type_wireguard,
     udp_msg_type_quic,
-    udp_msg_type_vxlan
+    udp_msg_type_vxlan,
+    udp_msg_type_ssdp
 };
 
 template <size_t N>
@@ -109,15 +111,21 @@ class traffic_selector {
     protocol_identifier<16> udp16;
 
     bool select_tcp_syn;
+    bool select_dns;
+    bool select_nbns;
     bool select_mdns;
 
 public:
 
     bool tcp_syn() const { return select_tcp_syn; }
 
+    bool dns() const { return select_dns; }
+
+    bool nbns() const { return select_nbns; }
+
     bool mdns() const { return select_mdns; }
 
-    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false} {
+    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false} {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -181,8 +189,21 @@ public:
         if (protocols["dhcp"] || protocols["all"]) {
             udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
         }
-        if (protocols["dns"] || protocols["all"]) {
-            // select_mdns = false;
+        if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
+            if (protocols["all"]) {
+                select_dns = true;
+                select_nbns = true;
+                select_mdns = true;
+            }
+            if (protocols["dns"]) {
+                select_dns = true;
+            }
+            if (protocols["nbns"]) {
+                select_nbns = true;
+            }
+            if (protocols["mdns"]) {
+                select_mdns = true;
+            }
             udp.add_protocol(dns_packet::matcher, udp_msg_type_dns);
             // udp.add_protocol(dns_packet::client_matcher, udp_msg_type_dns); // older matcher
             // udp.add_protocol(dns_packet::server_matcher, udp_msg_type_dns); // older matcher
@@ -196,6 +217,10 @@ public:
         }
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
+        }
+
+        if (protocols["ssdp"] || protocols["all"]) {
+            udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
         }
 
         // tell protocol_identification objects to compile lookup tables

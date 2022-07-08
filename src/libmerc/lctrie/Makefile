@@ -12,7 +12,6 @@ clean:
 	rm -f lctrie_test
 	rm -f liblctrie.a
 
-CC     = g++
 CFLAGS = -g -ggdb -std=c++11 -Wall -O3 -fPIC # -Wno-sign-compare
 LDFLAGS = -g -ggdb -O3
 LDLIBS =
@@ -23,7 +22,7 @@ DEPDIR := .d
 $(shell mkdir -p $(DEPDIR) >/dev/null)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 
-COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+COMPILE.c = $(CXX) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 POSTCOMPILE = mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 

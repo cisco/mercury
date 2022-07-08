@@ -168,7 +168,7 @@ struct eth_addr : public datum {
 
     void fingerprint(struct buffer_stream &b) const {
         if (data) {
-            b.raw_as_hex(data, datum::length());  // TODO: write colon-delimited hex
+            b.write_mac_addr(data);
         }
     }
 };

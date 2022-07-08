@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <unistd.h>
 #include <array>
 #include <bitset>
 #include <limits>
@@ -256,6 +257,22 @@ struct datum {
         return false;
     }
 
+// trim_trail(t) skips/trims all instance of trailing char t
+//
+    void trim_trail(unsigned char trail) {
+        const unsigned char *tmp_data = data_end - 1;
+        if (*tmp_data != trail) {
+            return;
+        }
+        while (tmp_data >= data) {
+            if (*data != trail) { // end of trailing delimiter
+                data_end = tmp_data + 1;
+                return;
+            }
+            tmp_data--;
+        }
+    }
+
     bool isupper() {
         const uint8_t *d = data;
         while (d < data_end) {
@@ -308,6 +325,7 @@ struct datum {
         *output = 0;
     }
 
+    // [[nodiscard]]
     bool lookahead_uint(unsigned int num_bytes, uint64_t *output)
     {
         if (data + num_bytes <= data_end)
@@ -546,7 +564,7 @@ template <size_t T> struct data_buffer {
         *data++ = x;
     }
     void copy(const uint8_t *rdata, size_t num_bytes) {
-        if (data_end - data < (int)num_bytes) {
+        if (data_end - data < (ssize_t)num_bytes) {
             num_bytes = data_end - data;
         }
         memcpy(data, rdata, num_bytes);
@@ -574,6 +592,34 @@ template <size_t T> struct data_buffer {
     ssize_t length() const { return data - buffer; }
 
     datum contents() const { return {buffer, data}; }
+
+    ssize_t writeable_length() const { return data_end - data; }
+
+    ssize_t write(int fd) { return ::write(fd, buffer, data - buffer);  }
+
+    template <typename Type>
+    data_buffer<T> & operator<<(Type t) {
+        // fprintf(stderr, "data_buffer: {%p,%p,%p}\treadable: %zd\twriteable: %zd\n", buffer, data, data_end, data-buffer, data_end-data);
+        t.write(*this);
+        return *this;
+    }
+
+    // template specialization for datum
+    //
+    data_buffer<T> & operator<<(datum d) {
+        if (d.is_not_null()) {
+            copy(d);
+        }
+        return *this;
+    }
+
+    // TODO:
+    //  * add data != nullptr checks
+    //  * add set_null() function
+    //  * use null state to indicate write failure
+    //  * add assert() macros to support debugging
+    //  * add [[nodiscard]] as appropriate
+
 };
 
 
@@ -619,12 +665,14 @@ bool bit(T s) {
     return (bool) slice<i,i+1>(s);
 }
 
-// encoded<T> represents an integer type T that is read from a byte
-// stream
+// encoded<T> represents an unsigned integer type T that is read from
+// a byte stream
 //
 template <typename T>
 class encoded {
     T val;
+
+    static_assert(std::is_unsigned_v<T>, "T must be an unsigned integer");
 
 public:
 
@@ -638,7 +686,8 @@ public:
     }
     //
     // TODO: re-implement constructor in a way that avoids a temporary
-    // size_t variable, especially for smaller integer types
+    // size_t variable, especially for smaller integer types; make it
+    // constexpr
 
     encoded(const T& rhs) {
         val = rhs;
@@ -690,7 +739,16 @@ public:
     // TODO: add a function slice<i,j>(T newvalue) that sets the bits
     // associated with a slice
 
-    // TODO: add write(data_buffer) function
+    template <size_t N>
+    void write(data_buffer<N> &buf, bool swap_byte_order=false) {
+        encoded<T> tmp = val;
+        if (swap_byte_order) {
+            tmp.swap_byte_order();
+        }
+        buf.copy((uint8_t *)&tmp, sizeof(T));
+
+        // TODO: rewrite function to eliminate cast
+    }
 
 };
 

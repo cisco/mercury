@@ -68,7 +68,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
     std::time_t timenow = time(NULL);
-    strftime(init_time, sizeof(init_time) - 1, "%a %b %d %T %Y", gmtime(&timenow));
+    strftime(init_time, sizeof(init_time) - 1, "%Y-%m-%dT%H:%M:%SZ", gmtime(&timenow));
     
     if (verbosity > 0) {
         // bulid information, to help with shared object library development and use
