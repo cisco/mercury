@@ -124,13 +124,15 @@ void http_headers::print_matching_names(struct json_object &o, perfect_hash_visi
     }
 }
 
-// Parses http formatted ssdp msg for http header in lenient way (ignores whitespaces around header - value pair)
+// Parses http formatted ssdp msg for http header in lenient way (ignores whitespaces around header - value pair and ignores absence of '\r' in delimiter)
 // and prints to json record, based on bool metadata
 //
 void http_headers::print_matching_names_ssdp(struct json_object &o, perfect_hash_visitor &name_dict, perfect_hash_table_type type, bool metadata) const {
     unsigned char crlf[2] = { '\r', '\n' };
+    unsigned char lf[1] = { '\n' };
     unsigned char col[1] = { ':' };
     unsigned char ws = ' ';
+    unsigned char cr = '\r';
 
     if (this->is_not_readable()) {
         return;
@@ -138,7 +140,7 @@ void http_headers::print_matching_names_ssdp(struct json_object &o, perfect_hash
     struct datum p{this->data, this->data_end};  // create copy, to leave object unmodified
 
     while (p.length() > 0) {
-        if (p.compare(crlf, sizeof(crlf)) == 0) {
+        if (p.compare(lf, sizeof(lf)) == 0 || p.compare(crlf, sizeof(crlf)) == 0) {
             break;  /* at end of headers */
         }
 
@@ -161,10 +163,11 @@ void http_headers::print_matching_names_ssdp(struct json_object &o, perfect_hash
             header_name = nullptr;
 
         const uint8_t *value_start = p.data;
-        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
+        if (p.skip_up_to_delim(lf, sizeof(lf)) == false) {
             return;
         }
-        const uint8_t *value_end = p.data - 2;
+        // check type of delimiter '\r\n' or '\n'
+        const uint8_t *value_end = *(p.data-2) == cr ? p.data-2 : p.data-1;
         if (header_name && (header_name->second || metadata)) {
             o.print_key_json_string(header_name->first, value_start, value_end - value_start);
         }

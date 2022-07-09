@@ -67,11 +67,12 @@ public:
     void parse(datum &p) {
         set_msg_type(p);
 
-        method.parse_up_to_delim(p, '\r');
-        p.skip(2);
+        method.parse_up_to_delim(p, '\n');
+        method.trim_trail('\r');
+        p.skip(1);
 
         /* parse the headers */
-        headers.parse(p);
+        headers.parse_ignore_cr(p);
 
         return;
     }
@@ -87,7 +88,9 @@ public:
             // all headers, and print the values corresponding to each
             // of the matching names
             //
-            msg.print_key_json_string("method", method);
+            if (output_metadata) {
+                msg.print_key_json_string("method", method);
+            }
             headers.print_matching_names_ssdp(msg, ph_visitor, perfect_hash_table_type::HTTP_SSDP_HEADERS,output_metadata);
 
             msg.close();

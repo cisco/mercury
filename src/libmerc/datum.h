@@ -265,7 +265,7 @@ struct datum {
             return;
         }
         while (tmp_data >= data) {
-            if (*data != trail) { // end of trailing delimiter
+            if (*tmp_data != trail) { // end of trailing delimiter
                 data_end = tmp_data + 1;
                 return;
             }
