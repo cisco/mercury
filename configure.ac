@@ -63,6 +63,8 @@ AC_CHECK_PROG(JQ,jq,yes)
 AC_CHECK_PROG(WGET,wget,yes)
 AC_CHECK_PROG(VALGRIND,valgrind,yes)
 AC_CHECK_PROG(HAVE_AFL,afl-g++,yes)
+AC_CHECK_PROG(CLANGPP, clang++, yes)
+AC_CHECK_PROG(LLVM,llvm-link,yes)
 AS_IF([test "x$TCPREPLAY" = xyes],
     [],
     [AC_MSG_WARN([tcpreplay not found; test/Makefile dummy-capture test will not work])])
@@ -78,5 +80,11 @@ AS_IF([test "x$VALGRIND" = xyes],
 AS_IF([test "x$USE_FSANITIZE" = xyes],
     [],
     [AC_MSG_WARN([-fsanitize not supported; debug targets will not use address sanitization])])
+AS_IF([test "x$CLANGPP" = xyes],
+    [],
+    [AC_MSG_WARN([clang++ not found; make fuzz-test will not work])])
+AS_IF([test "x$LLVM" = xyes],
+    [],
+    [AC_MSG_WARN([llvm not found; make fuzz-test may not work])])
 AC_CONFIG_FILES(src/libmerc/Makefile src/Makefile test/Makefile unit_tests/Makefile resources/Makefile Makefile_helper.mk install_mercury/mercury.service)
 AC_OUTPUT

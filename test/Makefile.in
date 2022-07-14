@@ -30,6 +30,7 @@ have_py3    = @PYTHON3@
 python      = @PY@
 have_jsonschema = @HAVE_JSONSCHEMA@
 have_afl        = @HAVE_AFL@
+have_clang      = @CLANGPP@
 
 BATCH_GCD = ../src/batch_gcd
 
@@ -309,11 +310,23 @@ else
 	$(python) p-mercury-diff.py -p p.json -m m.json
 endif
 
+# fuzz testing with libfuzzer
+#
+.PHONY: fuzz-test
+fuzz-test:
+ifeq ($(have_clang),yes)
+	@echo "checking libmerc.a for fuzz test"
+	cd ../src && $(MAKE) libmerc.a
+	cd fuzz && ./generate_fuzz_test.sh
+else
+	@echo $(COLOR_YELLOW) "clang++ unavailable; cannot perform fuzz test" $(COLOR_OFF)
+endif
+
 # fuzz testing with american fuzzy lop
 #
 FUZZ_CMD = --metadata --dns-json --certs-json --analysis -f /dev/null
-.PHONY: fuzz-test
-fuzz-test: afl-mercury
+.PHONY: afl-fuzz-test
+afl-fuzz-test: afl-mercury
 	afl-fuzz -i afl_data -o afl_findings ./afl-mercury -r @@ $(FUZZ_CMD)
 
 afl-mercury:

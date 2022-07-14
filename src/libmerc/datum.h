@@ -720,7 +720,7 @@ class encoded {
 public:
 
     encoded(datum &d, bool little_endian=false) {
-        size_t tmp;
+        uint64_t tmp;
         d.read_uint(&tmp, sizeof(val));
         val = tmp;
         if (little_endian) {
