@@ -24,6 +24,7 @@
 #include "http.h"
 #include "ssh.h"
 #include "smtp.h"
+#include "smb.h"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -44,6 +45,8 @@ enum tcp_msg_type {
     tcp_msg_type_smtp_client,
     tcp_msg_type_smtp_server,
     tcp_msg_type_dns
+    tcp_msg_type_smb1,
+    tcp_msg_type_smb2
 };
 
 enum udp_msg_type {
@@ -223,11 +226,13 @@ public:
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
         }
-
         if (protocols["ssdp"] || protocols["all"]) {
             udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
         }
-
+        if (protocols["smb"] || protocols["all"]) {
+            tcp.add_protocol(smb1_packet::matcher, tcp_msg_type_smb1);
+            tcp.add_protocol(smb2_packet::matcher, tcp_msg_type_smb2);
+        }
         // tell protocol_identification objects to compile lookup tables
         //
         tcp.compile();

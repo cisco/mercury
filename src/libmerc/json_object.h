@@ -94,6 +94,12 @@ struct json_object {
         b->write_char(':');
         b->write_uint8(u);
     }
+    void print_key_uint8_hex(const char *k, uint8_t u) { 
+        write_comma(comma);
+        b->snprintf("\"%s\":\"", k);
+        b->write_hex_uint8(u);
+        b->write_char('\"');
+    }
     void print_key_uint16(const char *k, uint16_t u) {
         write_comma(comma);
         b->write_char('\"');
@@ -102,9 +108,23 @@ struct json_object {
         b->write_char(':');
         b->write_uint16(u);
     }
+    void print_key_uint16_hex(const char *k, uint16_t u) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":\"");
+        b->write_hex_uint16(u);
+        b->write_char('\"');
+    }
     void print_key_uint(const char *k, unsigned long int u) {
         write_comma(comma);
         b->snprintf("\"%s\":%lu", k, u);
+    }
+    void print_key_uint_hex(const char *k, unsigned long int u) {
+        write_comma(comma);
+        b->snprintf("\"%s\":\"", k);
+        b->write_hex_uint32(u);
+        b->write_char('\"');
     }
     void print_key_int(const char *k, long int i) {
         write_comma(comma);
@@ -113,6 +133,12 @@ struct json_object {
     void print_key_float(const char *k, double d) {
         write_comma(comma);
         b->snprintf("\"%s\":%f", k, d);
+    }
+    void print_key_uint64_hex(const char *k, uint64_t  u) {
+        write_comma(comma);
+        b->snprintf("\"%s\":\"", k);
+        b->write_hex_uint64(u);
+        b->write_char('\"');
     }
     void print_key_hex(const char *k, const struct datum &value) {
         write_comma(comma);

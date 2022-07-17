@@ -43,6 +43,7 @@
 #include "buffer_stream.h"
 #include "stats.h"
 #include "ppp.h"
+#include "smb.h"
 
 // class unknown_initial_packet represents the initial data field of a
 // tcp or udp packet from an unknown protocol
@@ -223,6 +224,19 @@ struct write_metadata {
     void operator()(tls_server_hello_and_certificate &r) {
         r.write_json(record, metadata_output_, certs_json_output_);
     }
+
+    void operator()(smb1_packet &r) {
+        struct json_object smb1{record, "smb1"};
+        r.write_json(smb1);
+        smb1.close();
+    }
+
+    void operator()(smb2_packet &r) {
+        struct json_object smb2{record, "smb2"};
+        r.write_json(smb2);
+        smb2.close();
+    }
+
     void operator()(std::monostate &r) {
         (void) r;
     }
@@ -251,6 +265,8 @@ struct compute_fingerprint {
     void operator()(dns_packet &) { }
     void operator()(mdns_packet &) { }
     void operator()(ssdp &) { }
+    void operator()(smb1_packet &) { }
+    void operator()(smb2_packet &) { }
     void operator()(std::monostate &) { }
 
 };
@@ -458,6 +474,12 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         x.emplace<dns_packet>(pkt);
         break;
     }
+    case tcp_msg_type_smb1:
+        x.emplace<smb1_packet>(pkt);
+        break;
+    case tcp_msg_type_smb2:
+        x.emplace<smb2_packet>(pkt);
+        break;
     default:
         if (is_new) {
             x.emplace<unknown_initial_packet>(pkt);

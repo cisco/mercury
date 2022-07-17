@@ -800,6 +800,18 @@ public:
 
 };
 
+// class literal is a literal std::array of characters
+//
+template <size_t N>
+class literal {
+public:
+    literal(datum &d, const std::array<uint8_t, N> &a) {
+        for (const auto &c : a) {
+            d.accept(c);
+        }
+    }
+};
+
 // sanity checks on class encoded<T>
 //
 static_assert(sizeof(encoded<uint8_t>)  == 1);
