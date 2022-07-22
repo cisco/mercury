@@ -17,104 +17,32 @@
 #include "util_obj.h"
 #include "match.h"
 
+#include <vector>
+
+/*
+ * SMB1 code is written based on the details from the below
+ * microsoft document.
+ * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-cifs/69a29f73-de0c-45a6-a1aa-8ceeea42217f
+ */
 class smb1_command {
 public:
     encoded<uint8_t> cmd;
 
     smb1_command (datum &d, bool byte_swap = true) : cmd(d, byte_swap) { }
 
-    const char * get_command_string() {
-        switch (cmd.value()) {
-        case 0x00:      return "smb_com_create_directory";
-        case 0x01:      return "smb_com_delete_directory";
-        case 0x02:      return "smb_com_open";
-        case 0x03:      return "smb_com_create";
-        case 0x04:      return "smb_com_close";
-        case 0x05:      return "smb_com_flush";
-        case 0x06:      return "smb_com_delete";
-        case 0x07:      return "smb_com_rename";
-        case 0x08:      return "smb_com_query_information";
-        case 0x09:      return "smb_com_set_information";
-        case 0x0a:      return "smb_com_read";
-        case 0x0b:      return "smb_com_write";
-        case 0x0c:      return "smb_com_lock_byte_range";
-        case 0x0d:      return "smb_com_unlock_byte_range";
-        case 0x0e:      return "smb_com_create_temporary";
-        case 0x0f:      return "smb_com_create_new";
-        case 0x10:      return "smb_com_check_directory";
-        case 0x11:      return "smb_com_process_exit";
-        case 0x12:      return "smb_com_seek";
-        case 0x13:      return "smb_com_lock_and_read";
-        case 0x14:      return "smb_com_write_and_unlock";
-        case 0x1a:      return "smb_com_read_raw";
-        case 0x1b:      return "smb_com_read_mpx";
-        case 0x1c:      return "smb_com_read_mpx_secondary";
-        case 0x1d:      return "smb_com_write_raw";
-        case 0x1e:      return "smb_com_write_mpx";
-        case 0x1f:      return "smb_com_write_mpx_secondary";
-        case 0x20:      return "smb_com_write_complete";
-        case 0x21:      return "smb_com_query_server";
-        case 0x22:      return "smb_com_set_information2";
-        case 0x23:      return "smb_com_query_information2";
-        case 0x24:      return "smb_com_locking_andx";
-        case 0x25:      return "smb_com_transaction";
-        case 0x26:      return "smb_com_transaction_secondary";
-        case 0x27:      return "smb_com_ioctl";
-        case 0x28:      return "smb_com_ioctl_secondary";
-        case 0x29:      return "smb_com_copy";
-        case 0x2a:      return "smb_com_move";
-        case 0x2b:      return "smb_com_echo";
-        case 0x2c:      return "smb_com_write_and_close";
-        case 0x2d:      return "smb_com_open_andx";
-        case 0x2e:      return "smb_com_read_andx";
-        case 0x2f:      return "smb_com_write_andx";
-        case 0x30:      return "smb_com_new_file_size";
-        case 0x31:      return "smb_com_close_and_tree_disc";
-        case 0x32:      return "smb_com_transaction2";
-        case 0x33:      return "smb_com_transaction2_secondary";
-        case 0x34:      return "smb_com_find_close2";
-        case 0x35:      return "smb_com_find_notify_close";
-        case 0x70:      return "smb_com_tree_connect";
-        case 0x71:      return "smb_com_tree_disconnect";
-        case 0x72:      return "smb_com_negotiate";
-        case 0x73:      return "smb_com_session_setup_andx";
-        case 0x74:      return "smb_com_logoff_andx";
-        case 0x75:      return "smb_com_tree_connect_andx";
-        case 0x7e:      return "smb_com_security_package_andx";
-        case 0x80:      return "smb_com_query_information_disk";
-        case 0x81:      return "smb_com_search";
-        case 0x82:      return "smb_com_find";
-        case 0x83:      return "smb_com_find_unique";
-        case 0x84:      return "smb_com_find_close";
-        case 0xa0:      return "smb_com_nt_transact";
-        case 0xa1:      return "smb_com_nt_transact_secondary";
-        case 0xa2:      return "smb_com-nt_create_andx";
-        case 0xa4:      return "smb_com_nt_cancel";
-        case 0xa5:      return "smb_com_nt_rename";
-        case 0xc0:      return "smb_com_open_print_file";
-        case 0xc1:      return "smb_com_write_print_file";
-        case 0xc2:      return "smb_com_close_print_file";
-        case 0xc3:      return "smb_com_get_print_queue";
-        case 0xd8:      return "smb_com_read_bulk";
-        case 0xd9:      return "smb_com_write_bulk";
-        case 0xda:      return "smb_com_write_bulk_data";
-        case 0xfe:      return "smb_com_invalid";
-        case 0xff:      return "smb_com_no_andx_command";
-        default:        break;
-        }
-        return "unknown";
-    }
+    const char * get_command_string() const;
 };
 
-/* class skip_bytes skips N number of bytes in the given datum*/
-template <size_t N>
-class skip_bytes {
-public:
-    skip_bytes (datum &d) {
-        d.skip(N);
-    }
-};
-
+/*
+ * SMB_Dialect
+ * {
+ *  UCHAR      BufferFormat;
+ *  OEM_STRING DialectString;
+ * }
+ * BufferFormat (1 byte): This field MUST be 0x02. This is a buffer format indicator
+ * that identifies the next field as a null-terminated array of characters.
+ * DialectString (variable): A null-terminated string identifying an SMB dialect.
+ */
 class smb1_dialects {
     std::vector<datum> dialects;
 
@@ -142,6 +70,21 @@ public:
     }
 };
 
+/* 
+ * Negotiate protocol request structure:
+ * SMB_Parameters
+ * {
+ *  UCHAR  WordCount;
+ * }
+ * SMB_Data
+ * {
+ *  USHORT ByteCount;
+ *  Bytes
+ *  {
+ *    UCHAR Dialects[];
+ *  }
+ * }
+ */
 class smb1_negotiate_request {
     encoded<uint8_t> word_count;
     encoded<uint16_t> byte_count;
@@ -222,19 +165,7 @@ public:
         return packet_type::LAST_TYPE;
     }
 
-    void write_json(struct json_object &o) {
-        o.print_key_string("command", command.get_command_string());
-        o.print_key_uint_hex("status", status.value());
-        o.print_key_uint8_hex("flag", flag.value());
-        o.print_key_uint16_hex("flags2", flags2.value());
-        o.print_key_uint16("process_id_high", pid_high.value());
-        o.print_key_uint64_hex("signature", signature.value());
-        o.print_key_uint16("tree_id", tid.value());
-        o.print_key_uint16("process_id_low", pid_low.value());
-        o.print_key_uint16("user_id", uid.value());
-        o.print_key_uint16("multiplex_id", mid.value());
-
-    }
+    void write_json(struct json_object &o);
 };
 
 class smb1_packet {
@@ -274,7 +205,18 @@ public:
     };
 };
 
+/* End of SMB1 */
+
 /*
+ * SMB2 and 3 is implemented based on the reference from
+ * the below microsoft document.
+ * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/5606ad47-5ee0-437a-817e-70c366052962
+ */
+
+/*
+ * GUID--Packet Representation
+ * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/001eec5a-7f8b-4293-9e21-ca349392db40
+ *
  * The valid format for a GUID is {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}
  * X is a hex digit (0,1,2,3,4,5,6,7,8,9,A,B,C,D,E,F)
  */
@@ -316,21 +258,7 @@ class dialect {
 public:
     dialect (datum &d, bool byte_swap = true) : val(d, byte_swap), valid(d.is_not_null()) { }
 
-    const char * get_dialect_string() {
-        switch (val) {         
-        case 0x0202:         return "SMB 2.0.2";
-        case 0x0210:         return "SMB 2.1";
-        case 0x0300:         return "SMB 3.0";
-        case 0x0302:         return "SMB 3.0.2";
-        case 0x0311:         return "SMB 3.1.1";
-        default:             break;
-        }
-        return "unknown";
-    }
-
-    bool is_smb_dialect_311() const {
-        return (val == 0x0311);
-    }
+    const char * get_dialect_string() const;
 };    
          
 class dialects {
@@ -358,6 +286,10 @@ public:
     }
 };
 
+/*
+ * Windows epoch time:
+ * Time in the form of 100-nanosecond intervals since January 1, 1601.
+ */
 class win_epoch_time {
     encoded<uint64_t> value;
     bool valid;
@@ -381,7 +313,279 @@ public:
         }
     }
 };
-                 
+
+/*
+ * SMB2_PREAUTH_INTEGRITY_CAPABILITIES:
+ * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/5a07bd66-4734-4af8-abcf-5a44ff7ee0e5
+ */
+class smb2_preauth_integrity_capa {
+    encoded<uint16_t> hash_algo_count;
+    encoded<uint16_t> salt_length;
+    std::vector<uint16_t> hash_algo;
+    datum salt;
+
+public:
+    smb2_preauth_integrity_capa(datum &d, bool byte_swap) :
+        hash_algo_count(d, byte_swap),
+        salt_length(d, byte_swap) {
+        uint16_t count = 0;
+        hash_algo.reserve(hash_algo_count.value());
+        while (count < hash_algo_count and d.is_not_empty()) {
+            encoded<uint16_t> algo(d, byte_swap);
+            hash_algo.push_back(algo.value());
+            count++;
+        }
+        salt.parse(d, salt_length);
+    }
+
+    void write_json(struct json_object &o) {
+        o.print_key_uint16("hash_algorithm_count", hash_algo_count.value());
+        struct json_array algo{o, "hash_algorithm"};
+        for (const auto& val : hash_algo) {
+            algo.print_uint16_hex(val);
+        }
+        algo.close();
+        o.print_key_hex("salt", salt);
+    }
+};
+
+/*
+ * SMB2_ENCRYPTION_CAPABILITIES:
+ * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/16693be7-2b27-4d3b-804b-f605bde5bcdd
+ */
+class smb2_encryption_capa {
+    encoded<uint16_t> cipher_count;
+    std::vector<uint16_t> ciphers;
+
+    const char * get_cipher_string(const uint16_t& val) const {
+        switch(val) {
+        case 0x0001:        return "AES-128-CCM";
+        case 0x0002:        return "AES-128-GCM";
+        case 0x0003:        return "AES-256-CCM";
+        case 0x0004:        return "AES-256-GCM";
+        default:            break;
+        }
+        return "unknown";
+    }
+
+public:
+    smb2_encryption_capa (datum &d, bool byte_swap) :
+        cipher_count(d, byte_swap) {
+        uint16_t count = 0;
+        ciphers.reserve(cipher_count.value());
+        while (count < cipher_count and d.is_not_empty()) {
+            encoded<uint16_t> cipher(d, byte_swap);
+            ciphers.push_back(cipher.value());
+            count++;
+        }
+    }
+
+    void write_json(struct json_object &o) {
+        o.print_key_uint16("cipher_count", cipher_count.value());
+        struct json_array ids{o, "ciphers"};
+        for (const auto& val : ciphers) {
+            ids.print_string(get_cipher_string(val));
+        }
+        ids.close();
+    }
+};
+
+/*
+ * SMB2_COMPRESSION_CAPABILITIES:
+ * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/78e0c942-ab41-472b-b117-4a95ebe88271
+ */
+class smb2_compression_capa {
+    encoded<uint16_t> compression_algo_count;
+    skip_bytes<2> padding;
+    encoded<uint32_t> flags;
+    std::vector<uint16_t> compression_algos;
+
+    const char * get_comp_algo_string(const uint16_t& val) const {
+        switch(val) {
+        case 0x0000:        return "none";
+        case 0x0001:        return "LZNT1";
+        case 0x0002:        return "LZ77";
+        case 0x0003:        return "LZ77+Huffman";
+        case 0x0004:        return "Pattern_V1";
+        default:            break;
+        }
+        return "unknown";
+    }
+
+public:
+    smb2_compression_capa(datum &d, bool byte_swap) :
+        compression_algo_count(d, byte_swap),
+        padding(d),
+        flags(d, byte_swap) {
+        compression_algos.reserve(compression_algo_count.value());
+        uint16_t count = 0;
+        while(count < compression_algo_count and d.is_not_empty()) {
+            encoded<uint16_t> compression_algo(d, byte_swap);
+            compression_algos.push_back(compression_algo.value());
+            count++;
+        }
+    }
+
+    void write_json(struct json_object &o) {
+        o.print_key_uint16("compression_algorithm_count", compression_algo_count.value());
+        o.print_key_uint_hex("flags", flags.value());
+        struct json_array comp_algos{o, "compression_algorithms"};
+        for (const auto& val : compression_algos) {
+            comp_algos.print_string(get_comp_algo_string(val));    
+        }
+        comp_algos.close();
+    }
+};
+
+/*
+ * SMB2_RDMA_TRANSFORM_CAPABILITIES:
+ * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/52b74a74-9838-4f51-b2b0-efeb23bd79d6
+ */
+class smb2_rdma_transform_capa {
+    encoded<uint16_t> transform_count;
+    skip_bytes<2> reserved1;
+    skip_bytes<4> reserved2;
+    std::vector<uint16_t> rdma_transforms_ids;
+
+    const char * get_id_string(const uint16_t& val) const {
+        switch(val) {
+        case 0x0000:        return "smb2_rdma_transform_none";
+        case 0x0001:        return "smb2_rdma_transform_encryption";
+        case 0x0002:        return "smb2_rdma_transform_signing";
+        default:            break;
+        }
+        return "unknown";
+    }
+public:
+    smb2_rdma_transform_capa (datum &d, bool byte_swap) :
+        transform_count(d, byte_swap),
+        reserved1(d),
+        reserved2(d) {
+        rdma_transforms_ids.reserve(transform_count.value());
+        uint16_t count = 0;
+        while(count < transform_count and d.is_not_empty()) {
+            encoded<uint16_t> id(d, byte_swap);
+            rdma_transforms_ids.push_back(id);
+            count++;
+        }
+    }
+
+    void write_json(struct json_object &o) {
+        o.print_key_uint16("transform_count", transform_count.value());
+        struct json_array ids{o, "rdma_transform_ids"};
+        for (const auto& val : rdma_transforms_ids) {
+            ids.print_string(get_id_string(val));
+        }
+        ids.close();
+    }
+};
+
+/*
+ * SMB2_SIGNING_CAPABILITIES:
+ * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/cb9b5d66-b6be-4d18-aa66-8784a871cc10
+ */
+class smb2_signing_capa {
+    encoded<uint16_t> signing_algo_count;
+    std::vector<uint16_t> signing_algos;
+ 
+    const char * get_id_string(const uint16_t& val) const {
+        switch(val) {
+        case 0x0000:        return "HMAC-SHA256";
+        case 0x0001:        return "AES-CMAC";
+        case 0x0002:        return "AES-GMAC";
+        default:            break;
+        }
+        return "unknown";
+    }
+public:
+    smb2_signing_capa (datum &d, bool byte_swap) :
+        signing_algo_count(d, byte_swap) {
+        signing_algos.reserve(signing_algo_count.value());
+        uint16_t count = 0;
+        while(count < signing_algo_count and d.is_not_empty()) {       
+            encoded<uint16_t> id(d, byte_swap);
+            signing_algos.push_back(id);
+            count++;
+        }
+    }
+
+    void write_json(struct json_object &o) {
+        o.print_key_uint16("signing_algorithm_count", signing_algo_count.value());
+        struct json_array ids{o, "signing_algorithms"};
+        for (const auto& val : signing_algos) {
+            ids.print_string(get_id_string(val));
+        }
+        ids.close();
+    }
+};
+
+/*
+ * SMB2 NEGOTIATE_CONTEXT:
+ * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/15332256-522e-4a53-8cd7-0bd17678a2f7
+ */
+class negotiate_context {
+    datum &body;
+    bool byte_swap;
+    bool valid;
+
+    enum context_type {
+        SMB2_PREAUTH_INTEGRITY_CAPABILITIES = 0x1,
+        SMB2_ENCRYPTION_CAPABILITIES = 0x2,
+        SMB2_COMPRESSION_CAPABILITIES = 0x3,
+        SMB2_NETNAME_NEGOTIATE_CONTEXT_ID = 0x5,
+        SMB2_TRANSPORT_CAPABILITIES = 0x6,
+        SMB2_RDMA_TRANSFORM_CAPABILITIES = 0x7,
+        SMB2_SIGNING_CAPABILITIES = 0x8
+    };
+
+    const char * get_context_type_string(uint16_t type) {
+        switch(type) {
+        case SMB2_PREAUTH_INTEGRITY_CAPABILITIES:        return "smb2_preauth_integrity_capabilities";
+        case SMB2_ENCRYPTION_CAPABILITIES:               return "smb2_encryption_capabilties";
+        case SMB2_COMPRESSION_CAPABILITIES:              return "smb2_compression_capabilities";
+        case SMB2_NETNAME_NEGOTIATE_CONTEXT_ID:          return "smb2_netname_negotiate_context_id";
+        case SMB2_TRANSPORT_CAPABILITIES:                return "smb2_transport_capabilities";
+        case SMB2_RDMA_TRANSFORM_CAPABILITIES:           return "smb2_rdma_transform_capabilites";
+        case SMB2_SIGNING_CAPABILITIES:                  return "SMB2_SIGNING_CAPABILITIES";
+        default:                                         break;
+        }
+        return "unknown";
+    }
+
+public:
+    negotiate_context (datum &d, bool _byte_swap) :
+        body(d),
+        byte_swap(_byte_swap),
+        valid(d.is_not_null() && d.is_not_empty()) { }
+
+    void write_json(struct json_object &o);
+};
+
+/*
+ * There is padding between the end of the Dialects array and the
+ * first negotiate context in NegotiateContextList so that the first
+ * negotiate context is 8-byte aligned.
+ *
+ * NegotiateContextOffset - specifies the offset, in bytes, from the
+ * beginning of the SMB2 header to the first NegotiateContextList.
+ * 
+ * SMB2 header - 64 bytes in length
+ * Number of bytes till reserved2 member of smb2_negotiate_request is 100
+ * Then follows the variable length dialect lists which contains dialects
+ * of length 2 bytes.
+ *
+ * Padding bytes = negotiate_context_offset - 100 - (2 * number of dialects)
+ */
+class neg_req_padding {
+    size_t padding_bytes;
+
+public:
+    neg_req_padding(datum &d, uint32_t neg_context_offset, uint16_t dialect_count) {
+        padding_bytes = neg_context_offset - 100 - dialect_count * 2;
+        d.skip(padding_bytes);
+    }
+};
+         
 class smb2_negotiate_request {
     encoded<uint16_t> structure_size;
     encoded<uint16_t> dialect_count;
@@ -393,6 +597,8 @@ class smb2_negotiate_request {
     encoded<uint16_t> neg_context_count;
     skip_bytes<2> reserved2;
     dialects dialect_list;
+    neg_req_padding padding;
+    negotiate_context neg_context;
     bool valid;
 
     static constexpr bool byte_swap = true;
@@ -407,24 +613,36 @@ public:
         neg_context_offset(d, byte_swap),
         neg_context_count(d, byte_swap),
         reserved2(d),
-        dialect_list(d, dialect_count.value()) {
-            valid = d.is_not_null();
-    }
+        dialect_list(d, dialect_count.value()),
+        padding(d, neg_context_offset.value(), dialect_count.value()),
+        neg_context(d, byte_swap),
+        valid(d.is_not_null()) { }
 
-    void write_json(struct json_object &o) {
-        if(!valid) {
-            return;
-        }
-        json_object neg_req{o, "negotiate_request"};
-        neg_req.print_key_uint16("structure_size", structure_size);
-        neg_req.print_key_uint16("dialect_count", dialect_count);
-        neg_req.print_key_uint16_hex("security_mode", sec_mode);
-        neg_req.print_key_uint_hex("capabilities", cap);
-        neg_req.print_key_value("guid", id);
-        neg_req.print_key_uint_hex("negotiate_context_offset", neg_context_offset);
-        neg_req.print_key_uint16("negotiate_context_count", neg_context_count);
-        dialect_list.write_json(o);
-        neg_req.close();
+    void write_json(struct json_object &o);
+};
+
+/*
+ * There is padding between the end of the  Buffer field and the first negotiate context
+ * in the NegotiateContextList so that the first negotiate context is 8-byte aligned.
+ *
+ * NegotiateContextOffset - specifies the offset, in bytes, from the
+ * beginning of the SMB2 header to the first NegotiateContextList.
+ *
+ * SMB2 header = 64 byes in length
+ * Number of bytes till negotiate_context_offset field of
+ * smb2_negotiate_response structure is 128, which is 8 byte aligned.
+ *
+ * Then follows buffer field which is of varaible length defined by the
+ * field security_buffer_length.
+ * Hence padding bytes = 8 - (security_buffer_length % 8)
+ */
+class neg_resp_padding {
+    size_t padding_bytes;
+
+public:
+    neg_resp_padding(datum &d, uint16_t security_buffer_length) {
+        padding_bytes = 8 - (security_buffer_length % 8);
+        d.skip(padding_bytes);
     }
 };
 
@@ -440,7 +658,12 @@ class smb2_negotiate_response {
     encoded<uint32_t> max_write_size;
     win_epoch_time system_time;
     win_epoch_time server_start_time;
-    encoded<uint32_t> neg_context_offset;
+    encoded<uint16_t> security_buffer_offset;
+    encoded<uint16_t> security_buffer_length;
+    encoded<uint32_t> negotiate_context_offset;
+    datum buffer;
+    neg_resp_padding padding;
+    negotiate_context neg_context;
     bool valid;
 
     static constexpr bool byte_swap = true;
@@ -457,28 +680,15 @@ public:
         max_write_size(d, byte_swap),
         system_time(d, byte_swap),
         server_start_time(d, byte_swap),
-        neg_context_offset(d, byte_swap),
+        security_buffer_offset(d, byte_swap),
+        security_buffer_length(d, byte_swap),
+        negotiate_context_offset(d, byte_swap),
+        buffer(d, security_buffer_length.value()),
+        padding(d, security_buffer_length.value()),
+        neg_context(d, byte_swap),
         valid(d.is_not_null()) { }
 
-    void write_json (struct json_object &o) {
-        if(!valid) {
-            return;
-        }
-
-        json_object neg_resp{o, "negotiate_response"};
-        neg_resp.print_key_uint16("structure_size", structure_size);
-        neg_resp.print_key_uint16_hex("security_mode", sec_mode);
-        neg_resp.print_key_string("dialect", dialect_num.get_dialect_string());
-        neg_resp.print_key_uint16("negotiate_context_count", neg_context_cnt);
-        neg_resp.print_key_value("guid", id);
-        neg_resp.print_key_uint_hex("capabilities", capabilities);
-        neg_resp.print_key_uint("max_transact_size", max_transact_size);
-        neg_resp.print_key_uint("max_read_size", max_read_size);
-        neg_resp.print_key_uint("max_write_size", max_write_size);
-        neg_resp.print_key_value("system_time", system_time);
-        neg_resp.print_key_value("server_start_time", server_start_time);
-        neg_resp.close();
-    }
+    void write_json (struct json_object &o);
 };
  
 class smb2_command {
@@ -509,31 +719,7 @@ public:
 
     smb2_command(datum &d, bool byte_swap = true) : command(d, byte_swap) { }
 
-    const char * get_string() const {
-        switch (command) {
-            case SMB2_NEGOTIATE:        return "smb2_negotiate";
-            case SMB2_SESSION_SETUP:    return "smb2_session_setup";
-            case SMB2_LOGOFF:           return "smb2_logoff";
-            case SMB2_TREE_CONNECT:     return "smb2_tree_connect";
-            case SMB2_TREE_DISCONNECT:  return "smb2_tree_disconnect";
-            case SMB2_CREATE:           return "smb2_create";
-            case SMB2_CLOSE:            return "smb2_close";
-            case SMB2_FLUSH:            return "smb2_flush";
-            case SMB2_READ:             return "smb2_read";
-            case SMB2_WRITE:            return "smb2_write";
-            case SMB2_LOCK:             return "smb2_lock";
-            case SMB2_IOCTL:            return "smb2_ioctl";
-            case SMB2_CANCEL:           return "smb2_cancel";
-            case SMB2_ECHO:             return "smb2_echo";
-            case SMB2_QUERY_DIRECTORY:  return "smb2_query_directory";
-            case SMB2_CHANGE_NOTIFY:    return "smb2_change_notify";
-            case SMB2_QUERY_INFO:       return "smb2_query_info";
-            case SMB2_SET_INFO:         return "smb2_set_info";
-            case SMB2_OPLOCK_BREAK:     return "smb2_oplock_break";
-            default:                    break;
-        }
-        return "unknown";
-    }
+    const char * get_string() const;
 };
 
 class smb2_header {
@@ -577,39 +763,11 @@ public:
         return flags & req_mask;
     }
 
-    packet_type get_packet_type() {
-        switch(cmd.command) {
-            case smb2_command::command_type::SMB2_NEGOTIATE:
-                if (!is_response()) {
-                    return packet_type::NEGOTIATE_REQUEST;
-                }
-                return packet_type::NEGOTIATE_RESPONSE;
-            default:
-                break;
-        }
-        return packet_type::LAST_TYPE;
-    }
+    packet_type get_packet_type();
 
     bool is_valid() const { return valid; }
 
-    void write_json(struct json_object &o) {
-        o.print_key_uint16("structure_size", structure_size.value());
-        o.print_key_uint16("credit_charge", credit_charge.value());
-        o.print_key_uint_hex("status", status.value());
-        o.print_key_string("command", cmd.get_string());
-        if (is_response()) {
-            o.print_key_uint("credits_granted", credit_req_resp.value());
-        } else {
-            o.print_key_uint("credits_requested", credit_req_resp.value());
-        }
-        o.print_key_uint_hex("flags", flags.value());
-        o.print_key_uint_hex("next_command", next_cmd.value());
-        o.print_key_uint64_hex("message_id", msg_id.value());
-        o.print_key_uint_hex("process_id", process_id.value());
-        o.print_key_uint_hex("tree_id", tree_id.value());
-        o.print_key_uint64_hex("session_id", ssn_id.value());
-        o.print_key_hex("signature", signature);
-    }
+    void write_json(struct json_object &o);
 };
 
 class smb2_packet {

@@ -110,9 +110,7 @@ struct json_object {
     }
     void print_key_uint16_hex(const char *k, uint16_t u) {
         write_comma(comma);
-        b->write_char('\"');
-        b->puts(k);
-        b->puts("\":\"");
+        b->snprintf("\"%s\":\"", k);
         b->write_hex_uint16(u);
         b->write_char('\"');
     }
@@ -252,6 +250,10 @@ struct json_array {
     void print_null() {
         write_comma(comma);
         b->puts("null");
+    }
+    void print_uint16_hex(uint16_t u) {
+        write_comma(comma);
+        b->snprintf("\"%#04x\"", u);
     }
     void print_uint(unsigned long int u) {
         write_comma(comma);
