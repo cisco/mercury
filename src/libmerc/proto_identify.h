@@ -30,6 +30,7 @@
 #include "dns.h"
 #include "wireguard.h"
 #include "dtls.h"
+#include "ssdp.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -53,7 +54,8 @@ enum udp_msg_type {
     udp_msg_type_dtls_certificate,
     udp_msg_type_wireguard,
     udp_msg_type_quic,
-    udp_msg_type_vxlan
+    udp_msg_type_vxlan,
+    udp_msg_type_ssdp
 };
 
 template <size_t N>
@@ -215,6 +217,10 @@ public:
         }
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
+        }
+
+        if (protocols["ssdp"] || protocols["all"]) {
+            udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
         }
 
         // tell protocol_identification objects to compile lookup tables

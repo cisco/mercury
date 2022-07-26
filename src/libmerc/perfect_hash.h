@@ -263,7 +263,8 @@ enum perfect_hash_table_type {
                               HTTP_REQUEST_FP = 0,
                               HTTP_RESPONSE_FP = 1,
                               HTTP_REQEUST_HEADERS = 2,
-                              HTTP_RESPONSE_HEADERS = 3
+                              HTTP_RESPONSE_HEADERS = 3,
+                              HTTP_SSDP_HEADERS = 4
 };
 
 struct perfect_hash_visitor {
@@ -296,6 +297,16 @@ struct perfect_hash_visitor {
         }
     }
 
+    const std::pair<const char*, bool>* lookup_pair(perfect_hash_table_type type, const char* key, bool& success) {
+        switch(type) {
+        case perfect_hash_table_type::HTTP_SSDP_HEADERS:
+            return _ph_http_ssdp_headers->lookup(key, strlen(key), success);
+        default:
+            success = false;
+            return nullptr;
+        }
+    }
+
     static perfect_hash_visitor& get_default_perfect_hash_visitor() {
         static perfect_hash_visitor ph_visitor;
         return ph_visitor;
@@ -307,6 +318,7 @@ struct perfect_hash_visitor {
         delete _ph_http_response_fp;
         delete _ph_http_request_headers;
         delete _ph_http_response_headers;
+        delete _ph_http_ssdp_headers;
     }
 
 private:
@@ -314,6 +326,7 @@ private:
     perfect_hash<bool>* _ph_http_response_fp;
     perfect_hash<const char*>* _ph_http_request_headers;
     perfect_hash<const char*>* _ph_http_response_headers;
+    perfect_hash<std::pair<const char*, bool>>* _ph_http_ssdp_headers;
 
     perfect_hash_visitor() {
         std::vector<perfect_hash_entry<bool>> fp_data_reqeust = {
@@ -404,10 +417,34 @@ private:
             { "via: ", "via"}
         };
 
+        // boolean sets output verbosity in absense of metadata option
+        //
+        std::vector<perfect_hash_entry<std::pair<const char*, bool>>> header_ssdp = {
+            { "host", {"host",true} },
+            { "cache-control", {"cache_control",false} },
+            { "location", {"location",true} },
+            { "nt", {"notify_type",true} },
+            { "nts", {"notify_subtype", false} },
+            { "server", {"server",true} },
+            { "usn", {"usn",false} },
+            { "mx", {"delay",false} },
+            { "st", {"target",true} },
+            { "user-agent", {"user_agent",true} },
+            { "date", {"date",false} },
+            { "ext", {"ext",false} },
+            { "bootid.upnp.org", {"bootid",false} },
+            { "configid.upnp.org", {"conf_id",false} },
+            { "searchport.upnp.org", {"searchport",false} },
+            { "opt", {"opt",false} },
+            { "01-nls", {"nls",false} },
+            { "man", {"man",false} }
+        };
+
         _ph_http_request_fp = new perfect_hash<bool>(fp_data_reqeust);
         _ph_http_response_fp = new perfect_hash<bool>(fp_data_response);
         _ph_http_request_headers = new perfect_hash<const char*>(header_data_request);
         _ph_http_response_headers = new perfect_hash<const char*>(header_data_response);
+        _ph_http_ssdp_headers = new perfect_hash<std::pair<const char*, bool>>(header_ssdp);
     }
 };
 
