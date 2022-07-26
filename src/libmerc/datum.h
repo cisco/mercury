@@ -626,7 +626,7 @@ template <size_t T> struct data_buffer : public writeable {
     data_buffer() : writeable{buffer, buffer+T} { }
 
 
-    //void reset() { data = buffer; }
+    void reset() { data = buffer; }
     bool is_not_empty() const { return data != buffer && data < data_end; }
     void set_empty() { data_end = data = buffer; }
     ssize_t length() const { return data - buffer; } // TODO: return readable datum
