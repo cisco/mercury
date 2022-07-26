@@ -127,6 +127,8 @@ struct libmerc_config {
     float proc_dst_threshold = 0.0;  /* remove destinations with less than <var> weight */
     size_t max_stats_entries = 0;  /* max num entries in stats tables                 */
 
+    virtual ~libmerc_config() = default;
+
 #else
 
     bool dns_json_output;         /* output DNS as JSON           */

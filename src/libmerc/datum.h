@@ -529,19 +529,26 @@ struct datum {
 static_assert(sizeof(datum) == 2 * sizeof(uint8_t *));
 
 
-// data_buffer is a contiguous sequence of bytes into which data can
-// be copied sequentially; the data structure tracks the start of the
-// data (buffer), the location to which data can be written (data),
-// and the end of the data buffer (data_end)
+// class writeable represents a writeable region of memory
 //
-template <size_t T> struct data_buffer {
-    unsigned char buffer[T];
-    unsigned char *data;                /* data being written        */
-    const unsigned char *data_end;      /* end of data buffer        */
+class writeable {
+public:
+    uint8_t *data;
+    uint8_t *data_end;      // TODO: const?
 
-    data_buffer() : data{buffer}, data_end{buffer+T} {  }
+    writeable(uint8_t *begin, uint8_t *end) : data{begin}, data_end{end} { }
 
-    void copy(uint8_t x) {
+    bool is_null() const { return data == nullptr || data_end == nullptr; }
+
+    bool is_not_empty() const { return data < data_end; }
+
+    //    ptrdiff_t length() const { return data_end - data; }
+
+    void set_null() { data = data_end = nullptr; }
+
+    void set_empty() { data = data_end; }
+
+        void copy(uint8_t x) {
         if (data + 1 > data_end) {
             return;  // not enough room
         }
@@ -570,10 +577,43 @@ template <size_t T> struct data_buffer {
     void copy(struct datum &r) {
         copy(r, r.length());
     }
-    void reset() { data = buffer; }
+
+    template <typename Type>
+    writeable & operator<<(Type t) {
+        fprintf(stderr, "writeable: {%p,%p}\tlength: %zd\n", data, data_end, data_end-data);
+        t.write(*this);
+        return *this;
+    }
+
+    // template specialization for datum
+    //
+    writeable & operator<<(datum d) {
+        fprintf(stderr, "writeable: {%p,%p}\tlength: %zd\n", data, data_end, data_end-data);
+        if (d.is_not_null()) {
+            copy(d);
+        }
+        return *this;
+    }
+
+};
+
+// data_buffer is a contiguous sequence of bytes into which data can
+// be copied sequentially; the data structure tracks the start of the
+// data (buffer), the location to which data can be written (data),
+// and the end of the data buffer (data_end)
+//
+template <size_t T> struct data_buffer : public writeable {
+    unsigned char buffer[T];
+    // unsigned char *data;                /* data being written        */
+    // const unsigned char *data_end;      /* end of data buffer        */
+
+    data_buffer() : writeable{buffer, buffer+T} { }
+
+
+    //void reset() { data = buffer; }
     bool is_not_empty() const { return data != buffer && data < data_end; }
     void set_empty() { data_end = data = buffer; }
-    ssize_t length() const { return data - buffer; }
+    ssize_t length() const { return data - buffer; } // TODO: return readable datum
 
     datum contents() const { return {buffer, data}; }
 
@@ -581,9 +621,10 @@ template <size_t T> struct data_buffer {
 
     ssize_t write(int fd) { return ::write(fd, buffer, data - buffer);  }
 
+#if 0 // DELETEME
     template <typename Type>
     data_buffer<T> & operator<<(Type t) {
-        // fprintf(stderr, "data_buffer: {%p,%p,%p}\treadable: %zd\twriteable: %zd\n", buffer, data, data_end, data-buffer, data_end-data);
+        fprintf(stderr, "data_buffer: {%p,%p,%p}\treadable: %zd\twriteable: %zd\n", buffer, data, data_end, data-buffer, data_end-data);
         t.write(*this);
         return *this;
     }
@@ -591,11 +632,13 @@ template <size_t T> struct data_buffer {
     // template specialization for datum
     //
     data_buffer<T> & operator<<(datum d) {
+        fprintf(stderr, "data_buffer: {%p,%p,%p}\treadable: %zd\twriteable: %zd\n", buffer, data, data_end, data-buffer, data_end-data);
         if (d.is_not_null()) {
             copy(d);
         }
         return *this;
     }
+#endif // DELETEME
 
     // TODO:
     //  * add data != nullptr checks
@@ -723,8 +766,7 @@ public:
     // TODO: add a function slice<i,j>(T newvalue) that sets the bits
     // associated with a slice
 
-    template <size_t N>
-    void write(data_buffer<N> &buf, bool swap_byte_order=false) {
+    void write(writeable &buf, bool swap_byte_order=false) {
         encoded<T> tmp = val;
         if (swap_byte_order) {
             tmp.swap_byte_order();

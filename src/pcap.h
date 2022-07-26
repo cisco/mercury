@@ -193,7 +193,6 @@ namespace pcap {
         bool equals_any_byte_order(uint32_t rhs) const {
             encoded<uint32_t> alt{rhs};
             alt.swap_byte_order();
-            fprintf(stderr, "comparing %x to %x and %x\n", this->value(), rhs, alt.value());
             return this->value() == rhs || this->value() == alt.value();
         }
 
@@ -272,8 +271,7 @@ public:
         valid{true}
     { }
 
-    template <size_t N>
-    void write(data_buffer<N> &buf) {
+    void write(writeable &buf) {
 
         if (!valid) {
             buf.set_empty();  // TODO: indicate failure
@@ -349,18 +347,18 @@ public:
                        datum pkt) :
         timestamp_sec{ts_sec},
         timestamp_usec{ts_usec},
-        caplen{pkt.length()},
-        len{pkt.length()},
+        caplen{static_cast<uint32_t>(pkt.length())},
+        len{static_cast<uint32_t>(pkt.length())},
         packet_data{pkt}
     { }
 
     bool is_valid() const { return packet_data.is_not_null(); }
 
-    template <size_t N>
-    void write(data_buffer<N> &buf) {
+    void write(writeable &buf) {
 
         if (!is_valid()) {
             buf.set_empty();  // TODO: indicate failure
+            fprintf(stderr, "error in %s\n", __func__);
             return;
         }
 
@@ -369,6 +367,8 @@ public:
             << caplen
             << len
             << packet_data;
+
+        fprintf(stderr, "writeable: {%p,%p}\tlength: %zd\n", buf.data, buf.data_end, buf.data_end-buf.data);
 
     }
 
@@ -623,6 +623,34 @@ public:
 
         fprintf(stderr, "data length: %zu\n", d.length());
         d.fprint_hex(stderr); fputc('\n', stderr);
+    }
+
+    static constexpr uint64_t length_unspecified = 0xffffffffffffffff;
+
+    section_header_block() :
+        block_type{type},
+        block_total_length{non_option_length}, // no options present
+        magic{0x1a2b3c4d},
+        major_version{1},
+        minor_version{0},
+        section_length{length_unspecified}
+    { }
+
+    template <size_t N>
+    void write(data_buffer<N> &buf) {
+
+        // if (!valid) {
+        //     buf.set_empty();  // TODO: indicate failure
+        //     return;
+        // }
+
+        buf << block_type
+            << block_total_length
+            << magic
+            << major_version
+            << minor_version
+            << section_length;
+
     }
 
     bool byteswap() const { return byteswap_needed; }
@@ -1360,7 +1388,48 @@ public:
 
 };
 
-class pcap_writer {
+// namespace ng implements the "Next Generation" format
+//
+namespace ng {
+
+    class writer {
+        int fd;
+        uint16_t linktype = LINKTYPE::NONE; // default
+
+        static constexpr size_t snaplen = 1024 * 4;
+
+    public:
+
+        writer(const char *fname, uint16_t ltype=LINKTYPE::ETHERNET) :
+            fd{open(fname, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)},
+            linktype{ltype}
+        {
+            if (fd < 0) {
+                throw errno_exception();
+            }
+
+            data_buffer<1024 * 8> buf;
+            section_header_block file_header; // TODO: (snaplen, ltype);
+            file_header.write(buf);
+            buf.write(fd);
+
+        }
+
+        void write(datum pkt) {
+            pcap_packet_record record{0, 0, pkt};
+            data_buffer<1024 * 8> buf;
+            record.write(buf);
+            buf.write(fd);
+        }
+        //
+        // TODO: verify that linktype in pkt matches that in file header
+
+    };
+
+} // end of namespace ng
+
+
+class writer {
     int fd;
     uint16_t linktype = LINKTYPE::NONE; // default
 
@@ -1368,7 +1437,7 @@ class pcap_writer {
 
 public:
 
-    pcap_writer(const char *fname, uint16_t ltype=LINKTYPE::ETHERNET) :
+    writer(const char *fname, uint16_t ltype=LINKTYPE::ETHERNET) :
         fd{open(fname, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)},
         linktype{ltype}
     {
@@ -1390,6 +1459,8 @@ public:
         record.write(buf);
         buf.write(fd);
     }
+    //
+    // TODO: verify that linktype in pkt matches that in file header
 
 };
 
@@ -1433,7 +1504,7 @@ public:
 
         while (file.is_not_empty()) {
             pcap_packet_record packet_record{file, swap_byte_order};
-            packet_record.fprint(stderr);
+            // packet_record.fprint(stderr);
             datum tmp = packet_record.get_packet();
             return tmp;
         }
