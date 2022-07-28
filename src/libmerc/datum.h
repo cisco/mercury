@@ -88,7 +88,7 @@ struct datum {
     }
     void parse_up_to_delim(struct datum &r, uint8_t delim) {
         data = r.data;
-        while (r.data <= r.data_end) {
+        while (r.data < r.data_end) {
             if (*r.data == delim) { // found delimeter
                 data_end = r.data;
                 return;
@@ -99,7 +99,7 @@ struct datum {
     }
     uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2) {
         data = r.data;
-        while (r.data <= r.data_end) {
+        while (r.data < r.data_end) {
             if (*r.data == delim1) { // found first delimeter
                 data_end = r.data;
                 return delim1;
@@ -114,7 +114,7 @@ struct datum {
     }
     uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
         data = r.data;
-        while (r.data <= r.data_end) {
+        while (r.data < r.data_end) {
             if (*r.data == delim1) { // found first delimeter
                 data_end = r.data;
                 return delim1;
