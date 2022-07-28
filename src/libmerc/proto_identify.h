@@ -24,7 +24,8 @@
 #include "http.h"
 #include "ssh.h"
 #include "smtp.h"
-#include "smb.h"
+#include "smb1.h"
+#include "smb2.h"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"

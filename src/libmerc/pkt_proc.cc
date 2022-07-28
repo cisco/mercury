@@ -43,7 +43,8 @@
 #include "buffer_stream.h"
 #include "stats.h"
 #include "ppp.h"
-#include "smb.h"
+#include "smb1.h"
+#include "smb2.h"
 
 // class unknown_initial_packet represents the initial data field of a
 // tcp or udp packet from an unknown protocol

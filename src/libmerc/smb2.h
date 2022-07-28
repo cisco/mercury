@@ -1,5 +1,5 @@
 /*
- * smb.h
+ * smb2.h
  *
  * Copyright (c) 2022 Cisco Systems, Inc. All rights reserved.
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
@@ -10,202 +10,14 @@
  *
  * \brief interface file for SMB code
  */
-#ifndef SMB_H
-#define SMB_H
+#ifndef SMB2_H
+#define SMB2_H
 
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
 
 #include <vector>
-
-/*
- * SMB1 code is written based on the details from the below
- * microsoft document.
- * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-cifs/69a29f73-de0c-45a6-a1aa-8ceeea42217f
- */
-class smb1_command {
-public:
-    encoded<uint8_t> cmd;
-
-    smb1_command (datum &d, bool byte_swap = true) : cmd(d, byte_swap) { }
-
-    const char * get_command_string() const;
-};
-
-/*
- * SMB_Dialect
- * {
- *  UCHAR      BufferFormat;
- *  OEM_STRING DialectString;
- * }
- * BufferFormat (1 byte): This field MUST be 0x02. This is a buffer format indicator
- * that identifies the next field as a null-terminated array of characters.
- * DialectString (variable): A null-terminated string identifying an SMB dialect.
- */
-class smb1_dialects {
-    std::vector<datum> dialects;
-
-public:
-    smb1_dialects(datum &d) {
-        while(d.is_not_empty()) {
-            encoded<uint8_t> buffer_format(d);
-            datum dialect;
-            dialect.parse_up_to_delim(d, '\0');
-            dialects.push_back(dialect);
-            d.skip(1); //skip the null byte
-        }
-    }
-
-    bool is_not_empty() const {
-        return (dialects.size());
-    }
-
-    void write_json(struct json_object &o) {
-        struct json_array a{o, "dialects"};
-        for (auto& dialect : dialects) {
-            a.print_json_string(dialect);
-        }
-        a.close();
-    }
-};
-
-/* 
- * Negotiate protocol request structure:
- * SMB_Parameters
- * {
- *  UCHAR  WordCount;
- * }
- * SMB_Data
- * {
- *  USHORT ByteCount;
- *  Bytes
- *  {
- *    UCHAR Dialects[];
- *  }
- * }
- */
-class smb1_negotiate_request {
-    encoded<uint8_t> word_count;
-    encoded<uint16_t> byte_count;
-    smb1_dialects dialect_list;
-
-public:
-    smb1_negotiate_request(datum &d, bool byte_swap = true) :
-        word_count(d, byte_swap),
-        byte_count(d, byte_swap),
-        dialect_list(d) { }
-
-    void write_json(struct json_object &o) {
-        if (dialect_list.is_not_empty()) {
-            json_object neg_req{o, "negotiate_request"};
-            dialect_list.write_json(neg_req);
-            neg_req.close();
-        }
-    }
-};
-
-enum packet_type {
-    NEGOTIATE_REQUEST,
-    NEGOTIATE_RESPONSE,
-
-    LAST_TYPE           //Should be the last field in enum
-};
-
-class smb1_header {
-    literal<4> proto;
-    smb1_command command;
-    encoded<uint32_t> status;
-    encoded<uint8_t> flag;
-    encoded<uint16_t> flags2;
-    encoded<uint16_t> pid_high;
-    encoded<uint64_t> signature;
-    skip_bytes<2> reserved;
-    encoded<uint16_t> tid;
-    encoded<uint16_t> pid_low;
-    encoded<uint16_t> uid;
-    encoded<uint16_t> mid;
-    bool valid;
-
-    static constexpr uint32_t resp_mask = 0x80;
-    static constexpr bool byte_swap = true;
-
-public:
-    smb1_header(datum &d) :
-        proto{d, {0xff, 'S', 'M', 'B'}},
-    command(d, byte_swap),
-    status(d, byte_swap),
-    flag(d, byte_swap),
-    flags2(d, byte_swap),
-    pid_high(d, byte_swap),
-    signature(d, byte_swap),
-    reserved(d),
-    tid(d, byte_swap),
-    pid_low(d, byte_swap),
-    uid(d, byte_swap),
-    mid(d, byte_swap),
-    valid{d.is_not_null()} {}
-
-    bool is_valid() const { return valid; }
-
-    bool is_response() {
-        return (flag & resp_mask);
-    }
-
-    packet_type get_packet_type() {
-        switch(command.cmd) {
-        case 0x72:  //Negotiate
-            if (!is_response()) {
-                return packet_type::NEGOTIATE_REQUEST;
-            }
-            return packet_type::NEGOTIATE_RESPONSE;
-        default:
-            break;
-        }
-        return packet_type::LAST_TYPE;
-    }
-
-    void write_json(struct json_object &o);
-};
-
-class smb1_packet {
-    encoded<uint32_t> nbss_layer;
-    smb1_header hdr;
-    datum& body;
-
-public:
-    smb1_packet(datum &d) :
-        nbss_layer(d),
-        hdr(d),
-        body(d) { }
-
-    bool is_not_empty() const { return hdr.is_valid(); }
-
-    void write_json(struct json_object &o) {
-        hdr.write_json(o);
-        
-         switch(hdr.get_packet_type()) {
-            case packet_type::NEGOTIATE_REQUEST:
-            {
-                smb1_negotiate_request neg_req(body);
-                neg_req.write_json(o);
-                break;
-            }
-            default:
-                break;
-        }
-    }
-
-    static constexpr mask_and_value<8> matcher {
-        { 0x00, //Message type
-          0x00, 0x00, 0x00 , //Length
-          0xff, 0xff, 0xff, 0xff // 
-        },
-        { 0x00, 0x00, 0x00, 0x00, 0xff, 0x53, 0x4d, 0x42}
-    };
-};
-
-/* End of SMB1 */
 
 /*
  * SMB2 and 3 is implemented based on the reference from
@@ -742,7 +554,15 @@ class smb2_header {
 
     static constexpr uint32_t req_mask = 0x00000001;
     static constexpr bool byte_swap = true;
+
 public:
+    enum packet_type {
+        NEGOTIATE_REQUEST,
+        NEGOTIATE_RESPONSE,
+
+        LAST_TYPE           //Should be the last field in enum
+    };
+
     smb2_header(datum &d) :
         proto{d, {0xFE, 'S', 'M', 'B'}},
         structure_size{d, byte_swap},
@@ -763,7 +583,18 @@ public:
         return flags & req_mask;
     }
 
-    packet_type get_packet_type();
+    packet_type get_packet_type() {
+        switch(cmd.command) {
+        case smb2_command::command_type::SMB2_NEGOTIATE:
+            if (!is_response()) {
+                return packet_type::NEGOTIATE_REQUEST;
+            }
+            return packet_type::NEGOTIATE_RESPONSE;
+        default:
+            break;
+        }
+        return packet_type::LAST_TYPE;
+    }
 
     bool is_valid() const { return valid; }
 
@@ -787,19 +618,19 @@ public:
         hdr.write_json(o);
 
         switch(hdr.get_packet_type()) {
-            case packet_type::NEGOTIATE_REQUEST:
+            case smb2_header::packet_type::NEGOTIATE_REQUEST:
             {
                 smb2_negotiate_request neg_req(body);
                 neg_req.write_json(o);
             }
                 break;
-            case packet_type::NEGOTIATE_RESPONSE:
+            case smb2_header::packet_type::NEGOTIATE_RESPONSE:
             {
                 smb2_negotiate_response neg_resp(body);
                 neg_resp.write_json(o);
             }
                 break;
-            case packet_type::LAST_TYPE:
+            case smb2_header::packet_type::LAST_TYPE:
 
             default:
                 break;
@@ -815,4 +646,4 @@ public:
     };
 };
  
-#endif /* SMB_H */
+#endif /* SMB2_H */
