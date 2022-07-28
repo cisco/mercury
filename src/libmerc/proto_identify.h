@@ -43,6 +43,7 @@ enum tcp_msg_type {
     tcp_msg_type_ssh_kex,
     tcp_msg_type_smtp_client,
     tcp_msg_type_smtp_server,
+    tcp_msg_type_dns
 };
 
 enum udp_msg_type {
@@ -208,6 +209,10 @@ public:
             // udp.add_protocol(dns_packet::client_matcher, udp_msg_type_dns); // older matcher
             // udp.add_protocol(dns_packet::server_matcher, udp_msg_type_dns); // older matcher
         }
+        if (protocols["dns"] || protocols["all"]) {
+            tcp.add_protocol(dns_packet::tcp_matcher, tcp_msg_type_dns);
+        }
+
         if (protocols["dtls"] || protocols["all"]) {
             udp16.add_protocol(dtls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
             udp16.add_protocol(dtls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
