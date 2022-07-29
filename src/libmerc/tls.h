@@ -368,7 +368,7 @@ struct tls_client_hello : public tcp_base_protocol {
 
     void write_json(struct json_object &record, bool output_metadata) const;
 
-    struct tls_security_assessment security_assesment();
+    struct tls_security_assessment security_assessment();
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 

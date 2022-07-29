@@ -128,7 +128,7 @@ void tls_security_assessment::print(struct json_object &o, const char *key) {
     }
 }
 
-struct tls_security_assessment tls_client_hello::security_assesment() {
+struct tls_security_assessment tls_client_hello::security_assessment() {
     struct tls_security_assessment a;
     return a;
 }
