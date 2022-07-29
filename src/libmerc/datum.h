@@ -260,6 +260,8 @@ struct datum {
 // trim_trail(t) skips/trims all instance of trailing char t
 //
     void trim_trail(unsigned char trail) {
+        if (!is_not_empty())
+            return;
         const unsigned char *tmp_data = data_end - 1;
         if (*tmp_data != trail) {
             return;

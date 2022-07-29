@@ -58,7 +58,7 @@ EOF
     chmod +x "fuzz_$dir_name"
     # count corpus pre test
     pre_corpus="$(ls ./corpus/ | wc -l)"
-    ./"fuzz_$dir_name" -seed=1 ./corpus/ -runs=10000 > $dir_name.log 2>&1
+    ./"fuzz_$dir_name" -seed=1 ./corpus/ -runs=1000000 > $dir_name.log 2>&1
     if [[ $(grep -Ec "((ERROR)|(ABORTING))" $dir_name.log) -gt 0 ]]; then
         echo -e $COLOR_RED "FAILED TEST : $dir_name" $COLOR_OFF
         fail=$((fail+1))
@@ -72,6 +72,10 @@ EOF
         echo -e $COLOR_GREEN "corpus updated" $COLOR_OFF
     fi;
     
+    cd corpus
+    ls -1 | grep -v 'seed' | xargs rm -f
+    cd ..
+
     cd ../$LIBMERC_FOLDER;
 }
 
