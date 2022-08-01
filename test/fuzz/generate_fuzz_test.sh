@@ -15,11 +15,34 @@ parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 
 LIBMERC_FOLDER=../../src/libmerc/
 
+USAGE="[-r <iterations> -t <time> -h <help> -n <none(run all test)/test_name>]"
+
+default_runs=10000000000
+default_time=200
+specific_test="none"
+
 total_headers=0
 total_test_function=0
 total_missing_dir=0
 pass=0
 fail=0
+
+#read command line args
+#
+while getopts hr:t:n: flag
+do
+    case "${flag}" in
+        h) echo "$USAGE"
+            exit 1;;
+        r) default_runs=${OPTARG};;
+        t) default_time=${OPTARG};;
+        n) specific_test=${OPTARG};;
+        \?) echo "ERROR: Invalid option: $USAGE"
+            exit 1;;
+    esac
+done
+
+#specific_test="none"
 
 cd $LIBMERC_FOLDER
 
@@ -27,6 +50,14 @@ cd $LIBMERC_FOLDER
 # report if struct/class has fuzz_test() but dir does not exist
 exec_testcase () {
     dir_name=$1;
+    #check for specific testcase case option
+    if [[ "$specific_test" != "none" ]]; then
+        if [[ "$specific_test" != $dir_name ]]; then
+            echo "skipping test"
+            return 0;
+        fi;
+    fi;
+
     echo "checking dir $dir_name"
     if [[ ! -d "$parent_path/$dir_name" ]] ; then
         echo -e $COLOR_RED "$dir_name test dir not found" $COLOR_OFF
@@ -66,7 +97,7 @@ EOF
     chmod +x "fuzz_$dir_name"
     # count corpus pre test
     pre_corpus="$(ls ./corpus/ | wc -l)"
-    ./"fuzz_$dir_name" -seed=1 ./corpus/ -runs=10000000000 -max_total_time=200 > $dir_name.log 2>&1
+    ./"fuzz_$dir_name" -seed=1 ./corpus/ -runs=$default_runs -max_total_time=$default_time > $dir_name.log 2>&1
     if [[ $(grep -Ec "((ERROR)|(ABORTING))" $dir_name.log) -gt 0 ]]; then
         echo -e $COLOR_RED "FAILED TEST : $dir_name" $COLOR_OFF
         fail=$((fail+1))

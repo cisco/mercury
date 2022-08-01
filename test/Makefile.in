@@ -317,7 +317,7 @@ fuzz-test:
 ifeq ($(have_clang),yes)
 	@echo "checking libmerc.a for fuzz test"
 	cd ../src && $(MAKE) libmerc.a
-	cd fuzz && ./generate_fuzz_test.sh
+	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000
 else
 	@echo $(COLOR_YELLOW) "clang++ unavailable; cannot perform fuzz test" $(COLOR_OFF)
 endif
