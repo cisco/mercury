@@ -54,7 +54,15 @@ EOF
         fail=$((fail+1))
         cd ../$LIBMERC_FOLDER;
         return 1;
-    fi; 
+    fi;
+
+    if [[ ! -d "./corpus" ]] ; then
+        echo -e $COLOR_RED "$dir_name test dir corpus not found" $COLOR_OFF
+        total_missing_dir=$((total_missing_dir+1))
+        cd ../$LIBMERC_FOLDER
+        return 1;
+    fi;
+    
     chmod +x "fuzz_$dir_name"
     # count corpus pre test
     pre_corpus="$(ls ./corpus/ | wc -l)"
@@ -71,7 +79,7 @@ EOF
     if [[ "$post_corpus" -gt "$pre_corpus" ]]; then
         echo -e $COLOR_GREEN "corpus updated" $COLOR_OFF
     fi;
-    
+
     cd corpus
     ls -1 | grep -v 'seed' | xargs rm -f
     cd ..
