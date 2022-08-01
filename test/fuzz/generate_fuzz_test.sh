@@ -48,7 +48,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
 EOF
 
     # make fuzz_test
-    $CXX -g -O0 -fno-omit-frame-pointer -x c++ -std=c++17 -fsanitize=fuzzer,address  -I../../src/libmerc -Wno-narrowing $LDFLAGS -L./.. "fuzz_test_$dir_name.c" -l:libmerc.a -lssl -lcrypto -lz -o "fuzz_$dir_name"
+    $CXX -g -O0 -fno-omit-frame-pointer -x c++ -std=c++17 -fsanitize=fuzzer,address,leak  -I../../src/libmerc -Wno-narrowing $LDFLAGS -L./.. "fuzz_test_$dir_name.c" -l:libmerc.a -lssl -lcrypto -lz -o "fuzz_$dir_name"
     if [[ ! -f "./fuzz_$dir_name" ]] ; then
         echo -e $COLOR_RED "executable not built, failed test" $COLOR_OFF
         fail=$((fail+1))
@@ -66,7 +66,7 @@ EOF
     chmod +x "fuzz_$dir_name"
     # count corpus pre test
     pre_corpus="$(ls ./corpus/ | wc -l)"
-    ./"fuzz_$dir_name" -seed=1 ./corpus/ -runs=1000000 > $dir_name.log 2>&1
+    ./"fuzz_$dir_name" -seed=1 ./corpus/ -runs=10000000000 -max_total_time=200 > $dir_name.log 2>&1
     if [[ $(grep -Ec "((ERROR)|(ABORTING))" $dir_name.log) -gt 0 ]]; then
         echo -e $COLOR_RED "FAILED TEST : $dir_name" $COLOR_OFF
         fail=$((fail+1))
