@@ -13,7 +13,6 @@
 #include "analysis.h"
 #include "tcp.h"
 #include "tcpip.h"
-#include "x509.h"
 
 
 // class xtn represents a TLS extension
@@ -591,51 +590,6 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int x509_cert_fuzz_test(const uint8_t *data, size_t size) {
-        struct datum tmp_cert_list{data, data+size};
-        char buffer[8192];
-        struct buffer_stream buf(buffer, sizeof(buffer));
-
-        while (tmp_cert_list.length() > 0) {
-
-            /* get certificate length */
-            uint64_t tmp_len;
-            if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
-                return -1;
-            }
-
-            if (tmp_len > (unsigned)tmp_cert_list.length()) {
-                tmp_len = tmp_cert_list.length(); /* truncate */
-            }
-
-            if (tmp_len == 0) {
-            return -1; /* don't bother printing out a partial cert if it has a length of zero */
-            }
-
-            struct json_object o{&buf};
-            datum tmp_tmp_cert_list{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
-
-            struct json_object_asn1 cert{o, "cert"};
-            struct x509_cert c;
-            c.parse(tmp_cert_list.data, tmp_len);
-            c.print_as_json(cert, {}, NULL);
-            cert.close();
-            
-            //struct datum cert_parser{tmp_tmp_cert_list.data, tmp_tmp_cert_list.data + tmp_len};
-                o.print_key_base64("base64", tmp_tmp_cert_list);
-            
-            o.close();
-
-            /*
-             * advance parser over certificate data
-             */
-            if (tmp_cert_list.skip(tmp_len) == false) {
-                return -1;
-            }
-        }
-        return 0;
-    }
-
     [[maybe_unused]] int tls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
         struct datum hello_data{data, data+size};
         char buffer_1[8192];
@@ -652,7 +606,7 @@ namespace {
         }
 
         return 0;
-    }    
+    } 
 
 }; //end of namespace
 

@@ -468,6 +468,9 @@ struct datum {
 
     void init_from_outer_parser(struct datum *outer,
                                 unsigned int data_len) {
+        if (!outer->is_not_empty()) {
+            return;
+        }
         const unsigned char *inner_data_end = outer->data + data_len;
 
         data = outer->data;

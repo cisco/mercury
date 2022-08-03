@@ -25,18 +25,27 @@ void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, con
 
                 if (*x >= 0xe0) {
                     if (*x >= 0xf0) {
+                        if (x >= end - 3) {
+                            break;
+                        }
                         codepoint = (*x++ & 0x07);
                         codepoint = (*x++ & 0x3f) | (codepoint << 6);
                         codepoint = (*x++ & 0x3f) | (codepoint << 6);
                         codepoint = (*x   & 0x3f) | (codepoint << 6);
 
                     } else {
+                        if (x >= end - 2) {
+                            break;
+                        }
                         codepoint = (*x++ & 0x0F);
                         codepoint = (*x++ & 0x3f) | (codepoint << 6);
                         codepoint = (*x   & 0x3f) | (codepoint << 6);
                     }
 
                 } else {
+                    if (x >= end - 1) {
+                        break;
+                    }
                     codepoint = ((*x++ & 0x1f) << 6);
                     codepoint |= *x & 0x3f;
                 }

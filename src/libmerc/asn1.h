@@ -260,7 +260,7 @@ struct tlv {
     struct datum value;
 
     bool operator == (const struct tlv &r) {
-        return tag == r.tag && length == r.length && value.memcmp(r.value) == 0;
+        return !is_valid() && tag == r.tag && length == r.length && value.memcmp(r.value) == 0;
     }
 
     constexpr static unsigned char explicit_tag(unsigned char tag) {
@@ -305,10 +305,13 @@ struct tlv {
     };
 
     bool is_not_null() const {
-        return value.data;
+        return (value.data);
     }
     bool is_null() const {
         return (value.data == NULL);
+    }
+    bool is_valid() const {
+        return value.is_not_empty();
     }
     bool is_truncated() const {
         return value.data != NULL && value.length() != (ssize_t) length;
@@ -408,6 +411,9 @@ struct tlv {
     }
 
     void remove_bitstring_encoding() {
+        if (!is_valid()) {
+            return;
+        }
         uint8_t first_octet = 0;
         value.read_uint8(&first_octet);
         if (first_octet) {
@@ -504,7 +510,9 @@ struct tlv {
             "CHARACTER STRING",
             "BMPString"
         };
-
+        if (!is_valid()) {
+            return;
+        }
         if (value.data) {
             uint8_t tag_class = tag >> 6;
             uint8_t constructed = (tag >> 5) & 1;
@@ -544,10 +552,13 @@ struct tlv {
     }
 
     int time_cmp(const struct tlv &t) const {
+        if (!is_valid() || !t.is_valid()) {
+            return -1;
+        }
         ssize_t l1 = value.data_end - value.data;
         ssize_t l2 = t.value.data_end - t.value.data;
         ssize_t min = l1 < l2 ? l1 : l2;
-        if (min == 0) {
+        if (min == 0 || min > 15) {
             return 0;
         }
         // fprintf(stderr, "comparing %zd bytes of times\nl1: %.*s\nl2: %.*s\n", min, l1, value.data, l2, t.value.data);
@@ -556,16 +567,22 @@ struct tlv {
         const uint8_t *d2 = t.value.data;
         uint8_t gt1[15];
         if (tag == tlv::UTCTime) {
+            if (l1 != 13) {
+                return 0;
+            }
             d1 = gt1;
             utc_to_generalized_time(gt1, value.data);
-        } else if (tag != tlv::GeneralizedTime) {
+        } else if ((tag == tlv::GeneralizedTime && l1 != 15) || tag != tlv::GeneralizedTime) {
             return 0; // error; attempt to compare non-time value
         }
         uint8_t gt2[15];
         if (t.tag == tlv::UTCTime) {
+            if (l2 != 13) {
+                return 0;
+            }
             d2 = gt2;
             utc_to_generalized_time(gt2, t.value.data);
-        } else if (tag != tlv::GeneralizedTime) {
+        } else if ((t.tag == tlv::GeneralizedTime && l2 != 15) || t.tag != tlv::GeneralizedTime) {
             return 0; // error; attempt to compare non-time value
         }
 
@@ -585,30 +602,48 @@ struct tlv {
      * functions for json_object serialization
      */
     void print_as_json_hex(struct json_object &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_hex(name, value);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_oid(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_oid(name, value);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_escaped_string(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_escaped_string(name, value);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_utctime(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_utctime(name, value.data, value.data_end - value.data);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_generalized_time(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_generalized_time(name, value.data, value.data_end - value.data);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
     void print_as_json_ip_address(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.write_comma(o.comma);
         o.b->snprintf("\"%s\":\"", name);
         fprintf_ip_address(*o.b, value.data, value.data_end - value.data);
@@ -618,6 +653,9 @@ struct tlv {
     }
 
     void print_as_json_bitstring(struct json_object &o, const char *name, bool comma=false) const {
+        if (!is_valid()) {
+            return;
+        }
         const char *format_string = "\"%s\":[";
         if (comma) {
             format_string = ",\"%s\":[";
@@ -635,6 +673,9 @@ struct tlv {
                 }
                 p.data++;
             }
+            if (!p.is_not_empty()) {
+                return;
+            }
             uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
             for (uint8_t x = 0x80; x > terminus; x=x>>1) {
                 o.b->snprintf("%s%c", comma, x & *p.data ? '1' : '0');
@@ -647,11 +688,17 @@ struct tlv {
     }
 
     void print_as_json_bitstring_flags(struct json_object_asn1 &o, const char *name, char * const *flags) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_bitstring_flags(name, value, flags);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         switch(tag) {
         case tlv::UTCTime:
             print_as_json_utctime(o, name);
