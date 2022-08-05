@@ -165,6 +165,12 @@ struct tcp_packet {
         return header && TCP_IS_SYN(header->flags) && TCP_IS_ACK(header->flags);
     }
 
+    bool is_FIN() {
+        return header && TCP_IS_FIN(header->flags);
+    }
+
+    uint32_t seq() const { return htonl(header->seq); }
+
     void set_key(struct key &k) {
         if (header) {
             k.src_port = ntohs(header->src_port);

@@ -118,21 +118,6 @@ void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, size_t len
 
 }
 
-void tls_security_assessment::print(struct json_object &o, const char *key) {
-    struct json_array a{o, key};
-    if (weak_version_offered) {
-        a.print_string("weak_version_offered");
-    }
-    if (weak_ciphersuite_offered) {
-        a.print_string("weak_ciphersuite_offered");
-    }
-}
-
-struct tls_security_assessment tls_client_hello::security_assesment() {
-    struct tls_security_assessment a;
-    return a;
-}
-
 void tls_extensions::print(struct json_object &o, const char *key) const {
 
     struct datum ext_parser{this->data, this->data_end};
@@ -191,6 +176,33 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
         }
     }
 
+}
+
+datum tls_extensions::get_supported_groups() const {
+
+    datum ext_parser{this->data, this->data_end};
+
+    while (ext_parser.length() > 0) {
+        size_t tmp_len = 0;
+        size_t tmp_type;
+
+        const uint8_t *data = ext_parser.data;
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
+            break;
+        }
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
+            break;
+        }
+        if (ext_parser.skip(tmp_len) == false) {
+            break;
+        }
+        const uint8_t *data_end = ext_parser.data;
+
+        if (tmp_type == type_supported_groups) {
+            return datum{data, data_end};
+        }
+    }
+    return { nullptr, nullptr };
 }
 
 

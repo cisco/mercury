@@ -14,26 +14,18 @@
 #include "tcp.h"
 #include "tcpip.h"
 
-struct tls_security_assessment {
-    bool weak_version_offered;
-    bool weak_ciphersuite_offered;
-    bool weak_elliptic_curve_offered;
-    bool weak_version_used;
-    bool weak_ciphersuite_used;
-    bool weak_elliptic_curve_used;
-    bool weak_key_size_used;
 
-    tls_security_assessment() :
-        weak_version_offered{false},
-        weak_ciphersuite_offered{false},
-        weak_elliptic_curve_offered{false},
-        weak_version_used{false},
-        weak_ciphersuite_used{false},
-        weak_elliptic_curve_used{false},
-        weak_key_size_used{false}
-    {  }
+// class xtn represents a TLS extension
+//
+class xtn {
+    encoded<uint16_t> type_;
+    encoded<uint16_t> length;
+public:
+    datum value;
 
-    void print(struct json_object &o, const char *key);
+    xtn(datum &d) : type_{d}, length{d}, value{d, length} { }
+
+    uint16_t type() const { return type_; }
 };
 
 
@@ -336,6 +328,9 @@ struct tls_extensions : public datum {
                        datum& alpn) const;
 
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
+
+    datum get_supported_groups() const;
+
 };
 
 
@@ -366,8 +361,6 @@ struct tls_client_hello : public tcp_base_protocol {
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
     void write_json(struct json_object &record, bool output_metadata) const;
-
-    struct tls_security_assessment security_assesment();
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
@@ -529,6 +522,70 @@ public:
         }
     }
 
+};
+
+
+
+// struct {
+//     public-key-encrypted PreMasterSecret pre_master_secret;
+// } EncryptedPreMasterSecret;
+
+class encrypted_premaster_secret {
+
+public:
+
+    encrypted_premaster_secret(datum &)
+    {}
+};
+
+//       enum { implicit, explicit } PublicValueEncoding;
+//
+//       implicit
+//          If the client has sent a certificate which contains a suitable
+//          Diffie-Hellman key (for fixed_dh client authentication), then
+//          Yc is implicit and does not need to be sent again.  In this
+//          case, the client key exchange message will be sent, but it MUST
+//          be empty.
+//
+//       explicit
+//          Yc needs to be sent.
+//
+//       struct {
+//           select (PublicValueEncoding) {
+//               case implicit: struct { };
+//               case explicit: opaque dh_Yc<1..2^16-1>;
+//           } dh_public;
+//       } ClientDiffieHellmanPublic;
+//
+class client_diffie_hellman_public {
+public:
+
+    client_diffie_hellman_public(datum &)
+    { }
+};
+
+// ClientKeyExchange format (following RFC 5246, TLSv1.2)
+//
+// struct {
+//     select (KeyExchangeAlgorithm) {
+//         case rsa:
+//             EncryptedPreMasterSecret;
+//         case dhe_dss:
+//         case dhe_rsa:
+//         case dh_dss:
+//         case dh_rsa:
+//         case dh_anon:
+//             ClientDiffieHellmanPublic;
+//     } exchange_keys;
+// } ClientKeyExchange;
+
+class client_key_exchange {
+    datum value;
+
+public:
+
+    client_key_exchange(datum &d) : value{d}
+    {}
 };
 
 #endif /* TLS_H */
