@@ -287,6 +287,33 @@ struct do_analysis {
 
 };
 
+struct do_crypto_assessment {
+    const crypto_policy::assessor *ca;
+    json_object &record;
+
+    do_crypto_assessment(const crypto_policy::assessor *assessor, json_object &o) : ca{assessor}, record{o} { }
+
+    bool operator()(const tls_client_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+    bool operator()(const quic_init &msg) {
+        if (msg.has_tls()) {
+            ca->assess(msg.get_tls_client_hello(), record);
+        }
+        return false;
+    }
+
+    template <typename T>
+    bool operator()(const T &) {
+        return false;   // no assessment performed for all other types
+    }
+
+    bool operator()(std::monostate &) { return false; }
+
+};
+
 class event_string
 {
     const struct key &k;
@@ -635,6 +662,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         if (output_analysis) {
             analysis.result.write_json(record, "analysis");
         }
+        if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
         write_flow_key(record, k);
         record.print_key_timestamp("event_start", ts);
         record.close();

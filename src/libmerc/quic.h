@@ -1155,8 +1155,12 @@ public:
         //return plaintext.is_not_empty();
     }
 
-    bool has_tls() {
+    bool has_tls() const {
         return hello.is_not_empty();
+    }
+
+    const tls_client_hello &get_tls_client_hello() const {
+        return hello;
     }
 
     void write_json(struct json_object &record, bool metadata_output=false) {
