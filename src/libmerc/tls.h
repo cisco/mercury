@@ -13,28 +13,19 @@
 #include "analysis.h"
 #include "tcp.h"
 #include "tcpip.h"
-#include "crypto_assess.h"
 
-struct tls_security_assessment {
-    bool weak_version_offered;
-    bool weak_ciphersuite_offered;
-    bool weak_elliptic_curve_offered;
-    bool weak_version_used;
-    bool weak_ciphersuite_used;
-    bool weak_elliptic_curve_used;
-    bool weak_key_size_used;
 
-    tls_security_assessment() :
-        weak_version_offered{false},
-        weak_ciphersuite_offered{false},
-        weak_elliptic_curve_offered{false},
-        weak_version_used{false},
-        weak_ciphersuite_used{false},
-        weak_elliptic_curve_used{false},
-        weak_key_size_used{false}
-    {  }
+// class xtn represents a TLS extension
+//
+class xtn {
+    encoded<uint16_t> type_;
+    encoded<uint16_t> length;
+public:
+    datum value;
 
-    void print(struct json_object &o, const char *key);
+    xtn(datum &d) : type_{d}, length{d}, value{d, length} { }
+
+    uint16_t type() const { return type_; }
 };
 
 
@@ -337,6 +328,9 @@ struct tls_extensions : public datum {
                        datum& alpn) const;
 
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
+
+    datum get_supported_groups() const;
+
 };
 
 
@@ -367,8 +361,6 @@ struct tls_client_hello : public tcp_base_protocol {
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
     void write_json(struct json_object &record, bool output_metadata) const;
-
-    struct tls_security_assessment security_assessment();
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 

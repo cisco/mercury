@@ -21,6 +21,7 @@
 #include "global_config.h"
 #include "quic.h"
 #include "perfect_hash.h"
+#include "crypto_assess.h"
 
 /**
  * enum linktype is a 16-bit enumeration that identifies a protocol
@@ -132,6 +133,7 @@ struct stateful_pkt_proc {
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
     perfect_hash_visitor& ph_visitor;
+    crypto_policy::assessor *crypto_policy = nullptr;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
@@ -149,6 +151,12 @@ struct stateful_pkt_proc {
         quic_crypto{},
         ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()}
     {
+
+        constexpr bool DO_CRYPTO_ASSESSMENT = false;
+        if (DO_CRYPTO_ASSESSMENT) {
+            // set crypto assessment policy
+            crypto_policy = new crypto_policy::quantum_safe;
+        }
 
         // set config and classifier to (refer to) context m
         //
@@ -179,6 +187,7 @@ struct stateful_pkt_proc {
     }
 
     ~stateful_pkt_proc() {
+        delete crypto_policy;
         // we could call ag->remote_procuder(mq), but for now we do not
     }
 
