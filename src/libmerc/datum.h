@@ -63,6 +63,7 @@ struct datum {
     bool is_null() const { return data == NULL; }
     bool is_not_null() const { return data != NULL; }
     bool is_not_empty() const { return data != NULL && data < data_end; }
+    bool is_readable() const { return data != NULL && data < data_end; }
     bool is_not_readable() const { return data == NULL || data == data_end; }
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = NULL; }
