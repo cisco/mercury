@@ -447,6 +447,17 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_smtp_server:
         x.emplace<smtp_server>(pkt);
         break;
+    case tcp_msg_type_dns:
+    {
+        /* Trim the 2 byte length field in case of
+         * dns over tcp.
+         */
+        uint16_t len = 0;
+        pkt.read_uint16(&len);
+        pkt.trim_to_length(len);
+        x.emplace<dns_packet>(pkt);
+        break;
+    }
     default:
         if (is_new) {
             x.emplace<unknown_initial_packet>(pkt);
