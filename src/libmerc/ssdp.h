@@ -127,5 +127,16 @@ public:
 
 };
 
+namespace {
+
+    [[maybe_unused]] int ssdp_fuzz_test(const uint8_t *data, size_t size) {
+        datum pkt_data{data, data+size};
+        perfect_hash_visitor &test_visitor = perfect_hash_visitor::get_default_perfect_hash_visitor();
+        ssdp ssdp_record{pkt_data, test_visitor};
+        return 0;
+    }
+
+}; // end of namespace
+
 
 #endif /* SSDP_H */

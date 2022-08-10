@@ -1214,5 +1214,15 @@ public:
     }
 };
 
+namespace {
+
+    [[maybe_unused]] int quic_init_fuzz_test(const uint8_t *data, size_t size) {
+        datum pkt_data{data, data+size};
+        quic_crypto_engine quic_crypto{};
+        quic_init quic_pkt{pkt_data, quic_crypto};
+        return 0;
+    }
+
+}; //end of namespace
 
 #endif /* QUIC_H */

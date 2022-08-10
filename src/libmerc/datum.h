@@ -88,7 +88,7 @@ struct datum {
     }
     void parse_up_to_delim(struct datum &r, uint8_t delim) {
         data = r.data;
-        while (r.data <= r.data_end) {
+        while (r.data < r.data_end) {
             if (*r.data == delim) { // found delimeter
                 data_end = r.data;
                 return;
@@ -99,7 +99,7 @@ struct datum {
     }
     uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2) {
         data = r.data;
-        while (r.data <= r.data_end) {
+        while (r.data < r.data_end) {
             if (*r.data == delim1) { // found first delimeter
                 data_end = r.data;
                 return delim1;
@@ -114,7 +114,7 @@ struct datum {
     }
     uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
         data = r.data;
-        while (r.data <= r.data_end) {
+        while (r.data < r.data_end) {
             if (*r.data == delim1) { // found first delimeter
                 data_end = r.data;
                 return delim1;
@@ -260,6 +260,8 @@ struct datum {
 // trim_trail(t) skips/trims all instance of trailing char t
 //
     void trim_trail(unsigned char trail) {
+        if (!is_not_empty())
+            return;
         const unsigned char *tmp_data = data_end - 1;
         if (*tmp_data != trail) {
             return;
@@ -466,6 +468,9 @@ struct datum {
 
     void init_from_outer_parser(struct datum *outer,
                                 unsigned int data_len) {
+        if (!outer->is_not_empty()) {
+            return;
+        }
         const unsigned char *inner_data_end = outer->data + data_len;
 
         data = outer->data;
@@ -720,7 +725,7 @@ class encoded {
 public:
 
     encoded(datum &d, bool little_endian=false) {
-        size_t tmp;
+        uint64_t tmp;
         d.read_uint(&tmp, sizeof(val));
         val = tmp;
         if (little_endian) {
