@@ -45,7 +45,7 @@ enum tcp_msg_type {
     tcp_msg_type_ssh_kex,
     tcp_msg_type_smtp_client,
     tcp_msg_type_smtp_server,
-    tcp_msg_type_dns
+    tcp_msg_type_dns,
     tcp_msg_type_smb1,
     tcp_msg_type_smb2
 };
