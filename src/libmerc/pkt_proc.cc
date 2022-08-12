@@ -239,6 +239,12 @@ struct write_metadata {
         smb2.close();
     }
 
+    void operator()(iec60870_5_104 &r) {
+        struct json_object iec{record, "iec60870_5_104"};
+        r.write_json(iec);
+        iec.close();
+    }
+
     void operator()(std::monostate &r) {
         (void) r;
     }
@@ -269,6 +275,7 @@ struct compute_fingerprint {
     void operator()(ssdp &) { }
     void operator()(smb1_packet &) { }
     void operator()(smb2_packet &) { }
+    void operator()(iec60870_5_104 &) { }
     void operator()(std::monostate &) { }
 
 };
@@ -423,7 +430,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
 
-    enum tcp_msg_type msg_type = (tcp_msg_type) selector.get_tcp_msg_type(pkt.data, pkt.length());
+    enum tcp_msg_type msg_type = (tcp_msg_type) selector.get_tcp_msg_type(pkt);
     switch(msg_type) {
     case tcp_msg_type_http_request:
         x.emplace<http_request>(pkt, ph_visitor);
@@ -481,6 +488,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_smb2:
         x.emplace<smb2_packet>(pkt);
+        break;
+    case tcp_msg_type_iec:
+        x.emplace<iec60870_5_104>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
@@ -761,7 +771,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
-        enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt.data, pkt.length());
+        enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
 
         if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
             udp::ports ports = udp_pkt.get_ports();
@@ -986,7 +996,7 @@ bool set_config(std::map<std::string, bool> &config_map, const char *config_stri
 
 bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                                           size_t length,
-                                          struct timespec *ts,
+                                              struct timespec *ts,
                                           struct tcp_reassembler *reassembler) {
 
 
@@ -1023,7 +1033,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
-        enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt.data, pkt.length());
+        enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
 
         if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
             udp::ports ports = udp_pkt.get_ports();

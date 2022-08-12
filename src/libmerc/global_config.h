@@ -120,6 +120,7 @@ public:
             { "tls.server_certificate", false},
             { "http.request", false},
             { "http.response", false},
+            { "iec",           false}
         };
 
     bool set_protocols(const std::string& data) {
