@@ -602,7 +602,6 @@ public:
 
     template <typename Type>
     writeable & operator<<(Type t) {
-        fprintf(stderr, "writeable: {%p,%p}\tlength: %zd\n", data, data_end, data_end-data);
         t.write(*this);
         return *this;
     }
@@ -610,7 +609,6 @@ public:
     // template specialization for datum
     //
     writeable & operator<<(datum d) {
-        fprintf(stderr, "writeable: {%p,%p}\tlength: %zd\n", data, data_end, data_end-data);
         if (d.is_not_null()) {
             copy(d);
         }
@@ -621,13 +619,11 @@ public:
 
 // data_buffer is a contiguous sequence of bytes into which data can
 // be copied sequentially; the data structure tracks the start of the
-// data (buffer), the location to which data can be written (data),
-// and the end of the data buffer (data_end)
+// data (buffer), the location to which data can be written (writeable.data),
+// and the end of the data buffer (writeable.data_end)
 //
 template <size_t T> struct data_buffer : public writeable {
     unsigned char buffer[T];
-    // unsigned char *data;                /* data being written        */
-    // const unsigned char *data_end;      /* end of data buffer        */
 
     data_buffer() : writeable{buffer, buffer+T} { }
 
@@ -642,25 +638,6 @@ template <size_t T> struct data_buffer : public writeable {
     ssize_t writeable_length() const { return data_end - data; }
 
     ssize_t write(int fd) { return ::write(fd, buffer, data - buffer);  }
-
-#if 0 // DELETEME
-    template <typename Type>
-    data_buffer<T> & operator<<(Type t) {
-        fprintf(stderr, "data_buffer: {%p,%p,%p}\treadable: %zd\twriteable: %zd\n", buffer, data, data_end, data-buffer, data_end-data);
-        t.write(*this);
-        return *this;
-    }
-
-    // template specialization for datum
-    //
-    data_buffer<T> & operator<<(datum d) {
-        fprintf(stderr, "data_buffer: {%p,%p,%p}\treadable: %zd\twriteable: %zd\n", buffer, data, data_end, data-buffer, data_end-data);
-        if (d.is_not_null()) {
-            copy(d);
-        }
-        return *this;
-    }
-#endif // DELETEME
 
     // TODO:
     //  * add data != nullptr checks

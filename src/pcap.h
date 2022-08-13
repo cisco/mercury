@@ -368,8 +368,6 @@ public:
             << len
             << packet_data;
 
-        fprintf(stderr, "writeable: {%p,%p}\tlength: %zd\n", buf.data, buf.data_end, buf.data_end-buf.data);
-
     }
 
     void fprint(FILE *f) {
