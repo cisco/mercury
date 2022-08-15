@@ -121,7 +121,9 @@ using protocol = std::variant<std::monostate,
                               icmp_packet,                        // start of ip protocols
                               ospf,
                               sctp_init,
-                              tcp_packet
+                              tcp_packet,
+                              smb1_packet,
+                              smb2_packet
                               >;
 
 struct stateful_pkt_proc {

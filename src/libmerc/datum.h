@@ -777,6 +777,30 @@ public:
 
 };
 
+// class literal is a literal std::array of characters
+//
+template <size_t N>
+class literal {
+public:
+    literal(datum &d, const std::array<uint8_t, N> &a) {
+        for (const auto &c : a) {
+            d.accept(c);
+        }
+    }
+};
+
+/* class skip_bytes skips N number of bytes in the given datum*/
+template <size_t N>
+class skip_bytes {
+public:
+    skip_bytes (datum &d) {
+        d.skip(N);
+    }
+    skip_bytes (datum &d, size_t n) {
+        d.skip(n);
+    }
+};
+
 // sanity checks on class encoded<T>
 //
 static_assert(sizeof(encoded<uint8_t>)  == 1);

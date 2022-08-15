@@ -384,6 +384,24 @@ static inline int append_uint16(char *dstr, int *doff, int dlen, int *trunc,
     return r;
 }
 
+static inline int append_uint8_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint8_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[2]; /* 2 hex chars */
+
+    outs[0] = hex_table[(n & 0xf0) >> 4];
+    outs[1] = hex_table[(n & 0x0f)];
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 2);
+
+    return r;
+}
 
 static inline int append_uint16_hex(char *dstr, int *doff, int dlen, int *trunc,
                                     uint16_t n) {
@@ -427,6 +445,28 @@ static inline int append_uint32_hex(char *dstr, int *doff, int dlen, int *trunc,
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outs, 8);
+
+    return r;
+}
+
+static inline int append_uint64_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint64_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[16]; /* 16 hex chars */
+    uint64_t mask = 0xf000000000000000;
+
+    for (auto i = 0; i < 16; i++) {
+        outs[i] = hex_table[(n & mask) >> (15 - i) *4];
+        mask = mask >> 4;
+    } 
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 16);
 
     return r;
 }
@@ -1025,12 +1065,20 @@ struct buffer_stream {
         append_uint16(dstr, &doff, dlen, &trunc, n);
     }
 
+    void write_hex_uint8(uint8_t n) {
+        append_uint8_hex(dstr, &doff, dlen, &trunc, n);
+    } 
+
     void write_hex_uint16(uint16_t n) {
         append_uint16_hex(dstr, &doff, dlen, &trunc, n);
     }
 
     void write_hex_uint32(uint32_t n) {
         append_uint32_hex(dstr, &doff, dlen, &trunc, n);
+    }
+
+    void write_hex_uint64(uint64_t n) {
+        append_uint64_hex(dstr, &doff, dlen, &trunc, n);
     }
 
     void write_ipv6_addr(const uint8_t *v6) {
