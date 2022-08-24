@@ -69,7 +69,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     mercury *m = nullptr;
     std::time_t timenow = time(NULL);
     strftime(init_time, sizeof(init_time) - 1, "%Y-%m-%dT%H:%M:%SZ", gmtime(&timenow));
-    
+
     if (verbosity > 0) {
         // bulid information, to help with shared object library development and use
         //
@@ -122,17 +122,6 @@ size_t mercury_packet_processor_write_json_linktype(mercury_packet_processor pro
 {
     try {
         return processor->write_json(buffer, buffer_size, packet, length, ts, NULL, linktype);
-    }
-    catch (std::exception &e) {
-        printf_err(log_err, "%s\n", e.what());
-    }
-    return 0;
-}
-
-size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
-{
-    try {
-        return processor->ip_write_json(buffer, buffer_size, packet, length, ts, NULL);
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
