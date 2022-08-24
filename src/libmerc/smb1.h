@@ -122,27 +122,21 @@ public:
  * DialectString (variable): A null-terminated string identifying an SMB dialect.
  */
 class smb1_dialects {
-    std::vector<datum> dialects;
+    datum dialect_body;
 
 public:
-    smb1_dialects(datum &d) {
-        while(d.is_not_empty()) {
-            encoded<uint8_t> buffer_format(d);
-            datum dialect;
-            dialect.parse_up_to_delim(d, '\0');
-            dialects.push_back(dialect);
-            d.skip(1); //skip the null byte
-        }
-    }
-
-    bool is_not_empty() const {
-        return (dialects.size());
-    }
+    smb1_dialects(datum &d) : dialect_body(d) { }
 
     void write_json(struct json_object &o) {
         struct json_array a{o, "dialects"};
-        for (auto& dialect : dialects) {
-            a.print_json_string(dialect);
+        while(dialect_body.is_not_empty()) {
+            literal<1> buffer_format{dialect_body, {0x02}};
+            if (dialect_body.is_not_empty()) {
+                datum dialect;
+                dialect.parse_up_to_delim(dialect_body, '\0');
+                a.print_json_string(dialect);
+                dialect_body.skip(1); //skip the null byte
+            }
         }
         a.close();
     }
@@ -167,19 +161,22 @@ class smb1_negotiate_request {
     encoded<uint8_t> word_count;
     encoded<uint16_t> byte_count;
     smb1_dialects dialect_list;
+    bool valid;
 
 public:
     smb1_negotiate_request(datum &d, bool byte_swap = true) :
         word_count(d, byte_swap),
         byte_count(d, byte_swap),
-        dialect_list(d) { }
+        dialect_list(d),
+        valid(d.is_not_null()) { }
 
     void write_json(struct json_object &o) {
-        if (dialect_list.is_not_empty()) {
-            json_object neg_req{o, "negotiate_request"};
-            dialect_list.write_json(neg_req);
-            neg_req.close();
+        if (!valid) {
+            return;
         }
+        json_object neg_req{o, "negotiate_request"};
+        dialect_list.write_json(neg_req);
+        neg_req.close();
     }
 };
 
