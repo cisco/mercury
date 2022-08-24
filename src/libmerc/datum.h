@@ -365,6 +365,7 @@ struct datum {
 
     // read_uint8() reads a uint8_t in network byte order, and advances the data pointer
     //
+    [[deprecated("Use encoded<uint8_t> instead.")]]
     bool read_uint8(uint8_t *output) {
         if (data_end > data) {
             *output = *data;
@@ -378,6 +379,7 @@ struct datum {
 
     // read_uint16() reads a uint16_t in network byte order, and advances the data pointer
     //
+    [[deprecated("Use encoded<uint16_t> instead.")]]
     bool read_uint16(uint16_t *output) {
         if (length() >= (int)sizeof(uint16_t)) {
             uint16_t *tmp = (uint16_t *)data;
@@ -392,6 +394,7 @@ struct datum {
 
     // read_uint32() reads a uint32_t in network byte order, and advances the data pointer
     //
+    [[deprecated("Use encoded<uint32_t> instead.")]]
     bool read_uint32(uint32_t *output) {
         if (length() >= (int)sizeof(uint32_t)) {
             uint32_t *tmp = (uint32_t *)data;
@@ -406,6 +409,7 @@ struct datum {
 
     // read_uint() reads a length num_bytes uint in network byte order, and advances the data pointer
     //
+    [[deprecated("Use encoded<> instead.")]]
     bool read_uint(uint64_t *output, unsigned int num_bytes) {
 
         if (data && data + num_bytes <= data_end) {
