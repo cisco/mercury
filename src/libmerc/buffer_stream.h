@@ -1102,4 +1102,19 @@ struct timestamp_writer {
     }
 };
 
+template <size_t N>
+class output_buffer : public buffer_stream {
+    char buffer[N];
+public:
+    output_buffer() : buffer_stream{buffer, N} { }
+
+    void reset() {
+        dstr = buffer;
+        doff = 0;
+        dlen = N;
+        trunc = 0;
+    }
+
+};
+
 #endif /* BUFFER_STREAM_H */

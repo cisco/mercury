@@ -34,6 +34,7 @@
 #include "udp.h"
 #include "quic.h"
 #include "ssdp.h"
+#include "stun.h"
 #include "smtp.h"
 #include "cdp.h"
 #include "lldp.h"
@@ -266,6 +267,7 @@ struct compute_fingerprint {
     void operator()(dns_packet &) { }
     void operator()(mdns_packet &) { }
     void operator()(ssdp &) { }
+    void operator()(stun::message &) { }
     void operator()(smb1_packet &) { }
     void operator()(smb2_packet &) { }
     void operator()(std::monostate &) { }
@@ -557,6 +559,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_ssdp:
         x.emplace<ssdp>(pkt, ph_visitor);
+        break;
+    case udp_msg_type_stun:
+        x.emplace<stun::message>(pkt);
         break;
     default:
         if (is_new) {

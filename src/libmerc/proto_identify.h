@@ -33,6 +33,7 @@
 #include "wireguard.h"
 #include "dtls.h"
 #include "ssdp.h"
+#include "stun.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -60,7 +61,8 @@ enum udp_msg_type {
     udp_msg_type_wireguard,
     udp_msg_type_quic,
     udp_msg_type_vxlan,
-    udp_msg_type_ssdp
+    udp_msg_type_ssdp,
+    udp_msg_type_stun,
 };
 
 template <size_t N>
@@ -229,6 +231,9 @@ public:
         }
         if (protocols["ssdp"] || protocols["all"]) {
             udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
+        }
+        if (protocols["stun"] || protocols["all"]) {
+            udp.add_protocol(stun::message::matcher, udp_msg_type_stun);
         }
         if (protocols["smb"] || protocols["all"]) {
             tcp.add_protocol(smb1_packet::matcher, tcp_msg_type_smb1);

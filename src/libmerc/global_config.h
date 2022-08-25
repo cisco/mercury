@@ -74,6 +74,7 @@ public:
             { "smb",         false },
             { "smtp",        false },
             { "ssdp",        false },
+            { "stun",        false },
             { "tls.client_hello", false},
             { "tls.server_hello", false},
             { "tls.server_certificate", false},
