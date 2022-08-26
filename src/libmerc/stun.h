@@ -162,6 +162,7 @@ namespace stun {
         encoded<uint16_t> type;
         encoded<uint16_t> length;
         datum value;
+        pad padding;
 
     public:
 
@@ -175,7 +176,8 @@ namespace stun {
         attribute(datum&d) :
             type{d},
             length{d},
-            value{d, length.value()}
+            value{d, length.value()},
+            padding{d, pad_len(length.value())}
         { }
 
         void write_json(json_array &a) const {

@@ -489,47 +489,6 @@ namespace pcap::ng {
         enhanced_packet       = 6,
     };
 
-    // pad_len(length) returns the number that, when added to length,
-    // rounds that value up to the next multiple of four
-    //
-    static inline size_t pad_len(size_t length) {
-        switch (length % 4) {
-        case 3: return 1;
-        case 2: return 2;
-        case 1: return 3;
-        case 0:
-        default:
-            ;
-        }
-        return 0;
-    }
-
-    // class pad reads and ignores padding data
-    //
-    class pad {
-        size_t padlen;
-    public:
-
-        // constructor for reading (and ignoring) padding data
-        //
-        pad(datum &d, size_t n) : padlen{n} {
-            d.data += padlen;
-            if (d.data > d.data_end) {
-                d.set_null();
-            }
-        }
-
-        // constructor for writing (all-zero) padding data
-        //
-        pad(size_t n) : padlen{n} { }
-
-        void write(writeable &w) {
-            uint8_t zero[4] = {0, 0, 0, 0};
-            w.copy(zero, padlen);
-            assert(padlen <= 5);
-        }
-    };
-
     // class block_header represents the header fields that are common to
     // all block fomats
     //
