@@ -267,7 +267,6 @@ struct compute_fingerprint {
     void operator()(dns_packet &) { }
     void operator()(mdns_packet &) { }
     void operator()(ssdp &) { }
-    void operator()(stun::message &) { }
     void operator()(smb1_packet &) { }
     void operator()(smb2_packet &) { }
     void operator()(std::monostate &) { }

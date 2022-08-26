@@ -230,6 +230,10 @@ struct json_array {
     explicit json_array(struct buffer_stream *buf) : b{buf} {
         b->write_char('[');
     }
+    explicit json_array(json_array &a) : b{a.b} {
+        write_comma(a.comma);
+        b->write_char('[');
+    }
     json_array(struct json_object &object, const char *name) : b{object.b} {
         write_comma(object.comma);
         b->write_char('\"');
@@ -253,7 +257,9 @@ struct json_array {
     }
     void print_uint16_hex(uint16_t u) {
         write_comma(comma);
-        b->snprintf("\"%#04x\"", u);
+        b->write_char('\"');
+        b->write_hex_uint16(u);
+        b->write_char('\"');
     }
     void print_uint(unsigned long int u) {
         write_comma(comma);

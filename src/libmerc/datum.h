@@ -540,6 +540,18 @@ struct datum {
         }
     }
 
+    // fwrite(f) writes the entire datum out to the FILE *f, and on
+    // success, returns the number of bytes written; otherwise, 0 is
+    // returned.  This function can be used to write out seed files
+    // for fuzz testing.
+    //
+    size_t fwrite(FILE *f) const {
+        if (f == nullptr) {
+            return 0;  // error
+        }
+        return ::fwrite(data, sizeof(uint8_t), length(), f);
+    }
+
     ssize_t write_to_buffer(uint8_t *buffer, ssize_t len) {
         if (data) {
             ssize_t copy_len = length() < len ? length() : len;

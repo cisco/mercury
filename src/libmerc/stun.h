@@ -7,6 +7,7 @@
 #include "datum.h"
 #include "json_object.h"
 #include "match.h"
+#include "fingerprint.h"
 
 namespace stun {
 
@@ -64,10 +65,13 @@ namespace stun {
             zeros{d}, // ignored
             family{d},
             port{d},
-            address{d}
+            address{d, family == ipv6 ? 16 : 4}
         { }
 
+        bool valid() const { return address.is_not_empty(); }
+
         void write_json(json_object &o) const {
+            if (!valid()) { return; }
             o.print_key_string("family", addr_family_get_name(family));
             o.print_key_uint("port", port);
             switch(family) {
@@ -123,10 +127,13 @@ namespace stun {
             xxx{d}, // ignored
             family{d},
             x_port{d},
-            x_address{d}
+            x_address{d, family == ipv6 ? 16 : 4}
         { }
 
+        bool valid() const { return x_address.is_not_empty(); }
+
         void write_json(json_object &o) const {
+            if (!valid()) { return; }
             o.print_key_string("family", addr_family_get_name(family));
             uint16_t port = x_port ^ (magic >> 16);
             o.print_key_uint("x_port", port);
@@ -141,6 +148,57 @@ namespace stun {
         }
 
     };
+
+    class utf8_string_and_padding {
+        datum name;
+        pad padding;
+    public:
+        utf8_string_and_padding(datum &d) : name{d}, padding{d, pad_len(name.length())} { }
+
+        void write_json(json_object &o) {
+            o.print_key_json_string("value", name); // TODO: support UTF-8
+        }
+    };
+
+    // The ERROR-CODE attribute is used in error response messages.  It
+    // contains a numeric error code value in the range of 300 to 699 plus a
+    // textual reason phrase encoded in UTF-8 [RFC3629], and is consistent
+    // in its code assignments and semantics with SIP [RFC3261] and HTTP
+    // [RFC2616].  The reason phrase is meant for user consumption, and can
+    // be anything appropriate for the error code.  Recommended reason
+    // phrases for the defined error codes are included in the IANA registry
+    // for error codes.  The reason phrase MUST be a UTF-8 [RFC3629] encoded
+    // sequence of less than 128 characters (which can be as long as 763
+    // bytes).
+    //
+    //     0                   1                   2                   3
+    //     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //    |           Reserved, should be 0         |Class|     Number    |
+    //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //    |      Reason Phrase (variable)                                ..
+    //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //
+    class error_code {
+        encoded<uint32_t> reserved_class_number;
+        datum reason_phrase;
+        pad padding;
+    public:
+        error_code(datum &d) :
+            reserved_class_number{d},
+            reason_phrase{d},
+            padding{d, pad_len(reason_phrase.length())}
+        { }
+
+        void write_json(json_object &o) {
+            if (reason_phrase.is_not_null()) {
+                o.print_key_uint("class", reserved_class_number.slice<21, 24>());
+                o.print_key_uint("number", reserved_class_number.slice<24, 32>());
+                o.print_key_json_string("reason_phrase", reason_phrase);
+            }
+        }
+    };
+
 
     //   After the STUN header are zero or more attributes.  Each attribute
     //   MUST be TLV encoded, with a 16-bit type, 16-bit length, and value.
@@ -166,13 +224,6 @@ namespace stun {
 
     public:
 
-        enum code : uint16_t {
-            code_mapped_address      = 0x0001,
-            code_xor_mapped_address  = 0x0020,
-            code_response_origin     = 0x802b,
-            code_other_address       = 0x802c,
-        };
-
         attribute(datum&d) :
             type{d},
             length{d},
@@ -189,29 +240,54 @@ namespace stun {
             }
             o.print_key_uint("length", length);
             switch (type) {
-            case code_mapped_address:
-            case code_response_origin:
-            case code_other_address:
+            case attribute_type::MAPPED_ADDRESS:
+            case attribute_type::ALTERNATE_SERVER:
+            case attribute_type::RESPONSE_ORIGIN:
+            case attribute_type::OTHER_ADDRESS:
                 {
                     datum tmp = value;
                     mapped_address addr{tmp};
                     addr.write_json(o);
                 }
                 break;
-            case code_xor_mapped_address:
+            case attribute_type::XOR_MAPPED_ADDRESS:
                 {
                     datum tmp = value;
                     xor_mapped_address addr{tmp};
                     addr.write_json(o);
                 }
                 break;
+            case attribute_type::SOFTWARE:
+            case attribute_type::USERNAME:
+            case attribute_type::REALM:
+            case attribute_type::NONCE:
+                {
+                    datum tmp = value;
+                    utf8_string_and_padding u{tmp};
+                    u.write_json(o);
+                }
+                break;
+            case attribute_type::ERROR_CODE:
+                {
+                    datum tmp = value;
+                    error_code ec{tmp};
+                    ec.write_json(o);
+                }
+                break;
+            case attribute_type::FINGERPRINT:
+            case attribute_type::MESSAGE_INTEGRITY:
             default:
                 o.print_key_hex("value", value);
             }
             o.close();
         }
 
-
+        void write_raw_features(json_array &a) {
+            json_array attr{a};
+            attr.print_uint16_hex(type);
+            attr.print_hex(value);
+            attr.close();
+        }
     };
 
     // STUN Message Header format (following RFC 5389, Figure 2)
@@ -241,7 +317,7 @@ namespace stun {
     static const uint16_t msg_type_mask = 0x0110;
 
     class header {
-        encoded<uint16_t> message_type_field;   // TODO: custom class to handle format
+        encoded<uint16_t> message_type_field;
         encoded<uint16_t> message_length;
         literal<4> magic_cookie;
         datum transaction_id;                   // note: always 12 bytes in length
@@ -299,6 +375,12 @@ namespace stun {
             }
         }
 
+        void write_raw_features(json_array &a) const {
+            json_array h{a};
+            h.print_uint16_hex(message_type_field);
+            h.close();
+        }
+
         uint16_t get_message_length() const { return message_length; }
 
     };
@@ -308,22 +390,36 @@ namespace stun {
         datum body;
 
     public:
-        message(datum &d) : hdr{d}, body{d} { }
+        message(datum &d) : hdr{d}, body{d, hdr.get_message_length()} { }
 
-        void write_json(json_object &o, bool metadata=false) {
+        void write_json(json_object &o, bool metadata=false) const {
             (void)metadata; // ignore
             if (hdr.is_valid()) {
                 json_object stun_obj{o, "stun"};
                 hdr.write_json(stun_obj);
                 json_array a{stun_obj, "attributes"};
-                datum tmp{body, hdr.get_message_length()};
+                datum tmp{body};
                 while (tmp.is_not_empty()) {
                     stun::attribute attr{tmp};
                     attr.write_json(a);
                 }
                 a.close();
+                write_raw_features(stun_obj);
                 stun_obj.close();
             }
+        }
+
+        void write_raw_features(json_object &o) const {
+            json_array a{o, "features"};
+            hdr.write_raw_features(a);
+            datum tmp{body};
+            json_array attr_array{a};
+            while (tmp.is_not_empty()) {
+                stun::attribute attr{tmp};
+                attr.write_raw_features(attr_array);
+            }
+            attr_array.close();
+            a.close();
         }
 
         static constexpr mask_and_value<8> matcher{
@@ -337,8 +433,30 @@ namespace stun {
         bool is_not_empty() const {
             return hdr.is_valid();
         }
+
+        void compute_fingerprint(fingerprint &) {
+            if (!hdr.is_valid()) { return; }
+            // TODO
+        }
     };
 
 } // namespace stun
+
+[[maybe_unused]] static int stun_fuzz_test(const uint8_t *data, size_t size) {
+    struct datum request_data{data, data+size};
+    char buffer_1[8192];
+    struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
+    char buffer_2[8192];
+    struct buffer_stream buf_fp(buffer_2, sizeof(buffer_2));
+    struct json_object record(&buf_json);
+
+    stun::message stun_msg{request_data};
+    if (stun_msg.is_not_empty()) {
+        stun_msg.write_json(record, true);
+        // TODO: test fingerprint
+    }
+
+    return 0;
+}
 
 #endif // STUN_H
