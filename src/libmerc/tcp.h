@@ -295,6 +295,7 @@ struct tcp_segment {
     uint32_t total_bytes_needed;
     uint32_t current_bytes;
     uint32_t seg_count;
+    uint16_t prune_index;  // index of prune node in pruning table
     unsigned int init_time;
     bool done;
     bool seg_overlap;  // current pkt overlaps with a previous segment
@@ -309,7 +310,7 @@ struct tcp_segment {
     //std::vector< std::pair<uint32_t,uint32_t> > seg;
 
     tcp_segment() : seq_init{0}, curr_seq{0}, index{0}, end_index{0}, seg_len{0}, max_index{8192}, total_bytes_needed{8192},
-                        current_bytes{0}, seg_count{0}, init_time{0}, done{false}, seg_overlap{false} {}
+                        current_bytes{0}, seg_count{0}, prune_index{0}, init_time{0}, done{false}, seg_overlap{false} {}
 
     bool init_from_pkt (unsigned int sec, struct tcp_seg_context &tcp_pkt, uint32_t syn_seq, datum &p) {
         seq_init = syn_seq;
@@ -426,10 +427,11 @@ struct tcp_segment {
 struct prune_node {
     unsigned int init_timestamp;
     struct key seg_key;
+    bool is_in_map;  // segment already removed from map post reassembly
 
     static const unsigned int timeout = 30;
 
-    prune_node() : init_timestamp{0}, seg_key{} {}
+    prune_node() : init_timestamp{0}, seg_key{}, is_in_map{true}{}
 
     void update(unsigned int ts, struct key k) {
         init_timestamp = ts;
@@ -474,7 +476,7 @@ struct prune_table {
         for (uint16_t i = 0; i < temp_node_count; i++) {
             curr_index = (i+temp_start < max_prune_entries) ? (i+temp_start) : (i+temp_start) - max_prune_entries;
             if (nodes[curr_index].is_expired(ts)) {
-                if (remove_node(nodes[curr_index].seg_key, table)) {
+                if (nodes[curr_index].is_in_map && remove_node(nodes[curr_index].seg_key, table)) {
                     prune_count++;
                 }
                 index_start++;
@@ -504,7 +506,7 @@ struct prune_table {
             if (index_start >= max_prune_entries) {
                 index_start -= max_prune_entries;
             }
-            if (remove_node(nodes[curr_index].seg_key, table)) {
+            if (nodes[curr_index].is_in_map && remove_node(nodes[curr_index].seg_key, table)) {
                 return;
             }
         }
@@ -517,7 +519,7 @@ struct prune_table {
         }
     }
 
-    bool add_node(unsigned int ts, struct key k, std::unordered_map<struct key, struct tcp_segment> &table) {
+    bool add_node(unsigned int ts, struct key k, std::unordered_map<struct key, struct tcp_segment> &table, uint16_t &index) {
         bool force_pruned = false;
         if (node_count >= prune_limit) {
             do_pruning(ts, table);
@@ -540,6 +542,7 @@ struct prune_table {
         }
 
         nodes[index_end].update(ts, k);
+        index = index_end;
         node_count++;
 
         return force_pruned;
@@ -569,10 +572,12 @@ struct tcp_reassembler {
         tcp_segment segment;
         if (segment.init_from_pkt(sec, tcp_pkt, syn_seq, p)) {
             reap_it = segment_table.emplace(k, segment).first;
-            ++reap_it;
-            if (pruner.add_node(sec,k,segment_table)) {
+            uint16_t index;
+            if (pruner.add_node(sec,k,segment_table,index)) {
                 force_prunes++;
             }
+            reap_it->second.prune_index = index;
+            ++reap_it;
             return true;
         }
         return false;
@@ -591,13 +596,14 @@ struct tcp_reassembler {
         auto it = segment_table.find(k);
         if (it != segment_table.end()) {
             if (it->second.expired(sec)) {
+                pruner.nodes[it->second.prune_index].is_in_map = false;
                 remove_segment(it);
                 return nullptr;
             }
             // Before adding more data, check if reassembly already done
             if (it->second.done) {
                 reassembly_consumed = true;
-                return nullptr;
+                return &it->second;
             }
             reap_it = it;
             return it->second.check_packet(tcp_pkt, p);
