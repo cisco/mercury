@@ -364,6 +364,8 @@ class negotiate_context {
         return "unknown";
     }
 
+    bool get_netname(datum netname, std::string& name);
+
 public:
     negotiate_context (datum &d, bool _byte_swap) :
         body(d),
