@@ -114,9 +114,7 @@ namespace crypto_policy {
                 datum tmp = ch.ciphersuite_vector;
                 while (tmp.is_readable()) {
                     encoded<uint16_t> cs{tmp};
-                    if (!is_grease(cs) || allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end()) {
-                        ;
-                    } else {
+                    if (!is_grease(cs) && allowed_ciphersuites.find(cs.value()) == allowed_ciphersuites.end()) {
                         cs_array.print_uint(cs);
                     }
                 }
