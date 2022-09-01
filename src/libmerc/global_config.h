@@ -36,8 +36,11 @@ private:
     static constexpr const char *static_selector_string = STATIC_CFG_SELECT;
 
 public:
-    global_config() : libmerc_config() {};
-    global_config(const libmerc_config& c) : libmerc_config(c) {
+    // extended configs
+    bool tcp_reassembly = false;          /* reassemble tcp segments      */
+
+    global_config() : libmerc_config(), tcp_reassembly{false} {};
+    global_config(const libmerc_config& c) : libmerc_config(c), tcp_reassembly{false} {
         if(c.resources)
            resource_file = c.resources;
 

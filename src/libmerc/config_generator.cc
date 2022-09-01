@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <numeric>
 
-#include "config_generator.h"
+#include "global_config.h"
 #include "../options.h"
 
 static inline void ltrim(std::string &s) {
@@ -138,7 +138,7 @@ bool config_contains_delims(const std::string& config, const char& delim) {
     return config.find(delim) != std::string::npos;
 }
 
-void parse_additional_options(std::vector<libmerc_option> options, std::string config, libmerc_config& lc, const char& delim, const char& assignment) {
+void parse_additional_options(std::vector<libmerc_option> options, std::string config, global_config& lc, const char& delim, const char& assignment) {
     options.insert(options.end(), config_mapper.begin(), config_mapper.end());
 
     std::vector<config_token> tokens = parse_tokens(config, delim, assignment);
