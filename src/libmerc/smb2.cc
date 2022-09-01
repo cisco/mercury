@@ -23,6 +23,29 @@ const char * dialect::get_dialect_string() const {
     return "unknown";
 }
 
+/*
+ * This function checks if the netname has printable ascii
+ * characters. 
+ * If yes - it writes the ascii characters to the string
+ * name and returns true.
+
+ * If No - returns false
+ */
+bool negotiate_context::get_netname(datum netname, std::string& name) {
+    while(netname.is_readable()) {
+        encoded<uint16_t> c(netname, true);
+        if (!c) {
+            return false;
+        }
+        if (c >= 0x20 and c <= 0x7f) {
+            name.push_back(char(c));
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
+
 void negotiate_context::write_json(struct json_object &o) {
     if(!valid) {
         return;
@@ -61,10 +84,24 @@ void negotiate_context::write_json(struct json_object &o) {
             break;
         }
         case SMB2_NETNAME_NEGOTIATE_CONTEXT_ID:
+        /*
+         * Netname: A Unicode UTF-16 fully qualified domain name, a NetBIOS name
+         * or an IP address of the server machine.
+         */
         {
             datum netname;
             netname.parse(body, data_length.value());
-            a.print_key_json_string("netname", netname);
+            /*
+             * If the netname has all characters as printable ascii, then print
+             * it as a string, otherwise print is as hex characters.
+             */
+            std::string name;
+            name.reserve(data_length.value()/2);
+            if (get_netname(netname, name)) {
+                a.print_key_string("netname", name.c_str());
+            } else {
+                a.print_key_hex("netname", netname);
+            }
             break;
         }
         case SMB2_TRANSPORT_CAPABILITIES:
@@ -176,7 +213,13 @@ void smb2_header::write_json(struct json_object &o) {
     } else {
         o.print_key_uint("credits_requested", credit_req_resp.value());
     }
-    o.print_key_uint_hex("flags", flags.value());
+    o.print_key_bool("response", flags.bit<31>());
+    o.print_key_bool("async_command", flags.bit<30>());
+    o.print_key_bool("chained_request", flags.bit<29>());
+    o.print_key_bool("signed", flags.bit<28>());
+    o.print_key_uint8_hex("priority", flags.slice<25, 28>());
+    o.print_key_bool("dfs_operation", flags.bit<3>());
+    o.print_key_bool("replay_operation", flags.bit<2>());
     o.print_key_uint_hex("next_command", next_cmd.value());
     o.print_key_uint64_hex("message_id", msg_id.value());
     o.print_key_uint_hex("process_id", process_id.value());
