@@ -976,7 +976,7 @@ public:
 
     lookahead(datum d) : value{d}, tmp{d} { }
 
-    operator bool() const { return tmp.is_not_null(); }
+    explicit operator bool() const { return tmp.is_not_null(); }
 
     datum advance() const { return tmp; }
 
