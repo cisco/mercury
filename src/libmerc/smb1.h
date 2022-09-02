@@ -242,8 +242,25 @@ public:
     void write_json(struct json_object &o) {
         o.print_key_string("command", command.get_command_string());
         o.print_key_uint_hex("status", status.value());
-        o.print_key_uint8_hex("flag", flag.value());
-        o.print_key_uint16_hex("flags2", flags2.value());
+        o.print_key_bool("response", flag.bit<0>());
+        o.print_key_bool("batch_oplock", flag.bit<1>());
+        o.print_key_bool("oplock", flag.bit<2>());
+        o.print_key_bool("canonicalized_path", flag.bit<3>());
+        o.print_key_bool("case_insensitive", flag.bit<4>());
+        o.print_key_bool("receive_buffer_available", flag.bit<6>());
+        o.print_key_bool("lock_and_read", flag.bit<7>());
+        o.print_key_bool("unicode_string", flags2.bit<0>());
+        o.print_key_bool("NT_error_codes", flags2.bit<1>());
+        o.print_key_bool("read_if_execute", flags2.bit<2>());
+        o.print_key_bool("DFS", flags2.bit<3>());
+        o.print_key_bool("extended_security", flags2.bit<4>());
+        o.print_key_bool("reparse_path", flags2.bit<5>());
+        o.print_key_bool("long_name", flags2.bit<9>());
+        o.print_key_bool("security_signatures_required", flags2.bit<11>());
+        o.print_key_bool("compressed", flags2.bit<12>()); 
+        o.print_key_bool("security_signatures_allowed", flags2.bit<13>());
+        o.print_key_bool("extended_attributes", flags2.bit<14>());
+        o.print_key_bool("long_names_allowed", flags2.bit<15>());
         o.print_key_uint16("process_id_high", pid_high.value());
         o.print_key_uint64_hex("signature", signature.value());
         o.print_key_uint16("tree_id", tid.value());
