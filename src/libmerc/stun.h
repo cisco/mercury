@@ -114,7 +114,18 @@ namespace stun {
     // byte order, XOR'ing it with the concatenation of the magic
     // cookie and the 96-bit transaction ID, and converting the result
     // to network byte order.
-
+    //
+    // The XOR-PEER-ADDRESS attribute specifies the address and port
+    // of the peer as seen from the TURN server. (For example, the
+    // peer's server-reflexive transport address if the peer is behind
+    // a NAT.) It is encoded in the same way as the XOR-MAPPED-ADDRESS
+    // attribute.
+    //
+    // The XOR-RELAYED-ADDRESS attribute is present in Allocate
+    // responses. It specifies the address and port that the server
+    // allocated to the client. It is encoded in the same way as the
+    // XOR-MAPPED-ADDRESS attribute].
+    //
     class xor_mapped_address {
         encoded<uint8_t> xxx;
         encoded<uint8_t> family;
@@ -199,6 +210,119 @@ namespace stun {
         }
     };
 
+    //  The CHANNEL-NUMBER attribute contains the number of the
+    //  channel. The value portion of this attribute is 4 bytes long
+    //  and consists of a 16-bit unsigned integer followed by a
+    //  two-octet RFFU (Reserved For Future Use) field, which MUST be
+    //  set to 0 on transmission and MUST be ignored on reception.
+    //
+    //  0                   1                   2                   3
+    //  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    // |        Channel Number         |         RFFU = 0              |
+    // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //
+    class channel_number {
+        encoded<uint16_t> number;
+        ignore<uint16_t> rffu;
+        bool valid;
+
+    public:
+        channel_number(datum &d) : number{d}, rffu{d}, valid{d.is_not_null()} { }
+
+        void write_json(json_object &o) {
+            if (valid) {
+                o.print_key_uint("channel_number", number);
+            }
+        }
+    };
+
+    // The LIFETIME attribute represents the duration for which the
+    // server will maintain an allocation in the absence of a
+    // refresh. The TURN client can include the LIFETIME attribute
+    // with the desired lifetime in Allocate and Refresh requests. The
+    // value portion of this attribute is 4 bytes long and consists of
+    // a 32-bit unsigned integral value representing the number of
+    // seconds remaining until expiration.
+    //
+    class lifetime {
+        encoded<uint32_t> seconds;
+    public:
+        lifetime(datum &d) : seconds{d} { }
+
+        void write_json(json_object &o) {
+            o.print_key_uint("seconds", seconds);
+        }
+    };
+
+    //  REQUESTED-TRANSPORT is used by the client to request a
+    //  specific transport protocol for the allocated transport
+    //  address. The value of this attribute is 4 bytes with the
+    //  following format:
+    //
+    // 0                   1                   2                   3
+    //  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    // |    Protocol   |                    RFFU                       |
+    // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //
+    class requested_transport {
+        encoded<uint8_t> protocol;
+        skip_bytes<3> rffu;
+    public:
+        requested_transport(datum &d) : protocol{d}, rffu{d} { }
+
+        void write_json(json_object &o) const {
+            o.print_key_uint("protocol", protocol);
+        }
+    };
+
+    // Microsoft Attributes (from
+    // https://docs.microsoft.com/en-us/openspecs/office_protocols/ms-turn/0e0491de-b648-4347-bae4-503c7347abbe)
+    //
+    // 0x8008: MS_VERSION
+    // 0x8020: MS_XOR_MAPPED_ADDRESS
+    // 0x8032: MS_ALTERNATE_HOST_NAME
+    // 0x8037: MS_APP_ID
+    // 0x8039: MS_SECURE_TAG
+    // 0x8050: MS_SEQUENCE_NUMBER
+    // 0x8055: MS_SERVICE_QUALITY
+    // 0x8090: MS_ALTERNATE_MAPPED_ADDRESS
+    // 0x8095: MS_MULTIPLEXED_TURN_SESSION_ID
+    //
+    // 0x8070: MS_IMPLEMENTATION_VERSION
+    // 0x8056: MS_BANDWIDTH_ADMISSION_CONTROL_MESSAGE
+
+    class ms_implementation_version {
+    };
+
+    class ms_bandwidth_admission_control_message {
+        skip_bytes<2> reserved;
+        encoded<uint16_t> message_type;
+    public:
+        ms_bandwidth_admission_control_message(datum &d) : reserved{d}, message_type{d} { }
+
+        void write_json(json_object &o) const {
+            const char *msg_type = unknown;
+            switch (message_type) {
+            case 0x0000:
+                msg_type = "reservation_check";
+                break;
+            case 0x0001:
+                msg_type = "reservation_commit";
+                break;
+            case 0x0002:
+                msg_type = "reservation_update";
+                break;
+            default:
+                ;
+            }
+            o.print_key_string("message_type", msg_type);
+            if (msg_type == unknown) {
+                o.print_key_uint("type_code", message_type);
+            }
+        }
+    };
 
     //   After the STUN header are zero or more attributes.  Each attribute
     //   MUST be TLV encoded, with a 16-bit type, 16-bit length, and value.
@@ -240,6 +364,9 @@ namespace stun {
             }
             o.print_key_uint("length", length);
             switch (type) {
+            case attribute_type::USE_CANDIDATE:
+                // no data in value field
+                break;
             case attribute_type::MAPPED_ADDRESS:
             case attribute_type::ALTERNATE_SERVER:
             case attribute_type::RESPONSE_ORIGIN:
@@ -251,6 +378,8 @@ namespace stun {
                 }
                 break;
             case attribute_type::XOR_MAPPED_ADDRESS:
+            case attribute_type::XOR_PEER_ADDRESS:
+            case attribute_type::XOR_RELAYED_ADDRESS:
                 {
                     datum tmp = value;
                     xor_mapped_address addr{tmp};
@@ -274,10 +403,62 @@ namespace stun {
                     ec.write_json(o);
                 }
                 break;
+            case attribute_type::PRIORITY:
+                {
+                    lookahead<encoded<uint32_t>> priority{value};
+                    if (priority) {
+                        o.print_key_uint("priority", priority.value);
+                    }
+                }
+                break;
+            case attribute_type::ICE_CONTROLLED:
+                {
+                    lookahead<encoded<uint64_t>> tiebreaker{value};
+                    if (tiebreaker) {
+                        o.print_key_uint("tiebreaker", tiebreaker.value);
+                    }
+                }
+                break;
+            case attribute_type::ICE_CONTROLLING:
+                {
+                    lookahead<encoded<uint64_t>> tiebreaker{value};
+                    if (tiebreaker) {
+                        o.print_key_uint("tiebreaker", tiebreaker.value);
+                    }
+                }
+                break;
+            case attribute_type::CHANNEL_NUMBER:
+                {
+                    if (lookahead<channel_number> cn{value}) {
+                        cn.value.write_json(o);
+                    }
+                }
+                break;
+            case attribute_type::LIFETIME:
+                if (lookahead<lifetime> lt{value}) {
+                    lt.value.write_json(o);
+                }
+                break;
+            case attribute_type::REQUESTED_TRANSPORT:
+                if (lookahead<requested_transport> rt{value}) {
+                    rt.value.write_json(o);
+                }
+                break;
+            case MS_BANDWIDTH_ADMISSION_CONTROL_MESSAGE:
+                if (lookahead<ms_bandwidth_admission_control_message> bacm{value}) {
+                    bacm.value.write_json(o);
+                }
+                break;
+            case attribute_type::MS_IMPLEMENTATION_VERSION:
+                if (lookahead<encoded<uint32_t>> iv{value}) {
+                    o.print_key_uint("number", iv.value);
+                }
+                break;
             case attribute_type::FINGERPRINT:
             case attribute_type::MESSAGE_INTEGRITY:
+            case attribute_type::DATA:              // note: DATA could be processed as udp.data
             default:
-                o.print_key_hex("value", value);
+                o.print_key_hex("hex_value", value);
             }
             o.close();
         }

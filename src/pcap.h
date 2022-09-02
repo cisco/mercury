@@ -83,34 +83,6 @@ public:
 
 };
 
-// class ignore<T> parses a data element of type T, but then ignores
-// (does not store) its value.  It can be used to check the format of
-// data that need not be stored.
-//
-// TODO: the parameter T should be able to accept any class, not just
-// unsigned integer types
-//
-template <typename T>
-class ignore {
-
-public:
-
-    ignore(datum &d, bool little_endian=false) {
-        (void)little_endian;
-        size_t tmp;
-        d.read_uint(&tmp, sizeof(T));
-    }
-
-    ignore() { }
-
-    // write out null value
-    //
-    void write(writeable &w) {
-        uint8_t zero[sizeof(T)] = { 0, };
-        w.copy(zero, sizeof(T));
-    }
-};
-
 //
 // PCAP
 //

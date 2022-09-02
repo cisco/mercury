@@ -410,6 +410,14 @@ struct tlv {
 #endif
     }
 
+    // write() writes the ASN.1-encoded TLV into a writeable buffer
+    //
+    void write(writeable &buf, bool swap_byte_order=false) {
+        (void)buf;
+        (void)swap_byte_order;
+        // TODO
+    }
+
     void remove_bitstring_encoding() {
         if (!is_valid()) {
             return;

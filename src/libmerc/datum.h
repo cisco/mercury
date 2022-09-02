@@ -255,7 +255,7 @@ struct datum {
         {
             return skip(delim_index);
         }
-        
+
         return false;
     }
 
@@ -761,17 +761,36 @@ class encoded {
 public:
 
     encoded(datum &d, bool little_endian=false) {
-        uint64_t tmp;
-        d.read_uint(&tmp, sizeof(val));
-        val = tmp;
-        if (little_endian) {
-            swap_byte_order();
+        if (d.data == nullptr || d.data + sizeof(T) > d.data_end) {
+            d.set_null();
+            val = 0;
+            return;
         }
+        if (little_endian) {
+            if constexpr (std::is_same_v<T, uint8_t>) {
+                val = d.data[0];
+            } else if constexpr (std::is_same_v<T, uint16_t>) {
+                val = (T)d.data[0] | (T)d.data[1] << 8;
+            } else if constexpr (std::is_same_v<T, uint32_t>) {
+                val = (T)d.data[0] | (T)d.data[1] << 8 | (T)d.data[2] << 16 | (T)d.data[3] << 24;
+            } else if constexpr (std::is_same_v<T, uint64_t>) {
+                val = (T)d.data[0] | (T)d.data[1] << 8 | (T)d.data[2] << 16 | (T)d.data[3] << 24 |
+                      (T)d.data[4] << 32 | (T)d.data[5] << 40 | (T)d.data[6] << 48 | (T)d.data[7] << 56;
+            }
+        } else { // big endian
+            if constexpr (std::is_same_v<T, uint8_t>) {
+                val = d.data[0];
+            } else if constexpr (std::is_same_v<T, uint16_t>) {
+                val = (T)d.data[1] | (T)d.data[0] << 8;
+            } else if constexpr (std::is_same_v<T, uint32_t>) {
+                val = (T)d.data[3] | (T)d.data[2] << 8 | (T)d.data[1] << 16 | (T)d.data[0] << 24;
+            } else if constexpr (std::is_same_v<T, uint64_t>) {
+                val = (T)d.data[7] | (T)d.data[6] << 8 | (T)d.data[5] << 16 | (T)d.data[4] << 24 |
+                      (T)d.data[3] << 32 | (T)d.data[2] << 40 | (T)d.data[1] << 48 | (T)d.data[0] << 56;
+            }
+        }
+        d.data += sizeof(T);
     }
-    //
-    // TODO: re-implement constructor in a way that avoids a temporary
-    // size_t variable, especially for smaller integer types; make it
-    // constexpr
 
     encoded(const T& rhs) {
         val = rhs;
@@ -915,6 +934,80 @@ inline bool encoded<uint32_t>::unit_test() {
         y.slice<16,32>() == 0xc3df;
 }
 
+template <>
+inline bool encoded<uint64_t>::unit_test() {
+    encoded<uint64_t> y = 0xa1b2c3dfaabbccdd;
+    return
+        ::slice<0,32>(y.value())  == 0xa1b2c3df &&
+        ::slice<0,8>(y.value())   == 0xa1       &&
+        ::slice<4,12>(y.value())  == 0x1b       &&
+        ::slice<8,16>(y.value())  == 0xb2       &&
+        ::slice<24,32>(y.value()) == 0xdf       &&
+        ::slice<16,32>(y.value()) == 0xc3df     &&
+        y.slice<0,32>()  == 0xa1b2c3df &&
+        y.slice<0,8>()   == 0xa1       &&
+        y.slice<4,12>()  == 0x1b       &&
+        y.slice<8,16>()  == 0xb2       &&
+        y.slice<24,32>() == 0xdf       &&
+        y.slice<16,32>() == 0xc3df     &&
+        y.slice<56,64>() == 0xdd;
+}
+
 #endif // NDEBUG
+
+// class lookahead<T> attempts to reads an element of type T from a
+// datum, without modifying that datum.  If the read succeeded, then
+// casting the lookahead object to a bool returns true; otherwise, it
+// returns false.  On success, the value of the element can be
+// accessed through the public value member.  To advance the datum
+// forward (e.g. to accept the lookahead object), set its value to
+// that returned by the advance() function.
+//
+// NOTE: advance() will return a null value if the read did not
+// succeed.
+//
+template <typename T>
+class lookahead {
+public:
+    T value;
+private:
+    datum tmp;
+public:
+
+    lookahead(datum d) : value{d}, tmp{d} { }
+
+    operator bool() const { return tmp.is_not_null(); }
+
+    datum advance() const { return tmp; }
+
+};
+
+// class ignore<T> parses a data element of type T, but then ignores
+// (does not store) its value.  It can be used to check the format of
+// data that need not be stored.
+//
+// TODO: the parameter T should be able to accept any class, not just
+// unsigned integer types
+//
+template <typename T>
+class ignore {
+
+public:
+
+    ignore(datum &d, bool little_endian=false) {
+        (void)little_endian;
+        size_t tmp;
+        d.read_uint(&tmp, sizeof(T));
+    }
+
+    ignore() { }
+
+    // write out null value
+    //
+    void write(writeable &w) {
+        uint8_t zero[sizeof(T)] = { 0, };
+        w.copy(zero, sizeof(T));
+    }
+};
 
 #endif /* DATUM_H */

@@ -83,6 +83,19 @@ enum attribute_type {
     ECN_CHECK_STUN = 0x802D,
     THIRD_PARTY_AUTHORIZATION = 0x802E,
     MOBILITY_TICKET = 0x8030,
+
+    MS_VERSION                     = 0x8008,
+    MS_XOR_MAPPED_ADDRESS          = 0x8020,
+    MS_ALTERNATE_HOST_NAME         = 0x8032,
+    MS_APP_ID                      = 0x8037,
+    MS_SECURE_TAG                  = 0x8039,
+    MS_SEQUENCE_NUMBER             = 0x8050,
+    MS_SERVICE_QUALITY             = 0x8055,
+    MS_ALTERNATE_MAPPED_ADDRESS    = 0x8090,
+    MS_MULTIPLEXED_TURN_SESSION_ID = 0x8095,
+    MS_IMPLEMENTATION_VERSION      = 0x8070,
+    MS_BANDWIDTH_ADMISSION_CONTROL_MESSAGE = 0x8056,
+
     CISCO_STUN_FLOWDATA = 0xC000,
     ENF_FLOW_DESCRIPTION = 0xC001,
     ENF_NETWORK_STATUS = 0xC002,
@@ -142,6 +155,19 @@ static const char *attribute_type_get_name(uint16_t t) {
     case ECN_CHECK_STUN: return "ECN_CHECK_STUN";
     case THIRD_PARTY_AUTHORIZATION: return "THIRD_PARTY_AUTHORIZATION";
     case MOBILITY_TICKET: return "MOBILITY_TICKET";
+
+    case MS_VERSION:                     return "MS_VERSION";
+    case MS_XOR_MAPPED_ADDRESS:          return "MS_XOR_MAPPED_ADDRESS";
+    case MS_ALTERNATE_HOST_NAME:         return "MS_ALTERNATE_HOST_NAME";
+    case MS_APP_ID:                      return "MS_APP_ID";
+    case MS_SECURE_TAG:                  return "MS_SECURE_TAG";
+    case MS_SEQUENCE_NUMBER:             return "MS_SEQUENCE_NUMBER";
+    case MS_SERVICE_QUALITY:             return "MS_SERVICE_QUALITY";
+    case MS_ALTERNATE_MAPPED_ADDRESS:    return "MS_ALTERNATE_MAPPED_ADDRESS";
+    case MS_MULTIPLEXED_TURN_SESSION_ID: return "MS_MULTIPLEXED_TURN_SESSION_ID";
+    case MS_IMPLEMENTATION_VERSION:      return "MS_IMPLEMENTATION_VERSION";
+    case MS_BANDWIDTH_ADMISSION_CONTROL_MESSAGE: return "MS_BANDWIDTH_ADMISSION_CONTROL_MESSAGE";
+
     case CISCO_STUN_FLOWDATA: return "CISCO_STUN_FLOWDATA";
     case ENF_FLOW_DESCRIPTION: return "ENF_FLOW_DESCRIPTION";
     case ENF_NETWORK_STATUS: return "ENF_NETWORK_STATUS";
