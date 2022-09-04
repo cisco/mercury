@@ -199,11 +199,14 @@ bool option_is_valid(const char *opt) {
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
+    struct extended_config extended_cfg;
+    std::string set_proto_str;
+    bool proto_str_set = false;
 
     //extern double malware_prob_threshold;  // TODO - expose hidden command
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, tcp_reassembly=14 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -219,6 +222,7 @@ int main(int argc, char *argv[]) {
             { "stats-limit", required_argument, NULL, stats_limit },
             { "stats-time",  required_argument, NULL, stats_time },
             { "output-time", required_argument, NULL, output_time },
+            { "tcp-reassembly", no_argument,    NULL, tcp_reassembly },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -242,7 +246,7 @@ int main(int argc, char *argv[]) {
         switch(c) {
         case config:
             if (option_is_valid(optarg)) {
-                mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
+                mercury_config_read_from_file(cfg, libmerc_cfg, extended_cfg, optarg);
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
@@ -305,13 +309,13 @@ int main(int argc, char *argv[]) {
                 libmerc_cfg.output_udp_initial_data = true;
             }
             break;
-        // case tcp_reassembly:
-        //     if (optarg) {
-        //         usage(argv[0], "option tcp-reassembly does not use an argument", extended_help_off);
-        //     } else {
-        //         libmerc_cfg.tcp_reassembly = true;
-        //     }
-        //     break;
+        case tcp_reassembly:
+            if (optarg) {
+                usage(argv[0], "option tcp-reassembly does not use an argument", extended_help_off);
+            } else {
+                extended_cfg.tcp_reassembly = true;
+            }
+            break;
         case 'r':
             if (option_is_valid(optarg)) {
                 cfg.read_filename = optarg;
@@ -375,11 +379,15 @@ int main(int argc, char *argv[]) {
                 }
                 if (option_is_valid(optarg)) {
                     libmerc_cfg.packet_filter_cfg = optarg;
+                    set_proto_str.assign(optarg);
+                    proto_str_set = true;
                 } else {
                     usage(argv[0], "option s or select has the form -s\"filter\" or --select=\"filter\"", extended_help_off);
                 }
             } else {
                 libmerc_cfg.packet_filter_cfg = (char *)"all";
+                set_proto_str.assign("all");
+                proto_str_set = true;
             }
             break;
         case 'h':
@@ -551,6 +559,16 @@ int main(int argc, char *argv[]) {
     if (cfg.read_filename) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
     }
+
+    // setup extended config options
+    //
+    if (!proto_str_set) {
+        set_proto_str.assign("");
+        libmerc_cfg.packet_filter_cfg = (char *)"";
+    }
+    extended_cfg.set_extended_cfg(libmerc_cfg, set_proto_str);
+    extended_cfg.new_proto_str = strcpy(new char[set_proto_str.length() + 1], set_proto_str.c_str());
+    libmerc_cfg.packet_filter_cfg = extended_cfg.new_proto_str;
 
     mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
     if (mc == nullptr) {

@@ -136,7 +136,7 @@ endif
 # implicit rule to make an MCAP file from a PCAP file
 #
 %.mcap: %.pcap
-	$(MERCURY) -r $< --select=";tcp-reassembly" -w $@
+	$(MERCURY) -r $< --tcp-reassembly -w $@
 
 # implicit rule to compare MCAP results
 #

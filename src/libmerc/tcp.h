@@ -299,6 +299,7 @@ struct tcp_segment {
     unsigned int init_time;
     bool done;
     bool seg_overlap;  // current pkt overlaps with a previous segment
+    bool max_seg_exceed;
 
     static const unsigned int timeout = 30;    // seconds before flow timeout
 
@@ -310,7 +311,7 @@ struct tcp_segment {
     //std::vector< std::pair<uint32_t,uint32_t> > seg;
 
     tcp_segment() : seq_init{0}, curr_seq{0}, index{0}, end_index{0}, seg_len{0}, max_index{8192}, total_bytes_needed{8192},
-                        current_bytes{0}, seg_count{0}, prune_index{0}, init_time{0}, done{false}, seg_overlap{false} {}
+                        current_bytes{0}, seg_count{0}, prune_index{0}, init_time{0}, done{false}, seg_overlap{false}, max_seg_exceed{false} {}
 
     bool init_from_pkt (unsigned int sec, struct tcp_seg_context &tcp_pkt, uint32_t syn_seq, datum &p) {
         seq_init = syn_seq;
@@ -384,6 +385,7 @@ struct tcp_segment {
         if (seg_count > max_seg_count) {
             // force flush
             done = true;
+            max_seg_exceed = true;
             return this;
         }
 
@@ -650,6 +652,9 @@ struct tcp_reassembler {
             flags.print_key_bool("reassembled", true);
             if (reap_it->second.seg_overlap) {
                 flags.print_key_bool("segment_overlap", reap_it->second.seg_overlap);
+            }
+            if (reap_it->second.max_seg_exceed) {
+                flags.print_key_bool("segment_count_exceed", reap_it->second.max_seg_exceed);
             }
             flags.close();
         }

@@ -100,10 +100,11 @@ mercury_schema = {
                      },
                      "additionalProperties": False
              },
-        'flags': {'type': 'object',
+        'reassembly_properties': {'type': 'object',
                      'properties': {
-                         'reassembled':     {'type': 'boolean'},
-                         'segment_overlap': {'type': 'boolean'},
+                         'reassembled':          {'type': 'boolean'},
+                         'segment_overlap':      {'type': 'boolean'},
+                         'segment_count_exceed': {'type': 'boolean'},
                      },
                      "additionalProperties": False
              },

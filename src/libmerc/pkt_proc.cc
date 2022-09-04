@@ -742,11 +742,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         } else {
             //bool write_pkt = false;
             if (!process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler)) {
-                //if (write_pkt) {
-                    //return 1;   // write to pcap regardless of json record
                 return 0;
-                //}
-                //else return 0;
             }
         }
 
@@ -807,7 +803,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
 
         if (reassembler) {
-            reassembler->write_flags(record, "reassembly");
+            reassembler->write_flags(record, "reassembly_properties");
         }
 
         write_flow_key(record, k);

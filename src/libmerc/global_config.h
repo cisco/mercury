@@ -28,6 +28,43 @@
 struct global_config;
 static void setup_extended_fields(global_config* lc, const std::string& config);
 
+// extended config allows setting members of global_config which are not part of libmerc_config, via runtime options
+// bool dummy acts as template example to add more configs
+//
+struct extended_config {
+    char* new_proto_str = NULL;
+
+    bool tcp_reassembly = false;
+    //bool dummy = false;
+
+    bool is_set() {return tcp_reassembly;}
+
+    // dummy call for is_set () {return tcp_reassembly||dummy}
+
+    void set_extended_cfg(libmerc_config &cfg, std::string &proto_str) {
+        if (!is_set() || !cfg.packet_filter_cfg) {
+            return;
+        }
+        bool selector_delim = config_contains_delims(cfg.packet_filter_cfg);
+        if (!selector_delim) {
+            proto_str.append(";");
+        }
+        if (tcp_reassembly) {
+            proto_str.append("tcp-reassembly");
+        }
+        // set other options e.g. dummy = true;
+        // if (dummy) {
+        //     proto_str.append(",dummy");
+        // }
+    }
+
+    ~extended_config() {
+        if (new_proto_str) {
+            delete[] new_proto_str;
+        }
+    }
+};
+
 struct global_config : public libmerc_config {
 
 private:
