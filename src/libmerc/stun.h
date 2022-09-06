@@ -404,34 +404,23 @@ namespace stun {
                 }
                 break;
             case attribute_type::PRIORITY:
-                {
-                    lookahead<encoded<uint32_t>> priority{value};
-                    if (priority) {
-                        o.print_key_uint("priority", priority.value);
-                    }
+                if (lookahead<encoded<uint32_t>> priority{value}) {
+                    o.print_key_uint("priority", priority.value);
                 }
                 break;
             case attribute_type::ICE_CONTROLLED:
-                {
-                    lookahead<encoded<uint64_t>> tiebreaker{value};
-                    if (tiebreaker) {
-                        o.print_key_uint("tiebreaker", tiebreaker.value);
-                    }
+                if (lookahead<encoded<uint64_t>> tiebreaker{value}) {
+                    o.print_key_uint("tiebreaker", tiebreaker.value);
                 }
                 break;
             case attribute_type::ICE_CONTROLLING:
-                {
-                    lookahead<encoded<uint64_t>> tiebreaker{value};
-                    if (tiebreaker) {
-                        o.print_key_uint("tiebreaker", tiebreaker.value);
-                    }
+                if (lookahead<encoded<uint64_t>> tiebreaker{value}) {
+                    o.print_key_uint("tiebreaker", tiebreaker.value);
                 }
                 break;
             case attribute_type::CHANNEL_NUMBER:
-                {
-                    if (lookahead<channel_number> cn{value}) {
-                        cn.value.write_json(o);
-                    }
+                if (lookahead<channel_number> cn{value}) {
+                    cn.value.write_json(o);
                 }
                 break;
             case attribute_type::LIFETIME:
