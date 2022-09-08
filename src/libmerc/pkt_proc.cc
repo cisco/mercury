@@ -273,6 +273,7 @@ struct compute_fingerprint {
     void operator()(dns_packet &) { }
     void operator()(mdns_packet &) { }
     void operator()(ssdp &) { }
+    void operator()(dnp3 &) {}
     void operator()(smb1_packet &) { }
     void operator()(smb2_packet &) { }
     void operator()(iec60870_5_104 &) { }

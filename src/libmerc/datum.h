@@ -493,6 +493,15 @@ struct datum {
         return true;
     }
 
+    bool copy(unsigned char *dst, ssize_t dst_len) {
+        if (length() > dst_len) {
+            memcpy(dst, data, dst_len);
+            return false;
+        }
+        memcpy(dst, data, length());
+        return true;
+    }
+
     bool strncpy(char *dst, ssize_t dst_len) {
         if (length() + 1 > dst_len) {
             memcpy(dst, data, dst_len - 1);

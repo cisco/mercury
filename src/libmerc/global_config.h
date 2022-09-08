@@ -115,6 +115,7 @@ public:
             { "smtp",        false },
             { "ssdp",        false },
             { "stun",        false },
+            { "dnp3",        false },
             { "tls.client_hello", false},
             { "tls.server_hello", false},
             { "tls.server_certificate", false},
