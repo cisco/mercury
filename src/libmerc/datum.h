@@ -955,7 +955,7 @@ inline bool encoded<uint64_t>::unit_test() {
 
 #endif // NDEBUG
 
-// class lookahead<T> attempts to reads an element of type T from a
+// class lookahead<T> attempts to read an element of type T from a
 // datum, without modifying that datum.  If the read succeeded, then
 // casting the lookahead object to a bool returns true; otherwise, it
 // returns false.  On success, the value of the element can be
@@ -980,6 +980,25 @@ public:
 
     datum advance() const { return tmp; }
 
+};
+
+// class accept<T> attempts to read an element of type T from a datum
+// reference.  If the read succeeded, the datum is advanced forward,
+// and casting the accept<T> object to a bool returns true; otherwise,
+// that cast returns false.  On success, the value of the element can be
+// accessed through the public value member.
+//
+template <typename T>
+class acceptor {
+public:
+    T value;
+private:
+    bool valid;
+public:
+
+    acceptor(datum &d) : value{d}, valid{d.is_not_null()} { }
+
+    operator bool() const { return valid; }
 };
 
 // class ignore<T> parses a data element of type T, but then ignores

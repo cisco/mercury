@@ -304,6 +304,7 @@ struct json_array {
         }
         b->write_char('\"');
     }
+
 };
 
 inline json_object::json_object(struct json_array &array) : b{array.b} {

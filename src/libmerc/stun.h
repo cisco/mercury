@@ -160,17 +160,6 @@ namespace stun {
 
     };
 
-    class utf8_string_and_padding {
-        datum name;
-        pad padding;
-    public:
-        utf8_string_and_padding(datum &d) : name{d}, padding{d, pad_len(name.length())} { }
-
-        void write_json(json_object &o) {
-            o.print_key_json_string("value", name); // TODO: support UTF-8
-        }
-    };
-
     // The ERROR-CODE attribute is used in error response messages.  It
     // contains a numeric error code value in the range of 300 to 699 plus a
     // textual reason phrase encoded in UTF-8 [RFC3629], and is consistent
@@ -193,12 +182,10 @@ namespace stun {
     class error_code {
         encoded<uint32_t> reserved_class_number;
         datum reason_phrase;
-        pad padding;
     public:
         error_code(datum &d) :
             reserved_class_number{d},
-            reason_phrase{d},
-            padding{d, pad_len(reason_phrase.length())}
+            reason_phrase{d}
         { }
 
         void write_json(json_object &o) {
@@ -345,6 +332,7 @@ namespace stun {
         encoded<uint16_t> length;
         datum value;
         pad padding;
+        bool valid;
 
     public:
 
@@ -352,15 +340,20 @@ namespace stun {
             type{d},
             length{d},
             value{d, length.value()},
-            padding{d, pad_len(length.value())}
+            padding{d, pad_len(length.value())},
+            valid{d.is_not_null()}
         { }
 
         void write_json(json_array &a) const {
+            if (!valid) { return; }
             json_object o{a};
             const char *name = attribute_type_get_name(type);
+            // o.print_key_uint("prealignment", (size_t)prealignment);
+            // o.print_key_uint("alignment", (size_t)alignment);
             o.print_key_string("type", name);
             if (name == unknown) {
                 o.print_key_uint("type_code", type);
+                o.print_key_uint_hex("type_code_hex", type); // TODO: check number of zeros
             }
             o.print_key_uint("length", length);
             switch (type) {
@@ -371,36 +364,28 @@ namespace stun {
             case attribute_type::ALTERNATE_SERVER:
             case attribute_type::RESPONSE_ORIGIN:
             case attribute_type::OTHER_ADDRESS:
-                {
-                    datum tmp = value;
-                    mapped_address addr{tmp};
-                    addr.write_json(o);
+                if (lookahead<mapped_address> addr{value}) {
+                    addr.value.write_json(o);
                 }
                 break;
             case attribute_type::XOR_MAPPED_ADDRESS:
             case attribute_type::XOR_PEER_ADDRESS:
             case attribute_type::XOR_RELAYED_ADDRESS:
-                {
-                    datum tmp = value;
-                    xor_mapped_address addr{tmp};
-                    addr.write_json(o);
+                if (lookahead<xor_mapped_address> addr{value}) {
+                    addr.value.write_json(o);
                 }
                 break;
             case attribute_type::SOFTWARE:
             case attribute_type::USERNAME:
             case attribute_type::REALM:
             case attribute_type::NONCE:
-                {
-                    datum tmp = value;
-                    utf8_string_and_padding u{tmp};
-                    u.write_json(o);
+                if (lookahead<utf8_string> s{value}) {
+                    o.print_key_value("value", s.value);
                 }
                 break;
             case attribute_type::ERROR_CODE:
-                {
-                    datum tmp = value;
-                    error_code ec{tmp};
-                    ec.write_json(o);
+                if (lookahead<error_code> ec{value}) {
+                    ec.value.write_json(o);
                 }
                 break;
             case attribute_type::PRIORITY:
@@ -566,15 +551,24 @@ namespace stun {
             (void)metadata; // ignore
             if (hdr.is_valid()) {
                 json_object stun_obj{o, "stun"};
+                if (hdr.get_message_length() % 4) {
+                    stun_obj.print_key_bool("malformed", true);
+                }
                 hdr.write_json(stun_obj);
                 json_array a{stun_obj, "attributes"};
                 datum tmp{body};
                 while (tmp.is_not_empty()) {
-                    stun::attribute attr{tmp};
-                    attr.write_json(a);
+                    if (lookahead<stun::attribute> attr{tmp}) {
+                        attr.value.write_json(a);
+                        tmp = attr.advance();
+                    } else {
+                        json_object unparseable{a};
+                        unparseable.print_key_hex("unparseable", tmp);
+                        unparseable.close();
+                        tmp.set_null(); // terminate loop
+                    }
                 }
                 a.close();
-                write_raw_features(stun_obj);
                 stun_obj.close();
             }
         }
@@ -585,19 +579,25 @@ namespace stun {
             datum tmp{body};
             json_array attr_array{a};
             while (tmp.is_not_empty()) {
-                stun::attribute attr{tmp};
-                attr.write_raw_features(attr_array);
+                if (acceptor<stun::attribute> attr{tmp}) {
+                    attr.value.write_raw_features(attr_array);
+                } else {
+                    break;
+                }
             }
             attr_array.close();
             a.close();
         }
 
         static constexpr mask_and_value<8> matcher{
-            { 0x00, 0x00, // type
-              0x00, 0x00, // length
+            { 0x00, 0x00,            // type
+              0x00, 0x00,            // length
               0xff, 0xff, 0xff, 0xff // magic cookie
             },
-            { 0x00, 0x00, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42 }
+            { 0x00, 0x00,            // type
+              0x00, 0x00,            // length
+              0x21, 0x12, 0xa4, 0x42 // magic cookie
+            }
         };
 
         bool is_not_empty() const {

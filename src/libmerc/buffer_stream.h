@@ -1092,6 +1092,77 @@ struct buffer_stream {
     void write_mac_addr(const uint8_t *d) {
         append_mac_addr(dstr, &doff, dlen, &trunc, d);
     }
+
+    void write_utf8_string(const uint8_t *data, unsigned int len) {
+        const unsigned char *x = data;
+
+        const unsigned char *end = data + len;
+
+        while (x < end) {
+            if (*x < 0x20) {                   /* escape control characters   */
+                snprintf("\\u%04x", *x);
+            } else if (*x >= 0x80) {           /* escape non-ASCII characters */
+
+                uint32_t codepoint = 0;
+                if (*x >= 0xc0) {
+
+                    if (*x >= 0xe0) {
+                        if (*x >= 0xf0) {
+                            if (x >= end - 3) {
+                                break;
+                            }
+                            codepoint = (*x++ & 0x07);
+                            codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                            codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                            codepoint = (*x   & 0x3f) | (codepoint << 6);
+
+                        } else {
+                            if (x >= end - 2) {
+                                break;
+                            }
+                            codepoint = (*x++ & 0x0F);
+                            codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                            codepoint = (*x   & 0x3f) | (codepoint << 6);
+                        }
+
+                    } else {
+                        if (x >= end - 1) {
+                            break;
+                        }
+                        codepoint = ((*x++ & 0x1f) << 6);
+                        codepoint |= *x & 0x3f;
+                    }
+
+                } else {
+                    codepoint = *x & 0x7f;
+                }
+                if (codepoint < 0x10000) {
+                    // basic multilingual plane
+                    if (codepoint < 0xd800) {
+                        snprintf("\\u%04x", codepoint);
+                    } else {
+                        // error: invalid or private codepoint
+                        snprintf("\\ue000", codepoint); // indicate error with private use codepoint
+                    }
+                } else {
+                    // surrogate pair
+                    codepoint -= 0x10000;
+                    uint32_t hi = (codepoint >> 10) + 0xd800;
+                    uint32_t lo = (codepoint & 0x3ff) + 0xdc00;
+                    snprintf("\\u%04x", hi);
+                    snprintf("\\u%04x", lo);
+                }
+
+            } else {
+                if (*x == '"' || *x == '\\') { /* escape special characters   */
+                    snprintf("\\");
+                }
+                snprintf("%c", *x);
+            }
+            x++;
+        }
+    }
+
 };
 
 struct timestamp_writer {
