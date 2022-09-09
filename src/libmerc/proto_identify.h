@@ -157,7 +157,9 @@ public:
 
     bool mdns() const { return select_mdns; }
 
-    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false} {
+    bool dnp3() const {return select_dnp3; }
+
+    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false}, select_dnp3{false} {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -268,6 +270,9 @@ public:
             tcp4.add_protocol(iec60870_5_104::matcher, tcp_msg_type_iec);
         if (protocol["dnp3"] || protocol["all"]) {
             tcp.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
+        if (protocols["dnp3"] || protocols["all"]) {
+            //tcp.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
+            select_dnp3 = true;
         }
         // tell protocol_identification objects to compile lookup tables
         //

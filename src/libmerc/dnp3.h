@@ -17,8 +17,265 @@
 #include "json_object.h"
 #include "match.h"
 
-class dnp3_app {
+// struct dnp3_app_obj_hdr {
 
+// };
+
+// struct dnp3_app_obj {
+
+// };
+
+// // dnp3 app header for outstation responses have extra field called internal incdications
+// struct dnp3_app_hdr_out_resp {
+//     encoded<uint8_t> app_ctrl;
+//     bool fin;
+//     bool fir;
+//     bool con;
+//     bool uns;
+//     uint8_t seq;
+//     encoded<uint8_t> func_code;
+//     encoded<uint16_t> internal_indications;
+//     std::string indications_str;
+
+// public :
+//     const char* get_indications_str() {
+//         if (internal_indications.bit<7>()) {
+//             indications_str += "broadcast,";
+//         }
+//         if (internal_indications.bit<6>()) {
+//             indications_str += "class_1_events,";
+//         }
+//         if (internal_indications.bit<5>()) {
+//             indications_str += "class_2_events,";
+//         }
+//         if (internal_indications.bit<4>()) {
+//             indications_str += "class_3_events,";
+//         }
+//         if (internal_indications.bit<3>()) {
+//             indications_str += "need_time,";
+//         }
+//         if (internal_indications.bit<2>()) {
+//             indications_str += "local_control,";
+//         }
+//         if (internal_indications.bit<1>()) {
+//             indications_str += "device_trobule,";
+//         }
+//         if (internal_indications.bit<0>()) {
+//             indications_str += "device_restart,";
+//         }
+//         if (internal_indications.bit<15>()) {
+//             indications_str += "func_code_unsupported,";
+//         }
+//         if (internal_indications.bit<14>()) {
+//             indications_str += "obj_unknown,";
+//         }
+//         if (internal_indications.bit<13>()) {
+//             indications_str += "parameter_error,";
+//         }
+//         if (internal_indications.bit<12>()) {
+//             indications_str += "event_buffer_overflow,";
+//         }
+//         if (internal_indications.bit<11>()) {
+//             indications_str += "already_executing,";
+//         }
+//         if (internal_indications.bit<10>()) {
+//             indications_str += "config_corrupt,";
+//         }
+//         if (internal_indications.bit<9>()) {
+//             indications_str += "reserved_1,";
+//         }
+//         if (internal_indications.bit<8>()) {
+//             indications_str += "reserved_2,";
+//         }
+
+//         return indications_str.c_str();
+//     }
+// };
+
+struct dnp3_app_hdr {
+    encoded<uint8_t> app_ctrl;
+    bool fin;
+    bool fir;
+    bool con;
+    bool uns;
+    uint8_t seq;
+    encoded<uint8_t> func_code;
+    bool is_resp;
+    encoded<uint16_t> internal_indications;
+    std::string indications_str;
+
+public:
+    dnp3_app_hdr(datum &data):
+    app_ctrl{data},
+    fin{app_ctrl.bit<0>()},
+    fir{app_ctrl.bit<1>()},
+    con{app_ctrl.bit<2>()},
+    uns{app_ctrl.bit<3>()},
+    seq{app_ctrl.slice<4,8>()},
+    func_code{data},
+    is_resp{false},
+    internal_indications{0},
+    indications_str{""} {
+        uint8_t code = func_code.value();
+        if (code == 0x81 || code == 0x82 || code == 0x83) {
+            is_resp = true;
+        }
+
+        if (is_resp) {
+            internal_indications = encoded<uint16_t>{data};
+        }
+    }
+
+    const char *get_func_code_str_req() const {
+        switch (func_code) {
+            case 0x00 : return {"confirm"};
+            case 0x01 : return {"read"};
+            case 0x02 : return {"write"};
+            case 0x03 : return {"select"};
+            case 0x04 : return {"operate"};
+            case 0x05 : return {"dir_operate"};
+            case 0x06 : return {"dir_operate_no_resp"};
+            case 0x07 : return {"freeze"};
+            case 0x08 : return {"freeze_no_resp"};
+            case 0x09 : return {"freeze_clear"};
+            case 0x0A : return {"freeze_clear_no_resp"};
+            case 0x0B : return {"freeze_at_time"};
+            case 0x0C : return {"freeze_at_time_no_resp"};
+            case 0x0D : return {"cold_restart"};
+            case 0x0E : return {"warm_restart"};
+            case 0x0F : return {"init_data"};
+            case 0x10 : return {"init_app"};
+            case 0x11 : return {"start_app"};
+            case 0x12 : return {"stop_app"};
+            case 0x13 : return {"save_config"};
+            case 0x14 : return {"enable_solicited"};
+            case 0x15 : return {"disable_solicited"};
+            case 0x16 : return {"assign_class"};
+            case 0x17 : return {"delay_measurement"};
+            case 0x18 : return {"record_curr_time"};
+            case 0x19 : return {"open_file"};
+            case 0x1A : return {"close_file"};
+            case 0x1B : return {"delete_file"};
+            case 0x1C : return {"get_file_info"};
+            case 0x1D : return {"authenticate_file"};
+            case 0x1E : return {"abort_file"};
+            case 0x1F : return {"activate_config"};
+            case 0x20 : return {"authenticate_req"};
+            case 0x21 : return {"authenticate_req_no_ack"};
+            default   : return {"no_matching_code"};
+        }
+    }
+
+    const char *get_func_code_str_resp() const {
+        switch (func_code) {
+            case 0x81 : return {"response"};
+            case 0x82 : return {"unsolicited_response"};
+            case 0x83 : return {"authentication_response"};
+            default   : return {"no_matching_code"};
+        }
+    }
+
+    const char *get_func_code_str() const {
+        if (is_resp) {
+            return get_func_code_str_resp();
+        }
+        else {
+            return get_func_code_str_req();
+        }
+    }
+
+    const char* get_indications_str() {
+        if (internal_indications.bit<7>()) {
+            indications_str += "broadcast,";
+        }
+        if (internal_indications.bit<6>()) {
+            indications_str += "class_1_events,";
+        }
+        if (internal_indications.bit<5>()) {
+            indications_str += "class_2_events,";
+        }
+        if (internal_indications.bit<4>()) {
+            indications_str += "class_3_events,";
+        }
+        if (internal_indications.bit<3>()) {
+            indications_str += "need_time,";
+        }
+        if (internal_indications.bit<2>()) {
+            indications_str += "local_control,";
+        }
+        if (internal_indications.bit<1>()) {
+            indications_str += "device_trobule,";
+        }
+        if (internal_indications.bit<0>()) {
+            indications_str += "device_restart,";
+        }
+        if (internal_indications.bit<15>()) {
+            indications_str += "func_code_unsupported,";
+        }
+        if (internal_indications.bit<14>()) {
+            indications_str += "obj_unknown,";
+        }
+        if (internal_indications.bit<13>()) {
+            indications_str += "parameter_error,";
+        }
+        if (internal_indications.bit<12>()) {
+            indications_str += "event_buffer_overflow,";
+        }
+        if (internal_indications.bit<11>()) {
+            indications_str += "already_executing,";
+        }
+        if (internal_indications.bit<10>()) {
+            indications_str += "config_corrupt,";
+        }
+        if (internal_indications.bit<9>()) {
+            indications_str += "reserved_1,";
+        }
+        if (internal_indications.bit<8>()) {
+            indications_str += "reserved_2,";
+        }
+
+        return indications_str.c_str();
+    }
+
+    void write_json(struct json_object &record, bool output_metadata) {
+        json_object app_hdr(record, "app_hdr");
+        app_hdr.print_key_bool("fin",fin);
+        app_hdr.print_key_bool("fir",fir);
+        app_hdr.print_key_bool("con",con);
+        app_hdr.print_key_bool("uns",uns);
+        app_hdr.print_key_int("seq",seq);
+        app_hdr.print_key_bool("resp", is_resp);
+        app_hdr.print_key_int("func_code",func_code.value());
+        app_hdr.print_key_string("func_str", get_func_code_str());
+        if (is_resp) {
+            app_hdr.print_key_string("internal_indications", get_indications_str());
+        }
+        app_hdr.close();
+    }
+};
+
+class dnp3_app {
+    bool is_resp;
+    bool outstation_resp;
+    datum data;
+    dnp3_app_hdr app_hdr;
+    bool valid;
+
+public:
+    dnp3_app(datum seg_data):
+    data{seg_data},
+    app_hdr{data},
+    valid{data.is_not_empty()}
+    {}
+
+    bool is_not_empty() { return (valid); }
+
+    void write_json(struct json_object &record, bool output_metadata) {
+        json_object app(record, "app");
+        app_hdr.write_json(app, output_metadata);
+        app.print_key_int("left_obj_data", data.length());
+        app.close();
+    }
 };
 
 class dnp3_transport {
@@ -40,7 +297,16 @@ public:
 
     bool is_not_empty() const { return (valid); }
 
-    void write_json(struct json_object &record, bool output_metadata) { }
+    void write_json(struct json_object &record, bool output_metadata) {
+        json_object transport(record, "transport");
+        transport.print_key_bool("fin", fin);
+        transport.print_key_bool("fir",fir);
+        transport.print_key_int("seq",seq_num);
+        transport.close();
+        return;
+    }
+
+    datum get_app_data() {return segment;}
 };
 
 struct dnp3_link_control {
@@ -58,7 +324,7 @@ struct dnp3_link_control {
             case 3 : return {"CONFIRMED_USER_DATA", fcv};
             case 4 : return {"UNCONFIRMED_USER_DATA", !fcv};
             case 9 : return {"REQUEST_LINK_STATES", !fcv};
-            default : return {"no matching code", true};
+            default : return {"no_matching_code", true};
         }
     }
 
@@ -68,7 +334,7 @@ struct dnp3_link_control {
             case 1 : return {"NACK"};
             case 0x0B : return {"LINK_STATUS"};
             case 0x0F : return {"NOT_SUPPORTED"};
-            default : return {"no matching code"};
+            default : return {"no_matching_code"};
         }
     }
 
@@ -81,8 +347,6 @@ public:
         fcv{ctrl_byte.bit<3>()},
         dfc{fcv},
         function_code{ctrl_byte.slice<4,8>()} {}
-
-    bool is_not_empty() const { return (valid); }
 
     void write_json(struct json_object &record, bool output_metadata) {
         json_object control(record, "control");
@@ -138,8 +402,8 @@ public:
         start_bytes{frame},
         len{frame},
         ctrl_byte{encoded<uint8_t>{frame}},
-        dest_addr{frame},
-        src_addr{frame},
+        dest_addr{frame, true},
+        src_addr{frame, true},
         hdr_crc{frame},
         valid{true},
         data_len{len - 5},
@@ -180,13 +444,14 @@ public:
 class dnp3 {
     dnp3_link link;
     dnp3_transport transport;
-    //dnp3_app app;
+    dnp3_app app;
     bool valid;
 
 public:
     dnp3(datum &pkt) :
         link{pkt},
         transport{datum(link.data,link.data+link.data_len+1)},
+        app{transport.get_app_data()},
         valid{link.is_not_empty() && transport.is_not_empty()}
 
 
@@ -206,6 +471,7 @@ public:
             struct json_object dnp3(record,"dnp3");
             link.write_json(dnp3, output_metadata);
             transport.write_json(dnp3, output_metadata);
+            app.write_json(dnp3, output_metadata);
             dnp3.close();
         }
 
