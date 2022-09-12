@@ -591,6 +591,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         return true;
     }
 
+    reassembler->curr_reassembly_consumed = false;
     uint32_t syn_seq;
     bool initial_seg = false;
     bool expired = false;
@@ -658,9 +659,11 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             }
             
             if(seg->done) {
+                reassembler->pruner.nodes[seg->prune_index].is_in_map = false;
                 struct datum reassembled_data = seg->get_reassembled_segment();
                 set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
                 reassembler->dump_pkt = false;
+                reassembler->curr_reassembly_consumed = true;
                 return true;
             }
         }    
@@ -804,6 +807,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         if (reassembler) {
             reassembler->write_flags(record, "reassembly_properties");
+            if (reassembler->curr_reassembly_consumed == true) {
+                reassembler->remove_segment(reassembler->reap_it);
+                reassembler->curr_reassembly_consumed = false;
+            }
         }
 
         write_flow_key(record, k);

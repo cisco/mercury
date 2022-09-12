@@ -557,6 +557,7 @@ struct tcp_reassembler {
     bool dump_pkt;          // current pkt involved in reassembly, dump pkt regardless of json
     struct prune_table pruner;
     uint64_t force_prunes;
+    bool curr_reassembly_consumed;
 
     static const uint32_t max_map_entries = 5000;
     static const uint32_t force_prune_count = 4000;
@@ -564,7 +565,7 @@ struct tcp_reassembler {
     std::unordered_map<struct key, struct tcp_segment> segment_table;
     std::unordered_map<struct key, struct tcp_segment>::iterator reap_it;
 
-    tcp_reassembler(unsigned int size) : dump_pkt{false}, pruner{}, force_prunes{0}, segment_table{}, reap_it{segment_table.end()} {
+    tcp_reassembler(unsigned int size) : dump_pkt{false}, pruner{}, force_prunes{0}, curr_reassembly_consumed{false}, segment_table{}, reap_it{segment_table.end()} {
         segment_table.reserve(size);
         reap_it = segment_table.end();
     }
