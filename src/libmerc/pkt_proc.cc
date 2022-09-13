@@ -592,6 +592,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     }
 
     reassembler->curr_reassembly_consumed = false;
+    reassembler->curr_reassembly_state = reassembly_none;
     uint32_t syn_seq;
     bool initial_seg = false;
     bool expired = false;
@@ -614,6 +615,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             set_tcp_protocol(x, pkt, true, &tcp_pkt);
             if(!tcp_pkt.additional_bytes_needed) {
                 reassembler->dump_pkt = false;
+                reassembler->curr_reassembly_state = reassembly_none;
                 return true;
             }
             
@@ -622,6 +624,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             reassembler->init_segment(k, ts->tv_sec, seg_context, syn_seq, pkt_copy);
             //write_pkt = true;
             reassembler->dump_pkt = true;
+            reassembler->curr_reassembly_state = reassembly_in_progress;
             return false;
         }
         else {
@@ -629,6 +632,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             reassembler->init_segment(k, ts->tv_sec, seg_context, syn_seq, pkt);
             // write_pkt = false; for out of order pkts, write to pcap file only after initial seg is known
             reassembler->dump_pkt = false;
+            reassembler->curr_reassembly_state = reassembly_in_progress;
             return false;
         }
     }
@@ -649,6 +653,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             reassembler->pruner.nodes[seg->prune_index].is_in_map = false;
             reassembler->remove_segment(k);
             reassembler->dump_pkt = false;
+            reassembler->curr_reassembly_state = reassembly_done;
             return false;
         }
         if (seg) {
@@ -664,8 +669,11 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
                 set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
                 reassembler->dump_pkt = false;
                 reassembler->curr_reassembly_consumed = true;
+                reassembler->curr_reassembly_state = reassembly_done;
                 return true;
             }
+
+            reassembler->curr_reassembly_state = reassembly_in_progress;
         }    
     }
 
@@ -674,6 +682,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         // TODO: add to table to prevent processing again
         set_tcp_protocol(x, pkt, false, &tcp_pkt);
         reassembler->dump_pkt = false;
+        reassembler->curr_reassembly_state = reassembly_none;
         return true;
     }
 
@@ -977,7 +986,7 @@ bool set_config(std::map<std::string, bool> &config_map, const char *config_stri
 
 bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                                           size_t length,
-                                          struct timespec *,
+                                          struct timespec *ts,
                                           struct tcp_reassembler *reassembler) {
 
 
@@ -992,7 +1001,24 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             return 0;  // incomplete tcp header; can't process packet
          }
         tcp_pkt.set_key(k);
-        set_tcp_protocol(x, pkt, false, reassembler == nullptr ? nullptr : &tcp_pkt);
+        if (reassembler) {
+            analysis.flow_state_pkts_needed = false;
+            if (tcp_pkt.is_SYN()) {
+                tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+            } else if (tcp_pkt.is_SYN_ACK()) {
+                tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+            } else {
+                if (!process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler)) {
+                    if (reassembler->curr_reassembly_state == reassembly_in_progress) {
+                        analysis.flow_state_pkts_needed = true;
+                    }
+                    return 0;
+                }
+            }
+        }
+        else {
+            set_tcp_protocol(x, pkt, false, reassembler == nullptr ? nullptr : &tcp_pkt);
+        }
 
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
@@ -1028,7 +1054,23 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 std::visit(do_observation{k, analysis, mq}, x);
             }
 
+            if (reassembler) {
+                if (reassembler->curr_reassembly_consumed == true) {
+                    reassembler->remove_segment(reassembler->reap_it);
+                    reassembler->curr_reassembly_consumed = false;
+                    analysis.flow_state_pkts_needed = false;
+                }
+            }
+
             return output_analysis;
+        }
+    }
+
+    if (reassembler) {
+        if (reassembler->curr_reassembly_consumed == true) {
+            reassembler->remove_segment(reassembler->reap_it);
+            reassembler->curr_reassembly_consumed = false;
+            analysis.flow_state_pkts_needed = false;
         }
     }
 

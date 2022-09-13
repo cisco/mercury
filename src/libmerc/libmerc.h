@@ -678,5 +678,23 @@ bool analysis_context_get_alpns(const struct analysis_context *ac, // input
                                 size_t *alpn_length                // output
                                 );
 
+//
+// start of libmerc version 4 API
+//
+
+/**
+ * mercury_packet_processor_more_pkts_needed() return a boolean true, given a nullptr
+ * analysis_context from get_analysis_context call, if more packets are required for the current flow to get a valid
+ * analysis_context
+ *
+ * @param processor (input) is a packet processor context to be used
+ *
+ * @return a boolean true if more packets are required, otherwise false
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+bool mercury_packet_processor_more_pkts_needed(mercury_packet_processor processor);
+
 
 #endif /* LIBMERC_H */

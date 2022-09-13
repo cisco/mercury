@@ -176,6 +176,16 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context_lin
     return NULL;
 }
 
+bool mercury_packet_processor_more_pkts_needed(mercury_packet_processor processor) {
+try {
+        return processor->analysis.flow_state_pkts_needed;
+    }
+    catch (std::exception &e) {
+        printf_err(log_err, "%s\n", e.what());
+    }
+    return false;
+}
+
 enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac) {
     if (ac) {
         return ac->result.status;

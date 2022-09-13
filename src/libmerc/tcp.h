@@ -553,11 +553,18 @@ struct prune_table {
 
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
 
+enum reassembly_status {
+    reassembly_none = 0,
+    reassembly_in_progress = 1,
+    reassembly_done = 2
+};
+
 struct tcp_reassembler {
     bool dump_pkt;          // current pkt involved in reassembly, dump pkt regardless of json
     struct prune_table pruner;
     uint64_t force_prunes;
     bool curr_reassembly_consumed;
+    enum reassembly_status curr_reassembly_state;
 
     static const uint32_t max_map_entries = 5000;
     static const uint32_t force_prune_count = 4000;
@@ -565,7 +572,7 @@ struct tcp_reassembler {
     std::unordered_map<struct key, struct tcp_segment> segment_table;
     std::unordered_map<struct key, struct tcp_segment>::iterator reap_it;
 
-    tcp_reassembler(unsigned int size) : dump_pkt{false}, pruner{}, force_prunes{0}, curr_reassembly_consumed{false}, segment_table{}, reap_it{segment_table.end()} {
+    tcp_reassembler(unsigned int size) : dump_pkt{false}, pruner{}, force_prunes{0}, curr_reassembly_consumed{false}, curr_reassembly_state{reassembly_none}, segment_table{}, reap_it{segment_table.end()} {
         segment_table.reserve(size);
         reap_it = segment_table.end();
     }
@@ -580,7 +587,7 @@ struct tcp_reassembler {
                 force_prunes++;
             }
             reap_it->second.prune_index = index;
-            ++reap_it;
+            //++reap_it;
             return true;
         }
         return false;
