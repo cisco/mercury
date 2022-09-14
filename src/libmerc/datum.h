@@ -587,7 +587,7 @@ public:
 
     void set_empty() { data = data_end; }
 
-        void copy(uint8_t x) {
+    void copy(uint8_t x) {
         if (data + 1 > data_end) {
             return;  // not enough room
         }
@@ -595,7 +595,8 @@ public:
     }
     void copy(const uint8_t *rdata, size_t num_bytes) {
         if (data_end - data < (ssize_t)num_bytes) {
-            num_bytes = data_end - data;
+            // num_bytes = data_end - data;
+            set_null();
         }
         memcpy(data, rdata, num_bytes);
         data += num_bytes;
@@ -647,10 +648,21 @@ template <size_t T> struct data_buffer : public writeable {
 
     void reset() { data = buffer; }
     bool is_not_empty() const { return data != buffer && data < data_end; }
-    void set_empty() { data_end = data = buffer; }
-    ssize_t length() const { return data - buffer; } // TODO: return readable datum
+    // void set_empty() {
+    //     data = buffer;
+    //     data_end = buffer;
+    // }
+    ssize_t length() const {
+            return data - buffer;
+    }
 
-    datum contents() const { return {buffer, data}; }
+    datum contents() const {
+        if (writeable::is_null()) {
+            return {nullptr, nullptr};
+        } else {
+            return {buffer, data};
+        }
+    }
 
     ssize_t writeable_length() const { return data_end - data; }
 

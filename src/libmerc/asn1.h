@@ -414,7 +414,7 @@ struct tlv {
     //
     explicit tlv(uint8_t tag_, datum value_) :
         tag{tag_},
-        length{length_of_length(value_.length())},
+        length{value_.length()},
         value{value_}
     { }
 
@@ -424,51 +424,65 @@ struct tlv {
         value  = value_;
     }
 
+    size_t encoded_length() const {
+        return sizeof(tag) + length_of_length(length) + length;  // note: inapplicable for tlv::SEQUENCE
+    }
+
     static uint8_t length_of_length(size_t s) {
-        if (s < 127) {
+        if (s < 0x100) {
             return 1;
         }
-        if (s < 0x100) {
+        if (s < 0x10000) {
             return 2;
         }
-        if (s < 0x10000) {
+        if (s < 0x1000000) {
             return 3;
         }
-        if (s < 0x1000000) {
+        if (s < 0x100000000) {
             return 4;
         }
+        if (s < 0x10000000000) {
+            return 5;
+        }
+        if (s < 0x1000000000000) {
+            return 6;
+        }
+        return 7;
     }
 
     // write_tag_length() writes the ASN.1-encoded Tag and Length (but
     // not Value) into a writeable buffer
     //
-    void write_tag_length(writeable &buf, bool swap_byte_order=false) {
+    void write_tag_length(writeable &buf, bool swap_byte_order=false) const {
         (void)swap_byte_order;
 
         buf << encoded<uint8_t>{tag};
 
-        // length is 2 to 127 octets. Bit 8 of first octet has value
-        // "1" and bits 7–1 give the number of additional length
-        // octets. Second and following octets give the length, base
-        // 256, most significant digit first.
+        // Length field format
+        //
+        // Short form: one octet long. Bit 8 has value "0" and bits
+        // 7–1 give the length.
+        //
+        // Long form: 2 to 127 octets long. Bit 8 of its first octet
+        // has value "1" and bits 7–1 give the number of additional
+        // length octets. Second and following octets give the length,
+        // base 256, most significant digit first.
         //
         if (length < 127) {
-            buf << encoded<uint8_t>{length & 0x7f};
+            buf << encoded<uint8_t>{length};
         } else {
-            size_t tmp = length >> 8;
-            buf << encoded<uint8_t>{tmp};
-            if (tmp > 0x100) {
-                tmp = tmp >> 8;
-                buf << encoded<uint8_t>{tmp};
+            buf << encoded<uint8_t>{0x80 | length_of_length(length)};
+            size_t tmp = length;
+            if (tmp > 0x1000000) {
+                buf << encoded<uint8_t>{(length >> 24) & 0xff};
             }
             if (tmp > 0x10000) {
-                tmp = tmp >> 8;
-                buf << encoded<uint8_t>{tmp};
+                buf << encoded<uint8_t>{(length >> 16) & 0xff};
             }
-            if (tmp > 0x1000000) {
-                tmp = tmp >> 8;
-                buf << encoded<uint8_t>{tmp};
+            if (tmp > 0x100) {
+                buf << encoded<uint8_t>{(length >> 8) & 0xff};
             }
+            buf << encoded<uint8_t>{tmp & 0xff};
         }
     }
 
