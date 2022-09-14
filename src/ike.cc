@@ -1,0 +1,101 @@
+// pcap.cc
+//
+// a pcap file reader based on pcap.h
+//
+// compile as:
+//
+//   g++ -Wall -Wno-narrowing pcap.cc -o pcap -std=c++17
+
+#include "pcap_file_io.h"
+#include "libmerc/eth.h"
+#include "libmerc/ip.h"
+#include "libmerc/tcpip.h"
+#include "libmerc/udp.h"
+#include "libmerc/ike.h"
+#include "pcap.h"
+
+
+void dump_packet_info(struct datum &pkt_data);
+
+int main(int argc, char *argv[]) {
+
+    if (argc != 2) {
+        fprintf(stderr, "error: no file argument provided\nusage: %s <pcap file name>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+    char *pcap_file_name = argv[1];
+
+    size_t i=0;
+    try {
+        pcap::file_reader pcap(pcap_file_name);
+        printf("linktype: %s\n", pcap.get_linktype());
+        std::pair<uint16_t, uint16_t> version = pcap.get_version();
+        printf("file format: %s version: %u.%u\n", pcap.get_format(), version.first, version.second);
+
+        packet<65536> pkt;
+        while (true) {
+            datum pkt_data = pkt.get_next(pcap);
+            if (!pkt_data.is_not_empty()) {
+                break;
+            }
+            dump_packet_info(pkt_data);
+            i++;
+        }
+    }
+    catch (std::exception &e) {
+        fprintf(stderr, "error processing pcap_file %s:\t", pcap_file_name);
+        fprintf(stderr, "%s\n", e.what());
+        exit(EXIT_FAILURE);
+    }
+    catch (...) {
+        fprintf(stderr, "unknown error processing pcap_file %s\n", pcap_file_name);
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stdout, "packet count: %zu\n", i);
+    return 0;
+}
+
+void dump_packet_info(struct datum &pkt_data) {
+
+    // fputs("frame.data: ", stdout);
+    // pkt_data.fprint_hex(stdout);
+    // fputc('\n', stdout);
+    // fputc('\n', stdout);
+
+    eth ethernet{pkt_data};
+    uint16_t ethertype = ethernet.get_ethertype();
+    switch(ethertype) {
+    case ETH_TYPE_IP:
+    case ETH_TYPE_IPV6:
+        fprintf(stdout, "packet.ethertype: %u\n", ethertype);
+        {
+            key k;
+            ip ip_pkt{pkt_data, k};
+            ip::protocol protocol = ip_pkt.transport_protocol();
+            fprintf(stdout, "packet.ip.protocol: %u\n", protocol);
+            fprintf(stdout, "ip::protocol: %u\n", ip::protocol::udp);
+            if (protocol == ip::protocol::udp) {
+                class udp udp_pkt{pkt_data};
+                udp_pkt.set_key(k);
+                ike::packet ike_pkt{pkt_data};
+
+                // write out IKE json
+                //
+                output_buffer<4096> buf;
+                json_object o{&buf};
+                ike_pkt.write_json(o);
+                o.close();
+                buf.write_line(stdout);
+            }
+        }
+        break;
+    default:
+        fprintf(stdout, "unknown ethertype (%u)\n", ethertype);
+    }
+    fputs("packet.data: ", stdout);
+    pkt_data.fprint_hex(stdout);
+    fputc('\n', stdout);
+    fputc('\n', stdout);
+}
+
