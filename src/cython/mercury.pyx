@@ -29,6 +29,8 @@ cdef extern from "../libmerc/pkt_proc.h":
         pass
     cdef struct stateful_pkt_proc:
         pass
+    cdef extern from "../libmerc/smb2.cc":
+        pass
 
 cdef extern from "../libmerc/libmerc.h":
     cdef struct libmerc_config:
