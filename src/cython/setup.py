@@ -28,6 +28,7 @@ sources = ['mercury.pyx',
            '../libmerc/pkt_proc.cc',
            '../libmerc/tls.cc',
            '../libmerc/asn1.cc',
+           '../libmerc/smb2.cc',
            '../libmerc/config_generator.cc',
 ]
 
