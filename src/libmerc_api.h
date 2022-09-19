@@ -28,6 +28,7 @@ struct libmerc_api {
     decltype(mercury_packet_processor_destruct)                      *packet_processor_destruct = nullptr;
     decltype(mercury_packet_processor_get_analysis_context)          *get_analysis_context = nullptr;
     decltype(mercury_packet_processor_get_analysis_context_linktype) *get_analysis_context_linktype = nullptr;
+    decltype(mercury_packet_processor_more_pkts_needed)              *more_pkts_needed = nullptr;
     decltype(analysis_context_get_fingerprint_type)                  *get_fingerprint_type = nullptr;
     decltype(analysis_context_get_fingerprint_status)                *get_fingerprint_status = nullptr;
     decltype(analysis_context_get_fingerprint_string)                *get_fingerprint_string = nullptr;
@@ -110,6 +111,18 @@ struct libmerc_api {
             fprintf(stderr, "note: could not initialize one or more libmerc v3 function pointers\n");
         } else {
             libmerc_version = 3;
+        }
+
+        // libmerc v4 API
+        //
+        more_pkts_needed =        (decltype(more_pkts_needed))        dlsym(dl_handle, "mercury_packet_processor_more_pkts_needed");
+
+        // check to see if all v4 function symbols were found
+        //
+        if (more_pkts_needed           == nullptr) {
+            fprintf(stderr, "note: could not initialize one or more libmerc v4 function pointers\n");
+        } else {
+            libmerc_version = 4;
         }
 
         fprintf(stderr, "libmerc api version %u found\n", libmerc_version);
