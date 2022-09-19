@@ -395,12 +395,12 @@ namespace stun {
                 break;
             case attribute_type::ICE_CONTROLLED:
                 if (lookahead<encoded<uint64_t>> tiebreaker{value}) {
-                    o.print_key_uint("tiebreaker", tiebreaker.value);
+                    o.print_key_uint_hex("tiebreaker", tiebreaker.value);
                 }
                 break;
             case attribute_type::ICE_CONTROLLING:
                 if (lookahead<encoded<uint64_t>> tiebreaker{value}) {
-                    o.print_key_uint("tiebreaker", tiebreaker.value);
+                    o.print_key_uint_hex("tiebreaker", tiebreaker.value);
                 }
                 break;
             case attribute_type::CHANNEL_NUMBER:
