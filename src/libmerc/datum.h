@@ -512,6 +512,7 @@ struct datum {
     }
 
     void fprint_hex(FILE *f, size_t length=0) const {
+        if (data == nullptr) { return; }
         const uint8_t *x = data;
         const uint8_t *end = data_end;
         if (length) {
@@ -561,6 +562,14 @@ struct datum {
         return -1;
     }
 
+    bool is_printable() const {
+        for (const auto & c: *this) {
+            if (!isprint(c)) {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
 // sanity checks on class datum

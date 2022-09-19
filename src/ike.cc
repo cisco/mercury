@@ -4,7 +4,7 @@
 //
 // compile as:
 //
-//   g++ -Wall -Wno-narrowing pcap.cc -o pcap -std=c++17
+//   g++ -Wall -Wno-narrowing ike.cc -o ike -std=c++17
 
 #include "pcap_file_io.h"
 #include "libmerc/eth.h"
@@ -82,7 +82,7 @@ void dump_packet_info(struct datum &pkt_data) {
 
                 // write out IKE json
                 //
-                output_buffer<4096> buf;
+                output_buffer<8192> buf;
                 json_object o{&buf};
                 ike_pkt.write_json(o);
                 o.close();
