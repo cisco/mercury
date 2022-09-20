@@ -517,6 +517,14 @@ public:
         {0x68, 0x00, 0x00, 0x00}
     };
 
+    /*
+     * Length of IEC payload = 2 + apdu_length
+     */
+    static ssize_t get_payload_length(datum pkt) {
+        encoded<uint16_t> len(pkt);
+        return (len.slice<8, 16>() + 2);
+    }
+
     void write_json(struct json_object &o) {
         o.print_key_uint8("apdu_length", apdu_length);
         std::visit(write_iec_json{o}, packet);

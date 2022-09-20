@@ -91,13 +91,11 @@ public:
         // it may compile a jump table, reorder matchers, etc.
     }
 
-    bool pkt_len_match(datum pkt, const size_t type) const {
+    bool pkt_len_match(datum &pkt, const size_t type) const {
         switch(type) {
         case tcp_msg_type_iec:
         {
-            size_t pkt_len = pkt.length();
-            encoded<uint16_t> len(pkt);
-            return (len.slice<8, 16>() == (pkt_len - 2));
+            return (iec60870_5_104::get_payload_length(pkt) == pkt.length());
         }
         default:
             return true;
