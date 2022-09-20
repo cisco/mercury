@@ -102,6 +102,12 @@ public:
         }
     }
 
+    /*
+     * For matchers of size 4, along with matching 4 bytes of
+     * payload, the packet length can also be used to make the
+     * matcher more robust. Currently, this capability is used in matchers of
+     * size 4. If required, this can be extended to matchers of other sizes.
+     */
     size_t get_msg_type(datum &pkt) const {
 
         // TODO: process short data fields
