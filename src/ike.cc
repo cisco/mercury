@@ -1,4 +1,4 @@
-// pcap.cc
+// ike.cc
 //
 // a pcap file reader based on pcap.h
 //

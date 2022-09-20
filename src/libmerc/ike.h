@@ -9,6 +9,17 @@ namespace ike {
 
 #include "ikev2_params.h"
 
+    // The non-ESP marker is used to distinguish IKE from
+    // ESP-over-UDP.  In the context of the IKEv2 protocol, it is an
+    // optional field that may appear before the IKE header; see
+    // https://datatracker.ietf.org/doc/html/rfc3948#section-2.2.
+    //
+    class non_esp_marker {
+        literal<4> value;
+    public:
+        non_esp_marker(datum &d) : value{d, {0x00, 0x00, 0x00, 0x00}} { }
+    };
+
     //                          1                   2                   3
     //     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -111,7 +122,8 @@ namespace ike {
     //       (header + payloads) in octets.
     //
     class header {
-        //literal<4> marker;
+        optional<non_esp_marker> marker;
+        //non_esp_marker marker;
         datum initiator_spi;
         datum responder_spi;
         payload_type<uint8_t> next_payload;
@@ -129,7 +141,7 @@ namespace ike {
         size_t body_length() const { return length - bytes_in_header; }
 
         header(datum &d) :
-            //            marker{d, {0x00, 0x00, 0x00, 0x00}},
+            marker{d},
             initiator_spi{d, 8},
             responder_spi{d, 8},
             next_payload{d},
@@ -138,7 +150,7 @@ namespace ike {
             flags{d},
             message_id{d},
             length{d},
-            valid{d.is_not_null()}
+            valid{d.is_not_null() and version == 0x20 and exchange.get_name() != UNKNOWN}
         { }
 
         uint16_t get_next_payload() const {
@@ -338,19 +350,19 @@ namespace ike {
             o.print_key_uint("transform_length", transform_length);
             type.write_json(o); // o.print_key_("transform_type", transform_type);
             switch(type) {
-            case transform_type<uint8_t>::code::Encryption_Algorithm_ENCR:
+            case transform_type<uint8_t>::code::Encryption_Algorithm:
                 encryption_transform_type<uint16_t>{transform_id}.write_json(o);
                 break;
-            case transform_type<uint8_t>::code::Pseudo_random_Function_PRF:
+            case transform_type<uint8_t>::code::Pseudo_random_Function:
                 pseudorandom_function_type<uint16_t>{transform_id}.write_json(o);
                 break;
-            case transform_type<uint8_t>::code::Integrity_Algorithm_INTEG:
+            case transform_type<uint8_t>::code::Integrity_Algorithm:
                 integrity_transform_type<uint16_t>{transform_id}.write_json(o);
                 break;
-            case transform_type<uint8_t>::code::Diffie_Hellman_Group_D_H:
+            case transform_type<uint8_t>::code::Diffie_Hellman_Group:
                 diffie_hellman_group_type<uint16_t>{transform_id}.write_json(o);
                 break;
-            case transform_type<uint8_t>::code::Extended_Sequence_Numbers_ESN:
+            case transform_type<uint8_t>::code::Extended_Sequence_Numbers:
                 extended_sequence_numbers_type<uint16_t>{transform_id}.write_json(o);
                 break;
             default:
@@ -529,7 +541,7 @@ namespace ike {
             body{d, hdr.body_length()}
         { }
 
-        bool is_valid() const { return body.is_not_null(); }
+        bool is_valid() const { return hdr.is_valid() and body.is_not_null(); }
 
         void write_json(json_object &o) const {
             if (!is_valid()) { return; }

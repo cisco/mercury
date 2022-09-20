@@ -297,7 +297,7 @@ struct datum {
                 return false;
             }
         }
-        set_empty();
+        set_null();
         return true;
     }
 
@@ -313,7 +313,7 @@ struct datum {
                 alternatives++;
             }
         }
-        set_empty();
+        set_null();
         return true;
     }
 
@@ -1020,6 +1020,35 @@ public:
     acceptor(datum &d) : value{d}, valid{d.is_not_null()} { }
 
     operator bool() const { return valid; }
+};
+
+// class optional<T> attempts to read an element of type T from a
+// datum reference.  If the read succeeds, the datum is advanced
+// forward, and casting the optional<T> object to a bool returns true;
+// otherwise, that cast returns false.  On success, the value of the
+// element can be accessed through the public value member.  If the
+// read fails, the datum is left unchanged (it is neither advanced nor
+// set to null).
+//
+template <typename T>
+class optional {
+    datum tmp;
+public:
+    T value;
+private:
+    bool valid;
+public:
+
+    optional(datum &d) :
+        tmp{d},
+        value{tmp},
+        valid{tmp.is_not_null()}
+    {
+        if (valid) {
+            d = tmp;
+        }
+    }
+
 };
 
 // class ignore<T> parses a data element of type T, but then ignores
