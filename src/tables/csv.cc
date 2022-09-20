@@ -15,7 +15,7 @@
 
 void write_preamble(const std::string &filename,
                     const std::string &preprocname,
-                    std::vector<std::pair<std::string, std::string>> file_and_class,
+                    std::vector<std::tuple<std::string, std::string, std::string>> file_and_class,
                     FILE *f=stdout) {
 
     std::time_t timenow = time(NULL);
@@ -31,7 +31,7 @@ void write_preamble(const std::string &filename,
             filename.c_str(),
             timestamp);
     for (const auto &fc : file_and_class) {
-        fprintf(f, "//     %s\n", fc.first.c_str());
+        fprintf(f, "//     %s\n", std::get<0>(fc).c_str());
     }
     fprintf(f,
             "//\n\n"
@@ -46,18 +46,17 @@ void write_postamble(const char *filename, FILE *f=stdout) {
     fprintf(f, "\n#endif // %s\n\n", filename);
 }
 
-void write_class(const std::vector<std::pair<std::string, std::string>> &params,
-                 const char *name,
+void write_class(const std::vector<std::tuple<std::string, std::string>> &params,
+                 const char *classname,
+                 const char *sname,
                  FILE *f=stdout) {
 
     // prepare padding for alignment
     //
     const char padding[] = "                                                           ";
     size_t max = 0;
-    //    size_t min = std::numeric_limits<size_t>::max();
     for (const auto &p : params) {
-        if (p.first.length() > max) { max = p.first.length(); }
-        // if (p.first.length() < min) { min = p.first.length(); }
+        if (std::get<0>(p).length() > max) { max = std::get<0>(p).length(); }
     }
 
     fprintf(f,
@@ -69,17 +68,17 @@ void write_class(const std::vector<std::pair<std::string, std::string>> &params,
             "        const char *name = get_name();\n"
             "        o.print_key_string(\"%s\", name);\n"
             "        if (name == UNKNOWN) {\n"
-            "            o.print_key_uint(\"%s_type_code\", encoded<T>::value());\n"
+            "            o.print_key_uint(\"%s_code\", encoded<T>::value());\n"
             "        }\n"
             "    }\n"
             "    enum code {\n",
-            name,
-            name,
-            name);
+            classname,
+            sname,
+            classname);
 
     for (const auto &p : params) {
-        int padlen = max - p.first.length();
-        fprintf(f, "        %s%.*s = %s,\n", p.first.c_str(), padlen, padding, p.second.c_str());
+        int padlen = max - std::get<0>(p).length();
+        fprintf(f, "        %s%.*s = %s,\n", std::get<0>(p).c_str(), padlen, padding, std::get<1>(p).c_str());
     }
 
     fprintf(f,
@@ -89,15 +88,15 @@ void write_class(const std::vector<std::pair<std::string, std::string>> &params,
             );
 
     for (const auto &p : params) {
-        int padlen = max - p.first.length();
+        int padlen = max - std::get<0>(p).length();
 
         // remove leading underscore, if any, from printed string
         //
-        std::string tmp{p.first};
+        std::string tmp{std::get<0>(p)};
         if (tmp[0] == '_') {
             tmp.erase(0,1);
         }
-        fprintf(f, "        case %s:%.*s return \"%s\";\n", p.first.c_str(), padlen, padding, tmp.c_str());
+        fprintf(f, "        case %s:%.*s return \"%s\";\n", std::get<0>(p).c_str(), padlen, padding, tmp.c_str());
     }
 
     fprintf(f,
@@ -109,16 +108,12 @@ void write_class(const std::vector<std::pair<std::string, std::string>> &params,
             "};\n\n");
 }
 
-void process_iana_csv_file(const std::string &filename,
-                           const std::string &classname,
-                           FILE *outfile,
-                           bool verbose=false) {
+void csv_file_add_mappings(std::vector<std::tuple<std::string, std::string>> &params,
+                           std::string filename) {
 
     bool remove_paren_exprs = true;
 
     std::ifstream f(filename);
-
-    std::vector<std::pair<std::string, std::string>> params;
     csv::get_next_line(f);  // ignore first line
     while(f) {
 
@@ -178,24 +173,65 @@ void process_iana_csv_file(const std::string &filename,
         }
     };
 
+}
+
+void process_iana_csv_file(std::string filename,
+                           const std::string &classname,
+                           const std::string &sname,
+                           FILE *outfile,
+                           bool verbose=false) {
+
+    std::string altfile;
+    size_t comma = filename.find(",");
+    if (comma != std::string::npos) {
+        altfile = filename.substr(0, comma);
+        filename = filename.substr(comma+1);
+    }
+
+    std::vector<std::tuple<std::string, std::string>> params;
+    csv_file_add_mappings(params, filename);
+    if (altfile != "") {
+        csv_file_add_mappings(params, altfile);
+    }
+
     // remove Reserved, Unassigned, and Private elements
     //
-    const auto & predicate = [verbose](const std::pair<std::string, std::string> p){
+    const auto & predicate = [verbose, classname](const std::tuple<std::string, std::string> p){
 
-        bool remove = std::regex_search(p.first, std::regex("Reserved.*"))
-            or std::regex_search(p.first, std::regex("RESERVED"))
-            or std::regex_search(p.first, std::regex("Unassigned.*"))
-            or std::regex_search(p.first, std::regex("Private"))
-            or not std::regex_search(p.second, std::regex("[0-9]*"));
+        bool remove = std::regex_search(std::get<0>(p), std::regex("Reserved.*"))
+            or std::regex_search(std::get<0>(p), std::regex("RESERVED"))
+            or std::regex_search(std::get<0>(p), std::regex("Unassigned.*"))
+            or std::regex_search(std::get<0>(p), std::regex("Private"))
+            or not std::regex_search(std::get<1>(p), std::regex("[0-9]*"));
 
         if (verbose and remove) {
-            fprintf(stderr, "note: removing (%s, %s)\n", p.first.c_str(), p.second.c_str());
+            fprintf(stderr, "note: in class %s: removing (%s, %s)\n", classname.c_str(), std::get<0>(p).c_str(), std::get<1>(p).c_str());
         }
         return remove;
     };
     params.erase(std::remove_if(params.begin(), params.end(), predicate), params.end());
 
-    write_class(params, classname.c_str(), outfile);
+    struct {
+        bool operator()(std::tuple<std::string, std::string> &a,
+                        std::tuple<std::string, std::string> &b) const {
+
+            std::string &A = std::get<1>(a);
+            std::string &B = std::get<1>(b);
+            size_t AA;
+            size_t BB;
+            int base = 10;
+            fprintf(stderr, "comparing %s and %s\n", A.c_str(), B.c_str());
+            if (A.length() > 1 and A[1] == 'x' and B.length() > 1 and B[1] == 'x') {
+                base = 16;
+            }
+            AA = std::stol(A.c_str(), nullptr, base);
+            BB = std::stol(B.c_str(), nullptr, base);
+            return AA < BB;
+        }
+    } less;
+    std::sort(params.begin(), params.end(), less);
+
+    write_class(params, classname.c_str(), sname.c_str(), outfile);
 
 }
 
@@ -211,14 +247,22 @@ int main(int argc, char *argv[]) {
     bool verbose = false;
     std::string outfilename;
     std::string dirname;
-    std::vector<std::pair<std::string, std::string>> file_and_class;
+    std::vector<std::tuple<std::string, std::string, std::string>> file_and_class;
     for (int i=1; i<argc; i++) {
         std::string s(argv[i]);
         size_t colon = s.find(":");
         if (colon != std::string::npos) {
             std::string prefix{s.substr(0, colon)};
             std::string suffix{s.substr(colon+1)};
-            file_and_class.emplace_back(prefix, suffix);
+            std::string sname;
+            size_t colon2 = suffix.find(":");
+            if (colon2 != std::string::npos) {
+                sname = suffix.substr(colon2+1);
+                suffix = suffix.substr(0, colon2);
+            } else {
+                sname = suffix;
+            }
+            file_and_class.emplace_back(prefix, suffix, sname);
         } else {
             if (std::regex_search(s, std::regex{"outfile=.*"})) {
                 outfilename = s.substr(8);
@@ -255,7 +299,7 @@ int main(int argc, char *argv[]) {
     //
     write_preamble(outfilename, preproc, file_and_class, outfile);
     for (const auto &fc : file_and_class) {
-        process_iana_csv_file(fc.first, fc.second, outfile, verbose);
+        process_iana_csv_file(std::get<0>(fc), std::get<1>(fc), std::get<2>(fc), outfile, verbose);
     }
     write_postamble(preproc.c_str(), outfile);
 
