@@ -17,80 +17,93 @@
 #include "json_object.h"
 #include "match.h"
 
-// struct dnp3_app_obj_hdr {
+// DNP3 App Response Header
+//
+//    0                   1          
+//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
+//    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//    |    App Ctrl   |   Func Code   |
+//    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//    |      Internal Indications     |
+//    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//
+// DNP3 App Request Header
+//
+//    0                   1          
+//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
+//    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//    |    App Ctrl   |   Func Code   |
+//    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//
+//
+// DNP3 App Control Byte
+//
+//    0              
+//    0   1   2    3   4 5 6 7
+//    +---+---+----+---+-+-+-+-+
+//    |Fin|Fir|Cons|UNS|  SEQ  |
+//    +---+---+----+---+-+-+-+-+    
+//
+//
+// DNP3 Transport
+//
+//    0              
+//    0   1   2 3 4 5 6 7
+//    +---+---+-+-+-+-+-+-+
+//    |Fin|Fir|    SEQ    |
+//    +---+---+-+-+-+-+-+-+
+//
+//
+// DNP3 Link Control Byte
+//
+//     0              
+//     0   1   2   3       4  5 6 7
+//     +---+---+---+-------+--+-+-+--+
+//     |Dir|Pri|FCB|FCV/DFC|Func Code|
+//     +---+---+---+-------+--+-+-+--+
+//
+//
+// DNP3 Link layer
+//
+//     0                   1                   2                   3  
+//     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |      0x05     |      0x64     |      len      |   ctrl byte   |
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |           dest addr           |            src addr           |
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |            hdr crc            |                               |
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
+//     |                                                               |
+//     +                                                               +
+//     |                                                               |
+//     +                                                               +
+//     |                     data blck-1 (16 bytes)                    |
+//     +                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |                               |           blck crc-1          |
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//                                   ...
+//                                   ...
+//                                   ...
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |                                                               |
+//     +                                                               +
+//     |                                                               |
+//     +                     data blck-n (16 bytes)                    +
+//     |                                                               |
+//     +                                                               +
+//     |                                                               |
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |           blck crc-n          |
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//
 
-// };
 
-// struct dnp3_app_obj {
 
-// };
 
-// // dnp3 app header for outstation responses have extra field called internal incdications
-// struct dnp3_app_hdr_out_resp {
-//     encoded<uint8_t> app_ctrl;
-//     bool fin;
-//     bool fir;
-//     bool con;
-//     bool uns;
-//     uint8_t seq;
-//     encoded<uint8_t> func_code;
-//     encoded<uint16_t> internal_indications;
-//     std::string indications_str;
-
-// public :
-//     const char* get_indications_str() {
-//         if (internal_indications.bit<7>()) {
-//             indications_str += "broadcast,";
-//         }
-//         if (internal_indications.bit<6>()) {
-//             indications_str += "class_1_events,";
-//         }
-//         if (internal_indications.bit<5>()) {
-//             indications_str += "class_2_events,";
-//         }
-//         if (internal_indications.bit<4>()) {
-//             indications_str += "class_3_events,";
-//         }
-//         if (internal_indications.bit<3>()) {
-//             indications_str += "need_time,";
-//         }
-//         if (internal_indications.bit<2>()) {
-//             indications_str += "local_control,";
-//         }
-//         if (internal_indications.bit<1>()) {
-//             indications_str += "device_trobule,";
-//         }
-//         if (internal_indications.bit<0>()) {
-//             indications_str += "device_restart,";
-//         }
-//         if (internal_indications.bit<15>()) {
-//             indications_str += "func_code_unsupported,";
-//         }
-//         if (internal_indications.bit<14>()) {
-//             indications_str += "obj_unknown,";
-//         }
-//         if (internal_indications.bit<13>()) {
-//             indications_str += "parameter_error,";
-//         }
-//         if (internal_indications.bit<12>()) {
-//             indications_str += "event_buffer_overflow,";
-//         }
-//         if (internal_indications.bit<11>()) {
-//             indications_str += "already_executing,";
-//         }
-//         if (internal_indications.bit<10>()) {
-//             indications_str += "config_corrupt,";
-//         }
-//         if (internal_indications.bit<9>()) {
-//             indications_str += "reserved_1,";
-//         }
-//         if (internal_indications.bit<8>()) {
-//             indications_str += "reserved_2,";
-//         }
-
-//         return indications_str.c_str();
-//     }
-// };
 
 struct dnp3_app_hdr {
     encoded<uint8_t> app_ctrl;
@@ -250,6 +263,9 @@ public:
         if (is_resp) {
             app_hdr.print_key_string("internal_indications", get_indications_str());
         }
+        if (output_metadata) {
+            //FIXIT: add additional info
+        }
         app_hdr.close();
     }
 };
@@ -302,6 +318,9 @@ public:
         transport.print_key_bool("fin", fin);
         transport.print_key_bool("fir",fir);
         transport.print_key_int("seq",seq_num);
+        if (output_metadata) {
+            // FIXIT: add more info
+        }
         transport.close();
         return;
     }
@@ -452,12 +471,7 @@ public:
         link{pkt},
         transport{datum(link.data,link.data+link.data_len+1)},
         app{transport.get_app_data()},
-        valid{link.is_not_empty() && transport.is_not_empty()}
-
-
-        {
-
-        }
+        valid{link.is_not_empty() && transport.is_not_empty()} {}
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -479,10 +493,6 @@ public:
     }
 
 };
-
-
-
-
 
 
 #endif      // DNP3_H
