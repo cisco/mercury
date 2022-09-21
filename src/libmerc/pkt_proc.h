@@ -99,6 +99,7 @@ class icmp_packet;                        // start of ip protocols
 class ospf;
 class sctp_init;
 struct tcp_packet;
+class iec60870_5_104;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -109,6 +110,7 @@ using protocol = std::variant<std::monostate,
                               ssh_kex_init,
                               smtp_client,
                               smtp_server,
+                              iec60870_5_104,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
