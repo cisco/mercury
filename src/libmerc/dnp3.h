@@ -473,10 +473,18 @@ public:
         app{transport.get_app_data()},
         valid{link.is_not_empty() && transport.is_not_empty()} {}
 
-    static constexpr mask_and_value<8> matcher{
-        { 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
-        { 0x05, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+    static constexpr mask_and_value<4> matcher{
+        { 0xff, 0xff, 0x00, 0x00 },
+        { 0x05, 0x64, 0x00, 0x00 }
     };
+
+    // For DNP3, complete length is 2start bytes + 1byte len field + 2 bytes for hdr CRC + 2 bytes CRC for every 16byte data block
+    //
+    static ssize_t get_payload_length(datum pkt) {
+        pkt.skip(2);
+        encoded<uint8_t> len(pkt);
+        return (3 + len + 2 + (len % 16 ? (len/16 + 1) : len/16 )*2);
+    }
 
     bool is_not_empty() const { return (valid); }
 

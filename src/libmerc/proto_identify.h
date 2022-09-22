@@ -51,7 +51,7 @@ enum tcp_msg_type {
     tcp_msg_type_dns,
     tcp_msg_type_smb1,
     tcp_msg_type_smb2,
-    tcp_msg_type_iec
+    tcp_msg_type_iec,
     tcp_msg_type_dnp3
 };
 
@@ -98,6 +98,10 @@ public:
         case tcp_msg_type_iec:
         {
             return (iec60870_5_104::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_dnp3:
+        {
+            return (dnp3::get_payload_length(pkt) == pkt.length());
         }
         default:
             return true;
@@ -157,9 +161,9 @@ public:
 
     bool mdns() const { return select_mdns; }
 
-    bool dnp3() const {return select_dnp3; }
+    //bool dnp3() const {return select_dnp3; }
 
-    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false}, select_dnp3{false} {
+    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false} {//, select_dnp3{false} {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -268,11 +272,9 @@ public:
         }
         if (protocols["iec"] || protocols["all"]) {
             tcp4.add_protocol(iec60870_5_104::matcher, tcp_msg_type_iec);
-        if (protocol["dnp3"] || protocol["all"]) {
-            tcp.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
+        }
         if (protocols["dnp3"] || protocols["all"]) {
-            //tcp.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
-            select_dnp3 = true;
+            tcp4.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
         }
         // tell protocol_identification objects to compile lookup tables
         //
