@@ -220,7 +220,6 @@ void process_iana_csv_file(std::string filename,
             size_t AA;
             size_t BB;
             int base = 10;
-            fprintf(stderr, "comparing %s and %s\n", A.c_str(), B.c_str());
             if (A.length() > 1 and A[1] == 'x' and B.length() > 1 and B[1] == 'x') {
                 base = 16;
             }
