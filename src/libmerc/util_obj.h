@@ -173,5 +173,16 @@ struct eth_addr : public datum {
     }
 };
 
+class utf8_string : public datum {
+public:
+    utf8_string(datum &d) : datum{d} { }
+
+    void fingerprint(struct buffer_stream &b) const {
+        if (datum::is_not_null()) {
+            b.write_utf8_string(data, length());
+        }
+    }
+};
+
 #endif // UTIL_OBJ_H
 

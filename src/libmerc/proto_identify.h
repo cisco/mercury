@@ -24,6 +24,9 @@
 #include "http.h"
 #include "ssh.h"
 #include "smtp.h"
+#include "smb1.h"
+#include "smb2.h"
+#include "iec60870_5_104.h"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -31,6 +34,7 @@
 #include "wireguard.h"
 #include "dtls.h"
 #include "ssdp.h"
+#include "stun.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -43,6 +47,10 @@ enum tcp_msg_type {
     tcp_msg_type_ssh_kex,
     tcp_msg_type_smtp_client,
     tcp_msg_type_smtp_server,
+    tcp_msg_type_dns,
+    tcp_msg_type_smb1,
+    tcp_msg_type_smb2,
+    tcp_msg_type_iec
 };
 
 enum udp_msg_type {
@@ -55,7 +63,8 @@ enum udp_msg_type {
     udp_msg_type_wireguard,
     udp_msg_type_quic,
     udp_msg_type_vxlan,
-    udp_msg_type_ssdp
+    udp_msg_type_ssdp,
+    udp_msg_type_stun,
 };
 
 template <size_t N>
@@ -63,7 +72,6 @@ struct matcher_and_type {
     mask_and_value<N> mv;
     size_t type;
 };
-
 
 template <size_t N>
 class protocol_identifier {
@@ -83,15 +91,36 @@ public:
         // it may compile a jump table, reorder matchers, etc.
     }
 
-    size_t get_msg_type(const uint8_t *data, unsigned int len) const {
+    bool pkt_len_match(datum &pkt, const size_t type) const {
+        switch(type) {
+        case tcp_msg_type_iec:
+        {
+            return (iec60870_5_104::get_payload_length(pkt) == pkt.length());
+        }
+        default:
+            return true;
+        }
+    }
+
+    /*
+     * For matchers of size 4, along with matching 4 bytes of
+     * payload, the packet length can also be used to make the
+     * matcher more robust. Currently, this capability is used in matchers of
+     * size 4. If required, this can be extended to matchers of other sizes.
+     */
+    size_t get_msg_type(datum &pkt) const {
 
         // TODO: process short data fields
         //
-        if (len < 8) {
+        if (pkt.length() < 4) {
             return 0;   // type unknown;
         }
         for (matcher_and_type p : matchers) {
-            if (p.mv.matches(data)) {
+            if (N == 4) {
+                if (p.mv.matches(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
+                    return p.type;
+                }
+            } else if (p.mv.matches(pkt.data, pkt.length())) {
                 return p.type;
             }
         }
@@ -106,6 +135,7 @@ bool set_config(std::map<std::string, bool> &config_map, const char *config_stri
 // UDP traffic
 //
 class traffic_selector {
+    protocol_identifier<4> tcp4;
     protocol_identifier<8> tcp;
     protocol_identifier<8> udp;
     protocol_identifier<16> udp16;
@@ -208,6 +238,10 @@ public:
             // udp.add_protocol(dns_packet::client_matcher, udp_msg_type_dns); // older matcher
             // udp.add_protocol(dns_packet::server_matcher, udp_msg_type_dns); // older matcher
         }
+        if (protocols["dns"] || protocols["all"]) {
+            tcp.add_protocol(dns_packet::tcp_matcher, tcp_msg_type_dns);
+        }
+
         if (protocols["dtls"] || protocols["all"]) {
             udp16.add_protocol(dtls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
             udp16.add_protocol(dtls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
@@ -218,11 +252,19 @@ public:
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
         }
-
         if (protocols["ssdp"] || protocols["all"]) {
             udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
         }
-
+        if (protocols["stun"] || protocols["all"]) {
+            udp.add_protocol(stun::message::matcher, udp_msg_type_stun);
+        }
+        if (protocols["smb"] || protocols["all"]) {
+            tcp.add_protocol(smb1_packet::matcher, tcp_msg_type_smb1);
+            tcp.add_protocol(smb2_packet::matcher, tcp_msg_type_smb2);
+        }
+        if (protocols["iec"] || protocols["all"]) {
+            tcp4.add_protocol(iec60870_5_104::matcher, tcp_msg_type_iec);
+        }
         // tell protocol_identification objects to compile lookup tables
         //
         tcp.compile();
@@ -231,14 +273,18 @@ public:
 
     }
 
-    size_t get_tcp_msg_type(const uint8_t *data, unsigned int len) const {
-        return tcp.get_msg_type(data, len);
+    size_t get_tcp_msg_type(datum &pkt) const {
+        size_t type = tcp.get_msg_type(pkt);
+        if (type == tcp_msg_type_unknown)  {
+            type = tcp4.get_msg_type(pkt);
+        }
+        return type;
     }
 
-    size_t get_udp_msg_type(const uint8_t *data, unsigned int len) const {
-        size_t type = udp.get_msg_type(data, len);
+    size_t get_udp_msg_type(datum &pkt) const {
+        size_t type = udp.get_msg_type(pkt);
         if (type == udp_msg_type_unknown)  {
-            type = udp16.get_msg_type(data, len);
+            type = udp16.get_msg_type(pkt);
         }
         return type;
     }

@@ -28,13 +28,14 @@ sources = ['mercury.pyx',
            '../libmerc/pkt_proc.cc',
            '../libmerc/tls.cc',
            '../libmerc/asn1.cc',
+           '../libmerc/smb2.cc',
            '../libmerc/config_generator.cc',
 ]
 
 setup(ext_modules=[Extension("mercury",
                              sources=sources,
                              language="c++",
-                             extra_compile_args=["-std=c++17","-Wno-narrowing"],
+                             extra_compile_args=["-std=c++17","-Wno-narrowing","-Wno-deprecated-declarations"],
                              extra_link_args=["-std=c++17","-lz"],
                              libraries = ['crypto'],
                              runtime_library_dirs=['../'])

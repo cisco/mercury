@@ -47,6 +47,7 @@ LIBMERC     += wireguard.cc
 LIBMERC     += asn1.cc
 LIBMERC     += asn1/oid.cc
 LIBMERC 	+= config_generator.cc
+LIBMERC     += smb2.cc
 LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
@@ -83,6 +84,8 @@ LIBMERC_H   += asn1.h
 LIBMERC_H   += asn1/oid.h
 LIBMERC_H   += config_generator.h
 LIBMERC_H   += global_config.h
+LIBMERC_H   += smb1.h
+LIBMERC_H   += smb2.h
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files
@@ -103,14 +106,14 @@ endif
 
 VERSION=$(shell cat ../../VERSION)
 
-COMMIT=$(shell git log -n 1 | egrep -o "commit [0-9a-f]+")
-GIT_DIFF=$(shell git diff | wc -l)
+COMMIT=$(shell git log -n 1 | egrep -o "commit [0-9a-f]+" || echo "unknown")
+GIT_DIFF=$(shell git diff 2> /dev/null | wc -l)
 ifeq ($(GIT_DIFF),0)
   DIFF=
 else
   DIFF=with local changes
 endif
-GIT_COUNT=$(shell git rev-list --count HEAD)
+GIT_COUNT=$(shell git rev-list --count HEAD || echo 0)
 CFLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT) $(DIFF)\"" "-DGIT_COUNT=$(GIT_COUNT)"
 
 # variables for determining the semantic version

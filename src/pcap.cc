@@ -1,10 +1,10 @@
 // pcap.cc
 //
-// a pcap file reader based on pcap_file_io.h
+// a pcap file reader based on pcap.h
 //
 // compile as:
 //
-//   g++ -Wall -Wno-narrowing pcap.cc pcap_file_io.c -o pcap -std=c++17
+//   g++ -Wall -Wno-narrowing pcap.cc -o pcap -std=c++17
 
 #include "pcap_file_io.h"
 #include "libmerc/eth.h"
@@ -17,8 +17,6 @@ void dump_packet_info(struct datum &pkt_data);
 
 int main(int argc, char *argv[]) {
 
-    pcap::writer w{"test"};
-
     if (argc != 2) {
         fprintf(stderr, "error: no file argument provided\nusage: %s <pcap file name>\n", argv[0]);
         exit(EXIT_FAILURE);
@@ -27,18 +25,20 @@ int main(int argc, char *argv[]) {
 
     size_t i=0;
     try {
-        //struct pcap_file pcap(pcap_file_name, io_direction_reader);
         pcap::file_reader pcap(pcap_file_name);
-        // pcap pcap(pcap_file_name);
         printf("linktype: %s\n", pcap.get_linktype());
+        std::pair<uint16_t, uint16_t> version = pcap.get_version();
+        printf("file format: %s version: %u.%u\n", pcap.get_format(), version.first, version.second);
+        pcap::ng::file_writer w{"test.pcapng"};
+
         packet<65536> pkt;
         while (true) {
             datum pkt_data = pkt.get_next(pcap);
             if (!pkt_data.is_not_empty()) {
                 break;
             }
-            //fprintf(stdout, "packet.caplen: %u\n", pkt.caplen());
-            w.write(pkt_data);
+            // w.write(pkt_data);
+            w.write(pkt_data, 0, 0, 0);
             dump_packet_info(pkt_data);
             i++;
         }

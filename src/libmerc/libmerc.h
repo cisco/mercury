@@ -116,6 +116,7 @@ struct libmerc_config {
     bool report_os = false;               /* report oses in analysis JSON */
     bool output_tcp_initial_data = false; /* write initial data field     */
     bool output_udp_initial_data = false; /* write initial data field     */
+    //bool tcp_reassembly = false;          /* reassemble tcp segments      */
 
     char *resources = NULL;             /* archive containing resource files       */
     const uint8_t *enc_key = NULL;      /* (optional) decryption key for archive   */
@@ -257,7 +258,7 @@ size_t mercury_packet_processor_write_json(mercury_packet_processor processor,
  * @param packet (input) - location of packet, starting with ethernet header
  * @param ts (input) - pointer to timestamp associated with packet
  * @param linktype (input) - linktype used in packet
- * 
+ *
  * @return the number of bytes of JSON output written.
  */
 #ifdef __cplusplus
@@ -271,27 +272,6 @@ size_t mercury_packet_processor_write_json_linktype(mercury_packet_processor pro
                                            struct timespec* ts,
                                            uint16_t linktype);
 
-/**
- * mercury_packet_processor_ip_write_json() processes a packet and
- * timestamp and writes the resulting JSON into a buffer.
- *
- * @param processor (input) is a packet processor context to be used
- * @param buffer (output) - location to which JSON will be written
- * @param buffer_size (input) - length of buffer in bytes
- * @param packet (input) - location of packet, starting with IPv4 or IPv6 header
- * @param ts (input) - pointer to timestamp associated with packet
- *
- * @return the number of bytes of JSON output written.
- */
-#ifdef __cplusplus
-extern "C" LIBMERC_DLL_EXPORTED
-#endif
-size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor,
-                                              void *buffer,
-                                              size_t buffer_size,
-                                              uint8_t *packet,
-                                              size_t length,
-                                              struct timespec* ts);
 /**
  * enum fingerprint_status represents the status of a fingerprint
  * relative to the library's knowledge about fingerprints, based on
@@ -492,43 +472,6 @@ bool analysis_context_get_os_info(const struct analysis_context *ac,     // inpu
                                   const struct os_information **os_info, // output
                                   size_t *os_info_len                    // output
                                   );
-
-
-/**
- * mercury_get_stats_data()
- *
- * @param data_ptr (output) is a pointer to a pointer to a buffer that
- * contains the stats data; that is, the function sets the pointer at
- * the location provided as input to be that buffer.  The pointer MAY
- * be NULL, if no data was gathered or if some other error occured.
- *
- * This function may process a lot of data, and it may take a very
- * long time to return, so the caller MUST be prepared to wait for
- * seconds or minutes.
- *
- * This function SHOULD be called periodically, e.g. every hour or
- * every day.  Mercury's stats engine accumulates data between calls
- * to this function, and each call flushes all of the data maintained
- * by that engine.  The stats engine uses a large but fixed amount of
- * RAM for data storage; if it runs out of storage, it will stop
- * accumulating data.
- *
- * @param num_bytes_ptr (output) is a pointer to a size_t that
- * contains the number of bytes of stats data in the data buffer; that
- * is, the function sets the size_t at the location provided as input
- * to be the size of that buffer.  The value of num_bytes MAY be zero,
- * if no data was gathered or if some other error occured.
- *
- * @return true on success, false otherwise.  In particular, if either
- * data_ptr or num_bytes_ptr are NULL, then false will be returned; in
- * the latter case, you SHOULD NOT dereference either data_ptr or
- * num_bytes_ptr.
- */
-#ifdef __cplusplus
-extern "C" LIBMERC_DLL_EXPORTED
-#endif
-bool mercury_get_stats_data(void **data_ptr, size_t *num_bytes_ptr);
-
 
 /**
  * mercury_write_stats_data()
@@ -734,6 +677,24 @@ bool analysis_context_get_alpns(const struct analysis_context *ac, // input
                                 const uint8_t **alpn_data,         // output
                                 size_t *alpn_length                // output
                                 );
+
+//
+// start of libmerc version 4 API
+//
+
+/**
+ * mercury_packet_processor_more_pkts_needed() return a boolean true, given a nullptr
+ * analysis_context from get_analysis_context call, if more packets are required for the current flow to get a valid
+ * analysis_context
+ *
+ * @param processor (input) is a packet processor context to be used
+ *
+ * @return a boolean true if more packets are required, otherwise false
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+bool mercury_packet_processor_more_pkts_needed(mercury_packet_processor processor);
 
 
 #endif /* LIBMERC_H */

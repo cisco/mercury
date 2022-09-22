@@ -384,6 +384,24 @@ static inline int append_uint16(char *dstr, int *doff, int dlen, int *trunc,
     return r;
 }
 
+static inline int append_uint8_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint8_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[2]; /* 2 hex chars */
+
+    outs[0] = hex_table[(n & 0xf0) >> 4];
+    outs[1] = hex_table[(n & 0x0f)];
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 2);
+
+    return r;
+}
 
 static inline int append_uint16_hex(char *dstr, int *doff, int dlen, int *trunc,
                                     uint16_t n) {
@@ -427,6 +445,28 @@ static inline int append_uint32_hex(char *dstr, int *doff, int dlen, int *trunc,
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outs, 8);
+
+    return r;
+}
+
+static inline int append_uint64_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint64_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[16]; /* 16 hex chars */
+    uint64_t mask = 0xf000000000000000;
+
+    for (auto i = 0; i < 16; i++) {
+        outs[i] = hex_table[(n & mask) >> (15 - i) *4];
+        mask = mask >> 4;
+    } 
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 16);
 
     return r;
 }
@@ -1025,12 +1065,20 @@ struct buffer_stream {
         append_uint16(dstr, &doff, dlen, &trunc, n);
     }
 
+    void write_hex_uint8(uint8_t n) {
+        append_uint8_hex(dstr, &doff, dlen, &trunc, n);
+    } 
+
     void write_hex_uint16(uint16_t n) {
         append_uint16_hex(dstr, &doff, dlen, &trunc, n);
     }
 
     void write_hex_uint32(uint32_t n) {
         append_uint32_hex(dstr, &doff, dlen, &trunc, n);
+    }
+
+    void write_hex_uint64(uint64_t n) {
+        append_uint64_hex(dstr, &doff, dlen, &trunc, n);
     }
 
     void write_ipv6_addr(const uint8_t *v6) {
@@ -1044,6 +1092,77 @@ struct buffer_stream {
     void write_mac_addr(const uint8_t *d) {
         append_mac_addr(dstr, &doff, dlen, &trunc, d);
     }
+
+    void write_utf8_string(const uint8_t *data, unsigned int len) {
+        const unsigned char *x = data;
+
+        const unsigned char *end = data + len;
+
+        while (x < end) {
+            if (*x < 0x20) {                   /* escape control characters   */
+                snprintf("\\u%04x", *x);
+            } else if (*x >= 0x80) {           /* escape non-ASCII characters */
+
+                uint32_t codepoint = 0;
+                if (*x >= 0xc0) {
+
+                    if (*x >= 0xe0) {
+                        if (*x >= 0xf0) {
+                            if (x >= end - 3) {
+                                break;
+                            }
+                            codepoint = (*x++ & 0x07);
+                            codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                            codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                            codepoint = (*x   & 0x3f) | (codepoint << 6);
+
+                        } else {
+                            if (x >= end - 2) {
+                                break;
+                            }
+                            codepoint = (*x++ & 0x0F);
+                            codepoint = (*x++ & 0x3f) | (codepoint << 6);
+                            codepoint = (*x   & 0x3f) | (codepoint << 6);
+                        }
+
+                    } else {
+                        if (x >= end - 1) {
+                            break;
+                        }
+                        codepoint = ((*x++ & 0x1f) << 6);
+                        codepoint |= *x & 0x3f;
+                    }
+
+                } else {
+                    codepoint = *x & 0x7f;
+                }
+                if (codepoint < 0x10000) {
+                    // basic multilingual plane
+                    if (codepoint < 0xd800) {
+                        snprintf("\\u%04x", codepoint);
+                    } else {
+                        // error: invalid or private codepoint
+                        snprintf("\\ue000", codepoint); // indicate error with private use codepoint
+                    }
+                } else {
+                    // surrogate pair
+                    codepoint -= 0x10000;
+                    uint32_t hi = (codepoint >> 10) + 0xd800;
+                    uint32_t lo = (codepoint & 0x3ff) + 0xdc00;
+                    snprintf("\\u%04x", hi);
+                    snprintf("\\u%04x", lo);
+                }
+
+            } else {
+                if (*x == '"' || *x == '\\') { /* escape special characters   */
+                    snprintf("\\");
+                }
+                snprintf("%c", *x);
+            }
+            x++;
+        }
+    }
+
 };
 
 struct timestamp_writer {
@@ -1052,6 +1171,21 @@ struct timestamp_writer {
     void operator()(struct buffer_stream *b) {
         b->write_timestamp(tmp);
     }
+};
+
+template <size_t N>
+class output_buffer : public buffer_stream {
+    char buffer[N];
+public:
+    output_buffer() : buffer_stream{buffer, N} { }
+
+    void reset() {
+        dstr = buffer;
+        doff = 0;
+        dlen = N;
+        trunc = 0;
+    }
+
 };
 
 #endif /* BUFFER_STREAM_H */

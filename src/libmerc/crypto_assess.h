@@ -94,7 +94,7 @@ namespace crypto_policy {
             bool all_allowed = true;
             bool some_allowed = false;
             datum tmp = ch.ciphersuite_vector;
-            while (tmp.length() > 0) {
+            while (tmp.is_readable()) {
                 encoded<uint16_t> cs{tmp};
                 if (!is_grease(cs) || allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end()) {
                     some_allowed = true;
@@ -112,11 +112,9 @@ namespace crypto_policy {
             if (!all_allowed) {
                 json_array cs_array{a, "ciphersuites_not_allowed"};
                 datum tmp = ch.ciphersuite_vector;
-                while (tmp.length() > 0) {
+                while (tmp.is_readable()) {
                     encoded<uint16_t> cs{tmp};
-                    if (!is_grease(cs) || allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end()) {
-                        ;
-                    } else {
+                    if (!is_grease(cs) && allowed_ciphersuites.find(cs.value()) == allowed_ciphersuites.end()) {
                         cs_array.print_uint(cs);
                     }
                 }
@@ -128,7 +126,7 @@ namespace crypto_policy {
             datum named_groups = ch.extensions.get_supported_groups();
             xtn named_groups_xtn{named_groups};
             encoded<uint16_t> named_groups_len{named_groups_xtn.value};
-            while (named_groups_xtn.value.length() > 0) {
+            while (named_groups_xtn.value.is_readable()) {
                 encoded<uint16_t> named_group{named_groups_xtn.value};
                 if (!is_grease(named_group) || allowed_groups.find(named_group.value()) != allowed_groups.end()) {
                     all_allowed = false;
@@ -148,7 +146,7 @@ namespace crypto_policy {
                 datum named_groups = ch.extensions.get_supported_groups();
                 xtn named_groups_xtn{named_groups};
                 encoded<uint16_t> named_groups_len{named_groups_xtn.value};
-                while (named_groups_xtn.value.length() > 0) {
+                while (named_groups_xtn.value.is_readable()) {
                     encoded<uint16_t> named_group{named_groups_xtn.value};
                     if (!is_grease(named_group) || allowed_groups.find(named_group.value()) != allowed_groups.end()) {
                         ng_array.print_uint(named_group);
@@ -162,7 +160,7 @@ namespace crypto_policy {
             //
             bool have_tls_cert_with_extern_psk = false;
             tmp = ch.extensions;
-            while (tmp.length() > 0) {
+            while (tmp.is_readable()) {
                 xtn extension{tmp};
                 switch(extension.type()) {
                 case tls::tls_cert_with_extern_psk:

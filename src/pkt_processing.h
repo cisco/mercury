@@ -135,7 +135,7 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
         }
 
         uint8_t buf[LLQ_MSG_SIZE];
-        if (processor.write_json(buf, LLQ_MSG_SIZE, packet, length, &pi->ts) != 0) {
+        if (processor.write_json(buf, LLQ_MSG_SIZE, packet, length, &pi->ts) != 0 || processor.dump_pkt()) {
             pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
         }
 
@@ -288,7 +288,7 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
         }
 
         uint8_t buf[LLQ_MSG_SIZE];
-        if (processor.write_json(buf, LLQ_MSG_SIZE, packet, length, &pi->ts) != 0) {
+        if (processor.write_json(buf, LLQ_MSG_SIZE, packet, length, &pi->ts) != 0 || processor.dump_pkt()) {
             pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000, block);
         }
     }

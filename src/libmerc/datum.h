@@ -17,6 +17,7 @@
 #include <bitset>
 #include <limits>
 #include <string>
+#include <cassert>
 #include "libmerc.h"  // for enum status
 
 /*
@@ -63,6 +64,7 @@ struct datum {
     bool is_null() const { return data == NULL; }
     bool is_not_null() const { return data != NULL; }
     bool is_not_empty() const { return data != NULL && data < data_end; }
+    bool is_readable() const { return data != NULL && data < data_end; }
     bool is_not_readable() const { return data == NULL || data == data_end; }
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = NULL; }
@@ -88,7 +90,7 @@ struct datum {
     }
     void parse_up_to_delim(struct datum &r, uint8_t delim) {
         data = r.data;
-        while (r.data <= r.data_end) {
+        while (r.data < r.data_end) {
             if (*r.data == delim) { // found delimeter
                 data_end = r.data;
                 return;
@@ -99,7 +101,7 @@ struct datum {
     }
     uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2) {
         data = r.data;
-        while (r.data <= r.data_end) {
+        while (r.data < r.data_end) {
             if (*r.data == delim1) { // found first delimeter
                 data_end = r.data;
                 return delim1;
@@ -114,7 +116,7 @@ struct datum {
     }
     uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
         data = r.data;
-        while (r.data <= r.data_end) {
+        while (r.data < r.data_end) {
             if (*r.data == delim1) { // found first delimeter
                 data_end = r.data;
                 return delim1;
@@ -253,13 +255,15 @@ struct datum {
         {
             return skip(delim_index);
         }
-        
+
         return false;
     }
 
 // trim_trail(t) skips/trims all instance of trailing char t
 //
     void trim_trail(unsigned char trail) {
+        if (!is_not_empty())
+            return;
         const unsigned char *tmp_data = data_end - 1;
         if (*tmp_data != trail) {
             return;
@@ -362,6 +366,7 @@ struct datum {
 
     // read_uint8() reads a uint8_t in network byte order, and advances the data pointer
     //
+    [[deprecated("Use encoded<uint8_t> instead.")]]
     bool read_uint8(uint8_t *output) {
         if (data_end > data) {
             *output = *data;
@@ -375,6 +380,7 @@ struct datum {
 
     // read_uint16() reads a uint16_t in network byte order, and advances the data pointer
     //
+    [[deprecated("Use encoded<uint16_t> instead.")]]
     bool read_uint16(uint16_t *output) {
         if (length() >= (int)sizeof(uint16_t)) {
             uint16_t *tmp = (uint16_t *)data;
@@ -389,6 +395,7 @@ struct datum {
 
     // read_uint32() reads a uint32_t in network byte order, and advances the data pointer
     //
+    [[deprecated("Use encoded<uint32_t> instead.")]]
     bool read_uint32(uint32_t *output) {
         if (length() >= (int)sizeof(uint32_t)) {
             uint32_t *tmp = (uint32_t *)data;
@@ -403,6 +410,7 @@ struct datum {
 
     // read_uint() reads a length num_bytes uint in network byte order, and advances the data pointer
     //
+    [[deprecated("Use encoded<> instead.")]]
     bool read_uint(uint64_t *output, unsigned int num_bytes) {
 
         if (data && data + num_bytes <= data_end) {
@@ -466,6 +474,9 @@ struct datum {
 
     void init_from_outer_parser(struct datum *outer,
                                 unsigned int data_len) {
+        if (!outer->is_not_empty()) {
+            return;
+        }
         const unsigned char *inner_data_end = outer->data + data_len;
 
         data = outer->data;
@@ -529,6 +540,18 @@ struct datum {
         }
     }
 
+    // fwrite(f) writes the entire datum out to the FILE *f, and on
+    // success, returns the number of bytes written; otherwise, 0 is
+    // returned.  This function can be used to write out seed files
+    // for fuzz testing.
+    //
+    size_t fwrite(FILE *f) const {
+        if (f == nullptr) {
+            return 0;  // error
+        }
+        return ::fwrite(data, sizeof(uint8_t), length(), f);
+    }
+
     ssize_t write_to_buffer(uint8_t *buffer, ssize_t len) {
         if (data) {
             ssize_t copy_len = length() < len ? length() : len;
@@ -564,7 +587,7 @@ public:
 
     void set_empty() { data = data_end; }
 
-        void copy(uint8_t x) {
+    void copy(uint8_t x) {
         if (data + 1 > data_end) {
             return;  // not enough room
         }
@@ -572,7 +595,8 @@ public:
     }
     void copy(const uint8_t *rdata, size_t num_bytes) {
         if (data_end - data < (ssize_t)num_bytes) {
-            num_bytes = data_end - data;
+            // num_bytes = data_end - data;
+            set_null();
         }
         memcpy(data, rdata, num_bytes);
         data += num_bytes;
@@ -596,7 +620,6 @@ public:
 
     template <typename Type>
     writeable & operator<<(Type t) {
-        fprintf(stderr, "writeable: {%p,%p}\tlength: %zd\n", data, data_end, data_end-data);
         t.write(*this);
         return *this;
     }
@@ -604,7 +627,6 @@ public:
     // template specialization for datum
     //
     writeable & operator<<(datum d) {
-        fprintf(stderr, "writeable: {%p,%p}\tlength: %zd\n", data, data_end, data_end-data);
         if (d.is_not_null()) {
             copy(d);
         }
@@ -615,46 +637,36 @@ public:
 
 // data_buffer is a contiguous sequence of bytes into which data can
 // be copied sequentially; the data structure tracks the start of the
-// data (buffer), the location to which data can be written (data),
-// and the end of the data buffer (data_end)
+// data (buffer), the location to which data can be written (writeable.data),
+// and the end of the data buffer (writeable.data_end)
 //
 template <size_t T> struct data_buffer : public writeable {
     unsigned char buffer[T];
-    // unsigned char *data;                /* data being written        */
-    // const unsigned char *data_end;      /* end of data buffer        */
 
     data_buffer() : writeable{buffer, buffer+T} { }
 
 
     void reset() { data = buffer; }
     bool is_not_empty() const { return data != buffer && data < data_end; }
-    void set_empty() { data_end = data = buffer; }
-    ssize_t length() const { return data - buffer; } // TODO: return readable datum
+    // void set_empty() {
+    //     data = buffer;
+    //     data_end = buffer;
+    // }
+    ssize_t length() const {
+            return data - buffer;
+    }
 
-    datum contents() const { return {buffer, data}; }
+    datum contents() const {
+        if (writeable::is_null()) {
+            return {nullptr, nullptr};
+        } else {
+            return {buffer, data};
+        }
+    }
 
     ssize_t writeable_length() const { return data_end - data; }
 
     ssize_t write(int fd) { return ::write(fd, buffer, data - buffer);  }
-
-#if 0 // DELETEME
-    template <typename Type>
-    data_buffer<T> & operator<<(Type t) {
-        fprintf(stderr, "data_buffer: {%p,%p,%p}\treadable: %zd\twriteable: %zd\n", buffer, data, data_end, data-buffer, data_end-data);
-        t.write(*this);
-        return *this;
-    }
-
-    // template specialization for datum
-    //
-    data_buffer<T> & operator<<(datum d) {
-        fprintf(stderr, "data_buffer: {%p,%p,%p}\treadable: %zd\twriteable: %zd\n", buffer, data, data_end, data-buffer, data_end-data);
-        if (d.is_not_null()) {
-            copy(d);
-        }
-        return *this;
-    }
-#endif // DELETEME
 
     // TODO:
     //  * add data != nullptr checks
@@ -663,6 +675,47 @@ template <size_t T> struct data_buffer : public writeable {
     //  * add assert() macros to support debugging
     //  * add [[nodiscard]] as appropriate
 
+};
+
+// pad_len(length) returns the number that, when added to length,
+// rounds that value up to the next multiple of four
+//
+static inline size_t pad_len(size_t length) {
+    switch (length % 4) {
+    case 3: return 1;
+    case 2: return 2;
+    case 1: return 3;
+    case 0:
+    default:
+        ;
+    }
+    return 0;
+}
+
+// class pad reads and ignores padding data
+//
+class pad {
+    size_t padlen;
+public:
+
+    // constructor for reading (and ignoring) padding data
+    //
+    pad(datum &d, size_t n) : padlen{n} {
+        d.data += padlen;
+        if (d.data > d.data_end) {
+            d.set_null();
+        }
+    }
+
+    // constructor for writing (all-zero) padding data
+    //
+    pad(size_t n) : padlen{n} { }
+
+    void write(writeable &w) {
+        uint8_t zero[4] = {0, 0, 0, 0};
+        w.copy(zero, padlen);
+        assert(padlen <= 5);
+    }
 };
 
 
@@ -720,17 +773,36 @@ class encoded {
 public:
 
     encoded(datum &d, bool little_endian=false) {
-        size_t tmp;
-        d.read_uint(&tmp, sizeof(val));
-        val = tmp;
-        if (little_endian) {
-            swap_byte_order();
+        if (d.data == nullptr || d.data + sizeof(T) > d.data_end) {
+            d.set_null();
+            val = 0;
+            return;
         }
+        if (little_endian) {
+            if constexpr (std::is_same_v<T, uint8_t>) {
+                val = d.data[0];
+            } else if constexpr (std::is_same_v<T, uint16_t>) {
+                val = (T)d.data[0] | (T)d.data[1] << 8;
+            } else if constexpr (std::is_same_v<T, uint32_t>) {
+                val = (T)d.data[0] | (T)d.data[1] << 8 | (T)d.data[2] << 16 | (T)d.data[3] << 24;
+            } else if constexpr (std::is_same_v<T, uint64_t>) {
+                val = (T)d.data[0] | (T)d.data[1] << 8 | (T)d.data[2] << 16 | (T)d.data[3] << 24 |
+                      (T)d.data[4] << 32 | (T)d.data[5] << 40 | (T)d.data[6] << 48 | (T)d.data[7] << 56;
+            }
+        } else { // big endian
+            if constexpr (std::is_same_v<T, uint8_t>) {
+                val = d.data[0];
+            } else if constexpr (std::is_same_v<T, uint16_t>) {
+                val = (T)d.data[1] | (T)d.data[0] << 8;
+            } else if constexpr (std::is_same_v<T, uint32_t>) {
+                val = (T)d.data[3] | (T)d.data[2] << 8 | (T)d.data[1] << 16 | (T)d.data[0] << 24;
+            } else if constexpr (std::is_same_v<T, uint64_t>) {
+                val = (T)d.data[7] | (T)d.data[6] << 8 | (T)d.data[5] << 16 | (T)d.data[4] << 24 |
+                      (T)d.data[3] << 32 | (T)d.data[2] << 40 | (T)d.data[1] << 48 | (T)d.data[0] << 56;
+            }
+        }
+        d.data += sizeof(T);
     }
-    //
-    // TODO: re-implement constructor in a way that avoids a temporary
-    // size_t variable, especially for smaller integer types; make it
-    // constexpr
 
     encoded(const T& rhs) {
         val = rhs;
@@ -794,6 +866,30 @@ public:
 
 };
 
+// class literal is a literal std::array of characters
+//
+template <size_t N>
+class literal {
+public:
+    literal(datum &d, const std::array<uint8_t, N> &a) {
+        for (const auto &c : a) {
+            d.accept(c);
+        }
+    }
+};
+
+/* class skip_bytes skips N number of bytes in the given datum*/
+template <size_t N>
+class skip_bytes {
+public:
+    skip_bytes (datum &d) {
+        d.skip(N);
+    }
+    skip_bytes (datum &d, size_t n) {
+        d.skip(n);
+    }
+};
+
 // sanity checks on class encoded<T>
 //
 static_assert(sizeof(encoded<uint8_t>)  == 1);
@@ -850,6 +946,99 @@ inline bool encoded<uint32_t>::unit_test() {
         y.slice<16,32>() == 0xc3df;
 }
 
+template <>
+inline bool encoded<uint64_t>::unit_test() {
+    encoded<uint64_t> y = 0xa1b2c3dfaabbccdd;
+    return
+        ::slice<0,32>(y.value())  == 0xa1b2c3df &&
+        ::slice<0,8>(y.value())   == 0xa1       &&
+        ::slice<4,12>(y.value())  == 0x1b       &&
+        ::slice<8,16>(y.value())  == 0xb2       &&
+        ::slice<24,32>(y.value()) == 0xdf       &&
+        ::slice<16,32>(y.value()) == 0xc3df     &&
+        y.slice<0,32>()  == 0xa1b2c3df &&
+        y.slice<0,8>()   == 0xa1       &&
+        y.slice<4,12>()  == 0x1b       &&
+        y.slice<8,16>()  == 0xb2       &&
+        y.slice<24,32>() == 0xdf       &&
+        y.slice<16,32>() == 0xc3df     &&
+        y.slice<56,64>() == 0xdd;
+}
+
 #endif // NDEBUG
+
+// class lookahead<T> attempts to read an element of type T from a
+// datum, without modifying that datum.  If the read succeeded, then
+// casting the lookahead object to a bool returns true; otherwise, it
+// returns false.  On success, the value of the element can be
+// accessed through the public value member.  To advance the datum
+// forward (e.g. to accept the lookahead object), set its value to
+// that returned by the advance() function.
+//
+// NOTE: advance() will return a null value if the read did not
+// succeed.
+//
+template <typename T>
+class lookahead {
+public:
+    T value;
+private:
+    datum tmp;
+public:
+
+    lookahead(datum d) : value{d}, tmp{d} { }
+
+    explicit operator bool() const { return tmp.is_not_null(); }
+
+    datum advance() const { return tmp; }
+
+};
+
+// class accept<T> attempts to read an element of type T from a datum
+// reference.  If the read succeeded, the datum is advanced forward,
+// and casting the accept<T> object to a bool returns true; otherwise,
+// that cast returns false.  On success, the value of the element can be
+// accessed through the public value member.
+//
+template <typename T>
+class acceptor {
+public:
+    T value;
+private:
+    bool valid;
+public:
+
+    acceptor(datum &d) : value{d}, valid{d.is_not_null()} { }
+
+    operator bool() const { return valid; }
+};
+
+// class ignore<T> parses a data element of type T, but then ignores
+// (does not store) its value.  It can be used to check the format of
+// data that need not be stored.
+//
+// TODO: the parameter T should be able to accept any class, not just
+// unsigned integer types
+//
+template <typename T>
+class ignore {
+
+public:
+
+    ignore(datum &d, bool little_endian=false) {
+        (void)little_endian;
+        size_t tmp;
+        d.read_uint(&tmp, sizeof(T));
+    }
+
+    ignore() { }
+
+    // write out null value
+    //
+    void write(writeable &w) {
+        uint8_t zero[sizeof(T)] = { 0, };
+        w.copy(zero, sizeof(T));
+    }
+};
 
 #endif /* DATUM_H */

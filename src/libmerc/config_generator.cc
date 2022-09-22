@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <numeric>
 
-#include "config_generator.h"
+#include "global_config.h"
 #include "../options.h"
 
 static inline void ltrim(std::string &s) {
@@ -35,6 +35,7 @@ static std::vector<libmerc_option> config_mapper = {
     {"report_os", "", "",            SETTER_FUNCTION(){ c.report_os = s.empty() ? true : s.compare("1") == 0; }},
     {"nonselected-tcp-data", "", "", SETTER_FUNCTION(){ c.output_tcp_initial_data = s.empty() ? true : s.compare("1") == 0; }},
     {"nonselected-udp-data", "", "", SETTER_FUNCTION(){ c.output_udp_initial_data = s.empty() ? true : s.compare("1") == 0; }},
+    {"tcp-reassembly", "", "",       SETTER_FUNCTION(){ c.tcp_reassembly = s.empty() ? true : s.compare("1") == 0;}},
     {"fp_proc_threshold", "", "",    SETTER_FUNCTION(){ c.fp_proc_threshold = std::stof(s); }},
     {"proc_dst_threshold", "", "",   SETTER_FUNCTION(){ c.proc_dst_threshold = std::stof(s); }},
     {"max_stats_entries", "", "",    SETTER_FUNCTION(){ c.max_stats_entries = std::stoull(s); }}
@@ -137,7 +138,7 @@ bool config_contains_delims(const std::string& config, const char& delim) {
     return config.find(delim) != std::string::npos;
 }
 
-void parse_additional_options(std::vector<libmerc_option> options, std::string config, libmerc_config& lc, const char& delim, const char& assignment) {
+void parse_additional_options(std::vector<libmerc_option> options, std::string config, global_config& lc, const char& delim, const char& assignment) {
     options.insert(options.end(), config_mapper.begin(), config_mapper.end());
 
     std::vector<config_token> tokens = parse_tokens(config, delim, assignment);

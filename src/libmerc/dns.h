@@ -630,6 +630,11 @@ struct dns_resource_record {
                     addr.parse(tmp_rdata);
                     nb.print_key_value("ipv4_addr", addr);
                     nb.close();
+                } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::NS) {
+
+                    struct dns_name domain_name;
+                    domain_name.parse(tmp_rdata, body);
+                    rr.print_key_json_string("ns_domain_name", domain_name.buffer, domain_name.length());
                 }
             } else {
                 rr.print_key_hex("rdata", tmp_rdata);
@@ -804,6 +809,17 @@ struct dns_packet {
 
     static constexpr mask_and_value<8> matcher {
         { 0x00, 0x00, 0x10, 0x48, 0xff, 0x00, 0xff, 0x80 },
+        { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+    };
+
+    /*
+     * In dns over tcp, the message is prefixed with a two byte length field
+     * which gives the message length excluding the two byte length field.
+     * This length field allows the low-level processing to assemble a
+     * complete message before beginning to parse it.
+     */
+    static constexpr mask_and_value<8> tcp_matcher {
+        { 0x00, 0x00, 0x00, 0x00, 0x10, 0x48, 0xff, 0x00 },
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
     };
 
