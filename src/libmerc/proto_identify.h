@@ -144,7 +144,6 @@ class traffic_selector {
     bool select_dns;
     bool select_nbns;
     bool select_mdns;
-    bool select_iec;
 
 public:
 
@@ -276,7 +275,7 @@ public:
 
     size_t get_tcp_msg_type(datum &pkt) const {
         size_t type = tcp.get_msg_type(pkt);
-        if (type == udp_msg_type_unknown)  {
+        if (type == tcp_msg_type_unknown)  {
             type = tcp4.get_msg_type(pkt);
         }
         return type;
