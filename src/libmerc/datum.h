@@ -589,14 +589,15 @@ public:
 
     void copy(uint8_t x) {
         if (data + 1 > data_end) {
+            set_null();
             return;  // not enough room
         }
         *data++ = x;
     }
     void copy(const uint8_t *rdata, size_t num_bytes) {
         if (data_end - data < (ssize_t)num_bytes) {
-            // num_bytes = data_end - data;
             set_null();
+            return;
         }
         memcpy(data, rdata, num_bytes);
         data += num_bytes;
