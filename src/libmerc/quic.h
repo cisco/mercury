@@ -764,7 +764,7 @@ public:
             if (process_initial_packet(aad, quic_pkt, initial_salt->data()) == false) {
                 return {nullptr, nullptr};
             }
-            decrypt__(aad.buffer, aad.length(),
+            decrypt__(aad.buffer, aad.readable_length(),
                   quic_pkt.payload.data, quic_pkt.payload.length());
             return {plaintext, plaintext+plaintext_len};
         } else {
@@ -774,7 +774,7 @@ public:
                     reset_buffers();
                     continue;
                 }
-                decrypt__(aad.buffer, aad.length(),
+                decrypt__(aad.buffer, aad.readable_length(),
                   quic_pkt.payload.data, quic_pkt.payload.length());
 
                 if (plaintext_len) {
@@ -857,6 +857,10 @@ private:
             aad.copy(quic_pkt.payload.data[i] ^ mask[i+1]);
         }
         (void)packet_number;  // not currently used
+
+        if (aad.is_null()) {
+            return false;     // data was too long to fit into AAD buffer
+        }
 
         // construct AEAD iv
         //

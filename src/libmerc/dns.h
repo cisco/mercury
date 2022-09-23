@@ -308,7 +308,7 @@ struct dns_name : public data_buffer<256> {
                 break;
             }
             if (type == dns_label_type::char_string) {
-                copy(d, h.char_string_length());
+                data_buffer<256>::parse(d, h.char_string_length());
                 copy('.');
             }
             if (type == dns_label_type::offset) {
@@ -370,7 +370,7 @@ struct dns_name : public data_buffer<256> {
     //
 
     bool check_netbios() const {
-        if (length() == 33) {
+        if (readable_length() == 33) {
             for (const uint8_t *b=buffer; b < data - 1; b++) {
                 if (is_netbios_char(*b) == false) {
                     return false;
@@ -417,10 +417,10 @@ struct dns_question_record {
             if (name.is_netbios()) {
                 data_buffer<MAX_NETBIOS_NAME> netbios_name;
                 name.get_netbios_name(netbios_name);
-                rr.print_key_json_string("name", netbios_name.buffer, netbios_name.length());
+                rr.print_key_json_string("name", netbios_name.buffer, netbios_name.readable_length());
             }
             else {
-                rr.print_key_json_string("name", name.buffer, name.length());
+                rr.print_key_json_string("name", name.buffer, name.readable_length());
             }
             rr.print_key_uint("type", rr_type);
             rr.print_key_uint("class", rr_class);
@@ -434,9 +434,9 @@ struct dns_question_record {
                 is_netbios = true;
                 data_buffer<MAX_NETBIOS_NAME> netbios_name;
                 name.get_netbios_name(netbios_name);
-                o.print_key_json_string("name", netbios_name.buffer, netbios_name.length());
+                o.print_key_json_string("name", netbios_name.buffer, netbios_name.readable_length());
             } else {
-                o.print_key_json_string("name", name.buffer, name.length());
+                o.print_key_json_string("name", name.buffer, name.readable_length());
             }
             const char *type_name = get_rr_type_name(rr_type, is_netbios);
             o.print_key_string("type", type_name);
@@ -525,7 +525,7 @@ struct dns_resource_record {
 
                     struct dns_name target;
                     target.parse(tmp_rdata, body);
-                    srv.print_key_json_string("target", target.buffer, target.length());
+                    srv.print_key_json_string("target", target.buffer, target.readable_length());
 
                     srv.close();
 
@@ -609,7 +609,7 @@ struct dns_resource_record {
 
                     struct dns_name next_name;
                     next_name.parse(tmp_rdata, body);
-                    nsec.print_key_json_string("next_domain_name", next_name.buffer, next_name.length());
+                    nsec.print_key_json_string("next_domain_name", next_name.buffer, next_name.readable_length());
 
                     nsec.print_key_hex("type_bit_maps", tmp_rdata);
                     nsec.close();
@@ -617,7 +617,7 @@ struct dns_resource_record {
 
                     struct dns_name domain_name;
                     domain_name.parse(tmp_rdata, body);
-                    rr.print_key_json_string("domain_name", domain_name.buffer, domain_name.length());
+                    rr.print_key_json_string("domain_name", domain_name.buffer, domain_name.readable_length());
                 } else if ((netbios_rr_type)question_record.rr_type == netbios_rr_type::NB) {
 
                     struct json_object nb{rr, "nb"};
@@ -634,7 +634,7 @@ struct dns_resource_record {
 
                     struct dns_name domain_name;
                     domain_name.parse(tmp_rdata, body);
-                    rr.print_key_json_string("ns_domain_name", domain_name.buffer, domain_name.length());
+                    rr.print_key_json_string("ns_domain_name", domain_name.buffer, domain_name.readable_length());
                 }
             } else {
                 rr.print_key_hex("rdata", tmp_rdata);
