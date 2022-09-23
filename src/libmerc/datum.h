@@ -589,33 +589,42 @@ public:
 
     void copy(uint8_t x) {
         if (data + 1 > data_end) {
+            set_null();
             return;  // not enough room
         }
         *data++ = x;
     }
     void copy(const uint8_t *rdata, size_t num_bytes) {
         if (data_end - data < (ssize_t)num_bytes) {
-            // num_bytes = data_end - data;
             set_null();
+            return;
         }
         memcpy(data, rdata, num_bytes);
         data += num_bytes;
     }
-    void copy(struct datum &r, size_t num_bytes) {
+
+    // parse(r, num_bytes) copies num_bytes out of r and into this, and
+    // advances r, if this writeable has enough room for the data and
+    // r contains at least num_bytes.  If r.length() < num_bytes, then
+    // r is set to null, and if this->length() < num_bytes, then this
+    // is set to null.
+    //
+    void parse(struct datum &r, size_t num_bytes) {
         if (r.length() < (ssize_t)num_bytes) {
             r.set_null();
             // fprintf(stderr, "warning: not enough data in parse\n");
             return;
         }
         if (data_end - data < (int)num_bytes) {
-            num_bytes = data_end - data;
+            set_null();
+            return;
         }
         memcpy(data, r.data, num_bytes);
         data += num_bytes;
         r.data += num_bytes;
     }
-    void copy(struct datum &r) {
-        copy(r, r.length());
+    void parse(struct datum &r) {
+        parse(r, r.length());
     }
 
     template <typename Type>
@@ -628,7 +637,7 @@ public:
     //
     writeable & operator<<(datum d) {
         if (d.is_not_null()) {
-            copy(d);
+            parse(d);
         }
         return *this;
     }
@@ -641,18 +650,18 @@ public:
 // and the end of the data buffer (writeable.data_end)
 //
 template <size_t T> struct data_buffer : public writeable {
-    unsigned char buffer[T];
+    unsigned char buffer[T];                                     // TODO: make buffer private
 
     data_buffer() : writeable{buffer, buffer+T} { }
 
-
     void reset() { data = buffer; }
     bool is_not_empty() const { return data != buffer && data < data_end; }
-    // void set_empty() {
-    //     data = buffer;
-    //     data_end = buffer;
-    // }
-    ssize_t length() const {
+
+    // data_buffer::readable_length() returns the number of bytes in
+    // the readable region, if the writeable region is not null;
+    // otherwise, zero is returned
+    //
+    ssize_t readable_length() const {
             return data - buffer;
     }
 
