@@ -293,6 +293,13 @@ struct dns_name : public data_buffer<256> {
 
     dns_name() : data_buffer{}, is_netbios_name{false} {}
 
+    dns_name(datum &d, const datum &dns_body, unsigned int recursion_count=0) :
+        data_buffer{},
+        is_netbios_name{false}
+    {
+        parse(d, dns_body, recursion_count);
+    }
+
     void parse(struct datum &d, const struct datum &dns_body, unsigned int recursion_count=0) {
 
         if (recursion_count++ > recursion_threshold) {
@@ -390,6 +397,65 @@ struct dns_name : public data_buffer<256> {
         return true;
     }
 
+};
+
+// The SOA RDATA format consists of these ordered fields:
+//
+// MNAME:   The <domain-name> of the name server that was the original or
+//          primary source of data for this zone.
+//
+// RNAME:   A <domain-name> which specifies the mailbox of the
+//          person responsible for this zone.
+//
+// SERIAL:  The unsigned 32 bit version number of the original copy
+//          of the zone.
+//
+// REFRESH: A 32 bit time interval before the zone should be
+//          refreshed.
+//
+// RETRY:   A 32 bit time interval that should elapse before a
+//          failed refresh should be retried.
+//
+// EXPIRE:  A 32 bit time value that specifies the upper limit on
+//          the time interval that can elapse before the zone is no
+//          longer authoritative.
+//
+// MINIMUM: The unsigned 32 bit minimum TTL field that should be
+//          exported with any RR from this zone.
+//
+class soa_rdata {
+    dns_name mname;
+    dns_name rname;
+    encoded<uint32_t> serial;
+    encoded<uint32_t> refresh;
+    encoded<uint32_t> retry;
+    encoded<uint32_t> expire;
+    encoded<uint32_t> minimum;
+    bool valid;
+
+public:
+    soa_rdata(datum &d, const datum &dns_body) :
+        mname{d, dns_body},
+        rname{d, dns_body},
+        serial{d},
+        refresh{d},
+        retry{d},
+        expire{d},
+        minimum{d},
+        valid{d.is_not_null()}
+    {}
+
+    void write_json(json_object &o) const {
+        if (valid) {
+            o.print_key_json_string("mname", mname.buffer, mname.readable_length());
+            o.print_key_json_string("rname", rname.buffer, rname.readable_length());
+            o.print_key_uint("serial", serial);
+            o.print_key_uint("refresh", refresh);
+            o.print_key_uint("retry", retry);
+            o.print_key_uint("expire", expire);
+            o.print_key_uint("minimum", minimum);
+        }
+    }
 };
 
 struct dns_question_record {
@@ -635,6 +701,10 @@ struct dns_resource_record {
                     struct dns_name domain_name;
                     domain_name.parse(tmp_rdata, body);
                     rr.print_key_json_string("ns_domain_name", domain_name.buffer, domain_name.readable_length());
+
+                } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::SOA) {
+                    soa_rdata soa{tmp_rdata, body};
+                    soa.write_json(rr);
                 }
             } else {
                 rr.print_key_hex("rdata", tmp_rdata);
