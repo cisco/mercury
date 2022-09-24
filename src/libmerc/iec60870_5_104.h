@@ -243,6 +243,11 @@ public:
         o.print_key_uint8("originator_address", originator_address);
         o.print_key_uint16("asdu_address", asdu_address);
 
+         // Information objects should have a minimum length of 3 bytes(IOA) + 1 bytes(info element)
+        if (!num_objects or inf_objs.length() < 4) {
+            return;
+        }
+
         uint8_t info_elem_size;
         if (sq) {
             /*
@@ -376,7 +381,7 @@ public:
 };
 
 /*
- * S-Frame format:
+ * U-Frame format:
  *         0  1  2  3  4  5  6  7
  *       +--+--+--+--+--+--+--+--+
  *       |Test | STOP|START| 0| 1|
@@ -424,7 +429,7 @@ public:
 
     void write_json(struct json_object &o) const {
         struct json_object r{o, "u_frame"};
-        r.print_key_string("U-frame_function", get_function_string());
+        r.print_key_string("u_frame_function", get_function_string());
         r.close();
     }            
 };
