@@ -141,50 +141,50 @@ public:
 
     const char *get_func_code_str_req() const {
         switch (func_code) {
-            case 0x00 : return {"confirm"};
-            case 0x01 : return {"read"};
-            case 0x02 : return {"write"};
-            case 0x03 : return {"select"};
-            case 0x04 : return {"operate"};
-            case 0x05 : return {"dir_operate"};
-            case 0x06 : return {"dir_operate_no_resp"};
-            case 0x07 : return {"freeze"};
-            case 0x08 : return {"freeze_no_resp"};
-            case 0x09 : return {"freeze_clear"};
-            case 0x0A : return {"freeze_clear_no_resp"};
-            case 0x0B : return {"freeze_at_time"};
-            case 0x0C : return {"freeze_at_time_no_resp"};
-            case 0x0D : return {"cold_restart"};
-            case 0x0E : return {"warm_restart"};
-            case 0x0F : return {"init_data"};
-            case 0x10 : return {"init_app"};
-            case 0x11 : return {"start_app"};
-            case 0x12 : return {"stop_app"};
-            case 0x13 : return {"save_config"};
-            case 0x14 : return {"enable_solicited"};
-            case 0x15 : return {"disable_solicited"};
-            case 0x16 : return {"assign_class"};
-            case 0x17 : return {"delay_measurement"};
-            case 0x18 : return {"record_curr_time"};
-            case 0x19 : return {"open_file"};
-            case 0x1A : return {"close_file"};
-            case 0x1B : return {"delete_file"};
-            case 0x1C : return {"get_file_info"};
-            case 0x1D : return {"authenticate_file"};
-            case 0x1E : return {"abort_file"};
-            case 0x1F : return {"activate_config"};
-            case 0x20 : return {"authenticate_req"};
-            case 0x21 : return {"authenticate_req_no_ack"};
-            default   : return {"no_matching_code"};
+            case 0x00 : return "confirm";
+            case 0x01 : return "read";
+            case 0x02 : return "write";
+            case 0x03 : return "select";
+            case 0x04 : return "operate";
+            case 0x05 : return "dir_operate";
+            case 0x06 : return "dir_operate_no_resp";
+            case 0x07 : return "freeze";
+            case 0x08 : return "freeze_no_resp";
+            case 0x09 : return "freeze_clear";
+            case 0x0A : return "freeze_clear_no_resp";
+            case 0x0B : return "freeze_at_time";
+            case 0x0C : return "freeze_at_time_no_resp";
+            case 0x0D : return "cold_restart";
+            case 0x0E : return "warm_restart";
+            case 0x0F : return "init_data";
+            case 0x10 : return "init_app";
+            case 0x11 : return "start_app";
+            case 0x12 : return "stop_app";
+            case 0x13 : return "save_config";
+            case 0x14 : return "enable_solicited";
+            case 0x15 : return "disable_solicited";
+            case 0x16 : return "assign_class";
+            case 0x17 : return "delay_measurement";
+            case 0x18 : return "record_curr_time";
+            case 0x19 : return "open_file";
+            case 0x1A : return "close_file";
+            case 0x1B : return "delete_file";
+            case 0x1C : return "get_file_info";
+            case 0x1D : return "authenticate_file";
+            case 0x1E : return "abort_file";
+            case 0x1F : return "activate_config";
+            case 0x20 : return "authenticate_req";
+            case 0x21 : return "authenticate_req_no_ack";
+            default   : return "no_matching_code";
         }
     }
 
     const char *get_func_code_str_resp() const {
         switch (func_code) {
-            case 0x81 : return {"response"};
-            case 0x82 : return {"unsolicited_response"};
-            case 0x83 : return {"authentication_response"};
-            default   : return {"no_matching_code"};
+            case 0x81 : return "response";
+            case 0x82 : return "unsolicited_response";
+            case 0x83 : return "authentication_response";
+            default   : return "no_matching_code";
         }
     }
 
@@ -349,11 +349,11 @@ struct dnp3_link_control {
 
     const char *get_secondary_func_code_str() const{
         switch (function_code) {
-            case 0 : return {"ACK"};
-            case 1 : return {"NACK"};
-            case 0x0B : return {"LINK_STATUS"};
-            case 0x0F : return {"NOT_SUPPORTED"};
-            default : return {"no_matching_code"};
+            case 0 : return "ACK";
+            case 1 : return "NACK";
+            case 0x0B : return "LINK_STATUS";
+            case 0x0F : return "NOT_SUPPORTED";
+            default : return "no_matching_code";
         }
     }
 
@@ -501,6 +501,25 @@ public:
     }
 
 };
+
+namespace {
+
+    [[maybe_unused]] int dnp3_fuzz_test(const uint8_t *data, size_t size) {
+        datum pkt_data{data, data+size};
+        dnp3 dnp3_record{pkt_data};
+
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        if (dnp3_record.is_not_empty()) {
+            dnp3_record.write_json(record, true);
+        }
+
+        return 0;
+    }
+
+}; // end of namespace
 
 
 #endif      // DNP3_H

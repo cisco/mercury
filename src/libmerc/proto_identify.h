@@ -161,9 +161,7 @@ public:
 
     bool mdns() const { return select_mdns; }
 
-    //bool dnp3() const {return select_dnp3; }
-
-    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false} {//, select_dnp3{false} {
+    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false} {
 
         // "none" is a special case; turn off all protocol selection
         //

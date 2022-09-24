@@ -497,14 +497,6 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         x.emplace<dnp3>(pkt);
         break;
     default:
-        // if (selector.dnp3()) {
-        //     if (tcp_pkt->header && (tcp_pkt->header->dst_port == htons(20000) || tcp_pkt->header->src_port == htons(20000))) {
-        //         if (pkt.length() > 2 && *pkt.begin() == 0x05 && *(pkt.begin()+1) == 0x64) {
-        //             x.emplace<dnp3>(pkt);
-        //             break;
-        //         }
-        //     }
-        // }
         if (is_new && global_vars.output_tcp_initial_data) {
             x.emplace<unknown_initial_packet>(pkt);
         } else {
