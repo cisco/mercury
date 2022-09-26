@@ -17,6 +17,7 @@
 
 #include "json_object.h"
 #include "util_obj.h"
+#include "match.h"
 
 /*
  * ASDU packet format:
@@ -534,6 +535,22 @@ public:
         o.print_key_uint8("apdu_length", apdu_length);
         std::visit(write_iec_json{o}, packet);
     }
+
+    static int iec60870_5_104_fuzz_test(const uint8_t *data, size_t size);
 };
+
+[[maybe_unused]] inline static int iec60870_5_104_fuzz_test(const uint8_t *data, size_t size) {
+    struct datum request_data{data, data+size};
+    char buffer_1[8192];
+    struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
+    struct json_object record(&buf_json);
+
+    iec60870_5_104 iec_msg{request_data};
+    if (iec_msg.is_not_empty()) {
+        iec_msg.write_json(record);
+    }
+
+    return 0;
+}
 
 #endif 
