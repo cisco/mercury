@@ -38,6 +38,7 @@
 #include "dnp3.h"
 #include "netbios.h"
 #include "udp.h"
+#include "openvpn.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -56,6 +57,7 @@ enum tcp_msg_type {
     tcp_msg_type_iec,
     tcp_msg_type_dnp3,
     tcp_msg_type_nbss,
+    tcp_msg_type_openvpn,
 };
 
 enum udp_msg_type {
@@ -168,6 +170,7 @@ class traffic_selector {
     bool select_tcp_syn_ack;
     bool select_nbds;
     bool select_nbss;
+    bool select_openvpn_tcp;
 
 public:
 
@@ -199,6 +202,8 @@ public:
 
     bool nbss() const { return select_nbss; }
 
+    bool openvpn_tcp() const { return select_openvpn_tcp; }
+
     traffic_selector(std::map<std::string, bool> protocols) :
             tcp{},
             udp{},
@@ -215,7 +220,8 @@ public:
             select_sctp{false},
             select_tcp_syn_ack{false},
             select_nbds{false},
-            select_nbss{false} {
+            select_nbss{false},
+            select_openvpn_tcp{false} {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -359,6 +365,9 @@ public:
         if (protocols["nbds"]) {
             select_nbds = true;
         }
+        if (protocols["openvpn_tcp"] || protocols["all"]) {
+            select_openvpn_tcp = true;
+        }
 
         // tell protocol_identification objects to compile lookup tables
         //
@@ -403,6 +412,10 @@ public:
 
         if (nbss() and (tcp_pkt->header->src_port == htons(139) or tcp_pkt->header->dst_port == htons(139))) {
             return tcp_msg_type_nbss;
+        }
+
+        if (openvpn_tcp() and (tcp_pkt->header->src_port == htons(1194) or tcp_pkt->header->dst_port == htons(1194)) ) {
+            return tcp_msg_type_openvpn;
         }
 
         return tcp_msg_type_unknown;

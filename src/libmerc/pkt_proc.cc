@@ -47,6 +47,7 @@
 #include "smb1.h"
 #include "smb2.h"
 #include "netbios.h"
+#include "openvpn.h"
 
 // class unknown_initial_packet represents the initial data field of a
 // tcp or udp packet from an unknown protocol
@@ -517,6 +518,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_nbss:
         x.emplace<nbss_packet>(pkt);
+        break;
+    case tcp_msg_type_openvpn:
+        x.emplace<openvpn_tcp>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {

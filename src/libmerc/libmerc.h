@@ -345,6 +345,7 @@ enum fingerprint_type {
      fingerprint_type_dtls_server = 11, /**< DTLS server fingerprint           */
      fingerprint_type_quic = 12,       /**< IETF QUIC                          */
      fingerprint_type_tcp_server = 13, /**< TCP SYN ACK fingerprint            */
+     fingerprint_type_openvpn = 14, /**< OpenVPN TCP fingerprint           */
 };
 
 /**
