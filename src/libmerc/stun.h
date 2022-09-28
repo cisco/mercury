@@ -438,11 +438,16 @@ namespace stun {
             o.close();
         }
 
-        void write_raw_features(json_array &a) {
-            json_array attr{a};
-            attr.print_uint16_hex(type);
-            attr.print_hex(value);
-            attr.close();
+        void write_raw_features(writeable &buf) {
+            buf.copy('[');
+            buf.copy('"');
+            type.write_hex(buf);
+            buf.copy('"');
+            buf.copy(',');
+            buf.copy('"');
+            buf.write_hex(value.data, value.length());
+            buf.copy('"');
+            buf.copy(']');
         }
     };
 
@@ -531,10 +536,10 @@ namespace stun {
             }
         }
 
-        void write_raw_features(json_array &a) const {
-            json_array h{a};
-            h.print_uint16_hex(message_type_field);
-            h.close();
+        void write_raw_features(writeable &w) const {
+            w.copy('"');
+            message_type_field.write_hex(w);
+            w.copy('"');
         }
 
         uint16_t get_message_length() const { return message_length; }
@@ -570,24 +575,34 @@ namespace stun {
                     }
                 }
                 a.close();
+                write_raw_features(stun_obj);
                 stun_obj.close();
             }
         }
 
         void write_raw_features(json_object &o) const {
-            json_array a{o, "features"};
-            hdr.write_raw_features(a);
+            data_buffer<2048> buf;
+            buf.copy('[');
+            hdr.write_raw_features(buf);
+            buf.copy(',');
+            buf.copy('[');
             datum tmp{body};
-            json_array attr_array{a};
+            bool first = true;
             while (tmp.is_not_empty()) {
                 if (acceptor<stun::attribute> attr{tmp}) {
-                    attr.value.write_raw_features(attr_array);
+                    if (!first) { buf.copy(','); } else { first = false; }
+                    attr.value.write_raw_features(buf);
                 } else {
                     break;
                 }
             }
-            attr_array.close();
-            a.close();
+            buf.copy(']');
+            buf.copy(']');
+            if (buf.readable_length() == 0) {
+                o.print_key_string("features", "[]");
+            } else {
+                o.print_key_json_string("features", buf.contents());
+            }
         }
 
         static constexpr mask_and_value<8> matcher{

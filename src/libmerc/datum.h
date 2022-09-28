@@ -523,6 +523,22 @@ struct datum {
         }
     }
 
+    void fprint_c_array(FILE *f, const char *name) const {
+        size_t count = 1;
+        const uint8_t *x = data;
+        fprintf(f, "uint8_t %s[] = {\n    ", name);
+        while (x < data_end - 1) {
+            fprintf(f, "0x%02x,", *x++);
+            if (count++ % 8 == 0) {
+                fputs("\n    ", f);
+            } else {
+                fputc(' ', f);
+            }
+        }
+        fprintf(f, "0x%02x", *x);
+        fputs("\n};\n", f);
+    }
+
     void fprint(FILE *f, size_t length=0) const {
         const uint8_t *x = data;
         const uint8_t *end = data_end;
@@ -601,6 +617,27 @@ public:
         }
         memcpy(data, rdata, num_bytes);
         data += num_bytes;
+    }
+
+    void write_hex(const uint8_t *src, size_t num_bytes) {
+
+        // check for writeable room; output length is twice the input
+        // length
+        //
+        if (is_null() or data_end - data < 2 * (ssize_t)num_bytes) {
+            set_null();
+            return;
+        }
+
+        char hex_table[] = {
+            '0', '1', '2', '3', '4', '5', '6', '7',
+            '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+        };
+
+        for (size_t i=0; i < num_bytes; i++) {
+            *data++ = hex_table[(*src & 0xf0) >> 4];
+            *data++ = hex_table[*src++ & 0x0f];
+        }
     }
 
     // parse(r, num_bytes) copies num_bytes out of r and into this, and
@@ -863,7 +900,7 @@ public:
     // TODO: add a function slice<i,j>(T newvalue) that sets the bits
     // associated with a slice
 
-    void write(writeable &buf, bool swap_byte_order=false) {
+    void write(writeable &buf, bool swap_byte_order=false) const {
         encoded<T> tmp = val;
         if (swap_byte_order) {
             tmp.swap_byte_order();
@@ -873,6 +910,14 @@ public:
         // TODO: rewrite function to eliminate cast
     }
 
+    // write_hex() writes a hexadecimal representation of this
+    // unsigned integer in network byte order
+    //
+    void write_hex(writeable &w) const {
+        encoded<T> tmp = val;
+        tmp.swap_byte_order();                        // TODO: write endian-generic version
+        w.write_hex((uint8_t *)&tmp, sizeof(T));
+    }
 };
 
 // class literal is a literal std::array of characters
