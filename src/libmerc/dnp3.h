@@ -175,7 +175,8 @@ public:
             case 0x1F : return "activate_config";
             case 0x20 : return "authenticate_req";
             case 0x21 : return "authenticate_req_no_ack";
-            default   : return "no_matching_code";
+            //default   : return "no_matching_code";
+            default   : return nullptr;
         }
     }
 
@@ -184,7 +185,8 @@ public:
             case 0x81 : return "response";
             case 0x82 : return "unsolicited_response";
             case 0x83 : return "authentication_response";
-            default   : return "no_matching_code";
+            //default   : return "no_matching_code";
+            default   : return nullptr;
         }
     }
 
@@ -195,6 +197,10 @@ public:
         else {
             return get_func_code_str_req();
         }
+    }
+
+    const char* get_code_str() const {
+        return get_func_code_str();
     }
 
     const char* get_indications_str() {
@@ -250,6 +256,8 @@ public:
         return indications_str.c_str();
     }
 
+    uint8_t get_code() const {return func_code.value();}
+
     void write_json(struct json_object &record, bool output_metadata) {
         json_object app_hdr(record, "app_hdr");
         app_hdr.print_key_bool("fin",fin);
@@ -258,8 +266,9 @@ public:
         app_hdr.print_key_bool("uns",uns);
         app_hdr.print_key_int("seq",seq);
         app_hdr.print_key_bool("resp", is_resp);
-        app_hdr.print_key_int("func_code",func_code.value());
-        app_hdr.print_key_string("func_str", get_func_code_str());
+        //app_hdr.print_key_int("func_code",func_code.value());
+        type_codes<dnp3_app_hdr> code{*this};
+        app_hdr.print_key_value("func_str", code);
         if (is_resp) {
             app_hdr.print_key_string("internal_indications", get_indications_str());
         }
@@ -343,7 +352,8 @@ struct dnp3_link_control {
             case 3 : return {"CONFIRMED_USER_DATA", fcv};
             case 4 : return {"UNCONFIRMED_USER_DATA", !fcv};
             case 9 : return {"REQUEST_LINK_STATES", !fcv};
-            default : return {"no_matching_code", true};
+            //default : return {"no_matching_code", true};
+            default : return {nullptr, true};
         }
     }
 
@@ -353,7 +363,8 @@ struct dnp3_link_control {
             case 1 : return "NACK";
             case 0x0B : return "LINK_STATUS";
             case 0x0F : return "NOT_SUPPORTED";
-            default : return "no_matching_code";
+            //default : return "no_matching_code";
+            default : return nullptr;
         }
     }
 
@@ -367,6 +378,17 @@ public:
         dfc{fcv},
         function_code{ctrl_byte.slice<4,8>()} {}
 
+    uint8_t get_code() const {return function_code;}
+
+    const char* get_code_str() const {
+        if (primary) {
+            return get_primary_func_code_str().first;
+        }
+        else {
+            return get_secondary_func_code_str();
+        }
+    }
+
     void write_json(struct json_object &record, bool output_metadata) {
         json_object control(record, "control");
         control.print_key_bool("dir", dir);
@@ -374,7 +396,9 @@ public:
         if (primary){
             control.print_key_bool("fcb",fcb);
             control.print_key_bool("fcv",fcv);
-            control.print_key_string("func_code",get_primary_func_code_str().first);
+            //control.print_key_string("func_code",get_primary_func_code_str().first);
+            type_codes<dnp3_link_control> code{*this};
+            control.print_key_value("func_str", code);
             // add extra info based on bool metadata
             if (output_metadata) {
                 if (!get_primary_func_code_str().second) {
@@ -385,7 +409,9 @@ public:
         else {
             control.print_key_bool("fcb",fcb);
             control.print_key_bool("dfc",dfc);
-            control.print_key_string("func_code",get_secondary_func_code_str());
+            //control.print_key_string("func_code",get_secondary_func_code_str());
+            type_codes<dnp3_link_control> code{*this};
+            control.print_key_value("func_str", code);
             // add extra info based on bool metadata
             if (output_metadata) {
                 if (fcb) {
