@@ -650,6 +650,24 @@ public:
         }
     }
 
+    void write_quote_enclosed_hex(const uint8_t *src, size_t num_bytes) {
+        copy('"');
+        write_hex(src, num_bytes);
+        copy('"');
+    }
+
+    template <typename Type>
+    void write_hex(Type T) {
+        T.write_hex(*this);
+    }
+
+    template <typename Type>
+    void write_quote_enclosed_hex(Type T) {
+        copy('"');
+        write_hex(T);
+        copy('"');
+    }
+
     // parse(r, num_bytes) copies num_bytes out of r and into this, and
     // advances r, if this writeable has enough room for the data and
     // r contains at least num_bytes.  If r.length() < num_bytes, then
