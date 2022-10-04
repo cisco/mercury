@@ -647,5 +647,24 @@ public:
         { 0x00, 0x00, 0x00, 0x00, 0xfe, 0x53, 0x4d, 0x42}
     };
 };
- 
+
+namespace {
+
+    [[maybe_unused]] int smb2_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum request_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        
+
+        smb2_packet request{request_data};
+        if (request.is_not_empty()) {
+            request.write_json(record);
+        }
+
+        return 0;
+    }
+
+};
+
 #endif /* SMB2_H */
