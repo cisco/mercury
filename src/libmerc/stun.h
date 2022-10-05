@@ -378,7 +378,6 @@ namespace stun {
                 break;
             case attribute_type::SOFTWARE:
             case attribute_type::USERNAME:
-            case attribute_type::REALM:
             case attribute_type::NONCE:
                 if (lookahead<utf8_string> s{value}) {
                     o.print_key_value("value", s.value);
@@ -431,6 +430,7 @@ namespace stun {
                 break;
             case attribute_type::FINGERPRINT:
             case attribute_type::MESSAGE_INTEGRITY:
+            case attribute_type::REALM:             // note: should be utf8, but too often is not
             case attribute_type::DATA:              // note: DATA could be processed as udp.data
             default:
                 o.print_key_hex("hex_value", value);
