@@ -17,6 +17,7 @@
 
 #include "json_object.h"
 #include "util_obj.h"
+#include "match.h"
 
 /*
  * ASDU packet format:
@@ -243,6 +244,11 @@ public:
         o.print_key_uint8("originator_address", originator_address);
         o.print_key_uint16("asdu_address", asdu_address);
 
+         // Information objects should have a minimum length of 3 bytes(IOA) + 1 bytes(info element)
+        if (!num_objects or inf_objs.length() < 4) {
+            return;
+        }
+
         uint8_t info_elem_size;
         if (sq) {
             /*
@@ -376,7 +382,7 @@ public:
 };
 
 /*
- * S-Frame format:
+ * U-Frame format:
  *         0  1  2  3  4  5  6  7
  *       +--+--+--+--+--+--+--+--+
  *       |Test | STOP|START| 0| 1|
@@ -424,7 +430,7 @@ public:
 
     void write_json(struct json_object &o) const {
         struct json_object r{o, "u_frame"};
-        r.print_key_string("U-frame_function", get_function_string());
+        r.print_key_string("u_frame_function", get_function_string());
         r.close();
     }            
 };
@@ -529,6 +535,22 @@ public:
         o.print_key_uint8("apdu_length", apdu_length);
         std::visit(write_iec_json{o}, packet);
     }
+
+    static int iec60870_5_104_fuzz_test(const uint8_t *data, size_t size);
 };
+
+[[maybe_unused]] inline static int iec60870_5_104_fuzz_test(const uint8_t *data, size_t size) {
+    struct datum request_data{data, data+size};
+    char buffer_1[8192];
+    struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
+    struct json_object record(&buf_json);
+
+    iec60870_5_104 iec_msg{request_data};
+    if (iec_msg.is_not_empty()) {
+        iec_msg.write_json(record);
+    }
+
+    return 0;
+}
 
 #endif 

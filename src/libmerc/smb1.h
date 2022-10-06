@@ -307,4 +307,23 @@ public:
     };
 };
 
+namespace {
+
+    [[maybe_unused]] int smb1_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum request_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        
+
+        smb1_packet request{request_data};
+        if (request.is_not_empty()) {
+            request.write_json(record);
+        }
+
+        return 0;
+    }
+
+};
+
 #endif /* SMB1_H */
