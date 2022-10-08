@@ -699,7 +699,12 @@ template <size_t T> struct data_buffer : public writeable {
     // otherwise, zero is returned
     //
     ssize_t readable_length() const {
+        if (writeable::is_null()) {
+            return 0;
+        }
+        else {
             return data - buffer;
+        }
     }
 
     datum contents() const {

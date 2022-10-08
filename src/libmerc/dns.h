@@ -442,7 +442,7 @@ public:
         retry{d},
         expire{d},
         minimum{d},
-        valid{d.is_not_null()}
+        valid{d.is_not_null() && !mname.is_null() && !rname.is_null()}
     {}
 
     void write_json(json_object &o) const {
@@ -591,7 +591,9 @@ struct dns_resource_record {
 
                     struct dns_name target;
                     target.parse(tmp_rdata, body);
-                    srv.print_key_json_string("target", target.buffer, target.readable_length());
+                    if (!target.is_null()) {
+                        srv.print_key_json_string("target", target.buffer, target.readable_length());
+                    }
 
                     srv.close();
 
@@ -675,7 +677,9 @@ struct dns_resource_record {
 
                     struct dns_name next_name;
                     next_name.parse(tmp_rdata, body);
-                    nsec.print_key_json_string("next_domain_name", next_name.buffer, next_name.readable_length());
+                    if (!next_name.is_null()) {
+                        nsec.print_key_json_string("next_domain_name", next_name.buffer, next_name.readable_length());
+                    }
 
                     nsec.print_key_hex("type_bit_maps", tmp_rdata);
                     nsec.close();
@@ -683,7 +687,9 @@ struct dns_resource_record {
 
                     struct dns_name domain_name;
                     domain_name.parse(tmp_rdata, body);
-                    rr.print_key_json_string("domain_name", domain_name.buffer, domain_name.readable_length());
+                    if (!domain_name.is_null()) {
+                        rr.print_key_json_string("domain_name", domain_name.buffer, domain_name.readable_length());
+                    }
                 } else if ((netbios_rr_type)question_record.rr_type == netbios_rr_type::NB) {
 
                     struct json_object nb{rr, "nb"};
@@ -700,7 +706,9 @@ struct dns_resource_record {
 
                     struct dns_name domain_name;
                     domain_name.parse(tmp_rdata, body);
-                    rr.print_key_json_string("ns_domain_name", domain_name.buffer, domain_name.readable_length());
+                    if (!domain_name.is_null()) {
+                        rr.print_key_json_string("ns_domain_name", domain_name.buffer, domain_name.readable_length());
+                    }
 
                 } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::SOA) {
                     soa_rdata soa{tmp_rdata, body};
