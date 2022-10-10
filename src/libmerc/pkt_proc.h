@@ -83,6 +83,7 @@ struct ssh_init_packet;
 struct ssh_kex_init;
 class smtp_client;
 class smtp_server;
+class dnp3;
 class unknown_initial_packet;
 class quic_init;                         // start of udp protocols
 struct wireguard_handshake_init;
@@ -111,6 +112,7 @@ using protocol = std::variant<std::monostate,
                               smtp_client,
                               smtp_server,
                               iec60870_5_104,
+                              dnp3,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,

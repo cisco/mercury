@@ -19,6 +19,7 @@
 #include <string>
 #include <cassert>
 #include "libmerc.h"  // for enum status
+#include "buffer_stream.h"
 
 /*
  * The mercury_debug macro is useful for debugging (but quite verbose)
@@ -493,6 +494,15 @@ struct datum {
         return true;
     }
 
+    bool copy(unsigned char *dst, ssize_t dst_len) {
+        if (length() > dst_len) {
+            memcpy(dst, data, dst_len);
+            return false;
+        }
+        memcpy(dst, data, length());
+        return true;
+    }
+
     bool strncpy(char *dst, ssize_t dst_len) {
         if (length() + 1 > dst_len) {
             memcpy(dst, data, dst_len - 1);
@@ -917,6 +927,58 @@ public:
         encoded<T> tmp = val;
         tmp.swap_byte_order();                        // TODO: write endian-generic version
         w.write_hex((uint8_t *)&tmp, sizeof(T));
+    }
+};
+
+// class type_codes is a wrapper class and can be used to print typecodes. It inherently has a function
+// to write to json_object, a string depending on known typecodes for that class. The class utilises the json_object template function
+// print_key_value to write a type_code string. The type_code class to be wrapped must have a type_code, and functions:
+// template T get_code() to return code value and
+// char* print_code_str() to return code str or returns null for unknown code
+template <typename T>
+class type_codes {
+    const T &code;
+
+public:
+    type_codes(const T &type_code) : code{type_code} {}
+
+    void print_code(buffer_stream &b, encoded<uint8_t> code) {
+        b.write_uint8(code.value());
+    }
+
+    void print_code(buffer_stream &b, encoded<uint16_t> code) {
+        b.write_uint16(code.value());
+    }
+
+    void print_code(buffer_stream &b, uint8_t code) {
+        b.write_uint8(code);
+    }
+
+    void print_code(buffer_stream &b, uint16_t code) {
+        b.write_uint16(code);
+    }
+
+    // template function for code types with custom code writing functions
+    template <typename code_type>
+    void print_code(buffer_stream &b, code_type code) {
+        code.write_code(b);
+    }
+
+    template <typename code_type>
+    void print_unknown_code(buffer_stream &b, code_type code) {
+        b.puts("UNKNOWN (");
+        print_code(b, code);
+        b.puts(")");
+    }
+
+    void fingerprint(buffer_stream &b) {
+        const char* code_str = code.get_code_str();
+        if (!code_str) {
+            print_unknown_code(b, code.get_code());
+        }
+        else {
+            b.puts(code_str);
+        }
     }
 };
 

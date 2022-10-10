@@ -273,6 +273,7 @@ struct compute_fingerprint {
     void operator()(dns_packet &) { }
     void operator()(mdns_packet &) { }
     void operator()(ssdp &) { }
+    void operator()(dnp3 &) {}
     void operator()(smb1_packet &) { }
     void operator()(smb2_packet &) { }
     void operator()(iec60870_5_104 &) { }
@@ -491,6 +492,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_iec:
         x.emplace<iec60870_5_104>(pkt);
+        break;
+    case tcp_msg_type_dnp3:
+        x.emplace<dnp3>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
