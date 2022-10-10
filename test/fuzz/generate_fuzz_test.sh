@@ -46,6 +46,43 @@ done
 
 cd $LIBMERC_FOLDER
 
+# check results after running all the tests
+check_result () {
+    dir_name=$1;
+
+    if [[ "$specific_test" != "none" ]]; then
+        if [[ "$specific_test" != $dir_name ]]; then
+            return 0;
+        fi;
+    fi;
+
+    echo "checking dir $dir_name"
+    if [[ ! -d "$parent_path/$dir_name" ]] ; then
+        return 1
+    fi;
+
+    cd $parent_path/$dir_name
+
+    if [[ $(grep -Ec "((ERROR)|(ABORTING))" $dir_name.log) -gt 0 ]]; then
+        echo -e $COLOR_RED "FAILED TEST : $dir_name" $COLOR_OFF
+        fail=$((fail+1))
+    else
+        echo -e $COLOR_YELLOW "PASS : $dir_name" $COLOR_OFF
+        pass=$((pass+1))
+    fi;
+
+    post_corpus="$(ls ./corpus | wc -l)"
+    if [[ "$post_corpus" -gt "$pre_corpus" ]]; then
+        echo -e $COLOR_GREEN "corpus updated" $COLOR_OFF
+    fi;
+
+    cd corpus
+    ls -1 | grep -v 'seed' | xargs rm -f
+    cd ..
+
+    cd ../$LIBMERC_FOLDER;
+}
+
 # execute test case for a specific struct/class fuzz_test by looking in dir of same name
 # report if struct/class has fuzz_test() but dir does not exist
 exec_testcase () {
@@ -97,23 +134,8 @@ EOF
     chmod +x "fuzz_${dir_name}_exec"
     # count corpus pre test
     pre_corpus="$(ls ./corpus/ | wc -l)"
-    ./"fuzz_${dir_name}_exec" -seed=1 ./corpus/ -runs=$default_runs -max_total_time=$default_time > $dir_name.log 2>&1
-    if [[ $(grep -Ec "((ERROR)|(ABORTING))" $dir_name.log) -gt 0 ]]; then
-        echo -e $COLOR_RED "FAILED TEST : $dir_name" $COLOR_OFF
-        fail=$((fail+1))
-    else
-        echo -e $COLOR_YELLOW "PASS : $dir_name" $COLOR_OFF
-        pass=$((pass+1))
-    fi;
-    
-    post_corpus="$(ls ./corpus | wc -l)"
-    if [[ "$post_corpus" -gt "$pre_corpus" ]]; then
-        echo -e $COLOR_GREEN "corpus updated" $COLOR_OFF
-    fi;
-
-    cd corpus
-    ls -1 | grep -v 'seed' | xargs rm -f
-    cd ..
+    echo -e $COLOR_YELLOW "${dir_name} testcase in parallel" $COLOR_OFF
+    ./"fuzz_${dir_name}_exec" -seed=1 ./corpus/ -runs=$default_runs -max_total_time=$default_time > $dir_name.log 2>&1 &
 
     cd ../$LIBMERC_FOLDER;
 }
@@ -138,6 +160,18 @@ for header in *.h; do
         echo "$class :"
         exec_testcase "$class" "$header"
         total_test_function=$((total_test_function+1));
+    done < <(echo "$result" | grep -v "^$")
+
+done
+
+# wait for parallel running tests to exit
+wait
+
+for header in *.h; do
+    result=$(grep -oE "\s(.+)_fuzz_test.*[^;]$" $header)
+    while read -r line; do
+        class=$(echo $line | grep -oE "\s(.+)_fuzz_test" | sed -nr 's/.* (.+)_fuzz_test/\1/p')
+        check_result "$class" "$header"
     done < <(echo "$result" | grep -v "^$")
 
 done
