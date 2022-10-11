@@ -160,14 +160,12 @@ struct key {
 struct eth_addr : public datum {
     static const unsigned int bytes_in_addr = 6;
 
-    eth_addr(datum &d) : datum{d} { }
-
-    void parse(struct datum &d) {
+    eth_addr(datum &d) : datum{} {
         datum::parse(d, bytes_in_addr);
     }
 
     void fingerprint(struct buffer_stream &b) const {
-        if (data) {
+        if (datum::is_not_null()) {
             b.write_mac_addr(data);
         }
     }
