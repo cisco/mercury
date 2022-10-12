@@ -599,7 +599,7 @@ struct quic_initial_packet {
     }
 
 	static constexpr size_t min_len_pn_and_payload = 64;  // TODO: determine best length bound
-	static constexpr ssize_t min_len_pdu = 1200;          // TODO: determine best length bound
+	static constexpr ssize_t min_len_pdu = 1184;          // TODO: determine best length bound
 
     bool is_not_empty() const {
         return valid;
@@ -1096,6 +1096,8 @@ struct cryptographic_buffer
     {
         return buf_len > 0;
     }
+
+    void reset() {buf_len = 0;}
 };
 
 struct quic_hdr_fp {
@@ -1112,6 +1114,101 @@ struct quic_hdr_fp {
     } 
 };
 
+// class quic_init_decry represents an initial quic message which is already decrypted
+//
+class quic_init_decry {
+    const quic_initial_packet &initial_packet;
+    cryptographic_buffer &crypto_buffer;
+    tls_client_hello hello;
+    datum plaintext;
+    bool valid;
+    quic_frame cc;
+    uint8_t pkt_num_len;
+
+public:
+    quic_init_decry (quic_initial_packet &pkt, cryptographic_buffer& buffer) : initial_packet{pkt}, crypto_buffer{buffer}, hello{}, plaintext{}, valid{false}, cc{}, pkt_num_len{0} {}
+
+    void parse() {
+        if (!initial_packet.is_not_empty()) {
+            return;
+        }
+
+        pkt_num_len = (initial_packet.connection_info & 0x03) + 1;
+        plaintext = datum{initial_packet.payload.data + pkt_num_len, initial_packet.payload.data_end};
+
+        // parse plaintext as a sequence of frames
+        //
+        datum plaintext_copy = plaintext;
+        while (plaintext_copy.is_not_empty()) {
+            quic_frame frame{plaintext_copy};
+            //frame.write(stderr);
+            if (!frame.is_valid()) {
+                valid = false;
+                return;
+            }
+
+            crypto *c = frame.get_if<crypto>();
+            if (c && c->is_valid()) {
+                crypto_buffer.extend(*c);
+            }
+            if (frame.has_type<connection_close>() || frame.has_type<ack>()) {
+                cc = frame;
+            }
+        }
+        valid = true;
+        if(crypto_buffer.is_valid()){
+            struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
+            tls_handshake tls{d};
+            hello.parse(tls.body);
+            hello.is_quic_hello = true;
+        } 
+    }
+
+    bool is_valid() {return valid;}
+
+    bool hello_is_not_empty() const {return hello.is_not_empty();}
+
+    const tls_client_hello &get_tls_client_hello() const {return hello;}
+
+    void write_json(struct json_object &record, bool metadata_output=false) {
+        if (hello.is_not_empty()) {
+            hello.write_json(record, metadata_output);
+        }
+        json_object quic_record{record, "quic"};
+        initial_packet.write_json(quic_record);
+        if (cc.is_valid()) {
+            cc.write_json(quic_record);
+        }
+        if (plaintext.is_not_empty()) {
+            //quic_crypto.write_json(quic_record);
+            quic_record.print_key_hex("plaintext", plaintext);
+        }
+        quic_record.close();
+    }
+
+    void compute_fingerprint(class fingerprint &fp) const {
+        if (hello.is_not_empty()) {
+            fp.set_type(fingerprint_type_quic);
+            quic_hdr_fp hdr_fp(initial_packet.version);
+            fp.add(hdr_fp);
+            fp.add(hello);
+            fp.final();
+        }
+    }
+
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        struct datum sn{NULL, NULL};
+        struct datum user_agent {NULL, NULL};
+        datum alpn;
+
+        hello.extensions.set_meta_data(sn, user_agent, alpn);
+
+        analysis_.destination.init(sn, user_agent, alpn, k_);
+
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    }
+};
+
 // class quic_init represents an initial quic message
 //
 class quic_init {
@@ -1121,11 +1218,26 @@ class quic_init {
     tls_client_hello hello;
     datum plaintext;
     quic_frame cc;
+    quic_init_decry decry_pkt;
+    bool pre_decrypted;
 
 public:
 
-    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{} {
+    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false} {
 
+        // check reserved bits, if 0, try for decrypted quic packet
+        //
+        if ((initial_packet.connection_info & 0x0c) == 0) {
+            decry_pkt.parse();
+            if (decry_pkt.is_valid()) {
+                pre_decrypted = true;
+                return;
+            }
+        }
+
+        // reset crypto buffer
+        //
+        crypto_buffer.reset();
         plaintext = quic_crypto.decrypt(initial_packet);
 
         // parse plaintext as a sequence of frames
@@ -1160,14 +1272,25 @@ public:
     }
 
     bool has_tls() const {
+        if (pre_decrypted) {
+            return decry_pkt.hello_is_not_empty(); 
+        }
         return hello.is_not_empty();
     }
 
     const tls_client_hello &get_tls_client_hello() const {
+        if (pre_decrypted) {
+            return decry_pkt.get_tls_client_hello();
+        }
         return hello;
     }
 
     void write_json(struct json_object &record, bool metadata_output=false) {
+        if(pre_decrypted) {
+            decry_pkt.write_json(record,metadata_output);
+            return;
+        }
+        
         if (hello.is_not_empty()) {
             hello.write_json(record, metadata_output);
         }
@@ -1196,6 +1319,11 @@ public:
         //
         // TODO: do we want to report anything if !hello.is_not_empty() ?
 
+        if(pre_decrypted) {
+            decry_pkt.compute_fingerprint(fp);
+            return;
+        }
+
         if (hello.is_not_empty()) {
             fp.set_type(fingerprint_type_quic);
             quic_hdr_fp hdr_fp(initial_packet.version);
@@ -1206,6 +1334,10 @@ public:
     }
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        if(pre_decrypted) {
+            return decry_pkt.do_analysis(k_, analysis_, c_);
+        }
+        
         struct datum sn{NULL, NULL};
         struct datum user_agent {NULL, NULL};
         datum alpn;
