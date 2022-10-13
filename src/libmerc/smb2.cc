@@ -46,95 +46,81 @@ bool negotiate_context::get_netname(datum netname, std::string& name) {
     return true;
 }
 
-void negotiate_context::write_json(struct json_object &o) {
+void negotiate_context::write_json(struct json_array &o) {
     if(!valid) {
         return;
     }
 
-    struct json_array neg_contexts{o, "negotiate_contexts"};
+    struct json_object a{o};
+    a.print_key_string("context_type", get_context_type_string(context_type));
 
-    while(body.is_not_null() && body.is_not_empty()) {
-        struct json_object a{neg_contexts};
+    a.print_key_uint16("data_length", data_length.value());
 
-        encoded<uint16_t> context_type(body, byte_swap);
-        a.print_key_string("context_type", get_context_type_string(context_type));
+    datum tmp = body;
 
-        encoded<uint16_t> data_length(body, byte_swap);
-        a.print_key_uint16("data_length", data_length.value());
-
-        body.skip(4); //skip the 4 byte reserved field
-
-        switch(context_type) {
-        case SMB2_PREAUTH_INTEGRITY_CAPABILITIES:
-        {
-            smb2_preauth_integrity_capa x(body, byte_swap);
-            x.write_json(a);
-            break;
-        }
-        case SMB2_ENCRYPTION_CAPABILITIES:
-        {
-            smb2_encryption_capa x(body, byte_swap);
-            x.write_json(a);
-            break;
-        }
-        case SMB2_COMPRESSION_CAPABILITIES:
-        {
-            smb2_compression_capa x(body, byte_swap);
-            x.write_json(a);
-            break;
-        }
-        case SMB2_NETNAME_NEGOTIATE_CONTEXT_ID:
+    switch(context_type) {
+    case SMB2_PREAUTH_INTEGRITY_CAPABILITIES:
+    {
+        smb2_preauth_integrity_capa x(tmp, byte_swap);
+        x.write_json(a);
+        break;
+    }
+    case SMB2_ENCRYPTION_CAPABILITIES:
+    {
+        smb2_encryption_capa x(tmp, byte_swap);
+        x.write_json(a);
+        break;
+    }
+    case SMB2_COMPRESSION_CAPABILITIES:
+    {
+        smb2_compression_capa x(tmp, byte_swap);
+        x.write_json(a);
+        break;
+    }
+    case SMB2_NETNAME_NEGOTIATE_CONTEXT_ID:
+    /*
+     * Netname: A Unicode UTF-16 fully qualified domain name, a NetBIOS name
+     * or an IP address of the server machine.
+     */
+    {
+        datum netname;
+        netname.parse(tmp, data_length.value());
         /*
-         * Netname: A Unicode UTF-16 fully qualified domain name, a NetBIOS name
-         * or an IP address of the server machine.
+         * If the netname has all characters as printable ascii, then print
+         * it as a string, otherwise print is as hex characters.
          */
-        {
-            datum netname;
-            netname.parse(body, data_length.value());
-            /*
-             * If the netname has all characters as printable ascii, then print
-             * it as a string, otherwise print is as hex characters.
-             */
-            std::string name;
-            name.reserve(data_length.value()/2);
-            if (get_netname(netname, name)) {
-                a.print_key_string("netname", name.c_str());
-            } else {
-                a.print_key_hex("netname", netname);
-            }
-            break;
+        std::string name;
+        name.reserve(data_length.value()/2);
+        if (get_netname(netname, name)) {
+            a.print_key_string("netname", name.c_str());
+        } else {
+            a.print_key_hex("netname", netname);
         }
-        case SMB2_TRANSPORT_CAPABILITIES:
-        {
-            encoded<uint32_t> flags(body, byte_swap);
-            a.print_key_uint_hex("flags", flags);
-            break;
-        }
-        case SMB2_RDMA_TRANSFORM_CAPABILITIES:
-        {
-            smb2_rdma_transform_capa x(body, byte_swap);
-            x.write_json(a);
-            break;
-        }
-        case SMB2_SIGNING_CAPABILITIES:
-        {
-            smb2_signing_capa x(body, byte_swap);
-            x.write_json(a);
-            break;
-        }
-        default:
-            body.skip(data_length);
-            break;
-        }   
-        /*
-         * Each Negotiate contexts are 8 byte aligned.
-         * Hence there will be padding bytes after each
-         * negotiate context to make the next one 8 byte aligned.
-         */
-        body.skip(8 - data_length % 8);
-        a.close();
+        break;
+    }
+    case SMB2_TRANSPORT_CAPABILITIES:
+    {
+        encoded<uint32_t> flags(tmp, byte_swap);
+        a.print_key_uint_hex("flags", flags);
+        break;
+    }
+    case SMB2_RDMA_TRANSFORM_CAPABILITIES:
+    {
+        smb2_rdma_transform_capa x(tmp, byte_swap);
+        x.write_json(a);
+        break;
+    }
+    case SMB2_SIGNING_CAPABILITIES:
+    {
+        smb2_signing_capa x(tmp, byte_swap);
+        x.write_json(a);
+        break;
+    }
+    default:
+        a.print_key_hex("value", tmp);
+        break;
     }   
-    neg_contexts.close();
+    a.close();
 }
 
 void smb2_negotiate_request::write_json(struct json_object &o) {
@@ -150,7 +136,7 @@ void smb2_negotiate_request::write_json(struct json_object &o) {
     neg_req.print_key_uint_hex("negotiate_context_offset", neg_context_offset);
     neg_req.print_key_uint16("negotiate_context_count", neg_context_count);
     dialect_list.write_json(o);
-    neg_context.write_json(o);
+    neg_contexts.write_json(o);
     neg_req.close();
 }
 
@@ -173,7 +159,7 @@ void smb2_negotiate_response::write_json (struct json_object &o) {
     neg_resp.print_key_value("server_start_time", server_start_time);
     neg_resp.print_key_uint16("security_buffer_offset", security_buffer_offset);
     neg_resp.print_key_uint16("security_buffer_length", security_buffer_length);
-    neg_context.write_json(neg_resp);
+    neg_contexts.write_json(neg_resp);
     neg_resp.close();
 }
 
