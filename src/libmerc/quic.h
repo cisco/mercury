@@ -1142,7 +1142,7 @@ public:
         while (plaintext_copy.is_not_empty()) {
             quic_frame frame{plaintext_copy};
             //frame.write(stderr);
-            if (!frame.is_valid()) {
+            if (!frame.is_valid() || plaintext_copy.is_null()) {
                 valid = false;
                 return;
             }
