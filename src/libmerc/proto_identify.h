@@ -36,6 +36,8 @@
 #include "ssdp.h"
 #include "stun.h"
 #include "dnp3.h"
+#include "netbios.h"
+#include "udp.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -52,7 +54,8 @@ enum tcp_msg_type {
     tcp_msg_type_smb1,
     tcp_msg_type_smb2,
     tcp_msg_type_iec,
-    tcp_msg_type_dnp3
+    tcp_msg_type_dnp3,
+    tcp_msg_type_nbss,
 };
 
 enum udp_msg_type {
@@ -67,6 +70,7 @@ enum udp_msg_type {
     udp_msg_type_vxlan,
     udp_msg_type_ssdp,
     udp_msg_type_stun,
+    udp_msg_type_nbds,
 };
 
 template <size_t N>
@@ -102,6 +106,10 @@ public:
         case tcp_msg_type_dnp3:
         {
             return (dnp3::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_nbss:
+        {
+            return (nbss_packet::get_payload_length(pkt) == pkt.length());
         }
         default:
             return true;
@@ -150,6 +158,7 @@ class traffic_selector {
     bool select_dns;
     bool select_nbns;
     bool select_mdns;
+    bool select_nbds;
 
 public:
 
@@ -161,7 +170,16 @@ public:
 
     bool mdns() const { return select_mdns; }
 
-    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false} {
+    bool nbds() const { return select_nbds; }
+
+    traffic_selector(std::map<std::string, bool> protocols) :
+            tcp{},
+            udp{},
+            select_tcp_syn{false},
+            select_dns{false},
+            select_nbns{false},
+            select_mdns{false},
+            select_nbds{false} {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -274,6 +292,12 @@ public:
         if (protocols["dnp3"] || protocols["all"]) {
             tcp4.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
         }
+        if (protocols["nbss"] || protocols["all"]) {
+            tcp4.add_protocol(nbss_packet::matcher, tcp_msg_type_nbss);
+        }
+        if (protocols["nbds"] || protocols["all"]) {
+            select_nbds = true;
+        }
         // tell protocol_identification objects to compile lookup tables
         //
         tcp.compile();
@@ -297,7 +321,18 @@ public:
         }
         return type;
     }
+    
+    size_t get_udp_msg_type_from_ports(udp::ports ports) const {
+        if (nbds() and ports.src == htons(138) and ports.dst == htons(138)) {
+            return udp_msg_type_nbds;
+        }
 
+        if (ports.dst == htons(4789)) {
+            return udp_msg_type_vxlan;
+        }
+
+        return udp_msg_type_unknown;
+    }
 };
 
 #endif /* PROTO_IDENTIFY_H */

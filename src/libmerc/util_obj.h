@@ -17,6 +17,10 @@ struct ipv4_addr : public datum {
     static const unsigned int bytes_in_addr = 4;
     ipv4_addr() : datum{} { }
 
+    ipv4_addr(struct datum &d) :  datum{} {
+        datum::parse(d, bytes_in_addr);
+    }
+
     void parse(struct datum &d) {
         datum::parse(d, bytes_in_addr);
     }

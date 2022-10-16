@@ -105,6 +105,8 @@ public:
             { "http",        false },
             { "mdns",        false },
             { "nbns",        false },
+            { "nbds",        false },
+            { "nbss",        false },       
             { "ssh",         false },
             { "tcp",         false },
             { "tcp.message", false },

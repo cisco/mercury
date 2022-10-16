@@ -46,6 +46,7 @@
 #include "ppp.h"
 #include "smb1.h"
 #include "smb2.h"
+#include "netbios.h"
 
 // class unknown_initial_packet represents the initial data field of a
 // tcp or udp packet from an unknown protocol
@@ -245,6 +246,18 @@ struct write_metadata {
         iec.close();
     }
 
+    void operator()(nbss_packet &r) {
+        struct json_object nbss{record, "nbss"};
+        r.write_json(nbss);
+        nbss.close();
+    }
+
+    void operator()(nbds_packet &r) {
+        struct json_object nbds{record, "nbds"};
+        r.write_json(nbds);
+        nbds.close();
+    }
+
     void operator()(std::monostate &r) {
         (void) r;
     }
@@ -277,6 +290,8 @@ struct compute_fingerprint {
     void operator()(smb1_packet &) { }
     void operator()(smb2_packet &) { }
     void operator()(iec60870_5_104 &) { }
+    void operator()(nbss_packet &) { }
+    void operator()(nbds_packet &) { }
     void operator()(std::monostate &) { }
 
 };
@@ -496,6 +511,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_dnp3:
         x.emplace<dnp3>(pkt);
         break;
+    case tcp_msg_type_nbss:
+        x.emplace<nbss_packet>(pkt);
+        break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
             x.emplace<unknown_initial_packet>(pkt);
@@ -576,7 +594,14 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     case udp_msg_type_stun:
         x.emplace<stun::message>(pkt);
         break;
+    case udp_msg_type_nbds:
+        x.emplace<nbds_packet>(pkt);
+        break;
     default:
+       /* if (selector.nbds() and k.src_port == 138 and k.dst_port == 138) {
+            x.emplace<nbds_packet>(pkt);
+            break;
+        }*/
         if (is_new) {
             x.emplace<unknown_udp_initial_packet>(pkt);
         } else {
@@ -779,15 +804,17 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
             udp::ports ports = udp_pkt.get_ports();
+            msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
             // if (ports.src == htons(53) || ports.dst == htons(53)) {
             //     msg_type = udp_msg_type_dns;
             // }
             // if (selector.mdns() && (ports.src == htons(5353) || ports.dst == htons(5353))) {
             //     msg_type = udp_msg_type_dns;
             // }
-            if (ports.dst == htons(4789)) {
+        /*    if (ports.dst == htons(4789)) {
                 msg_type = udp_msg_type_vxlan;
             }
+        */
         }
 
         bool is_new = false;
@@ -1041,9 +1068,11 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
         if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
             udp::ports ports = udp_pkt.get_ports();
-            if (ports.dst == htons(4789)) {
+            msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
+           /* if (ports.dst == htons(4789)) {
                 msg_type = udp_msg_type_vxlan; // could parse VXLAN header here
             }
+        */
         }
 
         set_udp_protocol(x, pkt, msg_type, false, k);
