@@ -99,6 +99,8 @@ char mercury_extended_help[] =
     "      iec               IEC 60870-5-104\n"
     "      mdns              multicast DNS\n"
     "      nbns              NetBIOS Name Service\n"
+    "      nbds              NetBIOS Datagram Service\n"
+    "      nbss              NetBIOS Session Service\n"
     "      quic              QUIC handshake\n"
     "      ssh               SSH handshake and KEX\n"
     "      smb               SMB v1 and v2\n"
