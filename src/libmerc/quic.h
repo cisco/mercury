@@ -249,7 +249,13 @@ class ack {
 
 public:
     ack(datum &d) : largest_acked{d}, ack_delay{d}, ack_range_count{d}, first_ack_range{d}, valid{false} {
-        for (unsigned i=0; i<ack_range_count.value(); i++) {
+        // rough estimate: considering 2k byte pkt, and min ack range size as 2 bytes, max ack range count is 1000
+        // exit if range count exceeds this or datum is empty
+        if (ack_range_count.value() > 1000) {
+            d.set_null();
+            return;
+        }
+        for (unsigned i=0; i<ack_range_count.value() && d.is_not_empty(); i++) {
             ack_range range{d};
         }
         if (d.is_null()) {
