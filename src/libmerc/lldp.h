@@ -238,11 +238,11 @@ public:
             ost.write_json(wrapper);
 
         } else if (type == type::end_of_pdu) {
-            json_object eop{wrapper, "end_of_pdu"};
             if (information_string.is_not_empty()) {
+                json_object eop{wrapper, "end_of_pdu"};
                 wrapper.print_key_hex("unexpected_data", information_string);
+                eop.close();
             }
-            eop.close();
 
         } else {
             wrapper.print_key_uint("type_code", type);
