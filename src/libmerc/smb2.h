@@ -51,11 +51,11 @@ public:
         if(!valid) {
             return;
         }
-        b.write_hex_uint32(a);
+        b.write_hex_uint(a);
         b.write_char('-');
-        b.write_hex_uint16(this->b);
+        b.write_hex_uint(this->b);
         b.write_char('-');
-        b.write_hex_uint16(c);
+        b.write_hex_uint(c);
         b.write_char('-');
         b.raw_as_hex(d.data, 2);
         b.write_char('-');

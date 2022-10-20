@@ -84,7 +84,7 @@ STUN += turn-channel.csv
 STUN += stun-security-features.csv
 STUN += stun-password-algorithm.csv
 
-STUN_CMD += stun-parameters-2.csv:method_type:method
+STUN_CMD += stun-parameters-2.csv:method
 STUN_CMD += local-stun-attributes.csv,stun-parameters-4.csv:attribute_type:type
 STUN_CMD += stun-parameters-6.csv:error_codes
 # STUN_CMD += turn-channel.csv

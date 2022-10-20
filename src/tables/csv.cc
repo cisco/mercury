@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <regex>
 #include <fstream>
-#include "unistd.h"
+#include <unistd.h>
 
 #include "csv.h"
 
@@ -36,8 +36,7 @@ void write_preamble(const std::string &filename,
     fprintf(f,
             "//\n\n"
             "#ifndef %s\n"
-            "#define %s\n\n"
-            "static const char UNKNOWN[] = \"UNKNOWN\";\n\n",
+            "#define %s\n\n",
             preprocname.c_str(),
             preprocname.c_str());
 }
@@ -66,15 +65,16 @@ void write_class(const std::vector<std::tuple<std::string, std::string>> &params
             "public:\n"
             "    void write_json(json_object &o) const {\n"
             "        const char *name = get_name();\n"
-            "        o.print_key_string(\"%s\", name);\n"
-            "        if (name == UNKNOWN) {\n"
-            "            o.print_key_uint(\"%s_code\", encoded<T>::value());\n"
+            "        if (name == nullptr) {\n"
+            "            o.print_key_unknown_code(\"%s\", encoded<T>::value());\n"
+            "        } else {\n"
+            "            o.print_key_string(\"%s\", name);\n"
             "        }\n"
             "    }\n"
             "    enum code {\n",
             classname,
             sname,
-            classname);
+            sname);
 
     for (const auto &p : params) {
         int padlen = max - std::get<0>(p).length();
@@ -103,7 +103,7 @@ void write_class(const std::vector<std::tuple<std::string, std::string>> &params
             "        default:\n"
             "            ;\n"
             "        }\n"
-            "        return UNKNOWN;\n"
+            "        return nullptr;\n"
             "    }\n"
             "};\n\n");
 }

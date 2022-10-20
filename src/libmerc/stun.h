@@ -507,7 +507,7 @@ namespace stun {
 
         void write_json(json_object &o) const  {
             if (is_valid()) {
-                method_type<uint16_t>{get_method_type()}.write_json(o);
+                method<uint16_t>{get_method_type()}.write_json(o);
                 // const char *method_name = method_type_get_name(get_method_type());
                 // o.print_key_string("method", method_type_get_name(get_method_type()));
                 // if (method_name == unknown) {

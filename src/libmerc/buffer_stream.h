@@ -1065,19 +1065,19 @@ struct buffer_stream {
         append_uint16(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_hex_uint8(uint8_t n) {
+    void write_hex_uint(uint8_t n) {
         append_uint8_hex(dstr, &doff, dlen, &trunc, n);
     } 
 
-    void write_hex_uint16(uint16_t n) {
+    void write_hex_uint(uint16_t n) {
         append_uint16_hex(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_hex_uint32(uint32_t n) {
+    void write_hex_uint(uint32_t n) {
         append_uint32_hex(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_hex_uint64(uint64_t n) {
+    void write_hex_uint(uint64_t n) {
         append_uint64_hex(dstr, &doff, dlen, &trunc, n);
     }
 
