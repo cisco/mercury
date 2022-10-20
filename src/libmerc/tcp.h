@@ -277,214 +277,348 @@ struct tcp_initial_message_filter {
  *      tcp_segment.
  */
 
+struct tcp_seg_context {
+    uint32_t data_length;
+    uint32_t seq;
+    uint32_t additional_bytes_needed;
+
+    tcp_seg_context(uint32_t len, uint32_t seq_no, uint32_t additional_bytes) : data_length{len}, seq{seq_no}, additional_bytes_needed{additional_bytes} {}
+};
+
 struct tcp_segment {
     uint32_t seq_init;
-    uint32_t seq_end;
+    uint32_t curr_seq;
     uint32_t index;
-    uint32_t last_byte_needed;
-    unsigned int timestamp;
+    uint32_t end_index;
+    uint32_t seg_len;
+    uint32_t max_index;
+    uint32_t total_bytes_needed;
+    uint32_t current_bytes;
+    uint32_t seg_count;
+    uint16_t prune_index;  // index of prune node in pruning table
+    unsigned int init_time;
+    bool done;
+    bool seg_overlap;  // current pkt overlaps with a previous segment
+    bool max_seg_exceed;
 
-    static const size_t array_length = 8192;
-    static const size_t header_length = sizeof(seq_init) + sizeof(seq_end) + sizeof(index) + sizeof(last_byte_needed) + sizeof(timestamp);
-    static const size_t buffer_length = array_length - header_length;
-    uint8_t data[buffer_length];
+    static const unsigned int timeout = 30;    // seconds before flow timeout
 
-    static const bool debug = false;
+    static const size_t buffer_len = 8192;
+    uint8_t data[buffer_len];
 
-    tcp_segment() : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} {
-        // fprintf(stderr, "creating tcp_segment ()\n");
-    };
+    static const uint32_t max_seg_count = 20;
+    std::pair<uint32_t, uint32_t> seg[max_seg_count];
+    //std::vector< std::pair<uint32_t,uint32_t> > seg;
 
-    tcp_segment(const struct tcp_segment &r) : seq_init{r.seq_init}, seq_end{r.seq_end}, index{r.index}, last_byte_needed{r.last_byte_needed}, timestamp{r.timestamp} {
-        memcpy(data, r.data, r.index);
-        // fprintf(stderr, "creating tcp_segment (*)\n");
-    };
+    tcp_segment() : seq_init{0}, curr_seq{0}, index{0}, end_index{0}, seg_len{0}, max_index{8192}, total_bytes_needed{8192},
+                        current_bytes{0}, seg_count{0}, prune_index{0}, init_time{0}, done{false}, seg_overlap{false}, max_seg_exceed{false} {}
 
-    tcp_segment(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) : seq_init{0}, seq_end{0}, index{0}, last_byte_needed{0}, timestamp{0} {
-        // fprintf(stderr, "creating tcp_segment (**)\n");
-        init_from_packet(tcp, length, bytes_needed, sec);
-    };
+    bool init_from_pkt (unsigned int sec, struct tcp_seg_context &tcp_pkt, uint32_t syn_seq, datum &p) {
+        seq_init = syn_seq;
+        init_time = sec;
+        seg_len = tcp_pkt.data_length;
+        curr_seq = tcp_pkt.seq;
+        seg_count++;
+        bool is_initial = (seq_init == curr_seq);
 
-    ~tcp_segment() {
-        //fprintf(stderr, "destroying tcp_segment\n");
-    };
-
-    bool init_from_packet(const struct tcp_header *tcp, size_t length, size_t bytes_needed, unsigned int sec) {
-        if (length + bytes_needed > tcp_segment::buffer_length) {
-            //            fprintf(stderr, "warning: tcp segment length %zu exceeds buffer length %zu (length: %zu, bytes_needed: %zu)\n", length + bytes_needed, tcp_segment::buffer_length, length, bytes_needed);
-
-            if (length < tcp_segment::buffer_length) {
-                bytes_needed = tcp_segment::buffer_length - length;
-            } else {
-                // packet is longer than buffer; it should be processed immediately
-                printf_err(log_warning, "processing immediately as packet is longer than buffer\n");
-                return false;
-            }
-        }
-        // fprintf(stderr, "requesting reassembly\n");
-        //        fprintf(stderr, "requesting reassembly (length: %zu)[%zu, %zu]\n", length + bytes_needed, length, bytes_needed);
-
-        index = length;
-        seq_init = ntohl(tcp->seq);
-        seq_end = ntohl(tcp->seq) + length + bytes_needed;
-        last_byte_needed = length + bytes_needed;
-        timestamp = sec;
-        if (debug) {
-            printf_err(log_debug, "inserted flow key with seq %u and packet length %zu\n", ntohl(tcp->seq), length);
-            printf_err(log_debug, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
-                       __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
+        if (is_initial) {
+            total_bytes_needed = seg_len + tcp_pkt.additional_bytes_needed;
+            max_index = total_bytes_needed;
         }
 
-        const uint8_t *src_start = (const uint8_t*)tcp;
-        src_start += tcp_offrsv_get_header_length(tcp->offrsv);
-        uint8_t *dst_start = data;
-        uint32_t copy_len = length;
-        memcpy(dst_start, src_start, copy_len);
-        if (debug) {
-            printf_err(log_debug, "\tcopying %u bytes", copy_len);
-            printf_err(log_debug, "\tsegment: [%u,%u]\n", 0, index);
+        index = curr_seq - seq_init;
+        end_index = index + seg_len;
+        seg[0].first = index;
+        seg[0].second = end_index;
+        if (max_index > buffer_len) {
+            return false;   // cannot accommodate reassembled data
         }
+        if (index >= buffer_len) {
+            return true;    // ignore this seg
+        }
+
+        // TODO: check for datum len
+        uint32_t len = end_index > buffer_len ? (buffer_len-index):seg_len;
+        memcpy(data+index, p.data, len);
+        current_bytes += seg_len;
         return true;
     }
 
-    struct tcp_segment *check_packet(const struct tcp_header *tcp, size_t length, unsigned int sec) {
-        (void)sec;
+    bool check_overlap (uint32_t start, uint32_t end, std::pair<uint32_t,uint32_t> *segment) {
 
-        if (debug) {
-            printf_err(log_debug, "%s (src: %u, dst: %u)\tpacket: [%u,%zu]\tsegment: [%u,%u]",
-                       __func__, ntohs(tcp->src_port), ntohs(tcp->dst_port), ntohl(tcp->seq)-seq_init, ntohl(tcp->seq)-seq_init+length, 0, index);
-        }
+        // right overlap
+        bool right = (start > segment->first && start < segment->second);
+        bool left = (end > segment->first && end < segment->second);
 
-        const uint8_t *src_start = (const uint8_t*)tcp;
-        src_start += tcp_offrsv_get_header_length(tcp->offrsv);
-
-        uint32_t pkt_start = ntohl(tcp->seq) - seq_init;
-        uint32_t pkt_end   = pkt_start + length;
-        if (pkt_start == index) {
-            if (debug) {
-                printf_err(log_debug, "==");
-            }
-
-            if (pkt_end >= last_byte_needed) {
-                uint8_t *dst_start = data + index;
-                uint32_t copy_len = last_byte_needed - index;
-                memcpy(dst_start, src_start, copy_len);
-                index += copy_len;
-                if (debug) {
-                    printf_err(log_debug, "\tcopying %u bytes", copy_len);
-                    printf_err(log_debug, "\tsegment: [%u,%u]", 0, index);
-                    printf_err(log_debug, "\tDONE\n");
-                }
-                // fprintf(stderr, "reassembled packet\n");
-                // fprintf(stderr, "reassembled packet age: %u\n", sec - timestamp);
-                return this;
-
-            } else {
-                uint8_t *dst_start = data + index;
-                uint32_t copy_len = pkt_end - index;
-                memcpy(dst_start, src_start, copy_len);
-                index += copy_len;
-                if (debug) {
-                    printf_err(log_debug, "\tcopying %u bytes", copy_len);
-                    printf_err(log_debug, "\tsegment: [%u,%u]\n", 0, index);
-                }
-                return nullptr;
-            }
-        } else if (pkt_start < index) {
-
-            if (pkt_end >= last_byte_needed) {
-                pkt_start += (index - pkt_start);
-                uint8_t *dst_start = data + index;
-                uint32_t copy_len = last_byte_needed - index;
-                memcpy(dst_start, src_start, copy_len);
-                index += copy_len;
-                if (debug) {
-                    printf_err(log_debug, "\tcopying %u bytes", copy_len);
-                    printf_err(log_debug, "\tsegment: [%u,%u]", 0, index);
-                    printf_err(log_debug, "\tDONE\n");
-                    //fprintf_json_string_escaped(stderr, "segment", data, last_byte_needed);  fprintf(stderr, "\n");
-                }
-                printf_err(log_debug, "reassembled packet\n");
-                // printf_err(log_debug, "reassembled packet age: %u\n", sec - timestamp);
-                return this;
-            } else {
-                printf_err(log_debug, "pkt_end < last_byte_needed\n");
-            }
-            if (debug) {
-                printf_err(log_debug, ">\n");
-            }
-
-        } else if (pkt_start > index) { // pkt_start > index
-            //            printf_err(log_debug, "pkt_start > index (difference: %u, pkt_start: %u, index: %u)\n", pkt_start - index, pkt_start, index);
-        } else {
-            printf_err(log_debug, "wtf?\n");
-        }
-        if (debug) {
-            printf_err(log_debug, "\n");
-        }
-        return nullptr;
+        return (right || left);
     }
 
-    bool is_too_old(unsigned int sec) {
-        unsigned int max_sec_in_table = 30;
+    bool check_seg_overlaps (uint32_t start, uint32_t end) {
+        uint32_t index = seg_count - 2;
 
-        return (sec > timestamp + max_sec_in_table);
+        for (size_t i = 0; i <= index; i++) {
+            if (check_overlap(start, end, seg+i)) {
+                return true;
+            }
+        }
+
+        seg[index + 1].first = start;
+        seg[index + 1].second = end;
+    
+        return false;
     }
 
-    struct datum reassembled_segment() const {
-        struct datum reassembled_tcp_data{data, data + index};
+    struct tcp_segment *check_packet (struct tcp_seg_context &tcp_pkt, datum &p) {
+        seg_len = tcp_pkt.data_length;
+        curr_seq = tcp_pkt.seq;
+        bool is_initial = (seq_init == curr_seq);
+
+        if (is_initial) {
+            total_bytes_needed = seg_len + tcp_pkt.additional_bytes_needed;
+            max_index = total_bytes_needed;
+        }
+
+        index = curr_seq - seq_init;
+        end_index = index + seg_len;
+
+        seg_count++;
+        if (seg_count > max_seg_count) {
+            // force flush
+            done = true;
+            max_seg_exceed = true;
+            return this;
+        }
+
+        if (check_seg_overlaps(index, end_index)) {
+            seg_overlap = true;
+        }
+
+        if (max_index > buffer_len) {
+            return nullptr;   // cannot accommodate reassembled data
+        }
+        if (index >= buffer_len) {
+            return this;    // ignore this seg
+        }
+
+        // TODO: check for datum len
+        uint32_t len = end_index > buffer_len ? (buffer_len-index):seg_len;
+        memcpy(data+index, p.data, len);
+        current_bytes += seg_len;
+
+        if (current_bytes >= total_bytes_needed) {
+            done = true;
+        }
+
+        return this;
+    }
+
+    struct datum get_reassembled_segment() {
+        struct datum reassembled_tcp_data{data, data + total_bytes_needed};
         return reassembled_tcp_data;
     }
 
-};
-
-void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
-
-struct tcp_reassembler {
-    std::unordered_map<struct key, struct tcp_segment> segment_table;
-    std::unordered_map<struct key, struct tcp_segment>::iterator reap_it;
-
-    tcp_reassembler(unsigned int size) : segment_table{}, reap_it{segment_table.end()} {
-        segment_table.reserve(size);
-        reap_it = segment_table.end();
-        // printf_err(log_debug, "tcp_reassembler segment_table size: %zu bytes\n", size * sizeof(tcp_segment));
-    }
-
-    bool copy_packet(const struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length, size_t bytes_needed) {
-
-        if (length == 0) {
-            printf_err(log_debug, "warning: got length=0 in copy_packet()\n");
-            //            return;
-        }
-
-        tcp_segment segment;
-        if (segment.init_from_packet(tcp, length, bytes_needed, sec)) {
-            reap_it = segment_table.emplace(k, segment).first;
-            ++reap_it;
+    bool expired(unsigned int sec) {
+        if (sec - init_time > timeout) {
             return true;
         }
         return false;
     }
 
-    struct tcp_segment *check_packet(struct key &k, unsigned int sec, const struct tcp_header *tcp, size_t length) {
+};
+
+struct prune_node {
+    unsigned int init_timestamp;
+    struct key seg_key;
+    bool is_in_map;  // segment already removed from map post reassembly
+
+    static const unsigned int timeout = 30;
+
+    prune_node() : init_timestamp{0}, seg_key{}, is_in_map{true}{}
+
+    void update(unsigned int ts, struct key k) {
+        init_timestamp = ts;
+        seg_key = k;
+    }
+
+    bool is_expired(unsigned int ts) {
+        return (ts - init_timestamp > timeout);
+    }
+};
+
+struct prune_table {
+    unsigned int last_prune_ts;     // timestamp of last time pruning
+    uint16_t index_start;           // start of ciruclar buffer, prune from this side
+    uint16_t index_end;             // end of circular buffer, add from this side
+    uint16_t node_count;            // entries count
+
+    static const unsigned int prune_time = 30;          // prune every 30 sec
+    static const uint16_t max_prune_entries = 8000;     // max entries in prune table
+    static const uint16_t prune_limit = 6000;           // force prune after entries reach this value
+
+    struct prune_node nodes[max_prune_entries];
+
+    prune_table() : last_prune_ts{0}, index_start{0}, index_end{0}, node_count{0}, nodes{} {}
+
+    bool remove_node(struct key k, std::unordered_map<struct key, struct tcp_segment> &table) {
+        auto it = table.find(k);
+        if (it != table.end()) {
+            table.erase(it);
+            return true;
+        }
+        return false;
+    }
+
+    void do_pruning (unsigned int ts, std::unordered_map<struct key, struct tcp_segment> &table) {
+        uint16_t prune_count = 0;
+        uint16_t curr_index = 0;
+        uint16_t temp_start = index_start;
+        //uint16_t temp_end = index_end;
+        uint16_t temp_node_count = node_count;
+
+        for (uint16_t i = 0; i < temp_node_count; i++) {
+            curr_index = (i+temp_start < max_prune_entries) ? (i+temp_start) : (i+temp_start) - max_prune_entries;
+            if (nodes[curr_index].is_expired(ts)) {
+                if (nodes[curr_index].is_in_map && remove_node(nodes[curr_index].seg_key, table)) {
+                    prune_count++;
+                }
+                index_start++;
+                node_count--;
+            }
+            else {
+                // last expired entry, break
+                break;
+            }
+        }
+        if (index_start >= max_prune_entries) {
+            index_start -= max_prune_entries;
+        }
+    }
+
+    //  this tries to free up exactly one entry in the segment map forcefully
+    void do_force_pruning (std::unordered_map<struct key, struct tcp_segment> &table) {
+        uint16_t curr_index = 0;
+        uint16_t temp_start = index_start;
+        //uint16_t temp_end = index_end;
+        uint16_t temp_node_count = node_count;
+
+        for (uint16_t i = 0; i < temp_node_count; i++) {
+            curr_index = (i+temp_start < max_prune_entries) ? (i+temp_start) : (i+temp_start) - max_prune_entries;
+            index_start++;
+            node_count--;
+            if (index_start >= max_prune_entries) {
+                index_start -= max_prune_entries;
+            }
+            if (nodes[curr_index].is_in_map && remove_node(nodes[curr_index].seg_key, table)) {
+                return;
+            }
+        }
+    }
+
+    void check_time_pruning (unsigned int ts, std::unordered_map<struct key, struct tcp_segment> &table) {
+        if ((ts - last_prune_ts) > prune_time) {
+            last_prune_ts = ts;     // update prune time
+            do_pruning(ts, table);
+        }
+    }
+
+    bool add_node(unsigned int ts, struct key k, std::unordered_map<struct key, struct tcp_segment> &table, uint16_t &index) {
+        bool force_pruned = false;
+        if (node_count >= prune_limit) {
+            do_pruning(ts, table);
+            if (node_count == max_prune_entries) {
+                // force remove oldest entry
+                if (remove_node(nodes[index_start].seg_key, table)) {
+                    force_pruned = true;
+                }
+                index_start++;
+                if (index_start >= max_prune_entries) {
+                    index_start -= max_prune_entries;
+                }
+                node_count--;
+            }
+        }
+
+        index_end++;
+        if (index_end >= max_prune_entries) {
+            index_end -= max_prune_entries;
+        }
+
+        nodes[index_end].update(ts, k);
+        index = index_end;
+        node_count++;
+
+        return force_pruned;
+    }
+};
+
+void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
+
+enum reassembly_status {
+    reassembly_none = 0,
+    reassembly_in_progress = 1,
+    reassembly_done = 2
+};
+
+struct tcp_reassembler {
+    bool dump_pkt;          // current pkt involved in reassembly, dump pkt regardless of json
+    struct prune_table pruner;
+    uint64_t force_prunes;
+    bool curr_reassembly_consumed;
+    enum reassembly_status curr_reassembly_state;
+
+    static const uint32_t max_map_entries = 5000;
+    static const uint32_t force_prune_count = 4000;
+
+    std::unordered_map<struct key, struct tcp_segment> segment_table;
+    std::unordered_map<struct key, struct tcp_segment>::iterator reap_it;
+
+    tcp_reassembler(unsigned int size) : dump_pkt{false}, pruner{}, force_prunes{0}, curr_reassembly_consumed{false}, curr_reassembly_state{reassembly_none}, segment_table{}, reap_it{segment_table.end()} {
+        segment_table.reserve(size);
+        reap_it = segment_table.end();
+    }
+
+    bool init_segment(const struct key &k, unsigned int sec, struct tcp_seg_context &tcp_pkt, uint32_t syn_seq, datum &p) {
+        active_prune(sec);     // try pruning before inserting
+        tcp_segment segment;
+        if (segment.init_from_pkt(sec, tcp_pkt, syn_seq, p)) {
+            reap_it = segment_table.emplace(k, segment).first;
+            uint16_t index;
+            if (pruner.add_node(sec,k,segment_table,index)) {
+                force_prunes++;
+            }
+            reap_it->second.prune_index = index;
+            //++reap_it;
+            return true;
+        }
+        return false;
+    }
+
+    bool is_init_seg (const struct key&k, uint32_t seq) {
+        auto it = segment_table.find(k);
+        if (it != segment_table.end()) {
+            return (it->second.seq_init == seq);
+        }
+        return false;
+    }
+
+    struct tcp_segment *check_packet(const struct key &k, unsigned int sec, struct tcp_seg_context &tcp_pkt, datum &p, bool &reassembly_consumed) {
 
         auto it = segment_table.find(k);
         if (it != segment_table.end()) {
-            return it->second.check_packet(tcp, length, sec);
+            if (it->second.expired(sec)) {
+                pruner.nodes[it->second.prune_index].is_in_map = false;
+                remove_segment(it);
+                return nullptr;
+            }
+            // Before adding more data, check if reassembly already done
+            if (it->second.done) {
+                reassembly_consumed = true;
+                return &it->second;
+            }
+            reap_it = it;
+            return it->second.check_packet(tcp_pkt, p);
         }
         return nullptr;
-    }
-
-    std::unordered_map<struct key, struct tcp_segment>::iterator reap(unsigned int sec) {
-
-        // check for expired elements
-
-        if (reap_it != segment_table.end() && reap_it->second.is_too_old(sec)) {
-            // printf_err(log_debug, "processing expired segment\n");
-            // printf_err(log_debug, "processing expired segment (age: %u seconds)\n", sec - reap_it->second.timestamp);
-            return reap_it;  // not fully reassembled, but expired
-        }
-        return segment_table.end();
     }
 
     void remove_segment(key &k) {
@@ -492,7 +626,6 @@ struct tcp_reassembler {
         if (it != segment_table.end()) {
             reap_it = segment_table.erase(it);
         }
-        //    segment_table.erase(k);
     }
 
     void remove_segment(std::unordered_map<struct key, struct tcp_segment>::iterator it) {
@@ -501,12 +634,40 @@ struct tcp_reassembler {
         }
     }
 
+    void active_prune(unsigned int ts) {
+        if (segment_table.size() >= force_prune_count) {
+            pruner.do_pruning(ts, segment_table);
+        }
+        if (segment_table.size() == max_map_entries) {
+            pruner.do_force_pruning(segment_table);
+        }
+        pruner.check_time_pruning(ts, segment_table);
+    }
+
     void count_all() {
         auto it = segment_table.begin();
         while (it != segment_table.end()) {
-            printf_err(log_debug, "counting segment\n");
             it = segment_table.erase(it);
         }
+    }
+
+    void write_flags(struct json_object &record, const char *key) {
+        if (reap_it == segment_table.end()) {
+            return;
+        }
+        if (reap_it->second.done) {
+            struct json_object flags{record, key};
+            flags.print_key_bool("reassembled", true);
+            if (reap_it->second.seg_overlap) {
+                flags.print_key_bool("segment_overlap", reap_it->second.seg_overlap);
+            }
+            if (reap_it->second.max_seg_exceed) {
+                flags.print_key_bool("segment_count_exceed", reap_it->second.max_seg_exceed);
+            }
+            flags.close();
+        }
+        reap_it = segment_table.end();
+        return;
     }
 
 };
@@ -577,12 +738,18 @@ public:
     bool seq_is_equal_to(uint32_t s) {
         return seq == s;
     }
+    bool seq_is_greater(uint32_t s) {
+        return s > seq;
+    }
+    uint32_t get_seq() {
+        return seq;
+    }
 
 private:
     unsigned int sec;
     uint32_t seq;
 
-    static const unsigned int timeout = 1; // seconds before flow timeout
+    static const unsigned int timeout = 30; // seconds before flow timeout
 };
 
 struct flow_table_tcp {
@@ -616,6 +783,33 @@ struct flow_table_tcp {
         }
         reap(sec);
         return false;
+    }
+
+    // Returns the syn seq no, whether the received data pkt is first segment and whether the flow expired
+    //
+    uint32_t check_flow(const struct key &k, unsigned int sec, uint32_t seq, bool &initial_seq, bool &expired) {
+        uint32_t syn_seq;
+        auto it = table.find(k);
+        if (it != table.end()) {
+            if (it->second.is_expired(sec)) {
+                syn_seq = it->second.get_seq();
+                reap_it = table.erase(it);
+                expired = true;
+                return syn_seq;
+            }
+            if (it->second.seq_is_equal_to(seq)) {
+                reap_it = table.erase(it);
+                initial_seq = true;
+                return seq;
+            }
+            else if (it->second.seq_is_greater(seq)) {
+                syn_seq = it->second.get_seq();
+                reap_it = table.erase(it);
+                return syn_seq;       
+            }
+        }
+        reap(sec);
+        return 0;    
     }
 
     void reap(unsigned int sec) {

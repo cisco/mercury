@@ -19,6 +19,7 @@
 #include <string>
 #include <cassert>
 #include "libmerc.h"  // for enum status
+#include "buffer_stream.h"
 
 /*
  * The mercury_debug macro is useful for debugging (but quite verbose)
@@ -493,6 +494,15 @@ struct datum {
         return true;
     }
 
+    bool copy(unsigned char *dst, ssize_t dst_len) {
+        if (length() > dst_len) {
+            memcpy(dst, data, dst_len);
+            return false;
+        }
+        memcpy(dst, data, length());
+        return true;
+    }
+
     bool strncpy(char *dst, ssize_t dst_len) {
         if (length() + 1 > dst_len) {
             memcpy(dst, data, dst_len - 1);
@@ -522,6 +532,22 @@ struct datum {
         while (x < end) {
             fprintf(f, "%02x", *x++);
         }
+    }
+
+    void fprint_c_array(FILE *f, const char *name) const {
+        size_t count = 1;
+        const uint8_t *x = data;
+        fprintf(f, "uint8_t %s[] = {\n    ", name);
+        while (x < data_end - 1) {
+            fprintf(f, "0x%02x,", *x++);
+            if (count++ % 8 == 0) {
+                fputs("\n    ", f);
+            } else {
+                fputc(' ', f);
+            }
+        }
+        fprintf(f, "0x%02x", *x);
+        fputs("\n};\n", f);
     }
 
     void fprint(FILE *f, size_t length=0) const {
@@ -598,33 +624,81 @@ public:
 
     void copy(uint8_t x) {
         if (data + 1 > data_end) {
+            set_null();
             return;  // not enough room
         }
         *data++ = x;
     }
     void copy(const uint8_t *rdata, size_t num_bytes) {
         if (data_end - data < (ssize_t)num_bytes) {
-            // num_bytes = data_end - data;
             set_null();
+            return;
         }
         memcpy(data, rdata, num_bytes);
         data += num_bytes;
     }
-    void copy(struct datum &r, size_t num_bytes) {
+
+    void write_hex(const uint8_t *src, size_t num_bytes) {
+
+        // check for writeable room; output length is twice the input
+        // length
+        //
+        if (is_null() or data_end - data < 2 * (ssize_t)num_bytes) {
+            set_null();
+            return;
+        }
+
+        char hex_table[] = {
+            '0', '1', '2', '3', '4', '5', '6', '7',
+            '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+        };
+
+        for (size_t i=0; i < num_bytes; i++) {
+            *data++ = hex_table[(*src & 0xf0) >> 4];
+            *data++ = hex_table[*src++ & 0x0f];
+        }
+    }
+
+    void write_quote_enclosed_hex(const uint8_t *src, size_t num_bytes) {
+        copy('"');
+        write_hex(src, num_bytes);
+        copy('"');
+    }
+
+    template <typename Type>
+    void write_hex(Type T) {
+        T.write_hex(*this);
+    }
+
+    template <typename Type>
+    void write_quote_enclosed_hex(Type T) {
+        copy('"');
+        write_hex(T);
+        copy('"');
+    }
+
+    // parse(r, num_bytes) copies num_bytes out of r and into this, and
+    // advances r, if this writeable has enough room for the data and
+    // r contains at least num_bytes.  If r.length() < num_bytes, then
+    // r is set to null, and if this->length() < num_bytes, then this
+    // is set to null.
+    //
+    void parse(struct datum &r, size_t num_bytes) {
         if (r.length() < (ssize_t)num_bytes) {
             r.set_null();
             // fprintf(stderr, "warning: not enough data in parse\n");
             return;
         }
         if (data_end - data < (int)num_bytes) {
-            num_bytes = data_end - data;
+            set_null();
+            return;
         }
         memcpy(data, r.data, num_bytes);
         data += num_bytes;
         r.data += num_bytes;
     }
-    void copy(struct datum &r) {
-        copy(r, r.length());
+    void parse(struct datum &r) {
+        parse(r, r.length());
     }
 
     template <typename Type>
@@ -637,7 +711,7 @@ public:
     //
     writeable & operator<<(datum d) {
         if (d.is_not_null()) {
-            copy(d);
+            parse(d);
         }
         return *this;
     }
@@ -650,19 +724,24 @@ public:
 // and the end of the data buffer (writeable.data_end)
 //
 template <size_t T> struct data_buffer : public writeable {
-    unsigned char buffer[T];
+    unsigned char buffer[T];                                     // TODO: make buffer private
 
     data_buffer() : writeable{buffer, buffer+T} { }
 
-
     void reset() { data = buffer; }
     bool is_not_empty() const { return data != buffer && data < data_end; }
-    // void set_empty() {
-    //     data = buffer;
-    //     data_end = buffer;
-    // }
-    ssize_t length() const {
+
+    // data_buffer::readable_length() returns the number of bytes in
+    // the readable region, if the writeable region is not null;
+    // otherwise, zero is returned
+    //
+    ssize_t readable_length() const {
+        if (writeable::is_null()) {
+            return 0;
+        }
+        else {
             return data - buffer;
+        }
     }
 
     datum contents() const {
@@ -863,7 +942,7 @@ public:
     // TODO: add a function slice<i,j>(T newvalue) that sets the bits
     // associated with a slice
 
-    void write(writeable &buf, bool swap_byte_order=false) {
+    void write(writeable &buf, bool swap_byte_order=false) const {
         encoded<T> tmp = val;
         if (swap_byte_order) {
             tmp.swap_byte_order();
@@ -873,6 +952,66 @@ public:
         // TODO: rewrite function to eliminate cast
     }
 
+    // write_hex() writes a hexadecimal representation of this
+    // unsigned integer in network byte order
+    //
+    void write_hex(writeable &w) const {
+        encoded<T> tmp = val;
+        tmp.swap_byte_order();                        // TODO: write endian-generic version
+        w.write_hex((uint8_t *)&tmp, sizeof(T));
+    }
+};
+
+// class type_codes is a wrapper class and can be used to print typecodes. It inherently has a function
+// to write to json_object, a string depending on known typecodes for that class. The class utilises the json_object template function
+// print_key_value to write a type_code string. The type_code class to be wrapped must have a type_code, and functions:
+// template T get_code() to return code value and
+// char* print_code_str() to return code str or returns null for unknown code
+template <typename T>
+class type_codes {
+    const T &code;
+
+public:
+    type_codes(const T &type_code) : code{type_code} {}
+
+    void print_code(buffer_stream &b, encoded<uint8_t> code) {
+        b.write_uint8(code.value());
+    }
+
+    void print_code(buffer_stream &b, encoded<uint16_t> code) {
+        b.write_uint16(code.value());
+    }
+
+    void print_code(buffer_stream &b, uint8_t code) {
+        b.write_uint8(code);
+    }
+
+    void print_code(buffer_stream &b, uint16_t code) {
+        b.write_uint16(code);
+    }
+
+    // template function for code types with custom code writing functions
+    template <typename code_type>
+    void print_code(buffer_stream &b, code_type code) {
+        code.write_code(b);
+    }
+
+    template <typename code_type>
+    void print_unknown_code(buffer_stream &b, code_type code) {
+        b.puts("UNKNOWN (");
+        print_code(b, code);
+        b.puts(")");
+    }
+
+    void fingerprint(buffer_stream &b) {
+        const char* code_str = code.get_code_str();
+        if (!code_str) {
+            print_unknown_code(b, code.get_code());
+        }
+        else {
+            b.puts(code_str);
+        }
+    }
 };
 
 // class literal is a literal std::array of characters

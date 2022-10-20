@@ -79,4 +79,23 @@ struct mdns_packet {
     }
 };
 
+namespace {
+
+    [[maybe_unused]] int mdns_fuzz_test(const uint8_t *data, size_t size) {
+        datum pkt_data{data, data+size};
+        mdns_packet mdns_record{pkt_data};
+
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        if (mdns_record.is_not_empty()) {
+            mdns_record.write_json(record);
+        }
+
+        return 0;
+    }
+
+}; // end of namespace
+
 #endif /* MDNS_H */

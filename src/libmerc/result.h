@@ -190,9 +190,10 @@ struct analysis_context {
     fingerprint fp;
     struct destination_context destination;
     struct analysis_result result;
+    bool flow_state_pkts_needed;
 
 #ifdef __cplusplus
-    analysis_context() : fp{}, destination{}, result{} {}
+    analysis_context() : fp{}, destination{}, result{}, flow_state_pkts_needed{false} {}
     // could add structs needed for 'scratchwork'
 
     const char *get_server_name() const {
@@ -220,6 +221,10 @@ struct analysis_context {
 
     void reset_user_agent() {
         destination.ua_str[0] = '\0';
+    }
+
+    bool more_pkts_needed() {
+        return flow_state_pkts_needed;
     }
 #endif
 };

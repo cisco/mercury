@@ -114,7 +114,7 @@ struct json_object {
         b->write_hex_uint16(u);
         b->write_char('\"');
     }
-    void print_key_uint(const char *k, unsigned long int u) {
+    void print_key_uint(const char *k, unsigned long int u) { // note: JSON can't represent a uint64_t
         write_comma(comma);
         b->snprintf("\"%s\":%lu", k, u);
     }

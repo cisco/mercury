@@ -71,6 +71,14 @@ public:
     dialect (datum &d, bool byte_swap = true) : val(d, byte_swap), valid(d.is_not_null()) { }
 
     const char * get_dialect_string() const;
+
+    void write_raw_features(writeable &buf) const {
+        buf.write_quote_enclosed_hex(val);
+    }
+
+    void write_json(json_array &o) const {
+        o.print_uint16_hex(val.value());
+    }
 };    
          
 class dialects {
@@ -86,13 +94,31 @@ public:
         valid = d.is_not_null();
     }
 
+    void write_raw_features(writeable &buf) const {
+        if(!valid) {
+            return;
+        }
+
+        bool first = true;
+        buf.copy('[');
+        for(auto& i : dialects_list) {
+            if (!first) {
+                buf.copy(',');
+            } else {
+                first = false;
+            }
+            i.write_raw_features(buf);
+        }
+        buf.copy(']');
+    }
+
     void write_json(struct json_object &o) {
         if(!valid) {
             return;
         }
         struct json_array a{o, "dialects"};
         for(auto& i : dialects_list) {
-            a.print_string(i.get_dialect_string());
+            i.write_json(a);
         }
         a.close();
     }
@@ -331,12 +357,16 @@ public:
     }
 };
 
+
 /*
  * SMB2 NEGOTIATE_CONTEXT:
  * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/15332256-522e-4a53-8cd7-0bd17678a2f7
  */
 class negotiate_context {
-    datum &body;
+    encoded<uint16_t> context_type;
+    encoded<uint16_t> data_length;
+    skip_bytes<4> reserved;
+    datum body;    
     bool byte_swap;
     bool valid;
 
@@ -368,12 +398,63 @@ class negotiate_context {
 
 public:
     negotiate_context (datum &d, bool _byte_swap) :
-        body(d),
+        context_type(d, _byte_swap),
+        data_length(d, _byte_swap),
+        reserved(d),
+        body(d, data_length.value()),
         byte_swap(_byte_swap),
-        valid(d.is_not_null() && d.is_not_empty()) { }
+        valid(d.is_not_null()) {
+        d.skip(8 - data_length % 8);    // Skip the 8 byte aligned padding bytes
+        }
 
-    void write_json(struct json_object &o);
+    void write_json(struct json_array &o);
+
+    void write_raw_features(writeable &buf) const {
+        buf.copy('[');
+        buf.write_quote_enclosed_hex(context_type);
+        buf.copy(',');
+        buf.write_quote_enclosed_hex(body.data, body.length());
+        buf.copy(']');
+    }
 };
+
+class negotiate_context_list {
+    std::vector<negotiate_context> context_list;
+
+public:
+    negotiate_context_list (struct datum &d, bool byte_swap) {
+        while(d.is_not_empty()) {
+            context_list.emplace_back(negotiate_context(d, byte_swap));
+        }
+    }
+
+    void write_raw_features(writeable &buf) const {
+        buf.copy('[');
+        bool first = true;
+        for (const auto &i : context_list) {
+            if (!first) {
+                buf.copy(',');
+            } else {
+                first = false;
+            }
+            i.write_raw_features(buf);
+        }
+        buf.copy(']');
+    }
+
+    void write_json(struct json_object &o) {
+        if (context_list.empty()) {
+            return;
+        }
+
+        struct json_array neg_contexts{o, "negotiate_contexts"};
+        for (auto &i : context_list) {
+            i.write_json(neg_contexts);
+        }
+        neg_contexts.close();
+    }
+};
+
 
 /*
  * There is padding between the end of the Dialects array and the
@@ -412,7 +493,7 @@ class smb2_negotiate_request {
     skip_bytes<2> reserved2;
     dialects dialect_list;
     neg_req_padding padding;
-    negotiate_context neg_context;
+    negotiate_context_list neg_contexts;
     bool valid;
 
     static constexpr bool byte_swap = true;
@@ -429,8 +510,27 @@ public:
         reserved2(d),
         dialect_list(d, dialect_count.value()),
         padding(d, neg_context_offset.value(), dialect_count.value()),
-        neg_context(d, byte_swap),
+        neg_contexts(d, byte_swap),
         valid(d.is_not_null()) { }
+
+    void write_raw_features(writeable &buf) const {
+        if(!valid) {
+            return;
+        }
+
+        buf.copy(',');
+        buf.copy('[');
+        buf.write_quote_enclosed_hex(dialect_count);
+        buf.copy(',');
+        buf.write_quote_enclosed_hex(sec_mode);
+        buf.copy(',');
+        buf.write_quote_enclosed_hex(cap);
+        buf.copy(']');
+        buf.copy(',');
+        dialect_list.write_raw_features(buf);
+        buf.copy(',');
+        neg_contexts.write_raw_features(buf);
+    }
 
     void write_json(struct json_object &o);
 };
@@ -477,7 +577,7 @@ class smb2_negotiate_response {
     encoded<uint32_t> negotiate_context_offset;
     datum buffer;
     neg_resp_padding padding;
-    negotiate_context neg_context;
+    negotiate_context_list neg_contexts;
     bool valid;
 
     static constexpr bool byte_swap = true;
@@ -499,9 +599,25 @@ public:
         negotiate_context_offset(d, byte_swap),
         buffer(d, security_buffer_length.value()),
         padding(d, security_buffer_length.value()),
-        neg_context(d, byte_swap),
+        neg_contexts(d, byte_swap),
         valid(d.is_not_null()) { }
 
+    void write_raw_features(writeable &buf) const {
+        if(!valid) {
+            return;
+        }
+
+        buf.copy(',');
+        buf.copy('[');
+        buf.write_quote_enclosed_hex(sec_mode);
+        buf.copy(',');
+        dialect_num.write_raw_features(buf);
+        buf.copy(',');
+        buf.write_quote_enclosed_hex(capabilities);
+        buf.copy(']');
+        buf.copy(',');
+        neg_contexts.write_raw_features(buf);
+    }
     void write_json (struct json_object &o);
 };
  
@@ -600,6 +716,20 @@ public:
 
     bool is_valid() const { return valid; }
 
+    void write_raw_features(writeable &buf) const {
+        if (!valid) {
+            return;
+        }
+
+        buf.copy('[');
+        buf.write_quote_enclosed_hex(cmd.command);
+        buf.copy(',');
+        buf.write_quote_enclosed_hex(flags);
+        buf.copy(',');
+        buf.write_quote_enclosed_hex(next_cmd);
+        buf.copy(']');
+    }
+        
     void write_json(struct json_object &o);
 };
 
@@ -624,12 +754,24 @@ public:
             {
                 smb2_negotiate_request neg_req(body);
                 neg_req.write_json(o);
+                data_buffer<2048> buf;
+                buf.copy('[');
+                hdr.write_raw_features(buf);
+                neg_req.write_raw_features(buf);
+                buf.copy(']');
+                o.print_key_json_string("features", buf.contents());
             }
                 break;
             case smb2_header::packet_type::NEGOTIATE_RESPONSE:
             {
                 smb2_negotiate_response neg_resp(body);
                 neg_resp.write_json(o);
+                data_buffer<2048> buf;
+                buf.copy('[');
+                hdr.write_raw_features(buf);
+                neg_resp.write_raw_features(buf);
+                buf.copy(']');
+                o.print_key_json_string("features", buf.contents());
             }
                 break;
             case smb2_header::packet_type::LAST_TYPE:
@@ -647,5 +789,24 @@ public:
         { 0x00, 0x00, 0x00, 0x00, 0xfe, 0x53, 0x4d, 0x42}
     };
 };
- 
+
+namespace {
+
+    [[maybe_unused]] int smb2_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum request_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        
+
+        smb2_packet request{request_data};
+        if (request.is_not_empty()) {
+            request.write_json(record);
+        }
+
+        return 0;
+    }
+
+};
+
 #endif /* SMB2_H */
