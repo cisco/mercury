@@ -19,7 +19,7 @@ We used the following approach.  Each assigned number is represented by a single
 
 ## (Re)Building Tables
 
-To use it, change your working directory to `rc/tables` and run `make`.  The default makefile target builds the `csv` utility, checks for new versions of IANA CSV files, downloads any such files into the `source/` subdirectory, and then builds the protocol library targets if the CSV files needed for a library are newer than the library itself.  The resulting library files are written into the `source/` subdirectory.
+To use it, change your working directory to `src/tables` and run `make`.  The default makefile target builds the `csv` utility, checks for new versions of IANA CSV files, downloads any such files into the `source/` subdirectory, and then builds the protocol library targets if the CSV files needed for a library are newer than the library itself.  The resulting library files are written into the `source/` subdirectory.
 
 The `make clean` target removes the downloaded CSV files from the `source/` directory.  Any file with a name that matches the pattern `source/local*` will *not* be deleted; this naming convention can be used for files that hold non-standard assigned numbers, such as `source/local-stun-attributes.csv`.
 
