@@ -1,7 +1,11 @@
 # Makefile for csv utility and table generation
 #
 
-all: csv ikev2_params.h stun_params.h
+protocol_libs += ikev2_params.h
+protocol_libs += stun_params.h
+
+.PHONY: all
+all: csv $(protocol_libs)
 
 # build csv processing utility
 #
@@ -107,6 +111,6 @@ clean:
 	find source/ -type f ! -name 'local*.csv' -delete
 
 distclean: clean
-	rm -f ikev2_params.h
+	rm -f $(protocol_libs)
 
 # EOF

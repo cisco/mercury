@@ -1,0 +1,6 @@
+Value,Name,Reference
+0x00,Reserved,
+0x01,Request,
+0x02,Response,
+0x03-0xff,Unassigned,
+
