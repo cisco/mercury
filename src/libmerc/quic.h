@@ -289,6 +289,41 @@ public:
     }
 
 };
+class ack_ecn {
+    ack ack_frame;
+    variable_length_integer ect0;
+    variable_length_integer ect1;
+    variable_length_integer ecn_ce;
+    bool valid = false;
+
+public:
+
+    ack_ecn(datum &d) : ack_frame{d}, ect0{d}, ect1{d}, ecn_ce{d}, valid{d.is_not_null()&&ack_frame.is_valid()} {}
+
+    bool is_valid() { return valid; }
+
+    void write_json(json_object &o) {
+        if (is_valid()) {
+            json_object a{o, "ack_ecn"};
+            a.print_key_uint("ect0", ect0.value());
+            a.print_key_uint("ect1", ect1.value());
+            a.print_key_uint("ecn_ce", ecn_ce.value());
+            ack_frame.write_json(a);
+            a.close();
+        }
+    }
+
+    void write(FILE *f) {
+    	if (is_valid()) {
+            ack_frame.write(f);
+        	fprintf(f, "ack.ect0: %lu\n", ect0.value());
+            fprintf(f, "ack.ect1: %lu\n", ect1.value());
+            fprintf(f, "ack.ecn_ce: %lu\n", ecn_ce.value());
+        } else {
+        	fprintf(f, "ack_ecn.not valid\n");
+        }
+    }
+};
 
 //
 // ECN Counts {
@@ -1009,7 +1044,7 @@ public:
 };
 
 class quic_frame {
-    std::variant<std::monostate, padding, ping, ack, crypto, connection_close> frame;
+    std::variant<std::monostate, padding, ping, ack, ack_ecn, crypto, connection_close> frame;
 
 public:
 
@@ -1027,7 +1062,10 @@ public:
             frame.emplace<ping>(d);
         } else if (type == 0x02) {
             frame.emplace<ack>(d);
-        } else {
+        } else if (type == 0x03) {
+            frame.emplace<ack_ecn>(d);
+        } 
+        else {
             // fprintf(stderr, "unknown frame type %02x\n", type);  // TODO: report through JSON
             frame.emplace<std::monostate>();
         }
@@ -1260,7 +1298,7 @@ public:
             if (c && c->is_valid()) {
                 crypto_buffer.extend(*c);
             }
-            if (frame.has_type<connection_close>() || frame.has_type<ack>()) {
+            if (frame.has_type<connection_close>() || frame.has_type<ack>() || frame.has_type<ack_ecn>()) {
                 cc = frame;
             }
         }
