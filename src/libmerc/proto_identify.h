@@ -159,6 +159,7 @@ class traffic_selector {
     bool select_nbns;
     bool select_mdns;
     bool select_nbds;
+    bool select_nbss;
 
 public:
 
@@ -172,6 +173,8 @@ public:
 
     bool nbds() const { return select_nbds; }
 
+    bool nbss() const { return select_nbss; }
+
     traffic_selector(std::map<std::string, bool> protocols) :
             tcp{},
             udp{},
@@ -179,7 +182,8 @@ public:
             select_dns{false},
             select_nbns{false},
             select_mdns{false},
-            select_nbds{false} {
+            select_nbds{false},
+            select_nbss{false} {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -293,7 +297,8 @@ public:
             tcp4.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
         }
         if (protocols["nbss"] || protocols["all"]) {
-            tcp4.add_protocol(nbss_packet::matcher, tcp_msg_type_nbss);
+            select_nbss = true;
+           // tcp4.add_protocol(nbss_packet::matcher, tcp_msg_type_nbss);
         }
         if (protocols["nbds"] || protocols["all"]) {
             select_nbds = true;
@@ -333,6 +338,19 @@ public:
 
         return udp_msg_type_unknown;
     }
+
+    size_t get_tcp_msg_type_from_ports(struct tcp_packet *tcp_pkt) const {
+        if (tcp_pkt == nullptr or tcp_pkt->header == nullptr) {
+            return tcp_msg_type_unknown;
+        }
+
+        if (nbss() and (tcp_pkt->header->src_port == htons(139) or tcp_pkt->header->dst_port == htons(139))) {
+            return tcp_msg_type_nbss;
+        }
+
+        return tcp_msg_type_unknown;
+    }
+
 };
 
 #endif /* PROTO_IDENTIFY_H */

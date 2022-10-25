@@ -447,6 +447,10 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     // use get_if<T>(), which does not
 
     enum tcp_msg_type msg_type = (tcp_msg_type) selector.get_tcp_msg_type(pkt);
+    if (msg_type == tcp_msg_type_unknown) {
+        msg_type = (tcp_msg_type) selector.get_tcp_msg_type_from_ports(tcp_pkt);
+    }
+
     switch(msg_type) {
     case tcp_msg_type_http_request:
         x.emplace<http_request>(pkt, ph_visitor);
@@ -1058,7 +1062,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
         }
         else {
-            set_tcp_protocol(x, pkt, false, reassembler == nullptr ? nullptr : &tcp_pkt);
+            set_tcp_protocol(x, pkt, false, &tcp_pkt);
         }
 
     } else if (transport_proto == ip::protocol::udp) {

@@ -411,11 +411,6 @@ TEST_CASE_METHOD(LibmercTestFixture, "test nbss with recources-mp")
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"nbss"},
-             .m_pc{"smb.pcap"}},
-         391},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"nbss"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
     };
