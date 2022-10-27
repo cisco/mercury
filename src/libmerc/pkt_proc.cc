@@ -719,7 +719,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
     // process encapsulations
     //
-    if (report_GRE && transport_proto == ip::protocol::gre) {
+    if (selector.gre() && transport_proto == ip::protocol::gre) {
         gre_header gre{pkt};
         switch(gre.get_protocol_type()) {
         case ETH_TYPE_IP:
@@ -735,13 +735,13 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     // process transport/application protocols
     //
     protocol x;
-    if (report_ICMP && (transport_proto == ip::protocol::icmp || transport_proto == ip::protocol::ipv6_icmp)) {
+    if (selector.icmp() && (transport_proto == ip::protocol::icmp || transport_proto == ip::protocol::ipv6_icmp)) {
         x.emplace<icmp_packet>(pkt);
 
-    } else if (report_OSPF && transport_proto == ip::protocol::ospfigp) {
+    } else if (selector.ospf() && transport_proto == ip::protocol::ospfigp) {
         x.emplace<ospf>(pkt);
 
-    } else if (report_SCTP && transport_proto == ip::protocol::sctp) {
+    } else if (selector.sctp() && transport_proto == ip::protocol::sctp) {
         x.emplace<sctp_init>(pkt);
 
     } else if (transport_proto == ip::protocol::tcp) {
@@ -760,7 +760,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         } else if (tcp_pkt.is_SYN_ACK()) {
             tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
-            if (report_SYN_ACK && selector.tcp_syn()) {
+            if (selector.tcp_syn() and selector.tcp_syn_ack()) {
                 x = tcp_pkt;  // process tcp syn/ack
             }
             // note: we could check for non-empty data field
@@ -878,17 +878,17 @@ size_t stateful_pkt_proc::write_json(void *buffer,
                              ts,
                              reassembler);
     case ETH_TYPE_ARP:
-        if (report_ARP) {
+        if (selector.arp()) {
             x.emplace<arp_packet>(pkt);
         }
         break;
     case ETH_TYPE_CDP:
-        if (report_CDP) {
+        if (selector.cdp()) {
             x.emplace<cdp>(pkt);
         }
         break;
     case ETH_TYPE_LLDP:
-        if (report_LLDP) {
+        if (selector.lldp()) {
             x.emplace<lldp>(pkt);
         }
         break;

@@ -150,6 +150,14 @@ class traffic_selector {
     bool select_dns;
     bool select_nbns;
     bool select_mdns;
+    bool select_arp;
+    bool select_cdp;
+    bool select_gre;
+    bool select_icmp;
+    bool select_lldp;
+    bool select_ospf;
+    bool select_sctp;
+    bool select_tcp_syn_ack;
 
 public:
 
@@ -161,7 +169,38 @@ public:
 
     bool mdns() const { return select_mdns; }
 
-    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false} {
+    bool arp() const { return select_arp; }
+
+    bool cdp() const { return select_cdp; }
+
+    bool gre() const { return select_gre; }
+
+    bool icmp() const { return select_icmp; }
+
+    bool lldp() const { return select_lldp; }
+
+    bool ospf() const { return select_ospf; }
+
+    bool sctp() const { return select_sctp; }
+
+    bool tcp_syn_ack() const { return select_tcp_syn_ack; }
+
+    
+    traffic_selector(std::map<std::string, bool> protocols) :
+            tcp{},
+            udp{},
+            select_tcp_syn{false},
+            select_dns{false},
+            select_nbns{false},
+            select_mdns{false},
+            select_arp{false},
+            select_cdp{false},
+            select_gre{false},
+            select_icmp{false},
+            select_lldp{false},
+            select_ospf{false},
+            select_sctp{false},
+            select_tcp_syn_ack{false} { 
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -222,6 +261,9 @@ public:
             // select_tcp_syn = 0;
             // tcp_message_filter_cutoff = 1;
         }
+        if (protocols["tcp.syn_ack"]) {
+            select_tcp_syn_ack = true;
+        }
         if (protocols["dhcp"] || protocols["all"]) {
             udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
         }
@@ -274,6 +316,28 @@ public:
         if (protocols["dnp3"] || protocols["all"]) {
             tcp4.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
         }
+        if (protocols["arp"]) {
+            select_arp = true;
+        }
+        if (protocols["cdp"]) {
+            select_cdp = true;
+        }
+        if (protocols["gre"] || protocols["all"]) {
+            select_gre = true;
+        }
+        if (protocols["icmp"]) {
+            select_icmp = true;
+        }
+        if (protocols["lldp"]) {
+            select_lldp = true;
+        }
+        if (protocols["ospf"] || protocols["all"]) {
+            select_ospf = true;
+        }
+        if (protocols["sctp"] || protocols["all"]) {
+            select_sctp = true;
+        }
+        
         // tell protocol_identification objects to compile lookup tables
         //
         tcp.compile();
