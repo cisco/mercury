@@ -214,7 +214,7 @@ struct tls_handshake {
     handshake_type msg_type;
     uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
     struct datum body;
-    size_t additional_bytes_needed;
+    size_t additional_bytes_needed = 0;
 
     static const unsigned int max_handshake_len = 32768;
 
@@ -256,7 +256,7 @@ struct tls_handshake {
 struct tls_server_certificate {
     uint32_t length; // note: only 24 bits on the wire (L_CertificateListLength)
     struct datum certificate_list;
-    size_t additional_bytes_needed;
+    size_t additional_bytes_needed = 0;
 
     static const size_t max_length = 65536;
 
