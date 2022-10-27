@@ -104,6 +104,8 @@ char mercury_extended_help[] =
     "      lldp              LLDP message\n"
     "      mdns              multicast DNS\n"
     "      nbns              NetBIOS Name Service\n"
+    "      nbds              NetBIOS Datagram Service\n"
+    "      nbss              NetBIOS Session Service\n"
     "      ospf              OSPF message\n"
     "      quic              QUIC handshake\n"
     "      sctp              SCTP message\n"
