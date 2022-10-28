@@ -278,7 +278,7 @@ namespace stun {
         ms_bandwidth_admission_control_message(datum &d) : reserved{d}, message_type{d} { }
 
         void write_json(json_object &o) const {
-            const char *msg_type = UNKNOWN;
+            const char *msg_type = nullptr;
             switch (message_type) {
             case 0x0000:
                 msg_type = "reservation_check";
@@ -292,9 +292,10 @@ namespace stun {
             default:
                 ;
             }
-            o.print_key_string("message_type", msg_type);
-            if (msg_type == UNKNOWN) {
-                o.print_key_uint("type_code", message_type);
+            if (msg_type == nullptr) {
+                o.print_key_unknown_code("message_type", message_type);
+            } else {
+                o.print_key_string("message_type", msg_type);
             }
         }
     };
@@ -491,7 +492,7 @@ namespace stun {
             default:
                 ;
             }
-            return "UNKNOWN";
+            return nullptr;
         }
 
     public:
@@ -508,15 +509,11 @@ namespace stun {
         void write_json(json_object &o) const  {
             if (is_valid()) {
                 method<uint16_t>{get_method_type()}.write_json(o);
-                // const char *method_name = method_type_get_name(get_method_type());
-                // o.print_key_string("method", method_type_get_name(get_method_type()));
-                // if (method_name == unknown) {
-                //     o.print_key_uint("method_type_code", get_method_type());
-                // }
                 const char *type_name = message_type_string(message_type_field & msg_type_mask);
-                o.print_key_string("message_type", type_name);
-                if (type_name == UNKNOWN) {
-                    o.print_key_uint("message_type_code", message_type_field & msg_type_mask);
+                if (type_name == nullptr) {
+                    o.print_key_unknown_code("message_type", (uint16_t)(message_type_field & msg_type_mask));
+                } else {
+                    o.print_key_string("message_type", type_name);
                 }
                 o.print_key_uint("message_length", message_length);
                 o.print_key_hex("transaction_id", transaction_id);
