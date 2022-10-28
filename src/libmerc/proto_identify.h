@@ -337,7 +337,7 @@ public:
         if (protocols["cdp"]) {
             select_cdp = true;
         }
-        if (protocols["gre"] || protocols["all"]) {
+        if (protocols["gre"]) {
             select_gre = true;
         }
         if (protocols["icmp"]) {
@@ -352,11 +352,11 @@ public:
         if (protocols["sctp"] || protocols["all"]) {
             select_sctp = true;
         }
-        if (protocols["nbss"] || protocols["all"]) {
+        if (protocols["nbss"]) {
             select_nbss = true;
            // tcp4.add_protocol(nbss_packet::matcher, tcp_msg_type_nbss);
         }
-        if (protocols["nbds"] || protocols["all"]) {
+        if (protocols["nbds"]) {
             select_nbds = true;
         }
 
