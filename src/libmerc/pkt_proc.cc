@@ -881,10 +881,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     return 0;
 }
 
-constexpr bool report_ARP  = false;
-constexpr bool report_CDP  = false;
-constexpr bool report_LLDP = false;
-
 using link_layer_protocol = std::variant<std::monostate, arp_packet, cdp, lldp>;
 
 size_t stateful_pkt_proc::write_json(void *buffer,
