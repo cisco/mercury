@@ -79,7 +79,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
         ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
 elif [ "$BUILDTYPE" == "deb_22" ]; then
-    fpm -s dir -t deb -n mercury_u22 $FPM_LINUX_OPTIONS \
+    fpm -s dir -t deb -n mercury-u22 $FPM_LINUX_OPTIONS \
         --depends libssl3 \
         --depends zlib1g    \
         --deb-systemd ./install_mercury/mercury.service \
