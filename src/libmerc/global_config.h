@@ -74,6 +74,7 @@ private:
 
 public:
     // extended configs
+    std::string temp_proto_str;
     bool tcp_reassembly = false;          /* reassemble tcp segments      */
 
     global_config() : libmerc_config(), tcp_reassembly{false} {};
@@ -97,30 +98,41 @@ public:
     }
 
     std::map<std::string, bool> protocols {
-            { "all",         false },
-            { "none",        false },
-            { "dhcp",        false },
-            { "dns",         false },
-            { "dtls",        false },
-            { "http",        false },
-            { "mdns",        false },
-            { "nbns",        false },
-            { "ssh",         false },
-            { "tcp",         false },
-            { "tcp.message", false },
-            { "tls",         false },
-            { "wireguard",   false },
-            { "quic",        false },
-            { "smb",         false },
-            { "smtp",        false },
-            { "ssdp",        false },
-            { "stun",        false },
-            { "tls.client_hello", false},
-            { "tls.server_hello", false},
+            { "all",                    false },
+            { "none",                   false },
+            { "arp",                    false },
+            { "cdp",                    false },
+            { "dhcp",                   false },
+            { "dnp3",                   false },
+            { "dns",                    false },
+            { "dtls",                   false },
+            { "gre",                    false },
+            { "http",                   false },
+            { "http.request",           false },
+            { "http.response",          false },
+            { "icmp",                   false },
+            { "iec",                    false },
+            { "lldp",                   false },
+            { "mdns",                   false },
+            { "nbns",                   false },
+            { "nbds",                   false },
+            { "nbss",                   false },
+            { "ospf",                   false },
+            { "quic",                   false },
+            { "sctp",                   false },
+            { "smb",                    false },
+            { "smtp",                   false },
+            { "ssdp",                   false },
+            { "ssh",                    false },
+            { "stun",                   false },
+            { "tcp",                    false },
+            { "tcp.message",            false },
+            { "tcp.syn_ack",            false },
+            { "tls",                    false },
+            { "tls.client_hello",       false },
+            { "tls.server_hello",       false },
             { "tls.server_certificate", false},
-            { "http.request", false},
-            { "http.response", false},
-            { "iec",           false}
+            { "wireguard",              false },
         };
 
     bool set_protocols(const std::string& data) {

@@ -268,19 +268,6 @@ namespace stun {
     // Microsoft Attributes (from
     // https://docs.microsoft.com/en-us/openspecs/office_protocols/ms-turn/0e0491de-b648-4347-bae4-503c7347abbe)
     //
-    // 0x8008: MS_VERSION
-    // 0x8020: MS_XOR_MAPPED_ADDRESS
-    // 0x8032: MS_ALTERNATE_HOST_NAME
-    // 0x8037: MS_APP_ID
-    // 0x8039: MS_SECURE_TAG
-    // 0x8050: MS_SEQUENCE_NUMBER
-    // 0x8055: MS_SERVICE_QUALITY
-    // 0x8090: MS_ALTERNATE_MAPPED_ADDRESS
-    // 0x8095: MS_MULTIPLEXED_TURN_SESSION_ID
-    //
-    // 0x8070: MS_IMPLEMENTATION_VERSION
-    // 0x8056: MS_BANDWIDTH_ADMISSION_CONTROL_MESSAGE
-
     class ms_implementation_version {
     };
 
@@ -291,7 +278,7 @@ namespace stun {
         ms_bandwidth_admission_control_message(datum &d) : reserved{d}, message_type{d} { }
 
         void write_json(json_object &o) const {
-            const char *msg_type = unknown;
+            const char *msg_type = nullptr;
             switch (message_type) {
             case 0x0000:
                 msg_type = "reservation_check";
@@ -305,9 +292,10 @@ namespace stun {
             default:
                 ;
             }
-            o.print_key_string("message_type", msg_type);
-            if (msg_type == unknown) {
-                o.print_key_uint("type_code", message_type);
+            if (msg_type == nullptr) {
+                o.print_key_unknown_code("message_type", message_type);
+            } else {
+                o.print_key_string("message_type", msg_type);
             }
         }
     };
@@ -348,90 +336,89 @@ namespace stun {
         void write_json(json_array &a) const {
             if (!valid) { return; }
             json_object o{a};
-            const char *name = attribute_type_get_name(type);
-            // o.print_key_uint("prealignment", (size_t)prealignment);
-            // o.print_key_uint("alignment", (size_t)alignment);
-            o.print_key_string("type", name);
-            if (name == unknown) {
-                o.print_key_uint("type_code", type);
-                o.print_key_uint_hex("type_code_hex", type); // TODO: check number of zeros
-            }
+            attribute_type<uint16_t>{type}.write_json(o);
+            // const char *name = attribute_type_get_name(type);
+            // o.print_key_string("type", name);
+            // if (name == unknown) {
+            //     o.print_key_uint("type_code", type);
+            //     o.print_key_uint_hex("type_code_hex", type); // TODO: check number of zeros
+            // }
             o.print_key_uint("length", length);
             switch (type) {
-            case attribute_type::USE_CANDIDATE:
+            case attribute_type<uint16_t>::USE_CANDIDATE:
                 // no data in value field
                 break;
-            case attribute_type::MAPPED_ADDRESS:
-            case attribute_type::ALTERNATE_SERVER:
-            case attribute_type::RESPONSE_ORIGIN:
-            case attribute_type::OTHER_ADDRESS:
+            case attribute_type<uint16_t>::MAPPED_ADDRESS:
+            case attribute_type<uint16_t>::ALTERNATE_SERVER:
+            case attribute_type<uint16_t>::RESPONSE_ORIGIN:
+            case attribute_type<uint16_t>::OTHER_ADDRESS:
                 if (lookahead<mapped_address> addr{value}) {
                     addr.value.write_json(o);
                 }
                 break;
-            case attribute_type::XOR_MAPPED_ADDRESS:
-            case attribute_type::XOR_PEER_ADDRESS:
-            case attribute_type::XOR_RELAYED_ADDRESS:
+            case attribute_type<uint16_t>::XOR_MAPPED_ADDRESS:
+            case attribute_type<uint16_t>::XOR_PEER_ADDRESS:
+            case attribute_type<uint16_t>::XOR_RELAYED_ADDRESS:
                 if (lookahead<xor_mapped_address> addr{value}) {
                     addr.value.write_json(o);
                 }
                 break;
-            case attribute_type::SOFTWARE:
-            case attribute_type::USERNAME:
-            case attribute_type::NONCE:
+            case attribute_type<uint16_t>::SOFTWARE:
+            case attribute_type<uint16_t>::USERNAME:
+            case attribute_type<uint16_t>::NONCE:
                 if (lookahead<utf8_string> s{value}) {
                     o.print_key_value("value", s.value);
                 }
                 break;
-            case attribute_type::ERROR_CODE:
+            case attribute_type<uint16_t>::ERROR_CODE:
                 if (lookahead<error_code> ec{value}) {
                     ec.value.write_json(o);
                 }
                 break;
-            case attribute_type::PRIORITY:
+            case attribute_type<uint16_t>::PRIORITY:
                 if (lookahead<encoded<uint32_t>> priority{value}) {
                     o.print_key_uint("priority", priority.value);
                 }
                 break;
-            case attribute_type::ICE_CONTROLLED:
+            case attribute_type<uint16_t>::ICE_CONTROLLED:
                 if (lookahead<encoded<uint64_t>> tiebreaker{value}) {
                     o.print_key_uint_hex("tiebreaker", tiebreaker.value);
                 }
                 break;
-            case attribute_type::ICE_CONTROLLING:
+            case attribute_type<uint16_t>::ICE_CONTROLLING:
                 if (lookahead<encoded<uint64_t>> tiebreaker{value}) {
                     o.print_key_uint_hex("tiebreaker", tiebreaker.value);
                 }
                 break;
-            case attribute_type::CHANNEL_NUMBER:
+            case attribute_type<uint16_t>::CHANNEL_NUMBER:
                 if (lookahead<channel_number> cn{value}) {
                     cn.value.write_json(o);
                 }
                 break;
-            case attribute_type::LIFETIME:
+            case attribute_type<uint16_t>::LIFETIME:
                 if (lookahead<lifetime> lt{value}) {
                     lt.value.write_json(o);
                 }
                 break;
-            case attribute_type::REQUESTED_TRANSPORT:
+            case attribute_type<uint16_t>::REQUESTED_TRANSPORT:
                 if (lookahead<requested_transport> rt{value}) {
                     rt.value.write_json(o);
                 }
                 break;
-            case MS_BANDWIDTH_ADMISSION_CONTROL_MESSAGE:
+            case attribute_type<uint16_t>::MS_BANDWIDTH_ADMISSION_CONTROL_MESSAGE:
                 if (lookahead<ms_bandwidth_admission_control_message> bacm{value}) {
                     bacm.value.write_json(o);
                 }
                 break;
-            case attribute_type::MS_IMPLEMENTATION_VERSION:
+            case attribute_type<uint16_t>::MS_IMPLEMENTATION_VERSION:
                 if (lookahead<encoded<uint32_t>> iv{value}) {
                     o.print_key_uint("number", iv.value);
                 }
                 break;
-            case attribute_type::FINGERPRINT:
-            case attribute_type::MESSAGE_INTEGRITY:
-            case attribute_type::REALM:             // note: should be utf8, but too often is not
-            case attribute_type::DATA:              // note: DATA could be processed as udp.data
+            case attribute_type<uint16_t>::FINGERPRINT:
+            case attribute_type<uint16_t>::MESSAGE_INTEGRITY:
+            case attribute_type<uint16_t>::REALM:             // note: should be utf8, but too often is not
+            case attribute_type<uint16_t>::DATA:              // note: DATA could be processed as udp.data
             default:
                 o.print_key_hex("hex_value", value);
             }
@@ -505,7 +492,7 @@ namespace stun {
             default:
                 ;
             }
-            return "UNKNOWN";
+            return nullptr;
         }
 
     public:
@@ -521,15 +508,12 @@ namespace stun {
 
         void write_json(json_object &o) const  {
             if (is_valid()) {
-                const char *method_name = method_type_get_name(get_method_type());
-                o.print_key_string("method", method_type_get_name(get_method_type()));
-                if (method_name == unknown) {
-                    o.print_key_uint("method_type_code", get_method_type());
-                }
+                method<uint16_t>{get_method_type()}.write_json(o);
                 const char *type_name = message_type_string(message_type_field & msg_type_mask);
-                o.print_key_string("message_type", type_name);
-                if (type_name == unknown) {
-                    o.print_key_uint("message_type_code", message_type_field & msg_type_mask);
+                if (type_name == nullptr) {
+                    o.print_key_unknown_code("message_type", (uint16_t)(message_type_field & msg_type_mask));
+                } else {
+                    o.print_key_string("message_type", type_name);
                 }
                 o.print_key_uint("message_length", message_length);
                 o.print_key_hex("transaction_id", transaction_id);

@@ -38,6 +38,8 @@ ssize_t hex_to_raw(const void *output,
     return count;
 }
 
+using namespace mercury_option;
+
 int main(int argc, char *argv[]) {
 
     const char summary[] =

@@ -100,6 +100,7 @@ fp_status_dict = {
     1: 'labeled',
     2: 'randomized',
     3: 'unlabled',
+    4: 'unanalyzed',
 }
 fp_type_dict = {
     0:  'unknown',

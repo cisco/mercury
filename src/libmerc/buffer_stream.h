@@ -624,22 +624,22 @@ static inline int append_mac_addr(char *dstr, int *doff, int dlen, int *trunc,
     int r = 0;
     char outs[6*2 + 5]; /* 6 group of 2 hex chars and 5 colon */
 
-    outs[0] = hex_table[(v[0] & 0xf0)];
+    outs[0] = hex_table[(v[0] & 0xf0) >> 4];
     outs[1] = hex_table[(v[0] & 0x0f)];
     outs[2] = ':';
-    outs[3] = hex_table[(v[1] & 0xf0)];
+    outs[3] = hex_table[(v[1] & 0xf0) >> 4];
     outs[4] = hex_table[(v[1] & 0x0f)];
     outs[5] = ':';
-    outs[6] = hex_table[(v[2] & 0xf0)];
+    outs[6] = hex_table[(v[2] & 0xf0) >> 4];
     outs[7] = hex_table[(v[2] & 0x0f)];
     outs[8] = ':';
-    outs[9] = hex_table[(v[3] & 0xf0)];
+    outs[9] = hex_table[(v[3] & 0xf0) >> 4];
     outs[10] = hex_table[(v[3] & 0x0f)];
     outs[11] = ':';
-    outs[12] = hex_table[(v[4] & 0xf0)];
+    outs[12] = hex_table[(v[4] & 0xf0) >> 4];
     outs[13] = hex_table[(v[4] & 0x0f)];
     outs[14] = ':';
-    outs[15] = hex_table[(v[5] & 0xf0)];
+    outs[15] = hex_table[(v[5] & 0xf0) >> 4];
     outs[16] = hex_table[(v[5] & 0x0f)];
 
     r += append_memcpy(dstr, doff, dlen, trunc,
@@ -1065,19 +1065,19 @@ struct buffer_stream {
         append_uint16(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_hex_uint8(uint8_t n) {
+    void write_hex_uint(uint8_t n) {
         append_uint8_hex(dstr, &doff, dlen, &trunc, n);
     } 
 
-    void write_hex_uint16(uint16_t n) {
+    void write_hex_uint(uint16_t n) {
         append_uint16_hex(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_hex_uint32(uint32_t n) {
+    void write_hex_uint(uint32_t n) {
         append_uint32_hex(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_hex_uint64(uint64_t n) {
+    void write_hex_uint(uint64_t n) {
         append_uint64_hex(dstr, &doff, dlen, &trunc, n);
     }
 

@@ -35,6 +35,9 @@
 #include "dtls.h"
 #include "ssdp.h"
 #include "stun.h"
+#include "dnp3.h"
+#include "netbios.h"
+#include "udp.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -50,7 +53,9 @@ enum tcp_msg_type {
     tcp_msg_type_dns,
     tcp_msg_type_smb1,
     tcp_msg_type_smb2,
-    tcp_msg_type_iec
+    tcp_msg_type_iec,
+    tcp_msg_type_dnp3,
+    tcp_msg_type_nbss,
 };
 
 enum udp_msg_type {
@@ -65,6 +70,7 @@ enum udp_msg_type {
     udp_msg_type_vxlan,
     udp_msg_type_ssdp,
     udp_msg_type_stun,
+    udp_msg_type_nbds,
 };
 
 template <size_t N>
@@ -96,6 +102,14 @@ public:
         case tcp_msg_type_iec:
         {
             return (iec60870_5_104::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_dnp3:
+        {
+            return (dnp3::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_nbss:
+        {
+            return (nbss_packet::get_payload_length(pkt) == pkt.length());
         }
         default:
             return true;
@@ -144,6 +158,16 @@ class traffic_selector {
     bool select_dns;
     bool select_nbns;
     bool select_mdns;
+    bool select_arp;
+    bool select_cdp;
+    bool select_gre;
+    bool select_icmp;
+    bool select_lldp;
+    bool select_ospf;
+    bool select_sctp;
+    bool select_tcp_syn_ack;
+    bool select_nbds;
+    bool select_nbss;
 
 public:
 
@@ -155,7 +179,43 @@ public:
 
     bool mdns() const { return select_mdns; }
 
-    traffic_selector(std::map<std::string, bool> protocols) : tcp{}, udp{}, select_tcp_syn{false}, select_dns{false}, select_nbns{false}, select_mdns{false} {
+    bool arp() const { return select_arp; }
+
+    bool cdp() const { return select_cdp; }
+
+    bool gre() const { return select_gre; }
+
+    bool icmp() const { return select_icmp; }
+
+    bool lldp() const { return select_lldp; }
+
+    bool ospf() const { return select_ospf; }
+
+    bool sctp() const { return select_sctp; }
+
+    bool tcp_syn_ack() const { return select_tcp_syn_ack; }
+
+    bool nbds() const { return select_nbds; }
+
+    bool nbss() const { return select_nbss; }
+
+    traffic_selector(std::map<std::string, bool> protocols) :
+            tcp{},
+            udp{},
+            select_tcp_syn{false},
+            select_dns{false},
+            select_nbns{false},
+            select_mdns{false},
+            select_arp{false},
+            select_cdp{false},
+            select_gre{false},
+            select_icmp{false},
+            select_lldp{false},
+            select_ospf{false},
+            select_sctp{false},
+            select_tcp_syn_ack{false},
+            select_nbds{false},
+            select_nbss{false} {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -216,6 +276,9 @@ public:
             // select_tcp_syn = 0;
             // tcp_message_filter_cutoff = 1;
         }
+        if (protocols["tcp.syn_ack"]) {
+            select_tcp_syn_ack = true;
+        }
         if (protocols["dhcp"] || protocols["all"]) {
             udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
         }
@@ -265,6 +328,38 @@ public:
         if (protocols["iec"] || protocols["all"]) {
             tcp4.add_protocol(iec60870_5_104::matcher, tcp_msg_type_iec);
         }
+        if (protocols["dnp3"] || protocols["all"]) {
+            tcp4.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
+        }
+        if (protocols["arp"]) {
+            select_arp = true;
+        }
+        if (protocols["cdp"]) {
+            select_cdp = true;
+        }
+        if (protocols["gre"]) {
+            select_gre = true;
+        }
+        if (protocols["icmp"]) {
+            select_icmp = true;
+        }
+        if (protocols["lldp"]) {
+            select_lldp = true;
+        }
+        if (protocols["ospf"]) {
+            select_ospf = true;
+        }
+        if (protocols["sctp"]) {
+            select_sctp = true;
+        }
+        if (protocols["nbss"]) {
+            select_nbss = true;
+           // tcp4.add_protocol(nbss_packet::matcher, tcp_msg_type_nbss);
+        }
+        if (protocols["nbds"]) {
+            select_nbds = true;
+        }
+
         // tell protocol_identification objects to compile lookup tables
         //
         tcp.compile();
@@ -287,6 +382,30 @@ public:
             type = udp16.get_msg_type(pkt);
         }
         return type;
+    }
+    
+    size_t get_udp_msg_type_from_ports(udp::ports ports) const {
+        if (nbds() and ports.src == htons(138) and ports.dst == htons(138)) {
+            return udp_msg_type_nbds;
+        }
+
+        if (ports.dst == htons(4789)) {
+            return udp_msg_type_vxlan;
+        }
+
+        return udp_msg_type_unknown;
+    }
+
+    size_t get_tcp_msg_type_from_ports(struct tcp_packet *tcp_pkt) const {
+        if (tcp_pkt == nullptr or tcp_pkt->header == nullptr) {
+            return tcp_msg_type_unknown;
+        }
+
+        if (nbss() and (tcp_pkt->header->src_port == htons(139) or tcp_pkt->header->dst_port == htons(139))) {
+            return tcp_msg_type_nbss;
+        }
+
+        return tcp_msg_type_unknown;
     }
 
 };

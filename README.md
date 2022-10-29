@@ -9,6 +9,14 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normalizing metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.
 
+## Version 2.5.11
+
+* Run-time configurability for Genric Routing Encapsulation (GRE), Cisco Discovery Protocol (CDP), Link-Layer Discovery Protocol (LLDP), Address Resolution Protocol (ARP), Open Shortest Path First (OSPF), NetBIOS Datagram Service (NBDS), NetBIOS Streaming Service (NBSS), Stream Control Transmission Protocol (SCTP), and the Internet Control Message Protocol (ICMP).  These protocols are off by default; they must explicitly appear in the `--select` option to be selected.
+* STUN and DNP3 introduce a new convention for reporting unknown type codes in JSON by including the hexadecimal value of the unknown code as a string, such as `"type":"UNKNOWN (0004)"`.  This convention allows for a smaller and simpler schema, since no additional fields are needed to report unknown values.
+* Support for the [automatic generation of C++ classes that represent type codes](doc/autogen.md) from Comma Separated Value (CSV) files, in the [src/tables](src/tables) directory.  This facility is currently used by STUN and IKE.
+* Experimental support for IKEv2.
+* Fuzz tests now run in parallel, making that process considerably faster.  Additional fuzz tests were added.
+
 ## Version 2.5.10
 
 * Fixes some bugs.
@@ -20,7 +28,7 @@ Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other pr
 
 ## Version 2.5.8
 
-* Added fuzz testing framework based on libfuzz.  This replaces AFL in the `make fuzz` target in `test/`.
+* Added fuzz testing framework based on libfuzz.  This replaces AFL in the `make fuzz-test` target in `test/`.
 * Support for on-demand TCP reassembly of TLS Client Hello packets and other metata.  This feature is configured with the --tcp-reassembly option.
 * Support for detecting DNS over TCP packets and reporting that data in the JSON output.
 * Support for detecting SMB v1 and v2 and reporting the fields of the negotiate request and response packets in the JSON output.
