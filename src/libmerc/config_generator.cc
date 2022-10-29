@@ -27,7 +27,7 @@ static inline void trim(std::string &s) {
 
 static std::vector<libmerc_option> config_mapper = {
     {"analysis", "-a", "--analysis", SETTER_FUNCTION(){ c.do_analysis = s.empty() ? true : s.compare("1") == 0; }},
-    {"select", "-s", "--select",     SETTER_FUNCTION(){ strcpy(c.packet_filter_cfg, s.c_str()); }},
+    {"select", "-s", "--select",     SETTER_FUNCTION(){ c.packet_filter_cfg = (c.temp_proto_str.assign(s)).data(); }},
     {"dns-json", "", "",             SETTER_FUNCTION(){ c.dns_json_output = s.empty() ? true : s.compare("1") == 0; }},
     {"certs-json", "", "",           SETTER_FUNCTION(){ c.certs_json_output = s.empty() ? true : s.compare("1") == 0; }},
     {"metadata", "", "",             SETTER_FUNCTION(){ c.metadata_output = s.empty() ? true : s.compare("1") == 0; }},
