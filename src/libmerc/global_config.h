@@ -74,6 +74,7 @@ private:
 
 public:
     // extended configs
+    std::string temp_proto_str;
     bool tcp_reassembly = false;          /* reassemble tcp segments      */
 
     global_config() : libmerc_config(), tcp_reassembly{false} {};
