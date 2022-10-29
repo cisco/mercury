@@ -346,10 +346,10 @@ public:
         if (protocols["lldp"]) {
             select_lldp = true;
         }
-        if (protocols["ospf"] || protocols["all"]) {
+        if (protocols["ospf"]) {
             select_ospf = true;
         }
-        if (protocols["sctp"] || protocols["all"]) {
+        if (protocols["sctp"]) {
             select_sctp = true;
         }
         if (protocols["nbss"]) {
