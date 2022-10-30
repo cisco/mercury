@@ -341,6 +341,8 @@ int main(int argc, char *argv[]) {
             if (ctx) {
                 mercury.fprint_json_analysis_context(stdout, ctx);
             }
+            bool need_more_pkts = mercury.more_pkts_needed(mpp);
+            fprintf(stdout, "{more_pkts_needed:%s}\n", need_more_pkts ? "true" : "false");
 
             i++;
         }
