@@ -261,6 +261,7 @@ int main(int argc, char *argv[]) {
         { argument::required,   "--read",      "read PCAP file <arg>" },
         { argument::required,   "--libmerc",   "use libmerc.so file <arg>" },
         { argument::required,   "--resources", "use resource file <arg>" },
+        { argument::none,       "--stats",     "generate stats.json.gz file" },
         { argument::none,       "--verbose",   "turn on verbose output" },
         { argument::none,       "--help",      "print out help message" }
     });
@@ -273,6 +274,7 @@ int main(int argc, char *argv[]) {
     auto [ libmerc_is_set, libmerc_file ] = opt.get_value("--libmerc");
     auto [ resources_is_set, resources_file ] = opt.get_value("--resources");
     bool verbose = opt.is_set("--verbose");
+    bool do_stats = opt.is_set("--stats");
     bool print_help = opt.is_set("--help");
 
     if (print_help) {
@@ -307,6 +309,7 @@ int main(int argc, char *argv[]) {
         libmerc_config config;
         config.resources = resources_path;
         config.do_analysis = true;
+        config.do_stats = do_stats;
 
         // initalize mercury library
         //
@@ -350,6 +353,12 @@ int main(int argc, char *argv[]) {
         // destroy packet processor
         //
         mercury.packet_processor_destruct(mpp);
+
+        // write out stats data, if needed
+        //
+        if (do_stats) {
+            mercury.write_stats_data(mc, "stats.json.gz");
+        }
 
         // destroy mercury context
         //
