@@ -9,6 +9,11 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normalizing metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.
 
+## Version 2.5.12
+
+* Fixes some bugs.
+* Updated and amended this README.
+
 ## Version 2.5.11
 
 * Run-time configurability for Genric Routing Encapsulation (GRE), Cisco Discovery Protocol (CDP), Link-Layer Discovery Protocol (LLDP), Address Resolution Protocol (ARP), Open Shortest Path First (OSPF), NetBIOS Datagram Service (NBDS), NetBIOS Streaming Service (NBSS), Stream Control Transmission Protocol (SCTP), and the Internet Control Message Protocol (ICMP).  These protocols are off by default; they must explicitly appear in the `--select` option to be selected.
