@@ -462,7 +462,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         {
             struct tls_record rec{pkt};
             struct tls_handshake handshake{rec.fragment};
-            if (tcp_pkt && handshake.additional_bytes_needed) {
+            if (reassembler_ptr && tcp_pkt && handshake.additional_bytes_needed) {
                 tcp_pkt->reassembly_needed(handshake.additional_bytes_needed);
                 return;
             }
