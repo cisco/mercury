@@ -179,9 +179,41 @@ struct datum {
             return true;
         }
     }
-    int memcmp(const datum &p) const {
-        return ::memcmp(data, p.data, length());
+
+    // datum::memcmp(datum &p) compares this datum to p
+    // lexicographically, and returns an integer less than, equal to,
+    // or greater than zero if this is found to be less than, to
+    // match, or to be greater than p, respectively.
+    //
+    // For a nonzero return value, the sign is determined by the sign
+    // of the difference between the first pair of bytes (interpreted
+    // as unsigned char) that differ in this and p.  If this->length()
+    // and p.length() are both zero, the return value is zero.  If one
+    // datum is a prefix of the other, the prefix is considered
+    // lesser.
+    //
+    // Examples (in hexadecimal, where {} is the zero-length string):
+    //
+    //    A = 50555348, B = 504f5354:    A.memcmp(B) < 0
+    //    A = 50555348, B = 5055534820:  A.memcmp(B) < 0
+    //    A = 50555348, B = {}:          A.memcmp(B) > 0
+    //    A = {}, B = {}:                A.memcmp(B) == 0
+    //
+    int cmp(const datum &p) const {
+        int cmp = ::memcmp(data, p.data, std::min(length(), p.length()));
+        if (cmp == 0) {
+            return length() - p.length();
+        }
+        return cmp;
     }
+
+    // operator<(const datum &p) returns true if this is
+    // lexicographically less than p, and false otherwise.  It is
+    // suitable for use in std::sort().
+    //
+    bool operator<(const datum &p) const {
+        return cmp(p) < 0;
+     }
 
     template <size_t N>
     bool cmp(const std::array<uint8_t, N> a) const {

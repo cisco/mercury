@@ -559,7 +559,7 @@ void tls_extensions::fingerprint_quic_tls(struct buffer_stream &b, enum tls_role
                   if (a.length != b.length) {
                       return a.length < b.length;
                   }
-                  return a.value.memcmp(b.value) < 0;
+                  return a.value.cmp(b.value) < 0;
               }
               );
 
@@ -616,7 +616,7 @@ void tls_extensions::fingerprint_quic_tls(struct buffer_stream &b, enum tls_role
                               } else if (b.is_grease()) {
                                   return a.value() < 0x1b;
                               }
-                              return a.memcmp(b) < 0;
+                              return a.cmp(b) < 0;
                           }
                           );
                 b.write_char('[');
