@@ -809,13 +809,8 @@ void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
     /*
      * copy extensions vector
      */
-    if (is_quic_hello) {
-        extensions.fingerprint_quic_tls(buf, tls_role::client);
-    } else {
-        buf.write_char('(');
-        extensions.fingerprint(buf, tls_role::client);
-        buf.write_char(')');
-    }
+    extensions.fingerprint_quic_tls(buf, tls_role::client);
+
 }
 
 void tls_client_hello::compute_fingerprint(class fingerprint &fp) const {
