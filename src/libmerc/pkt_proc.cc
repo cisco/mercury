@@ -440,7 +440,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
             struct tls_handshake handshake{rec.fragment};
             if (reassembler_ptr && tcp_pkt && handshake.additional_bytes_needed) {
                 tcp_pkt->reassembly_needed(handshake.additional_bytes_needed);
-                return;
+                //  set pkt type as tls CH, so that initial segments can be fingerprinted as best effort for reassembly failed cases
             }
             x.emplace<tls_client_hello>(handshake.body);
             break;
@@ -647,7 +647,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             //write_pkt = true;
             reassembler->dump_pkt = true;
             reassembler->curr_reassembly_state = reassembly_in_progress;
-            return false;
+            return true;
         }
         else {
             // non initial seg, directly put in reassembler
@@ -655,17 +655,24 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             // write_pkt = false; for out of order pkts, write to pcap file only after initial seg is known
             reassembler->dump_pkt = false;
             reassembler->curr_reassembly_state = reassembly_in_progress;
-            return false;
+            // call set_tcp_protocol in case there is something worth fingerpriting
+            set_tcp_protocol(x, pkt, false, &tcp_pkt);
+            return true;
         }
     }
     else {
         // check in reassembly_table
         //if initial segment, update additional bytes needed
         //
+        bool is_init_seg = false;
         datum pkt_copy{pkt};
-        if (reassembler->is_init_seg(k, seg_context.seq)) {
+        is_init_seg = reassembler->is_init_seg(k, seg_context.seq);
+        if (is_init_seg) {
             set_tcp_protocol(x, pkt, true, &tcp_pkt);
             seg_context.additional_bytes_needed = tcp_pkt.additional_bytes_needed;
+        }
+        else {
+            set_tcp_protocol(x, pkt, false, &tcp_pkt);
         }
 
         bool reassembly_consumed = false;
@@ -696,7 +703,8 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             }
 
             reassembler->curr_reassembly_state = reassembly_in_progress;
-        }    
+        }
+        return true;
     }
 
     if (!syn_seq && !in_reassembly) {
@@ -987,10 +995,11 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             } else if (tcp_pkt.is_SYN_ACK()) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
             } else {
-                if (!process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler)) {
-                    if (reassembler->curr_reassembly_state == reassembly_in_progress) {
+                bool ret = process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler);
+                if (reassembler->curr_reassembly_state == reassembly_in_progress) {
                         analysis.flow_state_pkts_needed = true;
-                    }
+                }
+                if (!ret) {
                     return 0;
                 }
             }
