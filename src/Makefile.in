@@ -215,7 +215,7 @@ endif
 #MERC_OBJ = $(MERC:%.o=%.c)
 
 libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
-	$(CC) -Wall -std=c17 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
+	$(CC) -Wall -std=c11 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 libmerc_driver:
