@@ -9,55 +9,42 @@
 
 #include "datum.h"
 
-/*
- *     Generic Routing Encapsulation (GRE) as per RFC 2784
- *
- *     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |C|       Reserved0       | Ver |         Protocol Type         |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |      Checksum (optional)      |       Reserved1 (Optional)    |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- *
- *     GRE as per RFC 1701
- *
- *         0                   1                   2                   3
- *       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |C|R|K|S|s|Recur|  Flags  | Ver |         Protocol Type         |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |      Checksum (optional)      |       Offset (optional)       |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |                         Key (optional)                        |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |                    Sequence Number (optional)                 |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |                         Routing (optional)
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- */
-
+//
+//  Generic Routing Encapsulation (GRE) as per RFC 2784
+//
+//     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |C|       Reserved0       | Ver |         Protocol Type         |
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |      Checksum (optional)      |       Reserved1 (Optional)    |
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//  Note: RFC 1701 defines an obsolete and more elaborate earlier
+//  variant of the GRE header, which is little seen on modern
+//  networks.
+//
 class gre_header {
- public:
+    encoded<uint16_t> c_reserved_ver;
+    encoded<uint16_t> protocol_type;
+public:
 
- gre_header(struct datum &d) : protocol_type{0} {
-        if (d.length() < (int)sizeof(uint32_t)) {
-            d.set_null();
-            return;
+    gre_header(struct datum &d) : c_reserved_ver{d}, protocol_type{d} {
+        if (c_reserved_ver.bit<0>()) {
+            d.skip(4);  // skip over Checksum and Reserved1 fields
         }
-        std::array<uint8_t, 2> flags_bytes;
-        d.read_array(flags_bytes);
-        d.read_uint16(&protocol_type);
-        if (d.is_not_null() && (flags_bytes[0] & 0x80)) {
-            d.skip(4);  // skip over Checksum and Offset fields
+        if (d.is_null()) {
+            protocol_type = 0x0000; // ETH_TYPE_NONE
+            return;
         }
     }
 
-    uint16_t get_protocol_type() { return protocol_type; }
-
- private:
-    uint16_t protocol_type;
+    // get_protocol_type() returns the protocol_type value in the GRE
+    // header, if there were no errors, and otherwise returns
+    // ETH_TYPE_NONE (0x0000).  The protocol_type field should be
+    // interpreted as an ETHERTYPE, as defined at
+    // https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml.
+    //
+    uint16_t get_protocol_type() const { return protocol_type; }
 };
 
 #endif
