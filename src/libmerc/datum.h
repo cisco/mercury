@@ -1056,6 +1056,18 @@ public:
     }
 };
 
+// class literal accepts and ignores an input, setting d to null if
+// the expected input is not found
+//
+template <uint8_t literal_char>
+class literal_ {
+public:
+
+    literal_(datum &d) {
+        d.accept(literal_char);
+    }
+};
+
 /* class skip_bytes skips N number of bytes in the given datum*/
 template <size_t N>
 class skip_bytes {

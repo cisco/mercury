@@ -9,6 +9,7 @@
 
 #include "buffer_stream.h"
 #include "datum.h"
+#include "util_obj.h"
 
 /*
  * json_object and json_array serialize JSON objects and arrays,
@@ -122,6 +123,10 @@ struct json_object {
         write_comma(comma);
         b->snprintf("\"%s\":%ld", k, i);
     }
+    void print_key_int64(const char *k, long long int i) {
+        write_comma(comma);
+        b->snprintf("\"%s\":%lld", k, i);
+    }
     void print_key_float(const char *k, double d) {
         write_comma(comma);
         b->snprintf("\"%s\":%f", k, d);
@@ -190,7 +195,7 @@ struct json_object {
         b->write_timestamp_as_string(ts);
         b->write_char('\"');
     }
-     template <typename T> void print_key_value(const char *k, T &w) {
+    template <typename T> void print_key_value(const char *k, T &w) {
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
@@ -198,6 +203,15 @@ struct json_object {
         w.fingerprint(*b);
         b->write_char('\"');
      }
+
+/*    void print_key_value(const char *k, bencoded_data &w) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":");
+        w.fingerprint(*b);
+     }
+*/
     void print_key_ipv4_addr(const char *k, const uint8_t *a) {
         write_comma(comma);
         b->write_char('\"');
