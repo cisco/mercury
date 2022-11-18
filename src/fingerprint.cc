@@ -32,6 +32,7 @@ public:
     std::string version;
     std::string ciphersuite_vector;
     std::vector<std::string> extensions;
+    bool valid = false;
 
     char open = '(';
     char close = ')';
@@ -50,6 +51,8 @@ public:
         }
         return "";
     }
+
+    explicit operator bool() const { return valid; }
 
     fp(const std::string &v, const std::string & cv, const std::vector<std::string> &e) : version{v}, ciphersuite_vector{cv}, extensions{e} { }
 
@@ -70,7 +73,23 @@ public:
             close = '>';
         }
 
+        // ignore "quic/" or "http/" prefix, if need be
+        //
+        for (const auto &prefix : { std::string{"http/"}, std::string{"quic/"} }) {
+            if (!s.compare(0, prefix.length(), prefix)) {
+                fprintf(stderr, "note: ignoring %s fingerprint\n", prefix.c_str());
+                return;
+            }
+        }
         const char *c = s.c_str();
+
+        // remove leading "tls/" prefix, if need be
+        //
+        std::string prefix = "tls/";
+        if (!s.compare(0, prefix.length(), prefix)) {
+            c += prefix.length();
+        }
+
         version = parse_value_from_str(&c);
         ciphersuite_vector = parse_value_from_str(&c);
 
@@ -85,6 +104,7 @@ public:
             }
         }
 
+        valid = true;
     }
 
     void fprint(FILE *f) {
@@ -231,6 +251,7 @@ public:
         }
         catch (...) {
             fprintf(stderr, "error: could not convert fingerprint to ja3\n");
+            // fprint(stderr);
         }
 
         return "";
@@ -525,26 +546,26 @@ int main(int argc, char *argv[]) {
 
         // process fingerprint string
         //
-        if (fp_string == "randomized") {
-            fprintf(stderr, "note: ignoring randomized fingerprint\n");
+        fp tmp_fp(fp_string);
+
+        if (!tmp_fp) {
+            continue; // tmp_fp is not valid, so continue on to the next one
+        }
+
+        // apply pattern (if there is one)
+        //
+        if (pattern_is_set) {
+            // fprintf(stdout, "before: %s\n", fp_string.c_str());
+            tmp_fp = fp_matcher.match(tmp_fp);
+            // fprintf(stdout, "matched: %s\n", tmp_fp.get_str_repr().c_str());
+        }
+
+        // output (matched part of) fingerprint
+        //
+        if (ja3_ir) {
+            fprintf(stdout, "%s\t%s\t%s\n", tmp_fp.ja3().c_str(), tmp_fp.get_ja3_hash().c_str(), fp_string.c_str());
         } else {
-            fp tmp_fp(fp_string);
-
-            // apply pattern (if there is one)
-            //
-            if (pattern_is_set) {
-                // fprintf(stdout, "before: %s\n", fp_string.c_str());
-                tmp_fp = fp_matcher.match(tmp_fp);
-                // fprintf(stdout, "matched: %s\n", tmp_fp.get_str_repr().c_str());
-            }
-
-            // output (matched part of) fingerprint
-            //
-            if (ja3_ir) {
-                fprintf(stdout, "%s\t%s\t%s\n", tmp_fp.ja3().c_str(), tmp_fp.get_ja3_hash().c_str(), fp_string.c_str());
-            } else {
-                fprintf(stdout, "%s\t%s\n", tmp_fp.get_ja3_hash().c_str(), fp_string.c_str());
-            }
+            fprintf(stdout, "%s\t%s\n", tmp_fp.get_ja3_hash().c_str(), fp_string.c_str());
         }
 
     }
