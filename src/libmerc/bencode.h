@@ -1,13 +1,14 @@
-// bencode.h
-//
-
-#include <stdint.h>
-#include "datum.h"
-#include "json_object.h"
+/*
+ * bencode.h
+ *
+ * Copyright (c) 2022 Cisco Systems, Inc. All rights reserved.
+ * License at https://github.com/cisco/mercury/blob/master/LICENSE
+ */
 
 #ifndef BENCODE_H
 #define BENCODE_H
 
+#include <stdint.h>
 #include "datum.h"
 #include "json_object.h"
 
@@ -29,49 +30,32 @@ namespace bencoding {
     class byte_string {
         uint64_t len = 0;
         datum val;
+        static constexpr uint64_t max_len = 256; // restricting the max len of byte string to 256 bytes
 
     public:
 
         byte_string(datum &d) {
             // loop over digits and compute value
             //
-            uint8_t c;
             while (d.is_not_empty()) {
-                d.read_uint8(&c);
-                if (c == ':') {
+                encoded<uint8_t> c(d);
+                if (c.value() == ':') {
                     break;          // at end; not an error
                 }
-                if (c < '0' || c > '9') {
+                if (c.value() < '0' || c.value() > '9') {
                     d.set_null();   // error; input is not a bint
                     break;
                 }
                 len *= 10;
-                len += c - '0';
-            }
-            val.parse(d, len);
-        }
+                len += c.value() - '0';
 
-        template <size_t N>
-        byte_string(datum &d, std::array<uint8_t, N> k) {
-            // loop over digits and compute value
-            //
-            uint8_t c;
-            while (d.is_not_empty()) {
-                d.read_uint8(&c);
-                if (c == ':') {
-                    break;          // at end; not an error
-                }
-                if (c < '0' || c > '9') {
-                    d.set_null();   // error; input is not a bint
+                if (len > max_len) {
+                    // Might be a bad packet.
+                    d.set_null();
                     break;
                 }
-                len *= 10;
-                len += c - '0';
             }
             val.parse(d, len);
-            if (!val.matches(k)) {
-                d.set_null();
-            }
         }
 
         datum value() const { return val; }
@@ -92,16 +76,6 @@ namespace bencoding {
             return true;
         }
 
-        void fingerprint(struct buffer_stream &b) const {
-            if (val.is_readable()) {
-                if(is_printable_ascii()) {
-                    b.json_string_escaped(val.data, val.length());
-                } else {
-                    b.json_hex_string(val.data, val.length());
-                }
-            }
-        }
-        
         void write_json(struct json_object &o) {
             if (val.is_readable()) {
                 if(is_printable_ascii()) {
@@ -166,20 +140,16 @@ namespace bencoding {
         }
         int64_t value() const { return val; }
 
-        void fingerprint(struct buffer_stream &b) const {
-            b.snprintf("%lld", val);
-        }
-
         void write_json(struct json_object &o) {
             o.print_key_int64("value", val);
         }
     };
 
-    class dict_end {
+    class list_or_dict_end {
         literal_<'e'> end;
 
     public:
-        dict_end(datum &d) : end{d} { }
+        list_or_dict_end(datum &d) : end{d} { }
 
     };
 
@@ -195,29 +165,9 @@ namespace bencoding {
             valid = d.is_not_null();
         }
 
-        void fingerprint(struct buffer_stream &b) const;
+        bool is_not_empty() { return valid; }
 
         void write_json(struct json_object &o);
-    };
-
-
-        
-    // class key_and_value represents the key/value pair used in
-    // dictionaries
-    //
-    // TODO: accept only strings that match a statically-defined array
-    // of characters
-    //
-    template <typename T, size_t N=0>
-    class key_and_value {
-        byte_string key;
-        T val;
-
-    public:
-
-        key_and_value(datum &d, std::array<uint8_t, N> k={}) : key{d, k}, val{d} { }
-
-        datum value() const { return val.value(); }
     };
 
     // Dictionaries are encoded as follows:
@@ -242,8 +192,8 @@ namespace bencoding {
             valid = d.is_not_null();
         }
 
-        void fingerprint(struct buffer_stream &b) const;
-               
+        bool is_not_empty() { return valid; }
+
         void write_json(struct json_object &o);
         
     };
@@ -251,14 +201,14 @@ namespace bencoding {
 
 class bencoded_data {
     datum &body;
+    bool valid;
 
 public:
-    bencoded_data(datum &d) : body(d) { }
+    bencoded_data(datum &d) : body{d}, valid{d.is_not_null()} { }
 
-    void fingerprint(struct buffer_stream &b) const;
+    bool is_not_empty() { return valid; }
 
     void write_json(struct json_object &o);
-
 };
 
 #endif // BENCODE_H

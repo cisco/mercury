@@ -93,6 +93,7 @@ char mercury_extended_help[] =
     "   is a comma-separated list of the following strings:\n"
     "      arp               ARP message\n"
     "      cdp               CDP message\n"
+    "      bittorrent        Bittorrent message\n"
     "      dhcp              DHCP discover message\n"
     "      dns               DNS messages\n"
     "      dtls              DTLS clientHello, serverHello, and certificates\n"

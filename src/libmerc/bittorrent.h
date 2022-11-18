@@ -1,28 +1,30 @@
 // bittorrent.h
 //
 
-#include <stdint.h>
-#include "datum.h"
-#include "json_object.h"
-
 #ifndef BITTORRENT_H
 #define BITTORRENT_H
 
+#include <stdint.h>
+
 #include "bencode.h"
+#include "datum.h"
+#include "json_object.h"
 #include "lex.h"
+#include "match.h"
 #include "newhttp.h"
 
-class DHT_packet {
+
+class bittorrent_dht {
     bencoding::dictionary dict;
 
 public:
-    DHT_packet(datum &d) : dict(d) { }
+    bittorrent_dht (datum &d) : dict(d) { }
 
     void write_json(struct json_object &o) {
         dict.write_json(o);
     }
 
-    bool is_not_empty() { return true; }
+    bool is_not_empty() { return dict.is_not_empty(); }
 
     static constexpr mask_and_value<8> matcher {
         {0xff, 0xff, 0xff, 0x8c, 0xff, 0xff, 0xff, 0xff},
@@ -55,13 +57,6 @@ public:
 // port: port on which the bittorrent client is listening in base-10,
 // ascii
 //
-class digits : public one_or_more<digits> {
-public:
-    inline static bool in_class(uint8_t x) {
-        return x >= '0' && x <= '9';
-    }
-};
-
 // ihash: hex-encoded (40 character) infohash.  An announce may
 // contain multiple, consecutive Infohash headers to announce the
 // participation in more than one torrent. This may not be supported
@@ -71,6 +66,31 @@ public:
 //
 // cookie: opaque value, allowing the sending client to filter out its
 // own announces if it receives them via multicast loopback
+
+class header {
+    newhttp::token name;
+    ignore_char_class<space> sp;
+    newhttp::text value;
+
+public:
+
+    header(datum &d) :
+            name{d},
+            sp{d},
+            value{d}
+        { }
+
+    void write_json(json_array &a) {
+        if (is_not_empty()) {
+            json_object hdr{a};
+            hdr.print_key_json_string("key", name);
+            hdr.print_key_json_string("value", value);
+            hdr.close();
+        }
+    }
+
+    bool is_not_empty() const { return value.is_not_empty(); }
+};
 
 class lsd_header : public datum {
 public:
@@ -84,7 +104,7 @@ public:
                 break;
             }
 
-            newhttp::http_header h{tmp};
+            header h{tmp};
             if (!h.is_not_empty()) {
                 break;
             }
@@ -96,7 +116,7 @@ public:
     }
 };
 
-class btorrent_lsd {
+class bittorrent_lsd {
     literal<9> proto;
     ignore_char_class<space> sp1;
     literal<1> asterisk;
@@ -108,7 +128,7 @@ class btorrent_lsd {
 
 public:
 
-    btorrent_lsd(datum &d) :
+    bittorrent_lsd(datum &d) :
         proto{d, {'B', 'T', '-', 'S', 'E', 'A', 'R', 'C', 'H'} },
         sp1(d),
         asterisk{d, {'*'} },
@@ -276,4 +296,45 @@ public:
     }
 };
 
+[[maybe_unused]] inline static int bittorrent_dht_fuzz_test(const uint8_t *data, size_t size) {
+    struct datum request_data{data, data+size};
+    char buffer[8192];
+    struct buffer_stream buf_json(buffer, sizeof(buffer));
+    struct json_object record(&buf_json);
+
+    bittorrent_dht dht{request_data};
+    if (dht.is_not_empty()) {
+        dht.write_json(record);
+    }
+
+    return 0;
+}
+
+[[maybe_unused]] inline static int bittorrent_lsd_fuzz_test(const uint8_t *data, size_t size) {
+    struct datum request_data{data, data+size};
+    char buffer[8192];
+    struct buffer_stream buf_json(buffer, sizeof(buffer));
+    struct json_object record(&buf_json);
+
+    bittorrent_lsd lsd{request_data};
+    if (lsd.is_not_empty()) {
+        lsd.write_json(record);
+    }
+
+    return 0;
+}
+
+[[maybe_unused]] inline static int bittorrent_handshake_fuzz_test(const uint8_t *data, size_t size) {
+    struct datum request_data{data, data+size};
+    char buffer[8192];
+    struct buffer_stream buf_json(buffer, sizeof(buffer));
+    struct json_object record(&buf_json);
+
+    bittorrent_handshake handshake{request_data};
+    if (handshake.is_not_empty()) {
+        handshake.write_json(record);
+    }
+
+    return 0;
+}
 #endif // BITTORRENT_H

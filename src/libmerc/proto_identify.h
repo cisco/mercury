@@ -372,8 +372,8 @@ public:
         }
 
         if (protocols["bittorrent"] || protocols["all"]) {
-            udp.add_protocol(DHT_packet::matcher, udp_msg_type_dht);
-            udp.add_protocol(btorrent_lsd::matcher, udp_msg_type_lsd);
+            udp.add_protocol(bittorrent_dht::matcher, udp_msg_type_dht);
+            udp.add_protocol(bittorrent_lsd::matcher, udp_msg_type_lsd);
             tcp.add_protocol(bittorrent_handshake::matcher, tcp_msg_type_bittorrent);
         }
         // tell protocol_identification objects to compile lookup tables
