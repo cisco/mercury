@@ -228,7 +228,9 @@ public:
         originator_address(d),
         asdu_address(d),
         inf_objs(d),
-        valid(d.is_not_null()) { }
+        valid(d.is_not_null() && num_objects) { }
+
+    bool is_not_empty() { return valid; }
 
     void write_json(struct json_object &o) const {
         if (!valid) {
@@ -328,16 +330,14 @@ class i_frame {
     sequence_number send_seq_number;
     sequence_number recv_seq_number;
     asdu asdu_obj;
-    bool valid;
 
 public:
     i_frame (struct datum &d, const uint8_t& apdu_length) :
         send_seq_number(d),
         recv_seq_number(d),
-        asdu_obj(d, apdu_length),
-        valid(d.is_not_null()) { }
+        asdu_obj(d, apdu_length) { }
 
-    bool is_not_empty() { return valid; }
+    bool is_not_empty() { return asdu_obj.is_not_empty(); }
 
     void write_json(struct json_object &o) const {
         struct json_object r{o, "i_frame"};
