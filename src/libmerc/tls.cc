@@ -790,10 +790,19 @@ void tls_client_hello::write_json(struct datum &data, struct json_object &record
     hello.write_json(record, output_metadata);
 }
 
-void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
+void tls_client_hello::fingerprint(struct buffer_stream &buf, size_t format_version) const {
     if (is_not_empty() == false) {
         return;
     }
+    if (format_version == 0) {
+        ;
+    } else if (format_version == 1) {
+        buf.write_uint8(format_version);
+        buf.write_char('/');
+    } else {
+        return; // unsupported format version
+    }
+
     /*
      * copy clientHello.ProtocolVersion
      */
@@ -809,19 +818,16 @@ void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
     /*
      * copy extensions vector
      */
-    extensions.fingerprint_quic_tls(buf, tls_role::client);
-
+    if (format_version == 0) {
+        extensions.fingerprint(buf, tls_role::client);
+    } else if (format_version == 1) {
+        extensions.fingerprint_quic_tls(buf, tls_role::client);
+    }
 }
 
-void tls_client_hello::compute_fingerprint(class fingerprint &fp) const {
-    enum fingerprint_type type;
-    if (dtls) {
-        type = fingerprint_type_dtls;
-    } else {
-        type = fingerprint_type_tls;
-    }
-    fp.set_type(type);
-    fp.add(*this);
+void tls_client_hello::compute_fingerprint(class fingerprint &fp, size_t format_version) const {
+    fp.set_type(fingerprint_type_tls);
+    fp.add(*this, format_version);
     fp.final();
 }
 

@@ -76,6 +76,7 @@ public:
     // extended configs
     std::string temp_proto_str;
     bool tcp_reassembly = false;          /* reassemble tcp segments      */
+    size_t tls_fingerprint_format = 0;    // default fingerprint format
 
     global_config() : libmerc_config(), tcp_reassembly{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), tcp_reassembly{false} {
@@ -165,14 +166,27 @@ public:
         }
         return true;
     }
-    
+
+    bool set_fingerprint_format(const std::string &s) {
+        if (s == "tls") {
+            tls_fingerprint_format = 0;
+        } else if (s == "tls/1") {
+            tls_fingerprint_format = 1;
+        } else {
+            fprintf(stderr, "warning: unknown fingerprint format: %s\n", s.c_str());
+            tls_fingerprint_format = 0xffffffff;  // unknown_fingerprint_format
+            return false;
+        }
+        return true;
+    }
 };
 
 static void setup_extended_fields(global_config* lc, const std::string& config) {
 
     std::vector<libmerc_option> options = {
         {"select", "-s", "--select", SETTER_FUNCTION(&lc){ lc->set_protocols(s); }},
-        {"resources", "", "", SETTER_FUNCTION(&lc){ lc->set_resource_file(s); }}
+        {"resources", "", "", SETTER_FUNCTION(&lc){ lc->set_resource_file(s); }},
+        {"format", "", "", SETTER_FUNCTION(&lc){ lc->set_fingerprint_format(s); }}
     };
 
     parse_additional_options(options, config, *lc);

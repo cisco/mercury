@@ -265,14 +265,19 @@ struct write_metadata {
 
 struct compute_fingerprint {
     fingerprint &fp_;
+    size_t format_version;
 
-    compute_fingerprint(fingerprint &fp) : fp_{fp} {
+    compute_fingerprint(fingerprint &fp, size_t format=0) : fp_{fp}, format_version{format} {
         fp.init();
     }
 
     template <typename T>
     void operator()(T &msg) {
         msg.compute_fingerprint(fp_);
+    }
+
+    void operator()(tls_client_hello &msg) {
+        msg.compute_fingerprint(fp_, format_version);
     }
 
     // these protocols are not fingerprinted
@@ -831,7 +836,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     // process transport/application protocol
     //
     if (std::visit(is_not_empty{}, x)) {
-        std::visit(compute_fingerprint{analysis.fp}, x);
+        std::visit(compute_fingerprint{analysis.fp, global_vars.tls_fingerprint_format}, x);
         bool output_analysis = false;
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);

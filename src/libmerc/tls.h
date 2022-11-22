@@ -354,9 +354,9 @@ struct tls_client_hello : public tcp_base_protocol {
 
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
-    void fingerprint(struct buffer_stream &buf) const;
+    void fingerprint(struct buffer_stream &buf, size_t format_version=0) const;
 
-    void compute_fingerprint(class fingerprint &fp) const;
+    void compute_fingerprint(class fingerprint &fp, size_t format_version=0) const;
 
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
