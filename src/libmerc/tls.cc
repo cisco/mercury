@@ -460,7 +460,7 @@ struct tls_extension {
 void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) const {
 
     struct datum ext_parser{this->data, this->data_end};
-
+    b.write_char('(');
     while (ext_parser.length() > 0) {
 
         tls_extension x{ext_parser};
@@ -522,6 +522,7 @@ void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) co
         }
 
     }
+    b.write_char(')');
 
 }
 
@@ -909,9 +910,7 @@ void tls_server_hello::fingerprint(struct buffer_stream &buf) const {
         /*
          * copy extensions vector
          */
-        buf.write_char('(');
         extensions.fingerprint(buf, tls_role::server);
-        buf.write_char(')');
     }
 }
 
