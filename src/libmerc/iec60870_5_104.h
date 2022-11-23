@@ -531,9 +531,13 @@ public:
         return (len.slice<8, 16>() + 2);
     }
 
-    void write_json(struct json_object &o) {
-        o.print_key_uint8("apdu_length", apdu_length);
-        std::visit(write_iec_json{o}, packet);
+    void write_json(struct json_object &o, bool) {
+        if  (this->is_not_empty()) {
+            struct json_object iec{o, "iec60870_5_104"};
+            iec.print_key_uint8("apdu_length", apdu_length);
+            std::visit(write_iec_json{iec}, packet);
+            iec.close();
+        }
     }
 
     static int iec60870_5_104_fuzz_test(const uint8_t *data, size_t size);
@@ -547,7 +551,7 @@ public:
 
     iec60870_5_104 iec_msg{request_data};
     if (iec_msg.is_not_empty()) {
-        iec_msg.write_json(record);
+        iec_msg.write_json(record, true);
     }
 
     return 0;

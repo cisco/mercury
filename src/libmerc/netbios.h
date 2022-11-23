@@ -86,11 +86,15 @@ public:
         return(len.slice<15, 32>() + 4);
     }
 
-    void write_json(struct json_object &o) const {
-        type_codes<nbss_packet> type_code{*this};
-        o.print_key_value("type", type_code);
-        o.print_key_uint16("length", length.value());
-        o.print_key_hex("data", body);
+    void write_json(struct json_object &o, bool) {
+        if (this->is_not_empty()) {
+            struct json_object nbss{o, "nbss"};
+            type_codes<nbss_packet> type_code{*this};
+            nbss.print_key_value("type", type_code);
+            nbss.print_key_uint16("length", length.value());
+            nbss.print_key_hex("data", body);
+            nbss.close();
+        }
     }
 };
 
@@ -151,7 +155,7 @@ public:
         return valid;
     }
 
-    void write_json(struct json_object &o) const {
+    void write_json(struct json_object &o) {
         if(!valid) {
             return;
         }
@@ -185,7 +189,7 @@ public:
         return valid;
     }
 
-    void write_json(struct json_object &o) const {
+    void write_json(struct json_object &o) {
         if(!valid) {
             return;
         }
@@ -209,7 +213,7 @@ public:
         return valid;
     }
 
-    void write_json(struct json_object &o) const {
+    void write_json(struct json_object &o) {
         if(!valid) {
             return;
         }
@@ -264,38 +268,42 @@ public:
         {0x00, 0x00, 0x00, 0x00}
     };
 
-    void write_json(struct json_object &o) const {
-        type_codes<nbds_packet> type_code{*this}; 
-        o.print_key_value("msg_type", type_code);
-        o.print_key_uint8_hex("flags", flags.value());
-        o.print_key_uint16("datagram_id",  datagram_id);
-        o.print_key_value("source_ip", source_ip);
-        o.print_key_uint16("source_port", source_port);
-        switch(msg_type) {
-        case 0x10:
-        case 0x11:
-        case 0x12:
-        {
-            direct_or_bcast_dgm pkt(body);
-            pkt.write_json(o);
-            break;
-        }
-        case 0x13:
-        {
-            dgm_error pkt(body);
-            pkt.write_json(o);
-            break;
-        }
-        case 0x14:
-        case 0x15:
-        case 0x16:
-        {
-            dgm_query pkt(body);
-            pkt.write_json(o);
-            break;
-        }
-        default:
-            o.print_key_hex("data", body);
+    void write_json(struct json_object &o, bool) {
+        if (this->is_not_empty()) {
+            struct json_object nbds{o, "nbds"};
+            type_codes<nbds_packet> type_code{*this}; 
+            nbds.print_key_value("msg_type", type_code);
+            nbds.print_key_uint8_hex("flags", flags.value());
+            nbds.print_key_uint16("datagram_id",  datagram_id);
+            nbds.print_key_value("source_ip", source_ip);
+            nbds.print_key_uint16("source_port", source_port);
+            switch(msg_type) {
+            case 0x10:
+            case 0x11:
+            case 0x12:
+            {
+                direct_or_bcast_dgm pkt(body);
+                pkt.write_json(nbds);
+                break;
+            }
+            case 0x13:
+            {
+                dgm_error pkt(body);
+                pkt.write_json(nbds);
+                break;
+            }
+            case 0x14:
+            case 0x15:
+            case 0x16:
+            {
+                dgm_query pkt(body);
+                pkt.write_json(nbds);
+                break;
+            }
+            default:
+            nbds.print_key_hex("data", body);
+            }
+            nbds.close();
         }
     }
 };
@@ -311,7 +319,7 @@ namespace {
 
         nbss_packet pkt{nbss_data};
         if (pkt.is_not_empty()) {
-            pkt.write_json(record);
+            pkt.write_json(record, true);
         }
 
         return 0;
@@ -326,7 +334,7 @@ namespace {
 
         nbds_packet pkt{nbds_data};
         if (pkt.is_not_empty()) {
-            pkt.write_json(record);
+            pkt.write_json(record, true);
         }
 
         return 0;

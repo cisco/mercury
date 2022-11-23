@@ -228,36 +228,6 @@ struct write_metadata {
         r.write_json(record, metadata_output_, certs_json_output_);
     }
 
-    void operator()(smb1_packet &r) {
-        struct json_object smb1{record, "smb1"};
-        r.write_json(smb1);
-        smb1.close();
-    }
-
-    void operator()(smb2_packet &r) {
-        struct json_object smb2{record, "smb2"};
-        r.write_json(smb2);
-        smb2.close();
-    }
-
-    void operator()(iec60870_5_104 &r) {
-        struct json_object iec{record, "iec60870_5_104"};
-        r.write_json(iec);
-        iec.close();
-    }
-
-    void operator()(nbss_packet &r) {
-        struct json_object nbss{record, "nbss"};
-        r.write_json(nbss);
-        nbss.close();
-    }
-
-    void operator()(nbds_packet &r) {
-        struct json_object nbds{record, "nbds"};
-        r.write_json(nbds);
-        nbds.close();
-    }
-
     void operator()(std::monostate &r) {
         (void) r;
     }
