@@ -173,8 +173,7 @@ public:
         } else if (s == "tls/1") {
             tls_fingerprint_format = 1;
         } else {
-            fprintf(stderr, "warning: unknown fingerprint format: %s\n", s.c_str());
-            tls_fingerprint_format = 0xffffffff;  // unknown_fingerprint_format
+            printf_err(log_warning, "warning: unknown fingerprint format: %s; using default instead\n", s.c_str());
             return false;
         }
         return true;
