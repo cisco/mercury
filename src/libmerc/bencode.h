@@ -87,14 +87,6 @@ namespace bencoding {
         }
     };
 
-
-    class minus_sign {
-        literal_<'-'> minus;
-
-    public:
-        minus_sign(datum &d) : minus(d) { }
-    };
-
     // Lists are encoded as follows:
     // l<bencoded values>e
     //
@@ -104,49 +96,30 @@ namespace bencoding {
     // Integers are encoded as follows:
     // i<integer encoded in base ten ASCII>e
     //
-    //  A signed 64bit integer is mandatory
     //
     class bint {
-        int64_t val = 0;
-        bool negative_val = false;
+        datum body;
+        bool valid;
 
     public:
-        datum body;
         bint(datum &d) {
             d.accept('i');
-            if (lookahead<minus_sign> minus{d}) {
-                negative_val = true;
-                d = minus.advance();
-            }
-
-            body = d;
-            while (d.is_not_empty()) {
-                encoded<uint8_t> c(d);
-                if (c.value() == 'e') {
-                    body.data_end = d.data;
-                    break;          // at end; not an error
-                }
-                if (c.value() < '0' || c.value() > '9') {
-                    d.set_null();   // error; input is not a bint
-                    break;
-                }
-                val *= 10;
-                val += c - '0';
-            }
-
-            if (negative_val) {
-                val *= -1;
-            }
+            body.parse_up_to_delim(d, 'e');
+            d.accept('e');
+            valid = d.is_not_null();
         }
-        int64_t value() const { return val; }
 
         void write_json(struct json_object &o) {
-            o.print_key_int64("value", val);
+            if (!valid) {
+                return;
+            }
+
+            o.print_key_json_string("value", body);
         }
     };
 
     class list_or_dict_end {
-        literal_<'e'> end;
+        literal_byte<'e'> end;
 
     public:
         list_or_dict_end(datum &d) : end{d} { }
@@ -195,7 +168,22 @@ namespace bencoding {
         bool is_not_empty() { return valid; }
 
         void write_json(struct json_object &o);
-        
+
+#ifndef NDEBUG
+
+        inline bool unit_test() {
+            unsigned char data[] = "d1:ad2:id20:abcdefghij012345678912:implied_porti1e9:info_hash20:mnopqrstuvwxyz1234564:porti-6881e5:token8:aoeusnthe1:q13:announce_peer1:t2:aa1:y1:qe";
+            struct datum request_data{data, data + sizeof(data)};
+            char buffer[8192];
+            struct buffer_stream buf_json(buffer, sizeof(buffer));
+            struct json_object record(&buf_json);
+
+
+            dictionary dict{request_data};
+            dict.write_json(record);
+            return true;
+        }
+#endif //NDEBUG        
     };
 };
 
@@ -209,6 +197,8 @@ public:
     bool is_not_empty() { return valid; }
 
     void write_json(struct json_object &o);
+
+
 };
 
 #endif // BENCODE_H

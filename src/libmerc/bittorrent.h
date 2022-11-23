@@ -20,8 +20,12 @@ class bittorrent_dht {
 public:
     bittorrent_dht (datum &d) : dict(d) { }
 
-    void write_json(struct json_object &o) {
-        dict.write_json(o);
+    void write_json(struct json_object &o, bool) {
+        if (this->is_not_empty()) {
+            struct json_object dht{o, "bittorrent_dht"};
+            dict.write_json(dht);
+            dht.close();
+        }
     }
 
     bool is_not_empty() { return dict.is_not_empty(); }
@@ -117,9 +121,9 @@ public:
 };
 
 class bittorrent_lsd {
-    literal<9> proto;
+    literal_byte<'B', 'T', '-', 'S', 'E', 'A', 'R', 'C', 'H'> proto;
     ignore_char_class<space> sp1;
-    literal<1> asterisk;
+    literal_byte<'*'> asterisk;
     ignore_char_class<space> sp2;
     newhttp::version version;
     newhttp::crlf crlf;
@@ -129,42 +133,31 @@ class bittorrent_lsd {
 public:
 
     bittorrent_lsd(datum &d) :
-        proto{d, {'B', 'T', '-', 'S', 'E', 'A', 'R', 'C', 'H'} },
+        proto{d},
         sp1(d),
-        asterisk{d, {'*'} },
+        asterisk{d},
         sp2(d),
         version(d),
         crlf(d),
         headers{d},
         valid{d.is_not_null()} { }
 
-    void write_json(struct json_object &record) {
-        record.print_key_json_string("version", version);
-        headers.write_json(record);
-    }
-
     bool is_not_empty() { return valid; }
+
+    void write_json(struct json_object &o, bool) {
+        if (this->is_not_empty()) {
+            struct json_object lsd{o, "bittorrent_lsd"};
+            lsd.print_key_json_string("version", version);
+            headers.write_json(lsd);
+            lsd.close();
+        }
+    }
 
     static constexpr mask_and_value<8> matcher {
         {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
         {'B', 'T', '-', 'S', 'E', 'A', 'R', 'C'}
     };
         
-};
-
-// The peer wire protocol consists of a handshake followed by a
-// never-ending stream of length-prefixed messages. The handshake
-// starts with character ninteen (decimal) followed by the string
-// 'BitTorrent protocol'. The leading character is a length prefix,
-// put there in the hope that other new protocols may do the same and
-// thus be trivially distinguishable from each other.
-//
-class peer_prefix {
-    literal<20> proto;
-public:
-    peer_prefix(datum &d) :
-        proto{d, { 19, 'B', 'i', 't', 'T', 'o', 'r', 'r', 'e', 'n', 't', ' ', 'p', 'r', 'o', 't', 'o', 'c', 'o', 'l' }}
-    {}
 };
 
 class bittorrent_peer_message {
@@ -216,6 +209,12 @@ public:
 };
 
 //
+// The peer wire protocol consists of a handshake followed by a
+// never-ending stream of length-prefixed messages. The handshake
+// starts with character ninteen (decimal) followed by the string
+// 'BitTorrent protocol'. The leading character is a length prefix,
+// put there in the hope that other new protocols may do the same and
+// thus be trivially distinguishable from each other.
 // All later integers sent in the protocol are encoded as four bytes
 // big-endian.
 //
@@ -245,8 +244,7 @@ public:
 // when data is expected.
 
 class bittorrent_handshake {
-    encoded<uint8_t> protocol_name_length;
-    datum protocol_name;
+    literal_byte<0x13, 'B', 'i', 't', 'T', 'o', 'r', 'r', 'e', 'n', 't', ' ', 'p', 'r', 'o', 't', 'o', 'c', 'o', 'l'> protocol;
     datum extension_bytes;
     datum hash_of_info_dict;
     datum peer_id;
@@ -255,8 +253,7 @@ class bittorrent_handshake {
 
 public:
     bittorrent_handshake(datum &d) :
-        protocol_name_length{d},
-        protocol_name{d, protocol_name_length},
+        protocol{d},
         extension_bytes{d, 8},
         hash_of_info_dict{d, 20},
         peer_id{d, 20},
@@ -270,26 +267,24 @@ public:
         {0x13, 'B', 'i', 't', 'T', 'o', 'r', 'r'}
     };
 
-    void write_json(struct json_object &o) {
-        if(!valid) {
-            return;
-        }
+    void write_json(struct json_object &o, bool) {
+        if (this->is_not_empty()) {
+            struct json_object bt{o, "bittorrent"};
+            bt.print_key_hex("extension_bytes", extension_bytes);
+            bt.print_key_hex("info_dict", hash_of_info_dict);
+            bt.print_key_hex("peer_id", peer_id);
 
-        o.print_key_json_string("protocol_name", protocol_name);
-        o.print_key_hex("extension_bytes", extension_bytes);
-        o.print_key_hex("info_dict", hash_of_info_dict);
-        o.print_key_hex("peer_id", peer_id);
-
-        struct json_array msgs{o, "messages"};
-        while(body.is_not_empty()) {
-            bittorrent_peer_message peer_msg{body};
-            peer_msg.write_json(msgs);
+            struct json_array msgs{bt, "messages"};
+            while(body.is_not_empty()) {
+                bittorrent_peer_message peer_msg{body};
+                peer_msg.write_json(msgs);
+            }
+            msgs.close();
+            bt.close();
         }
-        msgs.close();
     }    
 
     void fprint(FILE *f) const {
-        fprintf(f, "protocol_name:     ");  protocol_name.fprint(f);         fputc('\n', f);
         fprintf(f, "extension_bytes:   ");  extension_bytes.fprint_hex(f);   fputc('\n', f);
         fprintf(f, "hash_of_info_dict: ");  hash_of_info_dict.fprint_hex(f); fputc('\n', f);
         fprintf(f, "peer_id:           ");  peer_id.fprint_hex(f);           fputc('\n', f);
@@ -304,7 +299,7 @@ public:
 
     bittorrent_dht dht{request_data};
     if (dht.is_not_empty()) {
-        dht.write_json(record);
+        dht.write_json(record, true);
     }
 
     return 0;
@@ -318,7 +313,7 @@ public:
 
     bittorrent_lsd lsd{request_data};
     if (lsd.is_not_empty()) {
-        lsd.write_json(record);
+        lsd.write_json(record, true);
     }
 
     return 0;
@@ -332,7 +327,7 @@ public:
 
     bittorrent_handshake handshake{request_data};
     if (handshake.is_not_empty()) {
-        handshake.write_json(record);
+        handshake.write_json(record, true);
     }
 
     return 0;

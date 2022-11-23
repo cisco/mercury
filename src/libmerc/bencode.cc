@@ -90,16 +90,4 @@ void bencoded_data::write_json(struct json_object &o) {
         }
     }
 }
-/* Standalone test code
-int main() {
-    unsigned char data[] = "d9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999d";
-    struct datum request_data{data, data + 114};
-    char buffer[8192];
-    struct buffer_stream buf_json(buffer, sizeof(buffer));
-    struct json_object record(&buf_json);
 
-    
-    bencoding::dictionary dict{request_data};
-    dict.write_json(record);
-}
-*/

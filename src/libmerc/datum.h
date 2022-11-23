@@ -1056,15 +1056,15 @@ public:
     }
 };
 
-// class literal accepts and ignores an input, setting d to null if
-// the expected input is not found
+// class literal_bytes accepts the variable number of input bytes,
+// setting d to null if the expected input is not found
 //
-template <uint8_t literal_char>
-class literal_ {
-public:
 
-    literal_(datum &d) {
-        d.accept(literal_char);
+template<uint8_t... args>
+class literal_byte {
+public:
+    literal_byte(datum &d) {
+        (d.accept(args),...);
     }
 };
 
