@@ -398,7 +398,27 @@ public:
 
 };
 
+namespace {
 
+    [[maybe_unused]] int openvpn_tcp_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        char buffer_1[8192];
+        struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
+        char buffer_2[8192];
+        struct buffer_stream buf_fp(buffer_2, sizeof(buffer_2));
+        struct json_object record(&buf_json);
+        
+
+        openvpn_tcp pkt_openvpn{pkt_data};
+        if (pkt_openvpn.is_not_empty()) {
+            pkt_openvpn.write_json(record, true);
+            pkt_openvpn.fingerprint(buf_fp);
+        }
+
+        return 0;
+    }
+
+};
 
 
 #endif  // OPENVPN_H 

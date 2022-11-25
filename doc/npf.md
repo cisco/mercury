@@ -281,7 +281,7 @@ OPENVPN fingerprints are computed from the OPENVPN Initial Packet which also con
 
 - `key_id` (string, one byte) is the normalised key_id where the normalisation is 0x00 for key_id==0 and 0x01 otherwise,
 
-- `opcode}{key_id}` (string, two bytes) is the above {op_code} and {key_id} concatenated,
+- `{opcode}{key_id}` (string, two bytes) is the above {op_code} and {key_id} concatenated,
 
 - `HMAC_len` (string, 1 byte) is the length of HMAC used (e.g 20 for SHA1, 32 for SHA256) if OPENVPN tls-auth is enabled or 0 otherwise,
 
