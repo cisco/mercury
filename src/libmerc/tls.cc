@@ -819,13 +819,7 @@ void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
 }
 
 void tls_client_hello::compute_fingerprint(class fingerprint &fp) const {
-    enum fingerprint_type type;
-    if (dtls) {
-        type = fingerprint_type_dtls;
-    } else {
-        type = fingerprint_type_tls;
-    }
-    fp.set_type(type);
+    fp.set_type(fingerprint_type_tls);
     fp.add(*this);
     fp.final();
 }
@@ -870,13 +864,6 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
     ciphersuite_vector.parse(record, L_CipherSuite);
 
     compression_method.parse(record, L_CompressionMethod);
-
-    if (compression_method.is_not_empty()) {
-        // determine if this is DTLS or plain old TLS
-        if (protocol_version.data[0] == 0xfe) {
-            dtls = true;
-        }
-    }
 
     // parse extensions vector
     if (record.read_uint(&tmp_len, L_ExtensionsVectorLength) == false) {
