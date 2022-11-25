@@ -263,6 +263,38 @@ HTTP_REQUEST_NAME_ONLY = {
 
 
 
+## OPENVPN
+
+OPENVPN fingerprints are computed from the OPENVPN Initial Packet which also contains the TLS Client Hello.   To compute this fingerprint, it is necessary to parse OPENVPN packets (which may be more than one), reassemble the data, and then process the TLS Client Hello in the reassembled data.  If there is no TLS Client Hello in the packets, it is not possible to compute a fingerprint.  The fingerprint format is 
+
+```
+"openvpn/" (ip_proto) (num_pkt) ({opcode}{key_id}) (HMAC_len) (TLS_Ciphersuites) ((TLS_Extension)*)
+```
+
+ where 
+
+- `ip_proto` (string, one byte) is the IP protocol type - 6:TCP, 11:UDP, depending on the transport protocol used for OPENVPN,
+
+- `num_pkt` (string, one byte) is the number of OPENVPN packets across which the TLS Client Hello is split,
+
+- `op_code` (string, one byte) is the OPENVPN packet op_code for ex 0x04 for P_CONTROL_V1,
+
+- `key_id` (string, one byte) is the normalised key_id where the normalisation is 0x00 for key_id==0 and 0x01 otherwise,
+
+- `opcode}{key_id}` (string, two bytes) is the above {op_code} and {key_id} concatenated,
+
+- `HMAC_len` (string, 1 byte) is the length of HMAC used (e.g 20 for SHA1, 32 for SHA256) if OPENVPN tls-auth is enabled or 0 otherwise,
+
+- `TLS_Version`, `TLS_Ciphersuites`, `TLS_Extension` are as defined in the TLS section.  They are computed from the TLS Client Hello reassembled from the OPENVPN packets.  
+
+An example of a OPENVPN fingerprint is
+
+```
+openvpn/(06)(03)(0400)(14)(0301)(c014c00ac022c0210039003800880087c00fc00500350084c012c008c01cc01b00160013c00dc003000ac013c009c01fc01e00330032009a009900450044c00ec004002f00960041c011c007c00cc002000500040015001200090014001100080006000300ff)((000b000403000102)(000a00340032000e000d0019000b000c00180009000a00160017000800060007001400150004000500120013000100020003000f00100011)(0023)(000f000101))
+```
+
+
+
 ## DTLS
 
 *TBD*
