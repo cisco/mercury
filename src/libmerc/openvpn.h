@@ -347,7 +347,7 @@ public:
     }
 
     void fingerprint(struct buffer_stream &buf) const {
-        if (!valid) {
+        if (!fp_true) {
             return;
         }
         // Add openvpn related stuff
