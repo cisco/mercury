@@ -746,38 +746,42 @@ public:
 
     bool is_not_empty() const { return hdr.is_valid(); }
 
-    void write_json(struct json_object &o) {
-        hdr.write_json(o);
+    void write_json(struct json_object &o, bool) {
+        if (this->is_not_empty()) {
+            struct json_object smb2{o, "smb2"};
+            hdr.write_json(smb2);
 
-        switch(hdr.get_packet_type()) {
-            case smb2_header::packet_type::NEGOTIATE_REQUEST:
-            {
-                smb2_negotiate_request neg_req(body);
-                neg_req.write_json(o);
-                data_buffer<2048> buf;
-                buf.copy('[');
-                hdr.write_raw_features(buf);
-                neg_req.write_raw_features(buf);
-                buf.copy(']');
-                o.print_key_json_string("features", buf.contents());
-            }
-                break;
-            case smb2_header::packet_type::NEGOTIATE_RESPONSE:
-            {
-                smb2_negotiate_response neg_resp(body);
-                neg_resp.write_json(o);
-                data_buffer<2048> buf;
-                buf.copy('[');
-                hdr.write_raw_features(buf);
-                neg_resp.write_raw_features(buf);
-                buf.copy(']');
-                o.print_key_json_string("features", buf.contents());
-            }
-                break;
-            case smb2_header::packet_type::LAST_TYPE:
+            switch (hdr.get_packet_type()) {
+                case smb2_header::packet_type::NEGOTIATE_REQUEST:
+                {
+                    smb2_negotiate_request neg_req(body);
+                    neg_req.write_json(smb2);
+                    data_buffer<2048> buf;
+                    buf.copy('[');
+                    hdr.write_raw_features(buf);
+                    neg_req.write_raw_features(buf);
+                    buf.copy(']');
+                    smb2.print_key_json_string("features", buf.contents());
+                }
+                    break;
+                case smb2_header::packet_type::NEGOTIATE_RESPONSE:
+                {
+                    smb2_negotiate_response neg_resp(body);
+                    neg_resp.write_json(smb2);
+                    data_buffer<2048> buf;
+                    buf.copy('[');
+                    hdr.write_raw_features(buf);
+                    neg_resp.write_raw_features(buf);
+                    buf.copy(']');
+                    smb2.print_key_json_string("features", buf.contents());
+                }
+                    break;
+                case smb2_header::packet_type::LAST_TYPE:
 
-            default:
-                break;
+                default:
+                    break;
+            }
+            smb2.close();
         }
     }
 
@@ -801,7 +805,7 @@ namespace {
 
         smb2_packet request{request_data};
         if (request.is_not_empty()) {
-            request.write_json(record);
+            request.write_json(record, true);
         }
 
         return 0;

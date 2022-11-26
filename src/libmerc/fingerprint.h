@@ -49,6 +49,11 @@ public:
         msg.fingerprint(fp_buf);
     }
 
+    template <typename T>
+    void add(T &msg, size_t format_version) {
+        msg.fingerprint(fp_buf, format_version);
+    }
+
     // the function fingerprint_is_well_formed() checks the
     // fingerprint in fp_buf and verifies that it consists of balanced
     // parenthesis and even-numbered hex strings

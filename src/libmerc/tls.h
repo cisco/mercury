@@ -354,9 +354,9 @@ struct tls_client_hello : public tcp_base_protocol {
 
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
-    void fingerprint(struct buffer_stream &buf) const;
+    void fingerprint(struct buffer_stream &buf, size_t format_version=0) const;
 
-    void compute_fingerprint(class fingerprint &fp) const;
+    void compute_fingerprint(class fingerprint &fp, size_t format_version=0) const;
 
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
@@ -379,7 +379,6 @@ struct tls_server_hello : public tcp_base_protocol {
     struct datum ciphersuite_vector;
     struct datum compression_method;
     struct tls_extensions extensions;
-    bool dtls = false;
 
     tls_server_hello() {  }
 
@@ -420,13 +419,7 @@ struct tls_server_hello : public tcp_base_protocol {
     }
 
     void compute_fingerprint(class fingerprint &fp) const {
-        enum fingerprint_type type;
-        if (dtls) {
-            type = fingerprint_type_dtls_server;
-        } else {
-            type = fingerprint_type_tls_server;
-        }
-        fp.set_type(type);
+        fp.set_type(fingerprint_type_tls_server);
         fp.add(*this);
         fp.final();
     }
