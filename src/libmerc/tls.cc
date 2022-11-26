@@ -460,7 +460,7 @@ struct tls_extension {
 void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) const {
 
     struct datum ext_parser{this->data, this->data_end};
-
+    b.write_char('(');
     while (ext_parser.length() > 0) {
 
         tls_extension x{ext_parser};
@@ -522,6 +522,7 @@ void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) co
         }
 
     }
+    b.write_char(')');
 
 }
 
@@ -790,10 +791,19 @@ void tls_client_hello::write_json(struct datum &data, struct json_object &record
     hello.write_json(record, output_metadata);
 }
 
-void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
+void tls_client_hello::fingerprint(struct buffer_stream &buf, size_t format_version) const {
     if (is_not_empty() == false) {
         return;
     }
+    if (format_version == 0) {
+        ;
+    } else if (format_version == 1) {
+        buf.write_uint8(format_version);
+        buf.write_char('/');
+    } else {
+        return; // unsupported format version
+    }
+
     /*
      * copy clientHello.ProtocolVersion
      */
@@ -809,18 +819,16 @@ void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
     /*
      * copy extensions vector
      */
-    if (is_quic_hello) {
-        extensions.fingerprint_quic_tls(buf, tls_role::client);
-    } else {
-        buf.write_char('(');
+    if (format_version == 0) {
         extensions.fingerprint(buf, tls_role::client);
-        buf.write_char(')');
+    } else if (format_version == 1) {
+        extensions.fingerprint_quic_tls(buf, tls_role::client);
     }
 }
 
-void tls_client_hello::compute_fingerprint(class fingerprint &fp) const {
+void tls_client_hello::compute_fingerprint(class fingerprint &fp, size_t format_version) const {
     fp.set_type(fingerprint_type_tls);
-    fp.add(*this);
+    fp.add(*this, format_version);
     fp.final();
 }
 
@@ -895,9 +903,7 @@ void tls_server_hello::fingerprint(struct buffer_stream &buf) const {
         /*
          * copy extensions vector
          */
-        buf.write_char('(');
         extensions.fingerprint(buf, tls_role::server);
-        buf.write_char(')');
     }
 }
 

@@ -114,7 +114,15 @@ where
 
 ## TLS
 
-TLS fingerprints are formed from packets containing a TLS Client Hello message.  The TLS fingerprint format is
+TLS fingerprints are formed from packets containing a TLS Client Hello message.  There are two formats defined.  The newer one, "tls/1", sorts the extensions into lexicographic order, to compensate for the randomization of those fields introduced by some TLS clients.  The older one, "tls", does not sort those extensions into order.  
+
+The "tls/1" fingerprint format is
+
+```
+   "tls/1" (TLS_Version) (TLS_Ciphersuite) [ QUIC_Extension* ]
+```
+
+and the older "tls" fingerprint format is
 
 ```
    "tls/" (TLS_Version) (TLS_Ciphersuite) ((TLS_Extension)*)
@@ -135,6 +143,8 @@ where
   TLS_Extension = extension                if DEGREASE(extension[0:2]) is in TLS_EXT_FIXED, and
                   DEGREASE(extension[0:2]) otherwise.
 ```
+
+`QUIC_extension` is as defined below.
 
    The function DEGREASE takes as input a two-byte value and returns a two-byte value.
 

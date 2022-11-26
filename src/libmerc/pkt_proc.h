@@ -133,7 +133,6 @@ using protocol = std::variant<std::monostate,
                               smb1_packet,
                               smb2_packet
                               >;
-
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
     struct flow_table_tcp tcp_flow_table;
