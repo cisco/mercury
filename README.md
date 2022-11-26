@@ -9,6 +9,12 @@ Mercury reads network packets, identifies metadata of interest, and writes out t
 
 Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other protocols; these fingerprints are formed by carefully selecting and normalizing metadata extracted from packets.  Fingerprint strings are reported in the "fingerprint" object in the JSON output.  Optionally, mercury can perform process identification based on those fingerprints and the destination context; these results are reported in the "analysis" object.
 
+## Version 2.5.13
+
+* Added `--format` option that selects the fingerprint format(s).
+* Added `tls/1` fingerprint format, in which extensions are sorted into increasing lexicographic order.  This compensates for TLS clients that randomize the order of extensions.
+* Updated and amended this README.
+
 ## Version 2.5.12
 
 * Fixes some bugs.
