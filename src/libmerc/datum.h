@@ -48,7 +48,7 @@ struct datum {
 
     datum() : data{NULL}, data_end{NULL} {}
     datum(const unsigned char *first, const unsigned char *last) : data{first}, data_end{last} {}
-    datum(datum &d, size_t length) {
+    datum(datum &d, ssize_t length) {
         parse(d, length);
     }
     datum(std::pair<const unsigned char *, const unsigned char *> p) : data{p.first}, data_end{p.second} {}
@@ -70,8 +70,8 @@ struct datum {
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = NULL; }
     ssize_t length() const { return data_end - data; }
-    void parse(struct datum &r, size_t num_bytes) {
-        if (r.length() < (ssize_t)num_bytes) {
+    void parse(struct datum &r, ssize_t num_bytes) {
+        if (r.length() < num_bytes || num_bytes < 0) {
             r.set_null();
             set_null();
             //fprintf(stderr, "warning: not enough data in parse (need %zu, have %zd)\n", num_bytes, length());

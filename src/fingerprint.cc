@@ -2,7 +2,7 @@
 //
 // fingerprint conversion and analysis
 //
-// build:  g++ -Wall fingerprint.cc -o fingerprint -lcrypto
+// build:  g++ -Wall -DNDEBUG=1 -std=c++17 fingerprint.cc -o fingerprint -lcrypto
 // run:    cat fingerprint_db.json | ./fingerprint
 
 
@@ -15,8 +15,9 @@
 
 #include "options.h"
 
-#include "libmerc/rapidjson/document.h"
+using namespace mercury_option;
 
+#include "libmerc/rapidjson/document.h"
 
 struct char_pair { char first; char second; };
 
@@ -31,6 +32,7 @@ public:
     std::string version;
     std::string ciphersuite_vector;
     std::vector<std::string> extensions;
+    bool valid = false;
 
     char open = '(';
     char close = ')';
@@ -50,9 +52,11 @@ public:
         return "";
     }
 
+    explicit operator bool() const { return valid; }
+
     fp(const std::string &v, const std::string & cv, const std::vector<std::string> &e) : version{v}, ciphersuite_vector{cv}, extensions{e} { }
 
-    fp(std::string &s) : version{}, ciphersuite_vector{}, extensions{} {
+    fp(const std::string &s) : version{}, ciphersuite_vector{}, extensions{} {
 
         if (s == "") {
             fprintf(stderr, "warning: got empty string in %s\n", __func__);
@@ -69,7 +73,23 @@ public:
             close = '>';
         }
 
+        // ignore "quic/" or "http/" prefix, if need be
+        //
+        for (const auto &prefix : { std::string{"http/"}, std::string{"quic/"} }) {
+            if (!s.compare(0, prefix.length(), prefix)) {
+                fprintf(stderr, "note: ignoring %s fingerprint\n", prefix.c_str());
+                return;
+            }
+        }
         const char *c = s.c_str();
+
+        // remove leading "tls/" prefix, if need be
+        //
+        std::string prefix = "tls/";
+        if (!s.compare(0, prefix.length(), prefix)) {
+            c += prefix.length();
+        }
+
         version = parse_value_from_str(&c);
         ciphersuite_vector = parse_value_from_str(&c);
 
@@ -84,6 +104,7 @@ public:
             }
         }
 
+        valid = true;
     }
 
     void fprint(FILE *f) {
@@ -183,7 +204,7 @@ public:
             if (supported_groups.length() >= 12) {
                 first = true;
                 char tmp[5] = { 0x0, 0x0, 0x0, 0x0, 0x0 };
-                for (auto c = supported_groups.begin() + 12; c < supported_groups.end();  ) {
+                for (auto c = supported_groups.begin() + 8; c < supported_groups.end();  ) {
                     tmp[0] = *c++;
                     tmp[1] = *c++;
                     tmp[2] = *c++;
@@ -230,6 +251,7 @@ public:
         }
         catch (...) {
             fprintf(stderr, "error: could not convert fingerprint to ja3\n");
+            // fprint(stderr);
         }
 
         return "";
@@ -293,44 +315,52 @@ public:
     }
 };
 
-void test() {
+
+// unit_test(f) performs unit testing on the NPF to JA3 conversion.
+// The argument f is either a FILE pointer (e.g. stderr, stdout) to
+// which data will be written (to enable a 'verbose' mode), or nullptr
+// (to enable a 'silent' mode).
+//
+bool unit_test(FILE *f) {
+
+    struct test_case {
+        const std::string r1;
+        const std::string a1;
+        const std::string h1;
+
+        bool check(FILE *f) const {
+            fp tls_fp1(a1);
+            if (h1 != tls_fp1.get_ja3_hash() || tls_fp1.ja3() != r1) {
+                if (f != nullptr) {
+                    fprintf(f, "error: ja3 reference value mismatch\n");
+                    fprintf(f, "input: %s\n", a1.c_str());
+                    tls_fp1.fprint(f);
+                    fprintf(f, "computed ja3 intermediate representation: %s\n", tls_fp1.ja3().c_str());
+                    fprintf(f, "expected ja3 intermediate_representation: %s\n", r1.c_str());
+                    fprintf(f, "computed ja3 hash: %s\n", tls_fp1.get_ja3_hash().c_str());
+                    fprintf(f, "expected ja3 hash: %s\n", h1.c_str());
+                }
+                return false;
+            }
+            return true;
+        }
+
+    };
 
     std::string r1 = "769,47-53-5-10-49161-49162-49171-49172-50-56-19-4,0-10-11,23-24-25,0";
     std::string a1 = "(0301)(002f00350005000ac009c00ac013c0140032003800130004)((0000)(000a0006001700180019)(000b00020000))";
     std::string h1 = "ada70206e40642a3e4461f35503241d5";
-
-    fp tls_fp1(a1);
-    tls_fp1.fprint(stderr);
-    // tls_fp1.ja3(stdout);
-    fprintf(stderr, "ref: %s\n", r1.c_str());
-    fprintf(stderr, "tmp: %s\n", tls_fp1.ja3().c_str());
-    fprintf(stderr, "out: %s\n", tls_fp1.get_ja3_hash().c_str());
-    fprintf(stderr, "ref: %s\n", h1.c_str());
+    test_case tc1{r1, a1, h1};
+    if (!tc1.check(f)) { return false; }
 
     std::string r2 = "769,4-5-10-9-100-98-3-6-19-18-99,,,";
     std::string a2 = "(0301)(00040005000a00090064006200030006001300120063)()";
     std::string h2 = "de350869b8c85de67a350c8d186f11e6";
+    test_case tc2{r2, a2, h2};
+    if (!tc2.check(f)) { return false; }
 
-    fp tls_fp2(a2);
-    tls_fp2.fprint(stderr);
-    // tls_fp2.ja3(stdout);
-    fprintf(stderr, "ref: %s\n", r2.c_str());
-    fprintf(stderr, "tmp: %s\n", tls_fp2.ja3().c_str());
-    fprintf(stderr, "out: %s\n", tls_fp2.get_ja3_hash().c_str());
-    fprintf(stderr, "ref: %s\n", h2.c_str());
-
-    return;
-
-    std::string tls_fp_str = "(0303)(c030c02cc028c02400a500a1009f006b00690068c032c02ec02ac026009d003dc02fc02bc027c02300a400a0009e0067003f003ec031c02dc029c025009c003c00ff)((000b000403000102)(000a001c001a00170019001c001b0018001a0016000e000d000b000c0009000a)(0023)(000d0020001e060106020603050105020503040104020403030103020303020102020203)(000f000101))";
-
-    fp tls_fp(tls_fp_str);
-    tls_fp.fprint(stderr);
-    tls_fp.ja3(stdout);
-    fprintf(stderr, "%s\n", tls_fp.ja3().c_str());
-    fprintf(stderr, "%s\n", tls_fp.get_ja3_hash().c_str());
-
-    //769,4-5-10-9-100-98-3-6-19-18-99,,, --> de350869b8c85de67a350c8d186f11e6
-
+    if (f) { fprintf(f, "unit test passed\n"); }
+    return true;
 }
 
 std::string ja3_ir_to_bp(const std::string &s) {
@@ -451,6 +481,11 @@ std::string ja3_ir_to_bp(const std::string &s) {
 
 int main(int argc, char *argv[]) {
 
+    // compile with -DNDEBUG=1 to disable unit testing
+    // pass stderr to unit_test() for debugging output
+    //
+    assert(unit_test(nullptr) == 1);
+
     const char summary[] =
         "usage:\n"
         "   fingerprint [OPTIONS]\n"
@@ -458,10 +493,10 @@ int main(int argc, char *argv[]) {
         "OPTIONS\n"
         ;
     class option_processor opt({
-        { argument::none,       "--input-json",   "input is in JSON format" },
+        { argument::none,       "--input-json",    "input is in JSON format" },
         { argument::none,       "--output-ja3-ir", "output JA3 intermediate representation" },
         { argument::required,   "--match",         "filter fingerprints matching <arg>" },
-        { argument::none,       "--help",      "print out help message" }
+        { argument::none,       "--help",          "print out help message" }
     });
     if (argc > 1 && !opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
@@ -511,26 +546,26 @@ int main(int argc, char *argv[]) {
 
         // process fingerprint string
         //
-        if (fp_string == "randomized") {
-            fprintf(stderr, "note: ignoring randomized fingerprint\n");
+        fp tmp_fp(fp_string);
+
+        if (!tmp_fp) {
+            continue; // tmp_fp is not valid, so continue on to the next one
+        }
+
+        // apply pattern (if there is one)
+        //
+        if (pattern_is_set) {
+            // fprintf(stdout, "before: %s\n", fp_string.c_str());
+            tmp_fp = fp_matcher.match(tmp_fp);
+            // fprintf(stdout, "matched: %s\n", tmp_fp.get_str_repr().c_str());
+        }
+
+        // output (matched part of) fingerprint
+        //
+        if (ja3_ir) {
+            fprintf(stdout, "%s\t%s\t%s\n", tmp_fp.ja3().c_str(), tmp_fp.get_ja3_hash().c_str(), fp_string.c_str());
         } else {
-            fp tmp_fp(fp_string);
-
-            // apply pattern (if there is one)
-            //
-            if (pattern_is_set) {
-                // fprintf(stdout, "before: %s\n", fp_string.c_str());
-                tmp_fp = fp_matcher.match(tmp_fp);
-                // fprintf(stdout, "matched: %s\n", tmp_fp.get_str_repr().c_str());
-            }
-
-            // output (matched part of) fingerprint
-            //
-            if (ja3_ir) {
-                fprintf(stdout, "%s\t%s\t%s\n", tmp_fp.ja3().c_str(), tmp_fp.get_ja3_hash().c_str(), fp_string.c_str());
-            } else {
-                fprintf(stdout, "%s\t%s\n", tmp_fp.get_ja3_hash().c_str(), fp_string.c_str());
-            }
+            fprintf(stdout, "%s\t%s\n", tmp_fp.get_ja3_hash().c_str(), fp_string.c_str());
         }
 
     }
