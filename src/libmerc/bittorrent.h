@@ -75,16 +75,25 @@ class header {
     newhttp::token name;
     ignore_char_class<space> sp;
     newhttp::text value;
+    bool valid;
 
 public:
 
     header(datum &d) :
             name{d},
             sp{d},
-            value{d}
-        { }
+            value{d},
+            valid{d.is_not_null()} { }
 
-    void write_json(json_array &a) {
+    void write_raw_features(writeable &w) const {
+        w.copy('[');
+        w.write_quote_enclosed_hex(name.data, name.length());
+        w.copy(',');
+        w.write_quote_enclosed_hex(value.data, value.length());
+        w.copy(']');
+    }
+        
+    void write_json(json_array &a) const{
         if (is_not_empty()) {
             json_object hdr{a};
             hdr.print_key_json_string("key", name);
@@ -93,28 +102,61 @@ public:
         }
     }
 
-    bool is_not_empty() const { return value.is_not_empty(); }
+    bool is_not_empty() const { return valid; }
 };
 
-class lsd_header : public datum {
+class lsd_header {
+    std::vector<header> headers;
+    static constexpr uint8_t max_headers = 10;
+    bool valid = false;
+
 public:
-    lsd_header(datum &d) : datum{d} { }
+    lsd_header(datum &d) {
+        headers.reserve(max_headers);
+        while(d.is_not_empty()) {
+            if (lookahead<newhttp::crlf> at_end{d}) {
+                break;
+            }
 
+            header h{d};
+            if (h.is_not_empty()) {
+                headers.emplace_back(h);
+            }
+            
+            newhttp::crlf ignore{d};
+        }
+        if (headers.size()) {
+            valid = true;
+        }
+    }
+
+    void write_raw_features(writeable &w) const {
+        if (!valid) {
+            return;
+        }
+
+        w.copy('[');
+        bool first = true;
+        for (auto &hdr : headers) {
+            if (!first) {
+                w.copy(',');
+            } else {
+                first = false;
+            }
+            
+            hdr.write_raw_features(w);
+        }
+        w.copy(']');
+    }
+             
     void write_json(json_object &o) const {
+        if (!valid) {
+            return;
+        }
+
         json_array hdrs{o, "headers"};
-        datum tmp{*this};
-        while (tmp.is_not_empty()) {
-            if (lookahead<newhttp::crlf> at_end{tmp}) {
-                break;
-            }
-
-            header h{tmp};
-            if (!h.is_not_empty()) {
-                break;
-            }
-
-            h.write_json(hdrs);
-            newhttp::crlf ignore{tmp};
+        for (auto &hdr : headers) {
+            hdr.write_json(hdrs);
         }
         hdrs.close();
     }
@@ -144,11 +186,26 @@ public:
 
     bool is_not_empty() { return valid; }
 
-    void write_json(struct json_object &o, bool) {
-        if (this->is_not_empty()) {
+    void write_raw_features(json_object &o) const {
+        data_buffer<2048> buf;
+        buf.copy('[');
+        buf.write_quote_enclosed_hex(version.data, version.length());
+        buf.copy(',');
+        headers.write_raw_features(buf);
+        buf.copy(']');
+        if (buf.readable_length() == 0) {
+            o.print_key_string("features", "[]");
+        } else {
+            o.print_key_json_string("features", buf.contents());
+        }
+    }
+
+    void write_json(struct json_object &o, bool) const {
+        if (valid) {
             struct json_object lsd{o, "bittorrent_lsd"};
             lsd.print_key_json_string("version", version);
             headers.write_json(lsd);
+            write_raw_features(o); 
             lsd.close();
         }
     }
@@ -193,7 +250,15 @@ public:
     }
 
     uint8_t get_code() const {return message_type.value();}
-    
+
+    void write_raw_features(writeable &buf) const {
+        buf.copy('[');
+        buf.write_quote_enclosed_hex(message_type);
+        buf.copy(',');
+        buf.write_quote_enclosed_hex(message);
+        buf.copy(']');
+    }
+ 
     void write_json(struct json_array &o) {
         if(!valid) {
             return;
@@ -208,6 +273,50 @@ public:
     }
 };
 
+class bittorrent_peer_messages{
+    std::vector<bittorrent_peer_message> messages;
+    bool valid = false;
+    
+public:
+    bittorrent_peer_messages(datum &d) {
+        messages.reserve(20); //reserve for 20 messages
+
+        while(d.is_not_empty()) {
+            messages.emplace_back(bittorrent_peer_message(d));
+        }
+
+        if (messages.size()) {
+            valid = true;
+        }
+    }
+
+    void write_raw_features(writeable &buf) const {
+        buf.copy('[');
+        bool first = true;
+        for (const auto &msg : messages) {
+            if (!first) {
+                buf.copy(',');
+            } else {
+                first = false;
+            }
+            msg.write_raw_features(buf);
+        }
+        buf.copy(']');
+    }
+
+    void write_json(struct json_object &o) {
+        if (!valid) {
+            return;
+        }
+
+        struct json_array msgs{o, "messages"};
+        for (auto msg : messages) {
+            msg.write_json(msgs);
+        }
+        msgs.close();
+    }
+};
+    
 //
 // The peer wire protocol consists of a handshake followed by a
 // never-ending stream of length-prefixed messages. The handshake
@@ -248,7 +357,7 @@ class bittorrent_handshake {
     datum extension_bytes;
     datum hash_of_info_dict;
     datum peer_id;
-    datum body;
+    bittorrent_peer_messages msgs;
     bool valid;
 
 public:
@@ -257,7 +366,7 @@ public:
         extension_bytes{d, 8},
         hash_of_info_dict{d, 20},
         peer_id{d, 20},
-        body{d},
+        msgs{d},
         valid{d.is_not_null()} { }
 
     bool is_not_empty() const { return valid; }
@@ -267,19 +376,32 @@ public:
         {0x13, 'B', 'i', 't', 'T', 'o', 'r', 'r'}
     };
 
+    void write_raw_features(json_object &o) const {
+        data_buffer<2048> buf;
+        buf.copy('[');
+        buf.write_quote_enclosed_hex(extension_bytes);
+        buf.copy(',');
+        buf.write_quote_enclosed_hex(hash_of_info_dict);
+        buf.copy(',');
+        buf.write_quote_enclosed_hex(peer_id);
+        buf.copy(',');
+        msgs.write_raw_features(buf);
+        buf.copy(']');
+        if (buf.readable_length() == 0) {
+            o.print_key_string("features", "[]");
+        } else {
+            o.print_key_json_string("features", buf.contents());
+        }
+    }
+
     void write_json(struct json_object &o, bool) {
         if (this->is_not_empty()) {
             struct json_object bt{o, "bittorrent"};
             bt.print_key_hex("extension_bytes", extension_bytes);
             bt.print_key_hex("info_dict", hash_of_info_dict);
             bt.print_key_hex("peer_id", peer_id);
-
-            struct json_array msgs{bt, "messages"};
-            while(body.is_not_empty()) {
-                bittorrent_peer_message peer_msg{body};
-                peer_msg.write_json(msgs);
-            }
-            msgs.close();
+            msgs.write_json(o);
+            write_raw_features(o);
             bt.close();
         }
     }    

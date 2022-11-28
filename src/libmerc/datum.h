@@ -695,6 +695,10 @@ public:
         copy('"');
     }
 
+    void write_quote_enclosed_hex(datum d) {
+        write_quote_enclosed_hex(d.data, d.length());
+    }
+
     template <typename Type>
     void write_hex(Type T) {
         T.write_hex(*this);
