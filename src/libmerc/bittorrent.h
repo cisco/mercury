@@ -4,7 +4,7 @@
 #ifndef BITTORRENT_H
 #define BITTORRENT_H
 
-#include <stdint.h>
+#include <vector>
 
 #include "bencode.h"
 #include "datum.h"

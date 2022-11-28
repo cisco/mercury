@@ -122,10 +122,6 @@ struct json_object {
         write_comma(comma);
         b->snprintf("\"%s\":%ld", k, i);
     }
-    void print_key_int64(const char *k, long long int i) {
-        write_comma(comma);
-        b->snprintf("\"%s\":%lld", k, i);
-    }
     void print_key_float(const char *k, double d) {
         write_comma(comma);
         b->snprintf("\"%s\":%f", k, d);
