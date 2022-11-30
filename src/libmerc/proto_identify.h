@@ -143,8 +143,6 @@ public:
 
 };
 
-bool set_config(std::map<std::string, bool> &config_map, const char *config_string); // in pkt_proc.cc
-
 // class selector implements a protocol selection policy for TCP and
 // UDP traffic
 //

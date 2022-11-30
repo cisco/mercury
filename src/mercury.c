@@ -225,13 +225,11 @@ bool option_is_valid(const char *opt) {
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
-    struct extended_config extended_cfg;
-    std::string set_proto_str;
-    bool proto_str_set = false;
+    bool select_set = false;
 
     //extern double malware_prob_threshold;  // TODO - expose hidden command
 
-    std::string additional_args{';'};
+    std::string additional_args;
 
     while(1) {
         enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, tcp_reassembly=14, format=15 };
@@ -275,7 +273,7 @@ int main(int argc, char *argv[]) {
         switch(c) {
         case config:
             if (option_is_valid(optarg)) {
-                mercury_config_read_from_file(cfg, libmerc_cfg, extended_cfg, optarg);
+                mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
@@ -342,7 +340,7 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 usage(argv[0], "option tcp-reassembly does not use an argument", extended_help_off);
             } else {
-                extended_cfg.tcp_reassembly = true;
+                additional_args.append("tcp-reassembly;");
             }
             break;
         case format:
@@ -410,20 +408,19 @@ int main(int argc, char *argv[]) {
             break;
         case 's':
             if (optarg) {
-                if (libmerc_cfg.packet_filter_cfg != NULL) {
+                if (select_set) {
                     usage(argv[0], "option s or select used more than once", extended_help_off);
                 }
                 if (option_is_valid(optarg)) {
                     libmerc_cfg.packet_filter_cfg = optarg;
-                    set_proto_str.assign(optarg);
-                    proto_str_set = true;
+                    additional_args.append("select=").append(optarg);
+                    select_set = true;
                 } else {
                     usage(argv[0], "option s or select has the form -s\"filter\" or --select=\"filter\"", extended_help_off);
                 }
             } else {
-                libmerc_cfg.packet_filter_cfg = (char *)"all";
-                set_proto_str.assign("all");
-                proto_str_set = true;
+                additional_args.append("select=all;");
+                select_set = true;
             }
             break;
         case 'h':
@@ -570,9 +567,6 @@ int main(int argc, char *argv[]) {
     if (optind < argc) {
         printf("unused options string(s): ");
         while (optind < argc) {
-            const char *option = argv[optind];
-            additional_args.append(option);
-            additional_args += ';';
             printf("%s ", argv[optind++]);
         }
         printf("\n");
@@ -601,14 +595,10 @@ int main(int argc, char *argv[]) {
 
     // setup extended config options
     //
-    if (!proto_str_set) {
-        set_proto_str.assign("");
-        libmerc_cfg.packet_filter_cfg = (char *)"";
+    if (!select_set) {
+        additional_args.append("select=all;");
     }
-    set_proto_str += additional_args;
-    extended_cfg.set_extended_cfg(libmerc_cfg, set_proto_str);
-    extended_cfg.new_proto_str = strcpy(new char[set_proto_str.length() + 1], set_proto_str.c_str());
-    libmerc_cfg.packet_filter_cfg = extended_cfg.new_proto_str;
+    libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
 
     mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
     if (mc == nullptr) {
