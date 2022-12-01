@@ -413,7 +413,7 @@ int main(int argc, char *argv[]) {
                 }
                 if (option_is_valid(optarg)) {
                     libmerc_cfg.packet_filter_cfg = optarg;
-                    additional_args.append("select=").append(optarg);
+                    additional_args.append("select=").append(optarg).append(";");
                     select_set = true;
                 } else {
                     usage(argv[0], "option s or select has the form -s\"filter\" or --select=\"filter\"", extended_help_off);
