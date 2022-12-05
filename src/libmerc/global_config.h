@@ -41,6 +41,8 @@ public:
     bool tcp_reassembly = false;          /* reassemble tcp segments      */
     size_t tls_fingerprint_format = 0;    // default fingerprint format
 
+    void set_tls_fingerprint_format(size_t format) { tls_fingerprint_format = format; }
+
     global_config() : libmerc_config(), tcp_reassembly{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), tcp_reassembly{false} {
         if (c.resources) {

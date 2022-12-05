@@ -582,6 +582,8 @@ class classifier {
     std::string resource_version;  // as reported by VERSION file in resource archive
 
     std::vector<fingerprint_type> fp_types;
+    size_t tls_fingerprint_format = 0;
+    bool first_line = true;
 
 public:
 
@@ -594,6 +596,41 @@ public:
             return fingerprint_type_quic;
         }
         return fingerprint_type_unknown;
+    }
+
+    size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
+
+    static std::pair<fingerprint_type, size_t> get_fingerprint_type_and_version(const std::string &s) {
+        fingerprint_type type = fingerprint_type_unknown;
+        unsigned int version = 0;
+        auto idx = s.find('/');
+        if (idx != std::string::npos) {
+
+            try {
+                if (s.compare(0, idx, "tls") == 0) {
+                    type = fingerprint_type_tls;
+                } else if (s.compare(0, idx, "http") == 0) {
+                    type = fingerprint_type_http;
+                } else if (s.compare(0, idx, "quic") == 0) {
+                    type = fingerprint_type_quic;
+                }
+                std::string version_and_tail{s.substr(idx+1)};
+
+                // check whether there is no explicit version number
+                //
+                std::string randomized{"randomized"};
+                if (version_and_tail.at(0) == '(' || version_and_tail.compare(0, randomized.length(), randomized) == 0) {
+                    version = 0;
+                } else {
+                    version = std::stoi(version_and_tail);  // parse version number
+                }
+            }
+            catch (...) {
+                printf_err(log_warning, "unknown protocol or version in fingerprint %s\n", s.c_str());
+                return { fingerprint_type_unknown, 0 };
+            }
+        }
+        return { type, version };
     }
 
     void process_fp_prevalence_line(std::string &line_str) {
@@ -612,6 +649,7 @@ public:
     }
 
     void process_fp_db_line(std::string &line_str, float fp_proc_threshold, float proc_dst_threshold, bool report_os) {
+
         rapidjson::Document fp;
         fp.Parse(line_str.c_str());
 
@@ -628,7 +666,9 @@ public:
                 printf_err(log_warning, "ignoring length %zu fingerprint string in resource file; too long\n", fp_string.length());
                 return;  // can't process this entry, so skip it
             }
+
         }
+
 
         fingerprint_type fp_type_code = fingerprint_type_tls;
         std::string fp_type_string;
@@ -643,12 +683,33 @@ public:
         }
 
         // if a TLS fingerprint string does not contain a protocol
-        // name, and is not 'randomized', add it in order to provide
+        // name, and is not 'randomized', add "tls/" in order to provide
         // backwards compatibility with resource files with the older
         // fingerprint format
         //
-        if (fp_type_code == fingerprint_type_tls && fp_string.at(0) == '(') {
+        if (fp_type_code == fingerprint_type_tls && (fp_string.at(0) == '(' || fp_string == "randomized")) {
             fp_string = "tls/" + fp_string;
+        }
+
+        std::pair<fingerprint_type, size_t> fingerprint_type_and_version = get_fingerprint_type_and_version(fp_string.c_str());
+
+        if (fp_type_code != fingerprint_type_and_version.first) {
+            printf_err(log_warning, "fingerprint type of str_repr '%s' does not match fp_type, ignorning JSON line\n", fp_string.c_str());
+            return;
+        }
+
+        // ensure that all tls fingerprints in DB have the same version
+        //
+        if (fingerprint_type_and_version.first == fingerprint_type_tls) {
+            if (first_line == true) {
+                tls_fingerprint_format = fingerprint_type_and_version.second;
+            } else {
+                if (fingerprint_type_and_version.second != tls_fingerprint_format) {
+                    printf_err(log_warning, "fingerprint version with inconsistent format, ignoring JSON line\n");
+                    return;
+                }
+            }
+            first_line = false;
         }
 
         uint64_t total_count = 0;
