@@ -959,47 +959,6 @@ static void enumerate_protocol_types(FILE *f) {
     }
 }
 
-// set_config(config_map, config_string) updates the std::map provided
-// as input, based on the configuration represented by config_string,
-// and returns false if that string could not be parsed correctly
-//
-// the format of config_string is a comma-separated list of keywords,
-// possibly including whitespace, such as like "tcp,ssh, tls"
-//
-bool set_config(std::map<std::string, bool> &config_map, const char *config_string) {
-    if (config_string == NULL) {
-        return true; // no updates needed
-    }
-
-    std::string s{config_string};
-    std::string delim{","};
-    size_t pos = 0;
-    std::string token;
-    while ((pos = s.find(delim)) != std::string::npos) {
-        token = s.substr(0, pos);
-        token.erase(std::remove_if(token.begin(), token.end(), isspace), token.end());
-        s.erase(0, pos + delim.length());
-
-        auto pair = config_map.find(token);
-        if (pair != config_map.end()) {
-            pair->second = true;
-        } else {
-            printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
-            return false;
-        }
-    }
-    token = s.substr(0, pos);
-    s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
-    auto pair = config_map.find(token);
-    if (pair != config_map.end()) {
-        pair->second = true;
-    } else {
-        printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
-        return false;
-    }
-    return true;
-}
-
 bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                                           size_t length,
                                               struct timespec *ts,

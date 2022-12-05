@@ -71,7 +71,6 @@ enum status argument_parse_as_float(const char *arg, float *variable_to_set) {
 
 static enum status mercury_config_parse_line(struct mercury_config *cfg,
                                              struct libmerc_config &global_vars,
-                                             struct extended_config &extended_cfg,
                                              char *line) {
     char *arg = NULL;
 
@@ -154,8 +153,7 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return status_ok;
 
     } else if ((arg = command_get_argument("tcp-reassembly", line)) != NULL) {
-        extended_cfg.tcp_reassembly = true;
-        return status_ok;
+        return status_err;    // TODO: add functionality
 
     } else {
         if (line[0] == '#') { /* comment line */
@@ -179,7 +177,6 @@ void string_remove_whitespace(char* s) {
 
 enum status mercury_config_read_from_file(struct mercury_config &cfg,
                                           struct libmerc_config &global_vars,
-                                          struct extended_config &extended_cfg,
                                           const char *filename) {
     if (cfg.verbosity) {
         fprintf(stderr, "reading config file %s\n", filename);
@@ -198,8 +195,7 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
         if (nread > 1) {
             line[nread-1] = 0; /* replace CR with null terminator */
             string_remove_whitespace(line);
-            if(mercury_config_parse_line(&cfg, global_vars, extended_cfg, line))
-            {
+            if (mercury_config_parse_line(&cfg, global_vars, line)) {
                 fprintf(stderr, "warning: ignoring unparseable command line '%s'\n", line);
             }
         }

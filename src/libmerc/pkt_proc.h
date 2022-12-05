@@ -58,6 +58,10 @@ struct mercury {
             if (c == nullptr) {
                 throw std::runtime_error("error: analysis_init_from_archive() failed"); // failure
             }
+
+            // set fingerprint formats to match those in the resource file
+            //
+            global_vars.set_tls_fingerprint_format(c->get_tls_fingerprint_format());
         }
     }
 
