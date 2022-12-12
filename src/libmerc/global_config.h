@@ -100,6 +100,7 @@ public:
             { "tls.server_hello",       false },
             { "tls.server_certificate", false},
             { "wireguard",              false },
+            { "openvpn_tcp",            false },
         };
 
     bool set_protocols(const std::string& data) {

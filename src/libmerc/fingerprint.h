@@ -140,6 +140,7 @@ public:
             "dtls_server",
             "quic",
             "tcp_server",
+            "openvpn",
         };
         if (fp_type > (sizeof(name)/sizeof(const char *))) {
             return name[0];  // error: unknown type
