@@ -375,7 +375,6 @@ struct datum {
                 tmp = (tmp << 8) + *c;
             }
             *output = tmp;
-            mercury_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
             return true;
         }
         return false;
@@ -455,7 +454,6 @@ struct datum {
             }
             *output = tmp;
             data = c;
-            mercury_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zu\n", __func__, num_bytes, (unsigned)tmp, tmp);
             return true;
         }
         set_null();

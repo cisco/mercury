@@ -453,3 +453,37 @@ TEST_CASE_METHOD(LibmercTestFixture, "test nbss with recources-mp")
         nbss_check(count, config.m_lc);
     }
 }
+
+TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp with recources-mp")
+{
+
+    auto openvpn_check = [&](int count, const struct libmerc_config &config, fingerprint_type fp_t, fingerprint_type fp_t2)
+    {
+        initialize(config);
+
+        CHECK(count == counter(fp_t, fp_t2));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"openvpn_tcp"},
+             .m_pc{"openvpn_tcp_multi.pcap"},
+             .fp_t = fingerprint_type_openvpn},
+         2},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"openvpn_tcp"},
+             .m_pc{"openvpn_tcp_single.pcap"},
+             .fp_t = fingerprint_type_openvpn},
+         1}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        openvpn_check(count, config.m_lc, config.fp_t, fingerprint_type_unknown);
+    }
+}

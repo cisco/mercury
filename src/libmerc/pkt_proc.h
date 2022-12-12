@@ -105,6 +105,7 @@ class ospf;
 class sctp_init;
 struct tcp_packet;
 class iec60870_5_104;
+class openvpn_tcp;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -135,7 +136,8 @@ using protocol = std::variant<std::monostate,
                               sctp_init,
                               tcp_packet,
                               smb1_packet,
-                              smb2_packet
+                              smb2_packet,
+                              openvpn_tcp
                               >;
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
