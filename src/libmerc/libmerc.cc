@@ -430,3 +430,12 @@ void register_printf_err_callback(printf_err_ptr callback) {
         printf_err_static = callback;
     }
 }
+
+size_t get_stats_aggregator_num_entries(mercury_context mc)
+{
+    if (mc == NULL) {
+       return 0;
+    }
+
+    return mc->aggregator.get_num_entries();
+}
