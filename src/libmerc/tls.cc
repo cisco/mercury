@@ -78,46 +78,6 @@ static uint16_t static_extension_types[num_static_extension_types] = {
         type_quic_transport_parameters_draft
     };
 
-uint16_t degrease_uint16(uint16_t x) {
-    switch(x) {
-    case 0x0a0a:
-    case 0x1a1a:
-    case 0x2a2a:
-    case 0x3a3a:
-    case 0x4a4a:
-    case 0x5a5a:
-    case 0x6a6a:
-    case 0x7a7a:
-    case 0x8a8a:
-    case 0x9a9a:
-    case 0xaaaa:
-    case 0xbaba:
-    case 0xcaca:
-    case 0xdada:
-    case 0xeaea:
-    case 0xfafa:
-        return 0x0a0a;
-        break;
-    default:
-        return x;
-    }
-    return x;
-}
-
-void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, size_t len) {
-    if (len % 2) {
-        len--;   // force len to be a multiple of two
-    }
-    uint16_t *x = (uint16_t *)data;
-    uint16_t *x_end = x + (len/2);
-
-    while (x < x_end) {
-        uint16_t tmp = degrease_uint16(*x++);
-        buf.raw_as_hex((const uint8_t *)&tmp, sizeof(tmp));
-    }
-
-}
-
 void tls_extensions::print(struct json_object &o, const char *key) const {
 
     struct datum ext_parser{this->data, this->data_end};

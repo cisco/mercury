@@ -38,10 +38,14 @@ public:
     //    add()       (one or more times)
     //    final()
 
-    void set_type(fingerprint_type fp_type) {
+    void set_type(fingerprint_type fp_type, size_t format_version=0) {
         type = fp_type;
         fp_buf.puts(get_type_name(fp_type));
         fp_buf.write_char('/');
+        if (format_version) {
+            fp_buf.write_uint8(format_version);
+            fp_buf.write_char('/');
+        }
     }
 
     template <typename T>
