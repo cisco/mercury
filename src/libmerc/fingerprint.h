@@ -79,7 +79,7 @@ public:
         //loop over version string if present
         if (*c != '(') {
             while (*c != '\0' && *c != '/') {
-                if (!isxdigit(*c)) {
+                if (!isdigit(*c)) {
                     return false;
                 }
                 c++;
