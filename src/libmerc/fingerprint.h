@@ -76,6 +76,17 @@ public:
         }
         c++;  // accept '/'
 
+        //loop over version string if present
+        if (*c != '(') {
+            while (*c != '\0' && *c != '/') {
+                if (!isxdigit(*c)) {
+                    return false;
+                }
+                c++;
+            }
+            c++; //accept '/'
+        }
+
         // loop over balanced parens / tree data
         //
         while (*c != '\0') {
