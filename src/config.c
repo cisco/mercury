@@ -69,6 +69,29 @@ enum status argument_parse_as_float(const char *arg, float *variable_to_set) {
     return status_err;
 }
 
+char *str_append(char *s1, const char *s2) {
+    size_t newlen = 1; // for terminating null character
+    if (s1) {
+        newlen += strlen(s1);
+    }
+    if (s2) {
+        newlen += strlen(s2);
+    }
+    char *newstr = (char *)realloc(s1, newlen);
+    if (newstr == nullptr) {
+        return nullptr;
+    }
+    if (s1 == nullptr) {
+        strcpy(newstr, s2);
+    } else {
+        strcat(newstr, s2);
+    }
+    return newstr;
+}
+
+static char *select_arg = nullptr;
+static char *additional_args = nullptr;
+
 static enum status mercury_config_parse_line(struct mercury_config *cfg,
                                              struct libmerc_config &global_vars,
                                              char *line) {
@@ -129,7 +152,12 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return argument_parse_as_int(arg, &cfg->verbosity);
 
     } else if ((arg = command_get_argument("select=", line)) != NULL) {
-        global_vars.packet_filter_cfg = strdup(arg);
+        if (select_arg != nullptr) {
+            return status_err;  // select command previously detected
+        }
+        select_arg = str_append(select_arg, "select=");
+        select_arg = str_append(select_arg, arg);
+        select_arg = str_append(select_arg, ";");
         return status_ok;
 
     } else if ((arg = command_get_argument("dns-json", line)) != NULL) {
@@ -153,7 +181,14 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return status_ok;
 
     } else if ((arg = command_get_argument("tcp-reassembly", line)) != NULL) {
-        return status_err;    // TODO: add functionality
+        additional_args = str_append(additional_args, "tcp-reassembly;");
+        return status_ok;
+
+    } else if ((arg = command_get_argument("format=", line)) != NULL) {
+        additional_args = str_append(additional_args, "format=");
+        additional_args = str_append(additional_args, arg);
+        additional_args = str_append(additional_args, ";");
+        return status_ok;
 
     } else {
         if (line[0] == '#') { /* comment line */
@@ -202,6 +237,13 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
     }
     free(line);
     fclose(cfg_file);
+
+    // apply additional args
+    //
+    if (select_arg == nullptr) {
+        select_arg = str_append(select_arg, "select=all;");
+    }
+    global_vars.packet_filter_cfg = str_append(select_arg, additional_args);
 
     return status_ok;
 }

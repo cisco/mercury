@@ -61,7 +61,9 @@ struct mercury {
 
             // set fingerprint formats to match those in the resource file
             //
-            global_vars.set_tls_fingerprint_format(c->get_tls_fingerprint_format());
+            size_t resources_tls_format = c->get_tls_fingerprint_format();
+            global_vars.set_tls_fingerprint_format(resources_tls_format);
+            printf_err(log_info, "setting tls fingerprint format to match resource file (format: %zu)\n", resources_tls_format);
         }
     }
 
@@ -167,7 +169,7 @@ struct stateful_pkt_proc {
         m{mc},
         c{nullptr},
         ag{nullptr},
-        global_vars{},
+        global_vars{mc->global_vars},
         selector{mc->selector},
         quic_crypto{},
         ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()}
