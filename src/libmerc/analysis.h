@@ -986,7 +986,20 @@ public:
                 return analysis_result(fingerprint_status_unlabled);
             } else {
                 fp_prevalence.update(fp_str);
-                const auto fpdb_entry_randomized = fpdb.find("randomized");
+                /*
+                 * Resource file has info about randomized fingerprints in the format
+                 * protocol/format/randomized
+                 * Eg: tls/1/randomized
+                 */
+                std::string randomized_str;
+                const char *c = &fp_str[0];
+                while (*c != '\0' && *c != '(') {
+                    randomized_str.append(c, 1);
+                    c++;
+                }
+                randomized_str.append("randomized");
+ 
+                const auto fpdb_entry_randomized = fpdb.find(randomized_str);
                 if (fpdb_entry_randomized == fpdb.end()) {
                     return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
                 }
