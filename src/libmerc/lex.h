@@ -117,4 +117,11 @@ public:
     }
 };
 
+class digits : public one_or_more<digits> {
+public:
+    inline static bool in_class(uint8_t x) {
+        return x >= '0' && x <= '9';
+    }
+};
+
 #endif // LEX_H

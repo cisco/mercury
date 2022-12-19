@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include "datum.h"
 #include "json_object.h"
+#include "lex.h"
 
 namespace bencoding {
 
@@ -98,23 +99,24 @@ namespace bencoding {
     //
     //
     class bint {
-        datum body;
+        literal_byte<'i'> start;
+        one_or_more<digits> value;
+        literal_byte<'e'> end;
         bool valid;
 
     public:
-        bint(datum &d) {
-            d.accept('i');
-            body.parse_up_to_delim(d, 'e');
-            d.accept('e');
-            valid = d.is_not_null();
-        }
+        bint(datum &d) :
+             start(d),
+             value(d),
+             end(d),
+             valid{d.is_not_null()} { }
 
         void write_json(struct json_object &o) {
             if (!valid) {
                 return;
             }
 
-            o.print_key_json_string("value", body);
+            o.print_key_json_string("value", value.data, value.length());
         }
     };
 

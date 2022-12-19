@@ -90,4 +90,3 @@ void bencoded_data::write_json(struct json_object &o) {
         }
     }
 }
-
