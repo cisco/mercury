@@ -70,16 +70,16 @@ enum status argument_parse_as_float(const char *arg, float *variable_to_set) {
 }
 
 char *str_append(char *s1, const char *s2) {
-    size_t newlen = 1; // for terminating null character
+    if (s2 == nullptr) {
+        return s1;     // nothing to append
+    }
+    size_t newlen = strlen(s2) + 1; // for terminating null character
     if (s1) {
         newlen += strlen(s1);
     }
-    if (s2) {
-        newlen += strlen(s2);
-    }
     char *newstr = (char *)realloc(s1, newlen);
     if (newstr == nullptr) {
-        return nullptr;
+        return nullptr;  // error; realloc failed
     }
     if (s1 == nullptr) {
         strcpy(newstr, s2);
