@@ -17,6 +17,7 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
+#include <openssl/kdf.h>
 
 #define pt_buf_len 2048
 
@@ -24,6 +25,7 @@ class crypto_engine {
 
     EVP_CIPHER_CTX *gcm_ctx = nullptr;
     EVP_CIPHER_CTX *ecb_ctx = nullptr;
+    const EVP_MD *md = EVP_sha256();
 
     static constexpr size_t max_label_len = 32;
 
@@ -173,6 +175,37 @@ public:
                 }
             }
         }
+    }
+
+    void quic_kdf_expand(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
+                   uint8_t *out_, size_t *out_len, size_t len) {
+        
+        unsigned char hkdf_label[256], *pos;
+        *out_len = len;
+        pos = hkdf_label;
+        *pos++ = len >> 8;
+        *pos++ = len & 0xff;
+        *pos++ = label_len;
+        memcpy(pos, label, label_len);
+        pos += label_len;
+        *pos++ = '\0';
+        size_t hkdf_label_len = pos - hkdf_label;
+        
+        EVP_PKEY_CTX *ctx;
+        ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
+        if (!ctx) {
+            return;
+        }
+        if (EVP_PKEY_derive_init(ctx) <= 0 ||
+            EVP_PKEY_CTX_hkdf_mode(ctx, EVP_PKEY_HKDEF_MODE_EXPAND_ONLY) <= 0 ||
+            EVP_PKEY_CTX_set_hkdf_md(ctx, EVP_sha256()) <= 0 ||
+            EVP_PKEY_CTX_set1_hkdf_key(ctx, secret, secret_length) <= 0 ||
+            EVP_PKEY_CTX_add1_hkdf_info(ctx, hkdf_label, hkdf_label_len) <= 0 ||
+            EVP_PKEY_derive(ctx, out_, &len) <= 0) {
+            EVP_PKEY_CTX_free(ctx);
+            return;
+        }
+        EVP_PKEY_CTX_free(ctx);
     }
 
 };
