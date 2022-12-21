@@ -31,10 +31,21 @@ class bittorrent_dht {
 public:
     bittorrent_dht (datum &d) : dict(d) { }
 
+    void write_raw_features(json_object &o) {
+        data_buffer<2048> buf;
+        dict.write_raw_features(buf);
+        if (buf.readable_length() == 0) {
+            o.print_key_string("features", "[]");
+        } else {
+            o.print_key_json_string("features", buf.contents());
+        }
+    }
+
     void write_json(struct json_object &o, bool) {
         if (this->is_not_empty()) {
             struct json_object dht{o, "bittorrent_dht"};
             dict.write_json(dht);
+            write_raw_features(dht);
             dht.close();
         }
     }

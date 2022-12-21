@@ -77,6 +77,10 @@ namespace bencoding {
             return true;
         }
 
+        void write_raw_features(writeable &w) {
+            w.write_quote_enclosed_hex(val);
+        }
+
         void write_json(struct json_object &o) {
             if (val.is_readable()) {
                 if(is_printable_ascii()) {
@@ -111,6 +115,10 @@ namespace bencoding {
              end(d),
              valid{d.is_not_null()} { }
 
+        void write_raw_features(writeable &w) {
+            w.write_quote_enclosed_hex(value.data, value.length());
+        }
+
         void write_json(struct json_object &o) {
             if (!valid) {
                 return;
@@ -142,6 +150,8 @@ namespace bencoding {
 
         bool is_not_empty() { return valid; }
 
+        void write_raw_features(writeable &w);
+
         void write_json(struct json_object &o);
     };
 
@@ -157,6 +167,7 @@ namespace bencoding {
     // culture-specific "natural" comparison.
     //
     class dictionary {
+        datum body;
         datum &tmp;
         bool valid;
 
@@ -164,10 +175,13 @@ namespace bencoding {
 
         dictionary(datum &d) : tmp(d) {
             tmp.accept('d');
+            body = tmp;
             valid = d.is_not_null();
         }
 
         bool is_not_empty() { return valid; }
+
+        void write_raw_features(writeable &w);
 
         void write_json(struct json_object &o);
 
@@ -197,6 +211,8 @@ public:
     bencoded_data(datum &d) : body{d}, valid{d.is_not_null()} { }
 
     bool is_not_empty() { return valid; }
+
+    void write_raw_features(writeable &w);
 
     void write_json(struct json_object &o);
 
