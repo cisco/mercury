@@ -68,6 +68,7 @@ public:
             { "all",                    false },
             { "none",                   false },
             { "arp",                    false },
+            { "bittorrent",             false },
             { "cdp",                    false },
             { "dhcp",                   false },
             { "dnp3",                   false },

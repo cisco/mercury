@@ -39,6 +39,7 @@
 #include "netbios.h"
 #include "udp.h"
 #include "openvpn.h"
+#include "bittorrent.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -58,6 +59,7 @@ enum tcp_msg_type {
     tcp_msg_type_dnp3,
     tcp_msg_type_nbss,
     tcp_msg_type_openvpn,
+    tcp_msg_type_bittorrent,
 };
 
 enum udp_msg_type {
@@ -73,6 +75,8 @@ enum udp_msg_type {
     udp_msg_type_ssdp,
     udp_msg_type_stun,
     udp_msg_type_nbds,
+    udp_msg_type_dht,
+    udp_msg_type_lsd,
 };
 
 template <size_t N>
@@ -367,8 +371,12 @@ public:
             select_openvpn_tcp = true;
         }
 
+        if (protocols["bittorrent"] || protocols["all"]) {
+            udp.add_protocol(bittorrent_dht::matcher, udp_msg_type_dht);
+            udp.add_protocol(bittorrent_lsd::matcher, udp_msg_type_lsd);
+            tcp.add_protocol(bittorrent_handshake::matcher, tcp_msg_type_bittorrent);
+        }
         // tell protocol_identification objects to compile lookup tables
-        //
         tcp.compile();
         udp.compile();
         udp16.compile();
