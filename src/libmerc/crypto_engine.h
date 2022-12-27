@@ -25,7 +25,6 @@ class crypto_engine {
 
     EVP_CIPHER_CTX *gcm_ctx = nullptr;
     EVP_CIPHER_CTX *ecb_ctx = nullptr;
-    const EVP_MD *md = EVP_sha256();
 
     static constexpr size_t max_label_len = 32;
 
@@ -179,18 +178,18 @@ public:
 
     void quic_kdf_expand(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
                    uint8_t *out_, size_t *out_len, size_t len) {
-        
-        unsigned char hkdf_label[256], *pos;
+
+        unsigned char hkdf_label[256], *in;
         *out_len = len;
-        pos = hkdf_label;
-        *pos++ = len >> 8;
-        *pos++ = len & 0xff;
-        *pos++ = label_len;
-        memcpy(pos, label, label_len);
-        pos += label_len;
-        *pos++ = '\0';
-        size_t hkdf_label_len = pos - hkdf_label;
-        
+        in = hkdf_label;
+        *in++ = len >> 8;
+        *in++ = len & 0xff;
+        *in++ = label_len;
+        memcpy(in, label, label_len);
+        in += label_len;
+        *in++ = '\0';
+        size_t hkdf_label_len = in - hkdf_label;
+
         EVP_PKEY_CTX *ctx;
         ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
         if (!ctx) {

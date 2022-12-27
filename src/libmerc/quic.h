@@ -631,7 +631,7 @@ struct quic_initial_packet {
 
         payload.parse(d, length.value());
 
-        if ((payload.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
+        if ((payload.is_not_empty() == false)) {
             //fprintf(stderr, "invalid\n");
             return;  // invalid or incomplete packet
         }
