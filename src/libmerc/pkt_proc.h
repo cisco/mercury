@@ -75,6 +75,80 @@ struct mercury {
     }
 };
 
+// protocol is an alias for a std::variant that can hold any protocol
+// data element.  The default value of std::monostate indicates that
+// the protocol matcher did not recognize the packet.
+//
+// The classes unknown_initial_packet and unknown_udp_initial_packet
+// represents the TCP and UDP data fields, respectively, of an
+// unrecognized packet that is the first data packet in a flow.
+//
+//protocol structs forward declarations
+struct http_request;                      // start of tcp protocols
+struct http_response;
+struct tls_client_hello;
+class tls_server_hello_and_certificate;
+struct ssh_init_packet;
+struct ssh_kex_init;
+class smtp_client;
+class smtp_server;
+class dnp3;
+class unknown_initial_packet;
+class quic_init;                         // start of udp protocols
+struct wireguard_handshake_init;
+struct dns_packet;
+struct mdns_packet;
+class dtls_client_hello;
+class
+dtls_server_hello;
+struct dhcp_discover;
+class ssdp;
+//class stun::message;
+class unknown_udp_initial_packet;
+class icmp_packet;                        // start of ip protocols
+class ospf;
+class sctp_init;
+struct tcp_packet;
+class iec60870_5_104;
+class openvpn_tcp;
+class socks4_req;
+
+using protocol = std::variant<std::monostate,
+                              http_request,                      // start of tcp protocols
+                              http_response,
+                              tls_client_hello,
+                              tls_server_hello_and_certificate,
+                              ssh_init_packet,
+                              ssh_kex_init,
+                              smtp_client,
+                              smtp_server,
+                              iec60870_5_104,
+                              dnp3,
+                              nbss_packet,
+                              bittorrent_handshake,
+                              unknown_initial_packet,
+                              quic_init,                         // start of udp protocols
+                              wireguard_handshake_init,
+                              dns_packet,
+                              mdns_packet,
+                              dtls_client_hello,
+                              dtls_server_hello,
+                              dhcp_discover,
+                              ssdp,
+                              stun::message,
+                              nbds_packet,
+                              bittorrent_dht,
+                              bittorrent_lsd,
+                              unknown_udp_initial_packet,
+                              icmp_packet,                        // start of ip protocols
+                              ospf,
+                              sctp_init,
+                              tcp_packet,
+                              smb1_packet,
+                              smb2_packet,
+                              openvpn_tcp,
+                              socks4_req
+                              >;
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
     struct flow_table_tcp tcp_flow_table;

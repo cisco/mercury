@@ -79,6 +79,185 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     // o.b->snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
+
+// function objects that are applied to the protocol std::variant (and
+// any other variant that can hold a subset of its protocol data
+// element types)
+//
+struct is_not_empty {
+    template <typename T>
+    bool operator()(T &r) {
+        return r.is_not_empty();
+    }
+
+    bool operator()(std::monostate &r) {
+        (void)r;
+        return false;
+    }
+};
+
+struct write_metadata {
+    struct json_object &record;
+    bool metadata_output_;
+    bool certs_json_output_;
+    bool dns_json_output_;
+
+    write_metadata(struct json_object &object,
+                   bool metadata_output,
+                   bool certs_json_output,
+                   bool dns_json_output=false) : record{object},
+                                             metadata_output_{metadata_output},
+                                             certs_json_output_{certs_json_output},
+                                             dns_json_output_{dns_json_output}
+    {}
+
+    template <typename T>
+    void operator()(T &r) {
+        r.write_json(record, metadata_output_);
+    }
+
+    void operator()(http_response &r) {
+        if (metadata_output_) {
+            r.write_json(record);
+        }
+    }
+
+    void operator()(dhcp_discover &r) {
+        if (metadata_output_) {
+            r.write_json(record);
+        }
+    }
+
+    void operator()(dns_packet &r) {
+        std::string name{"dns"};
+        if (r.netbios()) {
+            name = "nbns";
+        }
+
+        if (dns_json_output_) {
+            struct json_object json_dns{record, name.c_str()};
+            r.write_json(json_dns);
+            json_dns.close();
+        } else {
+            struct json_object json_dns{record, name.c_str()};
+            struct datum pkt = r.get_datum();  // get complete packet
+            json_dns.print_key_base64("base64", pkt);
+            json_dns.close();
+        }
+    }
+
+    void operator()(mdns_packet &r) {
+        if (dns_json_output_) {
+            struct json_object json_mdns{record, "mdns"};
+            r.write_json(json_mdns);
+            json_mdns.close();
+        } else {
+            struct json_object json_mdns{record, "mdns"};
+            struct datum pkt = r.get_datum();  // get complete packet
+            json_mdns.print_key_base64("base64", pkt);
+            json_mdns.close();
+        }
+    }
+
+    void operator()(tls_server_hello &r) {
+        struct json_object tls{record, "tls"};
+        struct json_object tls_server{tls, "server"};
+        r.write_json(tls_server, metadata_output_);
+        tls_server.close();
+        tls.close();
+    }
+
+    void operator()(dtls_server_hello &r) {
+        struct json_object dtls{record, "dtls"};
+        struct json_object dtls_server{dtls, "server"};
+        r.write_json(dtls_server, metadata_output_);
+        dtls_server.close();
+        dtls.close();
+    }
+
+    void operator()(tls_server_hello_and_certificate &r) {
+        r.write_json(record, metadata_output_, certs_json_output_);
+    }
+
+    void operator()(std::monostate &r) {
+        (void) r;
+    }
+};
+
+struct compute_fingerprint {
+    fingerprint &fp_;
+    size_t format_version;
+
+    compute_fingerprint(fingerprint &fp, size_t format=0) : fp_{fp}, format_version{format} {
+        fp.init();
+    }
+
+    template <typename T>
+    void operator()(T &msg) {
+        msg.compute_fingerprint(fp_);
+    }
+
+    void operator()(tls_client_hello &msg) {
+        msg.compute_fingerprint(fp_, format_version);
+    }
+
+    // these protocols are not fingerprinted
+    //
+    void operator()(sctp_init &) { }
+    void operator()(ospf &) { }
+    void operator()(icmp_packet &) { }
+    void operator()(wireguard_handshake_init &) { }
+    void operator()(unknown_initial_packet &) { }
+    void operator()(unknown_udp_initial_packet &) { }
+    void operator()(dns_packet &) { }
+    void operator()(mdns_packet &) { }
+    void operator()(ssdp &) { }
+    void operator()(dnp3 &) {}
+    void operator()(smb1_packet &) { }
+    void operator()(smb2_packet &) { }
+    void operator()(iec60870_5_104 &) { }
+    void operator()(nbss_packet &) { }
+    void operator()(nbds_packet &) { }
+    void operator()(bittorrent_handshake &) { }
+    void operator()(bittorrent_dht &) { }
+    void operator()(bittorrent_lsd &) { }
+    void operator()(socks4_req &) { }
+    void operator()(std::monostate &) { }
+
+};
+
+struct do_analysis {
+    const struct key &k_;
+    struct analysis_context &analysis_;
+    classifier *c_;
+
+    do_analysis(const struct key &k,
+                struct analysis_context &analysis,
+                classifier *c) :
+        k_{k},
+        analysis_{analysis},
+        c_{c}
+    {}
+
+    bool operator()(tls_client_hello &msg) {
+        return msg.do_analysis(k_, analysis_, c_);
+    }
+    bool operator()(http_request &msg) {
+        return msg.do_analysis(k_, analysis_, c_);
+    }
+    bool operator()(quic_init &msg) {
+        return msg.do_analysis(k_, analysis_, c_);
+    }
+
+    template <typename T>
+    bool operator()(T &) {
+        return false;   // don't perform analysis for other types
+    }
+
+    bool operator()(std::monostate &) { return false; }
+
+};
+
 struct do_crypto_assessment {
     const crypto_policy::assessor *ca;
     json_object &record;
@@ -268,6 +447,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_tofsee_initial_message:
         x.emplace<tofsee_initial_message>(pkt);
+        break;
+    case tcp_msg_type_socks4:
+        x.emplace<socks4_req>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
