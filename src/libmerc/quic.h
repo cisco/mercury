@@ -631,7 +631,7 @@ struct quic_initial_packet {
 
         payload.parse(d, length.value());
 
-        if ((payload.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
+        if ((payload.is_not_empty() == false)) {
             //fprintf(stderr, "invalid\n");
             return;  // invalid or incomplete packet
         }
@@ -773,13 +773,13 @@ class quic_crypto_engine {
     size_t salt_length = 20;
 
     uint8_t quic_key[EVP_MAX_MD_SIZE] = {0};
-    unsigned int quic_key_len = 0;
+    size_t quic_key_len = 0;
 
     uint8_t quic_iv[EVP_MAX_MD_SIZE] = {0};
-    unsigned int quic_iv_len = 0;
+    size_t quic_iv_len = 0;
 
     uint8_t quic_hp[EVP_MAX_MD_SIZE] = {0};
-    unsigned int quic_hp_len = 0;
+    size_t quic_hp_len = 0;
 
     uint8_t pn_length = 0;
 
@@ -847,11 +847,11 @@ private:
         HMAC(EVP_sha256(), salt, salt_length, dcid, dcid_len, initial_secret, &initial_secret_len);
 
         uint8_t c_initial_secret[EVP_MAX_MD_SIZE] = {0};
-        unsigned int c_initial_secret_len = 0;
-        core_crypto.kdf_tls13(initial_secret, initial_secret_len, client_in_label, sizeof(client_in_label)-1, 32, c_initial_secret, &c_initial_secret_len);
-        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_key_label, sizeof(quic_key_label)-1, 16, quic_key, &quic_key_len);
-        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, 12, quic_iv, &quic_iv_len);
-        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, 16, quic_hp, &quic_hp_len);
+        size_t c_initial_secret_len = 0;
+        core_crypto.quic_kdf_expand(initial_secret, initial_secret_len, client_in_label, sizeof(client_in_label)-1, c_initial_secret, &c_initial_secret_len,32);
+        core_crypto.quic_kdf_expand(c_initial_secret, c_initial_secret_len, quic_key_label, sizeof(quic_key_label)-1, quic_key, &quic_key_len,16);
+        core_crypto.quic_kdf_expand(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, quic_iv, &quic_iv_len,12);
+        core_crypto.quic_kdf_expand(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, quic_hp, &quic_hp_len,16);
 
         // remove header protection (RFC9001, Section 5.4.1)
         //

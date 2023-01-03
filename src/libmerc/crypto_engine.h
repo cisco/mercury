@@ -17,6 +17,7 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
+#include <openssl/kdf.h>
 
 #define pt_buf_len 2048
 
@@ -173,6 +174,37 @@ public:
                 }
             }
         }
+    }
+
+    void quic_kdf_expand(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
+                   uint8_t *out_, size_t *out_len, size_t len) {
+
+        unsigned char hkdf_label[256], *in;
+        *out_len = len;
+        in = hkdf_label;
+        *in++ = len >> 8;
+        *in++ = len & 0xff;
+        *in++ = label_len;
+        memcpy(in, label, label_len);
+        in += label_len;
+        *in++ = '\0';
+        size_t hkdf_label_len = in - hkdf_label;
+
+        EVP_PKEY_CTX *ctx;
+        ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
+        if (!ctx) {
+            return;
+        }
+        if (EVP_PKEY_derive_init(ctx) <= 0 ||
+            EVP_PKEY_CTX_hkdf_mode(ctx, EVP_PKEY_HKDEF_MODE_EXPAND_ONLY) <= 0 ||
+            EVP_PKEY_CTX_set_hkdf_md(ctx, EVP_sha256()) <= 0 ||
+            EVP_PKEY_CTX_set1_hkdf_key(ctx, secret, secret_length) <= 0 ||
+            EVP_PKEY_CTX_add1_hkdf_info(ctx, hkdf_label, hkdf_label_len) <= 0 ||
+            EVP_PKEY_derive(ctx, out_, &len) <= 0) {
+            EVP_PKEY_CTX_free(ctx);
+            return;
+        }
+        EVP_PKEY_CTX_free(ctx);
     }
 
 };
