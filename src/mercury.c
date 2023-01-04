@@ -598,7 +598,7 @@ int main(int argc, char *argv[]) {
 
     // setup extended config options
     //
-    if (!select_set) {
+    if (libmerc_cfg.packet_filter_cfg == NULL) {
         additional_args.append("select=all;");
     }
     if (!using_config_file || (using_config_file && libmerc_cfg.packet_filter_cfg == nullptr)) {
