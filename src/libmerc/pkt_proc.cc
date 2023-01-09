@@ -222,6 +222,9 @@ struct compute_fingerprint {
     void operator()(bittorrent_dht &) { }
     void operator()(bittorrent_lsd &) { }
     void operator()(socks4_req &) { }
+    void operator()(socks5_hello &) { }
+    void operator()(socks5_usr_pass &) { }
+    void operator()(socks5_gss &) { }
     void operator()(std::monostate &) { }
 
 };
@@ -450,6 +453,15 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_socks4:
         x.emplace<socks4_req>(pkt);
+        break;
+    case tcp_msg_type_socks5_hello:
+        x.emplace<socks5_hello>(pkt);
+        break;
+    case tcp_msg_type_socks5_usr_pass:
+        x.emplace<socks5_usr_pass>(pkt);
+        break;
+    case tcp_msg_type_socks5_gss:
+        x.emplace<socks5_gss>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
