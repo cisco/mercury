@@ -155,7 +155,7 @@ using protocol = std::variant<std::monostate,
                               socks5_hello,
                               socks5_usr_pass,
                               socks5_gss,
-                              socks5_req_resp,
+                              socks5_req_resp
                               >;
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;

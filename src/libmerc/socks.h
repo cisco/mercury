@@ -323,19 +323,39 @@ struct socks5_addr {
     
     void write_json_addr(encoded<uint32_t> &ip, json_object &o) {
         uint32_t ip_val = htonl(ip.value());
-        o.print_key_ipv4_addr("ip",(uint8_t*)&ip_val);
+        o.print_key_ipv4_addr("ipv4",(uint8_t*)&ip_val);
     }
 
-    void write_json_addr(std::monostate &, json_object& o) {}    
+    void write_json_add(datum &ip, json_object &o){
+        o.print_key_ipv6_addr("ipv6",ip.begin());
+    }
+
+    void write_json_addr(std::monostate &, json_object &o) {
+        o.print_key_string("addr","invalid");
+    }
     
-    template <typename T> void write_json_addr(T &,json_object &o ) {}
+    template <typename T> void write_json_addr(T &,json_object &o ) {
+        o.print_key_string("addr","invalid");
+    }
 
     socks5_addr (datum &pkt) : type{pkt} {
         switch (type) {
-            case 0x01 : addr.emplace<encoded<uint32_t> >(pkt);
-            case 0x03 : addr.emplace<socks5_domain>(pkt);
-            case 0x04 : addr.emplace<datum>(pkt,16);
-            default : addr.emplace<std::monostate>();
+            case 0x01 : {
+                addr.emplace<encoded<uint32_t> >(pkt);
+                break;
+            }
+            case 0x03 : {
+                addr.emplace<socks5_domain>(pkt);
+                break;
+            }
+            case 0x04 : {
+                addr.emplace<datum>(pkt,16);
+                break;
+            }
+            default : {
+                addr.emplace<std::monostate>();
+                break;
+            }
         }
     }
 
