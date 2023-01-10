@@ -225,6 +225,7 @@ struct compute_fingerprint {
     void operator()(socks5_hello &) { }
     void operator()(socks5_usr_pass &) { }
     void operator()(socks5_gss &) { }
+    void operator()(socks5_req_resp &) { }
     void operator()(std::monostate &) { }
 
 };
@@ -462,6 +463,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_socks5_gss:
         x.emplace<socks5_gss>(pkt);
+        break;
+    case tcp_msg_type_socks5_req_resp:
+        x.emplace<socks5_req_resp>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {

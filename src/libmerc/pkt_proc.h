@@ -115,6 +115,7 @@ class socks4_req;
 class socks5_hello;
 class socks5_usr_pass;
 class socks5_gss;
+class socks5_req_resp;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -153,7 +154,8 @@ using protocol = std::variant<std::monostate,
                               socks4_req,
                               socks5_hello,
                               socks5_usr_pass,
-                              socks5_gss
+                              socks5_gss,
+                              socks5_req_resp,
                               >;
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;

@@ -352,4 +352,63 @@ struct socks5_addr {
 
 };
 
+class socks5_req_resp {
+    encoded<uint8_t> version;
+    encoded<uint8_t> cmd;
+    encoded<uint8_t> rsv;
+    socks5_addr addr;
+    encoded<uint16_t> dst_port;
+    bool valid;
+
+public:
+    socks5_req_resp(datum &pkt) :
+        version{pkt},
+        cmd{pkt},
+        rsv{pkt},
+        addr{pkt},
+        dst_port{pkt},
+        valid{true} {}
+
+    bool is_not_empty() { return valid; }
+
+    static constexpr mask_and_value<4> matcher{
+        { 0xff, 0xf0, 0xff, 0xf8 },
+        { 0x05, 0x00, 0x00, 0x00 }
+    };
+
+    static ssize_t get_payload_length(datum pkt) {
+        ssize_t len = pkt.length();
+        pkt.skip(4);
+        encoded<uint8_t>dom_len{pkt};
+        if ((len == 10) || (len == 22) || (len == (7 + dom_len))) {
+            return len;
+        }
+        else {
+            return 0;
+        }
+    }
+
+    const char *get_cmd_str() const {
+        switch(cmd) {
+            case 0x00 : return "request_granted";
+            case 0x01 : return "tcp_conn_or_gen_failiure";
+            case 0x02 : return "tcp_bind_or_not_allowed";
+            case 0x03 : return "udp_port_or_net_unreach";
+            case 0x04 : return "host_unreach";
+            case 0x05 : return "conn_refused";
+            case 0x06 : return "ttl_expire";
+            case 0x07 : return "proto_err";
+            case 0x08 : return "addr_unsupp";
+            default : return "NULL";
+        }
+    }
+
+    void write_json(json_object &record, bool metadata) {
+        json_object socks5_pkt{record, "socks5_req"};
+        socks5_pkt.print_key_string("cmd",get_cmd_str());
+        addr.write_json(socks5_pkt,metadata);
+        socks5_pkt.print_key_int("dst_port",dst_port);
+    }
+};
+
 #endif  // SOCKS_H 
