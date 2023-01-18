@@ -17,7 +17,6 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
-#include <openssl/kdf.h>
 
 #define pt_buf_len 2048
 
@@ -26,7 +25,7 @@ class crypto_engine {
     EVP_CIPHER_CTX *gcm_ctx = nullptr;
     EVP_CIPHER_CTX *ecb_ctx = nullptr;
 
-    static constexpr size_t max_label_len = 32;
+    static constexpr size_t max_label_len = 2048;
 
 public:
 
@@ -139,6 +138,7 @@ public:
         return plaintext_len;
     }
 
+#ifdef SSLNEW
     void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
                    uint8_t length, uint8_t *out_, unsigned int *out_len) {
 
@@ -148,64 +148,148 @@ public:
         for (uint i = 0; i < label_len; i++) {
             new_label[3+i] = label[i];
         }
+        size_t new_label_len = 4 + label_len;
+        *out_len = length;
 
-        uint8_t ind = 0;
-        uint8_t block[EVP_MAX_MD_SIZE];
-        uint8_t new_block[512] = {0};
-        unsigned int block_len = 0;
-        while (*out_len < length) {
-            ind++;
+        HMAC_CTX *hmac;
+        int md_sz;
+        unsigned char buf[2048];
+        size_t done_len = 0, dig_len, n;
 
-            for (unsigned int i = 0; i < block_len; i++) {
-                new_block[i] = block[i];
-            }
-            for (unsigned int i = block_len; i < block_len+label_len+4; i++) {
-                new_block[i] = new_label[i];
-            }
-            new_block[block_len+label_len+4] = ind;
+        const EVP_MD *evp_md = EVP_sha256();
 
-            HMAC(EVP_sha256(), secret, secret_length, new_block, block_len+label_len+5, block, &block_len);
+        md_sz = EVP_MD_size(evp_md);
+        if (md_sz <= 0) {
+            return;
+        }
+        dig_len = (size_t)md_sz;
 
-            for (unsigned int i = 0; i < block_len; i++) {
-                out_[*out_len] = block[i];
-                (*out_len)++;
-                if (*out_len >= length) {
-                    return ;
+        n = length / dig_len;
+        if (length % dig_len) {
+            n++;
+        }
+
+        if (n > 255 || out_ == NULL || ((hmac = HMAC_CTX_new()) == NULL)) {
+            return;
+        }
+
+        if (!HMAC_Init_ex(hmac, secret, secret_length, evp_md, NULL)) {
+            HMAC_CTX_free(hmac);
+            return;
+        }
+
+        for (size_t i = 1; i <= n; i++) {
+            size_t copy_len;
+            const unsigned char ind = i;
+            if (i > 1) {
+                if (!HMAC_Init_ex(hmac, NULL, 0, NULL, NULL)) {
+                    HMAC_CTX_free(hmac);
+                    return;
+                }
+                if (!HMAC_Update(hmac, buf, dig_len)) {
+                    HMAC_CTX_free(hmac);
+                    return;
                 }
             }
+
+            if (!HMAC_Update(hmac, new_label, new_label_len)) {
+                HMAC_CTX_free(hmac);
+                return;
+            }
+            if (!HMAC_Update(hmac, &ind, 1)) {
+                HMAC_CTX_free(hmac);
+                return;
+            }
+            if (!HMAC_Final(hmac, buf, NULL)) {
+                HMAC_CTX_free(hmac);
+                return;
+            }
+
+            copy_len = (done_len + dig_len > length) ? (length-done_len) : dig_len;
+            memcpy(out_ + done_len, buf, copy_len);
+
+            done_len += copy_len;
         }
+
+        HMAC_CTX_free(hmac);
     }
+#else
+    void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
+                   uint8_t length, uint8_t *out_, unsigned int *out_len) {
 
-    void quic_kdf_expand(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
-                   uint8_t *out_, size_t *out_len, size_t len) {
+        uint8_t new_label[max_label_len] = {0};
+        new_label[1] = length;
+        new_label[2] = label_len;
+        for (uint i = 0; i < label_len; i++) {
+            new_label[3+i] = label[i];
+        }
+        size_t new_label_len = 4 + label_len;
+        *out_len = length;
 
-        unsigned char hkdf_label[256], *in;
-        *out_len = len;
-        in = hkdf_label;
-        *in++ = len >> 8;
-        *in++ = len & 0xff;
-        *in++ = label_len;
-        memcpy(in, label, label_len);
-        in += label_len;
-        *in++ = '\0';
-        size_t hkdf_label_len = in - hkdf_label;
+        HMAC_CTX hmac;
+	    HMAC_CTX_init(&hmac);
+        int md_sz;
+        unsigned char buf[2048];
+        size_t done_len = 0, dig_len, n;
 
-        EVP_PKEY_CTX *ctx;
-        ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
-        if (!ctx) {
+        const EVP_MD *evp_md = EVP_sha256();
+
+        md_sz = EVP_MD_size(evp_md);
+        if (md_sz <= 0) {
             return;
         }
-        if (EVP_PKEY_derive_init(ctx) <= 0 ||
-            EVP_PKEY_CTX_hkdf_mode(ctx, EVP_PKEY_HKDEF_MODE_EXPAND_ONLY) <= 0 ||
-            EVP_PKEY_CTX_set_hkdf_md(ctx, EVP_sha256()) <= 0 ||
-            EVP_PKEY_CTX_set1_hkdf_key(ctx, secret, secret_length) <= 0 ||
-            EVP_PKEY_CTX_add1_hkdf_info(ctx, hkdf_label, hkdf_label_len) <= 0 ||
-            EVP_PKEY_derive(ctx, out_, &len) <= 0) {
-            EVP_PKEY_CTX_free(ctx);
+        dig_len = (size_t)md_sz;
+
+        n = length / dig_len;
+        if (length % dig_len) {
+            n++;
+        }
+
+        if (n > 255 || out_ == NULL) {
             return;
         }
-        EVP_PKEY_CTX_free(ctx);
+
+        if (!HMAC_Init(&hmac, secret, secret_length, evp_md)) {
+            HMAC_CTX_cleanup(&hmac);
+            return;
+        }
+
+        for (size_t i = 1; i <= n; i++) {
+            size_t copy_len;
+            const unsigned char ind = i;
+            if (i > 1) {
+                if (!HMAC_Init(&hmac, NULL, 0, NULL)) {
+                    HMAC_CTX_cleanup(&hmac);
+                    return;
+                }
+                if (!HMAC_Update(&hmac, buf, dig_len)) {
+                    HMAC_CTX_cleanup(&hmac);
+                    return;
+                }
+            }
+
+            if (!HMAC_Update(&hmac, new_label, new_label_len)) {
+                HMAC_CTX_cleanup(&hmac);
+                return;
+            }
+            if (!HMAC_Update(&hmac, &ind, 1)) {
+                HMAC_CTX_cleanup(&hmac);
+                return;
+            }
+            if (!HMAC_Final(&hmac, buf, NULL)) {
+                HMAC_CTX_cleanup(&hmac);
+                return;
+            }
+
+            copy_len = (done_len + dig_len > length) ? (length-done_len) : dig_len;
+            memcpy(out_ + done_len, buf, copy_len);
+
+            done_len += copy_len;
+        }
+
+        HMAC_CTX_cleanup(&hmac);
     }
+#endif
 
 };
 
