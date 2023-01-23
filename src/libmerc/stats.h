@@ -239,6 +239,10 @@ public:
         return;
     }
 
+    size_t get_num_entries() const
+    {
+        return num_entries;
+    }
 };
 
 #define MAX_VERSION_STRING 15
@@ -369,6 +373,11 @@ public:
         }
 
         tmp->gzprint(f, version, git_commit_id, git_count, init_time);
+    }
+
+    size_t get_num_entries() const
+    {
+        return ag->get_num_entries();
     }
 };
 

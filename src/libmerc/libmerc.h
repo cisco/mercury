@@ -697,5 +697,21 @@ extern "C" LIBMERC_DLL_EXPORTED
 #endif
 bool mercury_packet_processor_more_pkts_needed(mercury_packet_processor processor);
 
+//
+// start of libmerc version 5 API
+//
+
+/**
+ * get_stats_aggregator_num_entries() returns current number of entries in stats_aggregator,
+ * given a nullptr analysis_context returns 0
+ *
+ * @param mercury_context is the context associated
+ *
+ * @return current number of entries in stats_aggregator or 0. Will return 0 if libmerc is not configured to report stats.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+size_t get_stats_aggregator_num_entries(mercury_context mc);
 
 #endif /* LIBMERC_H */
