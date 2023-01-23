@@ -44,6 +44,7 @@ AC_TYPE_UINT8_T
 AC_CHECK_PROGS(PY, python3 python python2)
 AC_CHECK_HEADERS(zlib.h, [], [AC_ERROR([A working zlib is required])])
 AC_SEARCH_LIBS(deflate, z, [], [AC_ERROR([A working zlib is required])])
+AC_SEARCH_LIBS(HMAC_CTX_new, crypto, [AC_SUBST([OPENSSL_NEWER],yes)], [AC_SUBST([OPENSSL_NEWER],no)])
 AC_CHECK_PROG(PYTHON3,python3,yes)
 AS_IF([test "x$PYTHON3" = xyes],
     [AC_DEFINE([HAVE_PYTHON3], [1], [python3 is available.])])

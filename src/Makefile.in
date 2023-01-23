@@ -80,6 +80,10 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
+ifeq ($(openssl_newer),yes)
+CFLAGS += -DSSLNEW
+endif
+
 all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report

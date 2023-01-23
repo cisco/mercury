@@ -6,6 +6,10 @@ ifeq ($(use_fsanitize),yes)
 FSANITIZE = -fsanitize=address
 endif
 
+ifeq ($(openssl_newer),yes)
+CFLAGS += -DSSLNEW
+endif
+
 export LD_LIBRARY_PATH =../src/libmerc
 
 LIBMERC_FOLDER = ../src/libmerc/

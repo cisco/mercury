@@ -20,6 +20,12 @@ use_no_gnu_unique = @USE_NO_GNU_UNIQUE@
 #
 use_fsanitize = @USE_FSANITIZE@
 
+# The variable openssl_newer controls the compiler option with the
+# corresponding name, which controls which openssl functions are used
+# depending on availablity
+#
+openssl_newer = @OPENSSL_NEWER@
+
 CXX     = @CXX@
 CC      = @CC@
 CFLAGS  = --std=c++17
