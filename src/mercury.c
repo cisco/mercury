@@ -92,6 +92,7 @@ char mercury_extended_help[] =
     "   \"[-s or --select] f\" selects packets according to the metadata filter f, which\n"
     "   is a comma-separated list of the following strings:\n"
     "      arp               ARP message\n"
+    "      bittorrent        Bittorrent Handshake Message, LSD message, DHT message\n"
     "      cdp               CDP message\n"
     "      dhcp              DHCP discover message\n"
     "      dns               DNS messages\n"
@@ -597,7 +598,7 @@ int main(int argc, char *argv[]) {
 
     // setup extended config options
     //
-    if (!select_set) {
+    if (libmerc_cfg.packet_filter_cfg == NULL) {
         additional_args.append("select=all;");
     }
     if (!using_config_file || (using_config_file && libmerc_cfg.packet_filter_cfg == nullptr)) {

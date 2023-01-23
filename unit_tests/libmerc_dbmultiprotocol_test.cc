@@ -487,3 +487,35 @@ TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp with recources-mp")
         openvpn_check(count, config.m_lc, config.fp_t, fingerprint_type_unknown);
     }
 }
+
+TEST_CASE_METHOD(LibmercTestFixture, "test bittorrent with recources-mp")
+{
+
+    auto bittorrent_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"bittorrent"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"bittorrent"},
+             .m_pc{"bittorrent.pcap"}},
+         16},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        bittorrent_check(count, config.m_lc);
+    }
+}

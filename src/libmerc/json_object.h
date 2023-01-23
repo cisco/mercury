@@ -190,7 +190,7 @@ struct json_object {
         b->write_timestamp_as_string(ts);
         b->write_char('\"');
     }
-     template <typename T> void print_key_value(const char *k, T &w) {
+    template <typename T> void print_key_value(const char *k, T &w) {
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);

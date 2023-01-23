@@ -18,6 +18,7 @@
 //
 #include "proto_identify.h"
 #include "arp.h"
+#include "bittorrent.h"
 #include "ip.h"
 #include "tcp.h"
 #include "dns.h"
@@ -268,6 +269,9 @@ struct compute_fingerprint {
     void operator()(iec60870_5_104 &) { }
     void operator()(nbss_packet &) { }
     void operator()(nbds_packet &) { }
+    void operator()(bittorrent_handshake &) { }
+    void operator()(bittorrent_dht &) { }
+    void operator()(bittorrent_lsd &) { }
     void operator()(std::monostate &) { }
 
 };
@@ -485,6 +489,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_openvpn:
         x.emplace<openvpn_tcp>(pkt);
         break;
+    case tcp_msg_type_bittorrent:
+        x.emplace<bittorrent_handshake>(pkt);
+        break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
             x.emplace<unknown_initial_packet>(pkt);
@@ -568,11 +575,13 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     case udp_msg_type_nbds:
         x.emplace<nbds_packet>(pkt);
         break;
+    case udp_msg_type_dht:
+        x.emplace<bittorrent_dht>(pkt);
+        break;
+    case udp_msg_type_lsd:
+        x.emplace<bittorrent_lsd>(pkt);
+        break;
     default:
-       /* if (selector.nbds() and k.src_port == 138 and k.dst_port == 138) {
-            x.emplace<nbds_packet>(pkt);
-            break;
-        }*/
         if (is_new) {
             x.emplace<unknown_udp_initial_packet>(pkt);
         } else {

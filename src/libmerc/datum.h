@@ -695,6 +695,10 @@ public:
         copy('"');
     }
 
+    void write_quote_enclosed_hex(datum d) {
+        write_quote_enclosed_hex(d.data, d.length());
+    }
+
     template <typename Type>
     void write_hex(Type T) {
         T.write_hex(*this);
@@ -1053,6 +1057,18 @@ public:
         for (const auto &c : a) {
             d.accept(c);
         }
+    }
+};
+
+// class literal_bytes accepts the variable number of input bytes,
+// setting d to null if the expected input is not found
+//
+
+template<uint8_t... args>
+class literal_byte {
+public:
+    literal_byte(datum &d) {
+        (d.accept(args),...);
     }
 };
 
