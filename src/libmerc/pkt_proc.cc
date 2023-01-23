@@ -394,18 +394,6 @@ struct do_observation {
 
 };
 
-// constant expression variables that control JSON output; these
-// variables can be used as compile-time options.  In the future, they
-// will probably become run-time options.
-//
-// note: static constexpr bool report_IP is in tcpip.h
-//
-static constexpr bool report_GRE      = false;
-static constexpr bool report_ICMP     = false;
-static constexpr bool report_OSPF     = false;
-static constexpr bool report_SCTP     = false;
-static constexpr bool report_SYN_ACK  = false;
-
 // set_tcp_protocol() sets the protocol variant record to the data
 // structure resulting from the parsing of the TCP data field, which
 // will be one of the TCP protocols in that variant.  The default
