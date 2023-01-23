@@ -59,15 +59,18 @@ if [ -z "$ITERATION" ]; then
     ITERATION="1"
 fi
 
-DESCRIPTION="Mercury is a tool for network metadata capture and analysis."
+DESCRIPTION="Mercury: a tool for network metadata capture and analysis."
 
 FPM_LINUX_OPTIONS="-v $VERSION --iteration $ITERATION\
-    --vendor Cisco -m mercury-interest@cisco.com --url https://github.com/cisco/mercury \
+    -m mercury-interest@cisco.com --url https://github.com/cisco/mercury \
     --after-install ./install_mercury/postinstall \
     --config-files /etc/mercury/mercury.cfg       \
     --license BSD"
 
 if [ "$BUILDTYPE" == "deb" ]; then
+
+    # determine libssl version, set SSL_LIB appropriately
+    #
     if dpkg -s libssl1.1 > /dev/null; then
         SSL_LIB=libssl1.1;
         echo "found libssl1.1"
@@ -85,7 +88,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
         --deb-after-purge ./install_mercury/postuninstall_purge \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
         ./mercury=/usr/share/bash-completion/completions/       \
-        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
+        ./resources/resources.tgz=/usr/local/share/mercury/
 
 elif [ "$BUILDTYPE" == "rpm" ]; then
 
