@@ -16,6 +16,8 @@
 #include "json_object.h"
 #include "match.h"
 
+#include <variant>
+
 //  SOCKS4_a and SOCKS4_c(SOCKS4_a with domain name)
 //
 class socks4_req {
@@ -314,6 +316,11 @@ struct socks5_domain {
     }
 };
 
+namespace socks_var {
+    template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+    template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+};
+
 struct socks5_addr {
     using var_addr = std::variant<std::monostate, encoded<uint32_t>, datum, socks5_domain>;
     encoded<uint8_t> type;
@@ -363,7 +370,7 @@ struct socks5_addr {
         if (metadata) {
             record.print_key_int("addr_type",type);
         }
-        std::visit(overloaded{
+        std::visit(socks_var::overloaded{
             [&](auto &address) {
                 write_json_addr(address,record);
             },
@@ -424,11 +431,80 @@ public:
     }
 
     void write_json(json_object &record, bool metadata) {
-        json_object socks5_pkt{record, "socks5_req"};
+        json_object socks5_pkt{record, "socks5_req_resp"};
         socks5_pkt.print_key_string("cmd",get_cmd_str());
         addr.write_json(socks5_pkt,metadata);
         socks5_pkt.print_key_int("dst_port",dst_port);
     }
+};
+
+namespace {
+
+    [[maybe_unused]] int socks5_req_resp_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        socks5_req_resp socks_pkt{pkt_data};
+        if (socks_pkt.is_not_empty()) {
+            socks_pkt.write_json(record, true);
+        }
+        return 0;
+    }
+
+    [[maybe_unused]] int socks4_req_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        socks4_req socks_pkt{pkt_data};
+        if (socks_pkt.is_not_empty()) {
+            socks_pkt.write_json(record, true);
+        }
+        return 0;
+    }
+
+    [[maybe_unused]] int socks5_hello_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        socks5_hello socks_pkt{pkt_data};
+        if (socks_pkt.is_not_empty()) {
+            socks_pkt.write_json(record, true);
+        }
+        return 0;
+    }
+
+    [[maybe_unused]] int socks5_usr_pass_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        socks5_usr_pass socks_pkt{pkt_data};
+        if (socks_pkt.is_not_empty()) {
+            socks_pkt.write_json(record, true);
+        }
+        return 0;
+    }
+
+    [[maybe_unused]] int socks5_gss_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        socks5_gss socks_pkt{pkt_data};
+        if (socks_pkt.is_not_empty()) {
+            socks_pkt.write_json(record, true);
+        }
+        return 0;
+    }
+
 };
 
 #endif  // SOCKS_H 
