@@ -68,7 +68,7 @@ struct http_headers : public datum {
 
     void fingerprint(struct buffer_stream &buf, perfect_hash_visitor &name_dict, perfect_hash_table_type type) const;
 
-    struct datum get_header(const std::basic_string<uint8_t> &header_name);
+    struct datum get_header(const char *header_name);
 };
 
 struct http_request : public tcp_base_protocol {
@@ -91,7 +91,7 @@ struct http_request : public tcp_base_protocol {
 
     void compute_fingerprint(class fingerprint &fp) const;
 
-    struct datum get_header(const std::basic_string<uint8_t> &header_name);
+    struct datum get_header(const char *header_name);
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
@@ -149,7 +149,7 @@ struct http_response : public tcp_base_protocol {
 
     void compute_fingerprint(class fingerprint &fp) const;
 
-    struct datum get_header(const std::basic_string<uint8_t> &header_name);
+    struct datum get_header(const char *header_name);
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
