@@ -180,6 +180,21 @@ struct datum {
         }
     }
 
+    bool case_insensitive_match(const char * name) const {
+        const uint8_t *d = data;
+        const char *k = name;
+        while (d < data_end) {
+            if (tolower(*d) != *k || *k == '\0') { // mismatch
+                return false;
+            }
+            d++;
+            k++;
+        }
+        if (*k == '\0' && d == data_end) {
+            return true;
+        }
+        return false;            // no matches found
+    }
     // datum::memcmp(datum &p) compares this datum to p
     // lexicographically, and returns an integer less than, equal to,
     // or greater than zero if this is found to be less than, to
