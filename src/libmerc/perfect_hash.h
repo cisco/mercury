@@ -6,7 +6,6 @@
 
 #include <string>
 #include <cstring>
-#include <ctype.h>
 #include <vector>
 #include <algorithm>
 #include <stdexcept>
@@ -37,7 +36,16 @@ public:
     T _value;
 };
 
-//MurmurHash By Austin Appleby https://sites.google.com/site/murmurhash/
+/*
+ * MurmurHash By Austin Appleby https://sites.google.com/site/murmurhash/
+ * The original implementation is modified slightly to make the computation
+ * case insensitive. This is done by the below masking trick. 
+ * 'A' | 0x20 = 'a';
+ * This trick works as long as the input is Alphabets, space, semicolon.
+ * Since the keys that are currently used is combination of alphabatets,
+ * space and semicolon, this works. If the keys needs to have other
+ * ascii characters, then probably functions like tolower() needs to be used.
+ */
 struct murmur2_hash {
 
     uint32_t operator() (const char* key, size_t len, const uint32_t& res) {
