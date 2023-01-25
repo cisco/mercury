@@ -61,7 +61,9 @@ struct mercury {
 
             // set fingerprint formats to match those in the resource file
             //
-            global_vars.set_tls_fingerprint_format(c->get_tls_fingerprint_format());
+            size_t resources_tls_format = c->get_tls_fingerprint_format();
+            global_vars.set_tls_fingerprint_format(resources_tls_format);
+            printf_err(log_info, "setting tls fingerprint format to match resource file (format: %zu)\n", resources_tls_format);
         }
     }
 
@@ -105,6 +107,7 @@ class ospf;
 class sctp_init;
 struct tcp_packet;
 class iec60870_5_104;
+class openvpn_tcp;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -118,6 +121,7 @@ using protocol = std::variant<std::monostate,
                               iec60870_5_104,
                               dnp3,
                               nbss_packet,
+                              bittorrent_handshake,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
@@ -129,13 +133,16 @@ using protocol = std::variant<std::monostate,
                               ssdp,
                               stun::message,
                               nbds_packet,
+                              bittorrent_dht,
+                              bittorrent_lsd,
                               unknown_udp_initial_packet,
                               icmp_packet,                        // start of ip protocols
                               ospf,
                               sctp_init,
                               tcp_packet,
                               smb1_packet,
-                              smb2_packet
+                              smb2_packet,
+                              openvpn_tcp
                               >;
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
@@ -165,7 +172,7 @@ struct stateful_pkt_proc {
         m{mc},
         c{nullptr},
         ag{nullptr},
-        global_vars{},
+        global_vars{mc->global_vars},
         selector{mc->selector},
         quic_crypto{},
         ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()}

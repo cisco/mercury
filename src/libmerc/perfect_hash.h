@@ -36,7 +36,16 @@ public:
     T _value;
 };
 
-//MurmurHash By Austin Appleby https://sites.google.com/site/murmurhash/
+/*
+ * MurmurHash By Austin Appleby https://sites.google.com/site/murmurhash/
+ * The original implementation is modified slightly to make the computation
+ * case insensitive. This is done by the below masking trick. 
+ * 'A' | 0x20 = 'a';
+ * This trick works as long as the input is Alphabets, space, semicolon.
+ * Since the keys that are currently used is combination of alphabatets,
+ * space and semicolon, this works. If the keys needs to have other
+ * ascii characters, then probably functions like tolower() needs to be used.
+ */
 struct murmur2_hash {
 
     uint32_t operator() (const char* key, size_t len, const uint32_t& res) {
@@ -55,7 +64,7 @@ struct murmur2_hash {
         const unsigned char * data = (const unsigned char *)key;
 
         while(len >= 4) {
-            uint32_t k = *(uint32_t*)data;
+            uint32_t k = *(uint32_t*)data | 0x20202020; //for case-insensitive comparision
 
             k *= m;
             k ^= k >> r;
@@ -71,11 +80,11 @@ struct murmur2_hash {
         /* Handle the last few bytes of the input array  */
 
         switch(len) {
-        case 3: h ^= data[2] << 16;
+        case 3: h ^= (data[2] | 0x20) << 16;
             [[fallthrough]];
-        case 2: h ^= data[1] << 8;
+        case 2: h ^= (data[1] | 0x20) << 8;
             [[fallthrough]];
-        case 1: h ^= data[0];
+        case 1: h ^= (data[0] | 0x20);
             h *= m;
         };
 
@@ -238,7 +247,7 @@ public:
 
         auto& item = d < 0 ? _values[-d-1] : _values[hash(key, key_len, d) % _key_set_len];
 
-        isValid = item->_key_len == key_len && memcmp(key, item->_key, key_len) == 0;
+        isValid = item->_key_len == key_len && strncasecmp(key, item->_key, key_len) == 0;
 
         return &item->_value;
     }
@@ -249,7 +258,7 @@ public:
 
         perfect_hash_entry<T> *item = d < 0 ? _values[-d-1] : _values[hash(key, key_len, d) % _key_set_len];
 
-        bool isValid = item->_key_len == key_len && memcmp(key, item->_key, key_len) == 0;
+        bool isValid = item->_key_len == key_len && strncasecmp(key, item->_key, key_len) == 0;
 
         if (isValid) {
             return item->_value;
@@ -269,12 +278,12 @@ enum perfect_hash_table_type {
 
 struct perfect_hash_visitor {
 
-    const char** lookup_string(perfect_hash_table_type type, const char* key, bool& success) {
+    const char** lookup_string(perfect_hash_table_type type, datum& key, bool& success) {
         switch(type) {
         case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-            return _ph_http_request_headers->lookup(key, strlen(key), success);
+            return _ph_http_request_headers->lookup((char *)key.data, key.length(), success);
         case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-            return _ph_http_response_headers->lookup(key, strlen(key), success);
+            return _ph_http_response_headers->lookup((char *)key.data, key.length(), success);
         case perfect_hash_table_type::HTTP_REQUEST_FP:
         case perfect_hash_table_type::HTTP_RESPONSE_FP:
         default:
@@ -283,12 +292,12 @@ struct perfect_hash_visitor {
         }
     }
 
-    bool* lookup_bool(perfect_hash_table_type type, const char* key, bool& success) {
+    bool* lookup_bool(perfect_hash_table_type type, datum& key, bool& success) {
         switch(type) {
         case perfect_hash_table_type::HTTP_REQUEST_FP:
-            return _ph_http_request_fp->lookup(key, strlen(key), success);
+            return _ph_http_request_fp->lookup((char *)key.data, key.length(), success);
         case perfect_hash_table_type::HTTP_RESPONSE_FP:
-            return _ph_http_response_fp->lookup(key, strlen(key), success);
+            return _ph_http_response_fp->lookup((char *)key.data, key.length(), success);
         case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
         case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
         default:

@@ -68,6 +68,7 @@ public:
             { "all",                    false },
             { "none",                   false },
             { "arp",                    false },
+            { "bittorrent",             false },
             { "cdp",                    false },
             { "dhcp",                   false },
             { "dnp3",                   false },
@@ -100,6 +101,7 @@ public:
             { "tls.server_hello",       false },
             { "tls.server_certificate", false},
             { "wireguard",              false },
+            { "openvpn_tcp",            false },
         };
 
     bool set_protocols(const std::string& data) {

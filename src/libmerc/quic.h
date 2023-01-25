@@ -631,7 +631,7 @@ struct quic_initial_packet {
 
         payload.parse(d, length.value());
 
-        if ((payload.is_not_empty() == false) || (dcid.is_not_empty() == false)) {
+        if ((payload.is_not_empty() == false)) {
             //fprintf(stderr, "invalid\n");
             return;  // invalid or incomplete packet
         }
@@ -1158,12 +1158,43 @@ struct quic_hdr_fp {
     } 
 };
 
+// quic_client_hello represents the tls client hello in a quic_init;
+// it is defined so that we can specialize the fingerprinting function
+//
+class quic_client_hello : public tls_client_hello {
+public:
+    void fingerprint(struct buffer_stream &buf, size_t format_version) const {
+        (void)format_version;
+        if (is_not_empty() == false) {
+            return;
+        }
+
+        /*
+         * copy clientHello.ProtocolVersion
+         */
+        buf.write_char('(');
+        buf.raw_as_hex(protocol_version.data, protocol_version.length());
+        buf.write_char(')');
+
+        /* copy ciphersuite offer vector */
+        buf.write_char('(');
+        raw_as_hex_degrease(buf, ciphersuite_vector.data, ciphersuite_vector.length());
+        buf.write_char(')');
+
+        /*
+         * copy extensions vector
+         */
+        extensions.fingerprint_quic_tls(buf, tls_role::client);
+
+    }
+};
+
 // class quic_init_decry represents an initial quic message which is already decrypted
 //
 class quic_init_decry {
     const quic_initial_packet &initial_packet;
     cryptographic_buffer &crypto_buffer;
-    tls_client_hello hello;
+    quic_client_hello hello;
     datum plaintext;
     bool valid;
     quic_frame cc;
@@ -1212,7 +1243,7 @@ public:
 
     bool hello_is_not_empty() const {return hello.is_not_empty();}
 
-    const tls_client_hello &get_tls_client_hello() const {return hello;}
+    const quic_client_hello &get_tls_client_hello() const {return hello;}
 
     void write_json(struct json_object &record, bool metadata_output=false) {
         if (hello.is_not_empty()) {
@@ -1235,7 +1266,7 @@ public:
             fp.set_type(fingerprint_type_quic);
             quic_hdr_fp hdr_fp(initial_packet.version);
             fp.add(hdr_fp);
-            fp.add(hello);
+            fp.add(hello, 0); // note: using quic format=0
             fp.final();
         }
     }
@@ -1259,7 +1290,7 @@ class quic_init {
     quic_initial_packet initial_packet;
     quic_crypto_engine &quic_crypto;
     cryptographic_buffer crypto_buffer;
-    tls_client_hello hello;
+    quic_client_hello hello;
     datum plaintext;
     quic_frame cc;
     quic_init_decry decry_pkt;
@@ -1322,7 +1353,7 @@ public:
         return hello.is_not_empty();
     }
 
-    const tls_client_hello &get_tls_client_hello() const {
+    const quic_client_hello &get_tls_client_hello() const {
         if (pre_decrypted) {
             return decry_pkt.get_tls_client_hello();
         }
@@ -1372,7 +1403,7 @@ public:
             fp.set_type(fingerprint_type_quic);
             quic_hdr_fp hdr_fp(initial_packet.version);
             fp.add(hdr_fp);
-            fp.add(hello);
+            fp.add(hello, 0); // note: using quic format=0
             fp.final();
         }
     }

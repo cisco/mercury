@@ -180,6 +180,21 @@ struct datum {
         }
     }
 
+    bool case_insensitive_match(const char * name) const {
+        const uint8_t *d = data;
+        const char *k = name;
+        while (d < data_end) {
+            if (tolower(*d) != *k || *k == '\0') { // mismatch
+                return false;
+            }
+            d++;
+            k++;
+        }
+        if (*k == '\0' && d == data_end) {
+            return true;
+        }
+        return false;            // no matches found
+    }
     // datum::memcmp(datum &p) compares this datum to p
     // lexicographically, and returns an integer less than, equal to,
     // or greater than zero if this is found to be less than, to
@@ -375,7 +390,6 @@ struct datum {
                 tmp = (tmp << 8) + *c;
             }
             *output = tmp;
-            mercury_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zd\n", __func__, num_bytes, (unsigned)tmp, tmp);
             return true;
         }
         return false;
@@ -455,7 +469,6 @@ struct datum {
             }
             *output = tmp;
             data = c;
-            mercury_debug("%s: num_bytes: %u, value (hex) %08x (decimal): %zu\n", __func__, num_bytes, (unsigned)tmp, tmp);
             return true;
         }
         set_null();
@@ -695,6 +708,10 @@ public:
         copy('"');
         write_hex(src, num_bytes);
         copy('"');
+    }
+
+    void write_quote_enclosed_hex(datum d) {
+        write_quote_enclosed_hex(d.data, d.length());
     }
 
     template <typename Type>
@@ -1055,6 +1072,18 @@ public:
         for (const auto &c : a) {
             d.accept(c);
         }
+    }
+};
+
+// class literal_bytes accepts the variable number of input bytes,
+// setting d to null if the expected input is not found
+//
+
+template<uint8_t... args>
+class literal_byte {
+public:
+    literal_byte(datum &d) {
+        (d.accept(args),...);
     }
 };
 

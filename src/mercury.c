@@ -92,6 +92,7 @@ char mercury_extended_help[] =
     "   \"[-s or --select] f\" selects packets according to the metadata filter f, which\n"
     "   is a comma-separated list of the following strings:\n"
     "      arp               ARP message\n"
+    "      bittorrent        Bittorrent Handshake Message, LSD message, DHT message\n"
     "      cdp               CDP message\n"
     "      dhcp              DHCP discover message\n"
     "      dns               DNS messages\n"
@@ -226,6 +227,7 @@ int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
     bool select_set = false;
+    bool using_config_file = false;
 
     //extern double malware_prob_threshold;  // TODO - expose hidden command
 
@@ -274,6 +276,7 @@ int main(int argc, char *argv[]) {
         case config:
             if (option_is_valid(optarg)) {
                 mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
+                using_config_file = true;
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
@@ -595,10 +598,12 @@ int main(int argc, char *argv[]) {
 
     // setup extended config options
     //
-    if (!select_set) {
+    if (libmerc_cfg.packet_filter_cfg == NULL) {
         additional_args.append("select=all;");
     }
-    libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
+    if (!using_config_file || (using_config_file && libmerc_cfg.packet_filter_cfg == nullptr)) {
+        libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
+    }
 
     mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
     if (mc == nullptr) {

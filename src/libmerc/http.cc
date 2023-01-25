@@ -66,11 +66,7 @@ void http_headers::print_matching_name(struct json_object &o, const char *key, c
         keyword.data_end = p.data;
         const char *header_name = NULL;
 
-        std::basic_string<uint8_t> name_lowercase;
-        to_lower(name_lowercase, keyword);
-        
-        if(strcmp(key, (const char*)name_lowercase.data()) == 0)
-        {
+        if (keyword.case_insensitive_match(key)) {
             header_name = name;
         }
         
@@ -106,10 +102,8 @@ void http_headers::print_matching_names(struct json_object &o, perfect_hash_visi
         keyword.data_end = p.data;
         const char *header_name = NULL;
 
-        std::basic_string<uint8_t> name_lowercase;
-        to_lower(name_lowercase, keyword);
         bool is_header_found = false;
-        header_name = *name_dict.lookup_string(type, (const char*)name_lowercase.data(), is_header_found);
+        header_name = *name_dict.lookup_string(type, keyword, is_header_found);
         if(!is_header_found)
             header_name = nullptr;
         
@@ -192,9 +186,7 @@ void http_headers::fingerprint(struct buffer_stream &buf, perfect_hash_visitor& 
         name.data_end = p.data;
         bool include_name = false;
 
-        std::basic_string<uint8_t> name_lowercase;
-        to_lower(name_lowercase, name);
-        const bool include_value = *(ph.lookup_bool(type, (const char*)name_lowercase.data(), include_name));
+        const bool include_value = *(ph.lookup_bool(type, name, include_name));
 
         if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
             return;
@@ -320,7 +312,7 @@ void http_request::compute_fingerprint(class fingerprint &fp) const {
     fp.final();
 }
 
-struct datum http_headers::get_header(const std::basic_string<uint8_t> &location) {
+struct datum http_headers::get_header(const char *location) {
     struct datum output{NULL, NULL};
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
@@ -342,9 +334,7 @@ struct datum http_headers::get_header(const std::basic_string<uint8_t> &location
         keyword.data_end = p.data;
         const char *header_name = NULL;
 
-        std::basic_string<uint8_t> name_lowercase;
-        to_lower(name_lowercase, keyword);
-        if (name_lowercase.compare(location) == 0) {
+        if (keyword.case_insensitive_match(location)) {
             header_name = "location";
         }
         const uint8_t *value_start = p.data;
@@ -368,19 +358,17 @@ void http_response::compute_fingerprint(class fingerprint &fp) const {
     fp.final();
 }
 
-struct datum http_request::get_header(const std::basic_string<uint8_t> &header_name) {
+struct datum http_request::get_header(const char *header_name) {
     return headers.get_header(header_name);
 }
 
-struct datum http_response::get_header(const std::basic_string<uint8_t> &header_name) {
+struct datum http_response::get_header(const char *header_name) {
     return headers.get_header(header_name);
 }
 
 bool http_request::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-    std::basic_string<uint8_t> host_header = { 'h', 'o', 's', 't', ':', ' ' };
-    struct datum host_data = get_header(host_header);
-    std::basic_string<uint8_t> user_agent_header = { 'u', 's', 'e', 'r', '-', 'a', 'g', 'e', 'n', 't', ':', ' ' };
-    struct datum user_agent_data = get_header(user_agent_header);
+    struct datum host_data = get_header("host: ");
+    struct datum user_agent_data = get_header("user-agent: ");
 
     analysis_.destination.init(host_data, user_agent_data, {nullptr, nullptr}, k_);
 

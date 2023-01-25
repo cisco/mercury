@@ -3,12 +3,12 @@
 
 usage() {
 
-    echo -e "$0 [ -h ] | [ -v version ] [ -t deb|rpm|deb_22 ]\n"
+    echo -e "$0 [ -h ] | [ -v version ] [ -t deb|rpm]\n"
     echo -e "usage:\n"
     echo "-h) prints usage information and exits"
     echo "-v) specifies the version of the package to be built. MANDATORY and should be in the form of Major.Minor"
     echo "-i) specifies the build iteration (optional)"
-    echo -e "-t) specifices which package to build (rpm, deb, deb_22 for Ubuntu 22.04)\n"
+    echo -e "-t) specifices which package to build (rpm, deb)\n"
 }
 
 while getopts "ht:v:i:" arg; do
@@ -51,7 +51,7 @@ if [ -z "$VERSION" ]; then
     VERSION="$(cat VERSION)"
 fi
 if [ -z "$BUILDTYPE" ]; then
-    echo "-t deb|rpm|deb_22 must be specified" >&2
+    echo "-t deb|rpm must be specified" >&2
     exit 1
 fi
 
@@ -59,17 +59,27 @@ if [ -z "$ITERATION" ]; then
     ITERATION="1"
 fi
 
-DESCRIPTION="Mercury is a tool for network metadata capture and analysis."
+DESCRIPTION="Mercury: a tool for network metadata capture and analysis."
 
 FPM_LINUX_OPTIONS="-v $VERSION --iteration $ITERATION\
-    --vendor Cisco -m mercury-interest@cisco.com --url https://github.com/cisco/mercury \
+    -m mercury-interest@cisco.com --url https://github.com/cisco/mercury \
     --after-install ./install_mercury/postinstall \
     --config-files /etc/mercury/mercury.cfg       \
     --license BSD"
 
 if [ "$BUILDTYPE" == "deb" ]; then
+
+    # determine libssl version, set SSL_LIB appropriately
+    #
+    if dpkg -s libssl1.1 > /dev/null; then
+        SSL_LIB=libssl1.1;
+        echo "found libssl1.1"
+    else
+        SSL_LIB=libssl3
+        echo "assuming libssl3"
+    fi
     fpm -s dir -t deb -n mercury $FPM_LINUX_OPTIONS \
-        --depends libssl1.1 \
+        --depends $SSL_LIB \
         --depends zlib1g    \
         --deb-systemd ./install_mercury/mercury.service \
         --deb-no-default-config-files \
@@ -77,19 +87,13 @@ if [ "$BUILDTYPE" == "deb" ]; then
         --after-remove ./install_mercury/postuninstall_remove \
         --deb-after-purge ./install_mercury/postuninstall_purge \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
-        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
-elif [ "$BUILDTYPE" == "deb_22" ]; then
-    fpm -s dir -t deb -n mercury-u22 $FPM_LINUX_OPTIONS \
-        --depends libssl3 \
-        --depends zlib1g    \
-        --deb-systemd ./install_mercury/mercury.service \
-        --deb-no-default-config-files \
-        --description "$DESCRIPTION" \
-        --after-remove ./install_mercury/postuninstall_remove \
-        --deb-after-purge ./install_mercury/postuninstall_purge \
-        ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
-        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
+        ./mercury=/usr/share/bash-completion/completions/       \
+        ./resources/resources.tgz=/usr/local/share/mercury/
+
 elif [ "$BUILDTYPE" == "rpm" ]; then
+
+    # note: we could detect libssl version here
+
     fpm -s dir -t rpm -n mercury $FPM_LINUX_OPTIONS \
         --depends 'libssl.so.10()(64bit)' \
         --depends 'libz.so.1()(64bit)'    \
