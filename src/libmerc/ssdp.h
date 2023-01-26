@@ -34,7 +34,6 @@ class ssdp {
 
     struct datum method;
     struct http_headers headers;
-    struct perfect_hash_visitor &ph_visitor;
     enum msg_type type;
 
     void set_msg_type (datum &p) {
@@ -62,7 +61,7 @@ class ssdp {
 
 public:
 
-    ssdp(datum &p, perfect_hash_visitor &visitor) : method{NULL, NULL}, headers{}, ph_visitor{visitor}, type{max_msg_type} { parse(p); }
+    ssdp(datum &p) : method{NULL, NULL}, headers{}, type{max_msg_type} { parse(p); }
 
     void parse(datum &p) {
         set_msg_type(p);
@@ -91,7 +90,7 @@ public:
             if (output_metadata) {
                 msg.print_key_json_string("method", method);
             }
-            headers.print_matching_names_ssdp(msg, ph_visitor, perfect_hash_table_type::HTTP_SSDP_HEADERS,output_metadata);
+            headers.print_matching_names_ssdp(msg, output_metadata);
 
             msg.close();
             ssdp.close();
@@ -131,8 +130,7 @@ namespace {
 
     [[maybe_unused]] int ssdp_fuzz_test(const uint8_t *data, size_t size) {
         datum pkt_data{data, data+size};
-        perfect_hash_visitor &test_visitor = perfect_hash_visitor::get_default_perfect_hash_visitor();
-        ssdp ssdp_record{pkt_data, test_visitor};
+        ssdp ssdp_record{pkt_data};
         return 0;
     }
 

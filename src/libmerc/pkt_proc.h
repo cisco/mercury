@@ -158,7 +158,6 @@ struct stateful_pkt_proc {
     global_config global_vars;
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
-    perfect_hash_visitor& ph_visitor;
     crypto_policy::assessor *crypto_policy = nullptr;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
@@ -174,8 +173,7 @@ struct stateful_pkt_proc {
         ag{nullptr},
         global_vars{mc->global_vars},
         selector{mc->selector},
-        quic_crypto{},
-        ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()}
+        quic_crypto{}
     {
 
         constexpr bool DO_CRYPTO_ASSESSMENT = false;

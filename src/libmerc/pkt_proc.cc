@@ -421,10 +421,10 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
 
     switch(msg_type) {
     case tcp_msg_type_http_request:
-        x.emplace<http_request>(pkt, ph_visitor);
+        x.emplace<http_request>(pkt);
         break;
     case tcp_msg_type_http_response:
-        x.emplace<http_response>(pkt, ph_visitor);
+        x.emplace<http_response>(pkt);
         break;
     case tcp_msg_type_tls_client_hello:
         {
@@ -567,7 +567,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         x.emplace<wireguard_handshake_init>(pkt);
         break;
     case udp_msg_type_ssdp:
-        x.emplace<ssdp>(pkt, ph_visitor);
+        x.emplace<ssdp>(pkt);
         break;
     case udp_msg_type_stun:
         x.emplace<stun::message>(pkt);
