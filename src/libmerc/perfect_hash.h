@@ -246,7 +246,8 @@ public:
         }
     }
 
-    inline T* lookup(const char* key, const size_t& key_len, bool& isValid) {
+    inline T* lookup(const uint8_t* k, const size_t key_len, bool& isValid) {
+        const char *key = (const char *)k;
         const uint32_t& first_hash = hash(key, key_len, 0);
         const int64_t& d = _g_table[first_hash % _lookup_len];
 
@@ -257,7 +258,8 @@ public:
         return &item->_value;
     }
 
-    std::optional<T> lookup(const char* key, const size_t& key_len) {
+    std::optional<T> lookup(const uint8_t* k, const size_t key_len) {
+        const char *key = (const char *)k;
         const uint32_t& first_hash = hash(key, key_len, 0);
         const int64_t& d = _g_table[first_hash % _lookup_len];
 

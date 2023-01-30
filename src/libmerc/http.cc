@@ -103,7 +103,7 @@ void http_headers::print_matching_names(struct json_object &o, perfect_hash<cons
         const char *header_name = NULL;
 
         bool is_header_found = false;
-        header_name = *ph.lookup((char *)keyword.data, keyword.length(), is_header_found);
+        header_name = *ph.lookup(keyword.data, keyword.length(), is_header_found);
         if(!is_header_found)
             header_name = nullptr;
 
@@ -173,16 +173,11 @@ void http_headers::print_matching_names_ssdp(struct json_object &o, bool metadat
         keyword.trim(1);    // ommit colon
         keyword.trim_trail(ws);   // trim trailing whitespace before colon
 
-        const std::pair<const char *, bool> *header_name = NULL;
-
-        std::basic_string<uint8_t> name_lowercase;
-        to_lower(name_lowercase, keyword);
         bool is_header_found = false;
-        header_name = ph.lookup((const char*)name_lowercase.data(), name_lowercase.length(), is_header_found);
-        // header_name = name_dict.lookup_pair(type, (const char*)name_lowercase.data(), is_header_found);
-        if(!is_header_found)
+        const std::pair<const char *, bool> *header_name = ph.lookup(keyword.data, keyword.length(), is_header_found);
+        if (!is_header_found) {
             header_name = nullptr;
-
+        }
         const uint8_t *value_start = p.data;
         if (p.skip_up_to_delim(lf, sizeof(lf)) == false) {
             return;
@@ -213,8 +208,7 @@ void http_headers::fingerprint(struct buffer_stream &buf, perfect_hash<bool> &fp
         name.data_end = p.data;
         bool include_name = false;
 
-        const bool include_value = *(fp_data.lookup((char *)name.data, name.length(), include_name));
-        //        const bool include_value = *(ph.lookup_bool(type, name, include_name));
+        const bool include_value = *(fp_data.lookup(name.data, name.length(), include_name));
 
         if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
             return;
