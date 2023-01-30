@@ -1,3 +1,8 @@
+// perfect_hash.h
+//
+// Copyright (c) 2023 Cisco Systems, Inc. All rights reserved.  License at
+// https://github.com/cisco/mercury/blob/master/LICENSE
+
 #ifndef PERFECT_HASH_H
 #define PERFECT_HASH_H
 
@@ -39,7 +44,7 @@ public:
 /*
  * MurmurHash By Austin Appleby https://sites.google.com/site/murmurhash/
  * The original implementation is modified slightly to make the computation
- * case insensitive. This is done by the below masking trick. 
+ * case insensitive. This is done by the below masking trick.
  * 'A' | 0x20 = 'a';
  * This trick works as long as the input is Alphabets, space, semicolon.
  * Since the keys that are currently used is combination of alphabatets,
@@ -241,7 +246,8 @@ public:
         }
     }
 
-    inline T* lookup(const char* key, const size_t& key_len, bool& isValid) {
+    inline T* lookup(const uint8_t* k, const size_t key_len, bool& isValid) {
+        const char *key = (const char *)k;
         const uint32_t& first_hash = hash(key, key_len, 0);
         const int64_t& d = _g_table[first_hash % _lookup_len];
 
@@ -252,7 +258,8 @@ public:
         return &item->_value;
     }
 
-    std::optional<T> lookup(const char* key, const size_t& key_len) {
+    std::optional<T> lookup(const uint8_t* k, const size_t key_len) {
+        const char *key = (const char *)k;
         const uint32_t& first_hash = hash(key, key_len, 0);
         const int64_t& d = _g_table[first_hash % _lookup_len];
 
@@ -264,196 +271,6 @@ public:
             return item->_value;
         }
         return std::nullopt;
-    }
-};
-
-#define PERFECT_HASH_TABLE_LEN 4
-enum perfect_hash_table_type {
-                              HTTP_REQUEST_FP = 0,
-                              HTTP_RESPONSE_FP = 1,
-                              HTTP_REQEUST_HEADERS = 2,
-                              HTTP_RESPONSE_HEADERS = 3,
-                              HTTP_SSDP_HEADERS = 4
-};
-
-struct perfect_hash_visitor {
-
-    const char** lookup_string(perfect_hash_table_type type, datum& key, bool& success) {
-        switch(type) {
-        case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-            return _ph_http_request_headers->lookup((char *)key.data, key.length(), success);
-        case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-            return _ph_http_response_headers->lookup((char *)key.data, key.length(), success);
-        case perfect_hash_table_type::HTTP_REQUEST_FP:
-        case perfect_hash_table_type::HTTP_RESPONSE_FP:
-        default:
-            success = false;
-            return nullptr;
-        }
-    }
-
-    bool* lookup_bool(perfect_hash_table_type type, datum& key, bool& success) {
-        switch(type) {
-        case perfect_hash_table_type::HTTP_REQUEST_FP:
-            return _ph_http_request_fp->lookup((char *)key.data, key.length(), success);
-        case perfect_hash_table_type::HTTP_RESPONSE_FP:
-            return _ph_http_response_fp->lookup((char *)key.data, key.length(), success);
-        case perfect_hash_table_type::HTTP_REQEUST_HEADERS:
-        case perfect_hash_table_type::HTTP_RESPONSE_HEADERS:
-        default:
-            success = false;
-            return nullptr;
-        }
-    }
-
-    const std::pair<const char*, bool>* lookup_pair(perfect_hash_table_type type, const char* key, bool& success) {
-        switch(type) {
-        case perfect_hash_table_type::HTTP_SSDP_HEADERS:
-            return _ph_http_ssdp_headers->lookup(key, strlen(key), success);
-        default:
-            success = false;
-            return nullptr;
-        }
-    }
-
-    static perfect_hash_visitor& get_default_perfect_hash_visitor() {
-        static perfect_hash_visitor ph_visitor;
-        return ph_visitor;
-    }
-
-    ~perfect_hash_visitor()
-    {
-        delete _ph_http_request_fp;
-        delete _ph_http_response_fp;
-        delete _ph_http_request_headers;
-        delete _ph_http_response_headers;
-        delete _ph_http_ssdp_headers;
-    }
-
-private:
-    perfect_hash<bool>* _ph_http_request_fp;
-    perfect_hash<bool>* _ph_http_response_fp;
-    perfect_hash<const char*>* _ph_http_request_headers;
-    perfect_hash<const char*>* _ph_http_response_headers;
-    perfect_hash<std::pair<const char*, bool>>* _ph_http_ssdp_headers;
-
-    perfect_hash_visitor() {
-        std::vector<perfect_hash_entry<bool>> fp_data_reqeust = {
-            { "accept: ", true },
-            { "accept-encoding: ", true },
-            { "connection: ", true },
-            { "dnt: ", true },
-            { "dpr: ", true },
-            { "upgrade-insecure-requests: ", true },
-            { "x-requested-with: ", true },
-            { "accept-charset: ", false },
-            { "accept-language: ", false },
-            { "authorization: ", false },
-            { "cache-control: ", false },
-            { "host: ", false },
-            { "if-modified-since: ", false },
-            { "keep-alive: ", false },
-            { "user-agent: ", false },
-            { "x-flash-version: ", false },
-            { "x-p2p-peerdist: ", false }
-        };
-
-        std::vector<perfect_hash_entry<bool>> fp_data_response = {
-            { "access-control-allow-credentials: ", true },
-            { "access-control-allow-headers: ", true },
-            { "access-control-allow-methods: ", true },
-            { "access-control-expose-headers: ", true },
-            { "cache-control: ", true },
-            { "code: ", true },
-            { "connection: ", true },
-            { "content-language: ", true },
-            { "content-transfer-encoding: ", true },
-            { "p3p: ", true },
-            { "pragma: ", true },
-            { "reason: ", true },
-            { "server: ", true },
-            { "strict-transport-security: ", true },
-            { "version: ", true },
-            { "x-aspnetmvc-version: ", true },
-            { "x-aspnet-version: ", true },
-            { "x-cid: ", true },
-            { "x-ms-version: ", true },
-            { "x-xss-protection: ", true },
-            { "appex-activity-id: ", false },
-            { "cdnuuid: ", false },
-            { "cf-ray: ", false },
-            { "content-range: ", false },
-            { "content-type: ", false },
-            { "date: ", false },
-            { "etag: ", false },
-            { "expires: ", false },
-            { "flow_context: ", false },
-            { "ms-cv: ", false },
-            { "msregion: ", false },
-            { "ms-requestid: ", false },
-            { "request-id: ", false },
-            { "vary: ", false },
-            { "x-amz-cf-pop: ", false },
-            { "x-amz-request-id: ", false },
-            { "x-azure-ref-originshield: ", false },
-            { "x-cache: ", false },
-            { "x-cache-hits: ", false },
-            { "x-ccc: ", false },
-            { "x-diagnostic-s: ", false },
-            { "x-feserver: ", false },
-            { "x-hw: ", false },
-            { "x-msedge-ref: ", false },
-            { "x-ocsp-responder-id: ", false },
-            { "x-requestid: ", false },
-            { "x-served-by: ", false },
-            { "x-timer: ", false },
-            { "x-trace-context: ", false }
-        };
-
-        std::vector<perfect_hash_entry<const char*>> header_data_request = {
-            { "user-agent: ", "user_agent" },
-            { "host: ", "host"},
-            { "x-forwarded-for: ", "x_forwarded_for"},
-            { "via: ", "via"},
-            { "upgrade: ", "upgrade"},
-            { "referer: ", "referer"}
-        };
-
-        std::vector<perfect_hash_entry<const char*>> header_data_response = {
-            { "content-type: ", "content_type"},
-            { "content-length: ", "content_length"},
-            { "server: ", "server"},
-            { "via: ", "via"}
-        };
-
-        // boolean sets output verbosity in absense of metadata option
-        //
-        std::vector<perfect_hash_entry<std::pair<const char*, bool>>> header_ssdp = {
-            { "host", {"host",true} },
-            { "cache-control", {"cache_control",false} },
-            { "location", {"location",true} },
-            { "nt", {"notify_type",true} },
-            { "nts", {"notify_subtype", false} },
-            { "server", {"server",true} },
-            { "usn", {"usn",false} },
-            { "mx", {"delay",false} },
-            { "st", {"target",true} },
-            { "user-agent", {"user_agent",true} },
-            { "date", {"date",false} },
-            { "ext", {"ext",false} },
-            { "bootid.upnp.org", {"bootid",false} },
-            { "configid.upnp.org", {"conf_id",false} },
-            { "searchport.upnp.org", {"searchport",false} },
-            { "opt", {"opt",false} },
-            { "01-nls", {"nls",false} },
-            { "man", {"man",false} }
-        };
-
-        _ph_http_request_fp = new perfect_hash<bool>(fp_data_reqeust);
-        _ph_http_response_fp = new perfect_hash<bool>(fp_data_response);
-        _ph_http_request_headers = new perfect_hash<const char*>(header_data_request);
-        _ph_http_response_headers = new perfect_hash<const char*>(header_data_response);
-        _ph_http_ssdp_headers = new perfect_hash<std::pair<const char*, bool>>(header_ssdp);
     }
 };
 
