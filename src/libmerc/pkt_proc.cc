@@ -1025,7 +1025,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     // process protocol data element
     //
     if (std::visit(is_not_empty{}, x)) {
-        std::visit(compute_fingerprint{analysis.fp}, x);
+        std::visit(compute_fingerprint{analysis.fp, global_vars.tls_fingerprint_format}, x);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             // re-initialize the structure that holds analysis results
