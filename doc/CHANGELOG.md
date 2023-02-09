@@ -1,5 +1,9 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.16
+
+* Fixed a libmerc.so issue with fingerprint format versions.
+
 ## Version 2.5.15
 
 * Add support for the OpenVPN protocol over TCP; the `--select` command can be configured for that protocol with `openvpn_tcp`.
