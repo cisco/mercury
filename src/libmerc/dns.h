@@ -742,10 +742,10 @@ struct dns_packet {
         if (header == nullptr) {
             return;         // too short
         }
-        qdcount = ntohs(header->qdcount);
-        ancount = ntohs(header->ancount);
-        nscount = ntohs(header->nscount);
-        arcount = ntohs(header->arcount);
+        qdcount = ntoh_uint16(header->qdcount);
+        ancount = ntoh_uint16(header->ancount);
+        nscount = ntoh_uint16(header->nscount);
+        arcount = ntoh_uint16(header->arcount);
         if ((qdcount == 0 && ancount == 0)
             || qdcount > dns_packet::max_count
             || ancount > dns_packet::max_count

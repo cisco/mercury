@@ -10,7 +10,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
 #include <array>
@@ -29,6 +28,21 @@
 #else
 #define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
+
+// portable ntohl/htonl functions for uint16_t, uint32_t, and uint64_t
+//
+#ifdef _WIN32
+inline static uint16_t ntoh_uint16(uint16_t x) { return _byteswap_short(x); }
+inline static uint32_t ntoh_uint32(uint32_t x) { return _byteswap_ulong(x); }
+inline static uint64_t ntoh_uint64(uint64_t x) { return _byteswap_uint64(x); }
+#else
+inline static uint16_t ntoh_uint16(uint16_t x) { return __builtin_bswap16(x); }
+inline static uint32_t ntoh_uint32(uint32_t x) { return __builtin_bswap32(x); }
+inline static uint64_t ntoh_uint64(uint64_t x) { return __builtin_bswap64(x); }
+#endif
+#define hton_uint16(x) ntoh_uint16(x)
+#define hton_uint32(x) ntoh_uint32(x)
+#define hton_uint64(x) ntoh_uint64(x)
 
 inline uint8_t lowercase(uint8_t x) {
     if (x >= 'A' && x <= 'Z') {
@@ -431,7 +445,7 @@ struct datum {
     bool read_uint16(uint16_t *output) {
         if (length() >= (int)sizeof(uint16_t)) {
             uint16_t *tmp = (uint16_t *)data;
-            *output = ntohs(*tmp);
+            *output = ntoh_uint16(*tmp);
             data += sizeof(uint16_t);
             return true;
         }
@@ -446,7 +460,7 @@ struct datum {
     bool read_uint32(uint32_t *output) {
         if (length() >= (int)sizeof(uint32_t)) {
             uint32_t *tmp = (uint32_t *)data;
-            *output = ntohl(*tmp);
+            *output = ntoh_uint32(*tmp);
             data += sizeof(uint32_t);
             return true;
         }
@@ -949,13 +963,18 @@ public:
 
     T value() const { return val; }
 
+    // TODO: this function should always convert byte order; an
+    // additional function should be created that converts byte order
+    // only when it differs from network byte order (as with
+    // ntohs/ntohl)
+    //
     void swap_byte_order() {
         if constexpr (sizeof(val) == 8) {
-            val = htobe64(val);
+            val = ntoh_uint64(val);
         } else if constexpr (sizeof(val) == 4) {
-            val = ntohl(val);
+            val = ntoh_uint32(val);
         } else if constexpr (sizeof(val) == 2) {
-            val = ntohs(val);
+            val = ntoh_uint16(val);
         }
     }
 

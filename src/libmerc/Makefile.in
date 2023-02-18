@@ -41,7 +41,6 @@ LIBMERC     += dns.cc
 LIBMERC     += http.cc
 LIBMERC     += libmerc.cc
 LIBMERC     += match.cc
-LIBMERC     += packet.cc
 LIBMERC     += pkt_proc.cc
 LIBMERC     += ssh.cc
 LIBMERC     += tls.cc
