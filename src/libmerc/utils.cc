@@ -286,8 +286,10 @@ enum status filename_append(char dst[FILENAME_MAX],
 
 void timer_start(struct timer *t) {
     if (clock_gettime(CLOCK_REALTIME, &t->before) != 0) {
+        //
         // failed to get clock time, set the uninitialized struct to zero
-        bzero(&t->before, sizeof(struct timespec));
+        //
+        memset(&t->before, 0, sizeof(t->before));
         printf_err(log_err, "could not get clock time (%s)\n", strerror(errno));
     }
 }
