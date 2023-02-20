@@ -59,7 +59,7 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
         return 0;
     }
 
-    lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntohl(ipv4_addr));
+    lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntoh_uint32(ipv4_addr));
     if (subnet == NULL) {
         return 0;
     }

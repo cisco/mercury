@@ -197,7 +197,7 @@ struct tcp_initial_message_filter {
 
             uint32_t tmp_seq = tcp->seq;
             if (TCP_IS_SYN(tcp->flags)) {
-                tmp_seq = htonl(ntoh_uint32(tcp->seq) + 1);
+                tmp_seq = hton_uint32(ntoh_uint32(tcp->seq) + 1);
             }
             struct tcp_state state = { tmp_seq,  // .seq
                                        tcp->ack, // .ack

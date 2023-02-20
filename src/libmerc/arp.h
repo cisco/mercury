@@ -20,11 +20,11 @@ class arp_packet {
 
         void fprint(FILE *f) {
             fprintf(f, "arp {\n");
-            fprintf(f, "\thwtype:    %u\n", ntohs(hardware_type));
-            fprintf(f, "\tptype:     %u\n", ntohs(protocol_type));
+            fprintf(f, "\thwtype:    %u\n", ntoh_uint16(hardware_type));
+            fprintf(f, "\tptype:     %u\n", ntoh_uint16(protocol_type));
             fprintf(f, "\thwaddrlen: %u\n", hardware_addr_len);
             fprintf(f, "\tpaddrlen:  %u\n", protocol_addr_len);
-            fprintf(f, "\topcode:    %u\n", ntohs(opcode));
+            fprintf(f, "\topcode:    %u\n", ntoh_uint16(opcode));
             fprintf(f, "}\n");
         }
 
@@ -52,8 +52,8 @@ class arp_packet {
         };
 
         const char *get_opcode() const {
-            if (ntohs(opcode) < opcodes.size()) {
-                return opcodes[ntohs(opcode)];
+            if (ntoh_uint16(opcode) < opcodes.size()) {
+                return opcodes[ntoh_uint16(opcode)];
             }
             return "unknown";
         }
@@ -85,8 +85,8 @@ public:
         json_object arp_obj{o, "arp"};
         if (hdr) {
 
-            arp_obj.print_key_uint("hwtype", ntohs(hdr->hardware_type));
-            arp_obj.print_key_uint("protocol", ntohs(hdr->protocol_type));
+            arp_obj.print_key_uint("hwtype", ntoh_uint16(hdr->hardware_type));
+            arp_obj.print_key_uint("protocol", ntoh_uint16(hdr->protocol_type));
             arp_obj.print_key_uint("hw_addr_len", hdr->hw_addr_len());
             arp_obj.print_key_uint("proto_addr_len", hdr->proto_addr_len());
             arp_obj.print_key_string("opcode", hdr->get_opcode());

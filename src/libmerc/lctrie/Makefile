@@ -12,7 +12,7 @@ clean:
 	rm -f lctrie_test
 	rm -f liblctrie.a
 
-CFLAGS = -g -ggdb -std=c++11 -Wall -O3 -fPIC # -Wno-sign-compare
+CFLAGS = -g -ggdb -std=c++17 -Wall -O3 -fPIC # -Wno-sign-compare
 LDFLAGS = -g -ggdb -O3
 LDLIBS =
 

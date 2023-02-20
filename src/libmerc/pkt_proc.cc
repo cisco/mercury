@@ -603,7 +603,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     if (!reassembler) {
         bool is_new = false;
         if (global_vars.output_tcp_initial_data) {
-            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh_uint32(tcp_pkt.header->seq));
         }
         set_tcp_protocol(x, pkt, is_new, &tcp_pkt);
         //reassembler->dump_pkt = false;
@@ -616,7 +616,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     bool initial_seg = false;
     bool expired = false;
     bool in_reassembly = false;
-    struct tcp_seg_context seg_context(tcp_pkt.data_length, ntohl(tcp_pkt.header->seq), tcp_pkt.additional_bytes_needed);
+    struct tcp_seg_context seg_context(tcp_pkt.data_length, ntoh_uint32(tcp_pkt.header->seq), tcp_pkt.additional_bytes_needed);
 
     if (!tcp_pkt.data_length) {
         reassembler->dump_pkt = false;
@@ -624,7 +624,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     }
 
     // try to fetch the syn seq (seq for first data seg) for this flow
-    syn_seq = tcp_flow_table.check_flow(k, ts->tv_sec, ntohl(tcp_pkt.header->seq), initial_seg, expired);
+    syn_seq = tcp_flow_table.check_flow(k, ts->tv_sec, ntoh_uint32(tcp_pkt.header->seq), initial_seg, expired);
 
     if (syn_seq) {
         // In flow table, can't be in reassembly_table
@@ -765,14 +765,14 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         tcp_pkt.set_key(k);
         if (tcp_pkt.is_SYN()) {
 
-            tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+            tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh_uint32(tcp_pkt.header->seq));
             if (selector.tcp_syn()) {
                 x = tcp_pkt; // process tcp syn
             }
             // note: we could check for non-empty data field
 
         } else if (tcp_pkt.is_SYN_ACK()) {
-            tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+            tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh_uint32(tcp_pkt.header->seq));
             if (selector.tcp_syn() and selector.tcp_syn_ack()) {
                 x = tcp_pkt;  // process tcp syn/ack
             }
@@ -988,9 +988,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         if (reassembler) {
             analysis.flow_state_pkts_needed = false;
             if (tcp_pkt.is_SYN()) {
-                tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+                tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh_uint32(tcp_pkt.header->seq));
             } else if (tcp_pkt.is_SYN_ACK()) {
-                tcp_flow_table.syn_packet(k, ts->tv_sec, ntohl(tcp_pkt.header->seq));
+                tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh_uint32(tcp_pkt.header->seq));
             } else {
                 bool ret = process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler);
                 if (reassembler->curr_reassembly_state == reassembly_in_progress) {
