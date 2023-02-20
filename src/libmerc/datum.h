@@ -32,7 +32,7 @@
 // portable ntohl/htonl functions for uint16_t, uint32_t, and uint64_t
 //
 #ifdef _WIN32
-inline static uint16_t ntoh_uint16(uint16_t x) { return _byteswap_short(x); }
+inline static uint16_t ntoh_uint16(uint16_t x) { return _byteswap_ushort(x); }
 inline static uint32_t ntoh_uint32(uint32_t x) { return _byteswap_ulong(x); }
 inline static uint64_t ntoh_uint64(uint64_t x) { return _byteswap_uint64(x); }
 #else

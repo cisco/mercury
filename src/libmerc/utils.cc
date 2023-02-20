@@ -12,12 +12,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <pwd.h>
-#include <grp.h>
 #include <stdlib.h>
 #include <time.h>
 #include "libmerc.h"
 #include "utils.h"
+
+#ifndef _WIN32
+#include <pwd.h>
+#include <grp.h>
+#endif
 
 /* utility functions */
 
@@ -76,6 +79,9 @@ size_t hex_to_raw(const void *output,
  * drop_root_privileges() returns 0 on success and -1 on failure
  */
 enum status drop_root_privileges(const char *username, const char *directory) {
+
+#ifndef _WIN32
+  
     gid_t gid;
     uid_t uid;
     const char *new_username;
@@ -184,6 +190,15 @@ enum status drop_root_privileges(const char *username, const char *directory) {
     }
 
     return status_ok;
+
+#else   // _WIN32 not defined
+
+    printf_err(log_err, "could not drop root privileges; operation not supported on WIN32\n");
+    return status_err;
+
+#endif
+
+
 }
 
 /*
