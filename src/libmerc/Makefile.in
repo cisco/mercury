@@ -31,6 +31,10 @@ ifeq ($(openssl_newer),yes)
 CFLAGS += -DSSLNEW
 endif
 
+# add include and library locations for minGW
+#
+CFLAGS += -I /usr/include -L /usr/lib
+
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
