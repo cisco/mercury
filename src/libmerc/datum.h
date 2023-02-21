@@ -1014,18 +1014,19 @@ public:
 
     T value() const { return val; }
 
-    // TODO: this function should always convert byte order; an
-    // additional function should be created that converts byte order
-    // only when it differs from network byte order (as with
-    // ntohs/ntohl)
+    // swap_byte_order() reverses the byte order of the integer val,
+    // from big endian to little endian or vice-versa.
+    //
+    // Note: this operation is only the same as hton() if the host
+    // byte order is little-endian.
     //
     void swap_byte_order() {
         if constexpr (sizeof(val) == 8) {
-            val = ntoh(val);
+            val = ::swap_byte_order(val);
         } else if constexpr (sizeof(val) == 4) {
-            val = ntoh(val);
+            val = ::swap_byte_order(val);
         } else if constexpr (sizeof(val) == 2) {
-            val = ntoh(val);
+            val = ::swap_byte_order(val);
         }
     }
 
