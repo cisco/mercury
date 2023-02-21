@@ -41,6 +41,11 @@
 // hton(x) - 'host to network byte order' - when x is in host byte
 // order, hton(x) returns x in network byte order
 //
+// To apply hton() to integer literals, use a cast.  For instance,
+// hton((uint16_t)443) obtains a uint16_t in network byte order for
+// the unsigned integer 443.  If the size of the integer literal
+// passed to hton() is ambiguous, a compiler error should result.
+//
 #ifdef _WIN32
 
 static constexpr bool host_little_endian = true;
