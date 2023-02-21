@@ -31,6 +31,7 @@ sources = ['mercury.pyx',
            '../libmerc/asn1.cc',
            '../libmerc/smb2.cc',
            '../libmerc/config_generator.cc',
+           '../libmerc/bencode.cc',
 ]
 
 additional_flags = os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape').replace("'","",2)
