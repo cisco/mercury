@@ -98,9 +98,9 @@ void flow_key_sprintf_src_addr(const struct flow_key *key,
 
 uint16_t flow_key_get_dst_port(const struct flow_key *key) {
     if (key->type == ipv4) {
-        return ntoh_uint16(key->value.v4.dst_port);
+        return ntoh(key->value.v4.dst_port);
     } else if (key->type == ipv6) {
-        return ntoh_uint16(key->value.v6.dst_port);
+        return ntoh(key->value.v6.dst_port);
     }
 
     return 0;
@@ -125,7 +125,7 @@ void flow_key_sprintf_dst_addr(const struct key &key,
 }
 
 uint16_t flow_key_get_dst_port(const struct key &key) {
-    return ntoh_uint16(key.dst_port);
+    return ntoh(key.dst_port);
 }
 
 

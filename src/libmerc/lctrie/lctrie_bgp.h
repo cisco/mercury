@@ -125,7 +125,7 @@ lct_subnet_set_from_string(lct_subnet<__uint128_t> *subnet, const char *subnet_s
       int bytes_consumed = -1;
       num_items_parsed = sscanf(start, "%hx%n", a, &bytes_consumed);
       if (num_items_parsed == 1) {
-          *a = ntoh_uint16(*a);
+          *a = ntoh(*a);
           start += bytes_consumed;
           if (trailer) {
               trailing_uint16s++;

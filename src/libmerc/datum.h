@@ -29,20 +29,66 @@
 #define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
-// portable ntohl/htonl functions for uint16_t, uint32_t, and uint64_t
+// portable ntoh/hton/swap_byte_order functions for uint16_t,
+// uint32_t, and uint64_t
+//
+// swap_byte_order(x) returns an integer equal to x with its byte
+// order reversed (from little endian to big endian or vice-versa)
+//
+// ntoh(x) - 'network to host byte order' - when x is in network byte
+// order, ntoh(x) returns x in host byte order
+//
+// hton(x) - 'host to network byte order' - when x is in host byte
+// order, hton(x) returns x in network byte order
 //
 #ifdef _WIN32
-inline static uint16_t ntoh_uint16(uint16_t x) { return _byteswap_ushort(x); }
-inline static uint32_t ntoh_uint32(uint32_t x) { return _byteswap_ulong(x); }
-inline static uint64_t ntoh_uint64(uint64_t x) { return _byteswap_uint64(x); }
+
+static constexpr bool host_little_endian = true;
+
+inline static uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
+inline static uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
+inline static uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
+
+inline static uint16_t ntoh(uint16_t x) { return _byteswap_ushort(x); }
+inline static uint32_t ntoh(uint32_t x) { return _byteswap_ulong(x); }
+inline static uint64_t ntoh(uint64_t x) { return _byteswap_uint64(x); }
+
+inline static uint16_t hton(uint16_t x) { return _byteswap_ushort(x); }
+inline static uint32_t hton(uint32_t x) { return _byteswap_ulong(x); }
+inline static uint64_t hton(uint64_t x) { return _byteswap_uint64(x); }
+
 #else
-inline static uint16_t ntoh_uint16(uint16_t x) { return __builtin_bswap16(x); }
-inline static uint32_t ntoh_uint32(uint32_t x) { return __builtin_bswap32(x); }
-inline static uint64_t ntoh_uint64(uint64_t x) { return __builtin_bswap64(x); }
+
+static constexpr bool host_little_endian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
+
+inline static uint16_t swap_byte_order(uint16_t x) { return __builtin_bswap16(x); }
+inline static uint32_t swap_byte_order(uint32_t x) { return __builtin_bswap32(x); }
+inline static uint64_t swap_byte_order(uint64_t x) { return __builtin_bswap64(x); }
+
+inline static uint16_t ntoh(uint16_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+inline static uint32_t ntoh(uint32_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+inline static uint64_t ntoh(uint64_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+
+inline static uint16_t hton(uint16_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+inline static uint32_t hton(uint32_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+inline static uint64_t hton(uint64_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+
+inline __uint128_t ntoh(__uint128_t addr) {
+    __uint128_t output = 0;
+    uint16_t *in = (uint16_t *)&addr;
+    uint16_t *out = (uint16_t *)&output;
+    out[7] = ntoh(in[0]);
+    out[6] = ntoh(in[1]);
+    out[5] = ntoh(in[2]);
+    out[4] = ntoh(in[3]);
+    out[3] = ntoh(in[4]);
+    out[2] = ntoh(in[5]);
+    out[1] = ntoh(in[6]);
+    out[0] = ntoh(in[7]);
+    return output;
+}
+
 #endif
-#define hton_uint16(x) ntoh_uint16(x)
-#define hton_uint32(x) ntoh_uint32(x)
-#define hton_uint64(x) ntoh_uint64(x)
 
 inline uint8_t lowercase(uint8_t x) {
     if (x >= 'A' && x <= 'Z') {
@@ -445,7 +491,7 @@ struct datum {
     bool read_uint16(uint16_t *output) {
         if (length() >= (int)sizeof(uint16_t)) {
             uint16_t *tmp = (uint16_t *)data;
-            *output = ntoh_uint16(*tmp);
+            *output = ntoh(*tmp);
             data += sizeof(uint16_t);
             return true;
         }
@@ -460,7 +506,7 @@ struct datum {
     bool read_uint32(uint32_t *output) {
         if (length() >= (int)sizeof(uint32_t)) {
             uint32_t *tmp = (uint32_t *)data;
-            *output = ntoh_uint32(*tmp);
+            *output = ntoh(*tmp);
             data += sizeof(uint32_t);
             return true;
         }
@@ -970,11 +1016,11 @@ public:
     //
     void swap_byte_order() {
         if constexpr (sizeof(val) == 8) {
-            val = ntoh_uint64(val);
+            val = ntoh(val);
         } else if constexpr (sizeof(val) == 4) {
-            val = ntoh_uint32(val);
+            val = ntoh(val);
         } else if constexpr (sizeof(val) == 2) {
-            val = ntoh_uint16(val);
+            val = ntoh(val);
         }
     }
 

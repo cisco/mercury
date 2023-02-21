@@ -519,7 +519,7 @@ namespace pcap::ng {
             uint32_t block_total_length;
             d.read_uint32(&block_total_length);
             if (byteswap_needed) {
-                block_total_length = ntoh_uint32(block_total_length);
+                block_total_length = swap_byte_order(block_total_length);
             }
         }
     };

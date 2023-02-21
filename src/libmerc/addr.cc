@@ -12,7 +12,7 @@
 #include <string>
 #include "addr.h"
 #include "archive.h"
-#include "datum.h"  // for ntoh_uint32()
+#include "datum.h"  // for ntoh()
 
 #include "lctrie/lctrie.h"
 #include "lctrie/lctrie_bgp.h"
@@ -30,7 +30,7 @@ bool char_string_to_ipv4_addr(const char *s, uint32_t &addr) {
                                   d, d+1, d+2, d+3);
     if (num_items_parsed == 4) {
         addr = (uint32_t)d[3] | (uint32_t)d[2] << 8 | (uint32_t)d[1] << 16 | (uint32_t)d[0] << 24;
-        addr = ntoh_uint32(addr);
+        addr = ntoh(addr);
         return true;
     }
     return false;
@@ -59,7 +59,7 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
         return 0;
     }
 
-    lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntoh_uint32(ipv4_addr));
+    lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntoh(ipv4_addr));
     if (subnet == NULL) {
         return 0;
     }

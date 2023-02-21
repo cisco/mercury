@@ -68,13 +68,13 @@ struct mdns_packet {
         }
         /* Below condition is to detect One shot multicast dns queries */
         if (k.ip_vers == 4) {
-            return (k.addr.ipv4.dst == ntoh_uint32(mdns_v4_addr));
+            return (k.addr.ipv4.dst == ntoh(mdns_v4_addr));
         }
         else {
-            return (k.addr.ipv6.dst.a ==  ntoh_uint32(mdns_v6_addr_0)
-                and k.addr.ipv6.dst.b ==  ntoh_uint32(mdns_v6_addr_1)
-                and k.addr.ipv6.dst.c ==  ntoh_uint32(mdns_v6_addr_2)
-                and k.addr.ipv6.dst.d ==  ntoh_uint32(mdns_v6_addr_3));
+            return (k.addr.ipv6.dst.a ==  ntoh(mdns_v6_addr_0)
+                and k.addr.ipv6.dst.b ==  ntoh(mdns_v6_addr_1)
+                and k.addr.ipv6.dst.c ==  ntoh(mdns_v6_addr_2)
+                and k.addr.ipv6.dst.d ==  ntoh(mdns_v6_addr_3));
         }
     }
 };

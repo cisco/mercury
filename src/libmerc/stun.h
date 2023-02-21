@@ -152,7 +152,7 @@ namespace stun {
             if (family == addr_family::ipv4) {
                 datum tmp{x_address};
                 encoded<uint32_t> addr{tmp};
-                addr = hton_uint32(addr ^ magic);
+                addr = hton(addr ^ magic);
                 o.print_key_ipv4_addr("x_address", (uint8_t *)&addr); // TODO: byte order???
             } else {
                 o.print_key_hex("x_address", x_address); // TODO: handle IPv6

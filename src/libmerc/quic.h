@@ -795,7 +795,7 @@ public:
         }
 
         data_buffer<1024> aad;
-        uint32_t version = ntoh_uint32(*((uint32_t*)quic_pkt.version.data));
+        uint32_t version = ntoh(*((uint32_t*)quic_pkt.version.data));
         static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
         const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(version);
 

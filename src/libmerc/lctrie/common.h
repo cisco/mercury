@@ -28,44 +28,6 @@ T REMOVE(unsigned int p, T str) {
     return (str << p) >> p;
 }
 
-inline uint32_t hton(uint32_t addr) {
-    return hton_uint32(addr);
-}
-
-inline __uint128_t hton(__uint128_t addr) {
-    __uint128_t output = 0;
-    uint16_t *in = (uint16_t *)&addr;
-    uint16_t *out = (uint16_t *)&output;
-    out[7] = hton_uint16(in[0]);
-    out[6] = hton_uint16(in[1]);
-    out[5] = hton_uint16(in[2]);
-    out[4] = hton_uint16(in[3]);
-    out[3] = hton_uint16(in[4]);
-    out[2] = hton_uint16(in[5]);
-    out[1] = hton_uint16(in[6]);
-    out[0] = hton_uint16(in[7]);
-    return output;
-}
-
-inline uint32_t ntoh(uint32_t addr) {
-    return ntoh_uint32(addr);
-}
-
-inline __uint128_t ntoh(__uint128_t addr) {
-    __uint128_t output = 0;
-    uint16_t *in = (uint16_t *)&addr;
-    uint16_t *out = (uint16_t *)&output;
-    out[7] = ntoh_uint16(in[0]);
-    out[6] = ntoh_uint16(in[1]);
-    out[5] = ntoh_uint16(in[2]);
-    out[4] = ntoh_uint16(in[3]);
-    out[3] = ntoh_uint16(in[4]);
-    out[2] = ntoh_uint16(in[5]);
-    out[1] = ntoh_uint16(in[6]);
-    out[0] = ntoh_uint16(in[7]);
-    return output;
-}
-
 // pton(src, dst) parses a dotted quad IPv4 address
 // out of the null-terminated character string s, sets addr to the
 // host-byte-order representation of that address, and returns true on
@@ -81,7 +43,7 @@ inline __uint128_t ntoh(__uint128_t addr) {
                                   d, d+1, d+2, d+3);
     if (num_items_parsed == 4) {
         *addr = (uint32_t)d[3] | (uint32_t)d[2] << 8 | (uint32_t)d[1] << 16 | (uint32_t)d[0] << 24;
-        *addr = ntoh_uint32(*addr);
+        *addr = ntoh(*addr);
         return 1;
     }
     return 0;
