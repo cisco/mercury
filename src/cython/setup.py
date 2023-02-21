@@ -1,6 +1,7 @@
 from distutils.core import setup, Extension
 from Cython.Distutils import build_ext
 from distutils.extension import Extension
+import os
 
 ###
 ## to build: CC=g++ python setup.py build_ext --inplace
@@ -32,10 +33,12 @@ sources = ['mercury.pyx',
            '../libmerc/config_generator.cc',
 ]
 
+additional_flags = os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape').replace("'","",2)
+
 setup(ext_modules=[Extension("mercury",
                              sources=sources,
                              language="c++",
-                             extra_compile_args=["-std=c++17","-Wno-narrowing","-Wno-deprecated-declarations","-DSSLNEW"],
+                             extra_compile_args=["-std=c++17","-Wno-narrowing","-Wno-deprecated-declarations",additional_flags],
                              extra_link_args=["-std=c++17","-lz"],
                              libraries = ['crypto'],
                              runtime_library_dirs=['../'])
