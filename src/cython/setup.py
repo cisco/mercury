@@ -35,7 +35,7 @@ sources = ['mercury.pyx',
 setup(ext_modules=[Extension("mercury",
                              sources=sources,
                              language="c++",
-                             extra_compile_args=["-std=c++17","-Wno-narrowing","-Wno-deprecated-declarations"],
+                             extra_compile_args=["-std=c++17","-Wno-narrowing","-Wno-deprecated-declarations","-DSSLNEW"],
                              extra_link_args=["-std=c++17","-lz"],
                              libraries = ['crypto'],
                              runtime_library_dirs=['../'])
