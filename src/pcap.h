@@ -7,13 +7,20 @@
 #ifndef PCAP_H
 #define PCAP_H
 
+// use mmap for improved file read performance where available
+//
+#ifndef _WIN32
+#define USE_MMAP 1
+#endif
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <sys/mman.h>
-
 #include <variant>
 #include <cassert>
+#ifdef USE_MMAP
+#include <sys/mman.h>
+#endif
 
 #include "libmerc/datum.h"
 
@@ -37,6 +44,9 @@ public:
 // the interface of class datum, and thus can be used to read and
 // parse files
 //
+// If USE_MMAP is defined, the POSIX mmap() function is used;
+// otherwise, the standard read() is used.
+//
 class file_datum : public datum {
     int fd = -1;
     uint8_t *addr;
@@ -54,13 +64,7 @@ public:
             throw errno_exception();
         }
         file_length = statbuf.st_size;
-        // fprintf(stderr, "opened file of length %zd bytes\n", file_length);
-
-        data = (uint8_t *)mmap (0, file_length, PROT_READ, MAP_PRIVATE, fd, 0);
-        if (data == MAP_FAILED) {
-            data = data_end = nullptr;
-            throw errno_exception();
-        }
+        open_data();
         data_end = data + file_length;
         addr = (uint8_t *)data;
     }
@@ -70,18 +74,50 @@ public:
     file_datum(file_datum &rhs) = delete;
 
     ~file_datum() {
-        // fprintf(stderr, "closing file of length %zd bytes\n", file_length);
-        if (munmap(addr, file_length) != 0) {
-            assert(true && "munmap() failed");
-            ; // error, but don't throw errno_exception() because we are in a destructor
-        }
+        close_data();
         if (close(fd) != 0) {
             ; // error, but don't throw errno_exception() because we are in a destructor
             assert(true && "close() failed");
         }
     }
 
+#ifdef USE_MMAP
+    void open_data() {
+        data = (uint8_t *)mmap (0, file_length, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (data == MAP_FAILED) {
+            data = data_end = nullptr;
+            throw errno_exception();
+        }
+    }
+    void close_data() {
+        if (munmap(addr, file_length) != 0) {
+            assert(true && "munmap() failed");
+            ; // error, but don't throw errno_exception() because we are in a destructor
+        }
+    }
+#else
+    void open_data() {
+        data = (uint8_t *)malloc(file_length);
+        if (data == nullptr) {
+            this->set_null();
+            throw errno_exception();
+        }
+        size_t bytes_read = 0;
+        while (bytes_read < file_length) {
+            ssize_t result = read(fd, (uint8_t *)data, file_length);
+            if (result == -1) {
+                throw errno_exception();
+            }
+            bytes_read += result;
+        }
+    }
+    void close_data() {
+        free(addr);
+    }
+#endif
+
 };
+
 
 //
 // PCAP
