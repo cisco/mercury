@@ -78,21 +78,6 @@ inline static uint16_t hton(uint16_t x) { if (host_little_endian) { return swap_
 inline static uint32_t hton(uint32_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
 inline static uint64_t hton(uint64_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
 
-inline __uint128_t ntoh(__uint128_t addr) {
-    __uint128_t output = 0;
-    uint16_t *in = (uint16_t *)&addr;
-    uint16_t *out = (uint16_t *)&output;
-    out[7] = ntoh(in[0]);
-    out[6] = ntoh(in[1]);
-    out[5] = ntoh(in[2]);
-    out[4] = ntoh(in[3]);
-    out[3] = ntoh(in[4]);
-    out[2] = ntoh(in[5]);
-    out[1] = ntoh(in[6]);
-    out[0] = ntoh(in[7]);
-    return output;
-}
-
 #endif
 
 inline uint8_t lowercase(uint8_t x) {

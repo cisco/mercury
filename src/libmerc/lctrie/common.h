@@ -79,4 +79,23 @@ T REMOVE(unsigned int p, T str) {
     return nullptr;
 }
 
+
+// __uint128_t ntoh() is suitable for IPv6 addresses
+//
+inline __uint128_t ntoh(__uint128_t addr) {
+    __uint128_t output = 0;
+    uint16_t *in = (uint16_t *)&addr;
+    uint16_t *out = (uint16_t *)&output;
+    out[7] = ntoh(in[0]);
+    out[6] = ntoh(in[1]);
+    out[5] = ntoh(in[2]);
+    out[4] = ntoh(in[3]);
+    out[3] = ntoh(in[4]);
+    out[2] = ntoh(in[5]);
+    out[1] = ntoh(in[6]);
+    out[0] = ntoh(in[7]);
+    return output;
+}
+
+
 #endif // COMMON_H

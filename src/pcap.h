@@ -7,17 +7,28 @@
 #ifndef PCAP_H
 #define PCAP_H
 
-// use mmap for improved file read performance where available
+// On Windows, we don't use mmap() for file reading, so USE_MMAP is
+// defined for non-Windows platforms.
+//
+// On other platforms, we define the flag _O_BINARY to 0, for
+// compatibility with Windows binary file mode.
 //
 #ifndef _WIN32
 #define USE_MMAP 1
+#define _O_BINARY 0
 #endif
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <variant>
 #include <cassert>
+#include <stdexcept>
+
+// USE_MMAP causes file reading to use mmap for improved performance;
+// you should use it when it is available (Linux).
+//
 #ifdef USE_MMAP
 #include <sys/mman.h>
 #endif
@@ -36,7 +47,11 @@
 //
 class errno_exception : public std::runtime_error {
 public:
+#ifdef _WIN32
+    errno_exception() : runtime_error{"errno_exception"} { };      // NOTE: could use strerr_s
+#else
     errno_exception() : runtime_error{strerror_l(errno, (locale_t)0)} { };
+#endif
     //  errno_exception() : runtime_error{strerror_l(errno, uselocale((locale_t)0))} { };
 };
 
@@ -54,7 +69,7 @@ class file_datum : public datum {
 
 public:
 
-    file_datum(const char *fname) : fd{open(fname, O_RDONLY)} {
+    file_datum(const char *fname) : fd{open(fname, O_RDONLY|_O_BINARY)} {
 
         if (fd < 0) {
             throw errno_exception();
@@ -97,18 +112,20 @@ public:
     }
 #else
     void open_data() {
-        data = (uint8_t *)malloc(file_length);
-        if (data == nullptr) {
+        uint8_t *buf = (uint8_t *)malloc(file_length);
+        if (buf == nullptr) {
             this->set_null();
             throw errno_exception();
         }
+	data = buf;
         size_t bytes_read = 0;
         while (bytes_read < file_length) {
-            ssize_t result = read(fd, (uint8_t *)data, file_length);
+            ssize_t result = read(fd, buf, file_length - bytes_read);
             if (result == -1) {
-                throw errno_exception();
+	      throw errno_exception();
             }
             bytes_read += result;
+	    buf += result;
         }
     }
     void close_data() {
@@ -730,7 +747,7 @@ namespace pcap::ng {
                 // opt.fprint(stderr);
             }
 
-            fprintf(stderr, "data length: %zu\n", d.length());
+	    // fprintf(stderr, "data length: %zu\n", d.length());
             // d.fprint_hex(stderr); fputc('\n', stderr);
         }
 
