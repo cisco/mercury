@@ -38,7 +38,7 @@ public:
     }
 };
 
-class digit : public ignore_char_class<digit> {
+class decimal_digit : public ignore_char_class<decimal_digit> {
 public:
     inline static bool in_class(uint8_t x) {
         return x >= '0' && x <= '9';
@@ -117,7 +117,7 @@ public:
     }
 };
 
-class digits : public one_or_more<digits> {
+class digits : public one_or_more<decimal_digit> {
 public:
     inline static bool in_class(uint8_t x) {
         return x >= '0' && x <= '9';

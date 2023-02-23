@@ -1,6 +1,14 @@
 # Makefile for cython interface to mercury
 #
 
+openssl_newer = @OPENSSL_NEWER@
+
+ifeq ($(openssl_newer),yes)
+FLAGS = '-DSSLNEW'
+endif
+
+export ENV_CFLAGS=${FLAGS}
+
 all:
 	CC=g++ python3 setup.py build_ext --inplace
 

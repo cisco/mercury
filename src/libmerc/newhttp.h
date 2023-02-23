@@ -56,9 +56,9 @@ namespace newhttp {
     //
     class version : public datum {
         literal<5> proto;
-        digit maj_digit;
+        decimal_digit maj_digit;
         literal<1> dot;
-        digit min_digit;
+        decimal_digit min_digit;
         bool valid;
     public:
         version(datum &d) :
