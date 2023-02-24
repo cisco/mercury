@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include <stdexcept>
 #include "tcp.h"
-#include "packet.h"
+#include "flow_key.h"
 #include "analysis.h"
 #include "libmerc.h"
 #include "stats.h"

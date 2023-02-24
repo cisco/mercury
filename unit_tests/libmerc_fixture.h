@@ -1,5 +1,6 @@
 #include "libmerc_driver_helper.hpp"
-#include "pcap_file_io.h"
+#include "pcap.h"
+#include "packet.h"
 #include <filesystem>
 
 using std::filesystem::current_path;
@@ -44,7 +45,7 @@ protected:
 
     std::string m_libmerc_library_path;
     std::string m_path_to_libmerc_alt_library;
-    struct pcap_file *m_pcap;
+    pcap::file_reader *m_pcap;
     packet<65536> m_pkt;
     char * m_pcap_file_name;
     std::string m_pcap_folder_name;

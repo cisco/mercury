@@ -18,7 +18,6 @@ LIBMERC_SO = $(LIBMERC_FOLDER)libmerc.so
 LIBMERC_SO_tls = $(LIBMERC_DEBUG_FOLDER)libmerc_tls.so
 LIBMERC_SO_multiprotocol = $(LIBMERC_DEBUG_FOLDER)libmerc_multiprotocol.so
 UNIT_TESTS = catch2main.cc
-UNIT_TESTS += ../src/pcap_file_io.c
 UNIT_TESTS += libmerc_driver_helper.cc
 UNIT_TESTS += libmerc_fixture.cc
 
@@ -77,7 +76,7 @@ libmerc_driver_multiprotocol_coverage: debug-libmerc_gcov $(UNIT_TESTS_TLS_HTTP_
 	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" $(FSANITIZE) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz --coverage
 
 pdu_verifier: debug-libmerc pdu_verifier.cc
-	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc pdu_verifier.cc ./../src/pcap_file_io.c $(FSANITIZE) -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz -o pdu_verifier
+	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc pdu_verifier.cc $(FSANITIZE) -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz -o pdu_verifier
 
 .PHONY: debug-libmerc_tls_gcov
 debug-libmerc_tls_gcov:

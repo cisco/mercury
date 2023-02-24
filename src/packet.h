@@ -1,6 +1,5 @@
 // packet.h
 //
-// 
 
 #ifndef PACKET_H
 #define PACKET_H
@@ -13,7 +12,7 @@
 #ifndef lib_pcap_pcap_h
 
 struct pcap_pkthdr {
-    struct timeval ts;   // timestamp                     
+    struct timeval ts;   // timestamp
     uint32_t caplen;     // length of portion present
     uint32_t len;        // length this packet (off wire)
 };
@@ -40,7 +39,7 @@ public:
     // of pointers to the first and last bytes of the packet data
     // (including link layer headers, if present)
     //
-    //    struct datum get_next(struct pcap_file &pcap) {
+#if 0
     std::pair<const uint8_t *, const uint8_t *> get_next(struct pcap_file &pcap) {
         enum status s = pcap.read_packet(&pkthdr, buffer);
         if (s != status_ok) {
@@ -48,6 +47,7 @@ public:
         }
         return {buffer, buffer + pkthdr.caplen};
     }
+#endif
 
     // same as above, but for a pcap_ng file
     //
