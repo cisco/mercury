@@ -56,6 +56,7 @@ LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
 LIBMERC_H   += analysis.h
+LIBMERC_H   += result.h
 LIBMERC_H   += buffer_stream.h
 LIBMERC_H   += crypto_assess.h
 LIBMERC_H   += dhcp.h

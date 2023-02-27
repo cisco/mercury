@@ -56,6 +56,7 @@ public:
     std::string name;
     bool malware;
     uint64_t count;
+    std::array<bool, TAG_COUNT> attributes;
     std::unordered_map<uint32_t, uint64_t>    ip_as;
     std::unordered_map<std::string, uint64_t> hostname_domains;
     std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -68,6 +69,7 @@ public:
     process_info(const std::string &proc_name,
                  bool is_malware,
                  uint64_t proc_count,
+                 std::array<bool, TAG_COUNT> &attr,
                  const std::unordered_map<uint32_t, uint64_t> &as,
                  const std::unordered_map<std::string, uint64_t> &domains,
                  const std::unordered_map<uint16_t, uint64_t> &ports,
@@ -78,6 +80,7 @@ public:
         name{proc_name},
         malware{is_malware},
         count{proc_count},
+        attributes{attr},
         ip_as{as},
         hostname_domains{domains},
         portname_applications{ports},
@@ -157,6 +160,7 @@ class fingerprint_data {
     std::vector<std::string> process_name;
     std::vector<floating_point_type> process_prob;
     std::vector<bool>        malware;
+    std::vector<std::array<bool, TAG_COUNT>> attr;
     std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
     std::unordered_map<uint16_t, std::vector<class update>> port_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
@@ -191,6 +195,7 @@ public:
             process_name.reserve(processes.size());
             process_prob.reserve(processes.size());
             malware.reserve(processes.size());
+            attr.reserve(processes.size());
             process_os_info_vector.reserve(processes.size());
 
             base_prior = log(0.1 / total_count);
@@ -198,6 +203,7 @@ public:
             for (const auto &p : processes) {
                 process_name.push_back(p.name);
                 malware.push_back(p.malware);
+                attr.push_back(p.attributes);
 
                 process_os_info_vector.push_back(std::vector<struct os_information>{});
                 if (p.os_info.size() > 0) {
@@ -427,13 +433,21 @@ public:
 
         floating_point_type score_sum = 0.0;
         floating_point_type malware_prob = 0.0;
+        std::array<floating_point_type, TAG_COUNT> attr_prob;
+        attr_prob.fill(0.0);
         for (uint64_t i=0; i < process_score.size(); i++) {
             process_score[i] = exp((float)process_score[i]);
             score_sum += process_score[i];
             if (malware[i]) {
                 malware_prob += process_score[i];
             }
+            for (int j = 0; j < TAG_COUNT; j++) {
+                if (attr[i][j]) {
+                    attr_prob[j] += process_score[i];
+                }
+            }
         }
+
         max_score = process_score[index_max];
         sec_score = process_score[index_sec];
 
@@ -451,6 +465,9 @@ public:
             if (malware_db) {
                 malware_prob /= score_sum;
             }
+            for (int j = 0; j < TAG_COUNT; j++) {
+                attr_prob[j] /= score_sum;
+            }
         }
 
         // set os_info (to NULL if unavailable)
@@ -463,9 +480,9 @@ public:
         }
         if (malware_db) {
             return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size,
-                                   malware[index_max], malware_prob);
+                                   malware[index_max], malware_prob, attr[index_max], attr_prob);
         }
-        return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size);
+        return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size, attr[index_max], attr_prob);
     }
 
     static uint16_t remap_port(uint16_t dst_port) {
@@ -750,6 +767,7 @@ public:
                 process_number++;
                 //fprintf(stderr, "%s\n", "process_info");
 
+                std::array<bool, TAG_COUNT> attributes;
                 std::unordered_map<uint32_t, uint64_t>    ip_as;
                 std::unordered_map<std::string, uint64_t> hostname_domains;
                 std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -762,6 +780,17 @@ public:
                 if (x.HasMember("process") && x["process"].IsString()) {
                     name = x["process"].GetString();
                     //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
+                }
+                if (x.HasMember("attributes") && x["attributes"].IsObject()) {
+                    int c = 0;
+                    for (auto &v : x["attributes"].GetObject()) {
+                        if (v.value.IsBool()) {
+                            attributes[c++] = v.value.GetBool();
+                        }
+                        if (c >= TAG_COUNT) {
+                            break;
+                        }
+                    }
                 }
                 if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
                     //fprintf(stderr, "\tclasses_hostname_domains\n");
@@ -859,7 +888,7 @@ public:
                     }
                 }
 
-                class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications,
+                class process_info process(name, malware, count, attributes, ip_as, hostname_domains, portname_applications,
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
