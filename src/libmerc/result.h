@@ -29,6 +29,38 @@ struct malware_result {
 };
 
 #define TAG_COUNT 5
+class attribute_result {
+    std::array<bool, TAG_COUNT> tags;
+    std::array<long double, TAG_COUNT> prob_score;
+    std::vector<std::string> *tag_names;
+
+public:
+    attribute_result() : tags{}, prob_score{}, tag_names{nullptr} { }
+
+    attribute_result(std::array<bool, TAG_COUNT> _tags, std::array<long double, TAG_COUNT> _prob_score, std::vector<std::string> *_tag_names) :
+        tags{_tags},
+        prob_score{_prob_score},
+        tag_names{_tag_names}
+    { }
+
+    void write_json(struct json_object &o) {
+        if (!tag_names) {
+            return;
+        }
+
+        struct json_array attributes{o, "attributes"};
+        for (uint8_t i = 0; i < TAG_COUNT && i < tag_names->size(); i++) {
+            if (tags[i]) {
+                struct json_object tags{attributes};
+                tags.print_key_string("name", (*tag_names)[i].c_str());
+                tags.print_key_float("probability_score", prob_score[i]);
+                tags.close();
+            }
+        }
+        attributes.close();
+    }
+};
+
 struct analysis_result {
     enum fingerprint_status status;
     char max_proc[max_proc_len];
@@ -38,29 +70,24 @@ struct analysis_result {
     bool classify_malware;
     struct os_information *os_info;
     uint16_t os_info_len;
-    std::array<bool, TAG_COUNT> tags;
-    std::array<long double, TAG_COUNT> attr;
+    attribute_result attr;
 
-    static constexpr std::array<const char *, TAG_COUNT> tag_strings = {"evasive_vpn",
-                                                             "external_proxy",
-                                                             "malware",
-                                                             "multi_hop_proxy",
-                                                             "remote_access_tool"};
 public:
     analysis_result() : status{fingerprint_status_no_info_available}, max_proc{'\0'}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
-                        os_info{NULL}, os_info_len{0}, tags{}, attr{} { }
+                        os_info{NULL}, os_info_len{0}, attr{} { }
 
-    analysis_result(enum fingerprint_status s) : status{s}, max_proc{'\0'}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0}, tags{}, attr{} { }
+    analysis_result(enum fingerprint_status s) : status{s}, max_proc{'\0'}, max_score{0.0}, max_mal{false},
+                                    malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0}, attr{} { }
 
-    analysis_result(enum fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len, std::array<bool, TAG_COUNT> _tags, std::array<long double, TAG_COUNT> _attr) :
+    analysis_result(enum fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len, attribute_result _attr) :
         status{s}, max_proc{'\0'}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
-        os_info{os}, os_info_len{os_len}, tags{_tags}, attr{_attr} {
+        os_info{os}, os_info_len{os_len}, attr{_attr} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
     analysis_result(fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob,
-                    std::array<bool, TAG_COUNT> _tags, std::array<long double, TAG_COUNT> _attr) :
+                    attribute_result _attr) :
         status{s}, max_proc{'\0'}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
-        os_info{os}, os_info_len{os_len}, tags{_tags}, attr{_attr}  {
+        os_info{os}, os_info_len{os_len}, attr{_attr} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
 
@@ -81,16 +108,7 @@ public:
                 os_json.close();
             }
 
-            struct json_array attributes{analysis, "attributes"};
-            for (uint8_t i = 0; i < TAG_COUNT; i++) {
-                if (tags[i]) {
-                    struct json_object tags{attributes};
-                    tags.print_key_string("name", tag_strings[i]);
-                    tags.print_key_float("attribute_score", attr[i]);
-                    tags.close();
-                }
-            }
-            attributes.close();
+            attr.write_json(analysis);
 
         } else if (status == fingerprint_status_randomized) {
             if (max_proc[0] != '\0') {
