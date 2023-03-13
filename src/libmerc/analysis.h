@@ -56,7 +56,7 @@ public:
     std::string name;
     bool malware;
     uint64_t count;
-    std::array<bool, TAG_COUNT> attributes;
+    std::bitset<TAG_COUNT> attributes;
     std::unordered_map<uint32_t, uint64_t>    ip_as;
     std::unordered_map<std::string, uint64_t> hostname_domains;
     std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -69,7 +69,7 @@ public:
     process_info(const std::string &proc_name,
                  bool is_malware,
                  uint64_t proc_count,
-                 std::array<bool, TAG_COUNT> &attr,
+                 std::bitset<TAG_COUNT> &attr,
                  const std::unordered_map<uint32_t, uint64_t> &as,
                  const std::unordered_map<std::string, uint64_t> &domains,
                  const std::unordered_map<uint16_t, uint64_t> &ports,
@@ -160,7 +160,7 @@ class fingerprint_data {
     std::vector<std::string> process_name;
     std::vector<floating_point_type> process_prob;
     std::vector<bool>        malware;
-    std::vector<std::array<bool, TAG_COUNT>> attr;
+    std::vector<std::bitset<TAG_COUNT>> attr;
     std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
     std::unordered_map<uint16_t, std::vector<class update>> port_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
@@ -770,7 +770,7 @@ public:
                 process_number++;
                 //fprintf(stderr, "%s\n", "process_info");
 
-                std::array<bool, TAG_COUNT> attributes;
+                std::bitset<TAG_COUNT> attributes;
                 std::unordered_map<uint32_t, uint64_t>    ip_as;
                 std::unordered_map<std::string, uint64_t> hostname_domains;
                 std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -794,18 +794,19 @@ public:
                                 idx = std::distance(tag_names.begin(),
                                         std::find(tag_names.begin(), tag_names.end(), v.name.GetString()));
                                 if (idx >= tag_names.size()) {
-                                    fprintf(stderr, "Unknowing attribute %s while parsing resource file\n", v.name.GetString());
+                                    printf_err(log_warning, "Unknown attribute %s while parsing resource file\n", v.name.GetString());
                                     continue;
                                 }
                             }
                         }
                         if (idx >= TAG_COUNT) {
-                            fprintf(stderr, "Exceeding the maximum supported attributes\n");
+                            printf_err(log_warning, "Exceeding the maximum supported attributes\n");
                             break;
                         }
-                        if (v.value.IsBool()) {
-                            attributes[idx++] = v.value.GetBool();
+                        if (v.value.IsBool() and v.value.GetBool()) {
+                            attributes[idx] = 1;
                         }
+                        idx++;
                     }
                     first_attr_record = false;
                 }

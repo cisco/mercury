@@ -9,7 +9,7 @@
 #define RESULT_H
 
 #include <stdbool.h>
-
+#include <bits/stdc++.h>
 #include "libmerc.h"
 #include "json_object.h"
 #include "addr.h"
@@ -28,16 +28,22 @@ struct malware_result {
     long double malware_prob;
 };
 
-#define TAG_COUNT 5
+/* The macro TAG_COUNT denotes the number of attribute
+ * tags that are utmost supported by mercury.
+ * If there is a need to support more tags, increasing
+ * the macro value will take care of supporting additional
+ * tags.
+ */
+#define TAG_COUNT 8
 class attribute_result {
-    std::array<bool, TAG_COUNT> tags;
+    std::bitset<TAG_COUNT> tags;
     std::array<long double, TAG_COUNT> prob_score;
     std::vector<std::string> *tag_names;
 
 public:
     attribute_result() : tags{}, prob_score{}, tag_names{nullptr} { }
 
-    attribute_result(std::array<bool, TAG_COUNT> _tags, std::array<long double, TAG_COUNT> _prob_score, std::vector<std::string> *_tag_names) :
+    attribute_result(std::bitset<TAG_COUNT> _tags, std::array<long double, TAG_COUNT> _prob_score, std::vector<std::string> *_tag_names) :
         tags{_tags},
         prob_score{_prob_score},
         tag_names{_tag_names}
