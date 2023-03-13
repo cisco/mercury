@@ -1,5 +1,9 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.17
+
+* Fixed a libmerc.so issue with extended configuration parsing.
+
 ## Version 2.5.16
 
 * Fixed a libmerc.so issue with fingerprint format versions.
