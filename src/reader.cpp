@@ -12,9 +12,21 @@
 #include "libmerc/datum.h"
 #include "libmerc/lex.h"
 
+// get_datum(std::string &s) returns a datum that corresponds to the
+// std::string s.
+//
 datum get_datum(const std::string &s) {
     uint8_t *data = (uint8_t *)s.c_str();
     return { data, data + s.length() };
+}
+
+// get_datum(const char *c) returns a datum that corresponds to the
+// null-terminated character string c.  The value c must not be
+// nullptr, and must be null-terminated.
+//
+datum get_datum(const char *c) {
+    uint8_t *data = (uint8_t *)c;
+    return { data, data + strlen(c) };
 }
 
 template <typename T>
@@ -23,7 +35,6 @@ T str_to_uint(const digits &d) {
     for (const auto & c: d) {
         tmp = 10 * tmp + (c - '0');
     }
-    // fprintf(stdout, ">> %u\n", tmp);
     // TODO: check for overflow?
     return tmp;
 }
@@ -48,6 +59,17 @@ T hex_str_to_uint(const hex_digits &d) {
         }
     }
     return tmp;
+}
+
+using ipv4_t = uint32_t;
+
+void ipv4_print(FILE *f, uint32_t addr) {
+    fprintf(f,
+            "%u.%u.%u.%u",
+            addr >> 24 & 0xff,
+            addr >> 16 & 0xff,
+            addr >>  8 & 0xff,
+            addr       & 0xff);
 }
 
 class ipv4_address_string {
@@ -75,7 +97,8 @@ public:
         // TODO: verify that w, x, y, and z are no greater than 255
         // TODO: verify that there is no trailing information
 
-        value = str_to_uint<uint8_t>(w) + 256 * (str_to_uint<uint8_t>(x) + 256 * (str_to_uint<uint8_t>(y) + 256 * str_to_uint<uint8_t>(z)));
+        // value = str_to_uint<uint8_t>(w) + 256 * (str_to_uint<uint8_t>(x) + 256 * (str_to_uint<uint8_t>(y) + 256 * str_to_uint<uint8_t>(z)));
+        value = str_to_uint<uint8_t>(w) << 24 | str_to_uint<uint8_t>(x) << 16 | str_to_uint<uint8_t>(y) << 8 | str_to_uint<uint8_t>(z);
     }
 
     bool is_valid() const { return z.is_not_null(); }
@@ -83,10 +106,10 @@ public:
     void print() const {
         if (is_valid()) {
 
-        str_to_uint<uint8_t>(w);
-        str_to_uint<uint8_t>(x);
-        str_to_uint<uint8_t>(y);
-        str_to_uint<uint8_t>(z);
+            str_to_uint<uint8_t>(w);
+            str_to_uint<uint8_t>(x);
+            str_to_uint<uint8_t>(y);
+            str_to_uint<uint8_t>(z);
 
             w.fprint(stdout);
             fputc('.', stdout);
@@ -108,7 +131,57 @@ public:
     // is_valid().
     //
     uint32_t get_value() const { return value; }
+
+    static bool unit_test() {
+        std::vector<std::pair<const char *, ipv4_t>> ipv4_addr_examples {
+#if (__BYTE_ORDER == __LITTLE_ENDIAN)
+            { "192.168.0.1", 0x0100a8c0 }
+#else
+            { "192.168.0.1", 0xc0a80001 }
+#endif
+        };
+
+        for (const auto & ipv4_addr : ipv4_addr_examples) {
+            datum tmp = get_datum(ipv4_addr.first);
+            ipv4_address_string ipv4{tmp};
+            if (ipv4.is_valid()) {
+                // ipv4_print(stdout, ipv4.get_value()); fputc('\n', stdout);
+                if (ipv4.get_value() == ipv4_addr.second) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
 };
+
+using ipv6_array_t = std::array<uint8_t, 16>;
+
+void ipv6_array_print(FILE *f, ipv6_array_t ipv6) {
+    fprintf(f,
+            "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
+            ipv6[0], ipv6[1], ipv6[2], ipv6[3], ipv6[4], ipv6[5], ipv6[6], ipv6[7],
+            ipv6[8], ipv6[9], ipv6[10], ipv6[11], ipv6[12], ipv6[13], ipv6[14], ipv6[15]);
+}
+
+// extend std to provide a hasher for std::array<uint8_t, N>,
+// using a simple djb2 implementation
+//
+namespace std {
+    template <size_t N>  struct hash<std::array<uint8_t, N>>  {
+        std::size_t operator()(const std::array<uint8_t, N> &k) const    {
+            std::size_t tmp = 5381;
+            for (const auto & x : k) {
+                tmp = (tmp << 5) + tmp + x;  // tmp = (tmp * 31) + x
+            }
+            return tmp;
+        }
+    };
+}
 
 using uint128_t = __uint128_t; // defined by GCC at least
 
@@ -164,25 +237,25 @@ public:
 
     bool is_valid() const { return valid; }
 
-    void print() const {
+    void print(FILE *f) const {
         if (!valid) { return; }
 
         ssize_t index = 0;
         for (const auto &p : pieces) {
             if (index == double_colon_index) {
-                fputc(':', stdout);
-                fputc(':', stdout);
+                fputc(':', f);
+                fputc(':', f);
             } else if (index != 0) {
-                fputc(':', stdout);
+                fputc(':', f);
             }
             index++;
-            fprintf(stdout, "%x", hex_str_to_uint<uint16_t>(p));
+            fprintf(f, "%x", hex_str_to_uint<uint16_t>(p));
         }
         if (index == double_colon_index) {
-            fputc(':', stdout);
-            fputc(':', stdout);
+            fputc(':', f);
+            fputc(':', f);
         }
-        fputc('\n', stdout);
+        fputc('\n', f);
     }
 
     uint128_t get_value() const {
@@ -216,48 +289,94 @@ public:
         return x;
     }
 
+    ipv6_array_t get_value_array() const {
+        ipv6_array_t x;
+
+        ssize_t prefix_length = 0;
+        ssize_t zero_run_length  = 0;
+
+        if (double_colon_index == -1) {
+            prefix_length = pieces.size();  // should be eight
+        } else {
+            prefix_length = double_colon_index;
+            //   suffix_length = pieces.size() - double_colon_index; // check for > 0
+            zero_run_length = 8 - pieces.size();
+        }
+
+        // fprintf(stderr, "------------------------\n");
+        // print(stderr);
+
+        ssize_t j = 0;
+        ssize_t i = 0;
+        for ( ; i < prefix_length; i++) {
+            //fprintf(stderr, "prefix\tpiece %zd\t%04x\n", i, hex_str_to_uint<uint16_t>(pieces[i]));
+            // NOTE: pieces[i] contains 1, 2, 3, or 4 hex characters
+            //
+            if (pieces[i].length() > 2) {
+                uint16_t tmp = hex_str_to_uint<uint16_t>(pieces[i]);
+                x[j++] = tmp >> 8;
+                x[j++] = tmp & 0x00ff;
+            } else {
+                uint16_t tmp = hex_str_to_uint<uint16_t>(pieces[i]);
+                x[j++] = 0;
+                x[j++] = tmp & 0x00ff;
+            }
+        }
+        for (i=0 ; i < zero_run_length; i++) {
+            //fprintf(stderr, "zero run\t%zd\t\n", i);
+            x[j++] = 0;
+            x[j++] = 0;
+        }
+        for (i=prefix_length ; i < (ssize_t)pieces.size(); i++) {
+            //fprintf(stderr, "suffix\tpiece %zd\t%04x\n", i, hex_str_to_uint<uint16_t>(pieces[i]));
+            if (pieces[i].length() > 2) {
+                uint16_t tmp = hex_str_to_uint<uint16_t>(pieces[i]);
+                x[j++] = tmp >> 8;
+                x[j++] = tmp & 0x00ff;
+            } else {
+                uint16_t tmp = hex_str_to_uint<uint16_t>(pieces[i]);
+                x[j++] = 0;
+                x[j++] = tmp & 0x00ff;
+            }
+        }
+        //        fprintf(stderr, "j: %zu\n", j);
+
+        //ipv6_array_print(stderr, x); fputc('\n', stderr);
+
+        return x;
+    }
+
+    // unit_test() is a static function that performs a unit test of
+    // this class, using the example addresses from RFC 4291.  It
+    // returns true if all tests pass, and false otherwise.
+    //
     static bool unit_test() {
-        // TODO: create a proper unit test by including input and
-        // output values.  This will require having some way to
-        // initialize uint128_t literals, which is problematic.
-        // Probably we need to refactor the IPv6 address code into
-        // something more standard and portable than __uint128_.
-        //
-        // std::vector<std::pair<std::string, uint128_t>> ipv6_string_and_addr{
-        //     { "2001:DB8:0:0:8:800:200C:417A", 0x20010db80000000000080800200c417aLL` },
-        //     { "2001:DB8::8:800:200C:417A", 0x20010db80000000000080800200c417aLL },
-        //     { "::1", 0x00000000000000000000000000000001LL },
-        //     { "1::", 0x00010000000000000000000000000000LL },
-        //     { "::",  0x00000000000000000000000000000000LL }
-        // };
-        std::vector<std::string> ipv6_string_examples{
-            "2001:DB8:0:0:8:800:200C:417A",
-            "2001:DB8::8:800:200C:417A",
-            "::1",
-            "1::",
-            "::"
+
+        std::vector<std::pair<const char *, ipv6_array_t>> ipv6_addr_examples{
+            { "2001:db8:0:0:8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
+            { "2001:db8::8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
+            { "::1", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } },
+            { "1::", { 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
+            { "::", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } }
         };
-        for (const auto & ipv6_string : ipv6_string_examples) {
-            fprintf(stdout, "parsing ipv6 string '%s':\t", ipv6_string.c_str());
-            datum tmp = get_datum(ipv6_string);
+
+        for (const auto & ipv6_addr : ipv6_addr_examples) {
+            datum tmp = get_datum(ipv6_addr.first);
             ipv6_address_string ipv6{tmp};
             if (ipv6.is_valid()) {
-                ipv6.print(); fputc('\n', stdout);
-
-                // print uint128_t as a hex integer in network byte order
-                //
-                uint128_t tmp = ipv6.get_value();
-                for (size_t i=0; i<16; i++) {
-                    uint8_t byte = tmp >> (8*(15-i));
-                    fprintf(stdout, "%02x", byte);
+                // ipv6.print(stdout); fputc('\n', stdout);
+                if (ipv6.get_value_array() != ipv6_addr.second) {
+                    // fprintf(stdout, "parsing ipv6 string '%s':\t", ipv6_addr.first.c_str());
+                    // fprintf(stderr, "error: parsed ipv6 address string does not match reference value\n");
+                    return false;
                 }
-                fputc('\n', stdout);
             } else {
-                fprintf(stdout, "warning: ipv6 string is invalid\n");
+                // fprintf(stdout, "error: ipv6 address string is invalid\n");
+                return false;
             }
         }
 
-        return 0;
+        return true;
     }
 
 };
@@ -366,46 +485,35 @@ public:
     }
 };
 
-using ipv4_t          = uint32_t;
-using ipv6_t          = uint128_t;
+
+//using ipv6_t          = uint8_t[8];
 using dns_name_t      = std::string;
-using host_identifier = std::variant<std::monostate, ipv4_t, ipv6_t, dns_name_t>;
+using host_identifier = std::variant<std::monostate, ipv4_t, ipv6_array_t, dns_name_t>;
 
-// TODO: consider creating functions and visitors for creating and
-// operating on the host_identifer variant
+host_identifier host_identifier_constructor(datum d) {
 
-bool set_host_identifier(host_identifier &h, datum d) {
-    if (d.is_null()) {
-        return false;
-    }
-    if (!d.is_not_empty()) {
-        return true;
-    }
-    if (*d.data == '#') {
-        return true;      // comment line
+    if (d.is_null()            // null line
+        || !d.is_not_empty()   // empty line
+        || *d.data == '#'      // comment line
+        ) {
+        return std::monostate{};
     }
     if (lookahead<ipv4_address_string> ipv4{d}) {
-        // fprintf(stdout, "ipv4_address_string:\t");
-        // ipv4.value.print();
-        h = ipv4.value.get_value();
         d = ipv4.advance();
+        return ipv4.value.get_value();
 
     } else if (lookahead<dns_string> dns{d}) {
-        // fprintf(stdout, "dns_string:\t");
-        // dns.value.print();
-        h = dns.value.get_string();
         d = dns.advance();
+        return dns.value.get_string();
 
     } else if (lookahead<ipv6_address_string> ipv6{d}) {
-        // fprintf(stdout, "ipv6_address_string:\t");
-        // ipv6.value.print();
-        h = ipv6.value.get_value();
         d = ipv6.advance();
+        return ipv6.value.get_value_array();
+
     } else {
         fprintf(stderr, "warning: invalid line\n");
-        return false;
     }
-    return true;
+    return std::monostate{};
 }
 
 // class watchlist implements a watchlist of host identifiers,
@@ -413,10 +521,13 @@ bool set_host_identifier(host_identifier &h, datum d) {
 //
 class watchlist {
     std::unordered_set<uint32_t> ipv4_addrs;
-    std::unordered_set<uint128_t> ipv6_addrs;
+    std::unordered_set<ipv6_array_t> ipv6_addrs;
     std::unordered_set<std::string> dns_names;
 
-    // TODO: for performance, try using perfect_hash in place of unordered_map
+    std::unordered_set<host_identifier> hosts;
+
+    // TODO: for performance, try using perfect_hash in place of
+    // unordered_map
     //
     // TODO: for performance, replace std:string with const char *,
     // using a dynamically allocated buffer holding null-terminated
@@ -437,6 +548,9 @@ public:
             if (process_line(d) == false) {
                 throw std::runtime_error{"could not read watchlist file"};
             }
+            d = get_datum(line);
+            host_identifier hid = host_identifier_constructor(d);
+            hosts.insert(hid);
         }
     }
 
@@ -449,8 +563,24 @@ public:
     bool contains(std::string &name) const {
         return dns_names.find(name) != dns_names.end();
     }
-    bool contains(uint128_t addr) const {
+    bool contains(ipv6_array_t addr) const {
         return ipv6_addrs.find(addr) != ipv6_addrs.end();
+    }
+    bool contains(host_identifier hid) const {
+        return std::visit(*this, hid);
+    }
+
+    bool operator()(ipv4_t addr) const {
+        return ipv4_addrs.find(addr) != ipv4_addrs.end();
+    }
+    bool operator()(dns_name_t &name) const {
+        return dns_names.find(name) != dns_names.end();
+    }
+    bool operator()(ipv6_array_t addr) const {
+        return ipv6_addrs.find(addr) != ipv6_addrs.end();
+    }
+    bool operator()(std::monostate tmp) const {
+        return false;
     }
 
     // process_line() parses and processes a single line of a
@@ -479,10 +609,10 @@ public:
 
         } else if (lookahead<ipv6_address_string> ipv6{d}) {
             // fprintf(stdout, "ipv6_address_string:\t");  ipv6.value.print();
-            ipv6_addrs.insert(ipv6.value.get_value());
+            ipv6_addrs.insert(ipv6.value.get_value_array());
 
         } else {
-            fprintf(stderr, "warning: invalid line\n");
+            fprintf(stderr, "warning: invalid line in watchlist::process_line\n");
             return false;
         }
         return true;
@@ -495,6 +625,12 @@ public:
         for (const auto & ipv4 : ipv4_addrs) {
             fprintf(stdout, "%u\n", ipv4);
         }
+        for (const auto & ipv6 : ipv6_addrs) {
+            fprintf(stdout,
+                    "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
+                    ipv6[0], ipv6[1], ipv6[2], ipv6[3], ipv6[4], ipv6[5], ipv6[6], ipv6[7],
+                    ipv6[8], ipv6[9], ipv6[10], ipv6[11], ipv6[12], ipv6[13], ipv6[14], ipv6[15]);
+        }
     }
 
 };
@@ -503,14 +639,21 @@ int main(int argc, char *argv[]) {
 
     std::ios::sync_with_stdio(false);  // for performance
 
-    // run IPv6 unit test code
+    // run unit test functions
     //
-    // ipv6_address_string::unit_test();
+    if (ipv6_address_string::unit_test() == false) {
+        fprintf(stderr, "error: ipv6_address_string::unit_test() failed\n");
+        return EXIT_FAILURE;
+    }
+    if (ipv4_address_string::unit_test() == false) {
+        fprintf(stderr, "error: ipv4_address_string::unit_test() failed\n");
+        return EXIT_FAILURE;
+    }
 
     std::ifstream doh_file{"doh.txt"};
     watchlist doh{doh_file};
-    //    watchlist doh{std::cin};
-    //    doh.print();
+    //  watchlist doh{std::cin};
+    // doh.print();
 
     // loop over input lines, parsing each line as an ipv4_addr or
     // dns_name and then testing them against the watchlist
@@ -524,50 +667,23 @@ int main(int argc, char *argv[]) {
         }
         datum d = get_datum(line);
 
-        ipv4_address_string ipv4{d};
-        if (ipv4.is_valid()) {
-            fprintf(stdout, "got ipv4_address_string:\t");
-            ipv4.print();
+        //        fprintf(stdout, "----------------------------------------------------\n");
+        d.fprint(stdout); // fputc('\n', stdout);
 
-            if (doh.contains(ipv4.get_value())) {
-                fprintf(stdout, "\tHIT\n");
-            } else {
-                fprintf(stdout, "\tMISS\n");
-            }
+        host_identifier hid = host_identifier_constructor(d);
 
-        } else {
-            datum d = get_datum(line);
-            dns_string dns{d};
-            if (dns.is_valid()) {
-                fprintf(stdout, "dns_string:\t");
-                dns.print();
-
-                std::string dns_tmp = dns.get_string();
-                if (doh.contains(dns_tmp)) {
-                    fprintf(stdout, "\tHIT\n");
-                } else {
-                    fprintf(stdout, "\tMISS\n");
-                }
-
-            } else {
-
-                datum d = get_datum(line);
-                ipv6_address_string ipv6{d};
-                if (ipv6.is_valid()) {
-                    fprintf(stdout, "ipv6_address_string:\t");
-                    ipv6.print();
-
-                    if (doh.contains(ipv6.get_value())) {
-                        fprintf(stdout, "\tHIT\n");
-                    } else {
-                        fprintf(stdout, "\tMISS\n");
-                    }
-
-                } else {
-                    fprintf(stdout, "warning: invalid line (%s)\n", line.c_str());
-                }
-            }
+        if (std::holds_alternative<std::monostate>(hid)) {
+            fputc('\n', stdout);
+            continue;  // not a valid hid; don't process it further
         }
+
+        if (doh.contains(hid)) {
+            printf("\tHIT\n");
+        } else {
+            printf("\tMISS\n");
+            //exit(EXIT_FAILURE);
+        }
+
     }
 
     return 0;
