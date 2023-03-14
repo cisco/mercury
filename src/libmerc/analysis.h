@@ -31,6 +31,7 @@
 #include "rapidjson/stringbuffer.h"
 #include "util_obj.h"
 #include "archive.h"
+#include "watchlist.hpp"
 
 // TBD - move flow_key_sprintf_src_addr() to the right file
 //
@@ -585,6 +586,8 @@ class classifier {
     size_t tls_fingerprint_format = 0;
     bool first_line = true;
 
+    watchlist doh_watchlist;
+
 public:
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
@@ -631,6 +634,14 @@ public:
             }
         }
         return { type, version };
+    }
+
+    void process_watchlist_line(std::string &line_str) {
+        if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
+            line_str.erase(line_str.length()-1);
+        }
+        fprintf(stderr, "loading watchlist line '%s'\n", line_str.c_str());
+        //  fp_prevalence.initial_add(line_str);
     }
 
     void process_fp_prevalence_line(std::string &line_str) {
@@ -885,6 +896,7 @@ public:
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
         bool got_version = false;
+        bool got_doh_watchlist = false;
         //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
@@ -918,9 +930,16 @@ public:
                         subnets.process_line(line_str);
                     }
                     got_version = true;
+
+                } else if (name == "doh-watchlist.txt") {
+                    fprintf(stderr, "\n\nfound file %s\n\n", name.c_str());
+                    while (archive.getline(line_str)) {
+                        doh_watchlist.process_line(line_str);
+                    }
+                    got_doh_watchlist = true;
                 }
             }
-            if (got_fp_db && got_fp_prevalence && got_version) {   // TODO: Do we want to require a VERSION file?
+            if (got_fp_db && got_fp_prevalence && got_version && got_doh_watchlist) {   // TODO: Do we want to require a VERSION file?
                 break; // got all data, we're done here
             }
             entry = archive.get_next_entry();
@@ -978,6 +997,12 @@ public:
                                             uint16_t dst_port, const char *user_agent) {
 
         // fp_stats.observe(fp_str, server_name, dst_ip, dst_port); // TBD - decide where this call should go
+
+        if (doh_watchlist.contains(server_name)) {
+            fprintf(stderr, "%s: encrypted_dns\n", server_name);
+        } else {
+            fprintf(stderr, "%s\n", server_name);
+        }
 
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
