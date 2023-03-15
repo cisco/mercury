@@ -62,7 +62,7 @@ struct http_headers : public datum {
     void print_matching_name(struct json_object &o, const char *key, struct datum &name) const;
     void print_matching_name(struct json_object &o, const char *key, const char* name) const;
     void print_matching_names(struct json_object &o, perfect_hash<const char*> &ph) const;
-    void print_matching_names_ssdp(struct json_object &o, bool metadata) const;
+    void print_ssdp_names_and_feature_string(struct json_object &o, data_buffer<2048>& feature_buf, bool metadata) const;
 
     void fingerprint(struct buffer_stream &buf, perfect_hash<bool> &fp_data) const;
 
