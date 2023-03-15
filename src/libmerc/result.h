@@ -8,10 +8,8 @@
 #ifndef RESULT_H
 #define RESULT_H
 
-#ifndef __cplusplus
 #include <stdbool.h>
-#else
-
+#include <bits/stdc++.h>
 #include "libmerc.h"
 #include "json_object.h"
 #include "addr.h"
@@ -22,14 +20,51 @@ uint16_t flow_key_get_dst_port(const struct key &key);
 void flow_key_sprintf_dst_addr(const struct key &key,
                                char *dst_addr_str);
 
-#endif
-
 
 #define max_proc_len 256
 
 struct malware_result {
     bool max_mal;
     long double malware_prob;
+};
+
+/* The macro TAG_COUNT denotes the number of attribute
+ * tags that are utmost supported by mercury.
+ * If there is a need to support more tags, increasing
+ * the macro value will take care of supporting additional
+ * tags.
+ */
+#define TAG_COUNT 8
+class attribute_result {
+    std::bitset<TAG_COUNT> tags;
+    std::array<long double, TAG_COUNT> prob_score;
+    std::vector<std::string> *tag_names;
+
+public:
+    attribute_result() : tags{}, prob_score{}, tag_names{nullptr} { }
+
+    attribute_result(std::bitset<TAG_COUNT> _tags, std::array<long double, TAG_COUNT> _prob_score, std::vector<std::string> *_tag_names) :
+        tags{_tags},
+        prob_score{_prob_score},
+        tag_names{_tag_names}
+    { }
+
+    void write_json(struct json_object &o) {
+        if (!tag_names) {
+            return;
+        }
+
+        struct json_array attributes{o, "attributes"};
+        for (uint8_t i = 0; i < TAG_COUNT && i < tag_names->size(); i++) {
+            if (tags[i]) {
+                struct json_object tags{attributes};
+                tags.print_key_string("name", (*tag_names)[i].c_str());
+                tags.print_key_float("probability_score", prob_score[i]);
+                tags.close();
+            }
+        }
+        attributes.close();
+    }
 };
 
 struct analysis_result {
@@ -41,21 +76,24 @@ struct analysis_result {
     bool classify_malware;
     struct os_information *os_info;
     uint16_t os_info_len;
+    attribute_result attr;
 
-#ifdef __cplusplus
 public:
-    analysis_result() : status{fingerprint_status_no_info_available}, max_proc{'\0'}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result() : status{fingerprint_status_no_info_available}, max_proc{'\0'}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
+                        os_info{NULL}, os_info_len{0}, attr{} { }
 
-    analysis_result(enum fingerprint_status s) : status{s}, max_proc{'\0'}, max_score{0.0}, max_mal{false}, malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0} { }
+    analysis_result(enum fingerprint_status s) : status{s}, max_proc{'\0'}, max_score{0.0}, max_mal{false},
+                                    malware_prob{-1.0}, classify_malware{false}, os_info{NULL}, os_info_len{0}, attr{} { }
 
-    analysis_result(enum fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len) :
+    analysis_result(enum fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len, attribute_result _attr) :
         status{s}, max_proc{'\0'}, max_score{score}, max_mal{false}, malware_prob{-1.0}, classify_malware{false},
-        os_info{os}, os_info_len{os_len} {
+        os_info{os}, os_info_len{os_len}, attr{_attr} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
-    analysis_result(fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob) :
+    analysis_result(fingerprint_status s, const char *proc, long double score, os_information *os, uint16_t os_len, bool mal, long double mal_prob,
+                    attribute_result _attr) :
         status{s}, max_proc{'\0'}, max_score{score}, max_mal{mal}, malware_prob{mal_prob}, classify_malware{true},
-        os_info{os}, os_info_len{os_len} {
+        os_info{os}, os_info_len{os_len}, attr{_attr} {
         strncpy(max_proc, proc, max_proc_len-1);
     }
 
@@ -75,6 +113,9 @@ public:
                 }
                 os_json.close();
             }
+
+            attr.write_json(analysis);
+
         } else if (status == fingerprint_status_randomized) {
             if (max_proc[0] != '\0') {
                 analysis.print_key_string("process", max_proc);
@@ -146,8 +187,6 @@ public:
         }
         return false;
     }
-
-#endif
 };
 
 
@@ -168,7 +207,6 @@ struct destination_context {
     size_t alpn_length;
     uint16_t dst_port;
 
-#ifdef __cplusplus
     destination_context() : dst_port{0} {}
 
     void init(struct datum domain, struct datum user_agent, datum alpn, const struct key &key) {
@@ -182,7 +220,6 @@ struct destination_context {
 
     }
 
-#endif
 
 };
 
@@ -192,7 +229,6 @@ struct analysis_context {
     struct analysis_result result;
     bool flow_state_pkts_needed;
 
-#ifdef __cplusplus
     analysis_context() : fp{}, destination{}, result{}, flow_state_pkts_needed{false} {}
     // could add structs needed for 'scratchwork'
 
@@ -226,7 +262,6 @@ struct analysis_context {
     bool more_pkts_needed() {
         return flow_state_pkts_needed;
     }
-#endif
 };
 
 

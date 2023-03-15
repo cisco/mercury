@@ -56,6 +56,7 @@ public:
     std::string name;
     bool malware;
     uint64_t count;
+    std::bitset<TAG_COUNT> attributes;
     std::unordered_map<uint32_t, uint64_t>    ip_as;
     std::unordered_map<std::string, uint64_t> hostname_domains;
     std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -68,6 +69,7 @@ public:
     process_info(const std::string &proc_name,
                  bool is_malware,
                  uint64_t proc_count,
+                 std::bitset<TAG_COUNT> &attr,
                  const std::unordered_map<uint32_t, uint64_t> &as,
                  const std::unordered_map<std::string, uint64_t> &domains,
                  const std::unordered_map<uint16_t, uint64_t> &ports,
@@ -78,6 +80,7 @@ public:
         name{proc_name},
         malware{is_malware},
         count{proc_count},
+        attributes{attr},
         ip_as{as},
         hostname_domains{domains},
         portname_applications{ports},
@@ -157,6 +160,7 @@ class fingerprint_data {
     std::vector<std::string> process_name;
     std::vector<floating_point_type> process_prob;
     std::vector<bool>        malware;
+    std::vector<std::bitset<TAG_COUNT>> attr;
     std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
     std::unordered_map<uint16_t, std::vector<class update>> port_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
@@ -191,6 +195,7 @@ public:
             process_name.reserve(processes.size());
             process_prob.reserve(processes.size());
             malware.reserve(processes.size());
+            attr.reserve(processes.size());
             process_os_info_vector.reserve(processes.size());
 
             base_prior = log(0.1 / total_count);
@@ -198,6 +203,7 @@ public:
             for (const auto &p : processes) {
                 process_name.push_back(p.name);
                 malware.push_back(p.malware);
+                attr.push_back(p.attributes);
 
                 process_os_info_vector.push_back(std::vector<struct os_information>{});
                 if (p.os_info.size() > 0) {
@@ -360,7 +366,8 @@ public:
     }
 
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
-                                            const char *user_agent, enum fingerprint_status status) {
+                                            const char *user_agent, enum fingerprint_status status,
+                                            std::vector<std::string> &tag_names) {
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
@@ -427,13 +434,21 @@ public:
 
         floating_point_type score_sum = 0.0;
         floating_point_type malware_prob = 0.0;
+        std::array<floating_point_type, TAG_COUNT> attr_prob;
+        attr_prob.fill(0.0);
         for (uint64_t i=0; i < process_score.size(); i++) {
             process_score[i] = exp((float)process_score[i]);
             score_sum += process_score[i];
             if (malware[i]) {
                 malware_prob += process_score[i];
             }
+            for (int j = 0; j < TAG_COUNT; j++) {
+                if (attr[i][j]) {
+                    attr_prob[j] += process_score[i];
+                }
+            }
         }
+
         max_score = process_score[index_max];
         sec_score = process_score[index_sec];
 
@@ -451,8 +466,11 @@ public:
             if (malware_db) {
                 malware_prob /= score_sum;
             }
+            for (int j = 0; j < TAG_COUNT; j++) {
+                attr_prob[j] /= score_sum;
+            }
         }
-
+        attribute_result attr_res{attr[index_max], attr_prob, &tag_names};
         // set os_info (to NULL if unavailable)
         //
         os_information *os_info_data = NULL;
@@ -463,9 +481,9 @@ public:
         }
         if (malware_db) {
             return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size,
-                                   malware[index_max], malware_prob);
+                                   malware[index_max], malware_prob, attr_res);
         }
-        return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size);
+        return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size, attr_res);
     }
 
     static uint16_t remap_port(uint16_t dst_port) {
@@ -584,6 +602,8 @@ class classifier {
     std::vector<fingerprint_type> fp_types;
     size_t tls_fingerprint_format = 0;
     bool first_line = true;
+    std::vector<std::string> tag_names;
+    bool first_attr_record = true;  // Variable to keep track of parsing the attribute list for the first time
 
 public:
 
@@ -750,6 +770,7 @@ public:
                 process_number++;
                 //fprintf(stderr, "%s\n", "process_info");
 
+                std::bitset<TAG_COUNT> attributes;
                 std::unordered_map<uint32_t, uint64_t>    ip_as;
                 std::unordered_map<std::string, uint64_t> hostname_domains;
                 std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -762,6 +783,32 @@ public:
                 if (x.HasMember("process") && x["process"].IsString()) {
                     name = x["process"].GetString();
                     //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
+                }
+                if (x.HasMember("attributes") && x["attributes"].IsObject()) {
+                    size_t idx = 0;
+                    for (auto &v : x["attributes"].GetObject()) {
+                        if (first_attr_record && v.name.IsString()) {
+                            tag_names.push_back(v.name.GetString());
+                        } else {
+                            if (v.name.IsString()) {
+                                idx = std::distance(tag_names.begin(),
+                                        std::find(tag_names.begin(), tag_names.end(), v.name.GetString()));
+                                if (idx >= tag_names.size()) {
+                                    printf_err(log_warning, "Unknown attribute %s while parsing resource file\n", v.name.GetString());
+                                    continue;
+                                }
+                            }
+                        }
+                        if (idx >= TAG_COUNT) {
+                            printf_err(log_warning, "Exceeding the maximum supported attributes\n");
+                            break;
+                        }
+                        if (v.value.IsBool() and v.value.GetBool()) {
+                            attributes[idx] = 1;
+                        }
+                        idx++;
+                    }
+                    first_attr_record = false;
                 }
                 if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
                     //fprintf(stderr, "\tclasses_hostname_domains\n");
@@ -859,7 +906,7 @@ public:
                     }
                 }
 
-                class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications,
+                class process_info process(name, malware, count, attributes, ip_as, hostname_domains, portname_applications,
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
@@ -1004,12 +1051,12 @@ public:
                     return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
                 }
                 class fingerprint_data &fp_data = fpdb_entry_randomized->second;
-                return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
+                return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized, tag_names);
             }
         }
         class fingerprint_data &fp_data = fpdb_entry->second;
 
-        return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
+        return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled, tag_names);
     }
 
     bool analyze_fingerprint_and_destination_context(const fingerprint &fp,
