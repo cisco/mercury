@@ -929,7 +929,7 @@ public:
                 output_buffer_stream.write_line(stdout);
 
                 std::basic_string<uint8_t> loc = { 'l', 'o', 'c', 'a', 't', 'i', 'o', 'n', ':', ' ' };
-                struct datum location = response.get_header(loc);
+                struct datum location = response.get_header((const char *)loc.data());
                 if (location.is_not_empty()) {
                     fprintf(stderr, "location header: %.*s\n", (int)location.length(), location.data);
                     uri location_uri{location};
@@ -939,13 +939,13 @@ public:
                 }
 
                 std::basic_string<uint8_t> cc = { 'c', 'a', 'c', 'h', 'e', '-', 'c', 'o', 'n', 't', 'r', 'o', 'l', ':', ' ' };
-                struct datum cache_control = response.get_header(cc);
+                struct datum cache_control = response.get_header((const char *)cc.data());
                 if (cache_control.is_not_empty()) {
                     fprintf(stdout, "cache-control header: %.*s\n", (int)cache_control.length(), cache_control.data);
                 }
 
                 std::basic_string<uint8_t> ct = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 't', 'y', 'p', 'e', ':', ' ' };
-                struct datum content_type = response.get_header(ct);
+                struct datum content_type = response.get_header((const char *)ct.data());
                 if (content_type.is_not_empty()) {
                     fprintf(stderr, "content-type: %.*s\n", (int)content_type.length(), content_type.data);
 
