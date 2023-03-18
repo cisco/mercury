@@ -73,16 +73,7 @@ public:
 
         struct buffer_stream buf{(char *)buffer, buffer_size};
         struct json_object record{&buf};
-        struct json_array attributes{record, "attributes"};
-        for (uint8_t i = 0; i < TAG_COUNT && i < tag_names->size(); i++) {
-            if (tags[i]) {
-                struct json_object tags{attributes};
-                tags.print_key_string("name", (*tag_names)[i].c_str());
-                tags.print_key_float("probability_score", prob_score[i]);
-                tags.close();
-            }
-        }
-        attributes.close();
+        write_json(record);
         record.close();
     }
 
