@@ -608,8 +608,6 @@ class classifier {
 
     watchlist doh_watchlist;
 
-    watchlist doh_watchlist;
-
 public:
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
