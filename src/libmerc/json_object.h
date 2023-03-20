@@ -314,6 +314,12 @@ struct json_array {
         }
         b->write_char('\"');
     }
+    template <typename T> void print_key(T &w) {
+        write_comma(comma);
+        b->write_char('\"');
+        w.fingerprint(*b);
+        b->write_char('\"');
+    }
 
 };
 
