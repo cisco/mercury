@@ -38,12 +38,13 @@ struct malware_result {
 class attribute_result {
     std::bitset<TAG_COUNT> tags;
     std::array<long double, TAG_COUNT> prob_score;
-    std::vector<std::string> *tag_names;
+    const std::vector<std::string> *tag_names;
 
 public:
+
     attribute_result() : tags{}, prob_score{}, tag_names{nullptr} { }
 
-    attribute_result(std::bitset<TAG_COUNT> _tags, std::array<long double, TAG_COUNT> _prob_score, std::vector<std::string> *_tag_names) :
+    attribute_result(std::bitset<TAG_COUNT> _tags, std::array<long double, TAG_COUNT> _prob_score, const std::vector<std::string> *_tag_names) :
         tags{_tags},
         prob_score{_prob_score},
         tag_names{_tag_names}
