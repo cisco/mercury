@@ -255,6 +255,8 @@ void print_flow_key(int fd) {
 #include "libmerc/json_object.h"
 #include "libmerc/pkt_proc.h"
 #include "libmerc/proto_identify.h"
+#include <ctype.h>
+
 #include "libmerc/arp.h"
 #include "libmerc/bittorrent.h"
 #include "libmerc/ip.h"
@@ -287,7 +289,6 @@ void print_flow_key(int fd) {
 #include "libmerc/smb2.h"
 #include "libmerc/netbios.h"
 #include "libmerc/openvpn.h"
-#include <ctype.h>
 
 #include <unordered_set>
 #include <string>
@@ -475,7 +476,7 @@ public:
         // fprintf(stderr, GREEN(tty, "pid %d acquired semaphore\n"), pid);
 
         fseek(outfile, 0, SEEK_END); // move to end of file
-        buf.write_line(outfile)
+        buf.write_line(outfile);
         // add check to find write error
         // if (buf.write_line(outfile) < 0) {
         //     perror ("intercept: write()");
@@ -540,202 +541,6 @@ struct daemon_output : public output {
     }
 };
 
-
-class unknown_initial_packet : public tcp_base_protocol {
-    datum tcp_data_field;
-
-public:
-
-    unknown_initial_packet(datum &pkt) : tcp_data_field{} { parse(pkt); }
-
-    void parse(struct datum &pkt) {
-        // if this packet is a TLS record, ignore it
-        if (tls_record::is_valid(tcp_data_field)) {
-            tcp_data_field.set_empty();
-        } else {
-            tcp_data_field = pkt;
-        }
-    }
-
-    void operator()(buffer_stream &) { }
-
-    void write_json(json_object &record, bool) {
-        struct json_object tcp{record, "tcp"};     // TODO: tcp or udp
-        tcp.print_key_hex("data", tcp_data_field);
-        tcp.close();
-    }
-
-    bool is_not_empty() { return tcp_data_field.is_not_empty(); }
-
-};
-
-// class unknown_udp_initial_packet represents the initial data field of a
-// udp packet from an unknown protocol
-//
-class unknown_udp_initial_packet {
-    datum udp_data_field;
-
-public:
-
-    unknown_udp_initial_packet(struct datum &pkt) : udp_data_field{pkt} { }
-
-    void operator()(buffer_stream &) { }
-
-    void write_json(json_object &record, bool) {
-        struct json_object udp{record, "udp"};
-        udp.print_key_hex("data", udp_data_field);
-        udp.close();
-    }
-
-    bool is_not_empty() { return udp_data_field.is_not_empty(); }
-
-};
-
-// function objects that are applied to the protocol std::variant (and
-// any other variant that can hold a subset of its protocol data
-// element types)
-//
-struct is_not_empty {
-    template <typename T>
-    bool operator()(T &r) {
-        return r.is_not_empty();
-    }
-
-    bool operator()(std::monostate &r) {
-        (void)r;
-        return false;
-    }
-};
-
-struct write_metadata {
-    struct json_object &record;
-    bool metadata_output_;
-    bool certs_json_output_;
-    bool dns_json_output_;
-
-    write_metadata(struct json_object &object,
-                   bool metadata_output,
-                   bool certs_json_output,
-                   bool dns_json_output=false) : record{object},
-                                             metadata_output_{metadata_output},
-                                             certs_json_output_{certs_json_output},
-                                             dns_json_output_{dns_json_output}
-    {}
-
-    template <typename T>
-    void operator()(T &r) {
-        r.write_json(record, metadata_output_);
-    }
-
-    void operator()(http_response &r) {
-        if (metadata_output_) {
-            r.write_json(record);
-        }
-    }
-
-    void operator()(dhcp_discover &r) {
-        if (metadata_output_) {
-            r.write_json(record);
-        }
-    }
-
-    void operator()(dns_packet &r) {
-        std::string name{"dns"};
-        if (r.netbios()) {
-            name = "nbns";
-        }
-
-        if (dns_json_output_) {
-            struct json_object json_dns{record, name.c_str()};
-            r.write_json(json_dns);
-            json_dns.close();
-        } else {
-            struct json_object json_dns{record, name.c_str()};
-            struct datum pkt = r.get_datum();  // get complete packet
-            json_dns.print_key_base64("base64", pkt);
-            json_dns.close();
-        }
-    }
-
-    void operator()(mdns_packet &r) {
-        if (dns_json_output_) {
-            struct json_object json_mdns{record, "mdns"};
-            r.write_json(json_mdns);
-            json_mdns.close();
-        } else {
-            struct json_object json_mdns{record, "mdns"};
-            struct datum pkt = r.get_datum();  // get complete packet
-            json_mdns.print_key_base64("base64", pkt);
-            json_mdns.close();
-        }
-    }
-
-    void operator()(tls_server_hello &r) {
-        struct json_object tls{record, "tls"};
-        struct json_object tls_server{tls, "server"};
-        r.write_json(tls_server, metadata_output_);
-        tls_server.close();
-        tls.close();
-    }
-
-    void operator()(dtls_server_hello &r) {
-        struct json_object dtls{record, "dtls"};
-        struct json_object dtls_server{dtls, "server"};
-        r.write_json(dtls_server, metadata_output_);
-        dtls_server.close();
-        dtls.close();
-    }
-
-    void operator()(tls_server_hello_and_certificate &r) {
-        r.write_json(record, metadata_output_, certs_json_output_);
-    }
-
-    void operator()(std::monostate &r) {
-        (void) r;
-    }
-};
-
-struct compute_fingerprint {
-    fingerprint &fp_;
-    size_t format_version;
-
-    compute_fingerprint(fingerprint &fp, size_t format=0) : fp_{fp}, format_version{format} {
-        fp.init();
-    }
-
-    template <typename T>
-    void operator()(T &msg) {
-        msg.compute_fingerprint(fp_);
-    }
-
-    void operator()(tls_client_hello &msg) {
-        msg.compute_fingerprint(fp_, format_version);
-    }
-
-    // these protocols are not fingerprinted
-    //
-    void operator()(sctp_init &) { }
-    void operator()(ospf &) { }
-    void operator()(icmp_packet &) { }
-    void operator()(wireguard_handshake_init &) { }
-    void operator()(unknown_initial_packet &) { }
-    void operator()(unknown_udp_initial_packet &) { }
-    void operator()(dns_packet &) { }
-    void operator()(mdns_packet &) { }
-    void operator()(ssdp &) { }
-    void operator()(dnp3 &) {}
-    void operator()(smb1_packet &) { }
-    void operator()(smb2_packet &) { }
-    void operator()(iec60870_5_104 &) { }
-    void operator()(nbss_packet &) { }
-    void operator()(nbds_packet &) { }
-    void operator()(bittorrent_handshake &) { }
-    void operator()(bittorrent_dht &) { }
-    void operator()(bittorrent_lsd &) { }
-    void operator()(std::monostate &) { }
-
-};
-
 // class intercept controls the behavior of this library; you can
 // define totally new behavior by defining a class that inherits from
 // this one and overrides one or more member functions
@@ -776,13 +581,13 @@ public:
 
         if (ctx == nullptr) {
             fprintf(stderr, RED(tty, "Mercury init failed %s\n"), __func__);
-            return;   
+            exit(EXIT_FAILURE);
         }
 
         pkt_proc_ctx = mercury_packet_processor_construct(ctx);
         if (!pkt_proc_ctx) {
             fprintf(stderr, RED(tty, "Mercury pkt_proc init failed %s\n"), __func__);
-            return;   
+            exit(EXIT_FAILURE);
         }
 
 
@@ -854,10 +659,10 @@ public:
         }
     }
 
-    // write_flow_key() reads network socket info from the file
+    // intercept_write_flow_key() reads network socket info from the file
     // descriptor fd, then writes addresses and ports into json_object
     //
-    void write_flow_key(struct json_object &record, int fd) {
+    void intercept_write_flow_key(struct json_object &record, int fd) {
 
         if (!fd_is_socket(fd)) {
             return;
@@ -952,7 +757,7 @@ public:
         //
 
         // create dummy tcp pkt with correct ports
-        if (verbose) { fprintf(stderr, BLUE(tty, "send_recv entry %s\n"), __func__) };
+        if (verbose) { fprintf(stderr, BLUE(tty, "send_recv entry %s\n"), __func__); };
         datum tcp_pkt_data{data, data+length};
         datum udp_pkt_data{data, data+length};
         std::pair<uint16_t, uint16_t> ports = get_ports(fd);
@@ -996,7 +801,7 @@ public:
         // write pid into record
         write_process_info(record, output_level);
         record.print_key_uint("fd", fd);
-        write_flow_key(record, fd);
+        intercept_write_flow_key(record, fd);
 
         if (!std::visit(is_not_empty{}, (is_tcp ? tcp_proto : udp_proto))) {
             return;
@@ -1079,7 +884,7 @@ public:
         // write pid into record
         write_process_info(record, output_level);
         record.print_key_uint("fd", fd);
-        write_flow_key(record, fd);
+        intercept_write_flow_key(record, fd);
 
         if (!std::visit(is_not_empty{}, (is_tcp ? tcp_proto : udp_proto))) {
             return;
@@ -1137,7 +942,7 @@ public:
             // write pid into record
             write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
-            write_flow_key(record, fd);
+            intercept_write_flow_key(record, fd);
 
             http_req.write_json(record, true);
 
@@ -1165,7 +970,7 @@ public:
                 // write pid into record
                 write_process_info(record, output_level);
                 record.print_key_uint("fd", fd);
-                write_flow_key(record, fd);
+                intercept_write_flow_key(record, fd);
 
                 record.print_key_hex("tcp_data", tcp_data);
 
@@ -1218,7 +1023,7 @@ public:
                 // write pid into record
                 write_process_info(record, output_level);
                 record.print_key_uint("fd", fd);
-                write_flow_key(record, fd);
+                intercept_write_flow_key(record, fd);
 
                 hello.write_json(record);
                 record.close();
@@ -1238,7 +1043,7 @@ public:
 
     void process_dns_lookup(const char *dns_name, const char *service) {
         // fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, dns_name, service);
-        if (verbose) { fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, dns_name, service); }
+        if (verbose) { fprintf(stderr, BLUE(tty, "%s: %s\t%s\n"), __func__, dns_name, service); }
         size_t dns_name_len = 0;
         if (dns_name) {
             dns_name_len = strlen(dns_name); // only run strlen() on valid pointers
@@ -1330,7 +1135,7 @@ void intercept::process_http_request(int fd, const uint8_t *data, ssize_t length
         // write pid into record
         write_process_info(record, output_level);
         record.print_key_uint("fd", fd);
-        write_flow_key(record, fd);
+        intercept_write_flow_key(record, fd);
 
         // write fingerprint into record
         struct fingerprint fp;
@@ -1371,7 +1176,7 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             // write pid into record
             write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
-            write_flow_key(record, fd);
+            intercept_write_flow_key(record, fd);
 
             // write fingerprint into record
             fp.write(record);
