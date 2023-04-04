@@ -57,7 +57,7 @@ public:
     std::string name;
     bool malware;
     uint64_t count;
-    std::bitset<TAG_COUNT> attributes;
+    attribute_result::bitset attributes;
     std::unordered_map<uint32_t, uint64_t>    ip_as;
     std::unordered_map<std::string, uint64_t> hostname_domains;
     std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -70,7 +70,7 @@ public:
     process_info(const std::string &proc_name,
                  bool is_malware,
                  uint64_t proc_count,
-                 std::bitset<TAG_COUNT> &attr,
+                 attribute_result::bitset &attr,
                  const std::unordered_map<uint32_t, uint64_t> &as,
                  const std::unordered_map<std::string, uint64_t> &domains,
                  const std::unordered_map<uint16_t, uint64_t> &ports,
@@ -143,40 +143,6 @@ public:
     }
 };
 
-// class attribute_names holds the strings corresponding to an ordered
-// list of attribute names
-//
-class attribute_names {
-    std::vector<std::string> names;
-    bool accept_more_names = true;
-
-public:
-
-    ssize_t get_index(const std::string &s) {
-        if (accept_more_names) {
-            names.push_back(s);
-            if (names.size() > TAG_COUNT) {
-                throw std::runtime_error("too many attributes in attribute_names");
-            }
-            return names.size() - 1;
-        } else {
-            ssize_t idx = std::distance(names.begin(),
-                                        std::find(names.begin(), names.end(), s));
-            if (idx >= (ssize_t)names.size()) {
-                printf_err(log_warning, "error: unknown attribute %s while parsing resource file\n", s.c_str());
-                return -1;
-            }
-            return idx;
-        }
-    }
-
-    void stop_accepting_new_names() {
-        accept_more_names = false;
-    }
-
-    const std::vector<std::string> &value() const { return names; }
-};
-
 // struct common_data holds data that is common to all fingerprints,
 // within the classifier
 //
@@ -205,7 +171,7 @@ class fingerprint_data {
     std::vector<std::string> process_name;
     std::vector<floating_point_type> process_prob;
     std::vector<bool>        malware;
-    std::vector<std::bitset<TAG_COUNT>> attr;
+    std::vector<attribute_result::bitset> attr;
     std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
     std::unordered_map<uint16_t, std::vector<class update>> port_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
@@ -483,7 +449,8 @@ public:
 
         floating_point_type score_sum = 0.0;
         floating_point_type malware_prob = 0.0;
-        std::array<floating_point_type, TAG_COUNT> attr_prob;
+
+        std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
         attr_prob.fill(0.0);
         for (uint64_t i=0; i < process_score.size(); i++) {
             process_score[i] = exp((float)process_score[i]);
@@ -491,7 +458,7 @@ public:
             if (malware[i]) {
                 malware_prob += process_score[i];
             }
-            for (int j = 0; j < TAG_COUNT; j++) {
+            for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
                 if (attr[i][j]) {
                     attr_prob[j] += process_score[i];
                 }
@@ -515,16 +482,15 @@ public:
             if (malware_db) {
                 malware_prob /= score_sum;
             }
-            for (int j = 0; j < TAG_COUNT; j++) {
+            for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
                 attr_prob[j] /= score_sum;
             }
         }
 
-        // check watchlists
+        // check encrypted dns watchlist
         //
-        std::bitset<TAG_COUNT> attr_tags = attr[index_max];
-        if (common->doh_watchlist.contains(server_name)) {
-            fprintf(stderr, "%s: encrypted_dns (%zd)\n", server_name, common->doh_idx);
+        attribute_result::bitset attr_tags = attr[index_max];
+        if (common->doh_watchlist.contains(server_name) || common->doh_watchlist.contains_addr(dst_ip)) {
             attr_tags[common->doh_idx] = true;
             attr_prob[common->doh_idx] = 1.0;
         }
@@ -842,7 +808,7 @@ public:
                 process_number++;
                 //fprintf(stderr, "%s\n", "process_info");
 
-                std::bitset<TAG_COUNT> attributes;
+                attribute_result::bitset attributes;
                 std::unordered_map<uint32_t, uint64_t>    ip_as;
                 std::unordered_map<std::string, uint64_t> hostname_domains;
                 std::unordered_map<uint16_t, uint64_t>    portname_applications;

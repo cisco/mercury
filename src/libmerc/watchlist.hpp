@@ -575,6 +575,19 @@ public:
         return std::visit(*this, hid);
     }
 
+    // contains_addr(a) returns true if this watchlist contains the
+    // IPv4 or IPv6 address string a, and false otherwise.
+    //
+    bool contains_addr(const char *addr) const {
+        datum d = get_datum(addr);
+        if (lookahead<ipv4_address_string> ipv4{d}) {
+            return contains(ipv4.value.get_value());
+        } else if (lookahead<ipv6_address_string> ipv6{d}) {
+            return contains(ipv6.value.get_value_array());
+        }
+        return false;
+    }
+
     bool operator()(ipv4_t addr) const {
         return ipv4_addrs.find(addr) != ipv4_addrs.end();
     }

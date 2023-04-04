@@ -28,23 +28,25 @@ struct malware_result {
     long double malware_prob;
 };
 
-/* The macro TAG_COUNT denotes the number of attribute
- * tags that are utmost supported by mercury.
- * If there is a need to support more tags, increasing
- * the macro value will take care of supporting additional
- * tags.
- */
-#define TAG_COUNT 8
 class attribute_result {
-    std::bitset<TAG_COUNT> tags;
-    std::array<long double, TAG_COUNT> prob_score;
+public:
+
+    // MAX_TAGS denotes the maximum number of attribute tags supported
+    //
+    static constexpr ssize_t MAX_TAGS = 8;
+    typedef std::bitset<MAX_TAGS> bitset;
+
+private:
+
+    attribute_result::bitset tags;
+    std::array<long double, MAX_TAGS> prob_score;
     const std::vector<std::string> *tag_names;
 
 public:
 
     attribute_result() : tags{}, prob_score{}, tag_names{nullptr} { }
 
-    attribute_result(std::bitset<TAG_COUNT> _tags, std::array<long double, TAG_COUNT> _prob_score, const std::vector<std::string> *_tag_names) :
+    attribute_result(std::bitset<MAX_TAGS> _tags, std::array<long double, MAX_TAGS> _prob_score, const std::vector<std::string> *_tag_names) :
         tags{_tags},
         prob_score{_prob_score},
         tag_names{_tag_names}
@@ -56,7 +58,7 @@ public:
         }
 
         struct json_array attributes{o, "attributes"};
-        for (uint8_t i = 0; i < TAG_COUNT && i < tag_names->size(); i++) {
+        for (uint8_t i = 0; i < MAX_TAGS && i < tag_names->size(); i++) {
             if (tags[i]) {
                 struct json_object tags{attributes};
                 tags.print_key_string("name", (*tag_names)[i].c_str());
@@ -78,6 +80,40 @@ public:
         record.close();
     }
 
+};
+
+// class attribute_names holds the strings corresponding to an ordered
+// list of attribute names
+//
+class attribute_names {
+    std::vector<std::string> names;
+    bool accept_more_names = true;
+
+public:
+
+    ssize_t get_index(const std::string &s) {
+        if (accept_more_names) {
+            names.push_back(s);
+            if (names.size() > attribute_result::MAX_TAGS) {
+                throw std::runtime_error("too many attributes in attribute_names");
+            }
+            return names.size() - 1;
+        } else {
+            ssize_t idx = std::distance(names.begin(),
+                                        std::find(names.begin(), names.end(), s));
+            if (idx >= (ssize_t)names.size()) {
+                printf_err(log_warning, "error: unknown attribute %s while parsing resource file\n", s.c_str());
+                return -1;
+            }
+            return idx;
+        }
+    }
+
+    void stop_accepting_new_names() {
+        accept_more_names = false;
+    }
+
+    const std::vector<std::string> &value() const { return names; }
 };
 
 struct analysis_result {
