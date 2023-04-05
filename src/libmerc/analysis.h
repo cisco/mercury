@@ -827,7 +827,7 @@ public:
                         if (v.name.IsString()) {
                             ssize_t idx = common.attr_name.get_index(v.name.GetString());
                             if (idx < 0) {
-                                printf_err(log_warning, "unknown attribute %s while parsing encrypted dns watchlist\n", v.name.GetString());
+                                printf_err(log_warning, "unknown attribute %s while parsing process information\n", v.name.GetString());
                                 throw std::runtime_error("error while parsing resource archive file");
                             }
                             if (v.value.IsBool() and v.value.GetBool()) {
