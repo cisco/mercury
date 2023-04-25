@@ -514,7 +514,7 @@ static inline host_identifier host_identifier_constructor(datum d) {
         return ipv6.value.get_value_array();
 
     } else {
-        fprintf(stderr, "warning: invalid line\n");
+        printf_err(log_warning, "invalid host identifier string\n");
     }
     return std::monostate{};
 }
@@ -601,8 +601,8 @@ public:
         return false;
     }
 
-    bool process_line(std::string &line) {
-        fprintf(stderr, "encrypted_dns watchlist entry: %s\n", line.c_str());
+    bool process_line(std::string &line, int verbose=0) {
+        if (verbose) { printf_err(log_info, "encrypted_dns watchlist entry: %s\n", line.c_str()); }
         datum d = get_datum(line);
         return process_line(d);
     }
@@ -611,7 +611,7 @@ public:
     // watchlist file, and returns true on success and false on
     // failure
     //
-    bool process_line(datum d) {
+    bool process_line(datum d, int verbose=0) {
         if (d.is_null()) {
             return false;
         }
@@ -637,7 +637,7 @@ public:
             d = ipv6.advance();
 
         } else {
-            fprintf(stderr, "warning: invalid line in watchlist::process_line\n");
+            if (verbose) { printf_err(log_warning, "warning: invalid line in watchlist::process_line\n"); }
             return false;
         }
         return true;
