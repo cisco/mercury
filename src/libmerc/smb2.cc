@@ -18,9 +18,8 @@ const char * dialect::get_dialect_string() const {
         case 0x0302:         return "SMB 3.0.2";
         case 0x0310:         return "SMB 3.1.0";
         case 0x0311:         return "SMB 3.1.1";
-        default:             break;
+        default:             return nullptr;
     }
-    return "unknown";
 }
 
 /*
@@ -52,7 +51,8 @@ void negotiate_context::write_json(struct json_array &o) {
     }
 
     struct json_object a{o};
-    a.print_key_string("context_type", get_context_type_string(context_type));
+    type_codes<negotiate_context> code{*this};
+    a.print_key_value("context_type", code);
 
     a.print_key_uint16("data_length", data_length.value());
 
@@ -148,7 +148,10 @@ void smb2_negotiate_response::write_json (struct json_object &o) {
     json_object neg_resp{o, "negotiate_response"};
     neg_resp.print_key_uint16("structure_size", structure_size);
     neg_resp.print_key_uint16_hex("security_mode", sec_mode);
-    neg_resp.print_key_string("dialect", dialect_num.get_dialect_string());
+   
+    type_codes<smb2_negotiate_response> code{*this};
+    neg_resp.print_key_value("dialect", code);
+
     neg_resp.print_key_uint16("negotiate_context_count", neg_context_cnt);
     neg_resp.print_key_value("guid", id);
     neg_resp.print_key_uint_hex("capabilities", capabilities);
@@ -184,16 +187,18 @@ switch (command) {
         case SMB2_QUERY_INFO:       return "smb2_query_info";
         case SMB2_SET_INFO:         return "smb2_set_info";
         case SMB2_OPLOCK_BREAK:     return "smb2_oplock_break";
-        default:                    break;
+        default:                    return nullptr;
     }
-    return "unknown";
 }
 
 void smb2_header::write_json(struct json_object &o) {
     o.print_key_uint16("structure_size", structure_size.value());
     o.print_key_uint16("credit_charge", credit_charge.value());
     o.print_key_uint_hex("status", status.value());
-    o.print_key_string("command", cmd.get_string());
+    
+    type_codes<smb2_header> code{*this};
+    o.print_key_value("command", code);
+
     if (is_response()) {
         o.print_key_uint("credits_granted", credit_req_resp.value());
     } else {
