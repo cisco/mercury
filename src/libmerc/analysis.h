@@ -1000,7 +1000,6 @@ public:
                     got_version = true;
 
                 } else if (name == "doh-watchlist.txt") {
-                    fprintf(stderr, "\n\nfound file %s\n\n", name.c_str());
                     while (archive.getline(line_str)) {
                         common.doh_watchlist.process_line(line_str);
                     }
