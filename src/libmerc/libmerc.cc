@@ -298,7 +298,7 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
         printf_err(log_err, "could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
         return false;
     }
-    mc->aggregator.gzprint(stats_data_file,
+    mc->aggregator->gzprint(stats_data_file,
                            git_commit_id,
                            git_count,
                            init_time);
@@ -437,5 +437,5 @@ size_t get_stats_aggregator_num_entries(mercury_context mc)
        return 0;
     }
 
-    return mc->aggregator.get_num_entries();
+    return mc->aggregator->get_num_entries();
 }

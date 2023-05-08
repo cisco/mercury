@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <stdexcept>
+#include <memory>
 #include "tcp.h"
 #include "packet.h"
 #include "analysis.h"
@@ -38,6 +39,7 @@ enum linktype : uint16_t {
     LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
 };
 
+
 /**
  * struct mercury holds state that is used by one or more
  * mercury_packet_processor
@@ -45,11 +47,11 @@ enum linktype : uint16_t {
  */
 struct mercury {
     struct global_config global_vars;
-    data_aggregator aggregator;
+    std::unique_ptr<data_aggregator> aggregator{nullptr};
     classifier *c;
     class traffic_selector selector;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : global_vars{*vars}, aggregator{global_vars.max_stats_entries}, c{nullptr}, selector{global_vars.protocols} {
+    mercury(const struct libmerc_config *vars, int verbosity) : global_vars{*vars}, aggregator{ global_vars.do_stats? (std::make_unique<data_aggregator>(global_vars.max_stats_entries)) : nullptr}, c{nullptr}, selector{global_vars.protocols} {
         if (global_vars.do_analysis) {
             c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
@@ -123,7 +125,7 @@ struct stateful_pkt_proc {
         // }
 
         if (global_vars.do_stats) {
-            ag = &m->aggregator;
+            ag = m->aggregator.get();
             mq = ag->add_producer();
             if (mq == nullptr) {
                 throw std::runtime_error("error: could not initialize event queue");
