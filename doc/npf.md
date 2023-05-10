@@ -11,9 +11,9 @@ David McGrew (Editor)
 
 ## Introduction
 
-This note specifies a flexible and general format for Network Protocol Fingerprints (NPF), suitable for representing fingerprints from different protocols, and capable of evolving over time to accommodate new protocol extensions and uses.  It provides background, a specification of how to construct and interpret NPF fingerprints for TLS, QUIC, and other protocols, and a naming scheme that indicates the protocol and rules used in fingerprint construction. 
+This note specifies a flexible and general format for Network Protocol Fingerprints (NPF), suitable for representing fingerprints from different protocols, and capable of evolving over time to accommodate new protocol extensions and uses.  It provides background, a specification of how to construct and interpret NPF fingerprints for TLS, QUIC, and other protocols, and a naming scheme that indicates the protocol and rules used in fingerprint construction.
 
-Network protocol fingerprinting is a form of pattern recognition that aims to identify a particular implementation of a protocol from the messages that it sends.   In this note, a fingerprint is a set of data features formed by selecting and normalizing some elements of a protocol message, which can be serialized into a string.  An implementation can be a library, an application, or an operating system.  In general, a single fingerprint may match more than one application, especially when the implementation is a library.  A single application can also produce more than one fingerprint.  
+Network protocol fingerprinting is a form of pattern recognition that aims to identify a particular implementation of a protocol from the messages that it sends.   In this note, a fingerprint is a set of data features formed by selecting and normalizing some elements of a protocol message, which can be serialized into a string.  An implementation can be a library, an application, or an operating system.  In general, a single fingerprint may match more than one application, especially when the implementation is a library.  A single application can also produce more than one fingerprint.
 
 A fingerprint is formally defined as an ordered, multi-way tree of byte strings; the tree structure is used to represent the strings yielded by parsing a protocol message.  Balanced parenthesis are used to represent the tree structure, and hexadecimal is used to represent the byte strings.  Whenever possible, the byte substrings in the fingerprint correspond directly to byte substrings of the packet, to preserve information, and to aid implementation and debugging.  While it is necessary to define fingerprints in terms of protocol specifications,  this note aims to minimize dependencies on externally defined data formats.
 
@@ -65,7 +65,7 @@ denotes the set { 0x02, 0x03 }.
 
 ### Hash Representation
 
-The hashed representation of a fingerprint is computed by applying [SHA-256](https://www.rfc-editor.org/rfc/rfc6234) to its string representation, then encoding the output of that function as a 32-character hexadecimal string.  This representation is shorter than the string representation, has a fixed length, and does not include any punctuation.  This makes it easier to incorporate into database schemas, and easier for human operators to compare and cut-and-paste values between software tools.  It is cryptographically infeasible to find two distinct SHA-256 inputs that produce the same hash value, [unlike MD5](https://www.rfc-editor.org/rfc/rfc6151). 
+The hashed representation of a fingerprint is computed by applying [SHA-256](https://www.rfc-editor.org/rfc/rfc6234) to its string representation, then encoding the output of that function as a 32-character hexadecimal string.  This representation is shorter than the string representation, has a fixed length, and does not include any punctuation.  This makes it easier to incorporate into database schemas, and easier for human operators to compare and cut-and-paste values between software tools.  It is cryptographically infeasible to find two distinct SHA-256 inputs that produce the same hash value, [unlike MD5](https://www.rfc-editor.org/rfc/rfc6151).
 
 The hash representation is not reversible, and it only supports exact matching, not approximate matching or prefix matching.  It should be only used as a nickname for the full representation, and not a replacement for it.
 
@@ -78,7 +78,7 @@ Within a fingerprint string, a hash representation can easily be distinguished f
 Fingerprints are named using [Uniform Resource Indicators](https://datatracker.ietf.org/doc/html/rfc3986) (URIs) in the Network Protocol Fingerprinting (NPF) scheme, which is formally defined as follows:
 
 - The scheme identifier string is`npf`.
-- The path consists of a protocol identification string (e.g. `tls`), a forward slash '/', an optional rule identifier string (e.g. '1') followed by a forward slash '/', and then a string representation or a hash representation.  Version strings SHOULD be positive decimal numbers. 
+- The path consists of a protocol identification string (e.g. `tls`), a forward slash '/', an optional rule identifier string (e.g. '1') followed by a forward slash '/', and then a string representation or a hash representation.  Version strings SHOULD be positive decimal numbers.
 - The optional authority string should be a valid HTTPS authority, but can be any string matching `ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )`.
 
 An example of a minimal fingerprint is the following QUIC fingerprint, which contains only a protocol identifier and a string representation:
@@ -99,7 +99,7 @@ This naming scheme allows different authorities to define their own formats (e.g
 
 ## TCP/IP
 
-The TCP/IP fingerprint is formed from TCP/IP SYN packets, that is, packets that contain a valid IP header, a valid TCP header, and have the TCP SYN flag set (but not the TCP ACK flag set).  The fingerprint format is 
+The TCP/IP fingerprint is formed from TCP/IP SYN packets, that is, packets that contain a valid IP header, a valid TCP header, and have the TCP SYN flag set (but not the TCP ACK flag set).  The fingerprint format is
 
 ```
     "tcp/" (IP_Version)(IP_ID)(IP_TTL)(TCP_Window)((TCP_Option)*)
@@ -130,12 +130,12 @@ where
 
 ## TLS
 
-TLS fingerprints are formed from packets containing a TLS Client Hello message.  There are two formats defined.  The newer one, "tls/1", sorts the extensions into lexicographic order, to compensate for the randomization of those fields introduced by some TLS clients.  The older one, "tls", does not sort those extensions into order.  
+TLS fingerprints are formed from packets containing a TLS Client Hello message.  There are two formats defined.  The newer one, "tls/1", sorts the extensions into lexicographic order, to compensate for the randomization of those fields introduced by some TLS clients.  The older one, "tls", does not sort those extensions into order.
 
 The "tls/1" fingerprint format is
 
 ```
-   "tls/1" (TLS_Version) (TLS_Ciphersuite) [ QUIC_Extension* ]
+   "tls/1" (TLS_Version) (TLS_Ciphersuite) [ TLS_Extension* ]
 ```
 
 and the older "tls" fingerprint format is
@@ -169,7 +169,7 @@ where
                  x      otherwise.
 ```
 
-The sets TLS_GREASE and TLS_EXT_FIXED are defined as    
+The sets TLS_GREASE and TLS_EXT_FIXED are defined as
 
 ```
 TLS_GREASE = {
@@ -190,22 +190,22 @@ TLS_EXT_FIXED = {
 
 ## QUIC
 
-QIUC fingerprints are computed from the QUIC Initial Packet.   To compute this fingerprint, it is necessary to remove header protection, decrypt the QUIC Frames, reassemble the CRYPTO Frame, and then process the TLS Client Hello in that frame.  If there is no CRYPTO Frame in the packet, it is not possible to compute a fingerprint.  The fingerprint format is 
+QIUC fingerprints are computed from the QUIC Initial Packet.   To compute this fingerprint, it is necessary to remove header protection, decrypt the QUIC Frames, reassemble the CRYPTO Frame, and then process the TLS Client Hello in that frame.  If there is no CRYPTO Frame in the packet, it is not possible to compute a fingerprint.  The fingerprint format is
 
 ```
 "quic/" (QUIC_Version) (TLS_Version) (TLS_Ciphersuites) [ QUIC_Extension* ]
 ```
 
- where 
+ where
 
 - `QUIC_Version` (string, four bytes) is the Version field from the QUIC long header form.
 
-- `TLS_Version` and `TLS_Ciphersuites` are as defined in the TLS section.  They are computed from the TLS Client Hello reassembled from the CRYPTO Frame in the decrypted QUIC initial packet.  
+- `TLS_Version` and `TLS_Ciphersuites` are as defined in the TLS section.  They are computed from the TLS Client Hello reassembled from the CRYPTO Frame in the decrypted QUIC initial packet.
 
 - `QUIC_Extension` (sequence, variable length) elements represent TLS Extension fields as defined in RFC 8446, Section 4.2.  Let `extension` denote the byte string consisting of a TLS Extension in the Client Hello reassembled from the CRYPTO frames.  Then the corresponding `QUIC_Extension` element in the fingerprint is defined as
 
 ```
-QUIC_Extension = extension                 if DEGREASE(extension[0:2]) is in TLS_EXT_FIXED, 
+QUIC_Extension = extension                 if DEGREASE(extension[0:2]) is in TLS_EXT_FIXED,
                  QTP(extension)            if extension[0:2] is in { 0x0039, 0xffa5 },
                  DEGREASE(extension[0:2])  otherwise.
 ```
@@ -213,7 +213,7 @@ QUIC_Extension = extension                 if DEGREASE(extension[0:2]) is in TLS
 The function `QTP` computes a sorted list of elements from the QUIC Transport Parameters Extension,  as below:
 
 ```
-QTP(extension) = (extension[0:2])  [  (QUIC_DEGREASE(Transport_Parameter_ID))* ] 
+QTP(extension) = (extension[0:2])  [  (QUIC_DEGREASE(Transport_Parameter_ID))* ]
 ```
 
 Here Transport_Parameter_ID is the variable_length_integer that represents the ID of the Transport Parameter (as defined in RFC 9000, Section 18).   The function QUIC_DEGREASE takes as input a variable_length_integer *x* and returns a byte string; if *x* % 31 == 27, the value of 0x1b is returned; otherwise, *x* is returned.
@@ -228,7 +228,7 @@ quic/(ff00001d)(0303)(0a0a130113021303)[(0a0a)(0a0a)(0000)(000500050100000000)(0
 
 ## HTTP
 
-HTTP fingerprints are computed from HTTP request packets, for HTTP version 1.1 ([RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230#section-3), Section 3) or earlier.  The fingerprint format is 
+HTTP fingerprints are computed from HTTP request packets, for HTTP version 1.1 ([RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230#section-3), Section 3) or earlier.  The fingerprint format is
 
 ```
 "http/" (method) (version) ((selected-header)*)
@@ -254,13 +254,13 @@ where CHAR_TOLOWER(x) takes a single byte as input and returns a single byte, an
 
 
 ```
-CHAR_TOLOWER(x) = x  	      if x < 0x41 or x > 0x5a, 
+CHAR_TOLOWER(x) = x  	      if x < 0x41 or x > 0x5a,
                   x | 0x20    otherwise.
 ```
 
 For instance, `TOLOWER("Host:") = "host:"`.
 
-The sets HTTP_REQUEST_NAME_AND_VALUE and HTTP_REQUEST_NAME_ONLY are defined as    
+The sets HTTP_REQUEST_NAME_AND_VALUE and HTTP_REQUEST_NAME_ONLY are defined as
 
 ```
 HTTP_REQUEST_NAME_AND_VALUE = {
@@ -281,7 +281,7 @@ HTTP_REQUEST_NAME_ONLY = {
     "host",
     "if-modified-since",
     "keep-alive",
-    "user-agent", 
+    "user-agent",
     "x-flash-version",
     "x-p2p-peerdist"
 }.
@@ -290,13 +290,13 @@ HTTP_REQUEST_NAME_ONLY = {
 
 ## OPENVPN
 
-OPENVPN fingerprints are computed from the OPENVPN Initial Packet which also contains the TLS Client Hello.   To compute this fingerprint, it is necessary to parse OPENVPN packets (which may be more than one), reassemble the data, and then process the TLS Client Hello in the reassembled data.  If there is no TLS Client Hello in the packets, it is not possible to compute a fingerprint.  The fingerprint format is 
+OPENVPN fingerprints are computed from the OPENVPN Initial Packet which also contains the TLS Client Hello.   To compute this fingerprint, it is necessary to parse OPENVPN packets (which may be more than one), reassemble the data, and then process the TLS Client Hello in the reassembled data.  If there is no TLS Client Hello in the packets, it is not possible to compute a fingerprint.  The fingerprint format is
 
 ```
 "openvpn/" (ip_proto) (num_pkt) ({opcode}{key_id}) (HMAC_len) (TLS_Ciphersuites) ((TLS_Extension)*)
 ```
 
- where 
+ where
 
 - `ip_proto` (string, one byte) is the IP protocol type - 6:TCP, 11:UDP, depending on the transport protocol used for OPENVPN,
 
@@ -310,7 +310,7 @@ OPENVPN fingerprints are computed from the OPENVPN Initial Packet which also con
 
 - `HMAC_len` (string, 1 byte) is the length of HMAC used (e.g 20 for SHA1, 32 for SHA256) if OPENVPN tls-auth is enabled or 0 otherwise,
 
-- `TLS_Version`, `TLS_Ciphersuites`, `TLS_Extension` are as defined in the TLS section.  They are computed from the TLS Client Hello reassembled from the OPENVPN packets.  
+- `TLS_Version`, `TLS_Ciphersuites`, `TLS_Extension` are as defined in the TLS section.  They are computed from the TLS Client Hello reassembled from the OPENVPN packets.
 
 An example of a OPENVPN fingerprint is
 
@@ -321,26 +321,26 @@ openvpn/(06)(03)(0400)(14)(0301)(c014c00ac022c0210039003800880087c00fc0050035008
 
 #### Truncated Fingerprints
 
-A truncated fingerprint, formed from a truncated message, may be analyzed using prefix matching, but should not be analyzed using exact matching.   
+A truncated fingerprint, formed from a truncated message, may be analyzed using prefix matching, but should not be analyzed using exact matching.
 
 
 
 ## Background and Motivation
 
-Several network fingerprinting systems are in use to recognize clients, servers, and operating systems, including [P0F](https://lcamtuf.coredump.cx/p0f3/), [nmap](https://nmap.org/book/man-os-detection.html), [JA3](https://github.com/salesforce/ja3), and [mercury](https://github.com/cisco/mercury).  NPF aims to incorporate their best practices, and provide additional flexibility.  Its goals are: 
+Several network fingerprinting systems are in use to recognize clients, servers, and operating systems, including [P0F](https://lcamtuf.coredump.cx/p0f3/), [nmap](https://nmap.org/book/man-os-detection.html), [JA3](https://github.com/salesforce/ja3), and [mercury](https://github.com/cisco/mercury).  NPF aims to incorporate their best practices, and provide additional flexibility.  Its goals are:
 
-- to enable fingerprint systems to accommodate new protocol extensions and new protocol behaviors, while at the same time being backwards compatible with fingerprints generated according to older specifications, 
+- to enable fingerprint systems to accommodate new protocol extensions and new protocol behaviors, while at the same time being backwards compatible with fingerprints generated according to older specifications,
 - to make it easier to share and automatically process fingerprint data, by explicitly indicating the protocol and the format (selection and normalization rules) fingerprint string,
-- to support approximate and partial matching as well as exact matching, 
-- to provide an optional compact representation with a cryptographically collision-resistant hash function, and 
+- to support approximate and partial matching as well as exact matching,
+- to provide an optional compact representation with a cryptographically collision-resistant hash function, and
 - to facilitate interoperability and exchange between different fingerprinting systems.
 
-A secondary goal is to handle fingerprints generated from truncated protocol messages, which can be caused by the loss of a packet carrying a segment of a data element.  
+A secondary goal is to handle fingerprints generated from truncated protocol messages, which can be caused by the loss of a packet carrying a segment of a data element.
 
 
 
 ## Comparison to Existing Fingerprinting Systems
 
-The JA3 fingerprinting system has a relatively compact representation, consisting of 32 hex characters, but it only applies to TLS, is not reversible, and does not utilize GREASE information.  The original mercury fingerprinting system is reversible, utilizes GREASE, and applies to multiple protocols, but it does not contain an explicit indication of the protocol, and is not compact.  Neither system allows to indicate versioning information that would enable the details of the fingerprinting scheme to adapt over time.  This note defines a fingerprint naming scheme that aims to provide the benefits of both systems, along with explicit information about protocols and versions, drawing inspiration from the [Common Platform Enumeration](https://nvd.nist.gov/products/cpe) naming system. 
+The JA3 fingerprinting system has a relatively compact representation, consisting of 32 hex characters, but it only applies to TLS, is not reversible, and does not utilize GREASE information.  The original mercury fingerprinting system is reversible, utilizes GREASE, and applies to multiple protocols, but it does not contain an explicit indication of the protocol, and is not compact.  Neither system allows to indicate versioning information that would enable the details of the fingerprinting scheme to adapt over time.  This note defines a fingerprint naming scheme that aims to provide the benefits of both systems, along with explicit information about protocols and versions, drawing inspiration from the [Common Platform Enumeration](https://nvd.nist.gov/products/cpe) naming system.
 
 
