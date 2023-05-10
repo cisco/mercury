@@ -36,7 +36,9 @@ sources = ['mercury.pyx',
 
 additional_flags = os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape').replace("'","",2)
 
-setup(ext_modules=[Extension("mercury",
+setup(name='mercury',
+      version='1.0.0',
+      ext_modules=[Extension("mercury",
                              sources=sources,
                              language="c++",
                              extra_compile_args=["-std=c++17","-Wno-narrowing","-Wno-deprecated-declarations",additional_flags],
