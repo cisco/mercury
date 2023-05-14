@@ -536,6 +536,8 @@ struct daemon_output : public output {
 
     };
 
+    int get_fd() {return sock;}
+
     ~daemon_output() {
         close(sock);
     }
@@ -549,7 +551,8 @@ struct daemon_output : public output {
 class intercept {
     int pid, ppid;
     output *out;
-    static constexpr size_t buffer_length = 8*1024;
+    static constexpr size_t buffer_length = 20*1024;
+    int out_fd = -1;
     const char *INTERCEPT_DIR = nullptr;   // TODO: merge with ENV_INTERCEPT_DIR
     char cmd[256];
     size_t cmd_len = 0;
@@ -577,6 +580,7 @@ public:
         //
         cfg.metadata_output = true;
         cfg.packet_filter_cfg = (char *)cfg_str.c_str();
+        cfg.dns_json_output = true;
         ctx = mercury_init(&cfg, 0);
 
         if (ctx == nullptr) {
@@ -615,6 +619,10 @@ public:
             output_level = minimal_data;
         }
 
+        if (out_type == output::type::daemon) {
+            out_fd = ((daemon_output*)out)->get_fd();
+        }
+
         // set cmd and pcmd
         //
         cmd_len = get_cmd(pid, cmd, sizeof(cmd));
@@ -635,6 +643,8 @@ public:
         out->write_buffer(buf);
 
     }
+
+    int get_out_fd() {return out_fd;}
 
     ~intercept() {
         delete out;
@@ -757,7 +767,6 @@ public:
         //
 
         // create dummy tcp pkt with correct ports
-        if (verbose) { fprintf(stderr, BLUE(tty, "send_recv entry %s\n"), __func__); };
         datum tcp_pkt_data{data, data+length};
         datum udp_pkt_data{data, data+length};
         std::pair<uint16_t, uint16_t> ports = get_ports(fd);
@@ -839,7 +848,6 @@ public:
         // try parsing data as udp dgram first
         // if no protocol matches, try TCP
         //
-        fprintf(stderr, RED(tty, "sendto_recvfrom entry %s\n"), __func__);
         std::pair<uint16_t, uint16_t> ports = get_ports(fd);
         bool is_udp = false;
         protocol udp_proto;
@@ -1444,7 +1452,9 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *address, socklen_t address_len) {
     if (verbose) { fprintf(stderr, BLUE(tty, "sendto() invoked\n")); }
-    intrcptr->process_data_pkt_sendto_recvfrom(sockfd, (uint8_t *)buf, len, std::string("sendto").c_str(), address, &address_len); 
+    if (intrcptr && intrcptr->get_out_fd() != sockfd) {
+        intrcptr->process_data_pkt_sendto_recvfrom(sockfd, (uint8_t *)buf, len, std::string("sendto").c_str(), address, &address_len);
+    }
     invoke_original(sendto, sockfd, buf, len, flags, address, address_len);
 
 }
@@ -1454,11 +1464,15 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
     if (verbose) { fprintf(stderr, BLUE(tty, "sendmsg() invoked\n")); }  // note: no processing happening yet
-    size_t iovlen = msg->msg_iovlen;
-    for (size_t i = 0; i < iovlen; i++) {
-        void *msg_buf = msg->msg_iov[i].iov_base;
-        size_t msg_len = msg->msg_iov[i].iov_len;
-        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmsg").c_str()); 
+    if (msg) {
+        size_t iovlen = msg->msg_iovlen;
+        for (size_t i = 0; i < iovlen; i++) {
+            void *msg_buf = msg->msg_iov[i].iov_base;
+            size_t msg_len = msg->msg_iov[i].iov_len;
+            if (msg_buf and msg_len) {
+                intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmsg").c_str());
+            }
+        }
     }
     invoke_original(sendmsg, sockfd, msg, flags);
 }
@@ -1468,14 +1482,20 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags) {
     if (verbose) { fprintf(stderr, BLUE(tty, "sendmmsg() invoked\n")); }  // note: no processing happening yet
-    for (unsigned int i = 0; i < vlen; i++) {
-        struct msghdr *msg = &(msgvec[i].msg_hdr);
-        size_t iovlen = msg->msg_iovlen;
-        for (size_t j = 0; j < iovlen; j++) {
-            void *msg_buf = msg->msg_iov[j].iov_base;
-            size_t msg_len = msg->msg_iov[j].iov_len;
-            intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmmsg").c_str()); 
-        } 
+    if (msgvec) {
+        for (unsigned int i = 0; i < vlen; i++) {
+            struct msghdr *msg = &(msgvec[i].msg_hdr);
+            if (msg) {
+                size_t iovlen = msg->msg_iovlen;
+                for (size_t j = 0; j < iovlen; j++) {
+                    void *msg_buf = msg->msg_iov[j].iov_base;
+                    size_t msg_len = msg->msg_iov[j].iov_len;
+                    if (msg_buf and msg_len) {
+                        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmmsg").c_str()); 
+                    }
+                }
+            } 
+        }
     }
     invoke_original(sendmmsg, sockfd, msgvec, vlen, flags);
 }
@@ -1504,11 +1524,15 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags) {
     if (verbose) { fprintf(stderr, BLUE(tty, "recvmsg() invoked\n")); }  // note: no processing happening yet
-    size_t iovlen = msg->msg_iovlen;
-    for (size_t i = 0; i < iovlen; i++) {
-        void *msg_buf = msg->msg_iov[i].iov_base;
-        size_t msg_len = msg->msg_iov[i].iov_len;
-        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("recvmsg").c_str()); 
+    if (msg) {
+        size_t iovlen = msg->msg_iovlen;
+        for (size_t i = 0; i < iovlen; i++) {
+            void *msg_buf = msg->msg_iov[i].iov_base;
+            size_t msg_len = msg->msg_iov[i].iov_len;
+            if (msg_buf and msg_len) {
+                intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("recvmsg").c_str());
+            }
+        }
     }
     invoke_original(recvmsg, sockfd, msg, flags);
 }
@@ -1518,14 +1542,20 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 int recvmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags, timespec* timeout) {
     if (verbose) { fprintf(stderr, BLUE(tty, "recvmmsg() invoked\n")); }  // note: no processing happening yet
-    for (unsigned int i = 0; i < vlen; i++) {
-        struct msghdr *msg = &(msgvec[i].msg_hdr);
-        size_t iovlen = msg->msg_iovlen;
-        for (size_t j = 0; j < iovlen; j++) {
-            void *msg_buf = msg->msg_iov[j].iov_base;
-            size_t msg_len = msg->msg_iov[j].iov_len;
-            intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("recvmmsg").c_str()); 
-        } 
+    if (msgvec) {
+        for (unsigned int i = 0; i < vlen; i++) {
+            struct msghdr *msg = &(msgvec[i].msg_hdr);
+            if (msg) {
+                size_t iovlen = msg->msg_iovlen;
+                for (size_t j = 0; j < iovlen; j++) {
+                    void *msg_buf = msg->msg_iov[j].iov_base;
+                    size_t msg_len = msg->msg_iov[j].iov_len;
+                    if (msg_buf and msg_len) {
+                        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("recvmmsg").c_str());
+                    }
+                }
+            }
+        }
     }
     invoke_original(recvmmsg, sockfd, msgvec, vlen, flags, timeout);
 }
