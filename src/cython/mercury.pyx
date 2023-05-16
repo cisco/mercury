@@ -131,7 +131,7 @@ cdef class Mercury:
     cdef classifier* clf
     cdef bool do_analysis
 
-    def __init__(self, bool do_analysis, bytes resources, bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
+    def __init__(self, bool do_analysis=False, bytes resources=b'', bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
                  bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True):
         self.do_analysis = do_analysis
         self.py_config = {
@@ -147,10 +147,15 @@ cdef class Mercury:
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
-        cdef char* resources_c = resources
-        cdef enc_key_type ekt = enc_key_type_none
-        if do_analysis:
+        cdef char* resources_c
+        cdef enc_key_type ekt
+        if do_analysis and resources != b'':
+            resources_c = resources
+            ekt = enc_key_type_none
             self.clf = analysis_init_from_archive(0, resources_c, NULL, ekt, 0.0, 0.0, False)
+
+        self.mercury_init()
+
 
     cpdef int mercury_init(self, unsigned int verbosity=0):
         cdef libmerc_config config = self.py_config
