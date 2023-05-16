@@ -14,6 +14,10 @@ import os
 # "../parser.c" is needed to include parser functions
 # "-std=c++11" is needed due to c++11 dependency
 
+def readme():
+    with open('README.md') as f:
+        return f.read()
+
 sources = ['mercury.pyx',
            '../libmerc/asn1/oid.cc',
            '../libmerc/dns.cc',
@@ -36,8 +40,22 @@ sources = ['mercury.pyx',
 
 additional_flags = os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape').replace("'","",2)
 
-setup(name='mercury',
-      version='1.0.0',
+setup(name='mercury-python',
+      version='0.1.0',
+      description="Python interface into mercury's network protocol fingerprinting and analysis functionality",
+      long_description=readme(),
+      long_description_content_type="text/markdown",
+      classifiers=[
+          'Development Status :: 3 - Alpha',
+          'Programming Language :: Python :: 3 :: Only',
+          'Topic :: System :: Networking :: Monitoring',
+          'Topic :: Security',
+      ],
+      python_requires='>=3.6.0',
+      keywords='tls fingerprinting network traffic analysis',
+      url='https://github.com/cisco/mercury/src/cython/',
+      author='Blake Anderson',
+      author_email='blake.anderson@cisco.com',
       ext_modules=[Extension("mercury",
                              sources=sources,
                              language="c++",
