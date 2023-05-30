@@ -1,7 +1,9 @@
-from distutils.core import setup, Extension
+from setuptools import Extension, setup
+#from distutils.core import setup, Extension
 from Cython.Distutils import build_ext
-from distutils.extension import Extension
+#from distutils.extension import Extension
 import os
+import re
 
 ###
 ## to build: CC=g++ python setup.py build_ext --inplace
@@ -17,6 +19,18 @@ import os
 def readme():
     with open('README.md') as f:
         return f.read()
+
+###
+## get version string
+#
+VERSIONFILE = "_version.py"
+verstrline  = open(VERSIONFILE, "rt").read()
+VSRE        = r"^__version__ = ['\"]([^'\"]*)['\"]"
+mo          = re.search(VSRE, verstrline, re.M)
+if mo:
+    version_str = mo.group(1)
+else:
+    raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
 
 sources = ['mercury.pyx',
            '../libmerc/asn1/oid.cc',
@@ -41,7 +55,7 @@ sources = ['mercury.pyx',
 additional_flags = os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape').replace("'","",2)
 
 setup(name='mercury-python',
-      version='0.1.0',
+      version=version_str,
       description="Python interface into mercury's network protocol fingerprinting and analysis functionality",
       long_description=readme(),
       long_description_content_type="text/markdown",
@@ -58,6 +72,7 @@ setup(name='mercury-python',
       author_email='blake.anderson@cisco.com',
       ext_modules=[Extension("mercury",
                              sources=sources,
+                             include_dirs=['../libmerc'],
                              language="c++",
                              extra_compile_args=["-std=c++17","-Wno-narrowing","-Wno-deprecated-declarations",additional_flags],
                              extra_link_args=["-std=c++17","-lz"],

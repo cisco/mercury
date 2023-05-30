@@ -18,6 +18,8 @@ from posix.time cimport timespec
 # To build and install:
 #   CC=g++ python setup.py install
 
+# TODO: actually handle version
+__version__ = '0.1.2'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
