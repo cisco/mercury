@@ -61,6 +61,7 @@ class sctp_init;
 struct tcp_packet;
 class iec60870_5_104;
 class openvpn_tcp;
+class mysql_server_greet;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -95,7 +96,8 @@ using protocol = std::variant<std::monostate,
                               tcp_packet,
                               smb1_packet,
                               smb2_packet,
-                              openvpn_tcp
+                              openvpn_tcp,
+                              mysql_server_greet
                               >;
 
 // class unknown_initial_packet represents the initial data field of a
@@ -292,6 +294,7 @@ struct compute_fingerprint {
     void operator()(bittorrent_handshake &) { }
     void operator()(bittorrent_dht &) { }
     void operator()(bittorrent_lsd &) { }
+    void operator()(mysql_server_greet &) { }
     void operator()(std::monostate &) { }
 
 };

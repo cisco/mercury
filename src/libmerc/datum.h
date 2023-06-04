@@ -287,6 +287,16 @@ struct datum {
         }
         return -(tmp_data - data);
     }
+    int find_delim(uint8_t delim) {
+        const unsigned char *tmp_data = data;
+        while (tmp_data < data_end) {
+            if (*tmp_data == delim) {
+                return tmp_data - data;
+            }
+            tmp_data++;
+        }
+        return -1;
+    }
     void skip_up_to_delim(uint8_t delim) {
         while (data <= data_end) {
             if (*data == delim) { // found delimeter

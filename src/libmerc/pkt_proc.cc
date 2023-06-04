@@ -49,6 +49,7 @@
 #include "smb2.h"
 #include "netbios.h"
 #include "openvpn.h"
+#include "mysql.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -260,6 +261,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_bittorrent:
         x.emplace<bittorrent_handshake>(pkt);
+        break;
+    case tcp_msg_type_mysql_server:
+        x.emplace<mysql_server_greet>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {

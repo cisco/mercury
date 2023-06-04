@@ -40,6 +40,7 @@
 #include "udp.h"
 #include "openvpn.h"
 #include "bittorrent.h"
+#include "mysql.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -60,6 +61,7 @@ enum tcp_msg_type {
     tcp_msg_type_nbss,
     tcp_msg_type_openvpn,
     tcp_msg_type_bittorrent,
+    tcp_msg_type_mysql_server,
 };
 
 enum udp_msg_type {
@@ -375,6 +377,9 @@ public:
             udp.add_protocol(bittorrent_dht::matcher, udp_msg_type_dht);
             udp.add_protocol(bittorrent_lsd::matcher, udp_msg_type_lsd);
             tcp.add_protocol(bittorrent_handshake::matcher, tcp_msg_type_bittorrent);
+        }
+        if (protocols["mysql"] || protocols["all"]) {
+            tcp.add_protocol(mysql_server_greet::matcher, tcp_msg_type_mysql_server);
         }
         // tell protocol_identification objects to compile lookup tables
         tcp.compile();
