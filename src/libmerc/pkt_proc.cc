@@ -37,6 +37,7 @@
 #include "ssdp.h"
 #include "stun.h"
 #include "smtp.h"
+#include "tofsee.hpp"
 #include "cdp.h"
 #include "lldp.h"
 #include "ospf.h"
@@ -266,6 +267,7 @@ struct compute_fingerprint {
     void operator()(dnp3 &) {}
     void operator()(smb1_packet &) { }
     void operator()(smb2_packet &) { }
+    void operator()(tofsee_initial_message &) { }
     void operator()(iec60870_5_104 &) { }
     void operator()(nbss_packet &) { }
     void operator()(nbds_packet &) { }
@@ -491,6 +493,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_bittorrent:
         x.emplace<bittorrent_handshake>(pkt);
+        break;
+    case tcp_msg_type_tofsee_initial_message:
+        x.emplace<tofsee_initial_message>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {

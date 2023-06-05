@@ -60,6 +60,7 @@ enum tcp_msg_type {
     tcp_msg_type_nbss,
     tcp_msg_type_openvpn,
     tcp_msg_type_bittorrent,
+    tcp_msg_type_tofsee_initial_message
 };
 
 enum udp_msg_type {
