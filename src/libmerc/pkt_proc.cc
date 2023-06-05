@@ -494,11 +494,11 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_bittorrent:
         x.emplace<bittorrent_handshake>(pkt);
         break;
-    case tcp_msg_type_tofsee_initial_message:
-        x.emplace<tofsee_initial_message>(pkt);
-        break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
+            if (pkt.length() == 200 && (htons(tcp_pkt->header->src_port) < htons(tcp_pkt->header->dst_port))) {
+                x.emplace<tofsee_initial_message>(pkt);
+            }
             x.emplace<unknown_initial_packet>(pkt);
         } else {
             x.emplace<std::monostate>();
