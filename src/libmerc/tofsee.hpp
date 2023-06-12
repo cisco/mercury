@@ -92,11 +92,13 @@ public:
         if (!is_not_empty()) {
             return;
         }
-        o.print_key_hex("key", key.data, key.length());
-        o.print_key_hex("unknown_1", unknown_1.data, unknown_1.length());
-        o.print_key_ipv4_addr("bot_ip", ipv4.data);
-        o.print_key_hex("srv_time", srv_time.data, srv_time.length());
-        o.print_key_hex("unknown_2", unknown_2.data, unknown_2.length());
+        json_object tofsee{o, "tofsee_initial_message"};
+        tofsee.print_key_hex("key", key.data, key.length());
+        tofsee.print_key_hex("unknown_1", unknown_1.data, unknown_1.length());
+        tofsee.print_key_ipv4_addr("bot_ip", ipv4.data);
+        tofsee.print_key_hex("srv_time", srv_time.data, srv_time.length());
+        tofsee.print_key_hex("unknown_2", unknown_2.data, unknown_2.length());
+        tofsee.close();
     }
 
     bool is_not_empty() const {
@@ -167,13 +169,9 @@ public:
         return true;
     }
 
-    static bool unit_test_passed;
+    static inline bool unit_test_passed = tofsee_initial_message::unit_test();
 #endif // NDEBUG
 
 };
-
-#ifndef NDEBUG
-bool tofsee_initial_message::unit_test_passed = tofsee_initial_message::unit_test();
-#endif
 
 #endif // TOFSEE_HPP
