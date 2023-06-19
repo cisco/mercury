@@ -714,6 +714,17 @@ template <size_t T> struct data_buffer : public writeable {
 
     ssize_t write(int fd) { return ::write(fd, buffer, data - buffer);  }
 
+    template <size_t S>
+    bool operator==(const data_buffer<S> &rhs) {
+        return readable_length() == rhs.readable_length() &&
+            memcmp(buffer, rhs.buffer, readable_length()) == 0;
+    }
+    template <size_t S>
+    bool operator!=(const data_buffer<S> &rhs) {
+        return readable_length() != rhs.readable_length() ||
+            memcmp(buffer, rhs.buffer, readable_length()) != 0;
+    }
+
     // TODO:
     //  * add data != nullptr checks
     //  * add set_null() function

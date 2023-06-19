@@ -311,7 +311,7 @@ struct tlv {
         return (value.data == NULL);
     }
     bool is_valid() const {
-        return value.is_not_empty();
+        return value.is_not_empty() || length == 0;
     }
     bool is_truncated() const {
         return value.data != NULL && value.length() != (ssize_t) length;
@@ -410,6 +410,18 @@ struct tlv {
 #endif
     }
 
+    // tlv constructor for parsing data from a datum
+    //
+    tlv(datum &d, uint8_t tag=0x00, const char *name=NULL) {
+        parse(&d, tag, name);
+    }
+
+    // tlv constructor for parsing data from another tlv value
+    //
+    tlv(tlv &o, uint8_t tag=0x00, const char *name=NULL) {
+        parse(&o.value, tag, name);
+    }
+
     // constructor for writing tlv-encoded data
     //
     explicit tlv(uint8_t tag_, datum value_) :
@@ -450,10 +462,10 @@ struct tlv {
         return 7;
     }
 
-    // write_tag_length() writes the ASN.1-encoded Tag and Length (but
+    // write_tag_and_length() writes the ASN.1-encoded Tag and Length (but
     // not Value) into a writeable buffer
     //
-    void write_tag_length(writeable &buf, bool swap_byte_order=false) const {
+    void write_tag_and_length(writeable &buf, bool swap_byte_order=false) const {
         (void)swap_byte_order;
 
         buf << encoded<uint8_t>{tag};
@@ -489,7 +501,7 @@ struct tlv {
     // write() writes the ASN.1-encoded TLV into a writeable buffer
     //
     void write(writeable &buf, bool swap_byte_order=false) {
-        write_tag_length(buf, swap_byte_order);
+        write_tag_and_length(buf, swap_byte_order);
         buf << value;
     }
 
@@ -596,7 +608,7 @@ struct tlv {
         if (!is_valid()) {
             return;
         }
-        if (value.data) {
+        if (true || value.data) {
             uint8_t tag_class = tag >> 6;
             uint8_t constructed = (tag >> 5) & 1;
             uint8_t tag_number = tag & 31;

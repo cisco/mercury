@@ -27,6 +27,7 @@
 #include <thread>
 #include <utility>
 
+#include "pkcs8.hpp"
 
 /* Number of threads to use. Adjust and recompile if fixed number is desired. */
 static const int NTHREADS = std::thread::hardware_concurrency();
@@ -684,6 +685,34 @@ int is_hex_line(const char *line) {
     return 1;
 }
 
+// class bigint holds a big-endian octet string suitable for output or
+// ASN.1 encoding
+//
+class bigint {
+    size_t count;      // octets in buffer
+    uint8_t *mpz_buf;  // buffer
+
+    static constexpr int bigendian = 1;
+
+public:
+
+    bigint(mpz_t x) :
+        count{(mpz_sizeinbase(x, 2) + 8-1) / 8},
+        mpz_buf{(uint8_t *)mpz_export(nullptr, &count, bigendian, 1, 1, 0, x)} {
+        if (mpz_buf == nullptr) {
+            throw std::runtime_error{"could not allocate mpz buffer"};
+        }
+        // fprintf(stdout, "bytes in mpz_buf: %zu\n", count);
+        // fprintf(stdout, "mpz_buf: %x%x%x%x\n", mpz_buf[0], mpz_buf[1], mpz_buf[2], mpz_buf[3]);
+    }
+
+    ~bigint() { free(mpz_buf); }
+
+    datum get_datum() const { return { mpz_buf, mpz_buf + count }; }
+    //    std::pair<uint8_t *, uint8_t *> get_datum() const { return { mpz_buf, mpz_buf + count }; }
+
+    size_t octets() const { return count; }
+};
 
 int main (int argc, char *argv[]) {
 
@@ -896,6 +925,72 @@ int main (int argc, char *argv[]) {
             fprintf(stdout, " and ");
             gmp_fprintf(stdout, "%Zx", f2.get_mpz_t());
             fprintf(stdout, "\n");
+
+            // new code - create a PKCS8 RSA Private Key file for the
+            // factored key
+            //
+
+            // create octet string representations for big integers
+            //
+            bigint bigint_n{n.get_mpz_t()};
+            bigint bigint_f1{f1.get_mpz_t()};
+            bigint bigint_f2{f2.get_mpz_t()};
+
+            // compute private exponent and remainder-theorem exponents
+            //
+            mpz_class public_exponent = 65537;
+            //gmp_printf("public_exponent: %Zd\n", public_exponent);
+            mpz_class totient = (f1 - 1) * (f2 - 1);  // TODO: compute actual LCM
+            //gmp_printf("totient: %Zd\n", totient.get_mpz_t());
+            mpz_t private_exponent;
+            mpz_init(private_exponent);
+            mpz_invert(private_exponent, public_exponent.get_mpz_t(), totient.get_mpz_t());
+            //gmp_printf("private_exponent: %Zd\n", private_exponent);
+            bigint bigint_priv_exp{private_exponent};
+            mpz_t e1;
+            mpz_init(e1);
+            f1 = f1 - 1;
+            mpz_mod(e1, private_exponent, f1.get_mpz_t());
+            f1 = f1 + 1;
+            mpz_t e2;
+            mpz_init(e2);
+            f2 = f2 - 1;
+            mpz_mod(e2, private_exponent, f2.get_mpz_t());
+            f2 = f2 + 1;
+            bigint bigint_e1{e1};
+            bigint bigint_e2{e2};
+
+            mpz_t coef;
+            mpz_init(coef);
+            mpz_invert(coef, f2.get_mpz_t(), f1.get_mpz_t());
+            bigint bigint_coef{coef};
+
+            // fprintf(stderr, "bigint_ size: %zu\n", bigint_n.octets());
+
+            // write out private key as a PEM file
+            //
+            rsa_private_key priv{
+                bigint_n.get_datum(),
+                bigint_priv_exp.get_datum(),
+                bigint_f1.get_datum(),
+                bigint_f2.get_datum(),
+                bigint_e1.get_datum(),
+                bigint_e2.get_datum(),
+                bigint_coef.get_datum()
+            };
+            private_key_info priv_info{priv};
+            data_buffer<4096> dbuf;
+            priv_info.write(dbuf);
+            datum pem_result = dbuf.contents();
+            std::string filename = "line" + std::to_string(original_linenum[i]) + ".pem";
+            fprintf(stderr, "writing out RSA private key to file %s\n", filename.c_str());
+            write_pem(fopen(filename.c_str(), "w+"), pem_result.data, pem_result.length());
+
+            // check private key
+            //
+            private_key_info priv_info2{pem_result};
+            fprintf(stderr, "priv_info2.is_valid(): %u\n", priv_info2.is_valid());
+
         }
     }
 
