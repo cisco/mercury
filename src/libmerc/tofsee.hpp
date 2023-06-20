@@ -153,7 +153,6 @@ public:
         if (!tofsee.is_not_empty()) {
             return false;
         }
-        return true;
 
         // false positive test: verify that an invalid, 200 byte
         // garbage packet will not be accepted as a valid tofsee
