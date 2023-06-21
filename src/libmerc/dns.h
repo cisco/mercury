@@ -816,7 +816,7 @@ struct dns_packet {
         if (header == NULL) {
             return;
         }
-        const char *key = (header->flags & 0x8000) ?  "response" : "query";
+        const char *key = (header->flags & htons(0x8000)) ?  "response" : "query";
         struct json_object dns_json{o, key};
         //dns_json.print_key_uint("qdcount", qdcount);
         //dns_json.print_key_uint("ancount", ancount);

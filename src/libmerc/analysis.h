@@ -31,6 +31,7 @@
 #include "rapidjson/stringbuffer.h"
 #include "util_obj.h"
 #include "archive.h"
+#include "watchlist.hpp"
 
 // TBD - move flow_key_sprintf_src_addr() to the right file
 //
@@ -56,6 +57,7 @@ public:
     std::string name;
     bool malware;
     uint64_t count;
+    attribute_result::bitset attributes;
     std::unordered_map<uint32_t, uint64_t>    ip_as;
     std::unordered_map<std::string, uint64_t> hostname_domains;
     std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -68,6 +70,7 @@ public:
     process_info(const std::string &proc_name,
                  bool is_malware,
                  uint64_t proc_count,
+                 attribute_result::bitset &attr,
                  const std::unordered_map<uint32_t, uint64_t> &as,
                  const std::unordered_map<std::string, uint64_t> &domains,
                  const std::unordered_map<uint16_t, uint64_t> &ports,
@@ -78,6 +81,7 @@ public:
         name{proc_name},
         malware{is_malware},
         count{proc_count},
+        attributes{attr},
         ip_as{as},
         hostname_domains{domains},
         portname_applications{ports},
@@ -139,6 +143,16 @@ public:
     }
 };
 
+// struct common_data holds data that is common to all fingerprints,
+// within the classifier
+//
+struct common_data {
+    //    std::vector<std::string> tag_names;
+    attribute_names attr_name;
+    watchlist doh_watchlist;
+    ssize_t doh_idx = -1;
+};
+
 // data type used in floating point computations
 //
 using floating_point_type = long double;
@@ -157,6 +171,7 @@ class fingerprint_data {
     std::vector<std::string> process_name;
     std::vector<floating_point_type> process_prob;
     std::vector<bool>        malware;
+    std::vector<attribute_result::bitset> attr;
     std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
     std::unordered_map<uint16_t, std::vector<class update>> port_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
@@ -170,6 +185,8 @@ class fingerprint_data {
 
     const subnet_data *subnet_data_ptr = nullptr;
 
+    const common_data *common = nullptr;
+
 public:
     uint64_t total_count;
 
@@ -179,9 +196,11 @@ public:
                      const std::vector<class process_info> &processes,
                      ptr_dict &os_dictionary,
                      const subnet_data *subnets,
+                     common_data *c,
                      bool malware_database) :
         malware_db{malware_database},
         subnet_data_ptr{subnets},
+        common{c},
         total_count{count} {
 
             //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -191,6 +210,7 @@ public:
             process_name.reserve(processes.size());
             process_prob.reserve(processes.size());
             malware.reserve(processes.size());
+            attr.reserve(processes.size());
             process_os_info_vector.reserve(processes.size());
 
             base_prior = log(0.1 / total_count);
@@ -198,6 +218,7 @@ public:
             for (const auto &p : processes) {
                 process_name.push_back(p.name);
                 malware.push_back(p.malware);
+                attr.push_back(p.attributes);
 
                 process_os_info_vector.push_back(std::vector<struct os_information>{});
                 if (p.os_info.size() > 0) {
@@ -361,6 +382,7 @@ public:
 
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
                                             const char *user_agent, enum fingerprint_status status) {
+
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
@@ -427,13 +449,22 @@ public:
 
         floating_point_type score_sum = 0.0;
         floating_point_type malware_prob = 0.0;
+
+        std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
+        attr_prob.fill(0.0);
         for (uint64_t i=0; i < process_score.size(); i++) {
             process_score[i] = exp((float)process_score[i]);
             score_sum += process_score[i];
             if (malware[i]) {
                 malware_prob += process_score[i];
             }
+            for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
+                if (attr[i][j]) {
+                    attr_prob[j] += process_score[i];
+                }
+            }
         }
+
         max_score = process_score[index_max];
         sec_score = process_score[index_sec];
 
@@ -451,7 +482,20 @@ public:
             if (malware_db) {
                 malware_prob /= score_sum;
             }
+            for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
+                attr_prob[j] /= score_sum;
+            }
         }
+
+        // check encrypted dns watchlist
+        //
+        attribute_result::bitset attr_tags = attr[index_max];
+        if (common->doh_watchlist.contains(server_name) || common->doh_watchlist.contains_addr(dst_ip)) {
+            attr_tags[common->doh_idx] = true;
+            attr_prob[common->doh_idx] = 1.0;
+        }
+
+        attribute_result attr_res{attr_tags, attr_prob, &common->attr_name.value()};
 
         // set os_info (to NULL if unavailable)
         //
@@ -463,9 +507,9 @@ public:
         }
         if (malware_db) {
             return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size,
-                                   malware[index_max], malware_prob);
+                                   malware[index_max], malware_prob, attr_res);
         }
-        return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size);
+        return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size, attr_res);
     }
 
     static uint16_t remap_port(uint16_t dst_port) {
@@ -585,6 +629,12 @@ class classifier {
     size_t tls_fingerprint_format = 0;
     bool first_line = true;
 
+    // the common object holds data that is common across all
+    // fingerprint-specific classifiers, and is used by those
+    // classifiers
+    //
+    common_data common;
+
 public:
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
@@ -631,6 +681,14 @@ public:
             }
         }
         return { type, version };
+    }
+
+    void process_watchlist_line(std::string &line_str) {
+        if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
+            line_str.erase(line_str.length()-1);
+        }
+        fprintf(stderr, "loading watchlist line '%s'\n", line_str.c_str());
+        //  fp_prevalence.initial_add(line_str);
     }
 
     void process_fp_prevalence_line(std::string &line_str) {
@@ -750,6 +808,7 @@ public:
                 process_number++;
                 //fprintf(stderr, "%s\n", "process_info");
 
+                attribute_result::bitset attributes;
                 std::unordered_map<uint32_t, uint64_t>    ip_as;
                 std::unordered_map<std::string, uint64_t> hostname_domains;
                 std::unordered_map<uint16_t, uint64_t>    portname_applications;
@@ -762,6 +821,22 @@ public:
                 if (x.HasMember("process") && x["process"].IsString()) {
                     name = x["process"].GetString();
                     //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
+                }
+                if (x.HasMember("attributes") && x["attributes"].IsObject()) {
+                    for (auto &v : x["attributes"].GetObject()) {
+                        if (v.name.IsString()) {
+                            ssize_t idx = common.attr_name.get_index(v.name.GetString());
+                            if (idx < 0) {
+                                printf_err(log_warning, "unknown attribute %s while parsing process information\n", v.name.GetString());
+                                throw std::runtime_error("error while parsing resource archive file");
+                            }
+                            if (v.value.IsBool() and v.value.GetBool()) {
+                                attributes[idx] = 1;
+                            }
+                        }
+                    }
+                    common.attr_name.stop_accepting_new_names();
+
                 }
                 if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
                     //fprintf(stderr, "\tclasses_hostname_domains\n");
@@ -859,11 +934,11 @@ public:
                     }
                 }
 
-                class process_info process(name, malware, count, ip_as, hostname_domains, portname_applications,
+                class process_info process(name, malware, count, attributes, ip_as, hostname_domains, portname_applications,
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
-            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, MALWARE_DB);
+            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, &common, MALWARE_DB);
             // fp_data.print(stderr);
 
             if (fpdb.find(fp_string) != fpdb.end()) {
@@ -878,6 +953,10 @@ public:
                float proc_dst_threshold,
                bool report_os) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
 
+        // reserve attribute for encrypted_dns watchlist
+        //
+        common.doh_idx = common.attr_name.get_index("encrypted_dns");
+
         // by default, we expect that tls fingerprints will be present in the resource file
         //
         fp_types.push_back(fingerprint_type_tls);
@@ -885,6 +964,7 @@ public:
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
         bool got_version = false;
+        bool got_doh_watchlist = false;
         //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
@@ -918,9 +998,15 @@ public:
                         subnets.process_line(line_str);
                     }
                     got_version = true;
+
+                } else if (name == "doh-watchlist.txt") {
+                    while (archive.getline(line_str)) {
+                        common.doh_watchlist.process_line(line_str);
+                    }
+                    got_doh_watchlist = true;
                 }
             }
-            if (got_fp_db && got_fp_prevalence && got_version) {   // TODO: Do we want to require a VERSION file?
+            if (got_fp_db && got_fp_prevalence && got_version && got_doh_watchlist) {   // TODO: Do we want to require a VERSION file?
                 break; // got all data, we're done here
             }
             entry = archive.get_next_entry();
