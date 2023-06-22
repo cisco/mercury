@@ -289,6 +289,7 @@ void print_flow_key(int fd) {
 #include "libmerc/smb2.h"
 #include "libmerc/netbios.h"
 #include "libmerc/openvpn.h"
+#include "libmerc/tofsee.hpp"
 
 #include <unordered_set>
 #include <string>
@@ -396,7 +397,7 @@ public:
 class file_output : public output {
     FILE *outfile = nullptr;
     sem_t *outfile_sem = nullptr;
-    static constexpr size_t buffer_length = 8*1024;
+    static constexpr size_t buffer_length = 20*1024;
 
 public:
 
@@ -640,6 +641,14 @@ public:
 
         record.close();
         // write_buffer_to_file(buf, outfile);
+
+        if (buf.trunc) {
+            if (verbose) {
+                fprintf(stderr, RED(tty, "error: output buffer overrun\n"));
+            }
+            return;
+        }
+
         out->write_buffer(buf);
 
     }
@@ -839,6 +848,14 @@ public:
         }
 
         record.close();
+
+        if (buf.trunc) {
+            if (verbose) {
+                fprintf(stderr, RED(tty, "error: output buffer overrun\n"));
+            }
+            return;
+        }
+
         out->write_buffer(buf);
     }
 
@@ -919,6 +936,14 @@ public:
         }
 
         record.close();
+
+        if (buf.trunc) {
+            if (verbose) {
+                fprintf(stderr, RED(tty, "error: output buffer overrun\n"));
+            }
+            return;
+        }
+
         out->write_buffer(buf);
 
     }
@@ -1072,6 +1097,14 @@ public:
         //dns_object.print_key_json_string("service", service);
         dns_object.close();
         record.close();
+
+        if (buf.trunc) {
+            if (verbose) {
+                fprintf(stderr, RED(tty, "error: output buffer overrun\n"));
+            }
+            return;
+        }
+
         out->write_buffer(buf);
 
     }
