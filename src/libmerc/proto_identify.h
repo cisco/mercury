@@ -40,6 +40,7 @@
 #include "udp.h"
 #include "openvpn.h"
 #include "bittorrent.h"
+#include "mysql.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -60,6 +61,7 @@ enum tcp_msg_type {
     tcp_msg_type_nbss,
     tcp_msg_type_openvpn,
     tcp_msg_type_bittorrent,
+    tcp_msg_type_mysql_server,
 };
 
 enum udp_msg_type {
@@ -86,16 +88,29 @@ struct matcher_and_type {
 };
 
 template <size_t N>
+struct matcher_type_and_offset {
+    mask_value_and_offset<N> mv;
+    size_t type;
+};
+
+
+template <size_t N>
 class protocol_identifier {
     std::vector<matcher_and_type<N>> matchers;
+    std::vector<matcher_type_and_offset<N>> matchers_and_offset;
 
 public:
 
-    protocol_identifier() : matchers{} {  }
+    protocol_identifier() : matchers{}, matchers_and_offset{} {  }
 
     void add_protocol(const mask_and_value<N> &mv, size_t type) {
         struct matcher_and_type<N> new_proto{mv, type};
         matchers.push_back(new_proto);
+    }
+
+    void add_protocol(const mask_value_and_offset<N> &mv, size_t type) {
+        struct matcher_type_and_offset<N> new_proto{mv, type};
+        matchers_and_offset.push_back(new_proto);
     }
 
     void compile() {
@@ -141,6 +156,16 @@ public:
                     return p.type;
                 }
             } else if (p.mv.matches(pkt.data, pkt.length())) {
+                return p.type;
+            }
+        }
+
+        for (matcher_type_and_offset p : matchers_and_offset) {
+            if (N == 4) {
+                if (p.mv.matches_at_offset(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
+                    return p.type;
+                }
+            } else if (p.mv.matches_at_offset(pkt.data, pkt.length())) {
                 return p.type;
             }
         }
@@ -375,6 +400,9 @@ public:
             udp.add_protocol(bittorrent_dht::matcher, udp_msg_type_dht);
             udp.add_protocol(bittorrent_lsd::matcher, udp_msg_type_lsd);
             tcp.add_protocol(bittorrent_handshake::matcher, tcp_msg_type_bittorrent);
+        }
+        if (protocols["mysql"] || protocols["all"]) {
+            tcp.add_protocol(mysql_server_greet::matcher, tcp_msg_type_mysql_server);
         }
         // tell protocol_identification objects to compile lookup tables
         tcp.compile();
