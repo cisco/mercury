@@ -421,7 +421,7 @@ namespace mysql_consts{
 
 };
 
-class mysql_server_greet {
+class mysql_server_greet : public base_protocol {
     uint32_t len;    // 3 bytes in little endian
     encoded<uint8_t> pkt_num;
     encoded<uint8_t> proto;    // fixed 0x0A

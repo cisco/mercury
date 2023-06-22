@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "dhcp.h"
+#include "protocol.h"
 #include "json_object.h"
 
 /*
@@ -441,7 +441,7 @@ struct dhcp_option : public datum {
 };
 
 
-struct dhcp_discover {
+struct dhcp_discover : public base_protocol {
     struct datum options;
 
     dhcp_discover(datum &p) { parse(p); };
@@ -454,7 +454,11 @@ struct dhcp_discover {
 
     bool is_not_empty() const { return options.is_not_empty(); }
 
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o, bool metadata) {
+        if (metadata) {
+            write_json_complete(o);
+            return;
+        }
         struct json_object json_dhcp{o, "dhcp"};
         struct datum tmp = options;
         while (tmp.is_not_empty()) {

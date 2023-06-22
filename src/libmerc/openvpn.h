@@ -15,6 +15,8 @@
 
 #include <vector>
 
+#include "datum.h"
+#include "protocol.h"
 #include "json_object.h"
 #include "tls.h"
 
@@ -348,7 +350,7 @@ public:
     bool get_keyid() const { return !key_id;  } // return true for zeroed key_id
 };
 
-class openvpn_tcp {
+class openvpn_tcp : public base_protocol {
     std::vector<openvpn_tcp_record> ctrl_records;
     std::vector<openvpn_tcp_record> ack_records;
     uint8_t num_records = 0;

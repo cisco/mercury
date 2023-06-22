@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "tcp.h"
+#include "protocol.h"
 #include "datum.h"
 #include "analysis.h"
 #include "json_object.h"
@@ -60,7 +60,7 @@
 //
 #define VERS_LEN 8
 
-struct ssh_init_packet : public tcp_base_protocol {
+struct ssh_init_packet : public base_protocol {
     struct datum protocol_string;
     struct datum comment_string;
 
@@ -230,7 +230,7 @@ struct name_list : public datum {
  *     uint32       0 (reserved for future extension)
  *
  */
-struct ssh_kex_init : public tcp_base_protocol {
+struct ssh_kex_init : public base_protocol {
     struct datum msg_type;
     struct datum cookie;
     struct name_list kex_algorithms;

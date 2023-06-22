@@ -8,6 +8,7 @@
 #ifndef DTLS_H
 #define DTLS_H
 
+#include "protocol.h"
 #include "fingerprint.h"
 #include "match.h"
 #include "json_object.h"
@@ -73,7 +74,7 @@ struct dtls_handshake {
 
 };
 
-class dtls_client_hello {
+class dtls_client_hello : public base_protocol {
     tls_client_hello hello;
 public:
     dtls_client_hello(struct datum &pkt) : hello{pkt} {}
@@ -109,7 +110,7 @@ public:
 
 };
 
-class dtls_server_hello {
+class dtls_server_hello : public base_protocol {
     tls_server_hello hello;
 
 public:

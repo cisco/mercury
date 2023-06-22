@@ -21,7 +21,7 @@
  *           : UpnP Device Architecture Spec (updated) https://openconnectivity.org/upnp-specs/UPnP-arch-DeviceArchitecture-v2.0-20200417.pdf
  */
 
-class ssdp {
+class ssdp : public base_protocol {
 
     enum msg_type {
         notify          = 0,

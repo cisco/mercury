@@ -6,6 +6,7 @@
 #define TOFSEE_HPP
 
 #include "datum.h"
+#include "protocol.h"
 #include "json_object.h"
 #include "utils.h"
 
@@ -44,7 +45,7 @@ inline T rotl(T &x) {
 // expected weight of that field would be 64, but in traffic
 // observations, the weight was no greater than seven.
 //
-class tofsee_initial_message {
+class tofsee_initial_message : public base_protocol {
 
     static void decrypt(const uint8_t *ciphertext, uint8_t *plaintext, size_t data_len) {
         uint8_t res = 198;

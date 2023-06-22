@@ -43,7 +43,7 @@
  *
  */
 
-class nbss_packet {
+class nbss_packet : public base_protocol {
     encoded<uint8_t> type;
     encoded<uint8_t> flags;
     encoded<uint16_t> length;
@@ -225,7 +225,7 @@ public:
     }
 };
 
-class nbds_packet {
+class nbds_packet : public base_protocol {
     encoded<uint8_t> msg_type;
     encoded<uint8_t> flags;
     encoded<uint16_t> datagram_id;

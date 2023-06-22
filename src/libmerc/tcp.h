@@ -844,23 +844,4 @@ struct flow_table_tcp {
 
 };
 
-
-/*
- * base class for all TCP protocol to inherit from (e.g., tls_client_hello, http_request)
- */
-class tcp_base_protocol {
-
-public:
-
-    bool is_not_empty() const { return false; }
-
-    void write_json(struct json_object &) { }
-
-    void compute_fingerprint(fingerprint &) const { }
-
-    bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
-
-};
-
-
 #endif /* MERC_TCP_H */

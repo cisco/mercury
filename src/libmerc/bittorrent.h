@@ -25,7 +25,7 @@
 // is one of "q" for query, "r" for response, or "e" for error. A key "v"
 // should be included in every message with a client version string.
 
-class bittorrent_dht {
+class bittorrent_dht : public base_protocol {
     bencoding::dictionary dict;
 
 public:
@@ -184,7 +184,7 @@ public:
     }
 };
 
-class bittorrent_lsd {
+class bittorrent_lsd : public base_protocol {
     literal_byte<'B', 'T', '-', 'S', 'E', 'A', 'R', 'C', 'H'> proto;
     ignore_char_class<space> sp1;
     literal_byte<'*'> asterisk;
@@ -374,7 +374,7 @@ public:
 // two minutes, but note that timeouts can be done much more quickly
 // when data is expected.
 
-class bittorrent_handshake {
+class bittorrent_handshake : public base_protocol {
     literal_byte<0x13, 'B', 'i', 't', 'T', 'o', 'r', 'r', 'e', 'n', 't', ' ', 'p', 'r', 'o', 't', 'o', 'c', 'o', 'l'> protocol;
     datum extension_bytes;
     datum hash_of_info_dict;

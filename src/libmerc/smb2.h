@@ -13,6 +13,7 @@
 #ifndef SMB2_H
 #define SMB2_H
 
+#include "protocol.h"
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
@@ -772,7 +773,7 @@ public:
     
 };
 
-class smb2_packet {
+class smb2_packet : public base_protocol {
     encoded<uint32_t> nbss_layer;
     smb2_header hdr;
     datum& body;

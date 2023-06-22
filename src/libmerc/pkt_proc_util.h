@@ -14,7 +14,7 @@
 #ifndef PKT_PROC_UTIL_HPP
 #define PKT_PROC_UTIL_HPP
 
-#include "tcp.h"
+#include "protocol.h"
 #include "dns.h"
 #include "mdns.h"
 #include "tls.h"
@@ -105,7 +105,7 @@ using protocol = std::variant<std::monostate,
 // class unknown_initial_packet represents the initial data field of a
 // tcp or udp packet from an unknown protocol
 //
-class unknown_initial_packet : public tcp_base_protocol {
+class unknown_initial_packet : public base_protocol {
     datum tcp_data_field;
 
 public:
@@ -136,7 +136,7 @@ public:
 // class unknown_udp_initial_packet represents the initial data field of a
 // udp packet from an unknown protocol
 //
-class unknown_udp_initial_packet {
+class unknown_udp_initial_packet : public base_protocol {
     datum udp_data_field;
 
 public:
@@ -191,18 +191,6 @@ struct write_metadata {
         r.write_json(record, metadata_output_);
     }
 
-    void operator()(http_response &r) {
-        if (metadata_output_) {
-            r.write_json(record);
-        }
-    }
-
-    void operator()(dhcp_discover &r) {
-        if (metadata_output_) {
-            r.write_json(record);
-        }
-    }
-
     void operator()(dns_packet &r) {
         std::string name{"dns"};
         if (r.netbios()) {
@@ -234,14 +222,6 @@ struct write_metadata {
         }
     }
 
-    void operator()(tls_server_hello &r) {
-        struct json_object tls{record, "tls"};
-        struct json_object tls_server{tls, "server"};
-        r.write_json(tls_server, metadata_output_);
-        tls_server.close();
-        tls.close();
-    }
-
     void operator()(dtls_server_hello &r) {
         struct json_object dtls{record, "dtls"};
         struct json_object dtls_server{dtls, "server"};
@@ -254,9 +234,8 @@ struct write_metadata {
         r.write_json(record, metadata_output_, certs_json_output_);
     }
 
-    void operator()(std::monostate &r) {
-        (void) r;
-    }
+    void operator()(std::monostate &) { }
+
 };
 
 struct compute_fingerprint {
@@ -276,28 +255,6 @@ struct compute_fingerprint {
         msg.compute_fingerprint(fp_, format_version);
     }
 
-    // these protocols are not fingerprinted
-    //
-    void operator()(sctp_init &) { }
-    void operator()(ospf &) { }
-    void operator()(icmp_packet &) { }
-    void operator()(wireguard_handshake_init &) { }
-    void operator()(unknown_initial_packet &) { }
-    void operator()(unknown_udp_initial_packet &) { }
-    void operator()(dns_packet &) { }
-    void operator()(mdns_packet &) { }
-    void operator()(ssdp &) { }
-    void operator()(dnp3 &) {}
-    void operator()(smb1_packet &) { }
-    void operator()(smb2_packet &) { }
-    void operator()(iec60870_5_104 &) { }
-    void operator()(nbss_packet &) { }
-    void operator()(nbds_packet &) { }
-    void operator()(bittorrent_handshake &) { }
-    void operator()(bittorrent_dht &) { }
-    void operator()(bittorrent_lsd &) { }
-    void operator()(mysql_server_greet &) { }
-    void operator()(tofsee_initial_message &) { }
     void operator()(std::monostate &) { }
 
 };
@@ -315,19 +272,9 @@ struct do_analysis {
         c_{c}
     {}
 
-    bool operator()(tls_client_hello &msg) {
-        return msg.do_analysis(k_, analysis_, c_);
-    }
-    bool operator()(http_request &msg) {
-        return msg.do_analysis(k_, analysis_, c_);
-    }
-    bool operator()(quic_init &msg) {
-        return msg.do_analysis(k_, analysis_, c_);
-    }
-
     template <typename T>
-    bool operator()(T &) {
-        return false;   // don't perform analysis for other types
+    bool operator()(T &msg) {
+        return msg.do_analysis(k_, analysis_, c_);
     }
 
     bool operator()(std::monostate &) { return false; }

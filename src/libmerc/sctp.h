@@ -153,7 +153,7 @@ namespace sctp {
 // protocol is reported through write_json(), so that the port numbers
 // associated with the SCTP session are reported.
 //
-class sctp_init {
+class sctp_init : public base_protocol {
     sctp::common_header header;
     sctp::chunk_header chunk;
     bool is_valid;

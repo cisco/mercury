@@ -13,6 +13,7 @@
 #ifndef DNS_H
 #define DNS_H
 
+#include "protocol.h"
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
@@ -724,7 +725,7 @@ struct dns_resource_record {
     bool is_not_empty() const { return question_record.is_not_empty(); }
 };
 
-struct dns_packet {
+struct dns_packet : public base_protocol {
     dns_hdr *header;
     struct datum records;
     size_t length;

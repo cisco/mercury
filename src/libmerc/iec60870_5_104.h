@@ -18,6 +18,7 @@
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
+#include "protocol.h"
 
 /*
  * ASDU packet format:
@@ -498,7 +499,7 @@ class is_packet_empty {
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; }; // (1)
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
  
-class iec60870_5_104 {
+class iec60870_5_104 : public base_protocol {
     literal<1> start_byte;
     encoded<uint8_t> apdu_length;
     std::variant<std::monostate, i_frame, s_frame, u_frame> packet;
