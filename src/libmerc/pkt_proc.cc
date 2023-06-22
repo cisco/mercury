@@ -37,6 +37,7 @@
 #include "ssdp.h"
 #include "stun.h"
 #include "smtp.h"
+#include "tofsee.hpp"
 #include "cdp.h"
 #include "lldp.h"
 #include "ospf.h"
@@ -267,6 +268,10 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
+            if (pkt.length() == 200) {
+                x.emplace<tofsee_initial_message>(pkt);
+                break;
+            }
             x.emplace<unknown_initial_packet>(pkt);
         } else {
             x.emplace<std::monostate>();

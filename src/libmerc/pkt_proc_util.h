@@ -43,6 +43,7 @@ struct ssh_kex_init;
 class smtp_client;
 class smtp_server;
 class dnp3;
+class tofsee_initial_message;
 class unknown_initial_packet;
 class quic_init;                         // start of udp protocols
 struct wireguard_handshake_init;
@@ -76,6 +77,7 @@ using protocol = std::variant<std::monostate,
                               dnp3,
                               nbss_packet,
                               bittorrent_handshake,
+                              tofsee_initial_message,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
@@ -295,6 +297,7 @@ struct compute_fingerprint {
     void operator()(bittorrent_dht &) { }
     void operator()(bittorrent_lsd &) { }
     void operator()(mysql_server_greet &) { }
+    void operator()(tofsee_initial_message &) { }
     void operator()(std::monostate &) { }
 
 };
