@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
     // process messages
     //
     while (true) {
-        char buf[8192];
+        char buf[20*1024];
 
         // read message from socket, then write to output
         //
