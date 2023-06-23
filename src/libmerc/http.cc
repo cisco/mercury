@@ -289,7 +289,11 @@ void http_response::parse(struct datum &p) {
     return;
 }
 
-void http_response::write_json(struct json_object &record, bool) {
+void http_response::write_json(struct json_object &record, bool metadata) {
+    if (!metadata) {
+        return;  // TODO: remove this to un-supress output
+    }
+
     static std::vector<perfect_hash_entry<const char*>> header_data_response = {
         { "content-type: ", "content_type"},
         { "content-length: ", "content_length"},
