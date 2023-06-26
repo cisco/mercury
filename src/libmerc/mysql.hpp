@@ -540,6 +540,8 @@ public:
             else {
                 mysql_json.print_key_bool("mariadb",false);
             }
+
+            mysql_json.close();
         }
 
         static constexpr mask_value_and_offset<8> matcher {
