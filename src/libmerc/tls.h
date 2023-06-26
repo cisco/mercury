@@ -11,7 +11,7 @@
 #include "fingerprint.h"
 #include "match.h"
 #include "analysis.h"
-#include "tcp.h"
+#include "protocol.h"
 #include "tcpip.h"
 
 
@@ -334,7 +334,7 @@ struct tls_extensions : public datum {
 };
 
 
-struct tls_client_hello : public tcp_base_protocol {
+struct tls_client_hello : public base_protocol {
     struct datum protocol_version;
     struct datum random;
     struct datum session_id;
@@ -373,7 +373,7 @@ struct tls_client_hello : public tcp_base_protocol {
 
 #include "match.h"
 
-struct tls_server_hello : public tcp_base_protocol {
+struct tls_server_hello : public base_protocol {
     struct datum protocol_version;
     struct datum random;
     struct datum ciphersuite_vector;
@@ -409,12 +409,16 @@ struct tls_server_hello : public tcp_base_protocol {
         }
 
         if (write_metadata) {
-            o.print_key_hex("version", protocol_version);
-            o.print_key_hex("random", random);
-            o.print_key_hex("selected_cipher_suite", ciphersuite_vector);
-            o.print_key_hex("compression_method", compression_method);
-            extensions.print_alpn(o, "application_layer_protocol_negotiation");
-            extensions.print_session_ticket(o, "session_ticket");
+            json_object tls{o, "tls"};
+            json_object tls_server{tls, "server"};
+            tls_server.print_key_hex("version", protocol_version);
+            tls_server.print_key_hex("random", random);
+            tls_server.print_key_hex("selected_cipher_suite", ciphersuite_vector);
+            tls_server.print_key_hex("compression_method", compression_method);
+            extensions.print_alpn(tls_server, "application_layer_protocol_negotiation");
+            extensions.print_session_ticket(tls_server, "session_ticket");
+            tls_server.close();
+            tls.close();
         }
     }
 
@@ -431,7 +435,7 @@ struct tls_server_hello : public tcp_base_protocol {
 
 };
 
-class tls_server_hello_and_certificate : public tcp_base_protocol {
+class tls_server_hello_and_certificate : public base_protocol {
     struct tls_server_hello hello;
     struct tls_server_certificate certificate;
 

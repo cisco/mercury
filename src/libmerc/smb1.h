@@ -13,6 +13,7 @@
 #ifndef SMB1_H
 #define SMB1_H
 
+#include "protocol.h"
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
@@ -270,7 +271,7 @@ public:
     }
 };
 
-class smb1_packet {
+class smb1_packet : public base_protocol {
     encoded<uint32_t> nbss_layer;
     smb1_header hdr;
     datum& body;

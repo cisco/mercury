@@ -5,6 +5,7 @@
 #define STUN_H
 
 #include "datum.h"
+#include "protocol.h"
 #include "json_object.h"
 #include "util_obj.h"      // for utf8_string
 #include "match.h"
@@ -530,7 +531,7 @@ namespace stun {
 
     };
 
-    class message {
+    class message : public base_protocol {
         header hdr;
         datum body;
 

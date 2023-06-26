@@ -18,6 +18,8 @@ from posix.time cimport timespec
 # To build and install:
 #   CC=g++ python setup.py install
 
+# TODO: actually handle version
+__version__ = '0.1.2'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
@@ -79,14 +81,18 @@ cdef extern from "../libmerc/libmerc.h":
 
 
 cdef extern from "../libmerc/result.h":
-    cdef struct analysis_context:
-        pass
+    cdef cppclass attribute_result:
+        void write_json(char *buffer, int buffer_size)
     cdef struct analysis_result:
         fingerprint_status status
         char max_proc[256]
         long double max_score
         bool max_mal
         long double malware_prob
+        attribute_result attr
+    cdef struct analysis_context:
+        analysis_result result
+
 
 cdef extern from "../libmerc/analysis.h":
     classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
@@ -127,7 +133,7 @@ cdef class Mercury:
     cdef classifier* clf
     cdef bool do_analysis
 
-    def __init__(self, bool do_analysis, bytes resources, bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
+    def __init__(self, bool do_analysis=False, bytes resources=b'', bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
                  bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True):
         self.do_analysis = do_analysis
         self.py_config = {
@@ -143,10 +149,15 @@ cdef class Mercury:
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
-        cdef char* resources_c = resources
-        cdef enc_key_type ekt = enc_key_type_none
-        if do_analysis:
+        cdef char* resources_c
+        cdef enc_key_type ekt
+        if do_analysis and resources != b'':
+            resources_c = resources
+            ekt = enc_key_type_none
             self.clf = analysis_init_from_archive(0, resources_c, NULL, ekt, 0.0, 0.0, False)
+
+        self.mercury_init()
+
 
     cpdef int mercury_init(self, unsigned int verbosity=0):
         cdef libmerc_config config = self.py_config
@@ -228,6 +239,10 @@ cdef class Mercury:
         result['analysis']['malware']   = is_malware
         result['analysis']['p_malware'] = prob_malware
 
+        attributes = self.extract_attributes(ac.result)
+        if len(attributes) > 0:
+            result['analysis']['attributes'] = attributes
+
         return result
 
 
@@ -257,7 +272,25 @@ cdef class Mercury:
         result['analysis']['malware']   = ar.max_mal
         result['analysis']['p_malware'] = ar.malware_prob
 
+        attributes = self.extract_attributes(ar)
+        if len(attributes) > 0:
+            result['analysis']['attributes'] = attributes
+
         return result
+
+
+    cdef list extract_attributes(self, analysis_result ar):
+        cdef char tags_buf[8192]
+        memset(tags_buf, 0, 8192)
+        cdef char* tags_buf_p = tags_buf
+        try:
+            ar.attr.write_json(tags_buf_p, 8192)
+            ret_ = []
+            for x in json.loads(tags_buf_p.decode())['attributes']:
+                ret_.append({'name': x['name'], 'probability_score': x['probability_score']})
+            return ret_
+        except:
+            return []
 
 
     cpdef dict perform_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
@@ -293,6 +326,10 @@ cdef class Mercury:
         result['analysis']['score']     = ar.max_score
         result['analysis']['malware']   = ar.max_mal
         result['analysis']['p_malware'] = ar.malware_prob
+
+        attributes = self.extract_attributes(ar)
+        if len(attributes) > 0:
+            result['analysis']['attributes'] = attributes
 
         return result
 

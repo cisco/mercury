@@ -108,6 +108,8 @@
 #define MAGENTA(colorize, S) colorize ? (sMAGENTA(S)) : S
 #define CYAN(colorize, S)    colorize ? (sCYAN(S))    : S
 
+#define INTERCEPT_DLL_EXPORTED __attribute__((__visibility__("default")))
+
 // tty is 1 if stderr is a TTY, and 0 otherwise; it enables us to
 // suppress colorized output if needed
 //
@@ -167,7 +169,7 @@ size_t get_cmd(int pid, char *cmd, size_t cmd_len) {
     // read command associated with process from /proc filesystem
     //
     FILE *cmd_file = fopen(filename, "r");
-    size_t bytes_read;
+    size_t bytes_read = 0;
     if (cmd_file) {
         // read command line from /proc filesystem, reserving last byte for null terminator
         //
@@ -193,7 +195,7 @@ size_t get_cmd(int pid, char *cmd, size_t cmd_len) {
         }
         cmd[last_null] = '\0';  // avoid trailing space
     }
-    return bytes_read - 1;
+    return (bytes_read? bytes_read - 1 : 0);
 }
 
 #include <sys/stat.h>
@@ -250,15 +252,49 @@ void print_flow_key(int fd) {
 // libmerc
 //
 
+#include "libmerc/json_object.h"
+#include "libmerc/pkt_proc.h"
+#include "libmerc/proto_identify.h"
+#include <ctype.h>
+
+#include "libmerc/arp.h"
+#include "libmerc/bittorrent.h"
+#include "libmerc/ip.h"
+#include "libmerc/tcp.h"
+#include "libmerc/dns.h"
+#include "libmerc/mdns.h"
 #include "libmerc/tls.h"
 #include "libmerc/http.h"
-#include "libmerc/http2.h"
-#include "libmerc/json_object.h"
-#include <ctype.h>
+#include "libmerc/wireguard.h"
+#include "libmerc/ssh.h"
+#include "libmerc/dhcp.h"
+#include "libmerc/tcpip.h"
+#include "libmerc/eth.h"
+#include "libmerc/gre.h"
+#include "libmerc/icmp.h"
+#include "libmerc/udp.h"
+#include "libmerc/quic.h"
+#include "libmerc/ssdp.h"
+#include "libmerc/stun.h"
+#include "libmerc/smtp.h"
+#include "libmerc/cdp.h"
+#include "libmerc/lldp.h"
+#include "libmerc/ospf.h"
+#include "libmerc/sctp.h"
+#include "libmerc/analysis.h"
+#include "libmerc/buffer_stream.h"
+#include "libmerc/stats.h"
+#include "libmerc/ppp.h"
+#include "libmerc/smb1.h"
+#include "libmerc/smb2.h"
+#include "libmerc/netbios.h"
+#include "libmerc/openvpn.h"
+#include "libmerc/tofsee.hpp"
 
 #include <unordered_set>
 #include <string>
 
+#if 0
 struct http_request_x : public http_request {
     struct datum trailing_data;
 
@@ -326,6 +362,7 @@ struct http_request_x : public http_request {
         }
     }
 };
+#endif
 
 // class output is responsible for data output - its interface
 // abstracts away the details of where data goes and how it gets there
@@ -360,7 +397,7 @@ public:
 class file_output : public output {
     FILE *outfile = nullptr;
     sem_t *outfile_sem = nullptr;
-    static constexpr size_t buffer_length = 8*1024;
+    static constexpr size_t buffer_length = 20*1024;
 
 public:
 
@@ -440,10 +477,12 @@ public:
         // fprintf(stderr, GREEN(tty, "pid %d acquired semaphore\n"), pid);
 
         fseek(outfile, 0, SEEK_END); // move to end of file
-        if (buf.write_line(outfile) < 0) {
-            perror ("intercept: write()");
-            exit(EXIT_FAILURE);
-        }
+        buf.write_line(outfile);
+        // add check to find write error
+        // if (buf.write_line(outfile) < 0) {
+        //     perror ("intercept: write()");
+        //     exit(EXIT_FAILURE);
+        // }
 
         // fprintf(stderr, GREEN(tty, "pid %d releasing semaphore\n"), pid);
         if (sem_post(outfile_sem) == -1) {
@@ -498,12 +537,12 @@ struct daemon_output : public output {
 
     };
 
+    int get_fd() {return sock;}
+
     ~daemon_output() {
         close(sock);
     }
 };
-
-
 
 // class intercept controls the behavior of this library; you can
 // define totally new behavior by defining a class that inherits from
@@ -513,12 +552,17 @@ struct daemon_output : public output {
 class intercept {
     int pid, ppid;
     output *out;
-    static constexpr size_t buffer_length = 8*1024;
+    static constexpr size_t buffer_length = 20*1024;
+    int out_fd = -1;
     const char *INTERCEPT_DIR = nullptr;   // TODO: merge with ENV_INTERCEPT_DIR
     char cmd[256];
     size_t cmd_len = 0;
     char pcmd[256];
     size_t pcmd_len = 0;
+    std::string cfg_str = "all";
+    struct libmerc_config cfg;
+    mercury_context ctx = nullptr;
+    mercury_packet_processor pkt_proc_ctx = nullptr;
 
 public:
 
@@ -532,6 +576,25 @@ public:
     intercept(output::type out_type) : pid{getpid()}, ppid{getppid()}, out{nullptr} {
 
         if (verbose) { fprintf(stderr, GREEN(tty, "%s\n"), __func__); }
+
+        // setup libmerc pkt processing structs
+        //
+        cfg.metadata_output = true;
+        cfg.packet_filter_cfg = (char *)cfg_str.c_str();
+        cfg.dns_json_output = true;
+        ctx = mercury_init(&cfg, 0);
+
+        if (ctx == nullptr) {
+            fprintf(stderr, RED(tty, "Mercury init failed %s\n"), __func__);
+            exit(EXIT_FAILURE);
+        }
+
+        pkt_proc_ctx = mercury_packet_processor_construct(ctx);
+        if (!pkt_proc_ctx) {
+            fprintf(stderr, RED(tty, "Mercury pkt_proc init failed %s\n"), __func__);
+            exit(EXIT_FAILURE);
+        }
+
 
         // create output object of appropriate type
         //
@@ -557,6 +620,10 @@ public:
             output_level = minimal_data;
         }
 
+        if (out_type == output::type::daemon) {
+            out_fd = ((daemon_output*)out)->get_fd();
+        }
+
         // set cmd and pcmd
         //
         cmd_len = get_cmd(pid, cmd, sizeof(cmd));
@@ -574,12 +641,24 @@ public:
 
         record.close();
         // write_buffer_to_file(buf, outfile);
+
+        if (buf.trunc) {
+            if (verbose) {
+                fprintf(stderr, RED(tty, "error: output buffer overrun\n"));
+            }
+            return;
+        }
+
         out->write_buffer(buf);
 
     }
 
+    int get_out_fd() {return out_fd;}
+
     ~intercept() {
         delete out;
+        mercury_packet_processor_destruct(pkt_proc_ctx);
+        mercury_finalize(ctx);
     }
 
     // write_process_info() writes information about the current
@@ -599,10 +678,10 @@ public:
         }
     }
 
-    // write_flow_key() reads network socket info from the file
+    // intercept_write_flow_key() reads network socket info from the file
     // descriptor fd, then writes addresses and ports into json_object
     //
-    void write_flow_key(struct json_object &record, int fd) {
+    void intercept_write_flow_key(struct json_object &record, int fd) {
 
         if (!fd_is_socket(fd)) {
             return;
@@ -638,9 +717,241 @@ public:
         }
     }
 
-    void process_outbound(int fd, const uint8_t *data, ssize_t length) {
-        process_tls_client_hello(fd, data, length);
-        process_http_request(fd, data, length);
+    // get_ports returns a pair of src port and dst port that can be used for protocol identification
+    //
+    std::pair<uint16_t,uint16_t> get_ports(int fd) {
+        
+        if (!fd_is_socket(fd)) {
+            return {0,0};
+        }
+
+        struct sockaddr_in address;
+        bzero(&address, sizeof(address));
+        socklen_t address_len = sizeof(address);
+        uint16_t src_port, dst_port;
+        int retval = getsockname(fd, (struct sockaddr *) &address, &address_len);
+        if (retval == 0) {
+            if (address.sin_family == AF_INET || address.sin_family == AF_INET6) {
+
+                // report source address and source port
+                //
+                char addr[INET6_ADDRSTRLEN];
+                inet_ntop(address.sin_family, &address.sin_addr, addr, sizeof(addr));
+                src_port = ntohs(address.sin_port);
+                getpeername(fd, (struct sockaddr *) &address, &address_len);
+                inet_ntop(address.sin_family, &address.sin_addr, addr, sizeof(addr));
+                dst_port = ntohs(address.sin_port);
+                return {src_port,dst_port};
+
+            }
+        }
+        return {0,0};
+    }
+
+    // write_address() prints the address associated with a call for e.g. the sockaddr in sendto
+    //
+    void write_address(struct json_object &record, const struct sockaddr* address, socklen_t len) {
+        if (!address or !len) {
+            return;
+        }
+
+        struct sockaddr_in* address_in = (sockaddr_in*)address;
+        if (address_in->sin_family == AF_INET || address_in->sin_family == AF_INET6) {
+
+            // report address and port
+            //
+            char addr[INET6_ADDRSTRLEN];
+                inet_ntop(address_in->sin_family, &(address_in->sin_addr), addr, sizeof(addr));
+                uint16_t port = ntohs(address_in->sin_port);
+                record.print_key_string("sock_ip", addr);
+                record.print_key_uint("sock_port", port);
+            }
+    }
+
+    void process_data_pkt_send_recv(int fd, const uint8_t *data, ssize_t length, const char* func = nullptr, const sockaddr *address = nullptr, socklen_t *address_len = nullptr)
+    {
+        // as send/recv can be used for TCP and UDP
+        // try parsing data as tcp stream first
+        // if no protocol matches, try UDP dgram
+        //
+
+        // create dummy tcp pkt with correct ports
+        datum tcp_pkt_data{data, data+length};
+        datum udp_pkt_data{data, data+length};
+        std::pair<uint16_t, uint16_t> ports = get_ports(fd);
+        datum dummy_pkt{};
+        tcp_packet tcp_pkt{dummy_pkt};
+        struct tcp_header hdr;
+        hdr.src_port = ports.first;
+        hdr.dst_port = ports.second;
+        tcp_pkt.header = &hdr;
+        protocol tcp_proto;
+        pkt_proc_ctx->set_tcp_protocol(tcp_proto, tcp_pkt_data, true, &tcp_pkt);
+        bool is_tcp = (std::holds_alternative<std::monostate>(tcp_proto) == false) && (std::holds_alternative<unknown_initial_packet>(tcp_proto) == false);
+        bool is_udp = false;
+        protocol udp_proto;
+
+        if (!is_tcp) {
+            // try checking udp protocols
+            enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data));
+            udp::ports udp_ports;
+            udp_ports.src = ports.first;
+            udp_ports.dst = ports.second;
+            if (msg_type == udp_msg_type_unknown)
+            { // TODO: wrap this up in a traffic_selector member function
+                msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type_from_ports(udp_ports));
+            }
+            struct key k;
+            k.src_port = udp_ports.src;
+            k.dst_port = udp_ports.dst;
+            k.protocol = 17;
+            pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, msg_type, true, k);
+            is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
+        }
+        if (!is_tcp && !is_udp) {
+            return;
+        }
+
+        char buffer[buffer_length];
+        struct buffer_stream buf(buffer, sizeof(buffer));
+        struct json_object record{&buf};
+
+        // write pid into record
+        write_process_info(record, output_level);
+        record.print_key_uint("fd", fd);
+        intercept_write_flow_key(record, fd);
+
+        if (!std::visit(is_not_empty{}, (is_tcp ? tcp_proto : udp_proto))) {
+            return;
+        }
+
+        pkt_proc_ctx->analysis.fp.init();
+        std::visit(compute_fingerprint{pkt_proc_ctx->analysis.fp, pkt_proc_ctx->global_vars.tls_fingerprint_format}, (is_tcp ? tcp_proto : udp_proto));
+
+        if (pkt_proc_ctx->analysis.fp.get_type() != fingerprint_type_unknown)
+        {
+            pkt_proc_ctx->analysis.fp.write(record);
+        }
+        std::visit(write_metadata{record, pkt_proc_ctx->global_vars.metadata_output, pkt_proc_ctx->global_vars.certs_json_output, pkt_proc_ctx->global_vars.dns_json_output}, (is_tcp ? tcp_proto : udp_proto));
+
+        struct timespec ts;
+        timespec_get(&ts, TIME_UTC);
+        record.print_key_timestamp("event_start", &ts);
+
+        if (address and address_len and *address_len) {
+            // sendto was called, dump address as well
+            write_address(record, address, *address_len);
+        }
+
+        if (func) {
+            record.print_key_string("func",func);
+        }
+
+        record.close();
+
+        if (buf.trunc) {
+            if (verbose) {
+                fprintf(stderr, RED(tty, "error: output buffer overrun\n"));
+            }
+            return;
+        }
+
+        out->write_buffer(buf);
+    }
+
+    void process_data_pkt_sendto_recvfrom(int fd, const uint8_t *data, ssize_t length, const char* func = nullptr, const struct sockaddr *address = nullptr, socklen_t *address_len = nullptr)
+    {
+        // as send/recv can be used for TCP and UDP
+        // try parsing data as udp dgram first
+        // if no protocol matches, try TCP
+        //
+        std::pair<uint16_t, uint16_t> ports = get_ports(fd);
+        bool is_udp = false;
+        protocol udp_proto;
+        protocol tcp_proto;
+        bool is_tcp = false;
+        datum udp_pkt_data{data, data+length};
+        datum tcp_pkt_data{data, data+length};
+        enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data));
+        udp::ports udp_ports;
+        udp_ports.src = ports.first;
+        udp_ports.dst = ports.second;
+        if (msg_type == udp_msg_type_unknown) { 
+            // TODO: wrap this up in a traffic_selector member function
+            msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type_from_ports(udp_ports));
+        }
+        struct key k;
+        k.src_port = udp_ports.src;
+        k.dst_port = udp_ports.dst;
+        k.protocol = 17;
+        pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, msg_type, true, k);
+        is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
+
+        if (!is_udp) {
+            datum dummy_pkt{};
+            tcp_packet tcp_pkt{dummy_pkt};
+            struct tcp_header hdr;
+            hdr.src_port = ports.first;
+            hdr.dst_port = ports.second;
+            tcp_pkt.header = &hdr;
+            pkt_proc_ctx->set_tcp_protocol(tcp_proto, tcp_pkt_data, true, &tcp_pkt);
+            is_tcp = (std::holds_alternative<std::monostate>(tcp_proto) == false) && (std::holds_alternative<unknown_initial_packet>(tcp_proto) == false);
+        }
+
+        if (!is_tcp && !is_udp) {
+            return;
+        }
+
+        char buffer[buffer_length];
+        struct buffer_stream buf(buffer, sizeof(buffer));
+        struct json_object record{&buf};
+
+        // write pid into record
+        write_process_info(record, output_level);
+        record.print_key_uint("fd", fd);
+        intercept_write_flow_key(record, fd);
+
+        if (!std::visit(is_not_empty{}, (is_tcp ? tcp_proto : udp_proto))) {
+            return;
+        }
+
+        pkt_proc_ctx->analysis.fp.init();
+        std::visit(compute_fingerprint{pkt_proc_ctx->analysis.fp, pkt_proc_ctx->global_vars.tls_fingerprint_format}, (is_tcp ? tcp_proto : udp_proto));
+        if (pkt_proc_ctx->analysis.fp.get_type() != fingerprint_type_unknown) {
+            pkt_proc_ctx->analysis.fp.write(record);
+        }
+        std::visit(write_metadata{record, pkt_proc_ctx->global_vars.metadata_output, pkt_proc_ctx->global_vars.certs_json_output, pkt_proc_ctx->global_vars.dns_json_output}, (is_tcp ? tcp_proto : udp_proto));
+
+        struct timespec ts;
+        timespec_get(&ts, TIME_UTC);
+        record.print_key_timestamp("event_start", &ts);
+
+        if (address and address_len and *address_len) {
+            // sendto/recvfrom was called, dump address as well
+            write_address(record, address, *address_len);
+        }
+
+        if (func) {
+            record.print_key_string("func",func);
+        }
+
+        record.close();
+
+        if (buf.trunc) {
+            if (verbose) {
+                fprintf(stderr, RED(tty, "error: output buffer overrun\n"));
+            }
+            return;
+        }
+
+        out->write_buffer(buf);
+
+    }
+
+#if 0
+    void process_outbound(int fd, const uint8_t *data, ssize_t length, sockaddr* address = nullptr, socklen_t address_len = 0) {
+        //process_tls_client_hello(fd, data, length, address, address_len);
+        //process_http_request(fd, data, length, address, address_len);
     }
 
     void process_outbound_plaintext(int fd, const uint8_t *data, ssize_t length) {
@@ -664,7 +975,7 @@ public:
             // write pid into record
             write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
-            write_flow_key(record, fd);
+            intercept_write_flow_key(record, fd);
 
             http_req.write_json(record, true);
 
@@ -692,7 +1003,7 @@ public:
                 // write pid into record
                 write_process_info(record, output_level);
                 record.print_key_uint("fd", fd);
-                write_flow_key(record, fd);
+                intercept_write_flow_key(record, fd);
 
                 record.print_key_hex("tcp_data", tcp_data);
 
@@ -745,7 +1056,7 @@ public:
                 // write pid into record
                 write_process_info(record, output_level);
                 record.print_key_uint("fd", fd);
-                write_flow_key(record, fd);
+                intercept_write_flow_key(record, fd);
 
                 hello.write_json(record);
                 record.close();
@@ -761,10 +1072,11 @@ public:
         //print_flow_key(fd);
         //write_data_to_file(pid, data, length, fd);
     }
+#endif
 
     void process_dns_lookup(const char *dns_name, const char *service) {
         // fprintf(stderr, BLUE("%s: %s\t%s\n"), __func__, dns_name, service);
-
+        if (verbose) { fprintf(stderr, BLUE(tty, "%s: %s\t%s\n"), __func__, dns_name, service); }
         size_t dns_name_len = 0;
         if (dns_name) {
             dns_name_len = strlen(dns_name); // only run strlen() on valid pointers
@@ -785,6 +1097,14 @@ public:
         //dns_object.print_key_json_string("service", service);
         dns_object.close();
         record.close();
+
+        if (buf.trunc) {
+            if (verbose) {
+                fprintf(stderr, RED(tty, "error: output buffer overrun\n"));
+            }
+            return;
+        }
+
         out->write_buffer(buf);
 
     }
@@ -835,13 +1155,12 @@ public:
         }
     }
 
-    void process_http_request(int fd, const uint8_t *data, ssize_t length);
-
-    void process_tls_client_hello(int fd, const uint8_t *data, ssize_t length);
+    //void process_http_request(int fd, const uint8_t *data, ssize_t length);
+    //void process_tls_client_hello(int fd, const uint8_t *data, ssize_t length);
 
 };
 
-
+#if 0
 // high level functions for processing network traffic
 //
 
@@ -857,7 +1176,7 @@ void intercept::process_http_request(int fd, const uint8_t *data, ssize_t length
         // write pid into record
         write_process_info(record, output_level);
         record.print_key_uint("fd", fd);
-        write_flow_key(record, fd);
+        intercept_write_flow_key(record, fd);
 
         // write fingerprint into record
         struct fingerprint fp;
@@ -898,17 +1217,18 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             // write pid into record
             write_process_info(record, output_level);
             record.print_key_uint("fd", fd);
-            write_flow_key(record, fd);
+            intercept_write_flow_key(record, fd);
 
             // write fingerprint into record
             fp.write(record);
             hello.write_json(record, true);
+        
             record.close();
             out->write_buffer(buf);
         }
     }
 }
-
+#endif
 
 // global variable intrcptr
 //
@@ -1034,26 +1354,41 @@ int EVP_Cipher(EVP_CIPHER_CTX *c,
 
 #endif // INTERCEPT_EVP_CIPHER
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 int SSL_write(SSL *context, const void *buffer, int bytes) {
 
-    intrcptr->process_outbound_plaintext(SSL_get_fd(context), (uint8_t *)buffer, bytes);
+    if (verbose) { fprintf(stderr, BLUE(tty, "SSL_write() invoked\n")); }
+    //intrcptr->process_outbound_plaintext(SSL_get_fd(context), (uint8_t *)buffer, bytes);
+    intrcptr->process_data_pkt_send_recv(SSL_get_fd(context), (uint8_t *)buffer, bytes, std::string("ssl_write").c_str());
     invoke_original(SSL_write, context, buffer, bytes);
 }
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 int SSL_read(SSL *context, void *buffer, int bytes) {
 
-    intrcptr->process_inbound_plaintext(SSL_get_fd(context), (uint8_t *)buffer, bytes);
+    if (verbose) { fprintf(stderr, BLUE(tty, "SSL_read() invoked\n")); }
+    //intrcptr->process_inbound_plaintext(SSL_get_fd(context), (uint8_t *)buffer, bytes);
+    intrcptr->process_data_pkt_send_recv(SSL_get_fd(context), (uint8_t *)buffer, bytes, std::string("ssl_read").c_str());
     invoke_original(SSL_read, context, buffer, bytes);
 }
 
 #include "nspr/prio.h"
 #include "nspr/private/pprio.h"
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 PRInt32 PR_Write(PRFileDesc *fd, const void *buf, PRInt32 amount) {
 
+    if (verbose) { fprintf(stderr, BLUE(tty, "PR_write() invoked\n")); }
     int native_fd = PR_FileDesc2NativeHandle(fd);
     if (fd_is_socket(native_fd)) {
-        intrcptr->process_outbound_plaintext(native_fd, (uint8_t *)buf, amount);
+        //intrcptr->process_outbound_plaintext(native_fd, (uint8_t *)buf, amount);
+        intrcptr->process_data_pkt_send_recv(native_fd, (uint8_t *)buf, amount, std::string("pr_write").c_str());
     }
     invoke_original(PR_Write, fd, buf, amount);
 }
@@ -1064,6 +1399,9 @@ PRInt32 PR_Write(PRFileDesc *fd, const void *buf, PRInt32 amount) {
 
 #include <gnutls/gnutls.h>
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 ssize_t gnutls_record_send(gnutls_session_t session,
                            const void *data,
                            size_t data_size) {
@@ -1082,7 +1420,8 @@ ssize_t gnutls_record_send(gnutls_session_t session,
     // fprintf(stderr, GREEN(tty, "tp: %p\n"), tp);
 
     int fd = (r < 32 && r > 0) ? r : 0;
-    intrcptr->process_outbound_plaintext(fd, (uint8_t *)data, (ssize_t) data_size);
+    //intrcptr->process_outbound_plaintext(fd, (uint8_t *)data, (ssize_t) data_size);
+    intrcptr->process_data_pkt_send_recv(fd, (uint8_t *)data, (ssize_t) data_size, std::string("gnutls_record_send").c_str()); 
 
     //print_flow_key(r);
     //write_data_to_file(pid, data, data_size);
@@ -1094,21 +1433,33 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 // intercepted, thier names will show up in the output, but no other
 // actions will be performed
 //
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 ssize_t gnutls_record_send2 (gnutls_session_t session, const void * data, size_t data_size, size_t pad, unsigned flags) {
     fprintf(stderr, RED(tty, "%s\n"), __func__);
     invoke_original(gnutls_record_send2, session, data, data_size, pad, flags);
 }
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 ssize_t gnutls_record_send_early_data (gnutls_session_t session, const void * data, size_t data_size) {
     fprintf(stderr, RED(tty, "%s\n"), __func__);
     invoke_original(gnutls_record_send_early_data, session, data, data_size);
 }
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 ssize_t gnutls_record_send_range (gnutls_session_t session, const void * data, size_t data_size, const gnutls_range_st * range) {
     fprintf(stderr, RED(tty, "%s\n"), __func__);
     invoke_original(gnutls_record_send_range, session, data, data_size, range);
 }
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 void gnutls_transport_set_push_function(gnutls_session_t session,  gnutls_push_func push_func) {
     fprintf(stderr, RED(tty, "%s\n"), __func__);
     invoke_original(gnutls_transport_set_push_function, session, push_func);
@@ -1120,36 +1471,150 @@ void gnutls_transport_set_push_function(gnutls_session_t session,  gnutls_push_f
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
-    intrcptr->process_outbound(sockfd, (uint8_t *)buf, len);
+    if (verbose) { fprintf(stderr, BLUE(tty, "send() invoked\n")); }
+    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("send").c_str()); 
     invoke_original(send, sockfd, buf, len, flags);
 }
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
+ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *address, socklen_t address_len) {
+    if (verbose) { fprintf(stderr, BLUE(tty, "sendto() invoked\n")); }
+    if (intrcptr && intrcptr->get_out_fd() != sockfd) {
+        intrcptr->process_data_pkt_sendto_recvfrom(sockfd, (uint8_t *)buf, len, std::string("sendto").c_str(), address, &address_len);
+    }
+    invoke_original(sendto, sockfd, buf, len, flags, address, address_len);
+
+}
+
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
-    if (verbose) { fprintf(stderr, YELLOW(tty, "sendmsg() invoked\n")); }  // note: no processing happening yet
+    if (verbose) { fprintf(stderr, BLUE(tty, "sendmsg() invoked\n")); }  // note: no processing happening yet
+    if (msg) {
+        size_t iovlen = msg->msg_iovlen;
+        for (size_t i = 0; i < iovlen; i++) {
+            void *msg_buf = msg->msg_iov[i].iov_base;
+            size_t msg_len = msg->msg_iov[i].iov_len;
+            if (msg_buf and msg_len) {
+                intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmsg").c_str());
+            }
+        }
+    }
     invoke_original(sendmsg, sockfd, msg, flags);
 }
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
+int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags) {
+    if (verbose) { fprintf(stderr, BLUE(tty, "sendmmsg() invoked\n")); }  // note: no processing happening yet
+    if (msgvec) {
+        for (unsigned int i = 0; i < vlen; i++) {
+            struct msghdr *msg = &(msgvec[i].msg_hdr);
+            if (msg) {
+                size_t iovlen = msg->msg_iovlen;
+                for (size_t j = 0; j < iovlen; j++) {
+                    void *msg_buf = msg->msg_iov[j].iov_base;
+                    size_t msg_len = msg->msg_iov[j].iov_len;
+                    if (msg_buf and msg_len) {
+                        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmmsg").c_str()); 
+                    }
+                }
+            } 
+        }
+    }
+    invoke_original(sendmmsg, sockfd, msgvec, vlen, flags);
+}
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 ssize_t recv(int sockfd, void *buf, size_t len, int flags) {
-    fprintf(stderr, YELLOW(tty, "recv() invoked\n"));  // note: no processing happening yet
+    if (verbose) { fprintf(stderr, BLUE(tty, "recv() invoked\n")); }
+    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("recv").c_str()); 
     invoke_original(recv, sockfd, buf, len, flags);
+}
+
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
+ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *address, socklen_t *address_len) {
+    if (verbose) { fprintf(stderr, BLUE(tty, "recvfrom() invoked\n")); }
+    intrcptr->process_data_pkt_sendto_recvfrom(sockfd, (uint8_t *)buf, len, std::string("recvfrom").c_str(), address, address_len); 
+    invoke_original(recvfrom, sockfd, buf, len, flags, address, address_len);
+
+}
+
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
+ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags) {
+    if (verbose) { fprintf(stderr, BLUE(tty, "recvmsg() invoked\n")); }  // note: no processing happening yet
+    if (msg) {
+        size_t iovlen = msg->msg_iovlen;
+        for (size_t i = 0; i < iovlen; i++) {
+            void *msg_buf = msg->msg_iov[i].iov_base;
+            size_t msg_len = msg->msg_iov[i].iov_len;
+            if (msg_buf and msg_len) {
+                intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("recvmsg").c_str());
+            }
+        }
+    }
+    invoke_original(recvmsg, sockfd, msg, flags);
+}
+
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
+int recvmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags, timespec* timeout) {
+    if (verbose) { fprintf(stderr, BLUE(tty, "recvmmsg() invoked\n")); }  // note: no processing happening yet
+    if (msgvec) {
+        for (unsigned int i = 0; i < vlen; i++) {
+            struct msghdr *msg = &(msgvec[i].msg_hdr);
+            if (msg) {
+                size_t iovlen = msg->msg_iovlen;
+                for (size_t j = 0; j < iovlen; j++) {
+                    void *msg_buf = msg->msg_iov[j].iov_base;
+                    size_t msg_len = msg->msg_iov[j].iov_len;
+                    if (msg_buf and msg_len) {
+                        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("recvmmsg").c_str());
+                    }
+                }
+            }
+        }
+    }
+    invoke_original(recvmmsg, sockfd, msgvec, vlen, flags, timeout);
 }
 
 #include <unistd.h>
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 ssize_t write(int fd, const void *buf, size_t count) {
 
     if (fd_is_socket(fd)) {
-        intrcptr->process_outbound(fd, (uint8_t *)buf, count);
+        //intrcptr->process_outbound(fd, (uint8_t *)buf, count);
+        intrcptr->process_data_pkt_send_recv(fd, (uint8_t *)buf, count, std::string("write").c_str());
     }
     invoke_original(write, fd, buf, count);
 }
 
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 ssize_t read(int fd, void *buf, size_t count) {
     if (fd_is_socket(fd)) {
-        intrcptr->process_inbound(fd, (uint8_t *)buf, count);
+        //intrcptr->process_inbound(fd, (uint8_t *)buf, count);
+        intrcptr->process_data_pkt_send_recv(fd, (uint8_t *)buf, count, std::string("read").c_str());
     }
     invoke_original(read, fd, buf, count);
 }
@@ -1161,6 +1626,9 @@ ssize_t read(int fd, void *buf, size_t count) {
 
 #include <netdb.h>
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 struct hostent *gethostbyname(const char *name) {
 
     fprintf(stderr, BLUE(tty, "gethostbyname: %s\n"), name);
@@ -1168,6 +1636,9 @@ struct hostent *gethostbyname(const char *name) {
     invoke_original(gethostbyname, name);
 }
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 int getaddrinfo(const char *node,
                 const char *service,
                 const struct addrinfo *hints,
@@ -1179,6 +1650,9 @@ int getaddrinfo(const char *node,
     invoke_original(getaddrinfo, node, service, hints, res);
 }
 
+#ifdef __cplusplus
+extern "C" INTERCEPT_DLL_EXPORTED
+#endif
 int getnameinfo(const struct sockaddr *addr,
                 socklen_t addrlen,
                 char *host,

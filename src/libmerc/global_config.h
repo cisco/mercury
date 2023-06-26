@@ -102,6 +102,7 @@ public:
             { "tls.server_certificate", false},
             { "wireguard",              false },
             { "openvpn_tcp",            false },
+            { "mysql",                  false },
         };
 
     bool set_protocols(const std::string& data) {

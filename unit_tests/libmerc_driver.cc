@@ -18,7 +18,7 @@ TEST_CASE("check_global_vars_configuration") {
     REQUIRE(mc != nullptr);
 
     check_global_configuraton(mc, config);
-
+    mercury_finalize(mc);
 
 }
 
@@ -30,6 +30,7 @@ SCENARIO("test_mercury_init") {
             THEN("merciry initialized ") {
                 mercury_context mc = initialize_mercury(config);
                 REQUIRE(mc != nullptr);
+                mercury_finalize(mc);
             }
         }
 
@@ -62,9 +63,11 @@ SCENARIO("test_mercury_finalize") {
             }
         }
 
+        int ret = mercury_finalize(mc);
+
         WHEN("Finish") {
             THEN("Correct finilize: return 0") {
-                REQUIRE(mercury_finalize(mc) == 0);
+                REQUIRE(ret == 0);
             }
         }
 
@@ -121,6 +124,7 @@ SCENARIO("test_packet_processor_construct") {
         // }
 
         //TODO: WHEN("Do_stats and message queue is empty") {}
+        mercury_finalize(mc);
     }
 }
 
@@ -148,7 +152,8 @@ SCENARIO("test_packet_processor_destruct") {
         //     THEN("throws catched") {
         //         REQUIRE_THROWS(mercury_packet_processor_destruct(mpp));
         //     }
-        // } 
+        // }
+        mercury_finalize(mc);
     }
 }
 
@@ -190,6 +195,7 @@ SCENARIO("test_write_stats_data") {
                 REQUIRE_FALSE(mercury_write_stats_data(mc, stats_file));
             }
         }
+        mercury_finalize(mc);
     }
 }
 
@@ -218,6 +224,7 @@ SCENARIO("test packet_processor_get_analysis_context") {
                 mercury_packet_processor_destruct(mpp);
             }
         }
+        mercury_finalize(mc);
     }
 }
 
@@ -238,5 +245,6 @@ SCENARIO("test packet_processor_ip_get_analysis_context") {
                 mercury_packet_processor_destruct(mpp);
             }
         }
+        mercury_finalize(mc);
     }
 }

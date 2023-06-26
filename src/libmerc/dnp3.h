@@ -486,7 +486,7 @@ public:
         }
 };
 
-class dnp3 {
+class dnp3 : public base_protocol {
     dnp3_link link;
     dnp3_transport transport;
     dnp3_app app;

@@ -413,7 +413,7 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
         printf_err(log_err, "could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
         return false;
     }
-    mc->aggregator.gzprint(stats_data_file);
+    mc->aggregator->gzprint(stats_data_file);
     gzclose(stats_data_file);
 
     return true;

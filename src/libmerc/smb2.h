@@ -13,11 +13,13 @@
 #ifndef SMB2_H
 #define SMB2_H
 
+#include "protocol.h"
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
 
 #include <vector>
+#include "datum.h"
 
 /*
  * SMB2 and 3 is implemented based on the reference from
@@ -79,13 +81,19 @@ public:
     void write_json(json_array &o) const {
         o.print_uint16_hex(val.value());
     }
+
+    uint16_t get_code() const {return val.value();}
+
+    const char* get_code_str() const{
+        return get_dialect_string();
+    };
 };    
          
 class dialects {
+public:
     std::vector<dialect> dialects_list;
     bool valid;
 
-public:
     dialects (datum &d, uint16_t cnt, bool byte_swap = true) {
         for (auto i = 0; i < cnt; i++) {
             dialect id(d, byte_swap);
@@ -191,41 +199,54 @@ public:
  * SMB2_ENCRYPTION_CAPABILITIES:
  * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/16693be7-2b27-4d3b-804b-f605bde5bcdd
  */
-class smb2_encryption_capa {
-    encoded<uint16_t> cipher_count;
-    std::vector<uint16_t> ciphers;
+struct cipher{
+    encoded<uint16_t> val;
 
-    const char * get_cipher_string(const uint16_t& val) const {
+    const char * get_cipher_string() const {
         switch(val) {
-        case 0x0001:        return "AES-128-CCM";
-        case 0x0002:        return "AES-128-GCM";
-        case 0x0003:        return "AES-256-CCM";
-        case 0x0004:        return "AES-256-GCM";
-        default:            break;
+        case 0x0001 : return "AES-128-CCM";
+        case 0x0002 : return "AES-128-GCM";
+        case 0x0003 : return "AES-256-CCM";
+        case 0x0004 : return "AES-256-GCM";
+        default     : return nullptr;
         }
-        return "unknown";
     }
+};
 
+class smb2_encryption_capa {
 public:
+    encoded<uint16_t> cipher_count;
+    std::vector<cipher> ciphers;
+
     smb2_encryption_capa (datum &d, bool byte_swap) :
         cipher_count(d, byte_swap) {
         uint16_t count = 0;
         ciphers.reserve(cipher_count.value());
-        while (count < cipher_count and d.is_not_empty()) {
-            encoded<uint16_t> cipher(d, byte_swap);
-            ciphers.push_back(cipher.value());
+        while(count < cipher_count and d.is_not_empty()) {
+            encoded<uint16_t> temp_cipher(d, byte_swap);
+            ciphers[count].val=temp_cipher.value();
             count++;
         }
     }
-
+    
+    uint16_t count = 0;
     void write_json(struct json_object &o) {
         o.print_key_uint16("cipher_count", cipher_count.value());
         struct json_array ids{o, "ciphers"};
-        for (const auto& val : ciphers) {
-            ids.print_string(get_cipher_string(val));
+        while(count < cipher_count) {
+            type_codes<smb2_encryption_capa> code{*this};
+            ids.print_key(code);
+            count++;
         }
         ids.close();
     }
+
+    uint16_t get_code() const {return ciphers[count].val.value();}
+
+    const char* get_code_str() const {
+        return ciphers[count].get_cipher_string();
+    }
+
 };
 
 /*
@@ -380,20 +401,6 @@ class negotiate_context {
         SMB2_SIGNING_CAPABILITIES = 0x8
     };
 
-    const char * get_context_type_string(uint16_t type) {
-        switch(type) {
-        case SMB2_PREAUTH_INTEGRITY_CAPABILITIES:        return "smb2_preauth_integrity_capabilities";
-        case SMB2_ENCRYPTION_CAPABILITIES:               return "smb2_encryption_capabilties";
-        case SMB2_COMPRESSION_CAPABILITIES:              return "smb2_compression_capabilities";
-        case SMB2_NETNAME_NEGOTIATE_CONTEXT_ID:          return "smb2_netname_negotiate_context_id";
-        case SMB2_TRANSPORT_CAPABILITIES:                return "smb2_transport_capabilities";
-        case SMB2_RDMA_TRANSFORM_CAPABILITIES:           return "smb2_rdma_transform_capabilites";
-        case SMB2_SIGNING_CAPABILITIES:                  return "SMB2_SIGNING_CAPABILITIES";
-        default:                                         break;
-        }
-        return "unknown";
-    }
-
     bool get_netname(datum netname, std::string& name);
 
 public:
@@ -406,6 +413,25 @@ public:
         valid(d.is_not_null()) {
         d.skip(8 - data_length % 8);    // Skip the 8 byte aligned padding bytes
         }
+
+    const char * get_context_type_string() const {
+        switch(context_type) {
+        case SMB2_PREAUTH_INTEGRITY_CAPABILITIES:        return "smb2_preauth_integrity_capabilities";
+        case SMB2_ENCRYPTION_CAPABILITIES:               return "smb2_encryption_capabilties";
+        case SMB2_COMPRESSION_CAPABILITIES:              return "smb2_compression_capabilities";
+        case SMB2_NETNAME_NEGOTIATE_CONTEXT_ID:          return "smb2_netname_negotiate_context_id";
+        case SMB2_TRANSPORT_CAPABILITIES:                return "smb2_transport_capabilities";
+        case SMB2_RDMA_TRANSFORM_CAPABILITIES:           return "smb2_rdma_transform_capabilites";
+        case SMB2_SIGNING_CAPABILITIES:                  return "SMB2_SIGNING_CAPABILITIES";
+        default:                                         return nullptr;
+        }
+    } 
+
+    uint16_t get_code() const {return context_type.value();}
+
+    const char* get_code_str() const{
+        return get_context_type_string();
+    };
 
     void write_json(struct json_array &o);
 
@@ -619,6 +645,13 @@ public:
         neg_contexts.write_raw_features(buf);
     }
     void write_json (struct json_object &o);
+
+    uint16_t get_code() const {return dialect_num.get_code();}
+
+    const char* get_code_str() const {
+        return dialect_num.get_code_str();
+    }
+    
 };
  
 class smb2_command {
@@ -731,9 +764,16 @@ public:
     }
         
     void write_json(struct json_object &o);
+
+    uint16_t get_code() const {return cmd.command.value();}
+
+    const char* get_code_str() const {
+        return cmd.get_string();
+    }
+    
 };
 
-class smb2_packet {
+class smb2_packet : public base_protocol {
     encoded<uint32_t> nbss_layer;
     smb2_header hdr;
     datum& body;

@@ -11,6 +11,7 @@
 #include "tcp.h"
 #include "ip.h"
 #include "datum.h"
+#include "protocol.h"
 #include "json_object.h"
 #include "fingerprint.h"
 
@@ -128,7 +129,7 @@ struct tcp_option : public datum {
 
 };
 
-struct tcp_packet {
+struct tcp_packet : public base_protocol {
     const struct tcp_header *header = nullptr;
     struct datum tcp_options;
     ip *ip_pkt = nullptr;          // TODO: make this const?
