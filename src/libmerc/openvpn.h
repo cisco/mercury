@@ -411,9 +411,9 @@ public:
     void write_json(struct json_object &record, bool output_metadata) {
         if (this->is_not_empty()) {
             struct json_object openvpn_tcp_json(record,"openvpn");
-            record.print_key_int("num_records",num_records);
+            openvpn_tcp_json.print_key_int("num_records",num_records);
             // loop over the openvpn records and print
-            json_array record_array(record,"records");
+            json_array record_array(openvpn_tcp_json,"records");
             for (auto it : ctrl_records) {
                 json_object rec(record_array);
                 it.write_json(rec,output_metadata);
@@ -427,17 +427,17 @@ public:
             record_array.close();
 
             if (total_data) {
-                record.print_key_int("data_len",total_data);
+                openvpn_tcp_json.print_key_int("data_len",total_data);
             }
             if (fp_true) {
-                record.print_key_bool("has_tls",true);
+                openvpn_tcp_json.print_key_bool("has_tls",true);
             }
+
+            openvpn_tcp_json.close();
 
             if (fp_true) {
                 hello.write_json(record, output_metadata);
             }
-
-            openvpn_tcp_json.close();
         }
     }
 
