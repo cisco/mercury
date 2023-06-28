@@ -691,7 +691,9 @@ private:
 #endif
         }
 
-        if (BIO_do_handshake(tls_bio) <= 0) {
+        long result = BIO_do_handshake(tls_bio);
+        if (result <= 0) {
+            fprintf(stderr, "BIO_do_handshake returned %ld\n", result);
             throw std::runtime_error("error: TLS handshake failed\n");
         }
 
@@ -803,11 +805,11 @@ public:
             uint8_t dns_message[2048];
             dns_hdr *header = (dns_hdr *)&dns_message[0];
             header->id = 0x0000;           // DoH clients SHOULD use 0 in each request
-            header->flags = htons(0x0100);
-            header->qdcount = htons(1);
-            header->ancount = htons(0);
-            header->nscount = htons(0);
-            header->arcount = htons(0);
+            header->flags = hton((uint16_t)0x0100);
+            header->qdcount = hton((uint16_t)1);
+            header->ancount = hton((uint16_t)0);
+            header->nscount = hton((uint16_t)0);
+            header->arcount = hton((uint16_t)0);
 
             uint8_t *rr_start = &dns_message[sizeof(dns_hdr)];
 
