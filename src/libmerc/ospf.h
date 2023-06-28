@@ -26,7 +26,7 @@
 //  |                       Authentication                          |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-class ospf {
+class ospf : public base_protocol {
     uint8_t version;
     uint8_t type;
     uint16_t length;

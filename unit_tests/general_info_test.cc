@@ -104,6 +104,7 @@ SCENARIO("test_mercury_get_resource_version")
 
                 REQUIRE(strcmp(version, version_checker.c_str()) == 0);
             }
+            mercury_finalize(mc);
         }
         WHEN("mercury is nullptr")
         {

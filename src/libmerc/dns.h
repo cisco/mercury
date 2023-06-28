@@ -13,6 +13,7 @@
 #ifndef DNS_H
 #define DNS_H
 
+#include "protocol.h"
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
@@ -724,7 +725,7 @@ struct dns_resource_record {
     bool is_not_empty() const { return question_record.is_not_empty(); }
 };
 
-struct dns_packet {
+struct dns_packet : public base_protocol {
     dns_hdr *header;
     struct datum records;
     size_t length;
@@ -816,7 +817,7 @@ struct dns_packet {
         if (header == NULL) {
             return;
         }
-        const char *key = (header->flags & 0x8000) ?  "response" : "query";
+        const char *key = encoded<uint16_t>{header->flags}.bit<0>() ?  "response" : "query";
         struct json_object dns_json{o, key};
         //dns_json.print_key_uint("qdcount", qdcount);
         //dns_json.print_key_uint("ancount", ancount);

@@ -72,13 +72,15 @@ if [ "$BUILDTYPE" == "deb" ]; then
     # determine libssl version, set SSL_LIB appropriately
     #
     if dpkg -s libssl1.1 > /dev/null; then
-        SSL_LIB=libssl1.1;
+        SSL_LIB=libssl1.1
+        PKG_NAME="mercury"
         echo "found libssl1.1"
     else
         SSL_LIB=libssl3
+        PKG_NAME="mercury-u22"
         echo "assuming libssl3"
     fi
-    fpm -s dir -t deb -n mercury $FPM_LINUX_OPTIONS \
+    fpm -s dir -t deb -n $PKG_NAME $FPM_LINUX_OPTIONS \
         --depends $SSL_LIB \
         --depends zlib1g    \
         --deb-systemd ./install_mercury/mercury.service \

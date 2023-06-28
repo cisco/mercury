@@ -121,7 +121,7 @@ void http_headers::print_matching_names(struct json_object &o, perfect_hash<cons
 // Parses http formatted ssdp msg for http header in lenient way (ignores whitespaces around header - value pair and ignores absence of '\r' in delimiter)
 // and prints to json record, based on bool metadata
 //
-void http_headers::print_matching_names_ssdp(struct json_object &o, bool metadata) const {
+void http_headers::print_ssdp_names_and_feature_string(struct json_object &o, data_buffer<2048>& feature_buf, bool metadata) const {
 
     // header_ssdp contains the keywords to be printed out; the
     // boolean sets output verbosity in absense of metadata option
@@ -159,6 +159,7 @@ void http_headers::print_matching_names_ssdp(struct json_object &o, bool metadat
     }
     struct datum p{this->data, this->data_end};  // create copy, to leave object unmodified
 
+    bool first_header=true;
     while (p.length() > 0) {
         if (p.compare(lf, sizeof(lf)) == 0 || p.compare(crlf, sizeof(crlf)) == 0) {
             break;  /* at end of headers */
@@ -186,7 +187,16 @@ void http_headers::print_matching_names_ssdp(struct json_object &o, bool metadat
         const uint8_t *value_end = *(p.data-2) == cr ? p.data-2 : p.data-1;
         if (header_name && (header_name->second || metadata)) {
             o.print_key_json_string(header_name->first, value_start, value_end - value_start);
+            if(!first_header){
+                feature_buf.copy(',');
+            }
+            feature_buf.copy('[');
+            feature_buf.write_quote_enclosed_hex((uint8_t*)header_name->first, strlen(header_name->first));
+            feature_buf.copy(',');
+            feature_buf.write_quote_enclosed_hex(value_start, value_end - value_start);
+            feature_buf.copy(']');
         }
+        first_header=false;
     }
 }
 
@@ -279,7 +289,11 @@ void http_response::parse(struct datum &p) {
     return;
 }
 
-void http_response::write_json(struct json_object &record) {
+void http_response::write_json(struct json_object &record, bool metadata) {
+    if (!metadata) {
+        return;  // TODO: remove this to un-supress output
+    }
+
     static std::vector<perfect_hash_entry<const char*>> header_data_response = {
         { "content-type: ", "content_type"},
         { "content-length: ", "content_length"},

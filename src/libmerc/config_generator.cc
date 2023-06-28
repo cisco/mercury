@@ -144,9 +144,18 @@ void parse_additional_options(std::vector<libmerc_option> options, std::string c
     std::vector<config_token> tokens = parse_tokens(config, delim, assignment);
 
     for(const auto& token : tokens) {
+        bool setter_invoked = false;
         for(libmerc_option op : options) {
-            if(op.perform_option_check(token.key_))
+            if(op.perform_option_check(token.key_)) {
+                setter_invoked = true; 
                 op.perform_setter(token.value_, lc);
+            }
+        }
+        /* If the option keyword is not recognized/missing,
+         * by default treat it as protocol string and attempt parsing
+         */
+        if (!setter_invoked) {
+            lc.set_protocols(token.key_);
         }
     }
 }

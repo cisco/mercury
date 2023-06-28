@@ -18,6 +18,7 @@
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
+#include "protocol.h"
 
 /*
  * ASDU packet format:
@@ -92,6 +93,7 @@ class asdu {
     encoded<uint16_t> asdu_address;
     datum& inf_objs;
     bool valid;
+    mutable bool function_indicator=false;
 
     const char * get_type_string() const {
         switch (type_id) {
@@ -162,12 +164,11 @@ class asdu {
         case 125:       return "F_SG_NA_1";
         case 126:       return "F_DR_TA_1";
         case 127:       return "F_SC_NB_1";
-        default:        break;
+        default:        return nullptr;
         }
-        return "unknown";
     }
 
-    const char * get_cot_string (std::string& cot_string) const {
+    const char * get_cot_string () const {
         switch(cot) {
         case 1:     return "per/cyc";
         case 2:     return "back";
@@ -208,10 +209,8 @@ class asdu {
         case 45:    return "uknown_cause";
         case 46:    return "unknown_asdu_address";
         case 47:    return "unknown_object_address";
-        default:    break;
+        default:    return nullptr;
         }
-        cot_string = std::to_string(cot);
-        return cot_string.c_str();
     }
         
 public:
@@ -236,13 +235,18 @@ public:
         if (!valid) {
             return;
         }
-        o.print_key_string("type_id", get_type_string());
+        type_codes<asdu> code{*this};
+        function_indicator=false;
+        o.print_key_value("type_id", code);
+        
         o.print_key_bool("sq", sq);
         o.print_key_uint8("number_of_objects", num_objects);
         o.print_key_bool("test_bit", test);
         o.print_key_bool("negative_confirm", negative_confirm);
-        std::string cot_string;
-        o.print_key_string("cot", get_cot_string(cot_string));
+
+        function_indicator=true;
+        o.print_key_value("cot", code);
+
         o.print_key_uint8("originator_address", originator_address);
         o.print_key_uint16("asdu_address", asdu_address);
 
@@ -299,6 +303,20 @@ public:
             }
             info_objs.close();
         }
+    }
+
+    uint8_t get_code() const {
+        if(function_indicator)
+            return cot;
+        else
+            return type_id.value();
+    }
+
+    const char* get_code_str() const {
+        if(function_indicator)
+            return get_cot_string();
+        else
+            return get_type_string();
     }
 };
 
@@ -481,7 +499,7 @@ class is_packet_empty {
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; }; // (1)
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
  
-class iec60870_5_104 {
+class iec60870_5_104 : public base_protocol {
     literal<1> start_byte;
     encoded<uint8_t> apdu_length;
     std::variant<std::monostate, i_frame, s_frame, u_frame> packet;

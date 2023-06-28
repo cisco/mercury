@@ -1,5 +1,21 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.18
+
+* Added experimental support for detecting and decoding Tofsee initial messages.  Use the option --nonselected-tcp-data to enable this feature.
+* Added support for mySQL and MariaDB initial messages.
+* Removed C-language comment from the LICENCE file.
+* Fixed bug that caused DNS responses to sometimes be reported as queries.
+* Improved cython support for building PIP packages.
+* Extended the intercept library to detect and report on more protocol types.
+* Increased the size of the internal data buffers in the intercept library to accomodate larger messages.
+* Minor improvements to SMB2, IEC, SSDP, and documentation.
+* Refactored some code for extensibility, code re-use, and clarity.
+
+## Version 2.5.17
+
+* Fixed a libmerc.so issue with extended configuration parsing.
+
 ## Version 2.5.16
 
 * Fixed a libmerc.so issue with fingerprint format versions.

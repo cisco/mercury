@@ -12,7 +12,7 @@
 #include <list>
 #include <unordered_map>
 
-#include "tcp.h"
+#include "protocol.h"
 #include "match.h"
 #include "analysis.h"
 #include "fingerprint.h"
@@ -62,14 +62,14 @@ struct http_headers : public datum {
     void print_matching_name(struct json_object &o, const char *key, struct datum &name) const;
     void print_matching_name(struct json_object &o, const char *key, const char* name) const;
     void print_matching_names(struct json_object &o, perfect_hash<const char*> &ph) const;
-    void print_matching_names_ssdp(struct json_object &o, bool metadata) const;
+    void print_ssdp_names_and_feature_string(struct json_object &o, data_buffer<2048>& feature_buf, bool metadata) const;
 
     void fingerprint(struct buffer_stream &buf, perfect_hash<bool> &fp_data) const;
 
     struct datum get_header(const char *header_name);
 };
 
-struct http_request : public tcp_base_protocol {
+struct http_request : public base_protocol {
     struct datum method;
     struct datum uri;
     struct datum protocol;
@@ -125,7 +125,7 @@ struct http_request : public tcp_base_protocol {
 
 };
 
-struct http_response : public tcp_base_protocol {
+struct http_response : public base_protocol {
     struct datum version;
     struct datum status_code;
     struct datum status_reason;
@@ -137,7 +137,7 @@ struct http_response : public tcp_base_protocol {
 
     bool is_not_empty() const { return status_code.is_not_empty(); }
 
-    void write_json(struct json_object &record);
+    void write_json(struct json_object &record, bool metadata=false);
 
     void fingerprint(struct buffer_stream &buf) const;
 

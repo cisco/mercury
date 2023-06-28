@@ -38,7 +38,7 @@
  * the source UDP port is not 5353.
  */
 
-struct mdns_packet {
+struct mdns_packet : public base_protocol {
     dns_packet dns_pkt;
 
     mdns_packet(struct datum &d) : dns_pkt{d} { }
