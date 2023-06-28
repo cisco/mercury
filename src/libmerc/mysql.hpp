@@ -66,7 +66,7 @@ namespace mysql_consts{
         void write_json(struct json_object &record, bool output_metadata) {
             record.print_key_hex("capabilities_value", (uint8_t*)(&val), 2);
 
-            if (output_metadata) {
+            if (output_metadata && val) {
                 json_array cap_str{record, "capabilities_str"};
                 for (size_t i = 0; i< 16; i++) {
                     if (val & (1UL << i)) {
@@ -88,7 +88,7 @@ namespace mysql_consts{
         void write_json(struct json_object &record, bool output_metadata) {
             record.print_key_uint16_hex("extended_capabilities_value", ext_val);
 
-            if (output_metadata) {
+            if (output_metadata && ext_val) {
                 json_array ext_cap_str{record, "ext_capabilities_str"};
                 for (size_t i = 0; i< 16; i++) {
                     if (ext_val & (1UL << i)) {
@@ -407,7 +407,7 @@ namespace mysql_consts{
         void write_json(struct json_object &record, bool output_metadata) {
             record.print_key_uint16_hex("server_status_value", status);
 
-            if (output_metadata) {
+            if (output_metadata && status) {
                 json_array status_str{record, "server_status_str"};
                 for (size_t i = 0; i< 16; i++) {
                     if (status & (1UL << i)) {
