@@ -597,6 +597,18 @@ public:
 
     bool is_not_empty() const { return data < data_end; }
 
+    ssize_t writeable_length() const { return data_end - data; }
+
+    void update(ssize_t length) {
+        // a length less than zero is considered an error state
+        //
+        if (length < 0) {
+            set_null();
+            return;
+        }
+        data += length;
+    }
+
     //    ptrdiff_t length() const { return data_end - data; }
 
     void set_null() { data = data_end = nullptr; }
@@ -709,8 +721,6 @@ template <size_t T> struct data_buffer : public writeable {
             return {buffer, data};
         }
     }
-
-    ssize_t writeable_length() const { return data_end - data; }
 
     ssize_t write(int fd) { return ::write(fd, buffer, data - buffer);  }
 
