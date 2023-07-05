@@ -19,6 +19,8 @@
 #include <regex>
 #include <array>
 #include <stdexcept>
+#include <iostream>
+#include <fstream>
 
 #include <openssl/bio.h>
 #include <openssl/err.h>
@@ -619,6 +621,7 @@ private:
     bool print_response_body = true;
     bool print_src_links = true;
     bool omit_sni;
+    bool write_cert_files = false;
     std::string user_agent;
 
     std::vector<std::string> hosts_visited;
@@ -710,6 +713,17 @@ private:
 
         uint8_t *cert_buffer = NULL;
         int cert_len = i2d_X509(cert, &cert_buffer);
+        if (write_cert_files && cert_len > 0) {
+            //
+            // write certificate out as DER file
+            //
+            std::string der_file_name{hostname + ".der"};
+            FILE *der_file = fopen(der_file_name.c_str(), "w");
+            size_t bytes_written = fwrite(cert_buffer, sizeof(uint8_t), cert_len, der_file);
+            if (bytes_written != (size_t)cert_len) {
+                throw std::runtime_error("error: could not write DER file\n");
+            }
+        }
         if (print_cert && cert_len > 0) {
 
             // parse and print certificate using libmerc/asn1/x509.h
@@ -739,7 +753,14 @@ private:
 
 public:
 
-    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni) : print_cert{cert}, print_response_body{response_body}, print_src_links{src_links}, omit_sni{no_sni}, user_agent{user_agent_default}, hosts_visited{} { }
+    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni, bool write_certs) :
+        print_cert{cert},
+        print_response_body{response_body},
+        print_src_links{src_links},
+        omit_sni{no_sni},
+        write_cert_files{write_certs},
+        user_agent{user_agent_default},
+        hosts_visited{} { }
 
     bool set_user_agent(const std::string ua_search_string) {
         if (ua_search_string != "") {
@@ -1062,10 +1083,12 @@ int main(int argc, char *argv[]) {
     class option_processor opt({
         { argument::positional, "hostname",           "is the name of the HTTPS host (e.g. example.com)" },
         { argument::positional, "inner_hostname",     "determines the name of the HTTP host field" },
+        { argument::required,   "--host-file",        "is a file containing scan targets" },
         { argument::required,   "--user-agent",       "sets the user agent to the first matching <arg>" },
         { argument::none,       "--no-server-name",   "omits the TLS server name" },
         { argument::none,       "--list-user-agents", "print out user agent strings, most prevalent first" },
         { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
+        { argument::none,       "--write-certs",      "write out server certificate(s) as DER file(s)" },
         { argument::none,       "--body",             "prints out HTTP response body" },
         { argument::none,       "--doh",              "send DoH query" },
         { argument::none,       "--help",             "prints out help message" }
@@ -1078,10 +1101,12 @@ int main(int argc, char *argv[]) {
 
     auto [ hostname_is_set, hostname ] = opt.get_value("hostname");
     auto [ inner_hostname_is_set, inner_hostname ] = opt.get_value("inner_hostname");
+    auto [ host_file_is_set, host_file ] = opt.get_value("--host-file");
     auto [ ua_is_set, ua_search_string ] = opt.get_value("--user-agent");
     bool list_uas    = opt.is_set("--list-user-agents");
     bool omit_sni    = opt.is_set("--no-server-name");
     bool print_certs = opt.is_set("--certs");
+    bool write_certs = opt.is_set("--write-certs");
     bool print_body  = opt.is_set("--body");
     bool doh         = opt.is_set("--doh");
     bool print_help  = opt.is_set("--help");
@@ -1098,8 +1123,8 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    if (!hostname_is_set) {
-        fprintf(stderr, "error: no hostname provided on command line\n");
+    if (!hostname_is_set and !host_file_is_set) {
+        fprintf(stderr, "error: no hostname or address range provided on command line\n");
         opt.usage(stderr, argv[0], summary);
         return EXIT_FAILURE;
     }
@@ -1107,12 +1132,22 @@ int main(int argc, char *argv[]) {
         tls_scanner scanner(print_certs, // print certificate
                             print_body,  // print response body
                             true,        // print src links
-                            omit_sni     // omit TLS server name
+                            omit_sni,    // omit TLS server name
+                            write_certs  // write certs to files
                             );
         if (ua_is_set) {
             scanner.set_user_agent(ua_search_string);
         }
-        scanner.scan(hostname, inner_hostname, doh);
+        if (host_file_is_set) {
+            std::ifstream host_list{host_file};
+            std::string host;
+            while (std::getline(host_list, host)) {
+                fprintf(stderr, "note: scanning host %s\n", host.c_str());
+                scanner.scan(host, inner_hostname, doh);
+            }
+        } else {
+            scanner.scan(hostname, inner_hostname, doh);
+        }
 
         if (!doh) {
             // report all hosts visited due to redirects and src= links
