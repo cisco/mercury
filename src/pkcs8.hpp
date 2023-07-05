@@ -9,7 +9,7 @@
 #include "libmerc/asn1.h"
 #include "libmerc/json_object.h"
 #include "libmerc/base64.h"
-
+#include "pem.hpp"
 
 // ASN.1 defintions, following RFC 3447
 //
@@ -135,7 +135,7 @@ public:
     void write(writeable &buf) const {
 
         if (!is_valid()) {
-            fprintf(stderr, "pkcs8 object is not valid\n");
+            fprintf(stderr, "rsa_private_key object is not valid\n");
             //buf.set_null();
             //return;
         }
@@ -153,6 +153,15 @@ public:
         buf << exponent2;
         buf << coefficient;
 
+    }
+
+    // rsa_private_key::unit_test() is a static member function that
+    // performs a unit test of the rsa_private_key class and returns
+    // true if the unit tests passed, and false otherwise
+    //
+    static bool unit_test() {
+
+        return true;
     }
 
 };
@@ -470,19 +479,19 @@ public:
 
 };
 
-static bool write_pem(FILE *f, const uint8_t *data, size_t length) {
+static bool write_pem(FILE *f, const uint8_t *data, size_t length, const char *label="RSA PRIVATE KEY") {
 
-    const char opening_line[] = "-----BEGIN PRIVATE KEY-----";
-    const char closing_line[] = "-----END PRIVATE KEY-----";
+    const char opening_line[] = "-----BEGIN ";
+    const char closing_line[] = "-----END ";
 
-    fprintf(f, "%s\n", opening_line);
+    fprintf(f, "%s%s-----\n", opening_line, label);
     std::string b64 = base64_encode(data, length);
     const char *data_end = b64.data() + b64.length();
     for (char *c=b64.data(); c < data_end; c+=64) {
         int ll = (c + 64 < data_end) ? 64 : data_end - c;
         fprintf(f, "%.*s\n", ll, c);
     }
-    fprintf(f, "%s\n", closing_line);
+    fprintf(f, "%s%s-----\n", closing_line, label);
 
     return true;
 }

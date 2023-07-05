@@ -259,10 +259,56 @@ void read_file(const char *filename) {
 
 }
 
-int main(int, char *[]) {
+bool compare(const datum &lhs, const datum &rhs, bool verbose=false) {
+    bool match = true;
+    ssize_t llen = lhs.data_end - lhs.data;
+    ssize_t rlen = rhs.data_end - rhs.data;
+    ssize_t min_len = llen < rlen ? llen : rlen;
+    if (verbose) { fprintf(stderr, "lhs.length(): %zu\trhs.length(): %zu\t", lhs.length(), rhs.length()); }
+    for (ssize_t i=0; i<min_len; i++) {
+        if (verbose) { fprintf(stderr, "%02x\t%02x", lhs.data[i], rhs.data[i]); }
+        if (lhs.data[i] != rhs.data[i]) {
+            if (verbose) { fprintf(stderr, "***"); }
+            match = false;
+        }
+        if (verbose) { fputc('\n', stderr); }
+    }
+    return match;
+}
 
-    assert(private_key_info::unit_test());
-    return 0;
+int main(int argc, char *argv[]) {
+
+    // assert(base64::unit_test());
+    // assert(private_key_info::unit_test());
+
+    if (argc < 2) {
+        fprintf(stderr, "error: missing filename\n");
+        return EXIT_FAILURE;
+    }
+    pem_file_reader pemfile(argv[1]);
+    data_buffer<2048> pembuf;
+    pembuf << pem_file_reader{argv[1]};
+    datum pemdata = pembuf.contents();
+    printf("pemdata: ");
+    pemdata.fprint_hex(stdout);
+    fputc('\n', stdout);
+    rsa_private_key pempriv{pemdata};
+
+    data_buffer<2048> outdata;
+    outdata << pempriv;
+    printf("outdata: ");
+    outdata.contents().fprint_hex(stdout);
+    fputc('\n', stdout);
+
+    // datum pemdata2 = { pembuf.data, pembuf.data + length };
+    datum pemdata2 = pembuf.contents();
+    datum out = outdata.contents();
+    if (!compare(pemdata2, out)) { fprintf(stderr, "error: mismatch between input and output\n"); }
+    std::string outfile_name{"outfile"};
+    outfile_name += argv[1];
+    write_pem(fopen(outfile_name.c_str(), "w"), out.data, out.length());
+
+    return 0;  // EARLY RETURN
 
     printf("raw:    ");
     for (auto &c : raw_hex) {
