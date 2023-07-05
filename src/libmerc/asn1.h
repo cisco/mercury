@@ -485,13 +485,13 @@ struct tlv {
         } else {
             buf << encoded<uint8_t>{0x80 | length_of_length(length)};
             size_t tmp = length;
-            if (tmp > 0x1000000) {
+            if (tmp >= 0x1000000) {
                 buf << encoded<uint8_t>{(length >> 24) & 0xff};
             }
-            if (tmp > 0x10000) {
+            if (tmp >= 0x10000) {
                 buf << encoded<uint8_t>{(length >> 16) & 0xff};
             }
-            if (tmp > 0x100) {
+            if (tmp >= 0x100) {
                 buf << encoded<uint8_t>{(length >> 8) & 0xff};
             }
             buf << encoded<uint8_t>{tmp & 0xff};
