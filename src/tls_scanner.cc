@@ -610,59 +610,28 @@ public:
     }
 };
 
-class tls_scanner {
-private:
-    SSL_CTX *ctx = NULL;
+class tls_connection {
+    BIO *bio = nullptr;
+    BIO *tls_bio = nullptr;
 
-    constexpr static const char *tlsv1_3_only_ciphersuites = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_CCM_SHA256:TLS_AES_128_CCM_8_SHA256";
-    constexpr static const char *user_agent_default = "Mozilla/5.0 (Linux; ; ) AppleWebKit/ (KHTML, like Gecko) Chrome/ Mobile Safari/\r\n"; // pretend we're Android;
+public:
 
-    bool print_cert = true;
-    bool print_response_body = true;
-    bool print_src_links = true;
-    bool omit_sni;
-    bool write_cert_files = false;
-    std::string user_agent;
-
-    std::vector<std::string> hosts_visited;
-
-    BIO *tls_connection_open(std::string &hostname) {
-
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-        SSL_library_init();
-        SSL_load_error_strings();
-#endif
-
-        // initialize openssl session context
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-        ctx = SSL_CTX_new(TLSv1_2_client_method());
-#else
-        ctx = SSL_CTX_new(TLS_client_method());
-#endif
-        if (ctx == NULL) {
-            throw std::runtime_error("error: could not initialize TLS context\n");
-        }
-        if (SSL_CTX_set_default_verify_paths(ctx) != 1) {
-            throw std::runtime_error("error: could not initialize TLS verification\n");
-        }
+    tls_connection(SSL_CTX *ctx, std::string &hostname, bool omit_sni=false, bool write_cert_files=false, bool print_cert=false) {
 
         std::string host_and_port = hostname + ":443";
-        BIO *bio = BIO_new_connect(host_and_port.c_str());
+
+        bio = BIO_new_connect(host_and_port.c_str());
         if (bio == nullptr) {
             throw std::runtime_error("error: could not create BIO\n");
         }
         if (BIO_do_connect(bio) <= 0) {  // TODO: set/add timeout
             fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
             //throw std::runtime_error("error: could not connect to %s\n");
-            return nullptr;
+            return;
         }
-
-        BIO *tls_bio = BIO_new_ssl(ctx, 1);
-        if (tls_bio == NULL) {
-            throw std::runtime_error("error: BIO_new_ssl() returned NULL\n");
-        }
-
+        tls_bio = BIO_new_ssl(ctx, 1);
         BIO_push(tls_bio, bio);
+        // BIO *tls_bio = BIO_new_ssl_connect(ctx);
 
         SSL *tls = NULL;
         BIO_get_ssl(tls_bio, &tls);
@@ -699,7 +668,9 @@ private:
         }
 
         // record successful visit to host
-        hosts_visited.push_back(hostname);
+        // hosts_visited.push_back(hostname);
+        //
+        // TODO: restore hosts_visited
 
         int err = SSL_get_verify_result(tls);
         if (err != X509_V_OK) {
@@ -709,46 +680,112 @@ private:
         X509 *cert = SSL_get_peer_certificate(tls);
         if (cert == nullptr) {
             fprintf(stderr, "note: server did not present a certificate\n");
-        }
+        } else {
 
-        uint8_t *cert_buffer = NULL;
-        int cert_len = i2d_X509(cert, &cert_buffer);
-        if (write_cert_files && cert_len > 0) {
-            //
-            // write certificate out as DER file
-            //
-            std::string der_file_name{hostname + ".der"};
-            FILE *der_file = fopen(der_file_name.c_str(), "w");
-            size_t bytes_written = fwrite(cert_buffer, sizeof(uint8_t), cert_len, der_file);
-            if (bytes_written != (size_t)cert_len) {
-                throw std::runtime_error("error: could not write DER file\n");
+            uint8_t *cert_buffer = NULL;
+            int cert_len = i2d_X509(cert, &cert_buffer);
+            if (write_cert_files && cert_len > 0) {
+                //
+                // write certificate out as DER file
+                //
+                std::string der_file_name{hostname + ".der"};
+                FILE *der_file = fopen(der_file_name.c_str(), "w");
+                size_t bytes_written = fwrite(cert_buffer, sizeof(uint8_t), cert_len, der_file);
+                if (bytes_written != (size_t)cert_len) {
+                    throw std::runtime_error("error: could not write DER file\n");
+                }
             }
-        }
-        if (print_cert && cert_len > 0) {
+            if (print_cert && cert_len > 0) {
 
-            // parse and print certificate using libmerc/asn1/x509.h
-            struct x509_cert cc;
-            cc.parse(cert_buffer, cert_len);
-            cc.print_as_json(stdout);
+                // parse and print certificate using libmerc/asn1/x509.h
+                struct x509_cert cc;
+                cc.parse(cert_buffer, cert_len);
+                cc.print_as_json(stdout);
 
-        }
+            }
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-        if (X509_check_host(cert, hostname.data(), hostname.size(), 0, nullptr) != 1) {
-            fprintf(stderr, "note: host verification failed\n");
-        }
+            if (X509_check_host(cert, hostname.data(), hostname.size(), 0, nullptr) != 1) {
+                fprintf(stderr, "note: host verification failed\n");
+            }
 #else
-        // X509_check_host() called automatically
+            // X509_check_host() called automatically
 #endif
 
-        return tls_bio;
+            X509_free(cert);
+
+        }
     }
 
-    void tls_connection_close(BIO *tls_bio) {
-        BIO_ssl_shutdown(tls_bio);
-        //
-        // TODO: more openssl shutdown is needed; this should be
-        // implemented in order to allow scanner re-use across
-        // multiple queries (valgrind shows leaks from BIO_new_ssl)
+    ~tls_connection() {
+        close();
+    }
+
+    void close() {
+        if (tls_bio) {
+            BIO_free_all(tls_bio);
+            tls_bio = nullptr;
+        }
+        // BIO_ssl_shutdown(tls_bio);
+        // BIO_reset(tls_bio);
+        // BIO_free_all(connection.bio);
+    }
+
+    bool is_valid() const { return tls_bio != nullptr; }
+
+    void write(const uint8_t *data, size_t size) {
+        BIO_write(tls_bio, data, size);
+        BIO_flush(tls_bio);
+    }
+
+    ssize_t read(void *current, int length) {
+        return BIO_read(tls_bio, current, length);
+    }
+
+    bool should_retry() const { return BIO_should_retry(tls_bio); }
+
+};
+
+class tls_scanner {
+private:
+    // SSL_CTX *ctx = NULL;
+
+    constexpr static const char *tlsv1_3_only_ciphersuites = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_CCM_SHA256:TLS_AES_128_CCM_8_SHA256";
+    constexpr static const char *user_agent_default = "Mozilla/5.0 (Linux; ; ) AppleWebKit/ (KHTML, like Gecko) Chrome/ Mobile Safari/\r\n"; // pretend we're Android;
+
+    bool print_cert = true;
+    bool print_response_body = true;
+    bool print_src_links = true;
+    bool omit_sni;
+    bool write_cert_files = false;
+    std::string user_agent;
+
+    std::vector<std::string> hosts_visited;
+
+    SSL_CTX *tls_init() {
+        SSL_CTX *ctx = nullptr;
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+        SSL_library_init();
+        SSL_load_error_strings();
+#endif
+
+        // initialize openssl session context
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+        ctx = SSL_CTX_new(TLSv1_2_client_method());
+#else
+        ctx = SSL_CTX_new(TLS_client_method());
+#endif
+        if (ctx == NULL) {
+            throw std::runtime_error("error: could not initialize TLS context\n");
+        }
+        if (SSL_CTX_set_default_verify_paths(ctx) != 1) {
+            throw std::runtime_error("error: could not initialize TLS verification\n");
+        }
+        return ctx;
+    }
+
+    void tls_final(SSL_CTX *ctx) {
+        SSL_CTX_free(ctx);
     }
 
 public:
@@ -888,8 +925,9 @@ public:
             return;
         }
 
-        BIO *tls_bio = tls_connection_open(hostname);
-        if (tls_bio == nullptr) {
+        SSL_CTX *ctx = tls_init();
+        tls_connection connection{ctx, hostname};
+        if (!connection.is_valid()) {
             return;  // error: could not connect to host
         }
 
@@ -904,8 +942,8 @@ public:
             request += "Host: " + http_host_field + "\r\n";
         }
         request += "\r\n";
-        BIO_write(tls_bio, request.data(), request.size());
-        BIO_flush(tls_bio);
+
+        connection.write((uint8_t *)request.data(), request.size());
 
         // parse HTTP request for JSON output
         const uint8_t *http_req_buffer = (const uint8_t *)request.data();
@@ -925,11 +963,11 @@ public:
         char http_buffer[1024*256] = {};
         char *current = http_buffer;
         do {
-            read_len = BIO_read(tls_bio, current, sizeof(http_buffer) - http_response_len);
+            read_len = connection.read(current, sizeof(http_buffer) - http_response_len);
             current += read_len;
             http_response_len += read_len;
             //fprintf(stderr, "BIO_read %d bytes\n", read_len);
-        } while (read_len > 0 || BIO_should_retry(tls_bio));
+        } while (read_len > 0 || connection.should_retry());
 
         // parse and process http_response message
         if(http_response_len > 0) {
@@ -1027,7 +1065,8 @@ public:
                 }
             }
 
-            tls_connection_close(tls_bio);
+            connection.close();
+            tls_final(ctx);
         }
 
         // follow redirect, if any, by recursing
