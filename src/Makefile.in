@@ -165,7 +165,7 @@ libmerc_util: libmerc_util.cc libmerc_api.h
 intercept_server: intercept_server.cc
 	$(CXX) $(CFLAGS) intercept_server.cc -std=c++17 -o intercept_server
 
-tls_scanner: tls_scanner.cc libmerc
+tls_scanner: tls_scanner.cc libmerc.a
 	$(CXX) $(CFLAGS) tls_scanner.cc libmerc/libmerc.a -pthread -lssl -lcrypto -lz -o tls_scanner
 
 batch_gcd: CFLAGS += -march=native -flto
