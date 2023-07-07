@@ -479,7 +479,7 @@ public:
 
 };
 
-static bool write_pem(FILE *f, const uint8_t *data, size_t length, const char *label="RSA PRIVATE KEY") {
+[[maybe_unused]] static bool write_pem(FILE *f, const uint8_t *data, size_t length, const char *label="RSA PRIVATE KEY") {
 
     const char opening_line[] = "-----BEGIN ";
     const char closing_line[] = "-----END ";

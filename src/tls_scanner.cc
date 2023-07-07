@@ -34,6 +34,7 @@
 #include "libmerc/base64.h"
 
 #include "options.h"
+#include "pkcs8.hpp"
 
 std::array ua_strings = {
                          "Microsoft-CryptoAPI/10.0",
@@ -610,19 +611,30 @@ public:
     }
 };
 
+// class tls_connection creates a TLS over TCP connection with a
+// remote host
+//
 class tls_connection {
     BIO *bio = nullptr;
     BIO *tls_bio = nullptr;
+    SSL *tls = NULL;
+    std::string host;
 
 public:
 
-    tls_connection(SSL_CTX *ctx, std::string &hostname, bool omit_sni=false, bool write_cert_files=false, bool print_cert=false) {
+    tls_connection(SSL_CTX *ctx, std::string &hostname, bool omit_sni=false) :
+        host{hostname}
+    {
 
+        // TODO: allow alternative port number
+        //
         std::string host_and_port = hostname + ":443";
 
         bio = BIO_new_connect(host_and_port.c_str());
         if (bio == nullptr) {
-            throw std::runtime_error("error: could not create BIO\n");
+            fprintf(stderr, "warning: TCP connection to %s failed\n", host_and_port.c_str());
+            return;
+            // throw std::runtime_error("error: could not create BIO\n");
         }
         if (BIO_do_connect(bio) <= 0) {  // TODO: set/add timeout
             fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
@@ -633,7 +645,6 @@ public:
         BIO_push(tls_bio, bio);
         // BIO *tls_bio = BIO_new_ssl_connect(ctx);
 
-        SSL *tls = NULL;
         BIO_get_ssl(tls_bio, &tls);
         if (tls == NULL) {
             throw std::runtime_error("error: could not initialize TLS context\n");
@@ -667,16 +678,14 @@ public:
             throw std::runtime_error("error: TLS handshake failed\n");
         }
 
-        // record successful visit to host
-        // hosts_visited.push_back(hostname);
-        //
-        // TODO: restore hosts_visited
-
         int err = SSL_get_verify_result(tls);
         if (err != X509_V_OK) {
             const char *message = X509_verify_cert_error_string(err);
             fprintf(stderr, "note: certificate verification failed (%s, code %d)\n", message, err);
         }
+    }
+
+    void process_cert(bool write_cert_files, bool print_cert) {
         X509 *cert = SSL_get_peer_certificate(tls);
         if (cert == nullptr) {
             fprintf(stderr, "note: server did not present a certificate\n");
@@ -684,15 +693,29 @@ public:
 
             uint8_t *cert_buffer = NULL;
             int cert_len = i2d_X509(cert, &cert_buffer);
+            // datum cert_data{cert_buffer, cert_buffer + cert_len};
+            // cert_data.fprint_hex(stderr); fputc('\n', stderr);
             if (write_cert_files && cert_len > 0) {
-                //
-                // write certificate out as DER file
-                //
-                std::string der_file_name{hostname + ".der"};
-                FILE *der_file = fopen(der_file_name.c_str(), "w");
-                size_t bytes_written = fwrite(cert_buffer, sizeof(uint8_t), cert_len, der_file);
-                if (bytes_written != (size_t)cert_len) {
-                    throw std::runtime_error("error: could not write DER file\n");
+
+                if (false) {
+                    //
+                    // write certificate out as DER file
+                    //
+                    std::string der_file_name{host + ".cert.der"};
+                    FILE *der_file = fopen(der_file_name.c_str(), "w");
+                    size_t bytes_written = fwrite(cert_buffer, sizeof(uint8_t), cert_len, der_file);
+                    if (bytes_written != (size_t)cert_len) {
+                        throw std::runtime_error("error: could not write certificate DER file\n");
+                    }
+                } else {
+                    //
+                    // write certificate out as PEM file
+                    //
+                    std::string pem_file_name{host + ".cert.pem"};
+                    FILE *pem_file = fopen(pem_file_name.c_str(), "w");
+                    if (write_pem(pem_file, cert_buffer, cert_len, "CERTIFICATE") == false) {
+                        throw std::runtime_error("error: could not write certificate PEM file\n");
+                    }
                 }
             }
             if (print_cert && cert_len > 0) {
@@ -712,8 +735,9 @@ public:
 #endif
 
             X509_free(cert);
-
+            OPENSSL_free(cert_buffer);
         }
+
     }
 
     ~tls_connection() {
@@ -721,27 +745,35 @@ public:
     }
 
     void close() {
-        if (tls_bio) {
+        if (tls_bio != nullptr) {
             BIO_free_all(tls_bio);
             tls_bio = nullptr;
         }
-        // BIO_ssl_shutdown(tls_bio);
-        // BIO_reset(tls_bio);
-        // BIO_free_all(connection.bio);
     }
 
     bool is_valid() const { return tls_bio != nullptr; }
 
     void write(const uint8_t *data, size_t size) {
+        if (!is_valid()) {
+            return;
+        }
         BIO_write(tls_bio, data, size);
         BIO_flush(tls_bio);
     }
 
     ssize_t read(void *current, int length) {
+        if (!is_valid()) {
+            return -1;
+        }
         return BIO_read(tls_bio, current, length);
     }
 
-    bool should_retry() const { return BIO_should_retry(tls_bio); }
+    bool should_retry() const {
+        if (!is_valid()) {
+            return false;
+        }
+        return BIO_should_retry(tls_bio);
+    }
 
 };
 
@@ -931,6 +963,12 @@ public:
             return;  // error: could not connect to host
         }
 
+        // record successful visit to host
+        //
+        hosts_visited.push_back(hostname);
+
+        connection.process_cert(write_cert_files, print_cert);
+
         // send HTTP request
         std::string line = "GET " + path + " HTTP/1.1";
         std::string request = line + "\r\n";
@@ -1105,6 +1143,10 @@ using namespace mercury_option;
 
 int main(int argc, char *argv[]) {
 
+    // improve performance by not syncing stdio with iostreams
+    //
+    std::ios::sync_with_stdio(false);
+
     const char summary[] =
         "usage:\n"
         "\ttls_scanner <hostname>[/<path>] [OPTIONS]\n"
@@ -1127,7 +1169,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--no-server-name",   "omits the TLS server name" },
         { argument::none,       "--list-user-agents", "print out user agent strings, most prevalent first" },
         { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
-        { argument::none,       "--write-certs",      "write out server certificate(s) as DER file(s)" },
+        { argument::none,       "--write-certs",      "write out server certificate(s) as PEM file(s)" },
         { argument::none,       "--body",             "prints out HTTP response body" },
         { argument::none,       "--doh",              "send DoH query" },
         { argument::none,       "--help",             "prints out help message" }

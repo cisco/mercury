@@ -63,9 +63,39 @@ struct der_file_reader : public file_reader {
 
 
 struct pem_file_reader : public file_reader {
+
+    enum pem_label {
+        NONE                    = 0,
+        CERTIFICATE             = 1,
+        X509_CRL                = 2,
+        CERTIFICATE_REQUEST     = 3,
+        PKCS7                   = 4,
+        CMS                     = 5,
+        PRIVATE_KEY             = 6,
+        ENCRYPTED_PRIVATE_KEY   = 7,
+        ATTRIBUTE_CERTIFICATE   = 8,
+        PUBLIC_KEY              = 9,
+        RSA_PRIVATE_KEY         = 10,
+        NUM_PEM_LABELS          = 11
+    };
+    static constexpr const char *pem_label_string[NUM_PEM_LABELS] = {
+        "NONE",
+        "CERTIFICATE",
+        "X509 CRL",
+        "CERTIFICATE REQUEST",
+        "PKCS7",
+        "CMS",
+        "PRIVATE KEY",
+        "ENCRYPTED PRIVATE KEY",
+        "ATTRIBUTE CERTIFICATE",
+        "PUBLIC KEY",
+        "RSA PRIVATE KEY"
+    };
+
     FILE *stream;
     char *line;
     size_t cert_number;
+    pem_label last_label = NONE;
 
     pem_file_reader(const char *infile) : stream{NULL}, line{NULL}, cert_number{0} {
         if (infile == NULL) {
@@ -78,10 +108,44 @@ struct pem_file_reader : public file_reader {
             }
         }
     }
+
+    pem_label get_pem_label(const char *line, size_t length) {
+        const char *opening = "-----BEGIN ";
+        if (line == nullptr) {
+            return NONE;
+        }
+        if (strncmp(line, opening, strlen(opening)) != 0) {
+            return NONE;
+        }
+
+        // find start, end, and length of label string
+        //
+        const char *label = line + strlen(opening);
+        const char *line_end = line + length;
+        const char *label_end = label;
+        while (label_end < line_end) {
+            if (*label_end == '-') {
+                break;
+            }
+            label_end++;
+        }
+        size_t label_length = label_end-label;
+
+        for (size_t i=0; i<NUM_PEM_LABELS; i++) {
+            if (strncmp(pem_label_string[i], label, label_length) == 0) {
+                return (pem_label)i;
+            }
+        }
+        return NONE;
+    }
+
+    pem_label get_label() const {
+        return last_label;
+    }
+
     ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) {
         size_t len = 0;
         ssize_t nread = 0;
-        const char opening_line[] = "-----BEGIN";
         const char closing_line[] = "-----END";
 
         cert_number++;
@@ -92,15 +156,11 @@ struct pem_file_reader : public file_reader {
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
             return 0;  // empty line; assue we are done with certificates
         }
-        if ((size_t)nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) != 0) {
-            const char *pem = "-----BEGIN";
-            if ((size_t)nread >= sizeof(pem)-1 && strncmp(line, pem, sizeof(pem)-1) == 0) {
-                fprintf(stderr, "error: PEM data does not contain a certificate (encapsulated text %zd)\n", cert_number);
-            } else {
-                fprintf(stderr, "error: not in PEM format, or missing opening line in certificate %zd\n", cert_number);
-            }
+        last_label = get_pem_label(line, nread);
+        if (last_label == NONE) {
+            fprintf(stderr, "error: not in PEM format in textual element %zd\n", cert_number);
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
-            return -1; // missing opening line; not in PEM format
+            return -1;  // error: not in PEM format
         }
 
         // marshall data
@@ -140,6 +200,13 @@ struct pem_file_reader : public file_reader {
     ~pem_file_reader() {
         fclose(stream);
     }
+
+    void write(writeable &w, pem_label &label) {
+        ssize_t length = get_cert(w.data, w.writeable_length());
+        w.update(length);
+        label = get_label();
+    }
+
 };
 
 struct der_file_writer {
