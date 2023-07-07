@@ -317,7 +317,11 @@ struct pem_file_reader : public file_reader {
                     is_closed = true;
                     break;
                 } else {
-                    advance = nread;
+                     if (line[nread-1] == '\n') {
+                        advance = nread - 1;
+                    } else {
+                        advance = nread;
+                    }
                 }
             }
             if (b_ptr + advance >= base64_buffer_end) {
