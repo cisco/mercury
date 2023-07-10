@@ -28,6 +28,7 @@
 #include <utility>
 
 #include "pkcs8.hpp"
+#include "libmerc/bigint.hpp"
 
 /* Number of threads to use. Adjust and recompile if fixed number is desired. */
 static const int NTHREADS = std::thread::hardware_concurrency();
@@ -684,35 +685,6 @@ int is_hex_line(const char *line) {
     }
     return 1;
 }
-
-// class bigint holds a big-endian octet string suitable for output or
-// ASN.1 encoding
-//
-class bigint {
-    size_t count;      // octets in buffer
-    uint8_t *mpz_buf;  // buffer
-
-    static constexpr int bigendian = 1;
-
-public:
-
-    bigint(mpz_t x) :
-        count{(mpz_sizeinbase(x, 2) + 8-1) / 8},
-        mpz_buf{(uint8_t *)mpz_export(nullptr, &count, bigendian, 1, 1, 0, x)} {
-        if (mpz_buf == nullptr) {
-            throw std::runtime_error{"could not allocate mpz buffer"};
-        }
-        // fprintf(stdout, "bytes in mpz_buf: %zu\n", count);
-        // fprintf(stdout, "mpz_buf: %x%x%x%x\n", mpz_buf[0], mpz_buf[1], mpz_buf[2], mpz_buf[3]);
-    }
-
-    ~bigint() { free(mpz_buf); }
-
-    datum get_datum() const { return { mpz_buf, mpz_buf + count }; }
-    //    std::pair<uint8_t *, uint8_t *> get_datum() const { return { mpz_buf, mpz_buf + count }; }
-
-    size_t octets() const { return count; }
-};
 
 int main (int argc, char *argv[]) {
 

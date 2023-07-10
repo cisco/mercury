@@ -577,6 +577,32 @@ struct datum {
         return -1;
     }
 
+    ssize_t write_hex(char *out, size_t num_bytes, bool null_terminated=false) {
+
+        // check for writeable room; output length is twice the input
+        // length
+        //
+        ssize_t terminator = null_terminated ? 1 : 0;
+        if (is_null() or (data_end - data) + terminator > 2 * (ssize_t)num_bytes) {
+            return -1;
+        }
+
+        uint8_t hex_table[] = {
+            '0', '1', '2', '3', '4', '5', '6', '7',
+            '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+        };
+
+        const uint8_t *d = data;
+        while (d < data_end) {
+            *out++ = hex_table[(*d & 0xf0) >> 4];
+            *out++ = hex_table[*d++ & 0x0f];
+        }
+        if (null_terminated) {
+            *out++ = '\0';
+        }
+        return data_end - data + terminator;
+    }
+
 };
 
 // sanity checks on class datum

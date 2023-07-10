@@ -201,10 +201,10 @@ struct pem_file_reader : public file_reader {
         fclose(stream);
     }
 
-    void write(writeable &w, pem_label &label) {
+    void write(writeable &w) {
         ssize_t length = get_cert(w.data, w.writeable_length());
         w.update(length);
-        label = get_label();
+        last_label = get_label();
     }
 
 };

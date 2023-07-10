@@ -514,6 +514,7 @@ struct tlv {
         if (first_octet) {
             // throw std::runtime_error("error removing bitstring encoding");
             value.set_null();
+            return;
         }
         if (length > 0) {
             length = length - 1;
