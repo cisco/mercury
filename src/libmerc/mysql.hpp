@@ -470,6 +470,7 @@ public:
                 valid = false;
                 return;
             }
+            version.trim(1);
             if_auth_plugin = (auth_plugin_len > 0);
             uint8_t maj_ver = *(version.data);
             uint8_t min_ver = *(version.data + 2);
@@ -495,7 +496,8 @@ public:
                 }
             }
             if (if_auth_plugin) {
-                auth_plugin.parse(pkt, auth_plugin_len+1);    // +1 for null terminated string
+                auth_plugin.parse(pkt, auth_plugin_len);    // +1 for null terminated string
+                pkt.skip(1);
             }
             if (pkt.length()) {
                 valid = false;

@@ -248,7 +248,7 @@ struct openvpn_payload {
     void write_json(struct json_object &record, bool output_metadata) {
         if (output_metadata) {
             record.print_key_uint_hex("session_id",session_id);
-            record.print_key_bool("HMAC",tls_auth);
+            record.print_key_bool("hmac",tls_auth);
             if (if_net_time){
                 record.print_key_int("net_time",net_time);
             }
