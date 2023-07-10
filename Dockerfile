@@ -7,7 +7,7 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing/" >> /etc/apk/reposi
 
 COPY . /src
 WORKDIR /src
-RUN ./configure && make V=s && make install-nonroot
+RUN ./configure && make V=s use_fsanitize=no && make install-nonroot
 
 FROM alpine:latest
 WORKDIR /root/
