@@ -229,7 +229,7 @@ def main():
     merc_db, merc_count = read_merc_data(args.merc_out, args.ignore_src_ip)
     # Locate all the stats file that starts with prefix merc_stats
     # Unzip the file(s) and store the extracted data in a temp file tempstats.json
-    file_list = [filename for filename in os.listdir(args.path) if filename.startswith(args.merc_stats)]
+    file_list = [filename for filename in os.listdir(str(args.path)) if filename.startswith(args.merc_stats)]
 
     fp = open("tempstats.json", "w+b")
 
