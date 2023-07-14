@@ -678,10 +678,13 @@ public:
             throw std::runtime_error("error: TLS handshake failed\n");
         }
 
-        int err = SSL_get_verify_result(tls);
-        if (err != X509_V_OK) {
-            const char *message = X509_verify_cert_error_string(err);
-            fprintf(stderr, "note: certificate verification failed (%s, code %d)\n", message, err);
+        bool check_cert = false;
+        if (check_cert) {
+            int err = SSL_get_verify_result(tls);
+            if (err != X509_V_OK) {
+                const char *message = X509_verify_cert_error_string(err);
+                fprintf(stderr, "note: certificate verification failed (%s, code %d)\n", message, err);
+            }
         }
     }
 
@@ -693,8 +696,6 @@ public:
 
             uint8_t *cert_buffer = NULL;
             int cert_len = i2d_X509(cert, &cert_buffer);
-            // datum cert_data{cert_buffer, cert_buffer + cert_len};
-            // cert_data.fprint_hex(stderr); fputc('\n', stderr);
             if (write_cert_files && cert_len > 0) {
 
                 if (false) {
@@ -716,6 +717,7 @@ public:
                     if (write_pem(pem_file, cert_buffer, cert_len, "CERTIFICATE") == false) {
                         throw std::runtime_error("error: could not write certificate PEM file\n");
                     }
+                    fclose(pem_file);
                 }
             }
             if (print_cert && cert_len > 0) {
@@ -1224,7 +1226,12 @@ int main(int argc, char *argv[]) {
             std::string host;
             while (std::getline(host_list, host)) {
                 fprintf(stderr, "note: scanning host %s\n", host.c_str());
-                scanner.scan(host, inner_hostname, doh);
+                try {
+                    scanner.scan(host, inner_hostname, doh);
+                }
+                catch (...) {
+                    fprintf(stderr, "error: caught exception\n");
+                }
             }
         } else {
             scanner.scan(hostname, inner_hostname, doh);

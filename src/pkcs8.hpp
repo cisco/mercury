@@ -731,7 +731,10 @@ public:
     const char opening_line[] = "-----BEGIN ";
     const char closing_line[] = "-----END ";
 
-    fprintf(f, "%s%s-----\n", opening_line, label);
+    int chars_written = fprintf(f, "%s%s-----\n", opening_line, label);
+    if (chars_written != (int)(strlen(opening_line) + strlen(label) + 6)) {
+        return false; // error: could not write to file
+    }
     std::string b64 = base64_encode(data, length);
     const char *data_end = b64.data() + b64.length();
     for (char *c=b64.data(); c < data_end; c+=64) {
