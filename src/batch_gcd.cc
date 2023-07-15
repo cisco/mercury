@@ -31,6 +31,15 @@
 #include "libmerc/bigint.hpp"
 #include "options.h"
 
+#define ANSI_END     "\x1b[0m"
+#define ANSI_RED     "\x1b[31m"
+#define ANSI_GREEN   "\x1b[32m"
+#define ANSI_BLUE    "\x1b[34m"
+#define ANSI_YELLOW  "\x1b[33m"
+#define ANSI_MAGENTA "\x1b[35m"
+#define ANSI_CYAN    "\x1b[36m"
+
+
 /* Number of threads to use. Adjust and recompile if fixed number is desired. */
 static const int NTHREADS = std::thread::hardware_concurrency();
 
@@ -719,7 +728,6 @@ public:
             pem_file_reader::pem_label label = pemfile.get_label();
             datum pemdata = pembuf.contents();
             if (pemdata.length() == 0) {
-                fprintf(stderr, "note: no more entries\n");
                 return false;  // no more entries in pemfile
             }
 
@@ -776,7 +784,6 @@ public:
             pem_file_reader::pem_label label = pemfile.get_label();
             datum pemdata = pembuf.contents();
             if (pemdata.length() == 0) {
-                fprintf(stderr, "note: no more entries\n");
                 return false;  // no more entries in pemfile
             }
 
@@ -795,7 +802,6 @@ public:
 
             ++linenum;
             if (*next_line_to_write == linenum) {
-                fprintf(stderr, "next_line_to_write: %zu\tlinenum: %zu\n", *next_line_to_write, linenum);
                 std::string filename = base_filename + "-line-" + std::to_string(linenum) + ".cert.pem";
                 write_pem(fopen(filename.c_str(), "w+"), pemdata.data, pemdata.length(), "CERTIFICATE");
                 ++next_line_to_write;
@@ -916,15 +922,15 @@ void write_key(mpz_class &n, mpz_class &f1, mpz_class &f2, std::string &filename
     //  private_key_info priv_info{priv};
     //  priv_info.write(dbuf);
     priv.write(dbuf);
-    priv.fprint(stdout);
+    //priv.fprint(stdout);
     datum pem_result = dbuf.contents();
-    fprintf(stderr, "writing out RSA private key to file %s\n", filename.c_str());
+    //    fprintf(stderr, "writing out RSA private key to file %s\n", filename.c_str());
     write_pem(fopen(filename.c_str(), "w+"), pem_result.data, pem_result.length());
 
     // check private key
     //
-    private_key_info priv_info2{pem_result};
-    fprintf(stderr, "priv_info2.is_valid(): %u\n", priv_info2.is_valid());
+    // private_key_info priv_info2{pem_result};
+    // fprintf(stderr, "priv_info2.is_valid(): %u\n", priv_info2.is_valid());
 }
 
 int main (int argc, char *argv[]) {
@@ -1078,11 +1084,11 @@ int main (int argc, char *argv[]) {
         // Ignore this line if it duplicates a previous line.
         mpz_class n(mpz_temp);
         if (line_first_seen.count(n) == 1) {
-            fprintf(stdout,
-                    "Duplicate ignored: line %zu = line %zu = ",
-                    linereader->get_linenum(), line_first_seen[n]);
-            gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
-            fprintf(stdout, "\n");
+            // fprintf(stdout,
+            //         "Duplicate ignored: line %zu = line %zu = ",
+            //         linereader->get_linenum(), line_first_seen[n]);
+            // gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
+            // fprintf(stdout, "\n");
             duplicates_ignored++;
         } else if (n == 0) {
             fprintf(stdout, "Zero modulus ignored: line %zu\n", linereader->get_linenum());
@@ -1093,8 +1099,11 @@ int main (int argc, char *argv[]) {
             push_numlist(nlist, mpz_temp);
             original_linenum.push_back(linereader->get_linenum());
             estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
+
+            fprintf(stderr, "certs:\t" ANSI_YELLOW "%zu" ANSI_END "\tduplicates: " ANSI_YELLOW "%zu" ANSI_END "\tRAM needed: " ANSI_YELLOW "%zu" ANSI_END "\r", linereader->get_linenum(), duplicates_ignored, estimated_limbs * 8);
         }
     }
+    fputc('\n', stderr);
 #endif
 
     // deallocate reader to minimize RAM usage
@@ -1124,7 +1133,7 @@ int main (int argc, char *argv[]) {
     }
 
     // Print all informational messages to stderr
-    fprintf(stderr, "Running batch GCD on %zu moduli", nlist->len);
+    fprintf(stderr, "running batch GCD on " ANSI_YELLOW "%zu" ANSI_END " moduli", nlist->len);
     if (duplicates_ignored > 0) {
         fprintf(stderr, ", ignoring %zu duplicate line%s",
                 duplicates_ignored,
@@ -1190,16 +1199,6 @@ int main (int argc, char *argv[]) {
                 factor2lines[f2].push_back(line);
             }
 
-            // Output
-            fprintf(stdout, "Vulnerable modulus on line %zu: ",
-                    original_linenum[i]);
-            gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
-            fprintf(stdout, " has factors ");
-            gmp_fprintf(stdout, "%Zx", f1.get_mpz_t());
-            fprintf(stdout, " and ");
-            gmp_fprintf(stdout, "%Zx", f2.get_mpz_t());
-            fprintf(stdout, "\n");
-
             if (write_keys) {
                 //
                 // create a PKCS8 RSA Private Key file for the
@@ -1207,6 +1206,16 @@ int main (int argc, char *argv[]) {
                 //
                 std::string rsapriv_filename = base_filename + "-line-" + std::to_string(original_linenum[i]) + ".rsapriv.pem";
                 write_key(n, f1, f2, rsapriv_filename);
+            } else {
+                // Output
+                fprintf(stdout, "Vulnerable modulus on line %zu: ",
+                        original_linenum[i]);
+                gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
+                fprintf(stdout, " has factors ");
+                gmp_fprintf(stdout, "%Zx", f1.get_mpz_t());
+                fprintf(stdout, " and ");
+                gmp_fprintf(stdout, "%Zx", f2.get_mpz_t());
+                fprintf(stdout, "\n");
             }
 
             // remember line number so that we can write out the
@@ -1218,11 +1227,12 @@ int main (int argc, char *argv[]) {
 
     if (have_cert_file && write_keys) {
         //
-        // write out rsa private key for each certificate that has a
-        // vulnerable key
+        // write out certificate for each vulnerable key
         //
         pem_mpz_reader reader{cert_file.c_str()};
         reader.write_out_certs(weak_certs, base_filename);
+
+        fprintf(stderr, "wrote out " ANSI_YELLOW "%zu" ANSI_END " RSA PRIVATE KEY (.rsapriv.pem) and CERTIFICATE (.cert.pem) files\n", weak_certs.size());
     }
 
     // Report which lines share common factors.

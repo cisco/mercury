@@ -41,7 +41,6 @@ public:
             count = count + 1;
             offset = 1;
         }
-        fprintf(stderr, "leading_zero: %u\n", leading_zero);
         mpz_buf = (uint8_t *)malloc(count);
         if (mpz_buf == nullptr) {
             throw std::runtime_error{"could not allocate mpz buffer (size: " + std::to_string(count) + " octets)"};
