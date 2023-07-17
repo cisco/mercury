@@ -11,7 +11,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include "packet.h"
+#include "flow_key.h"
 #include "libmerc.h" // for enum status
 #include "buffer_stream.h"
 

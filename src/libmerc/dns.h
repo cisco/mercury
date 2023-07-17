@@ -743,10 +743,10 @@ struct dns_packet : public base_protocol {
         if (header == nullptr) {
             return;         // too short
         }
-        qdcount = ntohs(header->qdcount);
-        ancount = ntohs(header->ancount);
-        nscount = ntohs(header->nscount);
-        arcount = ntohs(header->arcount);
+        qdcount = ntoh(header->qdcount);
+        ancount = ntoh(header->ancount);
+        nscount = ntoh(header->nscount);
+        arcount = ntoh(header->arcount);
         if ((qdcount == 0 && ancount == 0)
             || qdcount > dns_packet::max_count
             || ancount > dns_packet::max_count

@@ -4,8 +4,49 @@
 #define LIBMERC_API_H
 
 #include "libmerc/libmerc.h"
-#include <dlfcn.h>
 #include <stdexcept>
+
+// On Windows, #define the functions dlopen(), dlerror(), dlsym(), and
+// dlclose() as appropriate for that platform, and define dll_type as
+// the library 'handle' returned by dlopen() and LoadLibraryA().  RTLD
+// flags are defined to be zero, as they are ignored on this platform.
+//
+// On Linux and MacOSX, use the native definitions for dlopen(),
+// dlerror(), dlsym(), and dlclose(), but #define dll_type as void *,
+// as returned by dlopen()
+//
+#ifndef _WIN32
+
+#include <dlfcn.h>
+using dll_type = void *;
+
+#else
+
+#include <libloaderapi.h>
+
+using dll_type = HINSTANCE; 
+
+#define RTLD_LAZY  0
+#define RTLD_LOCAL 0
+
+static inline dll_type dlopen(const char *lib_path, int flags) {
+    (void) flags;  // ignore
+    return LoadLibraryA(lib_path);
+}
+
+static inline const char *dlerror(void) {
+    return nullptr;
+}
+
+static inline auto dlsym(dll_type handle, const char *symbol) {
+    return GetProcAddress(handle, symbol);
+}
+
+static inline int dlclose(dll_type handle) {
+    return (FreeLibrary(handle) != 0);
+}
+
+#endif
 
 
 struct libmerc_api {
@@ -40,12 +81,12 @@ struct libmerc_api {
     decltype(mercury_write_stats_data)                               *write_stats_data = nullptr;
     decltype(register_printf_err_callback)                           *register_printf_err = nullptr;
 
-    void *dl_handle = nullptr;
+    dll_type dl_handle = nullptr;
 
     int bind(const char *lib_path) {
 
         if ((dl_handle = dlopen(lib_path, RTLD_LAZY|RTLD_LOCAL)) == nullptr) {
-            const char *dlerr = dlerror();
+	    const char *dlerr = dlerror();
             fprintf(stderr, "mercury: failed to load %s: %s\n", lib_path, dlerr ? dlerr : "unknown error");
             return -1; // error
         } else {
@@ -124,6 +165,8 @@ struct libmerc_api {
         } else {
             libmerc_version = 4;
         }
+
+	// TODO: check for v5 API
 
         fprintf(stderr, "libmerc api version %u found\n", libmerc_version);
         fprintf(stderr, "mercury_bind() succeeded with handle %p\n", dl_handle);

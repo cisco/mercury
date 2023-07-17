@@ -9,7 +9,6 @@
 #define STATS_H
 
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string>

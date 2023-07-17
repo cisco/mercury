@@ -301,7 +301,11 @@ static inline int append_timestamp_as_string(char *dstr, int *doff, int dlen, in
 
     // construct ISO8601 / RFC3339 compliant UTC timestamp
     struct tm tm;
+#ifdef _WIN32
+    gmtime_s(&tm, &ts->tv_sec);
+#else
     gmtime_r(&ts->tv_sec, &tm);
+#endif
     char time_buf[31];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%dT%H:%M:%S.", &tm);
     char str_buf[31];

@@ -87,8 +87,8 @@ public:
     //
     void set_key(struct key &k) const {
         if (header) {
-            k.src_port = ntohs(header->src_port);
-            k.dst_port = ntohs(header->dst_port);
+            k.src_port = ntoh(header->src_port);
+            k.dst_port = ntoh(header->dst_port);
             k.protocol = 17; // udp
         }
     }

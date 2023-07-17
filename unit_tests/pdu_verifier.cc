@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <libmerc.h>
 #include <dlfcn.h>
-#include <pcap_file_io.h>
+#include <pcap.h>
 #include <stdio.h>
 #include <cstring>
 #include <utility>
@@ -125,11 +125,11 @@ int main(int argc, char** argv)
     time.tv_nsec = 0;
     time.tv_sec = 0;
 
-    struct pcap_file _pcap(_read_file, io_direction_reader);
-    struct pcap_file* _unmatched_pcap = nullptr;
+    pcap::file_reader _pcap(_read_file);
+    pcap::file_reader* _unmatched_pcap = nullptr;
     if(_write_file != nullptr)
     {
-        _unmatched_pcap = new pcap_file(_write_file, io_direction_writer);
+        _unmatched_pcap = new pcap::file_writer(_write_file);
     }
 
     packet<65536> pkt;
@@ -188,8 +188,7 @@ int main(int argc, char** argv)
                 printf("\n");
         }
         if((!(!_separate_output != !success)) && (_unmatched_pcap != nullptr))
-            pcap_file_write_packet_direct(_unmatched_pcap, data_packet.first, data_packet.second - data_packet.first, 0, 0);
-
+            _unmatched_pcap.write(data_packet, 0, 0, 0);
     }
 
     mercury_packet_processor_destruct(packet_processor);

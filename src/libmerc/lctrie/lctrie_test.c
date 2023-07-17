@@ -6,7 +6,6 @@
 #include <time.h>
 #include <locale.h>
 
-#include <arpa/inet.h>
 #include <sys/time.h>
 
 #include <random>

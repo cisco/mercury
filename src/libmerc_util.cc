@@ -10,7 +10,8 @@
 
 #include "options.h"
 #include "libmerc_api.h"
-#include "pcap_file_io.h"
+#include "pcap.h"
+#include "packet.h"
 #include "libmerc/datum.h"
 #include "libmerc/json_object.h"
 
@@ -326,7 +327,7 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
-        struct pcap_file pcap(pcap_file.c_str(), io_direction_reader);
+	pcap::file_reader pcap{pcap_file.c_str()};
         packet<65536> pkt;
         while (true) {
 
