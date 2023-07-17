@@ -805,11 +805,11 @@ public:
             uint8_t dns_message[2048];
             dns_hdr *header = (dns_hdr *)&dns_message[0];
             header->id = 0x0000;           // DoH clients SHOULD use 0 in each request
-            header->flags = hton((uint16_t)0x0100);
-            header->qdcount = hton((uint16_t)1);
-            header->ancount = hton((uint16_t)0);
-            header->nscount = hton((uint16_t)0);
-            header->arcount = hton((uint16_t)0);
+            header->flags = hton<uint16_t>(0x0100);
+            header->qdcount = hton<uint16_t>(1);
+            header->ancount = hton<uint16_t>(0);
+            header->nscount = hton<uint16_t>(0);
+            header->arcount = hton<uint16_t>(0);
 
             uint8_t *rr_start = &dns_message[sizeof(dns_hdr)];
 

@@ -41,10 +41,19 @@
 // hton(x) - 'host to network byte order' - when x is in host byte
 // order, hton(x) returns x in network byte order
 //
-// To apply hton() to integer literals, use a cast.  For instance,
-// hton((uint16_t)443) obtains a uint16_t in network byte order for
-// the unsigned integer 443.  If the size of the integer literal
-// passed to hton() is ambiguous, a compiler error should result.
+// Given an unsigned integer variable x in host byte order, hton(x)
+// returns an unsigned integer in network byte order with the same
+// type and value.  Similarly, given an unsigned integer variable x in
+// network byte order, ntoh(x) returns an unsigned integer in host
+// byte order with the same type and value.  hton() and ntoh() are
+// template functions with specializations for uint16_t, uint32_t, and
+// uint64_t.
+//
+// To apply hton() or ntos() to an unsigned integer literal, use the
+// appropriate template specialization.  For instance,
+// hton<uint16_t>(443) obtains a uint16_t in network byte order for
+// the unsigned integer 443.  The specialization must be used because
+// otherwise a compiler error will result from the amiguity.
 //
 #ifdef _WIN32
 
@@ -54,14 +63,6 @@ inline static uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x);
 inline static uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
 inline static uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
 
-inline static uint16_t ntoh(uint16_t x) { return _byteswap_ushort(x); }
-inline static uint32_t ntoh(uint32_t x) { return _byteswap_ulong(x); }
-inline static uint64_t ntoh(uint64_t x) { return _byteswap_uint64(x); }
-
-inline static uint16_t hton(uint16_t x) { return _byteswap_ushort(x); }
-inline static uint32_t hton(uint32_t x) { return _byteswap_ulong(x); }
-inline static uint64_t hton(uint64_t x) { return _byteswap_uint64(x); }
-
 #else
 
 static constexpr bool host_little_endian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
@@ -70,15 +71,14 @@ inline static uint16_t swap_byte_order(uint16_t x) { return __builtin_bswap16(x)
 inline static uint32_t swap_byte_order(uint32_t x) { return __builtin_bswap32(x); }
 inline static uint64_t swap_byte_order(uint64_t x) { return __builtin_bswap64(x); }
 
-inline static uint16_t ntoh(uint16_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
-inline static uint32_t ntoh(uint32_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
-inline static uint64_t ntoh(uint64_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
-
-inline static uint16_t hton(uint16_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
-inline static uint32_t hton(uint32_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
-inline static uint64_t hton(uint64_t x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
-
 #endif
+
+template <typename T>
+inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+
+template <typename T>
+inline static T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+
 
 inline uint8_t lowercase(uint8_t x) {
     if (x >= 'A' && x <= 'Z') {

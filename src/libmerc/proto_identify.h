@@ -429,11 +429,11 @@ public:
     }
 
     size_t get_udp_msg_type_from_ports(udp::ports ports) const {
-        if (nbds() and ports.src == hton((uint16_t)138) and ports.dst == hton((uint16_t)138)) {
+        if (nbds() and ports.src == hton<uint16_t>(138) and ports.dst == hton<uint16_t>(138)) {
             return udp_msg_type_nbds;
         }
 
-        if (ports.dst == hton((uint16_t)4789)) {
+        if (ports.dst == hton<uint16_t>(4789)) {
             return udp_msg_type_vxlan;
         }
 
@@ -445,11 +445,11 @@ public:
             return tcp_msg_type_unknown;
         }
 
-        if (nbss() and (tcp_pkt->header->src_port == hton((uint16_t)139) or tcp_pkt->header->dst_port == hton((uint16_t)139))) {
+        if (nbss() and (tcp_pkt->header->src_port == hton<uint16_t>(139) or tcp_pkt->header->dst_port == hton<uint16_t>(139))) {
             return tcp_msg_type_nbss;
         }
 
-        if (openvpn_tcp() and (tcp_pkt->header->src_port == hton((uint16_t)1194) or tcp_pkt->header->dst_port == hton((uint16_t)1194)) ) {
+        if (openvpn_tcp() and (tcp_pkt->header->src_port == hton<uint16_t>(1194) or tcp_pkt->header->dst_port == hton<uint16_t>(1194)) ) {
             return tcp_msg_type_openvpn;
         }
 
