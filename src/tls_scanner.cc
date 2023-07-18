@@ -619,6 +619,7 @@ class tls_connection {
     BIO *tls_bio = nullptr;
     SSL *tls = NULL;
     std::string host;
+    bool valid = false;  // true only after successful session handshake
 
 public:
 
@@ -630,12 +631,14 @@ public:
         //
         std::string host_and_port = hostname + ":443";
 
+        // fprintf(stderr, "attempting BIO_new_connect() to %s\n", host_and_port.c_str());
         bio = BIO_new_connect(host_and_port.c_str());
         if (bio == nullptr) {
             fprintf(stderr, "warning: TCP connection to %s failed\n", host_and_port.c_str());
             return;
             // throw std::runtime_error("error: could not create BIO\n");
         }
+        // fprintf(stderr, "attempting BIO_do_connect() to %s\n", host_and_port.c_str());
         if (BIO_do_connect(bio) <= 0) {  // TODO: set/add timeout
             fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
             //throw std::runtime_error("error: could not connect to %s\n");
@@ -647,7 +650,9 @@ public:
 
         BIO_get_ssl(tls_bio, &tls);
         if (tls == NULL) {
-            throw std::runtime_error("error: could not initialize TLS context\n");
+            fprintf(stderr, "warning: could not initialize TLS session context with %s\n", host_and_port.c_str());
+            // throw std::runtime_error("error: could not initialize TLS context\n");
+            return;
         }
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -675,7 +680,9 @@ public:
         }
 
         if (BIO_do_handshake(tls_bio) <= 0) {
-            throw std::runtime_error("error: TLS handshake failed\n");
+            // throw std::runtime_error("error: TLS handshake failed\n");
+            fprintf(stderr, "error: TLS handshake to %s failed\n", host_and_port.c_str());
+            return;
         }
 
         bool check_cert = false;
@@ -686,6 +693,13 @@ public:
                 fprintf(stderr, "note: certificate verification failed (%s, code %d)\n", message, err);
             }
         }
+
+        // final sanity check on session pointers
+        //
+        if (bio == nullptr || tls_bio == nullptr || tls == nullptr) {
+            return;
+        }
+        valid = true;
     }
 
     void process_cert(bool write_cert_files, bool print_cert) {
@@ -753,7 +767,7 @@ public:
         }
     }
 
-    bool is_valid() const { return tls_bio != nullptr; }
+    bool is_valid() const { return valid; }
 
     void write(const uint8_t *data, size_t size) {
         if (!is_valid()) {
@@ -791,6 +805,7 @@ private:
     bool print_src_links = true;
     bool omit_sni;
     bool write_cert_files = false;
+    bool recurse = false;
     std::string user_agent;
 
     std::vector<std::string> hosts_visited;
@@ -824,12 +839,13 @@ private:
 
 public:
 
-    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni, bool write_certs) :
+    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni, bool write_certs, bool use_recursion) :
         print_cert{cert},
         print_response_body{response_body},
         print_src_links{src_links},
         omit_sni{no_sni},
         write_cert_files{write_certs},
+        recurse{use_recursion},
         user_agent{user_agent_default},
         hosts_visited{} { }
 
@@ -962,6 +978,7 @@ public:
         SSL_CTX *ctx = tls_init();
         tls_connection connection{ctx, hostname};
         if (!connection.is_valid()) {
+            tls_final(ctx);
             return;  // error: could not connect to host
         }
 
@@ -1010,7 +1027,10 @@ public:
         } while (read_len > 0 || connection.should_retry());
 
         // parse and process http_response message
-        if(http_response_len > 0) {
+        if (http_response_len > 0) {
+
+            // fprintf(stderr, "%.*s\n", (int)http_response_len, http_buffer);
+
             bool parse_response = true;
 
             // fprintf(stdout, "%.*s", http_response_len, http_buffer);
@@ -1097,21 +1117,21 @@ public:
                     //         host.c_str(),
                     //         (int)u.path.length(), u.path.data);
 
-                    if (!was_previously_visited(host)) {
+                    if (!was_previously_visited(host) && recurse) {
                         // append path to host, since scan() expects that
                         host += u.path.get_string();
                         scan(host, host);
                     }
                 }
             }
-
-            connection.close();
-            tls_final(ctx);
         }
+
+        connection.close();
+        tls_final(ctx);
 
         // follow redirect, if any, by recursing
         if (redirect != "") {
-            if (!was_previously_visited(redirect)) {
+            if (!was_previously_visited(redirect) && recurse) {
                 scan(redirect, redirect);
             }
         }
@@ -1216,7 +1236,8 @@ int main(int argc, char *argv[]) {
                             print_body,  // print response body
                             true,        // print src links
                             omit_sni,    // omit TLS server name
-                            write_certs  // write certs to files
+                            write_certs, // write certs to files
+                            false        // don't recurse
                             );
         if (ua_is_set) {
             scanner.set_user_agent(ua_search_string);
@@ -1226,12 +1247,7 @@ int main(int argc, char *argv[]) {
             std::string host;
             while (std::getline(host_list, host)) {
                 fprintf(stderr, "note: scanning host %s\n", host.c_str());
-                try {
-                    scanner.scan(host, inner_hostname, doh);
-                }
-                catch (...) {
-                    fprintf(stderr, "error: caught exception\n");
-                }
+                scanner.scan(host, host, doh);
             }
         } else {
             scanner.scan(hostname, inner_hostname, doh);
@@ -1244,8 +1260,8 @@ int main(int argc, char *argv[]) {
             scanner.print_history(stdout);
         }
     }
-    catch (const char *s) {
-        fprintf(stderr, "%s", s);
+    catch (std::exception &e) {
+        fprintf(stderr, "error: caught exception: %s\n", e.what());
     }
     return 0;
 
