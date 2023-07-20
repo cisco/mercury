@@ -289,7 +289,7 @@ public:
         struct json_object msg{o};
         msg.print_key_uint("message_length", message_length);
         type_codes<bittorrent_peer_message> code{*this};
-        msg.print_key_value("mesage_type", code);
+        msg.print_key_value("message_type", code);
         msg.print_key_hex("message", message);
         msg.close();
     }
