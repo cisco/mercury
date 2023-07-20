@@ -663,7 +663,7 @@ struct dns_resource_record {
                     nbstat.print_key_uint16("number_of_pending_sessions", pending_session.value());
 
                     encoded<uint16_t> max_pending_session(tmp_rdata);
-                    nbstat.print_key_uint16("number_of_max_pending_sessions", max_pending_session.value());
+                    nbstat.print_key_uint16("max_pending_sessions", max_pending_session.value());
 
                     encoded<uint16_t> max_session(tmp_rdata);
                     nbstat.print_key_uint16("max_total_sessions_possible", max_session.value());
