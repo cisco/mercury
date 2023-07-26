@@ -16,6 +16,7 @@
 #include "datum.h"
 #include "json_object.h"
 #include "match.h"
+#include "protocol.h"
 
 // DNP3 App Response Header
 //
