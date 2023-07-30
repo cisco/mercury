@@ -12,6 +12,7 @@
 #include "lex.h"
 #include "match.h"
 #include "newhttp.h"
+#include "protocol.h"
 
 // For the DHT protocol, there are four queries: ping, find_node,
 // get_peers, and announce_peer.
