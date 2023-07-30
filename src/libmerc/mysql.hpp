@@ -7,6 +7,7 @@
 
 #include "json_object.h"
 #include "match.h"
+#include "protocol.h"
 
 // Reference : https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_PROTOCOL.html
 // https://mariadb.com/kb/en/clientserver-protocol/
@@ -384,6 +385,7 @@ namespace mysql_consts{
     static const char* const server_status_str[] = {
         "STATUS_IN_TRANS",
         "STATUS_AUTOCOMMIT",
+        "MULTI_QUERY",
         "MORE_RESULTS_EXISTS",
         "QUERY_NO_GOOD_INDEX_USED",
         "QUERY_NO_INDEX_USED",
@@ -528,7 +530,9 @@ public:
                 mysql_json.print_key_json_string("salt",salt.contents());
             }
             cap.write_json(mysql_json,output_metadata);
-            mysql_json.print_key_string("collation",mysql_consts::mysql_collations[collation.value()-1]);
+            if (collation.value()) {
+                mysql_json.print_key_string("collation",mysql_consts::mysql_collations[collation.value()-1]);
+            }
             srv_status.write_json(mysql_json, output_metadata);
             ext_cap.write_json(mysql_json, output_metadata);
             if (auth_plugin_len) {
@@ -554,7 +558,22 @@ public:
 
 };
 
+namespace {
 
+    [[maybe_unused]] int mysql_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        mysql_server_greet pkt_mysql{pkt_data};
+        if (pkt_mysql.is_not_empty()) {
+            pkt_mysql.write_json(record, true);
+        }
+
+        return 0;
+    }
+
+};
 
 
 #endif  // MYSQL_HPP

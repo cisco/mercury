@@ -4,7 +4,7 @@
 int sig_close_flag = false;
 
 
-TEST_CASE_METHOD(LibmercTestFixture, "test http with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -55,7 +55,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test http with recources-mp and linktype raw")
+TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp and linktype raw")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -86,7 +86,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with recources-mp and linktype r
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp")
 {
     
     auto destination_check_callback = [](const analysis_context *ac)
@@ -138,7 +138,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp and eth linktype")
+TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and eth linktype")
 {
     
     auto destination_check_callback = [](const analysis_context *ac)
@@ -170,7 +170,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp and eth linkty
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp and ppp linktype")
+TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and ppp linktype")
 {
     
     auto destination_check_callback = [](const analysis_context *ac)
@@ -207,7 +207,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with recources-mp and ppp linkty
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test smtp with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test smtp with resources-mp")
 {
     
     auto smtp_check = [&](int expected_count, const struct libmerc_config &config)
@@ -245,7 +245,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smtp with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test dns and mdns with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test dns and mdns with resources-mp")
 {
     auto dns_output_check = [&]() {
         bool dns_output_provided = strstr(m_output, "base64") ? false : true;
@@ -299,7 +299,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dns and mdns with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test smb with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test smb with resources-mp")
 {
 
     auto smb_check = [&](int expected_count, const struct libmerc_config &config)
@@ -331,7 +331,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smb with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test iec with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test iec with resources-mp")
 {
 
     auto iec_check = [&](int expected_count, const struct libmerc_config &config)
@@ -363,7 +363,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test iec with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test dnp3 with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test dnp3 with resources-mp")
 {
 
     auto dnp3_check = [&](int expected_count, const struct libmerc_config &config)
@@ -395,7 +395,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dnp3 with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test decrypted quic with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test decrypted quic with resources-mp")
 {
 
     auto destination_check_callback = [](const analysis_context *ac)
@@ -427,7 +427,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test decrypted quic with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test nbss with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
 {
 
     auto nbss_check = [&](int expected_count, const struct libmerc_config &config)
@@ -454,7 +454,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test nbss with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp with resources-mp")
 {
 
     auto openvpn_check = [&](int count, const struct libmerc_config &config, fingerprint_type fp_t, fingerprint_type fp_t2)
@@ -488,7 +488,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp with recources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test bittorrent with recources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test bittorrent with resources-mp")
 {
 
     auto bittorrent_check = [&](int expected_count, const struct libmerc_config &config)
@@ -517,5 +517,37 @@ TEST_CASE_METHOD(LibmercTestFixture, "test bittorrent with recources-mp")
     {
         set_pcap(config.m_pc.c_str());
         bittorrent_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "mysql with resources-mp")
+{
+
+    auto mysql_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"mysql"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"mysql"},
+             .m_pc{"mysql.pcap"}},
+         4},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        mysql_check(count, config.m_lc);
     }
 }
