@@ -93,5 +93,20 @@ public:
 
 };
 
+template <size_t N>
+class mask_value_and_offset : public mask_and_value<N> {
+    size_t offset;
+
+public:
+   constexpr mask_value_and_offset (std::array<uint8_t, N> m, std::array<uint8_t, N> v, size_t off) : mask_and_value<N>(m,v), offset{off} {}
+
+    bool matches_at_offset(const uint8_t *data, size_t length) const {
+        if (data == nullptr || (length + offset) < N) {
+            return false;
+        }
+        return mask_and_value<N>::matches(data+offset);
+    }
+
+};
 
 #endif /* MATCH_H */

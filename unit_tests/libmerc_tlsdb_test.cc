@@ -68,7 +68,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering")
     {
         CHECK(analysis_context_get_fingerprint_type(ac) == 1);
         CHECK(strcmp(ac->destination.dst_ip_str, "13.89.178.27") == 0);
-        CHECK(ac->destination.dst_port == htons(443));
+        CHECK(ac->destination.dst_port == hton<uint16_t>(443));
         CHECK(ac->result.is_valid());
     };
 

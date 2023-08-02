@@ -21,7 +21,7 @@
  *           : UpnP Device Architecture Spec (updated) https://openconnectivity.org/upnp-specs/UPnP-arch-DeviceArchitecture-v2.0-20200417.pdf
  */
 
-class ssdp {
+class ssdp : public base_protocol {
 
     enum msg_type {
         notify          = 0,
@@ -34,7 +34,6 @@ class ssdp {
 
     struct datum method;
     struct http_headers headers;
-    struct perfect_hash_visitor &ph_visitor;
     enum msg_type type;
 
     void set_msg_type (datum &p) {
@@ -62,7 +61,7 @@ class ssdp {
 
 public:
 
-    ssdp(datum &p, perfect_hash_visitor &visitor) : method{NULL, NULL}, headers{}, ph_visitor{visitor}, type{max_msg_type} { parse(p); }
+    ssdp(datum &p) : method{NULL, NULL}, headers{}, type{max_msg_type} { parse(p); }
 
     void parse(datum &p) {
         set_msg_type(p);
@@ -79,6 +78,17 @@ public:
 
     bool is_not_empty() const { return (type != max_msg_type); }
 
+    //sample feature string format
+    //"features":"[method,[[attribute_1_key, attribute_1_value],[attribute_2_key, attribute_2_value],...]]"
+
+    void write_raw_features(struct json_object &o, data_buffer<2048>& feature_buf){
+        if (feature_buf.readable_length() == 0) {
+            o.print_key_string("features", "[]");
+        } else {
+            o.print_key_json_string("features", feature_buf.contents());
+        }
+    }
+
     void write_json(struct json_object &record, bool output_metadata) {
         if (this->is_not_empty()) {
             struct json_object ssdp{record, "ssdp"};
@@ -91,7 +101,16 @@ public:
             if (output_metadata) {
                 msg.print_key_json_string("method", method);
             }
-            headers.print_matching_names_ssdp(msg, ph_visitor, perfect_hash_table_type::HTTP_SSDP_HEADERS,output_metadata);
+
+            data_buffer<2048> feature_buf;
+            feature_buf.copy('[');
+            feature_buf.write_quote_enclosed_hex(method.data, method.length());
+            feature_buf.copy(',');
+            feature_buf.copy('[');
+            headers.print_ssdp_names_and_feature_string(msg, feature_buf, output_metadata);
+            feature_buf.copy(']');
+            feature_buf.copy(']');
+            write_raw_features(msg, feature_buf);
 
             msg.close();
             ssdp.close();
@@ -131,8 +150,7 @@ namespace {
 
     [[maybe_unused]] int ssdp_fuzz_test(const uint8_t *data, size_t size) {
         datum pkt_data{data, data+size};
-        perfect_hash_visitor &test_visitor = perfect_hash_visitor::get_default_perfect_hash_visitor();
-        ssdp ssdp_record{pkt_data, test_visitor};
+        ssdp ssdp_record{pkt_data};
         return 0;
     }
 

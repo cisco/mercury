@@ -45,6 +45,7 @@ char mercury_help[] =
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   --resources=f                         # use resource file f\n"
+    "   --format=f                            # report fingerprints with formats(s) f\n"
     "   --stats=f                             # write stats to file f\n"
     "   --stats-time=T                        # write stats every T seconds\n"
     "   --stats-limit=L                       # limit stats to L entries\n"
@@ -90,22 +91,33 @@ char mercury_extended_help[] =
     "\n"
     "   \"[-s or --select] f\" selects packets according to the metadata filter f, which\n"
     "   is a comma-separated list of the following strings:\n"
+    "      arp               ARP message\n"
+    "      bittorrent        Bittorrent Handshake Message, LSD message, DHT message\n"
+    "      cdp               CDP message\n"
     "      dhcp              DHCP discover message\n"
     "      dns               DNS messages\n"
     "      dtls              DTLS clientHello, serverHello, and certificates\n"
+    "      gre               GRE message\n"
     "      http              HTTP request and response\n"
     "      http.request      HTTP request\n"
     "      http.response     HTTP response\n"
+    "      icmp              ICMP message\n"
     "      iec               IEC 60870-5-104\n"
+    "      lldp              LLDP message\n"
     "      mdns              multicast DNS\n"
     "      nbns              NetBIOS Name Service\n"
+    "      nbds              NetBIOS Datagram Service\n"
+    "      nbss              NetBIOS Session Service\n"
+    "      ospf              OSPF message\n"
     "      quic              QUIC handshake\n"
+    "      sctp              SCTP message\n"
     "      ssh               SSH handshake and KEX\n"
     "      smb               SMB v1 and v2\n"
     "      stun              STUN messages\n"
     "      ssdp              SSDP (UPnP)\n"
     "      tcp               TCP headers\n"
     "      tcp.message       TCP initial message\n"
+    "      tcp.syn_ack       TCP syn ack message\n"
     "      tls               TLS clientHello, serverHello, and certificates\n"
     "      tls.client_hello  TLS clientHello\n"
     "      tls.server_hello  TLS serverHello\n"
@@ -147,6 +159,10 @@ char mercury_extended_help[] =
     "   [-a or --analysis] performs analysis and reports results in the \"analysis\"\n"
     "   object in the JSON records.   This option only works with the option\n"
     "   [-f or --fingerprint].\n"
+    "\n"
+    "   \"--format=f\" reports fingerprints with formats(s) f, where f is either a\n"
+    "   fingerprint protocol and format like \"tls/1\", or is a sequence of protocol\n"
+    "   and format strings.\n"
     "\n"
     "   \"[-l or --limit] l\" rotates output files so that each file has at most\n"
     "   l records or packets; filenames include a sequence number, date and time.\n"
@@ -210,14 +226,15 @@ bool option_is_valid(const char *opt) {
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
-    struct extended_config extended_cfg;
-    std::string set_proto_str;
-    bool proto_str_set = false;
+    bool select_set = false;
+    bool using_config_file = false;
 
     //extern double malware_prob_threshold;  // TODO - expose hidden command
 
+    std::string additional_args;
+
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, tcp_reassembly=14 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, tcp_reassembly=14, format=15 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -234,6 +251,7 @@ int main(int argc, char *argv[]) {
             { "stats-time",  required_argument, NULL, stats_time },
             { "output-time", required_argument, NULL, output_time },
             { "tcp-reassembly", no_argument,    NULL, tcp_reassembly },
+            { "format",      required_argument, NULL, format },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -257,7 +275,8 @@ int main(int argc, char *argv[]) {
         switch(c) {
         case config:
             if (option_is_valid(optarg)) {
-                mercury_config_read_from_file(cfg, libmerc_cfg, extended_cfg, optarg);
+                mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
+                using_config_file = true;
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
@@ -324,7 +343,14 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 usage(argv[0], "option tcp-reassembly does not use an argument", extended_help_off);
             } else {
-                extended_cfg.tcp_reassembly = true;
+                additional_args.append("tcp-reassembly;");
+            }
+            break;
+        case format:
+            if (option_is_valid(optarg)) {
+                additional_args.append("format=").append(optarg).append(";");
+            } else {
+                usage(argv[0], "option format requires fingerprint format argument", extended_help_off);
             }
             break;
         case 'r':
@@ -385,20 +411,19 @@ int main(int argc, char *argv[]) {
             break;
         case 's':
             if (optarg) {
-                if (libmerc_cfg.packet_filter_cfg != NULL) {
+                if (select_set) {
                     usage(argv[0], "option s or select used more than once", extended_help_off);
                 }
                 if (option_is_valid(optarg)) {
                     libmerc_cfg.packet_filter_cfg = optarg;
-                    set_proto_str.assign(optarg);
-                    proto_str_set = true;
+                    additional_args.append("select=").append(optarg).append(";");
+                    select_set = true;
                 } else {
                     usage(argv[0], "option s or select has the form -s\"filter\" or --select=\"filter\"", extended_help_off);
                 }
             } else {
-                libmerc_cfg.packet_filter_cfg = (char *)"all";
-                set_proto_str.assign("all");
-                proto_str_set = true;
+                additional_args.append("select=all;");
+                select_set = true;
             }
             break;
         case 'h':
@@ -573,13 +598,12 @@ int main(int argc, char *argv[]) {
 
     // setup extended config options
     //
-    if (!proto_str_set) {
-        set_proto_str.assign("");
-        libmerc_cfg.packet_filter_cfg = (char *)"";
+    if (libmerc_cfg.packet_filter_cfg == NULL) {
+        additional_args.append("select=all;");
     }
-    extended_cfg.set_extended_cfg(libmerc_cfg, set_proto_str);
-    extended_cfg.new_proto_str = strcpy(new char[set_proto_str.length() + 1], set_proto_str.c_str());
-    libmerc_cfg.packet_filter_cfg = extended_cfg.new_proto_str;
+    if (!using_config_file || (using_config_file && libmerc_cfg.packet_filter_cfg == nullptr)) {
+        libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
+    }
 
     mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
     if (mc == nullptr) {

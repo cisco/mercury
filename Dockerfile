@@ -1,3 +1,24 @@
+###
+## This Dockerfile provides an easy way to try mercury.
+#
+# Run this once:
+#   docker build -t mercury:default .
+#
+# Run mercury:
+#   docker run --rm -i --entrypoint /usr/local/bin/mercury \
+#       --volume .:/root mercury:default <args> <for> <mercury>
+#
+# You can then set this as a bash alias in your .bashrc:
+#   alias mercury='docker run --rm -i --entrypoint /usr/local/bin/mercury --volume .:/root mercury:default'
+#
+# In each of the commands above, feel free to replace name of the docker image
+# (mercury:default) with a different name/tag of your choosing, as long as it
+# remains consistent across the commands.
+#
+# The host's current working directory (.) will be mounted as the container's
+# current working directory (/root).  This provides mercury some read and write
+# access to the host filesystem, such as a pcap file in your current directory.
+
 FROM alpine:latest
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing/" >> /etc/apk/repositories && \
     apk update && \
@@ -7,7 +28,7 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing/" >> /etc/apk/reposi
 
 COPY . /src
 WORKDIR /src
-RUN ./configure && make V=s && make install-nonroot
+RUN ./configure && make V=s use_fsanitize=no && make install-nonroot
 
 FROM alpine:latest
 WORKDIR /root/

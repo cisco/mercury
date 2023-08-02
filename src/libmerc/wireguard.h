@@ -9,6 +9,7 @@
 #define WIREGUARD_H
 
 #include "datum.h"
+#include "protocol.h"
 #include "match.h"
 
 struct wireguard_handshake_initiation {
@@ -22,7 +23,7 @@ struct wireguard_handshake_initiation {
     uint8_t  mac2[16];                           // random or { 0, 0, ... }
 };
 
-struct wireguard_handshake_init {
+struct wireguard_handshake_init : public base_protocol {
     struct datum sender_index;
     struct datum unencrypted_ephemeral;
     bool valid;

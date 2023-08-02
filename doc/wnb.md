@@ -10,7 +10,7 @@ FDC takes as input a characteristic fingerprint string (such as "(0303)(1302)((0
 
 FDC returns several different types of data about the fingerprint and the process that generated the client_hello, including the finterprint status, information about the most probable process, probable attributes of the process, and a list of Operating Systems that were associated with the process in the ground truth data.  
 
-The fingerprint status is **labeled** if it appears in the fingerprint database, and is **randomized** if it appears in the fingerprint prevalence file; otherwise, it is **unlabeled**.  In the C interface, these states are represented with the fingerprint_status enumeration:
+The fingerprint status is **labeled** if it appears in the fingerprint database, and is **unlabeled** if it appears in the fingerprint prevalence file; otherwise, it is **randomized**.  In the C interface, these states are represented with the fingerprint_status enumeration:
 ```C
 enum fingerprint_status {
     fingerprint_status_no_info_available = 0,  // fingerprint status is unknown

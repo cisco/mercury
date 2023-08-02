@@ -78,46 +78,6 @@ static uint16_t static_extension_types[num_static_extension_types] = {
         type_quic_transport_parameters_draft
     };
 
-uint16_t degrease_uint16(uint16_t x) {
-    switch(x) {
-    case 0x0a0a:
-    case 0x1a1a:
-    case 0x2a2a:
-    case 0x3a3a:
-    case 0x4a4a:
-    case 0x5a5a:
-    case 0x6a6a:
-    case 0x7a7a:
-    case 0x8a8a:
-    case 0x9a9a:
-    case 0xaaaa:
-    case 0xbaba:
-    case 0xcaca:
-    case 0xdada:
-    case 0xeaea:
-    case 0xfafa:
-        return 0x0a0a;
-        break;
-    default:
-        return x;
-    }
-    return x;
-}
-
-void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, size_t len) {
-    if (len % 2) {
-        len--;   // force len to be a multiple of two
-    }
-    uint16_t *x = (uint16_t *)data;
-    uint16_t *x_end = x + (len/2);
-
-    while (x < x_end) {
-        uint16_t tmp = degrease_uint16(*x++);
-        buf.raw_as_hex((const uint8_t *)&tmp, sizeof(tmp));
-    }
-
-}
-
 void tls_extensions::print(struct json_object &o, const char *key) const {
 
     struct datum ext_parser{this->data, this->data_end};
@@ -460,7 +420,7 @@ struct tls_extension {
 void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) const {
 
     struct datum ext_parser{this->data, this->data_end};
-
+    b.write_char('(');
     while (ext_parser.length() > 0) {
 
         tls_extension x{ext_parser};
@@ -522,6 +482,7 @@ void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) co
         }
 
     }
+    b.write_char(')');
 
 }
 
@@ -559,7 +520,7 @@ void tls_extensions::fingerprint_quic_tls(struct buffer_stream &b, enum tls_role
                   if (a.length != b.length) {
                       return a.length < b.length;
                   }
-                  return a.value.memcmp(b.value) < 0;
+                  return a.value.cmp(b.value) < 0;
               }
               );
 
@@ -616,7 +577,7 @@ void tls_extensions::fingerprint_quic_tls(struct buffer_stream &b, enum tls_role
                               } else if (b.is_grease()) {
                                   return a.value() < 0x1b;
                               }
-                              return a.memcmp(b) < 0;
+                              return a.cmp(b) < 0;
                           }
                           );
                 b.write_char('[');
@@ -790,10 +751,19 @@ void tls_client_hello::write_json(struct datum &data, struct json_object &record
     hello.write_json(record, output_metadata);
 }
 
-void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
+void tls_client_hello::fingerprint(struct buffer_stream &buf, size_t format_version) const {
     if (is_not_empty() == false) {
         return;
     }
+    if (format_version == 0) {
+        ;
+    } else if (format_version == 1) {
+        buf.write_uint8(format_version);
+        buf.write_char('/');
+    } else {
+        return; // unsupported format version
+    }
+
     /*
      * copy clientHello.ProtocolVersion
      */
@@ -809,24 +779,16 @@ void tls_client_hello::fingerprint(struct buffer_stream &buf) const {
     /*
      * copy extensions vector
      */
-    if (is_quic_hello) {
-        extensions.fingerprint_quic_tls(buf, tls_role::client);
-    } else {
-        buf.write_char('(');
+    if (format_version == 0) {
         extensions.fingerprint(buf, tls_role::client);
-        buf.write_char(')');
+    } else if (format_version == 1) {
+        extensions.fingerprint_quic_tls(buf, tls_role::client);
     }
 }
 
-void tls_client_hello::compute_fingerprint(class fingerprint &fp) const {
-    enum fingerprint_type type;
-    if (dtls) {
-        type = fingerprint_type_dtls;
-    } else {
-        type = fingerprint_type_tls;
-    }
-    fp.set_type(type);
-    fp.add(*this);
+void tls_client_hello::compute_fingerprint(class fingerprint &fp, size_t format_version) const {
+    fp.set_type(fingerprint_type_tls);
+    fp.add(*this, format_version);
     fp.final();
 }
 
@@ -871,13 +833,6 @@ enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
 
     compression_method.parse(record, L_CompressionMethod);
 
-    if (compression_method.is_not_empty()) {
-        // determine if this is DTLS or plain old TLS
-        if (protocol_version.data[0] == 0xfe) {
-            dtls = true;
-        }
-    }
-
     // parse extensions vector
     if (record.read_uint(&tmp_len, L_ExtensionsVectorLength) == false) {
         return status_ok;  // could differentiate between err/ok
@@ -908,9 +863,7 @@ void tls_server_hello::fingerprint(struct buffer_stream &buf) const {
         /*
          * copy extensions vector
          */
-        buf.write_char('(');
         extensions.fingerprint(buf, tls_role::server);
-        buf.write_char(')');
     }
 }
 

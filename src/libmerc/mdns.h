@@ -38,7 +38,7 @@
  * the source UDP port is not 5353.
  */
 
-struct mdns_packet {
+struct mdns_packet : public base_protocol {
     dns_packet dns_pkt;
 
     mdns_packet(struct datum &d) : dns_pkt{d} { }
@@ -68,15 +68,34 @@ struct mdns_packet {
         }
         /* Below condition is to detect One shot multicast dns queries */
         if (k.ip_vers == 4) {
-            return (k.addr.ipv4.dst == ntohl(mdns_v4_addr));
+            return (k.addr.ipv4.dst == ntoh(mdns_v4_addr));
         }
         else {
-            return (k.addr.ipv6.dst.a ==  ntohl(mdns_v6_addr_0)
-                and k.addr.ipv6.dst.b ==  ntohl(mdns_v6_addr_1)
-                and k.addr.ipv6.dst.c ==  ntohl(mdns_v6_addr_2)
-                and k.addr.ipv6.dst.d ==  ntohl(mdns_v6_addr_3));
+            return (k.addr.ipv6.dst.a ==  ntoh(mdns_v6_addr_0)
+                and k.addr.ipv6.dst.b ==  ntoh(mdns_v6_addr_1)
+                and k.addr.ipv6.dst.c ==  ntoh(mdns_v6_addr_2)
+                and k.addr.ipv6.dst.d ==  ntoh(mdns_v6_addr_3));
         }
     }
 };
+
+namespace {
+
+    [[maybe_unused]] int mdns_fuzz_test(const uint8_t *data, size_t size) {
+        datum pkt_data{data, data+size};
+        mdns_packet mdns_record{pkt_data};
+
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        if (mdns_record.is_not_empty()) {
+            mdns_record.write_json(record);
+        }
+
+        return 0;
+    }
+
+}; // end of namespace
 
 #endif /* MDNS_H */

@@ -80,6 +80,10 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
+ifeq ($(openssl_newer),yes)
+CFLAGS += -DSSLNEW
+endif
+
 all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
@@ -215,7 +219,7 @@ endif
 #MERC_OBJ = $(MERC:%.o=%.c)
 
 libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
-	$(CC) -Wall -std=c17 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
+	$(CC) -Wall -std=c11 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 libmerc_driver:
@@ -225,7 +229,7 @@ libmerc_driver:
 #
 
 intercept.so: intercept.cc libmerc.a
-	$(CXX) -std=c++17 -Wall -Wno-narrowing intercept.cc libmerc/pkt_proc.cc -D_GNU_SOURCE -I/usr/include/nspr/ -fPIC -shared -lssl -lnspr4 -lgnutls libmerc/libmerc.a -o intercept.so
+	$(CXX) $(CFLAGS) -std=c++17 -Wall -Wno-narrowing intercept.cc libmerc/pkt_proc.cc -D_GNU_SOURCE -I/usr/include/nspr/ -fPIC -shared -lssl -lnspr4 -lgnutls libmerc/libmerc.a -o intercept.so
 
 # special targets
 #
@@ -244,6 +248,7 @@ libmerc-clean:
 distclean: clean
 	rm -rf Makefile autom4te.cache config.log config.status
 	cd libmerc && $(MAKE) distclean
+	cd tables && $(MAKE) distclean
 
 .PHONY: install
 install: libmerc mercury
@@ -303,14 +308,20 @@ MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
 	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../VERSION
+	git add ../VERSION
+	git commit -m "incrementing patchlevel"
 	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
 
 increment-minor-version:
 	echo $(major).$(shell expr $(minor) + 1).0 > ../VERSION
+	git add ../VERSION
+	git commit -m "incrementing minor version"
 	git tag -a $(major).$(shell expr $(minor) + 1).0 -m "\"minor version increment\""
 
 increment-major-version:
 	echo $(shell expr $(major) + 1).0.0 > ../VERSION
+	git add ../VERSION
+	git commit -m "incrementing major version"
 	git tag -a $(shell expr $(major) + 1).0.0 -m "\"major version increment\""
 
 # EOF

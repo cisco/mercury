@@ -131,11 +131,11 @@ static inline std::string doh_path(const std::string &query_name) {
     uint8_t dns_message[2048];
     dns_hdr *header = (dns_hdr *)&dns_message[0];
     header->id = 0x0000;           // DoH clients SHOULD use 0 in each request
-    header->flags = htons(0x0100);
-    header->qdcount = htons(1);
-    header->ancount = htons(0);
-    header->nscount = htons(0);
-    header->arcount = htons(0);
+    header->flags = hton<uint16_t>(0x0100);
+    header->qdcount = hton<uint16_t>(1);
+    header->ancount = hton<uint16_t>(0);
+    header->nscount = hton<uint16_t>(0);
+    header->arcount = hton<uint16_t>(0);
 
     uint8_t *rr_start = &dns_message[sizeof(dns_hdr)];
 
@@ -479,7 +479,7 @@ public:
                 output_buffer_stream.write_line(stdout);
 
                 std::basic_string<uint8_t> loc = { 'l', 'o', 'c', 'a', 't', 'i', 'o', 'n', ':', ' ' };
-                struct datum location = response.get_header(loc);
+                struct datum location = response.get_header((const char *)loc.data());
                 if (location.is_not_empty()) {
                     fprintf(stderr, "location header: %.*s\n", (int)location.length(), location.data);
                     uri location_uri{location};
@@ -489,13 +489,13 @@ public:
                 }
 
                 std::basic_string<uint8_t> cc = { 'c', 'a', 'c', 'h', 'e', '-', 'c', 'o', 'n', 't', 'r', 'o', 'l', ':', ' ' };
-                struct datum cache_control = response.get_header(cc);
+                struct datum cache_control = response.get_header((const char *)cc.data());
                 if (cache_control.is_not_empty()) {
                     fprintf(stdout, "cache-control header: %.*s\n", (int)cache_control.length(), cache_control.data);
                 }
 
                 std::basic_string<uint8_t> ct = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 't', 'y', 'p', 'e', ':', ' ' };
-                struct datum content_type = response.get_header(ct);
+                struct datum content_type = response.get_header((const char *)ct.data());
                 if (content_type.is_not_empty()) {
                     fprintf(stderr, "content-type: %.*s\n", (int)content_type.length(), content_type.data);
 
@@ -1339,7 +1339,7 @@ int main(int argc, char *argv[]) {
         "\n"
         "OPTIONS\n";
 
-    class option_processor opt({
+    option_processor opt({
         { argument::positional, "hostname",           "is the name of the HTTPS host (e.g. example.com)" },
         { argument::positional, "inner_hostname",     "determines the name of the HTTP host field" },
         { argument::required,   "--host-file",        "is a file containing scan targets" },

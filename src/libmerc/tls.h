@@ -11,7 +11,7 @@
 #include "fingerprint.h"
 #include "match.h"
 #include "analysis.h"
-#include "tcp.h"
+#include "protocol.h"
 #include "tcpip.h"
 
 
@@ -214,7 +214,7 @@ struct tls_handshake {
     handshake_type msg_type;
     uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
     struct datum body;
-    size_t additional_bytes_needed;
+    size_t additional_bytes_needed = 0;
 
     static const unsigned int max_handshake_len = 32768;
 
@@ -256,7 +256,7 @@ struct tls_handshake {
 struct tls_server_certificate {
     uint32_t length; // note: only 24 bits on the wire (L_CertificateListLength)
     struct datum certificate_list;
-    size_t additional_bytes_needed;
+    size_t additional_bytes_needed = 0;
 
     static const size_t max_length = 65536;
 
@@ -334,7 +334,7 @@ struct tls_extensions : public datum {
 };
 
 
-struct tls_client_hello : public tcp_base_protocol {
+struct tls_client_hello : public base_protocol {
     struct datum protocol_version;
     struct datum random;
     struct datum session_id;
@@ -354,9 +354,9 @@ struct tls_client_hello : public tcp_base_protocol {
 
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
-    void fingerprint(struct buffer_stream &buf) const;
+    void fingerprint(struct buffer_stream &buf, size_t format_version=0) const;
 
-    void compute_fingerprint(class fingerprint &fp) const;
+    void compute_fingerprint(class fingerprint &fp, size_t format_version=0) const;
 
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
@@ -373,13 +373,12 @@ struct tls_client_hello : public tcp_base_protocol {
 
 #include "match.h"
 
-struct tls_server_hello : public tcp_base_protocol {
+struct tls_server_hello : public base_protocol {
     struct datum protocol_version;
     struct datum random;
     struct datum ciphersuite_vector;
     struct datum compression_method;
     struct tls_extensions extensions;
-    bool dtls = false;
 
     tls_server_hello() {  }
 
@@ -420,13 +419,7 @@ struct tls_server_hello : public tcp_base_protocol {
     }
 
     void compute_fingerprint(class fingerprint &fp) const {
-        enum fingerprint_type type;
-        if (dtls) {
-            type = fingerprint_type_dtls_server;
-        } else {
-            type = fingerprint_type_tls_server;
-        }
-        fp.set_type(type);
+        fp.set_type(fingerprint_type_tls_server);
         fp.add(*this);
         fp.final();
     }
@@ -438,7 +431,7 @@ struct tls_server_hello : public tcp_base_protocol {
 
 };
 
-class tls_server_hello_and_certificate : public tcp_base_protocol {
+class tls_server_hello_and_certificate : public base_protocol {
     struct tls_server_hello hello;
     struct tls_server_certificate certificate;
 
@@ -524,6 +517,45 @@ public:
 
 };
 
+static uint16_t degrease_uint16(uint16_t x) {
+    switch(x) {
+    case 0x0a0a:
+    case 0x1a1a:
+    case 0x2a2a:
+    case 0x3a3a:
+    case 0x4a4a:
+    case 0x5a5a:
+    case 0x6a6a:
+    case 0x7a7a:
+    case 0x8a8a:
+    case 0x9a9a:
+    case 0xaaaa:
+    case 0xbaba:
+    case 0xcaca:
+    case 0xdada:
+    case 0xeaea:
+    case 0xfafa:
+        return 0x0a0a;
+        break;
+    default:
+        return x;
+    }
+    return x;
+}
+
+static void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, size_t len) {
+    if (len % 2) {
+        len--;   // force len to be a multiple of two
+    }
+    uint16_t *x = (uint16_t *)data;
+    uint16_t *x_end = x + (len/2);
+
+    while (x < x_end) {
+        uint16_t tmp = degrease_uint16(*x++);
+        buf.raw_as_hex((const uint8_t *)&tmp, sizeof(tmp));
+    }
+
+}
 
 
 // struct {

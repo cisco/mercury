@@ -69,9 +69,31 @@ enum status argument_parse_as_float(const char *arg, float *variable_to_set) {
     return status_err;
 }
 
+char *str_append(char *s1, const char *s2) {
+    if (s2 == nullptr) {
+        return s1;     // nothing to append
+    }
+    size_t newlen = strlen(s2) + 1; // for terminating null character
+    if (s1) {
+        newlen += strlen(s1);
+    }
+    char *newstr = (char *)realloc(s1, newlen);
+    if (newstr == nullptr) {
+        return nullptr;  // error; realloc failed
+    }
+    if (s1 == nullptr) {
+        strcpy(newstr, s2);
+    } else {
+        strcat(newstr, s2);
+    }
+    return newstr;
+}
+
+static char *select_arg = nullptr;
+static char *additional_args = nullptr;
+
 static enum status mercury_config_parse_line(struct mercury_config *cfg,
                                              struct libmerc_config &global_vars,
-                                             struct extended_config &extended_cfg,
                                              char *line) {
     char *arg = NULL;
 
@@ -130,7 +152,12 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return argument_parse_as_int(arg, &cfg->verbosity);
 
     } else if ((arg = command_get_argument("select=", line)) != NULL) {
-        global_vars.packet_filter_cfg = strdup(arg);
+        if (select_arg != nullptr) {
+            return status_err;  // select command previously detected
+        }
+        select_arg = str_append(select_arg, "select=");
+        select_arg = str_append(select_arg, arg);
+        select_arg = str_append(select_arg, ";");
         return status_ok;
 
     } else if ((arg = command_get_argument("dns-json", line)) != NULL) {
@@ -154,7 +181,13 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return status_ok;
 
     } else if ((arg = command_get_argument("tcp-reassembly", line)) != NULL) {
-        extended_cfg.tcp_reassembly = true;
+        additional_args = str_append(additional_args, "tcp-reassembly;");
+        return status_ok;
+
+    } else if ((arg = command_get_argument("format=", line)) != NULL) {
+        additional_args = str_append(additional_args, "format=");
+        additional_args = str_append(additional_args, arg);
+        additional_args = str_append(additional_args, ";");
         return status_ok;
 
     } else {
@@ -179,7 +212,6 @@ void string_remove_whitespace(char* s) {
 
 enum status mercury_config_read_from_file(struct mercury_config &cfg,
                                           struct libmerc_config &global_vars,
-                                          struct extended_config &extended_cfg,
                                           const char *filename) {
     if (cfg.verbosity) {
         fprintf(stderr, "reading config file %s\n", filename);
@@ -198,14 +230,20 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
         if (nread > 1) {
             line[nread-1] = 0; /* replace CR with null terminator */
             string_remove_whitespace(line);
-            if(mercury_config_parse_line(&cfg, global_vars, extended_cfg, line))
-            {
+            if (mercury_config_parse_line(&cfg, global_vars, line)) {
                 fprintf(stderr, "warning: ignoring unparseable command line '%s'\n", line);
             }
         }
     }
     free(line);
     fclose(cfg_file);
+
+    // apply additional args
+    //
+    if (select_arg == nullptr) {
+        select_arg = str_append(select_arg, "select=all;");
+    }
+    global_vars.packet_filter_cfg = str_append(select_arg, additional_args);
 
     return status_ok;
 }

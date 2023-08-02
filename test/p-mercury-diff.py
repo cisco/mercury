@@ -17,9 +17,9 @@ CONTEXTUAL_DATA_KEYS = ['tls','http','http_server']
 
 
 def get_flow_key(record):
-    return (f'{record["src_ip"]}::{record["src_port"]}::'
-            f'{record["dst_ip"]}::{record["dst_port"]}::'
-            f'{record["protocol"]}::{record["event_start"]}')
+    return ('{}::{}::'.format(record["src_ip"], record["src_port"]) +
+            '{}::{}::'.format(record["dst_ip"], record["dst_port"]) +
+            '{}::{}'.format(record["protocol"], record["event_start"]))
 
 
 def get_keys(obj, k):
@@ -389,4 +389,3 @@ def main():
 
 if __name__== "__main__":
   main()
-

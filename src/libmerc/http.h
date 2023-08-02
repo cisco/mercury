@@ -12,7 +12,7 @@
 #include <list>
 #include <unordered_map>
 
-#include "tcp.h"
+#include "protocol.h"
 #include "match.h"
 #include "analysis.h"
 #include "fingerprint.h"
@@ -61,25 +61,21 @@ struct http_headers : public datum {
     void print_host(struct json_object &o, const char *key) const;
     void print_matching_name(struct json_object &o, const char *key, struct datum &name) const;
     void print_matching_name(struct json_object &o, const char *key, const char* name) const;
-    void print_matching_names(struct json_object &o, const char *key, std::list<struct datum> &name) const;
-    void print_matching_names(struct json_object &o, std::list<std::pair<struct datum, std::string>> &name_list) const;
-    void print_matching_names(struct json_object &o, perfect_hash_visitor &name_dict, perfect_hash_table_type type) const;
-    void print_matching_names_ssdp(struct json_object &o, perfect_hash_visitor &name_dict, perfect_hash_table_type type, bool metadata) const;
+    void print_matching_names(struct json_object &o, perfect_hash<const char*> &ph) const;
+    void print_ssdp_names_and_feature_string(struct json_object &o, data_buffer<2048>& feature_buf, bool metadata) const;
 
-    void fingerprint(struct buffer_stream &buf, perfect_hash_visitor &name_dict, perfect_hash_table_type type) const;
+    void fingerprint(struct buffer_stream &buf, perfect_hash<bool> &fp_data) const;
 
-    struct datum get_header(const std::basic_string<uint8_t> &header_name);
+    struct datum get_header(const char *header_name);
 };
 
-struct http_request : public tcp_base_protocol {
+struct http_request : public base_protocol {
     struct datum method;
     struct datum uri;
     struct datum protocol;
     struct http_headers headers;
-    struct perfect_hash_visitor& ph_visitor;
 
-    http_request(datum &p, perfect_hash_visitor& visitor) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{}, ph_visitor{visitor} { parse(p); }
-    http_request(datum &p) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{}, ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()} { parse(p); }
+    http_request(datum &p) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{} { parse(p); }
 
     void parse(struct datum &p);
 
@@ -91,7 +87,7 @@ struct http_request : public tcp_base_protocol {
 
     void compute_fingerprint(class fingerprint &fp) const;
 
-    struct datum get_header(const std::basic_string<uint8_t> &header_name);
+    struct datum get_header(const char *header_name);
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
@@ -129,27 +125,25 @@ struct http_request : public tcp_base_protocol {
 
 };
 
-struct http_response : public tcp_base_protocol {
+struct http_response : public base_protocol {
     struct datum version;
     struct datum status_code;
     struct datum status_reason;
     struct http_headers headers;
-    struct perfect_hash_visitor& ph_visitor;
 
-    http_response(datum &p, perfect_hash_visitor& visitor) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{}, ph_visitor{visitor} { parse(p); }
-    http_response(datum &p) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{}, ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()} { parse(p); }
+    http_response(datum &p) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{} { parse(p); }
 
     void parse(struct datum &p);
 
     bool is_not_empty() const { return status_code.is_not_empty(); }
 
-    void write_json(struct json_object &record);
+    void write_json(struct json_object &record, bool metadata=false);
 
     void fingerprint(struct buffer_stream &buf) const;
 
     void compute_fingerprint(class fingerprint &fp) const;
 
-    struct datum get_header(const std::basic_string<uint8_t> &header_name);
+    struct datum get_header(const char *header_name);
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
@@ -166,14 +160,12 @@ namespace {
         struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
         char buffer_2[8192];
         struct buffer_stream buf_fp(buffer_2, sizeof(buffer_2));
-        perfect_hash_visitor &test_visitor = perfect_hash_visitor::get_default_perfect_hash_visitor();
         struct json_object record(&buf_json);
-        
 
-        http_request request{request_data, test_visitor};
+        http_request request{request_data};
         if (request.is_not_empty()) {
             request.write_json(record, true);
-            request.fingerprint(buf_fp);            
+            request.fingerprint(buf_fp);
         }
 
         return 0;

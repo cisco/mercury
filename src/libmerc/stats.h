@@ -9,7 +9,6 @@
 #define STATS_H
 
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
@@ -18,6 +17,7 @@
 #include <thread>
 #include <atomic>
 #include <zlib.h>
+#include <functional>
 
 #include "dict.h"
 #include "queue.h"
@@ -206,7 +206,8 @@ public:
 
     void gzprint(gzFile f, const char *version, const char *git_commit_id,
                  uint32_t git_count,
-                 const char *init_time) {
+                 const char *init_time,
+                 std::atomic<bool> &interrupt ) {
 
         if (event_table.size() == 0) {
             return;  // nothing to report
@@ -222,11 +223,21 @@ public:
         std::vector<std::pair<event_msg, uint64_t>> v(event_table.begin(), event_table.end());
         event_table.clear();
         num_entries = 0;
-        std::sort(v.begin(), v.end(), [](auto &l, auto &r){ return l.first < r.first; } );
+        std::sort(v.begin(), v.end(), [&interrupt](auto &l, auto &r){
+            if (interrupt.load() == true) {
+                throw std::runtime_error("error: stats dump interrupted");
+            } else {
+                return l.first < r.first;
+            } 
+        } );
 
         event_processor_gz ep(f);
         ep.process_init();
         for (auto &entry : v) {
+            if (interrupt.load() == true) {
+                ep.process_final();
+                throw std::runtime_error("error: stats dump interrupted");
+            }
             encoder.get_inverse(entry.first);
             ep.process_update(entry.first, entry.second, version, git_commit_id, git_count, init_time);
         }
@@ -239,6 +250,10 @@ public:
         return;
     }
 
+    size_t get_num_entries() const
+    {
+        return num_entries;
+    }
 };
 
 #define MAX_VERSION_STRING 15
@@ -368,7 +383,17 @@ public:
             }
         }
 
-        tmp->gzprint(f, version, git_commit_id, git_count, init_time);
+        try {
+            tmp->gzprint(f, version, git_commit_id, git_count, init_time, std::ref(shutdown_requested));
+        }
+        catch (std::exception &e) {
+            printf_err(log_err, "%s\n", e.what());
+        }
+    }
+
+    size_t get_num_entries() const
+    {
+        return ag->get_num_entries();
     }
 };
 

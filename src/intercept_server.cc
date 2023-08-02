@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
 #include <cerrno>
 #include <signal.h>
 #include <unistd.h>
@@ -85,7 +86,7 @@ int main(int argc, char *argv[]) {
     // process messages
     //
     while (true) {
-        char buf[8192];
+        char buf[20*1024];
 
         // read message from socket, then write to output
         //

@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "tcp.h"
+#include "protocol.h"
 #include "datum.h"
 #include "analysis.h"
 #include "json_object.h"
@@ -132,7 +132,7 @@ struct smtp_parameters : public datum {
  * mercury's processing: identify the EHLO line and report this information
  *   in the parameters list, i.e., "smtp": {"request": {"parameters": []}}
  */
-class smtp_client : public tcp_base_protocol {
+class smtp_client : public base_protocol {
     struct smtp_parameters parameters;
 
 public:
@@ -193,7 +193,7 @@ public:
  *   i.e., "smtp_server": {"response": {"parameters": []}}. We also
  *   generate a fingerprint string that reports all non-domain parameters.
  */
-class smtp_server : public tcp_base_protocol {
+class smtp_server : public base_protocol {
     struct smtp_parameters parameters;
 
 public:

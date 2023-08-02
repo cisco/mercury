@@ -54,7 +54,7 @@ def read_merc_data(in_file, mask_src_ip):
                 server_name = r['tls']['client']['server_name']
 
             # update stats database
-            update_stats_db(stats_db, src_ip, str_repr, user_agent, f'({server_name})({dst_ip})({dst_port})', 1)
+            update_stats_db(stats_db, src_ip, str_repr, user_agent, '({})({})({})'.format(server_name, dst_ip, dst_port), 1)
             total_count += 1
 
         if 'http' in r['fingerprints']:
@@ -70,7 +70,7 @@ def read_merc_data(in_file, mask_src_ip):
                 print ('warning: http[request][user_agent] missing')
 
             # update stats database
-            update_stats_db(stats_db, src_ip, str_repr, user_agent, f'({server_name})({dst_ip})({dst_port})', 1)
+            update_stats_db(stats_db, src_ip, str_repr, user_agent, '({})({})({})'.format(server_name, dst_ip, dst_port), 1)
             total_count += 1
 
         if 'quic' in r['fingerprints']:
@@ -83,7 +83,7 @@ def read_merc_data(in_file, mask_src_ip):
                     user_agent = r['tls']['client']['google_user_agent']
 
             # update stats database
-            update_stats_db(stats_db, src_ip, str_repr, user_agent, f'({server_name})({dst_ip})({dst_port})', 1)
+            update_stats_db(stats_db, src_ip, str_repr, user_agent, '({})({})({})'.format(server_name, dst_ip, dst_port), 1)
             total_count += 1
 
     return stats_db, total_count
@@ -129,7 +129,7 @@ def is_match(x, y):
 
 def compare_stats_dbs(merc_db, merc_stats):
     if len(merc_db.keys()) != len(merc_stats.keys()):
-        print(f'error: merc_db\'s src_ip\'s ({len(merc_db.keys())}) != merc_stat\'s src_ip\'s ({len(merc_stats.keys())})')
+        print('error: merc_db\'s src_ip\'s ({}) != merc_stat\'s src_ip\'s ({})'.format(len(merc_db.keys()), len(merc_stats.keys())))
         return False
 
     # find all potential matches for each src_ip
@@ -154,16 +154,16 @@ def compare_stats_dbs(merc_db, merc_stats):
     unmatched = False
     if len(matched_merc) != len(merc_db.keys()):
         unmatched = set(merc_db.keys()).difference(matched_merc)
-        print(f'error: only ' + str(len(matched_merc)) + ' out of ' + str(len(merc_db.keys())) + ' merc_db src_ip\'s were matched:')
+        print('error: only ' + str(len(matched_merc)) + ' out of ' + str(len(merc_db.keys())) + ' merc_db src_ip\'s were matched:')
         for src_ip in unmatched:
-            print(f'\t{src_ip}')
+            print('\t{}'.format(src_ip))
         unmatched = True
 
     if len(matched_stat) != len(merc_stats.keys()):
         unmatched = set(merc_stats.keys()).difference(matched_stat)
-        print(f'error: only ' + str(len(matched_stat)) + ' out of ' + str(len(merc_stats.keys())) + ' merc_stat_db src_ip\'s were matched:')
+        print('error: only ' + str(len(matched_stat)) + ' out of ' + str(len(merc_stats.keys())) + ' merc_stat_db src_ip\'s were matched:')
         for src_ip in unmatched:
-            print(f'\t{src_ip}')
+            print('\t{}'.format(src_ip))
         unmatched = True
 
     if unmatched:
@@ -229,7 +229,7 @@ def main():
     merc_db, merc_count = read_merc_data(args.merc_out, args.ignore_src_ip)
     # Locate all the stats file that starts with prefix merc_stats
     # Unzip the file(s) and store the extracted data in a temp file tempstats.json
-    file_list = [filename for filename in os.listdir(args.path) if filename.startswith(args.merc_stats)]
+    file_list = [filename for filename in os.listdir(str(args.path)) if filename.startswith(args.merc_stats)]
 
     fp = open("tempstats.json", "w+b")
 
@@ -244,7 +244,7 @@ def main():
 
     if args.approx_match is True:
         if merc_count - merc_count_stats > 0.1 * merc_count:
-            print(f'error: Difference between merc_out count ({merc_count}) and merc_stats count ({merc_count_stats}) is greater then 10%')
+            print('error: Difference between merc_out count ({}) and merc_stats count ({}) is greater then 10%'.format(merc_count, merc_count_stats))
             sys.exit(1)
 
         if approx_stats_compare_db(merc_db, merc_db_stats) == False:
@@ -253,7 +253,7 @@ def main():
 
     else:
         if merc_count != merc_count_stats:
-            print(f'error: merc_out count ({merc_count}) != merc_stats count ({merc_count_stats})')
+            print('error: merc_out count ({}) != merc_stats count ({})'.format(merc_count, merc_count_stats))
             sys.exit(1)
 
         # print(merc_count)

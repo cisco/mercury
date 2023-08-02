@@ -94,10 +94,10 @@ struct json_object {
         b->write_char(':');
         b->write_uint8(u);
     }
-    void print_key_uint8_hex(const char *k, uint8_t u) { 
+    void print_key_uint8_hex(const char *k, uint8_t u) {
         write_comma(comma);
         b->snprintf("\"%s\":\"", k);
-        b->write_hex_uint8(u);
+        b->write_hex_uint(u);
         b->write_char('\"');
     }
     void print_key_uint16(const char *k, uint16_t u) {
@@ -111,18 +111,12 @@ struct json_object {
     void print_key_uint16_hex(const char *k, uint16_t u) {
         write_comma(comma);
         b->snprintf("\"%s\":\"", k);
-        b->write_hex_uint16(u);
+        b->write_hex_uint(u);
         b->write_char('\"');
     }
-    void print_key_uint(const char *k, unsigned long int u) { // note: JSON can't represent a uint64_t
+    void print_key_uint(const char *k, unsigned long int u) { // note: JSON can't represent a uint64_t over 2^53
         write_comma(comma);
         b->snprintf("\"%s\":%lu", k, u);
-    }
-    void print_key_uint_hex(const char *k, unsigned long int u) {
-        write_comma(comma);
-        b->snprintf("\"%s\":\"", k);
-        b->write_hex_uint32(u);
-        b->write_char('\"');
     }
     void print_key_int(const char *k, long int i) {
         write_comma(comma);
@@ -135,7 +129,23 @@ struct json_object {
     void print_key_uint64_hex(const char *k, uint64_t  u) {
         write_comma(comma);
         b->snprintf("\"%s\":\"", k);
-        b->write_hex_uint64(u);
+        b->write_hex_uint(u);
+        b->write_char('\"');
+    }
+    template <typename U>
+    void print_key_uint_hex(const char *k, U u) {
+        // U must be an unsigned integer type, or an encoded<> type
+        write_comma(comma);
+        b->snprintf("\"%s\":\"", k);
+        b->write_hex_uint(u);
+        b->write_char('\"');
+    }
+    template <typename uint>
+    void print_key_unknown_code(const char *k, uint u) {
+        write_comma(comma);
+        b->snprintf("\"%s\":\"UNKNOWN (", k);
+        b->write_hex_uint(u);
+        b->write_char(')');
         b->write_char('\"');
     }
     void print_key_hex(const char *k, const struct datum &value) {
@@ -180,7 +190,7 @@ struct json_object {
         b->write_timestamp_as_string(ts);
         b->write_char('\"');
     }
-     template <typename T> void print_key_value(const char *k, T &w) {
+    template <typename T> void print_key_value(const char *k, T &w) {
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
@@ -258,7 +268,7 @@ struct json_array {
     void print_uint16_hex(uint16_t u) {
         write_comma(comma);
         b->write_char('\"');
-        b->write_hex_uint16(u);
+        b->write_hex_uint(u);
         b->write_char('\"');
     }
     void print_uint(unsigned long int u) {
@@ -302,6 +312,12 @@ struct json_array {
         if (value.data && value.data_end) {
             b->raw_as_hex(value.data, value.data_end - value.data);
         }
+        b->write_char('\"');
+    }
+    template <typename T> void print_key(T &w) {
+        write_comma(comma);
+        b->write_char('\"');
+        w.fingerprint(*b);
         b->write_char('\"');
     }
 

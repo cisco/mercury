@@ -13,6 +13,7 @@
 #ifndef DNS_H
 #define DNS_H
 
+#include "protocol.h"
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
@@ -442,7 +443,7 @@ public:
         retry{d},
         expire{d},
         minimum{d},
-        valid{d.is_not_null()}
+        valid{d.is_not_null() && !mname.is_null() && !rname.is_null()}
     {}
 
     void write_json(json_object &o) const {
@@ -591,7 +592,9 @@ struct dns_resource_record {
 
                     struct dns_name target;
                     target.parse(tmp_rdata, body);
-                    srv.print_key_json_string("target", target.buffer, target.readable_length());
+                    if (!target.is_null()) {
+                        srv.print_key_json_string("target", target.buffer, target.readable_length());
+                    }
 
                     srv.close();
 
@@ -651,16 +654,16 @@ struct dns_resource_record {
                     nbstat.print_key_uint16("number_of_retransmits", retransmits.value());
 
                     encoded<uint16_t> no_res_cond(tmp_rdata);
-                    nbstat.print_key_uint16("number_of_no_resource_condition", no_res_cond.value());
+                    nbstat.print_key_uint16("number_of_no_resource_conditions", no_res_cond.value());
 
                     encoded<uint16_t> cmd_blocks(tmp_rdata);
                     nbstat.print_key_uint16("number_of_command_blocks", cmd_blocks.value());
 
                     encoded<uint16_t> pending_session(tmp_rdata);
-                    nbstat.print_key_uint16("number_of_pending_session", pending_session.value());
+                    nbstat.print_key_uint16("number_of_pending_sessions", pending_session.value());
 
                     encoded<uint16_t> max_pending_session(tmp_rdata);
-                    nbstat.print_key_uint16("number_of_max_pending_session", max_pending_session.value());
+                    nbstat.print_key_uint16("max_pending_sessions", max_pending_session.value());
 
                     encoded<uint16_t> max_session(tmp_rdata);
                     nbstat.print_key_uint16("max_total_sessions_possible", max_session.value());
@@ -675,7 +678,9 @@ struct dns_resource_record {
 
                     struct dns_name next_name;
                     next_name.parse(tmp_rdata, body);
-                    nsec.print_key_json_string("next_domain_name", next_name.buffer, next_name.readable_length());
+                    if (!next_name.is_null()) {
+                        nsec.print_key_json_string("next_domain_name", next_name.buffer, next_name.readable_length());
+                    }
 
                     nsec.print_key_hex("type_bit_maps", tmp_rdata);
                     nsec.close();
@@ -683,7 +688,9 @@ struct dns_resource_record {
 
                     struct dns_name domain_name;
                     domain_name.parse(tmp_rdata, body);
-                    rr.print_key_json_string("domain_name", domain_name.buffer, domain_name.readable_length());
+                    if (!domain_name.is_null()) {
+                        rr.print_key_json_string("domain_name", domain_name.buffer, domain_name.readable_length());
+                    }
                 } else if ((netbios_rr_type)question_record.rr_type == netbios_rr_type::NB) {
 
                     struct json_object nb{rr, "nb"};
@@ -700,7 +707,9 @@ struct dns_resource_record {
 
                     struct dns_name domain_name;
                     domain_name.parse(tmp_rdata, body);
-                    rr.print_key_json_string("ns_domain_name", domain_name.buffer, domain_name.readable_length());
+                    if (!domain_name.is_null()) {
+                        rr.print_key_json_string("ns_domain_name", domain_name.buffer, domain_name.readable_length());
+                    }
 
                 } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::SOA) {
                     soa_rdata soa{tmp_rdata, body};
@@ -716,7 +725,7 @@ struct dns_resource_record {
     bool is_not_empty() const { return question_record.is_not_empty(); }
 };
 
-struct dns_packet {
+struct dns_packet : public base_protocol {
     dns_hdr *header;
     struct datum records;
     size_t length;
@@ -734,10 +743,10 @@ struct dns_packet {
         if (header == nullptr) {
             return;         // too short
         }
-        qdcount = ntohs(header->qdcount);
-        ancount = ntohs(header->ancount);
-        nscount = ntohs(header->nscount);
-        arcount = ntohs(header->arcount);
+        qdcount = ntoh(header->qdcount);
+        ancount = ntoh(header->ancount);
+        nscount = ntoh(header->nscount);
+        arcount = ntoh(header->arcount);
         if ((qdcount == 0 && ancount == 0)
             || qdcount > dns_packet::max_count
             || ancount > dns_packet::max_count
@@ -808,7 +817,7 @@ struct dns_packet {
         if (header == NULL) {
             return;
         }
-        const char *key = (header->flags & 0x8000) ?  "response" : "query";
+        const char *key = encoded<uint16_t>{header->flags}.bit<0>() ?  "response" : "query";
         struct json_object dns_json{o, key};
         //dns_json.print_key_uint("qdcount", qdcount);
         //dns_json.print_key_uint("ancount", ancount);
@@ -907,5 +916,24 @@ struct dns_packet {
 };
 
 std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len);
+
+namespace {
+
+    [[maybe_unused]] int dns_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum request_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        
+
+        dns_packet request{request_data};
+        if (request.is_not_empty()) {
+            request.write_json(record);            
+        }
+
+        return 0;
+    }
+
+};
 
 #endif /* DNS_H */

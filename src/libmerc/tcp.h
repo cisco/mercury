@@ -10,7 +10,6 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <arpa/inet.h>
 #include <unordered_map>
 #include "datum.h"
 #include "analysis.h"
@@ -126,8 +125,8 @@ namespace std {
 #else
 void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header *tcp, const struct tcp_state *state, size_t length, size_t retval) {
     size_t data_length = length - tcp_offrsv_get_header_length(tcp->offrsv);
-    uint32_t rel_seq = ntohl(tcp->seq) - ntohl(state->init_seq);
-    uint32_t rel_ack = ntohl(tcp->ack) - ntohl(state->init_ack);
+    uint32_t rel_seq = ntoh(tcp->seq) - ntoh(state->init_seq);
+    uint32_t rel_ack = ntoh(tcp->ack) - ntoh(state->init_ack);
 
     if (k->ip_vers == 4) {
         uint8_t *s = (uint8_t *)&k->addr.ipv4.src;
@@ -198,7 +197,7 @@ struct tcp_initial_message_filter {
 
             uint32_t tmp_seq = tcp->seq;
             if (TCP_IS_SYN(tcp->flags)) {
-                tmp_seq = htonl(ntohl(tcp->seq) + 1);
+                tmp_seq = hton(ntoh(tcp->seq) + 1);
             }
             struct tcp_state state = { tmp_seq,  // .seq
                                        tcp->ack, // .ack
@@ -224,12 +223,12 @@ struct tcp_initial_message_filter {
 
             // update disposition and message number if appropriate
             if (data_length > 0) {
-                if (ntohl(tcp->ack) > ntohl(state.ack) || state.disposition == listening) {
+                if (ntoh(tcp->ack) > ntoh(state.ack) || state.disposition == listening) {
                     state.msg_num++;
                 }
                 state.disposition = talking;
             } else {
-                if (ntohl(tcp->ack) > ntohl(state.ack)) {
+                if (ntoh(tcp->ack) > ntoh(state.ack)) {
                     state.disposition = listening;
                 }
             }
@@ -238,10 +237,10 @@ struct tcp_initial_message_filter {
             }
 
             // update state
-            if (ntohl(tcp->seq) > ntohl(state.seq)) {
+            if (ntoh(tcp->seq) > ntoh(state.seq)) {
                 state.seq = tcp->seq;
             }
-            if (ntohl(tcp->ack) > ntohl(state.ack)) {
+            if (ntoh(tcp->ack) > ntoh(state.ack)) {
                 state.ack = tcp->ack;
             }
             tcp_flow_table[k] = state;
@@ -843,24 +842,5 @@ struct flow_table_tcp {
     static const unsigned int timeout = 1; // seconds before flow timeout
 
 };
-
-
-/*
- * base class for all TCP protocol to inherit from (e.g., tls_client_hello, http_request)
- */
-class tcp_base_protocol {
-
-public:
-
-    bool is_not_empty() const { return false; }
-
-    void write_json(struct json_object &) { }
-
-    void compute_fingerprint(fingerprint &) const { }
-
-    bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
-
-};
-
 
 #endif /* MERC_TCP_H */

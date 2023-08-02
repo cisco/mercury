@@ -13,6 +13,7 @@
 #ifndef SMB1_H
 #define SMB1_H
 
+#include "protocol.h"
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
@@ -270,7 +271,7 @@ public:
     }
 };
 
-class smb1_packet {
+class smb1_packet : public base_protocol {
     encoded<uint32_t> nbss_layer;
     smb1_header hdr;
     datum& body;
@@ -283,18 +284,22 @@ public:
 
     bool is_not_empty() const { return hdr.is_valid(); }
 
-    void write_json(struct json_object &o) {
-        hdr.write_json(o);
+    void write_json(struct json_object &o, bool) {
+        if (this->is_not_empty()) {
+            struct json_object smb1{o, "smb1"};
+            hdr.write_json(smb1);
 
-         switch(hdr.get_packet_type()) {
-            case smb1_header::packet_type::NEGOTIATE_REQUEST:
-            {
-                smb1_negotiate_request neg_req(body);
-                neg_req.write_json(o);
-                break;
+            switch (hdr.get_packet_type()) {
+                case smb1_header::packet_type::NEGOTIATE_REQUEST:
+                {
+                    smb1_negotiate_request neg_req(body);
+                    neg_req.write_json(smb1);
+                    break;
+                }
+                default:
+                    break;
             }
-            default:
-                break;
+            smb1.close();
         }
     }
 
@@ -318,7 +323,7 @@ namespace {
 
         smb1_packet request{request_data};
         if (request.is_not_empty()) {
-            request.write_json(record);
+            request.write_json(record, true);
         }
 
         return 0;

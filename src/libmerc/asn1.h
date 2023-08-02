@@ -260,7 +260,7 @@ struct tlv {
     struct datum value;
 
     bool operator == (const struct tlv &r) {
-        return !is_valid() && tag == r.tag && length == r.length && value.memcmp(r.value) == 0;
+        return !is_valid() && tag == r.tag && length == r.length && value.cmp(r.value) == 0;
     }
 
     constexpr static unsigned char explicit_tag(unsigned char tag) {

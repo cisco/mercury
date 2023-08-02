@@ -27,6 +27,9 @@ STRIP = strip
 
 CFLAGS += -fPIC
 CFLAGS += -DDONT_USE_STDERR
+ifeq ($(openssl_newer),yes)
+CFLAGS += -DSSLNEW
+endif
 
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
@@ -38,7 +41,6 @@ LIBMERC     += dns.cc
 LIBMERC     += http.cc
 LIBMERC     += libmerc.cc
 LIBMERC     += match.cc
-LIBMERC     += packet.cc
 LIBMERC     += pkt_proc.cc
 LIBMERC     += ssh.cc
 LIBMERC     += tls.cc
@@ -48,10 +50,12 @@ LIBMERC     += asn1.cc
 LIBMERC     += asn1/oid.cc
 LIBMERC 	+= config_generator.cc
 LIBMERC     += smb2.cc
+LIBMERC     += bencode.cc
 LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
 LIBMERC_H   += analysis.h
+LIBMERC_H   += result.h
 LIBMERC_H   += buffer_stream.h
 LIBMERC_H   += crypto_assess.h
 LIBMERC_H   += dhcp.h
@@ -63,7 +67,7 @@ LIBMERC_H   += json_object.h
 LIBMERC_H   += libmerc.h
 LIBMERC_H   += match.h
 LIBMERC_H   += proto_identify.h
-LIBMERC_H   += packet.h
+LIBMERC_H   += flow_key.h
 LIBMERC_H   += datum.h
 LIBMERC_H   += gre.h
 LIBMERC_H   += pkt_proc.h
@@ -86,6 +90,8 @@ LIBMERC_H   += config_generator.h
 LIBMERC_H   += global_config.h
 LIBMERC_H   += smb1.h
 LIBMERC_H   += smb2.h
+LIBMERC_H   += bencode.h
+LIBMERC_H   += bittorrent.h
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files
@@ -131,13 +137,13 @@ LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
 libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o -lz -lcrypto -o libmerc.so
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
 	$(STRIP) libmerc.so
 	ldconfig -n .
 
 libmerc_coverage.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o -lz -lcrypto --coverage
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
 	$(STRIP) libmerc_coverage.so
 	cp libmerc_coverage.so libmerc.so
 	ldconfig -n .
