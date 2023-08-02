@@ -195,7 +195,7 @@ namespace bencoding {
 
 #ifndef NDEBUG
 
-        inline bool unit_test() {
+        static bool unit_test() {
             unsigned char data[] = "d1:ad2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:id4:testeeeeeeeeeee";
             unsigned char expected_json[] = "{\"attributes\":[{\"key\":\"a\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"unparsed_value_hex\":\"343a74657374656565656565656565656500\"]}]}]}]}]}]}]}]}]}]}]";
 
@@ -215,7 +215,7 @@ namespace bencoding {
                 return false;
             }
 
-            if (memcmp(expected_raw_features, buf.buffer, sizeof(expected_raw_features))) {
+            if (memcmp(expected_raw_features, buf.buffer, sizeof(expected_raw_features) - 1)) {
                 return false;
             }
 
