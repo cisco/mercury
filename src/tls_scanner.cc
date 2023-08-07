@@ -23,6 +23,7 @@
 #include <fstream>
 #include <thread>
 #include <mutex>
+#include <chrono>
 
 #include <openssl/bio.h>
 #include <openssl/err.h>
@@ -263,6 +264,29 @@ static inline void fprintf_hex(FILE *f, const std::basic_string<uint8_t> &s, con
     }
 }
 
+// enum class verbosity_level defines increasing levels of output that
+// can be applied to tls_connection and tls_scanner
+//
+enum class verbosity_level {
+    no_output = 0,
+    summary   = 1,
+    errors    = 2,
+    warnings  = 3,
+    notes     = 4,
+};
+
+static inline bool operator>=(verbosity_level lhs, verbosity_level rhs) { return static_cast<unsigned>(lhs) >= static_cast<unsigned>(rhs); }
+
+verbosity_level verbosity_from_string(const std::string &s) {
+    if (s == "none")     { return verbosity_level::no_output; }
+    if (s == "summary")  { return verbosity_level::summary; }
+    if (s == "errors")   { return verbosity_level::errors; }
+    if (s == "warnings") { return verbosity_level::warnings; }
+    if (s == "notes")    { return verbosity_level::notes; }
+    fprintf(stderr, "error: unknown verbosity level '%s'\n", s.c_str());
+    return verbosity_level::no_output;
+}
+
 // class tls_connection creates a TLS over TCP connection with a
 // remote host
 //
@@ -272,11 +296,13 @@ class tls_connection {
     SSL *tls = NULL;
     std::string host;
     bool valid = false;  // true only after successful session handshake
+    verbosity_level verbosity;
 
 public:
 
-    tls_connection(SSL_CTX *ctx, std::string &hostname, bool omit_sni=false) :
-        host{hostname}
+    tls_connection(SSL_CTX *ctx, std::string &hostname, verbosity_level verb, bool omit_sni=false) :
+        host{hostname},
+        verbosity{verb}
     {
 
         // TODO: allow alternative port number
@@ -286,13 +312,17 @@ public:
         // fprintf(stderr, "attempting BIO_new_connect() to %s\n", host_and_port.c_str());
         bio = BIO_new_connect(host_and_port.c_str());
         if (bio == nullptr) {
-            fprintf(stderr, "warning: TCP connection to %s failed\n", host_and_port.c_str());
+            if (verbosity >= verbosity_level::warnings) {
+                fprintf(stderr, "warning: TCP connection to %s failed\n", host_and_port.c_str());
+            }
             return;
             // throw std::runtime_error("error: could not create BIO\n");
         }
         // fprintf(stderr, "attempting BIO_do_connect() to %s\n", host_and_port.c_str());
         if (BIO_do_connect(bio) <= 0) {  // TODO: set/add timeout
-            fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
+            if (verbosity >= verbosity_level::warnings) {
+                fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
+            }
             //throw std::runtime_error("error: could not connect to %s\n");
             return;
         }
@@ -333,16 +363,24 @@ public:
 
         if (BIO_do_handshake(tls_bio) <= 0) {
             // throw std::runtime_error("error: TLS handshake failed\n");
-            fprintf(stderr, "error: TLS handshake to %s failed\n", host_and_port.c_str());
+            if (verbosity >= verbosity_level::warnings) {
+                fprintf(stderr, "warning: TLS handshake to %s failed\n", host_and_port.c_str());
+            }
             return;
         }
 
+        // for scanning, you don't really want to verify the
+        // certificates before you obtain them, so this code is
+        // switched off for now
+        //
         bool check_cert = false;
         if (check_cert) {
             int err = SSL_get_verify_result(tls);
             if (err != X509_V_OK) {
                 const char *message = X509_verify_cert_error_string(err);
-                fprintf(stderr, "note: certificate verification failed (%s, code %d)\n", message, err);
+                if (verbosity >= verbosity_level::warnings) {
+                    fprintf(stderr, "warning: certificate verification failed (%s, code %d)\n", message, err);
+                }
             }
         }
 
@@ -609,8 +647,15 @@ private:
     bool recurse = false;
     std::string user_agent;
 
+    verbosity_level verbosity;
+
     //    std::unordered_map<std::basic_string<uint8_t>, std::vector<std::string>> hash_to_host_list;
     host_data data;
+
+    bool done = false;
+
+    size_t scans = 0;
+    size_t scans_succeded = 0;
 
     SSL_CTX *tls_init() const {
         SSL_CTX *ctx = nullptr;
@@ -646,25 +691,35 @@ private:
 
 public:
 
-    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni, FILE *pem_output, bool use_recursion) :
+    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni, FILE *pem_output, bool use_recursion, verbosity_level verb=verbosity_level::no_output) :
         print_cert{cert},
         print_response_body{response_body},
         print_src_links{src_links},
         omit_sni{no_sni},
         cert_output_file{pem_output},
         recurse{use_recursion},
-        user_agent{user_agent_default}
+        user_agent{user_agent_default},
+        verbosity{verb}
         { }
 
     void scan(const std::vector<std::string> &scan_targets) {
+        done = false;
         std::vector<std::thread> t;
         t.reserve(scan_targets.size());
         for (const auto &host : scan_targets) {
-            fprintf(stderr, "note: launching thread to scan host %s\n", host.c_str());
-            t.emplace_back(std::thread([&]() mutable { scan(host, host); }));
+            if (verbosity >= verbosity_level::notes) {
+                fprintf(stderr, "note: launching thread to scan host %s\n", host.c_str());
+            }
+            t.emplace_back(std::thread([&]() mutable { scan(host, host, done); }));
         }
+        fprintf(stderr, "XXX - waiting\n");
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+        fprintf(stderr, "XXX - joining threads\n");
         for (auto & thd : t) {
             thd.join();
+        }
+        if (verbosity == verbosity_level::summary) {
+            fputc('\n', stderr); // terminate summary line
         }
     }
 
@@ -689,7 +744,9 @@ public:
                 hostname.resize(idx);
             }
             if (doh) {
-                fprintf(stderr, "error: path set for DoH query\n");
+                if (verbosity >= verbosity_level::errors) {
+                    fprintf(stderr, "error: path set for DoH query\n");
+                }
                 return;
             }
         }
@@ -700,18 +757,29 @@ public:
         // fprintf(stderr, "path:       %s\n", path.c_str());
 
         if (hostname == "") {
-            fprintf(stderr, "warning: empty hostname found\n");
+            if (verbosity >= verbosity_level::errors) {
+                fprintf(stderr, "warning: empty hostname found\n");
+            }
             return;
         }
 
+        ++scans;
         SSL_CTX *ctx = tls_init();
-        tls_connection connection{ctx, hostname};
+        tls_connection connection{ctx, hostname, verbosity};
         if (!connection.is_valid()) {
-            fprintf(stderr, "warning: connection to %s failed\n", hostname.c_str());
+            if (verbosity >= verbosity_level::warnings) {
+                fprintf(stderr, "warning: connection to %s failed\n", hostname.c_str());
+            }
             tls_final(ctx);
             return;  // error: could not connect to host
         }
-        fprintf(stderr, "note: connection to %s succeeded\n", hostname.c_str());
+        ++scans_succeded;
+        if (verbosity == verbosity_level::summary) {
+            fprintf(stderr, "\rTLS scans\ttotal: %zu\tsucceeded: %zu", scans, scans_succeded);
+        }
+        if (verbosity >= verbosity_level::notes) {
+            fprintf(stderr, "note: connection to %s succeeded\n", hostname.c_str());
+        }
 
         raw_cert cert{connection.get_tls()};
         std::basic_string<uint8_t> cert_string = cert.get_bytestring();
@@ -720,7 +788,6 @@ public:
         if (cert_output_file != nullptr) { // omit normal output
             connection.close();
             tls_final(ctx);
-            fprintf(stderr, "note: scan() done\n");
             return;
         }
 
@@ -756,8 +823,6 @@ public:
 
         connection.close();
         tls_final(ctx);
-
-        fprintf(stderr, "note: scan() done\n");
     }
 
     bool was_previously_visited(std::string &) const {
@@ -1348,10 +1413,12 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--list-user-agents", "print out user agent strings, most prevalent first" },
         { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
         { argument::required,   "--write-certs",      "write out server certificate(s) as PEM file(s)" },
+        { argument::required,   "--verbosity",        "set verbosity level to <arg> (none/summary/errors/warnings/notes)" },
         { argument::none,       "--body",             "prints out HTTP response body" },
         { argument::none,       "--recurse",          "recursively following src links and redirects" },
         { argument::none,       "--doh",              "send DoH query" },
-        { argument::none,       "--help",             "prints out help message" }
+        { argument::none,       "--help",             "prints out help message" },
+        { argument::none,       "--version",          "prints out version" }
     });
 
     if (!opt.process_argv(argc, argv)) {
@@ -1364,6 +1431,7 @@ int main(int argc, char *argv[]) {
     auto [ host_file_is_set, host_file ] = opt.get_value("--host-file");
     auto [ ua_is_set, ua_search_string ] = opt.get_value("--user-agent");
     auto [ write_certs, pem_outfile ] = opt.get_value("--write-certs");
+    auto [ verb_is_set, verb ] = opt.get_value("--verbosity");
     bool list_uas    = opt.is_set("--list-user-agents");
     bool omit_sni    = opt.is_set("--no-server-name");
     bool print_certs = opt.is_set("--certs");
@@ -1371,10 +1439,20 @@ int main(int argc, char *argv[]) {
     bool recurse     = opt.is_set("--recurse");
     bool doh         = opt.is_set("--doh");
     bool print_help  = opt.is_set("--help");
+    bool print_vers  = opt.is_set("--version");
 
     if (print_help) {
         opt.usage(stdout, argv[0], summary);
         return 0;
+    }
+    if (print_vers) {
+        fputs("1.0.0\n", stdout);
+        return 0;
+    }
+
+    verbosity_level verbosity{verbosity_level::summary};
+    if (verb_is_set) {
+        verbosity = verbosity_from_string(verb);
     }
 
     //fprintf(stdout, "openssl version number: %08x\n", (unsigned int)OPENSSL_VERSION_NUMBER);
@@ -1415,7 +1493,8 @@ int main(int argc, char *argv[]) {
                             true,        // print src links
                             omit_sni,    // omit TLS server name
                             pem_output,  // write certs to files
-                            recurse
+                            recurse,
+                            verbosity
                             );
         if (ua_is_set) {
             scanner.set_user_agent(ua_search_string);
