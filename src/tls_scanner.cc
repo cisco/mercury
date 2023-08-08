@@ -25,167 +25,16 @@
 #include <mutex>
 #include <chrono>
 
-#include <openssl/bio.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
-#include <openssl/x509v3.h>
-
 #include "libmerc/x509.h"
 #include "libmerc/http.h"
 #include "libmerc/json_object.h"
 #include "libmerc/dns.h"
 #include "libmerc/base64.h"
 #include "libmerc/crypto_hash.hpp"
-
+#include "libmerc/verbosity.hpp"
+#include "libmerc/tls_connection.hpp"
 #include "options.h"
 #include "pkcs8.hpp"
-
-
-struct hostname : public datum {
-
-    hostname() : datum{NULL, NULL} { }
-
-    void parse(struct datum &d) {
-        accept_hostname(d);
-    }
-    void accept_hostname(struct datum &d) {
-        if (d.data == NULL || d.data >= d.data_end) {
-            return;
-        }
-        data = d.data;
-        const uint8_t *tmp_data = d.data;
-        while (tmp_data < d.data_end) {
-            if (!isalnum(*tmp_data) && *tmp_data != '.' && *tmp_data != '-') {
-                break;
-            }
-            tmp_data++;
-        }
-        data_end = d.data = tmp_data;
-    }
-};
-
-struct uri_path : public datum {
-
-    uri_path() : datum{NULL, NULL} { }
-
-    void parse(struct datum &d) {
-        accept_path(d);
-    }
-    void accept_path(struct datum &d) {
-        if (d.data == NULL || d.data >= d.data_end) {
-            return;
-        }
-        data = d.data;
-        const uint8_t *tmp_data = d.data;
-        while (tmp_data < d.data_end) {
-            // note: this function works with valid paths that are
-            // exctacted from HTML links, which are terminated by a
-            // quotation, but it is not appropriate for other use
-            // cases
-            if (*tmp_data == '\"') {
-                break;
-            }
-            tmp_data++;
-        }
-        data_end = d.data = tmp_data;
-    }
-};
-
-struct uri {
-    struct datum scheme;
-    struct hostname host;
-    struct uri_path path;
-
-public:
-    uri(struct datum &d) : scheme{}, host{}, path{} {
-        parse(d);
-    }
-    void parse(struct datum &d) {
-        // find start of host
-        uint8_t slash_pair[2] = { '/', '/' };
-        if (d.skip_up_to_delim(slash_pair, sizeof(slash_pair)) == false) {
-            return;
-        };
-
-        host.parse(d);
-        path.parse(d);
-    }
-};
-
-static inline std::string doh_path(const std::string &query_name) {
-
-    // experimental support for DoH queries
-    //
-    // TODO: encapsulate DNS encoding within DNS classes for
-    // the sake of maintainability
-
-    // TODO: add POST URI=/dns-query technique
-    //
-    // TODO: add other GET technique
-    //
-    // curl -i -H 'accept: application/dns-json' 'https://doh.facebook-dns.com/dns-query?name=cisco.com&type=A'
-    // curl -i -H 'accept: application/dns-message' https://one.one.one.one/dns-query?dns=AAABAAABAAAAAAAABWNpc2NvA2NvbQAAAQAB
-
-    std::string path;
-    path += "dns-query?dns=";
-
-    uint8_t dns_message[2048];
-    dns_hdr *header = (dns_hdr *)&dns_message[0];
-    header->id = 0x0000;           // DoH clients SHOULD use 0 in each request
-    header->flags = hton<uint16_t>(0x0100);
-    header->qdcount = hton<uint16_t>(1);
-    header->ancount = hton<uint16_t>(0);
-    header->nscount = hton<uint16_t>(0);
-    header->arcount = hton<uint16_t>(0);
-
-    uint8_t *rr_start = &dns_message[sizeof(dns_hdr)];
-
-    uint8_t *s = (uint8_t *)query_name.c_str();
-    while (true) {
-        uint8_t *t = s;
-        while (true) {
-            if (*t == '.' || *t == 0) {
-                break;
-            }
-            t++;
-        }
-        if (t == s) {
-            break;
-        }
-        *rr_start++ = (uint8_t) (t - s);
-        memcpy(rr_start, s, (t-s));
-        rr_start += (t - s);
-        if (*t == 0) {
-            break;
-        }
-        t++;
-        s = t;
-    }
-    *rr_start++ = 0; // terminate name with zero-length label
-
-    if (true) {
-        *rr_start++ = 0x00; // qtype in network byte order (A)
-        *rr_start++ = 0x01;
-    } else {
-        *rr_start++ = 0x00; // qtype in network byte order (AAAA)
-        *rr_start++ = 0x1c;
-    }
-    *rr_start++ = 0x00; // qclass in network byte order (IN)
-    *rr_start++ = 0x01;
-
-    size_t dns_message_len = rr_start - &dns_message[0];
-
-    std::string dns_query = dns_get_json_string((const char *)dns_message, dns_message_len);
-    fprintf(stdout, "{\"dns\":%s}\n", dns_query.c_str());
-
-    std::string dns_string = base64_encode(dns_message, dns_message_len, base64url_table);
-    path += dns_string;
-
-    // fprintf(stderr, "dns_string: '%s'\n", dns_string.c_str());
-    // fprintf(stderr, "path:       %s\n", path.c_str());
-
-    return path;
-}
 
 // class raw_cert is a raw certificate in DER format, which can be
 // obtained from a TLS connection.  A raw_cert object may be in an
@@ -255,7 +104,9 @@ public:
 
 };
 
-static inline void fprintf_hex(FILE *f, const std::basic_string<uint8_t> &s, const char *preamble=nullptr) {
+static inline void fprintf_hex(FILE *f,
+                               const std::basic_string<uint8_t> &s,
+                               const char *preamble=nullptr) {
     if (preamble) {
         fprintf(f, "%s", preamble);
     }
@@ -264,327 +115,6 @@ static inline void fprintf_hex(FILE *f, const std::basic_string<uint8_t> &s, con
     }
 }
 
-// enum class verbosity_level defines increasing levels of output that
-// can be applied to tls_connection and tls_scanner
-//
-enum class verbosity_level {
-    no_output = 0,
-    summary   = 1,
-    errors    = 2,
-    warnings  = 3,
-    notes     = 4,
-};
-
-static inline bool operator>=(verbosity_level lhs, verbosity_level rhs) { return static_cast<unsigned>(lhs) >= static_cast<unsigned>(rhs); }
-
-verbosity_level verbosity_from_string(const std::string &s) {
-    if (s == "none")     { return verbosity_level::no_output; }
-    if (s == "summary")  { return verbosity_level::summary; }
-    if (s == "errors")   { return verbosity_level::errors; }
-    if (s == "warnings") { return verbosity_level::warnings; }
-    if (s == "notes")    { return verbosity_level::notes; }
-    fprintf(stderr, "error: unknown verbosity level '%s'\n", s.c_str());
-    return verbosity_level::no_output;
-}
-
-// class tls_connection creates a TLS over TCP connection with a
-// remote host
-//
-class tls_connection {
-    BIO *bio = nullptr;
-    BIO *tls_bio = nullptr;
-    SSL *tls = NULL;
-    std::string host;
-    bool valid = false;  // true only after successful session handshake
-    verbosity_level verbosity;
-
-public:
-
-    tls_connection(SSL_CTX *ctx, std::string &hostname, verbosity_level verb, bool omit_sni=false) :
-        host{hostname},
-        verbosity{verb}
-    {
-
-        // TODO: allow alternative port number
-        //
-        std::string host_and_port = hostname + ":443";
-
-        // fprintf(stderr, "attempting BIO_new_connect() to %s\n", host_and_port.c_str());
-        bio = BIO_new_connect(host_and_port.c_str());
-        if (bio == nullptr) {
-            if (verbosity >= verbosity_level::warnings) {
-                fprintf(stderr, "warning: TCP connection to %s failed\n", host_and_port.c_str());
-            }
-            return;
-            // throw std::runtime_error("error: could not create BIO\n");
-        }
-        // fprintf(stderr, "attempting BIO_do_connect() to %s\n", host_and_port.c_str());
-        if (BIO_do_connect(bio) <= 0) {  // TODO: set/add timeout
-            if (verbosity >= verbosity_level::warnings) {
-                fprintf(stderr, "warning: TLS connection to %s failed\n", host_and_port.c_str());
-            }
-            //throw std::runtime_error("error: could not connect to %s\n");
-            return;
-        }
-        tls_bio = BIO_new_ssl(ctx, 1);
-        BIO_push(tls_bio, bio);
-        // BIO *tls_bio = BIO_new_ssl_connect(ctx);
-
-        BIO_get_ssl(tls_bio, &tls);
-        if (tls == NULL) {
-            fprintf(stderr, "warning: could not initialize TLS session context with %s\n", host_and_port.c_str());
-            // throw std::runtime_error("error: could not initialize TLS context\n");
-            return;
-        }
-
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-        constexpr bool tls_version_1_3_only = false;
-        if (tls_version_1_3_only) {
-            int status = SSL_set_min_proto_version(tls, TLS1_3_VERSION);
-            if (status != 1) {
-                fprintf(stderr, "warning: could not set protocol version to 1.3 (status=%d)\n", status);
-                // throw std::runtime_error("error: could not set protocol version to 1.2\n");
-            }
-        }
-#endif
-
-        // status = SSL_set_cipher_list(tls, tlsv1_3_only);
-        // if (status != 1) {
-        //     fprintf(stderr, "warning: SSL_CTX_set_cipher_list() returned %d\n", status);
-        //     // throw std::runtime_error("error: could not set TLSv1.3-only ciphersuites\n");
-        // }
-
-        if (!omit_sni) {
-            SSL_set_tlsext_host_name(tls, hostname.c_str());
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-            SSL_set1_host(tls, hostname.c_str());
-#endif
-        }
-
-        if (BIO_do_handshake(tls_bio) <= 0) {
-            // throw std::runtime_error("error: TLS handshake failed\n");
-            if (verbosity >= verbosity_level::warnings) {
-                fprintf(stderr, "warning: TLS handshake to %s failed\n", host_and_port.c_str());
-            }
-            return;
-        }
-
-        // for scanning, you don't really want to verify the
-        // certificates before you obtain them, so this code is
-        // switched off for now
-        //
-        bool check_cert = false;
-        if (check_cert) {
-            int err = SSL_get_verify_result(tls);
-            if (err != X509_V_OK) {
-                const char *message = X509_verify_cert_error_string(err);
-                if (verbosity >= verbosity_level::warnings) {
-                    fprintf(stderr, "warning: certificate verification failed (%s, code %d)\n", message, err);
-                }
-            }
-        }
-
-        // final sanity check on session pointers
-        //
-        if (bio == nullptr || tls_bio == nullptr || tls == nullptr) {
-            return;
-        }
-        valid = true;
-    }
-
-    SSL *get_tls() { return tls; }
-
-    void check_cert() {
-        X509 *cert = SSL_get_peer_certificate(tls);
-        if (cert == nullptr) {
-            fprintf(stderr, "note: server did not present a certificate\n");
-            return;
-        }
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-        if (X509_check_host(cert, hostname.data(), hostname.size(), 0, nullptr) != 1) {
-            fprintf(stderr, "note: host verification failed\n");
-        }
-#else
-        // X509_check_host() called automatically
-#endif
-        X509_free(cert);
-    }
-
-    ~tls_connection() {
-        close();
-    }
-
-    void close() {
-        if (tls_bio != nullptr) {
-            BIO_free_all(tls_bio);
-            tls_bio = nullptr;
-        }
-    }
-
-    bool is_valid() const { return valid; }
-
-    void write(const uint8_t *data, size_t size) {
-        if (!is_valid()) {
-            return;
-        }
-        BIO_write(tls_bio, data, size);
-        BIO_flush(tls_bio);
-    }
-
-    ssize_t read(void *current, int length) {
-        if (!is_valid()) {
-            return -1;
-        }
-        return BIO_read(tls_bio, current, length);
-    }
-
-    bool should_retry() const {
-        if (!is_valid()) {
-            return false;
-        }
-        return BIO_should_retry(tls_bio);
-    }
-
-    std::set<std::string> send_http_request(std::string path,
-                                            const std::string &hostname,
-                                            const std::string &http_host_field,
-                                            const std::string &user_agent,
-                                            bool doh) {
-
-        // send HTTP request
-        //
-        if (doh) {
-            path += doh_path(http_host_field);
-        }
-        std::string line = "GET " + path + " HTTP/1.1";
-        std::string request = line + "\r\n";
-        request += "User-Agent: " + user_agent;
-        request += "Connection: close\r\n";
-        if (doh) {
-            request += "Accept: application/dns-message\r\nHost: " + hostname + "\r\n";
-        } else {
-            request += "Host: " + http_host_field + "\r\n";
-        }
-        request += "\r\n";
-
-        tls_connection::write((uint8_t *)request.data(), request.size());
-
-        // parse HTTP request for JSON output
-        const uint8_t *http_req_buffer = (const uint8_t *)request.data();
-        struct datum http_req_data{http_req_buffer, http_req_buffer + request.length()};
-        http_request req{http_req_data};
-
-        // report http request
-        char output_buffer[1024*16];
-        struct buffer_stream output_buffer_stream{output_buffer, sizeof(output_buffer)};
-        struct json_object http_record{&output_buffer_stream};
-        req.write_json(http_record, true);
-        http_record.close();
-        output_buffer_stream.write_line(stdout);
-
-        // get HTTP response
-        int http_response_len = 0, read_len = 0;
-        char http_buffer[1024*256] = {};
-        char *current = http_buffer;
-        do {
-            read_len = tls_connection::read(current, sizeof(http_buffer) - http_response_len);
-            current += read_len;
-            http_response_len += read_len;
-            //fprintf(stderr, "BIO_read %d bytes\n", read_len);
-        } while (read_len > 0 || tls_connection::should_retry());
-
-        // parse and process http_response message
-        std::set<std::string> src_links;
-        if (http_response_len > 0) {
-
-            // fprintf(stderr, "%.*s\n", (int)http_response_len, http_buffer);
-
-            bool parse_response = true;
-            std::string redirect;  // stores HTTP redirect, if there is one
-
-            // fprintf(stdout, "%.*s", http_response_len, http_buffer);
-
-            // parse http headers, and print as JSON
-            const unsigned char *tmp = (const unsigned char *)http_buffer;
-            struct datum http{tmp, tmp+http_response_len};
-            if (parse_response) {
-                http_response response{http};
-
-                output_buffer_stream = {output_buffer, sizeof(output_buffer)}; // reset
-                struct json_object http_record{&output_buffer_stream};
-                response.write_json(http_record);
-                http_record.close();
-                output_buffer_stream.write_line(stdout);
-
-                std::basic_string<uint8_t> loc = { 'l', 'o', 'c', 'a', 't', 'i', 'o', 'n', ':', ' ' };
-                struct datum location = response.get_header((const char *)loc.data());
-                if (location.is_not_empty()) {
-                    fprintf(stderr, "location header: %.*s\n", (int)location.length(), location.data);
-                    uri location_uri{location};
-                    fprintf(stderr, "location host: %.*s\n", (int)location_uri.host.length(), location_uri.host.data);
-
-                    redirect = location_uri.host.get_string();
-                }
-
-                std::basic_string<uint8_t> cc = { 'c', 'a', 'c', 'h', 'e', '-', 'c', 'o', 'n', 't', 'r', 'o', 'l', ':', ' ' };
-                struct datum cache_control = response.get_header((const char *)cc.data());
-                if (cache_control.is_not_empty()) {
-                    fprintf(stdout, "cache-control header: %.*s\n", (int)cache_control.length(), cache_control.data);
-                }
-
-                std::basic_string<uint8_t> ct = { 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 't', 'y', 'p', 'e', ':', ' ' };
-                struct datum content_type = response.get_header((const char *)ct.data());
-                if (content_type.is_not_empty()) {
-                    fprintf(stderr, "content-type: %.*s\n", (int)content_type.length(), content_type.data);
-
-                    uint8_t app_type_dns[] = { 'a', 'p', 'p', 'l', 'i', 'c', 'a', 't', 'i', 'o', 'n', '/', 'd', 'n', 's', '-', 'm', 'e', 's', 's', 'a', 'g', 'e' };
-                    struct datum app_type_dns_datum{app_type_dns, app_type_dns + sizeof(app_type_dns)};
-                    if (content_type.case_insensitive_match(app_type_dns_datum)) {
-
-                        // output response as JSON object
-                        std::string dns_response = dns_get_json_string((const char *)http.data, http.length());
-                        fprintf(stdout, "{\"dns\":%s}\n", dns_response.c_str());
-
-                    }
-                }
-
-                bool print_response_body = false; // TODO: reconnect to tls_scanner
-
-                if (print_response_body) { // || response.status_code.compare("301", 3) == 0 || response.status_code.compare("302", 3) == 0 ) {
-                    // print out redirect data
-                    fprintf(stdout, "body: %.*s\n", (int)http.length(), http.data);
-                }
-
-            }
-
-            // print out raw body
-            //fprintf(stdout, "body: %.*s", (int)http.length(), http.data);
-
-            // find src= links in page
-            std::string http_body = http.get_string();
-            std::smatch matches;
-            //std::regex rgx("src.{2,8}(http(s)*:)*//[a-zA-Z0-9-]*(\\.[a-zA-Z0-9-]*)*");
-            std::regex rgx("src=\"[^\"]*\"");
-            while (std::regex_search(http_body, matches, rgx)) {
-                // fprintf(stdout, "%s\n", matches[0].str().c_str());
-                src_links.insert(matches[0].str());
-                http_body = matches.suffix().str();
-            }
-
-            if (!redirect.empty()) {
-                //
-                // construct a src link that represents the redirect
-                //
-                std::string link{"src=\"https://"};
-                link += redirect;
-                link += "\"";
-                src_links.insert(link);
-            }
-        }
-        return src_links;
-    }
-
-};
 
 class host_data {
     std::unordered_map<std::basic_string<uint8_t>, std::set<std::string>> hash_to_host_list;
@@ -635,9 +165,6 @@ public:
 };
 
 class tls_scanner {
-private:
-
-    constexpr static const char *tlsv1_3_only_ciphersuites = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_CCM_SHA256:TLS_AES_128_CCM_8_SHA256";
 
     bool print_cert = true;
     bool print_response_body = true;
@@ -649,7 +176,6 @@ private:
 
     verbosity_level verbosity;
 
-    //    std::unordered_map<std::basic_string<uint8_t>, std::vector<std::string>> hash_to_host_list;
     host_data data;
 
     bool done = false;
@@ -657,41 +183,15 @@ private:
     size_t scans = 0;
     size_t scans_succeded = 0;
 
-    SSL_CTX *tls_init() const {
-        SSL_CTX *ctx = nullptr;
-
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-        SSL_library_init();
-        SSL_load_error_strings();
-#endif
-
-        // initialize openssl session context
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-        ctx = SSL_CTX_new(TLSv1_2_client_method());
-#else
-        ctx = SSL_CTX_new(TLS_client_method());
-#endif
-        if (ctx == NULL) {
-            // throw std::runtime_error("error: could not initialize TLS context\n");
-            fprintf(stderr, "error: could not initialize TLS context\n");
-            return nullptr;
-        }
-        if (SSL_CTX_set_default_verify_paths(ctx) != 1) { // TODO: verify that this doesn't allocate memory
-            // throw std::runtime_error("error: could not initialize TLS verification\n");
-            fprintf(stderr, "error: could not initialize TLS verification\n");
-            tls_final(ctx);
-            return nullptr;
-        }
-        return ctx;
-    }
-
-    void tls_final(SSL_CTX *ctx) const {
-        SSL_CTX_free(ctx);
-    }
-
 public:
 
-    tls_scanner(bool cert, bool response_body, bool src_links, bool no_sni, FILE *pem_output, bool use_recursion, verbosity_level verb=verbosity_level::no_output) :
+    tls_scanner(bool cert,
+                bool response_body,
+                bool src_links,
+                bool no_sni,
+                FILE *pem_output,
+                bool use_recursion,
+                verbosity_level verb=verbosity_level::no_output) :
         print_cert{cert},
         print_response_body{response_body},
         print_src_links{src_links},
@@ -712,9 +212,7 @@ public:
             }
             t.emplace_back(std::thread([&]() mutable { scan(host, host, done); }));
         }
-        fprintf(stderr, "XXX - waiting\n");
         std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-        fprintf(stderr, "XXX - joining threads\n");
         for (auto & thd : t) {
             thd.join();
         }
@@ -751,11 +249,6 @@ public:
             }
         }
 
-        // fprintf(stderr, "hostname:   %s\n", hostname.c_str());
-        // fprintf(stderr, "inner host: %s\n", inner_hostname.c_str());
-        // fprintf(stderr, "host field: %s\n", http_host_field.c_str());
-        // fprintf(stderr, "path:       %s\n", path.c_str());
-
         if (hostname == "") {
             if (verbosity >= verbosity_level::errors) {
                 fprintf(stderr, "warning: empty hostname found\n");
@@ -764,13 +257,11 @@ public:
         }
 
         ++scans;
-        SSL_CTX *ctx = tls_init();
-        tls_connection connection{ctx, hostname, verbosity};
+        tls_connection connection{hostname.c_str(), verbosity, 443};
         if (!connection.is_valid()) {
             if (verbosity >= verbosity_level::warnings) {
                 fprintf(stderr, "warning: connection to %s failed\n", hostname.c_str());
             }
-            tls_final(ctx);
             return;  // error: could not connect to host
         }
         ++scans_succeded;
@@ -786,20 +277,15 @@ public:
         data.insert(cert_string, hostname);
 
         if (cert_output_file != nullptr) { // omit normal output
-            connection.close();
-            tls_final(ctx);
             return;
         }
 
         std::set<std::string> src_links = connection.send_http_request(path, hostname, inner_hostname, user_agent, doh);
-        //
-        // NOTE: redirect is included in src_links
-        //
 
         // follow src= links, if any
         //
         for (const auto &x : src_links) {
-            bool print_src_links = true;  // TODO: reconnect to tls_scanner
+            bool print_src_links = false;
             if (print_src_links) {
 
                 // TODO: load relative src= links if they are HTML
@@ -809,9 +295,6 @@ public:
                 datum src{tmp, tmp+x.length()};
                 uri u{src};
                 std::string host = u.host.get_string();
-                // fprintf(stdout, "found src= link host=%s, path=%.*s\n",
-                //         host.c_str(),
-                //         (int)u.path.length(), u.path.data);
 
                 if (!was_previously_visited(host) && recurse) {
                     // append path to host, since scan() expects that
@@ -821,8 +304,6 @@ public:
             }
         }
 
-        connection.close();
-        tls_final(ctx);
     }
 
     bool was_previously_visited(std::string &) const {
@@ -1367,21 +848,6 @@ private:
 
 };
 
-// host file format
-//
-// each line contains an IP address or hostname
-//
-// for HTTP fetching, it may contain a path
-// for DF checking, it must also contain an inner name
-// for DoH, it must also contain a query name
-// optionally, it could also contain a port number
-
-// The batch thread model used by the scanner aims to be simple and
-// scalable, while also providing encapsulation.  The code loops over
-// hosts to be scanned, forming a batch of hosts, launching a scan
-// thread for each host in a batch, and then waits until all threads
-// in a batch complete before moving on to the next batch.
-
 using namespace mercury_option;
 
 int main(int argc, char *argv[]) {
@@ -1393,11 +859,16 @@ int main(int argc, char *argv[]) {
     const char summary[] =
         "usage:\n"
         "\ttls_scanner <hostname>[/<path>] [OPTIONS]\n"
-        "\ttls_scanner <hostname> <second_hostname>[/<path>] [OPTIONS]\n\n"
-        "\ttls_scanner <hostname> <query_name> --doh [OPTIONS]\n\n"
-        "Scans an HTTPS server for its certificate, HTTP response headers, response\n"
-        "body, redirect links, and src= links, and reports its findings to standard\n"
-        "output.  Here <path> is the path used in the HTTP URI (e.g. /en-us/).\n"
+        "\ttls_scanner <hostname> <second_hostname>[/<path>] [OPTIONS]\n"
+        "\ttls_scanner <hostname> <query_name> --doh [OPTIONS]\n"
+        "\ttls_scanner --host-file <filename> [OPTIONS]\n\n"
+        "Scans HTTPS server(s) for certificates, HTTP response headers, response\n"
+        "bodies, redirect links, and src= links.  By default, responses are written\n"
+        "to standard output.  Certificates are optionally written to files (with\n"
+        "--write-certs), in which case all certificates are written to a\n"
+        "PEM-formatted file, and a CSV-formatted index file is also written out,\n"
+        "which contains the host names and the SHA1 hash of the corresponding\n"
+        "certificates.  Here <path> is that used in the HTTP URI (e.g. /en-us/).\n"
         "To check for domain fronting, set <second_hostname> to be distinct from\n"
         "<hostname>.  To check for DoH, set <second_hostname> to the DNS query name,\n"
         "and use the option --doh.\n"
@@ -1455,8 +926,6 @@ int main(int argc, char *argv[]) {
         verbosity = verbosity_from_string(verb);
     }
 
-    //fprintf(stdout, "openssl version number: %08x\n", (unsigned int)OPENSSL_VERSION_NUMBER);
-
     if (list_uas) {
         tls_scanner::list_user_agents(stdout);
         return 0;
@@ -1507,6 +976,13 @@ int main(int argc, char *argv[]) {
             }
             while (true) {
 
+                // implementation note: The batch thread model used
+                // here aims to be simple and scalable.  We loop over
+                // target hosts, forming a batch of hosts, launching a
+                // scan thread for each host in a batch, and then
+                // waiting until all threads in a batch complete
+                // before moving on to the next batch.
+
                 // read a batch of target hosts from the host_list file
                 //
                 size_t max_batch_size = 1000;
@@ -1551,13 +1027,6 @@ int main(int argc, char *argv[]) {
         if (pem_output != nullptr) {
             scanner.get_host_data().write_pem_file(pem_output);
         }
-
-        // if (!doh) {
-        //     // report all hosts visited due to redirects and src= links
-        //     //
-        //     fprintf(stdout, "hostnames visited:\n");
-        //     scanner.print_history(stdout);
-        // }
 
     }
     catch (std::exception &e) {
