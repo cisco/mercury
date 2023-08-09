@@ -883,10 +883,10 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--no-server-name",   "omits the TLS server name" },
         { argument::none,       "--list-user-agents", "print out user agent strings, most prevalent first" },
         { argument::none,       "--certs",            "prints out server certificate(s) as JSON" },
-        { argument::required,   "--write-certs",      "write out server certificate(s) as PEM file(s)" },
-        { argument::required,   "--verbosity",        "set verbosity level to <arg> (none/summary/errors/warnings/notes)" },
+        { argument::required,   "--write-certs",      "writes out server certificate(s) as PEM file(s)" },
+        { argument::required,   "--verbosity",        "sets verbosity to none|summary|errors|warnings|notes" },
         { argument::none,       "--body",             "prints out HTTP response body" },
-        { argument::none,       "--recurse",          "recursively following src links and redirects" },
+        { argument::none,       "--recurse",          "recursively follow src links and redirects" },
         { argument::none,       "--doh",              "send DoH query" },
         { argument::none,       "--help",             "prints out help message" },
         { argument::none,       "--version",          "prints out version" }
@@ -920,15 +920,14 @@ int main(int argc, char *argv[]) {
         fputs("1.0.0\n", stdout);
         return 0;
     }
+    if (list_uas) {
+        tls_scanner::list_user_agents(stdout);
+        return 0;
+    }
 
     verbosity_level verbosity{verbosity_level::summary};
     if (verb_is_set) {
         verbosity = verbosity_from_string(verb);
-    }
-
-    if (list_uas) {
-        tls_scanner::list_user_agents(stdout);
-        return 0;
     }
 
     FILE *pem_output = nullptr;

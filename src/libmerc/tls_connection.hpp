@@ -238,14 +238,19 @@ public:
         ssl = SSL_new(ctx);
         if (!ssl) {
             if (verbosity >= verbosity_level::warnings) {
-                fprint_openssl_err(stderr, "warning: could not create SSL\n");
+                fprint_openssl_err(stderr, "warning: could not create \"SSL\"");
             }
             return -1;
         }
 
+        // don't perform certificate validation, so that we can obtain
+        // self-issued certificates
+        //
+        SSL_set_verify(ssl, SSL_VERIFY_NONE, NULL);
+
         if (SSL_set_fd(ssl, sockfd) != 1) {
             if (verbosity >= verbosity_level::warnings) {
-                fprint_openssl_err(stderr, "warning: could not set SSL fd\n");
+                fprint_openssl_err(stderr, "warning: could not set SSL fd");
             }
             return -1;
         }
@@ -279,10 +284,9 @@ public:
                 }
             } else {
                 if (verbosity >= verbosity_level::warnings) {
-                    fprintf(stderr,
-                            "warning: could not create TLS connection (%s, code=%u)\n",
-                            err_string(ssl_error),
-                            ssl_error);
+                    std::string tmp{"warning: could not create TLS connection to "};
+                    tmp += host;
+                    fprint_openssl_err(stderr, tmp.c_str());
                 }
                 return -1;
             }
@@ -420,17 +424,17 @@ public:
 
     static void fprint_openssl_err(FILE *f, const char *msg=nullptr) {
         if (msg != nullptr) {
-            fprintf(f, "%s:\t", msg);
+            fprintf(f, "%s: ", msg);
         }
-        while (true) {
-            int err = ERR_get_error();
+        int err = ERR_get_error();
+        if (err != 0) {
             char *str = ERR_error_string(err, 0);
-            if (str == nullptr) {
-                fputc('\n', f);
-                return;
+            if (str != nullptr) {
+                fprintf(f, "%s", str);
             }
-            fprintf(f, "%s:\t", str);
         }
+        fputc('\n', f);
+        return;
     }
 
     static const char *err_string(int err) {
