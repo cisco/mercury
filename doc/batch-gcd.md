@@ -12,15 +12,26 @@ Authors: Brandon Enright, Andrew Chi, David McGrew
 * [Build Instructions](#build-instructions)
 * [Capabilities and Limitations](#capabilities-and-limitations)
 * [Example Workflow](#example-workflow)
+* [Ethics](#ethics)
 * [References](#references)
 
 ## Quick Start
 
-The `batch_gcd` command line tool takes a list of hex integers on stdin (one per
-line), and efficiently computes the greatest common divisor (GCD) on all pairs
-of inputs.  If any non-trivial common factors are found, it writes the resulting
-factorizations to stdout, followed by the groups of line numbers whose moduli
-share a common factor.  Informational messages are written to stderr.
+The `batch_gcd` command line tool takes a set of integers as input
+and efficiently computes the greatest common divisor (GCD) of all pairs
+of integers, then reports the non-trivial common factors.  Integers can
+be read from standard input (with one hex integer per line), which is the default, or from a set
+of RSA certificates in a single file in PEM (RFC 7468) format, with the `--cert-file` option.  Non-trivial factorizations
+are written to stdout, followed by the groups of line numbers
+whose moduli share a common factor.  If the option `--write-keys` is provided, then 
+the RSA private key of each factored keys is written out to a file in the "openssl" 
+RSA PRIVATE KEY format (which is a PEM encoding of the RSAPrivateKey structure defined
+in RFC 3447).  Each private key is written to a separate file, using a filename with a
+base that matches the input file and contains the line number of public key in the input,
+with a suffix of `.rsapriv.pem`.  The corresponding certificate is also written out to a
+file with the same base name and a suffix of `.cert.pem`.  Informational messages are written to stderr.
+
+Using the standard input to factor integers looks like this:
 ```
 $ ./configure
 $ make batch_gcd --dir=src
@@ -40,6 +51,32 @@ Vulnerable modulus on line 1: 29bf7 has factors 133 and 22d
 Vulnerable modulus on line 2: 12a15 has factors 89 and 22d
 Vulnerable modulus on line 3: 17b6d has factors 89 and 2c5
 2,3;1,2
+```
+Using the `--cert-file` and `--write-keys` options looks like this:
+```
+$ ./batch_gcd --cert-file combined.pem --write-keys
+certs: 1623   duplicates: 1225   RAM needed: 101888
+running batch GCD on 398 moduli, ignoring 1228 duplicate lines.
+Parallelization: 6 threads
+Found 385 weak moduli out of 398.
+Computing pairwise GCD for 0 moduli, estimated time: O(385 * 0)
+Further found co-factors for 0 weak moduli.
+wrote out 385 RSA PRIVATE KEY (.rsapriv.pem) and CERTIFICATE (.cert.pem) files
+Reporting which lines, if any, share a common factor.
+757,1260,1430;342,527,622,832,982;122,621;323,671,1029,1452;137,631,682,1466;1258,1356;237,1141;178,1024;308,851;20,351;667,772;117,1479;375,1533;64,321,329;700,830;185,298;547,699,1257,1323;486,882;493,630;396,997;187,1301;541,665,1002,1357;674,811,833,1252,1342,1453;32,1127;42,109,250,377,432,544,628,691,925,995,1034,1076,1087,1172,1284,1527,1620;5,22;215,1035;211,529,1401;12,101,128,160,184,216,313,341,385,404,406,429,495,496,504,528,552,731,765,814,835,996,1005,1041,1078,1122,1133,1266,1281,1302,1355,1573,1622,1623;333,677;47,258,679,689;390,462;172,698;306,813;834,1592;247,1570;21,732;34,392,394,756,764;168,680,962,1299,1473;376,666;43,629,695,1616;742,743;373,1283;455,865;1305,1470,1556;108,257,411,915;862,1023;196,730,981,1130;7,166,303,1313;301,1052;98,124,212,292,370,412,464,467,693,734,823,864,923,1030,1471,1588,1611;176,1511;571,806,839;302,532,625,1613;686,1439;602,1597;928,1055;569,924;11,23,36,41,44,65,92,123,136,157,213,218,219,220,221,249,251,255,256,259,309,336,337,344,354,380,395,420,424,454,540,609,733,740,963,967,972,1007,1057,1060,1062,1121,1138,1145,1274,1276,1287,1297,1304,1314,1315,1343,1367,1477,1504,1509,1510,1568,1571,1586,1618;884,1557;926,1335;1,601;436,1312;933,1478;186,847;164,1363;741,970;335,352;1108,1364;175,502;305,355,419,927,975;886,1390;378,934,1558;1285,1289;1263,1286;503,1566;48,91,147,181,287,320,701,767,775,917,1051;195,1282;1554,1591;3,1400;159,173;453,521;460,604;1468,1480,1593;452,692,1140;410,976,1251,1614;397,437;288,837,868,1167;403,458,567,607,626,922,998,1175,1612;86,820;174,632,1450;763,777;356,463,739,773,805,1077,1288;687,761,1044,1454;530,929;345,1273
+
+$ ls -v combined*pem
+combined-line-1.cert.pem
+combined-line-1.rsapriv.pem
+combined-line-3.cert.pem
+combined-line-3.rsapriv.pem
+combined-line-5.cert.pem
+combined-line-5.rsapriv.pem
+combined-line-7.cert.pem
+combined-line-7.rsapriv.pem
+combined-line-11.cert.pem
+...
+
 ```
 
 ## Build Instructions
@@ -131,6 +168,9 @@ Vulnerable modulus on line 13: 32c1e32b3fc51c183f9060dfb63733966cc2649211fda1a56
 Reporting which lines, if any, share a common factor.
 1,2;8,11,12;9,11,13;8,9,10;4,5;2,4;1,5;6,7;10,12,13
 ```
+## Ethics
+
+This tool is intended for defensive security research and forensics. Researchers, administrators, penetration testers, and security operations teams can use it to protect networks, detect vulnerabilities, and benefit the broader community through improved awareness and defensive posture. As with any security tool, it could potentially be misused. **Do not use this tool for any malicious purpose.**
 
 ## References
 
