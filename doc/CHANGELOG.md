@@ -1,5 +1,12 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.19
+
+* Improvements to `tls_scanner`, `batch_gcd`, and `cert_analyze`.
+* Improved fuzz test coverage.
+* Fixed minor typos and pluralization in JSON output.
+* Portability changes to enable compilation (of some files) on Windows.
+
 ## Version 2.5.18
 
 * Added experimental support for detecting and decoding Tofsee initial messages.  Use the option --nonselected-tcp-data to enable this feature.
