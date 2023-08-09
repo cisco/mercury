@@ -178,8 +178,6 @@ class tls_scanner {
 
     host_data data;
 
-    bool done = false;
-
     size_t scans = 0;
     size_t scans_succeded = 0;
 
@@ -202,15 +200,14 @@ public:
         verbosity{verb}
         { }
 
-    void scan(const std::vector<std::string> &scan_targets) {
-        done = false;
+    void scan(const std::vector<std::string> &scan_targets, std::string &second_host, bool doh) {
         std::vector<std::thread> t;
         t.reserve(scan_targets.size());
         for (const auto &host : scan_targets) {
             if (verbosity >= verbosity_level::notes) {
                 fprintf(stderr, "note: launching thread to scan host %s\n", host.c_str());
             }
-            t.emplace_back(std::thread([&]() mutable { scan(host, host, done); }));
+            t.emplace_back(std::thread([&]() mutable { scan(host, second_host, doh); }));
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(5000));
         for (auto & thd : t) {
@@ -858,26 +855,21 @@ int main(int argc, char *argv[]) {
 
     const char summary[] =
         "usage:\n"
-        "\ttls_scanner <hostname>[/<path>] [OPTIONS]\n"
-        "\ttls_scanner <hostname> <second_hostname>[/<path>] [OPTIONS]\n"
-        "\ttls_scanner <hostname> <query_name> --doh [OPTIONS]\n"
-        "\ttls_scanner --host-file <filename> [OPTIONS]\n\n"
+        "\ttls_scanner [OPTIONS]\n"
+        "\n"
         "Scans HTTPS server(s) for certificates, HTTP response headers, response\n"
         "bodies, redirect links, and src= links.  By default, responses are written\n"
         "to standard output.  Certificates are optionally written to files (with\n"
         "--write-certs), in which case all certificates are written to a\n"
         "PEM-formatted file, and a CSV-formatted index file is also written out,\n"
         "which contains the host names and the SHA1 hash of the corresponding\n"
-        "certificates.  Here <path> is that used in the HTTP URI (e.g. /en-us/).\n"
-        "To check for domain fronting, set <second_hostname> to be distinct from\n"
-        "<hostname>.  To check for DoH, set <second_hostname> to the DNS query name,\n"
-        "and use the option --doh.\n"
+        "certificates.\n"
         "\n"
         "OPTIONS\n";
 
     option_processor opt({
-        { argument::positional, "hostname",           "is the name of the HTTPS host (e.g. example.com)" },
-        { argument::positional, "inner_hostname",     "determines the name of the HTTP host field" },
+        { argument::required,   "--host",             "HTTPS host name (optionally with path)" },
+        { argument::required,   "--inner-host",       "the name of the inner HTTP host field" },
         { argument::required,   "--host-file",        "is a file containing scan targets" },
         { argument::required,   "--user-agent",       "sets the user agent to the first matching <arg>" },
         { argument::none,       "--no-server-name",   "omits the TLS server name" },
@@ -887,7 +879,7 @@ int main(int argc, char *argv[]) {
         { argument::required,   "--verbosity",        "sets verbosity to none|summary|errors|warnings|notes" },
         { argument::none,       "--body",             "prints out HTTP response body" },
         { argument::none,       "--recurse",          "recursively follow src links and redirects" },
-        { argument::none,       "--doh",              "send DoH query" },
+        { argument::required,   "--doh",              "send DoH query about <arg>" },
         { argument::none,       "--help",             "prints out help message" },
         { argument::none,       "--version",          "prints out version" }
     });
@@ -897,18 +889,18 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    auto [ hostname_is_set, hostname ] = opt.get_value("hostname");
-    auto [ inner_hostname_is_set, inner_hostname ] = opt.get_value("inner_hostname");
+    auto [ hostname_is_set, hostname ] = opt.get_value("--host");
+    auto [ inner_hostname_is_set, inner_hostname ] = opt.get_value("--inner-host");
     auto [ host_file_is_set, host_file ] = opt.get_value("--host-file");
     auto [ ua_is_set, ua_search_string ] = opt.get_value("--user-agent");
     auto [ write_certs, pem_outfile ] = opt.get_value("--write-certs");
     auto [ verb_is_set, verb ] = opt.get_value("--verbosity");
+    auto [ doh, doh_query ] = opt.get_value("--doh");
     bool list_uas    = opt.is_set("--list-user-agents");
     bool omit_sni    = opt.is_set("--no-server-name");
     bool print_certs = opt.is_set("--certs");
     bool print_body  = opt.is_set("--body");
     bool recurse     = opt.is_set("--recurse");
-    bool doh         = opt.is_set("--doh");
     bool print_help  = opt.is_set("--help");
     bool print_vers  = opt.is_set("--version");
 
@@ -925,9 +917,22 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    verbosity_level verbosity{verbosity_level::summary};
+    if (doh && inner_hostname_is_set) {
+        fprintf(stderr, "error: only one of --doh and --inner-host can be used\n");
+        opt.usage(stderr, argv[0], summary);
+        return EXIT_FAILURE;
+    }
+    if (doh) {
+        inner_hostname = doh_query;
+    }
+
+    // select a verbosity level, to be passed to scanner
+    //
+    verbosity_level verbosity{verbosity_level::no_output};
     if (verb_is_set) {
         verbosity = verbosity_from_string(verb);
+    } else if (host_file_is_set) {
+        verbosity = verbosity_level::summary;
     }
 
     FILE *pem_output = nullptr;
@@ -999,7 +1004,7 @@ int main(int argc, char *argv[]) {
 
                 // scan all targets in batch
                 //
-                scanner.scan(scan_targets);
+                scanner.scan(scan_targets, inner_hostname, doh);
 
                 // if the batch was smaller than the maximum, that
                 // means that we have read all of the entries in the
