@@ -14,7 +14,7 @@ public:
     hasher() : mdctx{nullptr} { }
 
     ~hasher() {
-        // EVP_MD_CTX_free() is preferred in v1.1.1, but unavailble in earlier versions
+        // EVP_MD_CTX_free() is preferred in v1.1.1, but unavailable in earlier versions
         EVP_MD_CTX_destroy(mdctx);
     }
 
@@ -27,7 +27,7 @@ public:
         }
 
         if (mdctx == NULL) {
-            // EVP_MD_CTX_new() is preferred in v1.1.1, but unavailble in earlier versions
+            // EVP_MD_CTX_new() is preferred in v1.1.1, but unavailable in earlier versions
             if ((mdctx = EVP_MD_CTX_create()) == NULL) {
                 handleErrors();
             }

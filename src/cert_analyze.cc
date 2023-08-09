@@ -33,7 +33,7 @@ public:
     hasher() : mdctx{nullptr} { }
 
     ~hasher() {
-        // EVP_MD_CTX_free() is preferred in v1.1.1, but unavailble in earlier versions
+        // EVP_MD_CTX_free() is preferred in v1.1.1, but unavailable in earlier versions
         EVP_MD_CTX_destroy(mdctx);
     }
 
@@ -46,7 +46,7 @@ public:
         }
 
         if (mdctx == NULL) {
-            // EVP_MD_CTX_new() is preferred in v1.1.1, but unavailble in earlier versions
+            // EVP_MD_CTX_new() is preferred in v1.1.1, but unavailable in earlier versions
             if ((mdctx = EVP_MD_CTX_create()) == NULL) {
                 handleErrors();
             }
@@ -324,7 +324,7 @@ struct pem_file_reader : public file_reader {
                 }
             }
             if (b_ptr + advance >= base64_buffer_end) {
-                fprintf(stderr, "error: PEM certificiate %zd too long for buffer, or missing closing line\n", cert_number);
+                fprintf(stderr, "error: PEM certificate %zd too long for buffer, or missing closing line\n", cert_number);
                 return -1; // PEM certificate is too long for buffer, or missing closing line
             }
             memcpy(b_ptr, line, advance);
