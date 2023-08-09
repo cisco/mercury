@@ -6,6 +6,7 @@
 
 #include "x509.h"
 #include "json_object.h"
+#include "match.h"
 
 namespace snmp {
 

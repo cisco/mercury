@@ -169,12 +169,12 @@ libmerc_util: libmerc_util.cc libmerc_api.h
 intercept_server: intercept_server.cc
 	$(CXX) $(CFLAGS) intercept_server.cc -std=c++17 -o intercept_server
 
-tls_scanner: tls_scanner.cc libmerc
+tls_scanner: tls_scanner.cc libmerc.a libmerc/crypto_hash.hpp libmerc/verbosity.hpp libmerc/tls_connection.hpp
 	$(CXX) $(CFLAGS) tls_scanner.cc libmerc/libmerc.a -pthread -lssl -lcrypto -lz -o tls_scanner
 
 batch_gcd: CFLAGS += -march=native -flto
 batch_gcd: batch_gcd.cc
-	$(CXX) $(CFLAGS) batch_gcd.cc -Bdynamic -lgmpxx -lgmp -pthread -o batch_gcd
+	$(CXX) $(CFLAGS) batch_gcd.cc libmerc/asn1.cc libmerc/asn1/oid.cc -Bdynamic -lgmpxx -lgmp -pthread -o batch_gcd
 
 cert_analyze: cert_analyze.cc libmerc/asn1.h
 	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1.cc libmerc/asn1/oid.cc -pthread -lcrypto -o cert_analyze

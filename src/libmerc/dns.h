@@ -654,16 +654,16 @@ struct dns_resource_record {
                     nbstat.print_key_uint16("number_of_retransmits", retransmits.value());
 
                     encoded<uint16_t> no_res_cond(tmp_rdata);
-                    nbstat.print_key_uint16("number_of_no_resource_condition", no_res_cond.value());
+                    nbstat.print_key_uint16("number_of_no_resource_conditions", no_res_cond.value());
 
                     encoded<uint16_t> cmd_blocks(tmp_rdata);
                     nbstat.print_key_uint16("number_of_command_blocks", cmd_blocks.value());
 
                     encoded<uint16_t> pending_session(tmp_rdata);
-                    nbstat.print_key_uint16("number_of_pending_session", pending_session.value());
+                    nbstat.print_key_uint16("number_of_pending_sessions", pending_session.value());
 
                     encoded<uint16_t> max_pending_session(tmp_rdata);
-                    nbstat.print_key_uint16("number_of_max_pending_session", max_pending_session.value());
+                    nbstat.print_key_uint16("max_pending_sessions", max_pending_session.value());
 
                     encoded<uint16_t> max_session(tmp_rdata);
                     nbstat.print_key_uint16("max_total_sessions_possible", max_session.value());
@@ -743,10 +743,10 @@ struct dns_packet : public base_protocol {
         if (header == nullptr) {
             return;         // too short
         }
-        qdcount = ntohs(header->qdcount);
-        ancount = ntohs(header->ancount);
-        nscount = ntohs(header->nscount);
-        arcount = ntohs(header->arcount);
+        qdcount = ntoh(header->qdcount);
+        ancount = ntoh(header->ancount);
+        nscount = ntoh(header->nscount);
+        arcount = ntoh(header->arcount);
         if ((qdcount == 0 && ancount == 0)
             || qdcount > dns_packet::max_count
             || ancount > dns_packet::max_count
@@ -817,7 +817,7 @@ struct dns_packet : public base_protocol {
         if (header == NULL) {
             return;
         }
-        const char *key = (header->flags & htons(0x8000)) ?  "response" : "query";
+        const char *key = encoded<uint16_t>{header->flags}.bit<0>() ?  "response" : "query";
         struct json_object dns_json{o, key};
         //dns_json.print_key_uint("qdcount", qdcount);
         //dns_json.print_key_uint("ancount", ancount);

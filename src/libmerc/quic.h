@@ -16,7 +16,6 @@
 #include <string>
 #include <unordered_map>
 #include <variant>
-#include <arpa/inet.h>
 #include <openssl/aes.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
@@ -522,7 +521,7 @@ public:
 //
 struct quic_initial_packet {
     uint8_t connection_info;
-    struct datum version;
+    struct datum version;  // TODO: encoded<uint32_t>
     struct datum dcid;
     struct datum scid;
     struct datum token;
@@ -796,7 +795,7 @@ public:
         }
 
         data_buffer<1024> aad;
-        uint32_t version = ntohl(*((uint32_t*)quic_pkt.version.data));
+        uint32_t version = ntoh(*((uint32_t*)quic_pkt.version.data));
         static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
         const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(version);
 

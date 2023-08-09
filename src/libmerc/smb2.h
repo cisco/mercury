@@ -186,7 +186,7 @@ public:
 
     void write_json(struct json_object &o) {
         o.print_key_uint16("hash_algorithm_count", hash_algo_count.value());
-        struct json_array algo{o, "hash_algorithm"};
+        struct json_array algo{o, "hash_algorithms"};
         for (const auto& val : hash_algo) {
             algo.print_uint16_hex(val);
         }

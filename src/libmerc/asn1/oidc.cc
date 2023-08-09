@@ -242,6 +242,37 @@ struct oid_set {
     void dump_oid_dict_sorted();
     void dump_oid_enum_dict_sorted(char *progname);
 
+    void postprocess() {
+        std::string con; // ("_auto_gen");
+        std::unordered_map<std::string, std::vector<uint32_t>> oid_dict_;
+        std::unordered_map<std::string, std::vector<uint32_t>> nonterminal_oid_dict_;
+        std::unordered_map<std::string, std::string> keyword_dict_;
+        std::unordered_map<std::string, std::string> synonym_;
+        std::multiset<std::string> keywords_;
+
+        for (auto &it : oid_dict) {
+            oid_dict_[it.first + con] = it.second;
+        }
+        for (auto &it : nonterminal_oid_dict) {
+            nonterminal_oid_dict_[it.first + con] = it.second;
+        }
+        for (auto &it : keyword_dict) {
+            keyword_dict_[it.first + con] = it.second + con;
+        }
+        for (auto &it : synonym) {
+            synonym_[it.first + con] = it.second + con;
+        }
+        for (auto it : keywords) {
+            keywords_.insert(it+con);
+        }
+        oid_dict = oid_dict_;
+        nonterminal_oid_dict = nonterminal_oid_dict_;
+        keyword_dict = keyword_dict_;
+        synonym = synonym_;
+        keywords = keywords_;
+    }
+
+
     std::vector<uint32_t> get_vector_from_keyword(const std::string &keyword) {
         auto x = oid_dict.find(keyword);
         if (x != oid_dict.end()) {
@@ -486,20 +517,18 @@ int paren_balance(const char *s) {
 
 void parse_asn1_file(const char *filename) {
     using namespace std;
-    FILE *stream;
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t nread;
+    std::ifstream stream;
+    std::string line;
 
-    stream = fopen(filename, "r");
-    if (stream == NULL) {
-        perror("fopen");
+    stream.open(filename);
+    if (!stream.is_open()) {
+        perror("ifstream::open");
         exit(EXIT_FAILURE);
     }
 
     size_t balance = 0;
     list<string> statement;
-    while ((nread = getline(&line, &len, stream)) != -1) {
+    while ((std::getline(stream,line))) {
         // printf("got line of length %zu:\n", nread);
         // fwrite(line, nread, 1, stdout);
 
@@ -510,7 +539,7 @@ void parse_asn1_file(const char *filename) {
         //}
         list<string> tokens{istream_iterator<string>{iss},
                 istream_iterator<string>{}};
-        balance += paren_balance(line);
+        balance += paren_balance(line.c_str());
         statement.splice(statement.end(), tokens);
 
         if (balance == 0 && statement.size() > 0) {
@@ -525,7 +554,7 @@ void parse_asn1_file(const char *filename) {
         }
     }
 
-    fclose(stream);
+    stream.close();
 
 }
 
@@ -797,6 +826,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     oid_set.remove_nonterminals();
+    oid_set.postprocess();
     oid_set.dump_oid_enum_dict_sorted(argv[0]);
 
     //    for (auto &x : oid_set.keyword_dict) {

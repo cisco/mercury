@@ -7,19 +7,34 @@
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <string.h>
 #include <locale.h>
 #include <string>
 #include "addr.h"
 #include "archive.h"
+#include "datum.h"  // for ntoh()
 
 #include "lctrie/lctrie.h"
 #include "lctrie/lctrie_bgp.h"
 
-
+// char_string_to_ipv4_addr(s, addr) parses a dotted quad IPv4 address
+// out of the null-terminated character string s, sets addr to the
+// host-byte-order representation of that address, and returns true on
+// success.  If s does not contain a dotted quad, then the function
+// returns false and addr should be ignored.
+//
+bool char_string_to_ipv4_addr(const char *s, uint32_t &addr) {
+    uint8_t d[4];
+    int num_items_parsed = sscanf(s,
+                                  "%hhu.%hhu.%hhu.%hhu",
+                                  d, d+1, d+2, d+3);
+    if (num_items_parsed == 4) {
+        addr = (uint32_t)d[3] | (uint32_t)d[2] << 8 | (uint32_t)d[1] << 16 | (uint32_t)d[0] << 24;
+        addr = ntoh(addr);
+        return true;
+    }
+    return false;
+}
 
 subnet_data::~subnet_data() {
     if (ipv4_subnet_trie.root) {
@@ -40,11 +55,11 @@ subnet_data::~subnet_data() {
 uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
     uint32_t ipv4_addr;
 
-    if (inet_pton(AF_INET, dst_ip, &ipv4_addr) != 1) {
+    if (!char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
         return 0;
     }
 
-    lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntohl(ipv4_addr));
+    lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntoh(ipv4_addr));
     if (subnet == NULL) {
         return 0;
     }

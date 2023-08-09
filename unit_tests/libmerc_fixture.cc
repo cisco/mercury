@@ -81,7 +81,7 @@ void LibmercTestFixture::set_pcap(const char * fname)
 
     printf("\n\n%s\n\n", m_pcap_file_name);
     
-    m_pcap = new pcap_file(m_pcap_file_name, io_direction_reader);
+    m_pcap = new pcap::file_reader(m_pcap_file_name);
 }
 
 int LibmercTestFixture::read_next_data_packet()

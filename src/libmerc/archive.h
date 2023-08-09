@@ -315,7 +315,7 @@ public:
         d.read_uint8(&compression_method);
         d.read_uint8(&flags.value);
         d.read_uint32(&mtime);
-        mtime = ntohl(mtime);
+        mtime = ntoh(mtime);
         d.read_uint8(&xfl);
         d.read_uint8(&os);
 

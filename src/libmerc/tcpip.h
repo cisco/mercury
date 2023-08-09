@@ -170,12 +170,12 @@ struct tcp_packet : public base_protocol {
         return header && TCP_IS_FIN(header->flags);
     }
 
-    uint32_t seq() const { return htonl(header->seq); }
+    uint32_t seq() const { return hton(header->seq); }
 
     void set_key(struct key &k) {
         if (header) {
-            k.src_port = ntohs(header->src_port);
-            k.dst_port = ntohs(header->dst_port);
+            k.src_port = ntoh(header->src_port);
+            k.dst_port = ntoh(header->dst_port);
         }
     }
     void fingerprint (struct buffer_stream &buf) {
@@ -240,7 +240,7 @@ struct tcp_packet : public base_protocol {
                     ip_pkt->write_json(o);
                 }
                 struct json_object json_tcp{o, "tcp"};
-                json_tcp.print_key_uint("seq", htonl(header->seq));
+                json_tcp.print_key_uint("seq", hton(header->seq));
                 write_timestamp(json_tcp);
                 json_tcp.close();
 
@@ -249,7 +249,7 @@ struct tcp_packet : public base_protocol {
                     ip_pkt->write_json(o);
                 }
                 struct json_object json_tcp{o, "tcp_server"};
-                json_tcp.print_key_uint("seq", htonl(header->seq));
+                json_tcp.print_key_uint("seq", hton(header->seq));
                 write_timestamp(json_tcp);
                 json_tcp.close();
             }

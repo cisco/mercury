@@ -145,7 +145,7 @@ public:
         uint8_t new_label[max_label_len] = {0};
         new_label[1] = length;
         new_label[2] = label_len;
-        for (uint i = 0; i < label_len; i++) {
+        for (size_t i = 0; i < label_len; i++) {
             new_label[3+i] = label[i];
         }
         size_t new_label_len = 4 + label_len;
@@ -220,7 +220,7 @@ public:
         uint8_t new_label[max_label_len] = {0};
         new_label[1] = length;
         new_label[2] = label_len;
-        for (uint i = 0; i < label_len; i++) {
+        for (size_t i = 0; i < label_len; i++) {
             new_label[3+i] = label[i];
         }
         size_t new_label_len = 4 + label_len;

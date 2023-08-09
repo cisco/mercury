@@ -409,16 +409,12 @@ struct tls_server_hello : public base_protocol {
         }
 
         if (write_metadata) {
-            json_object tls{o, "tls"};
-            json_object tls_server{tls, "server"};
-            tls_server.print_key_hex("version", protocol_version);
-            tls_server.print_key_hex("random", random);
-            tls_server.print_key_hex("selected_cipher_suite", ciphersuite_vector);
-            tls_server.print_key_hex("compression_method", compression_method);
-            extensions.print_alpn(tls_server, "application_layer_protocol_negotiation");
-            extensions.print_session_ticket(tls_server, "session_ticket");
-            tls_server.close();
-            tls.close();
+            o.print_key_hex("version", protocol_version);
+            o.print_key_hex("random", random);
+            o.print_key_hex("selected_cipher_suite", ciphersuite_vector);
+            o.print_key_hex("compression_method", compression_method);
+            extensions.print_alpn(o, "application_layer_protocol_negotiation");
+            extensions.print_session_ticket(o, "session_ticket");
         }
     }
 

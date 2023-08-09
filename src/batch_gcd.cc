@@ -27,6 +27,18 @@
 #include <thread>
 #include <utility>
 
+#include "pkcs8.hpp"
+#include "libmerc/bigint.hpp"
+#include "options.h"
+
+#define ANSI_END     "\x1b[0m"
+#define ANSI_RED     "\x1b[31m"
+#define ANSI_GREEN   "\x1b[32m"
+#define ANSI_BLUE    "\x1b[34m"
+#define ANSI_YELLOW  "\x1b[33m"
+#define ANSI_MAGENTA "\x1b[35m"
+#define ANSI_CYAN    "\x1b[36m"
+
 
 /* Number of threads to use. Adjust and recompile if fixed number is desired. */
 static const int NTHREADS = std::thread::hardware_concurrency();
@@ -684,6 +696,242 @@ int is_hex_line(const char *line) {
     return 1;
 }
 
+#include "pem.hpp"
+#include "libmerc/x509.h"
+
+class mpz_reader {
+public:
+    virtual bool get_mpz(mpz_t *x) = 0;
+    virtual bool write_out_certs(std::vector<size_t> &original_linenum, const std::string &base_filename);
+    virtual size_t get_linenum() = 0;
+    virtual ~mpz_reader() { };
+};
+
+class pem_mpz_reader : public mpz_reader {
+    pem_file_reader pemfile;
+    size_t linenum = 0;
+
+public:
+
+    pem_mpz_reader(const char *infile) : pemfile{infile} { }
+
+    ~pem_mpz_reader() { }
+
+    bool get_mpz(mpz_t *x) override {
+
+        // fetch certs from pemfile, looping until we either find a
+        // cert with an rsa public key, or we encounter an error
+        //
+        while (true) {
+            data_buffer<8*8192> pembuf;
+            pemfile.write(pembuf);
+            pem_file_reader::pem_label label = pemfile.get_label();
+            datum pemdata = pembuf.contents();
+            if (pemdata.length() == 0) {
+                return false;  // no more entries in pemfile
+            }
+
+            if (label != pem_file_reader::CERTIFICATE) {
+                fprintf(stderr, "note: entry is not a certificate\n");
+                return false;  // entry is not a certificate
+            }
+
+            x509_cert cert{};
+            cert.parse(pemdata.data, pemdata.length());
+            //   cert.print_as_json(stdout);
+
+            enum oid::type alg_type = cert.subjectPublicKeyInfo.algorithm.type();
+            if (alg_type == oid::type::rsaEncryption) {
+
+                // char databuf[4096];
+                // buffer_stream buf{databuf, sizeof(databuf)};
+                // json_object_asn1 record{&buf};
+                // // cert.subjectPublicKeyInfo.print_as_json(record, "subject_public_key_info");
+                rsa_public_key rsa_pub = cert.subjectPublicKeyInfo.get_rsa_public_key();
+                // rsa_pub.print_as_json(record, "rsa_pub");
+                // rsa_pub.modulus.print_as_json(record, "rsa_modulus");
+                // record.close();
+                // buf.write_line(stdout);
+
+                // mpz_t mod;
+                mpz_init_set_datum(*x, rsa_pub.modulus.value);
+
+                //  gmp_printf("%#Zx\n", *x);
+
+                linenum++;
+                break;
+            }
+            // fprintf(stderr, "not hot dog\n");
+        }
+        return true;
+    }
+
+    bool write_out_certs(std::vector<size_t> &line_numbers, const std::string &base_filename) override {
+
+        // fetch certs from pemfile, loop until we find one with an
+        // rsa public key that matches the next original line number,
+        // write out that cert, and continue until all of the line
+        // numbers have been processed
+        //
+        std::vector<size_t>::iterator next_line_to_write = line_numbers.begin();
+        while (true) {
+
+            if (next_line_to_write == line_numbers.end()) {
+                return true;  // no more lines to write
+            }
+            data_buffer<8*8192> pembuf;
+            pemfile.write(pembuf);
+            pem_file_reader::pem_label label = pemfile.get_label();
+            datum pemdata = pembuf.contents();
+            if (pemdata.length() == 0) {
+                return false;  // no more entries in pemfile
+            }
+
+            if (label != pem_file_reader::CERTIFICATE) {
+                fprintf(stderr, "note: entry is not a certificate\n");
+                return false;  // entry is not a certificate
+            }
+
+            datum tmp_data{pemdata};
+            x509_cert cert{};
+            cert.parse(tmp_data.data, tmp_data.length());
+            enum oid::type alg_type = cert.subjectPublicKeyInfo.algorithm.type();
+            if (alg_type != oid::type::rsaEncryption) {
+                continue; // not an RSA subject public key
+            }
+
+            ++linenum;
+            if (*next_line_to_write == linenum) {
+                std::string filename = base_filename + "-line-" + std::to_string(linenum) + ".cert.pem";
+                write_pem(fopen(filename.c_str(), "w+"), pemdata.data, pemdata.length(), "CERTIFICATE");
+                ++next_line_to_write;
+            }
+        }
+        return true;
+    }
+
+    size_t get_linenum() override { return linenum; }
+};
+
+class hexline_reader : public mpz_reader {
+    char *linestr = NULL;
+    size_t linelen = 0;
+    ssize_t read;
+    size_t linenum = 0;
+    FILE *f = nullptr;
+
+public:
+
+    hexline_reader(FILE *infile) : f{infile} { }
+
+    bool get_mpz(mpz_t *x) override {
+        ssize_t read = getline(&linestr, &linelen, f);
+        if (read < 0) {
+            if (ferror(f)) {
+                fprintf(stderr, "Aborting due to error reading line %zu\n", linenum);
+                exit(1);
+            }
+            return false;
+        }
+        if (!is_hex_line(linestr)) {
+            fprintf(stderr, "Aborting due to non-hex input on line %zu: %s\n",
+                    linenum, linestr);
+            exit(2);
+        }
+        int ret = gmp_sscanf(linestr, "%Zx\n", x);
+        if (ret == 1) {
+            linenum++;
+            return true;
+        } else {
+            fprintf(stderr, "Aborting due to invalid modulus on line %zu: %s\n",
+                    linenum, linestr);
+            exit(3);
+        }
+        return false;
+    }
+
+    size_t get_linenum() override { return linenum; }
+
+    virtual bool write_out_certs(std::vector<size_t> &, const std::string &) {
+        //
+        // a hexline_reader operates on integers, not certificates, so
+        // we always return false to indicate this fact
+        //
+        return false;
+    }
+};
+
+void write_key(mpz_class &n, mpz_class &f1, mpz_class &f2, std::string &filename) {
+
+    // // skip over zero moduli
+    // //
+    // gmp_fprintf(stderr, "n: %#Zx\n", n);
+    // if (mpz_cmp_ui(n.get_mpz_t(), 0) == 0) {
+    //     continue;
+    // }
+
+    // create octet string representations for big integers
+    //
+    bigint bigint_n{n.get_mpz_t()};
+    bigint bigint_f1{f1.get_mpz_t()};
+    bigint bigint_f2{f2.get_mpz_t()};
+
+    // compute private exponent and remainder-theorem exponents
+    //
+    mpz_class public_exponent = 65537;
+    //gmp_printf("public_exponent: %Zd\n", public_exponent);
+    mpz_class totient = (f1 - 1) * (f2 - 1);  // TODO: compute actual LCM
+    //gmp_printf("totient: %Zd\n", totient.get_mpz_t());
+    mpz_t private_exponent;
+    mpz_init(private_exponent);
+    mpz_invert(private_exponent, public_exponent.get_mpz_t(), totient.get_mpz_t());
+    //gmp_printf("private_exponent: %Zd\n", private_exponent);
+    bigint bigint_priv_exp{private_exponent};
+    mpz_t e1;
+    mpz_init(e1);
+    f1 = f1 - 1;
+    mpz_mod(e1, private_exponent, f1.get_mpz_t());
+    f1 = f1 + 1;
+    mpz_t e2;
+    mpz_init(e2);
+    f2 = f2 - 1;
+    mpz_mod(e2, private_exponent, f2.get_mpz_t());
+    f2 = f2 + 1;
+    bigint bigint_e1{e1};
+    bigint bigint_e2{e2};
+
+    mpz_t coef;
+    mpz_init(coef);
+    mpz_invert(coef, f2.get_mpz_t(), f1.get_mpz_t());
+    bigint bigint_coef{coef};
+
+    // fprintf(stderr, "bigint_ size: %zu\n", bigint_n.octets());
+
+    // write out private key as a PEM file
+    //
+    rsa_private_key priv{
+        bigint_n.get_datum(),
+        bigint_priv_exp.get_datum(),
+        bigint_f1.get_datum(),
+        bigint_f2.get_datum(),
+        bigint_e1.get_datum(),
+        bigint_e2.get_datum(),
+        bigint_coef.get_datum()
+    };
+    data_buffer<4096> dbuf;
+    //  private_key_info priv_info{priv};
+    //  priv_info.write(dbuf);
+    priv.write(dbuf);
+    //priv.fprint(stdout);
+    datum pem_result = dbuf.contents();
+    //    fprintf(stderr, "writing out RSA private key to file %s\n", filename.c_str());
+    write_pem(fopen(filename.c_str(), "w+"), pem_result.data, pem_result.length());
+
+    // check private key
+    //
+    // private_key_info priv_info2{pem_result};
+    // fprintf(stderr, "priv_info2.is_valid(): %u\n", priv_info2.is_valid());
+}
 
 int main (int argc, char *argv[]) {
 
@@ -726,12 +974,20 @@ int main (int argc, char *argv[]) {
     /* freenumlist(nlist); */
     /* freenumlist(gcdlist); */
 
-    /* This tool takes no arguments. If there are any (e.g., "-h"),
-       then print a usage message on stderr and exit. */
-    if (argc > 1) {
-        usage(stderr, argv[0]);
-        exit(-1);
+    using namespace mercury_option;
+    class option_processor opt({
+        { argument::required,   "--cert-file",        "read certificates from file <arg>" },
+        { argument::none,       "--write-keys",       "write out private keys to PEM file" },
+    });
+    const char *summary =
+        "batch_gcd: [OPTIONS]\n"
+        "OPTIONS:\n";
+    if (!opt.process_argv(argc, argv)) {
+        opt.usage(stderr, argv[0], summary);
+        return EXIT_FAILURE;
     }
+    auto [ have_cert_file, cert_file ] = opt.get_value("--cert-file");
+    bool write_keys                    = opt.is_set("--write-keys");
 
     /* Get ready to read a list of large integers */
     struct numlist *nlist = makenumlist(0);
@@ -743,14 +999,6 @@ int main (int argc, char *argv[]) {
     const size_t GMP_LIMBS_MAX = INT_MAX;  /* GMP limit */
     size_t estimated_limbs = 0; /* estimate for product of all inputs */
 
-    /* Read lines from stdin where each line is a modulus in hex.
-       Record the original line number for each modulus, and detect
-       and report duplicates.
-     */
-    char *linestr = NULL;
-    size_t linelen = 0;
-    ssize_t read;
-    size_t linenum = 1;
     /* Deduplication-related variables */
     std::map<mpz_class, size_t> line_first_seen; // 1st time each modulus appears
     // Due to deduplication, not all lines are fed to batch GCD. Store the
@@ -758,46 +1006,62 @@ int main (int argc, char *argv[]) {
     std::vector<size_t> original_linenum;
     size_t duplicates_ignored = 0;
     size_t zeros_ignored = 0;
-    while ((read = getline(&linestr, &linelen, stdin)) != -1) {
-        if (!is_hex_line(linestr)) {
-            fprintf(stderr, "Aborting due to non-hex input on line %zu: %s\n",
-                    linenum, linestr);
-            exit(2);
+
+    std::string base_filename;
+
+    mpz_reader *linereader = nullptr;
+    // hexline_reader linereader{stdin};
+    if (have_cert_file) {
+        linereader = new pem_mpz_reader{cert_file.c_str()};
+
+        // set the base_filename
+        //
+        size_t separator = cert_file.rfind(".");
+        if (cert_file.substr(separator) == ".pem") {
+            base_filename = cert_file.substr(0, separator);
         }
-        int ret = gmp_sscanf(linestr, "%Zx\n", mpz_temp);
-        if (ret == 1) {
-            // Ignore this line if it duplicates a previous line.
-            mpz_class n(mpz_temp);
-            if (line_first_seen.count(n) == 1) {
-                fprintf(stdout,
-                        "Duplicate ignored: line %zu = line %zu = ",
-                        linenum, line_first_seen[n]);
-                gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
-                fprintf(stdout, "\n");
-                duplicates_ignored++;
-            } else if (n == 0) {
-                fprintf(stdout, "Zero modulus ignored: line %zu\n", linenum);
-                zeros_ignored++;
-            } else {
-                // Not a duplicate; add to the list for batch GCD
-                line_first_seen[n] = linenum;
-                push_numlist(nlist, mpz_temp);
-                original_linenum.push_back(linenum);
-                estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
-            }
+        // if cert_file contains a path as well as a filename, remove
+        // the path
+        //
+        separator = base_filename.rfind('/');
+        if (separator != std::string::npos) {
+            base_filename = base_filename.substr(separator + 1);
+        }
+    } else {
+        linereader = new hexline_reader{stdin};
+    }
+    while (linereader->get_mpz(&mpz_temp)) {
+        // Ignore this line if it duplicates a previous line.
+        mpz_class n(mpz_temp);
+        if (line_first_seen.count(n) == 1) {
+            // fprintf(stdout,
+            //         "Duplicate ignored: line %zu = line %zu = ",
+            //         linereader->get_linenum(), line_first_seen[n]);
+            // gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
+            // fprintf(stdout, "\n");
+            duplicates_ignored++;
+        } else if (n == 0) {
+            fprintf(stdout, "Zero modulus ignored: line %zu\n", linereader->get_linenum());
+            zeros_ignored++;
         } else {
-            fprintf(stderr, "Aborting due to invalid modulus on line %zu: %s\n",
-                    linenum, linestr);
-            exit(3);
+            // Not a duplicate; add to the list for batch GCD
+            line_first_seen[n] = linereader->get_linenum();
+            push_numlist(nlist, mpz_temp);
+            original_linenum.push_back(linereader->get_linenum());
+            estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
+
+            fprintf(stderr,
+                    "certs: " ANSI_YELLOW "%zu" ANSI_END
+                    "   duplicates: " ANSI_YELLOW "%zu" ANSI_END
+                    "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\r",
+                    linereader->get_linenum(), duplicates_ignored, estimated_limbs * 8);
         }
-        linenum++;
     }
-    if (ferror(stdin)) {
-        fprintf(stderr, "Aborting due to error reading line %zu\n", linenum);
-        exit(1);
-    }
-    free(linestr);
-    line_first_seen.clear(); // save memory
+    fputc('\n', stderr);
+
+    // deallocate reader to minimize RAM usage
+    //
+    delete linereader;
 
     /* Abort if the product of all the inputs might exceed GMP's
        largest possible integer.
@@ -822,7 +1086,7 @@ int main (int argc, char *argv[]) {
     }
 
     // Print all informational messages to stderr
-    fprintf(stderr, "Running batch GCD on %zu moduli", nlist->len);
+    fprintf(stderr, "running batch GCD on " ANSI_YELLOW "%zu" ANSI_END " moduli", nlist->len);
     if (duplicates_ignored > 0) {
         fprintf(stderr, ", ignoring %zu duplicate line%s",
                 duplicates_ignored,
@@ -849,6 +1113,7 @@ int main (int argc, char *argv[]) {
     // Go through the GCD list and print each factorization that was
     // discovered.  Also, for each non-trivial factor, record the set
     // of lines sharing that factor.
+    std::vector<size_t> weak_certs;
     std::map<mpz_class,std::vector<size_t>> factor2lines;
     for (size_t i = 0; i < nlist->len; i++) {
         if (mpz_cmp_ui(gcdlist->num[i], 1) != 0) {
@@ -887,16 +1152,40 @@ int main (int argc, char *argv[]) {
                 factor2lines[f2].push_back(line);
             }
 
-            // Output
-            fprintf(stdout, "Vulnerable modulus on line %zu: ",
-                    original_linenum[i]);
-            gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
-            fprintf(stdout, " has factors ");
-            gmp_fprintf(stdout, "%Zx", f1.get_mpz_t());
-            fprintf(stdout, " and ");
-            gmp_fprintf(stdout, "%Zx", f2.get_mpz_t());
-            fprintf(stdout, "\n");
+            if (write_keys) {
+                //
+                // create a PKCS8 RSA Private Key file for the
+                // factored key
+                //
+                std::string rsapriv_filename = base_filename + "-line-" + std::to_string(original_linenum[i]) + ".rsapriv.pem";
+                write_key(n, f1, f2, rsapriv_filename);
+            } else {
+                // Output
+                fprintf(stdout, "Vulnerable modulus on line %zu: ",
+                        original_linenum[i]);
+                gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
+                fprintf(stdout, " has factors ");
+                gmp_fprintf(stdout, "%Zx", f1.get_mpz_t());
+                fprintf(stdout, " and ");
+                gmp_fprintf(stdout, "%Zx", f2.get_mpz_t());
+                fprintf(stdout, "\n");
+            }
+
+            // remember line number so that we can write out the
+            // certificates corresponding to the private keys
+            //
+            weak_certs.push_back(original_linenum[i]);
         }
+    }
+
+    if (have_cert_file && write_keys) {
+        //
+        // write out certificate for each vulnerable key
+        //
+        pem_mpz_reader reader{cert_file.c_str()};
+        reader.write_out_certs(weak_certs, base_filename);
+
+        fprintf(stderr, "wrote out " ANSI_YELLOW "%zu" ANSI_END " RSA PRIVATE KEY (.rsapriv.pem) and CERTIFICATE (.cert.pem) files\n", weak_certs.size());
     }
 
     // Report which lines share common factors.

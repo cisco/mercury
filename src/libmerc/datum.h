@@ -10,7 +10,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
 #include <array>
@@ -29,6 +28,57 @@
 #else
 #define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
+
+// portable ntoh/hton/swap_byte_order functions for uint16_t,
+// uint32_t, and uint64_t
+//
+// swap_byte_order(x) returns an integer equal to x with its byte
+// order reversed (from little endian to big endian or vice-versa)
+//
+// ntoh(x) - 'network to host byte order' - when x is in network byte
+// order, ntoh(x) returns x in host byte order
+//
+// hton(x) - 'host to network byte order' - when x is in host byte
+// order, hton(x) returns x in network byte order
+//
+// Given an unsigned integer variable x in host byte order, hton(x)
+// returns an unsigned integer in network byte order with the same
+// type and value.  Similarly, given an unsigned integer variable x in
+// network byte order, ntoh(x) returns an unsigned integer in host
+// byte order with the same type and value.  hton() and ntoh() are
+// template functions with specializations for uint16_t, uint32_t, and
+// uint64_t.
+//
+// To apply hton() or ntos() to an unsigned integer literal, use the
+// appropriate template specialization.  For instance,
+// hton<uint16_t>(443) obtains a uint16_t in network byte order for
+// the unsigned integer 443.  The specialization must be used because
+// otherwise a compiler error will result from the amiguity.
+//
+#ifdef _WIN32
+
+static constexpr bool host_little_endian = true;
+
+inline static uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
+inline static uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
+inline static uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
+
+#else
+
+static constexpr bool host_little_endian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
+
+inline static uint16_t swap_byte_order(uint16_t x) { return __builtin_bswap16(x); }
+inline static uint32_t swap_byte_order(uint32_t x) { return __builtin_bswap32(x); }
+inline static uint64_t swap_byte_order(uint64_t x) { return __builtin_bswap64(x); }
+
+#endif
+
+template <typename T>
+inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+
+template <typename T>
+inline static T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+
 
 inline uint8_t lowercase(uint8_t x) {
     if (x >= 'A' && x <= 'Z') {
@@ -441,7 +491,7 @@ struct datum {
     bool read_uint16(uint16_t *output) {
         if (length() >= (int)sizeof(uint16_t)) {
             uint16_t *tmp = (uint16_t *)data;
-            *output = ntohs(*tmp);
+            *output = ntoh(*tmp);
             data += sizeof(uint16_t);
             return true;
         }
@@ -456,7 +506,7 @@ struct datum {
     bool read_uint32(uint32_t *output) {
         if (length() >= (int)sizeof(uint32_t)) {
             uint32_t *tmp = (uint32_t *)data;
-            *output = ntohl(*tmp);
+            *output = ntoh(*tmp);
             data += sizeof(uint32_t);
             return true;
         }
@@ -643,6 +693,32 @@ struct datum {
         return -1;
     }
 
+    ssize_t write_hex(char *out, size_t num_bytes, bool null_terminated=false) {
+
+        // check for writeable room; output length is twice the input
+        // length
+        //
+        ssize_t terminator = null_terminated ? 1 : 0;
+        if (is_null() or (data_end - data) + terminator > 2 * (ssize_t)num_bytes) {
+            return -1;
+        }
+
+        uint8_t hex_table[] = {
+            '0', '1', '2', '3', '4', '5', '6', '7',
+            '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+        };
+
+        const uint8_t *d = data;
+        while (d < data_end) {
+            *out++ = hex_table[(*d & 0xf0) >> 4];
+            *out++ = hex_table[*d++ & 0x0f];
+        }
+        if (null_terminated) {
+            *out++ = '\0';
+        }
+        return data_end - data + terminator;
+    }
+
     bool is_printable() const {
         for (const auto & c: *this) {
             if (!isprint(c)) {
@@ -651,6 +727,7 @@ struct datum {
         }
         return true;
     }
+
 };
 
 // sanity checks on class datum
@@ -670,6 +747,18 @@ public:
     bool is_null() const { return data == nullptr || data_end == nullptr; }
 
     bool is_not_empty() const { return data < data_end; }
+
+    ssize_t writeable_length() const { return data_end - data; }
+
+    void update(ssize_t length) {
+        // a length less than zero is considered an error state
+        //
+        if (length < 0) {
+            set_null();
+            return;
+        }
+        data += length;
+    }
 
     //    ptrdiff_t length() const { return data_end - data; }
 
@@ -811,9 +900,18 @@ template <size_t T> struct data_buffer : public writeable {
         }
     }
 
-    ssize_t writeable_length() const { return data_end - data; }
-
     ssize_t write(int fd) { return ::write(fd, buffer, data - buffer);  }
+
+    template <size_t S>
+    bool operator==(const data_buffer<S> &rhs) {
+        return readable_length() == rhs.readable_length() &&
+            memcmp(buffer, rhs.buffer, readable_length()) == 0;
+    }
+    template <size_t S>
+    bool operator!=(const data_buffer<S> &rhs) {
+        return readable_length() != rhs.readable_length() ||
+            memcmp(buffer, rhs.buffer, readable_length()) != 0;
+    }
 
     // TODO:
     //  * add data != nullptr checks
@@ -959,13 +1057,19 @@ public:
 
     T value() const { return val; }
 
+    // swap_byte_order() reverses the byte order of the integer val,
+    // from big endian to little endian or vice-versa.
+    //
+    // Note: this operation is only the same as hton() if the host
+    // byte order is little-endian.
+    //
     void swap_byte_order() {
         if constexpr (sizeof(val) == 8) {
-            val = htobe64(val);
+            val = ::swap_byte_order(val);
         } else if constexpr (sizeof(val) == 4) {
-            val = ntohl(val);
+            val = ::swap_byte_order(val);
         } else if constexpr (sizeof(val) == 2) {
-            val = ntohs(val);
+            val = ::swap_byte_order(val);
         }
     }
 

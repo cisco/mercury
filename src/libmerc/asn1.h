@@ -311,7 +311,7 @@ struct tlv {
         return (value.data == NULL);
     }
     bool is_valid() const {
-        return value.is_not_empty();
+        return value.is_not_empty() || length == 0;
     }
     bool is_truncated() const {
         return value.data != NULL && value.length() != (ssize_t) length;
@@ -410,6 +410,18 @@ struct tlv {
 #endif
     }
 
+    // tlv constructor for parsing data from a datum
+    //
+    tlv(datum &d, uint8_t tag=0x00, const char *name=NULL) {
+        parse(&d, tag, name);
+    }
+
+    // tlv constructor for parsing data from another tlv value
+    //
+    tlv(tlv &o, uint8_t tag=0x00, const char *name=NULL) {
+        parse(&o.value, tag, name);
+    }
+
     // constructor for writing tlv-encoded data
     //
     explicit tlv(uint8_t tag_, datum value_) :
@@ -420,40 +432,56 @@ struct tlv {
 
     void set(uint8_t tag_, datum value_) {
         tag    = tag_;
-        length = length_of_length(value_.length());
+        length = length_of_length_field(value_.length());
         value  = value_;
     }
 
     size_t encoded_length() const {
-        return sizeof(tag) + length_of_length(length) + length;  // note: inapplicable for tlv::SEQUENCE
+        // fprintf(stderr,
+        //         "encoding length: %zu:%u:%zu:\t%zu\n",
+        //         sizeof(tag),
+        //         length_of_length(length),
+        //         length,
+        //         sizeof(tag) + length_of_length(length) + length
+        //         );
+        return sizeof(tag) + length_of_length_field(length) + length;  // note: inapplicable for tlv::SEQUENCE
     }
 
-    static uint8_t length_of_length(size_t s) {
-        if (s < 0x100) {
+    static uint8_t length_of_length_field(size_t s) {
+        if (s <= 127) {
+            //
+            // short form: single octet
+            //
             return 1;
         }
-        if (s < 0x10000) {
+        // long form: the first octet encodes the number of octets
+        // used to encode the length field
+        //
+        if (s < 0x100) {
             return 2;
         }
-        if (s < 0x1000000) {
+        if (s < 0x10000) {
             return 3;
         }
-        if (s < 0x100000000) {
+        if (s < 0x1000000) {
             return 4;
         }
-        if (s < 0x10000000000) {
+        if (s < 0x100000000) {
             return 5;
         }
-        if (s < 0x1000000000000) {
+        if (s < 0x10000000000) {
             return 6;
         }
-        return 7;
+        if (s < 0x1000000000000) {
+            return 7;
+        }
+        return 8;
     }
 
-    // write_tag_length() writes the ASN.1-encoded Tag and Length (but
+    // write_tag_and_length() writes the ASN.1-encoded Tag and Length (but
     // not Value) into a writeable buffer
     //
-    void write_tag_length(writeable &buf, bool swap_byte_order=false) const {
+    void write_tag_and_length(writeable &buf, bool swap_byte_order=false) const {
         (void)swap_byte_order;
 
         buf << encoded<uint8_t>{tag};
@@ -468,28 +496,37 @@ struct tlv {
         // length octets. Second and following octets give the length,
         // base 256, most significant digit first.
         //
-        if (length < 127) {
+
+        size_t total = 0;
+        if (length <= 127) {
             buf << encoded<uint8_t>{length};
+            total += 1;
         } else {
-            buf << encoded<uint8_t>{0x80 | length_of_length(length)};
+            buf << encoded<uint8_t>{0x80 | (length_of_length_field(length) - 1)};
+            total += 1;
             size_t tmp = length;
-            if (tmp > 0x1000000) {
+            if (tmp >= 0x1000000) {
                 buf << encoded<uint8_t>{(length >> 24) & 0xff};
+                        total += 1;
             }
-            if (tmp > 0x10000) {
+            if (tmp >= 0x10000) {
                 buf << encoded<uint8_t>{(length >> 16) & 0xff};
+                        total += 1;
             }
-            if (tmp > 0x100) {
+            if (tmp >= 0x100) {
                 buf << encoded<uint8_t>{(length >> 8) & 0xff};
+                total += 1;
             }
             buf << encoded<uint8_t>{tmp & 0xff};
+            total += 1;
         }
+        //        fprintf(stderr, "length encoding used %zu bytes (lol: %u)\n", total, length_of_length(length));
     }
 
     // write() writes the ASN.1-encoded TLV into a writeable buffer
     //
     void write(writeable &buf, bool swap_byte_order=false) {
-        write_tag_length(buf, swap_byte_order);
+        write_tag_and_length(buf, swap_byte_order);
         buf << value;
     }
 
@@ -502,6 +539,7 @@ struct tlv {
         if (first_octet) {
             // throw std::runtime_error("error removing bitstring encoding");
             value.set_null();
+            return;
         }
         if (length > 0) {
             length = length - 1;
@@ -596,7 +634,7 @@ struct tlv {
         if (!is_valid()) {
             return;
         }
-        if (value.data) {
+        if (true || value.data) {
             uint8_t tag_class = tag >> 6;
             uint8_t constructed = (tag >> 5) & 1;
             uint8_t tag_number = tag & 31;

@@ -83,7 +83,7 @@ class ipv4_packet {
         if (header == nullptr) {
             return;  // too short
         }
-        p.trim_to_length(ntohs(header->len) - sizeof(ipv4_header));
+        p.trim_to_length(ntoh(header->len) - sizeof(ipv4_header));
 
         k.addr.ipv4.src = header->src_addr;
         k.addr.ipv4.dst = header->dst_addr;
@@ -123,7 +123,7 @@ class ipv4_packet {
         if (header) {
             struct json_object json_ip{o, "ip"};
             json_ip.print_key_uint("ttl", header->ttl);
-            json_ip.print_key_uint("id", ntohs(header->id));
+            json_ip.print_key_uint("id", ntoh(header->id));
             json_ip.close();
         }
     }
@@ -362,7 +362,7 @@ public:
         if (header == nullptr) {
             return;  // too short
         }
-        p.trim_to_length(ntohs(header->len));
+        p.trim_to_length(ntoh(header->len));
 
         k.addr.ipv6.src = header->src_addr;
         k.addr.ipv6.dst = header->dst_addr;

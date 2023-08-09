@@ -135,7 +135,7 @@ public:
 
     bool process_argv(int argc, char *argv[], bool exit_on_unrecignized = true) {
         if (argc <= 1) {
-            return false;  // no options
+            return true;  // no options
         }
         argv = &argv[1];  argc--;  // skip program name
 

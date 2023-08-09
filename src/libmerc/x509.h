@@ -1384,6 +1384,17 @@ struct subject_public_key_info {
         }
         alg_id.close();
     }
+
+    rsa_public_key get_rsa_public_key() const {
+        struct tlv tmp_key = subject_public_key;
+        if (algorithm.type() == oid::rsaEncryption) {
+            tmp_key.remove_bitstring_encoding();
+            struct rsa_public_key pub_key(&tmp_key.value);
+            return pub_key;
+        }
+        return rsa_public_key{};
+    }
+
 };
 
 static std::unordered_set <unsigned int> ecdsa_algorithms {

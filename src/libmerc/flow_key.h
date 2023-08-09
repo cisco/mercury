@@ -1,12 +1,12 @@
 /*
- * packet.h
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ * flow_key.h
+ *
+ * Copyright (c) 2019-2023 Cisco Systems, Inc. All rights reserved.
+ * License at https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-#ifndef PACKET_H
-#define PACKET_H
+#ifndef FLOW_KEY_H
+#define FLOW_KEY_H
 
 #define IPV6_ADDR_LEN 16
 
@@ -49,4 +49,4 @@ struct flow_key {
 
 uint64_t flowhash(const struct flow_key &k, uint32_t time_in_sec);
 
-#endif /* PACKET_H */
+#endif // FLOW_KEY_H

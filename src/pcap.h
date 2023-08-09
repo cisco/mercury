@@ -7,13 +7,31 @@
 #ifndef PCAP_H
 #define PCAP_H
 
+// On Windows, we don't use mmap() for file reading, so USE_MMAP is
+// defined for non-Windows platforms.
+//
+// On other platforms, we define the flag _O_BINARY to 0, for
+// compatibility with Windows binary file mode.
+//
+#ifndef _WIN32
+#define USE_MMAP 1
+#define _O_BINARY 0
+#endif
+
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
-#include <sys/mman.h>
-
 #include <variant>
 #include <cassert>
+#include <stdexcept>
+
+// USE_MMAP causes file reading to use mmap for improved performance;
+// you should use it when it is available (Linux).
+//
+#ifdef USE_MMAP
+#include <sys/mman.h>
+#endif
 
 #include "libmerc/datum.h"
 
@@ -29,13 +47,20 @@
 //
 class errno_exception : public std::runtime_error {
 public:
+#ifdef _WIN32
+    errno_exception() : runtime_error{"errno_exception"} { };      // NOTE: could use strerr_s
+#else
     errno_exception() : runtime_error{strerror_l(errno, (locale_t)0)} { };
+#endif
     //  errno_exception() : runtime_error{strerror_l(errno, uselocale((locale_t)0))} { };
 };
 
 // class file_datum represents a read-only file on disk; it inherits
 // the interface of class datum, and thus can be used to read and
 // parse files
+//
+// If USE_MMAP is defined, the POSIX mmap() function is used;
+// otherwise, the standard read() is used.
 //
 class file_datum : public datum {
     int fd = -1;
@@ -44,7 +69,7 @@ class file_datum : public datum {
 
 public:
 
-    file_datum(const char *fname) : fd{open(fname, O_RDONLY)} {
+    file_datum(const char *fname) : fd{open(fname, O_RDONLY|_O_BINARY)} {
 
         if (fd < 0) {
             throw errno_exception();
@@ -54,13 +79,7 @@ public:
             throw errno_exception();
         }
         file_length = statbuf.st_size;
-        // fprintf(stderr, "opened file of length %zd bytes\n", file_length);
-
-        data = (uint8_t *)mmap (0, file_length, PROT_READ, MAP_PRIVATE, fd, 0);
-        if (data == MAP_FAILED) {
-            data = data_end = nullptr;
-            throw errno_exception();
-        }
+        open_data();
         data_end = data + file_length;
         addr = (uint8_t *)data;
     }
@@ -70,18 +89,52 @@ public:
     file_datum(file_datum &rhs) = delete;
 
     ~file_datum() {
-        // fprintf(stderr, "closing file of length %zd bytes\n", file_length);
-        if (munmap(addr, file_length) != 0) {
-            assert(true && "munmap() failed");
-            ; // error, but don't throw errno_exception() because we are in a destructor
-        }
+        close_data();
         if (close(fd) != 0) {
             ; // error, but don't throw errno_exception() because we are in a destructor
             assert(true && "close() failed");
         }
     }
 
+#ifdef USE_MMAP
+    void open_data() {
+        data = (uint8_t *)mmap (0, file_length, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (data == MAP_FAILED) {
+            data = data_end = nullptr;
+            throw errno_exception();
+        }
+    }
+    void close_data() {
+        if (munmap(addr, file_length) != 0) {
+            assert(true && "munmap() failed");
+            ; // error, but don't throw errno_exception() because we are in a destructor
+        }
+    }
+#else
+    void open_data() {
+        uint8_t *buf = (uint8_t *)malloc(file_length);
+        if (buf == nullptr) {
+            this->set_null();
+            throw errno_exception();
+        }
+	data = buf;
+        size_t bytes_read = 0;
+        while (bytes_read < file_length) {
+            ssize_t result = read(fd, buf, file_length - bytes_read);
+            if (result == -1) {
+	      throw errno_exception();
+            }
+            bytes_read += result;
+	    buf += result;
+        }
+    }
+    void close_data() {
+        free(addr);
+    }
+#endif
+
 };
+
 
 //
 // PCAP
@@ -519,7 +572,7 @@ namespace pcap::ng {
             uint32_t block_total_length;
             d.read_uint32(&block_total_length);
             if (byteswap_needed) {
-                block_total_length = ntohl(block_total_length);
+                block_total_length = swap_byte_order(block_total_length);
             }
         }
     };
@@ -694,7 +747,7 @@ namespace pcap::ng {
                 // opt.fprint(stderr);
             }
 
-            fprintf(stderr, "data length: %zu\n", d.length());
+	    // fprintf(stderr, "data length: %zu\n", d.length());
             // d.fprint_hex(stderr); fputc('\n', stderr);
         }
 
