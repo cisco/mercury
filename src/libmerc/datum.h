@@ -693,6 +693,32 @@ struct datum {
         return -1;
     }
 
+    ssize_t write_hex(char *out, size_t num_bytes, bool null_terminated=false) {
+
+        // check for writeable room; output length is twice the input
+        // length
+        //
+        ssize_t terminator = null_terminated ? 1 : 0;
+        if (is_null() or (data_end - data) + terminator > 2 * (ssize_t)num_bytes) {
+            return -1;
+        }
+
+        uint8_t hex_table[] = {
+            '0', '1', '2', '3', '4', '5', '6', '7',
+            '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+        };
+
+        const uint8_t *d = data;
+        while (d < data_end) {
+            *out++ = hex_table[(*d & 0xf0) >> 4];
+            *out++ = hex_table[*d++ & 0x0f];
+        }
+        if (null_terminated) {
+            *out++ = '\0';
+        }
+        return data_end - data + terminator;
+    }
+
     bool is_printable() const {
         for (const auto & c: *this) {
             if (!isprint(c)) {
@@ -701,6 +727,7 @@ struct datum {
         }
         return true;
     }
+
 };
 
 // sanity checks on class datum
@@ -720,6 +747,18 @@ public:
     bool is_null() const { return data == nullptr || data_end == nullptr; }
 
     bool is_not_empty() const { return data < data_end; }
+
+    ssize_t writeable_length() const { return data_end - data; }
+
+    void update(ssize_t length) {
+        // a length less than zero is considered an error state
+        //
+        if (length < 0) {
+            set_null();
+            return;
+        }
+        data += length;
+    }
 
     //    ptrdiff_t length() const { return data_end - data; }
 
@@ -861,9 +900,18 @@ template <size_t T> struct data_buffer : public writeable {
         }
     }
 
-    ssize_t writeable_length() const { return data_end - data; }
-
     ssize_t write(int fd) { return ::write(fd, buffer, data - buffer);  }
+
+    template <size_t S>
+    bool operator==(const data_buffer<S> &rhs) {
+        return readable_length() == rhs.readable_length() &&
+            memcmp(buffer, rhs.buffer, readable_length()) == 0;
+    }
+    template <size_t S>
+    bool operator!=(const data_buffer<S> &rhs) {
+        return readable_length() != rhs.readable_length() ||
+            memcmp(buffer, rhs.buffer, readable_length()) != 0;
+    }
 
     // TODO:
     //  * add data != nullptr checks
