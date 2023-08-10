@@ -151,7 +151,7 @@ cp ./libmerc.a $parent_path/.
 # testcase definition format : class_name_fuzz_test() or struct_name_fuzz_test()
 # To create multiple fuzz targets for same class/struct, append an identification tag like number post class/struct name eg quic_init01_fuzz_test()
 # and create a test dir for corpus with exact same name
-for header in *.h; do
+for header in *.h *.hpp; do
     echo "check $header for test function"
     total_headers=$((total_headers+1))
     result=$(grep -oE "\s(.+)_fuzz_test.*[^;]$" $header)
@@ -167,7 +167,7 @@ done
 # wait for parallel running tests to exit
 wait
 
-for header in *.h; do
+for header in *.h *.hpp; do
     result=$(grep -oE "\s(.+)_fuzz_test.*[^;]$" $header)
     while read -r line; do
         class=$(echo $line | grep -oE "\s(.+)_fuzz_test" | sed -nr 's/.* (.+)_fuzz_test/\1/p')
