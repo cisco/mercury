@@ -1006,56 +1006,6 @@ int main (int argc, char *argv[]) {
     std::vector<size_t> original_linenum;
     size_t duplicates_ignored = 0;
     size_t zeros_ignored = 0;
-#if 0
-    /* Read lines from stdin where each line is a modulus in hex.
-       Record the original line number for each modulus, and detect
-       and report duplicates.
-     */
-    char *linestr = NULL;
-    size_t linelen = 0;
-    ssize_t read;
-    size_t linenum = 1;
-    while ((read = getline(&linestr, &linelen, stdin)) != -1) {
-        if (!is_hex_line(linestr)) {
-            fprintf(stderr, "Aborting due to non-hex input on line %zu: %s\n",
-                    linenum, linestr);
-            exit(2);
-        }
-        int ret = gmp_sscanf(linestr, "%Zx\n", mpz_temp);
-        if (ret == 1) {
-            // Ignore this line if it duplicates a previous line.
-            mpz_class n(mpz_temp);
-            if (line_first_seen.count(n) == 1) {
-                fprintf(stdout,
-                        "Duplicate ignored: line %zu = line %zu = ",
-                        linenum, line_first_seen[n]);
-                gmp_fprintf(stdout, "%Zx", n.get_mpz_t());
-                fprintf(stdout, "\n");
-                duplicates_ignored++;
-            } else if (n == 0) {
-                fprintf(stdout, "Zero modulus ignored: line %zu\n", linenum);
-                zeros_ignored++;
-            } else {
-                // Not a duplicate; add to the list for batch GCD
-                line_first_seen[n] = linenum;
-                push_numlist(nlist, mpz_temp);
-                original_linenum.push_back(linenum);
-                estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
-            }
-        } else {
-            fprintf(stderr, "Aborting due to invalid modulus on line %zu: %s\n",
-                    linenum, linestr);
-            exit(3);
-        }
-        linenum++;
-    }
-    if (ferror(stdin)) {
-        fprintf(stderr, "Aborting due to error reading line %zu\n", linenum);
-        exit(1);
-    }
-    free(linestr);
-    line_first_seen.clear(); // save memory
-#else
 
     std::string base_filename;
 
@@ -1100,11 +1050,14 @@ int main (int argc, char *argv[]) {
             original_linenum.push_back(linereader->get_linenum());
             estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
 
-            fprintf(stderr, "certs:\t" ANSI_YELLOW "%zu" ANSI_END "\tduplicates: " ANSI_YELLOW "%zu" ANSI_END "\tRAM needed: " ANSI_YELLOW "%zu" ANSI_END "\r", linereader->get_linenum(), duplicates_ignored, estimated_limbs * 8);
+            fprintf(stderr,
+                    "certs: " ANSI_YELLOW "%zu" ANSI_END
+                    "   duplicates: " ANSI_YELLOW "%zu" ANSI_END
+                    "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\r",
+                    linereader->get_linenum(), duplicates_ignored, estimated_limbs * 8);
         }
     }
     fputc('\n', stderr);
-#endif
 
     // deallocate reader to minimize RAM usage
     //
