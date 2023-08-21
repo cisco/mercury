@@ -138,6 +138,65 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS - analysis with resources-mp")
+{
+    
+    auto destination_check_callback = [](const analysis_context *ac)
+    {
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_tls);
+    };
+
+    auto tls_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter(fingerprint_type_tls,destination_check_callback));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"tls.client_hello"},
+             .m_pc{"tls_sgt.pcap"}},
+         58}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        tls_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS - write_json with resources-mp")
+{
+
+    auto tls_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"tls.client_hello"},
+             .m_pc{"tls_sgt.pcap"}},
+         58}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        tls_check(count, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and eth linktype")
 {
     
