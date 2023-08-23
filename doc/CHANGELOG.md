@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.20
+
+* Added support to parse IP pkts encapsulated in SGT or Cisco Metadata.
+* Added a depth limit to the parsing of nested bencoding in Bittorrent protocol.
+
 ## Version 2.5.19
 
 * Improvements to `tls_scanner`, `batch_gcd`, and `cert_analyze`.
