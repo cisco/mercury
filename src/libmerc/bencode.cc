@@ -28,7 +28,7 @@ namespace bencoding {
                 first = false;
             }
 
-            bencoded_data value{body};
+            bencoded_data value{body, static_cast<uint8_t>(nesting_level + 1)};
             value.write_raw_features(w);
 
             if (lookahead<list_or_dict_end> is_end{body}) {
@@ -37,6 +37,8 @@ namespace bencoding {
             }
         }
         w.copy(']');
+        //Set the actual datum to the point till list is parsed
+        tmp = body;
     }
 
     void blist::write_json(struct json_object &o) {
@@ -44,21 +46,25 @@ namespace bencoding {
             return;
         }
 
-        if (lookahead<list_or_dict_end> is_end{body}) {
-            body = is_end.advance();
+        if (lookahead<list_or_dict_end> is_end{tmp}) {
+            tmp = is_end.advance();
             return;
         }
 
         struct json_array a{o, "attributes"};
 
-        while(body.is_not_empty()) {
+        while(tmp.is_not_empty()) {
             struct json_object items(a);
-            bencoded_data value{body};
+            if (nesting_level > MAX_DEPTH) {
+                items.print_key_hex("unparsed_value_hex", tmp);
+                break;
+            }
+            bencoded_data value{tmp, static_cast<uint8_t>(nesting_level + 1)};
             value.write_json(items);
             items.close();
 
-            if (lookahead<list_or_dict_end> is_end{body}) {
-                body = is_end.advance();
+            if (lookahead<list_or_dict_end> is_end{tmp}) {
+                tmp = is_end.advance();
                 break;
             }
         }
@@ -91,7 +97,7 @@ namespace bencoding {
 
             w.copy(',');
 
-            bencoded_data value{body};
+            bencoded_data value{body, static_cast<uint8_t>(nesting_level + 1)};
             value.write_raw_features(w);
 
             w.copy(']');
@@ -102,6 +108,9 @@ namespace bencoding {
             }
         }
         w.copy(']');
+
+        //Set the actual datum to the point till dictionary is parsed
+        tmp = body;
     }
 
     void dictionary::write_json(struct json_object &o) {
@@ -122,8 +131,13 @@ namespace bencoding {
             
             byte_string key{tmp};
             items.print_key_json_string("key", key.value());
+            if (nesting_level > MAX_DEPTH) {
+                items.print_key_hex("unparsed_value_hex", tmp);
+                tmp.skip(tmp.length());
+                break;
+            }
             
-            bencoded_data value{tmp};
+            bencoded_data value{tmp, static_cast<uint8_t>(nesting_level + 1)};
             value.write_json(items);
             items.close();
 
@@ -134,54 +148,55 @@ namespace bencoding {
         }
         a.close();
     }
-}
 
-void bencoded_data::write_raw_features(writeable &w) {
-    if (!valid) {
-        return;
+    void bencoded_data::write_raw_features(writeable &w) {
+        if (!valid) {
+            return;
+        }
+
+        if (lookahead<encoded<uint8_t>> type{body}) {
+            if (type.value == 'i') {
+                bencoding::bint integer(body);
+                integer.write_raw_features(w);
+            } else if (type.value >= '0' and type.value <= '9') {
+                bencoding::byte_string str(body);
+                str.write_raw_features(w);
+            } else if (type.value == 'd') {
+                bencoding::dictionary dict(body, nesting_level);
+                dict.write_raw_features(w);
+            } else if (type.value == 'l') {
+                bencoding::blist list(body, nesting_level);
+                list.write_raw_features(w);
+            } else {
+                // Not a bencoded data
+                body.set_null();
+            }
+        }
     }
 
-    if (lookahead<encoded<uint8_t>> type{body}) {
-        if (type.value == 'i') {
-            bencoding::bint integer(body);
-            integer.write_raw_features(w);
-        } else if (type.value >= '0' and type.value <= '9') {
-            bencoding::byte_string str(body);
-            str.write_raw_features(w);
-        } else if (type.value == 'd') {
-            bencoding::dictionary dict(body);
-            dict.write_raw_features(w);
-        } else if (type.value == 'l') {
-            bencoding::blist list(body);
-            list.write_raw_features(w);
-        } else {
-            // Not a bencoded data
-            body.set_null();
+    void bencoded_data::write_json(struct json_object &o) {
+        if (!valid) {
+            return;
+        }
+
+        if (lookahead<encoded<uint8_t>> type{body}) {
+            if (type.value == 'i') {
+                bencoding::bint integer(body);
+                integer.write_json(o);
+            } else if (type.value >= '0' and type.value <= '9') {
+                bencoding::byte_string str(body);
+                str.write_json(o);
+            } else if (type.value == 'd') {
+                bencoding::dictionary dict(body, nesting_level);
+                dict.write_json(o);
+            } else if (type.value == 'l') {
+                bencoding::blist list(body, nesting_level);
+                list.write_json(o);
+            } else {
+                // Not a bencoded data
+                body.set_null();
+            }
         }
     }
 }
 
-void bencoded_data::write_json(struct json_object &o) {
-    if (!valid) {
-        return;
-    }
-
-    if (lookahead<encoded<uint8_t>> type{body}) {
-        if (type.value == 'i') {
-            bencoding::bint integer(body);
-            integer.write_json(o);
-        } else if (type.value >= '0' and type.value <= '9') {
-            bencoding::byte_string str(body);
-            str.write_json(o);
-        } else if (type.value == 'd') {
-            bencoding::dictionary dict(body);
-            dict.write_json(o);
-        } else if (type.value == 'l') {
-            bencoding::blist list(body);
-            list.write_json(o);
-        } else {
-            // Not a bencoded data
-            body.set_null();
-        }
-    }
-}
