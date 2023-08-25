@@ -211,7 +211,7 @@ namespace bencoding {
             dict.write_json(record);
             dict.write_raw_features(buf);
 
-            if (memcmp(expected_json, record.b->dstr, sizeof(expected_json))) {
+            if (memcmp(expected_json, record.b->dstr, sizeof(expected_json) - 1)) {
                 return false;
             }
 
