@@ -28,11 +28,11 @@ jobs:
         id: set-tags
         run: |
           shortSHA=$(git rev-parse --short ${{ github.sha }})
-          echo "::set-output name=shatag::$shortSHA"
+          echo "shatag=$shortSHA" >> "$GITHUB_OUTPUT"
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "::set-output name=tag::latest"
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=tag::test"
+            echo "tag=test" >> "$GITHUB_OUTPUT"
           fi
       - name: Build Docker image and publish to GitHub Container Registry
         uses: docker/build-push-action@v4
