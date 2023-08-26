@@ -260,7 +260,7 @@ distclean: clean
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(LIBMERC)
-	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
+	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/
 
 .PHONY: test
 test: mercury
