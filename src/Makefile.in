@@ -255,7 +255,7 @@ install: libmerc mercury
 	mkdir -p $(bindir)
 	$(INSTALL) mercury $(bindir)
 #	$(INSTALL) $(LIBMERC) $(libdir)
-	ldconfig
+	PATH=$(PATH):/sbin ldconfig
 #	setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $(bindir)/mercury
 	-useradd --system --no-create-home --user-group mercury
 	mkdir -p $(localstatedir)
@@ -279,7 +279,7 @@ install-intercept.so: intercept.so
 uninstall:
 	rm -f $(bindir)/mercury
 	rm -f $(libdir)/$(LIBMERC)
-	ldconfig
+	PATH=$(PATH):/sbin ldconfig
 	@echo "local captures not removed; to do that, run 'rm -rf $(localstatedir)'"
 
 #  To build mercury for profiling using gprof, run

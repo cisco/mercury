@@ -139,14 +139,14 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
 	$(STRIP) libmerc.so
-	ldconfig -n .
+	PATH=$(PATH):/sbin ldconfig -n .
 
 libmerc_coverage.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
 	$(STRIP) libmerc_coverage.so
 	cp libmerc_coverage.so libmerc.so
-	ldconfig -n .
+	PATH=$(PATH):/sbin ldconfig -n .
 
 # debug targets (debug-libmerc.a and debug-libmerc.so)
 #
