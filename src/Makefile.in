@@ -275,6 +275,13 @@ install-intercept.so: intercept.so
 	$(INSTALL) intercept.so $(libdir)
 	@echo "install complete; run 'export LD_PRELOAD=$(libdir)/intercept.so' to perform interception"
 
+.PHONY: install-certtools
+install-certtools: batch_gcd cert_analyze tls_scanner
+	$(INSTALL) -d $(bindir)
+	$(INSTALL) batch_gcd $(bindir)
+	$(INSTALL) cert_analyze $(bindir)
+	$(INSTALL) tls_scanner $(bindir)
+
 .PHONY: uninstall
 uninstall:
 	rm -f $(bindir)/mercury
