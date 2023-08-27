@@ -19,29 +19,26 @@
 # current working directory (/root).  This provides mercury some read and write
 # access to the host filesystem, such as a pcap file in your current directory.
 
-FROM debian:12-slim
-RUN apt-get update \
-    && apt-get install -y git build-essential \
-        pkg-config wget jq tcpreplay iproute2 sudo debconf \
-        zlib1g-dev libssl-dev libgmp-dev --no-install-recommends
+FROM alpine:latest
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing/" >> /etc/apk/repositories \
+    && apk add --no-cache build-base git make gcc g++ linux-headers pkgconfig \
+        wget tar zlib-dev openssl-dev musl-dev libc-dev gmp-dev
 
 COPY . /src
 WORKDIR /src
 RUN ./configure \
-    && make V=s \
+    && make V=s use_fsanitize=no \
     && make batch_gcd --dir=src \
     && make tls_scanner --dir=src \
     && make install-nonroot \
     && make install-certtools
 
-FROM debian:12-slim
+FROM alpine:latest
 WORKDIR /root/
 COPY --from=0 /usr/local /usr/local
-RUN apt-get update \
-    && apt-get install -y libgmp10 libssl3
-
-RUN addgroup --system mercury && adduser --system --group mercury \
-    && chown -R mercury:mercury /usr/local/share/mercury /usr/local/var/mercury/
+RUN apk add --no-cache libstdc++ gmp
+RUN addgroup mercury -S && adduser mercury -G mercury -S && \
+    chown -R mercury:mercury /usr/local/share/mercury /usr/local/var/mercury/
 
 # Default entrypoint for "docker run" on this image
 ENTRYPOINT ["/usr/local/bin/mercury"]
