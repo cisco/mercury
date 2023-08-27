@@ -23,7 +23,8 @@ FROM debian:12-slim
 RUN apt-get update \
     && apt-get install -y git build-essential \
         pkg-config wget jq tcpreplay iproute2 sudo debconf \
-        zlib1g-dev libssl-dev libgmp-dev --no-install-recommends
+        zlib1g-dev libssl-dev libgmp-dev --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY . /src
 WORKDIR /src
@@ -38,7 +39,8 @@ FROM debian:12-slim
 WORKDIR /root/
 COPY --from=0 /usr/local /usr/local
 RUN apt-get update \
-    && apt-get install -y libgmp10 libssl3
+    && apt-get install -y libgmp10 libssl3 \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system mercury && adduser --system --group mercury \
     && chown -R mercury:mercury /usr/local/share/mercury /usr/local/var/mercury/
