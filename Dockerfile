@@ -36,7 +36,7 @@ RUN ./configure \
 FROM alpine:latest
 WORKDIR /root/
 COPY --from=0 /usr/local /usr/local
-RUN apk add --no-cache libstdc++
+RUN apk add --no-cache libstdc++ gmp
 RUN addgroup mercury -S && adduser mercury -G mercury -S && \
     chown -R mercury:mercury /usr/local/share/mercury /usr/local/var/mercury/
 
