@@ -64,17 +64,6 @@ struct list_worker_thread {
 };
 
 
-void usage(FILE *fp, const char *progname) {
-    fprintf(fp, "Usage: %s < moduli_in_hex.txt\n\n", progname);
-
-    fprintf(fp, "This code efficiently runs all-to-all GCD on RSA moduli.\n");
-    fprintf(fp, "The input must be exactly one hex integer per line.\n");
-    fprintf(fp, "No blank lines or other characters are permitted.\n\n");
-
-    fprintf(fp, "Informational progress messages are written to stderr.\n");
-}
-
-
 size_t intlog2(size_t num) {
 
     /* returns the log base-2 value of num rounded up to the nearest int */
@@ -982,7 +971,9 @@ int main (int argc, char *argv[]) {
     });
 
     const char *summary =
-        "[OPTIONS]\n\n"
+        "usage:\n\n"
+
+        "    batch_gcd [OPTIONS]\n\n"
 
         "This tool efficiently runs all-to-all GCD on RSA moduli.  If no arguments\n"
         "are provided, read moduli from stdin.  The input must be exactly one hex\n"
