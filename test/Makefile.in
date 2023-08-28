@@ -348,6 +348,9 @@ endif
 .PHONY: batch_gcd_test
 batch_gcd_test: $(BGCD_COMP_TARG)
 
+%.pem.bgcd-tout: %.pem.bgcd-in
+	$(BATCH_GCD) --cert-file $< > $@
+
 %.bgcd-tout: %.bgcd-in
 	$(BATCH_GCD) < $< > $@
 
