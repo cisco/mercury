@@ -486,6 +486,8 @@ public:
         }
         return tmp;
     }
+
+    const std::vector<dns_label_string> & get_value() const { return label_vector; }
 };
 
 
