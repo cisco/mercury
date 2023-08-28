@@ -1,4 +1,3 @@
-Duplicate ignored: line 2 = line 1 = 28a3
 Vulnerable modulus on line 3: 29bf7 has factors 133 and 22d
 Vulnerable modulus on line 4: 12a15 has factors 89 and 22d
 Vulnerable modulus on line 5: 17b6d has factors 89 and 2c5
