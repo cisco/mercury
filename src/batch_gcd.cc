@@ -64,17 +64,6 @@ struct list_worker_thread {
 };
 
 
-void usage(FILE *fp, const char *progname) {
-    fprintf(fp, "Usage: %s < moduli_in_hex.txt\n\n", progname);
-
-    fprintf(fp, "This code efficiently runs all-to-all GCD on RSA moduli.\n");
-    fprintf(fp, "The input must be exactly one hex integer per line.\n");
-    fprintf(fp, "No blank lines or other characters are permitted.\n\n");
-
-    fprintf(fp, "Informational progress messages are written to stderr.\n");
-}
-
-
 size_t intlog2(size_t num) {
 
     /* returns the log base-2 value of num rounded up to the nearest int */
@@ -978,9 +967,23 @@ int main (int argc, char *argv[]) {
     class option_processor opt({
         { argument::required,   "--cert-file",        "read certificates from file <arg>" },
         { argument::none,       "--write-keys",       "write out private keys to PEM file" },
+        { argument::none,       "--help",             "print this help message and exit" },
     });
+
     const char *summary =
-        "batch_gcd: [OPTIONS]\n"
+        "usage:\n\n"
+
+        "    batch_gcd [OPTIONS]\n\n"
+
+        "This tool efficiently runs all-to-all GCD on RSA moduli.  If no arguments\n"
+        "are provided, read moduli from stdin.  The input must be exactly one hex\n"
+        "integer per line.  No blank lines or other characters are permitted.\n\n"
+
+        "Alternatively, the options below can be used to read a file of PEM-encoded\n"
+        "certificates instead of the raw moduli.\n\n"
+
+        "Informational progress messages are written to stderr.\n\n"
+
         "OPTIONS:\n";
     if (!opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
@@ -988,6 +991,11 @@ int main (int argc, char *argv[]) {
     }
     auto [ have_cert_file, cert_file ] = opt.get_value("--cert-file");
     bool write_keys                    = opt.is_set("--write-keys");
+    bool help                          = opt.is_set("--help");
+    if (help) {
+        opt.usage(stderr, argv[0], summary);
+        return EXIT_SUCCESS;
+    }
 
     /* Get ready to read a list of large integers */
     struct numlist *nlist = makenumlist(0);
