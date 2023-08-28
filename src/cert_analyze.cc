@@ -175,6 +175,7 @@ struct json_file_reader : public file_reader {
             ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
             if (nread == -1) {
                 free(line);
+                line = NULL;
                 return 0;
             }
             // fprintf(stdout, "line: %s", line);
@@ -203,6 +204,7 @@ struct json_file_reader : public file_reader {
                             break; // just process first cert for now // TODO: process all certs
                         }
                         free(line);
+                        line = NULL;
                         return cert_len;
                     }
                 }
@@ -240,6 +242,7 @@ struct base64_file_reader : public file_reader {
         ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
         if (nread == -1) {
             free(line);
+            line = NULL;
             return 0;
         }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, line, nread);
@@ -254,6 +257,7 @@ struct base64_file_reader : public file_reader {
             }
         }
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+        line = NULL;
         return cert_len;
     }
     ~base64_file_reader() {
@@ -289,7 +293,8 @@ struct pem_file_reader : public file_reader {
         nread = getline(&line, &len, stream);
         if (nread == -1) {
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
-            return 0;  // empty line; assue we are done with certificates
+            line = NULL;
+            return 0;  // empty line; assume we are done with certificates
         }
         if ((size_t)nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) != 0) {
             const char *pem = "-----BEGIN";
@@ -299,6 +304,7 @@ struct pem_file_reader : public file_reader {
                 fprintf(stderr, "error: not in PEM format, or missing opening line in certificate %zd\n", cert_number);
             }
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+            line = NULL;
             return -1; // missing opening line; not in PEM format
         }
 
@@ -334,6 +340,7 @@ struct pem_file_reader : public file_reader {
         if (nread <= 0 && !is_closed)
             fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+        line = NULL;
         return cert_len;
     }
     ~pem_file_reader() {
