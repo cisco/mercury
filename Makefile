@@ -89,7 +89,7 @@ else
 endif
 
 .PHONY: uninstall
-uninstall: uninstall-mercury uninstall-systemd
+uninstall: uninstall-mercury uninstall-systemd uninstall-certtools
 
 .PHONY: uninstall-mercury
 uninstall-mercury:
@@ -111,6 +111,14 @@ else
 	systemctl disable mercury
 	rm /etc/systemd/system/mercury.service
 	userdel mercury
+endif
+
+.PHONY: uninstall-certtools
+uninstall-certtools:
+ifneq ($(wildcard src/Makefile), src/Makefile)
+	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
+else
+	cd src && $(MAKE) uninstall-certtools
 endif
 
 # the target libs builds three versions of libmerc.so, and copies them

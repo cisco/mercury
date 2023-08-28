@@ -289,6 +289,12 @@ uninstall:
 	PATH=$(PATH):/sbin ldconfig
 	@echo "local captures not removed; to do that, run 'rm -rf $(localstatedir)'"
 
+.PHONY: uninstall-certtools
+uninstall:
+	rm -f $(bindir)/batch_gcd
+	rm -f $(bindir)/cert_analyze
+	rm -f $(bindir)/tls_scanner
+
 #  To build mercury for profiling using gprof, run
 #
 #     make clean
