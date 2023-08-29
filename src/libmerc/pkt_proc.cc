@@ -543,14 +543,18 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         tcp_pkt.set_key(k);
         if (tcp_pkt.is_SYN()) {
 
-            tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            if (global_vars.output_tcp_initial_data || reassembler) {
+                tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            }
             if (selector.tcp_syn()) {
                 x = tcp_pkt; // process tcp syn
             }
             // note: we could check for non-empty data field
 
         } else if (tcp_pkt.is_SYN_ACK()) {
-            tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            if (global_vars.output_tcp_initial_data || reassembler) {
+                tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            }
             if (selector.tcp_syn() and selector.tcp_syn_ack()) {
                 x = tcp_pkt;  // process tcp syn/ack
             }
