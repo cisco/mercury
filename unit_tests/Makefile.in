@@ -10,6 +10,8 @@ ifeq ($(openssl_newer),yes)
 CFLAGS += -DSSLNEW
 endif
 
+CFLAGS += -UNDEBUG
+
 export LD_LIBRARY_PATH =../src/libmerc
 
 LIBMERC_FOLDER = ../src/libmerc/
@@ -35,6 +37,7 @@ UNIT_TESTS_TLS_ONLY += libmerc_driver.cc
 UNIT_TESTS_TLS_HTTP_QUIC = $(UNIT_TESTS)
 UNIT_TESTS_TLS_HTTP_QUIC += libmerc_dbmultiprotocol_test.cc
 UNIT_TESTS_TLS_HTTP_QUIC += performance_test.cc
+UNIT_TESTS_TLS_HTTP_QUIC += functional_unit_test.cc
 
 # implicit rules for building object files from .cc files
 %.o: %.cc

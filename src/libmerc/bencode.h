@@ -15,6 +15,8 @@
 
 namespace bencoding {
 
+    #define MAX_DEPTH 10
+
     // Bencoding, following "BitTorrentSpecification - TheoryOrg.html"
     //
     // Bencoding is a way to specify and organize data in a terse
@@ -139,12 +141,16 @@ namespace bencoding {
     // A list of values is encoded as l<contents>e . The contents
     // consist of the bencoded elements of the list, in order, concatenated.
     class blist {
-        datum& body;
+        datum body;
+        datum &tmp;
+        uint8_t nesting_level;
         bool valid;
 
     public:
-        blist(datum &d) : body(d) {
-            body.accept('l');
+        blist(datum &d, uint8_t _nesting_level = 1) : tmp(d), nesting_level(_nesting_level) {
+            tmp.accept('l');
+            body = tmp; // Create two copies of data. 
+                        // One for parsing json ouput and other for raw features.
             valid = d.is_not_null();
         }
 
@@ -169,13 +175,15 @@ namespace bencoding {
     class dictionary {
         datum body;
         datum &tmp;
+        uint8_t nesting_level;
         bool valid;
 
     public:
 
-        dictionary(datum &d) : tmp(d) {
+        dictionary(datum &d, uint8_t _nesting_level = 1) : tmp(d), nesting_level(_nesting_level) {
             tmp.accept('d');
-            body = tmp;
+            body = tmp; // Create two copies of data. 
+                        // One for parsing json ouput and other for raw features.
             valid = d.is_not_null();
         }
 
@@ -187,36 +195,53 @@ namespace bencoding {
 
 #ifndef NDEBUG
 
-        inline bool unit_test() {
-            unsigned char data[] = "d1:ad2:id20:abcdefghij012345678912:implied_porti1e9:info_hash20:mnopqrstuvwxyz1234564:porti-6881e5:token8:aoeusnthe1:q13:announce_peer1:t2:aa1:y1:qe";
+        static bool unit_test() {
+            unsigned char data[] = "d1:ad2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:id4:testeeeeeeeeeee";
+            unsigned char expected_json[] = "{\"attributes\":[{\"key\":\"a\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"unparsed_value_hex\":\"343a74657374656565656565656565656500\"]}]}]}]}]}]}]}]}]}]}]";
+
+            unsigned char expected_raw_features[] = "[[\"61\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",\"74657374\"";
+
             struct datum request_data{data, data + sizeof(data)};
             char buffer[8192];
             struct buffer_stream buf_json(buffer, sizeof(buffer));
             struct json_object record(&buf_json);
-
+            data_buffer<2048> buf;
 
             dictionary dict{request_data};
             dict.write_json(record);
+            dict.write_raw_features(buf);
+
+            if (memcmp(expected_json, record.b->dstr, sizeof(expected_json) - 1)) {
+                return false;
+            }
+
+            if (memcmp(expected_raw_features, buf.buffer, sizeof(expected_raw_features) - 1)) {
+                return false;
+            }
+
             return true;
         }
 #endif //NDEBUG        
     };
+
+    class bencoded_data {
+        datum &body;
+        uint8_t nesting_level;
+        bool valid;
+
+    public:
+        bencoded_data(datum &d, uint8_t _nesting_level) :
+            body{d},
+            nesting_level(_nesting_level),
+            valid{d.is_not_null()} { }
+
+        bool is_not_empty() { return valid; }
+
+        void write_raw_features(writeable &w);
+
+        void write_json(struct json_object &o);
+
+
+    };
 };
-
-class bencoded_data {
-    datum &body;
-    bool valid;
-
-public:
-    bencoded_data(datum &d) : body{d}, valid{d.is_not_null()} { }
-
-    bool is_not_empty() { return valid; }
-
-    void write_raw_features(writeable &w);
-
-    void write_json(struct json_object &o);
-
-
-};
-
 #endif // BENCODE_H

@@ -1,5 +1,4 @@
 Zero modulus ignored: line 10
-Duplicate ignored: line 11 = line 9 = 9
 Modulus on line 2 divides another modulus: 2
 Modulus on line 3 divides another modulus: 3
 Vulnerable modulus on line 4: 4 has factors 2 and 2

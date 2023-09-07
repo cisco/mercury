@@ -154,12 +154,14 @@ struct pem_file_reader : public file_reader {
         nread = getline(&line, &len, stream);
         if (nread == -1) {
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+            line = NULL;
             return 0;  // empty line; assue we are done with certificates
         }
         last_label = get_pem_label(line, nread);
         if (last_label == NONE) {
             fprintf(stderr, "error: not in PEM format in textual element %zd\n", cert_number);
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+            line = NULL;
             return -1;  // error: not in PEM format
         }
 
@@ -185,7 +187,7 @@ struct pem_file_reader : public file_reader {
                 }
             }
             if (b_ptr + advance >= base64_buffer_end) {
-                fprintf(stderr, "error: PEM certificiate %zd too long for buffer, or missing closing line\n", cert_number);
+                fprintf(stderr, "error: PEM certificate %zd too long for buffer, or missing closing line\n", cert_number);
                 return -1; // PEM certificate is too long for buffer, or missing closing line
             }
             memcpy(b_ptr, line, advance);
@@ -195,6 +197,7 @@ struct pem_file_reader : public file_reader {
         if (nread <= 0 && !is_closed)
             fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+        line = NULL;
         return cert_len;
     }
     ~pem_file_reader() {
