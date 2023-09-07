@@ -19,10 +19,11 @@ The prerequisites are:
 
 On a recent version of Ubuntu, these commands should install those prerequisites:
 ```
-$ pip install sphinx
-$ pip install breathe
+$ sudo apt install python3-sphinx
 $ sudo apt install doxygen
 $ sudo apt install make
+$ pip install breathe
+$ pip install sphinx-rtd-theme
 ```
 
 ## Building
