@@ -20,38 +20,62 @@
 #include "libmerc.h"  // for enum status
 #include "buffer_stream.h"
 
-/*
- * The mercury_debug macro is useful for debugging (but quite verbose)
- */
+
+/// `mercury_debug` is a compile-time option that turns on debugging output
+///
+/// the macro `mercury_debug` accepts `printf()` style arguments, and
+/// prints out debugging information only if DEBUG is `#defined` at
+/// compile time, and otherwise prints out nothing
+///
 #ifndef DEBUG
 #define mercury_debug(...)
 #else
 #define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
-// portable ntoh/hton/swap_byte_order functions for uint16_t,
-// uint32_t, and uint64_t
-//
+/// \defgroup byteorder Integer Byte Order Operations
+/// @{
+///
+/// Byte re-ordering operations on `uint16_t`, `uint32_t`, and
+/// `uint64_t` integers.
+///
+
 #ifdef _WIN32
 
 static constexpr bool host_little_endian = true;
 
-/// swap_byte_order(x) returns an integer equal to x with its byte
-/// order reversed (from little endian to big endian or vice-versa)
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
 ///
 inline static uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
 inline static uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
 inline static uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
 
 #else
 
 static constexpr bool host_little_endian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
 
-/// swap_byte_order(x) returns an integer equal to x with its byte
-/// order reversed (from little endian to big endian or vice-versa)
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
 ///
 inline static uint16_t swap_byte_order(uint16_t x) { return __builtin_bswap16(x); }
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
 inline static uint32_t swap_byte_order(uint32_t x) { return __builtin_bswap32(x); }
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
 inline static uint64_t swap_byte_order(uint64_t x) { return __builtin_bswap64(x); }
 
 #endif
@@ -82,6 +106,8 @@ inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x);
 template <typename T>
 inline static T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
 
+/// @} -- end of integeroperations
+
 /// `lowercase(x)` returns the lowercase ASCII character corresponding
 /// to `x`, if `x` is an uppercase ASCII character, and otherwise
 /// returns `x`.
@@ -99,16 +125,38 @@ inline uint8_t lowercase(uint8_t x) {
 /// readable sequence of bytes in memory, suitable for use in data
 /// parsing.
 ///
+/// Datums are well suited for use in representing data to be parsed,
+/// or data resulting from a parsing.  We say that a class or function
+/// *accepts* a type `T` from a datum when it successfully reads and
+/// parses the bytes corresponding to `T` from the datum.
+/// Each datum is in one of the states `null`, `readable`, or `empty`
+///
+/// A datum can be constructed
+///
+/// * from pointers to the first and last byte of a region, with the
+/// constructors \ref datum(const uint8_t *first, const uint8_t *last),
+///
+/// * from a `std::pair` of pointers using \ref datum(std::pair<const
+/// uint8_t *, const uint8_t *> p),
+///
+/// * by reading/accepting bytes from another datum with the
+/// constructor \ref datum(datum &d, ssize_t length),
+///
+/// * from a `std::array<uint8_t, N>` with the constructor \ref
+/// datum(const std::array<uint8_t, N> &a);
+///
+/// * a null datum can also be constructed with \ref datum().
+///
+/// To read an unsigned type `T` from a datum, use \ref encoded<T>.
+///
+/// To lookahead an unsigned type `T` from a datum, use \ref
+/// lookahead<T>.
+///
 /// A datum is *non-owning* in the sense that it holds pointers to the
 /// start and end of a region in memory, but does not own the memory
 /// itself.  If the memory referenced by a datum is freed (e.g. by
 /// `free()` or `delete`), or if the variable owning the memory goes
 /// out of scope, then the datum will be invalid.
-///
-/// Datums are well suited for use in representing data to be parsed,
-/// or data resulting from a parsing.  We say that a class or function
-/// *accepts* a type `T` from a datum when it successfully reads and
-/// parses the bytes corresponding to `T` from the datum.
 ///
 /// A datum contains a pointer `data` to the first byte and a pointer
 /// `data_end` to the last byte.  When a datum is read, for instance
@@ -136,42 +184,9 @@ inline uint8_t lowercase(uint8_t x) {
 /// attempts to parse a type `T` from a datum, but if that attempt
 /// fails, it leaves the datum unchanged.
 ///
-/// To read an unsigned type `T` from a datum, use \ref encoded<T>.
-///
-/// To lookahead an unsigned type `T` from a datum, use \ref
-/// lookahead<T>.
-///
 struct datum {
     const unsigned char *data;          ///< the start of the data in memory, or `nullptr`
     const unsigned char *data_end;      ///< the end of data in memory, or `nullptr`
-
-    /// @name STL begin() and end()
-    ///
-    /// A datum can be used in range-based for loops and other STL
-    /// constructs, as a sequence of `uint8_t` bytes, because the
-    /// functions \ref begin(), \ref end(), \ref cbegin(), and \ref
-    /// cend() provide the needed interface.
-    ///
-    /// @{
-    ///
-
-    /// `begin()` returns a pointer to the start of the data in this datum.
-    ///
-    const uint8_t *begin() const { return data; }
-
-    /// `end()` returns a pointer to the end of the data in this datum.
-    ///
-    const uint8_t *end()   const { return data_end; }
-
-    /// begin() returns a `const` pointer to the start of the data in this datum.
-    ///
-    const uint8_t *cbegin() const { return data; }
-
-    /// `end()` returns a `const` pointer to the end of the data in this datum.
-    ///
-    const uint8_t *cend()   const { return data_end; }
-
-    /// @} -- STL begin() and end() group
 
     /// construct a null datum
     ///
@@ -179,9 +194,18 @@ struct datum {
 
     /// construct a datum representing the sequence between `first` and `last`
     ///
-    datum(const unsigned char *first, const unsigned char *last) : data{first}, data_end{last} {}
+    datum(const uint8_t *first, const uint8_t *last) : data{first}, data_end{last} {}
 
-    /// construct a datum by reading `length` bytes from another datum
+    /// construct a datum by accepting \p length bytes from datum \p d
+    ///
+    /// \param d      the datum to accept bytes from
+    /// \param length the number of bytes to be accepted
+    ///
+    /// If `length < d.length()`, then \p length bytes from \p d are read and
+    /// accepted into this datum, regardless of their format.
+    ///
+    /// If `length >  d.length()`, or `length < 0`, then \p d
+    /// is set to the null state.
     ///
     datum(datum &d, ssize_t length) {
         parse(d, length);
@@ -193,11 +217,11 @@ struct datum {
 
     /// constructs a datum from a `std::pair` of pointers
     ///
-    datum(std::pair<const unsigned char *, const unsigned char *> p) : data{p.first}, data_end{p.second} {}
+    datum(std::pair<const uint8_t *, const uint8_t *> p) : data{p.first}, data_end{p.second} {}
 
-    /// implicit conversion to a `std::pair` of pointers
+    /// implicitly converts this datum to a `std::pair` of pointers
     ///
-    operator std::pair<const unsigned char *, const unsigned char *> () const { return { data, data_end }; }
+    operator std::pair<const uint8_t *, const uint8_t *> () const { return { data, data_end }; }
 
     /// returns a `std::string` that contains a copy of the data in this datum
     ///
@@ -341,7 +365,7 @@ struct datum {
         return false;            // no matches found
     }
 
-    /// `datum::cmp(datum &p)` compares this datum to p
+    /// `datum::cmp(const datum &p) const` compares this datum to p
     /// lexicographically, and returns an integer less than, equal to,
     /// or greater than zero if this is found to be less than, to
     /// match, or to be greater than p, respectively.
@@ -370,14 +394,13 @@ struct datum {
         return cmp;
     }
 
-    /// `operator<(const datum &p)` returns true if this is
-    /// lexicographically less than `p`, and false otherwise.  It is
-    /// suitable for use in `std::sort()`.
+    /// `datum::cmp(std::array<uint8_t, N> &a) const` compares this datum to `a`
+    /// lexicographically, and returns an integer less than, equal to,
+    /// or greater than zero if this is found to be less than, to
+    /// match, or to be greater than `a`, respectively.
     ///
-    bool operator<(const datum &p) const {
-        return cmp(p) < 0;
-     }
-
+    /// For examples, see \ref datum::cmp(const datum &p) const
+    ///
     template <size_t N>
     bool cmp(const std::array<uint8_t, N> a) const {
         if (length() == N) {
@@ -386,12 +409,30 @@ struct datum {
         return false;
     }
 
-    // bool operator==(const datum &rhs) const {
-    //     return data == rhs.data && data_end == rhs.data_end;
-    // }
-    // bool operator!=(const datum &rhs) const {
-    //     return data != rhs.data || data_end != rhs.data_end;
-    // }
+    /// `operator<(const datum &p)` returns true if this is
+    /// lexicographically less than `p`, and false otherwise.  It is
+    /// suitable for use in `std::sort()`.
+    ///
+    bool operator<(const datum &p) const {
+        return cmp(p) < 0;
+     }
+
+    /// `operator==(const datum &p)` returns true if the bytes
+    ///  represented by this datum are identical to those represented
+    ///  by `p`, and false otherwise.
+    ///
+    bool operator==(const datum &p) const {
+        return cmp(p) == 0;
+     }
+
+    /// `operator!=(const datum &p)` returns false if the bytes
+    ///  represented by this datum are identical to those represented
+    ///  by `p`, and true otherwise.
+    ///
+    bool operator!=(const datum &p) const {
+        return cmp(p) != 0;
+     }
+
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
         unsigned int bits = (data_end - data) * 8;
         const unsigned char *d = data;
@@ -772,6 +813,18 @@ struct datum {
         }
     }
 
+    /// writes the readable part of this `data_buffer` to the file
+    /// descriptor `fd` and then returns the number of bytes written
+    /// on success, and `-1` on error; in the latter case, `errno`
+    /// indicates the cause of the error
+    ///
+    ssize_t write(int fd) {
+        if (is_null()) {
+            return -1;
+        }
+        return ::write(fd, data, length());
+    }
+
     /// fwrite(f) writes the entire datum out to the FILE *f, and on
     /// success, returns the number of bytes written; otherwise, 0 is
     /// returned.  This function can be used to write out seed files
@@ -828,6 +881,34 @@ struct datum {
         return true;
     }
 
+    /// @name STL begin() and end()
+    ///
+    /// A datum can be used in range-based for loops and other STL
+    /// constructs, as a sequence of `uint8_t` bytes, because the
+    /// functions \ref begin(), \ref end(), \ref cbegin(), and \ref
+    /// cend() provide the needed interface.
+    ///
+    /// @{
+    ///
+
+    /// `begin()` returns a pointer to the start of the data in this datum.
+    ///
+    const uint8_t *begin() const { return data; }
+
+    /// `end()` returns a pointer to the end of the data in this datum.
+    ///
+    const uint8_t *end()   const { return data_end; }
+
+    /// begin() returns a `const` pointer to the start of the data in this datum.
+    ///
+    const uint8_t *cbegin() const { return data; }
+
+    /// `end()` returns a `const` pointer to the end of the data in this datum.
+    ///
+    const uint8_t *cend()   const { return data_end; }
+
+    /// @} -- STL begin() and end() group
+
 };
 
 // sanity checks on class datum
@@ -837,21 +918,50 @@ static_assert(sizeof(datum) == 2 * sizeof(uint8_t *));
 
 /// \class writeable
 ///
-/// writeable represents a writeable region of memory
+/// tracks a contiguous region of memory to which data can be written sequentially
+///
+/// writeable is a lightweight, non-owning class that represents a
+/// region of memory to which data can be written sequentially.  A
+/// writeable object tracks the extent of the region as data is
+/// written, and verifies that there is sufficient room before a write
+/// operation.
+///
+/// Each writeable object is in one of the states `null`, `writeable`,
+/// or `full`:
+///
+///   |    State        | data          |   data_end   |
+///   |-----------------|---------------|--------------|
+///   |    null         | `nullptr`     |   `nullptr`  |
+///   |    writeable    | `!= nullptr`  |   `> data`   |
+///   |    full         | `!= nullptr`  |   `== data`  |
 ///
 class writeable {
 public:
     uint8_t *data;
     uint8_t *data_end;      // TODO: const?
 
+    /// constructs a writeable object that tracks data being written to the
+    /// region between `begin` and `end`
+    ///
     writeable(uint8_t *begin, uint8_t *end) : data{begin}, data_end{end} { }
 
+    /// returns true if the writeable object is in the null state, and false otherwise
+    ///
     bool is_null() const { return data == nullptr || data_end == nullptr; }
 
+    /// returns true if the writeable object is not empty, and false otherwise
+    ///
     bool is_not_empty() const { return data < data_end; }
 
+    /// returns the number of bytes in the writeable region to which
+    /// data can be written
+    ///
     ssize_t writeable_length() const { return data_end - data; }
 
+    /// consumes `length` bytes of the writeable region, if `length <=
+    /// this->writeable_length()`; otherwise, this writeable is set to
+    /// the null state
+    ///
     void update(ssize_t length) {
         // a length less than zero is considered an error state
         //
@@ -862,12 +972,17 @@ public:
         data += length;
     }
 
-    //    ptrdiff_t length() const { return data_end - data; }
-
+    /// sets this writeable object to the null state
+    ///
     void set_null() { data = data_end = nullptr; }
 
-    void set_empty() { data = data_end; }
+    /// sets this writeable object to the full state
+    ///
+    void set_full() { data = data_end; }
 
+    /// copies the single `uint8_t` \param x into this `data_buffer`,
+    /// if there is room; otherwise, sets it to the empty state
+    ///
     void copy(uint8_t x) {
         if (data + 1 > data_end) {
             set_null();
@@ -875,6 +990,11 @@ public:
         }
         *data++ = x;
     }
+
+    /// copies \p num_bytes bytes from location \p rdata into this
+    /// `data_buffer`, if there is room; otherwise, sets it to the
+    /// empty state
+    ///
     void copy(const uint8_t *rdata, size_t num_bytes) {
         if (data_end - data < (ssize_t)num_bytes) {
             set_null();
@@ -884,6 +1004,11 @@ public:
         data += num_bytes;
     }
 
+    /// writes a hexidecimal representation of the \p num_bytes bytes
+    /// at location \p rdata into this `data_buffer`, if there is room
+    /// for all `2*num_bytes` hex characters; otherwise, sets it to
+    /// the empty state
+    ///
     void write_hex(const uint8_t *src, size_t num_bytes) {
 
         // check for writeable room; output length is twice the input
@@ -905,12 +1030,22 @@ public:
         }
     }
 
+    /// writes a quote-enclosed hexidecimal representation of the \p
+    /// num_bytes bytes at location \p rdata into this `data_buffer`,
+    /// if there is room for all `2*num_bytes + 2` characters;
+    /// otherwise, sets it to the empty state
+    ///
     void write_quote_enclosed_hex(const uint8_t *src, size_t num_bytes) {
         copy('"');
         write_hex(src, num_bytes);
         copy('"');
     }
 
+    /// writes a quote-enclosed hexidecimal representation of the
+    /// bytes in the datum \p d into this `data_buffer`, if there is
+    /// room for all `2*num_bytes + 2` characters; otherwise, sets it
+    /// to the empty state
+    ///
     void write_quote_enclosed_hex(datum d) {
         write_quote_enclosed_hex(d.data, d.length());
     }
@@ -957,8 +1092,8 @@ public:
         return *this;
     }
 
-    // template specialization for datum
-    //
+    /// template specialization for datum
+    ///
     writeable & operator<<(datum d) {
         if (d.is_not_null()) {
             parse(d);
@@ -993,15 +1128,23 @@ public:
 template <size_t T> struct data_buffer : public writeable {
     unsigned char buffer[T];                                     // TODO: make buffer private
 
+    /// constructs a data_buffer with a fixed length of `T` bytes
+    ///
     data_buffer() : writeable{buffer, buffer+T} { }
 
+    /// reset this `data_buffer` so that the writeable part contains
+    /// `T` bytes and the readable part is empty (zero length)
+    ///
     void reset() { data = buffer; }
+
+    /// returns true if the readable part is not empty
+    ///
     bool is_not_empty() const { return data != buffer && data < data_end; }
 
-    // data_buffer::readable_length() returns the number of bytes in
-    // the readable region, if the writeable region is not null;
-    // otherwise, zero is returned
-    //
+    /// data_buffer::readable_length() returns the number of bytes in
+    /// the readable region, if the writeable region is not null;
+    /// otherwise, zero is returned
+    ///
     ssize_t readable_length() const {
         if (writeable::is_null()) {
             return 0;
@@ -1022,8 +1165,7 @@ template <size_t T> struct data_buffer : public writeable {
             return {buffer, data};
         }
     }
-
-    ssize_t write(int fd) { return ::write(fd, buffer, data - buffer);  }
+#if 0
 
     template <size_t S>
     bool operator==(const data_buffer<S> &rhs) {
@@ -1035,6 +1177,7 @@ template <size_t T> struct data_buffer : public writeable {
         return readable_length() != rhs.readable_length() ||
             memcmp(buffer, rhs.buffer, readable_length()) != 0;
     }
+#endif
 
     // TODO:
     //  * add data != nullptr checks
@@ -1088,9 +1231,6 @@ public:
 };
 
 
-// integer decoding
-//
-
 /// `bitsizeof(x)` returns the number of bits in `x`
 ///
 #define bitsizeof(x) (sizeof(x) * 8)
@@ -1122,16 +1262,17 @@ public:
 ///    D = slice<8,16>(x)
 /// ```
 ///
-/// Implementation note: the cast to type T is essential so that types
-/// smaller than 'unsigned integer' will not be promoted to a larger
-/// type.  That size promotion, if allowed, would break this function.
-///
+//
+// Implementation note: the cast to type T is essential so that types
+// smaller than 'unsigned integer' will not be promoted to a larger
+// type.  That size promotion, if allowed, would break this function.
+//
 template <size_t i, size_t j, typename T>
 constexpr T slice(T s) {
     return ((T)(s << i)) >> (bitsizeof(T)-(j-i));
 }
 
-/// bit<i>(x) returns the value of the ith bit of x, as a boolean.
+/// returns the value of the `i`th bit of `s`, as a boolean.
 ///
 template <size_t i, typename T>
 bool bit(T s) {
@@ -1149,6 +1290,9 @@ class encoded {
 
 public:
 
+    /// `encoded<T>(datum &d, bool little_endian=false)` constructs an `encoded<T>`
+    /// by accepting/reading an unsigned integer type `T` from the datum `d`.
+    ///
     encoded(datum &d, bool little_endian=false) {
         if (d.data == nullptr || d.data + sizeof(T) > d.data_end) {
             d.set_null();
@@ -1205,18 +1349,18 @@ public:
         }
     }
 
-    /// slice<i, j>() returns the unsigned integer given by the bits in
-    /// between i and j-1, inclusive, where zero denotes the leftmost
-    /// (most significant) bit.  This indexing scheme is compatible
-    /// with that used in IETF standard notation (RFC 1700).  See the
-    /// examples above.
+    /// `slice<i, j>() const` returns the unsigned integer given by
+    /// the bits in between i and j-1, inclusive, where zero denotes
+    /// the leftmost (most significant) bit.  This indexing scheme is
+    /// compatible with that used in IETF standard notation (RFC
+    /// 1700).  See the examples above.
     ///
     template <size_t i, size_t j>
     T slice() const {
         return ::slice<i,j>(val);
     }
 
-    /// bit<i>() returns the ith bit of the value, where zero denotes
+    /// `bit<i>() const` returns the ith bit of the value, where zero denotes
     /// the leftmost (most significant) bit.
     ///
     template <size_t i>
@@ -1257,11 +1401,17 @@ public:
     }
 };
 
-// class type_codes is a wrapper class and can be used to print typecodes. It inherently has a function
-// to write to json_object, a string depending on known typecodes for that class. The class utilises the json_object template function
-// print_key_value to write a type_code string. The type_code class to be wrapped must have a type_code, and functions:
-// template T get_code() to return code value and
-// char* print_code_str() to return code str or returns null for unknown code
+/// `class type_codes` is a wrapper class that can be used to print
+/// type codes.
+///
+/// `class type_codes` has a member function to write to json_object,
+/// a string depending on known typecodes for that class. The class
+/// utilises the json_object template function print_key_value to
+/// write a type_code string. The type_code class to be wrapped must
+/// have a type_code, and functions: template T get_code() to return
+/// code value and char* print_code_str() to return code str or
+/// returns null for unknown code
+///
 template <typename T>
 class type_codes {
     const T &code;
@@ -1314,6 +1464,7 @@ public:
 template <size_t N>
 class literal {
 public:
+    [[deprecated("Use literal_byte<> instead.")]]
     literal(datum &d, const std::array<uint8_t, N> &a) {
         for (const auto &c : a) {
             d.accept(c);
@@ -1368,8 +1519,8 @@ static_assert(sizeof(encoded<uint64_t>) == 8);
 ///   the compiler flag `-UNDEBUG`), and call each one inside of an
 ///   `assert()` macro, or whatever unit test function is appropriate.
 
-/// `encoded<uint8_t>::unit_test()` returns `true` if that class
-/// passes its unit test, and `false` otherwise.
+/// returns `true` if that template specialization class passes its
+/// unit test, and `false` otherwise.
 ///
 template <>
 inline bool encoded<uint8_t>::unit_test() {
@@ -1482,9 +1633,9 @@ public:
 template <typename T>
 class acceptor {
 public:
-    T value;
+    T value;       ///< the accepted value, if valid == true
 private:
-    bool valid;
+    bool valid;    ///< true only if an object of type T could be accepted
 public:
 
     /// construct an `acceptor<T>` object by parsing an object of type
@@ -1548,8 +1699,8 @@ public:
 
     ignore() { }
 
-    // write out null value
-    //
+    /// writes out null value
+    ///
     void write(writeable &w) {
         uint8_t zero[sizeof(T)] = { 0, };
         w.copy(zero, sizeof(T));

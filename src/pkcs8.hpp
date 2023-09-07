@@ -336,7 +336,7 @@ public:
         rsa_priv.write(dbuf2);
         datum result2 = dbuf2.contents();
 
-        if (dbuf != dbuf2) {
+        if (dbuf.contents() != dbuf2.contents()) {
             if (verbose) {
                 fprintf(stdout, "failure: result != result2\n          ");
                 for (ssize_t i=0; i<std::min(dbuf.readable_length(), dbuf2.readable_length()); i++) {

@@ -33,9 +33,9 @@ html_static_path = ['_static']
 ###################################
 
 breathe_projects = {
-    "mercury": "source/doxyxml/xml/",
+    "mercury": "./doxyxml/xml/",
 }
 
 breathe_projects_source = {
-    "mercury" : ( "../../../src/libmerc/", ["datum.h"] )
+    "mercury" : ( "../../../", ["src/libmerc/datum.h"] )
 }
