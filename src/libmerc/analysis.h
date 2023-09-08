@@ -723,12 +723,12 @@ public:
     }
 
     // seed known set of fingerprints
-    void initial_add(std::string fp_str) {
+    void initial_add(const std::string &fp_str) {
         known_set_.insert(fp_str);
     }
 
     // update fingerprint LRU cache if needed
-    void update(std::string fp_str) {
+    void update(const std::string &fp_str) {
         if (known_set_.find(fp_str) != known_set_.end()) {
             return ;
         }
