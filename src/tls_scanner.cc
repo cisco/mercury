@@ -273,6 +273,10 @@ public:
         std::basic_string<uint8_t> cert_string = cert.get_bytestring();
         data.insert(cert_string, hostname);
 
+        if (print_cert) {
+            cert.print_json(stdout);
+        }
+
         if (cert_output_file != nullptr) { // omit normal output
             return;
         }

@@ -183,15 +183,33 @@ class naive_bayes {
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
     std::unordered_map<std::string, std::vector<class update>> user_agent_updates;
 
+    floating_point_type as_weight;
+    floating_point_type domain_weight;
+    floating_point_type port_weight;
+    floating_point_type ip_weight;
+    floating_point_type sni_weight;
+    floating_point_type ua_weight;
 public:
 
     //    naive_bayes() { }
 
     naive_bayes(const std::vector<class process_info> &processes,
                 uint64_t count,
-                ptr_dict &os_dictionary)
+                ptr_dict &os_dictionary,
+                floating_point_type _as_weight = 0.13924,
+                floating_point_type _domain_weight = 0.15590,
+                floating_point_type _port_weight = 0.00528,
+                floating_point_type _ip_weight = 0.56735,
+                floating_point_type _sni_weight = 0.96941,
+                floating_point_type _ua_weight = 1.0)
         : total_count{count},
-          os_dict{os_dictionary}
+          os_dict{os_dictionary},
+          as_weight{_as_weight},
+          domain_weight{_domain_weight},
+          port_weight{_port_weight},
+          ip_weight{_ip_weight},
+          sni_weight{_sni_weight},
+          ua_weight{_ua_weight}
     {
 
         //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -203,13 +221,6 @@ public:
         base_prior = log(0.1 / total_count);
         size_t index = 0;
         for (const auto &p : processes) {
-
-            constexpr floating_point_type as_weight = 0.13924;
-            constexpr floating_point_type domain_weight = 0.15590;
-            constexpr floating_point_type port_weight = 0.00528;
-            constexpr floating_point_type ip_weight = 0.56735;
-            constexpr floating_point_type sni_weight = 0.96941;
-            constexpr floating_point_type ua_weight = 1.0;
 
             //fprintf(stderr, "compiling process \"%s\"\n", p.name.c_str());
 
@@ -333,6 +344,90 @@ public:
         }
 
         return process_score;
+    }
+
+    bool is_recomputation_required(floating_point_type new_as_weight, floating_point_type new_domain_weight,
+                                 floating_point_type new_port_weight, floating_point_type new_ip_weight,
+                                 floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
+        if (new_as_weight != as_weight or new_domain_weight != domain_weight or
+            new_port_weight != port_weight or new_ip_weight != ip_weight or
+            new_sni_weight != sni_weight or new_ua_weight != ua_weight) {
+            return true;
+        }
+
+        return false;
+    }
+
+    void recompute_probabilities(floating_point_type new_as_weight, floating_point_type new_domain_weight,
+                                 floating_point_type new_port_weight, floating_point_type new_ip_weight,
+                                 floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
+
+        if (!is_recomputation_required(new_as_weight, new_domain_weight, new_port_weight,
+                                       new_ip_weight, new_sni_weight, new_ua_weight)) {
+            return;
+        }
+
+        floating_point_type old_weights = base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight);
+        floating_point_type new_weights = base_prior * (new_as_weight + new_domain_weight + new_port_weight + new_ip_weight + new_sni_weight + new_ua_weight);
+
+        /*
+         * Process probability is originally calculated as,
+         * process_prob = fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight)
+         * when weights are changed, then process_prob can be recalculated as,
+         *
+         * process_prob = process_prob - base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight)
+                            + base_prior * (new_as_weight + new_domain_weight + new_port_weight + new_ip_weight + new_sni_weight + new_ua_weight)
+         */
+        for (auto &p : process_prob) {
+            p = p - old_weights + new_weights;
+        }
+
+        /*
+         * Update value is originally calculated as
+         * update.value  = log((floating_point_type)as_and_count.second / total_count) - base_prior ) * as_weight
+         */
+        for (auto &v : as_number_updates) {
+            for (auto &update : v.second) {
+                update.value = update.value * new_as_weight/as_weight;
+            }
+        }
+
+        for (auto &v: hostname_domain_updates) {
+            for (auto &update : v.second) {
+                update.value = update.value * new_domain_weight/domain_weight;
+            }
+        }
+
+        for (auto &v: port_updates) {
+            for (auto &update : v.second) {
+                update.value = update.value * new_port_weight/port_weight;
+            }
+        }
+
+        for (auto &v: ip_ip_updates) {
+            for (auto &update : v.second) {
+                update.value = update.value * new_ip_weight/ip_weight;
+            }
+        }
+
+        for (auto &v: hostname_sni_updates) {
+            for (auto &update : v.second) {
+                update.value = update.value * new_sni_weight/sni_weight;
+            }
+        }
+ 
+        for (auto &v: user_agent_updates) {
+            for (auto &update : v.second) {
+                update.value = update.value * new_ua_weight/ua_weight;
+            }
+        }
+
+        as_weight = new_as_weight;
+        domain_weight = new_domain_weight;
+        port_weight = new_port_weight;
+        ip_weight = new_ip_weight;
+        sni_weight = new_sni_weight;
+        ua_weight = new_ua_weight;
     }
 };
 
@@ -563,6 +658,12 @@ public:
         return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size, attr_res);
     }
 
+    void recompute_probabilities(floating_point_type new_as_weight, floating_point_type new_domain_weight,
+                                 floating_point_type new_port_weight, floating_point_type new_ip_weight,
+                                 floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
+        classifier.recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
+    }
+
     static uint16_t remap_port(uint16_t dst_port) {
         std::unordered_map<uint16_t, uint16_t> port_remapping =
             {
@@ -622,30 +723,33 @@ public:
     }
 
     // seed known set of fingerprints
-    void initial_add(std::string fp_str) {
+    void initial_add(const std::string &fp_str) {
         known_set_.insert(fp_str);
     }
 
     // update fingerprint LRU cache if needed
-    void update(std::string fp_str) {
+    void update(const std::string &fp_str) {
         if (known_set_.find(fp_str) != known_set_.end()) {
             return ;
         }
 
-        std::unique_lock lock(mutex_);
+        std::unique_lock lock(mutex_, std::try_to_lock);
 
-        if (set_.find(fp_str) != set_.end()) {
-            list_.remove(fp_str);
-            list_.push_back(fp_str);
+        if (!lock.owns_lock()) {
+            return;  // Some other thread wins the lock. So bailing out
+        }
+
+        if (set_.find(fp_str) == set_.end()) {
+            if (list_.size() == max_cache_size_) {
+                set_.erase(list_.back());
+                list_.pop_back();
+            }
         } else {
-            list_.push_back(fp_str);
-            set_.insert(fp_str);
+            list_.erase(set_[fp_str]);
         }
 
-        if (set_.size() > max_cache_size_) {
-            set_.erase(list_.front());
-            list_.pop_front();
-        }
+        list_.push_front(fp_str);
+        set_[fp_str] = list_.begin();
     }
 
     void print(FILE *f) {
@@ -657,7 +761,7 @@ public:
 private:
     mutable std::shared_mutex mutex_;
     std::list<std::string> list_;
-    std::unordered_set<std::string> set_;
+    std::unordered_map<std::string, std::list<std::string>::iterator> set_;
     std::unordered_set<std::string> known_set_;
     uint32_t max_cache_size_;
 };
@@ -1149,6 +1253,57 @@ public:
         }
         class fingerprint_data &fp_data = fpdb_entry->second;
 
+        return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
+    }
+
+    /*
+     * This function perform_analysis_with_weights accepts
+     * weights of features of weighed naive bayes classifier as input
+     * and performs analysis based on the updated weights.
+     * This function is mainly required for tuning the weights and is
+     * intended to be used during the training phase where the
+     * functionality is exposed using cython api and is not
+     * intended to be used in packet processing path. 
+     */
+    struct analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip,
+                                            uint16_t dst_port, const char *user_agent, floating_point_type new_as_weight, floating_point_type new_domain_weight,
+                                 floating_point_type new_port_weight, floating_point_type new_ip_weight,
+                                 floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
+
+        // fp_stats.observe(fp_str, server_name, dst_ip, dst_port); // TBD - decide where this call should go
+
+        const auto fpdb_entry = fpdb.find(fp_str);
+        if (fpdb_entry == fpdb.end()) {
+            if (fp_prevalence.contains(fp_str)) {
+                fp_prevalence.update(fp_str);
+                return analysis_result(fingerprint_status_unlabled);
+            } else {
+                fp_prevalence.update(fp_str);
+                /*
+                 * Resource file has info about randomized fingerprints in the format
+                 * protocol/format/randomized
+                 * Eg: tls/1/randomized
+                 */
+                std::string randomized_str;
+                const char *c = &fp_str[0];
+                while (*c != '\0' && *c != '(') {
+                    randomized_str.append(c, 1);
+                    c++;
+                }
+                randomized_str.append("randomized");
+
+                const auto fpdb_entry_randomized = fpdb.find(randomized_str);
+                if (fpdb_entry_randomized == fpdb.end()) {
+                    return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
+                }
+                class fingerprint_data &fp_data = fpdb_entry_randomized->second;
+                fp_data.recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
+                return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
+            }
+        }
+        class fingerprint_data &fp_data = fpdb_entry->second;
+
+        fp_data.recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
         return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
     }
 
