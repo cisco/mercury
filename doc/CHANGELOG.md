@@ -1,5 +1,11 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.21
+
+* Fixed a slow memory leak in TCP reassembly
+* Optimized LRU cache in `fingerprint_prevalence::update()`, and changed locking strategy to minimize thread contention
+* New cython function `perform_analysis_with_weights`
+
 ## Version 2.5.20
 
 * Added support to parse IP pkts encapsulated in SGT or Cisco Metadata.

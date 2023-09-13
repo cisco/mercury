@@ -723,30 +723,33 @@ public:
     }
 
     // seed known set of fingerprints
-    void initial_add(std::string fp_str) {
+    void initial_add(const std::string &fp_str) {
         known_set_.insert(fp_str);
     }
 
     // update fingerprint LRU cache if needed
-    void update(std::string fp_str) {
+    void update(const std::string &fp_str) {
         if (known_set_.find(fp_str) != known_set_.end()) {
             return ;
         }
 
-        std::unique_lock lock(mutex_);
+        std::unique_lock lock(mutex_, std::try_to_lock);
 
-        if (set_.find(fp_str) != set_.end()) {
-            list_.remove(fp_str);
-            list_.push_back(fp_str);
+        if (!lock.owns_lock()) {
+            return;  // Some other thread wins the lock. So bailing out
+        }
+
+        if (set_.find(fp_str) == set_.end()) {
+            if (list_.size() == max_cache_size_) {
+                set_.erase(list_.back());
+                list_.pop_back();
+            }
         } else {
-            list_.push_back(fp_str);
-            set_.insert(fp_str);
+            list_.erase(set_[fp_str]);
         }
 
-        if (set_.size() > max_cache_size_) {
-            set_.erase(list_.front());
-            list_.pop_front();
-        }
+        list_.push_front(fp_str);
+        set_[fp_str] = list_.begin();
     }
 
     void print(FILE *f) {
@@ -758,7 +761,7 @@ public:
 private:
     mutable std::shared_mutex mutex_;
     std::list<std::string> list_;
-    std::unordered_set<std::string> set_;
+    std::unordered_map<std::string, std::list<std::string>::iterator> set_;
     std::unordered_set<std::string> known_set_;
     uint32_t max_cache_size_;
 };
