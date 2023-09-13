@@ -552,12 +552,7 @@ struct quic_initial_packet {
         // Long Packet Type   (2)        00
         // Type-Specific Bits (4)        ??
         //
-        // uint8_t conn_info_mask  = 0b10110000;
-        // uint8_t conn_info_value = 0b10000000;
         d.read_uint8(&connection_info);
-        // if ((connection_info & conn_info_mask) != conn_info_value) {
-        //     return;
-        // }
 
         version.parse(d, 4);
 
@@ -869,15 +864,6 @@ public:
 class quic_crypto_engine {
 
     crypto_engine core_crypto;
-
-    // uint8_t * const *client_in_label = nullptr;
-    // uint8_t * const *quic_key_label  = nullptr;
-    // uint8_t * const *quic_iv_label   = nullptr;
-    // uint8_t * const *quic_hp_label   = nullptr;
-    // unsigned int * const client_in_label_size = 0;
-    // unsigned int * const quic_key_label_size  = 0;
-    // unsigned int * const quic_iv_label_size   = 0;
-    // unsigned int * const quic_hp_label_size   = 0;
 
     size_t salt_length = 20;
 
