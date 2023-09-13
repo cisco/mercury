@@ -65,6 +65,8 @@ Mercury Library Documentation
 .. doxygengroup:: byteorder
    :project: mercury
 
+.. doxygengroup:: bitoperations
+   :project: mercury
 
 
 
