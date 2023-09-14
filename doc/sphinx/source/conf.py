@@ -9,7 +9,8 @@
 project = 'mercury'
 copyright = '2023, Cisco Systems'
 author = 'Cisco Systems'
-release = '2.5.19'
+with open('../../../VERSION') as VERSION:
+    release = VERSION.read()
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

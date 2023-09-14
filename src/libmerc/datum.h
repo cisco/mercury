@@ -1083,11 +1083,12 @@ public:
 /// It can be illustrated as
 ///
 /// ```
+///      +-- start of buffer               end of buffer --+
+///      v                                                 v
 ///      +--------------------+----------------------------+
 ///      |   readable part    |       writeable part       |
 ///      +--------------------+----------------------------+
-///      ^                    ^                            ^
-///      +-- start of buffer  |                            |
+///                           ^                            ^
 ///                           +-- start of writeable       |
 ///                                                        |
 ///                                     end of writeable --+
@@ -1308,11 +1309,8 @@ public:
 
     T value() const { return val; }
 
-    /// reverses the byte order of the integer \ref val, from big endian to
-    /// little endian or vice-versa.
-    ///
-    /// Note: this operation is only the same as \ref hton() if the
-    /// host byte order is little-endian.
+    /// reverses the byte order of this encoded integer, from big
+    /// endian to little endian or vice-versa.
     ///
     void swap_byte_order() {
         if constexpr (sizeof(val) == 8) {
