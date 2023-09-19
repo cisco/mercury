@@ -245,6 +245,14 @@ struct base64_file_reader : public file_reader {
             line = NULL;
             return 0;
         }
+
+        // trim LF from line
+        //
+        if (nread > 0) {
+            if (line[nread-1] == '\n') {
+                nread--;
+            }
+        }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, line, nread);
         if (cert_len < 0) {
             fprintf(stderr, "error: base64 decoding failure on line %u around character %zd\n", line_number, -cert_len);
