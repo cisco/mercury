@@ -289,7 +289,7 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
 
 bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_path) {
 
-    if (mc == NULL || stats_data_file_path == NULL) {
+    if (mc == NULL || stats_data_file_path == NULL ||  mc->aggregator == nullptr || mc->global_vars.do_stats == false) {
         return false;
     }
 
