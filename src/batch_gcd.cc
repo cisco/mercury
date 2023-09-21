@@ -23,6 +23,7 @@
 #include <gmpxx.h>
 
 #include <map>
+#include <cmath>
 #include <chrono>
 #include <vector>
 #include <thread>
@@ -1065,19 +1066,23 @@ int main (int argc, char *argv[]) {
             int64_t ms_since_last_update = std::chrono::duration_cast<std::chrono::milliseconds>(current_time-last_screen_update).count();
             if (ms_since_last_update > 250) {
                 last_screen_update = current_time;
+                size_t num_tree_layers = 1 + static_cast<size_t>(std::ceil(std::log2(linereader->get_linenum()+1)));  // product/remainder tree
                 fprintf(stderr,
                         "certs: " ANSI_YELLOW "%zu" ANSI_END
                         "   duplicates: " ANSI_YELLOW "%zu" ANSI_END
                         "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\r",
-                        linereader->get_linenum(), duplicates_ignored, estimated_limbs * 8);
+                        linereader->get_linenum(), duplicates_ignored,
+                        estimated_limbs * 8 * (2 + num_tree_layers)); // tree + 2 extra "layers" for temp results and line number tracking
             }
         }
     }
+    size_t num_tree_layers = 1 + 2 * static_cast<size_t>(std::ceil(std::log2(linereader->get_linenum()+1)));
     fprintf(stderr,
-        "certs: " ANSI_YELLOW "%zu" ANSI_END
-        "   duplicates: " ANSI_YELLOW "%zu" ANSI_END
-        "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\n",
-        linereader->get_linenum(), duplicates_ignored, estimated_limbs * 8);
+            "certs: " ANSI_YELLOW "%zu" ANSI_END
+            "   duplicates: " ANSI_YELLOW "%zu" ANSI_END
+            "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\r",
+            linereader->get_linenum(), duplicates_ignored,
+            estimated_limbs * 8 * (2 + num_tree_layers)); // tree + 2 extra "layers" for temp results and line number tracking
 
     // deallocate reader to minimize RAM usage
     //
