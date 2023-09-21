@@ -196,6 +196,9 @@ struct pem_file_reader : public file_reader {
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, base64_buffer, b_ptr - base64_buffer);
         if (nread <= 0 && !is_closed)
             fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
+        if (cert_len == 0) {
+            fprintf(stderr, "error: base64 decoding failed, output buffer (%zd bytes) is too small\n", outbuf_len);
+        }
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
         line = NULL;
         return cert_len;

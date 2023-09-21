@@ -712,7 +712,7 @@ public:
         // cert with an rsa public key, or we encounter an error
         //
         while (true) {
-            data_buffer<8*8192> pembuf;
+            data_buffer<64*8192> pembuf;
             pemfile.write(pembuf);
             pem_file_reader::pem_label label = pemfile.get_label();
             datum pemdata = pembuf.contents();
