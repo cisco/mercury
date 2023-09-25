@@ -155,14 +155,21 @@ coverage_report: clean
 	cd unit_tests && gcovr -r ../src/libmerc
 
 .PHONY: doc
-doc: doc/mercury.pdf
+doc: doc/mercury.pdf sphinx
 
 doc/mercury.pdf:
 	doxygen
 	cd doc/latex; make; mv refman.pdf ../mercury.pdf
 
-.PHONY: clean
-clean:
+.PHONY: sphinx sphinx-clean
+sphinx:
+	cd doc/sphinx && $(MAKE) html
+
+sphinx-clean:
+	cd doc/sphinx && $(MAKE) clean
+
+.PHONY:
+clean: sphinx-clean
 	for file in Makefile README.md configure.ac Doxyfile; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
