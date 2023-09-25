@@ -1080,7 +1080,7 @@ int main (int argc, char *argv[]) {
     fprintf(stderr,
             "certs: " ANSI_YELLOW "%zu" ANSI_END
             "   duplicates: " ANSI_YELLOW "%zu" ANSI_END
-            "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\r",
+            "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\n",
             linereader->get_linenum(), duplicates_ignored,
             estimated_limbs * 8 * (2 + num_tree_layers)); // tree + 2 extra "layers" for temp results and line number tracking
 
