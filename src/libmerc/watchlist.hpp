@@ -412,7 +412,7 @@ public:
 class dns_label_string : public one_or_more<dns_label_string> {
 public:
     inline static bool in_class(uint8_t x) {
-        return (x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z') || (x >= '0' && x <= '9') || x == '-';
+        return (x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z') || (x >= '0' && x <= '9') || x == '-' || x == '_';
     }
 };
 
