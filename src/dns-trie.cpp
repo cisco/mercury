@@ -254,19 +254,26 @@ void testcase() {
 
     fputc('\n', stdout);
 
-    auto print_node = [](std::pair<std::string, dns_trie::node *> e, const std::string &s) {
+    auto print_node = [](std::pair<std::string, dns_trie::node *> e, const std::string &s, size_t root_prob_count) {
         char indent_string[] = "                                                                            ";
-        if (true || e.second->is_leaf()) {
-            fprintf(stdout, "%s%s%.*s%zu\n",
+        if (e.second->is_leaf()) {
+            fprintf(stdout, "%s%s%.*s%f\n",
                     s.c_str(),
                     e.first.c_str(),
                     (int)(strlen(indent_string)-(int)e.first.length()-s.length()),
                     indent_string,
-                    e.second->get_count());
+                    (float)e.second->get_count() / root_prob_count);
         }
     };
     t.get_root().postorder_traverse(print_node, "", 100);
 
+    fputc('\n', stdout);
+
+    for (auto &s : {
+            "foo.net", "example.com", "a.example.com", "b.example.com", "c.example.com", "foo.example.com"
+        }) {
+        printf("%s:\t%f\n", s, t.probability(s));
+    }
 }
 
 #include <regex>

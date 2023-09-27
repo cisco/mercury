@@ -122,7 +122,7 @@ public:
         }
 
         template <typename F>
-        void postorder_traverse(F visit, const std::string &s, size_t root_prob_count) const {
+        void postorder_traverse(F visit, const std::string &s, size_t root_prob_count) {
             for (const auto & e : edges) {
                 if (e.second) {
                     std::string tmp{s};
@@ -130,7 +130,7 @@ public:
                     tmp += '.';
                     e.second->postorder_traverse(visit, tmp, root_prob_count);
                 }
-                visit(e, s);
+                visit(e, s, root_prob_count);
             }
         }
 
@@ -327,7 +327,7 @@ public:
         return tmp;
     }
 
-    float probabiliy(std::string &s) { // TODO: should be const
+    float probability(const std::string &s) { // TODO: should be const
         node *n = longest_prefix_match_node(s);
         return (float) n->prob_count() / root.prob_count();
     }
