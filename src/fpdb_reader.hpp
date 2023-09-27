@@ -278,6 +278,7 @@ public:
         if (fp.HasMember("total_count") && fp["total_count"].IsUint64()) {
             total_count = fp["total_count"].GetUint64();
         }
+        (void)total_count; // prevent compiler complaining
 
         std::vector<class process_info> process_vector;
 

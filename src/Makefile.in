@@ -179,7 +179,7 @@ batch_gcd: batch_gcd.cc
 cert_analyze: cert_analyze.cc libmerc/asn1.h
 	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1.cc libmerc/asn1/oid.cc -pthread -lcrypto -o cert_analyze
 
-dns-trie: dns-trie.cpp markov.hpp fpdb_reader.hpp
+dns-trie: dns-trie.cpp dns_trie.hpp markov.hpp fpdb_reader.hpp
 	$(CXX) $(CFLAGS) dns-trie.cpp -o dns-trie
 
 markov: markov.cpp markov.hpp
