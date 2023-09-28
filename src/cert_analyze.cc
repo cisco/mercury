@@ -317,7 +317,7 @@ struct pem_file_reader : public file_reader {
         }
 
         // marshall data
-        char base64_buffer[16*8192];       // note: hardcoded length for now
+        char base64_buffer[64*8192];       // note: hardcoded length for now
         char *base64_buffer_end = base64_buffer + sizeof(base64_buffer);
         char *b_ptr = base64_buffer;
         bool is_closed = false;
@@ -708,7 +708,7 @@ int main(int argc, char *argv[]) {
         } else {
 
             // parse certificate, then print as JSON
-            char buffer[256*1024];
+            char buffer[64*8192];       // note: hardcoded length for now
             struct buffer_stream buf(buffer, sizeof(buffer));
             struct x509_cert c;
             try {
