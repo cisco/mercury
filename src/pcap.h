@@ -292,7 +292,7 @@ namespace pcap {
         void write(writeable &buf) {
 
             if (!valid) {
-                buf.set_empty();  // TODO: indicate failure
+                buf.set_full();  // TODO: indicate failure
                 return;
             }
 
@@ -380,7 +380,7 @@ namespace pcap {
         void write(writeable &buf) {
 
             if (!is_valid()) {
-                buf.set_empty();  // TODO: indicate failure
+                buf.set_full();  // TODO: indicate failure
                 // fprintf(stderr, "error in %s\n", __func__);
                 return;
             }
@@ -443,7 +443,7 @@ namespace pcap {
             file_header header(snaplen, ltype);
 
             header.write(buf);
-            buf.write(fd);
+            buf.contents().write(fd);
 
         }
 
@@ -451,7 +451,7 @@ namespace pcap {
             packet_record record{0, 0, pkt};
             data_buffer<1024 * 8> buf;
             record.write(buf);
-            buf.write(fd);
+            buf.contents().write(fd);
         }
 
         enum LINKTYPE get_linktype() const { return (enum LINKTYPE)linktype; }
@@ -1555,7 +1555,7 @@ namespace pcap::ng {
             file_header.write(buf);
             interface_description_block idb{ltype, snaplen};
             idb.write(buf);
-            buf.write(fd);
+            buf.contents().write(fd);
 
         }
 
@@ -1563,7 +1563,7 @@ namespace pcap::ng {
             data_buffer<1024 * 8> buf;
             simple_packet_block packet_block{pkt};
             packet_block.write(buf);
-            buf.write(fd);
+            buf.contents().write(fd);
         }
 
         void write(datum pkt,
@@ -1573,7 +1573,7 @@ namespace pcap::ng {
             data_buffer<1024 * 8> buf;
             enhanced_packet_block packet_block{pkt, interface, t_hi, t_lo};
             packet_block.write(buf);
-            buf.write(fd);
+            buf.contents().write(fd);
         }
 
         enum LINKTYPE get_linktype() const { return (enum LINKTYPE)linktype; }

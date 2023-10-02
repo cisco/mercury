@@ -782,7 +782,7 @@ struct tlv {
             format_string = ",\"%s\":[";
         }
         o.b->snprintf(format_string, name);
-        if (value.data) {
+        if (value.data && value.length() > 1) {
             struct datum p = value;
             uint8_t number_of_unused_bits = 0;
             p.read_uint8(&number_of_unused_bits);

@@ -20,6 +20,8 @@ COLOR_GREEN  = "\033[0;32m"
 COLOR_YELLOW = "\033[0;33m"
 COLOR_OFF    = "\033[0m"
 
+include ../Makefile_helper.mk
+
 MERCURY = ../src/mercury
 export LD_LIBRARY_PATH =$(shell pwd)/../src/libmerc
 
@@ -322,7 +324,11 @@ fuzz-test:
 ifeq ($(have_clang),yes)
 	@echo "checking libmerc.a for fuzz test"
 	cd ../src && $(MAKE) libmerc.a
+ifeq ($(openssl_newer),yes)
+	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 -s true
+else
 	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000
+endif
 else
 	@echo $(COLOR_YELLOW) "clang++ unavailable; cannot perform fuzz test" $(COLOR_OFF)
 endif

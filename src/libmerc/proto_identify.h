@@ -346,9 +346,6 @@ public:
         if (protocols["wireguard"] || protocols["all"]) {
             udp.add_protocol(wireguard_handshake_init::matcher, udp_msg_type_wireguard);
         }
-        if (protocols["quic"] || protocols["all"]) {
-            udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
-        }
         if (protocols["ssdp"] || protocols["all"]) {
             udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
         }
@@ -404,6 +401,9 @@ public:
         }
         if (protocols["mysql"] || protocols["all"]) {
             tcp.add_protocol(mysql_server_greet::matcher, tcp_msg_type_mysql_server);
+        }
+        if (protocols["quic"] || protocols["all"]) {
+            udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
         }
         // tell protocol_identification objects to compile lookup tables
         tcp.compile();

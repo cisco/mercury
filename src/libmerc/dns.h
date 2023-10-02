@@ -474,7 +474,7 @@ struct dns_question_record {
         cache = rr_class & 0x8000;  // mDNS cache bit
         rr_class &= 0x7fff;         // mask away mDNS cache bit
         if (d.is_null()) {
-            name.set_empty();
+            name.set_full();
         }
     }
 
