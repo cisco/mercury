@@ -256,17 +256,33 @@ void testcase() {
 
     auto print_node = [](std::pair<std::string, dns_trie::node *> e, const std::string &s, size_t root_prob_count) {
         char indent_string[] = "                                                                            ";
-        if (e.second->is_leaf()) {
+        if (true || e.second->is_leaf()) {
             fprintf(stdout, "%s%s%.*s%f\n",
                     s.c_str(),
                     e.first.c_str(),
                     (int)(strlen(indent_string)-(int)e.first.length()-s.length()),
                     indent_string,
-                    (float)e.second->get_count() / root_prob_count);
+                    (float)e.second->get_subtree_count() / root_prob_count);
         }
     };
-    t.get_root().postorder_traverse(print_node, "", 100);
+    auto print_node2 = [](std::pair<std::string, dns_trie::node *> e, const std::string &s, size_t root_prob_count) {
+        (void)root_prob_count;  // ignore parameter
+        char indent_string[] = "                                                                            ";
+        if (true || e.second->is_leaf()) {
+            fprintf(stdout, "%s%s%.*s%zu\t%zu\n",
+                    s.c_str(),
+                    e.first.c_str(),
+                    (int)(strlen(indent_string)-(int)e.first.length()-s.length()),
+                    indent_string,
+                    e.second->get_subtree_count(),
+                    e.second->get_node_count());
+        }
+    };
+    t.get_root().postorder_traverse(print_node2, "", 100);
+    fputc('\n', stdout);
 
+    fprintf(stdout, "postorder traversal:\n");
+    t.get_root().postorder_traverse(print_node, "", 100);
     fputc('\n', stdout);
 
     for (auto &s : {
@@ -295,8 +311,16 @@ using namespace mercury_option;
 
 int main(int argc, char *argv[]) {
 
-    testcase();
-    return 0;
+    if (false) {
+        //
+        // what's the minimum size?  about 72 bytes each
+        //
+        fprintf(stdout, "sizeof(dns_trie::node): %zu\n", sizeof(dns_trie::node));
+        fprintf(stdout, "sizeof(dns_trie):       %zu\n", sizeof(dns_trie));
+    }
+
+    // testcase();
+    // return 0;
 
     std::ios::sync_with_stdio(false);  // for performance
 
@@ -312,6 +336,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--help",               "print help message"       },
         { argument::none,       "--trie",               "create dns name trie"     },
         { argument::none,       "--dump",               "dump printout of trie"    },
+        { argument::none,       "--leaf",               "only output leaf info"    },
         { argument::none,       "--json",               "input is json"            },
         { argument::none,       "--find-public-suffix", "report the public suffix" },
         { argument::required,   "--public-suffix-list", "public suffix list file"  },
@@ -337,6 +362,7 @@ int main(int argc, char *argv[]) {
     auto [ lookup_set, lookup ]       = opt.get_value("--dns-lookup");
     bool find_psl                     = opt.is_set("--find-public-suffix");
     bool dump                         = opt.is_set("--dump");
+    bool leaf                         = opt.is_set("--leaf");
     bool json_input                   = opt.is_set("--json");
     bool help                         = opt.is_set("--help");
     std::optional<std::string> filter_string = opt.get("--filter");
@@ -472,7 +498,7 @@ int main(int argc, char *argv[]) {
                     label.c_str(),
                     (int)(strlen(indent_string)-(int)label.length()-s.length()),
                     indent_string,
-                    node->get_count());
+                    node->get_subtree_count());
         };
         (void)lambda; // prevent compiler complaining
 
@@ -525,7 +551,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (dump) {
-            t.fprint(stdout);
+            t.fprint(stdout, leaf);
         }
 
         if (test_data_is_set) {
@@ -539,7 +565,7 @@ int main(int argc, char *argv[]) {
                 fprintf(stdout, "longest match:          %s\n", t.longest_prefix_match(line).c_str());
                 dns_trie::node *n = t.longest_prefix_match_node(line);
                 if (n) {
-                    fprintf(stdout, "count:                  %zu\n", n->get_count());
+                    fprintf(stdout, "count:                  %zu\n", n->get_subtree_count());
                     fprintf(stdout, "leaf:                   %u\n", n->is_leaf());
                 }
                 // fprintf(stdout, "longest match plus one: %s\n", t.longest_prefix_match_plus_one(line).c_str());
