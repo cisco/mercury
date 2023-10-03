@@ -754,6 +754,7 @@ private:
 struct flow_table_tcp {
     std::unordered_map<struct key, struct tcp_context> table;
     std::unordered_map<struct key, struct tcp_context>::iterator reap_it;
+    static constexpr uint32_t max_entries = 20000;
 
     flow_table_tcp(unsigned int size) : table{}, reap_it{table.end()} {
         table.reserve(size);
@@ -761,10 +762,28 @@ struct flow_table_tcp {
     }
 
     void syn_packet(const struct key &k, unsigned int sec, uint32_t seq) {
+        if (table.size() >= max_entries) {
+            // try to remove two entries
+            increment_reap_iterator();
+            if (reap_it != table.end()) {
+                reap_it = table.erase(reap_it);
+            }
+            increment_reap_iterator();
+            if (reap_it != table.end()) {
+                reap_it = table.erase(reap_it);
+            }
+        }
         auto it = table.find(k);
         if (it == table.end()) {
             table.insert({k, {sec, seq}});
             // printf_err(log_debug, "tcp_flow_table size: %zu\n", table.size());
+        }
+    }
+
+    void find_and_erase(const struct key &k) {
+        auto it = table.find(k);
+        if (it != table.end()) {
+            reap_it = table.erase(it);
         }
     }
 

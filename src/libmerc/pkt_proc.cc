@@ -560,7 +560,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
             // note: we could check for non-empty data field
 
-        } else {
+        } else if (tcp_pkt.is_FIN() || tcp_pkt.is_RST()) {
+                tcp_flow_table.find_and_erase(k);
+        }
+        else {
             //bool write_pkt = false;
             if (!process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler)) {
                 return 0;
@@ -773,7 +776,11 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
             } else if (tcp_pkt.is_SYN_ACK()) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
-            } else {
+            } 
+            else if (tcp_pkt.is_FIN() || tcp_pkt.is_RST()) {
+                tcp_flow_table.find_and_erase(k);
+            } 
+            else {
                 bool ret = process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler);
                 if (reassembler->curr_reassembly_state == reassembly_in_progress) {
                         analysis.flow_state_pkts_needed = true;
