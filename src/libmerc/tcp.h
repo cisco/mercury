@@ -294,7 +294,6 @@ struct tcp_segment {
     uint32_t total_bytes_needed;
     uint32_t current_bytes;
     uint32_t seg_count;
-    uint16_t prune_index;  // index of prune node in pruning table
     unsigned int init_time;
     bool done;
     bool seg_overlap;  // current pkt overlaps with a previous segment
@@ -310,7 +309,7 @@ struct tcp_segment {
     //std::vector< std::pair<uint32_t,uint32_t> > seg;
 
     tcp_segment() : seq_init{0}, curr_seq{0}, index{0}, end_index{0}, seg_len{0}, max_index{8192}, total_bytes_needed{8192},
-                        current_bytes{0}, seg_count{0}, prune_index{0}, init_time{0}, done{false}, seg_overlap{false}, max_seg_exceed{false} {}
+                        current_bytes{0}, seg_count{0}, init_time{0}, done{false}, seg_overlap{false}, max_seg_exceed{false} {}
 
     bool init_from_pkt (unsigned int sec, struct tcp_seg_context &tcp_pkt, uint32_t syn_seq, datum &p) {
         seq_init = syn_seq;
@@ -424,6 +423,8 @@ struct tcp_segment {
     }
 
 };
+
+/* Comment reassembly pruning logic
 
 struct prune_node {
     unsigned int init_timestamp;
@@ -549,6 +550,7 @@ struct prune_table {
         return force_pruned;
     }
 };
+End comment reassembly pruning logic */
 
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
 
@@ -560,32 +562,38 @@ enum reassembly_status {
 
 struct tcp_reassembler {
     bool dump_pkt;          // current pkt involved in reassembly, dump pkt regardless of json
-    struct prune_table pruner;
-    uint64_t force_prunes;
     bool curr_reassembly_consumed;
     enum reassembly_status curr_reassembly_state;
 
-    static const uint32_t max_map_entries = 5000;
-    static const uint32_t force_prune_count = 4000;
+    static const uint32_t max_map_entries = 10000;  // Hard limit to map entries
 
     std::unordered_map<struct key, struct tcp_segment> segment_table;
     std::unordered_map<struct key, struct tcp_segment>::iterator reap_it;
 
-    tcp_reassembler(unsigned int size) : dump_pkt{false}, pruner{}, force_prunes{0}, curr_reassembly_consumed{false}, curr_reassembly_state{reassembly_none}, segment_table{}, reap_it{segment_table.end()} {
+    tcp_reassembler(unsigned int size) : dump_pkt{false}, curr_reassembly_consumed{false}, curr_reassembly_state{reassembly_none}, segment_table{}, reap_it{segment_table.end()} {
         segment_table.reserve(size);
         reap_it = segment_table.end();
     }
 
     bool init_segment(const struct key &k, unsigned int sec, struct tcp_seg_context &tcp_pkt, uint32_t syn_seq, datum &p) {
-        active_prune(sec);     // try pruning before inserting
+        if (segment_table.size() >= max_map_entries) {
+            // aggressive : remove two entries
+            increment_reap_iterator();
+            if (reap_it != segment_table.end()) {
+                reap_it = segment_table.erase(reap_it);
+            }
+            increment_reap_iterator();
+            if (reap_it != segment_table.end()) {
+                reap_it = segment_table.erase(reap_it);
+            }
+        }
+        else {
+            reap(sec);  // passive: try cleaning expired entries
+        }
+
         tcp_segment segment;
         if (segment.init_from_pkt(sec, tcp_pkt, syn_seq, p)) {
-            reap_it = segment_table.emplace(k, segment).first;
-            uint16_t index;
-            if (pruner.add_node(sec,k,segment_table,index)) {
-                force_prunes++;
-            }
-            reap_it->second.prune_index = index;
+            reap_it = segment_table.emplace(k, segment).first; 
             //++reap_it;
             return true;
         }
@@ -602,10 +610,10 @@ struct tcp_reassembler {
 
     struct tcp_segment *check_packet(const struct key &k, unsigned int sec, struct tcp_seg_context &tcp_pkt, datum &p, bool &reassembly_consumed) {
 
+        reap(sec);    // passive cleaning
         auto it = segment_table.find(k);
         if (it != segment_table.end()) {
             if (it->second.expired(sec)) {
-                pruner.nodes[it->second.prune_index].is_in_map = false;
                 remove_segment(it);
                 return nullptr;
             }
@@ -631,16 +639,6 @@ struct tcp_reassembler {
         if (it != segment_table.end()) {
             reap_it = segment_table.erase(it);
         }
-    }
-
-    void active_prune(unsigned int ts) {
-        if (segment_table.size() >= force_prune_count) {
-            pruner.do_pruning(ts, segment_table);
-        }
-        if (segment_table.size() == max_map_entries) {
-            pruner.do_force_pruning(segment_table);
-        }
-        pruner.check_time_pruning(ts, segment_table);
     }
 
     void count_all() {
@@ -669,6 +667,26 @@ struct tcp_reassembler {
         return;
     }
 
+    void reap(unsigned int sec) {
+
+        // check for expired flows
+        increment_reap_iterator();
+        if (reap_it != segment_table.end() && reap_it->second.expired(sec)) {
+            reap_it = segment_table.erase(reap_it);
+        }
+        increment_reap_iterator();
+        if (reap_it != segment_table.end() && reap_it->second.expired(sec)) {
+            reap_it = segment_table.erase(reap_it);
+        }
+    }
+
+    void increment_reap_iterator() {
+        if (reap_it != segment_table.end()) {
+            ++reap_it;
+        } else {
+            reap_it = segment_table.begin();
+        }
+    }
 };
 
 struct flow_table {
@@ -763,7 +781,7 @@ struct flow_table_tcp {
 
     void syn_packet(const struct key &k, unsigned int sec, uint32_t seq) {
         if (table.size() >= max_entries) {
-            // try to remove two entries
+            // aggressive : try to remove two entries
             increment_reap_iterator();
             if (reap_it != table.end()) {
                 reap_it = table.erase(reap_it);
@@ -772,6 +790,9 @@ struct flow_table_tcp {
             if (reap_it != table.end()) {
                 reap_it = table.erase(reap_it);
             }
+        }
+        else {
+            reap(sec);  // passive: try clean expired entries
         }
         auto it = table.find(k);
         if (it == table.end()) {
