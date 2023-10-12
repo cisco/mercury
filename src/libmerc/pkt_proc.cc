@@ -454,7 +454,6 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         struct tcp_segment *seg = reassembler->check_packet(k, ts->tv_sec, seg_context, pkt_copy, reassembly_consumed);
         if (reassembly_consumed) {
             // reassmebled data already consumed for this flow
-            reassembler->pruner.nodes[seg->prune_index].is_in_map = false;
             reassembler->remove_segment(k);
             reassembler->dump_pkt = false;
             reassembler->curr_reassembly_state = reassembly_done;
@@ -468,7 +467,6 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             }
             
             if(seg->done) {
-                reassembler->pruner.nodes[seg->prune_index].is_in_map = false;
                 struct datum reassembled_data = seg->get_reassembled_segment();
                 set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
                 reassembler->dump_pkt = false;
