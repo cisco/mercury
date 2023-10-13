@@ -1722,7 +1722,6 @@ struct x509_cert {
     bool signature_is_weak(bool unsigned_is_weak=false) const {
 
         if (signature_algorithm.parameters.is_truncated()) {
-            fprintf(stdout, "truncated signature_algorithm\n");
             return false;   // missing data
         }
 
