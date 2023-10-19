@@ -557,7 +557,8 @@ void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, 
 enum reassembly_status {
     reassembly_none = 0,
     reassembly_in_progress = 1,
-    reassembly_done = 2
+    reassembly_done = 2,
+    truncated = 3   // truncated but cant reassemble as sync seq not known TODO: Try reassmbling wihtout syn seq
 };
 
 struct tcp_reassembler {
@@ -649,6 +650,14 @@ struct tcp_reassembler {
     }
 
     void write_flags(struct json_object &record, const char *key) {
+        if (curr_reassembly_state == truncated) {
+            // truncated but not in reassembly
+            struct json_object flags{record, key};
+            flags.print_key_bool("truncated", true);
+            flags.close();
+            return;
+        }
+
         if (reap_it == segment_table.end()) {
             return;
         }
@@ -661,6 +670,11 @@ struct tcp_reassembler {
             if (reap_it->second.max_seg_exceed) {
                 flags.print_key_bool("segment_count_exceed", reap_it->second.max_seg_exceed);
             }
+            flags.close();
+        }
+        else {
+            struct json_object flags{record, key};
+            flags.print_key_bool("truncated", true);
             flags.close();
         }
         reap_it = segment_table.end();

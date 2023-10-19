@@ -103,6 +103,7 @@ mercury_schema = {
         'reassembly_properties': {'type': 'object',
                      'properties': {
                          'reassembled':          {'type': 'boolean'},
+                         'truncated':            {'type': 'boolean'},
                          'segment_overlap':      {'type': 'boolean'},
                          'segment_count_exceed': {'type': 'boolean'},
                      },
