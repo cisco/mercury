@@ -1,5 +1,11 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.22
+
+* JSON records created from incomplete TCP segments are now highlighted with `"reassembly_properties": { "truncated": true }`.
+* Improved TCP segment handling.
+* Removed inappropriate output regarding truncation in X509 certificates.
+
 ## Version 2.5.21
 
 * Fixed a slow memory leak in TCP reassembly
