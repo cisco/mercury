@@ -45,6 +45,44 @@ public:
     }
 };
 
+class process_stats {
+    size_t num_fingerprints = 0;
+    size_t num_updates = 0;
+
+public:
+
+    void observe(size_t updates) {
+        num_updates += updates;
+        ++num_fingerprints;
+    }
+
+    void fprint(FILE *f) const {
+        fprintf(f, "\tfps: %zu\tupdates: %zu\n", num_fingerprints, num_updates);
+    }
+
+};
+
+class proc_statistics {
+    std::unordered_map<std::string, process_stats> stats;
+public:
+
+    void observe(const std::string &name, size_t updates) {
+        auto result = stats.find(name);
+        if (result == stats.end()) {
+            result = stats.insert({name, process_stats{}}).first;
+        }
+        result->second.observe(updates);
+    }
+
+    void fprint(FILE *f) const {
+        for (const auto & s : stats) {
+            fprintf(f, "%s\t", s.first.c_str());
+            s.second.fprint(f);
+        }
+    }
+
+};
+
 class fpdb_stats {
 
     std::unordered_map<std::string, fp_stats> stats;
@@ -86,6 +124,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--help",               "print help message"               },
         { argument::none,       "--fp-stats",           "print per-fingerprint statistics" },
         { argument::none,       "--process-stats",      "print per-process statistics"     },
+        { argument::none,       "--proc-view",          "print process view of statistics" },
         { argument::required,   "--fpdb",               "fingerprint_db.json file"         },
     });
     const char summary[] =
@@ -103,6 +142,7 @@ int main(int argc, char *argv[]) {
     bool help                         = opt.is_set("--help");
     bool write_fingerprint_stats      = opt.is_set("--fp-stats");
     bool write_process_stats          = opt.is_set("--process-stats");
+    bool write_proc_view              = opt.is_set("--proc-view");
 
     if (help) {
         opt.usage(stderr, argv[0], summary);
@@ -117,6 +157,7 @@ int main(int argc, char *argv[]) {
     if (fpdb_is_set) {
 
         fpdb_stats stats;
+        proc_statistics proc_stats;
 
         std::ifstream fpdb_file{fpdb};
         if (!fpdb_file) {
@@ -160,11 +201,12 @@ int main(int argc, char *argv[]) {
                 update_stats += update_count;
                 total_update_count += update_count;
 
+                std::string name{pi.name};
+                std::replace(name.begin(), name.end(), ' ', '_');  // remove blanks, to facilitate POSIX pipeline processing
                 if (write_process_stats) {
-                    std::string name{pi.name};
-                    std::replace(name.begin(), name.end(), ' ', '_');  // remove blanks, to facilitate POSIX pipeline processing
                     fprintf(stdout, "\t%s:\t%zu\n", name.c_str(), update_count);
                 }
+                proc_stats.observe(fp_type + ':' + name, update_count);
             }
             stats.observe_process(fp_type, benign_process_count, malware_process_count, update_stats);
             if (write_fingerprint_stats) {
@@ -174,11 +216,15 @@ int main(int argc, char *argv[]) {
 
         }
 
-        if (!write_fingerprint_stats && !write_process_stats) {
+        if (!write_fingerprint_stats && !write_process_stats && !write_proc_view) {
             //
             // write overall statistics
             //
             stats.fprint(stdout);
+        }
+
+        if (write_proc_view) {
+            proc_stats.fprint(stdout);
         }
     }
 
