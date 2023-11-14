@@ -29,14 +29,25 @@ Authors: Brandon Enright, Andrew Chi, David McGrew
 
 ## Installation
 
-The easiest way to try Batch GCD is by building a Docker image of the `mercury`
-package.  We also provide instructions for building the mercury package from source.
+The easiest way to try Batch GCD is by pulling or building a Docker image of the
+`mercury` package.  We also provide instructions for building the mercury
+package from source.
 
 ### Docker
 
 The Docker image for `mercury` also includes the tools `batch_gcd`,
 `cert_analyze`, and `tls_scanner`.  Note that depending on your Docker
 configuration, the docker command may require sudo.
+
+**Option 1.** Pull a pre-built Docker image from GitHub's container repository.
+```
+$ docker pull ghcr.io/cisco/mercury:latest
+$ alias batch_gcd='docker run --rm -i --entrypoint /usr/local/bin/batch_gcd --volume .:/root ghcr.io/cisco/mercury:latest'
+$ alias cert_analyze='docker run --rm -i --entrypoint /usr/local/bin/cert_analyze --volume .:/root ghcr.io/cisco/mercury:latest'
+$ alias tls_scanner='docker run --rm -i --entrypoint /usr/local/bin/tls_scanner --volume .:/root ghcr.io/cisco/mercury:latest'
+```
+
+**Option 2.** Build the Docker image using the source code.
 ```
 $ git clone https://github.com/cisco/mercury.git
 $ cd mercury
@@ -45,7 +56,9 @@ $ alias batch_gcd='docker run --rm -i --entrypoint /usr/local/bin/batch_gcd --vo
 $ alias cert_analyze='docker run --rm -i --entrypoint /usr/local/bin/cert_analyze --volume .:/root mercury:latest'
 $ alias tls_scanner='docker run --rm -i --entrypoint /usr/local/bin/tls_scanner --volume .:/root mercury:latest'
 ```
-You can then run the commands with `--help`.  For example: `batch_gcd --help`.
+
+For usage information, run each command with `--help`.  For example: `batch_gcd
+--help`.
 
 ### Build from source
 
