@@ -335,6 +335,9 @@ public:
 
 class gz_file {
     unsigned char file_buffer[512];
+    std::string remaining_file_buffer; // this buffer is used to cache the extra characters read.
+    int remaining_file_buffer_len;
+    int characters_to_read = 512;
     z_stream_s z = {};
     encrypted_file enc_file;
 
@@ -379,6 +382,9 @@ public:
             //close(fd);
             //fd = 0;
         }
+
+        remaining_file_buffer = "";
+        remaining_file_buffer_len = 0;
     }
 
     ~gz_file() {
@@ -491,17 +497,68 @@ public:
     ssize_t getline(std::string &s, ssize_t read_len) {
         s.clear();
         ssize_t length = 0;
+        int i;
+        bool newline_found = false;
+
+        std::string backup = remaining_file_buffer;
+        int backup_len = remaining_file_buffer_len;
+
+        remaining_file_buffer = "";
+        remaining_file_buffer_len = 0;
+
+        // processing the remaining buffer from last read(). 
+        for (i = 0; i < characters_to_read; i++) {
+            if (backup[i] == '\0') { // copied all the chars from backup
+                break;
+            }
+            if (backup[i] == '\n') { // backup string had an entire line
+                newline_found = true;
+                break;
+            }
+            s += backup[i];
+            length += 1;
+        }
+
+        if (newline_found) {
+            i += 1; // skip \n
+
+            for (; i < backup_len; i++) { // update remaining_file_buffer
+                remaining_file_buffer += backup[i];
+                remaining_file_buffer_len += 1;
+            }
+            remaining_file_buffer[remaining_file_buffer_len] = '\0';
+
+            return length;
+        }
+
         while (length < read_len) {
-            char c;
+            char c[characters_to_read+1] = "";
             ssize_t bytes_read = read((uint8_t *)&c, sizeof(c));
+            c[characters_to_read] = '\0';
+
             if (bytes_read <= 0) {
                 break;
             }
-            if (c == '\n') {
-                break;
+
+            newline_found = false;
+            for (i = 0; i < characters_to_read; i++){
+                if (c[i] == '\n') {
+                    newline_found = true;
+                    break;
+                }
+                s += c[i];
+                length += 1;
             }
-            s += c;
-            length++;
+
+            if (newline_found) {
+                i += 1; // skip \n
+
+                for (; i < characters_to_read; i++){ // update remaining_file_buffer
+                    remaining_file_buffer += c[i];
+                    remaining_file_buffer_len += 1;
+                }
+                remaining_file_buffer[remaining_file_buffer_len] = '\0';
+            }
         }
         return length;
     }
