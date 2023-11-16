@@ -519,7 +519,7 @@ public:
             length += 1;
         }
 
-        if (newline_found) {
+        if (newline_found && length != 0) {
             i += 1; // skip \n
 
             for (; i < backup_len; i++) { // update remaining_file_buffer
@@ -533,7 +533,7 @@ public:
 
         while (length < read_len) {
             char c[characters_to_read+1] = "";
-            ssize_t bytes_read = read((uint8_t *)&c, sizeof(c));
+            ssize_t bytes_read = read((uint8_t *)&c, characters_to_read);
             c[characters_to_read] = '\0';
 
             if (bytes_read <= 0) {
@@ -541,7 +541,7 @@ public:
             }
 
             newline_found = false;
-            for (i = 0; i < characters_to_read; i++){
+            for (i = 0; i < characters_to_read; i++) {
                 if (c[i] == '\n') {
                     newline_found = true;
                     break;
@@ -553,11 +553,15 @@ public:
             if (newline_found) {
                 i += 1; // skip \n
 
-                for (; i < characters_to_read; i++){ // update remaining_file_buffer
+                for (; i < characters_to_read; i++) { // update remaining_file_buffer
                     remaining_file_buffer += c[i];
                     remaining_file_buffer_len += 1;
                 }
                 remaining_file_buffer[remaining_file_buffer_len] = '\0';
+
+                if (remaining_file_buffer_len >= 0) {
+                    break;
+                }
             }
         }
         return length;
