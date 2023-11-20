@@ -531,15 +531,15 @@ public:
 
         while (length < read_len) {
             char c[characters_to_read+1] = "";
-            ssize_t bytes_read = read((uint8_t *)&c, characters_to_read);
+            ssize_t characters_read = read((uint8_t *)&c, characters_to_read);
             c[characters_to_read] = '\0';
 
-            if (bytes_read <= 0) {
+            if (characters_read <= 0) {
                 break;
             }
 
             newline_found = false;
-            for (i = 0; i < characters_to_read; i++) {
+            for (i = 0; i < characters_read; i++) {
                 if (c[i] == '\n') {
                     newline_found = true;
                     break;
@@ -552,7 +552,7 @@ public:
                 i += 1; // skip \n
 
                 remaining_file_buffer.assign(c+i); // update remaining_file_buffer
-                remaining_file_buffer_len = characters_to_read-i;
+                remaining_file_buffer_len = characters_read-i;
                 remaining_file_buffer[remaining_file_buffer_len] = '\0';
 
                 if (remaining_file_buffer_len >= 0) {
