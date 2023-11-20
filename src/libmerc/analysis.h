@@ -641,7 +641,7 @@ public:
             attr_prob[common->doh_idx] = 1.0;
         }
 
-        attribute_result attr_res{attr_tags, attr_prob, &common->attr_name.value()};
+        attribute_result attr_res{attr_tags, attr_prob, &common->attr_name.value(), common->attr_name.get_names_char()};
 
         // set os_info (to NULL if unavailable)
         //

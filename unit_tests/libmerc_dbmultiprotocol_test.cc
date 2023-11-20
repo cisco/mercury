@@ -491,6 +491,39 @@ TEST_CASE_METHOD(LibmercTestFixture, "test decrypted quic with resources-mp")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
+{
+
+    auto destination_check_callback = [](size_t attr_count, size_t expected_attr_count)
+    { 
+        CHECK((attr_count == expected_attr_count));
+    };
+
+    auto attr_check = [&](size_t expected_attrs_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(counter(expected_attrs_count,destination_check_callback));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, size_t>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all"},
+             .m_pc{"surfshark.pcap"}},
+         3      // encrypted_dns, evasive_vpn, external_proxy as attributes
+        }
+    };
+
+    for (auto &[config, attrs] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(attrs, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
 {
 
