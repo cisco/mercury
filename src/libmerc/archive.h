@@ -532,10 +532,10 @@ public:
                 characters_to_read = read_len - characters_read_in_this_iteration;
             }
 
-            char c[characters_to_read+1] = "";
+            char c[characters_to_read] = "";
             ssize_t characters_read = read((uint8_t *)&c, characters_to_read);
             characters_read_in_this_iteration += characters_read;
-            c[characters_to_read] = '\0';
+
             if (characters_read <= 0) {
                 break;
             }
