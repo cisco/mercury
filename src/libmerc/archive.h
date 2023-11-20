@@ -336,8 +336,8 @@ public:
 class gz_file {
     unsigned char file_buffer[512];
     std::string remaining_file_buffer; // this buffer is used to cache the extra characters read.
-    int remaining_file_buffer_len;
-    int characters_to_read = 512;
+    ssize_t remaining_file_buffer_len;
+    ssize_t characters_to_read = 512;
     z_stream_s z = {};
     encrypted_file enc_file;
 
@@ -494,46 +494,48 @@ public:
         return z.total_out;
     }
 
+    // getline read the characters until \n is found
+    // and returns the length of characters in current line
     ssize_t getline(std::string &s, ssize_t read_len) {
         s.clear();
-        ssize_t length = 0;
+        ssize_t characters_in_s = 0;
         int i;
         bool newline_found = false;
 
-        std::string backup = remaining_file_buffer;
-        int backup_len = remaining_file_buffer_len;
+        std::string backup = remaining_file_buffer; // backup remaining_file_buffer
+        ssize_t backup_len = remaining_file_buffer_len;
 
-        remaining_file_buffer = "";
+        remaining_file_buffer = ""; // reset remaining_file_buffer
         remaining_file_buffer_len = 0;
 
-        // processing the remaining buffer from last read(). 
-        for (i = 0; i < characters_to_read; i++) {
-            if (backup[i] == '\0') { // copied all the chars from backup
-                break;
-            }
+        // processing the remaining characters from last read()
+        for (i = 0; i < backup_len; i++) {
             if (backup[i] == '\n') { // backup string had an entire line
                 newline_found = true;
                 break;
             }
             s += backup[i];
-            length += 1;
+            characters_in_s += 1;
         }
 
-        if (newline_found && length != 0) {
+        if (newline_found && characters_in_s != 0) {
             i += 1; // skip \n
-
             remaining_file_buffer.assign(backup, i); // update remaining_file_buffer
             remaining_file_buffer_len = backup_len - i;
-            remaining_file_buffer[remaining_file_buffer_len] = '\0';
-
-            return length;
+            return characters_in_s;
         }
 
-        while (length < read_len) {
+        ssize_t characters_read_in_this_iteration = 0;
+        while (characters_read_in_this_iteration < read_len) {
+
+            if (characters_to_read > read_len - characters_read_in_this_iteration) {
+                characters_to_read = read_len - characters_read_in_this_iteration;
+            }
+
             char c[characters_to_read+1] = "";
             ssize_t characters_read = read((uint8_t *)&c, characters_to_read);
+            characters_read_in_this_iteration += characters_read;
             c[characters_to_read] = '\0';
-
             if (characters_read <= 0) {
                 break;
             }
@@ -545,7 +547,7 @@ public:
                     break;
                 }
                 s += c[i];
-                length += 1;
+                characters_in_s += 1;
             }
 
             if (newline_found) {
@@ -553,14 +555,10 @@ public:
 
                 remaining_file_buffer.assign(c+i); // update remaining_file_buffer
                 remaining_file_buffer_len = characters_read-i;
-                remaining_file_buffer[remaining_file_buffer_len] = '\0';
-
-                if (remaining_file_buffer_len >= 0) {
-                    break;
-                }
+                break;
             }
         }
-        return length;
+        return characters_in_s;
     }
 };
 
