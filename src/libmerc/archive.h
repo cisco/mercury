@@ -522,10 +522,8 @@ public:
         if (newline_found && length != 0) {
             i += 1; // skip \n
 
-            for (; i < backup_len; i++) { // update remaining_file_buffer
-                remaining_file_buffer += backup[i];
-                remaining_file_buffer_len += 1;
-            }
+            remaining_file_buffer.assign(backup, i); // update remaining_file_buffer
+            remaining_file_buffer_len = backup_len - i;
             remaining_file_buffer[remaining_file_buffer_len] = '\0';
 
             return length;
@@ -553,10 +551,8 @@ public:
             if (newline_found) {
                 i += 1; // skip \n
 
-                for (; i < characters_to_read; i++) { // update remaining_file_buffer
-                    remaining_file_buffer += c[i];
-                    remaining_file_buffer_len += 1;
-                }
+                remaining_file_buffer.assign(c+i); // update remaining_file_buffer
+                remaining_file_buffer_len = characters_to_read-i;
                 remaining_file_buffer[remaining_file_buffer_len] = '\0';
 
                 if (remaining_file_buffer_len >= 0) {
