@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.23
+
+* (Significantly) improved the encrypted/compressed archive reader speed.
+* Process attributes now reported through the `mercury_packet_processor_get_attributes` function.
+
 ## Version 2.5.22
 
 * JSON records created from incomplete TCP segments are now highlighted with `"reassembly_properties": { "truncated": true }`.

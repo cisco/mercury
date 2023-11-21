@@ -307,6 +307,20 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
     return true;
 }
 
+const struct attribute_context *mercury_packet_processor_get_attributes(mercury_packet_processor processor) {
+    try {
+        if (processor && processor->analysis.result.attr.is_valid()){
+            return processor->analysis.result.attr.get_attributes();
+        }
+        return NULL;
+    }
+    catch (std::exception &e) {
+        printf_err(log_err, "%s\n", e.what());
+    }
+
+    return NULL;
+
+}
 
 const char license_string[] =
     "Copyright (c) 2019-2020 Cisco Systems, Inc.\n"

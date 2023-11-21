@@ -80,6 +80,7 @@ struct libmerc_api {
     decltype(analysis_context_get_malware_info)                      *get_malware_info = nullptr;
     decltype(mercury_write_stats_data)                               *write_stats_data = nullptr;
     decltype(register_printf_err_callback)                           *register_printf_err = nullptr;
+    decltype(mercury_packet_processor_get_attributes)                        *get_attributes = nullptr;
 
     dll_type dl_handle = nullptr;
 
@@ -167,6 +168,18 @@ struct libmerc_api {
         }
 
 	// TODO: check for v5 API
+
+        // libmerc v6 API
+        //
+        get_attributes =                (decltype(get_attributes))                dlsym(dl_handle, "mercury_packet_processor_get_attributes");
+
+        // verify all v6 function symbols were found
+        //
+        if (get_attributes == nullptr) {
+            fprintf(stderr, "note: could not initialize one or more libmerc v6 function pointers\n");
+        } else {
+            libmerc_version = 6;
+        }
 
         fprintf(stderr, "libmerc api version %u found\n", libmerc_version);
         fprintf(stderr, "mercury_bind() succeeded with handle %p\n", dl_handle);

@@ -152,6 +152,30 @@ struct libmerc_config {
 };
 
 /**
+ * @brief struct attribute_context represents the attribute result given
+ * by the libmerc library. It comprises of a list of attributes, corresponding
+ * probabillity scores and the maximum number of attributes/length of prior lists
+ *
+ * To fetch the attribute_context, call mercury_packet_processor_get_analysis_context,
+ * followed by mercury_packet_processor_get_attributes
+ */
+struct attribute_context {
+
+#ifdef __cplusplus
+    // default values, for c++ only
+    const char * const* tag_names = nullptr;      /* List of attributes names as an arrary of char* */
+    const long double* prob_scores = nullptr;     /* Probabality score of the above corresponding attributes as an array */
+    size_t attributes_len = 0;                    /* Length of the above arrays */
+
+#else
+
+    const char * const* tag_names;      /* List of attributes names as an arrary of char* */
+    const long double* prob_scores;     /* Probabality score of the above corresponding attributes as an array */
+    size_t attributes_len;              /* Length of the above arrays */
+#endif
+};
+
+/**
  * libmerc_config_init() initializes a libmerc_config structure to a
  * minimal, default configuration.
  */
@@ -713,5 +737,24 @@ bool mercury_packet_processor_more_pkts_needed(mercury_packet_processor processo
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 size_t get_stats_aggregator_num_entries(mercury_context mc);
+
+//
+// start of libmerc version 6 API
+//
+
+/**
+ * mercury_packet_processor_get_attributes() is a followup call to mercury_packet_processor_get_analysis_context
+ * and sets a pointer to a struct attribute_context containing zero or more attributes like MITRE techniques, mercury
+ * specific tags etc. for a given analysis_context.
+ *
+ * @param processor (input) is a packet processor context to be used.
+ *
+ * @return a pointer to a struct attribute_context if the call succeeds, otherwise NULL
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+const struct attribute_context *mercury_packet_processor_get_attributes(mercury_packet_processor processor);
 
 #endif /* LIBMERC_H */

@@ -60,6 +60,7 @@ struct libmerc_api {
     decltype(analysis_context_get_process_info)                      *get_process_info = nullptr;
     decltype(analysis_context_get_malware_info)                      *get_malware_info = nullptr;
     decltype(mercury_write_stats_data)                               *write_stats_data = nullptr;
+    decltype(mercury_packet_processor_get_attributes)                        *get_attributes = nullptr;
 
     void *dl_handle = nullptr;
 
@@ -85,6 +86,7 @@ struct libmerc_api {
         get_process_info =              (decltype(get_process_info))              dlsym(dl_handle, "analysis_context_get_process_info");
         get_malware_info =              (decltype(get_malware_info))              dlsym(dl_handle, "analysis_context_get_malware_info");
         write_stats_data =              (decltype(write_stats_data))              dlsym(dl_handle, "mercury_write_stats_data");
+        get_attributes =                (decltype(get_attributes))                dlsym(dl_handle, "mercury_packet_processor_get_attributes");
 
         if (init                          == nullptr ||
             finalize                      == nullptr ||
@@ -97,7 +99,8 @@ struct libmerc_api {
             get_fingerprint_status        == nullptr ||
             get_process_info              == nullptr ||
             get_malware_info              == nullptr ||
-            write_stats_data              == nullptr) {
+            write_stats_data              == nullptr ||
+            get_attributes                == nullptr ) {
             fprintf(stderr, "error: could not initialize one or more libmerc function pointers\n");
             return -1;
         }
