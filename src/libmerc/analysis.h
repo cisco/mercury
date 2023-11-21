@@ -865,6 +865,10 @@ public:
 
         rapidjson::Document fp;
         fp.Parse(line_str.c_str());
+        if(!fp.IsObject()) {
+            printf_err(log_warning, "invalid JSON line in resource file\n");
+            return;
+        }
 
         std::string fp_string;
         if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
