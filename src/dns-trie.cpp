@@ -10,6 +10,9 @@
 
 #include <vector>
 
+// #include "markov.h"
+// markov_model<dns_char_set> markov{fopen("markov-model.dat", "r")};
+
 static float digits(const std::string &d) {
     size_t count = 0;
     for (const auto & c : d) {
@@ -264,25 +267,27 @@ void testcase() {
                     indent_string,
                     (float)e.second->get_subtree_count() / root_prob_count);
         }
+        return 0;
     };
-    auto print_node2 = [](std::pair<std::string, dns_trie::node *> e, const std::string &s, size_t root_prob_count) {
-        (void)root_prob_count;  // ignore parameter
-        char indent_string[] = "                                                                            ";
-        if (true || e.second->is_leaf()) {
-            fprintf(stdout, "%s%s%.*s%zu\t%zu\n",
-                    s.c_str(),
-                    e.first.c_str(),
-                    (int)(strlen(indent_string)-(int)e.first.length()-s.length()),
-                    indent_string,
-                    e.second->get_subtree_count(),
-                    e.second->get_node_count());
-        }
-    };
-    t.get_root().postorder_traverse(print_node2, "", 100);
+    // auto print_node2 = [](std::pair<std::string, dns_trie::node *> e, const std::string &s, size_t root_prob_count) {
+    //     (void)root_prob_count;  // ignore parameter
+    //     char indent_string[] = "                                                                            ";
+    //     if (true || e.second->is_leaf()) {
+    //         fprintf(stdout, "%s%s%.*s%zu\t%zu\n",
+    //                 s.c_str(),
+    //                 e.first.c_str(),
+    //                 (int)(strlen(indent_string)-(int)e.first.length()-s.length()),
+    //                 indent_string,
+    //                 e.second->get_subtree_count(),
+    //                 e.second->get_node_count());
+    //     }
+    // };
+    fprintf(stdout, "preorder traversal:\n");
+    t.get_root().preorder_traverse(print_node, "", 100);
     fputc('\n', stdout);
 
     fprintf(stdout, "postorder traversal:\n");
-    t.get_root().postorder_traverse(print_node, "", 100);
+    t.get_root().postorder_traverse<decltype(print_node), size_t>(print_node, "", 100);
     fputc('\n', stdout);
 
     for (auto &s : {
@@ -290,6 +295,14 @@ void testcase() {
         }) {
         printf("%s:\t%f\n", s, t.probability(s));
     }
+
+    t.fprint_uniformity(stdout);
+    fputc('\n', stdout);
+
+    dns_trie::node_stats ns = t.count_leaves_and_nodes();
+    fprintf(stderr, "leaves: %zu\tnodes: %zu\n", ns.leaf_count, ns.node_count);
+    fputc('\n', stdout);
+
 }
 
 #include <regex>
@@ -309,6 +322,33 @@ public:
 
 using namespace mercury_option;
 
+// dns_trie
+//
+// creates, reports on, and manipulates dns_tries
+//
+//
+// input options:
+//     file containing dns names
+//     FPDB json
+//
+// filtering:
+//     regex
+//     uuid
+//     not-matching
+//
+// remove uniform nodes
+// remove nodes below the private suffix
+// create a classifier from two dns_tries (malware/benign)
+//
+// reporting:
+//     preorder traversal
+//     postorder traversal
+//     report leaves
+//     report all nodes
+//     uniformity of non-leaf nodes
+//
+//
+//
 int main(int argc, char *argv[]) {
 
     if (false) {
@@ -363,6 +403,7 @@ int main(int argc, char *argv[]) {
     bool find_psl                     = opt.is_set("--find-public-suffix");
     bool dump                         = opt.is_set("--dump");
     bool leaf                         = opt.is_set("--leaf");
+    (void)leaf; // compiler silencer
     bool json_input                   = opt.is_set("--json");
     bool help                         = opt.is_set("--help");
     std::optional<std::string> filter_string = opt.get("--filter");
@@ -413,11 +454,11 @@ int main(int argc, char *argv[]) {
         std::unordered_map<std::string, dns_classifier> fp_and_classifier;
 
         dns_trie benign_tls;
-        dns_trie benign_http;
-        dns_trie benign_quic;
+        // dns_trie benign_http;
+        // dns_trie benign_quic;
         dns_trie malware_tls;
-        dns_trie malware_http;
-        dns_trie malware_quic;
+        // dns_trie malware_http;
+        // dns_trie malware_quic;
 
         const std::unordered_map<std::string, std::vector<process_info>> & fp_and_process_info = fingerprint_db.get_fpdb();
         for (const auto & fp_data : fp_and_process_info) {
@@ -430,43 +471,43 @@ int main(int argc, char *argv[]) {
             for (const auto & pi : fp_data.second) {
                 //pi.print(stderr);
 
-                if (false) {
-                if (pi.malware == true) {
-                    for (auto &x : pi.hostname_sni) {
-                        switch(fp_type) {
-                        case fingerprint_type_tls:
-                            malware_tls.add(process_dns_name(x.first, fp_type, true), x.second);
-                            break;
-                        case fingerprint_type_http:
-                            malware_http.add(process_dns_name(x.first, fp_type, true), x.second);
-                            break;
-                        case fingerprint_type_quic:
-                            malware_http.add(process_dns_name(x.first, fp_type, true), x.second);
-                            break;
-                        default:
-                            ;
+                if (true) {
+                    if (pi.malware == true) {
+                        for (auto &x : pi.hostname_sni) {
+                            switch(fp_type) {
+                            case fingerprint_type_tls:
+                                malware_tls.add(process_dns_name(x.first, fp_type, true), x.second);
+                                break;
+                            // case fingerprint_type_http:
+                            //     malware_http.add(process_dns_name(x.first, fp_type, true), x.second);
+                            //     break;
+                            // case fingerprint_type_quic:
+                            //     malware_http.add(process_dns_name(x.first, fp_type, true), x.second);
+                            //     break;
+                            default:
+                                ;
+                            }
+                        }
+                    } else { // pi.malware == false
+                        for (auto &x : pi.hostname_sni) {
+                            switch(fp_type) {
+                            case fingerprint_type_tls:
+                                benign_tls.add(process_dns_name(x.first, fp_type, true), x.second);
+                                break;
+                            // case fingerprint_type_http:
+                            //     benign_http.add(process_dns_name(x.first, fp_type, true), x.second);
+                            //     break;
+                            // case fingerprint_type_quic:
+                            //     benign_http.add(process_dns_name(x.first, fp_type, true), x.second);
+                            //     break;
+                            default:
+                                ;
+                            }
                         }
                     }
-                } else { // pi.malware == false
-                    for (auto &x : pi.hostname_sni) {
-                        switch(fp_type) {
-                        case fingerprint_type_tls:
-                            benign_tls.add(process_dns_name(x.first, fp_type, true), x.second);
-                            break;
-                        case fingerprint_type_http:
-                            benign_http.add(process_dns_name(x.first, fp_type, true), x.second);
-                            break;
-                        case fingerprint_type_quic:
-                            benign_http.add(process_dns_name(x.first, fp_type, true), x.second);
-                            break;
-                        default:
-                            ;
-                        }
-                    }
-                }
 
-                continue;   // skip the vector-of-tries processing for now
-                } // false
+                    continue;   // skip the vector-of-tries processing for now
+                }
 
                 // fprintf(stdout, "-----------------------------------------------------------------\n");
                 // fprintf(stdout, "process: %s\n", pi.name.c_str());
@@ -486,7 +527,27 @@ int main(int argc, char *argv[]) {
             // fprintf(stdout, "==================================================================\n");
         }
 
-        //  malware_tls.fprint(stdout);
+        // benign_tls.fprint_uniformity(stdout);
+        // malware_tls.fprint_uniformity(stdout);
+        // benign_tls.fprint_uniformity(stdout);
+        // benign_tls.fprint(stdout);
+
+        // dns_trie::node_stats malware_stats = malware_tls.count_leaves_and_nodes();
+        // fprintf(stderr, "malware: leaves: %zu\tnodes: %zu\n", malware_stats.leaf_count, malware_stats.node_count);
+        // dns_trie::node_stats benign_stats = benign_tls.count_leaves_and_nodes();
+        // fprintf(stderr, "benign: leaves:  %zu\tnodes: %zu\n", benign_stats.leaf_count, benign_stats.node_count);
+
+        // fprintf(stderr, "malware count: %zu\n", malware_tls.get_root().get_subtree_count());
+        // fprintf(stderr, "benign count:  %zu\n", benign_tls.get_root().get_subtree_count());
+
+        // return 0;
+
+        binary_classifier malware_classifier{malware_tls, benign_tls};
+
+        malware_classifier.prune(stdout);
+        malware_classifier.compare(stdout);
+
+        return 0;
 
         static constexpr auto lambda = [](const std::string &label, const dns_trie::node *node, const std::string &s) {
             if (node->is_leaf() == false) {
@@ -508,7 +569,7 @@ int main(int argc, char *argv[]) {
             for (size_t i=0; i<num_procs; i++) {
                 fprintf(stdout, "process: %s\n", fp_c.second.process[i].c_str());
                 //fp_c.second.trie[i].fprint(stdout);
-                fp_c.second.trie[i].fprint_stats(stdout);
+                fp_c.second.trie[i].fprint_uniformity(stdout);
                 //fp_c.second.trie[i].get_root().visit_edges(lambda);
             }
         }
@@ -551,7 +612,10 @@ int main(int argc, char *argv[]) {
         }
 
         if (dump) {
-            t.fprint(stdout, leaf);
+            //t.fprint(stdout, leaf);
+            //dns_trie::node_stats ns = t.count_leaves_and_nodes();
+            //fprintf(stderr, "leaves: %zu\tnodes: %zu\n", ns.leaf_count, ns.node_count);
+            t.fprint_uniformity(stdout);
         }
 
         if (test_data_is_set) {
@@ -590,8 +654,8 @@ int main(int argc, char *argv[]) {
 
         std::string line;
         while (std::getline(std::cin, line)) {
-            if (line.length() == 0) {
-                continue; // ignore empty line
+            if (line.length() == 0 || line[0] == '/' || line[0] == '#') {
+                continue; // ignore empty line or comment
             }
 
             if (filter) {
@@ -604,7 +668,10 @@ int main(int argc, char *argv[]) {
         }
 
         if (dump) {
-            t.fprint(stdout);
+            // t.fprint(stdout, leaf);
+            // dns_trie::node_stats ns = t.count_leaves_and_nodes();
+            // fprintf(stderr, "leaves: %zu\tnodes: %zu\n", ns.leaf_count, ns.node_count);
+            t.fprint_uniformity(stdout);
         }
 
         if (test_data_is_set) {
