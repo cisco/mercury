@@ -20,6 +20,8 @@ COLOR_GREEN  = "\033[0;32m"
 COLOR_YELLOW = "\033[0;33m"
 COLOR_OFF    = "\033[0m"
 
+include ../Makefile_helper.mk
+
 MERCURY = ../src/mercury
 export LD_LIBRARY_PATH =$(shell pwd)/../src/libmerc
 
@@ -62,7 +64,7 @@ DROP_ROOT =
 endif
 
 # all test files go in the ./tests subdirectory
-# 
+#
 vpath %.pcap ./data
 
 # for each test, add a filename with the .comp suffix
@@ -129,8 +131,8 @@ endif
 # implicit rule to compare results
 #
 %.comp: %.fp
-	@echo "checking file" $< "against expected output" 
-	diff $< ./data/$< 
+	@echo "checking file" $< "against expected output"
+	diff $< ./data/$<
 	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)  # this output only happens if diff returns 0
 
 # implicit rule to make an MCAP file from a PCAP file
@@ -141,15 +143,15 @@ endif
 # implicit rule to compare MCAP results
 #
 %.mcap-comp: %.mcap
-	@echo "checking file" $< "against expected output" 
-	diff $< ./data/$< 
+	@echo "checking file" $< "against expected output"
+	diff $< ./data/$<
 	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)
 
 # implicit rule to compare JSON results
 #
 %.json-comp: %.json
-	@echo "checking file" $< "against expected output" 
-	diff $< ./data/$< 
+	@echo "checking file" $< "against expected output"
+	diff $< ./data/$<
 	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)
 
 # prevent deletion of intermediate files
@@ -274,7 +276,7 @@ stats:
 clean:
 	rm -rf *.fp *.json *.mcap Makefile~ README.md~ deleteme/* memcheck.tmp tmp.json mercury.PID afl-mercury
 	rm -f fuzz/libmerc.a
-	find ./fuzz/ -name "*_exec" -exec rm -v {} +	
+	find ./fuzz/ -name "*_exec" -exec rm -v {} +
 	find ./fuzz/ -name "*.log" -exec rm -v {} +
 	find ./fuzz/ -name "*.c" -exec rm -v {} +
 	find ./fuzz/ -name "crash*" -exec rm -v {} +
@@ -322,7 +324,11 @@ fuzz-test:
 ifeq ($(have_clang),yes)
 	@echo "checking libmerc.a for fuzz test"
 	cd ../src && $(MAKE) libmerc.a
+ifeq ($(openssl_newer),yes)
+	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 -s true
+else
 	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000
+endif
 else
 	@echo $(COLOR_YELLOW) "clang++ unavailable; cannot perform fuzz test" $(COLOR_OFF)
 endif
@@ -347,6 +353,9 @@ endif
 #
 .PHONY: batch_gcd_test
 batch_gcd_test: $(BGCD_COMP_TARG)
+
+%.pem.bgcd-tout: %.pem.bgcd-in
+	$(BATCH_GCD) --cert-file $< > $@
 
 %.bgcd-tout: %.bgcd-in
 	$(BATCH_GCD) < $< > $@

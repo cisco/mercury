@@ -154,12 +154,14 @@ struct pem_file_reader : public file_reader {
         nread = getline(&line, &len, stream);
         if (nread == -1) {
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+            line = NULL;
             return 0;  // empty line; assue we are done with certificates
         }
         last_label = get_pem_label(line, nread);
         if (last_label == NONE) {
             fprintf(stderr, "error: not in PEM format in textual element %zd\n", cert_number);
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+            line = NULL;
             return -1;  // error: not in PEM format
         }
 
@@ -185,16 +187,32 @@ struct pem_file_reader : public file_reader {
                 }
             }
             if (b_ptr + advance >= base64_buffer_end) {
-                fprintf(stderr, "error: PEM certificiate %zd too long for buffer, or missing closing line\n", cert_number);
+                fprintf(stderr, "error: PEM certificate %zd too long for buffer, or missing closing line\n", cert_number);
                 return -1; // PEM certificate is too long for buffer, or missing closing line
             }
             memcpy(b_ptr, line, advance);
             b_ptr += advance;
         }
+        // Check if base64 decoding has enough output buffer to succeed.
+        size_t outbuf_needed = 3 + ((b_ptr - base64_buffer) * 3 / 4);
+        if (outbuf_len < outbuf_needed) {
+            fprintf(stderr, "error: base64 decoding failed, output buffer (%zd bytes) "
+                            "too small to fit data (%zd bytes)\n", outbuf_len, outbuf_needed);
+            free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+            line = NULL;
+            return -1; // PEM certificate too long for base64 output buffer
+        }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, base64_buffer, b_ptr - base64_buffer);
         if (nread <= 0 && !is_closed)
             fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
+        if (cert_len <= 0) {
+            fprintf(stderr, "error: base64 decoding failed or produced empty output\n");
+            free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+            line = NULL;
+            return -1;  // some other base64 decoding error
+        }
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+        line = NULL;
         return cert_len;
     }
     ~pem_file_reader() {

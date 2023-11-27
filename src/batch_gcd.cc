@@ -23,6 +23,8 @@
 #include <gmpxx.h>
 
 #include <map>
+#include <cmath>
+#include <chrono>
 #include <vector>
 #include <thread>
 #include <utility>
@@ -62,17 +64,6 @@ struct list_worker_thread {
     int tnum;
     int num_threads;
 };
-
-
-void usage(FILE *fp, const char *progname) {
-    fprintf(fp, "Usage: %s < moduli_in_hex.txt\n\n", progname);
-
-    fprintf(fp, "This code efficiently runs all-to-all GCD on RSA moduli.\n");
-    fprintf(fp, "The input must be exactly one hex integer per line.\n");
-    fprintf(fp, "No blank lines or other characters are permitted.\n\n");
-
-    fprintf(fp, "Informational progress messages are written to stderr.\n");
-}
 
 
 size_t intlog2(size_t num) {
@@ -723,7 +714,7 @@ public:
         // cert with an rsa public key, or we encounter an error
         //
         while (true) {
-            data_buffer<8*8192> pembuf;
+            data_buffer<64*8192> pembuf;
             pemfile.write(pembuf);
             pem_file_reader::pem_label label = pemfile.get_label();
             datum pemdata = pembuf.contents();
@@ -779,7 +770,7 @@ public:
             if (next_line_to_write == line_numbers.end()) {
                 return true;  // no more lines to write
             }
-            data_buffer<8*8192> pembuf;
+            data_buffer<64*8192> pembuf;
             pemfile.write(pembuf);
             pem_file_reader::pem_label label = pemfile.get_label();
             datum pemdata = pembuf.contents();
@@ -918,7 +909,7 @@ void write_key(mpz_class &n, mpz_class &f1, mpz_class &f2, std::string &filename
         bigint_e2.get_datum(),
         bigint_coef.get_datum()
     };
-    data_buffer<4096> dbuf;
+    data_buffer<64*8192> dbuf;
     //  private_key_info priv_info{priv};
     //  priv_info.write(dbuf);
     priv.write(dbuf);
@@ -978,9 +969,23 @@ int main (int argc, char *argv[]) {
     class option_processor opt({
         { argument::required,   "--cert-file",        "read certificates from file <arg>" },
         { argument::none,       "--write-keys",       "write out private keys to PEM file" },
+        { argument::none,       "--help",             "print this help message and exit" },
     });
+
     const char *summary =
-        "batch_gcd: [OPTIONS]\n"
+        "usage:\n\n"
+
+        "    batch_gcd [OPTIONS]\n\n"
+
+        "This tool efficiently runs all-to-all GCD on RSA moduli.  If no arguments\n"
+        "are provided, read moduli from stdin.  The input must be exactly one hex\n"
+        "integer per line.  No blank lines or other characters are permitted.\n\n"
+
+        "Alternatively, the options below can be used to read a file of PEM-encoded\n"
+        "certificates instead of the raw moduli.\n\n"
+
+        "Informational progress messages are written to stderr.\n\n"
+
         "OPTIONS:\n";
     if (!opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
@@ -988,6 +993,11 @@ int main (int argc, char *argv[]) {
     }
     auto [ have_cert_file, cert_file ] = opt.get_value("--cert-file");
     bool write_keys                    = opt.is_set("--write-keys");
+    bool help                          = opt.is_set("--help");
+    if (help) {
+        opt.usage(stderr, argv[0], summary);
+        return EXIT_SUCCESS;
+    }
 
     /* Get ready to read a list of large integers */
     struct numlist *nlist = makenumlist(0);
@@ -1030,6 +1040,8 @@ int main (int argc, char *argv[]) {
     } else {
         linereader = new hexline_reader{stdin};
     }
+    std::chrono::steady_clock::time_point last_screen_update = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point current_time = std::chrono::steady_clock::now();
     while (linereader->get_mpz(&mpz_temp)) {
         // Ignore this line if it duplicates a previous line.
         mpz_class n(mpz_temp);
@@ -1050,14 +1062,27 @@ int main (int argc, char *argv[]) {
             original_linenum.push_back(linereader->get_linenum());
             estimated_limbs += mpz_temp->_mp_size; /* limbs in product */
 
-            fprintf(stderr,
-                    "certs: " ANSI_YELLOW "%zu" ANSI_END
-                    "   duplicates: " ANSI_YELLOW "%zu" ANSI_END
-                    "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\r",
-                    linereader->get_linenum(), duplicates_ignored, estimated_limbs * 8);
+            current_time = std::chrono::steady_clock::now();
+            int64_t ms_since_last_update = std::chrono::duration_cast<std::chrono::milliseconds>(current_time-last_screen_update).count();
+            if (ms_since_last_update > 250) {
+                last_screen_update = current_time;
+                size_t num_tree_layers = 1 + static_cast<size_t>(std::ceil(std::log2(linereader->get_linenum()+1)));  // product/remainder tree
+                fprintf(stderr,
+                        "certs: " ANSI_YELLOW "%zu" ANSI_END
+                        "   duplicates: " ANSI_YELLOW "%zu" ANSI_END
+                        "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\r",
+                        linereader->get_linenum(), duplicates_ignored,
+                        estimated_limbs * 8 * (2 + num_tree_layers)); // tree + 2 extra "layers" for temp results and line number tracking
+            }
         }
     }
-    fputc('\n', stderr);
+    size_t num_tree_layers = 1 + 2 * static_cast<size_t>(std::ceil(std::log2(linereader->get_linenum()+1)));
+    fprintf(stderr,
+            "certs: " ANSI_YELLOW "%zu" ANSI_END
+            "   duplicates: " ANSI_YELLOW "%zu" ANSI_END
+            "   RAM needed: " ANSI_YELLOW "%zu" ANSI_END "\n",
+            linereader->get_linenum(), duplicates_ignored,
+            estimated_limbs * 8 * (2 + num_tree_layers)); // tree + 2 extra "layers" for temp results and line number tracking
 
     // deallocate reader to minimize RAM usage
     //

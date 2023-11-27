@@ -14,6 +14,7 @@
 #define QUIC_H
 
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <variant>
 #include <openssl/aes.h>
@@ -551,12 +552,7 @@ struct quic_initial_packet {
         // Long Packet Type   (2)        00
         // Type-Specific Bits (4)        ??
         //
-        uint8_t conn_info_mask  = 0b10110000;
-        uint8_t conn_info_value = 0b10000000;
         d.read_uint8(&connection_info);
-        if ((connection_info & conn_info_mask) != conn_info_value) {
-            return;
-        }
 
         version.parse(d, 4);
 
@@ -589,6 +585,8 @@ struct quic_initial_packet {
             case 4278190113:   // draft-33
             case 4278190114:   // draft-34
             case 1:            // version-1
+            case 1889161412:   // draft1_draft7_v2
+            case 1798521807:   // version-2 
                 break;
             case 0x51303433:   // Google QUIC Q043
             case 0x51303436:   // Google QUIC Q046
@@ -661,7 +659,7 @@ struct quic_initial_packet {
     }
 
     constexpr static mask_and_value<8> matcher = {
-       { 0b10110000, 0x00, 0x00, 0x00, 0x00, 0xe0, 0x00, 0x00 },
+       { 0b10000000, 0x00, 0x00, 0x00, 0x00, 0xe0, 0x00, 0x00 },
        { 0b10000000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
     };
 
@@ -672,11 +670,27 @@ public:
 
     // salt_enum acts as an index for the array of salts
     //
-    enum salt_enum {
-        D22     = 0,
-        D23_D28 = 1,
-        D29_D32 = 2,
-        D33_V1  = 3
+    enum class salt_enum {
+        D22      = 0,
+        D23_D28  = 1,
+        D29_D32  = 2,
+        D33_V1   = 3,
+        D1_D7_V2 = 4,
+        V2       = 5
+    };
+
+    // init_pkt_mask_enum acts as an index for the array of initial pkt type masks
+    //
+    enum class init_pkt_mask_enum {
+        D22_V1     = 0,
+        V2         = 1,
+    };
+
+    // hkdf_label_enum acts as an index for the array of HKDF labels
+    //
+    enum class hkdf_label_enum {
+        D22_V1     = 0,
+        V2         = 1,
     };
 
     // class salt holds a salt value and the printable name associated
@@ -695,16 +709,87 @@ public:
         const char *get_name() const { return name; }
     };
 
-    std::array<salt, 4> salts{
+    std::array<salt, 6> salts{
         salt{{0x7f,0xbc,0xdb,0x0e,0x7c,0x66,0xbb,0xe9,0x19,0x3a,0x96,0xcd,0x21,0x51,0x9e,0xbd,0x7a,0x02,0x64,0x4a}, "d22"},
         salt{{0xc3,0xee,0xf7,0x12,0xc7,0x2e,0xbb,0x5a,0x11,0xa7,0xd2,0x43,0x2b,0xb4,0x63,0x65,0xbe,0xf9,0xf5,0x02}, "d23_d28"},
         salt{{0xaf,0xbf,0xec,0x28,0x99,0x93,0xd2,0x4c,0x9e,0x97,0x86,0xf1,0x9c,0x61,0x11,0xe0,0x43,0x90,0xa8,0x99}, "d29_d32"},
-        salt{{0x38,0x76,0x2c,0xf7,0xf5,0x59,0x34,0xb3,0x4d,0x17,0x9a,0xe6,0xa4,0xc8,0x0c,0xad,0xcc,0xbb,0x7f,0x0a}, "d33_v1"}
+        salt{{0x38,0x76,0x2c,0xf7,0xf5,0x59,0x34,0xb3,0x4d,0x17,0x9a,0xe6,0xa4,0xc8,0x0c,0xad,0xcc,0xbb,0x7f,0x0a}, "d33_v1"},
+        salt{{0xa7,0x07,0xc2,0x03,0xa5,0x9b,0x47,0x18,0x4a,0x1d,0x62,0xca,0x57,0x04,0x06,0xea,0x7a,0xe3,0xe5,0xd3}, "d1_d7_v2"},
+        salt{{0x0d,0xed,0xe3,0xde,0xf7,0x00,0xa6,0xdb,0x81,0x93,0x81,0xbe,0x6e,0x26,0x9d,0xcb,0xf9,0xbd,0x2e,0xd9}, "v2"}
+    };
+
+    // KDF labels
+    constexpr static const uint8_t client_in_label_d22_v1[] = "tls13 client in";
+    constexpr static const uint8_t quic_key_label_d22_v1[]  = "tls13 quic key";
+    constexpr static const uint8_t quic_iv_label_d22_v1[]   = "tls13 quic iv";
+    constexpr static const uint8_t quic_hp_label_d22_v1[]   = "tls13 quic hp";
+
+    constexpr static const uint8_t client_in_label_v2[] = "tls13 client in";
+    constexpr static const uint8_t quic_key_label_v2[]  = "tls13 quicv2 key";
+    constexpr static const uint8_t quic_iv_label_v2[]   = "tls13 quicv2 iv";
+    constexpr static const uint8_t quic_hp_label_v2[]   = "tls13 quicv2 hp";
+
+    // class kdf_label holds the HKDF lables for the QUIC versions
+    //
+    class kdf_label {
+        const uint8_t *client_in_label;
+        const uint8_t *quic_key_label;
+        const uint8_t *quic_iv_label;
+        const uint8_t *quic_hp_label;
+        const unsigned int client_in_label_size;
+        const unsigned int quic_key_label_size;
+        const unsigned int quic_iv_label_size;
+        const unsigned int quic_hp_label_size;
+    public:
+
+        kdf_label(const uint8_t *client, const uint8_t *key, const uint8_t *iv, const uint8_t *hp, const unsigned int client_size, const unsigned int key_size, const unsigned int iv_size, const unsigned int hp_size) : 
+        client_in_label{client},
+        quic_key_label{key},
+        quic_iv_label{iv},
+        quic_hp_label{hp},
+        client_in_label_size{client_size},
+        quic_key_label_size{key_size},
+        quic_iv_label_size{iv_size},
+        quic_hp_label_size{hp_size} 
+        {}
+
+        const uint8_t* get_client_label() const { return client_in_label;}
+        const uint8_t* get_key_label() const { return quic_key_label;}
+        const uint8_t* get_iv_label() const { return quic_iv_label;}
+        const uint8_t* get_hp_label() const { return quic_hp_label;}
+        unsigned int get_client_label_size() const { return client_in_label_size;}
+        unsigned int get_key_label_size() const { return quic_key_label_size;}
+        unsigned int get_iv_label_size() const { return quic_iv_label_size;}
+        unsigned int get_hp_label_size() const { return quic_hp_label_size;}
+
+    };
+
+    std::array<kdf_label, 2> kdf_labels {
+        kdf_label{client_in_label_d22_v1,quic_key_label_d22_v1,quic_iv_label_d22_v1,quic_hp_label_d22_v1, sizeof(client_in_label_d22_v1),sizeof(quic_key_label_d22_v1),sizeof(quic_iv_label_d22_v1),sizeof(quic_hp_label_d22_v1)},
+        kdf_label{client_in_label_v2,quic_key_label_v2,quic_iv_label_v2,quic_hp_label_v2,sizeof(client_in_label_v2),sizeof(quic_key_label_v2),sizeof(quic_iv_label_v2),sizeof(quic_hp_label_v2)},
+    };
+
+    // class init_pkt_mask_value holds the bitmask and value for initial pkt type for long header
+    //
+
+    class init_pkt_mask_value {
+        const std::pair<uint8_t,uint8_t> pkt_mask_value;
+
+    public:
+
+        init_pkt_mask_value (uint8_t mask, uint8_t value) : pkt_mask_value{mask,value} {}
+
+        const std::pair<uint8_t,uint8_t> *get_mask_value() const {return &pkt_mask_value;}
+    };
+
+    std::array<init_pkt_mask_value, 2> init_pkt_masks_values {
+        init_pkt_mask_value{0b10110000,0b10000000},
+        init_pkt_mask_value{0b10110000,0b10010000} 
     };
 
 private:
 
-    std::unordered_map<uint32_t, salt_enum> quic_initial_salt;
+    std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum> > quic_initial_params;
 
 public:
 
@@ -712,47 +797,63 @@ public:
 
     quic_parameters() {
 
-        quic_initial_salt.reserve(MAX_QUIC_VERSIONS);
-        quic_initial_salt = {
-            {4207849473, salt_enum::D22},     // faceb001
-            {4207849474, salt_enum::D23_D28}, // faceb002
-            {4207849486, salt_enum::D23_D28}, // faceb00e
-            {4207849488, salt_enum::D23_D28}, // faceb010
-            {4207849489, salt_enum::D23_D28}, // faceb011
-            {4207849490, salt_enum::D23_D28}, // faceb012
-            {4207849491, salt_enum::D23_D28}, // faceb013
-            {4278190102, salt_enum::D22},     // draft-22
-            {4278190103, salt_enum::D23_D28}, // draft-23
-            {4278190104, salt_enum::D23_D28}, // draft-24
-            {4278190105, salt_enum::D23_D28}, // draft-25
-            {4278190106, salt_enum::D23_D28}, // draft-26
-            {4278190107, salt_enum::D23_D28}, // draft-27
-            {4278190108, salt_enum::D23_D28}, // draft-28
-            {4278190109, salt_enum::D29_D32}, // draft-29
-            {4278190110, salt_enum::D29_D32}, // draft-30
-            {4278190111, salt_enum::D29_D32}, // draft-31
-            {4278190112, salt_enum::D29_D32}, // draft-32
-            {4278190113, salt_enum::D33_V1},  // draft-33
-            {4278190114, salt_enum::D33_V1},  // draft-34
-            {1,          salt_enum::D33_V1},  // version-1
+        quic_initial_params.reserve(MAX_QUIC_VERSIONS);
+        quic_initial_params = {
+            {4207849473, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // faceb001
+            {4207849474, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb002
+            {4207849486, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb00e
+            {4207849488, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb010
+            {4207849489, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb011
+            {4207849490, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb012
+            {4207849491, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb013
+            {4278190102, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // draft-22
+            {4278190103, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-23
+            {4278190104, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-24
+            {4278190105, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-25
+            {4278190106, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-26
+            {4278190107, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-27
+            {4278190108, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-28
+            {4278190109, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-29
+            {4278190110, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-30
+            {4278190111, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-31
+            {4278190112, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-32
+            {4278190113, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-33
+            {4278190114, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-34
+            {1,          {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // version-1
+            {1889161412, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},        // draft1_draft7-v2
+            {1798521807, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2
         };
     }
 
-    void add_salt_mapping(uint32_t version, salt_enum salt_num) {
-        if (quic_initial_salt.size() > MAX_QUIC_VERSIONS) {
+    void add_param_mapping(uint32_t version, const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param) {
+        if (quic_initial_params.size() > MAX_QUIC_VERSIONS) {
             return;
         }
-        quic_initial_salt.emplace(version, salt_num);
+        quic_initial_params.emplace(version, param);
     }
 
-    const salt *get_initial_salt(uint32_t version) {
-        auto pair = quic_initial_salt.find(version);
-        if (pair != quic_initial_salt.end()) {
-            return &salts[pair->second];
+    const quic_parameters::salt *get_initial_salt(salt_enum salt_num) {
+        return &salts[static_cast<size_t>(salt_num)];
+    }
+
+    const quic_parameters::kdf_label *get_kdf(hkdf_label_enum label_num) {
+        return &kdf_labels[static_cast<size_t>(label_num)];
+    }
+
+    const quic_parameters::init_pkt_mask_value *get_init_pkt_mask_value(init_pkt_mask_enum mask_value_num) {
+        return &init_pkt_masks_values[static_cast<size_t>(mask_value_num)];
+    }
+
+    const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum> *get_initial_params(uint32_t version) {
+        auto pair = quic_initial_params.find(version);
+        if (pair != quic_initial_params.end()) {
+            return &pair->second;
         } else {
             return nullptr;
         }
     }
+
+    const std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum> > &get_params_map() {return quic_initial_params;}
 
     static quic_parameters &create() {
         static quic_parameters quic_params;
@@ -763,11 +864,6 @@ public:
 class quic_crypto_engine {
 
     crypto_engine core_crypto;
-
-    constexpr static const uint8_t client_in_label[] = "tls13 client in";
-    constexpr static const uint8_t quic_key_label[]  = "tls13 quic key";
-    constexpr static const uint8_t quic_iv_label[]   = "tls13 quic iv";
-    constexpr static const uint8_t quic_hp_label[]   = "tls13 quic hp";
 
     size_t salt_length = 20;
 
@@ -789,7 +885,7 @@ class quic_crypto_engine {
 
 public:
 
-    datum decrypt(const quic_initial_packet &quic_pkt) {
+    datum decrypt(quic_initial_packet &quic_pkt) {
         if (!quic_pkt.is_not_empty()) {
             return {nullptr, nullptr};
         }
@@ -797,20 +893,56 @@ public:
         data_buffer<1024> aad;
         uint32_t version = ntoh(*((uint32_t*)quic_pkt.version.data));
         static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
-        const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(version);
+        const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> *params = quic_params.get_initial_params(version);
 
-        if (initial_salt) {
-            salt_str = initial_salt->get_name();
-            if (process_initial_packet(aad, quic_pkt, initial_salt->data()) == false) {
-                return {nullptr, nullptr};
+        if (params) {
+            const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(std::get<0>(*params));
+            const std::pair<uint8_t,uint8_t> *mask_value = quic_params.get_init_pkt_mask_value(std::get<1>(*params))->get_mask_value();
+
+            if (mask_value) {
+                if ((quic_pkt.connection_info & mask_value->first) != mask_value->second) {
+                    // the initial pkt bits do not match
+                    quic_pkt.valid = false;
+                    return {nullptr,nullptr};
+                }
             }
-            decrypt__(aad.buffer, aad.readable_length(),
-                  quic_pkt.payload.data, quic_pkt.payload.length());
-            return {plaintext, plaintext+plaintext_len};
-        } else {
 
-            for (size_t i = 0; i < quic_params.salts.size(); i++) {
-                if (process_initial_packet(aad, quic_pkt, quic_params.salts[i].data()) == false) {
+            const uint8_t *client_in_label = (quic_params.get_kdf(std::get<2>(*params))->get_client_label());
+            const uint8_t *quic_key_label  = (quic_params.get_kdf(std::get<2>(*params))->get_key_label());
+            const uint8_t *quic_iv_label   = (quic_params.get_kdf(std::get<2>(*params))->get_iv_label());
+            const uint8_t *quic_hp_label   = (quic_params.get_kdf(std::get<2>(*params))->get_hp_label());
+            const unsigned int client_in_label_size = (quic_params.get_kdf(std::get<2>(*params))->get_client_label_size());
+            const unsigned int quic_key_label_size  = (quic_params.get_kdf(std::get<2>(*params))->get_key_label_size());
+            const unsigned int quic_iv_label_size   = (quic_params.get_kdf(std::get<2>(*params))->get_iv_label_size());
+            const unsigned int quic_hp_label_size   = (quic_params.get_kdf(std::get<2>(*params))->get_hp_label_size());
+
+            if (initial_salt) {
+                salt_str = initial_salt->get_name();
+                if (process_initial_packet(aad, quic_pkt, initial_salt->data(), client_in_label, quic_key_label, quic_iv_label, quic_hp_label,
+                                            client_in_label_size, quic_key_label_size, quic_iv_label_size, quic_hp_label_size) == false) {
+                    return {nullptr, nullptr};
+                }
+                decrypt__(aad.buffer, aad.readable_length(),
+                      quic_pkt.payload.data, quic_pkt.payload.length());
+                return {plaintext, plaintext+plaintext_len};
+            }
+            return {nullptr, nullptr}; 
+        }
+        else {
+            // try every salt to decrypt, most likely a version negotiation pkt
+            for (auto params : quic_params.get_params_map()) {
+                const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params.second; 
+                const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(std::get<0>(param));
+                const uint8_t *client_in_label = (quic_params.get_kdf(std::get<2>(param))->get_client_label());
+                const uint8_t *quic_key_label  = (quic_params.get_kdf(std::get<2>(param))->get_key_label());
+                const uint8_t *quic_iv_label   = (quic_params.get_kdf(std::get<2>(param))->get_iv_label());
+                const uint8_t *quic_hp_label   = (quic_params.get_kdf(std::get<2>(param))->get_hp_label());
+                const unsigned int client_in_label_size = (quic_params.get_kdf(std::get<2>(param))->get_client_label_size());
+                const unsigned int quic_key_label_size  = (quic_params.get_kdf(std::get<2>(param))->get_key_label_size());
+                const unsigned int quic_iv_label_size   = (quic_params.get_kdf(std::get<2>(param))->get_iv_label_size());
+                const unsigned int quic_hp_label_size   = (quic_params.get_kdf(std::get<2>(param))->get_hp_label_size());
+                if (process_initial_packet(aad, quic_pkt, initial_salt->data(), client_in_label, quic_key_label, quic_iv_label, quic_hp_label,
+                                        client_in_label_size, quic_key_label_size, quic_iv_label_size, quic_hp_label_size) == false) {
                     reset_buffers();
                     continue;
                 }
@@ -818,14 +950,16 @@ public:
                   quic_pkt.payload.data, quic_pkt.payload.length());
 
                 if (plaintext_len) {
-                    salt_str = quic_params.salts[i].get_name();
-                    quic_params.add_salt_mapping(version, (quic_parameters::salt_enum)i);
+                    //salt_str = quic_params.salts[i].get_name();
+                    salt_str = initial_salt->get_name();
+                    quic_params.add_param_mapping(version, param);
                     return {plaintext, plaintext+plaintext_len};
                 }
                 aad.reset();
             }
             return {nullptr, nullptr};
         }
+        return {nullptr, nullptr};
     }
 
     void write_json(struct json_object &record) {
@@ -834,7 +968,10 @@ public:
 
 private:
 
-    bool process_initial_packet(data_buffer<1024> &aad, const quic_initial_packet &quic_pkt, const uint8_t* salt) {
+    //bool process_initial_packet(data_buffer<1024> &aad, const quic_initial_packet &quic_pkt, const uint8_t* salt) {
+    bool process_initial_packet(data_buffer<1024> &aad, const quic_initial_packet &quic_pkt, const uint8_t* salt,
+                            const uint8_t *client_in_label, const uint8_t *quic_key_label, const uint8_t *quic_iv_label, const uint8_t *quic_hp_label,
+                            const unsigned int client_in_label_size, const unsigned int quic_key_label_size, const unsigned int quic_iv_label_size, const unsigned int quic_hp_label_size) {
         if (!quic_pkt.is_not_empty()) {
             return false;
         }
@@ -847,10 +984,10 @@ private:
 
         uint8_t c_initial_secret[EVP_MAX_MD_SIZE] = {0};
         unsigned int c_initial_secret_len = 0;
-        core_crypto.kdf_tls13(initial_secret, initial_secret_len, client_in_label, sizeof(client_in_label)-1, 32, c_initial_secret, &c_initial_secret_len);
-        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_key_label, sizeof(quic_key_label)-1, 16, quic_key, &quic_key_len);
-        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, sizeof(quic_iv_label)-1, 12, quic_iv, &quic_iv_len);
-        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, sizeof(quic_hp_label)-1, 16, quic_hp, &quic_hp_len);
+        core_crypto.kdf_tls13(initial_secret, initial_secret_len, client_in_label, client_in_label_size-1, 32, c_initial_secret, &c_initial_secret_len);
+        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_key_label, quic_key_label_size-1, 16, quic_key, &quic_key_len);
+        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_iv_label, quic_iv_label_size-1, 12, quic_iv, &quic_iv_len);
+        core_crypto.kdf_tls13(c_initial_secret, c_initial_secret_len, quic_hp_label, quic_hp_label_size-1, 16, quic_hp, &quic_hp_len);
 
         // remove header protection (RFC9001, Section 5.4.1)
         //
