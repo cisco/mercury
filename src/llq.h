@@ -12,7 +12,7 @@
 
 #define LLQ_MSG_SIZE 16384   /* The number of bytes allowed for each message in the lockless queue */
 #define LLQ_DEPTH    2048    /* The number of "buckets" (queue messages) allowed */
-#define LLQ_MAX_AGE  5       /* Maximum age (in seconds) messages are allowed to sit in a queue */
+#define LLQ_MAX_AGE  100000000 /* Maximum age (in nanoseconds) messages are allowed to sit in a queue */
 
 /* The message object suitable for the std::priority_queue */
 struct llq_msg {

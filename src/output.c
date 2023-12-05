@@ -52,6 +52,28 @@ int time_less(struct timespec *tsl, struct timespec *tsr) {
     }
 }
 
+
+void time_subtract_ns(struct timespec *ts, int64_t ns_interval) {
+    const int64_t ONE_SECOND_IN_NS = 1000000000;
+    if (ts->tv_nsec >= ns_interval) { // fastest path
+        ts->tv_nsec -= ns_interval;
+    } else if (ns_interval < ONE_SECOND_IN_NS) { // relatively fast path
+        ts->tv_sec -= 1;
+        ts->tv_nsec += (ONE_SECOND_IN_NS - ns_interval);
+    } else { // slow path
+        int64_t whole_seconds = ns_interval / ONE_SECOND_IN_NS;
+        int64_t ns_remaining = ns_interval % ONE_SECOND_IN_NS;
+        ts->tv_sec -= whole_seconds;
+        if (ts->tv_nsec >= ns_remaining) {
+            ts->tv_nsec -= ns_remaining;
+        } else {
+            ts->tv_sec -= 1;
+            ts->tv_nsec += (ONE_SECOND_IN_NS - ns_remaining);
+        }
+    }
+}
+
+
 int queue_less(int ql, int qr, struct tourn_tree *t_tree, const struct thread_queues *tqs) {
 
     /* returns 1 if the time of ql < qr and 0 otherwise
@@ -271,7 +293,7 @@ enum status output_file_rotate(struct output_file *ojf) {
     }
 
     enum status status = status_ok;
-    
+
     if (ojf->max_records == UINT64_MAX && ojf->rotate_time == UINT64_MAX) {
         char outfile[FILENAME_MAX];
         strncpy(outfile, ojf->outfile_name, FILENAME_MAX - 1);
@@ -388,7 +410,7 @@ void close_outfiles (struct output_file* out_ctx) {
         if (fclose(out_ctx->file_used) != 0 ) {
         perror("could not close used json file");
         }
-    } 
+    }
 }
 
 enum status limit_rotate (output_file* out_ctx) {
@@ -427,7 +449,7 @@ enum status time_rotate (output_file* out_ctx) {
     }
 
     return status_ok;
-} 
+}
 
 void *output_thread_func(void *arg) {
 
@@ -492,7 +514,7 @@ void *output_thread_func(void *arg) {
      * To avoid things getting out-of-order the output thread won't
      * run a tournament until either 1) all queues have a message in
      * them, or 2) one of the queues has a message older than
-     * LLQ_MAX_AGE (5 seconds by default).
+     * LLQ_MAX_AGE (100ms by default).
      *
      * This means that as long as no queue pauses for more than 5
      * seconds the k-way merge will be perfectly in-order.  If a queue
@@ -585,11 +607,11 @@ void *output_thread_func(void *arg) {
         }
 
         /* This is the time we compare against to flush */
-        old_ts.tv_sec -= LLQ_MAX_AGE;
+        time_subtract_ns(&old_ts, LLQ_MAX_AGE);
 
         /* This loop runs the tournament even though the tree is stalled
          * but only pull messages out of queues that are older than
-         * LLQ_MAX_AGE (currently set to 5 seconds).
+         * LLQ_MAX_AGE (currently set to 100ms).
          */
 
         int old_done = 0;
@@ -653,7 +675,7 @@ void *output_thread_func(void *arg) {
     if (t_tree.tree) {
         free(t_tree.tree);
     }
-    
+
     if (out_ctx->type != file_type_stdout) {
         close_outfiles(out_ctx);
     }
