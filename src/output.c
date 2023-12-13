@@ -516,14 +516,14 @@ void *output_thread_func(void *arg) {
      * them, or 2) one of the queues has a message older than
      * LLQ_MAX_AGE (100ms by default).
      *
-     * This means that as long as no queue pauses for more than 5
-     * seconds the k-way merge will be perfectly in-order.  If a queue
-     * does pause for more than 5 seconds only messages older than 5
-     * seconds will be flushed.
+     * This means that as long as no queue pauses for more than
+     * LLQ_MAX_AGE the k-way merge will be perfectly in-order.  If a
+     * queue does pause for more than LLQ_MAX_AGE only messages older
+     * than LLQ_MAX_AGE will be flushed.
      *
      * The other big assumption is that each lockless queue is in
      * perfect order.  Testing shows that rarely, packets can be
-     * out-of-order by a few microseconds in a lockless queue.  This
+     * out-of-order by a few microseconds in an individual queue.  This
      * may be the fault of tiny clock abnormalities, could be machine
      * dependant, or ethernet card dependant.  The exact situations
      * where packets can be recieved out of cronological order aren't
