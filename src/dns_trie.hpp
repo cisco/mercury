@@ -93,15 +93,19 @@ public:
         }
 
         void remove_subtree() {
-            fprintf(stdout, "%s\n", __func__);
+            // fprintf(stdout, "%s\n", __func__);
+
+            // recursively visit entire subtree and delete the
+            // children nodes
+            //
             for (auto it = edges.begin(); it != edges.end(); it++) {
                 fprintf(stdout, "%s: %s\n", __func__, it->first.c_str());
                 if (it->second != nullptr) {
                     it->second->remove_subtree();
-                    // it->second = nullptr;
-                    // delete it->second;
+                    delete it->second;
                 }
             }
+            edges.clear();
         }
 
         // increment total subtree_count for this node
@@ -611,13 +615,14 @@ public:
                 tmp.append(s);
             }
 
-            fprintf(stdout, "prune: %s\t%zu\n", tmp.c_str(), b.subtree_count(tmp));
+            //fprintf(stdout, "prune: %s\t%zu\n", tmp.c_str(), b.subtree_count(tmp));
             if (b.subtree_count(tmp) == 0) {
                 e.second->remove_subtree();
             }
+
         };
         a.get_root().postorder_traversal(prune_node, "");
-        // b.get_root().preorder_traversal(prune_node, "");
+        b.get_root().preorder_traversal(prune_node, "");
     }
 
     // TODO: implement a member function that prunes a and b so as to

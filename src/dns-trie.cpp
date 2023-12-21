@@ -376,6 +376,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--help",               "print help message"       },
         { argument::none,       "--trie",               "create dns name trie"     },
         { argument::none,       "--dump",               "dump printout of trie"    },
+        { argument::none,       "--prune",              "prune classifier"         },
         { argument::none,       "--leaf",               "only output leaf info"    },
         { argument::none,       "--json",               "input is json"            },
         { argument::none,       "--find-public-suffix", "report the public suffix" },
@@ -402,6 +403,7 @@ int main(int argc, char *argv[]) {
     auto [ lookup_set, lookup ]       = opt.get_value("--dns-lookup");
     bool find_psl                     = opt.is_set("--find-public-suffix");
     bool dump                         = opt.is_set("--dump");
+    bool prune                        = opt.is_set("--prune");
     bool leaf                         = opt.is_set("--leaf");
     (void)leaf; // compiler silencer
     bool json_input                   = opt.is_set("--json");
@@ -543,8 +545,9 @@ int main(int argc, char *argv[]) {
         // return 0;
 
         binary_classifier malware_classifier{malware_tls, benign_tls};
-
-        malware_classifier.prune(stdout);
+        if (prune) {
+            malware_classifier.prune(stdout);
+        }
         malware_classifier.compare(stdout);
 
         return 0;
