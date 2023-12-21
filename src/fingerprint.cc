@@ -56,7 +56,7 @@ public:
 
     fp(const std::string &v, const std::string & cv, const std::vector<std::string> &e) : version{v}, ciphersuite_vector{cv}, extensions{e} { }
 
-    fp(const std::string &s) : version{}, ciphersuite_vector{}, extensions{} {
+    fp(std::string s) : version{}, ciphersuite_vector{}, extensions{} {
 
         if (s == "") {
             fprintf(stderr, "warning: got empty string in %s\n", __func__);
@@ -88,6 +88,14 @@ public:
         std::string prefix = "tls/";
         if (!s.compare(0, prefix.length(), prefix)) {
             c += prefix.length();
+        }
+
+        // remove format version identifier, if need be
+        //
+        size_t first_slash = s.find_first_of('/');
+        size_t second_slash = s.find_first_of('/', first_slash+1);
+        if (second_slash != std::string::npos) {
+            s.erase(first_slash, second_slash - first_slash);
         }
 
         version = parse_value_from_str(&c);
