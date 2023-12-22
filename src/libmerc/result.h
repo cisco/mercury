@@ -41,15 +41,20 @@ private:
     attribute_result::bitset tags;
     std::array<long double, MAX_TAGS> prob_score;
     const std::vector<std::string> *tag_names;
+    const char *const *tag_names_char;
+    attribute_context attr_ctx;
 
 public:
 
-    attribute_result() : tags{}, prob_score{}, tag_names{nullptr} { }
+    attribute_result() : tags{}, prob_score{}, tag_names{nullptr}, tag_names_char{nullptr}, attr_ctx{} { }
 
-    attribute_result(std::bitset<MAX_TAGS> _tags, std::array<long double, MAX_TAGS> _prob_score, const std::vector<std::string> *_tag_names) :
+    attribute_result(std::bitset<MAX_TAGS> _tags, std::array<long double, MAX_TAGS> _prob_score, const std::vector<std::string> *_tag_names,
+                        const char *const *names_char) :
         tags{_tags},
         prob_score{_prob_score},
-        tag_names{_tag_names}
+        tag_names{_tag_names},
+        tag_names_char{names_char},
+        attr_ctx{}
     { }
 
     void write_json(struct json_object &o) {
@@ -80,6 +85,17 @@ public:
         record.close();
     }
 
+    bool is_valid() {
+        return tags.any();
+    }
+
+    const struct attribute_context *get_attributes() {
+        attr_ctx.tag_names = tag_names_char;
+        attr_ctx.prob_scores = prob_score.data();
+        attr_ctx.attributes_len = tag_names->size();
+        return &attr_ctx;
+    }
+
 };
 
 // class attribute_names holds the strings corresponding to an ordered
@@ -87,6 +103,7 @@ public:
 //
 class attribute_names {
     std::vector<std::string> names;
+    std::array<const char*, attribute_result::MAX_TAGS> names_char;
     bool accept_more_names = true;
 
 public:
@@ -111,9 +128,14 @@ public:
 
     void stop_accepting_new_names() {
         accept_more_names = false;
+        for (size_t i = 0; i < names.size(); i++)
+            names_char[i] = names[i].c_str();
     }
 
     const std::vector<std::string> &value() const { return names; }
+
+    const char* const* get_names_char() const { return names_char.data();}
+
 };
 
 struct analysis_result {
@@ -125,6 +147,9 @@ struct analysis_result {
     bool classify_malware;
     struct os_information *os_info;
     uint16_t os_info_len;
+
+    // extended analysis_result
+    // does not require classification to succeed
     attribute_result attr;
 
 public:

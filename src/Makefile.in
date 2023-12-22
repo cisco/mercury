@@ -296,7 +296,7 @@ uninstall:
 	@echo "local captures not removed; to do that, run 'rm -rf $(localstatedir)'"
 
 .PHONY: uninstall-certtools
-uninstall:
+uninstall-certtools:
 	rm -f $(bindir)/batch_gcd
 	rm -f $(bindir)/cert_analyze
 	rm -f $(bindir)/tls_scanner

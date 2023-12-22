@@ -170,6 +170,10 @@ struct tcp_packet : public base_protocol {
         return header && TCP_IS_FIN(header->flags);
     }
 
+    bool is_RST() {
+        return header && TCP_IS_RST(header->flags);
+    }
+
     uint32_t seq() const { return hton(header->seq); }
 
     void set_key(struct key &k) {

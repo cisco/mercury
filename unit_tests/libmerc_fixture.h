@@ -29,6 +29,7 @@ protected:
     int counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback);
     int counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback, uint16_t linktype);
     int counter(fingerprint_type fp_type, std::function<void()> callback);
+    bool counter(size_t expected_attrs_count, std::function<void(size_t, size_t)> callback);
     
     void check_global_configuraton(libmerc_config config);
     
