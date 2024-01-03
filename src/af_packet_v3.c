@@ -96,6 +96,8 @@ struct thread_storage {
     int *t_start_p;             /* The clean start predicate */
     pthread_cond_t *t_start_c;  /* The clean start condition */
     pthread_mutex_t *t_start_m; /* The clean start mutex */
+    int force_stall;            /* Force thread to stall */
+    int stall_cnt;              /* Counter for stalled thread detection */
 };
 
 
@@ -140,9 +142,9 @@ void af_packet_stats(int sockfd, struct stats_tracking *statst) {
     }
 
     if (statst != NULL) {
-        statst->socket_packets += tp3_stats.tp_packets;
-        statst->socket_drops += tp3_stats.tp_drops;
-        statst->socket_freezes += tp3_stats.tp_freeze_q_cnt;
+        statst->socket_packets = tp3_stats.tp_packets;
+        statst->socket_drops = tp3_stats.tp_drops;
+        statst->socket_freezes = tp3_stats.tp_freeze_q_cnt;
     }
 }
 
@@ -239,10 +241,21 @@ void *stats_thread_func(void *statst_arg) {
     struct timespec ts;
     double time_d; /* time delta */
     memset(&ts, 0, sizeof(ts));
+
+    struct stats_tracking *per_tsock_stats = (stats_tracking *)calloc(statst->num_threads, sizeof(struct stats_tracking));
+    if (per_tsock_stats == NULL) {
+        fprintf(stderr, "Unable to allocate per-thread socket stats tracking struct\n");
+        exit(255);
+    }
+
     /**
      * Enable all signals so that this thread shuts down first
      */
     enable_all_signals();
+
+    /* DEBUG thread stalling */
+    int thread_stall = 2;
+    int stall_countdown = 10;
 
     while (sig_close_flag == 0) {
         uint64_t packets_before = statst->received_packets;
@@ -270,7 +283,45 @@ void *stats_thread_func(void *statst_arg) {
         double worst_rusage = 0; /* Worst average rbuffer usage */
         double worst_i_rusage = 0; /* Worst instantaneous rbuffer usage */
         for (int thread = 0; thread < statst->num_threads; thread++) {
-            af_packet_stats(statst->tstor[thread].sockfd, statst);
+            /* Get the stats for this thread's socket */
+            af_packet_stats(statst->tstor[thread].sockfd, &(per_tsock_stats[thread]));
+
+            /* Add those stats into the overall counts */
+            statst->socket_packets += per_tsock_stats[thread].socket_packets;
+            statst->socket_drops += per_tsock_stats[thread].socket_drops;
+            statst->socket_freezes += per_tsock_stats[thread].socket_freezes;
+
+            /* Detect stalled thread */
+            if (per_tsock_stats[thread].socket_packets > 0) {
+                if ((per_tsock_stats[thread].socket_drops > 0) &&
+                    (per_tsock_stats[thread].socket_freezes == 0)) {
+                    /* Socket drops without freezes are a sign that the thread
+                     * stalled a while ago and never unfroze
+                     */
+
+                    statst->tstor[thread].stall_cnt += 1;
+                } else {
+                    if (statst->tstor[thread].stall_cnt >= 3) {
+                        fprintf(stderr, "INFO: Thread %d with thread id %lu has recovered from a stall!\n", statst->tstor[thread].tnum, statst->tstor[thread].tid);
+                    }
+                    statst->tstor[thread].stall_cnt  = 0;
+                }
+
+                if (statst->tstor[thread].stall_cnt == 3) {
+                    fprintf(stderr, "CRITICAL: Thread %d with thread id %lu has stalled!\n", statst->tstor[thread].tnum, statst->tstor[thread].tid);
+                }
+            }
+
+            /* DEBUG stall thread */
+            if (thread == thread_stall) {
+                if (stall_countdown == 1) {
+                    stall_countdown = 0;
+                    fprintf(stderr, "Trying to stall thread %d\n", thread_stall);
+                    statst->tstor[thread].force_stall = 1;
+                } else {
+                    stall_countdown -= 1;
+                }
+            }
 
             int thread_block_count = statst->tstor[thread].ring_params.tp_block_nr;
             double *bstreak_hist = statst->tstor[thread].block_streak_hist;
@@ -392,6 +443,8 @@ void *stats_thread_func(void *statst_arg) {
             check_socket_drops(duration, sdps, sfps, &socket_drops, &zero_drops);
         }
     }
+
+    free(per_tsock_stats);
 
     return NULL;
 }
@@ -522,8 +575,7 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
                     actual_ifname, thread_stor->if_name);
         }
     }
-  
-  
+
     /*
      * set up fanout (each thread gets some portion of packets)
      */
@@ -646,6 +698,13 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
     double time_d; /* The time delta */
     while (sig_close_workers == 0) {
 
+        if (thread_stor->force_stall != 0) {
+            fprintf(stderr, "Thread %d with thread id %lu forcefully stalling\n", thread_stor->tnum, thread_stor->tid);
+            while ((sig_close_workers == 0) && (thread_stor->force_stall != 0)) {
+                sleep(1);
+            }
+        }
+
         /* This checks if the 'user' bit is NOT set on the block.  If the
          * block isn't set, the block is still owned by the kernel and we
          * should wait.  If the bit is set, the block has been filled by
@@ -759,8 +818,8 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
 void *packet_capture_thread_func(void *arg)  {
     struct thread_storage *thread_stor = (struct thread_storage *)arg;
 
-    /**
-     * Disable all signals so that this worker thread is not disturbed 
+    /*
+     * Disable all signals so that this worker thread is not disturbed
      * in the middle of packet processing.
      */
     disable_all_signals();
@@ -854,7 +913,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     thread_ring_req.tp_frame_nr = (thread_ring_blocksize * thread_ring_blockcount) / rl.af_framesize;
     thread_ring_req.tp_retire_blk_tov = rl.af_blocktimeout;
     thread_ring_req.tp_feature_req_word = TP_FT_REQ_FILL_RXHASH;
-  
+
     /* Get all the thread storage ready and allocate the sockets */
     for (int thread = 0; thread < num_threads; thread++) {
         /* Init the thread storage for this thread */
@@ -866,6 +925,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         tstor[thread].t_start_p = &t_start_p;
         tstor[thread].t_start_c = &t_start_c;
         tstor[thread].t_start_m = &t_start_m;
+        tstor[thread].force_stall = 0;
+        tstor[thread].stall_cnt = 0;
 
         err = pthread_attr_init(&(tstor[thread].thread_attributes));
         if (err) {
@@ -894,6 +955,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         tstor[thread].t_start_p = &t_start_p;
         tstor[thread].t_start_c = &t_start_c;
         tstor[thread].t_start_m = &t_start_m;
+        tstor[thread].force_stall = 0;
+        tstor[thread].stall_cnt = 0;
 
         tstor[thread].block_streak_hist = (double *)calloc(thread_ring_blockcount + 1, sizeof(double));
         if (!(tstor[thread].block_streak_hist)) {
