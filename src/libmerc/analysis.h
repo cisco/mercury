@@ -599,7 +599,7 @@ public:
         std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
         attr_prob.fill(0.0);
         for (uint64_t i=0; i < process_score.size(); i++) {
-            process_score[i] = exp((float)process_score[i]);
+            process_score[i] = expf((float)(process_score[i] - max_score));
             score_sum += process_score[i];
             if (malware[i]) {
                 malware_prob += process_score[i];
