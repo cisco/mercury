@@ -309,6 +309,7 @@ void *stats_thread_func(void *statst_arg) {
 
                 if (statst->tstor[thread].stall_cnt == 3) {
                     fprintf(stderr, "CRITICAL: Thread %d with thread id %lu has stalled!\n", statst->tstor[thread].tnum, statst->tstor[thread].tid);
+                    pthread_kill(statst->tstor[thread].tid, SIGUSR1);
                 }
             }
 

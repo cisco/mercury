@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
+#include <execinfo.h>
 #include "signal_handling.h"
 
 int sig_close_flag = 0; /* Watched by the threads while processing packets */
@@ -25,6 +26,19 @@ void sig_close (int signal_arg) {
     fclose(stdin);      /* if are reading from stdin, stop reading */
 }
 
+
+void sig_backtrace (int signal_arg) {
+
+    int nptrs;
+    void *buffer[128];
+
+    psignal(signal_arg, "\ngetting backtrace");
+    nptrs = backtrace(buffer, 128);
+    fprintf(stderr, "backtrace() returned %d addresses\n", nptrs);
+    backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+}
+
+
 /*
  * set up signal handlers, so that output is flushed upon close
  *
@@ -37,6 +51,11 @@ enum status setup_signal_handler(void) {
 
     /* kill -15 causes graceful shutdown */
     if (signal(SIGTERM, sig_close) == SIG_ERR) {
+        return status_err;
+    }
+
+    /* kill -USR1 causes (thread) to print backtrace */
+    if (signal(SIGUSR1, sig_backtrace) == SIG_ERR) {
         return status_err;
     }
 
@@ -61,6 +80,7 @@ void enable_all_signals(void) {
 void disable_all_signals(void) {
   sigset_t signal_set;
   sigfillset(&signal_set);
+  sigdelset(&signal_set, SIGUSR1); /* except the USR1 signal for backtraces */
   if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
       fprintf(stderr, "%s: error in pthread_sigmask blocking signals\n", 
               strerror(errno));
