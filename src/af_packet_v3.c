@@ -96,7 +96,7 @@ struct thread_storage {
     int *t_start_p;             /* The clean start predicate */
     pthread_cond_t *t_start_c;  /* The clean start condition */
     pthread_mutex_t *t_start_m; /* The clean start mutex */
-    int force_stall;            /* Force thread to stall */
+    int force_stall;            /* Force thread to stall (unused but available for debugging) */
     int stall_cnt;              /* Counter for stalled thread detection */
 };
 
@@ -253,10 +253,6 @@ void *stats_thread_func(void *statst_arg) {
      */
     enable_all_signals();
 
-    /* DEBUG thread stalling */
-    int thread_stall = 2;
-    int stall_countdown = 10;
-
     while (sig_close_flag == 0) {
         uint64_t packets_before = statst->received_packets;
         uint64_t bytes_before = statst->received_bytes;
@@ -310,17 +306,6 @@ void *stats_thread_func(void *statst_arg) {
                 if (statst->tstor[thread].stall_cnt == 3) {
                     fprintf(stderr, "CRITICAL: Thread %d with thread id %lu has stalled!\n", statst->tstor[thread].tnum, statst->tstor[thread].tid);
                     pthread_kill(statst->tstor[thread].tid, SIGUSR1);
-                }
-            }
-
-            /* DEBUG stall thread */
-            if (thread == thread_stall) {
-                if (stall_countdown == 1) {
-                    stall_countdown = 0;
-                    fprintf(stderr, "Trying to stall thread %d\n", thread_stall);
-                    statst->tstor[thread].force_stall = 1;
-                } else {
-                    stall_countdown -= 1;
                 }
             }
 
@@ -699,12 +684,21 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
     double time_d; /* The time delta */
     while (sig_close_workers == 0) {
 
-        if (thread_stor->force_stall != 0) {
-            fprintf(stderr, "Thread %d with thread id %lu forcefully stalling\n", thread_stor->tnum, thread_stor->tid);
-            while ((sig_close_workers == 0) && (thread_stor->force_stall != 0)) {
-                sleep(1);
-            }
-        }
+        /* Debugging thread stalling:
+         * If force_stall is set (say by the stats thread)
+         * this worker will stall which allows for simulating
+         * a stall in packet processing.
+         *
+         * This isn't used in practice but is left here commented out
+         * to preserve the logic should such debugging be needed
+         * in the future.
+         */
+        /* if (thread_stor->force_stall != 0) { */
+        /*     fprintf(stderr, "Thread %d with thread id %lu forcefully stalling\n", thread_stor->tnum, thread_stor->tid); */
+        /*     while ((sig_close_workers == 0) && (thread_stor->force_stall != 0)) { */
+        /*         sleep(1); */
+        /*     } */
+        /* } */
 
         /* This checks if the 'user' bit is NOT set on the block.  If the
          * block isn't set, the block is still owned by the kernel and we
@@ -947,17 +941,6 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
             fprintf(stderr, "%s: error initializing block streak mutex for thread %d\n", strerror(err), thread);
             exit(255);
         }
-
-        tstor[thread].tnum = thread;
-        tstor[thread].tid = 0;
-        tstor[thread].sockfd = -1;
-        tstor[thread].if_name = cfg->capture_interface;
-        tstor[thread].statst = &statst;
-        tstor[thread].t_start_p = &t_start_p;
-        tstor[thread].t_start_c = &t_start_c;
-        tstor[thread].t_start_m = &t_start_m;
-        tstor[thread].force_stall = 0;
-        tstor[thread].stall_cnt = 0;
 
         tstor[thread].block_streak_hist = (double *)calloc(thread_ring_blockcount + 1, sizeof(double));
         if (!(tstor[thread].block_streak_hist)) {
