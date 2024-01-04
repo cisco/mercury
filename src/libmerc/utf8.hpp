@@ -42,7 +42,7 @@ public:
     // note: 'fingerprint' is an awkward name used for historical
     // reasons; it should be changed to 'write' or something similar.
     //
-    void fingerprint(struct buffer_stream &b) const {
+    inline void fingerprint(struct buffer_stream &b) const {
         if (datum::is_not_null()) {
             write(b, data, length());
         }
@@ -90,7 +90,7 @@ public:
 //  U+40000..U+FFFFF    F1..F3    80..BF     80..BF      80..BF
 //  U+100000..U+10FFFF  F4        80..8F     80..BF      80..BF
 //
-bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned int len) {
+inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned int len) {
     bool valid = true;
 
     const uint8_t *x = data;
@@ -106,7 +106,7 @@ bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned int len)
 
                     if (*x >= 0xf0) {
                         if (x >= end - 3) {
-                            b.snprintf(sequence_too_short); // indicate error with private use codepoint
+                            b.puts(sequence_too_short); // indicate error with private use codepoint
                             valid = false;
                             break;                 // error; too few bytes for code point
                         }
@@ -130,7 +130,7 @@ bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned int len)
                         }
                     } else {
                         if (x >= end - 2) {
-                            b.snprintf(sequence_too_short); // indicate error with private use codepoint
+                            b.puts(sequence_too_short); // indicate error with private use codepoint
                             valid = false;
                             break;                 // error; too few bytes for code point
                         }
@@ -154,7 +154,7 @@ bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned int len)
 
                 } else {
                     if (x >= end - 1) {
-                        b.snprintf(sequence_too_short); // indicate error with private use codepoint
+                        b.puts(sequence_too_short); // indicate error with private use codepoint
                         valid = false;
                         break;                 // error; too few bytes for code point
                     }
@@ -171,7 +171,7 @@ bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned int len)
                     // encountered in a multi-byte sequence, or an
                     // overlong encoding was encountered
                     //
-                    b.snprintf(invalid_or_overlong); // indicate error with private use codepoint
+                    b.puts(invalid_or_overlong); // indicate error with private use codepoint
                     valid = false;
 
                 } else if (codepoint < 0x10fffd) {
@@ -187,14 +187,14 @@ bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned int len)
                         //
                         // error: invalid or private codepoint
                         //
-                        b.snprintf(invalid_or_private); // indicate error with private use codepoint
+                        b.puts(invalid_or_private); // indicate error with private use codepoint
                         valid = false;
 
                     } else if (codepoint >= 0xd800 && codepoint <= 0xdfff) {
                         //
                         // invalid surrogate half
                         //
-                        b.snprintf(invalid_surrogate); // indicate error with private use codepoint
+                        b.puts(invalid_surrogate); // indicate error with private use codepoint
                         valid = false;
 
                     } else if (codepoint > 0xffff) {
@@ -220,7 +220,7 @@ bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned int len)
                 //
                 // error: initial byte in range 0x80 - 0xbf
                 //
-                b.snprintf(unexpected_continuation); // indicate error with private use codepoint
+                b.puts(unexpected_continuation); // indicate error with private use codepoint
                 valid = false;
             }
 
@@ -231,9 +231,9 @@ bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned int len)
 
             } else {
                 if (*x == '"' || *x == '\\') {   // escape json special characters
-                    b.snprintf("\\");
+                    b.write_char('\\');
                 }
-                b.snprintf("%c", *x);            // print out ascii character
+                b.write_char(*x);                // print out ascii character
             }
         }
         x++;
