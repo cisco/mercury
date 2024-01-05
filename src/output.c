@@ -28,6 +28,7 @@ void thread_queues_init(struct thread_queues *tqs, int n) {
         tqs->queue[i].qnum = i; /* only needed for debug output */
         tqs->queue[i].ridx = 0;
         tqs->queue[i].widx = 0;
+        tqs->queue[i].drops = 0;
 
         for (int j = 0; j < LLQ_DEPTH; j++) {
             tqs->queue[i].msgs[j].used = 0;
@@ -550,6 +551,7 @@ void *output_thread_func(void *arg) {
     }
 
     int all_output_flushed = 0;
+    uint64_t total_drops = 0;
     enum status status = status_ok;
     while (all_output_flushed == 0) {
 
@@ -664,6 +666,19 @@ void *output_thread_func(void *arg) {
             }
         }
 
+        /* Do output drop accounting */
+        for (int i = 0; i < out_ctx->qs.qnum; i++) {
+            uint64_t drops = out_ctx->qs.queue[i].drops;
+
+            if (drops > 0) {
+                total_drops += drops;
+                fprintf(stderr, "[OUTPUT] Output queue %d reported %lu drops\n", i, drops);
+
+                /* Set counter back to zero atomically */
+                __sync_sub_and_fetch(&(out_ctx->qs.queue[i].drops), drops);
+            }
+        }
+
         /* This sleep slows us down so we don't spin the CPU.
          * We probably could afford to call fflush() here
          * the first time instead of sleeping and only sleep
@@ -675,6 +690,9 @@ void *output_thread_func(void *arg) {
         sleep_ts.tv_nsec = 1000000;
         nanosleep(&sleep_ts, NULL);
     } /* End all_output_flushed == 0 meaning we got a signal to stop */
+
+    /* Report total drops */
+    out_ctx->output_drops = total_drops;
 
     if (t_tree.tree) {
         free(t_tree.tree);

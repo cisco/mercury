@@ -35,6 +35,7 @@ struct ll_queue {
     int qnum;  /* This is the queue number and is only needed for debugging */
     int ridx;  /* The read index */
     int widx;  /* The write index */
+    int drops; /* Output drop counter */
     struct llq_msg msgs[LLQ_DEPTH];
 
     static const size_t msg_length = LLQ_DEPTH;
@@ -53,14 +54,11 @@ struct ll_queue {
             m->buf[0] = '\0';
 
             return m;
-        }
-        //fprintf(stderr, "DEBUG: queue bucket used!\n");
+        } else {
+            __sync_add_and_fetch(&(drops), 1);
 
-        // TODO: this is where we'd update an output drop counter
-        // but currently this spot in the code doesn't have access to
-        // any thread stats pointer or similar and I don't want
-        // to update a global variable in this location.
-        return nullptr;
+            return nullptr;
+        }
     }
     void write_buffer_to_queue() {
     }

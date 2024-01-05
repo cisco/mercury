@@ -42,6 +42,7 @@ struct output_file {
     pthread_mutex_t t_output_m;
     struct thread_queues qs;
     int sig_stop_output = 0;
+    uint64_t output_drops = 0;
 };
 
 void *output_thread_func(void *arg);
