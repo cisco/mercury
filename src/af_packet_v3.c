@@ -842,7 +842,8 @@ void *packet_capture_thread_func(void *arg)  {
 
 enum status bind_and_dispatch(struct mercury_config *cfg,
                               mercury_context mc,
-                              struct output_file *out_ctx) {
+                              struct output_file *out_ctx,
+                              struct cap_stats *cstats) {
     /* initialize the ring limits from the configuration */
     struct ring_limits rl;
     ring_limits_init(&rl, cfg->buffer_fraction);
@@ -1053,13 +1054,12 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     }
     free(tstor);
 
-    fprintf(stderr, "--\n"
-            "%" PRIu64 " packets captured\n"
-            "%" PRIu64 " bytes captured\n"
-            "%" PRIu64 " packets seen by socket\n"
-            "%" PRIu64 " packets dropped\n"
-            "%" PRIu64 " socket queue freezes\n",
-            statst.received_packets, statst.received_bytes, statst.socket_packets, statst.socket_drops, statst.socket_freezes);
+    /* Report final capture stats back to main mercury thread */
+    cstats->packets = statst.received_packets;
+    cstats->bytes = statst.received_bytes;
+    cstats->sock_packets = statst.socket_packets;
+    cstats->drops = statst.socket_drops;
+    cstats->freezes = statst.socket_freezes;
 
     return status_ok;
 }

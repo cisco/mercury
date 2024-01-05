@@ -64,6 +64,16 @@ struct mercury_config {
     size_t out_rotation_duration;   /* number of seconds between json file rotation  */}
 ;
 
+
+struct cap_stats {
+    uint64_t packets;       /* Total packet count */
+    uint64_t bytes;         /* Total byte count */
+    uint64_t sock_packets;  /* Packets seen by socket */
+    uint64_t drops;         /* Packets dropped */
+    uint64_t freezes;       /* Socket queue freezes */
+};
+
+
 #define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0, false, 300, 0 }
 
 

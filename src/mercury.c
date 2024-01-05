@@ -651,6 +651,7 @@ int main(int argc, char *argv[]) {
     srand(time(0));
 
     struct output_file out_file;
+    struct cap_stats cstats;
 
     controller *ctl = nullptr;
     if (cfg.stats_filename) {
@@ -669,7 +670,7 @@ int main(int argc, char *argv[]) {
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
-        if (bind_and_dispatch(&cfg, mc, &out_file) != status_ok) {
+        if (bind_and_dispatch(&cfg, mc, &out_file, &cstats) != status_ok) {
             fprintf(stderr, "error: bind and dispatch failed\n");
             return EXIT_FAILURE;
         }
@@ -684,6 +685,17 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
     }
     output_thread_finalize(&out_file);
+
+
+    if (cfg.capture_interface) {
+        fprintf(stderr, "--\n"
+                "%" PRIu64 " packets captured\n"
+                "%" PRIu64 " bytes captured\n"
+                "%" PRIu64 " packets seen by socket\n"
+                "%" PRIu64 " packets dropped\n"
+                "%" PRIu64 " socket queue freezes\n",
+                cstats.packets, cstats.bytes, cstats.sock_packets, cstats.drops, cstats.freezes);
+    }
 
     //exit control thread after output thread
     if (ctl) {

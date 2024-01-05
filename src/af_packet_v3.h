@@ -13,6 +13,7 @@
 
 enum status bind_and_dispatch(struct mercury_config *cfg,
                               mercury_context mc,
-                              struct output_file *out_ctx);
+                              struct output_file *out_ctx,
+                              struct cap_stats *cstats);
 
 #endif /* AF_PACKET_V3 */
