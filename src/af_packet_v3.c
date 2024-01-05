@@ -10,6 +10,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE    /* Needed for gettid() definition from unistd.h */
+#endif
 #include <unistd.h>
 
 #include <signal.h>
