@@ -52,6 +52,14 @@ public:
     //
     static inline bool is_continuation(uint8_t x);
 
+    // write the uint16_t value as a '\uXXXX'-encoded codepoint
+    //
+    static inline void write_codepoint(buffer_stream &b, uint16_t codepoint) {
+        b.write_char('\\');
+        b.write_char('u');
+        b.write_uint16_hex(codepoint);
+    }
+
 };
 
 // UTF-8 is a variable-length encoding scheme that represents unicode
@@ -204,14 +212,14 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                         codepoint -= 0x10000;
                         uint32_t hi = (codepoint >> 10) + 0xd800;
                         uint32_t lo = (codepoint & 0x3ff) + 0xdc00;
-                        b.snprintf("\\u%04x", hi);
-                        b.snprintf("\\u%04x", lo);
+                        write_codepoint(b, hi);
+                        write_codepoint(b, lo);
 
                     } else {
                         //
                         // basic multilingual plane
                         //
-                        b.snprintf("\\u%04x", codepoint);
+                        write_codepoint(b, codepoint);
                     }
 
                 }
@@ -227,7 +235,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
         } else {    // *x < 0x80; ASCII
 
             if (*x < 0x20 || *x == 0x7f) {       // escape control characters
-                b.snprintf("\\u%04x", *x);
+                write_codepoint(b, *x);
 
             } else {
                 if (*x == '"' || *x == '\\') {   // escape json special characters

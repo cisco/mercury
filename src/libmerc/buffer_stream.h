@@ -1097,6 +1097,15 @@ struct buffer_stream {
         append_mac_addr(dstr, &doff, dlen, &trunc, d);
     }
 
+    void write_uint16_hex(uint16_t x) {
+        char outbuf[5];
+        outbuf[0] = hex_table[(x >> 12) & 0x000f];
+        outbuf[1] = hex_table[(x >> 8) & 0x000f];
+        outbuf[2] = hex_table[(x >> 4) & 0x000f];
+        outbuf[3] = hex_table[x & 0x000f];
+        outbuf[4] = 0;
+        puts(outbuf);
+    }
 };
 
 struct timestamp_writer {
