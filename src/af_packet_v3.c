@@ -63,6 +63,8 @@ struct ring_limits {
  * and a place to store those stats
  */
 struct stats_tracking {
+    pid_t kpid;               /* Process ID (the kernel's PID for this thread) */
+    pthread_t tid;            /* pthread ID */
     struct thread_storage *tstor;
     int num_threads;
     uint64_t received_packets;
@@ -83,7 +85,8 @@ struct stats_tracking {
 struct thread_storage {
     struct pkt_proc *pkt_processor;
     int tnum;                 /* Thread Number */
-    pthread_t tid;            /* Thread ID */
+    pid_t kpid;               /* Process ID (the kernel's PID for this thread) */
+    pthread_t tid;            /* pthread ID */
     pthread_attr_t thread_attributes;
     int sockfd;               /* Socket owned by this thread */
     const char *if_name;      /* The name of the interface to bind the socket to */
@@ -212,7 +215,10 @@ void check_socket_drops(int duration, uint64_t sdps, uint64_t sfps, int *socket_
 void *stats_thread_func(void *statst_arg) {
 
     struct stats_tracking *statst = (struct stats_tracking *)statst_arg;
-    int duration = 0, socket_drops = 0, zero_drops = 0;
+
+    statst->kpid = gettid();
+
+    fprintf(stderr, "[STATISTICS OUTPUT] Stats thread with pthread id %lu (PID %u) started...\n", statst->tid, statst->kpid);
 
     /* The stats thread is one of the first to get started and it has to wait
      * for the other threads otherwise we'll be tracking bogus stats
@@ -252,6 +258,8 @@ void *stats_thread_func(void *statst_arg) {
      * Enable all signals so that this thread shuts down first
      */
     enable_all_signals();
+
+    int duration = 0, socket_drops = 0, zero_drops = 0;
 
     while (sig_close_flag == 0) {
         uint64_t packets_before = statst->received_packets;
@@ -432,6 +440,8 @@ void *stats_thread_func(void *statst_arg) {
 
     free(per_tsock_stats);
 
+    fprintf(stderr, "[STATISTICS OUTPUT] Stats thread with pthread id %lu (PID %u) exiting...\n", statst->tid, statst->kpid);
+
     return NULL;
 }
 
@@ -579,6 +589,9 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
 
 int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
 
+    /* Fetch the kernel's PID for this thread */
+    thread_stor->kpid = gettid();
+
     int err;
     /* At this point this thread is ready to go
      * but we need to wait for all the other threads to be ready too
@@ -630,7 +643,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
     }
     af_packet_stats(sockfd, NULL); // Discard bogus stats
 
-    fprintf(stderr, "Thread %d with thread id %lu started...\n", thread_stor->tnum, thread_stor->tid);
+    fprintf(stderr, "[PACKET PROCESSOR] Thread %d with pthread id %lu (PID %u) started...\n", thread_stor->tnum, thread_stor->tid, thread_stor->kpid);
 
     /*
      * The kernel keeps a pointer to one of the blocks in the ringbuffer
@@ -805,7 +818,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
 
     } /* end while (sig_close_workers == 0) */
 
-    fprintf(stderr, "Thread %d with thread id %lu exiting...\n", thread_stor->tnum, thread_stor->tid);
+    fprintf(stderr, "[PACKET PROCESSOR] Thread %d with pthread id %lu (PID %u) exiting...\n", thread_stor->tnum, thread_stor->tid, thread_stor->kpid);
     return 0;
 }
 
@@ -980,10 +993,10 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     }
 
     /* Start up the threads */
-    pthread_t stats_thread;
-    err = pthread_create(&stats_thread, NULL, stats_thread_func, &statst);
+    err = pthread_create(&(statst.tid), NULL, stats_thread_func, &statst);
     if (err != 0) {
         perror("error creating stats thread");
+        exit(255);
     }
 
     for (int thread = 0; thread < num_threads; thread++) {
@@ -1020,7 +1033,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     }
 
     /* Wait for the stats thread to close (which only happens on a sigint/sigterm) */
-    pthread_join(stats_thread, NULL);
+    pthread_join(statst.tid, NULL);
 
     /* stats tracking closed, let the packet processing workers know */
     sig_close_workers = 1;

@@ -455,6 +455,10 @@ void *output_thread_func(void *arg) {
 
     struct output_file *out_ctx = (struct output_file *)arg;
 
+    out_ctx->kpid = gettid();
+
+    fprintf(stderr, "[OUTPUT] Thread with pthread id %lu (PID %u) started...\n", out_ctx->tid, out_ctx->kpid);
+
     int err;
     err = pthread_mutex_lock(&(out_ctx->t_output_m));
     if (err != 0) {
@@ -680,11 +684,13 @@ void *output_thread_func(void *arg) {
         close_outfiles(out_ctx);
     }
 
+    fprintf(stderr, "[OUTPUT] Thread with pthread id %lu (PID %u) exiting...\n", out_ctx->tid, out_ctx->kpid);
+
     return NULL;
 }
 
 
-int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, const struct mercury_config &cfg) {
+int output_thread_init(struct output_file &out_ctx, const struct mercury_config &cfg) {
 
     /* make the thread queues */
     thread_queues_init(&out_ctx.qs, cfg.num_threads);
@@ -704,7 +710,7 @@ int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, co
     //fprintf(stderr, "DEBUG: max records: %ld\n", out_ctx.out_jf.max_records);
 
     /* Start the output thread */
-    int err = pthread_create(&output_thread, NULL, output_thread_func, &out_ctx);
+    int err = pthread_create(&(out_ctx.tid), NULL, output_thread_func, &out_ctx);
     if (err != 0) {
         perror("error creating output thread");
         return -1;
@@ -712,8 +718,8 @@ int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, co
     return 0;
 }
 
-void output_thread_finalize(pthread_t output_thread, struct output_file *out_file) {
+void output_thread_finalize(struct output_file *out_file) {
     out_file->sig_stop_output = 1;
-    pthread_join(output_thread, NULL);
+    pthread_join(out_file->tid, NULL);
     thread_queues_free(&out_file->qs);
 }

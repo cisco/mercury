@@ -660,8 +660,7 @@ int main(int argc, char *argv[]) {
         ctl = new controller{mc, "disabled", cfg.stats_rotation_duration, &out_file, cfg, false};
     }
 
-    pthread_t output_thread;
-    if (output_thread_init(output_thread, out_file, cfg) != 0) {
+    if (output_thread_init(out_file, cfg) != 0) {
         fprintf(stderr, "error: unable to initialize output thread\n");
         return EXIT_FAILURE;
     }
@@ -684,7 +683,7 @@ int main(int argc, char *argv[]) {
     if (cfg.verbosity) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
     }
-    output_thread_finalize(output_thread, &out_file);
+    output_thread_finalize(&out_file);
 
     //exit control thread after output thread
     if (ctl) {
