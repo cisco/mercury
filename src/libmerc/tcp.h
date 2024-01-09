@@ -12,7 +12,7 @@
 #include <string.h>
 #include <unordered_map>
 #include "datum.h"
-#include "analysis.h"
+#include "json_object.h"
 #include "util_obj.h"
 
 struct tcp_header {
