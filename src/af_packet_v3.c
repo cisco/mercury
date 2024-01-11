@@ -108,6 +108,8 @@ struct thread_storage {
 };
 
 
+struct thread_stall *global_thread_stall; /* global needed for signal handler access */
+
 
 void ring_limits_init(struct ring_limits *rl, float frac);  // defined below
 
@@ -649,6 +651,38 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
 
     fprintf(stderr, "[PACKET PROCESSOR] Thread %d with pthread id %lu (PID %u) started...\n", thread_stor->tnum, thread_stor->tid, thread_stor->kpid);
 
+    /* Save this execution context so that we can restore the thread back
+     * to this point if it stalls during packet processing.
+     */
+    if (sigsetjmp(global_thread_stall[thread_stor->tnum].jmp_env, 1) == 0) {
+        /* This branch of the if means we have just saved execution
+         * so that a later siglongjump can be performed
+         */
+
+        /* env saved, store thread id and mark this as used */
+        global_thread_stall[thread_stor->tnum].tid = thread_stor->tid;
+
+        __sync_synchronize(); /* enforce memory ordering */
+        global_thread_stall[thread_stor->tnum].used = 1;
+    } else {
+        /* This branch of the if means a siglongjump was just performed
+         * from our signal handler and execution is being restored
+         * from a stall
+         */
+
+        /* Flush all the packet blocks to discard whatever caused the stall */
+        for (unsigned int b = 0; b < thread_block_count; b++) {
+            if ((block_header[b]->hdr.bh1.block_status & TP_STATUS_USER) == 0) {
+                continue;
+            }
+            else {
+                block_header[b]->hdr.bh1.block_status = TP_STATUS_KERNEL;
+            }
+        }
+
+        fprintf(stderr, "[PACKET PROCESSOR] Thread %d with pthread id %lu (PID %u) resumed execution from stall...\n", thread_stor->tnum, thread_stor->tid, thread_stor->kpid);
+    }
+
     /*
      * The kernel keeps a pointer to one of the blocks in the ringbuffer
      * (starting at 0) and every time the kernel fills a block and
@@ -882,6 +916,15 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     }
     statst.tstor = tstor; // The stats thread needs to know how to access the socket for each packet worker
 
+    global_thread_stall = (struct thread_stall *)malloc((num_threads + 1) * sizeof(struct thread_stall));
+    if (!global_thread_stall) {
+        perror("could not allocate memory for global thread stall structs\n");
+    }
+    for (int i = 0; i <= num_threads; i++) {
+        global_thread_stall[i].used = 0;
+        global_thread_stall[i].tid = 0;
+    }
+
     /* Now that we know how many threads we will have, we need
      * to figure out what our ring parameters will be */
     uint32_t thread_ring_size;
@@ -1057,6 +1100,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         delete tstor[thread].pkt_processor;
     }
     free(tstor);
+    free(global_thread_stall);
 
     /* Report final capture stats back to main mercury thread */
     cstats->packets = statst.received_packets;

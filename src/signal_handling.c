@@ -12,7 +12,11 @@
 #include <string.h>
 #include <pthread.h>
 #include <execinfo.h>
+
+#include <setjmp.h>    /* For thread stall recovery */
+
 #include "signal_handling.h"
+#include "af_packet_v3.h"
 
 int sig_close_flag = 0; /* Watched by the threads while processing packets */
 
@@ -36,6 +40,22 @@ void sig_backtrace (int signal_arg) {
     nptrs = backtrace(buffer, 128);
     fprintf(stderr, "backtrace() returned %d addresses\n", nptrs);
     backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+
+    /* Find an execution context to restore */
+    pthread_t tid = pthread_self();
+    int tnum = 0;
+
+    while (global_thread_stall[tnum].used != 0) {
+        if (global_thread_stall[tnum].tid == tid) {
+            /* We found which global context was saved
+             * for this thread so we can now break out
+             * of this stall
+             */
+            siglongjmp(global_thread_stall[tnum].jmp_env, 1);
+        }
+
+        tnum++;
+    }
 }
 
 
