@@ -9,6 +9,8 @@
 #include "protocol.h"
 #include "json_object.h"
 #include "utils.h"
+#include "fingerprint.h"
+#include "result.h"
 
 template <size_t bits, typename T>
 inline T rotl(T &x) {
@@ -114,6 +116,32 @@ public:
             return true;
         }
         return false;
+    }
+
+    void fingerprint(struct buffer_stream &buf) const {
+        if (is_not_empty() == false) {
+            return;
+        }
+
+        // fp format -> tofsee in hex
+        uint8_t generic_str[] = {'g','e','n','e','r','i', 'c'};
+        buf.write_char('(');
+        buf.memcpy(generic_str, 7);
+        buf.write_char(')');
+
+    }
+
+    void compute_fingerprint(class fingerprint &fp) const {
+        fp.set_type(fingerprint_type_tofsee);
+        fp.add(*this);
+        fp.final();
+    }
+
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        //const char tofsee_str[] = "malware_tofsee";
+        //analysis_.result = analysis_result{fingerprint_status_labeled,tofsee_str, 1.0, nullptr, 0, true, 1.0, {}};
+        //return true;
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }
 
 #ifndef NDEBUG
