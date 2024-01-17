@@ -1,5 +1,11 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.24
+
+* Minor improvement to the classifier's numerical accuracy.
+* Reduced mercury's output tournament's max delay from 5s to 100ms.
+* Reduced libmerc `#include` file dependencies.
+
 ## Version 2.5.23
 
 * (Significantly) improved the encrypted/compressed archive reader speed.
