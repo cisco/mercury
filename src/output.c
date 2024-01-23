@@ -29,6 +29,7 @@ void thread_queues_init(struct thread_queues *tqs, int n) {
         tqs->queue[i].ridx = 0;
         tqs->queue[i].widx = 0;
         tqs->queue[i].drops = 0;
+        tqs->queue[i].mcnt = 0;
 
         for (int j = 0; j < LLQ_DEPTH; j++) {
             tqs->queue[i].msgs[j].used = 0;
@@ -589,6 +590,8 @@ void *output_thread_func(void *arg) {
             if (wmsg->used == 1) {
                 fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file_pri);
 
+                out_ctx->qs.queue[wq].mcnt += 1; /* count this message */
+
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
                 wmsg->used = 0;
@@ -608,6 +611,7 @@ void *output_thread_func(void *arg) {
                     }
                 }
 
+                /* Advance the read index */
                 out_ctx->qs.queue[wq].ridx = (out_ctx->qs.queue[wq].ridx + 1) % LLQ_DEPTH;
 
                 run_tourn_for_queue(&t_tree, wq, &out_ctx->qs);
@@ -653,6 +657,8 @@ void *output_thread_func(void *arg) {
                 //fprintf(stderr, "DEBUG: writing old message from queue %d\n", wq);
                 fwrite(wmsg->buf, wmsg->len, 1, out_ctx->file_pri);
 
+                out_ctx->qs.queue[wq].mcnt += 1; /* count this message */
+
                 /* A full memory barrier prevents the following flag (un)set from happening too soon */
                 __sync_synchronize();
                 wmsg->used = 0;
@@ -681,16 +687,33 @@ void *output_thread_func(void *arg) {
         }
 
         /* Do output drop accounting */
-        for (int i = 0; i < out_ctx->qs.qnum; i++) {
-            uint64_t drops = out_ctx->qs.queue[i].drops;
+        for (int q = 0; q < out_ctx->qs.qnum; q++) {
+            uint64_t drops = out_ctx->qs.queue[q].drops;
 
             if (drops > 0) {
                 total_drops += drops;
-                fprintf(stderr, "[OUTPUT] Output queue %d reported %lu drops\n", i, drops);
+                fprintf(stderr, "[OUTPUT] Output queue %d reported %lu drops\n", q, drops);
 
                 /* Set counter back to zero atomically */
-                __sync_sub_and_fetch(&(out_ctx->qs.queue[i].drops), drops);
+                __sync_sub_and_fetch(&(out_ctx->qs.queue[q].drops), drops);
+
+                /* Check for desync between read and write index */
+                if (out_ctx->qs.queue[q].mcnt == 0) {
+                    /* We never should get drops if we haven't gotten msgs
+                     * from this queue. This could mean we're stuck trying to read
+                     * an empty bucket while the writing is stuck on an already
+                     * full bucket.
+                     */
+                    for (int i = 0; i < LLQ_DEPTH; i++) {
+                        if (((struct llq_msg *)&(out_ctx->qs.queue[q].msgs[i]))->used == 1) {
+                            out_ctx->qs.queue[q].ridx = i;
+                            break;
+                        }
+                    }
+                }
             }
+
+            out_ctx->qs.queue[q].mcnt = 0; /* Reset msg counter to zero */
         }
 
         /* This sleep slows us down so we don't spin the CPU.

@@ -36,6 +36,7 @@ struct ll_queue {
     int ridx;  /* The read index */
     int widx;  /* The write index */
     int drops; /* Output drop counter */
+    int mcnt;  /* Message counter used alongside drops to detect stalled queue */
     struct llq_msg msgs[LLQ_DEPTH];
 
     static const size_t msg_length = LLQ_DEPTH;
