@@ -491,6 +491,20 @@ void *output_thread_func(void *arg) {
         }
     }
     out_ctx->record_countdown = out_ctx->max_records;
+
+    /* We just got started and there are likely messages from
+     * packet processing and even drops sitting in the output queue
+     * from before we were ready to handle them. Flush output and
+     * zero out drop counters so we get a "fair" start and don't
+     * report drops from before everything was even started
+     */
+    for (int q = 0; q < out_ctx->qs.qnum; q++) {
+        for (int i = 0; i < LLQ_DEPTH; i++) {
+            ((struct llq_msg *)&(out_ctx->qs.queue[q].msgs[i]))->used = 0;
+        }
+        out_ctx->qs.queue[q].drops = 0;
+    }
+
     /* This output thread uses a "tournament tree" algorithm
      * to perform a k-way merge of the lockless queues.
      *
