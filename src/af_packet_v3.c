@@ -98,8 +98,7 @@ struct thread_storage {
     struct tpacket_block_desc **block_header; /* The pointer to each block in the mmap()'d region */
     struct tpacket_req3 ring_params; /* The ring allocation params to setsockopt() */
     struct stats_tracking *statst;   /* A pointer to the struct with the stats counters */
-    double *block_streak_hist;  /* The block streak histogram */
-    pthread_mutex_t bstreak_m;  /* The block streak mutex */
+    int longest_bstreak;        /* Track the longers number of full blocks in a row */
     int *t_start_p;             /* The clean start predicate */
     pthread_cond_t *t_start_c;  /* The clean start condition */
     pthread_mutex_t *t_start_m; /* The clean start mutex */
@@ -289,9 +288,7 @@ void *stats_thread_func(void *statst_arg) {
         }
 
         /* Now go grab the socket and streak statistics */
-        double tot_rusage = 0;   /* Sum of all threads rusage */
-        double worst_rusage = 0; /* Worst average rbuffer usage */
-        double worst_i_rusage = 0; /* Worst instantaneous rbuffer usage */
+        double worst_bstreak_frac = 0;
         for (int thread = 0; thread < statst->num_threads; thread++) {
             /* Get the stats for this thread's socket */
             af_packet_stats(statst->tstor[thread].sockfd, &(per_tsock_stats[thread]));
@@ -300,6 +297,13 @@ void *stats_thread_func(void *statst_arg) {
             statst->socket_packets += per_tsock_stats[thread].socket_packets;
             statst->socket_drops += per_tsock_stats[thread].socket_drops;
             statst->socket_freezes += per_tsock_stats[thread].socket_freezes;
+
+            /* Track the worst block streak fraction */
+            double bstreak_frac = ((double)(statst->tstor[thread].longest_bstreak) / (double)(statst->tstor[thread].ring_params.tp_block_nr));
+            if (bstreak_frac > worst_bstreak_frac) {
+                worst_bstreak_frac = bstreak_frac;
+            }
+            statst->tstor[thread].longest_bstreak = 0; /* Reset streak tracking */
 
             /* Detect stalled thread */
             if (per_tsock_stats[thread].socket_packets > 0) {
@@ -321,56 +325,6 @@ void *stats_thread_func(void *statst_arg) {
                     fprintf(stderr, "CRITICAL: Thread %d with thread id %lu has stalled!\n", statst->tstor[thread].tnum, statst->tstor[thread].tid);
                     pthread_kill(statst->tstor[thread].tid, SIGUSR1);
                 }
-            }
-
-            int thread_block_count = statst->tstor[thread].ring_params.tp_block_nr;
-            double *bstreak_hist = statst->tstor[thread].block_streak_hist;
-
-            /* Get the lock for the bstreak histogram computation */
-            err = pthread_mutex_lock(&(statst->tstor[thread].bstreak_m));
-            if (err != 0) {
-                fprintf(stderr, "%s: stats func error acquiring bstreak mutex lock\n", strerror(err));
-                exit(255);
-            }
-
-            /* First compute the time total */
-            double ttot = 0;
-            for (int i = 0; i <= thread_block_count; i++) {
-                ttot += bstreak_hist[i];
-
-                if (bstreak_hist[i] > 0) {
-                    double utmp = (double)(i) / (double)thread_block_count;
-                    if (utmp > worst_i_rusage) {
-                        worst_i_rusage = utmp;
-                    }
-                }
-                //fprintf(stderr, "%d: %lu\n", i, bstreak_hist[i]);
-            }
-            //fprintf(stderr, "time total: %f\n", ttot);
-
-            /* Now compute the average (weighted) ring usage */
-            double rusage = 0;
-            if (ttot > 0) {
-                for (int i = 0; i <= thread_block_count; i++) {
-                    rusage += (bstreak_hist[i] / ttot) * ((double)(i) / (double)thread_block_count);
-                }
-            }
-
-            /* Now clear the bstreak histogram */
-            for (int i = 0; i <= thread_block_count; i++) {
-                bstreak_hist[i] = 0;
-            }
-
-            err = pthread_mutex_unlock(&(statst->tstor[thread].bstreak_m));
-            if (err != 0) {
-                fprintf(stderr, "%s: stats func error releasing bstreak mutex lock\n", strerror(err));
-                exit(255);
-            }
-
-            //fprintf(stderr, "[thread %d] Got ring usage of %4f\n", thread, rusage);
-            tot_rusage += rusage;
-            if (rusage > worst_rusage) {
-                worst_rusage = rusage;
             }
         }
 
@@ -424,17 +378,15 @@ void *stats_thread_func(void *statst_arg) {
         if (statst->verbosity) {
             fprintf(stderr,
                     "Stats: "
-                    "Time %10.03f ; "
-                    "%7.03f%s Packets/s; Data Rate %7.03f%s bytes/s; "
-                    "Ethernet Rate (est.) %7.03f%s bits/s; "
-                    "Socket Packets %7.03f%s; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
-                    "All threads avg. rbuf %4.1f%%; Worst thread avg. rbuf %4.1f%%; Worst instantaneous rbuf %4.1f%%\n",
+                    "Time %14.3f ; "
+                    "%7.3f%s Packets/s; Data Rate %7.3f%s bytes/s; "
+                    "Ethernet Rate (est.) %7.3f%s bits/s; "
+                    "Socket Packets %7.3f%s ; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
+                    "Worst contiguous buffer procesing streak %7.3f%%\n",
                     (ts.tv_sec + (ts.tv_nsec / 1000000000.0)),
                     r_pps, r_pps_s, r_byps, r_byps_s,
                     r_ebips, r_ebips_s,
-                    r_spps, r_spps_s, sdps, sfps,
-                    (tot_rusage / (statst->num_threads)) * 100.0, worst_rusage * 100.0,
-                    worst_i_rusage * 100.0);
+                    r_spps, r_spps_s, sdps, sfps, worst_bstreak_frac * 100.0);
         }
 
         duration++;
@@ -628,8 +580,6 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
     int sockfd = thread_stor->sockfd;
     struct tpacket_block_desc **block_header = thread_stor->block_header;
     struct stats_tracking *statst = thread_stor->statst;
-    double *block_streak_hist = thread_stor->block_streak_hist;
-    pthread_mutex_t *bstreak_m = &(thread_stor->bstreak_m);
     struct pkt_proc *pkt_processor = thread_stor->pkt_processor;
 
     /* We got the clean start all clear so we can get started but
@@ -726,13 +676,12 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
     psockfd.revents = 0;
 
     int pstreak = 0;      /* Tracks the number of times in a row (the streak) poll() has told us there is data */
-    uint64_t bstreak = 0; /* The number of blocks in a row we've gotten without a poll() */
+    int bstreak = 0;      /* The number of blocks in a row we've gotten without a poll() */
     int polret;           /* The return value from poll() */
     int haveflushed = 0;  /* Tracks whether we've opportunistically flushed yet or not */
     unsigned int cb = 0;  /* The current block pointer (index) */
     struct timespec ts;
     (void)time_elapsed(&ts); /* init the struct for us */
-    double time_d; /* The time delta */
     while (sig_close_workers == 0) {
 
         /* Debugging thread stalling:
@@ -762,33 +711,15 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
              * with new packets
              */
 
-            /* Track the number of blocks in a row in this streak */
-            time_d = time_elapsed(&ts); /* How long this streak lasted (also updates ts struct with current time) */
-
-            if (bstreak > thread_block_count) {
-                bstreak = thread_block_count;
-            }
-
-            /* The use of a mutex can be justified in this case
-             * because 1) this will rarely ever clash with the stats
-             * thread and 2) there aren't any blocks for us to process
-             * at the moment so we can take a tiny bit of time tracking
-             * stats and such
+            /* The set-after-check race here poses no stability issue
+             * and only runs the chance of a streak getting lost which
+             * is acceptable.
              */
-            err = pthread_mutex_lock(bstreak_m);
-            if (err != 0) {
-                fprintf(stderr, "%s: error acquiring bstreak mutex lock\n", strerror(err));
-                exit(255);
+            if (bstreak > thread_stor->longest_bstreak) {
+                thread_stor->longest_bstreak = bstreak;
             }
 
-            block_streak_hist[bstreak] += time_d;
-
-            err = pthread_mutex_unlock(bstreak_m);
-            if (err != 0) {
-                fprintf(stderr, "%s: error releasing bstreak mutex lock\n", strerror(err));
-                exit(255);
-            }
-
+            /* This streak has ended */
             bstreak = 0;
 
             /* we have processed all previously received packets.  since we
@@ -981,6 +912,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         tstor[thread].t_start_p = &t_start_p;
         tstor[thread].t_start_c = &t_start_c;
         tstor[thread].t_start_m = &t_start_m;
+        tstor[thread].longest_bstreak = 0;
         tstor[thread].force_stall = 0;
         tstor[thread].stall_cnt = 0;
 
@@ -995,17 +927,6 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         if (err) {
             fprintf(stderr, "%s: error initializing block streak mutex attributes for thread %d\n", strerror(err), thread);
             exit(255);
-        }
-
-        err = pthread_mutex_init(&(tstor[thread].bstreak_m), &m_attr);
-        if (err) {
-            fprintf(stderr, "%s: error initializing block streak mutex for thread %d\n", strerror(err), thread);
-            exit(255);
-        }
-
-        tstor[thread].block_streak_hist = (double *)calloc(thread_ring_blockcount + 1, sizeof(double));
-        if (!(tstor[thread].block_streak_hist)) {
-            perror("could not allocate memory for thread stats block streak histogram\n");
         }
 
         memcpy(&(tstor[thread].ring_params), &thread_ring_req, sizeof(thread_ring_req));
@@ -1095,7 +1016,6 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     for (int thread = 0; thread < num_threads; thread++) {
         free(tstor[thread].block_header);
         munmap(tstor[thread].mapped_buffer, tstor[thread].ring_params.tp_block_size * tstor[thread].ring_params.tp_block_nr);
-        free(tstor[thread].block_streak_hist);
         close(tstor[thread].sockfd);
         delete tstor[thread].pkt_processor;
     }
