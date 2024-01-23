@@ -52,6 +52,33 @@
 // the trie as far as possible, then returns the node after the last
 // matched label.  If no labels match, then null is returned.
 //
+
+class node_counts {
+    size_t subtree_count = 0;    // count of all names that include this node
+    size_t node_count = 0;       // count of names with exact-match ending at this node
+
+public:
+
+    node_counts(size_t s=0, size_t n=0) : subtree_count{s}, node_count{n} { }
+
+
+    // increment total subtree_count for this node
+    //
+    void increment_subtree_count(size_t cnt) {
+        subtree_count += cnt;
+    }
+
+    void increment_node_count(size_t cnt) {
+        node_count += cnt;
+    }
+
+    size_t get_subtree_count() const { return subtree_count; }
+
+    size_t get_node_count() const { return node_count; }
+
+};
+
+template <typename N>
 class dns_trie {
 
 public:
@@ -61,12 +88,22 @@ public:
     class node {
 
         std::unordered_map<std::string, node *> edges;
-        size_t subtree_count = 0;    // count of all names that include this node
-        size_t node_count = 0;       // count of names with exact-match ending at this node
+        N value;
+        // size_t subtree_count = 0;    // count of all names that include this node
+        // size_t node_count = 0;       // count of names with exact-match ending at this node
 
     public:
 
-        node(size_t cnt=0) : subtree_count{cnt} {
+        N& get_value() { return value; }
+
+        const N& get_value() const { return value; }
+
+        //
+        // TODO: constructor should accept a type N
+        //
+
+        // node(size_t cnt=0) : subtree_count{cnt} {
+        node(size_t cnt=0) : value{cnt} {
             // fprintf(stderr, "%s: constructing node with count=%zu\n", __func__, cnt);
         }
 
@@ -108,20 +145,6 @@ public:
             edges.clear();
         }
 
-        // increment total subtree_count for this node
-        //
-        void increment_subtree_count(size_t cnt) {
-            subtree_count += cnt;
-        }
-
-         void increment_node_count(size_t cnt) {
-            node_count += cnt;
-        }
-
-        size_t get_subtree_count() const { return subtree_count; }
-
-        size_t get_node_count() const { return node_count; }
-
         bool is_leaf() const { return edges.size() == 0; }
 
         // compute the L1 norm of the distribution
@@ -134,13 +157,13 @@ public:
             size_t total_edge_count = 0;
             for (const auto & e : edges) {
                 ++num_edges;
-                total_edge_count += e.second->get_subtree_count();
+                total_edge_count += e.second->get_value().get_subtree_count();
             }
             double u = 1.0 / num_edges;  // uniform distribution
             double sum_abs = 0.0;
             for (const auto & e : edges) {
                 // fprintf(stderr, "%s\t%zu\n", e.first.c_str(), e.second->get_subtree_count());
-                sum_abs += fabs(u - ((double)e.second->get_subtree_count() / total_edge_count));
+                sum_abs += fabs(u - ((double)e.second->get_value().get_subtree_count() / total_edge_count));
             }
             //fprintf(stderr, "l1: %e\n", sum_abs);
             return sum_abs;
@@ -172,7 +195,7 @@ public:
                     std::string tmp{s};
                     tmp.append(e.first);
                     tmp += '.';
-                    t += e.second->postorder_traverse<F, T>(visit, tmp, root_prob_count);
+                    t += e.second->template postorder_traverse<F, T>(visit, tmp, root_prob_count);
                 }
                 t += visit(e, s, root_prob_count);
             }
@@ -291,15 +314,15 @@ public:
         if (d.is_valid()) {
 
             node *n = &root;
-            n->increment_subtree_count(count);
+            n->get_value().increment_subtree_count(count);
 
-            const std::vector<dns_label_string> & label_vector = d.get_value();
+            const std::vector<datum> & label_vector = d.get_value();
             auto l = label_vector.end();
             while (l-- != label_vector.begin()) {
                 n = n->add_edge((const char *)l->begin(), l->length(), 0);
-                n->increment_subtree_count(count);
+                n->get_value().increment_subtree_count(count);
                 if (l == label_vector.begin()) {
-                    n->increment_node_count(count);
+                    n->get_value().increment_node_count(count);
                 }
             }
 
@@ -316,7 +339,7 @@ public:
         //        fprintf(stderr, "parsing dns_name '%s'\n", name.c_str());
         dns_string d{dns_name};
         if (d.is_valid()) {
-            const std::vector<dns_label_string> & label_vector = d.get_value();
+            const std::vector<datum> & label_vector = d.get_value();
             for (auto l = label_vector.end(); l-- != label_vector.begin(); ) {
                 n = n->get_node(l->begin(), l->length());
                 if (n == nullptr) {
@@ -338,7 +361,7 @@ public:
         //        fprintf(stderr, "parsing dns_name '%s'\n", name.c_str());
         dns_string d{dns_name};
         if (d.is_valid()) {
-            const std::vector<dns_label_string> & label_vector = d.get_value();
+            const std::vector<datum> & label_vector = d.get_value();
             for (auto l = label_vector.end(); l-- != label_vector.begin(); ) {
                 n = n->get_node(l->begin(), l->length());
                 if (n == nullptr) {
@@ -360,7 +383,7 @@ public:
         //        fprintf(stderr, "parsing dns_name '%s'\n", name.c_str());
         dns_string d{dns_name};
         if (d.is_valid()) {
-            const std::vector<dns_label_string> & label_vector = d.get_value();
+            const std::vector<datum> & label_vector = d.get_value();
             for (auto l = label_vector.end(); l-- != label_vector.begin(); ) {
                 n = n->get_node(l->begin(), l->length());
                 if (n == nullptr) {
@@ -379,7 +402,7 @@ public:
     float probability(const std::string &s) { // TODO: should be const
         node *n = longest_prefix_match_node(s);
         if (n != nullptr) {
-            return (float) n->get_node_count() / root.get_subtree_count();
+            return (float) n->get_value().get_node_count() / root.get_value().get_subtree_count();
         }
         return 0.0;   // no match found
     }
@@ -395,7 +418,7 @@ public:
     size_t subtree_count(const std::string &s) {      // TODO: should be const
         node *n = longest_prefix_match_node(s);
         if (n != nullptr) {
-            return n->get_subtree_count();
+            return n->get_value().get_subtree_count();
         }
         return 0;     // no match found
     }
@@ -421,20 +444,20 @@ public:
             // fprintf(stderr, "%s: leaves: %zu\tnodes: %zu\n", __func__, tmp.leaf_count, tmp.node_count);
             return tmp;
         };
-        return root.postorder_traverse<decltype(count), node_stats>(count, "", root.get_subtree_count());
+        return root.template postorder_traverse<decltype(count), node_stats>(count, "", root.get_value().get_subtree_count());
     }
 
     void fprint(FILE *f, bool leaf_only=true) {
 
         auto print_node = [f, leaf_only](std::pair<std::string, dns_trie::node *> e, const std::string &s, size_t ) {
-            char indent_string[] = "                                                                            ";
             if (leaf_only == false || e.second->is_leaf()) {
+                char indent_string[] = "                                                                            ";
                 fprintf(f, "%s%s%.*s%zu\n",
                         s.c_str(),
                         e.first.c_str(),
                         (int)(strlen(indent_string)-(int)e.first.length()-s.length()),
                         indent_string,
-                        e.second->get_subtree_count());
+                        e.second->get_value().get_subtree_count());
             }
             // fprintf(f, "%s%s%.*s%zu\t%f\t%f\t%u\t%zu\t%zu\t%f\n",
             //         s.c_str(),
@@ -449,7 +472,7 @@ public:
             //         root_prob_count,
             //         (float)e.second->prob_count() / root_prob_count);
         };
-        root.preorder_traverse(print_node, "", root.get_subtree_count());
+        root.preorder_traverse(print_node, "", root.get_value().get_subtree_count());
     }
 
     // void fprint_stats(FILE *f, bool leaf_only=true) {
@@ -484,10 +507,10 @@ public:
                     indent_string,
                     e.second->get_uniformity() >= threshold ? 'P' : ' ',
                     e.second->get_uniformity(),
-                    e.second->get_subtree_count());
+                    e.second->get_value().get_subtree_count());
 
         };
-        root.preorder_traverse(print_uniformity, "", root.get_subtree_count());
+        root.preorder_traverse(print_uniformity, "", root.get_value().get_subtree_count());
             //        root.fprint_stats(f, "", root.get_subtree_count());
     }
 
@@ -526,10 +549,10 @@ public:
 };
 
 class binary_classifier {
-    dns_trie a;
-    dns_trie b;
+    dns_trie<node_counts> a;
+    dns_trie<node_counts> b;
     size_t total_count = 0;
-    dns_trie::node_stats trie_stats;
+    dns_trie<node_counts>::node_stats trie_stats;
 
     // count_all_names(h, n) returns the count of names that appear in
     // either h or n; that is, it finds the cardinality of the union
@@ -551,10 +574,10 @@ class binary_classifier {
 
 public:
 
-    binary_classifier(const dns_trie &hypothesis, const dns_trie &null) :
+    binary_classifier(const dns_trie<node_counts> &hypothesis, const dns_trie<node_counts> &null) :
         a{hypothesis},
         b{null},
-        total_count{a.get_root().get_subtree_count() + b.get_root().get_subtree_count()},
+        total_count{a.get_root().get_value().get_subtree_count() + b.get_root().get_value().get_subtree_count()},
         trie_stats{a.count_leaves_and_nodes() += b.count_leaves_and_nodes()}
     {
 
@@ -572,7 +595,7 @@ public:
     // }
 
     void compare(FILE *f) {
-        auto print_node = [f,this](std::pair<std::string, dns_trie::node *> e, const std::string &s) {
+        auto print_node = [f,this](std::pair<std::string, dns_trie<node_counts>::node *> e, const std::string &s) {
             // fprintf(f, "e: %s\ts: %s\n", e.first.c_str(), s.c_str());
             std::string tmp{e.first};
             if (s != "") {
@@ -607,7 +630,7 @@ public:
     }
 
     void prune(FILE *f) {
-        auto prune_node = [f,this](std::pair<std::string, dns_trie::node *> e, const std::string &s) {
+        auto prune_node = [f,this](std::pair<std::string, dns_trie<node_counts>::node *> e, const std::string &s) {
             // fprintf(f, "e: %s\ts: %s\n", e.first.c_str(), s.c_str());
             std::string tmp{e.first};
             if (s != "") {
@@ -627,6 +650,22 @@ public:
 
     // TODO: implement a member function that prunes a and b so as to
     // remove subtrees that are not needed to distinguish between them
+
+};
+
+class binary_classifier2 {
+    dns_trie<double> a;
+    size_t total_count = 0;
+
+public:
+
+    binary_classifier2(const dns_trie<node_counts> &, const dns_trie<node_counts> &) {
+
+        // smoothing
+        //
+        //
+        // total_count += trie_stats.node_count
+    }
 
 };
 

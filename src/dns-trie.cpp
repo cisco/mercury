@@ -5,6 +5,7 @@
 #include <fstream>
 
 #include "fpdb_reader.hpp"
+#include "libmerc/hostname.hpp"
 
 #include "options.h"
 
@@ -13,7 +14,7 @@
 // #include "markov.h"
 // markov_model<dns_char_set> markov{fopen("markov-model.dat", "r")};
 
-static float digits(const std::string &d) {
+static float digits_get_num(const std::string &d) {
     size_t count = 0;
     for (const auto & c : d) {
         if (c >= '0' && c <= '9') {
@@ -54,7 +55,7 @@ static float uuid(const std::string &d) {
 }
 
 [[maybe_unused]] static float prob_dynamic_name(const std::string &d) {
-    if (digits(d) == 1.0) {
+    if (digits_get_num(d) == 1.0) {
         return 1.0;
     }
     if (d.length() >= 8) {
@@ -65,7 +66,7 @@ static float uuid(const std::string &d) {
 
 
 void test() {
-    dns_trie t;
+    dns_trie<node_counts> t;
 
     t.add("www.amazon.com");
     t.add("www.cisco.com");
@@ -76,7 +77,7 @@ void test() {
 
 struct dns_classifier {
     std::vector<std::string> process;
-    std::vector<dns_trie> trie;
+    std::vector<dns_trie<node_counts>> trie;
 
     // TODO: add compare() function
 
@@ -110,9 +111,10 @@ public:
 
 };
 
-std::string process_dns_name(const std::string &s, fingerprint_type fp_type, bool detail=false) {
+std::string process_dns_name(const std::string &s, fingerprint_type , bool detail=false) {
 
-    if (s.length() == 0) {
+    if (s == "None"  // should be applied to FPDB, but not packets
+        || s.length() == 0) {
         return "missing.invalid";
     }
 
@@ -158,19 +160,20 @@ std::string process_dns_name(const std::string &s, fingerprint_type fp_type, boo
         //fprintf(stderr, "ipv6 address: %s\n", name.c_str());
         return name;
     }
+
     tmp = get_datum(name);
-    if (fp_type == fingerprint_type_tls) {
-        auto pos = name.rfind(":");
-        if (pos != std::string::npos) {
-            // fprintf(stderr, "replacing %s with ", name.c_str());
-            name = name.substr(0, pos);  // trim away :PORT
-            // fprintf(stderr, "%s\n", name.c_str());
-        }
+    // skip over leading whitespace, if any
+    //
+    if (lookahead<space> whitespace{tmp}) {
+        tmp = whitespace.advance();
     }
-    if (!dns_string{tmp}.is_valid()) {
+    dns_string hname{tmp};
+    if (!hname.is_valid()) {
         if (not detail) {
             return "other.invalid";
         }
+        name = hname.get_string();
+        fprintf(stderr, "mapping %s to %s\n", s.c_str(), name.c_str());
         //std::replace(name.begin(), name.end(), ':', '-');
         std::transform(name.begin(), name.end(), name.begin(),
                        [](char c){
@@ -180,8 +183,9 @@ std::string process_dns_name(const std::string &s, fingerprint_type fp_type, boo
                            return '-';
                        });
         name += ".other.invalid";
+        return name;
     }
-    return name;
+    return hname.get_string();
 }
 
 fingerprint_type get_fingerprint_type(const std::string &s) {
@@ -199,6 +203,18 @@ fingerprint_type get_fingerprint_type(const std::string &s) {
     return fingerprint_type_unknown;
 }
 
+fingerprint_type get_fp_type_from_name(const std::string &s) {
+    if (s == "tls") {
+        return fingerprint_type_tls;
+    }
+    if (s == "quic") {
+        return fingerprint_type_quic;
+    }
+    if (s == "http") {
+        return fingerprint_type_http;
+    }
+    return fingerprint_type_unknown;
+}
 
 // dns name lookup
 //
@@ -245,7 +261,7 @@ void testcase() {
 
     // create a trie using the examples from the working draft writeup
     //
-    dns_trie t;
+    dns_trie<node_counts> t;
     t.add("foo.net", 10);
     t.add("example.com", 10);
     t.add("a.example.com", 15);
@@ -257,7 +273,7 @@ void testcase() {
 
     fputc('\n', stdout);
 
-    auto print_node = [](std::pair<std::string, dns_trie::node *> e, const std::string &s, size_t root_prob_count) {
+    auto print_node = [](std::pair<std::string, dns_trie<node_counts>::node *> e, const std::string &s, size_t root_prob_count) {
         char indent_string[] = "                                                                            ";
         if (true || e.second->is_leaf()) {
             fprintf(stdout, "%s%s%.*s%f\n",
@@ -265,7 +281,7 @@ void testcase() {
                     e.first.c_str(),
                     (int)(strlen(indent_string)-(int)e.first.length()-s.length()),
                     indent_string,
-                    (float)e.second->get_subtree_count() / root_prob_count);
+                    (float)e.second->get_value().get_subtree_count() / root_prob_count);
         }
         return 0;
     };
@@ -299,7 +315,7 @@ void testcase() {
     t.fprint_uniformity(stdout);
     fputc('\n', stdout);
 
-    dns_trie::node_stats ns = t.count_leaves_and_nodes();
+    dns_trie<node_counts>::node_stats ns = t.count_leaves_and_nodes();
     fprintf(stderr, "leaves: %zu\tnodes: %zu\n", ns.leaf_count, ns.node_count);
     fputc('\n', stdout);
 
@@ -351,12 +367,23 @@ using namespace mercury_option;
 //
 int main(int argc, char *argv[]) {
 
+    if (false) { // test http host field parsing
+
+        if (ipv6_address_string::unit_test() == false) {
+            fprintf(stderr, "error: ipv6_address_string::unit_test() failed\n");
+        }
+
+        server_identifier::unit_test(stdout);
+
+        return 0;
+    }
+
     if (false) {
         //
         // what's the minimum size?  about 72 bytes each
         //
-        fprintf(stdout, "sizeof(dns_trie::node): %zu\n", sizeof(dns_trie::node));
-        fprintf(stdout, "sizeof(dns_trie):       %zu\n", sizeof(dns_trie));
+        fprintf(stdout, "sizeof(dns_trie<node_counts>::node): %zu\n", sizeof(dns_trie<node_counts>::node));
+        fprintf(stdout, "sizeof(dns_trie<node_counts>):       %zu\n", sizeof(dns_trie<node_counts>));
     }
 
     // testcase();
@@ -385,6 +412,7 @@ int main(int argc, char *argv[]) {
         { argument::required,   "--fpdb",               "fingerprint_db.json file" },
         { argument::required,   "--dns-lookup",         "look up dns name"         },
         { argument::required,   "--filter",             "filter (regex|uuid)"      },
+        { argument::required,   "--fp-type",            "fingerprint type"         },
     });
     const char summary[] =
         "usage:\n"
@@ -409,6 +437,7 @@ int main(int argc, char *argv[]) {
     bool json_input                   = opt.is_set("--json");
     bool help                         = opt.is_set("--help");
     std::optional<std::string> filter_string = opt.get("--filter");
+    std::optional<std::string> fp_filter = opt.get("--fp-type");
 
     if (help) {
         opt.usage(stderr, argv[0], summary);
@@ -420,7 +449,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    std::unique_ptr<dns_trie> psl;
+    std::unique_ptr<dns_trie<node_counts>> psl;
     if (find_psl) {
 
         std::string tmp_filename{"public_suffix_list.dat"};
@@ -428,18 +457,18 @@ int main(int argc, char *argv[]) {
             tmp_filename = psl_filename;
         }
         std::ifstream psl_file{tmp_filename};
-        psl = std::make_unique<dns_trie>(psl_file);
+        psl = std::make_unique<dns_trie<node_counts>>(psl_file);
 
-        // std::string line;
-        // while (std::getline(std::cin, line)) {
-        //     if (line.length() == 0) {
-        //         continue; // ignore empty line
-        //     }
-        //     fprintf(stdout, "name:               %s\n", line.c_str());
-        //     fprintf(stdout, "public suffix:      %s\n", psl->longest_prefix_match(line).c_str());
-        //     fprintf(stdout, "top private suffix: %s\n", psl->longest_prefix_match_plus_one(line).c_str());
-        // }
-
+        std::string line;
+        while (std::getline(std::cin, line)) {
+            if (line.length() == 0) {
+                continue; // ignore empty line
+            }
+            fprintf(stdout, "name:               %s\n", line.c_str());
+            fprintf(stdout, "public suffix:      %s\n", psl->longest_prefix_match(line).c_str());
+            fprintf(stdout, "top private suffix: %s\n", psl->longest_prefix_match_plus_one(line).c_str());
+        }
+        return 0;
     }
     // std::ifstream tmpfile{"public_suffix_list.dat"} ;
     // dns_trie psl2{tmpfile};
@@ -455,36 +484,46 @@ int main(int argc, char *argv[]) {
 
         std::unordered_map<std::string, dns_classifier> fp_and_classifier;
 
-        dns_trie benign_tls;
-        // dns_trie benign_http;
-        // dns_trie benign_quic;
-        dns_trie malware_tls;
-        // dns_trie malware_http;
-        // dns_trie malware_quic;
+        dns_trie<node_counts> benign_tls;
+        // dns_trie<node_counts> benign_http;
+        // dns_trie<node_counts> benign_quic;
+        dns_trie<node_counts> malware_tls;
+        // dns_trie<node_counts> malware_http;
+        // dns_trie<node_counts> malware_quic;
 
         const std::unordered_map<std::string, std::vector<process_info>> & fp_and_process_info = fingerprint_db.get_fpdb();
         for (const auto & fp_data : fp_and_process_info) {
             fingerprint_type fp_type = get_fingerprint_type(fp_data.first);
             //fprintf(stderr, "%s: %d\n", fp_data.first.c_str(), fp_type);
 
+            if (fp_filter) {
+                //
+                // filter fingerprints by type
+                //
+                fingerprint_type fp_filter_type = get_fp_type_from_name(*fp_filter);
+                if (fp_type != fp_filter_type) {
+                    continue;
+                }
+            }
+
             dns_classifier c;
-            // std::vector<dns_trie> t;
+            // std::vector<dns_trie<node_counts>> t;
             // std::vector<std::string> p;
             for (const auto & pi : fp_data.second) {
                 //pi.print(stderr);
 
-                if (true) {
+                if (false) {
                     if (pi.malware == true) {
                         for (auto &x : pi.hostname_sni) {
                             switch(fp_type) {
                             case fingerprint_type_tls:
-                                malware_tls.add(process_dns_name(x.first, fp_type, true), x.second);
+                                malware_tls.add(server_identifier{x.first}.get_normalized_domain_name(), x.second);
                                 break;
                             // case fingerprint_type_http:
-                            //     malware_http.add(process_dns_name(x.first, fp_type, true), x.second);
+                            //     malware_http.add(server_identifier{x.first}.get_normalized_domain_name(), x.second);
                             //     break;
                             // case fingerprint_type_quic:
-                            //     malware_http.add(process_dns_name(x.first, fp_type, true), x.second);
+                            //     malware_http.add(server_identifier{x.first}.get_normalized_domain_name(), x.second);
                             //     break;
                             default:
                                 ;
@@ -494,13 +533,13 @@ int main(int argc, char *argv[]) {
                         for (auto &x : pi.hostname_sni) {
                             switch(fp_type) {
                             case fingerprint_type_tls:
-                                benign_tls.add(process_dns_name(x.first, fp_type, true), x.second);
+                                benign_tls.add(server_identifier{x.first}.get_normalized_domain_name(), x.second);
                                 break;
                             // case fingerprint_type_http:
-                            //     benign_http.add(process_dns_name(x.first, fp_type, true), x.second);
+                            //     benign_http.add(server_identifier{x.first}.get_normalized_domain_name(), x.second);
                             //     break;
                             // case fingerprint_type_quic:
-                            //     benign_http.add(process_dns_name(x.first, fp_type, true), x.second);
+                            //     benign_http.add(server_identifier{x.first}.get_normalized_domain_name(), x.second);
                             //     break;
                             default:
                                 ;
@@ -509,6 +548,36 @@ int main(int argc, char *argv[]) {
                     }
 
                     continue;   // skip the vector-of-tries processing for now
+
+                } else {
+                    //
+                    // dump normalized hostname
+                    //
+                    for (auto &x : pi.hostname_sni) {
+                        std::string normalized_name = server_identifier{x.first}.get_normalized_domain_name();
+
+                        bool only_report_single_label_names = false;
+                        if (only_report_single_label_names) {
+                            if (normalized_name.find('.') == std::string::npos) {
+                                //
+                                // this name has only a single label;
+                                // it is probably not an FQDN; report
+                                // the fingerprint type, process name,
+                                // dns name, and normalized dns name
+                                //
+                                fprintf(stdout, "%s\t%s\t%s\t%s\n", fingerprint::get_type_name(fp_type), pi.name.c_str(), x.first.c_str(), normalized_name.c_str());
+                            }
+                        } else {
+                            //
+                            // report fp type, unnormalized dns name,
+                            // and normalized dns name
+                            //
+                            fprintf(stdout, "%s\t%s\t%s\n", fingerprint::get_type_name(fp_type), x.first.c_str(), normalized_name.c_str());
+                        }
+
+                    }
+                    continue;  // skip further processing of this fingerprint
+
                 }
 
                 // fprintf(stdout, "-----------------------------------------------------------------\n");
@@ -516,10 +585,10 @@ int main(int argc, char *argv[]) {
                 c.process.emplace_back(pi.name);
 
                 c.trie.emplace_back();
-                dns_trie &t_back = c.trie.back();
+                dns_trie<node_counts> &t_back = c.trie.back();
                 for (auto &x : pi.hostname_sni) {
                     //fprintf(stderr, "%s\":%" PRIu64 "\n", x.first.c_str(), x.second);
-                    t_back.add(process_dns_name(x.first, fp_type, true), x.second);
+                    t_back.add(server_identifier{x.first}.get_normalized_domain_name(), x.second);
                 }
 
                 fp_and_classifier[fp_data.first] = c;
@@ -534,9 +603,9 @@ int main(int argc, char *argv[]) {
         // benign_tls.fprint_uniformity(stdout);
         // benign_tls.fprint(stdout);
 
-        // dns_trie::node_stats malware_stats = malware_tls.count_leaves_and_nodes();
+        // dns_trie<node_counts>::node_stats malware_stats = malware_tls.count_leaves_and_nodes();
         // fprintf(stderr, "malware: leaves: %zu\tnodes: %zu\n", malware_stats.leaf_count, malware_stats.node_count);
-        // dns_trie::node_stats benign_stats = benign_tls.count_leaves_and_nodes();
+        // dns_trie<node_counts>::node_stats benign_stats = benign_tls.count_leaves_and_nodes();
         // fprintf(stderr, "benign: leaves:  %zu\tnodes: %zu\n", benign_stats.leaf_count, benign_stats.node_count);
 
         // fprintf(stderr, "malware count: %zu\n", malware_tls.get_root().get_subtree_count());
@@ -552,7 +621,7 @@ int main(int argc, char *argv[]) {
 
         return 0;
 
-        static constexpr auto lambda = [](const std::string &label, const dns_trie::node *node, const std::string &s) {
+        static constexpr auto lambda = [](const std::string &label, const dns_trie<node_counts>::node *node, const std::string &s) {
             if (node->is_leaf() == false) {
                 return;
             }
@@ -562,7 +631,7 @@ int main(int argc, char *argv[]) {
                     label.c_str(),
                     (int)(strlen(indent_string)-(int)label.length()-s.length()),
                     indent_string,
-                    node->get_subtree_count());
+                    node->get_value().get_subtree_count());
         };
         (void)lambda; // prevent compiler complaining
 
@@ -583,7 +652,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (json_input) {
-        dns_trie t;
+        dns_trie<node_counts> t;
 
         std::string line;
         while (std::getline(std::cin, line)) {
@@ -616,7 +685,7 @@ int main(int argc, char *argv[]) {
 
         if (dump) {
             //t.fprint(stdout, leaf);
-            //dns_trie::node_stats ns = t.count_leaves_and_nodes();
+            //dns_trie<node_counts>::node_stats ns = t.count_leaves_and_nodes();
             //fprintf(stderr, "leaves: %zu\tnodes: %zu\n", ns.leaf_count, ns.node_count);
             t.fprint_uniformity(stdout);
         }
@@ -630,9 +699,9 @@ int main(int argc, char *argv[]) {
                 }
                 fprintf(stdout, "name:                   %s\n", line.c_str());
                 fprintf(stdout, "longest match:          %s\n", t.longest_prefix_match(line).c_str());
-                dns_trie::node *n = t.longest_prefix_match_node(line);
+                dns_trie<node_counts>::node *n = t.longest_prefix_match_node(line);
                 if (n) {
-                    fprintf(stdout, "count:                  %zu\n", n->get_subtree_count());
+                    fprintf(stdout, "count:                  %zu\n", n->get_value().get_subtree_count());
                     fprintf(stdout, "leaf:                   %u\n", n->is_leaf());
                 }
                 // fprintf(stdout, "longest match plus one: %s\n", t.longest_prefix_match_plus_one(line).c_str());
@@ -653,7 +722,7 @@ int main(int argc, char *argv[]) {
             // filter = name_filter{"[0-9]{8}"};
         }
 
-        dns_trie t;
+        dns_trie<node_counts> t;
 
         std::string line;
         while (std::getline(std::cin, line)) {
@@ -672,7 +741,7 @@ int main(int argc, char *argv[]) {
 
         if (dump) {
             // t.fprint(stdout, leaf);
-            // dns_trie::node_stats ns = t.count_leaves_and_nodes();
+            // dns_trie<node_counts>::node_stats ns = t.count_leaves_and_nodes();
             // fprintf(stderr, "leaves: %zu\tnodes: %zu\n", ns.leaf_count, ns.node_count);
             t.fprint_uniformity(stdout);
         }

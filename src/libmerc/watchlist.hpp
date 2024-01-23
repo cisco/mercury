@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <optional>
 #include <variant>
 #include <iostream>
 #include <fstream>
@@ -106,7 +107,7 @@ public:
 
     bool is_valid() const { return z.is_not_null(); }
 
-    void print() const {
+    void print(FILE *f=stdout) const {
         if (is_valid()) {
 
             str_to_uint<uint8_t>(w);
@@ -114,16 +115,16 @@ public:
             str_to_uint<uint8_t>(y);
             str_to_uint<uint8_t>(z);
 
-            w.fprint(stdout);
-            fputc('.', stdout);
-            x.fprint(stdout);
-            fputc('.', stdout);
-            y.fprint(stdout);
-            fputc('.', stdout);
-            z.fprint(stdout);
-            fprintf(stdout, "\n");
+            w.fprint(f);
+            fputc('.', f);
+            x.fprint(f);
+            fputc('.', f);
+            y.fprint(f);
+            fputc('.', f);
+            z.fprint(f);
+            fprintf(f, "\n");
         } else {
-            fprintf(stdout, "invalid\n");
+            fprintf(f, "invalid\n");
         }
     }
 
@@ -216,6 +217,10 @@ public:
 
     ipv6_address_string(datum &d) {
 
+        if (lookahead<literal_byte<'['>> left_brace{d}) {
+            // fprintf(stderr, "skipping left brace\n");
+            d = left_brace.advance();
+        }
         while (d.is_not_empty()) {
             if (lookahead<literal_byte<':'>> colon{d}) {
                 d = colon.advance();
@@ -225,14 +230,67 @@ public:
                         return;   // error; multiple double colons
                     }
                     double_colon_index = pieces.size();
+
+                    // check for IPv4-in-IPv6 addresses (RFC4291,
+                    // Section 2.5.5, RFC5952 Section 5)
+                    //
+                    if (lookahead<literal_byte<'f', 'f', 'f', 'f', ':'>> ipv4_mapped_addr{d}) {
+                        datum tmp_data{d.data, ipv4_mapped_addr.advance().data};
+                        hex_digits hex_data{tmp_data};
+                        pieces.push_back(hex_data);
+                        d = ipv4_mapped_addr.advance();
+                        ipv4_address_string v4_addr{d};
+                        if (v4_addr.is_valid()) {
+
+                            char v4_addr_hex[9];
+                            if (sprintf(v4_addr_hex, "%08x", v4_addr.get_value()) != 8) {
+                                return; // error; could not create hex representation of v4 addr
+                            }
+                            tmp_data.data = (uint8_t *)v4_addr_hex;
+                            tmp_data.data_end = (uint8_t *)v4_addr_hex + 4;
+                            hex_digits hi{tmp_data};
+                            tmp_data.data = (uint8_t *)v4_addr_hex + 4;
+                            tmp_data.data_end = (uint8_t *)v4_addr_hex + 8;
+                            hex_digits lo{tmp_data};
+
+                            pieces.push_back(hi);
+                            pieces.push_back(lo);
+                            valid = true;
+
+                            if (lookahead<literal_byte<']'>> right_brace{d}) {
+                                d = right_brace.advance();
+                            }
+                            return;
+                        }
+                    }
                 }
+
             } else {
+
+                if (lookahead<literal_byte<']'>> right_brace{d}) {
+                    d = right_brace.advance();
+                    break; // no more pieces
+                }
+
                 hex_digits piece{d};
                 if (piece.is_not_null()) {
                     pieces.push_back(piece);
                 } else {
+                    // fprintf(stderr, "error: invalid label\n");
                     return;    // invalid label
                 }
+            }
+        }
+
+        // verify that the number of pieces is valid
+        //
+        if (double_colon_index == -1) {
+            if (pieces.size() != 8) {
+                return;  // invalid
+            }
+        } else {
+            if (pieces.size() > 7) {
+                return;  // invalid
             }
         }
         valid = true;
@@ -353,31 +411,41 @@ public:
     // this class, using the example addresses from RFC 4291.  It
     // returns true if all tests pass, and false otherwise.
     //
-    static bool unit_test() {
+    static bool unit_test(FILE *f=nullptr) {
 
         std::vector<std::pair<const char *, ipv6_array_t>> ipv6_addr_examples{
             { "2001:db8:0:0:8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
             { "2001:db8::8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
             { "::1", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } },
             { "1::", { 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
-            { "::", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } }
+            { "::", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
+            { "::ffff:162.62.97.147", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xa2, 0x3e, 0x61, 0x93 } },
         };
 
         for (const auto & ipv6_addr : ipv6_addr_examples) {
+            if (f) {
+                fprintf(f, "parsing ipv6 string '%s':\t", ipv6_addr.first);
+            }
             datum tmp = get_datum(ipv6_addr.first);
             ipv6_address_string ipv6{tmp};
             if (ipv6.is_valid()) {
-                // ipv6.print(stdout); fputc('\n', stdout);
+                if (f) {
+                    ipv6.print(f);
+                }
                 if (ipv6.get_value_array() != ipv6_addr.second) {
-                    // fprintf(stdout, "parsing ipv6 string '%s':\t", ipv6_addr.first.c_str());
-                    // fprintf(stderr, "error: parsed ipv6 address string does not match reference value\n");
+                    if (f) {
+                        fprintf(f, "error: parsed ipv6 address string does not match reference value\n");
+                    }
                     return false;
                 }
             } else {
-                // fprintf(stdout, "error: ipv6 address string is invalid\n");
+                fprintf(f, "error: ipv6 address string is invalid\n");
                 return false;
             }
         }
+
+        // TODO: add negative tests
+        //
 
         return true;
     }
@@ -417,31 +485,58 @@ public:
 };
 
 class dns_string {
-    std::vector<dns_label_string> label_vector;
+    std::vector<datum> label_vector;
     bool valid = false;
 
 public:
 
     dns_string(datum &d) {
 
+        if (d.is_not_readable()) {
+            return;
+        }
+
+        // the first domain may be a wildcard (*)
+        //
+        if (lookahead<literal_byte<'*'>> wildcard{d}) {
+            datum label{d.data, wildcard.advance().data};
+            d = wildcard.advance();
+            label_vector.push_back(label);
+            literal_byte<'.'> dot{d};
+        }
+
         while (d.is_not_empty()) {
+            // fprintf(stdout, "dns_string has data "); d.fprint(stdout); fputc('\n', stdout);
             dns_label_string label{d};
             if (label.is_not_null()) {
+                // fprintf(stdout, "label: %.*s\n", (int)label.length(), label.data);
+                label_vector.push_back(label);
                 if (lookahead<literal_byte<'.'>> dot{d}) {
-                    label_vector.push_back(label);
                     d = dot.advance();
-                } else if (!d.is_not_empty()) {
-                    label_vector.push_back(label);
+                } else {
+                    break; // unexpected character
+                    // if (!d.is_not_empty()) {
+                    // label_vector.push_back(label);
                 }
             } else {
-                return;    // invalid label
+                break;        // TODO: verify correctness
+                // return;    // invalid label
             }
+        }
+        // for (const auto & x : label_vector) {
+        //     fprintf(stdout, "label_vector: %.*s\n", (int)x.length(), x.data);
+        // }
+
+        if (label_vector.size() == 0) {
+            d.set_null();
+            return;           // not a valid dns_string
         }
 
         // a valid top level domain name contains at least one
         // alphabetic character
         //
-        dns_label_string tld = label_vector.back();
+
+        datum tld = label_vector.back();
         bool tld_is_valid = false;
         for (const auto &x : tld ) {
             if ((x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z')) {
@@ -449,7 +544,10 @@ public:
                 break;
             }
         }
+        // fprintf(stdout, "tld: %.*s\n", (int)tld.length(), tld.data);
+
         if (!tld_is_valid) {
+            d.set_null();
             return;   // not a valid tld, possibly an IPv4 dotted quad
         }
 
@@ -459,6 +557,8 @@ public:
     bool is_valid() const {
         return valid;
     }
+
+    size_t label_count() const { return label_vector.size(); }
 
     void print() const {
         if (!valid) { return; }
@@ -487,11 +587,37 @@ public:
         return tmp;
     }
 
-    const std::vector<dns_label_string> & get_value() const { return label_vector; }
+    const std::vector<datum> & get_value() const { return label_vector; }
 };
 
+class port_number {
+    literal_byte<':'> colon;
+    digits number;
+    bool valid;
 
-//using ipv6_t          = uint8_t[8];
+public:
+
+    port_number(datum &d) : colon{d}, number{d}, valid{d.is_not_null()} { }
+
+    bool is_valid() const { return valid; }
+
+    uint16_t get_value() const {
+        if (!valid) {
+            return 0;
+        }
+        uint16_t value = 0;
+        for (const auto & x : number) {
+            value *= 10;
+            value += (x - '0');
+        }
+        return value;
+    }
+
+};
+
+// the host_identifier variant is an address or domain name that can
+// be initialized from a text string
+//
 using dns_name_t      = std::string;
 using host_identifier = std::variant<std::monostate, ipv4_t, ipv6_array_t, dns_name_t>;
 
@@ -503,15 +629,32 @@ static inline host_identifier host_identifier_constructor(datum d) {
         ) {
         return std::monostate{};
     }
+
+    if (lookahead<space> whitespace{d}) {
+        d = whitespace.advance();           // skip over leading whitespace, if any
+    }
+
+    if (lookahead<dns_string> dns{d}) {
+        datum tmp = dns.advance();
+        if (tmp.is_empty()) {
+            d = dns.advance();
+            return dns.value.get_string();
+        }
+
+        // if there is still readable data in d, it must be a port
+        // number
+        //
+        if (lookahead<port_number> port{tmp}) {
+            d = port.advance();
+            return dns.value.get_string();
+        }
+    }
     if (lookahead<ipv4_address_string> ipv4{d}) {
         d = ipv4.advance();
         return ipv4.value.get_value();
 
-    } else if (lookahead<dns_string> dns{d}) {
-        d = dns.advance();
-        return dns.value.get_string();
-
-    } else if (lookahead<ipv6_address_string> ipv6{d}) {
+    }
+    if (lookahead<ipv6_address_string> ipv6{d}) {
         d = ipv6.advance();
         return ipv6.value.get_value_array();
 
@@ -520,6 +663,170 @@ static inline host_identifier host_identifier_constructor(datum d) {
     }
     return std::monostate{};
 }
+
+
+// class server_identifier is a host identifier (domain name, ipv4
+// address, or ipv6 address) and an optional port; it can be
+// initialized from a text string as in the HTTP host field or the
+// TLS/QUIC Server Name extension.
+//
+class server_identifier {
+    host_identifier host_id;
+    std::optional<uint16_t> port;
+    size_t label_count = 0;
+
+public:
+
+    // construct a server_identifier from a datum
+    //
+    server_identifier(datum d) {
+
+        if (d.is_null()            // null line
+            || !d.is_not_empty()   // empty line
+            || *d.data == '#'      // comment line
+            ) {
+            return;                // error; not a valid server identifier
+        }
+
+        if (lookahead<space> whitespace{d}) {
+            d = whitespace.advance();           // skip over leading whitespace, if any
+        }
+
+        if (lookahead<dns_string> dns{d}) {
+            datum tmp = dns.advance();
+            if (tmp.is_empty()) {
+                d = dns.advance();
+                host_id = dns.value.get_string();
+                label_count = dns.value.label_count();
+                return;
+            }
+
+            // if there is still readable data in tmp, it must be a
+            // port number
+            //
+            if (lookahead<port_number> port_digits{tmp}) {
+                port = port_digits.value.get_value();
+                d = port_digits.advance();
+                host_id = dns.value.get_string();
+                return;
+            }
+        }
+        if (lookahead<ipv4_address_string> ipv4{d}) {
+            d = ipv4.advance();
+            host_id = ipv4.value.get_value();
+
+        } else if (lookahead<ipv6_address_string> ipv6{d}) {
+            d = ipv6.advance();
+            host_id = ipv6.value.get_value_array();
+
+        }
+
+        // if there is still readable data in d, it must be a port
+        // number
+        //
+        if (lookahead<port_number> port_digits{d}) {
+            port = port_digits.value.get_value();
+            d = port_digits.advance();
+        }
+
+    }
+
+    // construct a server_identifier from a std::string
+    //
+    server_identifier(const std::string &s) : server_identifier{get_datum(s)} { }
+
+    // 
+    std::string get_normalized_domain_name(bool detail=false) const {
+        (void)detail;  // ignore for now
+
+        if (std::holds_alternative<ipv4_t>(host_id) || std::holds_alternative<ipv6_array_t>(host_id)) {
+            return "address.invalid";
+        }
+        if (std::holds_alternative<std::monostate>(host_id)) {
+            return "other.invalid";
+        }
+        if (std::holds_alternative<dns_name_t>(host_id)) {
+            std::string domain_name = std::get<dns_name_t>(host_id);
+            if (domain_name == "None") {
+                return "missing.invalid";
+            }
+            if (label_count == 1 and domain_name != "localhost") {
+                return "unqualified.invalid";
+            }
+            return domain_name;
+        }
+        return "unknown";
+    }
+
+    std::optional<uint16_t> get_port_number() const {
+        return port;
+    }
+
+    //
+    // unit test cases for the server_identifier class
+    //
+
+    struct test_case {
+        const char *input;
+        const char *output;
+        std::optional<uint16_t> port;
+    };
+
+    static bool unit_test(FILE *f=nullptr) {
+        std::vector<test_case> test_cases = {
+            { "ocsp.digicert.com", "ocsp.digicert.com", {} },                           // FQDN
+            { "ookla.mbspeed.net:8080", "ookla.mbspeed.net", 8080 },                    // FQDN with port number
+            { "10.124.145.64", "address.invalid", {} },                                 // IPv4 address
+            { "10.237.97.140:8443", "address.invalid", 8443 },                          // IPv4 address with port number
+            { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","address.invalid", 10087 }, // IPv6 address with square braces and port number
+            { "[2408:862e:ff:ff03:1b::]", "address.invalid", {} },                      // IPv6 address with square braces
+            { "[2001:b28:f23f:f005::a]:80", "address.invalid", 80 },                    // IPv6 address with zero compression, square braces, and port number
+            { "::ffff:162.62.97.147", "address.invalid", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
+            { "[::ffff:91.222.113.90]:5000", "address.invalid", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
+            { "240d:c000:1010:1200::949b:1928:b134", "address.invalid", {} },           // IPv6 addr with zero compression
+            { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "address.invalid", {} },          // IPv6 addr without zero compression
+            { "*.tplinkcloud.com", "*.tplinkcloud.com", {} },                           // wildcard subdomain
+            { "18.158.72.38.nip.io", "18.158.72.38.nip.io", {} },                       // subdomains look like dotted quad
+            { " www.google.com", "www.google.com", {} },                                // leading  whitespace
+            { "None", "missing.invalid", {} },                                          // "None" means missing
+            { "localhost:443", "localhost", 443 },                                      // "localhost" with a port number
+            { "www", "unqualified.invalid", {} },                                       // unqualified domain name (not an FQDN)
+        };
+
+        bool passed = true;
+        for (const auto & tc : test_cases) {
+            std::string in{tc.input};
+            std::string out{tc.output};
+            datum d = get_datum(in);
+            server_identifier server_id{d};
+            std::string test = server_id.get_normalized_domain_name();
+            std::optional<uint16_t> p = server_id.get_port_number();
+            if (test != out) {
+                if (f) {
+                    fprintf(f, "error: unit test case failed (input: '%s', expected output: '%s', actual output: '%s')\n",
+                            tc.input, tc.output, test.c_str());
+                }
+                passed = false;
+
+            } else if (p != tc.port or ((p == true) and *p != *tc.port)) {
+                if (f) {
+                    fprintf(f, "error: unit test case failed (input: '%s', expected port: %u, actual port: %u)\n",
+                            tc.input, *tc.port, p ? *p : 0);
+                }
+                passed = false;
+            } else {
+                if (f) {
+                    fprintf(f, "unit test case passed (input: '%s', output: '%s')\n",
+                            tc.input, test.c_str());
+                }
+            }
+        }
+
+        return passed;
+    }
+
+};
+
 
 // class watchlist implements a watchlist of host identifiers,
 // including IPv4 and IPv6 addresses and DNS names
