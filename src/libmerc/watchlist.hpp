@@ -1,6 +1,7 @@
-// watchlist.hpp
-//
-// an implementation of ipv4/ipv6/dns_name watchlists
+///
+/// \file watchlist.hpp
+///
+/// an implementation of ipv4/ipv6/dns_name watchlists
 
 #ifndef WATCHLIST_HPP
 #define WATCHLIST_HPP
@@ -615,12 +616,27 @@ public:
 
 };
 
-// the host_identifier variant is an address or domain name that can
-// be initialized from a text string
-//
+/// dns_name_t is the type used in a \ref host_identifier variant; its
+/// underlying type is a `std::string`.
+///
 using dns_name_t      = std::string;
+
+/// `host_identifier` is a domain name or address be initialized from
+/// a text string; it should be initialized with \ref
+/// host_identifier_constructor.
+///
+/// A `host_identifier` is well suited for use in watchlists,
+/// configuration files, and other structured inputs where it is
+/// useful to allow addresses or domain names.  To parse addresses and
+/// hostnames that appear in network protocols like HTTP, TLS, and
+/// QUIC, the \ref server_identifier is more suitable, because it can
+/// include a trailing port number.
+///
 using host_identifier = std::variant<std::monostate, ipv4_t, ipv6_array_t, dns_name_t>;
 
+/// Returns a \ref host_identifier constructed by parsing the text
+/// string in a datum.
+///
 static inline host_identifier host_identifier_constructor(datum d) {
 
     if (d.is_null()            // null line
@@ -665,11 +681,13 @@ static inline host_identifier host_identifier_constructor(datum d) {
 }
 
 
-// class server_identifier is a host identifier (domain name, ipv4
-// address, or ipv6 address) and an optional port; it can be
-// initialized from a text string as in the HTTP host field or the
-// TLS/QUIC Server Name extension.
-//
+/// \class server_identifier
+///
+/// identifies a server as a \ref host_identifier (domain name, ipv4
+/// address, or ipv6 address) and an optional port; it can be
+/// initialized from a text string as in the HTTP host field or the
+/// TLS/QUIC Server Name extension.
+///
 class server_identifier {
     host_identifier host_id;
     std::optional<uint16_t> port;
@@ -677,8 +695,31 @@ class server_identifier {
 
 public:
 
-    // construct a server_identifier from a datum
-    //
+    /// construct a server_identifier object by parsing and accepting
+    /// text from a `datum`
+    ///
+    /// The constructor will recognize and accept the following forms:
+    ///
+    ///   * fully qualified domain names, with or without a trailing
+    ///     colon and port number, such as `example.com:80`,
+    ///
+    ///   * domain names with a single label, with or without a
+    ///     trailing colon and port number, such as `localhost:443`,
+    ///
+    ///   * "wilcard" domain names whose first label consists soley of
+    ///     an asterisk (`*`), with or without a trailing colon and
+    ///     port number, such as `*.tplinkcloud.com`,
+    ///
+    ///   * IPv4 addresses, with or without a trailing colon and port
+    ///     number, such as `192.168.1.1`,
+    ///
+    ///   * IPv6 addresses surrounded by square braces, with or
+    ///     without a trailing colon and port number, such as
+    ///     `[2408:862e:ff:ff03:1b::]:8080`, and
+    ///
+    ///   * IPv6 address without square braces, such as
+    ///    `::ffff:162.62.97.147` or `2001:b28:f23f:f005::a`.
+    ///
     server_identifier(datum d) {
 
         if (d.is_null()            // null line
@@ -731,11 +772,31 @@ public:
 
     }
 
-    // construct a server_identifier from a std::string
-    //
+    /// construct a server_identifier object by parsing text from a
+    /// `std::string`
+    ///
     server_identifier(const std::string &s) : server_identifier{get_datum(s)} { }
 
-    // 
+    /// return a `std::string` containing a normalized domain name
+    ///
+    /// While server identifiers are often Fully Qualified Domain
+    /// Names (FQDNs), they can also be addresses or other special
+    /// cases.  A normalized domain name maps a server identifier into
+    /// the domain name hierarchy by leaving FQDNs unchanged and
+    /// otherwise mapping the identifier into the special-use
+    /// subdomain `invalid` (RFC 6761), as follows:
+    ///
+    ///    * IPv4 addresses are mapped to `address.invalid`,
+    ///
+    ///    * IPv6 addresses are mapped to `address.invalid`,
+    ///
+    ///    * Unqualified domains are mapped to `unqualified.invalid`,
+    ///
+    ///    * Empty or missing domain names are mapped to `missing.invalid`,
+    ///
+    ///    * Text strings that cannot be parsed as addresses or domain
+    ///    * names are mapped to `other.invalid`.
+    ///
     std::string get_normalized_domain_name(bool detail=false) const {
         (void)detail;  // ignore for now
 
@@ -758,6 +819,9 @@ public:
         return "unknown";
     }
 
+    /// returns a `std::optional<uint16_t>` that contains the port
+    /// number, if one is present in the server identifier.
+    ///
     std::optional<uint16_t> get_port_number() const {
         return port;
     }
@@ -765,7 +829,6 @@ public:
     //
     // unit test cases for the server_identifier class
     //
-
     struct test_case {
         const char *input;
         const char *output;
