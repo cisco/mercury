@@ -303,6 +303,8 @@ public:
 
         std::vector<floating_point_type> process_score = process_prob;  // working copy of probability vector
 
+        std::string normalized_domain = server_identifier{domain}.get_normalized_domain_name();
+
         auto asn_update = as_number_updates.find(asn_int);
         if (asn_update != as_number_updates.end()) {
             for (const auto &x : asn_update->second) {
@@ -1002,7 +1004,7 @@ public:
                     for (auto &y : x["classes_hostname_domains"].GetObject()) {
                         if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                             //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                            hostname_domains[y.name.GetString()] = y.value.GetUint64();
+                            hostname_domains[server_identifier{y.name.GetString()}.get_normalized_domain_name()] = y.value.GetUint64();
                         }
                     }
                 }
@@ -1069,7 +1071,7 @@ public:
                     for (auto &y : x["classes_hostname_sni"].GetObject()) {
                         if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                             //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                            hostname_sni[y.name.GetString()] = y.value.GetUint64();
+                            hostname_sni[server_identifier{y.name.GetString()}.get_normalized_domain_name()] = y.value.GetUint64();
                         }
                     }
                 }
