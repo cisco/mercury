@@ -382,7 +382,7 @@ void *stats_thread_func(void *statst_arg) {
                     "%7.3f%s Packets/s; Data Rate %7.3f%s bytes/s; "
                     "Ethernet Rate (est.) %7.3f%s bits/s; "
                     "Socket Packets %7.3f%s ; Socket Drops %" PRIu64 " (packets); Socket Freezes %" PRIu64 "; "
-                    "Worst contiguous buffer procesing streak %7.3f%%\n",
+                    "Worst contiguous buffer processing streak %7.3f%%\n",
                     (ts.tv_sec + (ts.tv_nsec / 1000000000.0)),
                     r_pps, r_pps_s, r_byps, r_byps_s,
                     r_ebips, r_ebips_s,
