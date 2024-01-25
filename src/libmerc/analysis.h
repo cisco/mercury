@@ -303,8 +303,6 @@ public:
 
         std::vector<floating_point_type> process_score = process_prob;  // working copy of probability vector
 
-        std::string normalized_domain = server_identifier{domain}.get_normalized_domain_name();
-
         auto asn_update = as_number_updates.find(asn_int);
         if (asn_update != as_number_updates.end()) {
             for (const auto &x : asn_update->second) {
@@ -570,6 +568,8 @@ public:
 
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
                                             const char *user_agent, enum fingerprint_status status) {
+
+        std::string normalized_domain = server_identifier{server_name}.get_normalized_domain_name();
 
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
