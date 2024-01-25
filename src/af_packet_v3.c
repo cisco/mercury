@@ -306,11 +306,19 @@ void *stats_thread_func(void *statst_arg) {
             statst->tstor[thread].longest_bstreak = 0; /* Reset streak tracking */
 
             /* Detect stalled thread */
-            if (per_tsock_stats[thread].socket_packets > 0) {
-                if ((per_tsock_stats[thread].socket_drops > 0) &&
-                    (per_tsock_stats[thread].socket_freezes == 0)) {
-                    /* Socket drops without freezes are a sign that the thread
-                     * stalled a while ago and never unfroze
+            if (per_tsock_stats[thread].socket_packets > 100) {       /* we got plenty of packets */
+                if ((per_tsock_stats[thread].socket_drops > 100) &&   /* with plenty of drops */
+                    (per_tsock_stats[thread].socket_freezes == 0) &&  /* with no new freezes */
+                    ((double)per_tsock_stats[thread].socket_drops /
+                     (double)per_tsock_stats[thread].socket_packets > 0.95)) { /* and almost all packets were dropped */
+                    /* Socket drops without any new freezes are a sign
+                     * that the thread stalled a while ago and never
+                     * unfroze.  Note some socket drops without a
+                     * frozen socket are possible in special cases
+                     * like the kernel being out of space to allocate
+                     * the SKB.  The check here makes sure that almost
+                     * every packet was dropped which is a good
+                     * indication that the socket is stuck frozen.
                      */
 
                     statst->tstor[thread].stall_cnt += 1;
