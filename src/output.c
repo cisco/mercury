@@ -427,7 +427,7 @@ enum status limit_rotate (output_file* out_ctx) {
     else {
         while (out_ctx->file_sec == nullptr) {
             out_ctx->rotation_req = true;
-            sleep (1);
+            usleep (10000);
             if (out_ctx->file_error.load() == true) {
                 return status_err;
             }
@@ -486,7 +486,7 @@ void *output_thread_func(void *arg) {
     while (out_ctx->file_pri == nullptr)
     {
         out_ctx->rotation_req = true;
-        sleep(1);
+        usleep(10000);
         if (out_ctx->file_error.load() == true) {
             exit(EXIT_FAILURE);
         }
@@ -722,10 +722,7 @@ void *output_thread_func(void *arg) {
          * if we really aren't recieving any messages on
          * any queues.
          */
-        struct timespec sleep_ts;
-        sleep_ts.tv_sec = 0;
-        sleep_ts.tv_nsec = 1000000;
-        nanosleep(&sleep_ts, NULL);
+        usleep(1000);
     } /* End all_output_flushed == 0 meaning we got a signal to stop */
 
     /* Report total drops */
