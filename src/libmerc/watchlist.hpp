@@ -692,6 +692,7 @@ class server_identifier {
     host_identifier host_id;
     std::optional<uint16_t> port;
     size_t label_count = 0;
+    bool empty = false;
 
 public:
 
@@ -726,6 +727,7 @@ public:
             || !d.is_not_empty()   // empty line
             || *d.data == '#'      // comment line
             ) {
+            empty = true;
             return;                // error; not a valid server identifier
         }
 
@@ -804,6 +806,9 @@ public:
             return "address.invalid";
         }
         if (std::holds_alternative<std::monostate>(host_id)) {
+            if (empty) {
+                return "missing.invalid";
+            }
             return "other.invalid";
         }
         if (std::holds_alternative<dns_name_t>(host_id)) {
@@ -852,6 +857,7 @@ public:
             { "18.158.72.38.nip.io", "18.158.72.38.nip.io", {} },                       // subdomains look like dotted quad
             { " www.google.com", "www.google.com", {} },                                // leading  whitespace
             { "None", "missing.invalid", {} },                                          // "None" means missing
+            { "", "missing.invalid", {} },                                              // "" means missing
             { "localhost:443", "localhost", 443 },                                      // "localhost" with a port number
             { "www", "unqualified.invalid", {} },                                       // unqualified domain name (not an FQDN)
         };
