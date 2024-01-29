@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "fingerprint.h"
 #include "result.h"
+#include "match.h"
 
 template <size_t bits, typename T>
 inline T rotl(T &x) {
@@ -91,6 +92,11 @@ public:
         srv_time{pt, 4},
         unknown_2{pt, 48} { }
 
+    static constexpr mask_and_value<4> matcher{
+        { 0x00, 0x00, 0x00, 0x00 },
+        { 0x00, 0x00, 0x00, 0x00 }
+    };
+
     void write_json(json_object &o, bool=true) const {
         if (!is_not_empty()) {
             return;
@@ -123,11 +129,11 @@ public:
             return;
         }
 
-        // fp format -> tofsee in hex
+        // fp format -> tofsee/1/generic
+        buf.write_uint8(1);
+        buf.write_char('/');
         uint8_t generic_str[] = {'g','e','n','e','r','i', 'c'};
-        buf.write_char('(');
         buf.memcpy(generic_str, 7);
-        buf.write_char(')');
 
     }
 
@@ -137,7 +143,7 @@ public:
         fp.final();
     }
 
-    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+    bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         //const char tofsee_str[] = "malware_tofsee";
         //analysis_.result = analysis_result{fingerprint_status_labeled,tofsee_str, 1.0, nullptr, 0, true, 1.0, {}};
         //return true;
