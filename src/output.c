@@ -26,12 +26,20 @@ void thread_queues_init(struct thread_queues *tqs, int n) {
 
     for (int i = 0; i < n; i++) {
         tqs->queue[i].qnum = i; /* only needed for debug output */
+        tqs->queue[i].llq_depth = 2048; /* TODO: remove hardcoding */
         tqs->queue[i].ridx = 0;
         tqs->queue[i].widx = 0;
         tqs->queue[i].drops = 0;
         tqs->queue[i].mcnt = 0;
 
-        for (int j = 0; j < LLQ_DEPTH; j++) {
+        tqs->queue[i].msgs = (struct llq_msg *)calloc(tqs->queue[i].llq_depth, sizeof(struct llq_msg));
+
+        if (tqs->queue[i].msgs == NULL) {
+            fprintf(stderr, "Failed to allocate memory for thread queue %d's messages\n", i);
+            exit(255);
+        }
+
+        for (int j = 0; j < tqs->queue[i].llq_depth; j++) {
             tqs->queue[i].msgs[j].used = 0;
         }
     }
@@ -39,6 +47,11 @@ void thread_queues_init(struct thread_queues *tqs, int n) {
 
 
 void thread_queues_free(struct thread_queues *tqs) {
+
+    for (int i = 0; i < tqs->qnum; i++) {
+        free(tqs->queue[i].msgs);
+    }
+
     free(tqs->queue);
     tqs->queue = NULL;
     tqs->qnum = 0;
@@ -500,7 +513,7 @@ void *output_thread_func(void *arg) {
      * report drops from before everything was even started
      */
     for (int q = 0; q < out_ctx->qs.qnum; q++) {
-        for (int i = 0; i < LLQ_DEPTH; i++) {
+        for (int i = 0; i < out_ctx->qs.queue[q].llq_depth; i++) {
             ((struct llq_msg *)&(out_ctx->qs.queue[q].msgs[i]))->used = 0;
         }
         out_ctx->qs.queue[q].drops = 0;
@@ -612,7 +625,7 @@ void *output_thread_func(void *arg) {
                 }
 
                 /* Advance the read index */
-                out_ctx->qs.queue[wq].ridx = (out_ctx->qs.queue[wq].ridx + 1) % LLQ_DEPTH;
+                out_ctx->qs.queue[wq].ridx = (out_ctx->qs.queue[wq].ridx + 1) % out_ctx->qs.queue[wq].llq_depth;
 
                 run_tourn_for_queue(&t_tree, wq, &out_ctx->qs);
             }
@@ -678,7 +691,7 @@ void *output_thread_func(void *arg) {
                     }
                 }
 
-                out_ctx->qs.queue[wq].ridx = (out_ctx->qs.queue[wq].ridx + 1) % LLQ_DEPTH;
+                out_ctx->qs.queue[wq].ridx = (out_ctx->qs.queue[wq].ridx + 1) % out_ctx->qs.queue[wq].llq_depth;
 
                 run_tourn_for_queue(&t_tree, wq, &out_ctx->qs);
             } else {
@@ -704,7 +717,7 @@ void *output_thread_func(void *arg) {
                      * an empty bucket while the writing is stuck on an already
                      * full bucket.
                      */
-                    for (int i = 0; i < LLQ_DEPTH; i++) {
+                    for (int i = 0; i < out_ctx->qs.queue[q].llq_depth; i++) {
                         if (((struct llq_msg *)&(out_ctx->qs.queue[q].msgs[i]))->used == 1) {
                             out_ctx->qs.queue[q].ridx = i;
                             break;

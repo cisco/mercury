@@ -594,7 +594,7 @@ void pcap_queue_write(struct ll_queue *llq,
             llq->msgs[llq->widx].used = 1;
 
             //llq->next_write();
-            llq->widx = (llq->widx + 1) % LLQ_DEPTH;
+            llq->widx = (llq->widx + 1) % llq->llq_depth;
         }
     }
     else {

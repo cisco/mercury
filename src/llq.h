@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 #define LLQ_MSG_SIZE 16384   /* The number of bytes allowed for each message in the lockless queue */
-#define LLQ_DEPTH    2048    /* The number of "buckets" (queue messages) allowed */
+/*#define LLQ_DEPTH    2048*/    /* The number of "buckets" (queue messages) allowed */
 #define LLQ_MAX_AGE  100000000 /* Maximum age (in nanoseconds) messages are allowed to sit in a queue */
 
 /* The message object suitable for the std::priority_queue */
@@ -32,14 +32,14 @@ struct llq_msg {
 
 /* a "lockless" queue */
 struct ll_queue {
-    int qnum;  /* This is the queue number and is only needed for debugging */
-    int ridx;  /* The read index */
-    int widx;  /* The write index */
-    int drops; /* Output drop counter */
-    int mcnt;  /* Message counter used alongside drops to detect stalled queue */
-    struct llq_msg msgs[LLQ_DEPTH];
+    int qnum;      /* This is the queue number and is only needed for debugging */
+    int llq_depth; /* The length of the message queue */
+    int ridx;      /* The read index */
+    int widx;      /* The write index */
+    int drops;     /* Output drop counter */
+    int mcnt;      /* Message counter used alongside drops to detect stalled queue */
 
-    static const size_t msg_length = LLQ_DEPTH;
+    struct llq_msg *msgs; /* The actual queue list */
 
     struct llq_msg *init_msg(bool blocking, unsigned int sec, unsigned int nsec) {
         struct llq_msg *m = &msgs[widx];
@@ -64,14 +64,14 @@ struct ll_queue {
     void write_buffer_to_queue() {
     }
     void increment_widx() {
-        widx = (widx + 1) % LLQ_DEPTH;
+        widx = (widx + 1) % llq_depth;
     }
 };
 
 
 struct thread_queues {
-    int qnum;             /* The number of queues that have been allocated */
-    int qidx;             /* The index of the first free queue */
+    int qnum;                    /* The number of queues that have been allocated */
+    int qidx;                    /* The index of the first free queue */
     struct ll_queue *queue;      /* The actual queue datastructure */
 };
 
