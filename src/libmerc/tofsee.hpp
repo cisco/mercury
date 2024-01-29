@@ -144,9 +144,6 @@ public:
     }
 
     bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-        //const char tofsee_str[] = "malware_tofsee";
-        //analysis_.result = analysis_result{fingerprint_status_labeled,tofsee_str, 1.0, nullptr, 0, true, 1.0, {}};
-        //return true;
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }
 
