@@ -141,6 +141,8 @@ public:
             tls_fingerprint_format = 0;
         } else if (s == "tls/1") {
             tls_fingerprint_format = 1;
+        } else if (s == "tls/2") {
+            tls_fingerprint_format = 2;
         } else {
             printf_err(log_warning, "warning: unknown fingerprint format: %s; using default instead\n", s.c_str());
             return false;
