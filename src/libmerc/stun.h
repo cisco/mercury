@@ -437,6 +437,30 @@ namespace stun {
             buf.copy('"');
             buf.copy(']');
         }
+
+        void write_type(buffer_stream &buf) {
+            buf.write_char('(');
+            buf.write_hex_uint(type);
+            buf.write_char(')');
+        }
+
+        void write_type_length(buffer_stream &buf) {
+            buf.write_char('(');
+            buf.write_hex_uint(type);
+            buf.write_hex_uint(length);
+            buf.write_char(')');
+        }
+
+        void write_type_length_value(buffer_stream &buf) {
+            buf.write_char('(');
+            buf.write_hex_uint(type);
+            buf.write_hex_uint(length);
+            buf.raw_as_hex(value.data, value.length());
+            buf.write_char(')');
+        }
+
+        uint16_t get_type() const { return type; }
+
     };
 
     // STUN Message Header format (following RFC 5389, Figure 2)
@@ -529,6 +553,19 @@ namespace stun {
 
         uint16_t get_message_length() const { return message_length; }
 
+        void write_fingerprint(buffer_stream &buf) const {
+            if (!is_valid()) {
+                return;
+            }
+            buf.write_char('(');
+            buf.write_hex_uint((uint16_t)(message_type_field & msg_type_mask));
+            buf.write_char(')');
+
+            buf.write_char('(');
+            buf.write_hex_uint(get_method_type());
+            buf.write_char(')');
+        }
+
     };
 
     class message : public base_protocol {
@@ -605,10 +642,73 @@ namespace stun {
             return hdr.is_valid();
         }
 
-        void compute_fingerprint(fingerprint &) {
+        void compute_fingerprint(fingerprint &fp) {
             if (!hdr.is_valid()) { return; }
-            // TODO
+
+            fp.set_type(fingerprint_type_stun);
+            fp.add(*this);
+            fp.final();
         }
+
+        void fingerprint(struct buffer_stream &buf) {
+            if (!hdr.is_valid()) {
+                return;
+            }
+
+            hdr.write_fingerprint(buf);
+
+            // the attr_fingerprint_type determines what data from a
+            // particular attribute type will be included in a
+            // fingerprint
+            //
+            enum attr_fingerprint_type {
+                type_length_data,
+                type_length,
+                type
+            };
+            std::unordered_map<uint16_t, attr_fingerprint_type> attr_fp_type {
+                { 0x8008, type_length_data },
+                { 0x8037, type_length_data },
+                { 0x8070, type_length_data },
+                { 0x8022, type_length_data },
+                { 0xc057, type_length_data },
+                { 0x0006, type_length },
+                { 0x0007, type_length },
+            };
+
+            // loop over attributes
+            //
+            buf.write_char('(');
+            datum tmp{body};
+            while (tmp.is_not_empty()) {
+                if (acceptor<stun::attribute> attr{tmp}) {
+
+                    // write attribute data into fingerprint,
+                    // depending on its attribute fingerprint type
+                    //
+                    auto result = attr_fp_type.find(attr.value.get_type());
+                    if (result != attr_fp_type.end()) {
+                        switch (result->second) {
+                        case type_length_data:
+                            attr.value.write_type_length_value(buf);
+                            break;
+                        case type_length:
+                            attr.value.write_type_length(buf);
+                            break;
+                        default:
+                            break;
+                        }
+                    } else {
+                        attr.value.write_type(buf);
+                    }
+                } else {
+                    break;
+                }
+            }
+            buf.write_char(')');
+
+        }
+
     };
 
 } // namespace stun
