@@ -661,6 +661,7 @@ int main(int argc, char *argv[]) {
         ctl = new controller{mc, "disabled", cfg.stats_rotation_duration, &out_file, cfg, false};
     }
 
+    fprintf(stderr, "Allocating I/O buffer balance: %4.2f%% input; %4.2f%% output\n", cfg.io_balance_frac * 100.0, (1.0 - cfg.io_balance_frac) * 100.0);
     if (output_thread_init(out_file, cfg) != 0) {
         fprintf(stderr, "error: unable to initialize output thread\n");
         return EXIT_FAILURE;

@@ -821,9 +821,21 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
                               mercury_context mc,
                               struct output_file *out_ctx,
                               struct cap_stats *cstats) {
+
+     /* sanity check memory fractions */
+    if (cfg->buffer_fraction < 0.0 || cfg->buffer_fraction > 1.0 ) {
+        fprintf(stdout, "error: refusing to allocate buffer fraction %.3f\n", cfg->buffer_fraction);
+        exit(255);
+    }
+
+    if (cfg->io_balance_frac < 0.0 || cfg->io_balance_frac > 1.0 ) {
+        fprintf(stdout, "error: refusing to balance io buffers with %.3f\n", cfg->io_balance_frac);
+        exit(255);
+    }
+
     /* initialize the ring limits from the configuration */
     struct ring_limits rl;
-    ring_limits_init(&rl, cfg->buffer_fraction);
+    ring_limits_init(&rl, cfg->buffer_fraction * cfg->io_balance_frac);
 
     int err;
     int num_threads = cfg->num_threads;
@@ -895,7 +907,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     }
 
     if ((uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize < rl.af_desired_memory) {
-        fprintf(stderr, "Notice: requested memory %" PRIu64 " will be less than desired memory %" PRIu64 "\n",
+        fprintf(stderr, "Notice: requested input buffer memory %" PRIu64 " will be less than desired memory %" PRIu64 "\n",
                 (uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize, rl.af_desired_memory);
     }
 
@@ -1043,10 +1055,6 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
 #define RING_LIMITS_DEFAULT_FRAC 0.01
 
 void ring_limits_init(struct ring_limits *rl, float frac) {
-
-    if (frac < 0.0 || frac > 1.0 ) { /* sanity check */
-        frac = RING_LIMITS_DEFAULT_FRAC;
-    }
 
     /* This is the only parameter you should need to change */
     rl->af_desired_memory = (uint64_t) sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;

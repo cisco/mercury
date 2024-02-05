@@ -52,6 +52,7 @@ struct mercury_config {
     char *mode;                     /* mode for fopen()                               */
     int fanout_group;               /* identifies fanout group used by sockets        */
     float buffer_fraction;          /* fraction of phys mem used for RX_RING buffers  */
+    float io_balance_frac;          /* fraction of buffers to go to input vs output   */
     int num_threads;                /* number of worker threads                       */
     uint64_t rotate;                /* number of records per file rotation, or 0      */
     char *user;                     /* username of account used for privilege drop    */
@@ -74,7 +75,7 @@ struct cap_stats {
 };
 
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0, false, 300, 0 }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, O_EXCL, (char *)"w", 0, 0.1, 0.8, 1, 0, NULL, 1, 0, 0, 0, false, 300, 0 }
 
 
 #endif /* MERCURY_H */

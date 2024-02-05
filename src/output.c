@@ -15,7 +15,25 @@
 
 #define output_file_needs_rotation(ojf) (--((ojf)->record_countdown) == 0)
 
-void thread_queues_init(struct thread_queues *tqs, int n) {
+void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
+
+    uint64_t desired_memory = (uint64_t) sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) * frac;
+
+    /* Total output queue size is our desired memory divided by the number of queues
+     * but queue length must account for LLQ_MSG_SIZE
+     */
+    int qdepth = desired_memory / (n * LLQ_MSG_SIZE);
+
+    if ((uint64_t)n * LLQ_MSG_SIZE * (uint64_t)qdepth < desired_memory) {
+        fprintf(stderr, "Notice: requested output queue memory %" PRIu64 " will be less than desired memory %" PRIu64 "\n",
+                (uint64_t)n * LLQ_MSG_SIZE * (uint64_t)qdepth, desired_memory);
+    }
+
+    if (qdepth < 8) {
+        fprintf(stderr, "Only able to allocate output queue lengths of %d (minimum %d)\n", qdepth, 8);
+        exit(255);
+    }
+
     tqs->qnum = n;
     tqs->queue = (struct ll_queue *)calloc(n, sizeof(struct ll_queue));
 
@@ -26,7 +44,7 @@ void thread_queues_init(struct thread_queues *tqs, int n) {
 
     for (int i = 0; i < n; i++) {
         tqs->queue[i].qnum = i; /* only needed for debug output */
-        tqs->queue[i].llq_depth = 2048; /* TODO: remove hardcoding */
+        tqs->queue[i].llq_depth = qdepth;
         tqs->queue[i].ridx = 0;
         tqs->queue[i].widx = 0;
         tqs->queue[i].drops = 0;
@@ -758,7 +776,7 @@ void *output_thread_func(void *arg) {
 int output_thread_init(struct output_file &out_ctx, const struct mercury_config &cfg) {
 
     /* make the thread queues */
-    thread_queues_init(&out_ctx.qs, cfg.num_threads);
+    thread_queues_init(&out_ctx.qs, cfg.num_threads, cfg.buffer_fraction * (1.0 - cfg.io_balance_frac));
 
     /* init the output context */
     if (pthread_cond_init(&(out_ctx.t_output_c), NULL) != 0) {
