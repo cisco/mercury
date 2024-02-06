@@ -151,6 +151,7 @@ struct common_data {
     attribute_names attr_name;
     watchlist doh_watchlist;
     ssize_t doh_idx = -1;
+    ssize_t enc_channel_idx = -1;
 };
 
 // data type used in floating point computations
@@ -1121,6 +1122,10 @@ public:
         //
         common.doh_idx = common.attr_name.get_index("encrypted_dns");
 
+        // reserve attribute for encrypted_channel
+        //
+        common.enc_channel_idx = common.attr_name.get_index("encrypted_channel");
+
         // by default, we expect that tls fingerprints will be present in the resource file
         //
         fp_types.push_back(fingerprint_type_tls);
@@ -1328,6 +1333,13 @@ public:
             return true;  // not configured to analyze fingerprints of this type
         }
         result = this->perform_analysis(fp.string(), dc.sn_str, dc.dst_ip_str, dc.dst_port, dc.ua_str);
+
+        // check for encrypted_channel
+        //
+        if (result.max_mal && fp.get_type() == fingerprint_type_tls) {
+            result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
+        }
+
         return true;
     }
 

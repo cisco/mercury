@@ -514,6 +514,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
                 .packet_filter_cfg = (char *)"all"},
              .m_pc{"surfshark.pcap"}},
          3      // encrypted_dns, evasive_vpn, external_proxy as attributes
+        },
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all"},
+             .m_pc{"malware_tls.pcap"}},
+         2      // encrypted_channel, malware as attributes
         }
     };
 
