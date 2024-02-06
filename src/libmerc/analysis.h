@@ -799,6 +799,8 @@ public:
             return fingerprint_type_http;
         } else if (s == "quic") {
             return fingerprint_type_quic;
+        } else if (s == "tofsee") {
+            return fingerprint_type_tofsee;
         }
         return fingerprint_type_unknown;
     }
@@ -818,6 +820,8 @@ public:
                     type = fingerprint_type_http;
                 } else if (s.compare(0, idx, "quic") == 0) {
                     type = fingerprint_type_quic;
+                } else if (s.compare(0, idx, "tofsee") == 0) {
+                    type = fingerprint_type_tofsee;
                 }
                 std::string version_and_tail{s.substr(idx+1)};
 

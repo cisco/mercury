@@ -103,6 +103,7 @@ public:
             { "wireguard",              false },
             { "openvpn_tcp",            false },
             { "mysql",                  false },
+            { "tofsee",                 false },
         };
 
     bool set_protocols(const std::string& data) {

@@ -156,6 +156,7 @@ public:
             "quic",
             "tcp_server",
             "openvpn",
+            "tofsee"
         };
         if (fp_type > (sizeof(name)/sizeof(const char *))) {
             return name[0];  // error: unknown type
