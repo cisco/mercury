@@ -87,6 +87,14 @@ public:
             c++; //accept '/'
         }
 
+        // accept keyword "generic" and possibily trailing data as fingerprint string
+        if (*c == 'g') {
+            constexpr char generic_fp[] = {'g','e','n','e','r','i','c'};
+            if (memcmp(c,generic_fp,7) == 0) {
+                return true;
+            }
+        }
+
         // loop over balanced parens / tree data
         //
         while (*c != '\0') {
