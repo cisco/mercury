@@ -33,7 +33,7 @@ public:
 
     // MAX_TAGS denotes the maximum number of attribute tags supported
     //
-    static constexpr ssize_t MAX_TAGS = 8;
+    static constexpr ssize_t MAX_TAGS = 12;
     typedef std::bitset<MAX_TAGS> bitset;
 
 private:
@@ -94,6 +94,13 @@ public:
         attr_ctx.prob_scores = prob_score.data();
         attr_ctx.attributes_len = tag_names->size();
         return &attr_ctx;
+    }
+
+    void set_attr (ssize_t idx, long double prob) {
+        if ((idx < 0) || (idx >= MAX_TAGS) || ((size_t)idx >= tag_names->size()) )
+            return;
+        tags[idx] = true;
+        prob_score[idx] = prob;
     }
 
 };

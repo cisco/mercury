@@ -41,6 +41,7 @@
 #include "openvpn.h"
 #include "bittorrent.h"
 #include "mysql.hpp"
+#include "tofsee.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -132,6 +133,10 @@ public:
         case tcp_msg_type_nbss:
         {
             return (nbss_packet::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_tofsee_initial_message:
+        {
+            return (200 == pkt.length());
         }
         default:
             return true;
@@ -405,6 +410,13 @@ public:
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
         }
+
+        // add tofsee, but keep at the absolute end of matcher lists, as tofsee only
+        // has a length based matcher
+        if (protocols["tofsee"] || protocols["all"]) {
+            tcp4.add_protocol(tofsee_initial_message::matcher, tcp_msg_type_tofsee_initial_message);
+        }
+
         // tell protocol_identification objects to compile lookup tables
         tcp.compile();
         udp.compile();

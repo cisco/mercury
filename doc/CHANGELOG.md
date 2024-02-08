@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.25
+
+* Fingerprints are reported for Tofsee initial messages as `tofsee/generic`.
+* Improved portability by adding `#include <cstdint>` where needed.
+
 ## Version 2.5.24
 
 * Minor improvement to the classifier's numerical accuracy.
