@@ -1677,4 +1677,45 @@ public:
     }
 };
 
+/// parses a sequence of type T from a datum, when used in a
+/// range-based for loop
+///
+/// Example usage:
+/// \code
+///     uint8_t raw_data[] = {
+///         0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef
+///     };
+///     datum d{raw_data, raw_data + sizeof(raw_data)};
+///     for (encoded<uint16_t> x : sequence<encoded<uint16_t>>{d}) {
+///         printf("%04x\n", x.value());
+///     }
+/// \endcode
+///
+template <typename T>
+class sequence {
+    datum tmp;
+    T value;
+
+    struct iterator {
+        sequence *seq;
+
+        void operator++() { seq->value = T{seq->tmp}; }
+
+        T& operator* () { return seq->value; }
+
+        bool operator!= (const iterator &) const { return seq->tmp.is_not_null(); }
+
+    };
+
+public:
+
+    sequence(const datum &d) : tmp{d}, value{tmp} { }
+
+    iterator begin() { return { this }; }
+
+    iterator end() { return { nullptr }; }
+
+};
+
+
 #endif /* DATUM_H */
