@@ -17,6 +17,7 @@
 #include "json_object.h"
 #include "util_obj.h"
 #include "match.h"
+#include "ech.hpp"
 
 /**
  * \file dns.h
@@ -459,6 +460,228 @@ public:
     }
 };
 
+class length_prefixed_string {
+    encoded<uint8_t> length;
+    datum value;
+
+public:
+
+    length_prefixed_string(datum &d) :
+        length{d},
+        value{d}
+    {}
+
+    bool is_valid() const { return value.is_not_null(); }
+
+    const datum &get_value() const { return value; }
+};
+
+// SVCB (Service Binding) RDATA Wire Format (following RFC 9460)
+//
+// The RDATA for the SVCB RR consists of:
+//
+//    * a 2-octet field for SvcPriority as an integer in network byte order.
+//
+//    * the uncompressed, fully qualified TargetName, represented as a
+//      sequence of length-prefixed labels per Section 3.1 of
+//      [RFC1035].
+//
+//    * the SvcParams, consuming the remainder of the record (so
+//      smaller than 65535 octets and constrained by the RDATA and DNS
+//      message sizes).
+//
+// When the list of SvcParams is non-empty, it contains a series of
+// SvcParamKey=SvcParamValue pairs, represented as:
+//
+//    * a 2-octet field containing the SvcParamKey as an integer in
+//      network byte order. (See Section 14.3.2 for the defined
+//      values.)
+//
+//    * a 2-octet field containing the length of the SvcParamValue as
+//      an integer between 0 and 65535 in network byte order.
+//
+//    * an octet string of this length whose contents are the
+//      SvcParamValue in a format determined by the SvcParamKey.
+//
+// The SvcParamKeys SHALL appear in increasing numeric order.
+//
+class svc_params {
+    encoded<uint16_t> key;
+    encoded<uint16_t> length;
+    datum value;
+
+public:
+
+    svc_params(datum &d) :
+        key{d},
+        length{d},
+        value{d, length}
+    { }
+
+    // void write_json(json_object &o) const {
+    //     if (value.is_not_null()) {
+    //         o.print_key_string("key", key_str());
+    //         // o.print_key_uint("length", length);
+    //         o.print_key_hex("value", value);
+    //     }
+    // }
+
+
+    void write_json(json_object &o) const {
+        if (value.is_null()) {
+            return;
+        }
+        switch(key) {
+        case 0:
+            write_mandatory(o);
+            break;
+        case 1:
+            write_alpn(o);
+            break;
+        case 2:
+            write_no_default_alpn(o);
+            break;
+        case 3:
+            write_port(o);
+            break;
+        case 4:
+            write_ipv4hint(o);
+            break;
+        case 5:
+            write_ech(o);
+            break;
+        case 6:
+            write_ipv6hint(o);
+            break;
+        case 65535:
+            write_invalid_key(o);
+            break;
+        default:
+            write_unknown(o);
+            ;
+        }
+    }
+
+    void write_mandatory(json_object &o) const {
+        o.print_key_string("key", "mandatory");
+        o.print_key_hex("value", value);                // should be empty???
+    }
+    void write_alpn(json_object &o) const {
+        o.print_key_string("key", "alpn");
+        // o.print_key_uint("length", length);
+        //        o.print_key_hex("value", value);
+        if (lookahead<length_prefixed_string> string{value}) {
+            o.print_key_json_string("value", string.value.get_value());
+        }
+    }
+    void write_no_default_alpn(json_object &o) const {
+        o.print_key_string("key", "no_default_alpn");
+        o.print_key_hex("value", value);                // should be empty
+    }
+    void write_port(json_object &o) const {
+        o.print_key_string("key", "port");
+        if (lookahead<encoded<uint16_t>> p{value}) {
+            o.print_key_uint16("value", p.value);
+        }
+    }
+    void write_ipv4hint(json_object &o) const {
+        json_array a{o, "ipv4hint"};
+        datum tmp{value};
+        while (tmp.is_not_empty()) {
+            datum addr{tmp, 4};
+            if (tmp.is_null()) {
+                break;
+            }
+            json_object wrapper{a};
+            wrapper.print_key_ipv4_addr("value", addr.data);
+            wrapper.close();
+        }
+        a.close();
+    }
+    void write_ech(json_object &o) const {
+        o.print_key_string("key", "ech");
+        o.print_key_hex("value", value);
+        if (lookahead<ech_config> config{value}) {
+            config.value.write_json(o);
+        } else {
+            o.print_key_string("error", "could not parse ech_config");
+        }
+    }
+    void write_ipv6hint(json_object &o) const {
+        json_array a{o, "ipv6hint"};
+        datum tmp{value};
+        while (tmp.is_not_empty()) {
+            datum addr{tmp, 16};
+            if (tmp.is_null()) {
+                break;
+            }
+            json_object wrapper{a};
+            wrapper.print_key_ipv6_addr("value", addr.data);
+            wrapper.close();
+        }
+        a.close();
+    }
+    void write_invalid_key(json_object &o) const {
+        o.print_key_string("key", "invalid_key");
+    }
+    void write_unknown(json_object &o) const {
+            o.print_key_string("key", "unknown");
+    }
+
+    // Number	Name	        Meaning	Reference	Change Controller
+    // 0	    mandatory	    Mandatory keys in this RR	RFC 9460, Section 8	IETF
+    // 1	    alpn	        Additional supported protocols	RFC 9460, Section 7.1	IETF
+    // 2	    no-default-alpn	No support for default protocol	RFC 9460, Section 7.1	IETF
+    // 3	    port	        Port for alternative endpoint	RFC 9460, Section 7.2	IETF
+    // 4	    ipv4hint	    IPv4 address hints	RFC 9460, Section 7.3	IETF
+    // 5	    ech	            RESERVED (held for Encrypted ClientHello)	N/A	IETF
+    // 6	    ipv6hint	    IPv6 address hints	RFC 9460, Section 7.3	IETF
+    // 65280-65534	N/A	        Reserved for Private Use	RFC 9460	IETF
+    // 65535	N/A	            Reserved ("Invalid key")	RFC 9460	IETF
+
+};
+
+class svcb_rdata {
+    encoded<uint16_t> svc_priority;
+    dns_name target_name;
+    datum svc_param_list;
+    bool valid;
+
+public:
+
+    svcb_rdata(datum &d, const datum &dns_body) :
+        svc_priority{d},
+        target_name{d, dns_body},
+        svc_param_list{d},
+        valid{d.is_not_null() && !target_name.is_null()}
+    { }
+
+    void write_json(json_object &o) const {
+        if (valid) {
+            o.print_key_uint("priority", svc_priority);
+            o.print_key_json_string("target_name", target_name.buffer, target_name.readable_length());
+            // o.print_key_hex("svc_param_list", tmp);
+            json_array param_list{o, "svc_params"};
+
+            for (svc_params &params : sequence<svc_params>{svc_param_list}) {
+                json_object p{param_list};
+                params.write_json(p);
+                p.close();
+            }
+
+            // datum tmp{svc_param_list};
+            // while (tmp.is_not_empty()) {
+            //     svc_params params{tmp};
+            //     json_object p{param_list};
+            //     params.write_json(p);
+            //     p.close();
+            // }
+
+            param_list.close();
+        }
+    }
+};
+
 struct dns_question_record {
     struct dns_name name;
     uint16_t rr_type;
@@ -714,6 +937,15 @@ struct dns_resource_record {
                 } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::SOA) {
                     soa_rdata soa{tmp_rdata, body};
                     soa.write_json(rr);
+
+                } else if ((dns_rr_type)question_record.rr_type == dns_rr_type::HTTPS) {
+                    svcb_rdata svcb{tmp_rdata, body};
+                    svcb.write_json(rr);
+
+                } else {
+                    rr.print_key_uint("unknown_rr_type", question_record.rr_type);
+                    rr.print_key_hex("unknown_rr_value", tmp_rdata);
+
                 }
             } else {
                 rr.print_key_hex("rdata", tmp_rdata);
