@@ -1575,7 +1575,16 @@ private:
     datum tmp;
 public:
 
+    /// construct a lookahead<T> object by parsing the datum d.
+    ///
     lookahead(datum d) : value{d}, tmp{d} { }
+
+    /// construct a lookahead<T> object by parsing the datum d while
+    /// passing the parameter p of type P to the constructor of the T
+    /// object.
+    ///
+    template <typename P>
+    lookahead(datum d, P p) : value{d}, tmp{d, p} { }
 
     explicit operator bool() const { return tmp.is_not_null(); }
 
