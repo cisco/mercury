@@ -1300,7 +1300,6 @@ struct quic_hdr_fp {
 class quic_client_hello : public tls_client_hello {
 public:
     void fingerprint(struct buffer_stream &buf, size_t format_version) const {
-        (void)format_version;
         if (is_not_empty() == false) {
             return;
         }
@@ -1320,8 +1319,11 @@ public:
         /*
          * copy extensions vector
          */
-        extensions.fingerprint_quic_tls(buf, tls_role::client);
-
+        if (format_version == 1) {
+            extensions.fingerprint_format2(buf, tls_role::client);
+        } else {
+            extensions.fingerprint_quic_tls(buf, tls_role::client);
+        }
     }
 };
 
@@ -1524,7 +1526,7 @@ public:
         quic_record.close();
     }
 
-    void compute_fingerprint(class fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp, size_t format_version) const {
 
         // fingerprint format:  quic:(quic_version)(tls fingerprint)
         //
@@ -1536,10 +1538,10 @@ public:
         }
 
         if (hello.is_not_empty()) {
-            fp.set_type(fingerprint_type_quic);
+            fp.set_type(fingerprint_type_quic, format_version);
             quic_hdr_fp hdr_fp(initial_packet.version);
             fp.add(hdr_fp);
-            fp.add(hello, 0); // note: using quic format=0
+            fp.add(hello, format_version);
             fp.final();
         }
     }

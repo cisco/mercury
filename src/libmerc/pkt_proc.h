@@ -64,9 +64,13 @@ struct mercury {
 
             // set fingerprint formats to match those in the resource file
             //
-            size_t resources_tls_format = c->get_tls_fingerprint_format();
-            global_vars.set_tls_fingerprint_format(resources_tls_format);
-            printf_err(log_info, "setting tls fingerprint format to match resource file (format: %zu)\n", resources_tls_format);
+            size_t format = c->get_tls_fingerprint_format();
+            global_vars.fp_format.set_tls_fingerprint_format(format);
+            printf_err(log_info, "setting tls fingerprint format to match resource file (format: %zu)\n", format);
+
+            format = c->get_quic_fingerprint_format();
+            global_vars.fp_format.set_quic_fingerprint_format(format);
+            printf_err(log_info, "setting quic fingerprint format to match resource file (format: %zu)\n", format);
         }
     }
 

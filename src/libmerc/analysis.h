@@ -782,6 +782,7 @@ class classifier {
 
     std::vector<fingerprint_type> fp_types;
     size_t tls_fingerprint_format = 0;
+    size_t quic_fingerprint_format = 0;
     bool first_line = true;
 
     // the common object holds data that is common across all
@@ -804,6 +805,8 @@ public:
     }
 
     size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
+
+    size_t get_quic_fingerprint_format() const { return quic_fingerprint_format; }
 
     static std::pair<fingerprint_type, size_t> get_fingerprint_type_and_version(const std::string &s) {
         fingerprint_type type = fingerprint_type_unknown;
@@ -922,7 +925,19 @@ public:
                 tls_fingerprint_format = fingerprint_type_and_version.second;
             } else {
                 if (fingerprint_type_and_version.second != tls_fingerprint_format) {
-                    printf_err(log_warning, "fingerprint version with inconsistent format, ignoring JSON line\n");
+                    printf_err(log_warning, "%s fingerprint version with inconsistent format, ignoring JSON line\n", fp_type_string.c_str());
+                    return;
+                }
+            }
+            first_line = false;
+        }
+
+        if (fingerprint_type_and_version.first == fingerprint_type_quic) {
+            if (first_line == true) {
+                quic_fingerprint_format = fingerprint_type_and_version.second;
+            } else {
+                if (fingerprint_type_and_version.second != quic_fingerprint_format) {
+                    printf_err(log_warning, "%s fingerprint version with inconsistent format, ignoring JSON line\n", fp_type_string.c_str());
                     return;
                 }
             }

@@ -51,7 +51,10 @@ void write_class(const std::vector<std::tuple<std::string, std::string>> &params
                  const char *sname,
                  std::vector<int>& extensions,
                  FILE *f=stdout) {
-    
+
+	int smallest_private = 65536;
+	int smallest_unassigned = 65536;
+
     fprintf(f,
             "class %s{\n"
             "    static std::unordered_map<int32_t, int32_t>& get_mapping_index() {\n"
@@ -68,7 +71,7 @@ void write_class(const std::vector<std::tuple<std::string, std::string>> &params
             "        return mapping_index;\n"
             "    }\n\n"
             "public:\n"
-            "    static constexpr uint16_t include_list_len = %ld;\n\n"
+            "    static constexpr uint16_t include_list_len = %zu;\n\n"
             "    tls_extensions_assign() {}\n\n"
             "    static int32_t get_index(uint16_t type) {\n"
             "        static const std::unordered_map<int32_t, int32_t> &mapping_index = get_mapping_index();\n"
@@ -77,59 +80,49 @@ void write_class(const std::vector<std::tuple<std::string, std::string>> &params
             "            return(it->second);\n"
             "        }\n"
             "        return -1;\n"
-            "    }\n\n"
-            "    static bool is_private_extension(uint16_t type) {\n"
-            "        return(\n",
+            "    }\n\n",
             extensions.size());
 
-    bool first = true;
     for (const auto &p : params) {
         if (std::get<0>(p).compare("Reserved for Private Use") == 0) {
-            if (first == false) {
-                fprintf(f, "             || ");
-            } else {
-                first = false;
-                fprintf(f, "             ");
-            }
             std::string value = std::get<1>(p);
             size_t range_delim = value.find("-");
             if (range_delim != std::string::npos) {
-                fprintf(f, "(type >= %s && type <= %s)\n", value.substr(0, range_delim).c_str(), value.substr(range_delim + 1).c_str());
+                int lower_range = std::stoi(value.substr(0, range_delim));
+                if (lower_range < smallest_private) {
+                    smallest_private = lower_range;
+                }
             } else {
-                fprintf(f, "(type == %s)\n", value.c_str());
+                int val = std::stoi(value);
+                if (val < smallest_private) {
+                    smallest_private = val;
+                }
             }
         }
     }
+	fprintf(f, "    static constexpr uint16_t smallest_private_extn = %d;\n\n", smallest_private);
 
-    fprintf(f,
-            "        );\n"
-            "    }\n\n"
-            "    static bool is_unassigned_extension(uint16_t type) {\n"
-            "        return(\n"
-            );
 
-    first = true;
     for (const auto &p : params) {
         if (std::get<0>(p).compare("Unassigned") == 0) {
-            if (first == false) {
-                fprintf(f, "             || ");
-            } else {
-                first = false;
-                fprintf(f, "             ");
-            }
             std::string value = std::get<1>(p);
             size_t range_delim = value.find("-");
             if (range_delim != std::string::npos) {
-                fprintf(f, "(type >= %s && type <= %s)\n", value.substr(0, range_delim).c_str(), value.substr(range_delim + 1).c_str());
+                int lower_range = std::stoi(value.substr(0, range_delim));
+                if (lower_range < smallest_unassigned) {
+                    smallest_unassigned = lower_range;
+                }
             } else {
-                fprintf(f, "(type == %s)\n", value.c_str());
+                int val = std::stoi(value); 
+                if (val < smallest_unassigned) {
+                    smallest_unassigned = val;
+                }
             }
         }
     }
+	fprintf(f, "    static constexpr uint16_t smallest_unassigned_extn = %d;\n\n", smallest_unassigned);
 
     fprintf(f,
-            "        );\n"
-            "    }\n"
             "};\n\n");
 }
 

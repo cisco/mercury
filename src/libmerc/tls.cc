@@ -389,7 +389,18 @@ struct tls_extension {
 
     bool is_not_empty() { return value.is_not_empty(); }
 
-    bool is_grease() const { return degrease_uint16(type) == 0x0a0a;}
+    bool is_grease() const {
+        return ((type & 0x0f0f) == 0x0a0a);
+    }
+
+    bool is_private_extension() const {
+        return((type == 65280) || (type >= 65282 && type <= 65535));
+    }
+
+    bool is_unassigned_extension() const {
+		return (type >=62 && type <= 65279 && !is_grease());
+    }
+
 
     void fingerprint_format1(struct buffer_stream &b, enum tls_role role, bool use_encoded_type = false) {
         uint16_t extension_type = type;
@@ -661,14 +672,14 @@ void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tls_role 
         if (index == -1) {
             if (x.is_grease()) {
                 x.encoded_type = 0x0a0a;
-            } else if (tls_extensions_assign::is_private_extension(x.type)) {
-                // Unknown private extensions will be encoded as 65280,
-                // which is the smallest extension in private extension range
-                x.encoded_type = 65280;
-            } else if (tls_extensions_assign::is_unassigned_extension(x.type)) {
-                // Unknown unassigned extensions will be encoded as 61,
-                // which is the smallest extension in the unassigned range
-                x.encoded_type = 62;
+            } else if (x.is_private_extension()) {
+                // Unknown private extensions will be encoded as the
+                // smallest extension in private extension range
+                x.encoded_type = tls_extensions_assign::smallest_private_extn;
+            } else if (x.is_unassigned_extension()) {
+                // Unknown unassigned extensions will be encoded as the
+                // smallest extension in the unassigned range
+                x.encoded_type = tls_extensions_assign::smallest_unassigned_extn;
             }
             index = tls_extensions_assign::get_index(x.encoded_type);
         }
