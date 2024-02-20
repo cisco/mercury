@@ -914,7 +914,9 @@ public:
         std::pair<fingerprint_type, size_t> fingerprint_type_and_version = get_fingerprint_type_and_version(fp_string.c_str());
 
         if (fp_type_code != fingerprint_type_and_version.first) {
-            printf_err(log_warning, "fingerprint type of str_repr '%s' does not match fp_type, ignorning JSON line\n", fp_string.c_str());
+            printf_err(log_warning,
+                       "fingerprint type of str_repr '%s' does not match fp_type, ignorning JSON line\n",
+                       fp_string.c_str());
             return;
         }
 
@@ -925,7 +927,9 @@ public:
                 tls_fingerprint_format = fingerprint_type_and_version.second;
             } else {
                 if (fingerprint_type_and_version.second != tls_fingerprint_format) {
-                    printf_err(log_warning, "%s fingerprint version with inconsistent format, ignoring JSON line\n", fp_type_string.c_str());
+                    printf_err(log_warning,
+                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
+                               fp_type_string.c_str());
                     return;
                 }
             }
@@ -937,7 +941,9 @@ public:
                 quic_fingerprint_format = fingerprint_type_and_version.second;
             } else {
                 if (fingerprint_type_and_version.second != quic_fingerprint_format) {
-                    printf_err(log_warning, "%s fingerprint version with inconsistent format, ignoring JSON line\n", fp_type_string.c_str());
+                    printf_err(log_warning,
+                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
+                               fp_type_string.c_str());
                     return;
                 }
             }

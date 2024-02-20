@@ -6,7 +6,6 @@
 #include <map>  
 #include <string>
 #include <algorithm>
-#include <sstream>
 
 // the preprocessor directive STATIC_CFG_SELECT can be used as a
 // compile-time option to select the default protocols that mercury
