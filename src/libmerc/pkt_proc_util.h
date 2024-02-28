@@ -44,6 +44,9 @@ class smtp_client;
 class smtp_server;
 class dnp3;
 class tofsee_initial_message;
+class socks5_req_resp;
+class socks5_hello;
+class socks4_req;
 class unknown_initial_packet;
 class quic_init;                         // start of udp protocols
 struct wireguard_handshake_init;
@@ -99,7 +102,10 @@ using protocol = std::variant<std::monostate,
                               smb1_packet,
                               smb2_packet,
                               openvpn_tcp,
-                              mysql_server_greet
+                              mysql_server_greet,
+                              socks5_req_resp,
+                              socks5_hello,
+                              socks4_req
                               >;
 
 // class unknown_initial_packet represents the initial data field of a

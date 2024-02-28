@@ -275,12 +275,6 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_socks5_hello:
         x.emplace<socks5_hello>(pkt);
         break;
-    case tcp_msg_type_socks5_usr_pass:
-        x.emplace<socks5_usr_pass>(pkt);
-        break;
-    case tcp_msg_type_socks5_gss:
-        x.emplace<socks5_gss>(pkt);
-        break;
     case tcp_msg_type_socks5_req_resp:
         x.emplace<socks5_req_resp>(pkt);
         break;
