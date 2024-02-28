@@ -80,7 +80,7 @@ public:
         version{pkt},
         cmd{pkt},
         port{pkt},
-        ip{pkt},
+        ip{pkt, true},
         id{nullptr,nullptr},
         domain{nullptr,nullptr},
         socks4a{false},
@@ -128,7 +128,7 @@ public:
         socks4_pkt.print_key_value("cmd", code);
         socks4_pkt.print_key_int("port",port);
         if (output_metadata) {
-            uint32_t ip_val = htonl(ip.value());
+            uint32_t ip_val = (ip.value());
             socks4_pkt.print_key_ipv4_addr("ip",(uint8_t*)&ip_val);
         }
         socks4_pkt.print_key_json_string("id",id);
@@ -387,7 +387,7 @@ struct socks5_addr {
     void write_json_addr(socks5_domain &domain, json_object &o) { domain.write_json(o); }
     
     void write_json_addr(encoded<uint32_t> &ip, json_object &o) {
-        uint32_t ip_val = htonl(ip.value());
+        uint32_t ip_val = (ip.value());
         o.print_key_ipv4_addr("ipv4",(uint8_t*)&ip_val);
     }
 
@@ -406,7 +406,7 @@ struct socks5_addr {
     socks5_addr (datum &pkt) : type{pkt} {
         switch (type) {
             case 0x01 : {
-                addr.emplace<encoded<uint32_t> >(pkt);
+                addr.emplace<encoded<uint32_t> >(pkt,true);
                 break;
             }
             case 0x03 : {
