@@ -440,8 +440,8 @@ public:
         if (protocols["socks"] || protocols["all"]) {
             tcp4.add_protocol(socks4_req::matcher, tcp_msg_type_socks4);
             tcp4.add_protocol(socks5_hello::matcher, tcp_msg_type_socks5_hello);
-            tcp4.add_protocol(socks5_usr_pass::matcher, tcp_msg_type_socks5_usr_pass);
-            tcp4.add_protocol(socks5_gss::matcher, tcp_msg_type_socks5_gss);
+            //tcp4.add_protocol(socks5_usr_pass::matcher, tcp_msg_type_socks5_usr_pass);
+            //tcp4.add_protocol(socks5_gss::matcher, tcp_msg_type_socks5_gss);
             tcp4.add_protocol(socks5_req_resp::matcher, tcp_msg_type_socks5_req_resp);
         }
 
