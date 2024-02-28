@@ -15,6 +15,7 @@
 
 #include "json_object.h"
 #include "match.h"
+#include "protocol.h"
 
 #include <variant>
 
@@ -38,7 +39,7 @@
 //  |                                                               |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //
-class socks4_req {
+class socks4_req : public base_protocol {
     encoded<uint8_t> version;
     encoded<uint8_t> cmd;
     encoded<uint16_t> port;
@@ -195,7 +196,7 @@ struct socks5_auth_code {
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //
 
-class socks5_hello {
+class socks5_hello : public base_protocol {
     encoded<uint8_t> version;
     encoded<uint8_t> nauth;
     datum auths;
@@ -450,7 +451,7 @@ struct socks5_addr {
 //  |               |
 //  +-+-+-+-+-+-+-+-+
 //
-class socks5_req_resp {
+class socks5_req_resp : public base_protocol {
     encoded<uint8_t> version;
     encoded<uint8_t> cmd;
     encoded<uint8_t> rsv;
