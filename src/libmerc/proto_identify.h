@@ -67,8 +67,6 @@ enum tcp_msg_type {
     tcp_msg_type_tofsee_initial_message,
     tcp_msg_type_socks4,
     tcp_msg_type_socks5_hello,
-    tcp_msg_type_socks5_usr_pass,
-    tcp_msg_type_socks5_gss,
     tcp_msg_type_socks5_req_resp,
 };
 
@@ -151,14 +149,6 @@ public:
         case tcp_msg_type_socks5_hello:
         {
             return (socks5_hello::get_payload_length(pkt) == pkt.length());
-        }
-        case tcp_msg_type_socks5_usr_pass:
-        {
-            return (socks5_usr_pass::get_payload_length(pkt) == pkt.length());
-        }
-        case tcp_msg_type_socks5_gss:
-        {
-            return (socks5_gss::get_payload_length(pkt) == pkt.length());
         }
         case tcp_msg_type_socks5_req_resp:
         {
