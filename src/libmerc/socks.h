@@ -139,6 +139,7 @@ public:
             }
             socks4_pkt.print_key_json_string("domain",domain);
         }
+        socks4_pkt.close();
     }
 
     bool is_not_empty() const { return (is_valid); }
@@ -235,6 +236,7 @@ public:
             code.write_json(auth_list);
         }
         auth_list.close();
+        socks_pkt.close(); 
     }
 };
 
@@ -300,6 +302,7 @@ public:
             auth_pkt.print_key_int("pw_len",pw_len);
         }
         auth_pkt.print_key_json_string("pw",pw);
+        auth_pkt.close();
     }
 };
 
@@ -361,6 +364,7 @@ public:
         if (metadata) {
             auth_pkt.print_key_int("msg_len",tok_len);
         }
+        auth_pkt.close();
     }
 };
 
@@ -507,6 +511,7 @@ public:
         socks5_pkt.print_key_string("cmd",get_cmd_str());
         addr.write_json(socks5_pkt,metadata);
         socks5_pkt.print_key_int("dst_port",dst_port);
+        socks5_pkt.close();
     }
 };
 
