@@ -494,7 +494,7 @@ public:
     const char *get_cmd_str() const {
         switch(cmd) {
             case 0x00 : return "request_granted";
-            case 0x01 : return "tcp_conn_or_gen_failiure";
+            case 0x01 : return "tcp_conn_or_gen_failure";
             case 0x02 : return "tcp_bind_or_not_allowed";
             case 0x03 : return "udp_port_or_net_unreach";
             case 0x04 : return "host_unreach";
