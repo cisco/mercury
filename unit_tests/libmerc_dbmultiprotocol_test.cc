@@ -654,3 +654,35 @@ TEST_CASE_METHOD(LibmercTestFixture, "mysql with resources-mp")
         mysql_check(count, config.m_lc);
     }
 }
+
+TEST_CASE_METHOD(LibmercTestFixture, "socks with resources-mp")
+{
+
+    auto socks_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"socks"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"socks"},
+             .m_pc{"socks4_5.pcap"}},
+         9},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        socks_check(count, config.m_lc);
+    }
+}
