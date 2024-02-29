@@ -677,7 +677,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "socks with resources-mp")
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"socks"},
              .m_pc{"socks4_5.pcap"}},
-         9},
+         10},
     };
 
     for (auto &[config, count] : test_set_up)
