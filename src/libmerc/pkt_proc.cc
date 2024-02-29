@@ -269,6 +269,15 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_tofsee_initial_message:
         x.emplace<tofsee_initial_message>(pkt);
         break;
+    case tcp_msg_type_socks4:
+        x.emplace<socks4_req>(pkt);
+        break;
+    case tcp_msg_type_socks5_hello:
+        x.emplace<socks5_hello>(pkt);
+        break;
+    case tcp_msg_type_socks5_req_resp:
+        x.emplace<socks5_req_resp>(pkt);
+        break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
             x.emplace<unknown_initial_packet>(pkt);
