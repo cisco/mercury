@@ -37,6 +37,10 @@ bool negotiate_context::get_netname(datum netname, std::string& name) {
             return false;
         }
         if (c >= 0x20 and c <= 0x7f) {
+            /* Escape special characters */
+            if (c == '"' || c == '\\') {
+                name.push_back('\\');
+            }
             name.push_back(char(c));
         } else {
             return false;
