@@ -42,6 +42,7 @@
 #include "bittorrent.h"
 #include "mysql.hpp"
 #include "tofsee.hpp"
+#include "socks.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -64,6 +65,9 @@ enum tcp_msg_type {
     tcp_msg_type_bittorrent,
     tcp_msg_type_mysql_server,
     tcp_msg_type_tofsee_initial_message,
+    tcp_msg_type_socks4,
+    tcp_msg_type_socks5_hello,
+    tcp_msg_type_socks5_req_resp,
 };
 
 enum udp_msg_type {
@@ -137,6 +141,18 @@ public:
         case tcp_msg_type_tofsee_initial_message:
         {
             return (200 == pkt.length());
+        }
+        case tcp_msg_type_socks4:
+        {
+            return (socks4_req::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_socks5_hello:
+        {
+            return (socks5_hello::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_socks5_req_resp:
+        {
+            return (socks5_req_resp::get_payload_length(pkt) == pkt.length());
         }
         default:
             return true;
@@ -409,6 +425,14 @@ public:
         }
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
+        }
+
+        if (protocols["socks"] || protocols["all"]) {
+            tcp4.add_protocol(socks4_req::matcher, tcp_msg_type_socks4);
+            tcp4.add_protocol(socks5_hello::matcher, tcp_msg_type_socks5_hello);
+            //tcp4.add_protocol(socks5_usr_pass::matcher, tcp_msg_type_socks5_usr_pass);
+            //tcp4.add_protocol(socks5_gss::matcher, tcp_msg_type_socks5_gss);
+            tcp4.add_protocol(socks5_req_resp::matcher, tcp_msg_type_socks5_req_resp);
         }
 
         // add tofsee, but keep at the absolute end of matcher lists, as tofsee only

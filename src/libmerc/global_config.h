@@ -190,6 +190,7 @@ public:
             { "openvpn_tcp",            false },
             { "mysql",                  false },
             { "tofsee",                 false },
+            { "socks",                  false },
         };
 
     bool set_protocols(const std::string& data) {
