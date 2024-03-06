@@ -615,6 +615,11 @@ public:
         max_score = process_score[index_max];
         sec_score = process_score[index_sec];
 
+        if (score_sum > 0.0) {
+            if (malware_db) {
+                malware_prob /= score_sum;
+            }
+        }
         if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
             // the most probable process is unlabeled, so choose the
             // next most probable one if it isn't malware, and adjust
@@ -626,9 +631,6 @@ public:
         }
         if (score_sum > 0.0) {
             max_score /= score_sum;
-            if (malware_db) {
-                malware_prob /= score_sum;
-            }
             for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
                 attr_prob[j] /= score_sum;
             }
