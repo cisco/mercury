@@ -240,9 +240,9 @@ struct write_metadata {
 
 struct compute_fingerprint {
     fingerprint &fp_;
-    size_t format_version;
+    fingerprint_format format_version;
 
-    compute_fingerprint(fingerprint &fp, size_t format=0) : fp_{fp}, format_version{format} {
+    compute_fingerprint(fingerprint &fp, fingerprint_format _format_version) : fp_{fp}, format_version{_format_version} {
         fp.init();
     }
 
@@ -252,7 +252,11 @@ struct compute_fingerprint {
     }
 
     void operator()(tls_client_hello &msg) {
-        msg.compute_fingerprint(fp_, format_version);
+        msg.compute_fingerprint(fp_, format_version.tls_fingerprint_format);
+    }
+
+    void operator()(quic_init &msg) {
+        msg.compute_fingerprint(fp_, format_version.quic_fingerprint_format);
     }
 
     void operator()(std::monostate &) { }

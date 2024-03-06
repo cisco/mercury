@@ -28,6 +28,94 @@
 struct global_config;
 static void setup_extended_fields(global_config* lc, const std::string& config);
 
+class fingerprint_format {
+    static constexpr const char* protocol_delim = ",";
+    static constexpr const char* format_delim = "/";
+
+public:
+    size_t tls_fingerprint_format;
+    size_t quic_fingerprint_format;
+
+    fingerprint_format() :
+        tls_fingerprint_format{0},
+        quic_fingerprint_format{0} { }
+
+    void set_tls_fingerprint_format(size_t format_version) {
+        tls_fingerprint_format = format_version;
+    }
+
+    void set_quic_fingerprint_format(size_t format_version) {
+        quic_fingerprint_format = format_version;
+    }
+        
+    bool get_protocol_and_set_fp_format(std::string &format_str) {
+        std::string protocol;
+        std::string format_version;
+
+        size_t pos = 0;
+
+        pos = format_str.find(fingerprint_format::format_delim);
+
+        if (pos != std::string::npos) {
+            protocol = format_str.substr(0, pos);
+            format_version = format_str.substr(pos+1);
+        } else {
+            protocol = format_str;
+        }
+  
+        if (protocol == "tls") {
+            if (format_version == "") {
+                tls_fingerprint_format = 0;
+            } else if (format_version == "1") {
+                tls_fingerprint_format = 1;
+            } else if (format_version == "2") {
+                tls_fingerprint_format = 2;
+            } else {
+                printf_err(log_warning, "warning: unknown fingerprint format: %s; using default instead\n", format_str.c_str());
+                return false; 
+            }
+        } else if (protocol == "quic") {
+            if (format_version == "") {
+                quic_fingerprint_format = 0;
+            } else if (format_version == "1") {
+                quic_fingerprint_format = 1;
+            } else {
+                printf_err(log_warning, "warning: unknown fingerprint format: %s; using default instead\n", format_str.c_str());
+                return false;
+            }
+        } else {
+            printf_err(log_warning, "warning: unknown fingerprint format: %s; using default instead\n", format_str.c_str());
+            return false;
+        }
+        return true;
+    }
+
+    bool set_fingerprint_format(const std::string &format_string) {
+        if (!format_string.empty()) {
+            std::string token;
+            size_t start_pos = 0;
+            size_t current_pos = 0;
+            while ((current_pos = format_string.find(fingerprint_format::protocol_delim, start_pos)) != std::string::npos) {
+                token = format_string.substr(start_pos, current_pos);
+                token.erase(std::remove_if(token.begin(), token.end(), isspace), token.end());
+                start_pos = current_pos + 1;
+
+                if (!get_protocol_and_set_fp_format(token)) {
+                    return false;
+                }
+            }
+
+            if (start_pos < format_string.length()) {
+                token = format_string.substr(start_pos);
+                if (!get_protocol_and_set_fp_format(token)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+};
+
 struct global_config : public libmerc_config {
 
 private:
@@ -39,9 +127,7 @@ public:
     // extended configs
     std::string temp_proto_str;
     bool tcp_reassembly = false;          /* reassemble tcp segments      */
-    size_t tls_fingerprint_format = 0;    // default fingerprint format
-
-    void set_tls_fingerprint_format(size_t format) { tls_fingerprint_format = format; }
+    fingerprint_format fp_format;    // default fingerprint format
 
     global_config() : libmerc_config(), tcp_reassembly{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), tcp_reassembly{false} {
@@ -137,17 +223,6 @@ public:
         return true;
     }
 
-    bool set_fingerprint_format(const std::string &s) {
-        if (s == "tls") {
-            tls_fingerprint_format = 0;
-        } else if (s == "tls/1") {
-            tls_fingerprint_format = 1;
-        } else {
-            printf_err(log_warning, "warning: unknown fingerprint format: %s; using default instead\n", s.c_str());
-            return false;
-        }
-        return true;
-    }
 };
 
 static void setup_extended_fields(global_config* lc, const std::string& config) {
@@ -155,7 +230,7 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
     std::vector<libmerc_option> options = {
         {"select", "-s", "--select", SETTER_FUNCTION(&lc){ lc->set_protocols(s); }},
         {"resources", "", "", SETTER_FUNCTION(&lc){ lc->set_resource_file(s); }},
-        {"format", "", "", SETTER_FUNCTION(&lc){ lc->set_fingerprint_format(s); }},
+        {"format", "", "", SETTER_FUNCTION(&lc){ lc->fp_format.set_fingerprint_format(s); }},
         {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->tcp_reassembly = true; }}
     };
 

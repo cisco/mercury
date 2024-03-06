@@ -92,6 +92,7 @@ LIBMERC_H   += smb1.h
 LIBMERC_H   += smb2.h
 LIBMERC_H   += bencode.h
 LIBMERC_H   += bittorrent.h
+LIBMERC_H   += tls_extensions.h
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files
