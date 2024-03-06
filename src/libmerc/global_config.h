@@ -29,8 +29,8 @@ struct global_config;
 static void setup_extended_fields(global_config* lc, const std::string& config);
 
 class fingerprint_format {
-    std::string protocol_delim{","};
-    std::string format_delim{"/"};
+    static constexpr const char* protocol_delim = ",";
+    static constexpr const char* format_delim = "/";
 
 public:
     size_t tls_fingerprint_format;
@@ -54,7 +54,7 @@ public:
 
         size_t pos = 0;
 
-        pos = format_str.find(format_delim);
+        pos = format_str.find(fingerprint_format::format_delim);
 
         if (pos != std::string::npos) {
             protocol = format_str.substr(0, pos);
@@ -95,7 +95,7 @@ public:
             std::string token;
             size_t start_pos = 0;
             size_t current_pos = 0;
-            while ((current_pos = format_string.find(protocol_delim, start_pos)) != std::string::npos) {
+            while ((current_pos = format_string.find(fingerprint_format::protocol_delim, start_pos)) != std::string::npos) {
                 token = format_string.substr(start_pos, current_pos);
                 token.erase(std::remove_if(token.begin(), token.end(), isspace), token.end());
                 start_pos = current_pos + 1;
