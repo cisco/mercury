@@ -1677,15 +1677,20 @@ public:
     }
 };
 
-/// parses a sequence of type T from a datum, when used in a
-/// range-based for loop
+/// parses a sequence of objects of type `T` from a datum, when used in
+/// a range-based for loop.
 ///
-/// Example usage:
+/// \note Objects of type `T` must be constructible from a \ref datum
+/// reference.
+///
+/// The following example shows how to read four \ref
+/// encoded<uint16_t> objects from a buffer.
+///
 /// \code
-///     uint8_t raw_data[] = {
+///     uint8_t buffer[] = {
 ///         0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef
 ///     };
-///     datum d{raw_data, raw_data + sizeof(raw_data)};
+///     datum d{buffer, buffer + sizeof(buffer)};
 ///     for (encoded<uint16_t> x : sequence<encoded<uint16_t>>{d}) {
 ///         printf("%04x\n", x.value());
 ///     }
@@ -1695,6 +1700,8 @@ template <typename T>
 class sequence {
     datum tmp;
     T value;
+
+    static_assert(std::is_constructible_v<T, datum &>, "T must be constructible from a datum reference");
 
     struct iterator {
         sequence *seq;
