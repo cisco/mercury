@@ -460,6 +460,10 @@ public:
     }
 };
 
+
+// length_prefixed_string is a character string proceeded by a uint8_t
+// length field, which is used in DNS SVCB.
+//
 class length_prefixed_string {
     encoded<uint8_t> length;
     datum value;
@@ -468,7 +472,7 @@ public:
 
     length_prefixed_string(datum &d) :
         length{d},
-        value{d}
+        value{d, length.value()}
     {}
 
     bool is_valid() const { return value.is_not_null(); }
@@ -505,6 +509,19 @@ public:
 //
 // The SvcParamKeys SHALL appear in increasing numeric order.
 //
+// The keys have the following names and numbers:
+///
+//    Number        Name            Meaning
+//    0             mandatory       Mandatory keys in this RR
+//    1             alpn            Additional supported protocols
+//    2             no-default-alpn No support for default protocol
+//    3             port            Port for alternative endpoint
+//    4             ipv4hint        IPv4 address hints
+//    5             ech             RESERVED (held for Encrypted ClientHello)
+//    6             ipv6hint        IPv6 address hints
+//    65280-65534   N/A             Reserved for Private Use
+//    65535 N/A                     Reserved ("Invalid key")
+
 class svc_params {
     encoded<uint16_t> key;
     encoded<uint16_t> length;
@@ -517,15 +534,6 @@ public:
         length{d},
         value{d, length}
     { }
-
-    // void write_json(json_object &o) const {
-    //     if (value.is_not_null()) {
-    //         o.print_key_string("key", key_str());
-    //         // o.print_key_uint("length", length);
-    //         o.print_key_hex("value", value);
-    //     }
-    // }
-
 
     void write_json(json_object &o) const {
         if (value.is_null()) {
@@ -563,20 +571,21 @@ public:
     }
 
     void write_mandatory(json_object &o) const {
-        o.print_key_string("key", "mandatory");
-        o.print_key_hex("value", value);                // should be empty???
+        o.print_key_hex("mandatory", value);
     }
     void write_alpn(json_object &o) const {
-        o.print_key_string("key", "alpn");
-        // o.print_key_uint("length", length);
-        //        o.print_key_hex("value", value);
-        if (lookahead<length_prefixed_string> string{value}) {
-            o.print_key_json_string("value", string.value.get_value());
+        json_array a{o, "alpn"};
+        datum tmp{value};
+        while (tmp.is_not_empty()) {
+            if (lookahead<length_prefixed_string> string{tmp}) {
+                a.print_json_string(string.value.get_value());
+                tmp = string.advance();
+            }
         }
+        a.close();
     }
     void write_no_default_alpn(json_object &o) const {
-        o.print_key_string("key", "no_default_alpn");
-        o.print_key_hex("value", value);                // should be empty
+        o.print_key_hex("no_default_alpn", value);                // should be empty
     }
     void write_port(json_object &o) const {
         o.print_key_string("key", "port");
@@ -588,56 +597,37 @@ public:
         json_array a{o, "ipv4hint"};
         datum tmp{value};
         while (tmp.is_not_empty()) {
-            datum addr{tmp, 4};
+            ipv4_addr addr{tmp};
             if (tmp.is_null()) {
                 break;
             }
-            json_object wrapper{a};
-            wrapper.print_key_ipv4_addr("value", addr.data);
-            wrapper.close();
+            a.print_key(addr);
         }
         a.close();
     }
     void write_ech(json_object &o) const {
-        o.print_key_string("key", "ech");
-        o.print_key_hex("value", value);
         if (lookahead<ech_config> config{value}) {
             config.value.write_json(o);
-        } else {
-            o.print_key_string("error", "could not parse ech_config");
         }
     }
     void write_ipv6hint(json_object &o) const {
         json_array a{o, "ipv6hint"};
         datum tmp{value};
         while (tmp.is_not_empty()) {
-            datum addr{tmp, 16};
+            ipv6_addr addr{tmp};
             if (tmp.is_null()) {
                 break;
             }
-            json_object wrapper{a};
-            wrapper.print_key_ipv6_addr("value", addr.data);
-            wrapper.close();
+            a.print_key(addr);
         }
         a.close();
     }
     void write_invalid_key(json_object &o) const {
-        o.print_key_string("key", "invalid_key");
+        o.print_key_hex("invalid_key", value);
     }
     void write_unknown(json_object &o) const {
-            o.print_key_string("key", "unknown");
+        o.print_key_hex("unknown", value);
     }
-
-    // Number	Name	        Meaning	Reference	Change Controller
-    // 0	    mandatory	    Mandatory keys in this RR	RFC 9460, Section 8	IETF
-    // 1	    alpn	        Additional supported protocols	RFC 9460, Section 7.1	IETF
-    // 2	    no-default-alpn	No support for default protocol	RFC 9460, Section 7.1	IETF
-    // 3	    port	        Port for alternative endpoint	RFC 9460, Section 7.2	IETF
-    // 4	    ipv4hint	    IPv4 address hints	RFC 9460, Section 7.3	IETF
-    // 5	    ech	            RESERVED (held for Encrypted ClientHello)	N/A	IETF
-    // 6	    ipv6hint	    IPv6 address hints	RFC 9460, Section 7.3	IETF
-    // 65280-65534	N/A	        Reserved for Private Use	RFC 9460	IETF
-    // 65535	N/A	            Reserved ("Invalid key")	RFC 9460	IETF
 
 };
 
@@ -660,7 +650,6 @@ public:
         if (valid) {
             o.print_key_uint("priority", svc_priority);
             o.print_key_json_string("target_name", target_name.buffer, target_name.readable_length());
-            // o.print_key_hex("svc_param_list", tmp);
             json_array param_list{o, "svc_params"};
 
             for (svc_params &params : sequence<svc_params>{svc_param_list}) {
@@ -668,14 +657,6 @@ public:
                 params.write_json(p);
                 p.close();
             }
-
-            // datum tmp{svc_param_list};
-            // while (tmp.is_not_empty()) {
-            //     svc_params params{tmp};
-            //     json_object p{param_list};
-            //     params.write_json(p);
-            //     p.close();
-            // }
 
             param_list.close();
         }
