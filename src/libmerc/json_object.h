@@ -289,7 +289,7 @@ struct json_array {
         b->puts(s);
         b->write_char('\"');
     }
-    void print_json_string(struct datum &d) {
+    void print_json_string(const struct datum &d) {
         if (d.is_not_readable()) {
             return;
         }
