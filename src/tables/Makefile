@@ -6,12 +6,18 @@ protocol_libs += stun_params.h
 protocol_libs += hpke_params.h
 
 .PHONY: all
-all: csv $(protocol_libs)
+all: csv tls $(protocol_libs)
+
+.PHONY: tls
+tls: tls_csv tls_extensions.h
 
 # build csv processing utility
 #
-csv: csv.cc csv.h
+csv: csv.cc tls_extension_generator.cc csv.h
 	$(CXX) -Wall csv.cc -o csv
+
+tls_csv: tls_extension_generator.cc csv.h
+	$(CXX) -Wall tls_extension_generator.cc -o tls_csv
 
 # IKEv2 table generation
 #
@@ -105,6 +111,16 @@ $(STUN):
 stun_params.h: $(STUN) csv
 	./csv outfile=$@ verbose=true dir=source $(STUN_CMD)
 
+TLS += tls-extensiontype-values-1.csv
+TLS_CMD += include_extensions=local_include_extension.txt tls-extensiontype-values-1.csv:tls_extensions_assign
+
+.PHONY: $(TLS)
+$(TLS):
+	wget -N -P source/ https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values-1.csv
+
+tls_extensions.h: $(TLS) tls_csv
+	./tls_csv outfile=$@ verbose=true dir=source $(TLS_CMD)
+
 # HPKE
 #
 HPKE += hpke-kem-ids.csv
@@ -125,8 +141,8 @@ hpke_params.h: $(HPKE) csv
 # housekeeping
 #
 clean:
-	rm -f csv Makefile~ csv.h~ csv.cc~
-	find source/ -type f ! -name 'local*.csv' -delete
+	rm -f csv tls_csv Makefile~ csv.h~ csv.cc~
+	find source/ -type f ! -name 'local*' -delete
 
 distclean: clean
 	rm -f $(protocol_libs)
