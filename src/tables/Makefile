@@ -3,6 +3,7 @@
 
 protocol_libs += ikev2_params.h
 protocol_libs += stun_params.h
+protocol_libs += hpke_params.h
 
 .PHONY: all
 all: csv tls $(protocol_libs)
@@ -119,6 +120,23 @@ $(TLS):
 
 tls_extensions.h: $(TLS) tls_csv
 	./tls_csv outfile=$@ verbose=true dir=source $(TLS_CMD)
+
+# HPKE
+#
+HPKE += hpke-kem-ids.csv
+HPKE += hpke-aead-ids.csv
+HPKE += hpke-kdf-ids.csv
+
+HPKE_CMD += hpke-kem-ids.csv:kem
+HPKE_CMD += hpke-aead-ids.csv:aead
+HPKE_CMD += hpke-kdf-ids.csv:kdf
+
+.PHONY: $(HPKE)
+$(HPKE):
+	wget -N -P source/ https://www.iana.org/assignments/hpke/$@
+
+hpke_params.h: $(HPKE) csv
+	./csv outfile=$@ verbose=true dir=source $(HPKE_CMD)
 
 # housekeeping
 #

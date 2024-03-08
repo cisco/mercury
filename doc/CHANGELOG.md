@@ -1,5 +1,14 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.26
+
+* Added SOCKS v4 and v5 identification and metadata reporting.
+* Added `tls/2` and `quic/1` fingerprint definitions.
+* Added DNS SVCB parsing.
+* Fixed SMB special character escaping.
+* Adjusted classifier malware probability estimation logic to better handle the case where there are few labeled benign samples.
+* Minor additions to internal classes and functions.
+
 ## Version 2.5.25
 
 * Fingerprints are reported for Tofsee initial messages as `tofsee/generic`.

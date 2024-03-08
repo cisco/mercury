@@ -62,6 +62,10 @@ Mercury Library Documentation
    :project: mercury
    :members:
 
+.. doxygenclass:: sequence
+   :project: mercury
+   :members:
+
 .. doxygengroup:: byteorder
    :project: mercury
 
