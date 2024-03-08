@@ -394,7 +394,7 @@ struct tls_extension {
     }
 
     bool is_private_extension() const {
-        return((type == 65280) || (type >= 65282 && type <= 65535));
+        return((type == 65280) || (type >= 65282));
     }
 
     bool is_unassigned_extension() const {
