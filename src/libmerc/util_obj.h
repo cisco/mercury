@@ -36,6 +36,10 @@ struct ipv6_addr : public datum {
     static const unsigned int bytes_in_addr = 16;
     ipv6_addr() : datum{} { }
 
+    ipv6_addr(struct datum &d) :  datum{} {
+        datum::parse(d, bytes_in_addr);
+    }
+
     void parse(struct datum &d) {
         datum::parse(d, bytes_in_addr);
     }

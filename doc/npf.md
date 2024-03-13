@@ -130,7 +130,12 @@ where
 
 ## TLS
 
-TLS fingerprints are formed from packets containing a TLS Client Hello message.  There are two formats defined.  The newer one, "tls/1", sorts the extensions into lexicographic order, to compensate for the randomization of those fields introduced by some TLS clients.  The older one, "tls", does not sort those extensions into order.
+TLS fingerprints are formed from packets containing a TLS Client Hello message.  There are three fingerprint formats defined. The format "tls/1", sorts the extensions into lexicographic order, to compensate for the randomization of those fields introduced by some TLS clients.  The recent format "tls/2" sort only the selected extensions in lexicographic order. The older one, "tls", does not sort those extensions into order.
+
+The "tls/2" fingerprint format is
+```
+   "tls/2" (TLS_Version) (TLS_Ciphersuite) [(selected_TLS_Extension)*]
+```
 
 The "tls/1" fingerprint format is
 
@@ -160,9 +165,8 @@ where
                   DEGREASE(extension[0:2]) otherwise.
 ```
 
-`QUIC_extension` is as defined below.
 
-   The function DEGREASE takes as input a two-byte value and returns a two-byte value.
+The function DEGREASE takes as input a two-byte value and returns a two-byte value.
 
 ```
    DEGREASE(x) = 0x0a0a if x is in TLS_GREASE, and
@@ -184,13 +188,66 @@ TLS_EXT_FIXED = {
 }.
 ```
 
+selected_TLS_Extension chooses only a subset of extensions from TLS_extension as defined below,
 
+```
+  selected_TLS_Extension = extension                if DEGREASE(extension[0:2]) is in TLS_EXT_FIXED,
+                           ENCODE(extension[0:2])   if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
+```
+
+The function ENCODE is defined as below
+```
+ENCODE(x) = DEGREASE(x) if DEGREASE(x) is in TLS_EXT_INCLUDE
+            ENCODE_UNASSIGNED(x) if x is in TLS_UNASSIGNED
+            ENCODE_PRIVATE(x) if x is in TLS_PRIVATE
+
+```
+
+The function ENCODE_UNASSIGNED and ENCODE_PRIVATE accepts a 2 byte value and returns a two byte value and is defined as below,
+
+```
+ENCODE_UNASSIGNED(x) = 0x003e    if x is in TLS_UNASSIGNED,
+                       x         otherwise
+```
+
+```
+ENCODE_PRIVATE(x) = 0xff00     if x is in TLS_PRIVATE,
+                    x          otherwise
+```
+
+The set TLS_EXT_INCLUDE, TLS_UNASSIGNEDm TLS_PRIVATE is defined as
+
+```
+TLS_EXT_INCLUDE = {
+    0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+    0x0008, 0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x000e, 0x000f
+    0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0016, 0x0017, 0x0018,
+    0x0019, 0x001a, 0x001b, 0x001c, 0x001d, 0x001e, 0x001f, 0x0020,
+    0x0021, 0x0022, 0x0024, 0x0025, 0x0026, 0x0027, 0x0028, 0x002b,
+    0x002c, 0x002d, 0x002e, 0x002f, 0x0030, 0x0031, 0x0032, 0x0033,
+    0x0034, 0x0035, 0x0036, 0x0037, 0x0038, 0x0039, 0x003a, 0x003b,
+    0x003c, 0x003d, 0x003e, 0x0a0a, 0x3374, 0x5500, 0x754f, 0x7550,
+    0xfd00, 0xfe0d, 0xff00, 0xff01, 0xff03, 0xffce
+}
+
+TLS_UNASSIGNED = set of all extensions under the category "Unassigned" as per IANA
+
+TLS_PRIVATE    = set of all extensions under the category "Reserved for Private Use" as per IANA
+```
 
 
 
 ## QUIC
 
-QIUC fingerprints are computed from the QUIC Initial Packet.   To compute this fingerprint, it is necessary to remove header protection, decrypt the QUIC Frames, reassemble the CRYPTO Frame, and then process the TLS Client Hello in that frame.  If there is no CRYPTO Frame in the packet, it is not possible to compute a fingerprint.  The fingerprint format is
+QIUC fingerprints are computed from the QUIC Initial Packet.   To compute this fingerprint, it is necessary to remove header protection, decrypt the QUIC Frames, reassemble the CRYPTO Frame, and then process the TLS Client Hello in that frame.  If there is no CRYPTO Frame in the packet, it is not possible to compute a fingerprint.  There are two quic fingerprint formats. The newer format "quic/1" sorts the selected extensions in lexicographic order while the older format "quic" sorts all extensions in lexicographic order.
+
+The "quic/1" format is
+
+```
+"quic/1" (QUIC_Version) (TLS_Version) (TLS_Ciphersuites) [(Selected_QUIC_Extension)* ]
+```
+
+The older format "quic" is
 
 ```
 "quic/" (QUIC_Version) (TLS_Version) (TLS_Ciphersuites) [ QUIC_Extension* ]
@@ -223,7 +280,13 @@ An example of a QUIC fingerprint is
 ```
 quic/(ff00001d)(0303)(0a0a130113021303)[(0a0a)(0a0a)(0000)(000500050100000000)(000a000c000a0a0a001d001700180019)(000d0018001604030804040105030203080508050501080606010201)(0010000e000c0568332d32390568332d3237)(0012)(001b0003020001)(002b0005040a0a0304)(002d00020101)(0033)((ffa5)[(04)(05)(06)(07)(09)(0e)(0f)])]
 ```
+- `Selected_QUIC_Extension` chooses only a subset of Quic Extensions and is defined as below
 
+```
+Selected_QUIC_Extension = extension               if DEGREASE(extension[0:2]) is in TLS_EXT_FIXED,
+                          QTP(extension)          if extension[0:2] is in { 0x0039, 0xffa5 },
+                          ENCODE(extension[0:2])  if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
+```
 
 
 ## HTTP
@@ -342,5 +405,6 @@ A secondary goal is to handle fingerprints generated from truncated protocol mes
 ## Comparison to Existing Fingerprinting Systems
 
 The JA3 fingerprinting system has a relatively compact representation, consisting of 32 hex characters, but it only applies to TLS, is not reversible, and does not utilize GREASE information.  The original mercury fingerprinting system is reversible, utilizes GREASE, and applies to multiple protocols, but it does not contain an explicit indication of the protocol, and is not compact.  Neither system allows to indicate versioning information that would enable the details of the fingerprinting scheme to adapt over time.  This note defines a fingerprint naming scheme that aims to provide the benefits of both systems, along with explicit information about protocols and versions, drawing inspiration from the [Common Platform Enumeration](https://nvd.nist.gov/products/cpe) naming system.
+
 
 

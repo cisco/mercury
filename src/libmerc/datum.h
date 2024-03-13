@@ -1576,7 +1576,16 @@ private:
     datum tmp;
 public:
 
+    /// construct a lookahead<T> object by parsing the datum d.
+    ///
     lookahead(datum d) : value{d}, tmp{d} { }
+
+    /// construct a lookahead<T> object by parsing the datum d while
+    /// passing the parameter p of type P to the constructor of the T
+    /// object.
+    ///
+    template <typename P>
+    lookahead(datum d, P p) : value{d}, tmp{d, p} { }
 
     explicit operator bool() const { return tmp.is_not_null(); }
 
@@ -1679,5 +1688,53 @@ public:
         w.copy(zero, sizeof(T));
     }
 };
+
+/// parses a sequence of objects of type `T` from a datum, when used in
+/// a range-based for loop.
+///
+/// \note Objects of type `T` must be constructible from a \ref datum
+/// reference.
+///
+/// The following example shows how to read four \ref
+/// encoded<uint16_t> objects from a buffer.
+///
+/// \code
+///     uint8_t buffer[] = {
+///         0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef
+///     };
+///     datum d{buffer, buffer + sizeof(buffer)};
+///     for (encoded<uint16_t> x : sequence<encoded<uint16_t>>{d}) {
+///         printf("%04x\n", x.value());
+///     }
+/// \endcode
+///
+template <typename T>
+class sequence {
+    datum tmp;
+    T value;
+
+    static_assert(std::is_constructible_v<T, datum &>, "T must be constructible from a datum reference");
+
+    struct iterator {
+        sequence *seq;
+
+        void operator++() { seq->value = T{seq->tmp}; }
+
+        T& operator* () { return seq->value; }
+
+        bool operator!= (const iterator &) const { return seq->tmp.is_not_null(); }
+
+    };
+
+public:
+
+    sequence(const datum &d) : tmp{d}, value{tmp} { }
+
+    iterator begin() { return { this }; }
+
+    iterator end() { return { nullptr }; }
+
+};
+
 
 #endif /* DATUM_H */

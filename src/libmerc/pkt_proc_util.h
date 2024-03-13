@@ -44,6 +44,9 @@ class smtp_client;
 class smtp_server;
 class dnp3;
 class tofsee_initial_message;
+class socks5_req_resp;
+class socks5_hello;
+class socks4_req;
 class unknown_initial_packet;
 class quic_init;                         // start of udp protocols
 struct wireguard_handshake_init;
@@ -99,7 +102,10 @@ using protocol = std::variant<std::monostate,
                               smb1_packet,
                               smb2_packet,
                               openvpn_tcp,
-                              mysql_server_greet
+                              mysql_server_greet,
+                              socks5_req_resp,
+                              socks5_hello,
+                              socks4_req
                               >;
 
 // class unknown_initial_packet represents the initial data field of a
@@ -240,9 +246,9 @@ struct write_metadata {
 
 struct compute_fingerprint {
     fingerprint &fp_;
-    size_t format_version;
+    fingerprint_format format_version;
 
-    compute_fingerprint(fingerprint &fp, size_t format=0) : fp_{fp}, format_version{format} {
+    compute_fingerprint(fingerprint &fp, fingerprint_format _format_version) : fp_{fp}, format_version{_format_version} {
         fp.init();
     }
 
@@ -252,7 +258,11 @@ struct compute_fingerprint {
     }
 
     void operator()(tls_client_hello &msg) {
-        msg.compute_fingerprint(fp_, format_version);
+        msg.compute_fingerprint(fp_, format_version.tls_fingerprint_format);
+    }
+
+    void operator()(quic_init &msg) {
+        msg.compute_fingerprint(fp_, format_version.quic_fingerprint_format);
     }
 
     void operator()(std::monostate &) { }

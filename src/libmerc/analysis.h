@@ -151,6 +151,7 @@ struct common_data {
     attribute_names attr_name;
     watchlist doh_watchlist;
     ssize_t doh_idx = -1;
+    ssize_t enc_channel_idx = -1;
 };
 
 // data type used in floating point computations
@@ -603,7 +604,7 @@ public:
         std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
         attr_prob.fill(0.0);
         for (uint64_t i=0; i < process_score.size(); i++) {
-            process_score[i] = exp((float)process_score[i]);
+            process_score[i] = expf((float)(process_score[i] - max_score));
             score_sum += process_score[i];
             if (malware[i]) {
                 malware_prob += process_score[i];
@@ -618,6 +619,11 @@ public:
         max_score = process_score[index_max];
         sec_score = process_score[index_sec];
 
+        if (score_sum > 0.0) {
+            if (malware_db) {
+                malware_prob /= score_sum;
+            }
+        }
         if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
             // the most probable process is unlabeled, so choose the
             // next most probable one if it isn't malware, and adjust
@@ -629,9 +635,6 @@ public:
         }
         if (score_sum > 0.0) {
             max_score /= score_sum;
-            if (malware_db) {
-                malware_prob /= score_sum;
-            }
             for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
                 attr_prob[j] /= score_sum;
             }
@@ -786,6 +789,7 @@ class classifier {
 
     std::vector<fingerprint_type> fp_types;
     size_t tls_fingerprint_format = 0;
+    size_t quic_fingerprint_format = 0;
     bool first_line = true;
 
     // the common object holds data that is common across all
@@ -803,11 +807,15 @@ public:
             return fingerprint_type_http;
         } else if (s == "quic") {
             return fingerprint_type_quic;
+        } else if (s == "tofsee") {
+            return fingerprint_type_tofsee;
         }
         return fingerprint_type_unknown;
     }
 
     size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
+
+    size_t get_quic_fingerprint_format() const { return quic_fingerprint_format; }
 
     static std::pair<fingerprint_type, size_t> get_fingerprint_type_and_version(const std::string &s) {
         fingerprint_type type = fingerprint_type_unknown;
@@ -822,6 +830,8 @@ public:
                     type = fingerprint_type_http;
                 } else if (s.compare(0, idx, "quic") == 0) {
                     type = fingerprint_type_quic;
+                } else if (s.compare(0, idx, "tofsee") == 0) {
+                    type = fingerprint_type_tofsee;
                 }
                 std::string version_and_tail{s.substr(idx+1)};
 
@@ -915,7 +925,9 @@ public:
         std::pair<fingerprint_type, size_t> fingerprint_type_and_version = get_fingerprint_type_and_version(fp_string.c_str());
 
         if (fp_type_code != fingerprint_type_and_version.first) {
-            printf_err(log_warning, "fingerprint type of str_repr '%s' does not match fp_type, ignorning JSON line\n", fp_string.c_str());
+            printf_err(log_warning,
+                       "fingerprint type of str_repr '%s' does not match fp_type, ignorning JSON line\n",
+                       fp_string.c_str());
             return;
         }
 
@@ -926,7 +938,23 @@ public:
                 tls_fingerprint_format = fingerprint_type_and_version.second;
             } else {
                 if (fingerprint_type_and_version.second != tls_fingerprint_format) {
-                    printf_err(log_warning, "fingerprint version with inconsistent format, ignoring JSON line\n");
+                    printf_err(log_warning,
+                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
+                               fp_type_string.c_str());
+                    return;
+                }
+            }
+            first_line = false;
+        }
+
+        if (fingerprint_type_and_version.first == fingerprint_type_quic) {
+            if (first_line == true) {
+                quic_fingerprint_format = fingerprint_type_and_version.second;
+            } else {
+                if (fingerprint_type_and_version.second != quic_fingerprint_format) {
+                    printf_err(log_warning,
+                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
+                               fp_type_string.c_str());
                     return;
                 }
             }
@@ -1120,6 +1148,10 @@ public:
         // reserve attribute for encrypted_dns watchlist
         //
         common.doh_idx = common.attr_name.get_index("encrypted_dns");
+
+        // reserve attribute for encrypted_channel
+        //
+        common.enc_channel_idx = common.attr_name.get_index("encrypted_channel");
 
         // by default, we expect that tls fingerprints will be present in the resource file
         //
@@ -1328,6 +1360,13 @@ public:
             return true;  // not configured to analyze fingerprints of this type
         }
         result = this->perform_analysis(fp.string(), dc.sn_str, dc.dst_ip_str, dc.dst_port, dc.ua_str);
+
+        // check for encrypted_channel
+        //
+        if (result.max_mal && fp.get_type() == fingerprint_type_tls) {
+            result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
+        }
+
         return true;
     }
 
