@@ -97,10 +97,10 @@ inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x);
 /// function `hton(x)` returns an unsigned integer in network byte
 /// order with the same type and value.
 ///
-/// To apply `hton()` an unsigned literal, use the appropriate
+/// To apply `hton()` to an unsigned literal, use the appropriate
 /// template specialization.  For instance, `hton<uint16_t>(443)`
-/// obtains a `uint16_t` in network byte order for the literal 443.  The
-/// specialization must be used because otherwise a compiler error
+/// obtains a `uint16_t` in network byte order for the literal 443.
+/// The specialization must be used because otherwise a compiler error
 /// will result from amiguity over the integer type.
 ///
 template <typename T>
@@ -1581,6 +1581,17 @@ public:
     explicit operator bool() const { return tmp.is_not_null(); }
 
     datum advance() const { return tmp; }
+
+    /// get_parsed_data() returns the datum that indicates the bytes
+    /// that were read in order to construct the element \ref value,
+    /// if that read succeeded; otherwise, it returns a null datum.
+    ///
+    datum get_parsed_data(datum &d) const {
+        if (tmp.is_not_null()) {
+            return { d.data, tmp.data };
+        }
+        return { nullptr, nullptr };
+    }
 
 };
 

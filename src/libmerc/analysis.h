@@ -569,12 +569,16 @@ public:
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
                                             const char *user_agent, enum fingerprint_status status) {
 
-        std::string normalized_server_name = server_identifier{server_name}.get_normalized_domain_name();
+        
+        server_identifier server_id{server_name};
+        std::string normalized_server_name = server_id.get_normalized_domain_name();
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(normalized_server_name.c_str());
         std::string dst_ip_str(dst_ip);
 
+        // if the dst_ip is different than the server_id
+        
         std::vector<floating_point_type> process_score = classifier.classify(asn_int, port_app, domain, normalized_server_name, dst_ip_str, user_agent);
 
         floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();

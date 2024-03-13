@@ -61,16 +61,31 @@ int analysis_finalize(classifier *c) {
 
 #define SNI_HEADER_LEN 9
 
+#if 0
 //#define MAX_DST_ADDR_LEN 40
 void flow_key_sprintf_dst_addr(const struct flow_key *key,
                                char *dst_addr_str) {
 
     if (key->type == ipv4) {
         uint8_t *d = (uint8_t *)&key->value.v4.dst_addr;
-        snprintf(dst_addr_str,
-                 MAX_DST_ADDR_LEN,
-                 "%u.%u.%u.%u",
-                 d[0], d[1], d[2], d[3]);
+        fprintf(stderr, "checking %u.%u.%u.%u\n", d[0], d[1], d[2], d[3]);
+        ipv4_address tmp_addr{key->value.v4.dst_addr};
+        if (!tmp_addr.is_global()) {
+
+            fprintf(stderr, "normalizing %u.%u.%u.%u\n", d[0], d[1], d[2], d[3]);
+            //
+            // normalize to the smallest private address
+            //
+            char priv_addr[] = "10.0.0.1";
+            memcpy(dst_addr_str, priv_addr, sizeof(priv_addr));
+
+        } else {
+            uint8_t *d = (uint8_t *)&key->value.v4.dst_addr;
+            snprintf(dst_addr_str,
+                     MAX_DST_ADDR_LEN,
+                     "%u.%u.%u.%u",
+                     d[0], d[1], d[2], d[3]);
+        }
     } else if (key->type == ipv6) {
         uint8_t *d = (uint8_t *)&key->value.v6.dst_addr;
         sprintf_ipv6_addr(dst_addr_str, d);
@@ -78,6 +93,8 @@ void flow_key_sprintf_dst_addr(const struct flow_key *key,
         dst_addr_str[0] = '\0'; // make sure that string is null-terminated
     }
 }
+
+#endif
 
 void flow_key_sprintf_src_addr(const struct flow_key *key,
                                char *src_addr_str) {
@@ -112,10 +129,23 @@ void flow_key_sprintf_dst_addr(const struct key &key,
 
     if (key.ip_vers == 4) {
         uint8_t *d = (uint8_t *)&key.addr.ipv4.dst;
-        snprintf(dst_addr_str,
-                 MAX_DST_ADDR_LEN,
-                 "%u.%u.%u.%u",
-                 d[0], d[1], d[2], d[3]);
+        ipv4_address tmp_addr{key.addr.ipv4.dst};
+        if (!tmp_addr.is_global()) {
+
+            fprintf(stderr, "normalizing %u.%u.%u.%u\n", d[0], d[1], d[2], d[3]);
+            //
+            // normalize to the smallest private address
+            //
+            char priv_addr[] = "10.0.0.1";
+            memcpy(dst_addr_str, priv_addr, sizeof(priv_addr));
+
+        } else {
+
+            snprintf(dst_addr_str,
+                     MAX_DST_ADDR_LEN,
+                     "%u.%u.%u.%u",
+                     d[0], d[1], d[2], d[3]);
+        }
     } else if (key.ip_vers == 6) {
         uint8_t *d = (uint8_t *)&key.addr.ipv6.dst;
         sprintf_ipv6_addr(dst_addr_str, d);

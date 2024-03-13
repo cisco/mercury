@@ -632,6 +632,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         std::visit(compute_fingerprint{analysis.fp, global_vars.tls_fingerprint_format}, x);
         bool output_analysis = false;
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
+
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
             // note: we only perform observations when analysis is
@@ -673,6 +674,16 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
         write_flow_key(record, k);
+        json_object dst_ip{record, "dst_ip_attr"};
+        dst_ip.print_key_uint("version", k.ip_vers);
+        dst_ip.print_key_bool("global", k.dst_is_global());
+        dst_ip.print_key_bool("unique_local_unicast", k.addr.ipv6.dst.is_unique_local_unicast());
+        dst_ip.print_key_bool("site_local", k.addr.ipv6.dst.is_deprecated_site_local());
+        dst_ip.print_key_bool("multicast", k.addr.ipv6.dst.is_multicast());
+        dst_ip.print_key_bool("link_scoped", k.addr.ipv6.dst.is_link_scoped_unicast());
+        dst_ip.print_key_bool("ipv4_mapped", k.addr.ipv6.dst.is_ipv4_mapped());
+        dst_ip.close();
+
         record.print_key_timestamp("event_start", ts);
         record.close();
     }

@@ -106,6 +106,10 @@ public:
         value = str_to_uint<uint8_t>(w) << 24 | str_to_uint<uint8_t>(x) << 16 | str_to_uint<uint8_t>(y) << 8 | str_to_uint<uint8_t>(z);
     }
 
+    // allow rvalue (temporary) inputs
+    //
+    ipv4_address_string(datum &&d) : ipv4_address_string{d} { }
+
     bool is_valid() const { return z.is_not_null(); }
 
     void print(FILE *f=stdout) const {
@@ -210,9 +214,10 @@ using uint128_t = __uint128_t; // defined by GCC at least
 //    2001:DB8::8:800:200C:417A
 //
 class ipv6_address_string {
-    std::vector<hex_digits> pieces;
+    std::vector<uint16_t> pieces;
     ssize_t double_colon_index = -1;
     bool valid = false;
+    char v4_addr_hex[9];   // used for ipv4-mapped temporary storage
 
 public:
 
@@ -238,12 +243,13 @@ public:
                     if (lookahead<literal_byte<'f', 'f', 'f', 'f', ':'>> ipv4_mapped_addr{d}) {
                         datum tmp_data{d.data, ipv4_mapped_addr.advance().data};
                         hex_digits hex_data{tmp_data};
-                        pieces.push_back(hex_data);
+                        pieces.push_back(hex_str_to_uint<uint16_t>(hex_data));
                         d = ipv4_mapped_addr.advance();
                         ipv4_address_string v4_addr{d};
                         if (v4_addr.is_valid()) {
 
-                            char v4_addr_hex[9];
+                            // v4_addr.print(stdout); fputc('\n', stdout);
+                            
                             if (sprintf(v4_addr_hex, "%08x", v4_addr.get_value()) != 8) {
                                 return; // error; could not create hex representation of v4 addr
                             }
@@ -254,10 +260,12 @@ public:
                             tmp_data.data_end = (uint8_t *)v4_addr_hex + 8;
                             hex_digits lo{tmp_data};
 
-                            pieces.push_back(hi);
-                            pieces.push_back(lo);
+                            pieces.push_back(hex_str_to_uint<uint16_t>(hi));
+                            pieces.push_back(hex_str_to_uint<uint16_t>(lo));
                             valid = true;
 
+                            // fprintf(stdout, "got ipv4 %s\t{%04x%04x}\n", v4_addr_hex, hex_str_to_uint<uint16_t>(hi), hex_str_to_uint<uint16_t>(lo));
+                            
                             if (lookahead<literal_byte<']'>> right_brace{d}) {
                                 d = right_brace.advance();
                             }
@@ -275,7 +283,7 @@ public:
 
                 hex_digits piece{d};
                 if (piece.is_not_null()) {
-                    pieces.push_back(piece);
+                    pieces.push_back(hex_str_to_uint<uint16_t>(piece));
                 } else {
                     // fprintf(stderr, "error: invalid label\n");
                     return;    // invalid label
@@ -297,6 +305,10 @@ public:
         valid = true;
     }
 
+    // allow rvalue inputs to extend lifetime
+    //
+    ipv6_address_string(datum &&d) : ipv6_address_string{d} { }
+
     bool is_valid() const { return valid; }
 
     void print(FILE *f) const {
@@ -311,7 +323,7 @@ public:
                 fputc(':', f);
             }
             index++;
-            fprintf(f, "%x", hex_str_to_uint<uint16_t>(p));
+            fprintf(f, "%x", p);
         }
         if (index == double_colon_index) {
             fputc(':', f);
@@ -337,7 +349,7 @@ public:
         ssize_t i = 0;
         for ( ; i < prefix_length; i++) {
             //            fprintf(stderr, "prefix\tpiece %zd\t%04xd\n", i, hex_str_to_uint<uint16_t>(pieces[i]));
-            x = x * 65536 + hex_str_to_uint<uint16_t>(pieces[i]);
+            x = x * 65536 + pieces[i];
         }
         for (i=0 ; i < zero_run_length; i++) {
             //fprintf(stderr, "zero run\t%zd\t\n", i);
@@ -345,10 +357,20 @@ public:
         }
         for (i=prefix_length ; i < (ssize_t)pieces.size(); i++) {
             //fprintf(stderr, "suffix\tpiece %zd\t%04x\n", i, hex_str_to_uint<uint16_t>(pieces[i]));
-            x = x * 65536 + hex_str_to_uint<uint16_t>(pieces[i]);
+            x = x * 65536 + pieces[i];
         }
 
         return x;
+    }
+
+    std::tuple<uint32_t, uint32_t, uint32_t, uint32_t> get_4tuple() const {
+        uint128_t tmp = get_value();
+        return {
+            hton<uint32_t>(tmp >> 96),
+            hton<uint32_t>((tmp >> 64) & 0xffffffff),
+            hton<uint32_t>((tmp >> 32) & 0xffffffff),
+            hton<uint32_t>(tmp & 0xffffffff)
+        };
     }
 
     ipv6_array_t get_value_array() const {
@@ -374,12 +396,12 @@ public:
             //fprintf(stderr, "prefix\tpiece %zd\t%04x\n", i, hex_str_to_uint<uint16_t>(pieces[i]));
             // NOTE: pieces[i] contains 1, 2, 3, or 4 hex characters
             //
-            if (pieces[i].length() > 2) {
-                uint16_t tmp = hex_str_to_uint<uint16_t>(pieces[i]);
+            if (pieces[i] > 255) {
+                uint16_t tmp = pieces[i];
                 x[j++] = tmp >> 8;
                 x[j++] = tmp & 0x00ff;
             } else {
-                uint16_t tmp = hex_str_to_uint<uint16_t>(pieces[i]);
+                uint16_t tmp = pieces[i];
                 x[j++] = 0;
                 x[j++] = tmp & 0x00ff;
             }
@@ -391,12 +413,12 @@ public:
         }
         for (i=prefix_length ; i < (ssize_t)pieces.size(); i++) {
             //fprintf(stderr, "suffix\tpiece %zd\t%04x\n", i, hex_str_to_uint<uint16_t>(pieces[i]));
-            if (pieces[i].length() > 2) {
-                uint16_t tmp = hex_str_to_uint<uint16_t>(pieces[i]);
+            if (pieces[i] > 255) {
+                uint16_t tmp = pieces[i];
                 x[j++] = tmp >> 8;
                 x[j++] = tmp & 0x00ff;
             } else {
-                uint16_t tmp = hex_str_to_uint<uint16_t>(pieces[i]);
+                uint16_t tmp = pieces[i];
                 x[j++] = 0;
                 x[j++] = tmp & 0x00ff;
             }
@@ -755,6 +777,8 @@ public:
             }
         }
         if (lookahead<ipv4_address_string> ipv4{d}) {
+            datum ipv4_string = ipv4.get_parsed_data(d);
+            ipv4_string.fprint(stdout); fputc('\n', stdout);
             d = ipv4.advance();
             host_id = ipv4.value.get_value();
 
@@ -829,6 +853,13 @@ public:
     ///
     std::optional<uint16_t> get_port_number() const {
         return port;
+    }
+
+    /// returns the \ref host_identifier member of this
+    /// server_identifier
+    ///
+    const host_identifier & get_host_identifier() const {
+        return host_id;
     }
 
     //
