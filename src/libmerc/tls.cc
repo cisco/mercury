@@ -86,8 +86,8 @@ void tls_extensions::print(struct json_object &o, const char *key) const {
     struct json_array array{o, key};
 
     while (ext_parser.length() > 0) {
-        size_t tmp_len = 0;
-        size_t tmp_type;
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
         if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
@@ -113,8 +113,8 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
     struct datum ext_parser{this->data, this->data_end};
 
     while (ext_parser.length() > 0) {
-        size_t tmp_len = 0;
-        size_t tmp_type;
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
         if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
@@ -144,8 +144,8 @@ datum tls_extensions::get_supported_groups() const {
     datum ext_parser{this->data, this->data_end};
 
     while (ext_parser.length() > 0) {
-        size_t tmp_len = 0;
-        size_t tmp_type;
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
         if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
@@ -230,8 +230,8 @@ void tls_extensions::print_alpn(struct json_object &o, const char *key) const {
     struct datum ext_parser{this->data, this->data_end};
 
     while (ext_parser.length() > 0) {
-        size_t tmp_len = 0;
-        size_t tmp_type;
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
         if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
@@ -259,8 +259,8 @@ void tls_extensions::print_quic_transport_parameters(struct json_object &o, cons
     struct datum ext_parser{this->data, this->data_end};
 
     while (ext_parser.length() > 0) {
-        size_t tmp_len = 0;
-        size_t tmp_type;
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
         if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
@@ -315,8 +315,8 @@ void tls_extensions::set_meta_data(struct datum &server_name,
     struct datum ext_parser{this->data, this->data_end};
 
     while (ext_parser.length() > 0) {
-        size_t tmp_len = 0;
-        size_t tmp_type;
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
         if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
@@ -744,8 +744,8 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
     struct datum ext_parser{this->data, this->data_end};
 
     while (ext_parser.length() > 0) {
-        size_t tmp_len = 0;
-        size_t tmp_type;
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
 
         const uint8_t *data = ext_parser.data;
         if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
@@ -779,7 +779,7 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
 #define L_DTLSCookieLength             1
 
 void tls_client_hello::parse(struct datum &p) {
-    size_t tmp_len;
+    uint64_t tmp_len;
 
     mercury_debug("%s: processing packet\n", __func__);
 
@@ -955,7 +955,7 @@ void tls_server_hello::parse(struct datum &p) {
 }
 
 enum status tls_server_hello::parse_tls_server_hello(struct datum &record) {
-    size_t tmp_len;
+    uint64_t tmp_len;
 
     mercury_debug("%s: processing server_hello with %td bytes\n", __func__, record.data_end - record.data);
 

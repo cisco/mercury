@@ -1663,8 +1663,7 @@ public:
 
     ignore(datum &d, bool little_endian=false) {
         (void)little_endian;
-        size_t tmp;
-        d.read_uint(&tmp, sizeof(T));
+        T tmp{d};
     }
 
     ignore() { }
