@@ -110,7 +110,7 @@ exec_testcase () {
     fi;
 
     cd $parent_path/$dir_name
-    
+
     # generate the test .cc file
     echo "" > "fuzz_test_$dir_name.c"
     #echo "#include ../$LIBMERC_FOLDER/$2.h"
@@ -137,7 +137,7 @@ EOF
         cd ../$LIBMERC_FOLDER
         return 1;
     fi;
-    
+
     chmod +x "fuzz_${dir_name}_exec"
     # count corpus pre test
     pre_corpus="$(ls ./corpus/ | wc -l)"
@@ -194,3 +194,8 @@ fi
 echo -e $COLOR_GREEN "pass $pass" $COLOR_OFF
 echo -e $COLOR_RED "fail $fail" $COLOR_OFF
 echo "###############################################"
+
+# Nonzero exit code if any failures
+if [[ $fail -ne 0 ]]; then
+    exit 1
+fi
