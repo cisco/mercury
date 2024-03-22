@@ -1623,7 +1623,7 @@ namespace pcap {
 
             // error: file prefix was unrecognized
             //
-            char prefix[9];
+            char prefix[10];
             snprintf(prefix, sizeof(prefix), "0x%" PRIu64, tmp);
             std::string err_msg{"unrecognized file prefix: 0x"};
             err_msg += prefix;
