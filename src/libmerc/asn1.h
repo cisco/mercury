@@ -256,7 +256,7 @@ struct json_array_asn1 : public json_array {
 
 struct tlv {
     unsigned char tag;
-    size_t length;
+    uint64_t length;
     struct datum value;
 
     bool operator == (const struct tlv &r) {

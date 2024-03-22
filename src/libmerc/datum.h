@@ -8,6 +8,8 @@
 #ifndef DATUM_H
 #define DATUM_H
 
+#define __STDC_FORMAT_MACROS 1
+#include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -19,7 +21,6 @@
 #include <cassert>
 #include "libmerc.h"  // for enum status
 #include "buffer_stream.h"
-
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
 ///
@@ -1663,8 +1664,7 @@ public:
 
     ignore(datum &d, bool little_endian=false) {
         (void)little_endian;
-        size_t tmp;
-        d.read_uint(&tmp, sizeof(T));
+        T tmp{d};
     }
 
     ignore() { }
