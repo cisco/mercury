@@ -51,7 +51,10 @@ sources = ['mercury.pyx',
            '../libmerc/bencode.cc',
 ]
 
-additional_flags = os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape').replace("'","",2)
+additional_flags = [
+    os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape'),
+    os.getenv('ENV_OS_FLAGS').encode('latin1').decode('unicode_escape')
+]
 
 setup(name='mercury-python',
       version=version_str,
@@ -73,8 +76,8 @@ setup(name='mercury-python',
                              sources=sources,
                              include_dirs=['../libmerc'],
                              language="c++",
-                             extra_compile_args=["-std=c++17","-Wno-narrowing","-Wno-deprecated-declarations","-mmacos-version-min=10.13",additional_flags],
-                             extra_link_args=["-std=c++17","-lz","-mmacos-version-min=10.13"],
+                             extra_compile_args=["-std=c++17","-Wno-narrowing","-Wno-deprecated-declarations"] + additional_flags,
+                             extra_link_args=["-std=c++17","-lz"] + additional_flags,
                              libraries = ['crypto'],
                              runtime_library_dirs=['../'])
                   ],
