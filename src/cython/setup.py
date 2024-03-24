@@ -51,10 +51,7 @@ sources = ['mercury.pyx',
            '../libmerc/bencode.cc',
 ]
 
-additional_flags = [
-    os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape'),
-    os.getenv('ENV_OS_FLAGS').encode('latin1').decode('unicode_escape')
-]
+additional_flags = os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape').split(' ')
 
 setup(name='mercury-python',
       version=version_str,

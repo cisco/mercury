@@ -9,11 +9,10 @@ endif
 
 UNAME := $(shell uname -s)
 ifeq ($(UNAME),Darwin)
-    OS_FLAGS += -mmacos-version-min=10.13
+    FLAGS += -mmacos-version-min=10.13
 endif
 
 export ENV_CFLAGS=${FLAGS}
-export ENV_OS_FLAGS=${OS_FLAGS}
 
 all:
 	CC=g++ python3 setup.py build_ext --inplace
