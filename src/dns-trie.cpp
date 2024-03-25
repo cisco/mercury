@@ -5,7 +5,7 @@
 #include <fstream>
 
 #include "fpdb_reader.hpp"
-#include "libmerc/hostname.hpp"
+//#include "libmerc/hostname.hpp"
 
 #include "options.h"
 
@@ -368,7 +368,9 @@ using namespace mercury_option;
 int main(int argc, char *argv[]) {
 
 
-    if (true) {
+    assert(server_identifier::unit_test() == true);
+
+    if (false) {
         std::vector<server_identifier::test_case> test_cases = {
             { "ocsp.digicert.com", "ocsp.digicert.com", {} },                           // FQDN
             { "ookla.mbspeed.net:8080", "ookla.mbspeed.net", 8080 },                    // FQDN with port number
@@ -448,6 +450,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--prune",              "prune classifier"         },
         { argument::none,       "--leaf",               "only output leaf info"    },
         { argument::none,       "--json",               "input is json"            },
+        { argument::none,       "--detail",             "detail in normed names"   },
         { argument::none,       "--find-public-suffix", "report the public suffix" },
         { argument::required,   "--public-suffix-list", "public suffix list file"  },
         { argument::required,   "--test-data",          "file with names to test"  },
@@ -477,6 +480,7 @@ int main(int argc, char *argv[]) {
     bool leaf                         = opt.is_set("--leaf");
     (void)leaf; // compiler silencer
     bool json_input                   = opt.is_set("--json");
+    bool detail                       = opt.is_set("--detail");
     bool help                         = opt.is_set("--help");
     std::optional<std::string> filter_string = opt.get("--filter");
     std::optional<std::string> fp_filter = opt.get("--fp-type");
@@ -484,6 +488,11 @@ int main(int argc, char *argv[]) {
     if (help) {
         opt.usage(stderr, argv[0], summary);
         return EXIT_SUCCESS;
+    }
+
+    server_identifier::detail detailed_output = server_identifier::detail::off;
+    if (detail) {
+        detailed_output = server_identifier::detail::on;
     }
 
     if (lookup_set) {
@@ -596,7 +605,7 @@ int main(int argc, char *argv[]) {
                     // dump normalized hostname
                     //
                     for (auto &x : pi.hostname_sni) {
-                        std::string normalized_name = server_identifier{x.first}.get_normalized_domain_name();
+                        std::string normalized_name = server_identifier{x.first}.get_normalized_domain_name(detailed_output);
 
                         bool only_report_single_label_names = false;
                         if (only_report_single_label_names) {

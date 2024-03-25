@@ -803,6 +803,8 @@ public:
     ///
     server_identifier(const std::string &s) : server_identifier{get_datum(s)} { }
 
+    enum detail { off = 0, on = 1 };
+
     /// return a `std::string` containing a normalized domain name
     ///
     /// While server identifiers are often Fully Qualified Domain
@@ -823,12 +825,12 @@ public:
     ///    * Text strings that cannot be parsed as addresses or domain
     ///      names are mapped to `other.invalid`.
     ///
-    std::string get_normalized_domain_name(bool detail=false) const {
+    std::string get_normalized_domain_name(detail detailed_output=off) const {
 
         if (std::holds_alternative<ipv4_t>(host_id)) {
 
             std::string a;
-            if (detail) {
+            if (detailed_output) {
                 uint32_t addr = std::get<uint32_t>(host_id);
                 a += std::to_string(addr >> 24 & 0xff);
                 a += '-';
@@ -844,7 +846,7 @@ public:
         if (std::holds_alternative<ipv6_array_t>(host_id)) {
 
             std::string a;
-            if (detail) {
+            if (detailed_output) {
                 ipv6_array_t addr = std::get<ipv6_array_t>(host_id);
                 for (size_t i=0; i<16; i+=2) {
                     char hex[]= "0123456789abcdef";
