@@ -777,8 +777,8 @@ public:
             }
         }
         if (lookahead<ipv4_address_string> ipv4{d}) {
-            datum ipv4_string = ipv4.get_parsed_data(d);
-            ipv4_string.fprint(stdout); fputc('\n', stdout);
+            // datum ipv4_string = ipv4.get_parsed_data(d);
+            // ipv4_string.fprint(stdout); fputc('\n', stdout);
             d = ipv4.advance();
             host_id = ipv4.value.get_value();
 
@@ -821,14 +821,44 @@ public:
     ///    * Empty or missing domain names are mapped to `missing.invalid`,
     ///
     ///    * Text strings that cannot be parsed as addresses or domain
-    ///    * names are mapped to `other.invalid`.
+    ///      names are mapped to `other.invalid`.
     ///
     std::string get_normalized_domain_name(bool detail=false) const {
-        (void)detail;  // ignore for now
 
-        if (std::holds_alternative<ipv4_t>(host_id) || std::holds_alternative<ipv6_array_t>(host_id)) {
-            return "address.invalid";
+        if (std::holds_alternative<ipv4_t>(host_id)) {
+
+            std::string a;
+            if (detail) {
+                uint32_t addr = std::get<uint32_t>(host_id);
+                a += std::to_string(addr >> 24 & 0xff);
+                a += '-';
+                a += std::to_string(addr >> 16 & 0xff);
+                a += '-';
+                a += std::to_string(addr >>  8 & 0xff);
+                a += '-';
+                a += std::to_string(addr       & 0xff);
+                a += '.';
+            }
+            return a + "address.invalid";
         }
+        if (std::holds_alternative<ipv6_array_t>(host_id)) {
+
+            std::string a;
+            if (detail) {
+                ipv6_array_t addr = std::get<ipv6_array_t>(host_id);
+                for (size_t i=0; i<16; i+=2) {
+                    char hex[]= "0123456789abcdef";
+                    a += hex[addr[i] >> 4];
+                    a += hex[addr[i] & 0x0f];
+                    a += hex[addr[i+1] >> 4];
+                    a += hex[addr[i+1] & 0x0f];
+                    a += '-';
+                }
+                a.back() = '.';
+            }
+            return a + "address.invalid";
+        }
+
         if (std::holds_alternative<std::monostate>(host_id)) {
             if (empty) {
                 return "missing.invalid";
