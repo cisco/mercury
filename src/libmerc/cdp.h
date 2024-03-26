@@ -86,7 +86,7 @@ struct cdp_tlv : public datum {
             // error condition
         } else if (type == 0x0011) {
             datum tmp = *this;
-            size_t mtu;
+            uint64_t mtu;
             tmp.read_uint(&mtu, tmp.length());
             o.print_key_uint("mtu", mtu);
         } else if (type == 0x0014) {

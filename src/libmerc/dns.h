@@ -575,13 +575,18 @@ public:
     }
     void write_alpn(json_object &o) const {
         json_array a{o, "alpn"};
-        datum tmp{value};
-        while (tmp.is_not_empty()) {
-            if (lookahead<length_prefixed_string> string{tmp}) {
-                a.print_json_string(string.value.get_value());
-                tmp = string.advance();
-            }
+        //  datum tmp{value};
+        for (length_prefixed_string string : sequence<length_prefixed_string>{value}) {
+            a.print_json_string(string.get_value());
         }
+        // while (tmp.is_not_empty()) {
+        //     if (lookahead<length_prefixed_string> string{tmp}) {
+        //         a.print_json_string(string.value.get_value());
+        //         tmp = string.advance();
+        //     } else {
+        //         break;
+        //     }
+        // }
         a.close();
     }
     void write_no_default_alpn(json_object &o) const {

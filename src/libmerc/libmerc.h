@@ -371,6 +371,7 @@ enum fingerprint_type {
      fingerprint_type_tcp_server = 13, /**< TCP SYN ACK fingerprint            */
      fingerprint_type_openvpn = 14, /**< OpenVPN TCP fingerprint           */
      fingerprint_type_tofsee = 15,    /**< Tofsee initial message fingerprint  */
+     fingerprint_type_max = 16,       /**< Placeholder: # of fingerprint types */
 };
 
 /**

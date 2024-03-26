@@ -166,7 +166,7 @@ public:
             "openvpn",
             "tofsee"
         };
-        if (fp_type > (sizeof(name)/sizeof(const char *))) {
+        if (fp_type > (sizeof(name)/sizeof(const char *)) - 1) {
             return name[0];  // error: unknown type
         }
         return name[fp_type];
