@@ -4,9 +4,10 @@ from Cython.Distutils import build_ext
 #from distutils.extension import Extension
 import os
 import re
+import shlex
 
 ###
-## to build: CC=g++ python setup.py build_ext --inplace
+## to build: CC=g++ CXX=g++ python setup.py build_ext --inplace
 #
 
 ###
@@ -14,7 +15,7 @@ import re
 #
 # "-Wno-narrowing" was needed because of the OID char conversions on my platform
 # "../parser.c" is needed to include parser functions
-# "-std=c++11" is needed due to c++11 dependency
+# "-std=c++17" is needed due to c++17 dependency
 
 def readme():
     with open('README.md') as f:
@@ -51,7 +52,17 @@ sources = ['mercury.pyx',
            '../libmerc/bencode.cc',
 ]
 
-additional_flags = os.getenv('ENV_CFLAGS').encode('latin1').decode('unicode_escape').split(' ')
+
+def get_additional_flags():
+    env_cflags = os.getenv('ENV_CFLAGS')
+    if env_cflags is None:
+        return []
+    else:
+        return shlex.split(env_cflags)
+
+additional_flags = get_additional_flags()
+print("additional_flags =", repr(additional_flags))
+
 
 setup(name='mercury-python',
       version=version_str,
@@ -79,7 +90,3 @@ setup(name='mercury-python',
                              runtime_library_dirs=['../'])
                   ],
       cmdclass={'build_ext':build_ext})
-
-
-
-
