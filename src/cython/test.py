@@ -28,19 +28,10 @@ libmerc = Mercury(do_analysis=True, resources=b'../../resources/resources.tgz')
 
 libmerc.mercury_init()
 for pkt in pkts:
+    print("\nTesting packet:", pkt.decode('utf-8'))
     pkt2 = unhexlify(pkt)
     result = libmerc.analyze_packet(pkt2)
     print(json.dumps(result, indent=2))
     result = libmerc.get_mercury_json(pkt2)
     print(result)
 libmerc.mercury_finalize()
-
-
-
-
-
-
-
-
-
-
