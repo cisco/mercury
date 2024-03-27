@@ -14,9 +14,9 @@ from posix.time cimport timespec
 
 ### BUILD INSTRUCTIONS
 # To build in-place:
-#   CC=g++ python setup.py build_ext --inplace
+#   CC=g++ CXX=g++ python setup.py build_ext --inplace
 # To build and install:
-#   CC=g++ python setup.py install
+#   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
 __version__ = '0.1.2'

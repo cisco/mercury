@@ -7,7 +7,7 @@ import re
 import shlex
 
 ###
-## to build: CC=g++ python setup.py build_ext --inplace
+## to build: CC=g++ CXX=g++ python setup.py build_ext --inplace
 #
 
 ###
@@ -15,7 +15,7 @@ import shlex
 #
 # "-Wno-narrowing" was needed because of the OID char conversions on my platform
 # "../parser.c" is needed to include parser functions
-# "-std=c++11" is needed due to c++11 dependency
+# "-std=c++17" is needed due to c++17 dependency
 
 def readme():
     with open('README.md') as f:
