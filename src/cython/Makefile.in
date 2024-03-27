@@ -15,10 +15,10 @@ endif
 export ENV_CFLAGS=${FLAGS}
 
 all:
-	CC=g++ python3 setup.py build_ext --inplace
+	CC=g++ CXX=g++ python3 setup.py build_ext --inplace
 
 wheel:
-	CC=g++ python3 setup.py bdist_wheel
+	CC=g++ CXX=g++ python3 setup.py bdist_wheel
 
 clean:
 	rm -f mercury.*.so mercury.cpp
