@@ -310,7 +310,6 @@ public:
                 process_score[x.index] += x.value;
             }
         }
-        dst_port = ntoh(dst_port);                         // note: NBO/HBO conversion needed
         auto port_update = port_updates.find(dst_port);
         if (port_update != port_updates.end()) {
             for (const auto &x : port_update->second) {

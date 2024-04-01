@@ -294,7 +294,7 @@ struct destination_context {
         user_agent.strncpy(ua_str, MAX_USER_AGENT_LEN);
         domain.strncpy(sn_str, MAX_SNI_LEN);
         flow_key_sprintf_dst_addr(key, dst_ip_str);
-        dst_port = flow_key_get_dst_port(key);
+        dst_port = ntoh(flow_key_get_dst_port(key));  // note: byte order conversion needed
 
         alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
         alpn_length = alpn.length();
