@@ -571,12 +571,11 @@ public:
                                             const char *user_agent, enum fingerprint_status status) {
 
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
-        uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
         std::string server_name_str(server_name);
         std::string dst_ip_str(dst_ip);
 
-        std::vector<floating_point_type> process_score = classifier.classify(asn_int, port_app, domain, server_name_str, dst_ip_str, user_agent);
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, domain, server_name_str, dst_ip_str, user_agent);
 
         floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
         floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
@@ -666,41 +665,6 @@ public:
                                  floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
         classifier.recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
     }
-
-    static uint16_t remap_port(uint16_t dst_port) {
-        std::unordered_map<uint16_t, uint16_t> port_remapping =
-            {
-             { 443, 443 },   // https
-             { 448, 448 },   // database
-             { 465, 465 },   // email
-             { 563, 563 },   // nntp
-             { 585, 465 },   // email
-             { 614, 614 },   // shell
-             { 636, 636 },   // ldap
-             { 989, 989 },   // ftp
-             { 990, 989 },   // ftp
-             { 991, 991 },   // nas
-             { 992, 992 },   // telnet
-             { 993, 465 },   // email
-             { 994, 994 },   // irc
-             { 995, 465 },   // email
-             { 1443, 1443 }, // alt-https
-             { 2376, 2376 }, // docker
-             { 8001, 8001 }, // tor
-             { 8443, 1443 }, // alt-https
-             { 9000, 8001 }, // tor
-             { 9001, 8001 }, // tor
-             { 9002, 8001 }, // tor
-             { 9101, 8001 }, // tor
-            };
-
-        const auto port_it = port_remapping.find(dst_port);
-        if (port_it != port_remapping.end()) {
-            return port_it->second;
-        }
-        return 0;  // unknown
-    }
-
 
 };
 
