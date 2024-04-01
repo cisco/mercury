@@ -119,7 +119,7 @@ public:
     }
 
     bool is_global() const {
-        return get_addr_type_nbo() == routable;
+        return get_addr_type() == routable;
     }
 
 };
@@ -277,6 +277,8 @@ struct ip_address {
     explicit ip_address(ipv6_address v6_addr) : version{ip_version::v6}, value{v6_addr} {}
 };
 
+#define MAX_DST_ADDR_LEN 48
+
 struct key {
     uint16_t src_port;
     uint16_t dst_port;
@@ -378,6 +380,40 @@ struct key {
             addr.ipv4.dst = 0x0a00000a;  // 10.0.0.1
         }
     }
+
+    void sprintf_dst_addr(char *dst_addr_str) const {
+
+        if (ip_vers == 4) {
+            uint8_t *d = (uint8_t *)&addr.ipv4.dst;
+            ipv4_address tmp_addr{addr.ipv4.dst};
+            if (!tmp_addr.is_global()) {
+
+                // fprintf(stderr, "normalizing %u.%u.%u.%u\n", d[0], d[1], d[2], d[3]);
+                //
+                // normalize to the smallest private address
+                //
+                char priv_addr[] = "10.0.0.1";
+                memcpy(dst_addr_str, priv_addr, sizeof(priv_addr));
+
+            } else {
+
+                snprintf(dst_addr_str,
+                         MAX_DST_ADDR_LEN,
+                         "%u.%u.%u.%u",
+                         d[0], d[1], d[2], d[3]);
+            }
+        } else if (ip_vers == 6) {
+            uint8_t *d = (uint8_t *)&addr.ipv6.dst;
+            sprintf_ipv6_addr(dst_addr_str, d);
+        } else {
+            dst_addr_str[0] = '\0'; // make sure that string is null-terminated
+        }
+    }
+
+    uint16_t get_dst_port() const {
+        return ntoh(dst_port);
+    }
+
 
 };
 

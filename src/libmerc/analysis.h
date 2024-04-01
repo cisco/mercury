@@ -33,10 +33,6 @@
 #include "archive.h"
 #include "watchlist.hpp"
 
-// TBD - move flow_key_sprintf_src_addr() to the right file
-//
-void flow_key_sprintf_src_addr(const struct flow_key *key,
-                               char *src_addr_str);
 
 class classifier *analysis_init_from_archive(int verbosity,
                                const char *archive_name,

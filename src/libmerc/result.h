@@ -14,11 +14,7 @@
 #include "json_object.h"
 #include "addr.h"
 #include "fingerprint.h"
-
-uint16_t flow_key_get_dst_port(const struct key &key);
-
-void flow_key_sprintf_dst_addr(const struct key &key,
-                               char *dst_addr_str);
+#include "util_obj.h"
 
 
 #define max_proc_len 256
@@ -273,7 +269,6 @@ public:
 
 // helper functions and constants
 
-#define MAX_DST_ADDR_LEN 48
 #define MAX_SNI_LEN     257
 #define MAX_USER_AGENT_LEN 512
 #define MAX_ALPN_LEN 32
@@ -293,8 +288,8 @@ struct destination_context {
     void init(struct datum domain, struct datum user_agent, datum alpn, const struct key &key) {
         user_agent.strncpy(ua_str, MAX_USER_AGENT_LEN);
         domain.strncpy(sn_str, MAX_SNI_LEN);
-        flow_key_sprintf_dst_addr(key, dst_ip_str);
-        dst_port = flow_key_get_dst_port(key);
+        key.sprintf_dst_addr(dst_ip_str);
+        dst_port = key.get_dst_port();
 
         alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
         alpn_length = alpn.length();
