@@ -10,7 +10,7 @@ from libc.stdio cimport *
 from libc.stdint cimport *
 from libc.string cimport memset
 from posix.time cimport timespec
-
+from cython.operator cimport dereference as deref
 
 ### BUILD INSTRUCTIONS
 # To build in-place:
@@ -104,6 +104,41 @@ cdef extern from "../libmerc/analysis.h":
                                  long double new_as_weight, long double new_domain_weight,
                                  long double new_port_weight, long double new_ip_weight,
                                  long double new_sni_weight, long double new_ua_weight)
+
+
+cdef extern from "../libmerc/watchlist.hpp":
+    cdef cppclass server_identifier:
+        server_identifier(string &s)
+        enum detail:
+            off=0,
+            on
+        string get_normalized_domain_name(detail detailed_output)
+
+
+cdef class server_identifier_py:
+    cdef server_identifier* thisptr
+    cdef server_identifier.detail detailed_output
+
+    def __cinit__(self, s):
+        self.thisptr = new server_identifier(s.encode('utf-8'))
+
+    def get_normalized_domain_name(self, bool detailed_output=True):
+        self.detailed_output = <server_identifier.detail>detailed_output
+        try:
+            return self.thisptr.get_normalized_domain_name(self.detailed_output).decode()
+        except Exception as e:
+            print(f'Exception: {e}')
+            return None
+
+
+# get_normalized_domain_name
+#  Input: domain_name - python str representing a domain name (Host/server_name/etc.)
+#         detailed_output - boolean to determine if more detail is kept for IP address domains
+#  Output: normalized domain name string
+def get_normalized_domain_name(str domain_name, bool detailed_output=True):
+    si = server_identifier_py(domain_name)
+    return si.get_normalized_domain_name(detailed_output)
+
 
 fp_status_dict = {
     0: 'no_info_available',
@@ -470,5 +505,4 @@ def get_cert_prefix(str b64_cert):
 
     # return hex string
     return x.get_hex_string()  # TBD: make it hex
-
 
