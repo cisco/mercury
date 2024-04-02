@@ -56,7 +56,7 @@ public:
     attribute_result::bitset attributes;
     std::unordered_map<uint32_t, uint64_t>    ip_as;
     std::unordered_map<std::string, uint64_t> hostname_domains;
-    std::unordered_map<uint16_t, uint64_t>    portname_applications;
+    std::unordered_map<uint16_t, uint64_t>    dst_port;
     std::unordered_map<std::string, uint64_t> ip_ip;
     std::unordered_map<std::string, uint64_t> hostname_sni;
     std::unordered_map<std::string, uint64_t> user_agent;
@@ -80,7 +80,7 @@ public:
         attributes{attr},
         ip_as{as},
         hostname_domains{domains},
-        portname_applications{ports},
+        dst_port{ports},
         ip_ip{ip},
         hostname_sni{sni},
         user_agent{ua},
@@ -109,7 +109,7 @@ public:
         fprintf(f, "}");
         fprintf(f, ",\"classes_port_applications\":{");
         comma = ' ';
-        for (auto &x : portname_applications) {
+        for (auto &x : dst_port) {
             fprintf(f, "%c\"%u\":%" PRIu64, comma, x.first, x.second);
             comma = ',';
         }
@@ -244,7 +244,7 @@ public:
                     hostname_domain_updates[domains_and_count.first] = { u };
                 }
             }
-            for (const auto &port_and_count : p.portname_applications) {
+            for (const auto &port_and_count : p.dst_port) {
                 const auto x = port_updates.find(port_and_count.first);
                 class update u{ index, (log((floating_point_type)port_and_count.second / total_count) - base_prior) * port_weight };
                 if (x != port_updates.end()) {
@@ -292,7 +292,7 @@ public:
     }
 
     std::vector<floating_point_type> classify(uint32_t asn_int,
-                                              uint16_t port_app,
+                                              uint16_t dst_port,
                                               const std::string &domain,
                                               const std::string &server_name_str,
                                               const std::string &dst_ip_str,
@@ -306,7 +306,7 @@ public:
                 process_score[x.index] += x.value;
             }
         }
-        auto port_update = port_updates.find(port_app);
+        auto port_update = port_updates.find(dst_port);
         if (port_update != port_updates.end()) {
             for (const auto &x : port_update->second) {
                 process_score[x.index] += x.value;
@@ -570,13 +570,11 @@ public:
         server_identifier server_id{server_name};
         std::string normalized_server_name = server_id.get_normalized_domain_name();
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
-        uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(normalized_server_name.c_str());
+        std::string server_name_str(server_name);
         std::string dst_ip_str(dst_ip);
 
-        // if the dst_ip is different than the server_id
-        
-        std::vector<floating_point_type> process_score = classifier.classify(asn_int, port_app, domain, normalized_server_name, dst_ip_str, user_agent);
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, domain, server_name_str, dst_ip_str, user_agent);
 
         floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
         floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
@@ -666,41 +664,6 @@ public:
                                  floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
         classifier.recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
     }
-
-    static uint16_t remap_port(uint16_t dst_port) {
-        std::unordered_map<uint16_t, uint16_t> port_remapping =
-            {
-             { 443, 443 },   // https
-             { 448, 448 },   // database
-             { 465, 465 },   // email
-             { 563, 563 },   // nntp
-             { 585, 465 },   // email
-             { 614, 614 },   // shell
-             { 636, 636 },   // ldap
-             { 989, 989 },   // ftp
-             { 990, 989 },   // ftp
-             { 991, 991 },   // nas
-             { 992, 992 },   // telnet
-             { 993, 465 },   // email
-             { 994, 994 },   // irc
-             { 995, 465 },   // email
-             { 1443, 1443 }, // alt-https
-             { 2376, 2376 }, // docker
-             { 8001, 8001 }, // tor
-             { 8443, 1443 }, // alt-https
-             { 9000, 8001 }, // tor
-             { 9001, 8001 }, // tor
-             { 9002, 8001 }, // tor
-             { 9101, 8001 }, // tor
-            };
-
-        const auto port_it = port_remapping.find(dst_port);
-        if (port_it != port_remapping.end()) {
-            return port_it->second;
-        }
-        return 0;  // unknown
-    }
-
 
 };
 
@@ -998,7 +961,7 @@ public:
                 attribute_result::bitset attributes;
                 std::unordered_map<uint32_t, uint64_t>    ip_as;
                 std::unordered_map<std::string, uint64_t> hostname_domains;
-                std::unordered_map<uint16_t, uint64_t>    portname_applications;
+                std::unordered_map<uint16_t, uint64_t>    dst_port;
                 std::unordered_map<std::string, uint64_t> ip_ip;
                 std::unordered_map<std::string, uint64_t> hostname_sni;
                 std::unordered_map<std::string, uint64_t> user_agent;
@@ -1046,7 +1009,7 @@ public:
                                 unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
                                 if (errno) {
                                     as_number = 0; // "unknown"
-                                    printf_err(log_notice, "found string \"%s\" in ip_as\n", y.name.GetString());
+                                    printf_err(log_warning, "unexpected string \"%s\" in ip_as\n", y.name.GetString());
                                 }
                                 if (as_number > 0xffffffff) {
                                     throw std::runtime_error("error: as number too high");
@@ -1057,20 +1020,22 @@ public:
                         }
                     }
                 }
-                if (x.HasMember("classes_port_applications") && x["classes_port_applications"].IsObject()) {
-                    //fprintf(stderr, "\tclasses_port_applications\n");
-                    for (auto &y : x["classes_port_applications"].GetObject()) {
+                if (x.HasMember("classes_port_port") && x["classes_port_port"].IsObject()) {
+                    //fprintf(stderr, "\tclasses_port_port\n");
+                    for (auto &y : x["classes_port_port"].GetObject()) {
                         if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                            uint16_t tmp_port = 0;
-                            auto port_it = string_to_port.find(y.name.GetString());
-                            if (port_it == string_to_port.end()) {
-                                tmp_port = 0; // set port to unknown
-                                //throw std::runtime_error("error: unexpected string in classes_port_applications");
-                                //fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
-                            } else {
-                                tmp_port = port_it->second;
+                            uint64_t tmp_port = 0;
+                            try {
+                                tmp_port = std::stoul(y.name.GetString());
                             }
-                            portname_applications[tmp_port] = y.value.GetUint64();
+                            catch (...) {
+                                printf_err(log_warning, "unexpected string \"%s\" in classes_port_port\n", y.name.GetString());
+                            }
+                            if (tmp_port > std::numeric_limits<uint16_t>::max()) {
+                                printf_err(log_warning, "number %" PRIu64 " too high in classes_port_port\n", tmp_port);
+                                tmp_port = 0;    // error: port numbers should 16-bit unsigned integers
+                            }
+                            dst_port[tmp_port] = y.value.GetUint64();
                         }
                     }
                 }
@@ -1121,7 +1086,7 @@ public:
                     }
                 }
 
-                class process_info process(name, malware, count, attributes, ip_as, hostname_domains, portname_applications,
+                class process_info process(name, malware, count, attributes, ip_as, hostname_domains, dst_port,
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }

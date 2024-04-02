@@ -256,7 +256,7 @@ struct json_array_asn1 : public json_array {
 
 struct tlv {
     unsigned char tag;
-    size_t length;
+    uint64_t length;
     struct datum value;
 
     bool operator == (const struct tlv &r) {
@@ -640,9 +640,9 @@ struct tlv {
             uint8_t tag_number = tag & 31;
             if (tag_class == 2) {
                 // tag is context-specific
-                fprintf(f, "T:%02x (%u:%u:%u, explicit tag %u)\tL:%08zu\tV:", tag, tag_class, constructed, tag_number, tag_number, length);
+                fprintf(f, "T:%02x (%u:%u:%u, explicit tag %u)\tL:%08" PRIu64 "\tV:", tag, tag_class, constructed, tag_number, tag_number, length);
             } else {
-                fprintf(f, "T:%02x (%u:%u:%u, %s)\tL:%08zu\tV:", tag, tag_class, constructed, tag_number, type[tag_number], length);
+                fprintf(f, "T:%02x (%u:%u:%u, %s)\tL:%08" PRIu64 "\tV:", tag, tag_class, constructed, tag_number, type[tag_number], length);
             }
             value.fprint_hex(f);
             if (tlv_name) {
