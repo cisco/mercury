@@ -12,6 +12,7 @@
 #include "datum.h"
 #include "buffer_stream.h"
 #include "utils.h"
+#include <vector>   // for test cases
 
 struct ipv4_addr : public datum {
     static const unsigned int bytes_in_addr = 4;
@@ -64,65 +65,119 @@ public:
         b.write_ipv4_addr((uint8_t *)&tmp);
     }
 
+    // Special IPv4 Addresses as defined by IANA (2024)
     //
-    //
-    //
-    /*
-    0.0.0.0/8	"This network"	[RFC791], Section 3.2	1981-09	N/A	True	False	False	False	True
-    0.0.0.0/32	"This host on this network"	[RFC1122], Section 3.2.1.3	1981-09	N/A	True	False	False	False	True
-    10.0.0.0/8	Private-Use	[RFC1918]	1996-02	N/A	True	True	True	False	False
-    100.64.0.0/10	Shared Address Space	[RFC6598]	2012-04	N/A	True	True	True	False	False
-    127.0.0.0/8	Loopback	[RFC1122], Section 3.2.1.3	1981-09	N/A	False [1]	False [1]	False [1]	False [1]	True
-    169.254.0.0/16	Link Local	[RFC3927]	2005-05	N/A	True	True	False	False	True
-    172.16.0.0/12	Private-Use	[RFC1918]	1996-02	N/A	True	True	True	False	False
-    192.0.0.0/24 [2]	IETF Protocol Assignments	[RFC6890], Section 2.1	2010-01	N/A	False	False	False	False	False
-    192.0.0.0/29	IPv4 Service Continuity Prefix	[RFC7335]	2011-06	N/A	True	True	True	False	False
-    192.0.0.8/32	IPv4 dummy address	[RFC7600]	2015-03	N/A	True	False	False	False	False
-    192.0.0.9/32	Port Control Protocol Anycast	[RFC7723]	2015-10	N/A	True	True	True	True	False
-    192.0.0.10/32	Traversal Using Relays around NAT Anycast	[RFC8155]	2017-02	N/A	True	True	True	True	False
-    192.0.0.170/32, 192.0.0.171/32	NAT64/DNS64 Discovery	[RFC8880][RFC7050], Section 2.2	2013-02	N/A	False	False	False	False	True
-    192.0.2.0/24	Documentation (TEST-NET-1)	[RFC5737]	2010-01	N/A	False	False	False	False	False
-    192.31.196.0/24	AS112-v4	[RFC7535]	2014-12	N/A	True	True	True	True	False
-    192.52.193.0/24	AMT	[RFC7450]	2014-12	N/A	True	True	True	True	False
-    192.88.99.0/24	Deprecated (6to4 Relay Anycast)	[RFC7526]	2001-06	2015-03
-    192.168.0.0/16	Private-Use	[RFC1918]	1996-02	N/A	True	True	True	False	False
-    192.175.48.0/24	Direct Delegation AS112 Service	[RFC7534]	1996-01	N/A	True	True	True	True	False
-    198.18.0.0/15	Benchmarking	[RFC2544]	1999-03	N/A	True	True	True	False	False
-    198.51.100.0/24	Documentation (TEST-NET-2)	[RFC5737]	2010-01	N/A	False	False	False	False	False
-    203.0.113.0/24	Documentation (TEST-NET-3)	[RFC5737]	2010-01	N/A	False	False	False	False	False
-    240.0.0.0/4	Reserved	[RFC1112], Section 4	1989-08	N/A	False	False	False	False	True
-    255.255.255.255/32	Limited Broadcast	[RFC8190] [RFC919], Section 7
-    */
+    // 0.0.0.0/8	       "This network" [RFC791]
+    // 0.0.0.0/32	       "This host on this network" [RFC1122]
+    // 10.0.0.0/8	       Private-Use [RFC1918]
+    // 100.64.0.0/10	   Shared Address Space	[RFC6598]
+    // 127.0.0.0/8	       Loopback	[RFC1122]
+    // 169.254.0.0/16	   Link Local [RFC3927]
+    // 172.16.0.0/12	   Private-Use [RFC1918]
+    // 192.0.0.0/24 	   IETF Protocol Assignments [RFC6890]
+    // 192.0.0.0/29	       IPv4 Service Continuity Prefix [RFC7335]
+    // 192.0.0.8/32	       IPv4 dummy address [RFC7600]
+    // 192.0.0.9/32	       Port Control Protocol Anycast [RFC7723]
+    // 192.0.0.10/32	   Traversal Using Relays around NAT Anycast [RFC8155]
+    // 192.0.0.170/322	   NAT64/DNS64 Discovery [RFC8880][RFC7050]
+    // 192.0.0.171/32	   NAT64/DNS64 Discovery [RFC8880][RFC7050]
+    // 192.0.2.0/24	       Documentation (TEST-NET-1) [RFC5737]
+    // 192.31.196.0/24	   AS112-v4	[RFC7535]
+    // 192.52.193.0/24	   AMT [RFC7450]
+    // 192.88.99.0/24	   Deprecated (6to4 Relay Anycast) [RFC7526]
+    // 192.168.0.0/16	   Private-Use [RFC1918]
+    // 192.175.48.0/24	   Direct Delegation AS112 Service [RFC7534]
+    // 198.18.0.0/15	   Benchmarking	[RFC2544]
+    // 198.51.100.0/24	   Documentation (TEST-NET-2) [RFC5737]
+    // 203.0.113.0/24	   Documentation (TEST-NET-3) [RFC5737]
+    // 240.0.0.0/4	       Reserved	[RFC1112]
+    // 255.255.255.255/32  Limited Broadcast [RFC8190][RFC919]
 
     enum addr_type {
-        unknown  = 0,
-        priv     = 1,
-        routable = 2,
+        unknown     = 0,
+        private_use = 1,
+        global      = 2,
     };
 
     addr_type get_addr_type() const {
         if (((value & 0x000000ff) == 0x0000000a) or // 10.0.0.0/8
             ((value & 0x0000f0ff) == 0x000010ac) or // 172.16.0.0/12
             ((value & 0x0000ffff) == 0x0000a8c0)) { // 192.168.0.0/16
-            return priv;
+            return private_use;
         }
-        return routable;
+        return global;
     }
 
     addr_type get_addr_type_nbo() const {
         if (((value & 0xff000000) == 0x0a000000) or // 10.0.0.0/8
             ((value & 0xfff00000) == 0xac100000) or // 172.16.0.0/12
             ((value & 0xffff0000) == 0xc0a80000)) { // 192.168.0.0/16
-            return priv;
+            return private_use;
         }
-        return routable;
+        return global;
     }
 
     bool is_global() const {
-        return get_addr_type() == routable;
+        return get_addr_type() == global;
     }
 
+    struct test_case {
+        uint32_t addr;
+        addr_type type;
+    };
+
+    static inline bool unit_test(FILE *output=nullptr);
+
 };
+
+bool ipv4_address::unit_test(FILE *output) {  // output=nullptr by default
+    std::vector<test_case> test_cases {
+        {
+            0x0101a8c0,     // 192.168.1.1
+            ipv4_address::addr_type::private_use
+        },
+        {
+            0x010210ac,     // 172.16.2.1
+            ipv4_address::addr_type::private_use
+        },
+        {
+            0x0100000a,     // 10.0.0.1
+            ipv4_address::addr_type::private_use
+        },
+        {
+            0x08080808,     // 8.8.8.8
+            ipv4_address::addr_type::global
+        },
+        {
+            0xa4416597,     // 151.101.65.164
+            ipv4_address::addr_type::global
+        }
+    };
+    auto test_addr_str = [](const test_case &tc, FILE *f=stdout) {
+
+        if (ipv4_address{tc.addr}.get_addr_type() != tc.type) {
+            if (f) {
+                fprintf(f, "error: wrong type for address\n");
+            }
+            return false;
+        }
+
+        // char buffer[1024];
+        // buffer_stream buf{buffer, sizeof(buffer)};
+        // a.fingerprint(buf);
+        // buf.write_line(f);
+
+        return true;
+    };
+
+    bool all_passed = true;
+    for (const auto & tc : test_cases) {
+        all_passed &= test_addr_str(tc, output);
+    }
+
+    return all_passed;
+}
+
 
 struct ipv6_address {
     uint32_t a;
@@ -181,40 +236,37 @@ public:
         }
     }
 
-    /*
+    // IPv6 Address Prefixes (other than "Reserved")
+    //
+    // 2000::/3   Global Unicast,[RFC3513][RFC4291],"The IPv6 Unicast
+    //            space encompasses the entire IPv6 address range with
+    //            the exception of ff00::/8, per [RFC4291]. IANA
+    //            unicast address assignments are currently limited to
+    //            the IPv6 unicast address range of 2000::/3. IANA
+    //            assignments from this block are registered in [IANA
+    //            registry ipv6-unicast-address-assignments].
+    //
+    // fc00::/7   Unique Local Unicast,[RFC4193],"For complete
+    //            registration details, see [IANA registry
+    //            iana-ipv6-special-registry]."
+    //
+    // fe80::/10  Link-Scoped Unicast,[RFC3513][RFC4291],"Reserved by
+    //            protocol. For authoritative registration, see [IANA
+    //            registry iana-ipv6-special-registry]."
+    //
+    // ff00::/8   Multicast,[RFC3513][RFC4291],IANA assignments from this
+    //            block are registered in [IANA registry
+    //            ipv6-multicast-addresses].
+    //
+    // fec0::/10  Deprecated, was site-local (until 2004)
+    //
+    // 2000::/3      001xxxxxxxxxxxxx      global unicast
+    // FC00::/7      1111110xxxxxxxxx      unique local unicast
+    // FE80::/10     1111111010xxxxxx      link scoped unicast
+    // FF00::/8      11111111xxxxxxxx      multiast
+    //
+    // IPv4-Mapped IPv6 Addresses: 0000..............................0000|FFFF
 
-      IPv6 Address Prefixes (other than "Reserved")
-
-      2000::/3   Global Unicast,[RFC3513][RFC4291],"The IPv6 Unicast
-                 space encompasses the entire IPv6 address range with
-                 the exception of ff00::/8, per [RFC4291]. IANA
-                 unicast address assignments are currently limited to
-                 the IPv6 unicast address range of 2000::/3. IANA
-                 assignments from this block are registered in [IANA
-                 registry ipv6-unicast-address-assignments].
-
-      fc00::/7   Unique Local Unicast,[RFC4193],"For complete
-                 registration details, see [IANA registry
-                 iana-ipv6-special-registry]."
-
-      fe80::/10  Link-Scoped Unicast,[RFC3513][RFC4291],"Reserved by
-                 protocol. For authoritative registration, see [IANA
-                 registry iana-ipv6-special-registry]."
-
-      ff00::/8   Multicast,[RFC3513][RFC4291],IANA assignments from this
-                 block are registered in [IANA registry
-                 ipv6-multicast-addresses].
-
-      fec0::/10  Deprecated, was site-local (until 2004)
-
-      2000::/3      001xxxxxxxxxxxxx      global unicast
-      FC00::/7      1111110xxxxxxxxx      unique local unicast
-      FE80::/10     1111111010xxxxxx      link scoped unicast
-      FF00::/8      11111111xxxxxxxx      multiast
-
-      IPv4-Mapped IPv6 Addresses: 0000..............................0000|FFFF
-
-    */
     enum ipv6_addr_type {
         global_unicast,
         unique_local_unicast,
@@ -254,14 +306,16 @@ public:
         }
     }
 
-    
-    static bool unit_test() {
+    static inline bool unit_test();
 
-        // ipv6_address addr;
-
-        return true;   // tests passed
-    }
 };
+
+inline bool ipv6_address::unit_test() {
+
+    // ipv6_address addr;
+
+    return true;   // tests passed
+}
 
 struct ip_address {
     enum ip_version { v4, v6 };
@@ -280,18 +334,18 @@ struct ip_address {
 #define MAX_DST_ADDR_LEN 48
 
 struct key {
-    uint16_t src_port;
-    uint16_t dst_port;
-    uint8_t protocol;
-    uint8_t ip_vers;
+    uint16_t src_port;   // source port in network byte order
+    uint16_t dst_port;   // destination port in network byte order
+    uint8_t protocol;    // ipv4 protocol or ipv6 "next header"
+    uint8_t ip_vers;     // protocol version (4, 6, or 0 == undefined)
     union {
         struct {
-            uint32_t src;
-            uint32_t dst;
+            uint32_t src;    // ipv4 source address in network byte order
+            uint32_t dst;    // ipv4 dstination address in network byte order
         } ipv4;
         struct {
-            ipv6_address src;
-            ipv6_address dst;
+            ipv6_address src;  // ipv6 source address in network byte order
+            ipv6_address dst;  // ipv6 destination address in network byte order
         } ipv6;
     } addr;
 
@@ -386,7 +440,7 @@ struct key {
         if (ip_vers == 4) {
             uint8_t *d = (uint8_t *)&addr.ipv4.dst;
             ipv4_address tmp_addr{addr.ipv4.dst};
-            if (!tmp_addr.is_global()) {
+            if (false) { // !tmp_addr.is_global()) {
 
                 // fprintf(stderr, "normalizing %u.%u.%u.%u\n", d[0], d[1], d[2], d[3]);
                 //
@@ -415,7 +469,53 @@ struct key {
     }
 
 
+    // hash() returns a size_t, and returns a hash of this flow key,
+    // suitable for use in STL containers
+    //
+    std::size_t hash() const {
+
+        size_t multiplier = 2862933555777941757;  // source: https://nuclear.llnl.gov/CNP/rng/rngman/node3.html
+
+        std::size_t x;
+        if (ip_vers == 4) {
+            uint32_t sa = addr.ipv4.src;
+            uint32_t da = addr.ipv4.dst;
+            uint16_t sp = src_port;
+            uint16_t dp = dst_port;
+            uint8_t  pr = protocol;
+            x = ((uint64_t) sp * da) + ((uint64_t) dp * sa);
+            x *= multiplier;
+            x += sa + da + sp + dp + pr;
+            x *= multiplier;
+        } else {
+            uint64_t *sa = (uint64_t *)&addr.ipv6.src;
+            uint64_t *da = (uint64_t *)&addr.ipv6.dst;
+            uint16_t sp = src_port;
+            uint16_t dp = dst_port;
+            uint8_t  pr = protocol;
+            x = ((uint64_t) sp * da[0] * da[1]) + ((uint64_t) dp * sa[0] * sa[1]);
+            x *= multiplier;
+            x += sa[0] + sa[1] + da[0] + da[1] + sp + dp + pr;
+            x *= multiplier;
+        }
+
+        return x;
+
+    }
+
 };
+
+namespace std {
+
+    // define a hash<key> object suitable for use in STL containers
+    //
+    template <>  struct hash<key>  {
+        std::size_t operator()(const key& k) const {
+            return k.hash();
+        }
+    };
+}
+
 
 struct eth_addr : public datum {
     static const unsigned int bytes_in_addr = 6;

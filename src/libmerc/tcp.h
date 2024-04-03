@@ -49,55 +49,6 @@ struct tcp_state {
 
 #define tcp_state_init = { 0, 0, 0, 0, 0, talking };
 
-namespace std {
-
-    template <>  struct hash<struct key>  {
-        std::size_t operator()(const struct key& k) const    {
-
-            size_t multiplier = 2862933555777941757;  // source: https://nuclear.llnl.gov/CNP/rng/rngman/node3.html
-
-            /* assume sizeof(size_t) == 8 for now */
-            // size_t x = (size_t) k.src_port | ((size_t) k.dst_port << 16) | ((size_t) k.ip_vers) << 32 | ((size_t) k.protocol) << 40;
-            // x ^= (size_t) k.addr.ipv6.src.a;
-            // x ^= (size_t) k.addr.ipv6.src.b;
-            // x ^= (size_t) k.addr.ipv6.src.c;
-            // x ^= (size_t) k.addr.ipv6.src.d;
-            // x ^= (size_t) k.addr.ipv6.dst.a;
-            // x ^= (size_t) k.addr.ipv6.dst.b;
-            // x ^= (size_t) k.addr.ipv6.dst.c;
-            // x ^= (size_t) k.addr.ipv6.dst.d;
-            // return x;
-
-            size_t x;
-            if (k.ip_vers == 4) {
-                uint32_t sa = k.addr.ipv4.src;
-                uint32_t da = k.addr.ipv4.dst;
-                uint16_t sp = k.src_port;
-                uint16_t dp = k.dst_port;
-                uint8_t  pr = k.protocol;
-                x = ((uint64_t) sp * da) + ((uint64_t) dp * sa);
-                x *= multiplier;
-                x += sa + da + sp + dp + pr;
-                x *= multiplier;
-            } else {
-                uint64_t *sa = (uint64_t *)&k.addr.ipv6.src;
-                uint64_t *da = (uint64_t *)&k.addr.ipv6.dst;
-                uint16_t sp = k.src_port;
-                uint16_t dp = k.dst_port;
-                uint8_t  pr = k.protocol;
-                x = ((uint64_t) sp * da[0] * da[1]) + ((uint64_t) dp * sa[0] * sa[1]);
-                x *= multiplier;
-                x += sa[0] + sa[1] + da[0] + da[1] + sp + dp + pr;
-                x *= multiplier;
-            }
-
-            return x;
-
-        }
-    };
-}
-
-
 #define BYTE_BINARY_FORMAT "%c%c%c%c%c%c%c%c"
 #define UINT8_BINARY(x)                         \
     (x & 0x80 ? '1' : '0'),                     \
