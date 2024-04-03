@@ -12,7 +12,6 @@
 #include "datum.h"
 #include "buffer_stream.h"
 #include "utils.h"
-#include <vector>   // for test cases
 
 struct ipv4_addr : public datum {
     static const unsigned int bytes_in_addr = 4;
@@ -131,7 +130,7 @@ public:
 };
 
 bool ipv4_address::unit_test(FILE *output) {  // output=nullptr by default
-    std::vector<test_case> test_cases {
+    test_case test_cases[] = {
         {
             0x0101a8c0,     // 192.168.1.1
             ipv4_address::addr_type::private_use
