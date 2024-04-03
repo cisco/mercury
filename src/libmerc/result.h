@@ -9,7 +9,7 @@
 #define RESULT_H
 
 #include <stdbool.h>
-#include <bits/stdc++.h>
+// #include <bits/stdc++.h>  // TODO: ???
 #include "libmerc.h"
 #include "json_object.h"
 #include "addr.h"
@@ -33,7 +33,7 @@ public:
 
     // MAX_TAGS denotes the maximum number of attribute tags supported
     //
-    static constexpr ssize_t MAX_TAGS = 8;
+    static constexpr ssize_t MAX_TAGS = 12;
     typedef std::bitset<MAX_TAGS> bitset;
 
 private:
@@ -94,6 +94,13 @@ public:
         attr_ctx.prob_scores = prob_score.data();
         attr_ctx.attributes_len = tag_names->size();
         return &attr_ctx;
+    }
+
+    void set_attr (ssize_t idx, long double prob) {
+        if ((idx < 0) || (idx >= MAX_TAGS) || ((size_t)idx >= tag_names->size()) )
+            return;
+        tags[idx] = true;
+        prob_score[idx] = prob;
     }
 
 };
@@ -287,7 +294,7 @@ struct destination_context {
         user_agent.strncpy(ua_str, MAX_USER_AGENT_LEN);
         domain.strncpy(sn_str, MAX_SNI_LEN);
         flow_key_sprintf_dst_addr(key, dst_ip_str);
-        dst_port = flow_key_get_dst_port(key);
+        dst_port = ntoh(flow_key_get_dst_port(key));  // note: byte order conversion needed
 
         alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
         alpn_length = alpn.length();

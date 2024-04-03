@@ -266,12 +266,20 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_mysql_server:
         x.emplace<mysql_server_greet>(pkt);
         break;
+    case tcp_msg_type_tofsee_initial_message:
+        x.emplace<tofsee_initial_message>(pkt);
+        break;
+    case tcp_msg_type_socks4:
+        x.emplace<socks4_req>(pkt);
+        break;
+    case tcp_msg_type_socks5_hello:
+        x.emplace<socks5_hello>(pkt);
+        break;
+    case tcp_msg_type_socks5_req_resp:
+        x.emplace<socks5_req_resp>(pkt);
+        break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
-            if (pkt.length() == 200) {
-                x.emplace<tofsee_initial_message>(pkt);
-                break;
-            }
             x.emplace<unknown_initial_packet>(pkt);
         } else {
             x.emplace<std::monostate>();
@@ -629,7 +637,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     // process transport/application protocol
     //
     if (std::visit(is_not_empty{}, x)) {
-        std::visit(compute_fingerprint{analysis.fp, global_vars.tls_fingerprint_format}, x);
+        std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -850,7 +858,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     // process protocol data element
     //
     if (std::visit(is_not_empty{}, x)) {
-        std::visit(compute_fingerprint{analysis.fp, global_vars.tls_fingerprint_format}, x);
+        std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             // re-initialize the structure that holds analysis results

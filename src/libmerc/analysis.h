@@ -60,7 +60,7 @@ public:
     attribute_result::bitset attributes;
     std::unordered_map<uint32_t, uint64_t>    ip_as;
     std::unordered_map<std::string, uint64_t> hostname_domains;
-    std::unordered_map<uint16_t, uint64_t>    portname_applications;
+    std::unordered_map<uint16_t, uint64_t>    dst_port;
     std::unordered_map<std::string, uint64_t> ip_ip;
     std::unordered_map<std::string, uint64_t> hostname_sni;
     std::unordered_map<std::string, uint64_t> user_agent;
@@ -84,7 +84,7 @@ public:
         attributes{attr},
         ip_as{as},
         hostname_domains{domains},
-        portname_applications{ports},
+        dst_port{ports},
         ip_ip{ip},
         hostname_sni{sni},
         user_agent{ua},
@@ -113,7 +113,7 @@ public:
         fprintf(f, "}");
         fprintf(f, ",\"classes_port_applications\":{");
         comma = ' ';
-        for (auto &x : portname_applications) {
+        for (auto &x : dst_port) {
             fprintf(f, "%c\"%u\":%" PRIu64, comma, x.first, x.second);
             comma = ',';
         }
@@ -151,6 +151,7 @@ struct common_data {
     attribute_names attr_name;
     watchlist doh_watchlist;
     ssize_t doh_idx = -1;
+    ssize_t enc_channel_idx = -1;
 };
 
 // data type used in floating point computations
@@ -247,7 +248,7 @@ public:
                     hostname_domain_updates[domains_and_count.first] = { u };
                 }
             }
-            for (const auto &port_and_count : p.portname_applications) {
+            for (const auto &port_and_count : p.dst_port) {
                 const auto x = port_updates.find(port_and_count.first);
                 class update u{ index, (log((floating_point_type)port_and_count.second / total_count) - base_prior) * port_weight };
                 if (x != port_updates.end()) {
@@ -295,7 +296,7 @@ public:
     }
 
     std::vector<floating_point_type> classify(uint32_t asn_int,
-                                              uint16_t port_app,
+                                              uint16_t dst_port,
                                               const std::string &domain,
                                               const std::string &server_name_str,
                                               const std::string &dst_ip_str,
@@ -309,7 +310,7 @@ public:
                 process_score[x.index] += x.value;
             }
         }
-        auto port_update = port_updates.find(port_app);
+        auto port_update = port_updates.find(dst_port);
         if (port_update != port_updates.end()) {
             for (const auto &x : port_update->second) {
                 process_score[x.index] += x.value;
@@ -570,12 +571,11 @@ public:
                                             const char *user_agent, enum fingerprint_status status) {
 
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
-        uint16_t port_app = remap_port(dst_port);
         std::string domain = get_tld_domain_name(server_name);
         std::string server_name_str(server_name);
         std::string dst_ip_str(dst_ip);
 
-        std::vector<floating_point_type> process_score = classifier.classify(asn_int, port_app, domain, server_name_str, dst_ip_str, user_agent);
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, domain, server_name_str, dst_ip_str, user_agent);
 
         floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
         floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
@@ -614,6 +614,11 @@ public:
         max_score = process_score[index_max];
         sec_score = process_score[index_sec];
 
+        if (score_sum > 0.0) {
+            if (malware_db) {
+                malware_prob /= score_sum;
+            }
+        }
         if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
             // the most probable process is unlabeled, so choose the
             // next most probable one if it isn't malware, and adjust
@@ -625,9 +630,6 @@ public:
         }
         if (score_sum > 0.0) {
             max_score /= score_sum;
-            if (malware_db) {
-                malware_prob /= score_sum;
-            }
             for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
                 attr_prob[j] /= score_sum;
             }
@@ -663,41 +665,6 @@ public:
                                  floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
         classifier.recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
     }
-
-    static uint16_t remap_port(uint16_t dst_port) {
-        std::unordered_map<uint16_t, uint16_t> port_remapping =
-            {
-             { 443, 443 },   // https
-             { 448, 448 },   // database
-             { 465, 465 },   // email
-             { 563, 563 },   // nntp
-             { 585, 465 },   // email
-             { 614, 614 },   // shell
-             { 636, 636 },   // ldap
-             { 989, 989 },   // ftp
-             { 990, 989 },   // ftp
-             { 991, 991 },   // nas
-             { 992, 992 },   // telnet
-             { 993, 465 },   // email
-             { 994, 994 },   // irc
-             { 995, 465 },   // email
-             { 1443, 1443 }, // alt-https
-             { 2376, 2376 }, // docker
-             { 8001, 8001 }, // tor
-             { 8443, 1443 }, // alt-https
-             { 9000, 8001 }, // tor
-             { 9001, 8001 }, // tor
-             { 9002, 8001 }, // tor
-             { 9101, 8001 }, // tor
-            };
-
-        const auto port_it = port_remapping.find(dst_port);
-        if (port_it != port_remapping.end()) {
-            return port_it->second;
-        }
-        return 0;  // unknown
-    }
-
 
 };
 
@@ -782,6 +749,7 @@ class classifier {
 
     std::vector<fingerprint_type> fp_types;
     size_t tls_fingerprint_format = 0;
+    size_t quic_fingerprint_format = 0;
     bool first_line = true;
 
     // the common object holds data that is common across all
@@ -799,11 +767,15 @@ public:
             return fingerprint_type_http;
         } else if (s == "quic") {
             return fingerprint_type_quic;
+        } else if (s == "tofsee") {
+            return fingerprint_type_tofsee;
         }
         return fingerprint_type_unknown;
     }
 
     size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
+
+    size_t get_quic_fingerprint_format() const { return quic_fingerprint_format; }
 
     static std::pair<fingerprint_type, size_t> get_fingerprint_type_and_version(const std::string &s) {
         fingerprint_type type = fingerprint_type_unknown;
@@ -818,6 +790,8 @@ public:
                     type = fingerprint_type_http;
                 } else if (s.compare(0, idx, "quic") == 0) {
                     type = fingerprint_type_quic;
+                } else if (s.compare(0, idx, "tofsee") == 0) {
+                    type = fingerprint_type_tofsee;
                 }
                 std::string version_and_tail{s.substr(idx+1)};
 
@@ -911,7 +885,9 @@ public:
         std::pair<fingerprint_type, size_t> fingerprint_type_and_version = get_fingerprint_type_and_version(fp_string.c_str());
 
         if (fp_type_code != fingerprint_type_and_version.first) {
-            printf_err(log_warning, "fingerprint type of str_repr '%s' does not match fp_type, ignorning JSON line\n", fp_string.c_str());
+            printf_err(log_warning,
+                       "fingerprint type of str_repr '%s' does not match fp_type, ignorning JSON line\n",
+                       fp_string.c_str());
             return;
         }
 
@@ -922,7 +898,23 @@ public:
                 tls_fingerprint_format = fingerprint_type_and_version.second;
             } else {
                 if (fingerprint_type_and_version.second != tls_fingerprint_format) {
-                    printf_err(log_warning, "fingerprint version with inconsistent format, ignoring JSON line\n");
+                    printf_err(log_warning,
+                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
+                               fp_type_string.c_str());
+                    return;
+                }
+            }
+            first_line = false;
+        }
+
+        if (fingerprint_type_and_version.first == fingerprint_type_quic) {
+            if (first_line == true) {
+                quic_fingerprint_format = fingerprint_type_and_version.second;
+            } else {
+                if (fingerprint_type_and_version.second != quic_fingerprint_format) {
+                    printf_err(log_warning,
+                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
+                               fp_type_string.c_str());
                     return;
                 }
             }
@@ -970,7 +962,7 @@ public:
                 attribute_result::bitset attributes;
                 std::unordered_map<uint32_t, uint64_t>    ip_as;
                 std::unordered_map<std::string, uint64_t> hostname_domains;
-                std::unordered_map<uint16_t, uint64_t>    portname_applications;
+                std::unordered_map<uint16_t, uint64_t>    dst_port;
                 std::unordered_map<std::string, uint64_t> ip_ip;
                 std::unordered_map<std::string, uint64_t> hostname_sni;
                 std::unordered_map<std::string, uint64_t> user_agent;
@@ -1018,7 +1010,7 @@ public:
                                 unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
                                 if (errno) {
                                     as_number = 0; // "unknown"
-                                    printf_err(log_notice, "found string \"%s\" in ip_as\n", y.name.GetString());
+                                    printf_err(log_warning, "unexpected string \"%s\" in ip_as\n", y.name.GetString());
                                 }
                                 if (as_number > 0xffffffff) {
                                     throw std::runtime_error("error: as number too high");
@@ -1029,20 +1021,22 @@ public:
                         }
                     }
                 }
-                if (x.HasMember("classes_port_applications") && x["classes_port_applications"].IsObject()) {
-                    //fprintf(stderr, "\tclasses_port_applications\n");
-                    for (auto &y : x["classes_port_applications"].GetObject()) {
+                if (x.HasMember("classes_port_port") && x["classes_port_port"].IsObject()) {
+                    //fprintf(stderr, "\tclasses_port_port\n");
+                    for (auto &y : x["classes_port_port"].GetObject()) {
                         if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                            uint16_t tmp_port = 0;
-                            auto port_it = string_to_port.find(y.name.GetString());
-                            if (port_it == string_to_port.end()) {
-                                tmp_port = 0; // set port to unknown
-                                //throw std::runtime_error("error: unexpected string in classes_port_applications");
-                                //fprintf(stderr, "error: unexpected string \"%s\" in classes_port_applications\n", y.name.GetString());
-                            } else {
-                                tmp_port = port_it->second;
+                            uint64_t tmp_port = 0;
+                            try {
+                                tmp_port = std::stoul(y.name.GetString());
                             }
-                            portname_applications[tmp_port] = y.value.GetUint64();
+                            catch (...) {
+                                printf_err(log_warning, "unexpected string \"%s\" in classes_port_port\n", y.name.GetString());
+                            }
+                            if (tmp_port > std::numeric_limits<uint16_t>::max()) {
+                                printf_err(log_warning, "number %" PRIu64 " too high in classes_port_port\n", tmp_port);
+                                tmp_port = 0;    // error: port numbers should 16-bit unsigned integers
+                            }
+                            dst_port[tmp_port] = y.value.GetUint64();
                         }
                     }
                 }
@@ -1093,7 +1087,7 @@ public:
                     }
                 }
 
-                class process_info process(name, malware, count, attributes, ip_as, hostname_domains, portname_applications,
+                class process_info process(name, malware, count, attributes, ip_as, hostname_domains, dst_port,
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
@@ -1116,6 +1110,10 @@ public:
         // reserve attribute for encrypted_dns watchlist
         //
         common.doh_idx = common.attr_name.get_index("encrypted_dns");
+
+        // reserve attribute for encrypted_channel
+        //
+        common.enc_channel_idx = common.attr_name.get_index("encrypted_channel");
 
         // by default, we expect that tls fingerprints will be present in the resource file
         //
@@ -1324,6 +1322,13 @@ public:
             return true;  // not configured to analyze fingerprints of this type
         }
         result = this->perform_analysis(fp.string(), dc.sn_str, dc.dst_ip_str, dc.dst_port, dc.ua_str);
+
+        // check for encrypted_channel
+        //
+        if (result.max_mal && fp.get_type() == fingerprint_type_tls) {
+            result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
+        }
+
         return true;
     }
 
