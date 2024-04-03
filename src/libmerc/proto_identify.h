@@ -154,6 +154,10 @@ public:
         {
             return (socks5_req_resp::get_payload_length(pkt) == pkt.length());
         }
+        case udp_msg_type_stun:
+        {
+            return (stun::message::packet_length_from_header(pkt) == pkt.length());
+        }
         default:
             return true;
         }
@@ -202,6 +206,7 @@ public:
 class traffic_selector {
     protocol_identifier<4> tcp4;
     protocol_identifier<8> tcp;
+    protocol_identifier<4> udp4;
     protocol_identifier<8> udp;
     protocol_identifier<16> udp16;
 
@@ -370,9 +375,9 @@ public:
         if (protocols["ssdp"] || protocols["all"]) {
             udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
         }
-        if (protocols["stun"] || protocols["all"]) {
-            udp.add_protocol(stun::message::matcher, udp_msg_type_stun);
-        }
+        // if (protocols["stun"] || protocols["all"]) {
+        //     udp.add_protocol(stun::message::matcher, udp_msg_type_stun);
+        // }
         if (protocols["smb"] || protocols["all"]) {
             tcp.add_protocol(smb1_packet::matcher, tcp_msg_type_smb1);
             tcp.add_protocol(smb2_packet::matcher, tcp_msg_type_smb2);
@@ -435,6 +440,13 @@ public:
             tcp4.add_protocol(socks5_req_resp::matcher, tcp_msg_type_socks5_req_resp);
         }
 
+        // use a length-based stun matcher, which will work for both
+        // legacy and modern variants of that protocol
+        //
+        if (protocols["stun"] || protocols["all"]) {
+            udp4.add_protocol(stun::message::matcher, udp_msg_type_stun);
+        }
+
         // add tofsee, but keep at the absolute end of matcher lists, as tofsee only
         // has a length based matcher
         if (protocols["tofsee"] || protocols["all"]) {
@@ -442,7 +454,9 @@ public:
         }
 
         // tell protocol_identification objects to compile lookup tables
+        tcp4.compile();
         tcp.compile();
+        udp4.compile();
         udp.compile();
         udp16.compile();
 
@@ -460,6 +474,9 @@ public:
         size_t type = udp.get_msg_type(pkt);
         if (type == udp_msg_type_unknown)  {
             type = udp16.get_msg_type(pkt);
+        }
+        if (type == udp_msg_type_unknown)  {
+            type = udp4.get_msg_type(pkt);
         }
         return type;
     }

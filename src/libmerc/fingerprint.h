@@ -164,7 +164,7 @@ public:
             "quic",
             "tcp_server",
             "openvpn",
-            "tofsee"
+            "tofsee",
             "stun"
         };
         if (fp_type > (sizeof(name)/sizeof(const char *)) - 1) {

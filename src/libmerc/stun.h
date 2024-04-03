@@ -493,8 +493,8 @@ namespace stun {
     class header {
         encoded<uint16_t> message_type_field;
         encoded<uint16_t> message_length;
-        literal<4> magic_cookie;
-        datum transaction_id;                   // note: always 12 bytes in length
+        // literal<4> magic_cookie;
+        datum transaction_id;                   // note: always 16 bytes in length
 
         enum message_type : uint16_t {
             request      = 0x0000,
@@ -526,11 +526,13 @@ namespace stun {
         header(datum &d) :
             message_type_field{d},
             message_length{d},
-            magic_cookie{d, {0x21, 0x12, 0xa4, 0x42}},
-            transaction_id{d, 12}
+            // magic_cookie{d, {0x21, 0x12, 0xa4, 0x42}},
+            transaction_id{d, 16}
         { }
 
         bool is_valid() const { return transaction_id.is_not_empty(); }
+
+        static constexpr size_t length = 20;    // number of bytes in header
 
         void write_json(json_object &o) const  {
             if (is_valid()) {
@@ -543,6 +545,7 @@ namespace stun {
                 }
                 o.print_key_uint("message_length", message_length);
                 o.print_key_hex("transaction_id", transaction_id);
+                o.print_key_bool("magic_cookie", transaction_id.matches(std::array<uint8_t,4>{0x21, 0x12, 0xa4, 0x42}));
             }
         }
 
@@ -628,15 +631,39 @@ namespace stun {
             }
         }
 
-        static constexpr mask_and_value<8> matcher{
-            { 0x00, 0x00,            // type
-              0x00, 0x00,            // length
-              0xff, 0xff, 0xff, 0xff // magic cookie
-            },
-            { 0x00, 0x00,            // type
-              0x00, 0x00,            // length
-              0x21, 0x12, 0xa4, 0x42 // magic cookie
+        // static constexpr mask_and_value<8> matcher{
+        //     { 0x00, 0x00,            // type
+        //       0x00, 0x00,            // length
+        //       0xff, 0xff, 0xff, 0xff // magic cookie
+        //     },
+        //     { 0x00, 0x00,            // type
+        //       0x00, 0x00,            // length
+        //       0x21, 0x12, 0xa4, 0x42 // magic cookie
+        //     }
+        // };
+
+        // returns the length of the stun packet pkt, based on the
+        // length field of the header
+        //
+        // This function does not attempt to fully parse the packet,
+        // and thus is suitable for use in protocol identification.o
+        //
+        static ssize_t packet_length_from_header(datum pkt) {
+            encoded<uint16_t> ignore{pkt};
+            encoded<uint16_t> length{pkt};
+            if (pkt.is_not_null()) {
+                return header::length + length.value();
             }
+            return -1;  // error: not a valid stun packet
+        }
+
+        // we use a null four-byte matcher, because we rely on the
+        // correspondence between the length of the packet and the
+        // length field
+        //
+        static constexpr mask_and_value<4> matcher{
+            { 0x00, 0x00, 0x00, 0x00 },
+            { 0x00, 0x00, 0x00, 0x00 }
         };
 
         bool is_not_empty() const {
