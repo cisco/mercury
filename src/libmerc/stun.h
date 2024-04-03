@@ -10,6 +10,7 @@
 #include "util_obj.h"      // for utf8_string
 #include "match.h"
 #include "fingerprint.h"
+#include <unordered_map>
 
 namespace stun {
 
