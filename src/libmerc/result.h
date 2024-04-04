@@ -276,7 +276,7 @@ public:
 #define MAX_ALPN_STR_LEN 128
 
 struct destination_context {
-    char dst_ip_str[MAX_DST_ADDR_LEN];
+    char dst_ip_str[MAX_ADDR_STR_LEN];
     char sn_str[MAX_SNI_LEN];
     char ua_str[MAX_USER_AGENT_LEN];
     uint8_t alpn_array[MAX_ALPN_STR_LEN];

@@ -330,7 +330,8 @@ struct ip_address {
     explicit ip_address(ipv6_address v6_addr) : version{ip_version::v6}, value{v6_addr} {}
 };
 
-#define MAX_DST_ADDR_LEN 48
+#define MAX_ADDR_STR_LEN 48
+#define MAX_PORT_STR_LEN 6
 
 struct key {
     uint16_t src_port;   // source port in network byte order
@@ -402,8 +403,6 @@ struct key {
         }
     }
 
-#define MAX_ADDR_STR_LEN 48
-
     void sprint_src_addr(char src_addr[MAX_ADDR_STR_LEN]) const {
         if (ip_vers == 4) {
             uint8_t *sa = (uint8_t *)&addr.ipv4.src;
@@ -414,7 +413,6 @@ struct key {
         }
     }
 
-#define MAX_PORT_STR_LEN 6
     void sprint_dst_port(char dst_port_string[MAX_PORT_STR_LEN]) const {
         snprintf(dst_port_string, MAX_PORT_STR_LEN, "%u", dst_port);
     }
@@ -451,7 +449,7 @@ struct key {
             } else {
 
                 snprintf(dst_addr_str,
-                         MAX_DST_ADDR_LEN,
+                         MAX_ADDR_STR_LEN,
                          "%u.%u.%u.%u",
                          d[0], d[1], d[2], d[3]);
             }
