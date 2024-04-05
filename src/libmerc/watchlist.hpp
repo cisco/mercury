@@ -142,7 +142,7 @@ public:
     uint32_t get_value() const { return value; }
 
     static bool unit_test() {
-        std::vector<std::pair<const char *, ipv4_t>> ipv4_addr_examples {
+        std::pair<const char *, ipv4_t> ipv4_addr_examples[] = {
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
             { "192.168.0.1", 0x0100a8c0 }
 #else
@@ -192,6 +192,35 @@ namespace std {
     };
 }
 
+
+// fixed_vector mimics the interface of std::vector but does not
+// allocate or free memory
+//
+template <typename T, size_t N>
+class fixed_vector {
+    std::array<T, N> value;
+    size_t num_elements = 0;
+
+public:
+
+    void push_back(T element) {
+        value[num_elements] = element;
+        num_elements++;
+        assert(num_elements < N);
+    }
+
+    T operator[](size_t idx) const {
+        assert(idx < N);
+        return value[idx];
+    }
+
+    size_t size() const { return num_elements; }
+
+    const T* begin() const { return &value[0]; }
+    const T* end()   const { return &value[num_elements]; }
+
+};
+
 using uint128_t = __uint128_t; // defined by GCC at least
 
 // IPv6 address string parsing, as per RFC 4291.
@@ -214,7 +243,7 @@ using uint128_t = __uint128_t; // defined by GCC at least
 //    2001:DB8::8:800:200C:417A
 //
 class ipv6_address_string {
-    std::vector<uint16_t> pieces;
+    fixed_vector<uint16_t, 16> pieces;
     ssize_t double_colon_index = -1;
     bool valid = false;
     char v4_addr_hex[9];   // used for ipv4-mapped temporary storage
@@ -436,7 +465,7 @@ public:
     //
     static bool unit_test(FILE *f=nullptr) {
 
-        std::vector<std::pair<const char *, ipv6_array_t>> ipv6_addr_examples{
+        std::pair<const char *, ipv6_array_t> ipv6_addr_examples[] = {
             { "2001:db8:0:0:8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
             { "2001:db8::8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
             { "::1", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } },

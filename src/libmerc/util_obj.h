@@ -466,7 +466,7 @@ struct key {
 
     // write out the (optionally normalized) destination address
     //
-    void sprintf_dst_addr(char *dst_addr_str, bool norm=false) const {
+    void sprintf_dst_addr(char *dst_addr_str, bool norm=true) const {
 
         if (ip_vers == 4) {
             ipv4_address tmp_addr{addr.ipv4.dst};
