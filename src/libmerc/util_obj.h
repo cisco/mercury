@@ -179,10 +179,10 @@ bool ipv4_address::unit_test(FILE *output) {  // output=nullptr by default
 
 
 struct ipv6_address {
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
-    uint32_t d;
+    uint32_t a[4];
+    // uint32_t b;
+    // uint32_t c;
+    // uint32_t d;
 
 public:
 
@@ -203,18 +203,18 @@ public:
     // { }
 
     bool operator==(const ipv6_address &rhs) const {
-        return a == rhs.a && b == rhs.b && c == rhs.c && d == rhs.d;
+        return a[0] == rhs.a[0] && a[1] == rhs.a[1] && a[2] == rhs.a[2] && a[3] == rhs.a[3];
     }
 
     void fingerprint(struct buffer_stream &buf) const {
-        uint32_t tmp[4] = {
-            // swap_byte_order(a),
-            // swap_byte_order(b),
-            // swap_byte_order(c),
-            // swap_byte_order(d)
-            a,b,c,d
-        };
-        buf.write_ipv6_addr((uint8_t *)&tmp);
+        // uint32_t tmp[4] = {
+        //     // swap_byte_order(a),
+        //     // swap_byte_order(b),
+        //     // swap_byte_order(c),
+        //     // swap_byte_order(d)
+        //     a,b,c,d
+        // };
+        buf.write_ipv6_addr((uint8_t *)&a);
     }
 
     void print_uint32_binary(FILE *f, uint32_t x) const {
@@ -226,10 +226,12 @@ public:
     }
 
     void print_binary(FILE *f, const char *tail=nullptr) const {
-        print_uint32_binary(f, hton(a));
-        print_uint32_binary(f, hton(b));
-        print_uint32_binary(f, hton(c));
-        print_uint32_binary(f, hton(d));
+        for (const auto & x : a) {
+            print_uint32_binary(f, hton(x));
+            // print_uint32_binary(f, hton(b));
+            // print_uint32_binary(f, hton(c));
+            // print_uint32_binary(f, hton(d));
+        }
         if (tail) {
             fprintf(f, "%s", tail);
         }
@@ -278,31 +280,25 @@ public:
     // }
     bool is_global_unicast() const {
         // fprintf(stderr, "check: %08x\t%08x==%08x\n", a, (a & hton<uint32_t>(0xe0000000)),  hton<uint32_t>(0x20000000));
-        return (a & hton<uint32_t>(0xe0000000)) == hton<uint32_t>(0x20000000);
+        return (a[0] & hton<uint32_t>(0xe0000000)) == hton<uint32_t>(0x20000000);
     }
     bool is_unique_local_unicast() const {
-        return (a & hton<uint32_t>(0xfe000000)) == hton<uint32_t>(0xfc000000);
+        return (a[0] & hton<uint32_t>(0xfe000000)) == hton<uint32_t>(0xfc000000);
     }
     bool is_link_scoped_unicast() const {
-        return (a & hton<uint32_t>(0xffc00000)) == hton<uint32_t>(0xfe800000);
+        return (a[0] & hton<uint32_t>(0xffc00000)) == hton<uint32_t>(0xfe800000);
     }
     bool is_deprecated_site_local() const {
-        return (a & hton<uint32_t>(0xffc00000)) == hton<uint32_t>(0xfec00000);
+        return (a[0] & hton<uint32_t>(0xffc00000)) == hton<uint32_t>(0xfec00000);
     }
     bool is_multicast() const {
-        return (a & hton<uint32_t>(0xff000000)) == hton<uint32_t>(0xff000000);
+        return (a[0] & hton<uint32_t>(0xff000000)) == hton<uint32_t>(0xff000000);
     }
     bool is_global() const {
         return is_global_unicast();   // TODO: consider global multicast
     }
     bool is_ipv4_mapped() const {
-        return (a == 0 && b == 0 && c == hton<uint32_t>(0x0000ffff));
-    }
-
-    void normalize() {
-        if (not is_global()) {
-            ;
-        }
+        return (a[0] == 0 && a[1] == 0 && a[2] == hton<uint32_t>(0x0000ffff));
     }
 
     static inline bool unit_test();
@@ -314,6 +310,48 @@ inline bool ipv6_address::unit_test() {
     // ipv6_address addr;
 
     return true;   // tests passed
+}
+
+/// The Internet Protocol (IP) addresses of devices on internal
+/// networks varies across different organizations.  Private Address
+/// Normalization (PAN) maps private internal addresses to
+/// representative values, and leaves other addresses unchanged.  PAN
+/// is useful for anonymization, and for analyzing destination
+/// address.  The latter case especially holds when a model is
+/// constructed using knowledge of internet destinations, but without
+/// knowledge about the destiniation addresses on a particular
+/// internal network.  This situation occurs whenever a model is
+/// trained on global internet data, and then applied to traffic at
+/// distinct organizations.
+///
+/// In PAN, an address is normalized by setting it to `10.0.0.1` if it
+/// is in the IPv4 private address range (RFC 1918), or setting it to
+/// `fd00::1` if it is in the IPv6 unique local address range (RFC
+/// 4193).  The IPv4 private address ranges consist of the subnets
+/// `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`.  The IPv6
+/// unique local address range consists of the subnet `fd00::/8`.
+///
+namespace normalized {
+
+    /// the representative ipv4 private use address
+    ///
+    static const ipv4_address ipv4_private_use{ 0x0100000a };
+
+    /// the representative ipv6 unique local address
+    ///
+    static const ipv6_address ipv6_unique_local{0x000000fd, 0x00000000, 0x00000000, 0x01000000 };
+};
+
+inline void normalize(ipv4_address &a) {
+    if (!a.is_global()) {
+        a = normalized::ipv4_private_use;
+    }
+}
+
+inline void normalize(ipv6_address &a) {
+    if (!a.is_global()) {
+        a = normalized::ipv6_unique_local;
+    }
 }
 
 struct ip_address {
@@ -426,35 +464,27 @@ struct key {
         return addr.ipv6.dst.is_global();
     }
 
-    void normalize() {
-        if (ip_vers == 4 and dst_is_global()) {
-            addr.ipv4.dst = 0x0a00000a;  // 10.0.0.1
-        }
-    }
-
-    void sprintf_dst_addr(char *dst_addr_str) const {
+    // write out the (optionally normalized) destination address
+    //
+    void sprintf_dst_addr(char *dst_addr_str, bool norm=false) const {
 
         if (ip_vers == 4) {
-            uint8_t *d = (uint8_t *)&addr.ipv4.dst;
             ipv4_address tmp_addr{addr.ipv4.dst};
-            if (false) { // !tmp_addr.is_global()) {
-
-                // fprintf(stderr, "normalizing %u.%u.%u.%u\n", d[0], d[1], d[2], d[3]);
-                //
-                // normalize to the smallest private address
-                //
-                char priv_addr[] = "10.0.0.1";
-                memcpy(dst_addr_str, priv_addr, sizeof(priv_addr));
-
-            } else {
-
-                snprintf(dst_addr_str,
-                         MAX_ADDR_STR_LEN,
-                         "%u.%u.%u.%u",
-                         d[0], d[1], d[2], d[3]);
+            if (norm) {
+                normalize(tmp_addr);
             }
+            uint8_t *d = (uint8_t *)&tmp_addr;
+            snprintf(dst_addr_str,
+                     MAX_ADDR_STR_LEN,
+                     "%u.%u.%u.%u",
+                     d[0], d[1], d[2], d[3]);
+
         } else if (ip_vers == 6) {
-            uint8_t *d = (uint8_t *)&addr.ipv6.dst;
+            ipv6_address tmp_addr{addr.ipv6.dst};
+            if (norm) {
+                normalize(tmp_addr);
+            }
+            uint8_t *d = (uint8_t *)&tmp_addr;
             sprintf_ipv6_addr(dst_addr_str, d);
         } else {
             dst_addr_str[0] = '\0'; // make sure that string is null-terminated
