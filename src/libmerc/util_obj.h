@@ -64,6 +64,19 @@ public:
         b.write_ipv4_addr((uint8_t *)&tmp);
     }
 
+    std::string get_dns_label() const {
+        std::string a;
+        a += std::to_string(value >> 24 & 0xff);
+        a += '-';
+        a += std::to_string(value >> 16 & 0xff);
+        a += '-';
+        a += std::to_string(value >>  8 & 0xff);
+        a += '-';
+        a += std::to_string(value       & 0xff);
+        a += '.';
+        return a;
+    }
+
     // Special IPv4 Addresses as defined by IANA (2024)
     //
     // 0.0.0.0/8	       "This network" [RFC791]
@@ -177,44 +190,50 @@ bool ipv4_address::unit_test(FILE *output) {  // output=nullptr by default
     return all_passed;
 }
 
-
 struct ipv6_address {
     uint32_t a[4];
-    // uint32_t b;
-    // uint32_t c;
-    // uint32_t d;
 
 public:
 
-    // construct an ipv6_address with the default all-zero address,
-    // which refers to "this machine"
-    //
-    // ipv6_address() : a{0}, b{0}, c{0}, d{d} { }
-    //
-    // ipv6_address(__uint128_t &in) {
-    //     a = in >> 96;
-    //     b = (in >> 64) & 0xffffffff;
-    //     c = (in >> 32) & 0xffffffff;
-    //     d = in & 0xffffffff;
+    // ipv6_address(uint32_t w, uint32_t x, uint32_t y, uint32_t z) {
+    //     a[0] = w;
+    //     a[1] = x;
+    //     a[2] = y;
+    //     a[3] = z;
     // }
     //
-    // ipv6_address(uint32_t a_in, uint32_t b_in, uint32_t c_in, uint32_t d_in) :
-    //     a{a_in}, b{b_in}, c{c_in}, d{d_in}
-    // { }
+    // ipv6_address(uint32_t in[4]) {
+    //     memcpy(a, in, sizeof(a));
+    // }
+    //
+    // ipv6_address(const std::array<uint8_t, 16> &init) {
+    //     //     memcpy(tmp, addr.data(), sizeof(tmp));
+    // }
 
     bool operator==(const ipv6_address &rhs) const {
         return a[0] == rhs.a[0] && a[1] == rhs.a[1] && a[2] == rhs.a[2] && a[3] == rhs.a[3];
     }
 
     void fingerprint(struct buffer_stream &buf) const {
-        // uint32_t tmp[4] = {
-        //     // swap_byte_order(a),
-        //     // swap_byte_order(b),
-        //     // swap_byte_order(c),
-        //     // swap_byte_order(d)
-        //     a,b,c,d
-        // };
         buf.write_ipv6_addr((uint8_t *)&a);
+    }
+
+    std::string get_dns_label() const {
+        std::string s;
+        for (const uint32_t &x : a) {
+            char hex[]= "0123456789abcdef";
+            s += hex[x >> 28 & 0x0f];
+            s += hex[x >> 24 & 0x0f];
+            s += hex[x >> 20 & 0x0f];
+            s += hex[x >> 16 & 0x0f];
+            s += hex[x >> 12 & 0x0f];
+            s += hex[x >>  8 & 0x0f];
+            s += hex[x >>  4 & 0x0f];
+            s += hex[x       & 0x0f];
+            s += '-';
+        }
+        s.back() = '.';
+        return s;
     }
 
     void print_uint32_binary(FILE *f, uint32_t x) const {
@@ -228,9 +247,6 @@ public:
     void print_binary(FILE *f, const char *tail=nullptr) const {
         for (const auto & x : a) {
             print_uint32_binary(f, hton(x));
-            // print_uint32_binary(f, hton(b));
-            // print_uint32_binary(f, hton(c));
-            // print_uint32_binary(f, hton(d));
         }
         if (tail) {
             fprintf(f, "%s", tail);
@@ -310,6 +326,13 @@ inline bool ipv6_address::unit_test() {
     // ipv6_address addr;
 
     return true;   // tests passed
+}
+
+inline ipv6_address get_ipv6_address(const std::array<uint8_t, 16> &in) {
+    const uint8_t *raw = in.data();
+    ipv6_address out;
+    memcpy(out.a, raw, 16);
+    return out;
 }
 
 /// The Internet Protocol (IP) addresses of devices on internal

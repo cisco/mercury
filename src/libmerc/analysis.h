@@ -566,9 +566,8 @@ public:
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
                                             const char *user_agent, enum fingerprint_status status) {
 
-        
         server_identifier server_id{server_name};
-        std::string normalized_server_name = server_id.get_normalized_domain_name();
+        std::string normalized_server_name = server_id.get_normalized_domain_name(server_identifier::detail::on);
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         std::string domain = get_tld_domain_name(normalized_server_name.c_str());
         std::string server_name_str(server_name);
@@ -993,7 +992,7 @@ public:
                     for (auto &y : x["classes_hostname_domains"].GetObject()) {
                         if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                             //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                            hostname_domains[server_identifier{y.name.GetString()}.get_normalized_domain_name()] = y.value.GetUint64();
+                            hostname_domains[server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on)] = y.value.GetUint64();
                         }
                     }
                 }
@@ -1062,7 +1061,7 @@ public:
                     for (auto &y : x["classes_hostname_sni"].GetObject()) {
                         if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                             //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                            hostname_sni[server_identifier{y.name.GetString()}.get_normalized_domain_name()] = y.value.GetUint64();
+                            hostname_sni[server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on)] = y.value.GetUint64();
                         }
                     }
                 }

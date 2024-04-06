@@ -16,6 +16,7 @@
 #include <fstream>
 #include "datum.h"
 #include "lex.h"
+#include "util_obj.h"
 
 // get_datum(std::string &s) returns a datum that corresponds to the
 // std::string s.
@@ -262,6 +263,7 @@ public:
                 if (lookahead<literal_byte<':'>> colon2{d}) {
                     d = colon2.advance();
                     if (double_colon_index != -1) {
+                        d.set_null();
                         return;   // error; multiple double colons
                     }
                     double_colon_index = pieces.size();
@@ -278,8 +280,9 @@ public:
                         if (v4_addr.is_valid()) {
 
                             // v4_addr.print(stdout); fputc('\n', stdout);
-                            
+
                             if (sprintf(v4_addr_hex, "%08x", v4_addr.get_value()) != 8) {
+                                d.set_null();
                                 return; // error; could not create hex representation of v4 addr
                             }
                             tmp_data.data = (uint8_t *)v4_addr_hex;
@@ -294,7 +297,7 @@ public:
                             valid = true;
 
                             // fprintf(stdout, "got ipv4 %s\t{%04x%04x}\n", v4_addr_hex, hex_str_to_uint<uint16_t>(hi), hex_str_to_uint<uint16_t>(lo));
-                            
+
                             if (lookahead<literal_byte<']'>> right_brace{d}) {
                                 d = right_brace.advance();
                             }
@@ -315,6 +318,7 @@ public:
                     pieces.push_back(hex_str_to_uint<uint16_t>(piece));
                 } else {
                     // fprintf(stderr, "error: invalid label\n");
+                    d.set_null();
                     return;    // invalid label
                 }
             }
@@ -324,12 +328,12 @@ public:
         //
         if (double_colon_index == -1) {
             if (pieces.size() != 8) {
+                d.set_null();
                 return;  // invalid
             }
-        } else {
-            if (pieces.size() > 7) {
-                return;  // invalid
-            }
+        } else if (pieces.size() > 7) {
+            d.set_null();
+            return;  // invalid
         }
         valid = true;
     }
@@ -843,16 +847,16 @@ public:
     /// otherwise mapping the identifier into the special-use
     /// subdomain `invalid` (RFC 6761), as follows:
     ///
-    ///    * IPv4 addresses are mapped to `address.invalid`,
+    ///    * IPv4 addresses are mapped to `address.alt`,
     ///
-    ///    * IPv6 addresses are mapped to `address.invalid`,
+    ///    * IPv6 addresses are mapped to `address.alt`,
     ///
-    ///    * Unqualified domains are mapped to `unqualified.invalid`,
+    ///    * Unqualified domains are mapped to `unqualified.alt`,
     ///
-    ///    * Empty or missing domain names are mapped to `missing.invalid`,
+    ///    * Empty or missing domain names are mapped to `missing.alt`,
     ///
     ///    * Text strings that cannot be parsed as addresses or domain
-    ///      names are mapped to `other.invalid`.
+    ///      names are mapped to `other.alt`.
     ///
     std::string get_normalized_domain_name(detail detailed_output=off) const {
 
@@ -860,49 +864,35 @@ public:
 
             std::string a;
             if (detailed_output) {
-                uint32_t addr = std::get<uint32_t>(host_id);
-                a += std::to_string(addr >> 24 & 0xff);
-                a += '-';
-                a += std::to_string(addr >> 16 & 0xff);
-                a += '-';
-                a += std::to_string(addr >>  8 & 0xff);
-                a += '-';
-                a += std::to_string(addr       & 0xff);
-                a += '.';
+                ipv4_address addr = std::get<uint32_t>(host_id);
+                a += addr.get_dns_label();
             }
-            return a + "address.invalid";
+            return "address.alt";
         }
         if (std::holds_alternative<ipv6_array_t>(host_id)) {
 
             std::string a;
             if (detailed_output) {
                 ipv6_array_t addr = std::get<ipv6_array_t>(host_id);
-                for (size_t i=0; i<16; i+=2) {
-                    char hex[]= "0123456789abcdef";
-                    a += hex[addr[i] >> 4];
-                    a += hex[addr[i] & 0x0f];
-                    a += hex[addr[i+1] >> 4];
-                    a += hex[addr[i+1] & 0x0f];
-                    a += '-';
-                }
-                a.back() = '.';
+                ipv6_address tmp = get_ipv6_address(addr);
+                a += tmp.get_dns_label();
             }
-            return a + "address.invalid";
+            return a + "address.alt";
         }
 
         if (std::holds_alternative<std::monostate>(host_id)) {
             if (empty) {
-                return "missing.invalid";
+                return "missing.alt";
             }
-            return "other.invalid";
+            return "other.alt";
         }
         if (std::holds_alternative<dns_name_t>(host_id)) {
             std::string domain_name = std::get<dns_name_t>(host_id);
             if (domain_name == "None") {
-                return "missing.invalid";
+                return "missing.alt";
             }
             if (label_count == 1 and domain_name != "localhost") {
-                return "unqualified.invalid";
+                return "unqualified.alt";
             }
             return domain_name;
         }
@@ -934,24 +924,26 @@ public:
 
     static bool unit_test(FILE *f=nullptr) {
         std::vector<test_case> test_cases = {
-            { "ocsp.digicert.com", "ocsp.digicert.com", {} },                           // FQDN
-            { "ookla.mbspeed.net:8080", "ookla.mbspeed.net", 8080 },                    // FQDN with port number
-            { "10.124.145.64", "address.invalid", {} },                                 // IPv4 address
-            { "10.237.97.140:8443", "address.invalid", 8443 },                          // IPv4 address with port number
-            { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","address.invalid", 10087 }, // IPv6 address with square braces and port number
-            { "[2408:862e:ff:ff03:1b::]", "address.invalid", {} },                      // IPv6 address with square braces
-            { "[2001:b28:f23f:f005::a]:80", "address.invalid", 80 },                    // IPv6 address with zero compression, square braces, and port number
-            { "::ffff:162.62.97.147", "address.invalid", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
-            { "[::ffff:91.222.113.90]:5000", "address.invalid", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
-            { "240d:c000:1010:1200::949b:1928:b134", "address.invalid", {} },           // IPv6 addr with zero compression
-            { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "address.invalid", {} },          // IPv6 addr without zero compression
-            { "*.tplinkcloud.com", "*.tplinkcloud.com", {} },                           // wildcard subdomain
-            { "18.158.72.38.nip.io", "18.158.72.38.nip.io", {} },                       // subdomains look like dotted quad
-            { " www.google.com", "www.google.com", {} },                                // leading  whitespace
-            { "None", "missing.invalid", {} },                                          // "None" means missing
-            { "", "missing.invalid", {} },                                              // "" means missing
-            { "localhost:443", "localhost", 443 },                                      // "localhost" with a port number
-            { "www", "unqualified.invalid", {} },                                       // unqualified domain name (not an FQDN)
+            { "ocsp.digicert.com", "ocsp.digicert.com", {} },                       // FQDN
+            { "ookla.mbspeed.net:8080", "ookla.mbspeed.net", 8080 },                // FQDN with port number
+            { "10.124.145.64", "address.alt", {} },                                 // IPv4 address
+            { "10.237.97.140:8443", "address.alt", 8443 },                          // IPv4 address with port number
+            { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","address.alt", 10087 }, // IPv6 address with square braces and port number
+            { "[2408:862e:ff:ff03:1b::]", "address.alt", {} },                      // IPv6 address with square braces
+            { "[2001:b28:f23f:f005::a]:80", "address.alt", 80 },                    // IPv6 address with zero compression, square braces, and port number
+            { "::ffff:162.62.97.147", "address.alt", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
+            { "[::ffff:91.222.113.90]:5000", "address.alt", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
+            { "240d:c000:1010:1200::949b:1928:b134", "address.alt", {} },           // IPv6 addr with zero compression
+            { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "address.alt", {} },          // IPv6 addr without zero compression
+            { "*.tplinkcloud.com", "*.tplinkcloud.com", {} },                       // wildcard subdomain
+            { "18.158.72.38.nip.io", "18.158.72.38.nip.io", {} },                   // subdomains look like dotted quad
+            { " www.google.com", "www.google.com", {} },                            // leading  whitespace
+            { "None", "missing.alt", {} },                                          // "None" means missing
+            { "", "missing.alt", {} },                                              // "" means missing
+            { "localhost:443", "localhost", 443 },                                  // "localhost" with a port number
+            { "www", "unqualified.alt", {} },                                       // unqualified domain name (not an FQDN)
+            { "0000", "other.alt", {} },                                            // neither a name or address
+            { "", "other.alt", {} },                                                // neither a name or address
         };
 
         bool passed = true;

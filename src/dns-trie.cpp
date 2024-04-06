@@ -367,10 +367,9 @@ using namespace mercury_option;
 //
 int main(int argc, char *argv[]) {
 
-
     assert(server_identifier::unit_test() == true);
 
-    if (false) {
+    if (true) {
         std::vector<server_identifier::test_case> test_cases = {
             { "ocsp.digicert.com", "ocsp.digicert.com", {} },                           // FQDN
             { "ookla.mbspeed.net:8080", "ookla.mbspeed.net", 8080 },                    // FQDN with port number
@@ -390,11 +389,13 @@ int main(int argc, char *argv[]) {
             { "", "missing.invalid", {} },                                              // "" means missing
             { "localhost:443", "localhost", 443 },                                      // "localhost" with a port number
             { "www", "unqualified.invalid", {} },                                       // unqualified domain name (not an FQDN)
+            { "0000", "other.invalid", {} },                                            // neither a name or address
+            { "@#*%^$!", "other.invalid", {} },                                         // neither a name or address
         };
 
         for (const auto & tc : test_cases) {
             server_identifier si{tc.input};
-            fprintf(stdout, "%s\t%s\t", tc.input, si.get_normalized_domain_name().c_str());
+            fprintf(stdout, "%s\t%s\t", tc.input, si.get_normalized_domain_name(server_identifier::detail::on).c_str());
 
             host_identifier hid = si.get_host_identifier();
             if (std::holds_alternative<ipv4_t>(hid)) {
