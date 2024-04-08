@@ -371,26 +371,27 @@ int main(int argc, char *argv[]) {
 
     if (true) {
         std::vector<server_identifier::test_case> test_cases = {
-            { "ocsp.digicert.com", "ocsp.digicert.com", {} },                           // FQDN
-            { "ookla.mbspeed.net:8080", "ookla.mbspeed.net", 8080 },                    // FQDN with port number
-            { "10.124.145.64", "address.invalid", {} },                                 // IPv4 address
-            { "10.237.97.140:8443", "address.invalid", 8443 },                          // IPv4 address with port number
-            { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","address.invalid", 10087 }, // IPv6 address with square braces and port number
-            { "[2408:862e:ff:ff03:1b::]", "address.invalid", {} },                      // IPv6 address with square braces
-            { "[2001:b28:f23f:f005::a]:80", "address.invalid", 80 },                    // IPv6 address with zero compression, square braces, and port number
-            { "::ffff:162.62.97.147", "address.invalid", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
-            { "[::ffff:91.222.113.90]:5000", "address.invalid", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
-            { "240d:c000:1010:1200::949b:1928:b134", "address.invalid", {} },           // IPv6 addr with zero compression
-            { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "address.invalid", {} },          // IPv6 addr without zero compression
-            { "*.tplinkcloud.com", "*.tplinkcloud.com", {} },                           // wildcard subdomain
-            { "18.158.72.38.nip.io", "18.158.72.38.nip.io", {} },                       // subdomains look like dotted quad
-            { " www.google.com", "www.google.com", {} },                                // leading  whitespace
-            { "None", "missing.invalid", {} },                                          // "None" means missing
-            { "", "missing.invalid", {} },                                              // "" means missing
-            { "localhost:443", "localhost", 443 },                                      // "localhost" with a port number
-            { "www", "unqualified.invalid", {} },                                       // unqualified domain name (not an FQDN)
-            { "0000", "other.invalid", {} },                                            // neither a name or address
-            { "@#*%^$!", "other.invalid", {} },                                         // neither a name or address
+            { "ocsp.digicert.com", "ocsp.digicert.com", {} },                       // FQDN
+            { "ookla.mbspeed.net:8080", "ookla.mbspeed.net", 8080 },                // FQDN with port number
+            { "10.124.145.64", "address.alt", {} },                                 // IPv4 address
+            { "10.237.97.140:8443", "address.alt", 8443 },                          // IPv4 address with port number
+            { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","address.alt", 10087 }, // IPv6 address with square braces and port number
+            { "[2408:862e:ff:ff03:1b::]", "address.alt", {} },                      // IPv6 address with square braces
+            { "[2001:b28:f23f:f005::a]:80", "address.alt", 80 },                    // IPv6 address with zero compression, square braces, and port number
+            { "::ffff:162.62.97.147", "address.alt", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
+            { "[::ffff:91.222.113.90]:5000", "address.alt", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
+            { "240d:c000:1010:1200::949b:1928:b134", "address.alt", {} },           // IPv6 addr with zero compression
+            { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "address.alt", {} },          // IPv6 addr without zero compression
+            { "*.tplinkcloud.com", "*.tplinkcloud.com", {} },                       // wildcard subdomain
+            { "18.158.72.38.nip.io", "18.158.72.38.nip.io", {} },                   // subdomains look like dotted quad
+            { " www.google.com", "www.google.com", {} },                            // leading  whitespace
+            { "None", "missing.alt", {} },                                          // "None" means missing
+            { "", "missing.alt", {} },                                              // "" means missing
+            { "localhost:443", "localhost", 443 },                                  // "localhost" with a port number
+            { "www", "unqualified.alt", {} },                                       // unqualified domain name (not an FQDN)
+            { "0000", "other.alt", {} },                                            // neither a name or address
+            { "@#*%^$!", "other.alt", {} },                                         // neither a name or address
+            { "8.8.8.8.alt", "invalid.alt", {} },                                   // neither a name or address
         };
 
         for (const auto & tc : test_cases) {

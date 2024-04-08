@@ -1260,6 +1260,9 @@ public:
         trunc = 0;
     }
 
+    size_t content_size() const { return doff; }
+
+    const char* data() const { return buffer; }
 };
 
 #endif /* BUFFER_STREAM_H */

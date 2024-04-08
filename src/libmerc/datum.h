@@ -413,9 +413,9 @@ struct datum {
     /// datum::cmp(const datum &p) const
     ///
     template <size_t N>
-    bool cmp(const std::array<uint8_t, N> a) const {
+    bool equals(const std::array<uint8_t, N> a) const {
         if (length() == N) {
-            return ::memcmp(data, a.data, N) == 0;
+            return ::memcmp(data, a.data(), N) == 0;
         }
         return false;
     }

@@ -644,6 +644,21 @@ public:
     }
 
     const std::vector<datum> & get_value() const { return label_vector; }
+
+    // normalize verifies that the DNS name is valid, and if it is
+    // not, appends the string ".invalid.alt"
+    //
+    void normalize() {
+        if (label_vector.size() > 0) {
+            if (label_vector.back().equals(std::array<uint8_t, 3> {'a', 'l', 't'})) {
+                label_vector.back() = datum{(uint8_t *)invalid, (uint8_t *)invalid + strlen(invalid)};
+                label_vector.push_back(datum{(uint8_t *)alt, (uint8_t *)alt + strlen(alt)});
+            }
+        }
+    }
+    static constexpr const char *invalid = "invalid";
+    static constexpr const char *alt = "alt";
+
 };
 
 class port_number {
@@ -709,6 +724,7 @@ static inline host_identifier host_identifier_constructor(datum d) {
         datum tmp = dns.advance();
         if (tmp.is_empty()) {
             d = dns.advance();
+            dns.value.normalize();
             return dns.value.get_string();
         }
 
@@ -794,6 +810,7 @@ public:
             datum tmp = dns.advance();
             if (tmp.is_empty()) {
                 d = dns.advance();
+                dns.value.normalize();
                 host_id = dns.value.get_string();
                 label_count = dns.value.label_count();
                 return;
@@ -867,7 +884,7 @@ public:
                 ipv4_address addr = std::get<uint32_t>(host_id);
                 a += addr.get_dns_label();
             }
-            return "address.alt";
+            return a + "address.alt";
         }
         if (std::holds_alternative<ipv6_array_t>(host_id)) {
 
