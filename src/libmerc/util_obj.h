@@ -66,14 +66,26 @@ public:
 
     std::string get_dns_label() const {
         std::string a;
-        a += std::to_string(value >> 24 & 0xff);
-        a += '-';
-        a += std::to_string(value >> 16 & 0xff);
+        a += std::to_string(value       & 0xff);
         a += '-';
         a += std::to_string(value >>  8 & 0xff);
         a += '-';
+        a += std::to_string(value >> 16 & 0xff);
+        a += '-';
+        a += std::to_string(value >> 24 & 0xff);
+        a += '.';
+        return a;
+    }
+
+    std::string get_string() const {
+        std::string a;
         a += std::to_string(value       & 0xff);
         a += '.';
+        a += std::to_string(value >>  8 & 0xff);
+        a += '.';
+        a += std::to_string(value >> 16 & 0xff);
+        a += '.';
+        a += std::to_string(value >> 24 & 0xff);
         return a;
     }
 
@@ -222,29 +234,18 @@ public:
 
         output_buffer<48> ipv6_addr_buffer;
         this->fingerprint(ipv6_addr_buffer);
-        // ipv6_addr_buffer.write_line(stdout);
-        // printf("%zu\n", ipv6_addr_buffer.content_size());
         std::string out{ipv6_addr_buffer.data(), ipv6_addr_buffer.content_size()};
         std::replace(out.begin(), out.end(), ':', '-');
         out.back() = '.';
         return out;
+    }
 
-        std::string s;
-        for (const uint32_t &x : a) {
-            char hex[]= "0123456789abcdef";
-            s += hex[x >>  4 & 0x0f];
-            s += hex[x       & 0x0f];
-            s += hex[x >> 12 & 0x0f];
-            s += hex[x >>  8 & 0x0f];
-            s += '-';
-            s += hex[x >> 20 & 0x0f];
-            s += hex[x >> 16 & 0x0f];
-            s += hex[x >> 28 & 0x0f];
-            s += hex[x >> 24 & 0x0f];
-            s += '-';
-        }
-        s.back() = '.';
-        return s;
+    std::string get_string() const {
+
+        output_buffer<48> ipv6_addr_buffer;
+        this->fingerprint(ipv6_addr_buffer);
+        std::string out{ipv6_addr_buffer.data(), ipv6_addr_buffer.content_size()};
+        return out;
     }
 
     void print_uint32_binary(FILE *f, uint32_t x) const {

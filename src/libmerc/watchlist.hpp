@@ -104,7 +104,8 @@ public:
         // TODO: verify that there is no trailing information
 
         // value = str_to_uint<uint8_t>(w) + 256 * (str_to_uint<uint8_t>(x) + 256 * (str_to_uint<uint8_t>(y) + 256 * str_to_uint<uint8_t>(z)));
-        value = str_to_uint<uint8_t>(w) << 24 | str_to_uint<uint8_t>(x) << 16 | str_to_uint<uint8_t>(y) << 8 | str_to_uint<uint8_t>(z);
+        // value = str_to_uint<uint8_t>(w) << 24 | str_to_uint<uint8_t>(x) << 16 | str_to_uint<uint8_t>(y) << 8 | str_to_uint<uint8_t>(z);
+        value = str_to_uint<uint8_t>(w) | str_to_uint<uint8_t>(x) << 8 | str_to_uint<uint8_t>(y) << 16 | str_to_uint<uint8_t>(z) << 24;
     }
 
     // allow rvalue (temporary) inputs
@@ -142,12 +143,12 @@ public:
     //
     uint32_t get_value() const { return value; }
 
-    static bool unit_test() {
+    static bool unit_test(FILE *f=nullptr) {
         std::pair<const char *, ipv4_t> ipv4_addr_examples[] = {
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
-            { "192.168.0.1", 0x0100a8c0 }
-#else
             { "192.168.0.1", 0xc0a80001 }
+#else
+            { "192.168.0.1", 0x0100a8c0 }
 #endif
         };
 
@@ -155,8 +156,13 @@ public:
             datum tmp = get_datum(ipv4_addr.first);
             ipv4_address_string ipv4{tmp};
             if (ipv4.is_valid()) {
-                // ipv4_print(stdout, ipv4.get_value()); fputc('\n', stdout);
+                if (f) {
+                    ipv4_print(f, ipv4.get_value()); fputc('\n', stdout);
+                }
                 if (ipv4.get_value() == ipv4_addr.second) {
+                    if (f) {
+                        fprintf(f, "error: parsed ipv4 address string does not match reference value\n");
+                    }
                     return false;
                 }
             } else {
@@ -476,6 +482,7 @@ public:
             { "1::", { 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
             { "::", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
             { "::ffff:162.62.97.147", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xa2, 0x3e, 0x61, 0x93 } },
+            { "fde7::1", { 0xfd, 0xe7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01  } },
         };
 
         for (const auto & ipv6_addr : ipv6_addr_examples) {
@@ -862,7 +869,7 @@ public:
     /// cases.  A normalized domain name maps a server identifier into
     /// the domain name hierarchy by leaving FQDNs unchanged and
     /// otherwise mapping the identifier into the special-use
-    /// subdomain `invalid` (RFC 6761), as follows:
+    /// subdomain `alt` (RFC 9476), as follows:
     ///
     ///    * IPv4 addresses are mapped to `address.alt`,
     ///
@@ -882,9 +889,11 @@ public:
             std::string a;
             if (detailed_output) {
                 ipv4_address addr = std::get<uint32_t>(host_id);
+                normalize(addr);
                 a += addr.get_dns_label();
             }
-            return a + "address.alt";
+            a += "address.alt";
+            return a;
         }
         if (std::holds_alternative<ipv6_array_t>(host_id)) {
 
@@ -892,9 +901,11 @@ public:
             if (detailed_output) {
                 ipv6_array_t addr = std::get<ipv6_array_t>(host_id);
                 ipv6_address tmp = get_ipv6_address(addr);
+                // normalize(tmp);
                 a += tmp.get_dns_label();
             }
-            return a + "address.alt";
+            a += "address.alt";
+            return a;
         }
 
         if (std::holds_alternative<std::monostate>(host_id)) {
@@ -945,6 +956,7 @@ public:
             { "ookla.mbspeed.net:8080", "ookla.mbspeed.net", 8080 },                // FQDN with port number
             { "10.124.145.64", "address.alt", {} },                                 // IPv4 address
             { "10.237.97.140:8443", "address.alt", 8443 },                          // IPv4 address with port number
+            { "192.168.1.91", "address.alt", {} },                                  // IPv4 address in private use range
             { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","address.alt", 10087 }, // IPv6 address with square braces and port number
             { "[2408:862e:ff:ff03:1b::]", "address.alt", {} },                      // IPv6 address with square braces
             { "[2001:b28:f23f:f005::a]:80", "address.alt", 80 },                    // IPv6 address with zero compression, square braces, and port number
@@ -960,16 +972,18 @@ public:
             { "localhost:443", "localhost", 443 },                                  // "localhost" with a port number
             { "www", "unqualified.alt", {} },                                       // unqualified domain name (not an FQDN)
             { "0000", "other.alt", {} },                                            // neither a name or address
-            { "", "other.alt", {} },                                                // neither a name or address
+            { "@#*%^$!", "other.alt", {} },                                         // neither a name or address
+            { "8.8.8.8.alt", "8.8.8.8.invalid.alt", {} },                           // invalid TLD
+            { "abc.def.8888", "other.alt", {} },                                    // TLD needs at least one alphabetic character
         };
 
         bool passed = true;
-        for (const auto & tc : test_cases) {
+        auto test = [&passed, f](test_case tc, detail detailed_output) {
             std::string in{tc.input};
             std::string out{tc.output};
             datum d = get_datum(in);
             server_identifier server_id{d};
-            std::string test = server_id.get_normalized_domain_name();
+            std::string test = server_id.get_normalized_domain_name(detailed_output);
             std::optional<uint16_t> p = server_id.get_port_number();
             if (test != out) {
                 if (f) {
@@ -990,12 +1004,59 @@ public:
                             tc.input, test.c_str());
                 }
             }
+        };
+        for (const auto & tc : test_cases) {
+            test(tc, detail::off);
+        }
+
+        std::vector<test_case> detailed_test_cases = {
+            { "173.37.145.84", "173-37-145-84.address.alt", {} },                   // IPv4 address
+            { "172.253.63.106:8443", "172-253-63-106.address.alt", 8443 },          // IPv4 address with port number
+            { "192.168.1.91", "10-0-0-1.address.alt", {} },                         // IPv4 address in private use range
+            { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","240e-390-38-1b00-211-32ff-fe78-d4ab.address.alt", 10087 }, // IPv6 address with square braces and port number
+            { "[2408:862e:ff:ff03:1b::]", "2408-862e-ff-ff03-1b--.address.alt", {} },                      // IPv6 address with square braces
+            { "[2001:b28:f23f:f005::a]:80", "2001-b28-f23f-f005--a.address.alt", 80 },                    // IPv6 address with zero compression, square braces, and port number
+            { "::ffff:162.62.97.147", "--ffff-162.62.97.147.address.alt", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
+            { "[::ffff:91.222.113.90]:5000", "--ffff-91.222.113.90address.alt", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
+            { "240d:c000:1010:1200::949b:1928:b134", "240d-c000-1010-1200--949b-1928-b134.address.alt", {} },           // IPv6 addr with zero compression
+            { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "240d-c000-2010-1a58-0-95fe-d8b7-5a8f.address.alt", {} },          // IPv6 addr without zero compression
+        };
+        for (const auto & tc : detailed_test_cases) {
+            test(tc, detail::on);
         }
 
         return passed;
     }
 
 };
+
+/// Given the input string `s` that is a textual representation of an
+/// ipv4 or ipv6 address, return the textual representation of the
+/// normalized address.  If `s` is not correctly formatted, or has
+/// trailing data, then the empty string is returned.
+///
+std::string normalize_ip_address(const std::string &s) {
+    datum d{(uint8_t *)s.data(), (uint8_t *)s.data() + s.length()};
+    if (lookahead<ipv4_address_string> addr_str{d}) {
+        d = addr_str.advance();
+        if (d.is_not_empty()) {
+            return "";  // error: trailing data after address
+        }
+        ipv4_address addr = addr_str.value.get_value();
+        normalize(addr);
+        return addr.get_string();
+    }
+    if (lookahead<ipv6_address_string> addr_str{d}) {
+        d = addr_str.advance();
+        if (d.is_not_empty()) {
+            return "";  // error: trailing data after address
+        }
+        ipv6_address addr = get_ipv6_address(addr_str.value.get_value_array());
+        normalize(addr);
+        return addr.get_string();
+    }
+    return "";  // error: s is neither an ipv4 nor an ipv6 address
+}
 
 
 // class watchlist implements a watchlist of host identifiers,

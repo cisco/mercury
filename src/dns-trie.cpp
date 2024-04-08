@@ -367,14 +367,40 @@ using namespace mercury_option;
 //
 int main(int argc, char *argv[]) {
 
-    assert(server_identifier::unit_test() == true);
+    std::string normalization_tests[] = {
+        "172.253.122.138",
+        "10.1.1.1",
+        "192.168.2.50",
+        "240e:390:38:1b00:211:32ff:fe78:d4ab",
+        "2408:862e:ff:ff03:1b::",
+        "2001:b28:f23f:f005::a",
+        "::ffff:162.62.97.147",
+        "::ffff:91.222.113.90"
+    };
+    for (const auto &addr: normalization_tests) {
+        std::string normed_addr = normalize_ip_address(addr);
+        printf("addr: %s\tnormed_addr: %s\n", addr.c_str(), normed_addr.c_str());
+    }
+
+    if (ipv4_address_string::unit_test(stdout) != true) {
+        fprintf(stderr, "error: ipv4_address_string::unit_test() failed\n");
+    }
+    if (ipv6_address_string::unit_test(stdout) != true) {
+        fprintf(stderr, "error: ipv6_address_string::unit_test() failed\n");
+    }
+    if (server_identifier::unit_test(stdout) != true) {
+        fprintf(stderr, "error: server_identifier::unit_test() failed\n");
+    }
+
+    return 0;
 
     if (true) {
         std::vector<server_identifier::test_case> test_cases = {
             { "ocsp.digicert.com", "ocsp.digicert.com", {} },                       // FQDN
             { "ookla.mbspeed.net:8080", "ookla.mbspeed.net", 8080 },                // FQDN with port number
-            { "10.124.145.64", "address.alt", {} },                                 // IPv4 address
-            { "10.237.97.140:8443", "address.alt", 8443 },                          // IPv4 address with port number
+            { "173.37.145.84", "address.alt", {} },                                 // IPv4 address
+            { "10.124.145.64", "address.alt", {} },                                 // IPv4 address in private use range
+            { "10.237.97.140:8443", "address.alt", 8443 },                          // IPv4 address (in private use range) with port number
             { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","address.alt", 10087 }, // IPv6 address with square braces and port number
             { "[2408:862e:ff:ff03:1b::]", "address.alt", {} },                      // IPv6 address with square braces
             { "[2001:b28:f23f:f005::a]:80", "address.alt", 80 },                    // IPv6 address with zero compression, square braces, and port number
@@ -382,6 +408,7 @@ int main(int argc, char *argv[]) {
             { "[::ffff:91.222.113.90]:5000", "address.alt", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
             { "240d:c000:1010:1200::949b:1928:b134", "address.alt", {} },           // IPv6 addr with zero compression
             { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "address.alt", {} },          // IPv6 addr without zero compression
+            { "fde7::1", "address.alt", {} },                             // IPv6 addr unique local address
             { "*.tplinkcloud.com", "*.tplinkcloud.com", {} },                       // wildcard subdomain
             { "18.158.72.38.nip.io", "18.158.72.38.nip.io", {} },                   // subdomains look like dotted quad
             { " www.google.com", "www.google.com", {} },                            // leading  whitespace
