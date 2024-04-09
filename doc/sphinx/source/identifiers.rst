@@ -6,6 +6,33 @@
 Domain Names and Addresses
 ========================================
 
+Internet Protocol (IP) Addresses
+---------------------------------
+
+.. doxygenclass:: ipv4_address
+   :project: mercury
+   :members:
+
+.. doxygenstruct:: ipv6_address
+   :project: mercury
+   :members:
+
+.. doxygenclass:: ipv4_address_string
+   :project: mercury
+   :members:
+
+.. doxygenclass:: ipv6_address_string
+   :project: mercury
+   :members:
+
+.. doxygenfunction:: normalize_ip_address
+   :project: mercury
+
+.. doxygennamespace:: normalized
+   :project: mercury
+   :members:
+
+
 Host and Server Identifiers
 ----------------------------
 
