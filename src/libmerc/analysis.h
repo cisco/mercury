@@ -29,7 +29,6 @@
 #include <zlib.h>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
-#include "util_obj.h"
 #include "archive.h"
 #include "watchlist.hpp"
 

@@ -23,7 +23,6 @@
 #include <openssl/err.h>
 #include "tls.h"
 #include "json_object.h"
-#include "util_obj.h"
 #include "match.h"
 #include "crypto_engine.h"
 

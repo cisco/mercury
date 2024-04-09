@@ -888,6 +888,25 @@ struct datum {
 static_assert(sizeof(datum) == 2 * sizeof(uint8_t *));
 
 
+/// get_datum(std::string &s) returns a datum that corresponds to the
+/// std::string s.
+///
+static inline datum get_datum(const std::string &s) {
+    uint8_t *data = (uint8_t *)s.c_str();
+    return { data, data + s.length() };
+}
+
+/// get_datum(const char *c) returns a datum that corresponds to the
+/// null-terminated character string c.  The value c must not be
+/// nullptr, and must be null-terminated.
+///
+static inline datum get_datum(const char *c) {
+    uint8_t *data = (uint8_t *)c;
+    return { data, data + strlen(c) };
+}
+
+
+
 /// \class writeable
 ///
 /// tracks a contiguous region of memory to which data can be written sequentially

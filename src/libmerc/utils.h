@@ -88,5 +88,4 @@ void timer_start(struct timer *t);
 extern "C" LIBMERC_DLL_EXPORTED
 uint64_t timer_stop(struct timer *t);
 
-void sprintf_ipv6_addr(char *addr_str, const uint8_t *ipv6_addr);
 #endif /* UTILS_H */

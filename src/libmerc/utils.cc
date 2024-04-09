@@ -308,12 +308,3 @@ uint64_t timer_stop(struct timer *t) {
     return nano_sec;
 }
 
-#define MAX_ADDR_STR_LEN 48
-void sprintf_ipv6_addr(char *addr_str, const uint8_t *ipv6_addr) {
-    int trunc = 0;
-    int offset = 0;
-    int len;
-    len = append_ipv6_addr(addr_str, &offset, MAX_ADDR_STR_LEN, &trunc, ipv6_addr);
-    addr_str[len] = '\0';
-}
-

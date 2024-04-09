@@ -12,7 +12,6 @@
 #include "fingerprint.h"
 #include "match.h"
 #include "json_object.h"
-#include "util_obj.h"
 #include "tls.h"
 
 // DTLS (RFC 4347)
