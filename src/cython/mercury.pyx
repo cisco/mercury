@@ -107,6 +107,7 @@ cdef extern from "../libmerc/analysis.h":
 
 
 cdef extern from "../libmerc/watchlist.hpp":
+    string normalize_ip_address(const string &s)
     cdef cppclass server_identifier:
         server_identifier(string &s)
         enum detail:
@@ -138,6 +139,17 @@ cdef class server_identifier_py:
 def get_normalized_domain_name(str domain_name, bool detailed_output=True):
     si = server_identifier_py(domain_name)
     return si.get_normalized_domain_name(detailed_output)
+
+
+# get_normalized_ip_address
+#  Input: ip_address - python str representing a ipv4/6 address
+#  Output: normalized IP address mapping private IPs to the lowest possible private IP,
+#          returns empty string on error
+def get_normalized_ip_address(str ip_address):
+    normalized_ip_address = normalize_ip_address(ip_address.encode('utf-8')).decode('utf-8')
+    if normalized_ip_address == "":
+        print(f"error: normalize_ip_address() returned empty string for {ip_address}")
+    return normalized_ip_address
 
 
 fp_status_dict = {

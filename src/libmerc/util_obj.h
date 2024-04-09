@@ -9,6 +9,7 @@
 #ifndef UTIL_OBJ_H
 #define UTIL_OBJ_H
 
+#include <algorithm>
 #include "datum.h"
 #include "buffer_stream.h"
 #include "utils.h"

@@ -1035,7 +1035,7 @@ public:
 /// normalized address.  If `s` is not correctly formatted, or has
 /// trailing data, then the empty string is returned.
 ///
-std::string normalize_ip_address(const std::string &s) {
+inline std::string normalize_ip_address(const std::string &s) {
     datum d{(uint8_t *)s.data(), (uint8_t *)s.data() + s.length()};
     if (lookahead<ipv4_address_string> addr_str{d}) {
         d = addr_str.advance();
