@@ -4,9 +4,14 @@
 #define IP_ADDRESS_HPP
 
 #include <algorithm>
+#include <tuple>
 #include "datum.h"
 #include "lex.h"
 
+/// an IP version four address in network byte order.  This class
+/// represents a raw (binary) address; to parse a textual
+/// representation of an IPv4 address, use \ref ipv4_address_string.
+///
 class ipv4_address {
     encoded<uint32_t> value;
 
@@ -20,6 +25,9 @@ public:
         b.write_ipv4_addr((uint8_t *)&tmp);
     }
 
+    /// returns a `std::string` with the DNS label containing the
+    /// normalized textual representation of this address
+    ///
     std::string get_dns_label() const {
         std::string a;
         a += std::to_string(value       & 0xff);
@@ -33,6 +41,9 @@ public:
         return a;
     }
 
+    /// returns a `std::string` containing the textual representation of
+    /// this address
+    ///
     std::string get_string() const {
         std::string a;
         a += std::to_string(value       & 0xff);
@@ -158,34 +169,30 @@ bool ipv4_address::unit_test(FILE *output) {  // output=nullptr by default
     return all_passed;
 }
 
+/// an IP version six address in network byte order.  This class
+/// represents a raw (binary) address; to parse a textual
+/// representation of an IPv6 address, use \ref ipv6_address_string.
+///
 struct ipv6_address {
     uint32_t a[4];
 
 public:
 
-    // ipv6_address(uint32_t w, uint32_t x, uint32_t y, uint32_t z) {
-    //     a[0] = w;
-    //     a[1] = x;
-    //     a[2] = y;
-    //     a[3] = z;
-    // }
-    //
-    // ipv6_address(uint32_t in[4]) {
-    //     memcpy(a, in, sizeof(a));
-    // }
-    //
-    // ipv6_address(const std::array<uint8_t, 16> &init) {
-    //     //     memcpy(tmp, addr.data(), sizeof(tmp));
-    // }
-
+    /// returns true if and only if this address equals `rhs`
+    ///
     bool operator==(const ipv6_address &rhs) const {
         return a[0] == rhs.a[0] && a[1] == rhs.a[1] && a[2] == rhs.a[2] && a[3] == rhs.a[3];
     }
 
+    /// writes the textual representation of this address into `buf`
+    ///
     void fingerprint(struct buffer_stream &buf) const {
         buf.write_ipv6_addr((uint8_t *)&a);
     }
 
+    /// returns a `std::string` with the DNS label containing the
+    /// normalized textual representation of this address
+    ///
     std::string get_dns_label() const {
 
         output_buffer<48> ipv6_addr_buffer;
@@ -196,6 +203,9 @@ public:
         return out;
     }
 
+    /// returns a `std::string` containing the textual representation
+    /// of this address
+    ///
     std::string get_string() const {
 
         output_buffer<48> ipv6_addr_buffer;
@@ -252,6 +262,8 @@ public:
     //
     // IPv4-Mapped IPv6 Addresses: 0000..............................0000|FFFF
 
+    /// represents the address type
+    ///
     enum ipv6_addr_type {
         global_unicast,
         unique_local_unicast,
@@ -296,6 +308,9 @@ inline bool ipv6_address::unit_test() {
     return true;   // tests passed
 }
 
+
+/// convert an array of `uint8_t`s into an ipv6_address
+///
 inline ipv6_address get_ipv6_address(const std::array<uint8_t, 16> &in) {
     const uint8_t *raw = in.data();
     ipv6_address out;
@@ -385,6 +400,10 @@ static inline void ipv4_print(FILE *f, uint32_t addr) {
 
 using ipv4_t = uint32_t;
 
+/// a textual representation of an IP version four address (that is, a
+/// "dotted quad").  To parse a raw (binary) representation of an IPv4
+/// address, use \ref ipv4_address.
+///
 class ipv4_address_string {
     digits w;
     literal_byte<'.'> dot1;
@@ -583,6 +602,11 @@ using uint128_t = __uint128_t; // defined by GCC at least
 //    2001:DB8:0:0:8:800:200C:417A
 //    2001:DB8::8:800:200C:417A
 //
+
+/// a textual representation of an IP version six address.  To parse a
+/// raw (binary) representation of an IPv6 address, use \ref
+/// ipv6_address.
+///
 class ipv6_address_string {
     fixed_vector<uint16_t, 16> pieces;
     ssize_t double_colon_index = -1;

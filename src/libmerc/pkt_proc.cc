@@ -8,6 +8,7 @@
 #include <string.h>
 #include <variant>
 #include <set>
+#include <tuple>
 
 #include "libmerc.h"
 #include "pkt_proc.h"
