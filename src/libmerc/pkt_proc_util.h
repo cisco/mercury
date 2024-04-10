@@ -15,6 +15,7 @@
 #define PKT_PROC_UTIL_HPP
 
 #include "protocol.h"
+#include "flow_key.h"
 #include "dns.h"
 #include "mdns.h"
 #include "tls.h"

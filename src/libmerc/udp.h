@@ -10,6 +10,9 @@
 #ifndef UDP_H
 #define UDP_H
 
+#include "datum.h"
+#include "flow_key.h"
+
 //    UDP header (from RFC 768)
 //
 //                   0      7 8     15 16    23 24    31

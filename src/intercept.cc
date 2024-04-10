@@ -254,6 +254,7 @@ void print_flow_key(int fd) {
 
 #include "libmerc/json_object.h"
 #include "libmerc/pkt_proc.h"
+#include "libmerc/flow_key.h"
 #include "libmerc/proto_identify.h"
 #include <ctype.h>
 

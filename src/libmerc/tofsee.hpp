@@ -12,6 +12,7 @@
 #include "fingerprint.h"
 #include "result.h"
 #include "match.h"
+#include "flow_key.h"
 
 template <size_t bits, typename T>
 inline T rotl(T &x) {

@@ -14,6 +14,7 @@
 #define MDNS_H
 
 #include "dns.h"
+#include "flow_key.h"
 
 /*
  * Summary of mDNS (from RFC 6762)

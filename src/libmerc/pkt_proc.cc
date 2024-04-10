@@ -12,6 +12,7 @@
 
 #include "libmerc.h"
 #include "pkt_proc.h"
+#include "flow_key.h"
 #include "utils.h"
 
 // include files needed by stateful_pkt_proc; they provide the

@@ -13,6 +13,7 @@
 #include "analysis.h"
 #include "protocol.h"
 #include "tcpip.h"
+#include "flow_key.h"
 
 
 // class xtn represents a TLS extension
