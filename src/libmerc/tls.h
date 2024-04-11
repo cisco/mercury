@@ -349,19 +349,34 @@ struct tls_extensions : public datum {
         0xff, 0x2b, 0x00, 0x01, 0x02    // Private extension repeated fourth time
         };
 
-        unsigned char expected_json[] = "[(003e)(0a0a)(0a0a)(ff00)(ff00)(ff00)]";
+        /* In Format 1, extensions are degreased and no other encoding happens */
+        unsigned char expected_json_format1[] = "[(003f)(0a0a)(0a0a)(ff2b)(ff2b)(ff2b)(ff2b)]";
+
+        unsigned char expected_json_format2[] = "[(003e)(0a0a)(0a0a)(ff00)(ff00)(ff00)]";
+
         datum exts_data{extensions, extensions + sizeof(extensions)};
 
         tls_extensions exts{exts_data.data, exts_data.data_end};
 
-        char buffer[200];
-        struct buffer_stream buf(buffer, sizeof(buffer));
+        char buffer1[200];
+        struct buffer_stream buf1(buffer1, sizeof(buffer1));
 
-        exts.fingerprint_format2(buf, tls_role::client);
-        if (memcmp(expected_json, buf.dstr, sizeof(expected_json) - 1)) {
-            fprintf(stdout, "Test failed\n");
+        exts.fingerprint_quic_tls(buf1, tls_role::client);
+
+        if (memcmp(expected_json_format1, buf1.dstr, sizeof(expected_json_format1) - 1)) {
+            fprintf(stdout, "Test for fingerprint format1 failed\n");
             return false;
         }
+
+        char buffer2[200];
+        struct buffer_stream buf2(buffer2, sizeof(buffer2));
+
+        exts.fingerprint_format2(buf2, tls_role::client);
+        if (memcmp(expected_json_format2, buf2.dstr, sizeof(expected_json_format2) - 1)) {
+            fprintf(stdout, "Test for Fingerprint format 2 failed\n");
+            return false;
+        }
+
         return true;
 
     }
