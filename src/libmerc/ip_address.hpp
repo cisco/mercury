@@ -199,7 +199,7 @@ public:
         this->fingerprint(ipv6_addr_buffer);
         std::string out{ipv6_addr_buffer.data(), ipv6_addr_buffer.content_size()};
         std::replace(out.begin(), out.end(), ':', '-');
-        out.back() = '.';
+        out += '.';
         return out;
     }
 
@@ -645,7 +645,11 @@ public:
 
                             // v4_addr.print(stdout); fputc('\n', stdout);
 
-                            if (sprintf(v4_addr_hex, "%08x", v4_addr.get_value()) != 8) {
+                            // TODO: the following ipv4-string to
+                            // uint16_t hex digits conversion could be
+                            // simplified
+
+                            if (sprintf(v4_addr_hex, "%08x", ntoh(v4_addr.get_value())) != 8) {
                                 d.set_null();
                                 return; // error; could not create hex representation of v4 addr
                             }
@@ -859,6 +863,29 @@ public:
                     }
                     return false;
                 }
+            } else {
+                fprintf(f, "error: ipv6 address string is invalid\n");
+                return false;
+            }
+        }
+
+        // round-trip test (string to address to string)
+        //
+        for (const auto & ipv6_addr : ipv6_addr_examples) {
+            if (f) {
+                fprintf(f, "parsing ipv6 string '%s':\t", ipv6_addr.first);
+            }
+            datum tmp = get_datum(ipv6_addr.first);
+            ipv6_address_string addr_string{tmp};
+            if (addr_string.is_valid()) {
+                if (f) {
+                    addr_string.print(f);
+                }
+                ipv6_address addr = get_ipv6_address(addr_string.get_value_array());
+                if (f) {
+                    fprintf(f, "error: parsed ipv6 address string does not match reference value\n");
+                }
+
             } else {
                 fprintf(f, "error: ipv6 address string is invalid\n");
                 return false;

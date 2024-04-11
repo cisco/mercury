@@ -5,7 +5,6 @@
 #include <fstream>
 
 #include "fpdb_reader.hpp"
-//#include "libmerc/hostname.hpp"
 
 #include "options.h"
 

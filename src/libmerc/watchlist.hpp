@@ -521,8 +521,8 @@ public:
             { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","240e-390-38-1b00-211-32ff-fe78-d4ab.address.alt", 10087 }, // IPv6 address with square braces and port number
             { "[2408:862e:ff:ff03:1b::]", "2408-862e-ff-ff03-1b--.address.alt", {} },                      // IPv6 address with square braces
             { "[2001:b28:f23f:f005::a]:80", "2001-b28-f23f-f005--a.address.alt", 80 },                    // IPv6 address with zero compression, square braces, and port number
-            { "::ffff:162.62.97.147", "--ffff-162.62.97.147.address.alt", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
-            { "[::ffff:91.222.113.90]:5000", "--ffff-91.222.113.90address.alt", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
+            { "::ffff:162.62.97.147", "--ffff-a23e-6193.address.alt", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
+            { "[::ffff:91.222.113.90]:5000", "--ffff-5bde-715a.address.alt", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
             { "240d:c000:1010:1200::949b:1928:b134", "240d-c000-1010-1200--949b-1928-b134.address.alt", {} },           // IPv6 addr with zero compression
             { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "240d-c000-2010-1a58-0-95fe-d8b7-5a8f.address.alt", {} },          // IPv6 addr without zero compression
         };
