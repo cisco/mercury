@@ -1,10 +1,25 @@
 # configure.ac for mercury
 #
 AC_CONFIG_MACRO_DIR([m4])
-AC_INIT([mercury], 1.0)
+AC_INIT([mercury],[1.0])
 AC_USE_SYSTEM_EXTENSIONS
 #AC_PROG_CC
 AC_PROG_CXX
+AC_CANONICAL_HOST
+# Update lib and include paths for Apple Silicon
+case $host_os in
+    darwin* )
+        AC_SUBST(IS_MACOS,yes)
+        if [[ $(uname -m) == 'arm64' ]]; then
+            CFLAGS="$CFLAGS -I/opt/homebrew/include -I/opt/local/include"
+            CXXFLAGS="$CXXFLAGS -I/opt/homebrew/include -I/opt/local/include"
+            LDFLAGS="$LDFLAGS -L/opt/homebrew/lib -L/opt/local/lib"
+            AC_MSG_WARN([Configuring for Apple Silicon])
+            AC_SUBST(IS_MACOS_ARM,yes)
+        fi
+        ;;
+
+esac
 AX_CHECK_COMPILE_FLAG([-fno-gnu-unique], [AC_SUBST([USE_NO_GNU_UNIQUE],yes)], [AC_SUBST([USE_NO_GNU_UNIQUE],no)] , [-Werror])
 AX_CHECK_COMPILE_FLAG([-fsanitize=address], [AC_SUBST([USE_FSANITIZE],yes)], [AC_SUBST([USE_FSANITIZE],no)] , [-Werror])
 AC_CHECK_HEADERS([linux/if_packet.h])
@@ -28,7 +43,7 @@ AC_CHECK_TYPES([ptrdiff_t])
 AC_FUNC_MALLOC 
 AC_FUNC_MMAP 
 #AC_FUNC_STRNLEN 
-AC_PREREQ 
+AC_PREREQ
 #AC_PROG_INSTALL 
 #AC_PROG_MAKE_SET 
 AC_TYPE_INT32_T 
@@ -42,8 +57,8 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T 
 AC_TYPE_UINT8_T
 AC_CHECK_PROGS(PY, python3 python python2)
-AC_CHECK_HEADERS(zlib.h, [], [AC_ERROR([A working zlib is required])])
-AC_SEARCH_LIBS(deflate, z, [], [AC_ERROR([A working zlib is required])])
+AC_CHECK_HEADERS(zlib.h, [], [AC_MSG_ERROR(A working zlib is required)])
+AC_SEARCH_LIBS(deflate, z, [], [AC_MSG_ERROR(A working zlib is required)])
 AC_SEARCH_LIBS(HMAC_CTX_new, crypto, [AC_SUBST([OPENSSL_NEWER],yes)], [AC_SUBST([OPENSSL_NEWER],no)])
 AC_CHECK_PROG(PYTHON3,python3,yes)
 AS_IF([test "x$PYTHON3" = xyes],

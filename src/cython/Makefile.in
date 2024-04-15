@@ -2,9 +2,16 @@
 #
 
 openssl_newer = @OPENSSL_NEWER@
+is_macos_arm = @IS_MACOS_ARM@
 
 ifeq ($(openssl_newer),yes)
 	FLAGS = -DSSLNEW
+endif
+
+ifeq ($(is_macos_arm),yes)
+CFLAGS = -I/opt/homebrew/include ${CLFAGS}
+CXXFLAGS = -I/opt/homebrew/include ${CXXFLAGS}
+LDFLAGS += -L/opt/homebrew/lib ${LDFLAGS}
 endif
 
 UNAME := $(shell uname -s)
