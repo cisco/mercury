@@ -1664,7 +1664,7 @@ public:
 
     ignore(datum &d, bool little_endian=false) {
         (void)little_endian;
-        T tmp{d};
+        T{d};
     }
 
     ignore() { }
