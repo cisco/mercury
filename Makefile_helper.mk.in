@@ -26,6 +26,15 @@ use_fsanitize = @USE_FSANITIZE@
 #
 openssl_newer = @OPENSSL_NEWER@
 
+# The variable is_macos controls certain options specfic for MacOS
+#
+is_macos = @IS_MACOS@
+
+# The variable is_macos_arm controls compiler flags for additional include and lib paths
+# for Apple Silicon, specifically the homebrew specific paths
+#
+is_macos_arm = @IS_MACOS_ARM@
+
 CXX     = @CXX@
 CC      = @CC@
 CFLAGS  = --std=c++17

@@ -5,6 +5,21 @@ AC_INIT([mercury], 1.0)
 AC_USE_SYSTEM_EXTENSIONS
 #AC_PROG_CC
 AC_PROG_CXX
+AC_CANONICAL_HOST
+# Update lib and include paths for Apple Silicon
+case $host_os in
+    darwin* )
+        AC_SUBST(IS_MACOS,yes)
+        if [[ $(uname -m) == 'arm64' ]]; then
+            CFLAGS="$CFLAGS -I/opt/homebrew/include -I/opt/local/include"
+            CXXFLAGS="$CXXFLAGS -I/opt/homebrew/include -I/opt/local/include"
+            LDFLAGS="$LDFLAGS -L/opt/homebrew/lib -L/opt/local/lib"
+            AC_MSG_WARN([Configuring for Apple Silicon])
+            AC_SUBST(IS_MACOS_ARM,yes)
+        fi
+        ;;
+
+esac
 AX_CHECK_COMPILE_FLAG([-fno-gnu-unique], [AC_SUBST([USE_NO_GNU_UNIQUE],yes)], [AC_SUBST([USE_NO_GNU_UNIQUE],no)] , [-Werror])
 AX_CHECK_COMPILE_FLAG([-fsanitize=address], [AC_SUBST([USE_FSANITIZE],yes)], [AC_SUBST([USE_FSANITIZE],no)] , [-Werror])
 AC_CHECK_HEADERS([linux/if_packet.h])

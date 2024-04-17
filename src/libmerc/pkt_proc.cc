@@ -157,6 +157,12 @@ struct do_observation {
         mq_->push(ev_str.construct_event_string());
     }
 
+    void operator()(tofsee_initial_message &) {
+        // create event and send it to the data/stats aggregator
+        event_string ev_str{k_, analysis_};
+        mq_->push(ev_str.construct_event_string());
+    }
+
     void operator()(http_request &) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_};

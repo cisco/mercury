@@ -10,6 +10,12 @@ ifeq ($(openssl_newer),yes)
 CFLAGS += -DSSLNEW
 endif
 
+ifeq ($(is_macos_arm),yes)
+CFLAGS = -I/opt/homebrew/include ${CLFAGS}
+CXXFLAGS = -I/opt/homebrew/include ${CXXFLAGS}
+LDFLAGS += -L/opt/homebrew/lib ${LDFLAGS}
+endif
+
 CFLAGS += -UNDEBUG
 
 export LD_LIBRARY_PATH =../src/libmerc
@@ -120,9 +126,9 @@ clean:
 	rm -rf pdu_verifier
 	rm -rf *.json.gz
 	rm -rf $(LIBMERC_DEBUG_FOLDER)
-	find -type f -name "*.gcno" -delete
-	find -type f -name "*.gcda" -delete
-	find -type f -name "*.gcov" -delete
+	find . -type f -name "*.gcno" -delete
+	find . -type f -name "*.gcda" -delete
+	find . -type f -name "*.gcov" -delete
 	cd ../src; $(MAKE) clean
 
 # EOF

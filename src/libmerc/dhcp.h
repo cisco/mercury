@@ -361,7 +361,7 @@ struct dhcp_option : public datum {
                 }
                 if (hwtype == 1) { // Ethernet
                     json_client_id.print_key_hex("address", *this);
-                    size_t oui = 0;
+                    uint64_t oui = 0;
                     lookahead_uint(3, &oui);
                     json_client_id.print_key_string("oui", oui::get_string(oui));
                 } else if (hwtype == 255) {
@@ -415,7 +415,7 @@ struct dhcp_option : public datum {
                 datum::read_uint8(&hwtype);
                 json_opt.print_key_uint("hwtype", hwtype);
                 json_opt.print_key_hex("client_id", *this);
-                size_t oui = 0;
+                uint64_t oui = 0;
                 lookahead_uint(3, &oui);
                 json_opt.print_key_string("oui", oui::get_string(oui));
             }
