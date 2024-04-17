@@ -3,7 +3,7 @@
 ## Version 2.5.27
 
 * Changes to enable native builds on MacOS for both Intel and Apple Silicon.
-* Fixes and extensions to fuzz testing, and additions so that the `fuzz-test` target in [test/Makefile.in](test/Makefile.in) can be used by Jenkins.
+* Fixes and extensions to fuzz testing, and additions so that the `fuzz-test` target in [test/Makefile.in](../test/Makefile.in) can be used by Jenkins.
 * Tofsee fingerprints are now reported through the `stats` output.
 * The `tls/2` and `quic/1` fingerprints were revamped to include the QUIC extension ffa5.
 * GREASE normalization for `tls/1` was fixed.
