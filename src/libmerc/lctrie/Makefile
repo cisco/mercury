@@ -12,8 +12,8 @@ clean:
 	rm -f lctrie_test
 	rm -f liblctrie.a
 
-CFLAGS = -g -ggdb -std=c++17 -Wall -O3 -fPIC # -Wno-sign-compare
-LDFLAGS = -g -ggdb -O3
+CFLAGS = -g -ggdb -std=c++17 -Wall -O3 -fPIC -I/opt/homebrew/include# -Wno-sign-compare
+LDFLAGS = -g -ggdb -O3 -L/opt/homebrew/lib
 LDLIBS =
 
 # autodep stuff

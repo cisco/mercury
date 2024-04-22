@@ -308,6 +308,8 @@ enum class tls_role { client, server };
 
 struct tls_extensions : public datum {
 
+    static constexpr uint16_t max_repeat_extensions = 3;
+
     tls_extensions() = default;
 
     tls_extensions(const uint8_t *data, const uint8_t *data_end) : datum{data, data_end} {}
@@ -323,16 +325,63 @@ struct tls_extensions : public datum {
     void print_session_ticket(struct json_object &o, const char *key) const;
 
     void fingerprint_quic_tls(struct buffer_stream &b, enum tls_role role) const;
+    void fingerprint_format2(struct buffer_stream &b, enum tls_role role) const;
+
     void set_meta_data(datum &server_name,
                        datum &user_agent,
                        datum& alpn) const;
 
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
 
+    void write_raw_features(writeable &buf) const;
+ 
     datum get_supported_groups() const;
 
-};
+#ifndef NDEBUG
+    static bool unit_test() {
+        uint8_t extensions[] = {
+        0x00, 0x3f, 0x00, 0x01, 0x01,   //check if unassigned extension is encoded correctly
+        0xff, 0x2b, 0x00, 0x01, 0x01,   //check if private extensions is encoded correctly
+        0x1a, 0x1a, 0x00, 0x00,         //Grease extension 1
+        0x2a, 0x2a, 0x00, 0x00,         //Grease extension 2
+        0xff, 0x2b, 0x00, 0x01, 0x02,   // Private extension repeated second time
+        0xff, 0x2b, 0x00, 0x01, 0x02,   // Private extension repeated third time
+        0xff, 0x2b, 0x00, 0x01, 0x02    // Private extension repeated fourth time
+        };
 
+        /* In Format 1, extensions are degreased and no other encoding happens */
+        unsigned char expected_json_format1[] = "[(003f)(0a0a)(0a0a)(ff2b)(ff2b)(ff2b)(ff2b)]";
+
+        unsigned char expected_json_format2[] = "[(003e)(0a0a)(0a0a)(ff00)(ff00)(ff00)]";
+
+        datum exts_data{extensions, extensions + sizeof(extensions)};
+
+        tls_extensions exts{exts_data.data, exts_data.data_end};
+
+        char buffer1[200];
+        struct buffer_stream buf1(buffer1, sizeof(buffer1));
+
+        exts.fingerprint_quic_tls(buf1, tls_role::client);
+
+        if (memcmp(expected_json_format1, buf1.dstr, sizeof(expected_json_format1) - 1)) {
+            fprintf(stdout, "Test for fingerprint format1 failed\n");
+            return false;
+        }
+
+        char buffer2[200];
+        struct buffer_stream buf2(buffer2, sizeof(buffer2));
+
+        exts.fingerprint_format2(buf2, tls_role::client);
+        if (memcmp(expected_json_format2, buf2.dstr, sizeof(expected_json_format2) - 1)) {
+            fprintf(stdout, "Test for Fingerprint format 2 failed\n");
+            return false;
+        }
+
+        return true;
+
+    }
+#endif //NDEBUG 
+};
 
 struct tls_client_hello : public base_protocol {
     struct datum protocol_version;
@@ -361,6 +410,8 @@ struct tls_client_hello : public base_protocol {
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
     void write_json(struct json_object &record, bool output_metadata) const;
+
+    void write_raw_features(writeable &buf) const;
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 

@@ -337,7 +337,6 @@ class gz_file {
     unsigned char file_buffer[512];
     std::string remaining_file_buffer; // this buffer is used to cache the extra characters read.
     ssize_t remaining_file_buffer_len;
-    ssize_t characters_to_read = 512;
     z_stream_s z = {};
     encrypted_file enc_file;
 
@@ -526,13 +525,15 @@ public:
         }
 
         ssize_t characters_read_in_this_iteration = 0;
+        ssize_t characters_to_read = 512;
+        char c[512+1];
         while (characters_read_in_this_iteration < read_len) {
 
             if (characters_to_read > read_len - characters_read_in_this_iteration) {
                 characters_to_read = read_len - characters_read_in_this_iteration;
             }
 
-            char c[characters_to_read+1] = "";
+            c[0] = '\0';
             ssize_t characters_read = read((uint8_t *)&c, characters_to_read);
             characters_read_in_this_iteration += characters_read;
             c[characters_to_read] = '\0';

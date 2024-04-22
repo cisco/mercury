@@ -213,7 +213,7 @@ namespace stun {
     //
     class channel_number {
         encoded<uint16_t> number;
-        ignore<uint16_t> rffu;
+        ignore<encoded<uint16_t>> rffu;
         bool valid;
 
     public:

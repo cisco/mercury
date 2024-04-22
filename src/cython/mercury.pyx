@@ -14,9 +14,9 @@ from posix.time cimport timespec
 
 ### BUILD INSTRUCTIONS
 # To build in-place:
-#   CC=g++ python setup.py build_ext --inplace
+#   CC=g++ CXX=g++ python setup.py build_ext --inplace
 # To build and install:
-#   CC=g++ python setup.py install
+#   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
 __version__ = '0.1.2'
@@ -422,7 +422,7 @@ def parse_dns(str b64_dns):
     cdef char* c_string_ref = dns_req
 
     # use mercury's dns parser to parse the DNS request
-    return json.loads(dns_get_json_string(c_string_ref, len_))
+    return json.loads(dns_get_json_string(c_string_ref, len_).decode())
 
 
 
@@ -451,7 +451,7 @@ def parse_cert(str b64_cert):
     x.parse(<const void*>c_string_ref, len_)
 
     # get JSON string and return JSON object
-    return json.loads(x.get_json_string())
+    return json.loads(x.get_json_string().decode())
 
 
 # get_cert_prefix
@@ -470,5 +470,3 @@ def get_cert_prefix(str b64_cert):
 
     # return hex string
     return x.get_hex_string()  # TBD: make it hex
-
-
