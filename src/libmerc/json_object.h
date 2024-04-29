@@ -295,7 +295,7 @@ struct json_array {
             return;
         }
         utf8_string s{d};
-        print_value(s);
+        print_key(s);
     }
     void print_base64(const uint8_t *data, size_t length) {
         write_comma(comma);
@@ -314,7 +314,7 @@ struct json_array {
         }
         b->write_char('\"');
     }
-    template <typename T> void print_key(T &w) {
+    template <typename T> void print_key(T &w) {   // shouldn't this be named print_value()?
         write_comma(comma);
         b->write_char('\"');
         w.fingerprint(*b);
