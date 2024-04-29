@@ -9,6 +9,7 @@
 
 #include "buffer_stream.h"
 #include "datum.h"
+#include "utf8.hpp"
 
 /*
  * json_object and json_array serialize JSON objects and arrays,
@@ -50,16 +51,16 @@ struct json_object {
     }
     void print_key_json_string(const char *k, const uint8_t *v, size_t length) {
         if (v) {
-            write_comma(comma);
-            b->json_string_escaped(k, v, length);
+            utf8_string s{v, v+length};
+            print_key_value(k, s);
         }
     }
     void print_key_json_string(const char *k, const struct datum &d) {
         if (d.is_not_readable()) {
             return;
         }
-        write_comma(comma);
-        b->json_string_escaped(k, d.data, d.length());
+        utf8_string s{d};
+        print_key_value(k, s);
     }
     void print_key_string(const char *k, const char *v) {
         write_comma(comma);

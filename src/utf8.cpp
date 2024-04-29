@@ -3,10 +3,6 @@
 // test driver for utf8 class
 
 #include <cstdio>
-#include <vector>
-#include <iostream>
-#include <codecvt>
-#include <locale>
 
 #include "libmerc/datum.h"
 #include "libmerc/json_object.h"

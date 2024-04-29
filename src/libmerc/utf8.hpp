@@ -3,6 +3,7 @@
 #ifndef UTF8_HPP
 #define UTF8_HPP
 
+#include "datum.h"
 #include <vector> // used for unit test cases
 
 class utf8_string : public datum {
@@ -11,16 +12,31 @@ public:
     // construct a utf8_string from a datum by copying its 'begin' and
     // 'end' locations
     //
-    utf8_string(datum &d) : datum{d} { }
+    utf8_string(const datum &d) : datum{d} { }
+    utf8_string(const uint8_t *d, const uint8_t *d_end) : datum{d, d_end} { }
 
-    // these private-usage codepoints are used to indicate invalid
-    // byte sequences
+
+    static const constexpr char *replacement_character   = "\\ufffd";
+#if true
+    //
+    // use the replacement character to represent invalid byte sequence
+    //
+    static const constexpr char *sequence_too_short      = replacement_character;
+    static const constexpr char *invalid_or_overlong     = replacement_character;
+    static const constexpr char *invalid_or_private      = replacement_character;
+    static const constexpr char *unexpected_continuation = replacement_character;
+    static const constexpr char *invalid_surrogate       = replacement_character;
+#else
+    //
+    // use a distinct private-usage codepoint for each type of invalid
+    // byte sequences, so that error types can be tracked
     //
     static const constexpr char *sequence_too_short      = "\\ue000";
     static const constexpr char *invalid_or_overlong     = "\\ue001";
     static const constexpr char *invalid_or_private      = "\\ue002";
     static const constexpr char *unexpected_continuation = "\\ue003";
     static const constexpr char *invalid_surrogate       = "\\ue004";
+#endif
 
     // write the len bytes at location data as a UTF-8 string with the
     // JSON special characters (quotation mark, reverse solidus,
@@ -92,20 +108,20 @@ public:
             return s_utf8.write(buf, s_utf8.data, s_utf8.length()) == valid;
         }
 
-        void fprint(FILE *f) const {
+        void fprint(FILE *) const {
             datum s_data{s_in.data(), s_in.data() + s_in.size()};
             utf8_string s_utf8{s_data};
 
-            char data[4096];
-            buffer_stream buf{data, sizeof(data)};
-            json_object record{&buf};
+            // char data[4096];
+            // buffer_stream buf{data, sizeof(data)};
+            // json_object record{&buf};
 
-            record.print_key_value("utf8", s_utf8);
-            record.print_key_hex("hex", s_utf8);
-            record.print_key_bool("valid", valid);
-            record.print_key_bool("passed", test());
-            record.close();
-            buf.write_line(stdout);
+            // record.print_key_value("utf8", s_utf8);
+            // record.print_key_hex("hex", s_utf8);
+            // record.print_key_bool("valid", valid);
+            // record.print_key_bool("passed", test());
+            // record.close();
+            // buf.write_line(f);
 
         }
 
