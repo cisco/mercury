@@ -294,9 +294,8 @@ struct json_array {
         if (d.is_not_readable()) {
             return;
         }
-        write_comma(comma);
-        b->json_string_escaped(d.data, d.length());
-
+        utf8_string s{d};
+        print_value(s);
     }
     void print_base64(const uint8_t *data, size_t length) {
         write_comma(comma);
