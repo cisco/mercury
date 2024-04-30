@@ -13,7 +13,7 @@
 #include "json_object.h"
 
 // tcp_segment_init contains initial info about the tcp session that
-// requires reassembly - initial data seq no., additional bytes 
+// requires reassembly - initial data seq no., additional bytes
 // needed and current data pkt len
 //
 struct tcp_segment_init {
