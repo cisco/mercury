@@ -185,6 +185,9 @@ batch_gcd: batch_gcd.cc
 cert_analyze: cert_analyze.cc libmerc/asn1.h
 	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1.cc libmerc/asn1/oid.cc -pthread $(LDFLAGS) -lcrypto -o cert_analyze
 
+cms: cms.cpp libmerc/asn1.h
+	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1.cc libmerc/asn1/oid.cc $(LDFLAGS) -lcrypto -o cms
+
 os_identifier: os_identifier.cc os-identification/os_identifier.h
 	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc -lz -o os_identifier
 
