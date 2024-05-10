@@ -303,7 +303,7 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
                            git_count,
                            init_time);
     gzclose(stats_data_file);
-
+    printf_err(log_debug, "stats dump completed\n");
     return true;
 }
 
