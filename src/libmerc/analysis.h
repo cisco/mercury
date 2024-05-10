@@ -758,6 +758,8 @@ class classifier {
     //
     common_data common;
 
+    uint32_t total_tofsee = 0, total_https = 0, total_quic = 0, total_tls = 0;
+
 public:
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
@@ -771,6 +773,18 @@ public:
             return fingerprint_type_tofsee;
         }
         return fingerprint_type_unknown;
+    }
+
+    void set_fingerprint_type_count(const std::string &fp_type) {
+        if (fp_type == "tls") {
+            total_tls++;
+        } else if (fp_type == "http") {
+            total_https++;
+        } else if (fp_type == "quic") {
+            total_quic++;
+        } else if (fp_type == "tofsee") {
+            total_tofsee++;
+        }
     }
 
     size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
@@ -866,6 +880,8 @@ public:
         if (fp.HasMember("fp_type") && fp["fp_type"].IsString()) {
             fp_type_string = fp["fp_type"].GetString();
             fp_type_code = get_fingerprint_type(fp_type_string.c_str());
+            set_fingerprint_type_count(fp_type_string.c_str());
+
         }
         if (fp_type_code != fingerprint_type_unknown) {
             if (std::find(fp_types.begin(), fp_types.end(), fp_type_code) == fp_types.end()) {
@@ -1144,7 +1160,8 @@ public:
                         process_fp_db_line(line_str, fp_proc_threshold, proc_dst_threshold, report_os);
                     }
                     got_fp_db = true;
-
+                    printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
+                    total_https, total_tls, total_quic, total_tofsee);
                 } else if (name == "VERSION") {
                     while (archive.getline(line_str)) {
                         resource_version += line_str;
