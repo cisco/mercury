@@ -276,6 +276,8 @@ struct tcp_initial_message_filter {
  *      tcp_segment.
  */
 
+
+#if 0
 struct tcp_seg_context {
     uint32_t data_length;
     uint32_t seq;
@@ -423,6 +425,7 @@ struct tcp_segment {
     }
 
 };
+#endif
 
 /* Comment reassembly pruning logic
 
@@ -554,6 +557,7 @@ End comment reassembly pruning logic */
 
 void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
 
+#if 0
 enum reassembly_status {
     reassembly_none = 0,
     reassembly_in_progress = 1,
@@ -702,6 +706,7 @@ struct tcp_reassembler {
         }
     }
 };
+#endif
 
 struct flow_table {
     std::unordered_map<struct key, unsigned int> table;
