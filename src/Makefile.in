@@ -179,11 +179,8 @@ batch_gcd: batch_gcd.cc
 cert_analyze: cert_analyze.cc libmerc/asn1.h
 	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1.cc libmerc/asn1/oid.cc -pthread -lcrypto -o cert_analyze
 
-dns-trie: dns-trie.cpp dns_trie.hpp markov.hpp fpdb_reader.hpp
+dns-trie: dns-trie.cpp dns_trie.hpp fpdb_reader.hpp
 	$(CXX) $(CFLAGS) dns-trie.cpp -o dns-trie
-
-markov: markov.cpp markov.hpp
-	$(CXX) $(CFLAGS) markov.cpp -o markov
 
 os_identifier: os_identifier.cc os-identification/os_identifier.h
 	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc -lz -o os_identifier
@@ -242,7 +239,7 @@ intercept.so: intercept.cc libmerc.a
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode pcap pcap_filter format intercept.so markov dns-trie gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode pcap pcap_filter format intercept.so dns-trie gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
