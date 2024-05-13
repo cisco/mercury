@@ -10,6 +10,7 @@
 #include "bencode.h"
 #include "snmp.h"
 #include "tofsee.hpp"
+#include "ip_address.hpp"
 
 /*
  * The unit_test() functions defined in header files
@@ -22,4 +23,5 @@ TEST_CASE("Testing unit_test() defined in class") {
     CHECK(snmp::unit_test() == true);
     CHECK(tofsee_initial_message::unit_test() == true);
     CHECK(tls_extensions::unit_test() == true);
+    CHECK(ipv6_address_string::unit_test() == true);
 }

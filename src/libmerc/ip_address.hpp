@@ -882,8 +882,12 @@ public:
                     addr_string.print(f);
                 }
                 ipv6_address addr = get_ipv6_address(addr_string.get_value_array());
-                if (f) {
-                    fprintf(f, "error: parsed ipv6 address string does not match reference value\n");
+                std::string addr_s = addr.get_string();
+                if (strcmp(addr_s.c_str(), ipv6_addr.first) != 0) {
+                    if (f) {
+                        fprintf(f, "error: parsed ipv6 address string does not match reference value\n");
+                        return false;
+                    }
                 }
 
             } else {
