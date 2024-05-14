@@ -132,23 +132,37 @@ cdef class server_identifier_py:
             return None
 
 
-# get_normalized_domain_name
-#  Input: domain_name - python str representing a domain name (Host/server_name/etc.)
-#         detailed_output - boolean to determine if more detail is kept for IP address domains
-#  Output: normalized domain name string
 def get_normalized_domain_name(str domain_name, bool detailed_output=True):
+    """returns a python str representing a host or server name,
+    normalized so that textual representations of IPv4 or IPv6 addresses
+    are mapped into an .alt pseudo-DNS namespace.
+
+    :param domain_name: python str representing a domain name (HTTP Host, TLS or QUIC Server Name)
+
+    :param detailed_output:  if true, the address literal is included in the normalized name
+
+    :returns: normalized name string
+    """
     si = server_identifier_py(domain_name)
     return si.get_normalized_domain_name(detailed_output)
 
 
-# get_normalized_ip_address
-#  Input: ip_address - python str representing a ipv4/6 address
-#  Output: normalized IP address mapping private IPs to the lowest possible private IP,
-#          returns empty string on error
 def get_normalized_ip_address(str ip_address):
+    """returns a python str representing an IPv4 or IPv6 address,
+    normalized by setting it to `10.0.0.1` if it is in the IPv4
+    private address range (RFC 1918), or setting it to `fd00::1` if it
+    is in the IPv6 unique local address range (RFC 4193).  The IPv4
+    private address ranges consist of the subnets `10.0.0.0/8`,
+    `172.16.0.0/12`, and `192.168.0.0/16`.  The IPv6 unique local
+    address range consists of the subnet `fd00::/8`.
+
+    :param ip_address: python str containing a textual representation of an IPv4 or IPv6 address
+
+    :returns: python str containing a normalized address string
+    """
     normalized_ip_address = normalize_ip_address(ip_address.encode('utf-8')).decode('utf-8')
     if normalized_ip_address == "":
-        print(f"error: normalize_ip_address() returned empty string for {ip_address}")
+        raise ValueError(f'Cannot normalize invalid IP address: {ip_address}')
     return normalized_ip_address
 
 
