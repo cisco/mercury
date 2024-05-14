@@ -35,6 +35,7 @@ have_afl        = @HAVE_AFL@
 have_clang      = @CLANGPP@
 
 BATCH_GCD = ../src/batch_gcd
+UNIT_TEST = ../src/unit_test
 
 # check dependancies to see if any tests need to be omitted
 #
@@ -81,8 +82,8 @@ BGCD_OUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-out)   # expected output
 BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
 BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
-.PHONY: all clean
-all: clean comp analysis cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
+.PHONY: all clean unit_test
+all: clean unit_test comp analysis cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
@@ -90,6 +91,11 @@ else
 	@echo $(COLOR_YELLOW) "warning: some tests could not be performed due to missing dependancies" $(COLOR_OFF)
 	@echo $(COLOR_YELLOW) "please install the missing packages mentioned above and re-run ./configure" $(COLOR_OFF)
 endif
+
+# run libmerc unit tests
+#
+unit_test:
+	$(UNIT_TEST)
 
 .PHONY: test_libmerc_so
 test_libmerc_so: libmerc_driver_tls_only libmerc_driver_multiprotocol # pdu_test

@@ -84,7 +84,7 @@ ifeq ($(openssl_newer),yes)
 CFLAGS += -DSSLNEW
 endif
 
-all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
+all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server unit_test # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
 # this so that it is present in e.g. Jenkins logs
@@ -99,11 +99,13 @@ compiler_version:
 #.PHONY: libmerc-and-mercury
 #libmerc-and-mercury: libmerc.a mercury # TODO: delete
 
-# implicit rules for building object files from .c and .cc files
+# implicit rules for building object files from .c, .cpp, and .cc files
 #
 %.o: %.c
 	$(CXX) $(CFLAGS) -c $<
 %.o: %.cc
+	$(CXX) $(CFLAGS) -c $<
+%.o: %.cpp
 	$(CXX) $(CFLAGS) -c $<
 
 # the target mercury rebuilds mercury, and is dependent on the actual
@@ -181,6 +183,9 @@ cert_analyze: cert_analyze.cc libmerc/asn1.h
 
 dns-trie: dns-trie.cpp dns_trie.hpp fpdb_reader.hpp
 	$(CXX) $(CFLAGS) dns-trie.cpp -o dns-trie
+
+unit_test: unit_test.cpp
+	$(CXX) $(CFLAGS) -UNDEBUG unit_test.cpp -o unit_test
 
 os_identifier: os_identifier.cc os-identification/os_identifier.h
 	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc -lz -o os_identifier
