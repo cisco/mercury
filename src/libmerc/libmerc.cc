@@ -47,6 +47,10 @@ void mercury_print_version_string(FILE *f) {
     mercury_version.print(f);
 }
 
+void mercury_print_git_commit(FILE *f) {
+    fprintf(f, "%s\n", git_commit_id);
+}
+
 void mercury_get_version_string(char *buf, size_t size) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print_version_string(buf, size);

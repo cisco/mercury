@@ -563,6 +563,20 @@ extern "C" LIBMERC_DLL_EXPORTED
 void mercury_print_version_string(FILE *f);
 
 /**
+ * @brief prints the git commit id
+ *
+ * Prints the git commit hash of mercury/libmerc to the FILE provided
+ * as input.
+ *
+ * @param [in] file to print git commit id on.
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+void mercury_print_git_commit(FILE *f);
+
+/**
  * @brief returns the mercury semantic version
  *
  * Returns the semantic version of mercury/libmerc as a uint32_t, in
