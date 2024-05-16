@@ -391,10 +391,6 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
 
-    // additional_reassembly_flag holds indication of truncation in case reassembly was not invoked
-    // 
-    //std::bitset<7> additional_reassembly_flag;
-
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler) {
         bool is_new = false;
@@ -461,7 +457,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_consumed) {
-        // TODO: cleanup state
+        // this will never happen
     }
     else {
         // this will never happen
@@ -480,136 +476,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         reassembler->set_completed(it);
         return true;
     }
-    
-    
 
-#if 0
-    reassembler->curr_reassembly_consumed = false;
-    reassembler->curr_reassembly_state = reassembly_none;
-    uint32_t syn_seq;
-    bool initial_seg = false;
-    bool expired = false;
-    bool in_reassembly = false;
-    struct tcp_seg_context seg_context(tcp_pkt.data_length, ntoh(tcp_pkt.header->seq), tcp_pkt.additional_bytes_needed);
-
-    if (!tcp_pkt.data_length) {
-        reassembler->dump_pkt = false;
-        return false;
-    }
-
-    // try to fetch the syn seq (seq for first data seg) for this flow
-    syn_seq = tcp_flow_table.check_flow(k, ts->tv_sec, ntoh(tcp_pkt.header->seq), initial_seg, expired);
-
-    if (syn_seq) {
-        // In flow table, can't be in reassembly_table
-        if (initial_seg) {
-            // initial seg, try parsing
-            datum pkt_copy{pkt};
-            set_tcp_protocol(x, pkt, true, &tcp_pkt);
-            if(!tcp_pkt.additional_bytes_needed) {
-                reassembler->dump_pkt = false;
-                reassembler->curr_reassembly_state = reassembly_none;
-                return true;
-            }
-            
-            //reassembly required, add to reassembly table
-            seg_context.additional_bytes_needed = tcp_pkt.additional_bytes_needed;
-            reassembler->init_segment(k, ts->tv_sec, seg_context, syn_seq, pkt_copy);
-            //write_pkt = true;
-            reassembler->dump_pkt = true;
-            reassembler->curr_reassembly_state = reassembly_in_progress;
-            return true;
-        }
-        else {
-            // non initial seg
-            // call set_tcp_protocol in case there is something worth fingerpriting
-            set_tcp_protocol(x, pkt, false, &tcp_pkt);
-            if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<unknown_initial_packet>(x) || std::holds_alternative<std::monostate>(x)) ) {
-                reassembler->curr_reassembly_state = reassembly_none;
-                reassembler->dump_pkt = false;
-                return true;
-            }
-            reassembler->init_segment(k, ts->tv_sec, seg_context, syn_seq, pkt);
-            // write_pkt = false; for out of order pkts, write to pcap file only after initial seg is known
-            reassembler->dump_pkt = false;
-            reassembler->curr_reassembly_state = reassembly_in_progress;
-            return true;
-        }
-    }
-    else {
-        // check in reassembly_table
-        //if initial segment, update additional bytes needed
-        //
-        bool is_init_seg = false;
-        datum pkt_copy{pkt};
-        is_init_seg = reassembler->is_init_seg(k, seg_context.seq);
-        if (is_init_seg) {
-            set_tcp_protocol(x, pkt, true, &tcp_pkt);
-            if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<unknown_initial_packet>(x) || std::holds_alternative<std::monostate>(x)) ) {
-                reassembler->curr_reassembly_state = reassembly_none;
-                reassembler->dump_pkt = false;
-                reassembler->remove_segment(k);
-                return true;
-            }
-            else {
-                seg_context.additional_bytes_needed = tcp_pkt.additional_bytes_needed;
-            }
-        }
-        else {
-            set_tcp_protocol(x, pkt, false, &tcp_pkt);
-            if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<unknown_initial_packet>(x) || std::holds_alternative<std::monostate>(x)) ) {
-                reassembler->curr_reassembly_state = reassembly_none;
-                reassembler->dump_pkt = false;
-                reassembler->remove_segment(k);
-                return true;
-            } 
-        }
-
-        bool reassembly_consumed = false;
-        struct tcp_segment *seg = reassembler->check_packet(k, ts->tv_sec, seg_context, pkt_copy, reassembly_consumed);
-        if (reassembly_consumed) {
-            // reassmebled data already consumed for this flow
-            reassembler->remove_segment(k);
-            reassembler->dump_pkt = false;
-            reassembler->curr_reassembly_state = reassembly_done;
-            return false;
-        }
-        if (seg) {
-            in_reassembly = true;
-            
-            if (seg->total_bytes_needed) {
-                reassembler->dump_pkt = true;
-            }
-            
-            if(seg->done) {
-                struct datum reassembled_data = seg->get_reassembled_segment();
-                set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
-                reassembler->dump_pkt = false;
-                reassembler->curr_reassembly_consumed = true;
-                reassembler->curr_reassembly_state = reassembly_done;
-                return true;
-            }
-
-            reassembler->curr_reassembly_state = reassembly_in_progress;
-        }
-
-        if (!in_reassembly && tcp_pkt.additional_bytes_needed) {
-            reassembler->curr_reassembly_state = truncated;
-        }
-        return true;
-    }
-
-    if (!syn_seq && !in_reassembly) {
-        // data pkt without syn, try to process as new data pkt
-        // TODO: add to table to prevent processing again
-        set_tcp_protocol(x, pkt, false, &tcp_pkt);
-        reassembler->dump_pkt = false;
-        reassembler->curr_reassembly_state = reassembly_none;
-        return true;
-    }
-
-    return false;
-#endif
 }
 
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
@@ -763,10 +630,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         else if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
             reassembler->write_json(record);
-            // if (reassembler->curr_reassembly_consumed == true) {
-            //     reassembler->remove_segment(reassembler->reap_it);
-            //     reassembler->curr_reassembly_consumed = false;
-            // }
         }
 
         write_flow_key(record, k);
