@@ -92,10 +92,13 @@ public:
 
         // remove format version identifier, if need be
         //
+        fprintf(stderr, "searching for / in %s\n", s.c_str());
         size_t first_slash = s.find_first_of('/');
-        size_t second_slash = s.find_first_of('/', first_slash+1);
-        if (second_slash != std::string::npos) {
-            s.erase(first_slash, second_slash - first_slash);
+        if (first_slash != std::string::npos) {
+            size_t second_slash = s.find_first_of('/', first_slash+1);
+            if (second_slash != std::string::npos) {
+                s.erase(first_slash, second_slash - first_slash);
+            }
         }
 
         version = parse_value_from_str(&c);
