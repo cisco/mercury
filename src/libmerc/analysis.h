@@ -1171,6 +1171,14 @@ public:
         }
 
         subnets.process_final();
+
+        // verify that we found each of the required input files in
+        // the resourece archive, and throw an error otherwise
+        //
+        if (!got_fp_db | !got_fp_prevalence | !got_version | !got_doh_watchlist) {
+            throw std::runtime_error("error: resource archive is missing one or more files");
+        }
+
     }
 
 #if 0
