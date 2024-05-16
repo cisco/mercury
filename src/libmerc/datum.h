@@ -888,17 +888,27 @@ struct datum {
 static_assert(sizeof(datum) == 2 * sizeof(uint8_t *));
 
 
-/// get_datum(std::string &s) returns a datum that corresponds to the
-/// std::string s.
+/// returns a datum that corresponds to the `std::string s`.
+///
+/// \note A \ref datum indicates a sequence of bytes in memory, but
+/// does not own that data.  Any changes to `s` will change the
+/// sequence of bytes to which the `datum` corresponds.  Additionally,
+/// if `s` goes out of scope, then the `datum` will become invalid.
 ///
 static inline datum get_datum(const std::string &s) {
     uint8_t *data = (uint8_t *)s.c_str();
     return { data, data + s.length() };
 }
 
-/// get_datum(const char *c) returns a datum that corresponds to the
-/// null-terminated character string c.  The value c must not be
-/// nullptr, and must be null-terminated.
+/// returns a datum that corresponds to the null-terminated character
+/// string `c`.  The value of `c` must not be `nullptr`, and the
+/// sequence of bytes pointed to by `c` must be null-terminated.
+///
+/// \note A \ref datum indicates a sequence of bytes in memory, but
+/// does not own that data.  Any changes to `c`, or the sequence of
+/// bytes it points to, will change the sequence of bytes to which the
+/// `datum` corresponds.  Additionally, if `c` goes out of scope, then
+/// the `datum` will become invalid.
 ///
 static inline datum get_datum(const char *c) {
     uint8_t *data = (uint8_t *)c;
