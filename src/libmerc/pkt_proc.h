@@ -24,6 +24,7 @@
 #include "perfect_hash.h"
 #include "crypto_assess.h"
 #include "pkt_proc_util.h"
+#include "reassembly.hpp"
 
 /**
  * enum linktype is a 16-bit enumeration that identifies a protocol

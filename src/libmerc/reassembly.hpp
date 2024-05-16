@@ -1,5 +1,5 @@
 /*
- * tcp.h
+ * reassembly.hpp
  *
  * Copyright (c) 2024 Cisco Systems, Inc. All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
@@ -33,13 +33,23 @@ struct tcp_segment {
 // reassembly_flags denotes special conditions that occur during reassembly
 // terminal conditions results in immediate reassembly closure
 enum class reassembly_flags : uint8_t {
-    missing_syn = 0,
-    missing_mid_segment = 1,
-    timeout = 2,        // terminal condition
-    ooo = 3,
-    out_of_buffer = 4,  // terminal condition
-    max_seg_exceed = 5, // terminal condition
-    segment_overlap = 6,
+    missing_mid_segment = 0,    // reason of truncation
+    timeout = 1,        // terminal condition, reason of truncation
+    ooo = 2,
+    out_of_buffer = 3,  // terminal condition, reason of trncation
+    max_seg_exceed = 4, // terminal condition, reason of truncation
+    segment_overlap = 5,
+    truncated = 6
+};
+
+static constexpr char* reassembly_flag_str[] = {
+    "missing_segment",
+    "timeout",
+    "out_of_order",
+    "out_of_buffer",
+    "max_segments_exceed",
+    "segment_overlaps",
+    "truncated"
 };
 
 // reassembly_state tracks the current state of the flow
@@ -48,8 +58,8 @@ enum class reassembly_state : uint8_t {
     reassembly_none = 0,        // no reassembly {requried/in progress}
     reassembly_progress = 1,    // reassembly in progress 
     reassembly_success = 2,     // reassembly success
-    reassembly_truncated = 3,   // reassembly failed, output truncated
-    reassembly_consumed = 4,    // reassembly data consumed, either success or truncated
+    reassembly_truncated = 3,   // reassembly failed, output truncated, either max segments or timeout
+    reassembly_consumed = 4,    // reassembly data already consumed, either success or truncated
 };
 
 static constexpr unsigned int reassembly_timeout = 15; 
@@ -101,16 +111,37 @@ struct tcp_reassembly_flow_context {
     void update_contiguous_data();
 
     bool is_expired( unsigned int curr_time);
+
+    void set_reassembly_flag(size_t idx);
+
+    void set_expired();
 };
 
 // return a datum associated with the maximum reassmbled data of contiguous segments
 // for a successful reassembly curr_contiguous_data == total_bytes_needed
+// this can be called after reassmebly reaches any terminal state
 //
 struct datum tcp_reassembly_flow_context::get_reassembled_data() { return datum{buffer, buffer+curr_contiguous_data}; }
 
 // reassembly timeout of 15 s
 bool tcp_reassembly_flow_context::is_expired(unsigned int curr_time) { return (curr_time - init_time) >= reassembly_timeout; }
 
+void tcp_reassembly_flow_context::set_reassembly_flag(size_t idx) { reassembly_flag_val[idx] = true; }
+
+void tcp_reassembly_flow_context::set_expired() {
+    state = reassembly_state::reassembly_truncated;
+    set_reassembly_flag((size_t)reassembly_flags::timeout);
+}
+
+
+// segments can arrive ooo or have overlapping parts
+// handle appropriately
+void tcp_reassembly_flow_context::process_tcp_segment(const tcp_segment &seg, const datum &tcp_pkt) {
+    uint32_t relative_seq = seg.seq - init_seq;
+    uint32_t dlen = seg.data_length;
+
+    // find and emplace the segment
+}
 
 // tcp_reassembler holds all tcp flows under reassembly
 // order of processing segments:
@@ -125,19 +156,29 @@ struct tcp_reassembler {
     std::unordered_map<struct key, tcp_reassembly_flow_context> table;
     reassembly_map_iterator reap_it;  // iterator used for cleaning the table
     reassembly_map_iterator curr_flow; // iterator pointing to the current flow in reassembly
+    bool dump_pkt;  // used by pkt_filter to dump pkts involved in reassembly
 
-    tcp_reassembler() : table{} {
+    tcp_reassembler() : table{}, dump_pkt{false} {
         table.reserve(max_reassembly_entries);
         reap_it = table.end();
         curr_flow = table.end();
     } 
 
     reassembly_state check_flow(const struct key &k, unsigned int sec);
-    reassembly_map_iterator init_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
-    reassembly_map_iterator continue_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
+    void init_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
+    void continue_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
+    reassembly_map_iterator process_tcp_data_pkt(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
     void passive_reap(unsigned int sec);
     void active_reap();
     void increment_reap_iterator();
+    reassembly_map_iterator get_current_flow();
+    bool is_ready(reassembly_map_iterator it);
+    bool in_progress(reassembly_map_iterator it);
+    bool is_done(reassembly_map_iterator it);
+    datum get_reassembled_data(reassembly_map_iterator it);
+    void set_completed(reassembly_map_iterator it);
+    void write_json(json_object record);
+    void clean_curr_flow();
 
 };
 
@@ -166,6 +207,11 @@ void tcp_reassembler::passive_reap(unsigned int sec) {
     }
 }
 
+// Returns the current flow under processing, either init_reassembly or continue_reassembly
+// This pointer may get invalidated after any kind of delete or insert operation, so reqiures carefull usage
+//
+reassembly_map_iterator tcp_reassembler::get_current_flow() { return curr_flow; }
+
 // actively clear up the table
 // always clears 2 entries, may/may not be expired
 //
@@ -184,6 +230,7 @@ void tcp_reassembler::active_reap() {
 // perform housekeeping for table and then
 // check if flow_key corresponds to a table entry
 // if present return reassembly state or else return reassembly_none
+// sets curr_flow to the flow if found or table.end() otherwise
 //
 reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigned int sec) {
     // housekeeping before find/emplace for maintain iterator validity
@@ -199,21 +246,111 @@ reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigned int s
     if (curr_flow != table.end()) {
         return curr_flow->second.state;
     }
-    else
+    else {
+        curr_flow = table.end();
         return reassembly_state::reassembly_none;
+    }
 }
 
 // Initiate reassembly on a flow
 // To be called only once, when the initial segment seen for the first time
 // Post this, the flow will be in reassembly and continue_reassembly should be called
 //
-reassembly_map_iterator tcp_reassembler::init_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d) {
+void tcp_reassembler::init_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d) {
     curr_flow = table.emplace(k,seg,d).first;
-    return curr_flow;
 }
 
+// Continue reassembly on existing flow
+//
+void tcp_reassembler::continue_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d) {
+    if (curr_flow->second.is_expired(sec)) {
+        curr_flow->second.set_expired();
+    }
+    else
+        curr_flow->second.process_tcp_segment(seg, d);
+}
 
+// Entry function for reassmbly
+//
+reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d){
+    reassembly_state flow_state = check_flow(k,sec);
 
+    switch (flow_state)
+    {
+    case reassembly_state::reassembly_none :
+        // not in reassembly, init
+        init_reassembly(k,sec,seg,d);
+        break;
 
+    case reassembly_state::reassembly_progress :
+    // in reassembly, continue
+    // no break statement, so code can fall through to next cases
+    // if any terminal state is reached after processing the current pkt
+    //
+    continue_reassembly(k,sec,seg,d);
 
-#endif /* MERC_TCP_H */
+    case reassembly_state::reassembly_success :
+    case reassembly_state::reassembly_truncated :
+        return curr_flow;
+
+    case reassembly_state::reassembly_consumed :
+        // stale flow, clean it
+        // TODO: cleanup
+        return table.end();
+    default:
+        return table.end();
+    }
+}
+
+bool tcp_reassembler::is_ready(reassembly_map_iterator it) {
+    if (it != table.end())
+        return ((it->second.state == reassembly_state::reassembly_success) || (it->second.state == reassembly_state::reassembly_truncated));
+    else
+        return false;
+}
+
+bool tcp_reassembler::in_progress(reassembly_map_iterator it) {
+    if (it != table.end())
+        return ((it->second.state == reassembly_state::reassembly_progress));
+    else
+        return false;
+}
+
+bool tcp_reassembler::is_done(reassembly_map_iterator it)  {
+    if (it != table.end())
+        return ((it->second.state == reassembly_state::reassembly_consumed));
+    else
+        return false;
+}
+
+datum tcp_reassembler::get_reassembled_data(reassembly_map_iterator it) {
+    if (it != table.end())
+        return it->second.get_reassembled_data();
+    else
+        return datum{nullptr,nullptr};
+}
+
+ void tcp_reassembler::set_completed(reassembly_map_iterator it) {
+    if (it != table.end())
+        it->second.state = reassembly_state::reassembly_consumed;
+ }
+
+void tcp_reassembler::clean_curr_flow() {
+    if ((curr_flow!=table.end()) && is_done(curr_flow)) {
+        table.erase(curr_flow);   
+    }
+    curr_flow = table.end();
+}
+
+void tcp_reassembler::write_json(json_object record) {
+    if (curr_flow == table.end())
+        return;
+    json_object flags{record, "reassembly_properties"};
+    for (size_t i = 0; i < 7; i++) {
+        if (curr_flow->second.reassembly_flag_val[i]) {
+            flags.print_key_bool(reassembly_flag_str[i],true);
+        }
+    }
+}
+
+#endif /* REASSEMBLY_HPP */

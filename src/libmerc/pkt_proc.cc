@@ -391,6 +391,10 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
 
+    // additional_reassembly_flag holds indication of truncation in case reassembly was not invoked
+    // 
+    //std::bitset<7> additional_reassembly_flag;
+
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler) {
         bool is_new = false;
@@ -398,10 +402,88 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
         }
         set_tcp_protocol(x, pkt, is_new, &tcp_pkt);
-        //reassembler->dump_pkt = false;
+        if (tcp_pkt.additional_bytes_needed) {
+            //additional_reassembly_flag[(size_t)reassembly_flags::truncated] = true;
+        }
         return true;
     }
 
+    if (!tcp_pkt.data_length) {
+        // ignore acks
+        return false;
+    }
+
+    reassembler->dump_pkt = false; // reset
+    bool is_new = false;
+    if (global_vars.output_tcp_initial_data) {
+        is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+    }    
+    datum pkt_copy{pkt};
+
+    // do not bother with syn seq no.
+    // treat any tcp pkt that needs reassembly as initial pkt 
+    
+    // check if more tcp data is required
+    set_tcp_protocol(x,pkt_copy,is_new,&tcp_pkt);
+    //if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<unknown_initial_packet>(x) || std::holds_alternative<std::monostate>(x))) {
+        if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) {
+        // no need for reassembly
+        // complete initial msg
+        pkt = pkt_copy;
+        return true;
+    }
+    else if (tcp_pkt.additional_bytes_needed > tcp_reassembly_flow_context::max_data_size) {
+        // cant do reassembly
+        // TODO: add indication for truncation
+        pkt = pkt_copy;
+        //additional_reassembly_flag[(size_t)reassembly_flags::truncated] = true;
+        return true;
+    } 
+    
+    // reassembly may be needed
+    // pkts that reach here are inital msg with additional_bytes_needed or
+    // non initial pkts that dont match any protocol, so could be part of a reassembly flow
+    // check if in reassembly table to continue
+    // init otherwise
+    //
+    reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec);
+
+    if (r_state == reassembly_state::reassembly_none){
+        // init reassembly
+        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,ts->tv_sec};
+        reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt);
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_progress){
+        // continue reassembly
+        tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,ts->tv_sec};
+        reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt);
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_consumed) {
+        // TODO: cleanup state
+    }
+    else {
+        // this will never happen
+    }
+
+    // after processing this pkt, check for states again
+    reassembly_map_iterator it = reassembler->get_current_flow();
+    if (reassembler->is_ready(it)) {
+        // reassmbly done
+        // process reassembled data
+        //
+        struct datum reassembled_data = reassembler->get_reassembled_data(it);
+        set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
+        
+        // mark flow as completed
+        reassembler->set_completed(it);
+        return true;
+    }
+    
+    
+
+#if 0
     reassembler->curr_reassembly_consumed = false;
     reassembler->curr_reassembly_state = reassembly_none;
     uint32_t syn_seq;
@@ -527,7 +609,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     }
 
     return false;
-
+#endif
 }
 
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
@@ -544,10 +626,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     uint8_t transport_proto = ip_pkt.transport_protocol();
     bool truncated_tcp = false;
 
+    #if 0
     if (reassembler) {
         reassembler->curr_reassembly_state = reassembly_none;
     }
-
+    #endif
     // process encapsulations
     //
     if (selector.gre() && transport_proto == ip::protocol::gre) {
@@ -678,17 +761,23 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             flags.print_key_bool("truncated", true);
             flags.close();
         }
-        else if (reassembler && reassembler->curr_reassembly_state != reassembly_status::reassembly_none) {
-            reassembler->write_flags(record, "reassembly_properties");
-            if (reassembler->curr_reassembly_consumed == true) {
-                reassembler->remove_segment(reassembler->reap_it);
-                reassembler->curr_reassembly_consumed = false;
-            }
+        else if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
+            reassembler->write_json(record);
+            // if (reassembler->curr_reassembly_consumed == true) {
+            //     reassembler->remove_segment(reassembler->reap_it);
+            //     reassembler->curr_reassembly_consumed = false;
+            // }
         }
 
         write_flow_key(record, k);
         record.print_key_timestamp("event_start", ts);
         record.close();
+    }
+
+    // reassembly clean and reset
+    //
+    if (reassembler) {
+        reassembler->clean_curr_flow();
     }
 
     // if buffer has JSON data, add newline and return buffer length
@@ -832,8 +921,8 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             } 
             else {
                 bool ret = process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler);
-                if (reassembler->curr_reassembly_state == reassembly_in_progress) {
-                        analysis.flow_state_pkts_needed = true;
+                if (reassembler->in_progress(reassembler->curr_flow)) {
+                    analysis.flow_state_pkts_needed = true;
                 }
                 if (!ret) {
                     return 0;
@@ -881,11 +970,10 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
 
             if (reassembler) {
-                if (reassembler->curr_reassembly_consumed == true) {
-                    reassembler->remove_segment(reassembler->reap_it);
-                    reassembler->curr_reassembly_consumed = false;
+                if (reassembler->is_done(reassembler->curr_flow)) {
                     analysis.flow_state_pkts_needed = false;
                 }
+                reassembler->clean_curr_flow();
             }
 
             return output_analysis;
@@ -893,11 +981,10 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     }
 
     if (reassembler) {
-        if (reassembler->curr_reassembly_consumed == true) {
-            reassembler->remove_segment(reassembler->reap_it);
-            reassembler->curr_reassembly_consumed = false;
+        if (reassembler->is_done(reassembler->curr_flow)) {
             analysis.flow_state_pkts_needed = false;
         }
+        reassembler->clean_curr_flow();
     }
 
     return false;  // indicate no analysis results were returned
@@ -962,7 +1049,9 @@ bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
 
 bool stateful_pkt_proc::dump_pkt() {
     if (reassembler_ptr) {
+        #if 0
         return reassembler_ptr->dump_pkt;
+        #endif
     }
     return false;
 }
