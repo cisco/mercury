@@ -1176,7 +1176,7 @@ public:
         // the resourece archive, and throw an error otherwise
         //
         if (!got_fp_db | !got_fp_prevalence | !got_version | !got_doh_watchlist) {
-            throw std::runtime_error("error: resource archive is missing one or more files");
+            throw std::runtime_error("resource archive is missing one or more files");
         }
 
     }
