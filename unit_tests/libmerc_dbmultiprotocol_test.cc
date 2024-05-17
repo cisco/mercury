@@ -687,7 +687,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "socks with resources-mp")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulation with resources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet with resources-mp")
 {
 
     auto tls_check = [&](int expected_count, const struct libmerc_config &config)
@@ -703,12 +703,17 @@ TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulation with resources-mp")
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"tls.client_hello"},
-             .m_pc{"aws_geneve.pcap"}},
+             .m_pc{"geneve.pcap"}},
          42},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"tls.server_hello"},
-             .m_pc{"aws_geneve.pcap"}},
+             .m_pc{"geneve.pcap"}},
+         43},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"tcp"},
+             .m_pc{"geneve.pcap"}},
          43},
     };
 
