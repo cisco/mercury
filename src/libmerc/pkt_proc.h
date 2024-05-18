@@ -99,7 +99,7 @@ struct stateful_pkt_proc {
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
         tcp_flow_table{prealloc_size},
-        reassembler{prealloc_size},
+        reassembler{},
         reassembler_ptr{&reassembler},
         tcp_init_msg_filter{},
         analysis{},

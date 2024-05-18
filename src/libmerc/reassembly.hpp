@@ -42,7 +42,7 @@ enum class reassembly_flags : uint8_t {
     truncated = 6
 };
 
-static constexpr char* reassembly_flag_str[] = {
+static const char* reassembly_flag_str[] = {
     "missing_segment",
     "timeout",
     "out_of_order",
@@ -60,7 +60,7 @@ enum class reassembly_overlaps : uint8_t {
     front_superset_overlap = 3
 };
 
-static constexpr char* reassembly_overlaps_str[] = {
+static const char* reassembly_overlaps_str[] = {
     "back_partial_overlap",
     "back_subset_overlap",
     "front_partial_overlap",
@@ -202,7 +202,7 @@ void tcp_reassembly_flow_context::simplify_seglist (size_t idx) {
     if (idx != (seg_list.size()-1)) {
         // check for multiple superset overlaps
         size_t i = idx + 1; 
-        for (; i ++; i < seg_list.size()-1) {
+        for (; i < seg_list.size()-1; i++) {
             if ( (seg_list[i].first <= seg_list[idx].second) && (seg_list[i].second <= seg_list[idx].second) ) {
                 front_overlap = seg_list[i].second - seg_list[i].first + 1;
                 reassembly_flag_val[(size_t)reassembly_flags::segment_overlap] = true;
@@ -330,6 +330,7 @@ struct tcp_reassembler {
     void set_completed(reassembly_map_iterator it);
     void write_json(json_object record);
     void clean_curr_flow();
+    void count_all();
 
 };
 
@@ -431,7 +432,7 @@ reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struct key &
     case reassembly_state::reassembly_none :
         // not in reassembly, init
         init_reassembly(k,sec,seg,d);
-        break;
+        return curr_flow;
 
     case reassembly_state::reassembly_progress :
         // in reassembly, continue
@@ -502,6 +503,10 @@ void tcp_reassembler::write_json(json_object record) {
             flags.print_key_bool(reassembly_flag_str[i],true);
         }
     }
+}
+
+void tcp_reassembler::count_all() {
+    table.clear();
 }
 
 #endif /* REASSEMBLY_HPP */

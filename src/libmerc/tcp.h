@@ -571,10 +571,7 @@ struct flow_table_tcp {
     }
 
     void count_all() {
-        auto it = table.begin();
-        while (it != table.end()) {
-            it = table.erase(it);
-        }
+        table.clear();
     }
 
     static const unsigned int timeout = 1; // seconds before flow timeout
