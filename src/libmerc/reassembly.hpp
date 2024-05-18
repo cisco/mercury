@@ -409,7 +409,7 @@ reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigned int s
 // Post this, the flow will be in reassembly and continue_reassembly should be called
 //
 void tcp_reassembler::init_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d) {
-    curr_flow = table.emplace(k,seg,d).first;
+    curr_flow = table.emplace(std::piecewise_construct,std::forward_as_tuple(k),std::forward_as_tuple(seg,d)).first;
 }
 
 // Continue reassembly on existing flow
@@ -440,6 +440,7 @@ reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struct key &
         // if any terminal state is reached after processing the current pkt
         //
         continue_reassembly(k,sec,seg,d);
+        [[fallthrough]];
 
     case reassembly_state::reassembly_success :
     case reassembly_state::reassembly_truncated :
