@@ -111,7 +111,7 @@ struct tcp_reassembly_flow_context {
                     buffer{}, curr_seg_count{0}, seg_list{} {
     
         seg_list.reserve(20);
-        seg_list.push_back({seg.init_seg - init_seq, seg.init_seg - init_seq + seg.data_length - 1});
+        seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
         curr_seg_count = 1;
 
         // process the pkt
