@@ -52,6 +52,21 @@ static constexpr char* reassembly_flag_str[] = {
     "truncated"
 };
 
+// types of segment overlaps
+enum class reassembly_overlaps : uint8_t {
+    back_partial_overlap = 0,
+    back_subset_overlap = 1,
+    front_partial_overlap = 2,
+    front_superset_overlap = 3
+};
+
+static constexpr char* reassembly_overlaps_str[] = {
+    "back_partial_overlap",
+    "back_subset_overlap",
+    "front_partial_overlap",
+    "front_superset_overlap"
+};
+
 // reassembly_state tracks the current state of the flow
 //
 enum class reassembly_state : uint8_t {
@@ -70,6 +85,7 @@ static constexpr unsigned int reassembly_timeout = 15;
 struct tcp_reassembly_flow_context {
 
     std::bitset<7> reassembly_flag_val;
+    std::bitset<4> reassembly_overlap_flags;
     reassembly_state state;
     unsigned int  init_time;
     uint32_t init_seq;
@@ -90,12 +106,12 @@ struct tcp_reassembly_flow_context {
 
     // ctor to be called only on inital tcp data segment required for reassembly, for the first time
     //
-    tcp_reassembly_flow_context(const tcp_segment &seg, const datum &tcp_pkt) : reassembly_flag_val{}, state{reassembly_state::reassembly_progress}, init_time{seg.seg_time}, init_seq{seg.seq},
+    tcp_reassembly_flow_context(const tcp_segment &seg, const datum &tcp_pkt) : reassembly_flag_val{}, reassembly_overlap_flags{}, state{reassembly_state::reassembly_progress}, init_time{seg.seg_time}, init_seq{seg.seq},
                     init_seg_len{seg.data_length}, total_bytes_needed{(seg.data_length) + (seg.additional_bytes_needed)}, curr_contiguous_data{seg.data_length}, total_set_data{seg.data_length},
                     buffer{}, curr_seg_count{0}, seg_list{} {
     
         seg_list.reserve(20);
-        seg_list.push_back({seg.init_seg,seg.data_length});
+        seg_list.push_back({seg.init_seg - init_seq, seg.init_seg - init_seq + seg.data_length - 1});
         curr_seg_count = 1;
 
         // process the pkt
@@ -103,6 +119,8 @@ struct tcp_reassembly_flow_context {
     }
 
     void process_tcp_segment(const tcp_segment &seg, const datum &tcp_pkt);
+
+    void simplify_seglist (size_t idx);
 
     void write_json(struct json_object record);
 
@@ -134,13 +152,146 @@ void tcp_reassembly_flow_context::set_expired() {
 }
 
 
+    // process the seglist and simplify so that none of the segments overlap with each other
+    // Forward partial overlap :  Update the seg end
+    //      seg(a,b) has forward partial overlap with immediate next element seg(x,y) if a < x && x <= b <= y
+    //      eg. {(40,60)} with (50,100)
+    // Forward superset overlap : Remove all subset segments
+    //      seg(a,b) has forward superset overlap with one or more next elements seg(x,y) if a < x && x <= y <= b
+    //      e.g. {(40,100)} with (50,60), (70,80)
+    // One segment can have multiple forward superset overlaps and at max one forward partial overlap
+    //      e.g. {(40,100)} with (50,60), (70,80), (90,120)
+    //
+    //
+    // Backward partial overlap: update seg start
+    // seg(a,b) has backward partial overlap with immediate previous element seg(x,y) if b > y && x <= a <= y
+    //      e.g. {(45,60)} with (40,50)
+    // Backward subset overlap : Ignore this seg
+    // seg(a,b) has backward subset overlap with immediate previous element seg(x,y) if x <= a <= b <= y
+    //      e.g. {(45,48)} with (40,50)
+    // One segment can either one backward partial overlap or one backward subset overlap
+    //
+    // Both backward and forward partial overlaps can occur together, along with multiple forward superset overlaps
+    // Backward subset overlap is an exclusive case
+
+void tcp_reassembly_flow_context::simplify_seglist (size_t idx) {
+    size_t back_overlap = 0;
+    size_t front_overlap = 0;
+    size_t dlen = seg_list[idx].second - seg_list[idx].first + 1;
+
+    if (idx) {
+        // check for backward subset overlap or duplicate segment
+        if ( ((seg_list[idx].first == seg_list[idx-1].first) && (seg_list[idx].second == seg_list[idx-1].second)) ||
+                ((seg_list[idx].first <= seg_list[idx-1].second) && (seg_list[idx].second <= seg_list[idx-1].second)) ) {
+            // remove and ignore this segment
+            seg_list.erase(seg_list.begin()+idx);
+            reassembly_flag_val[(size_t)reassembly_flags::segment_overlap] = true;
+            reassembly_overlap_flags[(size_t)reassembly_overlaps::back_subset_overlap] = true;
+            return;
+        }
+        // check for backward partial overlap
+        if ((seg_list[idx].first <= seg_list[idx-1].second) && (seg_list[idx].second > seg_list[idx-1].second)) {
+            back_overlap = seg_list[idx-1].second - seg_list[idx].first + 1;
+            // update seg start
+            seg_list[idx].first = seg_list[idx-1].second + 1;
+            reassembly_flag_val[(size_t)reassembly_flags::segment_overlap] = true;
+            reassembly_overlap_flags[(size_t)reassembly_overlaps::back_partial_overlap] = true;
+        }
+    }
+
+    if (idx != (seg_list.size()-1)) {
+        // check for multiple superset overlaps
+        size_t i = idx + 1; 
+        for (; i ++; i < seg_list.size()-1) {
+            if ( (seg_list[i].first <= seg_list[idx].second) && (seg_list[i].second <= seg_list[idx].second) ) {
+                front_overlap = seg_list[i].second - seg_list[i].first + 1;
+                reassembly_flag_val[(size_t)reassembly_flags::segment_overlap] = true;
+                reassembly_overlap_flags[(size_t)reassembly_overlaps::front_superset_overlap] = true;
+            }
+            else
+                break;
+        }
+        if (i != idx + 1){
+            // delete all entries till index i - 1
+            seg_list.erase(seg_list.begin()+idx+1,seg_list.begin()+i);
+        }
+    }
+
+    // check again for forward partial overlap
+    if (idx != (seg_list.size()-1)) {
+        if ( (seg_list[idx].second >= seg_list[idx+1].first) && (seg_list[idx].second <= seg_list[idx+1].second) ) {
+            front_overlap = seg_list[idx].second - seg_list[idx+1].first + 1;
+            // update seg end
+            seg_list[idx].second = seg_list[idx+1].first - 1;
+            reassembly_flag_val[(size_t)reassembly_flags::segment_overlap] = true;
+            reassembly_overlap_flags[(size_t)reassembly_overlaps::front_partial_overlap] = true;
+        }
+    }
+
+    size_t total_overlap = front_overlap + back_overlap;
+    total_set_data = total_set_data + dlen - total_overlap;
+
+}
+
+// update maximum bytes that the reassembly buffer has
+// without any holes
+// seg(a,b) and seg(x,y) are contiguous if x == b+1
+// first segment is always part of contiguous data
+//
+void tcp_reassembly_flow_context::update_contiguous_data() {
+    for (auto it = seg_list.begin()+1; it != seg_list.end(); it++) {
+        if (it->first == ((it-1)->second+1)) {
+            curr_contiguous_data = it->second - it->first + 1;
+        }
+    }
+}
+
 // segments can arrive ooo or have overlapping parts
 // handle appropriately
 void tcp_reassembly_flow_context::process_tcp_segment(const tcp_segment &seg, const datum &tcp_pkt) {
-    uint32_t relative_seq = seg.seq - init_seq;
+    uint32_t rel_seq_st = seg.seq - init_seq;       // start index
     uint32_t dlen = seg.data_length;
+    uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (rel_seq_st + dlen - 1) : (max_data_size-1) );     // end index
+    
+    curr_seg_count++;
+    if (curr_seg_count > max_segments) {
+        // use existing max contiguous bytes and exit
+        reassembly_flag_val[(size_t)reassembly_flags::max_seg_exceed] = true;
+        reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
+        state = reassembly_state::reassembly_truncated;
+        return;
+    }
 
-    // find and emplace the segment
+    // memcpy data into buffer
+    memcpy(buffer+rel_seq_st,tcp_pkt.data,rel_seq_en-rel_seq_st+1);
+
+    // start from last segment and find the right place
+    // as most likely case is the best case scenario of in order pkts
+    // seg (a,b) represent the starting and ending byte index in the buffer
+    // find the last segment (x,y) so that a > x
+    // empalce on reverse iterator base() adds the new segment after the element
+    //
+    size_t idx = seg_list.size();   // index at which the new element is inserted
+    for (auto it = seg_list.rbegin(); it != seg_list.rend(); it++){
+        if (it->first <= rel_seq_en) {
+            seg_list.emplace(it.base(),rel_seq_st,rel_seq_en);
+            break;
+        }
+        idx--;
+    }
+
+    // simplify the seglist to avoid overlaps
+    // this operation guarantees overlap free seglist
+    //
+    simplify_seglist(idx);
+
+    // update max contiguous bytes
+    update_contiguous_data();
+
+    // check for success
+    if (curr_contiguous_data == total_bytes_needed) {
+        state = reassembly_state::reassembly_success;
+    }
 }
 
 // tcp_reassembler holds all tcp flows under reassembly
@@ -283,11 +434,11 @@ reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struct key &
         break;
 
     case reassembly_state::reassembly_progress :
-    // in reassembly, continue
-    // no break statement, so code can fall through to next cases
-    // if any terminal state is reached after processing the current pkt
-    //
-    continue_reassembly(k,sec,seg,d);
+        // in reassembly, continue
+        // no break statement, so code can fall through to next cases
+        // if any terminal state is reached after processing the current pkt
+        //
+        continue_reassembly(k,sec,seg,d);
 
     case reassembly_state::reassembly_success :
     case reassembly_state::reassembly_truncated :
