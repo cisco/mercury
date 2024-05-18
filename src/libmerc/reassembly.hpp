@@ -251,7 +251,7 @@ inline void tcp_reassembly_flow_context::update_contiguous_data() {
 inline void tcp_reassembly_flow_context::process_tcp_segment(const tcp_segment &seg, const datum &tcp_pkt) {
     uint32_t rel_seq_st = seg.seq - init_seq;       // start index
     uint32_t dlen = seg.data_length;
-    uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (rel_seq_st + dlen - 1) : (max_data_size-1) );     // end index
+    uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (max_data_size-1) : (rel_seq_st + dlen - 1) );     // end index
     
     curr_seg_count++;
     if (curr_seg_count > max_segments) {
@@ -273,7 +273,7 @@ inline void tcp_reassembly_flow_context::process_tcp_segment(const tcp_segment &
     //
     size_t idx = seg_list.size();   // index at which the new element is inserted
     for (auto it = seg_list.rbegin(); it != seg_list.rend(); it++){
-        if (it->first <= rel_seq_en) {
+        if (it->first <= rel_seq_st) {
             seg_list.emplace(it.base(),rel_seq_st,rel_seq_en);
             break;
         }
@@ -504,6 +504,7 @@ inline void tcp_reassembler::write_json(json_object record) {
             flags.print_key_bool(reassembly_flag_str[i],true);
         }
     }
+    flags.close();
 }
 
 inline void tcp_reassembler::count_all() {
