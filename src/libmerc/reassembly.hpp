@@ -239,6 +239,7 @@ inline void tcp_reassembly_flow_context::simplify_seglist (size_t idx) {
 // first segment is always part of contiguous data
 //
 inline void tcp_reassembly_flow_context::update_contiguous_data() {
+    curr_contiguous_data = init_seg_len;
     for (auto it = seg_list.begin()+1; it != seg_list.end(); it++) {
         if (it->first == ((it-1)->second+1)) {
             curr_contiguous_data = curr_contiguous_data + it->second - it->first + 1;
