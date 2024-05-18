@@ -493,11 +493,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     uint8_t transport_proto = ip_pkt.transport_protocol();
     bool truncated_tcp = false;
 
-    #if 0
-    if (reassembler) {
-        reassembler->curr_reassembly_state = reassembly_none;
-    }
-    #endif
     // process encapsulations
     //
     if (selector.gre() && transport_proto == ip::protocol::gre) {
@@ -912,9 +907,7 @@ bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
 
 bool stateful_pkt_proc::dump_pkt() {
     if (reassembler_ptr) {
-        #if 0
         return reassembler_ptr->dump_pkt;
-        #endif
     }
     return false;
 }
