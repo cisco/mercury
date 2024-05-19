@@ -420,18 +420,18 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     // treat any tcp pkt that needs reassembly as initial pkt 
     
     // check if more tcp data is required
-    set_tcp_protocol(x,pkt_copy,is_new,&tcp_pkt);
+    set_tcp_protocol(x,pkt,is_new,&tcp_pkt);
     //if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<unknown_initial_packet>(x) || std::holds_alternative<std::monostate>(x))) {
         if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) {
         // no need for reassembly
         // complete initial msg
-        pkt = pkt_copy;
+        //pkt = pkt_copy;
         return true;
     }
     else if (tcp_pkt.additional_bytes_needed > tcp_reassembly_flow_context::max_data_size) {
         // cant do reassembly
         // TODO: add indication for truncation
-        pkt = pkt_copy;
+        //pkt = pkt_copy;
         //additional_reassembly_flag[(size_t)reassembly_flags::truncated] = true;
         return true;
     } 
@@ -447,13 +447,13 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.additional_bytes_needed){
         // init reassembly
         tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,ts->tv_sec};
-        reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt);
+        reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
         tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,ts->tv_sec};
-        reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt);
+        reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_consumed) {
@@ -477,6 +477,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         return true;
     }
 
+    return false;
 }
 
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
