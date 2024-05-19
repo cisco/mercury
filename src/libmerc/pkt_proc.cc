@@ -444,7 +444,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     //
     reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec);
 
-    if (r_state == reassembly_state::reassembly_none){
+    if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.additional_bytes_needed){
         // init reassembly
         tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,ts->tv_sec};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt);

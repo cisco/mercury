@@ -295,7 +295,7 @@ inline void tcp_reassembly_flow_context::process_tcp_segment(const tcp_segment &
     update_contiguous_data();
 
     // check for success
-    if (curr_contiguous_data == total_bytes_needed) {
+    if (curr_contiguous_data >= total_bytes_needed) {
         state = reassembly_state::reassembly_success;
     }
 }
