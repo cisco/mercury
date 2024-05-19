@@ -263,6 +263,11 @@ inline void tcp_reassembly_flow_context::process_tcp_segment(const tcp_segment &
         return;
     }
 
+    // check for bounds
+    if (rel_seq_st > (max_data_size -1)) {
+        return;
+    }
+
     // memcpy data into buffer
     memcpy(buffer+rel_seq_st,tcp_pkt.data,rel_seq_en-rel_seq_st+1);
 
@@ -491,7 +496,7 @@ inline void tcp_reassembler::set_completed(reassembly_map_iterator it) {
 
 inline void tcp_reassembler::clean_curr_flow() {
     if ((curr_flow!=table.end()) && is_done(curr_flow)) {
-        table.erase(curr_flow);   
+        reap_it = table.erase(curr_flow);   
     }
     curr_flow = table.end();
 }
@@ -500,6 +505,7 @@ inline void tcp_reassembler::write_json(json_object record) {
     if (curr_flow == table.end())
         return;
     json_object flags{record, "reassembly_properties"};
+    flags.print_key_bool("reassembled",true);
     for (size_t i = 0; i < 7; i++) {
         if (curr_flow->second.reassembly_flag_val[i]) {
             flags.print_key_bool(reassembly_flag_str[i],true);
