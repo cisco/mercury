@@ -122,7 +122,7 @@ struct tcp_reassembly_flow_context {
 
     void simplify_seglist (size_t idx);
 
-    void write_json(struct json_object record);
+    void write_json(struct json_object &record);
 
     datum get_reassembled_data();
 
@@ -334,7 +334,7 @@ struct tcp_reassembler {
     bool is_done(reassembly_map_iterator it);
     datum get_reassembled_data(reassembly_map_iterator it);
     void set_completed(reassembly_map_iterator it);
-    void write_json(json_object record);
+    void write_json(json_object &record);
     void clean_curr_flow();
     void count_all();
 
@@ -501,7 +501,7 @@ inline void tcp_reassembler::clean_curr_flow() {
     curr_flow = table.end();
 }
 
-inline void tcp_reassembler::write_json(json_object record) {
+inline void tcp_reassembler::write_json(json_object &record) {
     if (curr_flow == table.end())
         return;
     json_object flags{record, "reassembly_properties"};
