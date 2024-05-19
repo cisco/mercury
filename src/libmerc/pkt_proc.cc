@@ -409,7 +409,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         return false;
     }
 
-    reassembler->dump_pkt = false; // reset
+    //reassembler->dump_pkt = false; // reset
     bool is_new = false;
     if (global_vars.output_tcp_initial_data) {
         is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
@@ -493,6 +493,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     ip ip_pkt{pkt, k};
     uint8_t transport_proto = ip_pkt.transport_protocol();
     bool truncated_tcp = false;
+    if (reassembler) {
+        reassembler->dump_pkt = false;
+    }
 
     // process encapsulations
     //
@@ -764,6 +767,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     ip ip_pkt{pkt, k};
     protocol x;
     uint8_t transport_proto = ip_pkt.transport_protocol();
+    if (reassembler) {
+        reassembler->dump_pkt = false;
+    }
     if (transport_proto == ip::protocol::tcp) {
         tcp_packet tcp_pkt{pkt, &ip_pkt};
         if (!tcp_pkt.is_valid()) {
