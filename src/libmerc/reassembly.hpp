@@ -322,8 +322,8 @@ struct tcp_reassembler {
     } 
 
     reassembly_state check_flow(const struct key &k, unsigned int sec);
-    void init_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
-    void continue_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
+    void init_reassembly(const struct key &k, const tcp_segment &seg, const datum &d);
+    void continue_reassembly(unsigned int sec, const tcp_segment &seg, const datum &d);
     reassembly_map_iterator process_tcp_data_pkt(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
     void passive_reap(unsigned int sec);
     void active_reap();
@@ -414,13 +414,13 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigne
 // To be called only once, when the initial segment seen for the first time
 // Post this, the flow will be in reassembly and continue_reassembly should be called
 //
-inline void tcp_reassembler::init_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d) {
+inline void tcp_reassembler::init_reassembly(const struct key &k, const tcp_segment &seg, const datum &d) {
     curr_flow = table.emplace(std::piecewise_construct,std::forward_as_tuple(k),std::forward_as_tuple(seg,d)).first;
 }
 
 // Continue reassembly on existing flow
 //
-inline void tcp_reassembler::continue_reassembly(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d) {
+inline void tcp_reassembler::continue_reassembly(unsigned int sec, const tcp_segment &seg, const datum &d) {
     if (curr_flow->second.is_expired(sec)) {
         curr_flow->second.set_expired();
     }
@@ -437,7 +437,7 @@ inline reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struc
     {
     case reassembly_state::reassembly_none :
         // not in reassembly, init
-        init_reassembly(k,sec,seg,d);
+        init_reassembly(k,seg,d);
         return curr_flow;
 
     case reassembly_state::reassembly_progress :
@@ -445,7 +445,7 @@ inline reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struc
         // no break statement, so code can fall through to next cases
         // if any terminal state is reached after processing the current pkt
         //
-        continue_reassembly(k,sec,seg,d);
+        continue_reassembly(sec,seg,d);
         [[fallthrough]];
 
     case reassembly_state::reassembly_success :
@@ -506,9 +506,18 @@ inline void tcp_reassembler::write_json(json_object &record) {
         return;
     json_object flags{record, "reassembly_properties"};
     flags.print_key_bool("reassembled",true);
-    for (size_t i = 0; i < 7; i++) {
-        if (curr_flow->second.reassembly_flag_val[i]) {
-            flags.print_key_bool(reassembly_flag_str[i],true);
+    if (curr_flow->second.reassembly_flag_val.any()) {
+        for (size_t i = 0; i < 7; i++) {
+            if (curr_flow->second.reassembly_flag_val[i]) {
+                flags.print_key_bool(reassembly_flag_str[i],true);
+            }
+        }
+    }
+    if (curr_flow->second.reassembly_overlap_flags.any()) {
+        for (size_t i = 0; i < 4; i++) {
+            if (curr_flow->second.reassembly_overlap_flags[i]) {
+                flags.print_key_bool(reassembly_overlaps_str[i],true);
+            }
         }
     }
     flags.close();
