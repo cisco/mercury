@@ -398,9 +398,6 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
         }
         set_tcp_protocol(x, pkt, is_new, &tcp_pkt);
-        if (tcp_pkt.additional_bytes_needed) {
-            //additional_reassembly_flag[(size_t)reassembly_flags::truncated] = true;
-        }
         return true;
     }
 
