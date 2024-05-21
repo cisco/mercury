@@ -405,11 +405,10 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     }
 
     if (!tcp_pkt.data_length) {
-        // ignore acks
+        // ignore acks and empty fin
         return false;
     }
 
-    //reassembler->dump_pkt = false; // reset
     bool is_new = false;
     if (global_vars.output_tcp_initial_data) {
         is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
@@ -421,18 +420,14 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     
     // check if more tcp data is required
     set_tcp_protocol(x,pkt,is_new,&tcp_pkt);
-    //if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<unknown_initial_packet>(x) || std::holds_alternative<std::monostate>(x))) {
         if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) {
         // no need for reassembly
         // complete initial msg
-        //pkt = pkt_copy;
         return true;
     }
     else if (tcp_pkt.additional_bytes_needed > tcp_reassembly_flow_context::max_data_size) {
         // cant do reassembly
         // TODO: add indication for truncation
-        //pkt = pkt_copy;
-        //additional_reassembly_flag[(size_t)reassembly_flags::truncated] = true;
         return true;
     } 
     
@@ -458,9 +453,11 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     }
     else if (r_state == reassembly_state::reassembly_consumed) {
         // this will never happen
+        return false;
     }
     else {
         // this will never happen
+        return false;
     }
 
     // after processing this pkt, check for states again
@@ -532,7 +529,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         tcp_pkt.set_key(k);
         if (tcp_pkt.is_SYN()) {
 
-            //if (global_vars.output_tcp_initial_data || reassembler) {
             if (global_vars.output_tcp_initial_data) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
             }
@@ -542,7 +538,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             // note: we could check for non-empty data field
 
         } else if (tcp_pkt.is_SYN_ACK()) {
-            //if (global_vars.output_tcp_initial_data || reassembler) {
             if (global_vars.output_tcp_initial_data) {
                 tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
             }
@@ -778,14 +773,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         tcp_pkt.set_key(k);
         if (reassembler) {
             analysis.flow_state_pkts_needed = false;
-            if (tcp_pkt.is_SYN()) {
-                //tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
-            } else if (tcp_pkt.is_SYN_ACK()) {
-                //tcp_flow_table.syn_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
-            } 
-            else if (tcp_pkt.is_FIN() || tcp_pkt.is_RST()) {
-                //tcp_flow_table.find_and_erase(k);
-            } 
+            if (tcp_pkt.is_SYN() || tcp_pkt.is_SYN_ACK() || tcp_pkt.is_RST()) {
+                ; // do nothing
+            }
             else {
                 bool ret = process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler);
                 if (reassembler->in_progress(reassembler->curr_flow)) {

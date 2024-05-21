@@ -440,13 +440,6 @@ struct datum {
         return cmp(p) != 0;
      }
 
-    // // set the datum to the assignment parameter datum
-    // //
-    // void operator=(const datum &p) {
-    //     data = p.data;
-    //     data_end = p.data_end;
-    // }
-
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
         unsigned int bits = (data_end - data) * 8;
         const unsigned char *d = data;
