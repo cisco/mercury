@@ -244,6 +244,10 @@ inline void tcp_reassembly_flow_context::update_contiguous_data() {
         if (it->first == ((it-1)->second+1)) {
             curr_contiguous_data = curr_contiguous_data + it->second - it->first + 1;
         }
+        else {
+            // hole present, stop
+            break;
+        }
     }
 }
 
