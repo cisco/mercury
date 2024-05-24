@@ -6,6 +6,8 @@
 #ifndef GENEVE_HPP
 #define GENEVE_HPP
 //  Geneve Header:
+//      0                   1                   2                   3
+//      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //     |Ver|  Opt Len  |O|C|    Rsvd.  |          Protocol Type        |
 //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -16,7 +18,6 @@
 //
 class geneve {
     encoded<uint8_t> first_byte;
-    uint32_t opt_len;
     skip_bytes<1> flags_and_rsrvdbits;
     encoded<uint16_t> protocol_type;
     datum vni;
@@ -29,14 +30,11 @@ public:
 
     geneve(datum &d) :
         first_byte(d),
-        opt_len(first_byte.slice<2, 8>()),
         flags_and_rsrvdbits(d),
         protocol_type(d),
         vni(d, 3),
-        reserved(d) {
-        opt_len = opt_len * 4;
-        options.parse(d,opt_len);
-    }
+        reserved(d),
+        options(d, 4 * first_byte.slice<2, 8>()) {}
 
     uint16_t get_protocol_type() {
         return protocol_type;
