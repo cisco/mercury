@@ -1580,6 +1580,12 @@ public:
     ///
     lookahead(datum d) : value{d}, tmp{d} { }
 
+    /// construct a lookahead<T> object by parsing the datum held by
+    /// another lookahead<> object.
+    ///
+    template <typename T2>
+    lookahead(lookahead<T2> &l) : value{l.tmp}, tmp{l.tmp} { }
+
     /// construct a lookahead<T> object by parsing the datum d while
     /// passing the parameter p of type P to the constructor of the T
     /// object.

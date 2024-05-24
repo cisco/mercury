@@ -6,6 +6,7 @@
 #define CBOR_HPP
 
 #include "datum.h"
+#include <variant>
 
 
 // a simple CBOR decoder, following RFC 8949
@@ -13,10 +14,13 @@
 namespace cbor {
 
     static constexpr uint8_t unsigned_integer_type = 0;
-    static constexpr uint8_t byte_string_type = 2;
-    static constexpr uint8_t text_string_type = 3;
-    static constexpr uint8_t array_type = 4;
-    static constexpr uint8_t map_type = 5;
+    static constexpr uint8_t negative_integer_type = 1;
+    static constexpr uint8_t byte_string_type      = 2;
+    static constexpr uint8_t text_string_type      = 3;
+    static constexpr uint8_t array_type            = 4;
+    static constexpr uint8_t map_type              = 5;
+    static constexpr uint8_t tagged_item_type      = 6;
+    static constexpr uint8_t simple_or_float_type  = 7;
 
     // The initial byte of each encoded data item contains both
     // information about the major type (the high-order 3 bits,
@@ -48,11 +52,22 @@ namespace cbor {
         encoded<uint8_t> value;
     public:
 
+        // read an initial byte from `d`
+        //
         initial_byte(datum &d) : value{d} {
             if (d.is_not_null()) {
                 // printf("major_type: %u\n", major_type());
                 // printf("additional_info: %u\n", additional_info());
             }
+        }
+
+        // construct an initial_byte for writing
+        //
+        initial_byte(uint8_t type, uint8_t info) :
+            value{type << 5 | info}
+        {
+            printf("major_type: %u\n", major_type());
+            printf("additional_info: %u\n", additional_info());
         }
 
         uint8_t major_type() const{ return value.slice<0,3>(); }
@@ -72,6 +87,10 @@ namespace cbor {
 
         bool is_byte_string() const {
             return major_type() == byte_string_type;
+        }
+
+        void write(writeable &buf) const {
+            buf << value;
         }
 
     };
@@ -111,8 +130,92 @@ namespace cbor {
 
         }
 
+        // construct a uint64 for writing; the type is
+        // unsigned_integer by default, but can be set to other types
+        //
+        uint64(uint64_t x, uint8_t type=unsigned_integer_type) :
+            ib{type, additional_info(x)},
+            value__{x}
+        { }
+
+        uint8_t additional_info(uint64_t x) {
+            if (x < 24) {
+                return x;
+            }
+            if (x < 0x100) {
+                return 24;          // one-byte uint
+            }
+            if (x < 0x10000) {
+                return 25;          // two-byte uint
+            }
+            if (x < 0x100000000) {
+                return 26;          // four-byte uint
+            }
+            return 27;              // eight-byte uint
+        }
+
         uint64_t value() const {
             return value__;
+        }
+
+        void write(writeable &buf) const {
+            ib.write(buf);
+            switch (ib.additional_info()) {
+            case 24:
+                encoded<uint8_t>{value__}.write(buf, true);
+                break;
+            case 25:
+                encoded<uint16_t>{value__}.write(buf, true);
+                break;
+            case 26:
+                encoded<uint32_t>{value__}.write(buf, true);
+                break;
+            case 27:
+                encoded<uint64_t>{value__}.write(buf, true);
+                break;
+            default:
+                ;
+            }
+        }
+
+    };
+
+    // Major type 1: A negative integer in the range -2^64..-1
+    // inclusive. The value of the item is -1 minus the argument.
+    //
+    class int64 {
+        initial_byte ib;
+        uint64_t value__;
+
+    public:
+        int64(datum &d, uint8_t type=unsigned_integer_type) : ib{d} {
+
+            if (ib.major_type() != type) {
+                d.set_null();
+                return;
+            }
+
+            uint8_t ai = ib.additional_info();
+            if (ai < 24) {
+                value__ = ai;
+            }
+            if (ai == 24) {
+                value__ = encoded<uint8_t>{d}.value();
+            }
+            if (ai == 25) {
+                value__ = encoded<uint16_t>{d}.value();
+            }
+            if (ai == 26) {
+                value__ = encoded<uint32_t>{d}.value();
+            }
+            if (ai == 27) {
+                value__ = encoded<uint64_t>{d}.value();
+            }
+
+        }
+
+        uint64_t value() const {
+            return value__;   // implicit -1
         }
 
     };
@@ -131,7 +234,23 @@ namespace cbor {
             value__{d, length.value()}
         { }
 
+        // construct a byte_string for writing (probably needs
+        // named-constructor idiom)
+        //
+        byte_string(const datum &d) :
+            length{d.length(), byte_string_type},
+            value__{d}
+        {
+            fprintf(stderr, "using constructor for writing\n");
+        }
+
         datum value() const { return value__; }
+
+        void write(writeable &buf) const {
+            length.write(buf);
+            buf << value__;
+        }
+
     };
 
     // Major type 3: A text string (Section 2) encoded as UTF-8
@@ -159,7 +278,20 @@ namespace cbor {
             value__{d, length.value()}
         { }
 
+        // construct a text_string for writing
+        //
+        text_string(const datum &d) :
+            length{d.length(), text_string_type},
+            value__{d}
+        { }
+
         datum value() const { return value__; }
+
+        void write(writeable &buf) const {
+            length.write(buf);
+            buf << value__;
+        }
+
     };
 
     // Major type 4: An array of data items. In other formats, arrays
@@ -229,6 +361,131 @@ namespace cbor {
 
     };
 
+    // an element is a cbor-encoded element
+    //
+    // note that for any element e, e.index() is equal to the
+    // major_type of e plus one
+    //
+    using element = std::variant<std::monostate,
+                                 uint64,
+                                 int64,
+                                 byte_string,
+                                 text_string,
+                                 array,
+                                 map>;
+
+    // decode and return the element (`std::variant` for all cbor
+    // types) from `d`; if no element could be decoded,
+    // `std::monostate` is returned.
+    //
+    inline element decode(datum &d) {
+        if (lookahead<initial_byte> ib{d}) {
+            switch (ib.value.major_type()) {
+            case unsigned_integer_type:
+                {
+                    uint64 tmp{d};
+                    if (d.is_not_null()) {
+                        return tmp;
+                    }
+                }
+                break;
+            case negative_integer_type:
+                {
+                    int64 tmp{d};
+                    if (d.is_not_null()) {
+                        return tmp;
+                    }
+                }
+                break;
+            case byte_string_type:
+                {
+                    byte_string tmp{d};
+                    if (d.is_not_null()) {
+                        return tmp;
+                    }
+                }
+                break;
+            case text_string_type:
+                {
+                    text_string tmp{d};
+                    if (d.is_not_null()) {
+                        return tmp;
+                    }
+                }
+                break;
+            case array_type:
+                {
+                    array tmp{d};
+                    if (d.is_not_null()) {
+                        return tmp;
+                    }
+                }
+                break;
+            case map_type:
+                {
+                    map tmp{d};
+                    if (d.is_not_null()) {
+                        return tmp;
+                    }
+                }
+                break;
+            case simple_or_float_type:
+                {
+                    if (ib.value.is_break()) {
+                        return std::monostate{};
+                    }
+                }
+                break;
+            default:
+                ;
+            }
+        }
+        return std::monostate{};
+    }
+
+    inline uint8_t major_type(const element &e) {
+        return e.index() - 1;
+    }
+
+    inline void printf(FILE *f, const element &e) {
+        ;;;
+    }
+
 };     // end of namespace cbor
+
+
+namespace cbor::output {
+
+    // Major type 4: An array of data items. In other formats, arrays
+    // are also called lists, sequences, or tuples (a "CBOR sequence"
+    // is something slightly different, though [RFC8742]). The
+    // argument is the number of data items in the array. Items in an
+    // array do not need to all be of the same type. For example, an
+    // array that contains 10 items of any type would have an initial
+    // byte of 0b100_01010 (major type 4, additional information 10
+    // for the length) followed by the 10 remaining items.
+    //
+    class array {
+        writeable &w;
+
+    public:
+
+        // construct an indefinite-length array for writing
+        //
+        array(writeable &buf) : w{buf} {
+            w << initial_byte{array_type, 31};  // 0x9f
+        }
+
+        void close() {
+            w << initial_byte{simple_or_float_type, 31}; // 0xff
+        }
+
+        template <typename T>
+        void write(const T &t) const {
+            t.write(w);
+        }
+    };
+
+};
 
 #endif // CBOR_HPP
