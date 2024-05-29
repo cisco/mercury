@@ -6,7 +6,23 @@
 #define CBOR_HPP
 
 #include "datum.h"
+#include "lex.h"
 #include <variant>
+
+class hex_digits : public one_or_more<hex_digits> {
+public:
+    inline static bool in_class(uint8_t x) {
+        return (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F');
+    }
+
+    // write hex as raw
+    //
+    void write(writeable &buf) const {
+        buf.copy_from_hex(data, length());
+    }
+
+};
+
 
 
 // a simple CBOR decoder, following RFC 8949
@@ -253,6 +269,24 @@ namespace cbor {
 
     };
 
+    class byte_string_from_hex {
+        uint64 length;
+        datum hex_value;
+
+    public:
+
+        byte_string_from_hex(const hex_digits &hex_string) :
+            length{hex_string.length() / 2, byte_string_type},
+            hex_value{hex_string}
+        { }
+
+        void write(writeable &buf) const {
+            length.write(buf);
+            buf.copy_from_hex(hex_value.data, hex_value.length());
+        }
+
+    };
+
     // Major type 3: A text string (Section 2) encoded as UTF-8
     // [RFC3629]. The number of bytes in the string is equal to the
     // argument. A string containing an invalid UTF-8 sequence is
@@ -484,6 +518,7 @@ namespace cbor::output {
         void write(const T &t) const {
             t.write(w);
         }
+
     };
 
 };

@@ -4,15 +4,6 @@
 #include <vector>
 #include <cctype>
 #include "libmerc/cbor.hpp"
-#include "libmerc/lex.h"
-
-
-class hex_digits : public one_or_more<hex_digits> {
-public:
-    inline static bool in_class(uint8_t x) {
-        return (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F');
-    }
-};
 
 
 // cbor_fingerprint decodes a CBOR representation of a Network
@@ -43,9 +34,9 @@ public:
                 fputc(')', stdout);
             } else if (ib.value.is_array_indefinite_length()) {
                 d = ib.advance();
-                fputc('(', stdout);
+                fputc('[', stdout);
                 fprint(f, d);          // recursion
-                fputc(')', stdout);
+                fputc(']', stdout);
             } else if (ib.value.is_break()) {
                 d = ib.advance();
                 break;
@@ -75,7 +66,7 @@ public:
     static void write_sorted_list(datum &d) {
         literal_byte<'['>{d};
         while(lookahead<encoded<uint8_t>> c{d}) {
-            if (c.value == ')') {
+            if (c.value == ']') {
                 break;
             }
             fputc('\t', stdout);
@@ -92,13 +83,13 @@ public:
 
     static void write_cbor_data(datum &d, writeable &w) {
         literal_byte<'('>{d};
-        cbor::byte_string{hex_digits{d}}.write(w);  // TODO: convert hex to raw
+        cbor::byte_string_from_hex{hex_digits{d}}.write(w);
         literal_byte<')'>{d};
     }
 
     static void write_cbor_data(datum &d, cbor::output::array &a) {
         literal_byte<'('>{d};
-        a.write(cbor::byte_string{hex_digits{d}});  // TODO: convert hex to raw
+        a.write(cbor::byte_string_from_hex{hex_digits{d}});
         literal_byte<')'>{d};
     }
 
@@ -106,7 +97,7 @@ public:
         literal_byte<'['>{d};
         cbor::output::array a{w};
         while(lookahead<encoded<uint8_t>> c{d}) {
-            if (c.value == ')') {
+            if (c.value == ']') {
                 break;
             }
             write_cbor_data(d, a);
@@ -374,16 +365,23 @@ int main(int, char *[]) {
     //     fprintf(stdout, "error: contents is null\n");
     // }
 
-
     const char *tls_fp = "(0303)(130213031301c030c02fc02ccca9cca8c0adc02bc0acc024c028c023c027c009c013009dc09d009cc09c003d003c0035002f000700ff)[(000a000c000a001d0017001e00190018)(000b000403000102)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(0010000b000908687474702f312e31)(0015)(0016)(0017)(002b0009080304030303020301)(002d00020101)(0031)(0033)(3374)]";
     datum tls_fp_data{(uint8_t *)tls_fp, (uint8_t *)tls_fp + strlen(tls_fp)};
 
+    printf("cbor_fingerprint::write_tls_fingerprint: ");
     cbor_fingerprint::write_tls_fingerprint(tls_fp_data);
 
-    dbuf.reset();
     tls_fp_data = {(uint8_t *)tls_fp, (uint8_t *)tls_fp + strlen(tls_fp)};
-    cbor_fingerprint::write_cbor_tls_fingerprint(tls_fp_data, dbuf);
+    dbuf.reset();
+    cbor_fingerprint::write_cbor_tls_fingerprint(tls_fp_data, dbuf); fputc('\n', stdout);
+    printf("cbor_fingerprint::write_cbor_tls_fingerprint:\n");
     dbuf.contents().fprint_hex(stdout); fputc('\n', stdout);
+
+    printf("cbor_fingerprint::fprint:\n");
+    contents = dbuf.contents();
+    cbor_fingerprint::fprint(stdout, contents); fputc('\n', stdout);
+
+    printf("input:\n%s\n", tls_fp);
 
     return 0;
 }

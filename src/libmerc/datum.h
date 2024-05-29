@@ -1033,6 +1033,59 @@ public:
         copy('"');
     }
 
+    /// writes a raw representation of the hexadecimal string with \p
+    /// num_digits characters at location \p src into this
+    /// `data_buffer`, if `num_digits` is even and there is room for
+    /// all `num_digits/2` bytes; otherwise, sets it to the empty
+    /// state
+    ///
+    void copy_from_hex(const uint8_t *src, size_t num_digits) {
+
+        // check for writeable room; output length is twice the input
+        // length
+        //
+        if (is_null() or data_end - data < ((ssize_t)num_digits/2)) {
+            set_null();
+            return;
+        }
+
+        const uint8_t *src_end = src + num_digits;
+        while (src < src_end) {
+            uint8_t hi = *src++;
+            uint8_t lo = *src++;
+            uint8_t result;
+            if (hi >= '0' && hi <= '9') {
+                result = (hi - '0') << 4;
+            } else if (hi >= 'a' && hi <= 'f') {
+                result = (hi - 'a' + 10) << 4;
+            } else if (hi >= 'A' && hi <= 'F') {
+                result = (hi - 'A' + 10) << 4;
+            } else {
+                //
+                // error; character hi is not a hex digit
+                //
+                set_null();
+                return;
+            }
+            if (lo >= '0' && lo <= '9') {
+                result |= (lo - '0');
+            } else if (lo >= 'a' && lo <= 'f') {
+                result |= (lo - 'a' + 10);
+            } else if (lo >= 'A' && lo <= 'F') {
+                result |= (lo - 'A' + 10);
+            } else {
+                //
+                // error; character lo is not a hex digit
+                //
+                set_null();
+                return;
+            }
+            *data++ = result;
+
+        }
+
+    }
+
     /// copies `num_bytes` out of `r` and into this \ref writeable,
     /// and advances `r`, if this `writeable` has enough room for the
     /// data and `r` contains at least `num_bytes`.  If `r.length() <
