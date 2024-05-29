@@ -383,5 +383,15 @@ int main(int, char *[]) {
 
     printf("input:\n%s\n", tls_fp);
 
+    // example fingerprint and destination context (fdc) encoding
+    //
+    dbuf.reset();
+    cbor::output::array fdc{dbuf};
+    tls_fp_data = {(uint8_t *)tls_fp, (uint8_t *)tls_fp + strlen(tls_fp)};
+    cbor_fingerprint::write_cbor_tls_fingerprint(tls_fp_data, fdc);
+    a.write(cbor::text_string{"parked-content.godaddy.com"});
+    a.close();
+    printf("fdc:\n"); dbuf.contents().fprint_hex(stdout); fputc('\n', stdout);
+
     return 0;
 }

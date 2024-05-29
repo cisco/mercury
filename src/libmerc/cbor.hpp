@@ -305,6 +305,10 @@ namespace cbor {
         uint64 length;
         datum value__;
 
+        static datum datum_from_str(const char *null_terminated_string) {
+            return { (uint8_t *)null_terminated_string, (uint8_t *)null_terminated_string + strlen(null_terminated_string)};
+        }
+
     public:
 
         text_string(datum &d) :
@@ -317,6 +321,13 @@ namespace cbor {
         text_string(const datum &d) :
             length{d.length(), text_string_type},
             value__{d}
+        { }
+
+        // construct a text_string for writing
+        //
+        text_string(const char *null_terminated_string) :
+            length{datum_from_str(null_terminated_string).length(), text_string_type},
+            value__{datum_from_str(null_terminated_string)}
         { }
 
         datum value() const { return value__; }
@@ -519,6 +530,7 @@ namespace cbor::output {
             t.write(w);
         }
 
+        operator writeable & () { return w; }
     };
 
 };
