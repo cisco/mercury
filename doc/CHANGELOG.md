@@ -1,5 +1,14 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.28
+* Added decapsulation support for GENEVE (RFC 8926)
+* Added a log message that indicates the end of a stats dump, and one that reports the total number of fingerprints of each type in resource file.
+* Disabled the TLS "feature" output, to reduce output volume.
+* Added a commit hash output to `mercury --version`
+* Added a check that the resource archive contains a watchlist, and added an empty watchlist to `resources/resources.tgz`.
+* Added a Makefile target for the Cryptographic Message Syntax (CMS) reader `src/cms`.
+* Minor fixes to output and documentation.
+
 ## Version 2.5.27
 
 * Changes to enable native builds on MacOS for both Intel and Apple Silicon.

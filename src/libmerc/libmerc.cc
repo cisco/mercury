@@ -47,6 +47,10 @@ void mercury_print_version_string(FILE *f) {
     mercury_version.print(f);
 }
 
+void mercury_print_git_commit(FILE *f) {
+    fprintf(f, "%s\n", git_commit_id);
+}
+
 void mercury_get_version_string(char *buf, size_t size) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print_version_string(buf, size);
@@ -303,7 +307,7 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
                            git_count,
                            init_time);
     gzclose(stats_data_file);
-
+    printf_err(log_debug, "stats dump completed\n");
     return true;
 }
 
