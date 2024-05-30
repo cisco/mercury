@@ -18,10 +18,10 @@
 //
 class geneve {
     encoded<uint8_t> first_byte;
-    skip_bytes<1> flags_and_rsrvdbits;
+    ignore<encoded<uint8_t>> flags_and_rsrvdbits;
     encoded<uint16_t> protocol_type;
     datum vni;
-    skip_bytes<1> reserved;
+    ignore<encoded<uint8_t>> reserved;
     datum options;
 
 public:

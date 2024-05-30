@@ -620,9 +620,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         udp_pkt.set_key(k);
         udp::ports ports = udp_pkt.get_ports();
         if (ports.dst == htons(geneve::dst_port)) {
-            // Copy of packet is used for geneve parsing.
-            // In case if the packet is not a valid geneve packet,
-            // protocol parsing is resumed with original copy.
+            // Copy of datum containing packet data is used for
+            // geneve parsing. In case if the packet is not a valid geneve
+            // packet, protocol parsing is resumed with original copy.
             datum p{pkt};
             geneve geneve_pkt{p};
             switch(geneve_pkt.get_protocol_type()) {
@@ -872,7 +872,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         udp_pkt.set_key(k);
         udp::ports ports = udp_pkt.get_ports();
         if (ports.dst == htons(geneve::dst_port)) {
-            // Copy of packet
+            // Copy of datum containing packet data is used for
+            // geneve parsing. In case if the packet is not a valid geneve
+            // packet, protocol parsing is resumed with original copy.
             datum p{pkt};
             geneve geneve_pkt{p};
             switch(geneve_pkt.get_protocol_type()) {
