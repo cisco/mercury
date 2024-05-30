@@ -8,6 +8,7 @@
 #include <string.h>
 #include <variant>
 #include <set>
+#include <netinet/in.h>
 
 #include "libmerc.h"
 #include "pkt_proc.h"
@@ -51,6 +52,7 @@
 #include "netbios.h"
 #include "openvpn.h"
 #include "mysql.hpp"
+#include "geneve.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -616,10 +618,31 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
+        udp::ports ports = udp_pkt.get_ports();
+        if (ports.dst == htons(geneve::dst_port)) {
+            // Copy of datum containing packet data is used for
+            // geneve parsing. In case if the packet is not a valid geneve
+            // packet, protocol parsing is resumed with original copy.
+            datum p{pkt};
+            geneve geneve_pkt{p};
+            switch(geneve_pkt.get_protocol_type()) {
+            case geneve::ethernet:
+                if (!eth::get_ip(p)) {
+                    break;   // not an IP packet
+                }
+                return (ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler));
+
+            case ETH_TYPE_IP:
+            case ETH_TYPE_IPV6:
+                return (ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler));
+            default:
+                break;
+            }
+        }
+
         enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
 
         if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
-            udp::ports ports = udp_pkt.get_ports();
             msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
             // if (ports.src == htons(53) || ports.dst == htons(53)) {
             //     msg_type = udp_msg_type_dns;
@@ -847,10 +870,30 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
+        udp::ports ports = udp_pkt.get_ports();
+        if (ports.dst == htons(geneve::dst_port)) {
+            // Copy of datum containing packet data is used for
+            // geneve parsing. In case if the packet is not a valid geneve
+            // packet, protocol parsing is resumed with original copy.
+            datum p{pkt};
+            geneve geneve_pkt{p};
+            switch(geneve_pkt.get_protocol_type()) {
+            case geneve::ethernet:
+                if (!eth::get_ip(p)) {
+                    break;   // not an IP packet
+                }
+                return (analyze_ip_packet(p.data, p.length(), ts, reassembler));
+
+            case ETH_TYPE_IP:
+            case ETH_TYPE_IPV6:
+                return (analyze_ip_packet(p.data, p.length(), ts, reassembler));
+            default:
+                break;
+            }
+        }
         enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
 
         if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
-            udp::ports ports = udp_pkt.get_ports();
             msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
            /* if (ports.dst == htons(4789)) {
                 msg_type = udp_msg_type_vxlan; // could parse VXLAN header here
