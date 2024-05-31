@@ -304,7 +304,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
         k_quic.protocol = proto_quic;
         k_quic.ip_vers = 4;
 
-        WHEN("write to FDC buffer for tcp payload of http request") {
+        WHEN("write to FDC buffer for tcp payload of quic init packet") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
                 mpp, 
