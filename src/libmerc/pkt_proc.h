@@ -257,7 +257,7 @@ struct stateful_pkt_proc {
                             const uint8_t *payload,
                             const size_t length, 
                             uint8_t *buffer, 
-                            ssize_t *buffer_size);
+                            size_t *buffer_size);
 
     bool tcp_data_set_analysis_result(struct analysis_result *r,
                                       struct datum &pkt,

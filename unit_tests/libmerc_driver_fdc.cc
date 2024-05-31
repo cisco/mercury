@@ -155,7 +155,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
         k_http.protocol = proto;
 
         WHEN("write to FDC buffer for tcp payload of http request") {
-            ssize_t fdc_buffer_len = max_buffer_allocation;
+            size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
                 mpp, 
                 &k_http, 
@@ -165,7 +165,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
                 &fdc_buffer_len);
 
             THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written != fdc_return::FDC_WRITE_FAILURE);
+                REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 191);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
@@ -217,7 +217,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
         k_ipv6.addr.ipv6.dst.d = dst.d;
 
         WHEN("write to FDC buffer for tcp payload of http request") {
-            ssize_t fdc_buffer_len = max_buffer_allocation;
+            size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
                 mpp, 
                 &k_ipv6, 
@@ -227,7 +227,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
                 &fdc_buffer_len);
 
             THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written != fdc_return::FDC_WRITE_FAILURE);
+                REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 198);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
@@ -261,7 +261,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         k_tls.ip_vers = 4;
 
         WHEN("write to FDC buffer for tcp payload of tls client hello") {
-            ssize_t fdc_buffer_len = max_buffer_allocation;
+            size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
                 mpp, 
                 &k_tls, 
@@ -271,7 +271,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
                 &fdc_buffer_len);
 
             THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written != fdc_return::FDC_WRITE_FAILURE);
+                REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 260);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
@@ -305,7 +305,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
         k_quic.ip_vers = 4;
 
         WHEN("write to FDC buffer for tcp payload of http request") {
-            ssize_t fdc_buffer_len = max_buffer_allocation;
+            size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
                 mpp, 
                 &k_quic, 
@@ -315,7 +315,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
                 &fdc_buffer_len);
 
             THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written != fdc_return::FDC_WRITE_FAILURE);
+                REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 294);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
@@ -349,7 +349,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         k_tls.ip_vers = 4;
 
         WHEN("write to FDC buffer for tcp payload of tls client hello") {
-            ssize_t fdc_buffer_len = max_buffer_allocation;
+            size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
                 mpp, 
                 &k_tls, 
@@ -359,7 +359,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
                 &fdc_buffer_len);
 
             THEN("FDC write to output buffer fails due to insufficient buffer size") {
-                REQUIRE(bytes_written == fdc_return::FDC_WRITE_FAILURE);
+                REQUIRE(bytes_written == fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(fdc_buffer_len == 2*max_buffer_allocation);
             }  
             mercury_packet_processor_destruct(mpp);

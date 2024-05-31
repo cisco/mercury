@@ -1235,10 +1235,10 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                         const uint8_t *payload,
                         const size_t length, 
                         uint8_t *buffer, 
-                        ssize_t *buffer_size) {
+                        size_t *buffer_size) {
     struct datum pkt{payload, payload+length}; 
     protocol x;
-    ssize_t internal_buffer_size = *buffer_size;
+    size_t internal_buffer_size = *buffer_size;
     struct writeable w(buffer, buffer + internal_buffer_size);
     key internal_flow_key{*k};   
     if (k->protocol == ip::protocol::tcp) {
@@ -1263,15 +1263,6 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
     }
     std::visit(do_analysis_without_classification{&internal_flow_key, analysis}, x);
-    
-    // debug
-    printf("stateful_pkt_proc::analyze_payload_fdc\n"
-    "FP=%s, len(FP)=%lu\n" 
-    "server_name=%s, ua_str=%s, sn_str=%s\n" 
-    "dst_ip=%s, dst_port=%d\n", 
-    analysis.fp.string(), strlen(analysis.fp.string()), 
-    analysis.get_server_name(), analysis.destination.ua_str, analysis.destination.sn_str, 
-    analysis.destination.dst_ip_str, analysis.destination.dst_port);
 
     bool exceeded = false;
 

@@ -827,6 +827,6 @@ int mercury_packet_processor_get_analysis_context_fdc(
     const uint8_t* data, 
     const size_t len, 
     uint8_t *buffer, 
-    ssize_t* buffer_size);
+    size_t* buffer_size);
 
 #endif /* LIBMERC_H */
