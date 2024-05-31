@@ -1572,7 +1572,7 @@ public:
     // TODO: add a function slice<i,j>(T newvalue) that sets the bits
     // associated with a slice
 
-    void write(writeable &buf, bool swap_byte_order=false) const {
+    size_t write(writeable &buf, bool swap_byte_order=false) const {
         encoded<T> tmp = val;
         if (swap_byte_order) {
             tmp.swap_byte_order();
@@ -1580,6 +1580,7 @@ public:
         buf.copy((uint8_t *)&tmp, sizeof(T));
 
         // TODO: rewrite function to eliminate cast
+        return sizeof(T);
     }
 
     /// write_hex() writes a hexadecimal representation of this

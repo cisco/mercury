@@ -167,6 +167,22 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
     return NULL;
 }
 
+int mercury_packet_processor_get_analysis_context_fdc(
+    mercury_packet_processor processor,
+    const struct flow_key_ext* k,
+    const uint8_t* payload, 
+    const size_t len, 
+    uint8_t *buffer, 
+    ssize_t *buffer_size) { 
+    try {
+        return processor->analyze_payload_fdc(k, payload, len, buffer, buffer_size);
+    }
+    catch (std::exception &e) {
+        printf_err(log_err, "%s\n", e.what());
+    }
+    return fdc_return::UNKNOWN_ERROR;
+}
+
 const struct analysis_context *mercury_packet_processor_get_analysis_context_linktype(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts, uint16_t linktype)
 {
     try

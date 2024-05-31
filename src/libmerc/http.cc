@@ -457,3 +457,11 @@ bool http_request::do_analysis(const struct key &k_, struct analysis_context &an
 
     return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }
+
+bool http_request::do_analysis_without_classification(const struct key &k_, struct analysis_context &analysis_) {
+    struct datum host_data = get_header("host: ");
+    struct datum user_agent_data = get_header("user-agent: ");
+    analysis_.destination.init(host_data, user_agent_data, {nullptr, nullptr}, k_);
+
+    return false;
+}

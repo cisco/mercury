@@ -141,8 +141,12 @@ struct tcp_packet : public base_protocol {
     // complete protocol msg, but may also be used by another protocol in reassembly
     bool supplementary_reassembly = false;
 
-    tcp_packet(datum &p, ip *outer=nullptr) : ip_pkt{outer} {
-        parse(p);
+    tcp_packet(datum &p, ip *outer=nullptr, bool payload_only=false) : ip_pkt{outer} {
+        if(payload_only) {
+            data_length = p.length();
+        } else {
+            parse(p);
+        }
     };
 
     void parse(struct datum &p) {

@@ -1200,6 +1200,118 @@ static void enumerate_protocol_types(FILE *f) {
     }
 }
 
+size_t copy_to_writeable(struct writeable* w, 
+                        fieldtype type, 
+                        const uint8_t *data, 
+                        size_t length, 
+                        bool *exceeded) {
+    uint8_t *start = w->data;
+    w->copy((uint8_t)type);
+    w->copy(length);
+    w->copy(data, length);
+    if(w->data == nullptr or w->data_end == nullptr) {
+        *exceeded = true;
+        return 0;
+    }
+    return w->data - start;
+}
+
+size_t copy_to_writeable(struct writeable* w, 
+                        uint16_t dst_port, 
+                        bool *exceeded) {
+    uint8_t *start = w->data;
+    w->copy((uint8_t)fieldtype::DST_PORT);
+    w->copy(sizeof(uint16_t));
+    encoded<uint16_t> encoded_port{dst_port};
+    encoded_port.write(*w, true);
+    if(w->data == nullptr or w->data_end == nullptr) {
+        *exceeded = true;
+        return 0;
+    }
+    return w->data - start;
+}
+
+int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
+                        const uint8_t *payload,
+                        const size_t length, 
+                        uint8_t *buffer, 
+                        ssize_t *buffer_size) {
+    struct datum pkt{payload, payload+length}; 
+    protocol x;
+    ssize_t internal_buffer_size = *buffer_size;
+    struct writeable w(buffer, buffer + internal_buffer_size);
+    key internal_flow_key{*k};    
+    if (k->protocol == ip::protocol::tcp) {
+        tcp_packet tcp_pkt{pkt, nullptr, true};            
+        set_tcp_protocol(x, pkt, false, &tcp_pkt);
+    } 
+    else if (k->protocol == ip::protocol::udp) {
+        class udp udp_pkt{pkt, true};
+        udp::ports ports = {internal_flow_key.src_port, internal_flow_key.dst_port};
+        enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
+        if (msg_type == udp_msg_type_unknown) {  
+            msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
+        }
+        set_udp_protocol(x, pkt, msg_type, false, internal_flow_key);
+    }
+
+    if (std::visit(is_not_empty{}, x)) {
+        std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
+    }
+    std::visit(do_analysis_without_classification{&internal_flow_key, analysis}, x);
+    
+    // debug
+    printf("stateful_pkt_proc::analyze_payload_fdc\n"
+    "FP=%s, len(FP)=%lu\n" 
+    "server_name=%s, ua_str=%s, sn_str=%s\n" 
+    "dst_ip=%s, dst_port=%d\n", 
+    analysis.fp.string(), strlen(analysis.fp.string()), 
+    analysis.get_server_name(), analysis.destination.ua_str, analysis.destination.sn_str, 
+    analysis.destination.dst_ip_str, analysis.destination.dst_port);
+
+    bool exceeded = false;
+
+    // fingerprint
+    size_t fp_bytes = copy_to_writeable(&w, fieldtype::FINGERPRINT, (uint8_t*)analysis.fp.string(), strlen(analysis.fp.string()), &exceeded);
+    if(exceeded) {
+        *buffer_size = 2*internal_buffer_size;
+        return fdc_return::FDC_WRITE_FAILURE;
+    }
+    
+    // user-agent
+    size_t ua_bytes = copy_to_writeable(&w, fieldtype::USER_AGENT, (uint8_t*)analysis.destination.ua_str, strlen(analysis.destination.ua_str), &exceeded);
+    if(exceeded) {
+        *buffer_size = 2*internal_buffer_size;
+        return fdc_return::FDC_WRITE_FAILURE;
+    }
+    
+    // domain
+    size_t domain_bytes = copy_to_writeable(&w, fieldtype::DOMAIN, (uint8_t*)analysis.destination.sn_str, strlen(analysis.destination.sn_str), &exceeded);
+    if(exceeded) {
+        *buffer_size = 2*internal_buffer_size;
+        return fdc_return::FDC_WRITE_FAILURE;
+    }
+    
+    // dst ip
+    size_t dst_ip_bytes = copy_to_writeable(&w, fieldtype::DST_IP_STR, (uint8_t*)analysis.destination.dst_ip_str, strlen(analysis.destination.dst_ip_str), &exceeded);
+    if(exceeded) {
+        *buffer_size = 2*internal_buffer_size;
+        return fdc_return::FDC_WRITE_FAILURE;
+    }
+    
+    //  dst port
+    size_t dst_port_bytes = copy_to_writeable(&w, analysis.destination.dst_port, &exceeded);
+    if(exceeded) {
+        *buffer_size = 2*internal_buffer_size;
+        return fdc_return::FDC_WRITE_FAILURE;
+    }
+
+    size_t bytes_written = w.data-buffer;
+    assert(bytes_written == fp_bytes+ua_bytes+domain_bytes+dst_ip_bytes+dst_port_bytes);
+    
+    return (int)bytes_written;
+}
+
 bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                                           size_t length,
                                               struct timespec *ts,

@@ -1039,6 +1039,18 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     return ret;
 }
 
+bool tls_client_hello::do_analysis_without_classification(const struct key &k_, struct analysis_context &analysis_) {
+    datum sn;
+    datum ua;
+    datum alpn;
+
+    extensions.set_meta_data(sn, ua, alpn);
+
+    analysis_.destination.init(sn, ua, alpn, k_);
+
+    return false;
+}
+
 void tls_server_hello::parse(struct datum &p) {
     mercury_debug("%s: processing packet with %td bytes\n", __func__, p.data_end - p.data);
 

@@ -345,4 +345,23 @@ struct do_analysis {
 
 };
 
+struct do_analysis_without_classification {
+    const struct key &k_;
+    struct analysis_context &analysis_;
+
+    do_analysis_without_classification(const struct key* k,
+                struct analysis_context &analysis) :
+        k_{*k},
+        analysis_{analysis}
+    {}
+
+    template <typename T>
+    bool operator()(T &msg) {
+        return msg.do_analysis_without_classification(k_, analysis_);
+    }
+
+    bool operator()(std::monostate &) { return false; }
+};
+
+
 #endif  /* PKT_PROC_UTIL_HPP */

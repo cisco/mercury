@@ -60,7 +60,12 @@ class udp {
 
 public:
 
-    udp(struct datum &d) : header{NULL}, more_bytes_needed{0} { parse(d); };
+    udp(struct datum &d, bool payload_only=false) : header{NULL}, more_bytes_needed{0} { 
+        if(payload_only) {
+            return;
+        }
+        parse(d);
+    };
 
     void parse(struct datum &d) {
         header = d.get_pointer<struct header>();

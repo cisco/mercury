@@ -775,4 +775,57 @@ extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const struct attribute_context *mercury_packet_processor_get_attributes(mercury_packet_processor processor);
 
+struct ipv6_addr_ext {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+}; 
+
+struct flow_key_ext {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint8_t protocol;
+    uint8_t ip_vers;
+    union {
+        struct {
+            uint32_t src;
+            uint32_t dst;
+        } ipv4;
+        struct {
+            struct ipv6_addr_ext src;
+            struct ipv6_addr_ext dst;
+        } ipv6;
+    } addr;
+}; 
+
+enum fdc_return {
+    FDC_WRITE_FAILURE = -1,
+    MORE_PACKETS_NEEDED = -2,
+    UNKNOWN_ERROR = -3
+};
+
+/**
+ * mercury_packet_processor_get_analysis_context_fpc() processes a TCP/UDP payload 
+ * and writes analysis vars to an opaque buffer passed to it
+ * @param processor (input) is a packet processor context to be used.
+ * @param key (input) is a pointer to the flow key object received externally.
+ * @param data (input) is a pointer to the tcp payload contents.
+ * @param len (input) is the size of the tcp payload 
+ * @param buffer (input) is a pointer to the output buffer where the analysis vars will be written.
+ * @param buffer_size (input) is the max size of the output buffer, defined as `#define MAX_FDC_SIZE 1500`
+ * 
+ * @return number of bytes written to the output buffer
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+int mercury_packet_processor_get_analysis_context_fdc(
+    mercury_packet_processor processor,
+    const struct flow_key_ext* key,
+    const uint8_t* data, 
+    const size_t len, 
+    uint8_t *buffer, 
+    ssize_t* buffer_size);
+
 #endif /* LIBMERC_H */

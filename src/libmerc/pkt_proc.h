@@ -41,6 +41,13 @@ enum linktype : uint16_t {
     LINKTYPE_LINUX_SLL = 113, // Linux "cooked" capture encapsualtion
 };
 
+enum fieldtype : uint8_t {
+    FINGERPRINT = 0,
+    USER_AGENT  = 1,
+    DOMAIN      = 2,
+    DST_IP_STR  = 3,
+    DST_PORT    = 4
+};
 
 /**
  * struct mercury holds state that is used by one or more
@@ -245,6 +252,12 @@ struct stateful_pkt_proc {
                            size_t length,
                            struct timespec *ts,
                            struct tcp_reassembler *reassembler);
+
+    int analyze_payload_fdc(const struct flow_key_ext *k,
+                            const uint8_t *payload,
+                            const size_t length, 
+                            uint8_t *buffer, 
+                            ssize_t *buffer_size);
 
     bool tcp_data_set_analysis_result(struct analysis_result *r,
                                       struct datum &pkt,

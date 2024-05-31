@@ -1764,6 +1764,17 @@ public:
 
         return ret;
     }
+
+    bool do_analysis_without_classification(const struct key &k_, struct analysis_context &analysis_) {
+        struct datum sn{NULL, NULL};
+        struct datum user_agent {NULL, NULL};
+        datum alpn;
+
+        hello.extensions.set_meta_data(sn, user_agent, alpn);
+
+        analysis_.destination.init(sn, user_agent, alpn, k_);
+        return false;
+    }
 };
 
 namespace {
