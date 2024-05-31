@@ -800,9 +800,10 @@ struct flow_key_ext {
 }; 
 
 enum fdc_return {
-    FDC_WRITE_FAILURE = -1,
-    MORE_PACKETS_NEEDED = -2,
-    UNKNOWN_ERROR = -3
+    FDC_WRITE_INSUFFICIENT_SPACE = -1,
+    FDC_WRITE_FAILURE = -2,
+    MORE_PACKETS_NEEDED = -3,
+    UNKNOWN_ERROR = -4
 };
 
 /**

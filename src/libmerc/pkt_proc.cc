@@ -1240,9 +1240,13 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     protocol x;
     ssize_t internal_buffer_size = *buffer_size;
     struct writeable w(buffer, buffer + internal_buffer_size);
-    key internal_flow_key{*k};    
+    key internal_flow_key{*k};   
     if (k->protocol == ip::protocol::tcp) {
-        tcp_packet tcp_pkt{pkt, nullptr, true};            
+        tcp_header tcp_hdr;
+        tcp_hdr.src_port = internal_flow_key.src_port;
+        tcp_hdr.dst_port = internal_flow_key.dst_port;
+        
+        tcp_packet tcp_pkt{pkt, &tcp_hdr};
         set_tcp_protocol(x, pkt, false, &tcp_pkt);
     } 
     else if (k->protocol == ip::protocol::udp) {
@@ -1275,35 +1279,35 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     size_t fp_bytes = copy_to_writeable(&w, fieldtype::FINGERPRINT, (uint8_t*)analysis.fp.string(), strlen(analysis.fp.string()), &exceeded);
     if(exceeded) {
         *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_FAILURE;
+        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
     }
     
     // user-agent
     size_t ua_bytes = copy_to_writeable(&w, fieldtype::USER_AGENT, (uint8_t*)analysis.destination.ua_str, strlen(analysis.destination.ua_str), &exceeded);
     if(exceeded) {
         *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_FAILURE;
+        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
     }
     
     // domain
     size_t domain_bytes = copy_to_writeable(&w, fieldtype::DOMAIN, (uint8_t*)analysis.destination.sn_str, strlen(analysis.destination.sn_str), &exceeded);
     if(exceeded) {
         *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_FAILURE;
+        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
     }
     
     // dst ip
     size_t dst_ip_bytes = copy_to_writeable(&w, fieldtype::DST_IP_STR, (uint8_t*)analysis.destination.dst_ip_str, strlen(analysis.destination.dst_ip_str), &exceeded);
     if(exceeded) {
         *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_FAILURE;
+        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
     }
     
     //  dst port
     size_t dst_port_bytes = copy_to_writeable(&w, analysis.destination.dst_port, &exceeded);
     if(exceeded) {
         *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_FAILURE;
+        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
     }
 
     size_t bytes_written = w.data-buffer;
