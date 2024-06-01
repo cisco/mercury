@@ -1281,7 +1281,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     }
     
     // domain
-    size_t domain_bytes = copy_to_writeable(&w, fieldtype::DOMAIN, (uint8_t*)analysis.destination.sn_str, strlen(analysis.destination.sn_str), &exceeded);
+    size_t domain_bytes = copy_to_writeable(&w, fieldtype::DOMAIN_NAME, (uint8_t*)analysis.destination.sn_str, strlen(analysis.destination.sn_str), &exceeded);
     if(exceeded) {
         *buffer_size = 2*internal_buffer_size;
         return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;

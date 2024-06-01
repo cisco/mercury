@@ -44,7 +44,7 @@ enum linktype : uint16_t {
 enum fieldtype : uint8_t {
     FINGERPRINT = 0,
     USER_AGENT  = 1,
-    DOMAIN      = 2,
+    DOMAIN_NAME      = 2,
     DST_IP_STR  = 3,
     DST_PORT    = 4
 };
