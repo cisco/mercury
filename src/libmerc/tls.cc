@@ -867,9 +867,10 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
         extensions.print_alpn(tls_client, "application_layer_protocol_negotiation");
         extensions.print_session_ticket(tls_client, "session_ticket");
     }
-    data_buffer<2048> buf;
-    write_raw_features(buf);
-    tls_client.print_key_json_string("features", buf.contents());
+    // Temporarily disable tls.features due to output volume
+    // data_buffer<2048> buf;
+    // write_raw_features(buf);
+    // tls_client.print_key_json_string("features", buf.contents());
     tls_client.close();
     tls.close();
 }

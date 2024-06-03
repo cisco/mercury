@@ -1625,7 +1625,7 @@ namespace pcap {
             //
             char prefix[13];
             snprintf(prefix, sizeof(prefix), "0x%" PRIu64, tmp);
-            std::string err_msg{"unrecognized file prefix: 0x"};
+            std::string err_msg{"unrecognized file prefix: "};
             err_msg += prefix;
             throw std::runtime_error(err_msg);
         }
