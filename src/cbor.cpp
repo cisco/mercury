@@ -28,7 +28,7 @@ public:
     static void fprint(FILE *f, datum &d) {
         while (lookahead<cbor::initial_byte> ib{d}) {
             if (ib.value.is_byte_string()) {
-                cbor::byte_string bs{d};
+                cbor::byte_string bs = cbor::byte_string::decode(d);
                 fputc('(', stdout);
                 bs.value().fprint_hex(stdout);
                 fputc(')', stdout);
@@ -176,7 +176,7 @@ int main(int, char *[]) {
 
         datum d{e.data(), e.data() + e.size()};
 
-        cbor::byte_string bs{d};
+        cbor::byte_string bs = cbor::byte_string::decode(d);
         bs.value().fprint_hex(stdout); fputc('\n', stdout);
 
         fputc('\n', stdout);
@@ -321,9 +321,9 @@ int main(int, char *[]) {
     std::array<uint8_t, 8> bytes{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
     datum bytes_data{bytes};
     bytes_data.fprint_hex(stdout); fputc('\n', stdout);
-    cbor::byte_string{(const datum)bytes_data}.write(dbuf);
+    cbor::byte_string::construct(bytes_data).write(dbuf);
     contents = dbuf.contents(); printf("encoded/decoded: ");
-    cbor::byte_string{contents}.value().fprint_hex(stdout); fputc('\n', stdout);
+    cbor::byte_string::decode(contents).value().fprint_hex(stdout); fputc('\n', stdout);
     dbuf.contents().fprint_hex(stdout); fputc('\n', stdout); dbuf.reset();
 
     std::array<uint8_t, 13> text{'H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!'};
@@ -339,7 +339,7 @@ int main(int, char *[]) {
     dbuf.reset();
     cbor::output::array a{dbuf};
     a.write(cbor::text_string{(const datum)text_data});
-    a.write(cbor::byte_string{(const datum)bytes_data});
+    a.write(cbor::byte_string::construct(bytes_data));
     a.close();
 
     // read array
@@ -392,6 +392,48 @@ int main(int, char *[]) {
     a.write(cbor::text_string{"parked-content.godaddy.com"});
     a.close();
     printf("fdc:\n"); dbuf.contents().fprint_hex(stdout); fputc('\n', stdout);
+
+    // example cbor::output::map encoding and cbor::map decoding
+    //
+
+    constexpr cbor::dictionary dict = std::array<const char *, 5>{{
+            "order",
+            "family",
+            "genus",
+            "species",
+            "common_name"
+        }
+    };
+
+    data_buffer<1024> outbuf;
+    cbor::output::map map{outbuf};
+    map.write(cbor::uint64{dict.get_uint("genus")}, cbor::text_string{"thryothorus"});
+    map.write(cbor::uint64{dict.get_uint("species")}, cbor::text_string{"ludovicianus"});
+    map.write(cbor::uint64{dict.get_uint("common_name")}, cbor::text_string{"Carolina wren"});
+    //
+    // map.write(cbor::uint64{dict.get_uint("BOGUS")}, cbor::text_string{"bogus entry"});  // error! BOGUS is not in dictionary
+    //
+    map.close();
+    outbuf.contents().fprint_hex(stdout); fputc('\n', stdout);
+
+    datum map_data{outbuf.contents()};
+    cbor::map decoded_map{map_data};
+    while (decoded_map.value().is_readable()) {
+        cbor::uint64 key{decoded_map.value()};
+        cbor::text_string value{decoded_map.value()};
+        if (decoded_map.value().is_null()) {
+            break;                             // error decoding key and/or value
+        }
+        // printf("key: %zu\tvalue: \"%.*s\"\n", key.value(), (int)value.value().length(), value.value().data);
+        printf("key: \"%s\"\tvalue: \"%.*s\"\n", dict.get_string(key.value()), (int)value.value().length(), value.value().data);
+        if (decoded_map.value().is_empty()) {
+            break;                             // no more elements
+        }
+    }
+
+    // map.write(cbor::uint64{dict.get_uint("genus")}, cbor::text_string{"anas"});
+    // map.write(cbor::uint64{dict.get_uint("species")}, cbor::text_string{"platyrhynchos"});
+    // map.write(cbor::uint64{dict.get_uint("common_name")}, cbor::text_string{"Mallard"});
 
     return 0;
 }

@@ -8,6 +8,8 @@
 #include "datum.h"
 #include "lex.h"
 #include <variant>
+#include <string>
+#include <stdexcept>
 
 class hex_digits : public one_or_more<hex_digits> {
 public:
@@ -243,22 +245,45 @@ namespace cbor {
         uint64 length;
         datum value__;
 
+        // https://isocpp.org/wiki/faq/ctors#named-ctor-idiom
+        //
+        byte_string(uint64 len, datum value) :
+            length{len},
+            value__{value}
+        { }
+
     public:
 
-        byte_string(datum &d) :
-            length{d, byte_string_type},
-            value__{d, length.value()}
-        { }
+        static byte_string decode(datum &d) {
+            uint64 len{d, byte_string_type};
+            datum val{d, len.value()};
+            return byte_string{len, val};
+        }
 
         // construct a byte_string for writing (probably needs
         // named-constructor idiom)
         //
-        byte_string(const datum &d) :
-            length{d.length(), byte_string_type},
-            value__{d}
-        {
+        static byte_string construct(const datum &d) {
+            uint64 len{d.length(), byte_string_type};
+            datum val{d};
             fprintf(stderr, "using constructor for writing\n");
+            return byte_string{len, val};
         }
+
+        // byte_string(datum &d) :
+        //     length{d, byte_string_type},
+        //     value__{d, length.value()}
+        // { }
+
+        // // construct a byte_string for writing (probably needs
+        // // named-constructor idiom)
+        // //
+        // byte_string(const datum &d) :
+        //     length{d.length(), byte_string_type},
+        //     value__{d}
+        // {
+        //     fprintf(stderr, "using constructor for writing\n");
+        // }
 
         datum value() const { return value__; }
 
@@ -372,6 +397,35 @@ namespace cbor {
 
     };
 
+
+    // a cbor::dictionary is an ordered list of text strings that is
+    // used to map short unsigned integers to readable values
+    //
+    template <size_t N>
+    class dictionary {
+        std::array<const char *, N> strings;
+
+    public:
+
+        constexpr dictionary(const std::array<const char *, N> &a) : strings{a} { }
+
+        constexpr const char *get_string(uint64_t u) const {
+            if (u < N) {
+                return strings[u];
+            }
+            return "unknown_key";
+        }
+        constexpr uint64_t get_uint(const char *s) const {
+            for (const auto &c : strings) {
+                if (strcmp(c, s) == 0) {
+                    return &c - &strings[0];
+                }
+            }
+            throw std::logic_error{std::string{"error: string not in dictionary: "}.append(s)};
+        }
+
+    };
+
     // Major type 5: A map of pairs of data items. Maps are also
     // called tables, dictionaries, hashes, or objects (in JSON). A
     // map is comprised of pairs of data items, each pair consisting
@@ -404,6 +458,16 @@ namespace cbor {
 
         datum& value() { return body; }
 
+    };
+
+    // compact_map is a map that contains a dictionary of strings, to
+    // enable the encoding to use short integers instead of text
+    // strings as keys
+    //
+    template <size_t N>
+    class compact_map : public map {
+    public:
+        compact_map(const std::array<const char *, N> &a, datum &d) : map{d} { }
     };
 
     // an element is a cbor-encoded element
@@ -444,9 +508,10 @@ namespace cbor {
                 break;
             case byte_string_type:
                 {
-                    byte_string tmp{d};
+                    // byte_string tmp{d};
                     if (d.is_not_null()) {
-                        return tmp;
+                        return byte_string::decode(d);
+                        // return tmp;
                     }
                 }
                 break;
@@ -493,7 +558,7 @@ namespace cbor {
     }
 
     inline void printf(FILE *f, const element &e) {
-        ;;;
+        ;;; // TODO
     }
 
 };     // end of namespace cbor
@@ -528,6 +593,48 @@ namespace cbor::output {
         template <typename T>
         void write(const T &t) const {
             t.write(w);
+        }
+
+        operator writeable & () { return w; }
+    };
+
+    // Major type 5: A map of pairs of data items. Maps are also
+    // called tables, dictionaries, hashes, or objects (in JSON). A
+    // map is comprised of pairs of data items, each pair consisting
+    // of a key that is immediately followed by a value. The argument
+    // is the number of pairs of data items in the map. For example, a
+    // map that contains 9 pairs would have an initial byte of
+    // 0b101_01001 (major type 5, additional information 9 for the
+    // number of pairs) followed by the 18 remaining items. The first
+    // item is the first key, the second item is the first value, the
+    // third item is the second key, and so on. Because items in a map
+    // come in pairs, their total number is always even: a map that
+    // contains an odd number of items (no value data present after
+    // the last key data item) is not well-formed. A map that has
+    // duplicate keys may be well-formed, but it is not valid, and
+    // thus it causes indeterminate decoding; see also Section 5.6.
+    //
+    class map {
+        writeable &w;
+
+    public:
+
+        // construct an indefinite-length map for writing
+        //
+        map(writeable &buf) : w{buf} {
+            w << initial_byte{map_type, 31};  // 0xbf
+        }
+
+        void close() {
+            w << initial_byte{simple_or_float_type, 31}; // 0xff
+        }
+
+        // encode a key and value to the map
+        //
+        template <typename K, typename V>
+        void write(const K &k, const V &v) const {
+            k.write(w);
+            v.write(w);
         }
 
         operator writeable & () { return w; }
