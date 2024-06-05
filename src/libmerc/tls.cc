@@ -1024,6 +1024,9 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     extensions.set_meta_data(sn, ua, alpn);
 
     analysis_.destination.init(sn, ua, alpn, k_);
+    if(c_ == nullptr) { // if do_analysis is turned on - do not return here in pkt_proc - instead create a pointer to analysis_ctx and point it there!
+            return false;
+    }
 
     bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
@@ -1037,18 +1040,6 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     }
 
     return ret;
-}
-
-bool tls_client_hello::do_analysis_without_classification(const struct key &k_, struct analysis_context &analysis_) {
-    datum sn;
-    datum ua;
-    datum alpn;
-
-    extensions.set_meta_data(sn, ua, alpn);
-
-    analysis_.destination.init(sn, ua, alpn, k_);
-
-    return false;
 }
 
 void tls_server_hello::parse(struct datum &p) {

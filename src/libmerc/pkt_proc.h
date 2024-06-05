@@ -37,8 +37,7 @@ enum linktype : uint16_t {
     LINKTYPE_NULL =       0,  // BSD loopback encapsulation
     LINKTYPE_ETHERNET =   1,  // Ethernet
     LINKTYPE_PPP      =   9,  // PPP
-    LINKTYPE_RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
-    LINKTYPE_LINUX_SLL = 113, // Linux "cooked" capture encapsualtion
+    LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
 };
 
 enum fieldtype : uint8_t {
@@ -70,7 +69,7 @@ struct mercury {
         if (global_vars.minimize_ram) {
              printf_err(log_info, "Initializing mercury in ram minimized mode\n");
         }
-        if (global_vars.do_analysis) {
+        if (global_vars.do_analysis and (global_vars.get_resource_file() != nullptr)) {
             c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
                                            global_vars.fp_proc_threshold,
@@ -142,8 +141,8 @@ struct stateful_pkt_proc {
         }
 
         // set config and classifier to (refer to) context m
-        //
-        if (m->c == nullptr && m->global_vars.do_analysis) {
+        // analysis requires `do_analysis` & `resources` to be set
+        if (m->c == nullptr && m->global_vars.do_analysis && m->global_vars.resources != nullptr) {
             throw std::runtime_error("error: classifier pointer is null");
         }
         this->c = m->c;
@@ -257,7 +256,8 @@ struct stateful_pkt_proc {
                             const uint8_t *payload,
                             const size_t length, 
                             uint8_t *buffer, 
-                            size_t *buffer_size);
+                            size_t *buffer_size, 
+                            struct analysis_context *context);
 
     bool tcp_data_set_analysis_result(struct analysis_result *r,
                                       struct datum &pkt,

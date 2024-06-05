@@ -1513,6 +1513,10 @@ public:
 
         analysis_.destination.init(sn, user_agent, alpn, k_);
 
+        if (c_ == nullptr) {
+            return false;
+        }
+
         bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
         if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
@@ -1751,6 +1755,10 @@ public:
 
         analysis_.destination.init(sn, user_agent, alpn, k_);
 
+        if(c_ == nullptr) {
+            return false;
+        }
+
          bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
         if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
@@ -1763,17 +1771,6 @@ public:
         }
 
         return ret;
-    }
-
-    bool do_analysis_without_classification(const struct key &k_, struct analysis_context &analysis_) {
-        struct datum sn{NULL, NULL};
-        struct datum user_agent {NULL, NULL};
-        datum alpn;
-
-        hello.extensions.set_meta_data(sn, user_agent, alpn);
-
-        analysis_.destination.init(sn, user_agent, alpn, k_);
-        return false;
     }
 };
 

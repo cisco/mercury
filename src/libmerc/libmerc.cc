@@ -15,6 +15,7 @@
 #include "config_generator.h"
 #include "global_config.h"
 #include "tsc_clock.hpp"
+#include "fdc.h"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -173,9 +174,10 @@ int mercury_packet_processor_get_analysis_context_fdc(
     const uint8_t* payload, 
     const size_t len, 
     uint8_t *buffer, 
-    size_t *buffer_size) { 
+    size_t *buffer_size, 
+    struct analysis_context *context) { 
     try {
-        return processor->analyze_payload_fdc(k, payload, len, buffer, buffer_size);
+        return processor->analyze_payload_fdc(k, payload, len, buffer, buffer_size, context);
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());

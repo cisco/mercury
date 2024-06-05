@@ -23,9 +23,6 @@
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 
-#ifndef DEFAULT_RESOURCE_FILE
-#define DEFAULT_RESOURCE_FILE "/usr/local/share/mercury/resources.tgz"
-#endif
 
 classifier *analysis_init_from_archive(int, //verbosity
                                        const char *archive_name,
@@ -40,9 +37,9 @@ classifier *analysis_init_from_archive(int, //verbosity
         //fprintf(stderr, "note: decryption key provided in configuration\n");
     }
 
-    if (archive_name == nullptr) {
-        archive_name = DEFAULT_RESOURCE_FILE;
-    }
+    // if (archive_name == nullptr) {
+    //     archive_name = DEFAULT_RESOURCE_FILE;
+    // }
 
     encrypted_compressed_archive archive{archive_name, enc_key}; // TODO: key type
     return new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os, minimize_ram);

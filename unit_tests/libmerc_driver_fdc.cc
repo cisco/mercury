@@ -1,4 +1,5 @@
 #include "libmerc_driver_helper.hpp"
+#include "fdc.h"
 
 unsigned char http_tcp_payload[] = {
     0x47, 0x45, 0x54, 0x20, 0x2f, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x31,
@@ -135,6 +136,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        analysis_context ac;
         
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_http[max_buffer_allocation];
@@ -162,7 +164,8 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
                 http_tcp_payload, 
                 sizeof(http_tcp_payload), 
                 wbuffer_http, 
-                &fdc_buffer_len);
+                &fdc_buffer_len, 
+                &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
@@ -175,11 +178,62 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
     }
 }
 
+SCENARIO("test mercury_packet_processor_get_analysis_context_fdc with resources file as null and analysis turned on") {
+    GIVEN("mercury packet processor") {
+        libmerc_config config = create_config();
+        config.resources = nullptr;
+        config.do_analysis = true;
+
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        analysis_context ac;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer_quic[max_buffer_allocation];
+
+        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1 
+        uint32_t dst_ip_quic = 33686018; // 2.2.2.2 -- IP -> reversed IP: 2.2.2.2
+        uint16_t src_port_quic = 43822;
+        uint16_t dst_port_quic = 443;
+        uint8_t proto_quic = ip::protocol::udp;
+
+        struct flow_key_ext k_quic;
+        k_quic.src_port = src_port_quic;
+        k_quic.dst_port = dst_port_quic;
+        k_quic.addr.ipv4.src = src_ip_quic;
+        k_quic.addr.ipv4.dst = dst_ip_quic;
+        k_quic.protocol = proto_quic;
+        k_quic.ip_vers = 4;
+
+        WHEN("write to FDC buffer for tcp payload of quic init packet") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp, 
+                &k_quic, 
+                quic_init_payload, 
+                sizeof(quic_init_payload), 
+                wbuffer_quic, 
+                &fdc_buffer_len, 
+                &ac);
+            printf("ac.result.is_valid()==%d\n", ac.result.is_valid());
+            THEN("FDC should be written to output buffer") {
+                REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
+                REQUIRE(bytes_written == 294);
+                REQUIRE(fdc_buffer_len == max_buffer_allocation);
+                REQUIRE(ac.result.is_valid() == false);
+            }  
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http request payload & ipv6 flow key") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        analysis_context ac;
         
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_http[max_buffer_allocation];
@@ -224,7 +278,8 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
                 http_tcp_payload, 
                 sizeof(http_tcp_payload), 
                 wbuffer_http, 
-                &fdc_buffer_len);
+                &fdc_buffer_len, 
+                &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
@@ -242,6 +297,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        analysis_context ac;
         
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_tls[max_buffer_allocation];
@@ -268,7 +324,8 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
                 tls_client_hello_tcp_payload, 
                 sizeof(tls_client_hello_tcp_payload), 
                 wbuffer_tls, 
-                &fdc_buffer_len);
+                &fdc_buffer_len, 
+                &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
@@ -286,6 +343,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        analysis_context ac;
         
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_quic[max_buffer_allocation];
@@ -312,7 +370,8 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
                 quic_init_payload, 
                 sizeof(quic_init_payload), 
                 wbuffer_quic, 
-                &fdc_buffer_len);
+                &fdc_buffer_len, 
+                &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
@@ -330,6 +389,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        analysis_context ac;
         
         const int max_buffer_allocation = 150;
         uint8_t wbuffer_tls[max_buffer_allocation];
@@ -356,7 +416,8 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
                 tls_client_hello_tcp_payload, 
                 sizeof(tls_client_hello_tcp_payload), 
                 wbuffer_tls, 
-                &fdc_buffer_len);
+                &fdc_buffer_len, 
+                &ac);
 
             THEN("FDC write to output buffer fails due to insufficient buffer size") {
                 REQUIRE(bytes_written == fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);

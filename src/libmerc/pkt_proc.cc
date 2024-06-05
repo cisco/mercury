@@ -69,6 +69,7 @@
 #include "tftp.hpp"
 #include "ppoe.hpp"
 #include "vxlan.hpp"
+#include "fdc.h"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -1200,42 +1201,12 @@ static void enumerate_protocol_types(FILE *f) {
     }
 }
 
-size_t copy_to_writeable(struct writeable* w, 
-                        fieldtype type, 
-                        const uint8_t *data, 
-                        size_t length, 
-                        bool *exceeded) {
-    uint8_t *start = w->data;
-    w->copy((uint8_t)type);
-    w->copy(length);
-    w->copy(data, length);
-    if(w->data == nullptr or w->data_end == nullptr) {
-        *exceeded = true;
-        return 0;
-    }
-    return w->data - start;
-}
-
-size_t copy_to_writeable(struct writeable* w, 
-                        uint16_t dst_port, 
-                        bool *exceeded) {
-    uint8_t *start = w->data;
-    w->copy((uint8_t)fieldtype::DST_PORT);
-    w->copy(sizeof(uint16_t));
-    encoded<uint16_t> encoded_port{dst_port};
-    encoded_port.write(*w, true);
-    if(w->data == nullptr or w->data_end == nullptr) {
-        *exceeded = true;
-        return 0;
-    }
-    return w->data - start;
-}
-
 int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                         const uint8_t *payload,
                         const size_t length, 
                         uint8_t *buffer, 
-                        size_t *buffer_size) {
+                        size_t *buffer_size, 
+                        [[maybe_unused]]struct analysis_context *context) {
     struct datum pkt{payload, payload+length}; 
     protocol x;
     size_t internal_buffer_size = *buffer_size;
@@ -1262,49 +1233,30 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
     }
-    std::visit(do_analysis_without_classification{&internal_flow_key, analysis}, x);
+    
+    std::visit(do_analysis{internal_flow_key, analysis, c}, x);
 
-    bool exceeded = false;
-
-    // fingerprint
-    size_t fp_bytes = copy_to_writeable(&w, fieldtype::FINGERPRINT, (uint8_t*)analysis.fp.string(), strlen(analysis.fp.string()), &exceeded);
-    if(exceeded) {
-        *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
-    }
-    
-    // user-agent
-    size_t ua_bytes = copy_to_writeable(&w, fieldtype::USER_AGENT, (uint8_t*)analysis.destination.ua_str, strlen(analysis.destination.ua_str), &exceeded);
-    if(exceeded) {
-        *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
-    }
-    
-    // domain
-    size_t domain_bytes = copy_to_writeable(&w, fieldtype::DOMAIN_NAME, (uint8_t*)analysis.destination.sn_str, strlen(analysis.destination.sn_str), &exceeded);
-    if(exceeded) {
-        *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
-    }
-    
-    // dst ip
-    size_t dst_ip_bytes = copy_to_writeable(&w, fieldtype::DST_IP_STR, (uint8_t*)analysis.destination.dst_ip_str, strlen(analysis.destination.dst_ip_str), &exceeded);
-    if(exceeded) {
-        *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
-    }
-    
-    //  dst port
-    size_t dst_port_bytes = copy_to_writeable(&w, analysis.destination.dst_port, &exceeded);
-    if(exceeded) {
-        *buffer_size = 2*internal_buffer_size;
-        return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
+    if (analysis.result.is_valid()) {
+        context = &analysis;
+    } else {
+        context = nullptr; // test this - disable resource file | analysis is true - check context==nullptr
     }
 
-    size_t bytes_written = w.data-buffer;
-    assert(bytes_written == fp_bytes+ua_bytes+domain_bytes+dst_ip_bytes+dst_port_bytes);
-    
-    return (int)bytes_written;
+    FDC fdc {
+        analysis.fp.string(), 
+        analysis.destination.ua_str, 
+        analysis.destination.sn_str, 
+        analysis.destination.dst_ip_str, 
+        analysis.destination.dst_port, 
+        &w
+    };
+
+    int bytes_written = fdc.get_bytes_written_to_fdc();
+    if(bytes_written == fdc_return::FDC_WRITE_INSUFFICIENT_SPACE) {
+        *buffer_size = 2*internal_buffer_size;
+    }
+
+    return bytes_written;
 }
 
 bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
