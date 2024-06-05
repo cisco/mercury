@@ -422,7 +422,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         // complete initial msg
         return true;
     }
-    else if (tcp_pkt.additional_bytes_needed > tcp_reassembly_flow_context::max_data_size) {
+    else if ((tcp_pkt.additional_bytes_needed > tcp_reassembly_flow_context::max_data_size) || (tcp_pkt.data_length > tcp_reassembly_flow_context::max_data_size)) {
         // cant do reassembly
         // TODO: add indication for truncation
         return true;
