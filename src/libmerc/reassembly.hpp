@@ -254,6 +254,9 @@ inline void tcp_reassembly_flow_context::update_contiguous_data() {
 // segments can arrive ooo or have overlapping parts
 // handle appropriately
 inline void tcp_reassembly_flow_context::process_tcp_segment(const tcp_segment &seg, const datum &tcp_pkt) {
+    if (seg.seq < init_seq) {
+        return;
+    }
     uint32_t rel_seq_st = seg.seq - init_seq;       // start index
     uint32_t dlen = seg.data_length;
     uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (max_data_size-1) : (rel_seq_st + dlen - 1) );     // end index
