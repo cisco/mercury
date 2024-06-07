@@ -800,14 +800,14 @@ struct flow_key_ext {
 }; 
 
 /**
- * mercury_packet_processor_get_analysis_context_fpc() processes a TCP/UDP payload 
- * and writes analysis vars to an opaque buffer passed to it
+ * mercury_packet_processor_get_analysis_context_fdc() processes a TCP/UDP payload 
+ * and writes analysis vars to an opaque buffer passed to it.
  * @param processor (input) is a packet processor context to be used.
  * @param key (input) is a pointer to the flow key object received externally.
  * @param data (input) is a pointer to the tcp payload contents.
  * @param len (input) is the size of the tcp payload
  * @param buffer (input) is a pointer to the output buffer where the analysis vars will be written.
- * @param buffer_size (input) is the max size of the output buffer, defined as `#define MAX_FDC_SIZE 1500`
+ * @param buffer_size (input) is the max size of the output buffer.
  * @param ac (input) is a pointer to an analysis_context object that can points to an analysis context 
  * if `do_analysis` is anabled and a valid resources file is set.
  * 
