@@ -816,6 +816,11 @@ struct flow_key_ext {
  *        - `MORE_PACKETS_NEEDED`: Fragmented payload, more packets needed to complete the analysis
  *        - `FDC_WRITE_FAILURE`: FDC buffer write failed, in place for forward compatibility
  *        - `UNKNOWN_ERROR`: Something goes wrong in the libmerc api invocation
+ * 
+ * This function expects the size of FDC buffer to be `buffer_size` number of bytes, in case the 
+ * write to FDC fails due to a lack of space, the function will return `FDC_WRITE_INSUFFICIENT_SPACE`.
+ * Additionally, the field `buffer_size` will be set to twice its current value,
+ * and the caller should call the function again with the new buffer size.
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
