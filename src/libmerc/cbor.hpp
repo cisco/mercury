@@ -79,12 +79,13 @@ namespace cbor {
     // indefinite-length item; all are described in Section 3.2.
 
     class initial_byte {
-        encoded<uint8_t> value;
+        encoded<uint8_t> value__;
+
     public:
 
         // read an initial byte from `d`
         //
-        initial_byte(datum &d) : value{d} {
+        initial_byte(datum &d) : value__{d} {
             if (d.is_not_null()) {
                 // printf("major_type: %u\n", major_type());
                 // printf("additional_info: %u\n", additional_info());
@@ -94,25 +95,25 @@ namespace cbor {
         // construct an initial_byte for writing
         //
         initial_byte(uint8_t type, uint8_t info) :
-            value{type << 5 | info}
+            value__{type << 5 | info}
         {
             // printf("major_type: %u\n", major_type());
             // printf("additional_info: %u\n", additional_info());
         }
 
-        uint8_t major_type() const{ return value.slice<0,3>(); }
+        uint8_t major_type() const{ return value__.slice<0,3>(); }
 
-        uint8_t additional_info() const{ return value.slice<3,8>(); }
+        uint8_t additional_info() const{ return value__.slice<3,8>(); }
 
         // a break indicates the end of a variable-length array, map,
         // byte string, or text string
         //
         bool is_break() const {
-            return value == 0b11111111;
+            return value__ == 0b11111111;
         }
 
         bool is_array_indefinite_length() const {
-            return value == 0x9f;
+            return value__ == 0x9f;
         }
 
         bool is_byte_string() const {
@@ -120,8 +121,10 @@ namespace cbor {
         }
 
         void write(writeable &buf) const {
-            buf << value;
+            buf << value__;
         }
+
+        uint8_t value() const { return value__; }
 
     };
 
@@ -279,7 +282,11 @@ namespace cbor {
         uint64 length;
         datum value__;
 
-        // https://isocpp.org/wiki/faq/ctors#named-ctor-idiom
+        // The Named Constructor Idiom
+        // (https://isocpp.org/wiki/faq/ctors#named-ctor-idiom) is
+        // used to avoid ambiguity; construct a `byte_string` using
+        // \ref decode() when decoding data, and using \ref
+        // construct() when preparing an object to be encoded.
         //
         byte_string(uint64 len, datum value) :
             length{len},
@@ -378,19 +385,48 @@ namespace cbor {
             return { (uint8_t *)null_terminated_string, (uint8_t *)null_terminated_string + strlen(null_terminated_string)};
         }
 
+        // The Named Constructor Idiom
+        // (https://isocpp.org/wiki/faq/ctors#named-ctor-idiom) is
+        // used to avoid ambiguity; construct a `text_string` using
+        // \ref decode() when decoding data, and using \ref
+        // construct() when preparing an object to be encoded.
+        //
+        text_string(uint64 len, datum value) :
+            length{len},
+            value__{value}
+        { }
+
     public:
 
-        text_string(datum &d) :
-            length{d, text_string_type},
-            value__{d, length.value()}
-        { }
+        /// construct and return a \ref text_string object by decoding
+        /// it from the \ref datum \param d
+        ///
+        static text_string decode(datum &d) {
+            uint64 len{d, text_string_type};
+            datum val{d, len.value()};
+            return text_string{len, val};
+        }
 
-        // construct a text_string for writing
-        //
-        text_string(const datum &d) :
-            length{d.length(), text_string_type},
-            value__{d}
-        { }
+        /// construct and return a text_string corresponding to the
+        /// bytes in the \ref datum \param d
+        ///
+        static text_string construct(const datum &d) {
+            uint64 len{d.length(), text_string_type};
+            datum val{d};
+            return text_string{len, val};
+        }
+
+        // text_string(datum &d) :
+        //     length{d, text_string_type},
+        //     value__{d, length.value()}
+        // { }
+
+        // // construct a text_string for writing
+        // //
+        // text_string(const datum &d) :
+        //     length{d.length(), text_string_type},
+        //     value__{d}
+        // { }
 
         // construct a text_string for writing
         //
@@ -522,6 +558,79 @@ namespace cbor {
         compact_map(const std::array<const char *, N> &a, datum &d) : map{d} { }
     };
 
+    static inline bool decode_data(datum &d, int r=0) {
+        FILE *f = stdout;
+        char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
+        if (r > (int)sizeof(tabs)) {
+            return false;  // error: recursion depth too high
+        }
+
+        while (d.is_readable()) {
+            if (lookahead<initial_byte> ib{d}) {
+                switch (ib.value.major_type()) {
+                case unsigned_integer_type:
+                    {
+                        uint64 tmp{d};
+                        if (d.is_null()) { return false; }
+                        fprintf(f, "unsigned integer: %zu\n", tmp.value());
+                    }
+                    break;
+                case byte_string_type:
+                    {
+                        byte_string tmp = byte_string::decode(d);
+                        if (d.is_null()) { return false; }
+                        fprintf(f, "%.*sbyte string: ", r, tabs);
+                        tmp.value().fprint_hex(f);
+                        fputc('\n', f);
+                    }
+                    break;
+                case text_string_type:
+                    {
+                        byte_string tmp = byte_string::decode(d);
+                        if (d.is_null()) { return false; }
+                        fprintf(f, "%.*stext string: \"", r, tabs);
+                        tmp.value().fprint(f);
+                        fputc('"', f);
+                        fputc('\n', f);
+                    }
+                    break;
+                case array_type:
+                    {
+                        array tmp{d};
+                        if (d.is_null()) { return false; }
+                        d = ib.advance();
+                        fprintf(f, "%.*sarray: [\n", r, tabs);
+                        bool success = decode_data(d, r+1);
+                        fprintf(f, "%.*s]\n", r, tabs);
+                        if (!success) { return false; }
+                    }
+                    break;
+                case map_type:
+                    {
+                        array tmp{d};
+                        if (d.is_null()) { return false; }
+                        d = ib.advance();
+                        fprintf(f, "%.*smap: {\n", r, tabs);
+                        bool success = decode_data(d, r+1);    // note: no attempt to enforce key/value pairs
+                        fprintf(f, "%.*s}\n", r, tabs);
+                        if (!success) { return false; }
+                    }
+                    break;
+                case simple_or_float_type:
+                    if (ib.value.value() == 0xff) {
+                        d = ib.advance();
+                        return true;
+                    }
+                    [[fallthrough]];
+                default:
+                    printf("unknown initial byte: 0x%02x\n", ib.value.value());
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     // an element is a cbor-encoded element
     //
     // note that for any element e, e.index() is equal to the
@@ -569,7 +678,7 @@ namespace cbor {
                 break;
             case text_string_type:
                 {
-                    text_string tmp{d};
+                    text_string tmp = text_string::decode(d);
                     if (d.is_not_null()) {
                         return tmp;
                     }
@@ -703,7 +812,8 @@ namespace cbor {
     ///
     static inline bool unit_test(FILE *f=nullptr) {
         return uint64::unit_test(f)
-            and byte_string::unit_test(f);
+            and byte_string::unit_test(f)
+            and text_string::unit_test(f);
     }
 
     // static unit test function for cbor::uint64
@@ -841,13 +951,20 @@ namespace cbor {
         // valid input and output pairs
         //
         std::vector<std::pair<std::vector<uint8_t>,std::vector<uint8_t>>> test_cases = {
-            { { 0x44, 0x01, 0x02, 0x03, 0x04 }, { 0x01, 0x02, 0x03, 0x04 } },
+            {
+                { 0x64, 0x49, 0x45, 0x54, 0x46 },
+                { 0x49, 0x45, 0x54, 0x46 }  // IETF
+            },
+            {
+                { 0x6c, 'H', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!' },
+                { 'H', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!' }
+            },
         };
         bool no_tests_failed = true;
-        if (f) { fprintf(f, "cbor::byte_string test cases:\n"); }
+        if (f) { fprintf(f, "cbor::text_string test cases:\n"); }
         for (const auto & tc : test_cases) {
             datum d{tc.first.data(), tc.first.data() + tc.first.size()};
-            cbor::byte_string bs = cbor::byte_string::decode(d);
+            cbor::text_string bs = cbor::text_string::decode(d);
             datum expected{tc.second.data(), tc.second.data() + tc.second.size()};
             bool decoding_passed = (bs.value().cmp(expected) == 0);
             data_buffer<64> dbuf;
@@ -873,14 +990,14 @@ namespace cbor {
         //
         std::vector<std::vector<uint8_t>> negative_test_cases = {
             {
-                { 0x64, 0x49, 0x45, 0x54, 0x46 },   // text string "IETF"
+                { 0x44, 0x01, 0x02, 0x03, 0x04 },   // byte string
                 { 0x1a, 0x00, 0x0f, 0x42, 0x40 },   // uint64 1000000
             }
         };
-        if (f) { fprintf(f, "cbor::byte_string negative test cases:\n"); }
+        if (f) { fprintf(f, "cbor::text_string negative test cases:\n"); }
         for (const auto & tc : negative_test_cases) {
             datum d{tc.data(), tc.data() + tc.size()};
-            byte_string::decode(d);
+            text_string::decode(d);
             bool passed = d.is_null();
             no_tests_failed &= passed;
             if (f) {

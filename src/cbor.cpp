@@ -6,6 +6,7 @@
 #include "libmerc/cbor.hpp"
 
 
+
 // cbor_fingerprint decodes a CBOR representation of a Network
 // Protocol Fingerprint (NPF), which is defined by this correspondence
 // to the textual string representation
@@ -123,8 +124,6 @@ int main(int, char *[]) {
     FILE *unit_test_output = stderr; // set to nullptr to suppress unit test output
     printf("cbor::unit_test: %s\n", cbor::unit_test(unit_test_output) ? "passed" : "failed");
 
-    return 0;
-
     // uint8_t test_data[] = { 0xff, 0xaa };
     // datum d{test_data, test_data + sizeof(test_data)};
     // cbor::uint64 u{d};
@@ -168,7 +167,7 @@ int main(int, char *[]) {
 
         datum d{e.data(), e.data() + e.size()};
 
-        cbor::text_string ts{d};
+        cbor::text_string ts = cbor::text_string::decode(d);
         ts.value().fprint(stdout); fputc('\n', stdout);
 
         fputc('\n', stdout);
@@ -207,7 +206,7 @@ int main(int, char *[]) {
         cbor::array a{d};
         printf("[\n");
         while (a.value().is_not_empty()) {
-            cbor::text_string ts{a.value()};
+            cbor::text_string ts = cbor::text_string::decode(a.value());
             ts.value().fprint(stdout); fputc('\n', stdout);
         }
         printf("]\n");
@@ -234,8 +233,8 @@ int main(int, char *[]) {
                     break;
                 }
             }
-            cbor::text_string key{a.value()};
-            cbor::text_string value{a.value()};
+            cbor::text_string key = cbor::text_string::decode(a.value());
+            cbor::text_string value = cbor::text_string::decode(a.value());
             printf("key:\t"); key.value().fprint(stdout); fputc('\n', stdout);
             printf("value:\t"); value.value().fprint(stdout); fputc('\n', stdout);
         }
@@ -305,6 +304,21 @@ int main(int, char *[]) {
         }
     }
 
+    // run generic decoder on fingerprint_examples
+    //
+    for (const auto & e : fingerprint_examples) {
+        fprintf(stdout, "running decode_data() on ");
+        for (const auto & ee : e) {
+            printf("%02x, ", ee);
+        }
+        fputc('\n', stdout);
+
+        datum d{e.data(), e.data() + e.size()};
+
+        cbor::decode_data(d);
+    }
+    return 0; // EARLY RETURN
+
     data_buffer<2048> dbuf;
     cbor::initial_byte ib{cbor::unsigned_integer_type, 3};
     ib.write(dbuf);
@@ -338,16 +352,16 @@ int main(int, char *[]) {
     std::array<uint8_t, 13> text{'H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!'};
     datum text_data{text};
     text_data.fprint_hex(stdout); fputc('\n', stdout);
-    cbor::text_string{(const datum)text_data}.write(dbuf);
+    cbor::text_string::construct(text_data).write(dbuf);
     contents = dbuf.contents(); printf("encoded/decoded: ");
-    cbor::text_string{contents}.value().fprint(stdout); fputc('\n', stdout);
+    cbor::text_string::decode(contents).value().fprint(stdout); fputc('\n', stdout);
     dbuf.contents().fprint_hex(stdout); fputc('\n', stdout); dbuf.reset();
 
     // encode array
     //
     dbuf.reset();
     cbor::output::array a{dbuf};
-    cbor::text_string{(const datum)text_data}.write(a);
+    cbor::text_string::construct(text_data).write(a);
     cbor::byte_string::construct(bytes_data).write(a);
     a.close();
 
@@ -429,7 +443,7 @@ int main(int, char *[]) {
     cbor::map decoded_map{map_data};
     while (decoded_map.value().is_readable()) {
         cbor::uint64 key{decoded_map.value()};
-        cbor::text_string value{decoded_map.value()};
+        cbor::text_string value = cbor::text_string::decode(decoded_map.value());
         if (decoded_map.value().is_null()) {
             break;                             // error decoding key and/or value
         }
