@@ -805,11 +805,17 @@ struct flow_key_ext {
  * @param processor (input) is a packet processor context to be used.
  * @param key (input) is a pointer to the flow key object received externally.
  * @param data (input) is a pointer to the tcp payload contents.
- * @param len (input) is the size of the tcp payload 
+ * @param len (input) is the size of the tcp payload
  * @param buffer (input) is a pointer to the output buffer where the analysis vars will be written.
  * @param buffer_size (input) is the max size of the output buffer, defined as `#define MAX_FDC_SIZE 1500`
+ * @param ac (input) is a pointer to an analysis_context object that can points to an analysis context 
+ * if `do_analysis` is anabled and a valid resources file is set.
  * 
- * @return number of bytes written to the output buffer
+ * @return one of the following enum values (int):
+ *        - `FDC_WRITE_INSUFFICIENT_SPACE`: Write to the FDC buffer failed, `buffer_size` was too small
+ *        - `MORE_PACKETS_NEEDED`: Fragmented payload, more packets needed to complete the analysis
+ *        - `FDC_WRITE_FAILURE`: FDC buffer write failed, in place for forward compatibility
+ *        - `UNKNOWN_ERROR`: Something goes wrong in the libmerc api invocation
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
@@ -821,6 +827,6 @@ int mercury_packet_processor_get_analysis_context_fdc(
     const size_t len, 
     uint8_t *buffer, 
     size_t* buffer_size, 
-    struct analysis_context*);
+    struct analysis_context* ac);
 
 #endif /* LIBMERC_H */
