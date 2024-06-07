@@ -32,10 +32,10 @@ private:
     }
     void copy_to_writeable(struct writeable* w, 
                         uint16_t dst_port) {
-        encoded<uint16_t> encoded_port{dst_port};
+        encoded<uint16_t> network_byte_ordered_port{dst_port};
         if(w->is_null() == false) w->copy((uint8_t)fieldtype::DST_PORT);
         if(w->is_null() == false) w->copy(sizeof(uint16_t));
-        if(w->is_null() == false) encoded_port.write(*w, true);
+        if(w->is_null() == false) network_byte_ordered_port.write(*w, true);
     }
 
 public:
