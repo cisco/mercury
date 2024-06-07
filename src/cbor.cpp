@@ -89,7 +89,8 @@ public:
 
     static void write_cbor_data(datum &d, cbor::output::array &a) {
         literal_byte<'('>{d};
-        a.write(cbor::byte_string_from_hex{hex_digits{d}});
+        cbor::byte_string_from_hex{hex_digits{d}}.write(a);
+        // a.write(cbor::byte_string_from_hex{hex_digits{d}});
         literal_byte<')'>{d};
     }
 
@@ -115,6 +116,14 @@ public:
 };
 
 int main(int, char *[]) {
+
+    //
+    // assert(cbor::unit_test() == true);
+    //
+    FILE *unit_test_output = stderr; // set to nullptr to suppress unit test output
+    printf("cbor::unit_test: %s\n", cbor::unit_test(unit_test_output) ? "passed" : "failed");
+
+    return 0;
 
     // uint8_t test_data[] = { 0xff, 0xaa };
     // datum d{test_data, test_data + sizeof(test_data)};
@@ -338,8 +347,8 @@ int main(int, char *[]) {
     //
     dbuf.reset();
     cbor::output::array a{dbuf};
-    a.write(cbor::text_string{(const datum)text_data});
-    a.write(cbor::byte_string::construct(bytes_data));
+    cbor::text_string{(const datum)text_data}.write(a);
+    cbor::byte_string::construct(bytes_data).write(a);
     a.close();
 
     // read array
@@ -389,7 +398,7 @@ int main(int, char *[]) {
     cbor::output::array fdc{dbuf};
     tls_fp_data = {(uint8_t *)tls_fp, (uint8_t *)tls_fp + strlen(tls_fp)};
     cbor_fingerprint::write_cbor_tls_fingerprint(tls_fp_data, fdc);
-    a.write(cbor::text_string{"parked-content.godaddy.com"});
+    cbor::text_string{"parked-content.godaddy.com"}.write(a);
     a.close();
     printf("fdc:\n"); dbuf.contents().fprint_hex(stdout); fputc('\n', stdout);
 
@@ -407,9 +416,9 @@ int main(int, char *[]) {
 
     data_buffer<1024> outbuf;
     cbor::output::map map{outbuf};
-    map.write(cbor::uint64{dict.get_uint("genus")}, cbor::text_string{"thryothorus"});
-    map.write(cbor::uint64{dict.get_uint("species")}, cbor::text_string{"ludovicianus"});
-    map.write(cbor::uint64{dict.get_uint("common_name")}, cbor::text_string{"Carolina wren"});
+    map.encode(cbor::uint64{dict.get_uint("genus")}, cbor::text_string{"thryothorus"});
+    map.encode(cbor::uint64{dict.get_uint("species")}, cbor::text_string{"ludovicianus"});
+    map.encode(cbor::uint64{dict.get_uint("common_name")}, cbor::text_string{"Carolina wren"});
     //
     // map.write(cbor::uint64{dict.get_uint("BOGUS")}, cbor::text_string{"bogus entry"});  // error! BOGUS is not in dictionary
     //

@@ -7,6 +7,7 @@
 
 #include "datum.h"
 #include "lex.h"
+#include <cstdio>
 #include <variant>
 #include <string>
 #include <stdexcept>
@@ -30,6 +31,17 @@ public:
 // a simple CBOR decoder, following RFC 8949
 //
 namespace cbor {
+
+    enum class major_type : uint8_t {
+        unsigned_integer = 0,
+        negative_integer = 1,
+        byte_string      = 2,
+        text_string      = 3,
+        array            = 4,
+        map              = 5,
+        tagged_item      = 6,
+        simple_or_float  = 7,
+    };
 
     static constexpr uint8_t unsigned_integer_type = 0;
     static constexpr uint8_t negative_integer_type = 1;
@@ -84,8 +96,8 @@ namespace cbor {
         initial_byte(uint8_t type, uint8_t info) :
             value{type << 5 | info}
         {
-            printf("major_type: %u\n", major_type());
-            printf("additional_info: %u\n", additional_info());
+            // printf("major_type: %u\n", major_type());
+            // printf("additional_info: %u\n", additional_info());
         }
 
         uint8_t major_type() const{ return value.slice<0,3>(); }
@@ -122,6 +134,10 @@ namespace cbor {
         uint64_t value__;
 
     public:
+
+        /// construct a uint64 object by decoding it from the \ref
+        /// datum \param d
+        ///
         uint64(datum &d, uint8_t type=unsigned_integer_type) : ib{d} {
 
             if (ib.major_type() != type) {
@@ -148,15 +164,21 @@ namespace cbor {
 
         }
 
-        // construct a uint64 for writing; the type is
-        // unsigned_integer by default, but can be set to other types
-        //
+        /// construct a uint64 object, suitable for encoding, with the
+        /// value \param x and the major_type \param type; the type is
+        /// an unsigned_integer by default, but can be set to other
+        /// types
+        ///
         uint64(uint64_t x, uint8_t type=unsigned_integer_type) :
             ib{type, additional_info(x)},
             value__{x}
         { }
 
-        uint8_t additional_info(uint64_t x) {
+        // returns a `uint8_t` containing the appropriate additional
+        // information field for encoding a `uint64_t` with the value
+        // \param x
+        //
+        static uint8_t additional_info(uint64_t x) {
             if (x < 24) {
                 return x;
             }
@@ -172,10 +194,14 @@ namespace cbor {
             return 27;              // eight-byte uint
         }
 
+        /// returns the value of this object as a `uint64_t`
+        ///
         uint64_t value() const {
             return value__;
         }
 
+        /// encode this object into the \ref writeable \param buf
+        ///
         void write(writeable &buf) const {
             ib.write(buf);
             switch (ib.additional_info()) {
@@ -195,6 +221,14 @@ namespace cbor {
                 ;
             }
         }
+
+        /// `cbor::uint64::unit_test()` performs unit tests on the
+        /// class \ref cbor::uint64 and returns `true` if they all pass,
+        /// and `false` otherwise.  If \param f == `nullptr`, then no
+        /// outupt is written; otherwise, output is written to \param
+        /// f.
+        ///
+        static bool unit_test(FILE *f=nullptr);
 
     };
 
@@ -254,19 +288,21 @@ namespace cbor {
 
     public:
 
+        /// construct and return a \ref byte_string object by decoding
+        /// it from the \ref datum \param d
+        ///
         static byte_string decode(datum &d) {
             uint64 len{d, byte_string_type};
             datum val{d, len.value()};
             return byte_string{len, val};
         }
 
-        // construct a byte_string for writing (probably needs
-        // named-constructor idiom)
-        //
+        /// construct and return a byte_string corresponding to the
+        /// bytes in the \ref datum \param d
+        ///
         static byte_string construct(const datum &d) {
             uint64 len{d.length(), byte_string_type};
             datum val{d};
-            fprintf(stderr, "using constructor for writing\n");
             return byte_string{len, val};
         }
 
@@ -291,6 +327,14 @@ namespace cbor {
             length.write(buf);
             buf << value__;
         }
+
+        /// `cbor::byte_string::unit_test()` performs unit tests on
+        /// the class \ref cbor::byte_string and returns `true` if
+        /// they all pass, and `false` otherwise.  If \param f ==
+        /// `nullptr`, then no outupt is written; otherwise, output is
+        /// written to \param f.
+        ///
+        static bool unit_test(FILE *f=nullptr);
 
     };
 
@@ -361,6 +405,14 @@ namespace cbor {
             length.write(buf);
             buf << value__;
         }
+
+        /// `cbor::_textstring::unit_test()` performs unit tests on
+        /// the class \ref cbor::_textstring and returns `true` if
+        /// they all pass, and `false` otherwise.  If \param f ==
+        /// `nullptr`, then no outupt is written; otherwise, output is
+        /// written to \param f.
+        ///
+        static bool unit_test(FILE *f=nullptr);
 
     };
 
@@ -590,10 +642,10 @@ namespace cbor::output {
             w << initial_byte{simple_or_float_type, 31}; // 0xff
         }
 
-        template <typename T>
-        void write(const T &t) const {
-            t.write(w);
-        }
+        // template <typename T>
+        // void write(const T &t) const {
+        //     t.write(w);
+        // }
 
         operator writeable & () { return w; }
     };
@@ -632,13 +684,214 @@ namespace cbor::output {
         // encode a key and value to the map
         //
         template <typename K, typename V>
-        void write(const K &k, const V &v) const {
+        void encode(const K &k, const V &v) const {
             k.write(w);
             v.write(w);
         }
 
-        operator writeable & () { return w; }
+        //  operator writeable & () { return w; }
     };
+
+};
+
+namespace cbor {
+
+    /// unit_test() performs unit testing on all classes in the cbor
+    /// namespace and returns true if they all pass, and false
+    /// otherwise.  If \param f == `nullptr`, then no outupt is
+    /// written; otherwise, output is written to \param f.
+    ///
+    static inline bool unit_test(FILE *f=nullptr) {
+        return uint64::unit_test(f)
+            and byte_string::unit_test(f);
+    }
+
+    // static unit test function for cbor::uint64
+    //
+    bool cbor::uint64::unit_test(FILE *f) {
+
+        // valid input and output pairs
+        //
+        std::vector<std::pair<std::vector<uint8_t>,uint64_t>> test_cases = {
+            {
+                { { 0x00 }, 0 },
+                { { 0x01 }, 1 },
+                { { 0x0a }, 10 },
+                { { 0x17 }, 23 },
+                { { 0x18, 0x18 }, 24 },
+                { { 0x18, 0x19 }, 25 },
+                { { 0x18, 0x64 }, 100 },
+                { { 0x19, 0x03, 0xe8 }, 1000 },
+                { { 0x1a, 0x00, 0x0f, 0x42, 0x40 }, 1000000 },
+                { { 0x1b, 0x00, 0x00, 0x00, 0xe8, 0xd4, 0xa5, 0x10, 0x00 }, 1000000000000 },
+            }
+        };
+
+        bool no_tests_failed = true;
+        if (f) { fprintf(f, "cbor::uint64 test cases:\n"); }
+        for (const auto & tc : test_cases) {
+            datum d{tc.first.data(), tc.first.data() + tc.first.size()};
+            cbor::uint64 u{d};
+            bool decoding_passed = (u.value() == tc.second);
+
+            data_buffer<64> dbuf;
+            u.write(dbuf);
+            d = {tc.first.data(), tc.first.data() + tc.first.size()};
+            bool encoding_passed = (dbuf.contents().cmp(d) == 0);
+            bool passed = decoding_passed and encoding_passed;
+            no_tests_failed &= passed;
+
+            if (f) {
+                fprintf(f, "encoded: ");
+                for (const auto & ee : tc.first) { fprintf(f, "%02x", ee);  }
+                fprintf(f, "\tdecoded: %zu\tre-encoded: ", u.value());
+                for (const auto & ee : dbuf.contents()) { fprintf(f, "%02x", ee);  }
+                fprintf(f, "\t%s\n", passed ? "passed" : "failed");
+            }
+        }
+
+        // negative test cases (invalid input)
+        //
+        std::vector<std::vector<uint8_t>> negative_test_cases = {
+            {
+                { 0x64, 0x49, 0x45, 0x54, 0x46 },   // text string "IETF"
+                { 0x44, 0x01, 0x02, 0x03, 0x04  },  // byte string 0x01020304
+            }
+        };
+        if (f) { fprintf(f, "cbor::uint64 negative test cases:\n"); }
+        for (const auto & tc : negative_test_cases) {
+            datum d{tc.data(), tc.data() + tc.size()};
+            cbor::uint64 u{d};
+            bool passed = d.is_null();
+            no_tests_failed &= passed;
+            if (f) {
+                fprintf(f, "encoded: ");
+                for (const auto & ee : tc) { fprintf(f, "%02x", ee);  }
+                fprintf(f, "\t%s\n", passed ? "passed (input rejected)" : "failed (input accepted)");
+            }
+        }
+        if (f) { fprintf(f, "cbor::uint64::unit_test: %s\n", no_tests_failed ? "passed" : "failed"); }
+
+        return no_tests_failed;
+    }
+
+    // static unit test function for cbor::byte_string
+    //
+    bool cbor::byte_string::unit_test(FILE *f) {
+
+        // valid input and output pairs
+        //
+        std::vector<std::pair<std::vector<uint8_t>,std::vector<uint8_t>>> test_cases = {
+            { { 0x44, 0x01, 0x02, 0x03, 0x04 }, { 0x01, 0x02, 0x03, 0x04 } },
+        };
+        bool no_tests_failed = true;
+        if (f) { fprintf(f, "cbor::byte_string test cases:\n"); }
+        for (const auto & tc : test_cases) {
+            datum d{tc.first.data(), tc.first.data() + tc.first.size()};
+            cbor::byte_string bs = cbor::byte_string::decode(d);
+            datum expected{tc.second.data(), tc.second.data() + tc.second.size()};
+            bool decoding_passed = (bs.value().cmp(expected) == 0);
+            data_buffer<64> dbuf;
+            bs.write(dbuf);
+            d = {tc.first.data(), tc.first.data() + tc.first.size()};
+            bool encoding_passed = (dbuf.contents().cmp(d) == 0);
+            bool passed = decoding_passed and encoding_passed;
+            no_tests_failed &= passed;
+
+            if (f) {
+                fprintf(f, "encoded: ");
+                for (const auto & ee : tc.first) { fprintf(f, "%02x", ee);  }
+                fprintf(f, "\tdecoded: ");
+                expected.fprint_hex(f);
+                fprintf(f, "\tre-encoded: ");
+                for (const auto & ee : dbuf.contents()) { fprintf(f, "%02x", ee);  }
+                fprintf(f, "\t%s\n", passed ? "passed" : "failed");
+            }
+        }
+        if (f) { fprintf(f, "%s: %s\n", __func__, no_tests_failed ? "passed" : "failed"); }
+
+        // negative test cases (invalid input)
+        //
+        std::vector<std::vector<uint8_t>> negative_test_cases = {
+            {
+                { 0x64, 0x49, 0x45, 0x54, 0x46 },   // text string "IETF"
+                { 0x1a, 0x00, 0x0f, 0x42, 0x40 },   // uint64 1000000
+            }
+        };
+        if (f) { fprintf(f, "cbor::byte_string negative test cases:\n"); }
+        for (const auto & tc : negative_test_cases) {
+            datum d{tc.data(), tc.data() + tc.size()};
+            byte_string::decode(d);
+            bool passed = d.is_null();
+            no_tests_failed &= passed;
+            if (f) {
+                fprintf(f, "encoded: ");
+                for (const auto & ee : tc) { fprintf(f, "%02x", ee);  }
+                fprintf(f, "\t%s\n", passed ? "passed (input rejected)" : "failed (input accepted)");
+            }
+        }
+
+        return no_tests_failed;
+    }
+
+    // static unit test function for cbor::text_string
+    //
+    bool cbor::text_string::unit_test(FILE *f) {
+
+        // valid input and output pairs
+        //
+        std::vector<std::pair<std::vector<uint8_t>,std::vector<uint8_t>>> test_cases = {
+            { { 0x44, 0x01, 0x02, 0x03, 0x04 }, { 0x01, 0x02, 0x03, 0x04 } },
+        };
+        bool no_tests_failed = true;
+        if (f) { fprintf(f, "cbor::byte_string test cases:\n"); }
+        for (const auto & tc : test_cases) {
+            datum d{tc.first.data(), tc.first.data() + tc.first.size()};
+            cbor::byte_string bs = cbor::byte_string::decode(d);
+            datum expected{tc.second.data(), tc.second.data() + tc.second.size()};
+            bool decoding_passed = (bs.value().cmp(expected) == 0);
+            data_buffer<64> dbuf;
+            bs.write(dbuf);
+            d = {tc.first.data(), tc.first.data() + tc.first.size()};
+            bool encoding_passed = (dbuf.contents().cmp(d) == 0);
+            bool passed = decoding_passed and encoding_passed;
+            no_tests_failed &= passed;
+
+            if (f) {
+                fprintf(f, "encoded: ");
+                for (const auto & ee : tc.first) { fprintf(f, "%02x", ee);  }
+                fprintf(f, "\tdecoded: ");
+                expected.fprint_hex(f);
+                fprintf(f, "\tre-encoded: ");
+                for (const auto & ee : dbuf.contents()) { fprintf(f, "%02x", ee);  }
+                fprintf(f, "\t%s\n", passed ? "passed" : "failed");
+            }
+        }
+        if (f) { fprintf(f, "%s: %s\n", __func__, no_tests_failed ? "passed" : "failed"); }
+
+        // negative test cases (invalid input)
+        //
+        std::vector<std::vector<uint8_t>> negative_test_cases = {
+            {
+                { 0x64, 0x49, 0x45, 0x54, 0x46 },   // text string "IETF"
+                { 0x1a, 0x00, 0x0f, 0x42, 0x40 },   // uint64 1000000
+            }
+        };
+        if (f) { fprintf(f, "cbor::byte_string negative test cases:\n"); }
+        for (const auto & tc : negative_test_cases) {
+            datum d{tc.data(), tc.data() + tc.size()};
+            byte_string::decode(d);
+            bool passed = d.is_null();
+            no_tests_failed &= passed;
+            if (f) {
+                fprintf(f, "encoded: ");
+                for (const auto & ee : tc) { fprintf(f, "%02x", ee);  }
+                fprintf(f, "\t%s\n", passed ? "passed (input rejected)" : "failed (input accepted)");
+            }
+        }
+
+        return no_tests_failed;
+    }
 
 };
 

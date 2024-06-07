@@ -49,9 +49,10 @@ tls_fp = {
 tls_fp_1 = [
    version: bstr .size 2,
    ciphersuites: bstr,
-   extensions: [
+   extensions: [             ; sorted into ascending lexicographic order
       * bstr
    ]
+   ? rank: uint              ; rank of sort-permutation
 ]
 
 ; An http_fp is a map from a version number (unsigned integer) to a
@@ -77,8 +78,8 @@ http_fp_0 = [
 ;
 ; IP address and flow key definitions
 ;
-ip4_address = bstr .size 4
-ip6_address = bstr .size 16
+ipv4_address = bstr .size 4
+ipv6_address = bstr .size 16
 
 ipv4_flow_key = [
   src_ip: ipv4_address,
