@@ -16,9 +16,11 @@
 #include <vector>
 #include <unordered_map>
 
-// tcp_segment contains initial info about the tcp segment 
-// associated with reassembly - seq no, data len, timestamp
-// if init_seg == true, also holds additional_byte_needed for reassembly
+// tcp_segment contains info about the tcp segment 
+// to be used in reassembly - seq no, data len, timestamp
+// 
+// if the segment is first segment, {init_seg == true},
+// and also holds additional_byte_needed for reassembly
 //
 struct tcp_segment {
     bool init_seg;
@@ -27,7 +29,12 @@ struct tcp_segment {
     uint32_t additional_bytes_needed;
     unsigned int seg_time;
 
-    tcp_segment(bool init, uint32_t len, uint32_t seq_no, uint32_t additional_bytes, unsigned int seg_time_) : init_seg{init}, data_length{len}, seq{seq_no}, additional_bytes_needed{additional_bytes}, seg_time{seg_time_} {}
+    tcp_segment(bool init, uint32_t len, uint32_t seq_no, uint32_t additional_bytes, unsigned int seg_time_) :
+        init_seg{init},
+        data_length{len},
+        seq{seq_no},
+        additional_bytes_needed{additional_bytes},
+        seg_time{seg_time_} {}
 };
 
 // reassembly_flags denotes special conditions that occur during reassembly
@@ -36,7 +43,7 @@ enum class reassembly_flags : uint8_t {
     missing_mid_segment = 0,    // reason of truncation
     timeout = 1,        // terminal condition, reason of truncation
     ooo = 2,
-    out_of_buffer = 3,  // terminal condition, reason of trncation
+    out_of_buffer = 3,  // terminal condition, reason of truncation
     max_seg_exceed = 4, // terminal condition, reason of truncation
     segment_overlap = 5,
     truncated = 6
@@ -77,7 +84,7 @@ enum class reassembly_state : uint8_t {
     reassembly_consumed = 4,    // reassembly data already consumed, either success or truncated
 };
 
-static constexpr unsigned int reassembly_timeout = 15; 
+//static constexpr unsigned int reassembly_timeout = 15; 
 
 // tcp_reassembly_flow_context contains all the state associated with a particular
 // tcp flow under reassembly, including reassembly buffer, flags etc.
@@ -91,6 +98,8 @@ struct tcp_reassembly_flow_context {
     uint32_t init_seq;
     uint32_t init_seg_len;
     uint32_t total_bytes_needed;
+
+    static constexpr unsigned int reassembly_timeout = 15;
 
     // reassembly buffer and contiguous data
     static constexpr size_t max_data_size = 8192;
@@ -106,11 +115,21 @@ struct tcp_reassembly_flow_context {
 
     // ctor to be called only on inital tcp data segment required for reassembly, for the first time
     //
-    tcp_reassembly_flow_context(const tcp_segment &seg, const datum &tcp_pkt) : reassembly_flag_val{}, reassembly_overlap_flags{}, state{reassembly_state::reassembly_progress}, init_time{seg.seg_time}, init_seq{seg.seq},
-                    init_seg_len{seg.data_length}, total_bytes_needed{(seg.data_length) + (seg.additional_bytes_needed)}, curr_contiguous_data{seg.data_length}, total_set_data{seg.data_length},
-                    buffer{}, curr_seg_count{0}, seg_list{} {
+    tcp_reassembly_flow_context(const tcp_segment &seg, const datum &tcp_pkt) :
+        reassembly_flag_val{},
+        reassembly_overlap_flags{},
+        state{reassembly_state::reassembly_progress},
+        init_time{seg.seg_time},
+        init_seq{seg.seq},
+        init_seg_len{seg.data_length},
+        total_bytes_needed{(seg.data_length) + (seg.additional_bytes_needed)},
+        curr_contiguous_data{seg.data_length},
+        total_set_data{seg.data_length},
+        buffer{},
+        curr_seg_count{0},
+        seg_list{} {
     
-        seg_list.reserve(20);
+        seg_list.reserve(max_segments);
         seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
         curr_seg_count = 1;
 
@@ -152,27 +171,27 @@ inline void tcp_reassembly_flow_context::set_expired() {
 }
 
 
-    // process the seglist and simplify so that none of the segments overlap with each other
-    // Forward partial overlap :  Update the seg end
-    //      seg(a,b) has forward partial overlap with immediate next element seg(x,y) if a < x && x <= b <= y
-    //      eg. {(40,60)} with (50,100)
-    // Forward superset overlap : Remove all subset segments
-    //      seg(a,b) has forward superset overlap with one or more next elements seg(x,y) if a < x && x <= y <= b
-    //      e.g. {(40,100)} with (50,60), (70,80)
-    // One segment can have multiple forward superset overlaps and at max one forward partial overlap
-    //      e.g. {(40,100)} with (50,60), (70,80), (90,120)
-    //
-    //
-    // Backward partial overlap: update seg start
-    // seg(a,b) has backward partial overlap with immediate previous element seg(x,y) if b > y && x <= a <= y
-    //      e.g. {(45,60)} with (40,50)
-    // Backward subset overlap : Ignore this seg
-    // seg(a,b) has backward subset overlap with immediate previous element seg(x,y) if x <= a <= b <= y
-    //      e.g. {(45,48)} with (40,50)
-    // One segment can either one backward partial overlap or one backward subset overlap
-    //
-    // Both backward and forward partial overlaps can occur together, along with multiple forward superset overlaps
-    // Backward subset overlap is an exclusive case
+// process the seglist and simplify so that none of the segments overlap with each other
+// Forward partial overlap :  Update the seg end
+//      seg(a,b) has forward partial overlap with immediate next element seg(x,y) if a < x && x <= b <= y
+//      eg. {(40,60)} with (50,100)
+// Forward superset overlap : Remove all subset segments
+//      seg(a,b) has forward superset overlap with one or more next elements seg(x,y) if a < x && x <= y <= b
+//      e.g. {(40,100)} with (50,60), (70,80)
+// One segment can have multiple forward superset overlaps and at max one forward partial overlap
+//      e.g. {(40,100)} with (50,60), (70,80), (90,120)
+//
+//
+// Backward partial overlap: update seg start
+// seg(a,b) has backward partial overlap with immediate previous element seg(x,y) if b > y && x <= a <= y
+//      e.g. {(45,60)} with (40,50)
+// Backward subset overlap : Ignore this seg
+// seg(a,b) has backward subset overlap with immediate previous element seg(x,y) if x <= a <= b <= y
+//      e.g. {(45,48)} with (40,50)
+// One segment can either one backward partial overlap or one backward subset overlap
+//
+// Both backward and forward partial overlaps can occur together, along with multiple forward superset overlaps
+// Backward subset overlap is an exclusive case
 
 inline void tcp_reassembly_flow_context::simplify_seglist (size_t idx) {
     size_t back_overlap = 0;
@@ -343,7 +362,7 @@ struct tcp_reassembler {
     void set_completed(reassembly_map_iterator it);
     void write_json(json_object &record);
     void clean_curr_flow();
-    void count_all();
+    void clear_all();
 
 };
 
@@ -530,7 +549,7 @@ inline void tcp_reassembler::write_json(json_object &record) {
     flags.close();
 }
 
-inline void tcp_reassembler::count_all() {
+inline void tcp_reassembler::clear_all() {
     table.clear();
 }
 
