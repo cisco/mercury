@@ -12,6 +12,7 @@
 #include <regex>
 #include <unordered_map>
 #include <map>
+#include <cstdint>
 #include <set>
 #include <algorithm>
 #include <stdexcept>
