@@ -123,6 +123,7 @@ int main(int, char *[]) {
     //
     FILE *unit_test_output = stderr; // set to nullptr to suppress unit test output
     printf("cbor::unit_test: %s\n", cbor::unit_test(unit_test_output) ? "passed" : "failed");
+    return 0;  // EARLY RETURN
 
     // uint8_t test_data[] = { 0xff, 0xaa };
     // datum d{test_data, test_data + sizeof(test_data)};
@@ -317,6 +318,32 @@ int main(int, char *[]) {
 
         cbor::decode_data(d);
     }
+
+    // run reencode_data on fingerprint_examples
+    //
+    for (const auto & e : fingerprint_examples) {
+        fprintf(stdout, "running decode_data() on ");
+        for (const auto & ee : e) {
+            printf("%02x, ", ee);
+        }
+        fputc('\n', stdout);
+
+        datum d{e.data(), e.data() + e.size()};
+        d.fprint_hex(stdout); fputc('\n', stdout);
+        data_buffer<1024> reencoded_buf;
+        if (d.length() > 1024) {
+            fprintf(stderr, "error: data_buffer too small to hold re-encoded data\n");
+            return EXIT_FAILURE;
+        }
+        cbor::reencode_data(d, reencoded_buf);
+        reencoded_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
+        d = {e.data(), e.data() + e.size()};
+        if (d.cmp(reencoded_buf.contents()) != 0) {
+            fprintf(stderr, "error: re-encoded data does not match original data\n");
+            return EXIT_FAILURE;
+        }
+    }
+
     return 0; // EARLY RETURN
 
     data_buffer<2048> dbuf;

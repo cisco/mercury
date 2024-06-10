@@ -567,6 +567,7 @@ namespace cbor {
 
         while (d.is_readable()) {
             if (lookahead<initial_byte> ib{d}) {
+                fprintf(f, "initial_byte: %02x\tmajor_type: %u\n", ib.value.value(), ib.value.major_type());
                 switch (ib.value.major_type()) {
                 case unsigned_integer_type:
                     {
@@ -586,7 +587,7 @@ namespace cbor {
                     break;
                 case text_string_type:
                     {
-                        byte_string tmp = byte_string::decode(d);
+                        text_string tmp = text_string::decode(d);
                         if (d.is_null()) { return false; }
                         fprintf(f, "%.*stext string: \"", r, tabs);
                         tmp.value().fprint(f);
@@ -607,7 +608,7 @@ namespace cbor {
                     break;
                 case map_type:
                     {
-                        array tmp{d};
+                        map tmp{d};
                         if (d.is_null()) { return false; }
                         d = ib.advance();
                         fprintf(f, "%.*smap: {\n", r, tabs);
@@ -623,7 +624,7 @@ namespace cbor {
                     }
                     [[fallthrough]];
                 default:
-                    printf("unknown initial byte: 0x%02x\n", ib.value.value());
+                    fprintf(f, "unknown initial byte: 0x%02x\n", ib.value.value());
                     return false;
                 }
             }
@@ -798,12 +799,218 @@ namespace cbor::output {
             v.write(w);
         }
 
-        //  operator writeable & () { return w; }
+        operator writeable & () { return w; }
     };
 
 };
 
 namespace cbor {
+
+    static inline bool reencode_data(datum &d, writeable &w, size_t r=0, bool is_map=false) {
+
+        constexpr size_t max_recursion_depth = 256;
+        if (r > max_recursion_depth) {
+            return false;  // error: recursion depth too high
+        }
+
+        size_t num_elements = 0;
+        while (d.is_readable()) {
+            if (lookahead<initial_byte> ib{d}) {
+                switch (ib.value.major_type()) {
+                case unsigned_integer_type:
+                    {
+                        uint64 tmp{d};
+                        if (d.is_null()) { return false; }
+                        tmp.write(w);
+                        num_elements++;
+                    }
+                    break;
+                case byte_string_type:
+                    {
+                        byte_string tmp = byte_string::decode(d);
+                        if (d.is_null()) { return false; }
+                        tmp.write(w);
+                        num_elements++;
+                    }
+                    break;
+                case text_string_type:
+                    {
+                        text_string tmp = text_string::decode(d);
+                        if (d.is_null()) { return false; }
+                        tmp.write(w);
+                        num_elements++;
+                    }
+                    break;
+                case array_type:
+                    {
+                        array tmp{d};
+                        if (d.is_null()) { return false; }
+                        d = ib.advance();
+                        cbor::output::array output_array{w};
+                        bool success = reencode_data(d, output_array, r+1);
+                        initial_byte b{d};
+                        if (d.is_null() or !b.is_break()) {
+                            success = false; // missing break at end of array
+                        }
+                        output_array.close();
+                        if (!success) { return false; }
+                        num_elements++;
+                    }
+                    break;
+                case map_type:
+                    {
+                        map tmp{d};
+                        if (d.is_null()) { return false; }
+                        d = ib.advance();
+                        cbor::output::map output_map{w};
+                        bool success = reencode_data(d, output_map, r+1, true);    // note: no attempt to enforce key/value pairs
+                        initial_byte b{d};
+                        if (d.is_null() or !b.is_break()) {
+                            success = false; // missing break at end of map
+                        }
+                        output_map.close();
+                        if (!success) { return false; }
+                        num_elements++;
+                    }
+                    break;
+                case simple_or_float_type:
+                    if (ib.value.is_break()) {
+                        if (is_map and (num_elements & 1)) {
+                            return false;  // a map must contain an even number of entries
+                        }
+                        return true;
+                    }
+                    [[fallthrough]];
+                default:
+                    return false;   // unknown initial byte
+                }
+            }
+        }
+        return true;
+    }
+
+    static inline bool reencode_unit_test(FILE *f) {
+        std::vector<uint8_t> valid_cbor_examples[] = {
+            {
+                0x9f, // initial byte
+                0x42, // version: length two byte string
+                0x03,
+                0x01,
+                0x4a, // ciphersuites: length ten byte string
+                0x00,
+                0x16,
+                0x00,
+                0x2f,
+                0x00,
+                0x0a,
+                0x00,
+                0x05,
+                0x00,
+                0xff,
+                0x9f, // start of extensions (initial byte of indefinite-length array)
+                0x42, // extension: length two byte string
+                0x00,
+                0x00,
+                0x42, // extension: length two byte string
+                0x00,
+                0x23,
+                0xff, // end of extensions (break)
+                0xff  // break
+            },
+            { 0xbf, 0x64, 0x49, 0x45, 0x54, 0x46, 0x6c, 'H', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!', 0xff }, // {_ "IETF", "Hello world!" }
+        };
+
+        bool all_tests_passed = true;
+
+        auto run_test = [&f, &all_tests_passed](const std::vector<uint8_t> &e, bool is_valid) {
+            datum d{e.data(), e.data() + e.size()};
+            data_buffer<1024> reencoded_buf;
+            if (d.length() > 1024) {
+                if (f) {
+                    fprintf(f, "error: data_buffer too small to hold re-encoded data\n");
+                }
+                return;  // could not run test
+            }
+            bool success = cbor::reencode_data(d, reencoded_buf);
+            if (is_valid == false) {
+                //
+                // negative test case; only perform decoding, and expect failure
+                //
+                if (success) {
+                    if (f) {
+                        fprintf(f, "error: invalid encoded data was accepted by decoder\n");
+                    }
+                    all_tests_passed = false;
+                }
+                return;
+            }
+
+            // positive test case; expect success, and compare the
+            // re-encoded result to original
+            //
+            if (!success) {
+                if (f) {
+                    fprintf(f, "error: encoded data could not be re-encoded\n");
+                }
+                all_tests_passed = false;
+            }
+            d = {e.data(), e.data() + e.size()};
+            if (f) {
+                fprintf(f, "encoded:     ");
+                d.fprint_hex(f);
+                fprintf(f, "\nre-encoded:  ");
+                reencoded_buf.contents().fprint_hex(f); fputc('\n', f);
+            }
+            if (d.cmp(reencoded_buf.contents()) != 0) {
+                if (f) {
+                    fprintf(f, "error: re-encoded data does not match original data\n");
+                }
+                all_tests_passed = false;
+            }
+        };
+
+        std::vector<uint8_t> invalid_cbor_examples[] = {
+            {
+                0x9f,
+                0x42,
+                0x03,
+                0x01,
+                0x4a,
+                0x00,
+                0x16,
+                0x00,
+                0x2f,
+                0x00,
+                0x0a,
+                0x00,
+                0x05,
+                0x00,
+                0xff,
+                0x9f,
+            },
+            { 0xbf, 0x64, 0x49, 0x45, 0x54, 0x46, 0xff }, // {_ "IETF", "Hello world!" }
+        };
+
+        // run reencode_data on valid_cbor_examples
+        //
+        if (f) {
+            fprintf(f, "cbor::reencode_data test cases:\n");
+        }
+        for (const auto & e : valid_cbor_examples) {
+            run_test(e, true);
+        }
+
+        // run reencode_data on invalid_cbor_examples
+        //
+        if (f) {
+            fprintf(f, "cbor::reencode_data negative test cases:\n");
+        }
+        for (const auto & e : invalid_cbor_examples) {
+            run_test(e, false);
+        }
+
+        return all_tests_passed;
+    }
 
     /// unit_test() performs unit testing on all classes in the cbor
     /// namespace and returns true if they all pass, and false
@@ -813,7 +1020,8 @@ namespace cbor {
     static inline bool unit_test(FILE *f=nullptr) {
         return uint64::unit_test(f)
             and byte_string::unit_test(f)
-            and text_string::unit_test(f);
+            and text_string::unit_test(f)
+            and reencode_unit_test(f);
     }
 
     // static unit test function for cbor::uint64
