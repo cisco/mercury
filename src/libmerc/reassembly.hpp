@@ -139,19 +139,19 @@ struct tcp_reassembly_flow_context {
 
     void process_tcp_segment(const tcp_segment &seg, const datum &tcp_pkt);
 
-    void simplify_seglist (size_t idx);
-
-    void write_json(struct json_object &record);
-
     datum get_reassembled_data();
-
-    void update_contiguous_data();
 
     bool is_expired( unsigned int curr_time);
 
     void set_reassembly_flag(size_t idx);
 
     void set_expired();
+
+private:    
+
+    void simplify_seglist (size_t idx);
+
+    void update_contiguous_data();
 };
 
 // return a datum associated with the maximum reassmbled data of contiguous segments
@@ -348,12 +348,7 @@ struct tcp_reassembler {
     } 
 
     reassembly_state check_flow(const struct key &k, unsigned int sec);
-    void init_reassembly(const struct key &k, const tcp_segment &seg, const datum &d);
-    void continue_reassembly(unsigned int sec, const tcp_segment &seg, const datum &d);
     reassembly_map_iterator process_tcp_data_pkt(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
-    void passive_reap(unsigned int sec);
-    void active_reap();
-    void increment_reap_iterator();
     reassembly_map_iterator get_current_flow();
     bool is_ready(reassembly_map_iterator it);
     bool in_progress(reassembly_map_iterator it);
@@ -364,6 +359,12 @@ struct tcp_reassembler {
     void clean_curr_flow();
     void clear_all();
 
+private:
+    void init_reassembly(const struct key &k, const tcp_segment &seg, const datum &d);
+    void continue_reassembly(unsigned int sec, const tcp_segment &seg, const datum &d);
+    void passive_reap(unsigned int sec);
+    void active_reap();
+    void increment_reap_iterator();
 };
 
 
