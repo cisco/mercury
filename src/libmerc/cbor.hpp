@@ -8,7 +8,6 @@
 #include "datum.h"
 #include "lex.h"
 #include <cstdio>
-#include <variant>
 #include <string>
 #include <stdexcept>
 
@@ -17,15 +16,7 @@ public:
     inline static bool in_class(uint8_t x) {
         return (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F');
     }
-
-    // write hex as raw
-    //
-    void write(writeable &buf) const {
-        buf.copy_from_hex(data, length());
-    }
-
 };
-
 
 
 // a simple CBOR decoder, following RFC 8949
@@ -125,6 +116,11 @@ namespace cbor {
         }
 
         uint8_t value() const { return value__; }
+
+        static constexpr uint8_t False = 20;
+        static constexpr uint8_t True = 21;
+        static constexpr uint8_t null = 22;
+        static constexpr uint8_t undefined = 23;
 
     };
 
@@ -382,7 +378,13 @@ namespace cbor {
         datum value__;
 
         static datum datum_from_str(const char *null_terminated_string) {
-            return { (uint8_t *)null_terminated_string, (uint8_t *)null_terminated_string + strlen(null_terminated_string)};
+            if (null_terminated_string == nullptr) {
+                return { nullptr, nullptr };
+            }
+            return {
+                (uint8_t *)null_terminated_string,
+                (uint8_t *)null_terminated_string + strlen(null_terminated_string)
+            };
         }
 
         // The Named Constructor Idiom
@@ -442,6 +444,10 @@ namespace cbor {
             buf << value__;
         }
 
+        bool is_valid() const { return value__.is_not_null(); }
+
+        // operator bool() const { return value__.is_not_null(); }
+
         /// `cbor::_textstring::unit_test()` performs unit tests on
         /// the class \ref cbor::_textstring and returns `true` if
         /// they all pass, and `false` otherwise.  If \param f ==
@@ -486,9 +492,9 @@ namespace cbor {
     };
 
 
-    // a cbor::dictionary is an ordered list of text strings that is
-    // used to map short unsigned integers to readable values
-    //
+    /// a `cbor::dictionary` is an ordered list of text strings that is
+    /// used to map short unsigned integers to readable values
+    ///
     template <size_t N>
     class dictionary {
         std::array<const char *, N> strings;
@@ -558,8 +564,7 @@ namespace cbor {
         compact_map(const std::array<const char *, N> &a, datum &d) : map{d} { }
     };
 
-    static inline bool decode_data(datum &d, int r=0) {
-        FILE *f = stdout;
+    static inline bool decode_data(datum &d, FILE *f, int r=0) {
         char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
         if (r > (int)sizeof(tabs)) {
             return false;  // error: recursion depth too high
@@ -599,9 +604,9 @@ namespace cbor {
                     {
                         array tmp{d};
                         if (d.is_null()) { return false; }
-                        d = ib.advance();
+                        d = ib.advance();   // ??????????????????????????????????????????
                         fprintf(f, "%.*sarray: [\n", r, tabs);
-                        bool success = decode_data(d, r+1);
+                        bool success = decode_data(d, f, r+1);
                         fprintf(f, "%.*s]\n", r, tabs);
                         if (!success) { return false; }
                     }
@@ -612,7 +617,7 @@ namespace cbor {
                         if (d.is_null()) { return false; }
                         d = ib.advance();
                         fprintf(f, "%.*smap: {\n", r, tabs);
-                        bool success = decode_data(d, r+1);    // note: no attempt to enforce key/value pairs
+                        bool success = decode_data(d, f, r+1);    // note: no attempt to enforce key/value pairs
                         fprintf(f, "%.*s}\n", r, tabs);
                         if (!success) { return false; }
                     }
@@ -632,96 +637,23 @@ namespace cbor {
         return true;
     }
 
-    // an element is a cbor-encoded element
-    //
-    // note that for any element e, e.index() is equal to the
-    // major_type of e plus one
-    //
-    using element = std::variant<std::monostate,
-                                 uint64,
-                                 int64,
-                                 byte_string,
-                                 text_string,
-                                 array,
-                                 map>;
-
-    // decode and return the element (`std::variant` for all cbor
-    // types) from `d`; if no element could be decoded,
-    // `std::monostate` is returned.
-    //
-    inline element decode(datum &d) {
-        if (lookahead<initial_byte> ib{d}) {
-            switch (ib.value.major_type()) {
-            case unsigned_integer_type:
-                {
-                    uint64 tmp{d};
-                    if (d.is_not_null()) {
-                        return tmp;
-                    }
-                }
-                break;
-            case negative_integer_type:
-                {
-                    int64 tmp{d};
-                    if (d.is_not_null()) {
-                        return tmp;
-                    }
-                }
-                break;
-            case byte_string_type:
-                {
-                    // byte_string tmp{d};
-                    if (d.is_not_null()) {
-                        return byte_string::decode(d);
-                        // return tmp;
-                    }
-                }
-                break;
-            case text_string_type:
-                {
-                    text_string tmp = text_string::decode(d);
-                    if (d.is_not_null()) {
-                        return tmp;
-                    }
-                }
-                break;
-            case array_type:
-                {
-                    array tmp{d};
-                    if (d.is_not_null()) {
-                        return tmp;
-                    }
-                }
-                break;
-            case map_type:
-                {
-                    map tmp{d};
-                    if (d.is_not_null()) {
-                        return tmp;
-                    }
-                }
-                break;
-            case simple_or_float_type:
-                {
-                    if (ib.value.is_break()) {
-                        return std::monostate{};
-                    }
-                }
-                break;
-            default:
-                ;
-            }
-        }
-        return std::monostate{};
+    /// decode the sequence of CBOR items in the \ref datum \param d,
+    /// and print a human-readable description of the items to \param f.
+    ///
+    /// \return `true if all of the items in \param d could be
+    /// decoded, and `false` otherwise
+    ///
+    static inline bool decode_printf(datum &d, FILE *f) {
+        return decode_data(d, f);
     }
 
-    inline uint8_t major_type(const element &e) {
-        return e.index() - 1;
-    }
+    // inline uint8_t major_type(const element &e) {
+    //     return e.index() - 1;
+    // }
 
-    inline void printf(FILE *f, const element &e) {
-        ;;; // TODO
-    }
+    // inline void printf(FILE *f, const element &e) {
+    //     ;;; // TODO
+    // }
 
 };     // end of namespace cbor
 
@@ -863,7 +795,7 @@ namespace cbor {
                         if (d.is_null()) { return false; }
                         d = ib.advance();
                         cbor::output::map output_map{w};
-                        bool success = reencode_data(d, output_map, r+1, true);    // note: no attempt to enforce key/value pairs
+                        bool success = reencode_data(d, output_map, r+1, true);
                         initial_byte b{d};
                         if (d.is_null() or !b.is_break()) {
                             success = false; // missing break at end of map

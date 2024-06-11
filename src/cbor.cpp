@@ -4,117 +4,8 @@
 #include <vector>
 #include <cctype>
 #include "libmerc/cbor.hpp"
+#include "libmerc/fdc.hpp"
 
-
-
-// cbor_fingerprint decodes a CBOR representation of a Network
-// Protocol Fingerprint (NPF), which is defined by this correspondence
-// to the textual string representation
-//
-//    * A hex string maps to a byte string (major type 2)
-//
-//    * A sequence of similar elements maps to an indefinite length
-//     array (major type 4)
-//
-//        - ‘(‘ maps to 0x9f (initial byte of indefinite-length array)
-//
-//        - ‘)’ maps to 0xff (‘break’, final byte of indefinite-length
-//          array)
-//
-class cbor_fingerprint {
-public:
-    cbor_fingerprint(datum &d) {
-    }
-
-    static void fprint(FILE *f, datum &d) {
-        while (lookahead<cbor::initial_byte> ib{d}) {
-            if (ib.value.is_byte_string()) {
-                cbor::byte_string bs = cbor::byte_string::decode(d);
-                fputc('(', stdout);
-                bs.value().fprint_hex(stdout);
-                fputc(')', stdout);
-            } else if (ib.value.is_array_indefinite_length()) {
-                d = ib.advance();
-                fputc('[', stdout);
-                fprint(f, d);          // recursion
-                fputc(']', stdout);
-            } else if (ib.value.is_break()) {
-                d = ib.advance();
-                break;
-            } else {
-                return;  // error: unexpected type
-            }
-        }
-    }
-
-    static void write_data(datum &d) {
-        literal_byte<'('>{d};
-        hex_digits{d}.fprint(stdout); fputc('\n', stdout);
-        literal_byte<')'>{d};
-    }
-
-    static void write_list(datum &d) {
-        literal_byte<'('>{d};
-        while(lookahead<encoded<uint8_t>> c{d}) {
-            if (c.value == ')') {
-                break;
-            }
-            write_data(d);
-        }
-        literal_byte<')'>{d};
-    }
-
-    static void write_sorted_list(datum &d) {
-        literal_byte<'['>{d};
-        while(lookahead<encoded<uint8_t>> c{d}) {
-            if (c.value == ']') {
-                break;
-            }
-            fputc('\t', stdout);
-            write_data(d);
-        }
-        literal_byte<']'>{d};
-    }
-
-    static void write_tls_fingerprint(datum &d) {
-        write_data(d);         // version
-        write_data(d);         // ciphersuites
-        write_sorted_list(d);  // extensions
-    }
-
-    static void write_cbor_data(datum &d, writeable &w) {
-        literal_byte<'('>{d};
-        cbor::byte_string_from_hex{hex_digits{d}}.write(w);
-        literal_byte<')'>{d};
-    }
-
-    static void write_cbor_data(datum &d, cbor::output::array &a) {
-        literal_byte<'('>{d};
-        cbor::byte_string_from_hex{hex_digits{d}}.write(a);
-        // a.write(cbor::byte_string_from_hex{hex_digits{d}});
-        literal_byte<')'>{d};
-    }
-
-    static void write_cbor_sorted_list(datum &d, writeable &w) {
-        literal_byte<'['>{d};
-        cbor::output::array a{w};
-        while(lookahead<encoded<uint8_t>> c{d}) {
-            if (c.value == ']') {
-                break;
-            }
-            write_cbor_data(d, a);
-        }
-        a.close();
-        literal_byte<']'>{d};
-    }
-
-    static void write_cbor_tls_fingerprint(datum &d, writeable &w) {
-        write_cbor_data(d, w);         // version
-        write_cbor_data(d, w);         // ciphersuites
-        write_cbor_sorted_list(d, w);  // extensions
-    }
-
-};
 
 int main(int, char *[]) {
 
@@ -123,6 +14,24 @@ int main(int, char *[]) {
     //
     FILE *unit_test_output = stderr; // set to nullptr to suppress unit test output
     printf("cbor::unit_test: %s\n", cbor::unit_test(unit_test_output) ? "passed" : "failed");
+
+    data_buffer<1024> output;
+    const char *fp = "(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
+    datum fp_datum{(uint8_t *)fp, (uint8_t *)fp + strlen(fp)};
+    fp_datum.fprint(stdout); fputc('\n', stdout);
+    fdc fdc_object{
+        fp_datum,
+        nullptr,
+        "npmjs.org",
+        "104.16.30.34",
+        hton<uint16_t>(443)
+    };
+    fdc_object.encode(output);
+    output.contents().fprint_hex(stdout); fputc('\n', stdout);
+    output.contents().fprint(stdout); fputc('\n', stdout);
+
+    cbor_fingerprint::unit_test();
+
     return 0;  // EARLY RETURN
 
     // uint8_t test_data[] = { 0xff, 0xaa };
@@ -288,22 +197,22 @@ int main(int, char *[]) {
         fputc('\n', stdout);
     }
 
-    for (const auto & e : fingerprint_examples) {
-        for (const auto & ee : e) {
-            printf("%02x, ", ee);
-        }
-        fputc('\n', stdout);
+    // for (const auto & e : fingerprint_examples) {
+    //     for (const auto & ee : e) {
+    //         printf("%02x, ", ee);
+    //     }
+    //     fputc('\n', stdout);
 
-        datum d{e.data(), e.data() + e.size()};
+    //     datum d{e.data(), e.data() + e.size()};
 
-        while (d.is_readable()) {
-            cbor::element v = cbor::decode(d);
-            if (std::holds_alternative<std::monostate>(v)) {
-                break;
-            }
-            printf("type: %u\n", major_type(v));
-        }
-    }
+    //     while (d.is_readable()) {
+    //         cbor::element v = cbor::decode(d);
+    //         if (std::holds_alternative<std::monostate>(v)) {
+    //             break;
+    //         }
+    //         printf("type: %u\n", major_type(v));
+    //     }
+    // }
 
     // run generic decoder on fingerprint_examples
     //
@@ -316,7 +225,7 @@ int main(int, char *[]) {
 
         datum d{e.data(), e.data() + e.size()};
 
-        cbor::decode_data(d);
+        cbor::decode_printf(d, stdout);
     }
 
     // run reencode_data on fingerprint_examples
@@ -394,19 +303,19 @@ int main(int, char *[]) {
 
     // read array
     //
-    contents = dbuf.contents();
-    cbor::array aa{contents};
-    printf("[\n");
-    while (aa.value().is_not_empty()) {
-        cbor::element v = cbor::decode(aa.value());
-        if (std::holds_alternative<std::monostate>(v)) {
-            break;
-        }
-        printf("type: %u\n", major_type(v));
-        // cbor::text_string ts{aa.value()};
-        // ts.value().fprint(stdout); fputc('\n', stdout);
-    }
-    printf("]\n");
+    // contents = dbuf.contents();
+    // cbor::array aa{contents};
+    // printf("[\n");
+    // while (aa.value().is_not_empty()) {
+    //     cbor::element v = cbor::decode(aa.value());
+    //     if (std::holds_alternative<std::monostate>(v)) {
+    //         break;
+    //     }
+    //     printf("type: %u\n", major_type(v));
+    //     // cbor::text_string ts{aa.value()};
+    //     // ts.value().fprint(stdout); fputc('\n', stdout);
+    // }
+    // printf("]\n");
 
     // datum contents =  dbuf.contents();
     // if (contents.is_not_null()) {
