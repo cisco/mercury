@@ -369,10 +369,10 @@ void *output_thread_func(void *arg) {
         __atomic_store_n(&(out_ctx->qs.queue[q].drops), 0, __ATOMIC_RELAXED);
     }
 
-    int all_output_flushed = 0;
+    int all_output_done = 0;
     uint64_t total_drops = 0;
     enum status status = status_ok;
-    while (all_output_flushed == 0) {
+    while (all_output_done == 0) {
 
         int got_nothing;
         do {
@@ -406,7 +406,7 @@ void *output_thread_func(void *arg) {
                 }
             }
 
-        } while (got_nothing == 1);
+        } while (got_nothing == 0);
 
         /* Do output drop accounting */
         for (int q = 0; q < out_ctx->qs.qnum; q++) {
@@ -424,7 +424,7 @@ void *output_thread_func(void *arg) {
 
         /* This is how we detect no more output is coming */
         if (out_ctx->sig_stop_output != 0) {
-            all_output_flushed = 1;
+            all_output_done = 1;
         }
 
 
