@@ -542,69 +542,72 @@ void pcap_queue_write(struct ll_queue *llq,
                       unsigned int nsec,
                       bool blocking) {
 
+    fprintf(stderr, "THIS FUNCTION NEEDS TO BE RE-WRITTEN!\n");
+    abort();
+
     if (packet == nullptr) {
         return;  // error
     }
 
-    if (blocking) {
-        while (llq->msgs[llq->widx].used != 0) {
-            usleep(50); // sleep for fifty microseconds
-        }
-    }
+    /* if (blocking) { */
+    /*     while (llq->msgs[llq->widx].used != 0) { */
+    /*         usleep(50); // sleep for fifty microseconds */
+    /*     } */
+    /* } */
 
-    if (llq->msgs[llq->widx].used == 0) {
+    /* if (llq->msgs[llq->widx].used == 0) { */
 
-        //char obuf[LLQ_MSG_SIZE];
-        int olen = LLQ_MSG_SIZE;
-        int ooff = 0;
-        int trunc = 0;
+    /*     //char obuf[LLQ_MSG_SIZE]; */
+    /*     int olen = LLQ_MAX_MSG_SIZE; */
+    /*     int ooff = 0; */
+    /*     int trunc = 0; */
 
-        llq->msgs[llq->widx].ts.tv_sec = sec;
-        llq->msgs[llq->widx].ts.tv_nsec = nsec;
+    /*     llq->msgs[llq->widx].ts.tv_sec = sec; */
+    /*     llq->msgs[llq->widx].ts.tv_nsec = nsec; */
 
-        //obuf[sizeof(struct timespec)] = '\0';
-        llq->msgs[llq->widx].buf[0] = '\0';
+    /*     //obuf[sizeof(struct timespec)] = '\0'; */
+    /*     llq->msgs[llq->widx].buf[0] = '\0'; */
 
-        if (packet && !length) {
-            fprintf(stderr, "warning: attempt to write an empty packet\n");
-        }
+    /*     if (packet && !length) { */
+    /*         fprintf(stderr, "warning: attempt to write an empty packet\n"); */
+    /*     } */
 
-        /* note: we never perform byteswap when writing */
-        struct pcap_packet_hdr packet_hdr;
-        packet_hdr.ts_sec = sec;
-        packet_hdr.ts_usec = nsec;
-        packet_hdr.incl_len = length;
-        packet_hdr.orig_len = length;
+    /*     /\* note: we never perform byteswap when writing *\/ */
+    /*     struct pcap_packet_hdr packet_hdr; */
+    /*     packet_hdr.ts_sec = sec; */
+    /*     packet_hdr.ts_usec = nsec; */
+    /*     packet_hdr.incl_len = length; */
+    /*     packet_hdr.orig_len = length; */
 
-        // write the packet header
-        int r = append_memcpy(llq->msgs[llq->widx].buf, &ooff, olen, &trunc, &packet_hdr, sizeof(packet_hdr));
+    /*     // write the packet header */
+    /*     int r = append_memcpy(llq->msgs[llq->widx].buf, &ooff, olen, &trunc, &packet_hdr, sizeof(packet_hdr)); */
 
-        // write the packet
-        r += append_memcpy(llq->msgs[llq->widx].buf, &ooff, olen, &trunc, packet, length);
+    /*     // write the packet */
+    /*     r += append_memcpy(llq->msgs[llq->widx].buf, &ooff, olen, &trunc, packet, length); */
 
-        // f->bytes_written += length + sizeof(struct pcap_packet_hdr);
-        // f->packets_written++;
+    /*     // f->bytes_written += length + sizeof(struct pcap_packet_hdr); */
+    /*     // f->packets_written++; */
 
-        if ((trunc == 0) && (r > 0)) {
+    /*     if ((trunc == 0) && (r > 0)) { */
 
-            llq->msgs[llq->widx].len = r;
+    /*         llq->msgs[llq->widx].len = r; */
 
-            //fprintf(stderr, "DEBUG: sent a message!\n");
-            __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
-            llq->msgs[llq->widx].used = 1;
+    /*         //fprintf(stderr, "DEBUG: sent a message!\n"); */
+    /*         __sync_synchronize(); /\* A full memory barrier prevents the following flag set from happening too soon *\/ */
+    /*         llq->msgs[llq->widx].used = 1; */
 
-            //llq->next_write();
-            llq->widx = (llq->widx + 1) % llq->llq_depth;
-        }
-    }
-    else {
-        //fprintf(stderr, "DEBUG: queue bucket used!\n");
+    /*         //llq->next_write(); */
+    /*         llq->widx = (llq->widx + 1) % llq->llq_depth; */
+    /*     } */
+    /* } */
+    /* else { */
+    /*     //fprintf(stderr, "DEBUG: queue bucket used!\n"); */
 
-        // TODO: this is where we'd update an output drop counter
-        // but currently this spot in the code doesn't have access to
-        // any thread stats pointer or similar and I don't want
-        // to update a global variable in this location.
-    }
+    /*     // TODO: this is where we'd update an output drop counter */
+    /*     // but currently this spot in the code doesn't have access to */
+    /*     // any thread stats pointer or similar and I don't want */
+    /*     // to update a global variable in this location. */
+    /* } */
 
 }
 
