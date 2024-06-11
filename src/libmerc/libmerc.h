@@ -822,7 +822,7 @@ struct flow_key_ext {
  * @param len (input) is the size of the tcp payload
  * @param buffer (input) is a pointer to the output buffer where the analysis vars will be written.
  * @param buffer_size (input) is the max size of the output buffer.
- * @param ac (input) is a pointer to an analysis_context object that can points to an analysis context 
+ * @param ac (input) is a pointer to the location an analysis_context object that points to an analysis context 
  * if `do_analysis` is anabled and a valid resources file is set.
  * 
  * @param buffer_size (output) the value of buffer_size will be updated to a larger 
