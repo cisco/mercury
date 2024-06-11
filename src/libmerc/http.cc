@@ -454,7 +454,7 @@ bool http_request::do_analysis(const struct key &k_, struct analysis_context &an
     struct datum user_agent_data = get_header("user-agent");
 
     analysis_.destination.init(host_data, user_agent_data, {nullptr, nullptr}, k_);
-    if(c_ == nullptr) { // if do_analysis is turned on - do not return here in pkt_proc - instead create a pointer to analysis_ctx and point it there!
+    if(c_ == nullptr) { 
         return false;
     }
     return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);

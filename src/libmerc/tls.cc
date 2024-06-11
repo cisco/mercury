@@ -1024,7 +1024,7 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     extensions.set_meta_data(sn, ua, alpn);
 
     analysis_.destination.init(sn, ua, alpn, k_);
-    if(c_ == nullptr) { // if do_analysis is turned on - do not return here in pkt_proc - instead create a pointer to analysis_ctx and point it there!
+    if(c_ == nullptr) { 
             return false;
     }
 

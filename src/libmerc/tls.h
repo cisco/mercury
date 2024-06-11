@@ -424,7 +424,6 @@ struct tls_client_hello : public base_protocol {
     bool is_faketls() const;
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
-    bool do_analysis_without_classification(const struct key &k_, struct analysis_context &analysis_);
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },

@@ -775,6 +775,13 @@ extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const struct attribute_context *mercury_packet_processor_get_attributes(mercury_packet_processor processor);
 
+/**
+ * @brief struct ipv6_addr_ext represents an ipv6 address with 4 32-bit integers.
+ * 
+ * The FDC API `mercury_packet_processor_get_analysis_context_fdc` requires a flow key that requires
+ * a valid ipv4 or ipv6 address. This struct is used to represent an ipv6 address. ipv4 addresses are 
+ * represented by the use of a single 32-bit integer.
+ */
 struct ipv6_addr_ext {
     uint32_t a;
     uint32_t b;
@@ -782,6 +789,13 @@ struct ipv6_addr_ext {
     uint32_t d;
 }; 
 
+/**
+ * TODO: Add documentation
+ * @brief struct flow_key_ext represents a flow key which src/dst ports, protocol and ip version.
+ * 
+ * The FDC API `mercury_packet_processor_get_analysis_context_fdc` requires a pointer to a flow key that requires
+ * a valid ipv4 or ipv6 address. This struct is used to represent a flow key with additional fields for src/dst ports, protocol and ip version.
+ */
 struct flow_key_ext {
     uint16_t src_port;
     uint16_t dst_port;
@@ -811,16 +825,21 @@ struct flow_key_ext {
  * @param ac (input) is a pointer to an analysis_context object that can points to an analysis context 
  * if `do_analysis` is anabled and a valid resources file is set.
  * 
+ * @param buffer_size (output) the value of buffer_size will be updated to a larger 
+ * number of bytes if the write to FDC buffer fails with a return code of `FDC_WRITE_INSUFFICIENT_SPACE`.
+ * 
  * @return one of the following enum values (int):
  *        - `FDC_WRITE_INSUFFICIENT_SPACE`: Write to the FDC buffer failed, `buffer_size` was too small
  *        - `MORE_PACKETS_NEEDED`: Fragmented payload, more packets needed to complete the analysis
  *        - `FDC_WRITE_FAILURE`: FDC buffer write failed, in place for forward compatibility
  *        - `UNKNOWN_ERROR`: Something goes wrong in the libmerc api invocation
  * 
- * This function expects the size of FDC buffer to be `buffer_size` number of bytes, in case the 
+ * The function expects the size of FDC buffer to be `buffer_size` number of bytes, in case the 
  * write to FDC fails due to a lack of space, the function will return `FDC_WRITE_INSUFFICIENT_SPACE`.
- * Additionally, the field `buffer_size` will be set to twice its current value,
- * and the caller should call the function again with the new buffer size.
+ * If the value of`*buffer_size` provided by the caller is not long enough to enable the 
+ * entire FDC to be encoded, the function call will fail, return `FDC_WRITE_INSUFFICIENT_SPACE`, 
+ * and set `*buffer_size` to a suggested value.  
+ * The caller should repeat the call with the increased value of `*buffer_size`, if possible.
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
@@ -832,6 +851,6 @@ int mercury_packet_processor_get_analysis_context_fdc(
     const size_t len, 
     uint8_t *buffer, 
     size_t* buffer_size, 
-    struct analysis_context* ac);
+    struct analysis_context** ac);
 
 #endif /* LIBMERC_H */

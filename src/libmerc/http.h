@@ -348,7 +348,6 @@ struct http_request : public base_protocol {
     void compute_fingerprint(class fingerprint &fp);
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
-    bool do_analysis_without_classification(const struct key &k_, struct analysis_context &analysis_);
 
     // weight 14 bitmask that matches all HTTP methods
     //

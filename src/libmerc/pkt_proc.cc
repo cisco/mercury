@@ -69,7 +69,7 @@
 #include "tftp.hpp"
 #include "ppoe.hpp"
 #include "vxlan.hpp"
-#include "fdc.h"
+#include "fdc.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -1206,7 +1206,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                         const size_t length, 
                         uint8_t *buffer, 
                         size_t *buffer_size, 
-                        [[maybe_unused]]struct analysis_context *context) {
+                        [[maybe_unused]]struct analysis_context **context) {
     struct datum pkt{payload, payload+length}; 
     protocol x;
     size_t internal_buffer_size = *buffer_size;
@@ -1236,12 +1236,10 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     
     std::visit(do_analysis{internal_flow_key, analysis, c}, x);
 
-    if (analysis.result.is_valid()) {
-        context = &analysis;
-    } else {
-        context = nullptr; // test this - disable resource file | analysis is true - check context==nullptr
+    if (context != nullptr and analysis.result.is_valid()) {
+        *context = &analysis;
     }
-
+    
     FDC fdc {
         analysis.fp.string(), 
         analysis.destination.ua_str, 

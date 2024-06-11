@@ -257,7 +257,7 @@ struct stateful_pkt_proc {
                             const size_t length, 
                             uint8_t *buffer, 
                             size_t *buffer_size, 
-                            struct analysis_context *context);
+                            struct analysis_context **context);
 
     bool tcp_data_set_analysis_result(struct analysis_result *r,
                                       struct datum &pkt,
