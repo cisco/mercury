@@ -1217,8 +1217,8 @@ class dynamic_buffer : public writeable {
 
 public:
 
-    /// constructs a data_buffer with an initial capacity of \param
-    /// initial_capacity bytes
+    /// constructs a `dynamic_buffer` with an initial capacity of
+    /// \param initial_capacity bytes
     ///
     dynamic_buffer(size_t initial_capacity) :
         buffer(initial_capacity)
@@ -1250,9 +1250,9 @@ public:
         }
     }
 
-    /// returns a datum representing the readable part of the
-    /// dynamic_buffer, if the writeable part is not null; otherwise,
-    /// a null datum is returned
+    /// returns a \ref datum representing the readable part of the
+    /// \ref dynamic_buffer, if the writeable part is not null;
+    /// otherwise, a null `datum` is returned
     ///
     datum contents() const {
         if (writeable::is_null()) {
