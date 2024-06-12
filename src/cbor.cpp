@@ -15,12 +15,11 @@ int main(int, char *[]) {
     FILE *unit_test_output = stderr; // set to nullptr to suppress unit test output
     printf("cbor::unit_test: %s\n", cbor::unit_test(unit_test_output) ? "passed" : "failed");
 
-    data_buffer<1024> output;
+    dynamic_buffer output{1024};
     const char *fp = "(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
-    datum fp_datum{(uint8_t *)fp, (uint8_t *)fp + strlen(fp)};
-    fp_datum.fprint(stdout); fputc('\n', stdout);
+    datum{fp}.fprint(stdout); fputc('\n', stdout);
     fdc fdc_object{
-        fp_datum,
+        datum{fp},
         nullptr,
         "npmjs.org",
         "104.16.30.34",

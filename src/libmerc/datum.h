@@ -201,6 +201,11 @@ struct datum {
     ///
     datum(const uint8_t *first, const uint8_t *last) : data{first}, data_end{last} {}
 
+    /// construct a datum representing the null-terminated character
+    /// string \param str
+    ///
+    explicit datum(const char *str) : data{(uint8_t *)str}, data_end{data + strlen(str)} { }
+
     /// construct a datum by accepting \p length bytes from datum \p d
     ///
     /// \param d      the datum to accept bytes from
@@ -917,6 +922,10 @@ public:
     ///
     writeable(uint8_t *begin, uint8_t *end) : data{begin}, data_end{end} { }
 
+    /// constructs a null writeable object
+    ///
+    writeable() : data{nullptr}, data_end{nullptr} { }
+
     /// returns true if the writeable object is in the null state, and false otherwise
     ///
     bool is_null() const { return data == nullptr || data_end == nullptr; }
@@ -1198,6 +1207,62 @@ template <size_t T> struct data_buffer : public writeable {
     //  * use null state to indicate write failure
     //  * add assert() macros to support debugging
     //  * add [[nodiscard]] as appropriate
+
+};
+
+/// dynamic_buffer is a writeable that can grow as needed
+///
+struct dynamic_buffer : public writeable {
+    std::vector<uint8_t> buffer;
+
+    /// constructs a data_buffer with an initial capacity of \param
+    /// initial_capacity bytes
+    ///
+    dynamic_buffer(size_t initial_capacity) :
+        buffer(initial_capacity)
+    {
+        data = buffer.data();
+        data_end = data + buffer.capacity();
+    }
+
+    /// reset this `dynamic_buffer` so that the readable part is empty
+    /// (zero length) and the writeable part contains all available
+    /// bytes.
+    ///
+    void reset() { data = buffer.data(); }
+
+    /// returns true if the readable part is not empty
+    ///
+    bool is_not_empty() const { return data != buffer.data() && data < data_end; }
+
+    /// `dynamic_buffer::readable_length()` returns the number of bytes in
+    /// the readable region, if the writeable region is not null;
+    /// otherwise, zero is returned
+    ///
+    ssize_t readable_length() const {
+        if (writeable::is_null()) {
+            return 0;
+        }
+        else {
+            return data - buffer.data();
+        }
+    }
+
+    /// returns a datum representing the readable part of the
+    /// dynamic_buffer, if the writeable part is not null; otherwise,
+    /// a null datum is returned
+    ///
+    datum contents() const {
+        if (writeable::is_null()) {
+            return {nullptr, nullptr};
+        } else {
+            return {buffer.data(), data};
+        }
+    }
+
+    const std::vector<uint8_t> &get_value() {
+        return buffer;
+    }
 
 };
 
