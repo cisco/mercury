@@ -514,6 +514,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
                 .packet_filter_cfg = (char *)"all"},
              .m_pc{"surfshark.pcap"}},
          3      // encrypted_dns, evasive_vpn, external_proxy as attributes
+        },
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all"},
+             .m_pc{"malware_tls.pcap"}},
+         2      // encrypted_channel, malware as attributes
         }
     };
 
@@ -646,5 +652,74 @@ TEST_CASE_METHOD(LibmercTestFixture, "mysql with resources-mp")
     {
         set_pcap(config.m_pc.c_str());
         mysql_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "socks with resources-mp")
+{
+
+    auto socks_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"socks"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"socks"},
+             .m_pc{"socks4_5.pcap"}},
+         10},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        socks_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet with resources-mp")
+{
+
+    auto tls_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"tls.client_hello"},
+             .m_pc{"geneve.pcap"}},
+         42},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"tls.server_hello"},
+             .m_pc{"geneve.pcap"}},
+         43},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"tcp"},
+             .m_pc{"geneve.pcap"}},
+         43},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        tls_check(count, config.m_lc);
     }
 }

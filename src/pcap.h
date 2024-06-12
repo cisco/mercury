@@ -18,6 +18,8 @@
 #define _O_BINARY 0
 #endif
 
+#include <locale.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -25,6 +27,7 @@
 #include <variant>
 #include <cassert>
 #include <stdexcept>
+#include <system_error>
 
 // USE_MMAP causes file reading to use mmap for improved performance;
 // you should use it when it is available (Linux).
@@ -35,6 +38,7 @@
 
 #include "libmerc/datum.h"
 
+#if 0
 // class errno_exception is a thread-safe standard exception
 // runtime_error that holds the a C-library error message associated
 // with the errno variable.  It should be thrown immediately after the
@@ -50,10 +54,22 @@ public:
 #ifdef _WIN32
     errno_exception() : runtime_error{"errno_exception"} { };      // NOTE: could use strerr_s
 #else
-    errno_exception() : runtime_error{strerror_l(errno, (locale_t)0)} { };
+    int retval;
+    char msg_buf[256];
+    errno_exception() :
+        retval{strerror_r(errno, msg_buf, sizeof(msg_buf))},
+        runtime_error{retval == 0 ? msg_buf : "unknown error"}
+    { };
+    // errno_exception() : runtime_error{strerror_l(errno, (locale_t)0)} { };
 #endif
     //  errno_exception() : runtime_error{strerror_l(errno, uselocale((locale_t)0))} { };
 };
+
+#else
+
+// ???
+
+#endif
 
 // class file_datum represents a read-only file on disk; it inherits
 // the interface of class datum, and thus can be used to read and
@@ -72,11 +88,11 @@ public:
     file_datum(const char *fname) : fd{open(fname, O_RDONLY|_O_BINARY)} {
 
         if (fd < 0) {
-            throw errno_exception();
+	  throw std::system_error(errno, std::generic_category(), fname);
         }
         struct stat statbuf;
         if (fstat(fd, &statbuf) != 0) {
-            throw errno_exception();
+            throw std::system_error(errno, std::generic_category(), fname);
         }
         file_length = statbuf.st_size;
         open_data();
@@ -101,7 +117,7 @@ public:
         data = (uint8_t *)mmap (0, file_length, PROT_READ, MAP_PRIVATE, fd, 0);
         if (data == MAP_FAILED) {
             data = data_end = nullptr;
-            throw errno_exception();
+	    throw std::system_error(errno, std::generic_category());
         }
     }
     void close_data() {
@@ -115,14 +131,14 @@ public:
         uint8_t *buf = (uint8_t *)malloc(file_length);
         if (buf == nullptr) {
             this->set_null();
-            throw errno_exception();
+            throw std::system_error(errno, std::generic_category());
         }
 	data = buf;
         size_t bytes_read = 0;
         while (bytes_read < file_length) {
             ssize_t result = read(fd, buf, file_length - bytes_read);
             if (result == -1) {
-	      throw errno_exception();
+	      throw std::system_error(errno, std::generic_category());
             }
             bytes_read += result;
 	    buf += result;
@@ -253,8 +269,8 @@ namespace pcap {
         bool byteswap;                   // logical, not part of header format
         encoded<uint16_t> major_version;
         encoded<uint16_t> minor_version;
-        ignore<uint32_t> reserved1;
-        ignore<uint32_t> reserved2;
+        ignore<encoded<uint32_t>> reserved1;
+        ignore<encoded<uint32_t>> reserved2;
         encoded<uint32_t> snaplen;
         encoded<uint32_t> linktype;      // TODO: deal with FCS thing
         bool valid;                      // logical, not part of header format
@@ -436,7 +452,7 @@ namespace pcap {
             linktype{ltype}
         {
             if (fd < 0) {
-                throw errno_exception();
+                throw std::system_error(errno, std::generic_category());
             }
 
             data_buffer<1024 * 8> buf;
@@ -1214,7 +1230,7 @@ namespace pcap::ng {
             // fprintf(stderr, "original_packet_length: %u\n", original_packet_length.value());
             // packet.fprint_hex(stderr); fputc('\n', stderr);
 
-            ignore<uint32_t> trailing_block_total_length{d};
+	    ignore<encoded<uint32_t>> trailing_block_total_length{d};
         }
 
         simple_packet_block(datum &pkt) :
@@ -1311,7 +1327,7 @@ namespace pcap::ng {
         }
 
         void fprint(FILE *f) const {
-            fprintf(f, "count: %lu\n", count.value());
+            fprintf(f, "count: %" PRIu64 "\n", count.value());
         }
     };
 
@@ -1331,7 +1347,7 @@ namespace pcap::ng {
         }
 
         void fprint(FILE *f) const {
-            fprintf(f, "count: %lu\n", count.value());
+            fprintf(f, "count: %" PRIu64 "\n", count.value());
         }
     };
 
@@ -1547,7 +1563,7 @@ namespace pcap::ng {
             linktype{ltype}
         {
             if (fd < 0) {
-                throw errno_exception();
+                throw std::system_error(errno, std::generic_category());
             }
 
             data_buffer<snaplen> buf;
@@ -1593,7 +1609,7 @@ namespace pcap {
 
             // read four-byte file prefix to determine file type
             //
-            size_t tmp = 0;
+            uint64_t tmp = 0;
             if (f.lookahead_uint(4, &tmp) == false) {
                 throw std::runtime_error("too few bytes in pcap file header");
             }
@@ -1607,9 +1623,9 @@ namespace pcap {
 
             // error: file prefix was unrecognized
             //
-            char prefix[9];
-            snprintf(prefix, sizeof(prefix), "%08zx", tmp);
-            std::string err_msg{"unrecognized file prefix: 0x"};
+            char prefix[13];
+            snprintf(prefix, sizeof(prefix), "0x%" PRIu64, tmp);
+            std::string err_msg{"unrecognized file prefix: "};
             err_msg += prefix;
             throw std::runtime_error(err_msg);
         }

@@ -826,7 +826,7 @@ public:
         }
 
         pkt_proc_ctx->analysis.fp.init();
-        std::visit(compute_fingerprint{pkt_proc_ctx->analysis.fp, pkt_proc_ctx->global_vars.tls_fingerprint_format}, (is_tcp ? tcp_proto : udp_proto));
+        std::visit(compute_fingerprint{pkt_proc_ctx->analysis.fp, pkt_proc_ctx->global_vars.fp_format}, (is_tcp ? tcp_proto : udp_proto));
 
         if (pkt_proc_ctx->analysis.fp.get_type() != fingerprint_type_unknown)
         {
@@ -916,7 +916,7 @@ public:
         }
 
         pkt_proc_ctx->analysis.fp.init();
-        std::visit(compute_fingerprint{pkt_proc_ctx->analysis.fp, pkt_proc_ctx->global_vars.tls_fingerprint_format}, (is_tcp ? tcp_proto : udp_proto));
+        std::visit(compute_fingerprint{pkt_proc_ctx->analysis.fp, pkt_proc_ctx->global_vars.fp_format}, (is_tcp ? tcp_proto : udp_proto));
         if (pkt_proc_ctx->analysis.fp.get_type() != fingerprint_type_unknown) {
             pkt_proc_ctx->analysis.fp.write(record);
         }

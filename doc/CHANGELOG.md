@@ -1,5 +1,43 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.28
+* Added decapsulation support for GENEVE (RFC 8926)
+* Added a log message that indicates the end of a stats dump, and one that reports the total number of fingerprints of each type in resource file.
+* Disabled the TLS "feature" output, to reduce output volume.
+* Added a commit hash output to `mercury --version`
+* Added a check that the resource archive contains a watchlist, and added an empty watchlist to `resources/resources.tgz`.
+* Added a Makefile target for the Cryptographic Message Syntax (CMS) reader `src/cms`.
+* Minor fixes to output and documentation.
+
+## Version 2.5.27
+
+* Changes to enable native builds on MacOS for both Intel and Apple Silicon.
+* Fixes and extensions to fuzz testing, and additions so that the `fuzz-test` target in [test/Makefile.in](../test/Makefile.in) can be used by Jenkins.
+* Tofsee fingerprints are now reported through the `stats` output.
+* The `tls/2` and `quic/1` fingerprints were revamped to include the QUIC extension ffa5.
+* GREASE normalization for `tls/1` was fixed.
+* The equivalence class normalization for `dst_port` was removed.
+
+## Version 2.5.26
+
+* Added SOCKS v4 and v5 identification and metadata reporting.
+* Added `tls/2` and `quic/1` fingerprint definitions.
+* Added DNS SVCB parsing.
+* Fixed SMB special character escaping.
+* Adjusted classifier malware probability estimation logic to better handle the case where there are few labeled benign samples.
+* Minor additions to internal classes and functions.
+
+## Version 2.5.25
+
+* Fingerprints are reported for Tofsee initial messages as `tofsee/generic`.
+* Improved portability by adding `#include <cstdint>` where needed.
+
+## Version 2.5.24
+
+* Minor improvement to the classifier's numerical accuracy.
+* Reduced mercury's output tournament's max delay from 5s to 100ms.
+* Reduced libmerc `#include` file dependencies.
+
 ## Version 2.5.23
 
 * (Significantly) improved the encrypted/compressed archive reader speed.

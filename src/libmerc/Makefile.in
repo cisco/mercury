@@ -31,6 +31,12 @@ ifeq ($(openssl_newer),yes)
 CFLAGS += -DSSLNEW
 endif
 
+ifeq ($(is_macos_arm),yes)
+CFLAGS += -I/opt/homebrew/include
+CXXFLAGS += -I/opt/homebrew/include
+LDFLAGS += -L/opt/homebrew/lib
+endif
+
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
@@ -92,6 +98,7 @@ LIBMERC_H   += smb1.h
 LIBMERC_H   += smb2.h
 LIBMERC_H   += bencode.h
 LIBMERC_H   += bittorrent.h
+LIBMERC_H   += tls_extensions.h
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files
@@ -137,16 +144,27 @@ LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
 libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+ifeq ($(is_macos),yes)
+	$(CXX) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
+	$(STRIP) -x libmerc.so
+else
 	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
 	$(STRIP) libmerc.so
 	PATH=$(PATH):/sbin ldconfig -n .
+endif
 
 libmerc_coverage.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
+ifeq ($(is_macos),yes)
+	$(CXX) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
+	$(STRIP) -x libmerc_coverage.so
+	cp libmerc_coverage.so libmerc.so
+else
 	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
 	$(STRIP) libmerc_coverage.so
 	cp libmerc_coverage.so libmerc.so
 	PATH=$(PATH):/sbin ldconfig -n .
+endif
 
 # debug targets (debug-libmerc.a and debug-libmerc.so)
 #
@@ -240,9 +258,9 @@ clean:
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-	find -type f -name "*.gcno" -delete
-	find -type f -name "*.gcda" -delete
-	find -type f -name "*.gcov" -delete
+	find . -type f -name "*.gcno" -delete
+	find . -type f -name "*.gcda" -delete
+	find . -type f -name "*.gcov" -delete
 
 .PHONY: distclean
 distclean: clean

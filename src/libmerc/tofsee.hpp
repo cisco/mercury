@@ -9,6 +9,9 @@
 #include "protocol.h"
 #include "json_object.h"
 #include "utils.h"
+#include "fingerprint.h"
+#include "result.h"
+#include "match.h"
 
 template <size_t bits, typename T>
 inline T rotl(T &x) {
@@ -89,6 +92,11 @@ public:
         srv_time{pt, 4},
         unknown_2{pt, 48} { }
 
+    static constexpr mask_and_value<4> matcher{
+        { 0x00, 0x00, 0x00, 0x00 },
+        { 0x00, 0x00, 0x00, 0x00 }
+    };
+
     void write_json(json_object &o, bool=true) const {
         if (!is_not_empty()) {
             return;
@@ -114,6 +122,29 @@ public:
             return true;
         }
         return false;
+    }
+
+    void fingerprint(struct buffer_stream &buf) const {
+        if (is_not_empty() == false) {
+            return;
+        }
+
+        // fp format -> tofsee/1/generic
+        buf.write_uint8(1);
+        buf.write_char('/');
+        uint8_t generic_str[] = {'g','e','n','e','r','i', 'c'};
+        buf.memcpy(generic_str, 7);
+
+    }
+
+    void compute_fingerprint(class fingerprint &fp) const {
+        fp.set_type(fingerprint_type_tofsee);
+        fp.add(*this);
+        fp.final();
+    }
+
+    bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }
 
 #ifndef NDEBUG

@@ -62,7 +62,7 @@ struct mercury_config {
     int adaptive;                   /* adaptively accept/skip packets for PCAP output */
     bool output_block;              /* use blocking output                            */
     size_t stats_rotation_duration; /* number of seconds between stats file rotation  */
-    size_t out_rotation_duration;   /* number of seconds between json file rotation  */}
+    uint64_t out_rotation_duration; /* number of seconds between json file rotation  */}
 ;
 
 

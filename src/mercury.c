@@ -115,6 +115,7 @@ char mercury_extended_help[] =
     "      smb               SMB v1 and v2\n"
     "      stun              STUN messages\n"
     "      ssdp              SSDP (UPnP)\n"
+    "      socks             SOCKS4,SOCKS5 messages\n"
     "      tcp               TCP headers\n"
     "      tcp.message       TCP initial message\n"
     "      tcp.syn_ack       TCP syn ack message\n"
@@ -161,8 +162,13 @@ char mercury_extended_help[] =
     "   [-f or --fingerprint].\n"
     "\n"
     "   \"--format=f\" reports fingerprints with formats(s) f, where f is either a\n"
-    "   fingerprint protocol and format like \"tls/1\", or is a sequence of protocol\n"
-    "   and format strings.\n"
+    "   fingerprint protocol and format like \"tls/1\", or is a comma separated\n"
+    "   list of below fingerprint protocol and format strings.\n"
+    "       tls\n"
+    "       tls/1\n"
+    "       tls/2\n"
+    "       quic\n"
+    "       quic/1\n"
     "\n"
     "   \"[-l or --limit] l\" rotates output files so that each file has at most\n"
     "   l records or packets; filenames include a sequence number, date and time.\n"
@@ -298,6 +304,7 @@ int main(int argc, char *argv[]) {
             break;
         case version:
             mercury_print_version_string(stdout);
+            mercury_print_git_commit(stdout);
             return EXIT_SUCCESS;
             break;
         case license:

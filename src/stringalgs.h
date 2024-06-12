@@ -60,15 +60,16 @@ public:
  * takes O(m*n) time and space for strings with lengths m and n.
  */
 
-template <typename T> struct edit_distance {
-    const uint8_t *a, *b;
+template <typename U, typename T>
+struct edit_distance {
+    const U *a, *b;
     matrix<T> D;
 
-    edit_distance(const uint8_t *a, T Na, const uint8_t *b, T Nb) : a{a}, b{b}, D{Na+1,Nb+1} {
+    edit_distance(const U *a, T Na, const U *b, T Nb) : a{a}, b{b}, D{Na+1,Nb+1} {
         recompute(a, Na, b, Nb);
     }
 
-    void recompute(const uint8_t *a, T Na, const uint8_t *b, T Nb) {
+    void recompute(const U *a, T Na, const U *b, T Nb) {
 
         D.resize(Na+1, Nb+1);
 
@@ -105,7 +106,7 @@ template <typename T> struct edit_distance {
         }
     }
 
-    T d(uint8_t x, uint8_t y) {
+    T d(U x, U y) {
         if (x == y) {
             return 0;
         }

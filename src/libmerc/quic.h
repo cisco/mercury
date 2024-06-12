@@ -279,10 +279,10 @@ public:
 
 	void write(FILE *f) {
     	if (is_valid()) {
-        	fprintf(f, "ack.largest_acked: %lu\n", largest_acked.value());
-        	fprintf(f, "ack.ack_delay: %lu\n", ack_delay.value());
-        	fprintf(f, "ack.ack_range_count: %lu\n", ack_range_count.value());
-        	fprintf(f, "ack.first_ack_range: %lu\n", first_ack_range.value());
+        	fprintf(f, "ack.largest_acked: %" PRIu64 "\n", largest_acked.value());
+        	fprintf(f, "ack.ack_delay: %" PRIu64 "\n", ack_delay.value());
+        	fprintf(f, "ack.ack_range_count: %" PRIu64 "\n", ack_range_count.value());
+        	fprintf(f, "ack.first_ack_range: %" PRIu64 "\n", first_ack_range.value());
         } else {
         	fprintf(f, "ack.not valid\n");
         }
@@ -316,9 +316,9 @@ public:
     void write(FILE *f) {
     	if (is_valid()) {
             ack_frame.write(f);
-        	fprintf(f, "ack.ect0: %lu\n", ect0.value());
-            fprintf(f, "ack.ect1: %lu\n", ect1.value());
-            fprintf(f, "ack.ecn_ce: %lu\n", ecn_ce.value());
+        	fprintf(f, "ack.ect0: %" PRIu64 "\n", ect0.value());
+            fprintf(f, "ack.ect1: %" PRIu64 "\n", ect1.value());
+            fprintf(f, "ack.ecn_ce: %" PRIu64 "\n", ecn_ce.value());
         } else {
         	fprintf(f, "ack_ecn.not valid\n");
         }
@@ -376,8 +376,8 @@ public:
 
     void write(FILE *f) {
         if (is_valid()) {
-            fprintf(f, "crypto.offset: %lu\n", _offset.value());
-            fprintf(f, "crypto.length: %lu\n", _length.value());
+            fprintf(f, "crypto.offset: %" PRIu64 "\n", _offset.value());
+            fprintf(f, "crypto.length: %" PRIu64 "\n", _length.value());
         } else {
             fprintf(f, "crypto.not valid\n");
         }
@@ -485,9 +485,9 @@ public:
 
 	void write(FILE *f) {
     	if (is_valid()) {
-        	fprintf(f, "connection_close.error_code: %lu\n", error_code.value());
-        	fprintf(f, "connection_close.frame_type: %lu\n", frame_type.value());
-        	fprintf(f, "connection_close.reason_phrase_length: %lu\n", reason_phrase_length.value());
+        	fprintf(f, "connection_close.error_code: %" PRIu64 "\n", error_code.value());
+        	fprintf(f, "connection_close.frame_type: %" PRIu64 "\n", frame_type.value());
+        	fprintf(f, "connection_close.reason_phrase_length: %" PRIu64 "\n", reason_phrase_length.value());
         	fprintf(f, "connection_close.reason_phrase: %s\n", reason_phrase.get_string().c_str());
         } else {
         	fprintf(f, "connection_close.not valid\n");
@@ -798,7 +798,7 @@ public:
     quic_parameters() {
 
         quic_initial_params.reserve(MAX_QUIC_VERSIONS);
-        quic_initial_params = {
+        quic_initial_params = std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum>>{
             {4207849473, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // faceb001
             {4207849474, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb002
             {4207849486, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb00e
@@ -1300,7 +1300,6 @@ struct quic_hdr_fp {
 class quic_client_hello : public tls_client_hello {
 public:
     void fingerprint(struct buffer_stream &buf, size_t format_version) const {
-        (void)format_version;
         if (is_not_empty() == false) {
             return;
         }
@@ -1320,8 +1319,11 @@ public:
         /*
          * copy extensions vector
          */
-        extensions.fingerprint_quic_tls(buf, tls_role::client);
-
+        if (format_version == 1) {
+            extensions.fingerprint_format2(buf, tls_role::client);
+        } else {
+            extensions.fingerprint_quic_tls(buf, tls_role::client);
+        }
     }
 };
 
@@ -1524,7 +1526,7 @@ public:
         quic_record.close();
     }
 
-    void compute_fingerprint(class fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp, size_t format_version) const {
 
         // fingerprint format:  quic:(quic_version)(tls fingerprint)
         //
@@ -1536,10 +1538,10 @@ public:
         }
 
         if (hello.is_not_empty()) {
-            fp.set_type(fingerprint_type_quic);
+            fp.set_type(fingerprint_type_quic, format_version);
             quic_hdr_fp hdr_fp(initial_packet.version);
             fp.add(hdr_fp);
-            fp.add(hello, 0); // note: using quic format=0
+            fp.add(hello, format_version);
             fp.final();
         }
     }

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <variant>
 #include <set>
+#include <netinet/in.h>
 
 #include "libmerc.h"
 #include "pkt_proc.h"
@@ -51,6 +52,7 @@
 #include "netbios.h"
 #include "openvpn.h"
 #include "mysql.hpp"
+#include "geneve.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -152,6 +154,12 @@ struct do_observation {
     }
 
     void operator()(quic_init &) {
+        // create event and send it to the data/stats aggregator
+        event_string ev_str{k_, analysis_};
+        mq_->push(ev_str.construct_event_string());
+    }
+
+    void operator()(tofsee_initial_message &) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_};
         mq_->push(ev_str.construct_event_string());
@@ -266,12 +274,20 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_mysql_server:
         x.emplace<mysql_server_greet>(pkt);
         break;
+    case tcp_msg_type_tofsee_initial_message:
+        x.emplace<tofsee_initial_message>(pkt);
+        break;
+    case tcp_msg_type_socks4:
+        x.emplace<socks4_req>(pkt);
+        break;
+    case tcp_msg_type_socks5_hello:
+        x.emplace<socks5_hello>(pkt);
+        break;
+    case tcp_msg_type_socks5_req_resp:
+        x.emplace<socks5_req_resp>(pkt);
+        break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
-            if (pkt.length() == 200) {
-                x.emplace<tofsee_initial_message>(pkt);
-                break;
-            }
             x.emplace<unknown_initial_packet>(pkt);
         } else {
             x.emplace<std::monostate>();
@@ -602,10 +618,31 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
+        udp::ports ports = udp_pkt.get_ports();
+        if (ports.dst == htons(geneve::dst_port)) {
+            // Copy of datum containing packet data is used for
+            // geneve parsing. In case if the packet is not a valid geneve
+            // packet, protocol parsing is resumed with original copy.
+            datum p{pkt};
+            geneve geneve_pkt{p};
+            switch(geneve_pkt.get_protocol_type()) {
+            case geneve::ethernet:
+                if (!eth::get_ip(p)) {
+                    break;   // not an IP packet
+                }
+                return (ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler));
+
+            case ETH_TYPE_IP:
+            case ETH_TYPE_IPV6:
+                return (ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler));
+            default:
+                break;
+            }
+        }
+
         enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
 
         if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
-            udp::ports ports = udp_pkt.get_ports();
             msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
             // if (ports.src == htons(53) || ports.dst == htons(53)) {
             //     msg_type = udp_msg_type_dns;
@@ -629,7 +666,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     // process transport/application protocol
     //
     if (std::visit(is_not_empty{}, x)) {
-        std::visit(compute_fingerprint{analysis.fp, global_vars.tls_fingerprint_format}, x);
+        std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -833,10 +870,30 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
+        udp::ports ports = udp_pkt.get_ports();
+        if (ports.dst == htons(geneve::dst_port)) {
+            // Copy of datum containing packet data is used for
+            // geneve parsing. In case if the packet is not a valid geneve
+            // packet, protocol parsing is resumed with original copy.
+            datum p{pkt};
+            geneve geneve_pkt{p};
+            switch(geneve_pkt.get_protocol_type()) {
+            case geneve::ethernet:
+                if (!eth::get_ip(p)) {
+                    break;   // not an IP packet
+                }
+                return (analyze_ip_packet(p.data, p.length(), ts, reassembler));
+
+            case ETH_TYPE_IP:
+            case ETH_TYPE_IPV6:
+                return (analyze_ip_packet(p.data, p.length(), ts, reassembler));
+            default:
+                break;
+            }
+        }
         enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
 
         if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
-            udp::ports ports = udp_pkt.get_ports();
             msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
            /* if (ports.dst == htons(4789)) {
                 msg_type = udp_msg_type_vxlan; // could parse VXLAN header here
@@ -850,7 +907,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     // process protocol data element
     //
     if (std::visit(is_not_empty{}, x)) {
-        std::visit(compute_fingerprint{analysis.fp, global_vars.tls_fingerprint_format}, x);
+        std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             // re-initialize the structure that holds analysis results
