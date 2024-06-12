@@ -192,25 +192,39 @@ class naive_bayes {
     floating_point_type ua_weight;
 public:
 
+    static constexpr uint8_t num_feature_weights = 6;
+    enum class WEIGHT : uint8_t {
+        AS_WEIGHT = 0,
+        DOMAIN_WEIGHT = 1,
+        PORT_WEIGHT = 2,
+        IP_WEIGHT = 3,
+        SNI_WEIGHT = 4,
+        UA_WEIGHT = 5
+    };
+
+   static constexpr std::array<floating_point_type, naive_bayes::num_feature_weights> feature_weights = {
+        0.13924,  // as_weight
+        0.15590,  // domain_weight
+        0.00528,  // port_weight
+        0.56735,  // ip_weight
+        0.96941,  // sni_weight
+        1.0       // ua_weight
+    };
+ 
     //    naive_bayes() { }
 
     naive_bayes(const std::vector<class process_info> &processes,
                 uint64_t count,
                 ptr_dict &os_dictionary,
-                floating_point_type _as_weight = 0.13924,
-                floating_point_type _domain_weight = 0.15590,
-                floating_point_type _port_weight = 0.00528,
-                floating_point_type _ip_weight = 0.56735,
-                floating_point_type _sni_weight = 0.96941,
-                floating_point_type _ua_weight = 1.0)
+                const std::array<floating_point_type, naive_bayes::num_feature_weights> &weights)
         : total_count{count},
           os_dict{os_dictionary},
-          as_weight{_as_weight},
-          domain_weight{_domain_weight},
-          port_weight{_port_weight},
-          ip_weight{_ip_weight},
-          sni_weight{_sni_weight},
-          ua_weight{_ua_weight}
+          as_weight{weights[static_cast<std::uint8_t>(WEIGHT::AS_WEIGHT)]},
+          domain_weight{weights[static_cast<std::uint8_t>(WEIGHT::DOMAIN_WEIGHT)]},
+          port_weight{weights[static_cast<std::uint8_t>(WEIGHT::PORT_WEIGHT)]},
+          ip_weight{weights[static_cast<std::uint8_t>(WEIGHT::IP_WEIGHT)]},
+          sni_weight{weights[static_cast<std::uint8_t>(WEIGHT::SNI_WEIGHT)]},
+          ua_weight{weights[static_cast<std::uint8_t>(WEIGHT::UA_WEIGHT)]}
     {
 
         //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -456,8 +470,9 @@ public:
                      ptr_dict &os_dictionary,
                      const subnet_data *subnets,
                      common_data *c,
-                     bool malware_database) :
-        classifier{processes, count, os_dictionary},
+                     bool malware_database,
+                     const std::array<floating_point_type, naive_bayes::num_feature_weights> &feature_weights) :
+        classifier{processes, count, os_dictionary, feature_weights},
         malware_db{malware_database},
         subnet_data_ptr{subnets},
         common{c},
@@ -949,6 +964,34 @@ public:
             total_count = fp["total_count"].GetUint64();
         }
 
+        std::array<floating_point_type, naive_bayes::num_feature_weights> weights{naive_bayes::feature_weights};
+        if (fp.HasMember("feature_weights") && fp["feature_weights"].IsObject()) {
+            if (fp["feature_weights"].MemberCount() != naive_bayes::num_feature_weights) {
+                printf_err(log_err,
+                           "Expecting %d feature weights but observed %d\n",
+                            naive_bayes::num_feature_weights, fp["feature_weights"].MemberCount());
+                return;
+            }
+            for (auto &v : fp["feature_weights"].GetObject()) {
+                if (strcmp(v.name.GetString(), "as") == 0) {
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::AS_WEIGHT)] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "domain") == 0) {
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::DOMAIN_WEIGHT)] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "port") == 0) {
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::PORT_WEIGHT)] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "ip") == 0) {
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::IP_WEIGHT)] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "sni") == 0) {
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::SNI_WEIGHT)] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "ua") == 0) {
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::UA_WEIGHT)] = v.value.GetFloat();
+                } else {
+                    printf_err(log_err, "Unexpected feature weight \"%s\" \n", v.name.GetString());
+                    return;
+                }
+            }
+        }
+
         std::vector<class process_info> process_vector;
 
         if (fp.HasMember("process_info") && fp["process_info"].IsArray()) {
@@ -1114,7 +1157,8 @@ public:
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
-            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, &common, MALWARE_DB);
+            
+            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, &common, MALWARE_DB, weights);
             // fp_data.print(stderr);
 
             if (fpdb.find(fp_string) != fpdb.end()) {
