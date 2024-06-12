@@ -1206,7 +1206,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                         const size_t length, 
                         uint8_t *buffer, 
                         size_t *buffer_size, 
-                        [[maybe_unused]]struct analysis_context **context) {
+                        [[maybe_unused]]const struct analysis_context** context) {
     struct datum pkt{payload, payload+length}; 
     protocol x;
     size_t internal_buffer_size = *buffer_size;

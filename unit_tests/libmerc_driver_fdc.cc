@@ -136,7 +136,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
-        analysis_context* ac = nullptr;
+        const analysis_context* ac = nullptr;
         
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_http[max_buffer_allocation];
@@ -186,7 +186,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc with resources 
 
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
-        analysis_context* ac = nullptr;
+        const analysis_context* ac = nullptr;
 
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_quic[max_buffer_allocation];
@@ -235,7 +235,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
-        analysis_context* ac = nullptr;
+        const analysis_context* ac = nullptr;
         
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_http[max_buffer_allocation];
@@ -299,7 +299,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
-        analysis_context* ac = nullptr;
+        const analysis_context* ac = nullptr;
         
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_tls[max_buffer_allocation];
@@ -345,7 +345,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
-        analysis_context* ac = nullptr;
+        const analysis_context* ac = nullptr;
         
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_quic[max_buffer_allocation];
@@ -391,7 +391,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
-        analysis_context* ac = nullptr;
+        const analysis_context* ac = nullptr;
         
         const int max_buffer_allocation = 150;
         uint8_t wbuffer_tls[max_buffer_allocation];
