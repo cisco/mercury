@@ -1210,10 +1210,12 @@ template <size_t T> struct data_buffer : public writeable {
 
 };
 
-/// dynamic_buffer is a writeable that can grow as needed
+/// dynamic_buffer is a writeable that can be dynamically sized
 ///
-struct dynamic_buffer : public writeable {
+class dynamic_buffer : public writeable {
     std::vector<uint8_t> buffer;
+
+public:
 
     /// constructs a data_buffer with an initial capacity of \param
     /// initial_capacity bytes
@@ -1261,6 +1263,7 @@ struct dynamic_buffer : public writeable {
     }
 
     const std::vector<uint8_t> &get_value() {
+        buffer.resize(readable_length());
         return buffer;
     }
 
