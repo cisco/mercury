@@ -25,11 +25,11 @@ struct llq_msg {
 /* a lockless ringbuffer */
 struct ll_queue {
     int qnum;           /* This is the queue number and is only needed for debugging */
-    int llq_len;        /* The length of the ringbuffer */
-    volatile int ridx;  /* The read index */
-    int widx;           /* The write index */
+    uint64_t llq_len;   /* The length of the ringbuffer */
+    uint64_t ridx;      /* The read index */
+    uint64_t widx;      /* The write index */
     int need_read;      /* Has writer wraped around and ran into reader */
-    int drops;          /* Output drop counter */
+    uint64_t drops;     /* Output drop counter */
     uint8_t *rbuf;      /* The ringbuffer */
 
     struct llq_msg * init_msg(bool blocking, unsigned int sec, unsigned int nsec) {
@@ -40,14 +40,13 @@ struct ll_queue {
         struct llq_msg *m = (struct llq_msg *)&rbuf[widx];
 
 
-        int cur_ridx = __atomic_load_n(&ridx, __ATOMIC_RELAXED);
-        int cur_need_read = __atomic_load_n(&need_read, __ATOMIC_RELAXED);
+        uint64_t cur_ridx = __atomic_load_n(&ridx, __ATOMIC_RELAXED);
+        uint64_t cur_need_read = __atomic_load_n(&need_read, __ATOMIC_RELAXED);
 
-        int space_available = 0;
+        uint64_t space_available = 0;
 
         if (cur_need_read == 1) {
             if (widx != cur_ridx) {
-
                 /* Looks like we no longer need a read */
                 __atomic_store_n(&need_read, 0, __ATOMIC_RELAXED);
                 cur_need_read = 0;
@@ -89,9 +88,9 @@ struct ll_queue {
 
         m->len = length;
 
-        int cur_ridx = __atomic_load_n(&ridx, __ATOMIC_RELAXED);
+        uint64_t cur_ridx = __atomic_load_n(&ridx, __ATOMIC_RELAXED);
 
-        int new_widx = widx + sizeof(llq_msg) + length;
+        uint64_t new_widx = widx + sizeof(struct llq_msg) + length;
 
         if (new_widx + LLQ_MAX_MSG_SIZE >= llq_len) {
             /* wrap ringbuffer */
@@ -111,7 +110,7 @@ struct ll_queue {
     struct llq_msg * try_read() {
         struct llq_msg *m = (struct llq_msg *)&rbuf[ridx];
 
-        int cur_widx = __atomic_load_n(&widx, __ATOMIC_RELAXED);
+        uint64_t cur_widx = __atomic_load_n(&widx, __ATOMIC_RELAXED);
 
         if (cur_widx != ridx) {
             /* we're not at the writer, reading is fine */
@@ -132,7 +131,7 @@ struct ll_queue {
     void complete_read() {
         struct llq_msg *m = (struct llq_msg *)&rbuf[ridx];
 
-        int new_ridx = ridx + sizeof(llq_msg) + m->len;
+        uint64_t new_ridx = ridx + sizeof(struct llq_msg) + m->len;
 
         if (new_ridx + LLQ_MAX_MSG_SIZE >= llq_len) {
             /* wrap ringbuffer */
