@@ -24,6 +24,7 @@
 #include "perfect_hash.h"
 #include "crypto_assess.h"
 #include "pkt_proc_util.h"
+#include "reassembly.hpp"
 
 /**
  * enum linktype is a 16-bit enumeration that identifies a protocol
@@ -98,7 +99,7 @@ struct stateful_pkt_proc {
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
         tcp_flow_table{prealloc_size},
-        reassembler{prealloc_size},
+        reassembler{},
         reassembler_ptr{&reassembler},
         tcp_init_msg_filter{},
         analysis{},
@@ -157,7 +158,7 @@ struct stateful_pkt_proc {
     // TODO: the count_all() functions should probably be removed
     //
     void finalize() {
-        reassembler.count_all();
+        reassembler.clear_all();
         tcp_flow_table.count_all();
     }
 
