@@ -22,15 +22,15 @@ void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
     /* Total output queue size is our desired memory divided by the number of queues
      * but queue length must account for LLQ_MSG_SIZE
      */
-    int qlen = desired_memory / n;
+    uint64_t qlen = desired_memory / n;
 
-    if ((uint64_t)n * (uint64_t)qlen < desired_memory) {
+    if (n * qlen < desired_memory) {
         fprintf(stderr, "Notice: requested output queue memory %" PRIu64 " will be less than desired memory %" PRIu64 "\n",
-                (uint64_t)n * (uint64_t)qlen, desired_memory);
+                n * qlen, desired_memory);
     }
 
     if (qlen < 8 * LLQ_MAX_MSG_SIZE) {
-        fprintf(stderr, "Only able to allocate output queue lengths of %d (minimum %d)\n", qlen, 8 * LLQ_MAX_MSG_SIZE);
+        fprintf(stderr, "Only able to allocate output queue lengths of %lu (minimum %d)\n", qlen, 8 * LLQ_MAX_MSG_SIZE);
         exit(255);
     }
 
