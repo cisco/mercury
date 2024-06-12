@@ -315,7 +315,9 @@ void *output_thread_func(void *arg) {
 
     out_ctx->kpid = gettid();
 
-    fprintf(stderr, "[OUTPUT] Thread with pthread id %lu (PID %u) started...\n", out_ctx->tid, out_ctx->kpid);
+    if (out_ctx->from_network == 1) {
+        fprintf(stderr, "[OUTPUT] Thread with pthread id %lu (PID %u) started...\n", out_ctx->tid, out_ctx->kpid);
+    }
 
     int err;
     err = pthread_mutex_lock(&(out_ctx->t_output_m));
@@ -355,18 +357,20 @@ void *output_thread_func(void *arg) {
      * zero out drop counters so we get a "fair" start and don't
      * report drops from before everything was even started
      */
-    for (int q = 0; q < out_ctx->qs.qnum; q++) {
-        struct llq_msg *msg;
-        while (1) {
-            msg = out_ctx->qs.queue[q].try_read();
+    if (out_ctx->from_network == 1) {
+        for (int q = 0; q < out_ctx->qs.qnum; q++) {
+            struct llq_msg *msg;
+            while (1) {
+                msg = out_ctx->qs.queue[q].try_read();
 
-            if (msg != nullptr) {
-                out_ctx->qs.queue[q].complete_read();
-            } else {
-                break;
+                if (msg != nullptr) {
+                    out_ctx->qs.queue[q].complete_read();
+                } else {
+                    break;
+                }
             }
+            __atomic_store_n(&(out_ctx->qs.queue[q].drops), 0, __ATOMIC_RELAXED);
         }
-        __atomic_store_n(&(out_ctx->qs.queue[q].drops), 0, __ATOMIC_RELAXED);
     }
 
     int all_output_done = 0;
@@ -445,7 +449,9 @@ void *output_thread_func(void *arg) {
         close_outfiles(out_ctx);
     }
 
-    fprintf(stderr, "[OUTPUT] Thread with pthread id %lu (PID %u) exiting...\n", out_ctx->tid, out_ctx->kpid);
+    if (out_ctx->from_network == 1) {
+        fprintf(stderr, "[OUTPUT] Thread with pthread id %lu (PID %u) exiting...\n", out_ctx->tid, out_ctx->kpid);
+    }
 
     return NULL;
 }
