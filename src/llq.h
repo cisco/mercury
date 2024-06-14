@@ -62,7 +62,7 @@ struct ll_queue {
         }
 
 
-        if (space_available >= LLQ_MAX_MSG_SIZE) {
+        if (space_available >= LLQ_MAX_MSG_SIZE + sizeof(struct llq_msg)) {
 
             m->ts.tv_sec = sec;
             m->ts.tv_nsec = nsec;
@@ -92,7 +92,7 @@ struct ll_queue {
 
         uint64_t new_widx = widx + sizeof(struct llq_msg) + length;
 
-        if (new_widx + LLQ_MAX_MSG_SIZE >= llq_len) {
+        if (new_widx + sizeof(struct llq_msg) + LLQ_MAX_MSG_SIZE >= llq_len) {
             /* wrap ringbuffer */
             new_widx = 0;
         }
@@ -133,7 +133,7 @@ struct ll_queue {
 
         uint64_t new_ridx = ridx + sizeof(struct llq_msg) + m->len;
 
-        if (new_ridx + LLQ_MAX_MSG_SIZE >= llq_len) {
+        if (new_ridx + sizeof(struct llq_msg) + LLQ_MAX_MSG_SIZE >= llq_len) {
             /* wrap ringbuffer */
             new_ridx = 0;
         }
