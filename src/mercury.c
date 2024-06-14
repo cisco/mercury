@@ -304,6 +304,7 @@ int main(int argc, char *argv[]) {
             break;
         case version:
             mercury_print_version_string(stdout);
+            mercury_print_git_commit(stdout);
             return EXIT_SUCCESS;
             break;
         case license:
