@@ -15,6 +15,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <array>
+#include <vector>
 #include <bitset>
 #include <limits>
 #include <string>

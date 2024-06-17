@@ -27,6 +27,10 @@ int main(int, char *[]) {
     };
     fdc_object.encode(output);
     output.contents().fprint_hex(stdout); fputc('\n', stdout);
+    for (const auto & x : output.get_value()) {
+        fprintf(stdout, "%02x", x);
+    }
+    fputc('\n', stdout);
     output.contents().fprint(stdout); fputc('\n', stdout);
 
     cbor_fingerprint::unit_test();
