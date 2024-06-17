@@ -6,26 +6,35 @@
 #include "datum.h"
 #include <vector> // used for unit test cases
 
+/// class utf8_string represents a sequence of UTF-8 code points in
+/// memory, and can write out a JSON-escaped representation with \ref
+/// utf8_string::write().
+///
 class utf8_string : public datum {
 public:
 
-    // construct a utf8_string from a datum by copying its 'begin' and
-    // 'end' locations
-    //
+    /// construct a utf8_string from a datum by copying
+    ///
     utf8_string(const datum &d) : datum{d} { }
+
+    /// construct a utf8_string from the first byte \param d, and the
+    /// byte immedately after its end \param d_end
+    ///
     utf8_string(const uint8_t *d, const uint8_t *d_end) : datum{d, d_end} { }
 
-
+    // code sequences used to represent invalid byte sequences
+    //
     static const constexpr char *replacement_character   = "\\ufffd";
 #if true
     //
-    // use the replacement character to represent invalid byte sequence
+    // use the replacement character to represent invalid byte sequences
     //
     static const constexpr char *sequence_too_short      = replacement_character;
     static const constexpr char *invalid_or_overlong     = replacement_character;
     static const constexpr char *invalid_or_private      = replacement_character;
     static const constexpr char *unexpected_continuation = replacement_character;
     static const constexpr char *invalid_surrogate       = replacement_character;
+
 #else
     //
     // use a distinct private-usage codepoint for each type of invalid
@@ -38,28 +47,31 @@ public:
     static const constexpr char *invalid_surrogate       = "\\ue004";
 #endif
 
-    // write the len bytes at location data as a UTF-8 string with the
-    // JSON special characters (quotation mark, reverse solidus,
-    // solidus, backspace, form feed, line feed, carriage return, tab)
-    // escaped as per RFC 8259 Section 7.
-    //
-    // Invalid byte sequences are replaced with private-usage
-    // codepoints that describe why the sequence was invalid (see above).
-    //
-    // 'Noncharacters' are accepted.
-    //
+    /// write the \param len bytes at location \param data as a UTF-8
+    /// string with the JSON special characters (quotation mark,
+    /// reverse solidus, solidus, backspace, form feed, line feed,
+    /// carriage return, tab) escaped as per RFC 8259 Section 7.
+    ///
+    /// Invalid byte sequences are replaced with private-usage
+    /// codepoints that describe why the sequence was invalid (see above).
+    ///
+    /// 'Noncharacters' are accepted.
+    ///
+    /// \return `true` if the input bytes formed a valid UTF-8
+    /// sequence, `false` otherwise.
+    ///
     static inline bool write(buffer_stream &b, const uint8_t *data, unsigned int len);
 
-    // write this utf8 string into a buffer_stream, handling JSON
-    // special characters, invalid byte sequences, and private-usage
-    // codepoints as with utf8_string::write().
-    //
-    // note that this operation may fail if there is not enough room in
-    // the buffer stream
-    //
-    // note: 'fingerprint' is an awkward name used for historical
-    // reasons; it should be changed to 'write' or something similar.
-    //
+    /// write this utf8 string into a buffer_stream, handling JSON
+    /// special characters, invalid byte sequences, and private-usage
+    /// codepoints as with utf8_string::write().
+    ///
+    /// This operation may fail if there is not enough room in
+    /// the buffer stream
+    ///
+    /// \note 'fingerprint' is an awkward name used for historical
+    /// reasons; it should be changed to 'write' or something similar.
+    ///
     inline void fingerprint(struct buffer_stream &b) const {
         if (datum::is_not_null()) {
             write(b, data, length());
@@ -85,8 +97,8 @@ public:
     ///
     static inline bool unit_test(FILE *f=nullptr);
 
-    /// implements a test case for \ref utf8_string
-    ///
+    // implements a test case for \ref utf8_string
+    //
     class test_case {
         std::vector<uint8_t> s_in;   // string to be parsed
         bool valid;                  // true is s_in is valid utf8; false otherwise
