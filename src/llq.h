@@ -162,7 +162,13 @@ struct ll_queue {
             __atomic_store_n(&need_read, 1, __ATOMIC_RELAXED);
         }
 
-        /* Update writer index */
+        /* Update writer index: There is a full memory barrier here to
+         * prevent reoredring and speculation into this update which
+         * in rather extreme cases of re-ordering (which may be
+         * impossible) could cause the index to update to the writer
+         * to show "too soon".
+         */
+        __sync_synchronize();
         __atomic_store_n(&widx, new_widx, __ATOMIC_RELAXED);
     }
 
@@ -200,7 +206,10 @@ struct ll_queue {
             new_ridx = 0;
         }
 
-        /* Update reader index */
+        /* Update reader index:
+         * Another barrier here for the same reason that the writer has a barrier
+         */
+        __sync_synchronize();
         __atomic_store_n(&ridx, new_ridx, __ATOMIC_RELAXED);
     }
 };
