@@ -43,6 +43,7 @@ struct output_file {
     struct thread_queues qs;
     int sig_stop_output = 0;
     uint64_t output_drops = 0;
+    uint64_t output_drops_trunc = 0;
     int from_network = 0;
 };
 

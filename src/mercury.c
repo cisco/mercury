@@ -706,8 +706,9 @@ int main(int argc, char *argv[]) {
                 "%" PRIu64 " packets seen by socket\n"
                 "%" PRIu64 " packets dropped\n"
                 "%" PRIu64 " socket queue freezes\n"
-                "%" PRIu64 " output drops\n",
-                cstats.packets, cstats.bytes, cstats.sock_packets, cstats.drops, cstats.freezes, out_file.output_drops);
+                "%" PRIu64 " output drops\n"
+                "%" PRIu64 " output truncated (drops)\n",
+                cstats.packets, cstats.bytes, cstats.sock_packets, cstats.drops, cstats.freezes, out_file.output_drops, out_file.output_drops_trunc);
     }
 
     //exit control thread after output thread

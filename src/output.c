@@ -59,6 +59,7 @@ void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
         tqs->queue[i].ridx = 0;
         tqs->queue[i].widx = 0;
         tqs->queue[i].drops = 0;
+        tqs->queue[i].drops_trunc = 0;
 
         tqs->queue[i].rbuf = (uint8_t *)calloc(tqs->queue[i].llq_len, sizeof(uint8_t));
 
@@ -381,11 +382,13 @@ void *output_thread_func(void *arg) {
                 }
             }
             __atomic_store_n(&(out_ctx->qs.queue[q].drops), 0, __ATOMIC_RELAXED);
+            __atomic_store_n(&(out_ctx->qs.queue[q].drops_trunc), 0, __ATOMIC_RELAXED);
         }
     }
 
     int all_output_done = 0;
     uint64_t total_drops = 0;
+    uint64_t total_drops_trunc = 0;
     enum status status = status_ok;
     while (all_output_done == 0) {
 
@@ -425,7 +428,8 @@ void *output_thread_func(void *arg) {
 
         /* Do output drop accounting */
         for (int q = 0; q < out_ctx->qs.qnum; q++) {
-            uint64_t drops = out_ctx->qs.queue[q].drops;
+            uint64_t drops = __atomic_load_n(&(out_ctx->qs.queue[q].drops), __ATOMIC_RELAXED);
+            uint64_t drops_trunc = __atomic_load_n(&(out_ctx->qs.queue[q].drops_trunc), __ATOMIC_RELAXED);
 
             if (drops > 0) {
                 total_drops += drops;
@@ -433,6 +437,15 @@ void *output_thread_func(void *arg) {
 
                 /* Subtract all the drops we just counted */
                 __sync_sub_and_fetch(&(out_ctx->qs.queue[q].drops), drops);
+
+            }
+
+            if (drops_trunc > 0) {
+                total_drops_trunc += drops_trunc;
+                fprintf(stderr, "[OUTPUT] Output queue %d reported %lu truncations\n", q, drops_trunc);
+
+                /* Subtract all the drops we just counted */
+                __sync_sub_and_fetch(&(out_ctx->qs.queue[q].drops_trunc), drops_trunc);
 
             }
         }
@@ -455,6 +468,7 @@ void *output_thread_func(void *arg) {
 
     /* Report total drops */
     out_ctx->output_drops = total_drops;
+    out_ctx->output_drops_trunc = total_drops_trunc;
 
     if (out_ctx->type != file_type_stdout) {
         close_outfiles(out_ctx);
