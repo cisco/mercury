@@ -24,7 +24,7 @@
 #include "libmerc/utils.h"
 
 
-#define output_file_needs_rotation(ojf) (--((ojf)->record_countdown) == 0)
+#define output_file_needs_rotation(ojf, n) ((((ojf)->record_countdown) -= (n)) <= 0)
 
 void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
 
@@ -392,16 +392,16 @@ void *output_thread_func(void *arg) {
     enum status status = status_ok;
     while (all_output_done == 0) {
 
-        int got_nothing;
+        int got_msgs;
         do {
-            got_nothing = 1;
+            got_msgs = 0;
 
             for (int q = 0; q < out_ctx->qs.qnum; q++) {
                 struct llq_msg *msg;
                 msg = out_ctx->qs.queue[q].try_read();
 
                 if (msg != nullptr) {
-                    got_nothing = 0;
+                    got_msgs++;
 
                     fwrite(msg->buf, msg->len, 1, out_ctx->file_pri);
 
@@ -410,7 +410,7 @@ void *output_thread_func(void *arg) {
             }
 
             /* Handle rotating file if needed */
-            if (output_file_needs_rotation(out_ctx)) {
+            if (output_file_needs_rotation(out_ctx, got_msgs)) {
                 status = limit_rotate(out_ctx);
                 if (status) {
                     break;
@@ -424,7 +424,7 @@ void *output_thread_func(void *arg) {
                 }
             }
 
-        } while (got_nothing == 0);
+        } while (got_msgs > 0);
 
         /* Do output drop accounting */
         for (int q = 0; q < out_ctx->qs.qnum; q++) {
