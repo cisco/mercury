@@ -658,6 +658,7 @@ int main(int argc, char *argv[]) {
     srand(time(0));
 
     struct output_file out_file;
+    struct cap_stats cstats;
 
     controller *ctl = nullptr;
     if (cfg.stats_filename) {
@@ -667,8 +668,12 @@ int main(int argc, char *argv[]) {
         ctl = new controller{mc, "disabled", cfg.stats_rotation_duration, &out_file, cfg, false};
     }
 
-    pthread_t output_thread;
-    if (output_thread_init(output_thread, out_file, cfg) != 0) {
+    if (cfg.capture_interface) {
+        out_file.from_network = 1;
+        fprintf(stderr, "Allocating I/O buffer balance: %4.2f%% input; %4.2f%% output\n", cfg.io_balance_frac * 100.0, (1.0 - cfg.io_balance_frac) * 100.0);
+    }
+
+    if (output_thread_init(out_file, cfg) != 0) {
         fprintf(stderr, "error: unable to initialize output thread\n");
         return EXIT_FAILURE;
     }
@@ -677,7 +682,7 @@ int main(int argc, char *argv[]) {
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
-        if (bind_and_dispatch(&cfg, mc, &out_file) != status_ok) {
+        if (bind_and_dispatch(&cfg, mc, &out_file, &cstats) != status_ok) {
             fprintf(stderr, "error: bind and dispatch failed\n");
             return EXIT_FAILURE;
         }
@@ -691,7 +696,20 @@ int main(int argc, char *argv[]) {
     if (cfg.verbosity) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
     }
-    output_thread_finalize(output_thread, &out_file);
+    output_thread_finalize(&out_file);
+
+
+    if (cfg.capture_interface) {
+        fprintf(stderr, "--\n"
+                "%" PRIu64 " packets captured\n"
+                "%" PRIu64 " bytes captured\n"
+                "%" PRIu64 " packets seen by socket\n"
+                "%" PRIu64 " packets dropped\n"
+                "%" PRIu64 " socket queue freezes\n"
+                "%" PRIu64 " output drops\n"
+                "%" PRIu64 " output truncated (drops)\n",
+                cstats.packets, cstats.bytes, cstats.sock_packets, cstats.drops, cstats.freezes, out_file.output_drops, out_file.output_drops_trunc);
+    }
 
     //exit control thread after output thread
     if (ctl) {
