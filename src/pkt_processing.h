@@ -79,7 +79,6 @@ struct pkt_proc_pcap_writer_llq : public pkt_proc {
     void flush() override {
     }
 
-    ~pkt_proc_pcap_writer_llq() { finalize(); }
 };
 
 
@@ -160,7 +159,6 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
         }
     }
 
-    ~pkt_proc_filter_pcap_writer() { finalize(); }
 };
 
 /*
@@ -213,7 +211,6 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
 
     }
 
-    ~pkt_proc_json_writer_llq() { finalize(); }
 };
 
 /*
@@ -263,7 +260,6 @@ struct pkt_proc_json_writer_llq_CPP : public pkt_proc {
 
     }
 
-    ~pkt_proc_json_writer_llq_CPP() { finalize(); }
 };
 
 
@@ -314,7 +310,6 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     void flush() override {
     }
 
-    ~pkt_proc_filter_pcap_writer_llq() { finalize(); }
 };
 
 /*
