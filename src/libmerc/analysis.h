@@ -1189,7 +1189,7 @@ public:
                     if (legacy_archive && threshold_set) {
                         disabled = true;
                     }
-                    else if (!threshold_set || !dual_db) {
+                    else if (!threshold_set || lite_db) {
                             printf_err(log_debug, "loading fingerprint_db.json\n");
                         while (archive.getline(line_str)) {
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
