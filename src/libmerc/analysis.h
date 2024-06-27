@@ -760,6 +760,8 @@ class classifier {
 
     uint32_t total_tofsee = 0, total_https = 0, total_quic = 0, total_tls = 0;
 
+    bool disabled = false;   // if the classfier has not been initialised or disabled
+
 public:
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
@@ -790,6 +792,8 @@ public:
     size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
 
     size_t get_quic_fingerprint_format() const { return quic_fingerprint_format; }
+
+    bool is_disabled() { return disabled; }
 
     static std::pair<fingerprint_type, size_t> get_fingerprint_type_and_version(const std::string &s) {
         fingerprint_type type = fingerprint_type_unknown;
@@ -1118,6 +1122,14 @@ public:
         }
     }
 
+    bool is_dual_db (std::string version_str) {
+        return (version_str.find("dual") != std::string::npos);
+    }
+
+    bool is_lite_db (std::string version_str) {
+        return (version_str.find("lite") != std::string::npos);
+    }
+
     classifier(class encrypted_compressed_archive &archive,
                float fp_proc_threshold,
                float proc_dst_threshold,
@@ -1135,10 +1147,15 @@ public:
         //
         fp_types.push_back(fingerprint_type_tls);
 
+        bool threshold_set = ( (fp_proc_threshold > 0.0) || (proc_dst_threshold > 0.0) );  // switch to fingerprint_db_lite.json if available
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
         bool got_version = false;
         bool got_doh_watchlist = false;
+        bool dual_db = false;   // archive has both fingerprint_db_normal and fingerprint_db_lite
+        bool lite_db = false;   // archive has fingerprint_db_lite named as fingerprint_db.json
+        bool legacy_archive = false;
+
         //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
@@ -1154,19 +1171,40 @@ public:
                         process_fp_prevalence_line(line_str);
                     }
                     got_fp_prevalence = true;
-
-                } else if (name == "fingerprint_db.json") {
-                    while (archive.getline(line_str)) {
-                        process_fp_db_line(line_str, fp_proc_threshold, proc_dst_threshold, report_os);
+                } else if (name == "fingerprint_db_lite.json") {
+                    // dual db, process fingerprint_db_lite when thresholds set
+                    if (threshold_set) {
+                        printf_err(log_debug, "loading fingerprint_db_lite.json\n");
+                        while (archive.getline(line_str)) {
+                            process_fp_db_line(line_str, 0.0, 0.0, report_os);
+                        }
+                        got_fp_db = true;
+                        printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
+                            total_https, total_tls, total_quic, total_tofsee);
                     }
+                } else if (name == "fingerprint_db.json") {
+                    // if (dual_db avialable and thresholds set) , ignore this file and read fingerprint_db_lite.json
+                    // if the archive is not dual_db, it is either old or lite_db
                     got_fp_db = true;
-                    printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
-                    total_https, total_tls, total_quic, total_tofsee);
+                    if (legacy_archive && threshold_set) {
+                        disabled = true;
+                    }
+                    else if (!threshold_set || !dual_db) {
+                            printf_err(log_debug, "loading fingerprint_db.json\n");
+                        while (archive.getline(line_str)) {
+                            process_fp_db_line(line_str, 0.0, 0.0, report_os);
+                        }
+                        printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
+                        total_https, total_tls, total_quic, total_tofsee);
+                    }
                 } else if (name == "VERSION") {
                     while (archive.getline(line_str)) {
                         resource_version += line_str;
                     }
                     got_version = true;
+                    dual_db = is_dual_db(resource_version);
+                    lite_db = is_lite_db(resource_version);
+                    legacy_archive = (!dual_db && !lite_db);
 
                 } else if (name == "pyasn.db") {
                     while (archive.getline(line_str)) {
