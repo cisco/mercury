@@ -4,7 +4,7 @@ A mercury resource archive contains data files that mercury can use to analyze n
 
 The following files may appear in a resource archive:
 
-- `VERSION` is a text file containing a single line representing the version of the resource archive, and the type of archive.
+- `VERSION` is a text file containing a single line representing the version of the resource archive, and more than one, but fixed of a fixed count, `; ` separated qualifiers in specific order.
     - e.g. `2024-06-26; 2.0.lite`
 - `fp_prevalence_tls.txt` is a text file, each line of which is a string representation of a fingerprint.
 - `fingerprint_db.json`, `fingerprint_db_normal.json`, and `fingerprint_db_lite.json` are JSON files containing a fingerprint and destination database.
@@ -18,10 +18,12 @@ A resource archive MAY contain a `VERSION` file, and MUST contain `fp_prevalence
 - `fingerprint_db.json` and the `VERSION` file contains an identifier including `lite`, e.g. `2.0.lite`:
     1. The archive is a lite archive of the new format.
     2. Classfier ignores the configured `fp_proc_threshold` and `proc_dst_threshold` thresholds and loads the `fingerprint_db.json`
+- `fingerprint_db.json` and the `VERSION` file contains an identifier including `full`, e.g. `2.0.full`:
+    1. The archive is a full archive of the new format.
+    2. Classfier ignores the configured `fp_proc_threshold` and `proc_dst_threshold` thresholds and loads the `fingerprint_db.json`
 - `fingerprint_db.json` and no identifier in `VERSION`: 
     1. A regular archive of the depricated format.
-    2. If `fp_proc_threshold` and `proc_dst_threshold` thresholds are not set, classifier loads the `fingerprint_db.json`
-    3. If atleast one of the thresholds, `fp_proc_threshold` and `proc_dst_threshold`, is configured, the classifer does not load and disables all protocols from libmerc config. 
+    2. The classifer does not load and disables all protocols from libmerc config. 
 - Dual DB: An archive with both `fingerprint_db.json` and `fingerprint_db_lite.json` and the `VERSION` file contains an identifier including `dual`, e.g. `2.0.dual`:
     1. If atleast one of the thresholds, `fp_proc_threshold` and `proc_dst_threshold`, is configured, the classifier loads `fingerprint_db_lite.json` and ignores the configured thresholds. 
     2. If neither of the thresholds are configured, the classifier loads `fingerprint_db.json`. 
