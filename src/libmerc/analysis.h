@@ -796,7 +796,7 @@ public:
 
     size_t get_quic_fingerprint_format() const { return quic_fingerprint_format; }
 
-    bool is_disabled() { return disabled; }
+    bool is_disabled() const { return disabled; }
 
     static std::pair<fingerprint_type, size_t> get_fingerprint_type_and_version(const std::string &s) {
         fingerprint_type type = fingerprint_type_unknown;
@@ -1125,19 +1125,19 @@ public:
         }
     }
 
-    bool is_dual_db (std::string version_str) {
+    bool is_dual_db (std::string version_str) const {
         return (version_str.find("dual") != std::string::npos);
     }
 
-    bool is_lite_db (std::string version_str) {
+    bool is_lite_db (std::string version_str) const {
         return (version_str.find("lite") != std::string::npos);
     }
 
-    bool is_full_db (std::string version_str) {
+    bool is_full_db (std::string version_str) const {
         return (version_str.find("full") != std::string::npos);
     }
 
-    size_t fetch_qualifier_count (std::string version_str) {
+    size_t fetch_qualifier_count (std::string version_str) const {
         return std::count(version_str.begin(),version_str.end(),';');
     }
 
