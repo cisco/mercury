@@ -572,13 +572,13 @@ namespace cbor {
 
         while (d.is_readable()) {
             if (lookahead<initial_byte> ib{d}) {
-                fprintf(f, "initial_byte: %02x\tmajor_type: %u\n", ib.value.value(), ib.value.major_type());
+                //fprintf(f, "initial_byte: %02x\tmajor_type: %u\n", ib.value.value(), ib.value.major_type());
                 switch (ib.value.major_type()) {
                 case unsigned_integer_type:
                     {
                         uint64 tmp{d};
                         if (d.is_null()) { return false; }
-                        fprintf(f, "unsigned integer: %zu\n", tmp.value());
+                        fprintf(f, "%.*sunsigned integer: %zu\n", r, tabs, tmp.value());
                     }
                     break;
                 case byte_string_type:

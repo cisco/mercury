@@ -3,11 +3,16 @@
 #include <cstdio>
 #include <vector>
 #include <cctype>
+#include <iostream>
+#include <fstream>
+
 #include "libmerc/cbor.hpp"
 #include "libmerc/fdc.hpp"
 
 
 int main(int, char *[]) {
+
+    printf("static_dictionary::unit_test: %s\n", static_dictionary<0>::unit_test(stdout) ? "passed" : "failed");
 
     //
     // assert(cbor::unit_test() == true);
@@ -34,6 +39,57 @@ int main(int, char *[]) {
     output.contents().fprint(stdout); fputc('\n', stdout);
 
     cbor_fingerprint::unit_test();
+
+    // test cbor fingerprint encoding and decoding
+    //
+    const auto test_fingerprint = [](const char *fingerprint_string) {
+        data_buffer<2048> data_buf;
+        datum fp_data{(uint8_t *)fingerprint_string, (uint8_t *)fingerprint_string + strlen(fingerprint_string)};
+        cbor_fingerprint::encode_cbor_fingerprint(fp_data, data_buf);
+
+        data_buffer<2048> out_buf;
+        cbor_fingerprint::decode_cbor_fingerprint(data_buf.contents(), out_buf);
+        if (out_buf.contents().cmp(fp_data) != 0) {
+            printf("ERROR: MISMATCH\n");
+            printf("fingerprint:              %s\n", fingerprint_string);
+            printf("CBOR encoded fingerprint: ");
+            data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
+            printf("decoded fingerprint:      ");
+            out_buf.contents().fprint(stdout); fputc('\n', stdout);
+            datum data_copy{data_buf.contents()};
+            cbor::decode_data(data_copy, stdout);
+            return false;
+        }
+        return true;
+    };
+
+    // example fingerprints
+    //
+    std::vector<const char *> fps = {
+        "http/(504f5354)(485454502f312e31)((486f7374)(557365722d4167656e74)(4163636570743a20746578742f68746d6c2c6170706c69636174696f6e2f7868746d6c2b786d6c2c6170706c69636174696f6e2f786d6c3b713d302e392c696d6167652f617669662c696d6167652f776562702c2a2f2a3b713d302e38)(4163636570742d4c616e6775616765)(4163636570742d456e636f64696e673a20677a69702c206465666c617465)(436f6e6e656374696f6e3a206b6565702d616c697665))",
+        "tls/1/(0303)(130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)[(0000)(000500050100000000)(000a00080006001d00170018)(000b00020100)(000d0012001004030804040105030805050108060601)(0010000e000c02683208687474702f312e31)(0012)(0017)(001b0003020002)(0023)(0029)(002b0009080304030303020301)(002d00020101)(0033)(ff01)]",
+        "quic/(00000001)(0303)(130113021303)[(000a000a00086399001d00170018)(002b0003020304)((0039)[(01)(03)(04)(05)(06)(07)(08)(09)(0f)(1b)(20)(80004752)(80ff73db)])(4469)]",
+        // "http/randomized",
+        // "tls/1/randomized",
+        // "quic/randomized"
+    };
+    for (const auto & fp_str : fps) {
+        test_fingerprint(fp_str);
+    }
+
+    std::ios::sync_with_stdio(false);  // for performance
+    std::string line;
+    printf("testing CBOR fingerprint encoding and decoding on <stdin>: ");
+    size_t line_count = 0;
+    size_t num_tests_passed = 0;
+    while (std::getline(std::cin, line)) {
+        if (line.length() == 0) {
+            continue; // ignore empty line
+        }
+        num_tests_passed += test_fingerprint(line.c_str());
+        ++line_count;
+    }
+    printf("%zu out of %zu tests passed\n", num_tests_passed, line_count);
 
     return 0;  // EARLY RETURN
 
@@ -330,12 +386,12 @@ int main(int, char *[]) {
     const char *tls_fp = "(0303)(130213031301c030c02fc02ccca9cca8c0adc02bc0acc024c028c023c027c009c013009dc09d009cc09c003d003c0035002f000700ff)[(000a000c000a001d0017001e00190018)(000b000403000102)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(0010000b000908687474702f312e31)(0015)(0016)(0017)(002b0009080304030303020301)(002d00020101)(0031)(0033)(3374)]";
     datum tls_fp_data{(uint8_t *)tls_fp, (uint8_t *)tls_fp + strlen(tls_fp)};
 
-    printf("cbor_fingerprint::write_tls_fingerprint: ");
-    cbor_fingerprint::write_tls_fingerprint(tls_fp_data);
+    // printf("cbor_fingerprint::write_tls_fingerprint: ");
+    // cbor_fingerprint::write_tls_fingerprint(tls_fp_data);
 
     tls_fp_data = {(uint8_t *)tls_fp, (uint8_t *)tls_fp + strlen(tls_fp)};
     dbuf.reset();
-    cbor_fingerprint::write_cbor_tls_fingerprint(tls_fp_data, dbuf); fputc('\n', stdout);
+    cbor_fingerprint::encode_cbor_tls_fingerprint(tls_fp_data, dbuf); fputc('\n', stdout);
     printf("cbor_fingerprint::write_cbor_tls_fingerprint:\n");
     dbuf.contents().fprint_hex(stdout); fputc('\n', stdout);
 
@@ -350,7 +406,7 @@ int main(int, char *[]) {
     dbuf.reset();
     cbor::output::array fdc{dbuf};
     tls_fp_data = {(uint8_t *)tls_fp, (uint8_t *)tls_fp + strlen(tls_fp)};
-    cbor_fingerprint::write_cbor_tls_fingerprint(tls_fp_data, fdc);
+    cbor_fingerprint::encode_cbor_tls_fingerprint(tls_fp_data, fdc);
     cbor::text_string{"parked-content.godaddy.com"}.write(a);
     a.close();
     printf("fdc:\n"); dbuf.contents().fprint_hex(stdout); fputc('\n', stdout);
