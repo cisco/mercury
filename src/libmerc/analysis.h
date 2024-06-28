@@ -964,6 +964,19 @@ public:
             total_count = fp["total_count"].GetUint64();
         }
 
+        /*
+         * The json object "feature_weights" consists of the feature weights
+         * to be used in weighted naive bayes classifier and it is an
+         * optional parameter. When feature weights are present, the weights
+         * will be read from resource file and the same will be used in
+         * the naive bayes classifier.
+         *
+         * If no weights are present, then default weights will be used.
+         * When feature_weights json object is present, it has to contain
+         * weights for all expected features. Missing feature weights or
+         * unknown feature weights will be considered as error and the
+         * fingerprint entry will not be processed.
+         */
         std::array<floating_point_type, naive_bayes::num_feature_weights> weights{naive_bayes::feature_weights};
         if (fp.HasMember("feature_weights") && fp["feature_weights"].IsObject()) {
             if (fp["feature_weights"].MemberCount() != naive_bayes::num_feature_weights) {
@@ -1458,6 +1471,7 @@ public:
     const char *get_resource_version() {
         return resource_version.c_str();
     }
+
 };
 
 
