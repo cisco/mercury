@@ -30,7 +30,7 @@ const char * dialect::get_dialect_string() const {
 
  * If No - returns false
  */
-bool negotiate_context::get_netname(datum netname, std::string& name) {
+bool negotiate_context::get_netname(datum netname, std::string& name) const {
     while(netname.is_readable()) {
         encoded<uint16_t> c(netname, true);
         if (!c) {
@@ -49,7 +49,7 @@ bool negotiate_context::get_netname(datum netname, std::string& name) {
     return true;
 }
 
-void negotiate_context::write_json(struct json_array &o) {
+void negotiate_context::write_json(struct json_array &o) const {
     if(!valid) {
         return;
     }
@@ -127,7 +127,7 @@ void negotiate_context::write_json(struct json_array &o) {
     a.close();
 }
 
-void smb2_negotiate_request::write_json(struct json_object &o) {
+void smb2_negotiate_request::write_json(struct json_object &o) const {
     if(!valid) {
         return;
     }
@@ -144,7 +144,7 @@ void smb2_negotiate_request::write_json(struct json_object &o) {
     neg_req.close();
 }
 
-void smb2_negotiate_response::write_json (struct json_object &o) {
+void smb2_negotiate_response::write_json (struct json_object &o) const {
     if(!valid) {
         return;
     }
@@ -195,7 +195,7 @@ switch (command) {
     }
 }
 
-void smb2_header::write_json(struct json_object &o) {
+void smb2_header::write_json(struct json_object &o) const {
     o.print_key_uint16("structure_size", structure_size.value());
     o.print_key_uint16("credit_charge", credit_charge.value());
     o.print_key_uint_hex("status", status.value());
