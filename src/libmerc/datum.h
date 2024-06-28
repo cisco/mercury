@@ -20,7 +20,6 @@
 #include <limits>
 #include <string>
 #include <cassert>
-#include "libmerc.h"  // for enum status
 #include "buffer_stream.h"
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
