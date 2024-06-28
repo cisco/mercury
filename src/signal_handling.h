@@ -14,6 +14,7 @@
 #include "mercury.h"
 
 extern int sig_close_flag; /* Watched by the threads while processing packets */
+extern struct thread_stall *global_thread_stall;
 
 void sig_close (int signal_arg);
 

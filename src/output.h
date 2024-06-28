@@ -22,6 +22,8 @@ enum file_type {
 };
 
 struct output_file {
+    pid_t kpid;
+    pthread_t tid;
     FILE *file_pri = nullptr;
     FILE *file_sec = nullptr;
     FILE *file_used = nullptr;
@@ -40,13 +42,16 @@ struct output_file {
     pthread_mutex_t t_output_m;
     struct thread_queues qs;
     int sig_stop_output = 0;
+    uint64_t output_drops = 0;
+    uint64_t output_drops_trunc = 0;
+    int from_network = 0;
 };
 
 void *output_thread_func(void *arg);
 
-int output_thread_init(pthread_t &output_thread, struct output_file &out_ctx, const struct mercury_config &cfg);
+int output_thread_init(struct output_file &out_ctx, const struct mercury_config &cfg);
 
-void output_thread_finalize(pthread_t output_thread, struct output_file *out_file);
+void output_thread_finalize(struct output_file *out_file);
 
 char *stdout_string();
 

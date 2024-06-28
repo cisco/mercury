@@ -104,12 +104,11 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
 
 // pcap_queue_write() sends a packet to a lockless queue
 //
-void pcap_queue_write(struct ll_queue *llq,
+size_t pcap_queue_write(uint8_t *buf,
                       uint8_t *packet,
                       size_t length,
                       unsigned int sec,
-                      unsigned int nsec,
-                      bool blocking);
+                        unsigned int usec);
 
 enum status write_pcap_file_header(FILE *f);
 

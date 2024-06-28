@@ -1,5 +1,18 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.29
+* Support for "dual DB" resource archives, as described in
+  [doc/resources.md](../doc/resources.md).
+* Dramatic improvements to mercury's scalability, due to a lockless
+  ring buffer for output, and output buffers that scale to 20% of the
+  requested memory.  JSON output records may now have `event_start`
+  times that are slightly out of order, as the tournament tree that
+  had been used to ensure ordering across threads has been removed.
+* Significant improvements to error detection, recovery and reporting,
+  including stall detection and recovery for packet-processing
+  threads, thread ID reporting, more detailed I/O statistics, and
+  accounting for output drops and output file rotation.
+
 ## Version 2.5.28
 * Added decapsulation support for GENEVE (RFC 8926)
 * Added a log message that indicates the end of a stats dump, and one that reports the total number of fingerprints of each type in resource file.

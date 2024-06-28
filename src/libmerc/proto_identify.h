@@ -194,6 +194,11 @@ public:
         return 0;   // type unknown;
     }
 
+    void disable_all() {
+        matchers.clear();
+        matchers_and_offset.clear();
+    }
+
 };
 
 // class selector implements a protocol selection policy for TCP and
@@ -252,6 +257,13 @@ public:
     bool nbss() const { return select_nbss; }
 
     bool openvpn_tcp() const { return select_openvpn_tcp; }
+
+    void disable_all() {
+        tcp.disable_all();
+        tcp4.disable_all();
+        udp.disable_all();
+        udp16.disable_all();
+    }
 
     traffic_selector(std::map<std::string, bool> protocols) :
             tcp{},
