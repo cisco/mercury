@@ -747,6 +747,9 @@ class classifier {
 
     std::string resource_version;  // as reported by VERSION file in resource archive
 
+    static constexpr size_t num_qualifiers = 1; // number of qualifier expected in VERSION for the classifier to correctly load
+
+
     std::vector<fingerprint_type> fp_types;
     size_t tls_fingerprint_format = 0;
     size_t quic_fingerprint_format = 0;
@@ -759,6 +762,8 @@ class classifier {
     common_data common;
 
     uint32_t total_tofsee = 0, total_https = 0, total_quic = 0, total_tls = 0;
+
+    bool disabled = false;   // if the classfier has not been initialised or disabled
 
 public:
 
@@ -790,6 +795,8 @@ public:
     size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
 
     size_t get_quic_fingerprint_format() const { return quic_fingerprint_format; }
+
+    bool is_disabled() const { return disabled; }
 
     static std::pair<fingerprint_type, size_t> get_fingerprint_type_and_version(const std::string &s) {
         fingerprint_type type = fingerprint_type_unknown;
@@ -1118,6 +1125,22 @@ public:
         }
     }
 
+    bool is_dual_db (std::string version_str) const {
+        return (version_str.find("dual") != std::string::npos);
+    }
+
+    bool is_lite_db (std::string version_str) const {
+        return (version_str.find("lite") != std::string::npos);
+    }
+
+    bool is_full_db (std::string version_str) const {
+        return (version_str.find("full") != std::string::npos);
+    }
+
+    size_t fetch_qualifier_count (std::string version_str) const {
+        return std::count(version_str.begin(),version_str.end(),';');
+    }
+
     classifier(class encrypted_compressed_archive &archive,
                float fp_proc_threshold,
                float proc_dst_threshold,
@@ -1135,10 +1158,16 @@ public:
         //
         fp_types.push_back(fingerprint_type_tls);
 
+        bool threshold_set = ( (fp_proc_threshold > 0.0) || (proc_dst_threshold > 0.0) );  // switch to fingerprint_db_lite.json if available
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
         bool got_version = false;
         bool got_doh_watchlist = false;
+        bool dual_db = false;   // archive has both fingerprint_db_normal and fingerprint_db_lite
+        bool lite_db = false;   // archive has fingerprint_db_lite named as fingerprint_db.json
+        bool full_db = false;   // archive has fingerprint_db_full.json named as fingerprint_db.json
+        bool legacy_archive = false;
+
         //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
@@ -1154,19 +1183,39 @@ public:
                         process_fp_prevalence_line(line_str);
                     }
                     got_fp_prevalence = true;
-
-                } else if (name == "fingerprint_db.json") {
-                    while (archive.getline(line_str)) {
-                        process_fp_db_line(line_str, fp_proc_threshold, proc_dst_threshold, report_os);
+                } else if (name == "fingerprint_db_lite.json") {
+                    // dual db, process fingerprint_db_lite when thresholds set
+                    if (threshold_set) {
+                        printf_err(log_debug, "loading fingerprint_db_lite.json\n");
+                        while (archive.getline(line_str)) {
+                            process_fp_db_line(line_str, 0.0, 0.0, report_os);
+                        }
+                        got_fp_db = true;
+                        printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
+                            total_https, total_tls, total_quic, total_tofsee);
                     }
+                } else if (name == "fingerprint_db.json") {
                     got_fp_db = true;
-                    printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
-                    total_https, total_tls, total_quic, total_tofsee);
+                    if (legacy_archive) {
+                        disabled = true;
+                    }
+                    else if (!threshold_set || lite_db || full_db) {
+                            printf_err(log_debug, "loading fingerprint_db.json\n");
+                        while (archive.getline(line_str)) {
+                            process_fp_db_line(line_str, 0.0, 0.0, report_os);
+                        }
+                        printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
+                        total_https, total_tls, total_quic, total_tofsee);
+                    }
                 } else if (name == "VERSION") {
                     while (archive.getline(line_str)) {
                         resource_version += line_str;
                     }
                     got_version = true;
+                    dual_db = is_dual_db(resource_version);
+                    lite_db = is_lite_db(resource_version);
+                    full_db = is_full_db(resource_version);
+                    legacy_archive = (!dual_db && !lite_db && !full_db);
 
                 } else if (name == "pyasn.db") {
                     while (archive.getline(line_str)) {
@@ -1194,6 +1243,11 @@ public:
         //
         if (!got_fp_db | !got_fp_prevalence | !got_version | !got_doh_watchlist) {
             throw std::runtime_error("resource archive is missing one or more files");
+        }
+
+        if (fetch_qualifier_count(resource_version) != num_qualifiers) {
+            disabled = true;
+            printf_err(log_debug,"resource qualifier count does not match, disabling classifier\n");
         }
 
     }

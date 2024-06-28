@@ -72,6 +72,11 @@ struct mercury {
             format = c->get_quic_fingerprint_format();
             global_vars.fp_format.set_quic_fingerprint_format(format);
             printf_err(log_info, "setting quic fingerprint format to match resource file (format: %zu)\n", format);
+
+            if (c->is_disabled()) {
+                printf_err(log_debug, "classifier could not be initialized, disabling all protocols\n");
+                selector.disable_all();
+            }
         }
     }
 
