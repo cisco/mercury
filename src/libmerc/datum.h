@@ -922,6 +922,9 @@ public:
     ///
     writeable(uint8_t *begin, uint8_t *end) : data{begin}, data_end{end} { }
 
+    template <size_t N>
+    constexpr writeable(std::array<uint8_t, N> &a) : data{a.data()}, data_end{data + N} { }
+
     /// constructs a null writeable object
     ///
     writeable() : data{nullptr}, data_end{nullptr} { }

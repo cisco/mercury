@@ -12,6 +12,25 @@
 
 int main(int, char *[]) {
 
+    if constexpr (false) {
+        data_buffer<256> db;
+        cbor::tag{0}.write(db);
+        cbor::tag{251}.write(db);
+        cbor::output::array out_a{db};
+        cbor::uint64{0x12345678}.write(out_a);
+        out_a.close();
+        db.contents().fprint_hex(stdout); fputc('\n', stdout);
+        datum encoded{db.contents()};
+        cbor::tag t1{encoded} ;
+        cbor::tag t2{encoded} ;
+        cbor::array a{encoded};
+        cbor::uint64 x{a.value()};
+        // printf("t: %zu\tx: %08zx\n", t.value(), x.value());
+        printf("t1: %zu\tt2: %zu\n", t1.value(), t2.value());
+        cbor::decode_fprint(db.contents(), stdout);
+
+    }
+
     printf("static_dictionary::unit_test: %s\n", static_dictionary<0>::unit_test(stdout) ? "passed" : "failed");
 
     //
@@ -19,9 +38,10 @@ int main(int, char *[]) {
     //
     FILE *unit_test_output = stderr; // set to nullptr to suppress unit test output
     printf("cbor::unit_test: %s\n", cbor::unit_test(unit_test_output) ? "passed" : "failed");
+    assert(cbor_fingerprint::unit_test() == true);
 
     dynamic_buffer output{1024};
-    const char *fp = "(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
+    const char *fp = "tls/1/(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
     datum{fp}.fprint(stdout); fputc('\n', stdout);
     fdc fdc_object{
         datum{fp},
@@ -38,8 +58,34 @@ int main(int, char *[]) {
     fputc('\n', stdout);
     output.contents().fprint(stdout); fputc('\n', stdout);
 
-    cbor_fingerprint::unit_test();
+    datum encoded_fdc{output.contents()};
+    encoded_fdc.fprint(stdout); fputc('\n', stdout);
+    // fdc decoded_fdc{encoded_fdc};
+    // decoded_fdc.fprint(stdout);
 
+    cbor::decode_fprint(encoded_fdc, stdout);
+
+    std::array<uint8_t, 1024> decoded_fp;
+    data_buffer<257> decoded_sn;
+    data_buffer<512> decoded_ua;
+    data_buffer<48> decoded_dst_ip;
+    uint16_t dst_port;
+    fdc::decode(encoded_fdc,
+                decoded_fp,
+                decoded_sn,
+                decoded_ua,
+                decoded_dst_ip,
+                dst_port);
+
+    // decoded_fp.contents().fprint(stdout); fputc('\n', stdout);
+    fprintf(stdout, "%s\n", decoded_fp.data());
+    decoded_sn.contents().fprint(stdout); fputc('\n', stdout);
+    decoded_ua.contents().fprint(stdout); fputc('\n', stdout);
+    decoded_dst_ip.contents().fprint(stdout); fputc('\n', stdout);
+    fprintf(stdout, "%u\n", dst_port);
+
+    //    return 0;
+    
     // test cbor fingerprint encoding and decoding
     //
     const auto test_fingerprint = [](const char *fingerprint_string) {
@@ -48,7 +94,9 @@ int main(int, char *[]) {
         cbor_fingerprint::encode_cbor_fingerprint(fp_data, data_buf);
 
         data_buffer<2048> out_buf;
-        cbor_fingerprint::decode_cbor_fingerprint(data_buf.contents(), out_buf);
+        datum encoded_data{data_buf.contents()};
+        cbor_fingerprint::decode_cbor_fingerprint(encoded_data, out_buf);
+        // cbor::decode_fprint(data_buf.contents(), stdout);
         if (out_buf.contents().cmp(fp_data) != 0) {
             printf("ERROR: MISMATCH\n");
             printf("fingerprint:              %s\n", fingerprint_string);
@@ -56,8 +104,7 @@ int main(int, char *[]) {
             data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
             printf("decoded fingerprint:      ");
             out_buf.contents().fprint(stdout); fputc('\n', stdout);
-            datum data_copy{data_buf.contents()};
-            cbor::decode_data(data_copy, stdout);
+            cbor::decode_fprint(data_buf.contents(), stdout);
             return false;
         }
         return true;
@@ -69,9 +116,9 @@ int main(int, char *[]) {
         "http/(504f5354)(485454502f312e31)((486f7374)(557365722d4167656e74)(4163636570743a20746578742f68746d6c2c6170706c69636174696f6e2f7868746d6c2b786d6c2c6170706c69636174696f6e2f786d6c3b713d302e392c696d6167652f617669662c696d6167652f776562702c2a2f2a3b713d302e38)(4163636570742d4c616e6775616765)(4163636570742d456e636f64696e673a20677a69702c206465666c617465)(436f6e6e656374696f6e3a206b6565702d616c697665))",
         "tls/1/(0303)(130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)[(0000)(000500050100000000)(000a00080006001d00170018)(000b00020100)(000d0012001004030804040105030805050108060601)(0010000e000c02683208687474702f312e31)(0012)(0017)(001b0003020002)(0023)(0029)(002b0009080304030303020301)(002d00020101)(0033)(ff01)]",
         "quic/(00000001)(0303)(130113021303)[(000a000a00086399001d00170018)(002b0003020304)((0039)[(01)(03)(04)(05)(06)(07)(08)(09)(0f)(1b)(20)(80004752)(80ff73db)])(4469)]",
-        // "http/randomized",
-        // "tls/1/randomized",
-        // "quic/randomized"
+        "http/randomized",
+        "tls/1/randomized",
+        "quic/randomized"
     };
     for (const auto & fp_str : fps) {
         test_fingerprint(fp_str);
@@ -284,7 +331,7 @@ int main(int, char *[]) {
 
         datum d{e.data(), e.data() + e.size()};
 
-        cbor::decode_printf(d, stdout);
+        cbor::decode_fprint(d, stdout);
     }
 
     // run reencode_data on fingerprint_examples

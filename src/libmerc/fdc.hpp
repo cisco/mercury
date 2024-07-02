@@ -5,74 +5,7 @@
 #ifndef FDC_HPP
 #define FDC_HPP
 
-#include <iterator>   // for std::distance()
-
-static constexpr bool streq(const char *l, const char *r) {
-    while (*l and *r) {
-        if (*l != *r) {
-            return false;
-        }
-        ++l;
-        ++r;
-    }
-    return true;
-}
-
-template <size_t N>
-class static_dictionary {
-    const std::array<const char *, N> a;
-
-public:
-
-    constexpr static_dictionary(const std::array<const char *, N> &m) : a{m} { }
-
-    constexpr size_t index(const char *s) const {
-        for (auto x = a.begin(); x < a.end(); x++) {
-            if (streq(*x, s)) {
-                return std::distance(a.begin(), x);
-            }
-        }
-        return 0;
-    }
-
-    constexpr const char *value(size_t idx) const {
-        static_assert(idx < N, "error: index too large");
-        return a[idx];
-    }
-
-    static bool unit_test(FILE *f=nullptr) {
-
-        constexpr std::array<const char *, 3> dog_data{
-            "unknown",
-            "Westie",
-            "Yorkshire Terrier"
-            "Pug"
-        };
-
-        constexpr static_dictionary<3> dogs{dog_data};
-
-        const auto test = [&dogs, &f](const char *s, size_t idx) {
-            if (dogs.index(s) != idx) {
-                if (f) {
-                    fprintf(f, "error in test case %s: expected %zu, got %zu\n", s, idx, dogs.index(s));
-                }
-                return false;
-            }
-            return true;
-        };
-
-        return test("unknown", 0)
-            and test("Westie", 1)
-            and test("Yorkshire Terrier", 2)
-            and test("Pug", 3)
-            and test("Siamese", 0)
-            and test("Westi", 0)
-            and test("Westie!", 0);
-    }
-
-};
-
-
+#include "static_dict.hpp"
 #include "libmerc.h"  // for fingerprint_type
 
 static const char *fingerprint_type_string(fingerprint_type fp_type) {
@@ -114,12 +47,17 @@ static const char *fingerprint_type_string(fingerprint_type fp_type) {
 //        - ‘)’ maps to 0xff (‘break’, final byte of indefinite-length
 //          array)
 //
-class cbor_fingerprint {
-public:
-    cbor_fingerprint(datum &d) {
-    }
+namespace cbor_fingerprint {
 
-    static void fprint(FILE *f, datum &d) {
+    constexpr static_dictionary<3> fp_labels{
+        {
+            "unknown",
+            "randomized",
+            "generic"
+        }
+    };
+
+    void fprint(FILE *f, datum &d) {
         while (lookahead<cbor::initial_byte> ib{d}) {
             if (ib.value.is_byte_string()) {
                 cbor::byte_string bs = cbor::byte_string::decode(d);
@@ -140,54 +78,13 @@ public:
         }
     }
 
-    // static void write_data(datum &d) {
-    //     literal_byte<'('>{d};
-    //     hex_digits{d}.fprint(stdout); fputc('\n', stdout);
-    //     literal_byte<')'>{d};
-    // }
-
-    // static void write_list(datum &d) {
-    //     literal_byte<'('>{d};
-    //     while(lookahead<encoded<uint8_t>> c{d}) {
-    //         if (c.value == ')') {
-    //             break;
-    //         }
-    //         write_data(d);
-    //     }
-    //     literal_byte<')'>{d};
-    // }
-
-    // static void write_sorted_list(datum &d) {
-    //     literal_byte<'['>{d};
-    //     while(lookahead<encoded<uint8_t>> c{d}) {
-    //         if (c.value == ']') {
-    //             break;
-    //         }
-    //         fputc('\t', stdout);
-    //         write_data(d);
-    //     }
-    //     literal_byte<']'>{d};
-    // }
-
-    // static void write_tls_fingerprint(datum &d) {
-    //     write_data(d);         // version
-    //     write_data(d);         // ciphersuites
-    //     write_sorted_list(d);  // extensions
-    // }
-
-    static void encode_cbor_data(datum &d, writeable &w) {
+    void encode_cbor_data(datum &d, writeable &w) {
         literal_byte<'('>{d};
         cbor::byte_string_from_hex{hex_digits{d}}.write(w);
         literal_byte<')'>{d};
     }
 
-    // static void write_cbor_data(datum &d, cbor::output::array &a) {
-    //     literal_byte<'('>{d};
-    //     cbor::byte_string_from_hex{hex_digits{d}}.write(a);
-    //     literal_byte<')'>{d};
-    // }
-
-    static void encode_cbor_list(datum &d, writeable &w) {
+    void encode_cbor_list(datum &d, writeable &w) {
         literal_byte<'('>{d};
         cbor::output::array a{w};
         while(lookahead<encoded<uint8_t>> c{d}) {
@@ -200,60 +97,51 @@ public:
          literal_byte<')'>{d};
     }
 
-    static constexpr uint64_t tag_sorted_array = 0;
+    constexpr uint64_t tag_sorted_array = 251;  // tag number in "specification required" range
 
     enum array_type {
         sorted = true,
         unsorted = false
     };
 
-    static void encode_cbor_sorted_list(datum &d, writeable &w, array_type sorted=array_type::sorted) {
-        // printf("start encoding sorted list with %u\n", sorted);
+    void encode_cbor_sorted_list(datum &d, writeable &w, array_type sorted=array_type::sorted) {
         if (sorted) {
             literal_byte<'['>{d};
         } else {
             literal_byte<'('>{d};
         }
         if (sorted) {
-            cbor::uint64{tag_sorted_array}.write(w);
+            cbor::tag{tag_sorted_array}.write(w);
         }
         cbor::output::array a{w};
         while(lookahead<encoded<uint8_t>> c{d}) {
-            // d.fprint(stdout); fputc('\n', stdout);
             if (c.value == '[') {
                 encode_cbor_sorted_list(d, w, array_type::sorted);
-                // printf("returned from sorted list\n");
 
             } else if (c.value == ']' or c.value == ')') {
-                // printf("got '%c'\n", c.value.value());
                 break;
 
             } else if (c.value == '(') {
                 if (lookahead<encoded<uint8_t>> nextchar{c}) {
                     if (nextchar.value == '(' or nextchar.value == '[') {
                         encode_cbor_sorted_list(d, w, array_type::unsorted);
-                        // printf("returned from unsorted list\n");
                     } else {
                         encode_cbor_data(d, a);
                     }
                 }
             } else {
-                // printf("unexpected (%c)\n", c.value.value());
                 break;
             }
         }
         a.close();
-        // printf("after loop: "); d.fprint(stdout); fputc('\n', stdout);
         if (sorted) {
             literal_byte<']'>{d};
         } else {
             literal_byte<')'>{d};
         }
-        // printf("end encoding sorted list with %u\n", sorted);
-        // printf("tail: "); d.fprint(stdout); fputc('\n', stdout);
     }
 
-    static void encode_cbor_tls_fingerprint(datum d, writeable &w) {
+    void encode_cbor_tls_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
 
         if (lookahead<literal_byte<'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'd'>> peek{d}) {
@@ -288,7 +176,7 @@ public:
         m.close();
      }
 
-    static void encode_cbor_http_fingerprint(datum d, writeable &w) {
+    void encode_cbor_http_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
         if (lookahead<literal_byte<'('>>{d}) {
             cbor::uint64{0}.write(m);      // fingerprint version
@@ -306,7 +194,7 @@ public:
         m.close();
     }
 
-    static void encode_cbor_quic_fingerprint(datum d, writeable &w) {
+    void encode_cbor_quic_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
         if (lookahead<literal_byte<'('>>{d}) {
             cbor::uint64{0}.write(m);      // fingerprint version
@@ -325,25 +213,17 @@ public:
         m.close();
     }
 
-    constexpr static static_dictionary<3> fp_labels{
-        {
-            "unknown",
-            "randomized",
-            "generic"
-        }
-    };
+    constexpr uint64_t randomized = 0;
+    constexpr uint64_t generic = 1;
 
-    static constexpr uint64_t randomized = 0;
-    static constexpr uint64_t generic = 1;
-
-    static constexpr std::array<const char *, 3> fingerprint_labels = {
+    constexpr std::array<const char *, 3> fingerprint_labels = {
         "unknown",
         "randomized",
         "generic"
     };
 
     template <size_t N>
-    static size_t constexpr get_index(const std::array<const char *, N> &a, const char *s) {
+    size_t constexpr get_index(const std::array<const char *, N> &a, const char *s) {
         for (const auto & x : a) {
             if (strcmp(x, s) == 0) {
                 return std::distance(&x, a.begin());
@@ -352,7 +232,7 @@ public:
         return 0;
     }
 
-    static void encode_cbor_tofsee_fingerprint(datum d, writeable &w) {
+    void encode_cbor_tofsee_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
         if (lookahead<literal_byte<'1', '/'>> version_one{d}) {
             d = version_one.advance();
@@ -364,7 +244,7 @@ public:
         }
     }
 
-    static void encode_cbor_fingerprint(datum d, writeable &w) {
+    void encode_cbor_fingerprint(datum d, writeable &w) {
         fingerprint_type fp_type = fingerprint_type_unknown;
         if (lookahead<literal_byte<'t', 'l', 's', '/'>> tls{d}) {
             fp_type = fingerprint_type_tls;
@@ -402,7 +282,7 @@ public:
         // fprintf(stderr, "fingerprint type %d\n", fp_type);
     }
 
-    static void decode_cbor_data(datum &d, writeable &w) {
+    void decode_cbor_data(datum &d, writeable &w) {
         cbor::byte_string data = cbor::byte_string::decode(d);
         //        if (d.is_null()) { return; }
         w.copy('(');
@@ -410,7 +290,7 @@ public:
         w.copy(')');
     }
 
-    static void decode_cbor_list(datum &d, writeable &w) {
+    void decode_cbor_list(datum &d, writeable &w) {
         cbor::array a{d};
         w.copy('(');
         while (a.value().is_not_empty()) {
@@ -424,31 +304,25 @@ public:
         w.copy(')');
     }
 
-    static void decode_cbor_sorted_list(datum &d, writeable &w) {
-        // printf("begin: "); d.fprint_hex(stdout); fputc('\n', stdout);
+    void decode_cbor_sorted_list(datum &d, writeable &w) {
         char open = '(';
         char close = ')';
-        if (lookahead<cbor::uint64> tag{d}) {
+        if (lookahead<cbor::tag> tag{d}) {
             if (tag.value.value() == tag_sorted_array) {
                 d = tag.advance();
                 open = '[';
                 close = ']';
-                // printf("decoding sorted array\n");
-            } else {
-                // printf("decoding unsorted array\n");
             }
         }
         cbor::array a{d};
         w.copy(open);
         while (a.value().is_not_empty()) {
-            // printf("loop: "); a.value().fprint_hex(stdout); fputc('\n', stdout);
             if (lookahead<cbor::initial_byte> ib{a.value()}) {
                 if (ib.value.is_break()) {
                     break;
                 } else if (ib.value.major_type() == cbor::array_type
-                           or ib.value.major_type() == cbor::unsigned_integer_type) {
+                           or ib.value.major_type() == cbor::tagged_item_type) {
                     decode_cbor_sorted_list(a.value(), w);
-                    // printf("done decoding array\n");
                 } else {
                     decode_cbor_data(a.value(), w);
                 }
@@ -457,10 +331,9 @@ public:
         w.copy(close);
         d = a.value();  // TODO: replace this
         cbor::initial_byte{d};
-        // printf("end: "); d.fprint_hex(stdout); fputc('\n', stdout);
     }
 
-    static void decode_http_fp(datum &d, writeable &w) {
+    void decode_http_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 0) {
@@ -473,11 +346,13 @@ public:
                 decode_cbor_data(m.value(), w); // method
                 decode_cbor_data(m.value(), w); // protocol
                 decode_cbor_list(m.value(), w); // headers
+                a.close();
             }
         }
+        m.close();
     }
 
-    static void decode_tls_fp(datum &d, writeable &w) {
+    void decode_tls_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 0) {
@@ -485,6 +360,7 @@ public:
             decode_cbor_data(m.value(), w); // version
             decode_cbor_data(m.value(), w); // ciphersuites
             decode_cbor_list(m.value(), w); // extensions
+            a.close();
 
         } else if (format_version.value() == 1) {
             w.copy('1');
@@ -498,11 +374,13 @@ public:
                 decode_cbor_data(m.value(), w);         // version
                 decode_cbor_data(m.value(), w);         // ciphersuites
                 decode_cbor_sorted_list(m.value(), w);  // extensions
+                a.close();
             }
         }
+        m.close();
     }
 
-    static void decode_quic_fp(datum &d, writeable &w) {
+    void decode_quic_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 0) {
@@ -516,11 +394,13 @@ public:
                 decode_cbor_data(m.value(), w);        // version
                 decode_cbor_data(m.value(), w);        // ciphersuites
                 decode_cbor_sorted_list(m.value(), w); // extensions
+                a.close();
             }
         }
+        m.close();
     }
 
-    static void decode_tofsee_fp(datum &d, writeable &w) {
+    void decode_tofsee_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 1) {
@@ -530,11 +410,12 @@ public:
                 w << datum{"generic"};
             }
         }
+        m.close();
     }
 
-    static void decode_fp(unsigned int fp_type,
-                          datum &d,
-                          writeable &w) {
+    void decode_fp(unsigned int fp_type,
+                   datum &d,
+                   writeable &w) {
 
         w << datum{fingerprint_type_string((fingerprint_type)fp_type)};
         w.copy('/');
@@ -557,7 +438,7 @@ public:
 
     }
 
-    static void decode_cbor_fingerprint(datum d, writeable &w) {
+    void decode_cbor_fingerprint(datum &d, writeable &w) {
 
         cbor::map m{d};
         if (m.value().is_readable()) {
@@ -568,12 +449,13 @@ public:
                 ; // error
             }
         }
+        m.close();
     }
 
     // cbor_fingerprint::unit_test() returns `true` if all unit tests
     // pass, `false` otherwise
     //
-    static bool unit_test() {
+    bool unit_test() {
         bool all_tests_passed = true;
         const char tls_fp[] = "tls/1/(0301)(0016002f000a000500ff)[(0000)(0023)]";
         datum tls_fp_data{(uint8_t *)tls_fp, (uint8_t *)tls_fp + strlen(tls_fp)};
@@ -630,6 +512,41 @@ public:
         }
     { }
 
+    /// decode an fdc object from \ref datum \param d
+    ///
+    fdc(datum &d) :
+        fingerprint{d},
+        user_agent{cbor::text_string::decode(d)},
+        domain_name{cbor::text_string::decode(d)},
+        dst_ip_str{cbor::text_string::decode(d)},
+        dst_port{d},
+        valid{d.is_not_null() and user_agent.is_valid() xor domain_name.is_valid()}
+    { }
+
+    /// decode an fdc object from \ref datum \param d
+    ///
+    static void decode(datum &d,
+                       writeable &&fp,
+                       writeable &ua_str, // [MAX_USER_AGENT_LEN],
+                       writeable &sn_str, // [MAX_SNI_LEN],
+                       writeable &dst_ip_str,
+                       uint16_t &dst_port) {
+
+        cbor::array a{d};
+        printf("before:\n");
+        cbor::decode_fprint(a.value(), stdout);
+        cbor_fingerprint::decode_cbor_fingerprint(a.value(), fp);
+
+        printf("after:\n");  a.value().fprint_hex(stdout); fputc('\n', stdout);
+        cbor::decode_fprint(a.value(), stdout);
+        //ua_str << cbor::text_string::decode(a.value()).value();
+        sn_str << cbor::text_string::decode(a.value()).value();
+        dst_ip_str << cbor::text_string::decode(a.value()).value();
+        printf("last:\n");  a.value().fprint_hex(stdout); fputc('\n', stdout);
+        dst_port = cbor::uint64{a.value()}.value();  // TODO: check range
+        a.close();
+    }
+
     bool is_valid() const { return valid; }
 
     void encode(writeable &w) const {
@@ -638,7 +555,7 @@ public:
             return;
         }
         cbor::output::array a{w};
-        cbor_fingerprint::encode_cbor_tls_fingerprint(fingerprint, a);
+        cbor_fingerprint::encode_cbor_fingerprint(fingerprint, a);
         if (user_agent.is_valid()) {
             user_agent.write(a);
         }
@@ -648,6 +565,22 @@ public:
         dst_ip_str.write(a);
         dst_port.write(a);
         a.close();
+    }
+
+    void fprint(FILE *f) const {
+        if (!valid) {
+            return;   // error; no valid data to print
+        }
+        fingerprint.fprint(f); fputc('\n', f);
+        if (user_agent.is_valid()) {
+            user_agent.value().fprint(f); fputc('\n', f);
+        }
+        domain_name.value().fprint(f); fputc('\n', f);
+        if (dst_ip_str.is_valid()) {
+            dst_ip_str.value().fprint(f); fputc('\n', f);
+        }
+        fprintf(f, "%zu\n", dst_port.value());
+
     }
 
 };

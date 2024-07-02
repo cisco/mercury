@@ -18,7 +18,6 @@ public:
     }
 };
 
-
 // a simple CBOR decoder, following RFC 8949
 //
 namespace cbor {
@@ -123,6 +122,13 @@ namespace cbor {
         static constexpr uint8_t undefined = 23;
 
     };
+
+    static void read_break(datum &d) {
+        initial_byte ib{d};
+        if (!ib.is_break()) {
+            d.set_null();
+        }
+    }
 
     // Major type 0: An unsigned integer in the range 0..2^64-1
     // inclusive. The value of the encoded item is the argument
@@ -469,16 +475,16 @@ namespace cbor {
     //
     class array {
         initial_byte ib;
-        datum body;
+        datum &body;
 
     public:
 
-        array(datum &d) : ib{d} {
+        array(datum &d) : ib{d}, body{d} {
             if (ib.major_type() != array_type or ib.additional_info() != 31) {   // for now, we only support indefinite length arrays
                 d.set_null();
                 return;
             }
-            body = d;
+            // body = d;
         }
 
         template <typename T>
@@ -488,6 +494,8 @@ namespace cbor {
         }
 
         datum& value() { return body; }
+
+        void close() { read_break(body); }
 
     };
 
@@ -538,19 +546,42 @@ namespace cbor {
     //
     class map {
         initial_byte ib;
-        datum body;
+        datum& body;
 
     public:
 
-        map(datum &d) : ib{d} {
+        map(datum &d) : ib{d}, body{d} {
             if (ib.major_type() != map_type or ib.additional_info() != 31) {   // for now, we only support indefinite length maps
                 d.set_null();
                 return;
             }
-            body = d;
+            //  body = d;
         }
 
         datum& value() { return body; }
+
+        void close() { read_break(body); }
+
+    };
+
+    // Major type 6: A tagged data item ("tag") whose tag number, an
+    // integer in the range 0..2^64-1 inclusive, is the argument and
+    // whose enclosed data item (tag content) is the single encoded
+    // data item that follows the head.
+    //
+    class tag {
+        uint64 number;
+    public:
+
+        tag(datum &d) : number{d, tagged_item_type} { }
+
+        tag(uint64_t num) : number{num, tagged_item_type} { }
+
+        uint64_t value() const { return number.value(); }
+
+        void write(writeable &buf) const {
+            buf << number;
+        }
 
     };
 
@@ -622,6 +653,13 @@ namespace cbor {
                         if (!success) { return false; }
                     }
                     break;
+                case tagged_item_type:
+                    {
+                        tag tmp{d};
+                        if (d.is_null()) { return false; }
+                        fprintf(f, "%.*stag: %zu\n", r, tabs, tmp.value());
+                    }
+                    break;
                 case simple_or_float_type:
                     if (ib.value.value() == 0xff) {
                         d = ib.advance();
@@ -643,7 +681,7 @@ namespace cbor {
     /// \return `true if all of the items in \param d could be
     /// decoded, and `false` otherwise
     ///
-    static inline bool decode_printf(datum &d, FILE *f) {
+    static inline bool decode_fprint(datum d, FILE *f) {
         return decode_data(d, f);
     }
 
@@ -690,6 +728,7 @@ namespace cbor::output {
         // }
 
         operator writeable & () { return w; }
+
     };
 
     // Major type 5: A map of pairs of data items. Maps are also
