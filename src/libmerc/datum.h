@@ -12,7 +12,6 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 #include <unistd.h>
 #include <array>
 #include <vector>
@@ -922,8 +921,16 @@ public:
     ///
     writeable(uint8_t *begin, uint8_t *end) : data{begin}, data_end{end} { }
 
+    /// constructs a writeable object that tracks data being written to the
+    /// `std::array` \param a.
+    ///
     template <size_t N>
     constexpr writeable(std::array<uint8_t, N> &a) : data{a.data()}, data_end{data + N} { }
+
+    /// constructs a writeable object that tracks data being written to the
+    /// region between \param buf and `buf + len`.
+    ///
+    constexpr writeable(uint8_t *buf, size_t len) : data{buf}, data_end{buf + len} { }
 
     /// constructs a null writeable object
     ///
@@ -1135,6 +1142,13 @@ public:
         if (d.is_not_null()) {
             parse(d);
         }
+        return *this;
+    }
+
+    /// template specialization for char
+    ///
+    writeable & operator<<(char c) {
+        copy(c);
         return *this;
     }
 

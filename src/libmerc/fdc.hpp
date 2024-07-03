@@ -452,39 +452,56 @@ namespace cbor_fingerprint {
         m.close();
     }
 
+    // test cbor fingerprint encoding and decoding
+    //
+    static bool test_fingerprint(const char *fingerprint_string, FILE *f=nullptr) {
+            data_buffer<2048> data_buf;
+            datum fp_data{(uint8_t *)fingerprint_string, (uint8_t *)fingerprint_string + strlen(fingerprint_string)};
+            cbor_fingerprint::encode_cbor_fingerprint(fp_data, data_buf);
+
+            data_buffer<2048> out_buf;
+            datum encoded_data{data_buf.contents()};
+            cbor_fingerprint::decode_cbor_fingerprint(encoded_data, out_buf);
+            if (out_buf.contents().cmp(fp_data) != 0) {
+                if (f) {
+                    fprintf(f, "ERROR: MISMATCH\n");
+                    fprintf(f, "fingerprint:              %s\n", fingerprint_string);
+                    fprintf(f, "CBOR encoded fingerprint: ");
+                    data_buf.contents().fprint_hex(f); fputc('\n', f);
+                    fprintf(f, "decoded fingerprint:      ");
+                    out_buf.contents().fprint(f); fputc('\n', f);
+                    cbor::decode_fprint(data_buf.contents(), f);
+                }
+                return false;
+            }
+            return true;
+    };
+
     // cbor_fingerprint::unit_test() returns `true` if all unit tests
     // pass, `false` otherwise
     //
-    bool unit_test() {
+    static bool unit_test(FILE *f=nullptr) {
+
+        // example fingerprints
+        //
+        std::vector<const char *> fps = {
+            "http/(504f5354)(485454502f312e31)((486f7374)(557365722d4167656e74)(4163636570743a20746578742f68746d6c2c6170706c69636174696f6e2f7868746d6c2b786d6c2c6170706c69636174696f6e2f786d6c3b713d302e392c696d6167652f617669662c696d6167652f776562702c2a2f2a3b713d302e38)(4163636570742d4c616e6775616765)(4163636570742d456e636f64696e673a20677a69702c206465666c617465)(436f6e6e656374696f6e3a206b6565702d616c697665))",
+            "tls/1/(0303)(130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)[(0000)(000500050100000000)(000a00080006001d00170018)(000b00020100)(000d0012001004030804040105030805050108060601)(0010000e000c02683208687474702f312e31)(0012)(0017)(001b0003020002)(0023)(0029)(002b0009080304030303020301)(002d00020101)(0033)(ff01)]",
+            "quic/(00000001)(0303)(130113021303)[(000a000a00086399001d00170018)(002b0003020304)((0039)[(01)(03)(04)(05)(06)(07)(08)(09)(0f)(1b)(20)(80004752)(80ff73db)])(4469)]",
+            "http/randomized",
+            "tls/1/randomized",
+            "quic/randomized"
+        };
         bool all_tests_passed = true;
-        const char tls_fp[] = "tls/1/(0301)(0016002f000a000500ff)[(0000)(0023)]";
-        datum tls_fp_data{(uint8_t *)tls_fp, (uint8_t *)tls_fp + strlen(tls_fp)};
-        tls_fp_data.fprint(stdout); fputc('\n', stdout);
-        data_buffer<1024> dbuf;
-        encode_cbor_fingerprint(tls_fp_data, dbuf);
-        if (dbuf.is_null()) {
-            all_tests_passed = false;
+        for (const auto & fp_str : fps) {
+            all_tests_passed &= test_fingerprint(fp_str, f);
         }
-        dbuf.contents().fprint_hex(stdout); fputc('\n', stdout);
-
-        const char tls_fp0[] = "tls/(0301)(0016002f000a000500ff)((0000)(0023))";
-        datum tls_fp0_data{(uint8_t *)tls_fp0, (uint8_t *)tls_fp0 + strlen(tls_fp0)};
-        tls_fp0_data.fprint(stdout); fputc('\n', stdout);        dbuf.reset();
-        encode_cbor_fingerprint(tls_fp0_data, dbuf);
-        if (dbuf.is_null()) {
-            all_tests_passed = false;
-        }
-        dbuf.contents().fprint_hex(stdout); fputc('\n', stdout);
-
         return all_tests_passed;
     }
-
 };
 
-// note: this could be implemented as member functions of
-// analysis_context and destination_context
-//
-
+/// represents a fingerprint and destination context
+///
 class fdc {
     datum fingerprint;
     cbor::text_string user_agent;
@@ -494,6 +511,8 @@ class fdc {
     bool valid;
 
 public:
+
+    static constexpr uint64_t fdc_version_one = 1;
 
     fdc(datum fp,
         const char *ua,
@@ -507,80 +526,133 @@ public:
         dst_port{d_port},
         valid{
             fingerprint.is_not_null()
-            and (user_agent.is_valid() xor domain_name.is_valid())
+            and domain_name.is_valid()
             and dst_ip_str.is_valid()
         }
     { }
 
-    /// decode an fdc object from \ref datum \param d
-    ///
-    fdc(datum &d) :
-        fingerprint{d},
-        user_agent{cbor::text_string::decode(d)},
-        domain_name{cbor::text_string::decode(d)},
-        dst_ip_str{cbor::text_string::decode(d)},
-        dst_port{d},
-        valid{d.is_not_null() and user_agent.is_valid() xor domain_name.is_valid()}
-    { }
-
-    /// decode an fdc object from \ref datum \param d
-    ///
-    static void decode(datum &d,
-                       writeable &&fp,
-                       writeable &ua_str, // [MAX_USER_AGENT_LEN],
-                       writeable &sn_str, // [MAX_SNI_LEN],
-                       writeable &dst_ip_str,
-                       uint16_t &dst_port) {
-
-        cbor::array a{d};
-        printf("before:\n");
-        cbor::decode_fprint(a.value(), stdout);
-        cbor_fingerprint::decode_cbor_fingerprint(a.value(), fp);
-
-        printf("after:\n");  a.value().fprint_hex(stdout); fputc('\n', stdout);
-        cbor::decode_fprint(a.value(), stdout);
-        //ua_str << cbor::text_string::decode(a.value()).value();
-        sn_str << cbor::text_string::decode(a.value()).value();
-        dst_ip_str << cbor::text_string::decode(a.value()).value();
-        printf("last:\n");  a.value().fprint_hex(stdout); fputc('\n', stdout);
-        dst_port = cbor::uint64{a.value()}.value();  // TODO: check range
-        a.close();
-    }
-
     bool is_valid() const { return valid; }
 
-    void encode(writeable &w) const {
+    bool encode(writeable &w) const {
         if (not valid) {
             w.set_null();
-            return;
+            return false;
         }
-        cbor::output::array a{w};
+        cbor::output::map m{w};
+        cbor::uint64{fdc_version_one}.write(m);
+        cbor::output::array a{m};
         cbor_fingerprint::encode_cbor_fingerprint(fingerprint, a);
-        if (user_agent.is_valid()) {
-            user_agent.write(a);
-        }
-        if (domain_name.is_valid()) {
-            domain_name.write(a);
-        }
+        domain_name.write(a);
         dst_ip_str.write(a);
         dst_port.write(a);
+        user_agent.write(a);
         a.close();
+        m.close();
+        return !w.is_null();
     }
 
-    void fprint(FILE *f) const {
-        if (!valid) {
-            return;   // error; no valid data to print
+    /// decode an fdc object from \ref datum \param d
+    ///
+    static bool decode(datum &d,
+                       writeable &&fp,
+                       writeable &&sn_str,
+                       writeable &&dst_ip_str,
+                       uint16_t &dst_port,
+                       writeable &&ua_str)
+    {
+        cbor::map m{d};
+        cbor::uint64 fdc_version{d};
+        if (!d.is_readable() or fdc_version.value() != fdc_version_one) {
+            return false;
         }
-        fingerprint.fprint(f); fputc('\n', f);
-        if (user_agent.is_valid()) {
-            user_agent.value().fprint(f); fputc('\n', f);
-        }
-        domain_name.value().fprint(f); fputc('\n', f);
-        if (dst_ip_str.is_valid()) {
-            dst_ip_str.value().fprint(f); fputc('\n', f);
-        }
-        fprintf(f, "%zu\n", dst_port.value());
+        cbor::array a{d};
+        cbor_fingerprint::decode_cbor_fingerprint(a, fp);
+        fp.copy('\0');
+        sn_str << cbor::text_string::decode(a).value() << '\0';
+        dst_ip_str << cbor::text_string::decode(a).value() << '\0';
+        dst_port = cbor::uint64::decode_max(a, 0xffff).value();
+        ua_str << cbor::text_string::decode(a).value() << '\0';
+        a.close();
+        m.close();
 
+        return d.is_not_null()
+            and !fp.is_null()
+            and !ua_str.is_null()
+            and !sn_str.is_null()
+            and !dst_ip_str.is_null();
+    }
+
+    /// perform unit tests on class fdc, returning `true` if they pass
+    /// and `false` otherwise
+    ///
+    static bool unit_test(FILE *f=nullptr) {
+
+        // construct an fpc_object, then encode it into a writeable
+        // buffer
+        //
+        const char *fp = "tls/1/(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
+        fdc fdc_object{
+            datum{fp},
+            nullptr,
+            "npmjs.org",
+            "104.16.30.34",
+            443
+        };
+        dynamic_buffer output{1024};
+        bool encoding_ok = fdc_object.encode(output);
+        if (encoding_ok == false) {
+            return false;
+        }
+        datum encoded_fdc{output.contents()};
+
+        // decode the data in the buffer to decoded_fdc
+        //
+        static const size_t MAX_DST_ADDR_LEN   = 48;
+        static const size_t MAX_SNI_LEN        = 257;
+        static const size_t MAX_USER_AGENT_LEN = 512;
+        static const size_t MAX_FP_STR_LEN     = 4096;
+        char fp_str[MAX_FP_STR_LEN];
+        char dst_ip_str[MAX_DST_ADDR_LEN];
+        char sn_str[MAX_SNI_LEN];
+        char ua_str[MAX_USER_AGENT_LEN];
+        uint16_t dst_port;
+
+        bool decoding_ok = fdc::decode(encoded_fdc,
+                                       writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
+                                       writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
+                                       writeable{(uint8_t*)dst_ip_str, MAX_DST_ADDR_LEN},
+                                       dst_port,
+                                       writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
+        if (decoding_ok == false) {
+            return false;
+        }
+        fdc decoded_fdc(datum{fp_str},
+                        ua_str,
+                        sn_str,
+                        dst_ip_str,
+                        dst_port);
+
+        // compare the decoded_fdc to the original one; the test
+        // passes only if they are equal
+        //
+        if (decoded_fdc == fdc_object) {
+            return true;
+        }
+        printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+        return false;
+    }
+
+private:
+
+    /// compare this \ref fdc object with another, returning `true` if
+    /// they are equal, and `false` otherwise
+    ///
+    bool operator== (fdc &rhs) {
+        return fingerprint.cmp(rhs.fingerprint) == 0
+            and user_agent.value().cmp(rhs.user_agent.value()) == 0
+            and domain_name.value().cmp(rhs.domain_name.value()) == 0
+            and dst_ip_str.value().cmp(rhs.dst_ip_str.value()) == 0
+            and dst_port.value() == rhs.dst_port.value();
     }
 
 };

@@ -179,6 +179,21 @@ namespace cbor {
             value__{x}
         { }
 
+        /// decode a uint64 object, accepting only values that are no
+        /// greater than \param value_max.
+        ///
+        /// If the decoded `uint64` is greater than `value_max`, then
+        /// `d` is set to `null`, and the value returned MUST be
+        /// ignored.
+        ///
+        static uint64 decode_max(datum &d, uint64_t value_max) {
+            uint64 tmp{d};
+            if (tmp.value() > value_max) {
+                d.set_null();
+            }
+            return tmp;
+        }
+
         // returns a `uint8_t` containing the appropriate additional
         // information field for encoding a `uint64_t` with the value
         // \param x
@@ -494,6 +509,8 @@ namespace cbor {
         }
 
         datum& value() { return body; }
+
+        operator datum& () { return body; }
 
         void close() { read_break(body); }
 
