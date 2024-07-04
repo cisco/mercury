@@ -136,7 +136,7 @@ namespace cbor {
     //
     class uint64 {
         initial_byte ib;
-        uint64_t value__;
+        uint64_t value__{0};
 
     public:
 

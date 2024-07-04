@@ -587,6 +587,8 @@ public:
     ///
     static bool unit_test(FILE *f=nullptr) {
 
+        (void)f; // silence warning about unused paramer
+
         // construct an fpc_object, then encode it into a writeable
         // buffer
         //
@@ -638,7 +640,6 @@ public:
         if (decoded_fdc == fdc_object) {
             return true;
         }
-        printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
         return false;
     }
 

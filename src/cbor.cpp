@@ -15,7 +15,12 @@ using namespace mercury_option;
 
 int main(int argc, char *argv[]) {
 
+    // run unit tests (when NDEBUG is not defined)
+    //
+    assert(static_dictionary<0>::unit_test() == true);
+    assert(cbor::unit_test() == true);
     assert(cbor_fingerprint::unit_test() == true);
+    assert(fdc::unit_test() == true);
 
     const char *summary = "usage: %s [OPTIONS]\n";
     option_processor opt({
@@ -44,15 +49,22 @@ int main(int argc, char *argv[]) {
     }
 
     if (verbose_tests) {
-        printf("static_dictionary::unit_test: %s\n",
-               static_dictionary<0>::unit_test(stdout) ? "passed" : "failed");
-        printf("cbor::unit_test: %s\n",
-               cbor::unit_test(stdout) ? "passed" : "failed");
-        printf("cbor_fingerprint::unit_test: %s\n",
-               cbor_fingerprint::unit_test(stdout) ? "passed" : "failed");
-        printf("fdc::unit_test: %s\n",
-               fdc::unit_test(stdout) ? "passed" : "failed");
-        return EXIT_SUCCESS;
+        bool sd_result = static_dictionary<0>::unit_test(stdout);
+        bool cbor_result = cbor::unit_test(stdout);
+        bool cbor_fingerprint_result = cbor_fingerprint::unit_test(stdout);
+        bool fdc_result = fdc::unit_test(stdout);
+
+        printf("static_dictionary::unit_test: %s\n", sd_result ? "passed" : "failed");
+        printf("cbor::unit_test: %s\n", cbor_result ? "passed" : "failed");
+        printf("cbor_fingerprint::unit_test: %s\n", cbor_fingerprint_result ? "passed" : "failed");
+        printf("fdc::unit_test: %s\n", fdc_result ? "passed" : "failed");
+
+        if (sd_result and cbor_result and cbor_fingerprint_result and fdc_result) {
+            printf("all unit tests passed\n");
+            return EXIT_SUCCESS;
+        }
+        fprintf(stderr, "error: one or more unit tests failed\n");
+        return EXIT_FAILURE;
     }
 
     if (input_file_is_set) {
@@ -71,7 +83,6 @@ int main(int argc, char *argv[]) {
             }
         }
         if (decode_fdc) {
-            
             static const size_t MAX_DST_ADDR_LEN   = 48;
             static const size_t MAX_SNI_LEN        = 257;
             static const size_t MAX_USER_AGENT_LEN = 512;
