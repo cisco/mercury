@@ -213,6 +213,8 @@ add_dependencies(libmerc lctrie asn1)
 target_compile_options(libmerc PUBLIC ${libmerc_compile_opt})
 target_link_options(libmerc PRIVATE  -lz -lcrypto)
 target_compile_definitions(libmerc PRIVATE -DSSLNEW)
+set_target_properties(libmerc PROPERTIES PREFIX "")
+#set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }
 
 #set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
