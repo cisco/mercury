@@ -147,7 +147,7 @@ include_directories(rapidjson)
 ## libmerc source files
 set(libmerc_src 
     ${CMAKE_CURRENT_SOURCE_DIR}/asn1/oid.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/asn1/oidc.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/asn1/oid.h
     analysis.cc
     addr.cc
     dns.cc
