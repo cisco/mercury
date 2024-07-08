@@ -8,6 +8,7 @@
 #include <cassert>
 #include <vector>
 #include "json_object.h"
+#include "libmerc.h"  // for fingerprint_type
 
 class fingerprint {
     enum fingerprint_type type;

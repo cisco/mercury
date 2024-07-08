@@ -6,32 +6,7 @@
 #define FDC_HPP
 
 #include "static_dict.hpp"
-#include "libmerc.h"  // for fingerprint_type
-
-static const char *fingerprint_type_string(fingerprint_type fp_type) {
-    switch(fp_type) {
-    case fingerprint_type_unknown:     return "unknown";
-    case fingerprint_type_tls:         return "tls";
-    case fingerprint_type_tls_server:  return "tls_server";
-    case fingerprint_type_http:        return "http";
-    case fingerprint_type_http_server: return "http_server";
-    case fingerprint_type_ssh:         return "ssh";
-    case fingerprint_type_ssh_kex:     return "ssh_kex";
-    case fingerprint_type_tcp:         return "tcp";
-    case fingerprint_type_dhcp:        return "dhcp";
-    case fingerprint_type_smtp_server: return "smtp_server";
-    case fingerprint_type_dtls:        return "dtls";
-    case fingerprint_type_dtls_server: return "dtls_server";
-    case fingerprint_type_quic:        return "quic";
-    case fingerprint_type_tcp_server:  return "tcp_server";
-    case fingerprint_type_openvpn:     return "openvpn";
-    case fingerprint_type_tofsee:      return "tofsee";
-    default:
-        ;
-    }
-    return "unregistered fingerprint type";
-}
-
+#include "fingerprint.h"  // for fingerprint_type
 
 // cbor_fingerprint decodes a CBOR representation of a Network
 // Protocol Fingerprint (NPF), which is defined by this correspondence
@@ -417,7 +392,7 @@ namespace cbor_fingerprint {
                    datum &d,
                    writeable &w) {
 
-        w << datum{fingerprint_type_string((fingerprint_type)fp_type)};
+        w << datum{fingerprint::get_type_name((fingerprint_type)fp_type)};
         w.copy('/');
         switch(fp_type) {
         case fingerprint_type_http:
