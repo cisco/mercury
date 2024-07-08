@@ -224,13 +224,14 @@ set_target_properties(libmerc PROPERTIES PREFIX "")
 #set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }
 
+## TARGET : distclean {
 add_custom_target(distclean
     COMMAND
         ${GIT_EXECUTABLE} clean -xfd
         # TODO update command for windows with
         # COMMAND cmd /c "${CMAKE_EXECUTABLE}" clean -xfd
 )
-
+# }
 #set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 #set_target_properties(libmerc_mac_o PROPERTIES CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 #target_compile_options(libmerc_mac_o PUBLIC ${libmerc_compile_opt} "SHELL:-arch arm64" "SHELL:-arch x86_64")
