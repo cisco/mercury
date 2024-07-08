@@ -3,6 +3,8 @@ project(libmerc)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set( CMAKE_VERBOSE_MAKEFILE on )
+# no installing
+set(CMAKE_SKIP_INSTALL_RULES True)
 set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS}")
 
 
@@ -126,7 +128,12 @@ endif()
 
 # program checks
 # TODO: add program checks for python3, valngrind etc.
-
+find_package(Git)
+if(Git_FOUND)
+    message(STATUS "Git found at ${GIT_EXECUTABLE}")
+else()
+    message(STATUS "Git not found, make distclean might not work")
+endif()
 ## end checks and configure
 
 
@@ -216,6 +223,13 @@ target_compile_definitions(libmerc PRIVATE -DSSLNEW)
 set_target_properties(libmerc PROPERTIES PREFIX "")
 #set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }
+
+add_custom_target(distclean
+    COMMAND
+        ${GIT_EXECUTABLE} clean -xfd
+        # TODO update command for windows with
+        # COMMAND cmd /c "${CMAKE_EXECUTABLE}" clean -xfd
+)
 
 #set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 #set_target_properties(libmerc_mac_o PROPERTIES CMAKE_OSX_ARCHITECTURES "arm64;x86_64")

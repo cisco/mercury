@@ -18,3 +18,5 @@ unit_tests/pcaps/*.pcap
 .vscode/
 *.mk
 *.tgz
+*CMakeCache.txt
+*CMakeFiles/
