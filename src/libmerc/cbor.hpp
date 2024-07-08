@@ -116,10 +116,13 @@ namespace cbor {
 
         uint8_t value() const { return value__; }
 
+        // "simple values" associated with major_type simple_or_float
+        //
         static constexpr uint8_t False = 20;
         static constexpr uint8_t True = 21;
         static constexpr uint8_t null = 22;
         static constexpr uint8_t undefined = 23;
+        static constexpr uint8_t break_code = 31;
 
     };
 
