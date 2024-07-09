@@ -87,7 +87,7 @@ public:
     static inline void write_codepoint(buffer_stream &b, uint16_t codepoint) {
         b.write_char('\\');
         b.write_char('u');
-        b.write_uint16_hex(codepoint);
+        b.write_hex_uint(codepoint);
     }
 
     /// runs the unit tests for \ref utf8_string and returns `true` if
