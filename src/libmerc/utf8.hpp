@@ -141,6 +141,17 @@ public:
 
 };
 
+[[maybe_unused]] static int utf8_fuzz_test(const uint8_t *data, size_t size) {
+    struct datum utf8_data{data, data+size};
+    utf8_string s_utf8{utf8_data};
+    char out_data[4096];
+    buffer_stream buf{out_data, sizeof(out_data)};
+    s_utf8.write(buf, s_utf8.data, s_utf8.length());
+
+    return 0;
+}
+
+
 // UTF-8 is a variable-length encoding scheme that represents unicode
 // code points in sequences of one to four bytes.  It is backwards
 // compatible with ASCII.
