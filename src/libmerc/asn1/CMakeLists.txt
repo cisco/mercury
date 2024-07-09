@@ -3,7 +3,21 @@ project(asn1)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set( CMAKE_VERBOSE_MAKEFILE on )
-set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CMAKE_CXX_FLAGS} --std=c++17 -Wall -Wpedantic -Wextra -O2 ${OPTFLAGS}")
+
+# Check for windows and set some paths to prevent VScode and other prefix appending
+if (is_win)
+    set(CMAKE_BINARY_DIR "$<1:${CMAKE_CURRENT_SOURCE_DIR}>")
+    set(EXECUTABLE_OUTPUT_PATH "$<1:${CMAKE_CURRENT_SOURCE_DIR}>")
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_SOURCE_DIR}>")
+    set(CMAKE_BUILD_FILES_DIRECTORY "$<1:${CMAKE_CURRENT_SOURCE_DIR}>")
+    set(CMAKE_MSVCIDE_RUN_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+
+if(is_win)
+    set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CMAKE_CXX_FLAGS} /std:c++17 /Wall /Ot /O2 ${OPTFLAGS}")
+else()
+    set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CMAKE_CXX_FLAGS} --std=c++17 -Wall -Wpedantic -Wextra -O2 ${OPTFLAGS}")
+endif()
 
 add_executable(oidc oidc.cc)
 
@@ -16,15 +30,18 @@ add_executable(oidc oidc.cc)
 file(GLOB asn1_files ${CMAKE_CURRENT_SOURCE_DIR}/*.asn1)
 list(SORT asn1_files)
 
-add_custom_command(OUTPUT 
-        oidc.h
+if (is_win)
+    set(oid_exec_cmd cd /D ${CMAKE_CURRENT_SOURCE_DIR} && oidc ${asn1_files})
+else()
+    set(oid_exec_cmd oidc ${asn1_files})
+endif()
+add_custom_target( 
+        oid
     COMMAND
-        #${CMAKE_COMMAND} -E oidc ${${CMAKE_COMMAND} -E sort ${${CMAKE_COMMAND} -E ls *.asn1}}
-        #${CMAKE_COMMAND} -E ./oidc 
-        oidc ${asn1_files} 
+        ${oid_exec_cmd}
     DEPENDS
         oidc)
 
 add_custom_target(asn1 ALL
     DEPENDS
-        oidc.h)
+        oid)

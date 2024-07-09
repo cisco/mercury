@@ -26,8 +26,11 @@
 // the compiler; for background, see
 // https://www.gnu.org/software/gnulib/manual/html_node/Exported-Symbols-of-Shared-Libraries.html
 //
+#ifdef _WIN32
+#define LIBMERC_DLL_EXPORTED __declspec(dllexport)
+#else
 #define LIBMERC_DLL_EXPORTED __attribute__((__visibility__("default")))
-
+#endif
 //
 // start of libmerc version 2 API
 //

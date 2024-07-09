@@ -173,29 +173,39 @@ set(libmerc_src
 )
 
 ## default libmerc compile options
-set(libmerc_compile_opt
-    --std=c++17
-    -O3
-    -Wall -Wextra -Wno-deprecated ${CDEFS} ${MSV}
-    -Wno-missing-braces
-    -Wno-narrowing
-    -shared
-    -fPIC
-    -DDONT_USE_STDERR
-    -fno-rtti
-    -Wformat
-    -Wformat-security
-    -Wno-deprecated-declarations
-    -Wno-long-long
-    -Wmissing-noreturn
-    -Wunreachable-code
-    -fvisibility=hidden
-    -DNDEBUG
-    -fno-builtin-malloc
-    -fno-builtin-calloc
-    -fno-builtin-realloc
-    -fno-builtin-free
+if (is_win)
+    set(libmerc_compile_opt
+        /std:c++17
+        /Ot
+        /O2
+        /Wall
+        # TODO: fill up the rest of the options
+    )
+else()
+    set(libmerc_compile_opt
+        --std=c++17
+        -O3
+        -Wall -Wextra -Wno-deprecated ${CDEFS} ${MSV}
+        -Wno-missing-braces
+        -Wno-narrowing
+        -shared
+        -fPIC
+        -DDONT_USE_STDERR
+        -fno-rtti
+        -Wformat
+        -Wformat-security
+        -Wno-deprecated-declarations
+        -Wno-long-long
+        -Wmissing-noreturn
+        -Wunreachable-code
+        -fvisibility=hidden
+        -DNDEBUG
+        -fno-builtin-malloc
+        -fno-builtin-calloc
+        -fno-builtin-realloc
+        -fno-builtin-free
 )
+endif()
 
 ## check compiler flags availablity
 include(CheckCXXCompilerFlag)
@@ -215,19 +225,26 @@ endif()
 ## TARGET : libmerc {
 add_library(libmerc SHARED ${libmerc_src})
 target_link_directories(libmerc PUBLIC lctrie)
-target_link_libraries(libmerc PUBLIC lctrie)
+target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(libmerc PUBLIC lctrie z crypto)
 add_dependencies(libmerc lctrie asn1)
 target_compile_options(libmerc PUBLIC ${libmerc_compile_opt})
-target_link_options(libmerc PRIVATE  -lz -lcrypto)
-target_compile_definitions(libmerc PRIVATE -DSSLNEW)
+target_compile_definitions(libmerc PUBLIC -DNDEBUG -DDONT_USE_STDERR)
+#target_link_options(libmerc PUBLIC  -lz -lcrypto)
+#target_compile_definitions(libmerc PRIVATE -DSSLNEW)
 set_target_properties(libmerc PROPERTIES PREFIX "")
 #set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }
 
 ## TARGET : distclean {
+if (is_win)
+    set(tmp_files asn1\\Makefile asn1\\oid.cc asn1\\oid.h lctrie\\Makefile)
+else()
+    set(tmp_files asn1/Makefile asn1/oid.cc asn1/oid.h lctrie/Makefile)
+endif()
 add_custom_target(distclean
     COMMAND
-        ${GIT_EXECUTABLE} clean -xfd
+        ${GIT_EXECUTABLE} clean -xfd && ${GIT_EXECUTABLE} restore ${tmp_files}
         # TODO update command for windows with
         # COMMAND cmd /c "${CMAKE_EXECUTABLE}" clean -xfd
 )

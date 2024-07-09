@@ -3,7 +3,12 @@ project(lctrie)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set( CMAKE_VERBOSE_MAKEFILE on )
-set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS} --std=c++17 -Wall -Wpedantic -Wextra -g -ggdb -Wall -O3 -fPIC ${OPTFLAGS}")
+if(is_win)
+    # no need of -fPIC
+    set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS} /std:c++17 /Wall /Ot /O2 ${OPTFLAGS}")
+else()
+    set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS} --std=c++17 -Wall -Wpedantic -Wextra -g -ggdb -Wall -O3 -fPIC ${OPTFLAGS}")
+endif()
 
 set(lctrie_src
     lctrie.c
