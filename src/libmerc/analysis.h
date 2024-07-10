@@ -192,17 +192,19 @@ class naive_bayes {
     floating_point_type ua_weight;
 public:
 
-    static constexpr uint8_t num_feature_weights = 6;
+    static constexpr uint8_t num_features = 6;
     enum class WEIGHT : uint8_t {
-        AS_WEIGHT = 0,
-        DOMAIN_WEIGHT = 1,
-        PORT_WEIGHT = 2,
-        IP_WEIGHT = 3,
-        SNI_WEIGHT = 4,
-        UA_WEIGHT = 5
+        AS = 0,
+        DOMAIN = 1,
+        PORT = 2,
+        IP = 3,
+        SNI = 4,
+        UA = 5
     };
 
-   static constexpr std::array<floating_point_type, naive_bayes::num_feature_weights> feature_weights = {
+    using feature_weights = std::array<floating_point_type, naive_bayes::num_features>;
+
+    static constexpr feature_weights default_feature_weights = {
         0.13924,  // as_weight
         0.15590,  // domain_weight
         0.00528,  // port_weight
@@ -210,21 +212,21 @@ public:
         0.96941,  // sni_weight
         1.0       // ua_weight
     };
- 
+
     //    naive_bayes() { }
 
     naive_bayes(const std::vector<class process_info> &processes,
                 uint64_t count,
                 ptr_dict &os_dictionary,
-                const std::array<floating_point_type, naive_bayes::num_feature_weights> &weights)
+                const naive_bayes::feature_weights &weights)
         : total_count{count},
           os_dict{os_dictionary},
-          as_weight{weights[static_cast<std::uint8_t>(WEIGHT::AS_WEIGHT)]},
-          domain_weight{weights[static_cast<std::uint8_t>(WEIGHT::DOMAIN_WEIGHT)]},
-          port_weight{weights[static_cast<std::uint8_t>(WEIGHT::PORT_WEIGHT)]},
-          ip_weight{weights[static_cast<std::uint8_t>(WEIGHT::IP_WEIGHT)]},
-          sni_weight{weights[static_cast<std::uint8_t>(WEIGHT::SNI_WEIGHT)]},
-          ua_weight{weights[static_cast<std::uint8_t>(WEIGHT::UA_WEIGHT)]}
+          as_weight{weights[static_cast<std::uint8_t>(WEIGHT::AS)]},
+          domain_weight{weights[static_cast<std::uint8_t>(WEIGHT::DOMAIN)]},
+          port_weight{weights[static_cast<std::uint8_t>(WEIGHT::PORT)]},
+          ip_weight{weights[static_cast<std::uint8_t>(WEIGHT::IP)]},
+          sni_weight{weights[static_cast<std::uint8_t>(WEIGHT::SNI)]},
+          ua_weight{weights[static_cast<std::uint8_t>(WEIGHT::UA)]}
     {
 
         //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -471,7 +473,7 @@ public:
                      const subnet_data *subnets,
                      common_data *c,
                      bool malware_database,
-                     const std::array<floating_point_type, naive_bayes::num_feature_weights> &feature_weights) :
+                     const naive_bayes::feature_weights &feature_weights) :
         classifier{processes, count, os_dictionary, feature_weights},
         malware_db{malware_database},
         subnet_data_ptr{subnets},
@@ -977,27 +979,27 @@ public:
          * unknown feature weights will be considered as error and the
          * fingerprint entry will not be processed.
          */
-        std::array<floating_point_type, naive_bayes::num_feature_weights> weights{naive_bayes::feature_weights};
+        naive_bayes::feature_weights weights{naive_bayes::default_feature_weights};
         if (fp.HasMember("feature_weights") && fp["feature_weights"].IsObject()) {
-            if (fp["feature_weights"].MemberCount() != naive_bayes::num_feature_weights) {
+            if (fp["feature_weights"].MemberCount() != naive_bayes::num_features) {
                 printf_err(log_err,
                            "Expecting %d feature weights but observed %d\n",
-                            naive_bayes::num_feature_weights, fp["feature_weights"].MemberCount());
+                            naive_bayes::num_features, fp["feature_weights"].MemberCount());
                 return;
             }
             for (auto &v : fp["feature_weights"].GetObject()) {
                 if (strcmp(v.name.GetString(), "as") == 0) {
-                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::AS_WEIGHT)] = v.value.GetFloat();
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::AS)] = v.value.GetFloat();
                 } else if (strcmp(v.name.GetString(), "domain") == 0) {
-                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::DOMAIN_WEIGHT)] = v.value.GetFloat();
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::DOMAIN)] = v.value.GetFloat();
                 } else if (strcmp(v.name.GetString(), "port") == 0) {
-                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::PORT_WEIGHT)] = v.value.GetFloat();
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::PORT)] = v.value.GetFloat();
                 } else if (strcmp(v.name.GetString(), "ip") == 0) {
-                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::IP_WEIGHT)] = v.value.GetFloat();
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::IP)] = v.value.GetFloat();
                 } else if (strcmp(v.name.GetString(), "sni") == 0) {
-                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::SNI_WEIGHT)] = v.value.GetFloat();
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::SNI)] = v.value.GetFloat();
                 } else if (strcmp(v.name.GetString(), "ua") == 0) {
-                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::UA_WEIGHT)] = v.value.GetFloat();
+                    weights[static_cast<std::uint8_t>(naive_bayes::WEIGHT::UA)] = v.value.GetFloat();
                 } else {
                     printf_err(log_err, "Unexpected feature weight \"%s\" \n", v.name.GetString());
                     return;
