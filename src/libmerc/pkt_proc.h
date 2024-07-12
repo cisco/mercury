@@ -10,7 +10,9 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#ifndef _WIN32
 #include <sys/time.h>
+#endif
 #include <stdexcept>
 #include <memory>
 #include "tcp.h"
@@ -118,8 +120,8 @@ struct stateful_pkt_proc {
     const crypto_policy::assessor *crypto_policy = nullptr;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
-        ip_flow_table{prealloc_size},
-        tcp_flow_table{prealloc_size},
+        ip_flow_table{(unsigned int)prealloc_size},
+        tcp_flow_table{(unsigned int)prealloc_size},
         tcp_init_msg_filter{},
         analysis{},
         mq{nullptr},

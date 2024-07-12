@@ -18,7 +18,6 @@
 #include "lex.h"
 #include "ip_address.hpp"
 
-
 // From Section 2.1 of RFC 1123:
 //
 //     If a dotted-decimal number can be entered without such
@@ -167,6 +166,11 @@ using host_identifier = std::variant<std::monostate, ipv4_t, ipv6_array_t, dns_n
 /// Returns a \ref host_identifier constructed by parsing the text
 /// string in a datum.
 ///
+#ifdef _WIN32
+using host_identifier = std::variant<std::monostate, ipv4_t, dns_name_t>;
+#else
+using host_identifier = std::variant<std::monostate, ipv4_t, ipv6_array_t, dns_name_t>;
+#endif
 static inline host_identifier host_identifier_constructor(datum d) {
 
     if (d.is_null()            // null line
@@ -191,11 +195,12 @@ static inline host_identifier host_identifier_constructor(datum d) {
         d = ipv4.advance();
         return ipv4.value.get_value();
 
-    }
-    if (lookahead<ipv6_address_string> ipv6{d}) {
+
+#ifndef _WIN32
+    } else if (lookahead<ipv6_address_string> ipv6{d}) {
         d = ipv6.advance();
         return ipv6.value.get_value_array();
-
+#endif
     } else {
         printf_err(log_warning, "invalid host identifier string\n");
     }
@@ -545,7 +550,9 @@ inline std::string normalize_ip_address(const std::string &s) {
 //
 class watchlist {
     std::unordered_set<uint32_t> ipv4_addrs;
+#ifndef _WIN32
     std::unordered_set<ipv6_array_t> ipv6_addrs;
+#endif
     std::unordered_set<std::string> dns_names;
 
 public:
@@ -577,9 +584,11 @@ public:
     bool contains(std::string &name) const {
         return dns_names.find(name) != dns_names.end();
     }
+#ifndef _WIN32
     bool contains(ipv6_array_t addr) const {
         return ipv6_addrs.find(addr) != ipv6_addrs.end();
     }
+#endif
     bool contains(host_identifier hid) const {
         return std::visit(*this, hid);
     }
@@ -591,9 +600,12 @@ public:
         datum d = get_datum(addr);
         if (lookahead<ipv4_address_string> ipv4{d}) {
             return contains(ipv4.value.get_value());
-        } else if (lookahead<ipv6_address_string> ipv6{d}) {
+        }
+    #ifndef _WIN32
+        else if (lookahead<ipv6_address_string> ipv6{d}) {
             return contains(ipv6.value.get_value_array());
         }
+    #endif
         return false;
     }
 
@@ -603,9 +615,11 @@ public:
     bool operator()(dns_name_t &name) const {
         return dns_names.find(name) != dns_names.end();
     }
+    #ifndef _WIN32
     bool operator()(ipv6_array_t addr) const {
         return ipv6_addrs.find(addr) != ipv6_addrs.end();
     }
+    #endif
     bool operator()(std::monostate) const {
         return false;
     }
@@ -638,11 +652,15 @@ public:
             dns_names.insert(dns.value.get_string());
             d = dns.advance();
 
-        } else if (lookahead<ipv6_address_string> ipv6{d}) {
+        }
+#ifndef _WIN32
+        else if (lookahead<ipv6_address_string> ipv6{d}) {
+            // fprintf(stdout, "ipv6_address_string:\t");  ipv6.value.print();
             ipv6_addrs.insert(ipv6.value.get_value_array());
             d = ipv6.advance();
-
-        } else {
+        }
+#endif
+        else {
             if (verbose) { printf_err(log_warning, "warning: invalid line in watchlist::process_line\n"); }
             return false;
         }
@@ -656,12 +674,14 @@ public:
         for (const auto & ipv4 : ipv4_addrs) {
             fprintf(stdout, "%u\n", ipv4);
         }
+#ifndef _WIN32
         for (const auto & ipv6 : ipv6_addrs) {
             fprintf(stdout,
                     "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
                     ipv6[0], ipv6[1], ipv6[2], ipv6[3], ipv6[4], ipv6[5], ipv6[6], ipv6[7],
                     ipv6[8], ipv6[9], ipv6[10], ipv6[11], ipv6[12], ipv6[13], ipv6[14], ipv6[15]);
         }
+#endif
     }
 
 };

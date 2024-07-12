@@ -455,7 +455,7 @@ class mysql_server_greet : public base_protocol {
 public:
 
     mysql_server_greet (datum &pkt) :
-        len{ (encoded<uint8_t>{pkt}.value()) + (encoded<uint8_t>{pkt}.value() << 8) + (encoded<uint8_t>{pkt}.value() << 16) },
+        len{(uint32_t)((encoded<uint8_t>{pkt}.value()) + (encoded<uint8_t>{pkt}.value() << 8) + (encoded<uint8_t>{pkt}.value() << 16)) },
         pkt_num{pkt},
         proto{pkt},
         version{ [&]() -> datum {

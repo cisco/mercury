@@ -80,7 +80,7 @@ public:
             return;
         }
 
-        struct buffer_stream buf{(char *)buffer, buffer_size};
+        struct buffer_stream buf{(char *)buffer, (int)buffer_size};
         struct json_object record{&buf};
         write_json(record);
         record.close();

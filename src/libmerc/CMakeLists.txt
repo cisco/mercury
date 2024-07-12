@@ -180,6 +180,7 @@ if (is_win)
         /O2
         /Wall
         # TODO: fill up the rest of the options
+        /permissive-
     )
 else()
     set(libmerc_compile_opt
@@ -224,7 +225,7 @@ endif()
 
 ## TARGET : libmerc {
 add_library(libmerc SHARED ${libmerc_src})
-target_link_directories(libmerc PUBLIC lctrie)
+target_link_directories(libmerc PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(libmerc PUBLIC lctrie z crypto)
 add_dependencies(libmerc lctrie asn1)

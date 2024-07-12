@@ -122,7 +122,11 @@ public:
         }
         size_t weight = 0;
         for (const auto & x : unknown_1) {
+#ifdef _WIN32
+            weight += std::bitset<8>{x}.count();
+#else
             weight += __builtin_popcount(x);
+#endif
         }
         if (weight < weight_threshold) {
             return true;

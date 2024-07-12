@@ -191,7 +191,7 @@ class quic_transport_parameter {
 
 public:
 
-    quic_transport_parameter(datum &d) : _id{d}, _length{d}, _value{d, _length.value()} { }
+    quic_transport_parameter(datum &d) : _id{d}, _length{d}, _value{d, (ssize_t)_length.value()} { }
 
     bool is_not_empty() const {
         return _value.is_not_null(); // note: zero-length value is possible
@@ -365,7 +365,7 @@ class crypto {
     datum _data;
 
 public:
-    crypto(datum &p) : _offset{p}, _length{p}, _data{p, _length.value()} {    }
+    crypto(datum &p) : _offset{p}, _length{p}, _data{p, (ssize_t)_length.value()} {    }
 
     crypto(const crypto &c) : _offset{c._offset}, _length{c._length}, _data{c._data} {   }
 
@@ -486,7 +486,7 @@ class connection_close {
     datum reason_phrase;
 
 public:
-    connection_close(datum &p) : error_code{p}, frame_type{p}, reason_phrase_length{p}, reason_phrase{p, reason_phrase_length.value()} { }
+    connection_close(datum &p) : error_code{p}, frame_type{p}, reason_phrase_length{p}, reason_phrase{p, (ssize_t)reason_phrase_length.value()} { }
 
     bool is_valid() const { return reason_phrase.is_not_empty(); }
 

@@ -10,7 +10,15 @@
 #include <stdint.h>
 #include <errno.h>
 #include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#include <BaseTsd.h>
+#include <windows.h>
+//#include <sysinfoapi.h>
+typedef SSIZE_T ssize_t;
+#else
 #include <unistd.h>
+#endif
 #include <sys/types.h>
 #include <stdlib.h>
 #include <time.h>
@@ -283,6 +291,21 @@ enum status filename_append(char dst[FILENAME_MAX],
     }
     return status_ok;
 }
+
+#ifdef _WIN32
+int clock_gettime(int, struct timespec* spec)
+{
+    timespec ts;
+    if (!timespec_get(&ts, TIME_UTC))
+        return -1;
+    spec->tv_sec = ts.tv_sec;
+    spec->tv_nsec = ts.tv_nsec;
+    return 0;
+}
+
+#define CLOCK_REALTIME 0
+
+#endif
 
 void timer_start(struct timer *t) {
     if (clock_gettime(CLOCK_REALTIME, &t->before) != 0) {

@@ -9,7 +9,9 @@
 #include <variant>
 #include <set>
 #include <tuple>
+#ifndef _WIN32
 #include <netinet/in.h>
+#endif
 
 #include "libmerc.h"
 #include "pkt_proc.h"
@@ -583,13 +585,13 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.additional_bytes_needed){
         // init reassembly
-        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,(unsigned int)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
-        tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+        tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,(unsigned int)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
@@ -895,7 +897,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                                         struct timespec *ts,
                                         struct tcp_reassembler *reassembler) {
 
-    struct buffer_stream buf{(char *)buffer, buffer_size};
+    struct buffer_stream buf{(char *)buffer, (int)buffer_size};
     struct key k;
     struct datum pkt{ip_packet, ip_packet+length};
     ip ip_pkt{pkt, k};
@@ -1126,7 +1128,7 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     // write out link layer protocol metadata, if there is any
     //
     if (std::visit(is_not_empty{}, x)) {
-        struct buffer_stream buf{(char *)buffer, buffer_size};
+        struct buffer_stream buf{(char *)buffer, (int)buffer_size};
         struct json_object record{&buf};
         std::visit(write_metadata{record, false, false, false}, x);
         record.print_key_timestamp("event_start", ts);

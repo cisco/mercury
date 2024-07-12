@@ -14,7 +14,14 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#else
 #include <unistd.h>
+#endif
 #include <array>
 #include <vector>
 #include <bitset>
@@ -41,6 +48,9 @@
 /// Byte re-ordering operations on `uint16_t`, `uint32_t`, and
 /// `uint64_t` integers.
 ///
+
+#ifndef HAVE_HTON_DEF
+#define HAVE_HTON_DEF
 
 #ifdef _WIN32
 
@@ -108,6 +118,7 @@ inline static constexpr T ntoh(T x) { if (host_little_endian) { return swap_byte
 template <typename T>
 inline static constexpr T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
 
+#endif
 /// @} -- end of integeroperations
 
 /// returns the lowercase ASCII character corresponding to `x`, if `x`

@@ -47,6 +47,22 @@ class udp {
 
     // struct header represents a UDP header
     //
+#ifdef _WIN32
+
+#pragma pack(1)
+struct header {
+        uint16_t src_port;
+        uint16_t dst_port;
+        uint16_t length;
+        uint16_t checksum;
+    };
+#pragma pack()
+
+    const struct header *header;
+    uint32_t more_bytes_needed;
+
+#else
+
     struct header {
         uint16_t src_port;
         uint16_t dst_port;
@@ -55,8 +71,9 @@ class udp {
     } __attribute__ ((__packed__));
 
     const struct header *header;
-
     uint32_t more_bytes_needed;
+
+#endif
 
 public:
 

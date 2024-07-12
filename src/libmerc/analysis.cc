@@ -5,7 +5,6 @@
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-#include <pthread.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>

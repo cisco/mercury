@@ -13,7 +13,9 @@
 #include "common.h"
 
 using ipv4_addr_t = uint32_t;
+#ifndef _WIN32
 using ipv6_addr_t = __uint128_t;
+#endif
 
 #define IP_SUBNET_UNUSED      0
 #define IP_SUBNET_BGP         1
@@ -111,10 +113,11 @@ struct lct_subnet {
 //
 using lct_subnet_t = lct_subnet<uint32_t>;
 
+#ifndef _WIN32
 // ipv6 subnet
 //
 using lct_subnet_v6_t = lct_subnet<__uint128_t>;
-
+#endif
 
 typedef struct lct_ip_stats {
   uint32_t size;  // size of the subnet
@@ -128,9 +131,11 @@ template <> struct address_family<uint32_t> {
     constexpr static const int typecode = LCTRIE_AF_INET;
 };
 
+#ifndef _WIN32
 template <> struct address_family<__uint128_t> {
     constexpr static const int typecode = LCTRIE_AF_INET6;
 };
+#endif
 
 #if 0
 template <typename T>
@@ -350,11 +355,13 @@ inline void fprint_addr(FILE *f, const char *key, const uint32_t *addr) {
     fprintf(f, "%s: %u.%u.%u.%u\n", key, n[0], n[1], n[2], n[3]);
 }
 
+#ifndef _WIN32
 inline void fprint_addr(FILE *f, const char *key, const __uint128_t *addr) {
     const uint8_t *n = (const uint8_t *)addr;
     fprintf(f, "%s: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n", key,
             n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8], n[9], n[10], n[11], n[12], n[13], n[14], n[15]);
 }
+#endif
 
 // three-way subnet comparison for qsort
 //extern int subnet_cmp(const void *di, const void *dj);
