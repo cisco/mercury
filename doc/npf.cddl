@@ -1,0 +1,99 @@
+; Concise Data Definition Language (CDDL) definitions for Network
+; Protocol Fingerprinting
+;
+
+; An npf fingerprint is a map from unsigned integers (the
+; fingerprint_type enumeration) to a protocol-specific fingerprint
+; object
+;
+fingerprint = {
+   ? tls: tls_fp
+   ? http: http_fp
+}
+
+; The fingerprint_type enumeration identifies a protocol types
+; associated with a fingerprint
+;
+fingerprint_type = &(
+    ; unknown: 0,
+    tls: 1,
+    ; tls_server: 2,
+    http: 3,
+    ; http_server: 4,
+    ; ssh: 5,
+    ; ssh_kex: 6,
+    ; tcp: 7,
+    ; dhcp: 8,
+    ; smtp_server: 9,
+    ; dtls: 10,
+    ; dtls_server: 11,
+    ; quic: 12,
+    ; tcp_server: 13,
+    ; openvpn: 14,
+    ; tofsee: 15,
+)
+
+; A tls_fp is a map from a version number (unsigned integer) to a
+; specific version of a tls fingerprint
+;
+tls_fp = {
+   ? 1: tls_fp_1
+}
+
+; tls_fp_1 is a record-style array of data elements that represents a
+; tls fingerprint, which corresponds to the tls/1 fingerprint:
+;
+;    "tls/1" (TLS_Version) (TLS_Ciphersuite) [ TLS_Extension* ]
+;
+;
+tls_fp_1 = [
+   version: bstr .size 2,
+   ciphersuites: bstr,
+   extensions: [             ; sorted into ascending lexicographic order
+      * bstr
+   ]
+   ? rank: uint              ; rank of sort-permutation
+]
+
+; An http_fp is a map from a version number (unsigned integer) to a
+; specific version of an http fingerprint
+;
+http_fp = {
+  ? 0: http_fp_0
+}
+
+; http_fp_0 is a record-style array of data elements that represents
+; an http fingerprint, which corresponds to the http/ fingerprint:
+;
+; "http/" (method) (version) ((selected-header)*)
+;
+http_fp_0 = [
+   method: bstr,
+   version: bstr,
+   selected-headers: [
+      * bstr
+   ]
+]
+
+;
+; IP address and flow key definitions
+;
+ipv4_address = bstr .size 4
+ipv6_address = bstr .size 16
+
+ipv4_flow_key = [
+  src_ip: ipv4_address,
+  dst_ip: ipv4_address,
+  src_port: uint,
+  dst_port: uint,
+  protocol: uint
+]
+
+ipv6_flow_key = [
+  src_ip: ipv4_address,
+  dst_ip: ipv4_address,
+  src_port: uint,
+  dst_port: uint,
+  protocol: uint
+]
+
