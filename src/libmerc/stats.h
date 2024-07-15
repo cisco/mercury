@@ -347,11 +347,7 @@ class data_aggregator {
         //fprintf(stderr, "note: running consumer in %p\n", (void *)this);
         while(shutdown_requested.load() == false) {
             process_event_queues();
-#ifdef _WIN32
-            std::this_thread::sleep_for(std::chrono::microseconds(consumer_sleep)); // sleep for fifty microseconds
-#else
-            usleep(consumer_sleep); // sleep somewhere between 1us and 50us
-#endif
+            std::this_thread::sleep_for(std::chrono::microseconds(consumer_sleep)); // sleep for consumer_sleep microseconds
         }
     }
 

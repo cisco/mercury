@@ -13,6 +13,7 @@
 
 class arp_packet {
 #ifdef _WIN32
+// TODO: REFACTOR to use encoded<>
 #pragma pack(1)
 #endif
     struct header {

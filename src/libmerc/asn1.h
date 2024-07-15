@@ -427,7 +427,7 @@ struct tlv {
     //
     explicit tlv(uint8_t tag_, datum value_) :
         tag{tag_},
-        length{value_.length() > 0 ? (uint64_t)value_.length() : 0},
+        length{value_.length() > 0 ? (uint64_t)value_.length() : 0},    // TODO : reflect 0 len TLV as failure
         value{value_}
     { }
 
