@@ -12,6 +12,7 @@
 #include "quic.h"
 #include "fingerprint.h"
 #include "tls_extensions.h"
+#include "ech.hpp"
 
 /* TLS Constants */
 
@@ -55,6 +56,8 @@
 #define type_session_ticket                  0x0023
 #define type_quic_transport_parameters       0x0039
 #define type_quic_transport_parameters_draft 0xffa5
+
+#define type_ech_client_hello                0xfe0d
 
 static uint16_t static_extension_types[num_static_extension_types] = {
         1,         /* max fragment length                    */
@@ -358,6 +361,19 @@ void tls_extensions::set_meta_data(struct datum &server_name,
             //     alpn.push_back(name.get_string());
             // }
         }
+
+        if (tmp_type == type_ech_client_hello) {
+            struct datum ext{data, data_end};
+            ext.skip(L_ExtensionType + L_ExtensionLength);
+            protocol_name_list pnl{ext};
+            alpn = pnl.get_data();
+            // datum data = pnl.get_data();
+            // while (data.is_not_empty()) {
+            //     protocol_name name{data};
+            //     alpn.push_back(name.get_string());
+            // }
+        }
+
     }
 }
 
@@ -770,6 +786,33 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
 
 }
 
+void tls_extensions::print_ech_client_hello(struct json_object &o) const {
+
+    struct datum ext_parser{this->data, this->data_end};
+
+    while (ext_parser.length() > 0) {
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
+
+        const uint8_t *data = ext_parser.data;
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
+            break;
+        }
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
+            break;
+        }
+        if (ext_parser.skip(tmp_len) == false) {
+            break;
+        }
+
+        if (tmp_type == type_ech_client_hello) {
+            struct datum ext{data + L_ExtensionType + L_ExtensionLength, ext_parser.data};
+            ech_client_hello{ext}.write_json(o);
+        }
+    }
+
+}
+
 #define L_DTLSCookieLength             1
 
 void tls_client_hello::parse(struct datum &p) {
@@ -866,6 +909,7 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
     if (output_metadata) {
         extensions.print_alpn(tls_client, "application_layer_protocol_negotiation");
         extensions.print_session_ticket(tls_client, "session_ticket");
+        extensions.print_ech_client_hello(tls_client);
     }
     // Temporarily disable tls.features due to output volume
     // data_buffer<2048> buf;
