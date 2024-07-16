@@ -37,7 +37,7 @@ is_macos_arm = @IS_MACOS_ARM@
 
 CXX     = @CXX@
 CC      = @CC@
-CFLAGS  = --std=c++17
+CFLAGS  += --std=c++17
 CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wextra -Wno-deprecated $(CDEFS) $(MSV)
