@@ -27,6 +27,8 @@ public:
     }
 
     datum get_value() const { return elements; }
+
+    ssize_t get_length() const { return elements.length(); }
 };
 
 
@@ -281,8 +283,15 @@ public:
         json_object ech_client_hello_json{o, "ech_client_hello"};
         cs.write_json(ech_client_hello_json);
         ech_client_hello_json.print_key_uint("config_id", config_id.value());
-        enc.write_json(ech_client_hello_json, "enc");
-        payload.write_json(ech_client_hello_json, "payload");
+        if constexpr (false) {
+            //
+            // this data is too verbose for large-scale observations
+            //
+            enc.write_json(ech_client_hello_json, "enc");
+            payload.write_json(ech_client_hello_json, "payload");
+        } else {
+            ech_client_hello_json.print_key_uint("payload_length", (size_t)payload.get_length());
+        }
         ech_client_hello_json.close();
     }
 
