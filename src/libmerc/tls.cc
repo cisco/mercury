@@ -362,18 +362,6 @@ void tls_extensions::set_meta_data(struct datum &server_name,
             // }
         }
 
-        if (tmp_type == type_ech_client_hello) {
-            struct datum ext{data, data_end};
-            ext.skip(L_ExtensionType + L_ExtensionLength);
-            protocol_name_list pnl{ext};
-            alpn = pnl.get_data();
-            // datum data = pnl.get_data();
-            // while (data.is_not_empty()) {
-            //     protocol_name name{data};
-            //     alpn.push_back(name.get_string());
-            // }
-        }
-
     }
 }
 
