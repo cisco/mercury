@@ -32,6 +32,7 @@
 #include "util_obj.h"
 #include "archive.h"
 #include "watchlist.hpp"
+#include "static_dict.hpp"
 
 // TBD - move flow_key_sprintf_src_addr() to the right file
 //
@@ -192,25 +193,43 @@ class naive_bayes {
     floating_point_type ua_weight;
 public:
 
+    static constexpr uint8_t num_features = 6;
+    static constexpr static_dictionary<naive_bayes::num_features> features {
+        {
+            "as",
+            "domain",
+            "port",
+            "ip",
+            "sni",
+            "ua"
+        }
+    };
+
+    using feature_weights = std::array<floating_point_type, naive_bayes::num_features>;
+
+    static constexpr feature_weights default_feature_weights = {
+        0.13924,  // as_weight
+        0.15590,  // domain_weight
+        0.00528,  // port_weight
+        0.56735,  // ip_weight
+        0.96941,  // sni_weight
+        1.0       // ua_weight
+    };
+
     //    naive_bayes() { }
 
     naive_bayes(const std::vector<class process_info> &processes,
                 uint64_t count,
                 ptr_dict &os_dictionary,
-                floating_point_type _as_weight = 0.13924,
-                floating_point_type _domain_weight = 0.15590,
-                floating_point_type _port_weight = 0.00528,
-                floating_point_type _ip_weight = 0.56735,
-                floating_point_type _sni_weight = 0.96941,
-                floating_point_type _ua_weight = 1.0)
+                const naive_bayes::feature_weights &weights)
         : total_count{count},
           os_dict{os_dictionary},
-          as_weight{_as_weight},
-          domain_weight{_domain_weight},
-          port_weight{_port_weight},
-          ip_weight{_ip_weight},
-          sni_weight{_sni_weight},
-          ua_weight{_ua_weight}
+          as_weight{weights[features.index("as")]},
+          domain_weight{weights[features.index("domain")]},
+          port_weight{weights[features.index("port")]},
+          ip_weight{weights[features.index("ip")]},
+          sni_weight{weights[features.index("sni")]},
+          ua_weight{weights[features.index("ua")]}
     {
 
         //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -456,8 +475,9 @@ public:
                      ptr_dict &os_dictionary,
                      const subnet_data *subnets,
                      common_data *c,
-                     bool malware_database) :
-        classifier{processes, count, os_dictionary},
+                     bool malware_database,
+                     const naive_bayes::feature_weights &feature_weights) :
+        classifier{processes, count, os_dictionary, feature_weights},
         malware_db{malware_database},
         subnet_data_ptr{subnets},
         common{c},
@@ -949,6 +969,51 @@ public:
             total_count = fp["total_count"].GetUint64();
         }
 
+        /*
+         * The json object "feature_weights" consists of the feature weights
+         * to be used in weighted naive bayes classifier and it is an
+         * optional parameter. When feature weights are present, the weights
+         * will be read from resource file and the same will be used in
+         * the naive bayes classifier.
+         *
+         * If no weights are present, then default weights will be used.
+         * When feature_weights json object is present, it has to contain
+         * weights for all expected features. Missing feature weights or
+         * unknown feature weights will be considered as error and the
+         * fingerprint entry will not be processed.
+         */
+        naive_bayes::feature_weights weights{naive_bayes::default_feature_weights};
+        if (fp.HasMember("feature_weights") && fp["feature_weights"].IsObject()) {
+            if (fp["feature_weights"].MemberCount() != naive_bayes::num_features) {
+                printf_err(log_err,
+                           "Expecting %d feature weights but observed %d\n",
+                            naive_bayes::num_features, fp["feature_weights"].MemberCount());
+                return;
+            }
+            for (auto &v : fp["feature_weights"].GetObject()) {
+                if (!v.value.IsFloat()) {
+                    printf_err(log_err, "Unexpected value for feature weight \"%s\" \n", v.name.GetString());
+                    return;
+                }
+                if (strcmp(v.name.GetString(), "as") == 0) {
+                    weights[naive_bayes::features.index("as")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "domain") == 0) {
+                    weights[naive_bayes::features.index("domain")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "port") == 0) {
+                    weights[naive_bayes::features.index("port")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "ip") == 0) {
+                    weights[naive_bayes::features.index("ip")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "sni") == 0) {
+                    weights[naive_bayes::features.index("sni")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "ua") == 0) {
+                    weights[naive_bayes::features.index("ua")] = v.value.GetFloat();
+                } else {
+                    printf_err(log_err, "Unexpected feature weight \"%s\" \n", v.name.GetString());
+                    return;
+                }
+            }
+        }
+
         std::vector<class process_info> process_vector;
 
         if (fp.HasMember("process_info") && fp["process_info"].IsArray()) {
@@ -1114,7 +1179,8 @@ public:
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
-            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, &common, MALWARE_DB);
+            
+            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, &common, MALWARE_DB, weights);
             // fp_data.print(stderr);
 
             if (fpdb.find(fp_string) != fpdb.end()) {
@@ -1414,6 +1480,7 @@ public:
     const char *get_resource_version() {
         return resource_version.c_str();
     }
+
 };
 
 
