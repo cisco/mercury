@@ -80,15 +80,20 @@ void dump_packet_info(struct datum &pkt_data) {
             } else if (protocol == ip::protocol::udp) {
                 class udp udp_pkt{pkt_data};
                 udp_pkt.set_key(k);
+                fprintf(stdout, "packet.ip.udp.data.length: %zd\n", pkt_data.length());
+                fprintf(stdout, "packet.ip.udp.data:");
+                pkt_data.fprint_hex(stdout);
+                fputc('\n', stdout);
+            } else {
+                fputs("packet.data: ", stdout);
+                pkt_data.fprint_hex(stdout);
+                fputc('\n', stdout);
             }
         }
         break;
     default:
         fprintf(stdout, "unknown ethertype (%u)\n", ethertype);
     }
-    fputs("packet.data: ", stdout);
-    pkt_data.fprint_hex(stdout);
-    fputc('\n', stdout);
     fputc('\n', stdout);
 }
 
