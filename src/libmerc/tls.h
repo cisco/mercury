@@ -324,6 +324,8 @@ struct tls_extensions : public datum {
 
     void print_session_ticket(struct json_object &o, const char *key) const;
 
+    void print_ech_client_hello(struct json_object &o) const;
+
     void fingerprint_quic_tls(struct buffer_stream &b, enum tls_role role) const;
     void fingerprint_format2(struct buffer_stream &b, enum tls_role role) const;
 
