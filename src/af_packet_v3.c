@@ -128,7 +128,7 @@ void ring_limits_init(struct ring_limits *rl, float frac);  // defined below
  * sig_close_flag and the packet worker threads will watch
  * sig_close_workers.
  */
-extern int sig_close_flag; /* Watched by the stats tracking thread, defined in signal_handling.c */
+extern volatile sig_atomic_t sig_close_flag; /* Watched by the stats tracking thread, defined in signal_handling.c */
 static int sig_close_workers = 0; /* Packet proccessing var */
 
 static double time_elapsed(struct timespec *ts) {

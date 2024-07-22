@@ -18,7 +18,7 @@
 #include "signal_handling.h"
 #include "af_packet_v3.h"
 
-int sig_close_flag = 0; /* Watched by the threads while processing packets */
+volatile sig_atomic_t sig_close_flag = 0; /* Watched by the threads while processing packets */
 
 /*
  * sig_close() causes a graceful shutdown of the program after recieving
@@ -33,13 +33,20 @@ void sig_close (int signal_arg) {
 
 void sig_backtrace (int signal_arg) {
 
-    int nptrs;
+    (void)signal_arg; /* "use" argument */
+    /* We can't call perror() or psignal() here with signal_arg because
+       both are AS-Unsafe corrupt i18n heap */
+
     void *buffer[128];
 
-    psignal(signal_arg, "\ngetting backtrace");
-    nptrs = backtrace(buffer, 128);
-    fprintf(stderr, "backtrace() returned %d addresses\n", nptrs);
-    backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+    static const char *msg = "\nThread stall handled: getting backtrace\n";
+
+    int nptrs = backtrace(buffer, 128); /* MT-Safe | AS-Unsafe init heap dlopen plugin lock */
+
+    int l = write(STDERR_FILENO, msg, strlen(msg)); /* POSIX 2016 signal safe */
+    if (l > 0) {
+        backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO); /* MT-Safe | AS-Safe | AC-Unsafe lock */
+    }
 
     /* Find an execution context to restore */
     pthread_t tid = pthread_self();
@@ -59,11 +66,39 @@ void sig_backtrace (int signal_arg) {
 }
 
 
+void sig_init_backtrace() {
+
+    /* backtrace() is not safe if first called from a
+     * signal handler because it calls dlopen() to load
+     * the library needed to perform said backtrace which
+     * in turn calls malloc() which is strictly forbidden
+     * in a signal handler.
+     *
+     * So the solution is to call backtrace once first to
+     * get the library open before registering the signal
+     * handler.
+     */
+
+    void *buffer[128];
+    int nptrs = backtrace(buffer, 128);
+    (void)nptrs;
+}
+
+
 /*
  * set up signal handlers, so that output is flushed upon close
  *
  */
 enum status setup_signal_handler(void) {
+
+    static int load_bt = 0;
+
+    /* Pre-load backtrace library */
+    if (load_bt == 0) {
+        sig_init_backtrace();
+        load_bt = 1;
+    }
+
     /* Ctl-C causes graceful shutdown */
     if (signal(SIGINT, sig_close) == SIG_ERR) {
         return status_err;

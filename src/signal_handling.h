@@ -13,10 +13,13 @@
 #include <signal.h>
 #include "mercury.h"
 
-extern int sig_close_flag; /* Watched by the threads while processing packets */
+extern volatile sig_atomic_t sig_close_flag; /* Watched by the threads while processing packets */
 extern struct thread_stall *global_thread_stall;
 
 void sig_close (int signal_arg);
+
+void sig_backtrace (int signal_arg);
+void sig_init_backtrace();
 
 enum status setup_signal_handler(void);
 
