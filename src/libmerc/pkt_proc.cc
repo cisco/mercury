@@ -53,6 +53,7 @@
 #include "openvpn.h"
 #include "mysql.hpp"
 #include "geneve.hpp"
+#include "tsc_clock.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -508,6 +509,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
     }
 
+    if (ts->tv_sec == 0) {
+        tsc_clock time_now;
+        ts->tv_sec = time_now.time_in_seconds();
+    }
+
     // process transport/application protocols
     //
     protocol x;
@@ -785,6 +791,11 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     if (reassembler) {
         reassembler->dump_pkt = false;
     }
+    if (ts->tv_sec == 0) {
+        tsc_clock time_now;
+        ts->tv_sec = time_now.time_in_seconds();
+    }
+
     if (transport_proto == ip::protocol::tcp) {
         tcp_packet tcp_pkt{pkt, &ip_pkt};
         if (!tcp_pkt.is_valid()) {
