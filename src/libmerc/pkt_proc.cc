@@ -306,9 +306,10 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
 //
 void stateful_pkt_proc::set_udp_protocol(protocol &x,
                       struct datum &pkt,
-                      enum udp_msg_type msg_type,
+                      udp::ports ports,
                       bool is_new,
-                      const struct key& k) {
+                      const struct key& k,
+                      udp &udp_pkt) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -317,6 +318,23 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     // if (msg_type == msg_type_unknown) {
     //     msg_type = udp_pkt.estimate_msg_type_from_ports();
     // }
+    enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
+
+        if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
+            msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
+            // if (ports.src == htons(53) || ports.dst == htons(53)) {
+            //     msg_type = udp_msg_type_dns;
+            // }
+            // if (selector.mdns() && (ports.src == htons(5353) || ports.dst == htons(5353))) {
+            //     msg_type = udp_msg_type_dns;
+            // }
+        /*    if (ports.dst == htons(4789)) {
+                msg_type = udp_msg_type_vxlan;
+            }
+        */
+    }
+    uint32_t more_bytes = 0;
+
     switch(msg_type) {
     case udp_msg_type_dns:
         if (mdns_packet::check_if_mdns(k)) {
@@ -338,6 +356,10 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_quic:
         x.emplace<quic_init>(pkt, quic_crypto);
+        more_bytes = std::get<quic_init>(x).additional_bytes_needed();
+        if (more_bytes) {
+            udp_pkt.reassembly_needed(more_bytes);
+        }
         break;
     case udp_msg_type_dtls_client_hello:
         {
@@ -476,6 +498,110 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     return false;
 }
 
+// returns boolean whether to fingerprrint/analyze current udp pkt
+bool stateful_pkt_proc::process_udp_data (protocol &x,
+                          struct datum &pkt,
+                          udp &udp_pkt,
+                          struct key &k,
+                          struct timespec *ts,
+                          struct tcp_reassembler *reassembler,
+                          bool quic_reassembly) {
+
+    // No reassembler : call set_tcp_protocol on every data pkt
+    if (!reassembler || ! quic_reassembly) {
+        bool is_new = false;
+        if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
+            is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
+        }
+        set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
+        return true;
+    }
+
+    if (!udp_pkt.get_len()) {
+        // ignore zero len pkts??
+        return false;
+    }
+
+    bool is_new = false;
+    if (global_vars.output_tcp_initial_data) {
+        is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
+    } 
+    //datum pkt_copy{pkt};
+
+    // For UDP reassembly, all the reassembly will always happen at the encapsulated application or transport protocol layer, like QUIC
+    // currently this code is tailored for QUIC only
+    // A QUIC pkt/ UDP pkt can be checked if it is involved in reassembly if either the CH initial part is seen with additional bytes needed,
+    // or a QUIC pkt with crypto frames and the flow exists in reassembly table
+
+    set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
+    //if ( (!udp_pkt.additional_bytes_needed() && (std::holds_alternative<quic_init>(x)))  || (!(std::holds_alternative<quic_init>(x))) ) {
+    if (!(std::holds_alternative<quic_init>(x))) {
+        // no need for reassembly
+        return true;
+    }
+    else if ((udp_pkt.additional_bytes_needed() > tcp_reassembly_flow_context::max_data_size)){ //|| (tcp_pkt.data_length > tcp_reassembly_flow_context::max_data_size)) {
+        // cant do reassembly
+        // TODO: add indication for truncation
+        return true;
+    } 
+    
+    // reassembly may be needed
+    // pkts that reach here are inital msg with additional_bytes_needed or
+    // non initial pkts that dont match any protocol, so could be part of a reassembly flow
+    // check if in reassembly table to continue
+    // init otherwise
+    //
+    const datum &scid = std::get<quic_init>(x).get_scid();
+    uint32_t crypto_len = 0;
+    const uint8_t *crypto_data = std::get<quic_init>(x).get_crypto_buf(&crypto_len);
+    uint32_t crypto_offset = std::get<quic_init>(x).get_min_crypto_offset();
+ 
+    reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec, scid);
+
+    if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
+        // init reassembly
+        quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, scid};
+        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data,crypto_data+crypto_len});
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_progress){
+        // continue reassembly
+        quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, scid};
+        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data,crypto_data+crypto_len});
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_consumed) {
+        // this will never happen
+        return false;
+    }
+    else if (r_state == reassembly_state::reassembly_quic_discard) {
+        // some non matching quic flow on known 5 tuple
+        return true;
+    }
+    else {
+        // this will never happen
+        return false;
+    }
+
+    // after processing this pkt, check for states again
+    reassembly_map_iterator it = reassembler->get_current_flow();
+    if (reassembler->is_ready(it)) {
+        // reassmbly done
+        // process reassembled data
+        //
+        struct datum reassembled_data = reassembler->get_reassembled_data(it);
+        //set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
+        // update quic crpto buffer and reparse client hello
+        std::get<quic_init>(x).reparse_crypto_buf(reassembled_data);
+
+        // mark flow as completed
+        reassembler->set_completed(it);
+        return true;
+    }
+
+    return false;
+}
+
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
                                         size_t buffer_size,
                                         const uint8_t *ip_packet,
@@ -489,6 +615,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     ip ip_pkt{pkt, k};
     uint8_t transport_proto = ip_pkt.transport_protocol();
     bool truncated_tcp = false;
+    bool truncated_quic = false;
     if (reassembler) {
         reassembler->dump_pkt = false;
     }
@@ -582,28 +709,13 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 break;
             }
         }
-
-        enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
-
-        if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
-            msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
-            // if (ports.src == htons(53) || ports.dst == htons(53)) {
-            //     msg_type = udp_msg_type_dns;
-            // }
-            // if (selector.mdns() && (ports.src == htons(5353) || ports.dst == htons(5353))) {
-            //     msg_type = udp_msg_type_dns;
-            // }
-        /*    if (ports.dst == htons(4789)) {
-                msg_type = udp_msg_type_vxlan;
-            }
-        */
+ 
+        if (!process_udp_data(x, pkt, udp_pkt, k, ts, reassembler, true)) {
+            return 0;
         }
-
-        bool is_new = false;
-        if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
-            is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
+        else if (udp_pkt.additional_bytes_needed()) {
+            truncated_quic = true;
         }
-        set_udp_protocol(x, pkt, msg_type, is_new, k);
     }
 
     // process transport/application protocol
@@ -639,7 +751,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         // write indication of truncation or reassembly
         //
-        if (!reassembler && truncated_tcp) {
+        if (!reassembler && (truncated_tcp || truncated_quic)) {
             struct json_object flags{record, "reassembly_properties"};
             flags.print_key_bool("truncated", true);
             flags.close();
@@ -834,17 +946,19 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 break;
             }
         }
-        enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt);
-
-        if (msg_type == udp_msg_type_unknown) {  // TODO: wrap this up in a traffic_selector member function
-            msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
-           /* if (ports.dst == htons(4789)) {
-                msg_type = udp_msg_type_vxlan; // could parse VXLAN header here
+ 
+        if (reassembler) {
+            bool ret = process_udp_data(x, pkt, udp_pkt, k, ts, reassembler, true);
+            if (reassembler->in_progress(reassembler->curr_flow)) {
+                analysis.flow_state_pkts_needed = true;
             }
-        */
+            if (!ret) {
+                return 0;
+            }
         }
-
-        set_udp_protocol(x, pkt, msg_type, false, k);
+        else {
+            process_udp_data(x, pkt, udp_pkt, k, ts, reassembler, true);
+        }
     }
 
     // process protocol data element

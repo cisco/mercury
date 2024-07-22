@@ -245,6 +245,14 @@ struct stateful_pkt_proc {
                           struct timespec *ts, 
                           struct tcp_reassembler *reassembler);
     
+    bool process_udp_data (protocol &x,
+                          struct datum &pkt,
+                          udp &udp_pkt,
+                          struct key &k,
+                          struct timespec *ts,
+                          struct tcp_reassembler *reassembler,
+                          bool quic_reassembly);
+    
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,
                           bool is_new,
@@ -252,9 +260,10 @@ struct stateful_pkt_proc {
 
     void set_udp_protocol(protocol &x,
                           struct datum &pkt,
-                          enum udp_msg_type msg_type,
+                          udp::ports ports,
                           bool is_new,
-                          const struct key& k);
+                          const struct key& k,
+                          udp &udp_pkt);
 
     bool dump_pkt ();
 };
