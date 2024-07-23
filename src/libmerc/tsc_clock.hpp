@@ -5,6 +5,25 @@
 #ifndef TSC_CLOCK_HPP
 #define TSC_CLOCK_HPP
 
+#if defined(__i386__) || defined(__x86_64__)
+    #define read_timestamp_counter() ({ \
+        uint32_t lo, hi; \
+        asm volatile("rdtsc" : "=a" (lo), "=d" (hi)); \
+        ((uint64_t)hi << 32) | lo; \
+    })
+    #define tsc_clock_is_valid true
+#elif defined(__aarch64__)
+    #define read_timestamp_counter() ({ \
+        uint64_t ticks; \
+        asm volatile("mrs %0, CNTVCT_EL0" : "=r" (ticks)); \
+        ticks; \
+    })
+    #define tsc_clock_is_valid true
+#else
+    #define read_timestamp_counter() 0
+    #define tsc_clock_is_valid false
+#endif
+
 #include <thread>
 #include <chrono>
 
@@ -15,16 +34,12 @@ class tsc_clock
     uint64_t start_tick;
 
 public:
+
     static uint64_t get_clock_ticks_per_sec() {
         tsc_clock start;
         std::this_thread::sleep_for(1s);
         tsc_clock end;
-        return (end.get_tick() - start.get_tick());
-    }
-    static uint64_t clock_ticks_per_sec;
-
-    static void initialize() {
-        clock_ticks_per_sec = get_clock_ticks_per_sec();
+        return (end.get_start_tick() - start.get_start_tick());
     }
 
     tsc_clock() {
@@ -32,6 +47,7 @@ public:
     }
 
     time_t time_in_seconds() const {
+        static const uint64_t clock_ticks_per_sec = get_clock_ticks_per_sec();
         if (!is_valid()) {
             return 0;
         }
@@ -44,10 +60,11 @@ public:
             return 0;
         }
 
-        return(read_timestamp_counter() - get_tick());
+        return(read_timestamp_counter() - get_start_tick());
     }
 
     time_t elapsed_time_in_sec() const {
+        static const uint64_t clock_ticks_per_sec = get_clock_ticks_per_sec();
         if (!is_valid()) {
             return 0;
         }
@@ -55,27 +72,12 @@ public:
         return (elapsed_time() / clock_ticks_per_sec);
      }
 
-
-    static uint64_t read_timestamp_counter() {
-#if defined(__i386__) || defined(__x86_64__)
-        uint32_t lo, hi;
-        asm volatile("rdtsc" : "=a" (lo), "=d" (hi));
-        return ((uint64_t)hi << 32) | lo;
-#elif defined(__aarch64__)
-        uint64_t ticks;
-        asm volatile("mrs %0, CNTVCT_EL0" : "=r" (ticks));
-        return ticks;
-#else
-        return 0;
-#endif
-    }
-
-    uint64_t get_tick() const {
+    uint64_t get_start_tick() const {
         return start_tick;
     }
 
     static bool is_valid() {
-        if (clock_ticks_per_sec) {
+        if (tsc_clock_is_valid) {
             return true;
         }
 
@@ -97,4 +99,5 @@ public:
     }
 #endif //NDEBUG
 };
+
 #endif //TSC_CLOCK_HPP

@@ -14,7 +14,6 @@
 #include "pkt_proc.h"
 #include "config_generator.h"
 #include "global_config.h"
-#include "tsc_clock.hpp"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -42,7 +41,6 @@ static const uint32_t git_count = GIT_COUNT;
 
 static char init_time[128] = { '\0' };
 
-uint64_t tsc_clock::clock_ticks_per_sec = 0;
 
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
@@ -91,7 +89,6 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     // taking place
     //
     assert(printf_err(log_info, "libmerc is running assert() tests\n") != 0);
-    tsc_clock::initialize();
 
     try {
         m = new mercury{vars, verbosity};
