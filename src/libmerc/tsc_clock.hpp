@@ -98,7 +98,8 @@ public:
             return true;
         }
         std::this_thread::sleep_for(1s);
-        if (start.elapsed_time_in_sec() == 1) {
+        uint64_t elapsed_time = start.elapsed_time_in_sec();
+        if (elapsed_time == 1) {
             return true;
         }
         return false;
