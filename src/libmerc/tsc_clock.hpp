@@ -35,11 +35,19 @@ class tsc_clock
 
 public:
 
-    static uint64_t get_clock_ticks_per_sec() {
-        tsc_clock start;
-        std::this_thread::sleep_for(1s);
-        tsc_clock end;
-        return (end.get_start_tick() - start.get_start_tick());
+    static uint64_t get_ticks_per_sec() {
+        if (!tsc_clock_is_valid) {
+            return 0;
+        }
+
+        static uint64_t ticks_per_second = 0;
+        if (ticks_per_second == 0) {
+            tsc_clock start;
+            std::this_thread::sleep_for(1s);
+            tsc_clock end;
+            ticks_per_second = end.get_start_tick() - start.get_start_tick();
+        }
+        return ticks_per_second;
     }
 
     tsc_clock() {
@@ -47,15 +55,14 @@ public:
     }
 
     time_t time_in_seconds() const {
-        static const uint64_t clock_ticks_per_sec = get_clock_ticks_per_sec();
         if (!is_valid()) {
             return 0;
         }
 
-        return (start_tick / clock_ticks_per_sec);
+        return (get_start_tick() / get_ticks_per_sec());
     }
 
-    uint64_t elapsed_time() const {
+    uint64_t elapsed_tick() const {
         if (!is_valid()) {
             return 0;
         }
@@ -64,12 +71,11 @@ public:
     }
 
     time_t elapsed_time_in_sec() const {
-        static const uint64_t clock_ticks_per_sec = get_clock_ticks_per_sec();
         if (!is_valid()) {
             return 0;
         }
 
-        return (elapsed_time() / clock_ticks_per_sec);
+        return (elapsed_tick() / get_ticks_per_sec());
      }
 
     uint64_t get_start_tick() const {
@@ -88,7 +94,7 @@ public:
     static bool unit_test() {
         tsc_clock start;
         // Pass this test for unsupported platform
-        if (is_valid()) {
+        if (!is_valid()) {
             return true;
         }
         std::this_thread::sleep_for(1s);

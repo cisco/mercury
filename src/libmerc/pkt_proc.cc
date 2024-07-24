@@ -791,6 +791,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     if (reassembler) {
         reassembler->dump_pkt = false;
     }
+
     if (ts->tv_sec == 0) {
         tsc_clock time_now;
         ts->tv_sec = time_now.time_in_seconds();
