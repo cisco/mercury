@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
@@ -25,13 +26,26 @@ volatile sig_atomic_t sig_close_flag = 0; /* Watched by the threads while proces
  * an appropriate signal
  */
 void sig_close (int signal_arg) {
-    psignal(signal_arg, "\nshutting down");
+    int saved_errno = errno; /* in case we modify it */
+
+    (void)signal_arg; /* "use" argument */
+
+    static const char *msg = "\nshutting down\n";
+
+    int l = write(STDERR_FILENO, msg, strlen(msg));
+    (void)l;
+
     sig_close_flag = 1; /* tell all threads to shutdown gracefully */
+
     fclose(stdin);      /* if are reading from stdin, stop reading */
+
+    errno = saved_errno; /* restore */
 }
 
 
-void sig_backtrace (int signal_arg) {
+__attribute__((noreturn)) void sig_backtrace (int signal_arg) {
+
+    int saved_errno = errno; /* in case we modify it */
 
     (void)signal_arg; /* "use" argument */
     /* We can't call perror() or psignal() here with signal_arg because
@@ -58,11 +72,19 @@ void sig_backtrace (int signal_arg) {
              * for this thread so we can now break out
              * of this stall
              */
+
+            errno = saved_errno; /* restore from possible modification */
+
             siglongjmp(global_thread_stall[tnum].jmp_env, 1);
         }
 
         tnum++;
     }
+
+    /* We are never supposed to get to the end of this signal handler since
+     * we longjmp out
+     */
+    abort();
 }
 
 
@@ -137,7 +159,7 @@ void disable_all_signals(void) {
   sigfillset(&signal_set);
   sigdelset(&signal_set, SIGUSR1); /* except the USR1 signal for backtraces */
   if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
-      fprintf(stderr, "%s: error in pthread_sigmask blocking signals\n", 
+      fprintf(stderr, "%s: error in pthread_sigmask blocking signals\n",
               strerror(errno));
   }
 }
