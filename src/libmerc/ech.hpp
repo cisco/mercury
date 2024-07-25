@@ -27,6 +27,8 @@ public:
     }
 
     datum get_value() const { return elements; }
+
+    ssize_t get_length() const { return elements.length(); }
 };
 
 
@@ -50,12 +52,20 @@ public:
 
     hpke_symmetric_cipher_suite(datum &d) : kdf_id{d}, aead_id{d} { }
 
+    void write_json(json_object &o) const {
+        json_object wrapper{o, "hpke_symmetric_cipher_suite"};
+        kdf_id.write_json(wrapper);
+        aead_id.write_json(wrapper);
+        wrapper.close();
+    }
+
     void write_json(json_array &a) const {
         json_object wrapper{a};
         kdf_id.write_json(wrapper);
         aead_id.write_json(wrapper);
         wrapper.close();
     }
+
 };
 
 // Following draft-ietf-tls-esni-18:
@@ -227,5 +237,64 @@ public:
 
 };
 
+
+// ECHClientHello, following Section 5 of
+// https://datatracker.ietf.org/doc/draft-ietf-tls-esni/18/
+//
+//   enum {
+//        encrypted_client_hello(0xfe0d), (65535)
+//     } ExtensionType;
+//
+// The payload of the extension has the following structure:
+//
+//     enum { outer(0), inner(1) } ECHClientHelloType;
+//
+//     struct {
+//        ECHClientHelloType type;
+//        select (ECHClientHello.type) {
+//            case outer:
+//                HpkeSymmetricCipherSuite cipher_suite;
+//                uint8 config_id;
+//                opaque enc<0..2^16-1>;
+//                opaque payload<1..2^16-1>;
+//            case inner:
+//                Empty;
+//        };
+//     } ECHClientHello;
+//
+class ech_client_hello {
+    encoded<uint8_t> ech_client_hello_type;
+    hpke_symmetric_cipher_suite cs;
+    encoded<uint8_t> config_id;
+    opaque<uint16_t> enc;
+    opaque<uint16_t> payload;
+
+public:
+
+    ech_client_hello(datum &d) :
+        ech_client_hello_type{d},
+        cs{d},
+        config_id{d},
+        enc{d},
+        payload{d}
+    { }
+
+    void write_json(json_object &o) const {
+        json_object ech_client_hello_json{o, "ech_client_hello"};
+        cs.write_json(ech_client_hello_json);
+        ech_client_hello_json.print_key_uint("config_id", config_id.value());
+        if constexpr (false) {
+            //
+            // this data is too verbose for large-scale observations
+            //
+            enc.write_json(ech_client_hello_json, "enc");
+            payload.write_json(ech_client_hello_json, "payload");
+        } else {
+            ech_client_hello_json.print_key_uint("payload_length", (size_t)payload.get_length());
+        }
+        ech_client_hello_json.close();
+    }
+
+};
 
 #endif // ECH_HPP

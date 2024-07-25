@@ -1,5 +1,13 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.30
+* Dramatic improvements to TCP reassembly for output, performance and TCP segments handling.
+* Improved error handling for malformed UTF-8 strings encountered in protocol fields.
+* Support to parse and output an Encrypted Client Hello extension features.
+* Concise Data Definition Language (CDDL) definitions for Network Protocol Fingerprinting.
+* Concise Binary Object Representation (CBOR) encoding and decoding for fingerprints and Fingerprint and Destination Context.
+* Support for reading classifier feature weights from resource file, whenever available.
+
 ## Version 2.5.29
 * Support for "dual DB" resource archives, as described in
   [doc/resources.md](../doc/resources.md).

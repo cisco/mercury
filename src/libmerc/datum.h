@@ -12,14 +12,13 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 #include <unistd.h>
 #include <array>
+#include <vector>
 #include <bitset>
 #include <limits>
 #include <string>
 #include <cassert>
-#include "libmerc.h"  // for enum status
 #include "buffer_stream.h"
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
@@ -201,6 +200,11 @@ struct datum {
     ///
     datum(const uint8_t *first, const uint8_t *last) : data{first}, data_end{last} {}
 
+    /// construct a datum representing the null-terminated character
+    /// string \param str
+    ///
+    explicit datum(const char *str) : data{(uint8_t *)str}, data_end{data + strlen(str)} { }
+
     /// construct a datum by accepting \p length bytes from datum \p d
     ///
     /// \param d      the datum to accept bytes from
@@ -241,6 +245,7 @@ struct datum {
     bool is_not_empty() const { return data != NULL && data < data_end; }
     bool is_readable() const { return data != NULL && data < data_end; }
     bool is_not_readable() const { return data == NULL || data == data_end; }
+    bool is_empty() const { return data != NULL and data == data_end; }
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = NULL; }
     ssize_t length() const { return data_end - data; }
@@ -916,6 +921,21 @@ public:
     ///
     writeable(uint8_t *begin, uint8_t *end) : data{begin}, data_end{end} { }
 
+    /// constructs a writeable object that tracks data being written to the
+    /// `std::array` \param a.
+    ///
+    template <size_t N>
+    constexpr writeable(std::array<uint8_t, N> &a) : data{a.data()}, data_end{data + N} { }
+
+    /// constructs a writeable object that tracks data being written to the
+    /// region between \param buf and `buf + len`.
+    ///
+    constexpr writeable(uint8_t *buf, size_t len) : data{buf}, data_end{buf + len} { }
+
+    /// constructs a null writeable object
+    ///
+    writeable() : data{nullptr}, data_end{nullptr} { }
+
     /// returns true if the writeable object is in the null state, and false otherwise
     ///
     bool is_null() const { return data == nullptr || data_end == nullptr; }
@@ -1033,6 +1053,59 @@ public:
         copy('"');
     }
 
+    /// writes a raw representation of the hexadecimal string with \p
+    /// num_digits characters at location \p src into this
+    /// `data_buffer`, if `num_digits` is even and there is room for
+    /// all `num_digits/2` bytes; otherwise, sets it to the empty
+    /// state
+    ///
+    void copy_from_hex(const uint8_t *src, size_t num_digits) {
+
+        // check for writeable room; output length is twice the input
+        // length
+        //
+        if (is_null() or data_end - data < ((ssize_t)num_digits/2)) {
+            set_null();
+            return;
+        }
+
+        const uint8_t *src_end = src + num_digits;
+        while (src < src_end) {
+            uint8_t hi = *src++;
+            uint8_t lo = *src++;
+            uint8_t result;
+            if (hi >= '0' && hi <= '9') {
+                result = (hi - '0') << 4;
+            } else if (hi >= 'a' && hi <= 'f') {
+                result = (hi - 'a' + 10) << 4;
+            } else if (hi >= 'A' && hi <= 'F') {
+                result = (hi - 'A' + 10) << 4;
+            } else {
+                //
+                // error; character hi is not a hex digit
+                //
+                set_null();
+                return;
+            }
+            if (lo >= '0' && lo <= '9') {
+                result |= (lo - '0');
+            } else if (lo >= 'a' && lo <= 'f') {
+                result |= (lo - 'a' + 10);
+            } else if (lo >= 'A' && lo <= 'F') {
+                result |= (lo - 'A' + 10);
+            } else {
+                //
+                // error; character lo is not a hex digit
+                //
+                set_null();
+                return;
+            }
+            *data++ = result;
+
+        }
+
+    }
+
     /// copies `num_bytes` out of `r` and into this \ref writeable,
     /// and advances `r`, if this `writeable` has enough room for the
     /// data and `r` contains at least `num_bytes`.  If `r.length() <
@@ -1069,6 +1142,13 @@ public:
         if (d.is_not_null()) {
             parse(d);
         }
+        return *this;
+    }
+
+    /// template specialization for char
+    ///
+    writeable & operator<<(char c) {
+        copy(c);
         return *this;
     }
 
@@ -1144,6 +1224,65 @@ template <size_t T> struct data_buffer : public writeable {
     //  * use null state to indicate write failure
     //  * add assert() macros to support debugging
     //  * add [[nodiscard]] as appropriate
+
+};
+
+/// dynamic_buffer is a writeable that can be dynamically sized
+///
+class dynamic_buffer : public writeable {
+    std::vector<uint8_t> buffer;
+
+public:
+
+    /// constructs a `dynamic_buffer` with an initial capacity of
+    /// \param initial_capacity bytes
+    ///
+    dynamic_buffer(size_t initial_capacity) :
+        buffer(initial_capacity)
+    {
+        data = buffer.data();
+        data_end = data + buffer.capacity();
+    }
+
+    /// reset this `dynamic_buffer` so that the readable part is empty
+    /// (zero length) and the writeable part contains all available
+    /// bytes.
+    ///
+    void reset() { data = buffer.data(); }
+
+    /// returns true if the readable part is not empty
+    ///
+    bool is_not_empty() const { return data != buffer.data() && data < data_end; }
+
+    /// `dynamic_buffer::readable_length()` returns the number of bytes in
+    /// the readable region, if the writeable region is not null;
+    /// otherwise, zero is returned
+    ///
+    ssize_t readable_length() const {
+        if (writeable::is_null()) {
+            return 0;
+        }
+        else {
+            return data - buffer.data();
+        }
+    }
+
+    /// returns a \ref datum representing the readable part of the
+    /// \ref dynamic_buffer, if the writeable part is not null;
+    /// otherwise, a null `datum` is returned
+    ///
+    datum contents() const {
+        if (writeable::is_null()) {
+            return {nullptr, nullptr};
+        } else {
+            return {buffer.data(), data};
+        }
+    }
+
+    const std::vector<uint8_t> &get_value() {
+        buffer.resize(readable_length());
+        return buffer;
+    }
 
 };
 
@@ -1579,6 +1718,12 @@ public:
     /// construct a lookahead<T> object by parsing the datum d.
     ///
     lookahead(datum d) : value{d}, tmp{d} { }
+
+    /// construct a lookahead<T> object by parsing the datum held by
+    /// another lookahead<> object.
+    ///
+    template <typename T2>
+    lookahead(lookahead<T2> &l) : value{l.tmp}, tmp{l.tmp} { }
 
     /// construct a lookahead<T> object by parsing the datum d while
     /// passing the parameter p of type P to the constructor of the T

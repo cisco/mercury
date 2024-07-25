@@ -49,7 +49,7 @@ public:
         d(data, 8),
         valid{data.is_not_null()} { }
 
-   void fingerprint(struct buffer_stream &b) {
+   void fingerprint(struct buffer_stream &b) const {
         if(!valid) {
             return;
         }
@@ -120,7 +120,7 @@ public:
         buf.copy(']');
     }
 
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o) const {
         if(!valid) {
             return;
         }
@@ -144,7 +144,7 @@ class win_epoch_time {
 public:
     win_epoch_time (datum &d, bool byte_swap = true) : value(d, byte_swap), valid(d.is_not_null()) { }
 
-    void fingerprint(struct buffer_stream &b) { 
+    void fingerprint(struct buffer_stream &b) const {
         if(!valid) {
             return;
         }
@@ -184,7 +184,7 @@ public:
         salt.parse(d, salt_length);
     }
 
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o) const {
         o.print_key_uint16("hash_algorithm_count", hash_algo_count.value());
         struct json_array algo{o, "hash_algorithms"};
         for (const auto& val : hash_algo) {
@@ -199,8 +199,14 @@ public:
  * SMB2_ENCRYPTION_CAPABILITIES:
  * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/16693be7-2b27-4d3b-804b-f605bde5bcdd
  */
-struct cipher{
+class cipher{
     encoded<uint16_t> val;
+    bool valid;
+
+public:
+    cipher (datum &d, bool byte_swap) :
+        val{d, byte_swap},
+        valid{d.is_not_null()} { }
 
     const char * get_cipher_string() const {
         switch(val) {
@@ -210,6 +216,25 @@ struct cipher{
         case 0x0004 : return "AES-256-GCM";
         default     : return nullptr;
         }
+    }
+
+    uint16_t get_code() const {
+        return val.value();
+    }
+
+    const char* get_code_str() const {
+        return get_cipher_string();
+    }
+
+    bool is_valid() const { return valid; }
+
+    void write_json(struct json_array &o) const {
+        if (!is_valid()) {
+            return;
+        }
+
+        type_codes<cipher> code{*this};
+        o.print_key(code);
     }
 };
 
@@ -223,28 +248,18 @@ public:
         uint16_t count = 0;
         ciphers.reserve(cipher_count.value());
         while(count < cipher_count and d.is_not_empty()) {
-            encoded<uint16_t> temp_cipher(d, byte_swap);
-            ciphers[count].val=temp_cipher.value();
+            ciphers.emplace_back(d, byte_swap);
             count++;
         }
     }
     
-    uint16_t count = 0;
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o) const {
         o.print_key_uint16("cipher_count", cipher_count.value());
         struct json_array ids{o, "ciphers"};
-        while(count < cipher_count) {
-            type_codes<smb2_encryption_capa> code{*this};
-            ids.print_key(code);
-            count++;
+        for (const auto &x : ciphers) {
+            x.write_json(ids);
         }
         ids.close();
-    }
-
-    uint16_t get_code() const {return ciphers[count].val.value();}
-
-    const char* get_code_str() const {
-        return ciphers[count].get_cipher_string();
     }
 
 };
@@ -285,7 +300,7 @@ public:
         }
     }
 
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o) const {
         o.print_key_uint16("compression_algorithm_count", compression_algo_count.value());
         o.print_key_uint_hex("flags", flags.value());
         struct json_array comp_algos{o, "compression_algorithms"};
@@ -329,7 +344,7 @@ public:
         }
     }
 
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o) const {
         o.print_key_uint16("transform_count", transform_count.value());
         struct json_array ids{o, "rdma_transform_ids"};
         for (const auto& val : rdma_transforms_ids) {
@@ -368,7 +383,7 @@ public:
         }
     }
 
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o) const {
         o.print_key_uint16("signing_algorithm_count", signing_algo_count.value());
         struct json_array ids{o, "signing_algorithms"};
         for (const auto& val : signing_algos) {
@@ -401,7 +416,7 @@ class negotiate_context {
         SMB2_SIGNING_CAPABILITIES = 0x8
     };
 
-    bool get_netname(datum netname, std::string& name);
+    bool get_netname(datum netname, std::string& name) const;
 
 public:
     negotiate_context (datum &d, bool _byte_swap) :
@@ -433,7 +448,7 @@ public:
         return get_context_type_string();
     };
 
-    void write_json(struct json_array &o);
+    void write_json(struct json_array &o) const;
 
     void write_raw_features(writeable &buf) const {
         buf.copy('[');
@@ -468,7 +483,7 @@ public:
         buf.copy(']');
     }
 
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o) const {
         if (context_list.empty()) {
             return;
         }
@@ -558,7 +573,7 @@ public:
         neg_contexts.write_raw_features(buf);
     }
 
-    void write_json(struct json_object &o);
+    void write_json(struct json_object &o) const;
 };
 
 /*
@@ -644,7 +659,7 @@ public:
         buf.copy(',');
         neg_contexts.write_raw_features(buf);
     }
-    void write_json (struct json_object &o);
+    void write_json (struct json_object &o) const;
 
     uint16_t get_code() const {return dialect_num.get_code();}
 
@@ -730,11 +745,11 @@ public:
         signature{d, 16},
         valid{d.is_not_null()} { }
 
-    bool is_response() {
+    bool is_response() const {
         return flags & req_mask;
     }
 
-    packet_type get_packet_type() {
+    packet_type get_packet_type() const {
         switch(cmd.command) {
         case smb2_command::command_type::SMB2_NEGOTIATE:
             if (!is_response()) {
@@ -763,7 +778,7 @@ public:
         buf.copy(']');
     }
         
-    void write_json(struct json_object &o);
+    void write_json(struct json_object &o) const;
 
     uint16_t get_code() const {return cmd.command.value();}
 
@@ -786,7 +801,7 @@ public:
 
     bool is_not_empty() const { return hdr.is_valid(); }
 
-    void write_json(struct json_object &o, bool) {
+    void write_json(struct json_object &o, bool) const {
         if (this->is_not_empty()) {
             struct json_object smb2{o, "smb2"};
             hdr.write_json(smb2);

@@ -197,6 +197,9 @@ archive_reader: archive_reader.cc libmerc/archive.h
 string: string.cc stringalgs.h options.h
 	$(CXX) $(CFLAGS) string.cc -o string
 
+cbor: cbor.cpp libmerc/cbor.hpp libmerc/fdc.hpp libmerc/static_dict.hpp libmerc/file_datum.hpp options.h
+	$(CXX) $(CFLAGS) cbor.cpp -o cbor
+
 decode: decode.cc
 	$(CXX) $(CFLAGS) decode.cc -o decode
 
@@ -245,7 +248,7 @@ intercept.so: intercept.cc libmerc.a
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode pcap pcap_filter format intercept.so gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string cbor decode pcap pcap_filter format intercept.so gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
