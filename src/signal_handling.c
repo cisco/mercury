@@ -111,7 +111,7 @@ void sig_init_backtrace() {
  * set up signal handlers, so that output is flushed upon close
  *
  */
-enum status setup_signal_handler(void) {
+enum status setup_signal_handler() {
 
     static int load_bt = 0;
 
@@ -146,7 +146,11 @@ enum status setup_signal_handler(void) {
     sa.sa_handler = sig_backtrace;
 
     /* Since this single handler doesn't return (instead longjumps out)
-     * we don't want anything masked off that won't be unmasked
+     * we don't want anything masked off that won't be unmasked.
+     *
+     * Testing suggests this may be ignored / not work correctly
+     * so an explicit call to enable_bt_signal() has been added
+     * after a thread stall is recovered.
      */
     sa.sa_flags = SA_NODEFER;
 
@@ -158,27 +162,64 @@ enum status setup_signal_handler(void) {
     return status_ok;
 }
 
-/**
+
+/*
  * Enable all signals
  */
-void enable_all_signals(void) {
-  sigset_t signal_set;
-  sigfillset(&signal_set);
-  if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL) != 0) {
-      fprintf(stderr, "%s: error in pthread_sigmask unblocking signals\n",
-              strerror(errno));
-  }
+void enable_all_signals() {
+    sigset_t signal_set;
+
+    sigfillset(&signal_set);
+
+    if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL) != 0) {
+        fprintf(stderr, "%s: error in pthread_sigmask unblocking signals\n",
+                strerror(errno));
+    }
 }
 
-  /**
-   * Disable signals
-   */
-void disable_all_signals(void) {
-  sigset_t signal_set;
-  sigfillset(&signal_set);
-  sigdelset(&signal_set, SIGUSR1); /* except the USR1 signal for backtraces */
-  if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
-      fprintf(stderr, "%s: error in pthread_sigmask blocking signals\n",
-              strerror(errno));
-  }
+
+/*
+ * Disable signals
+ */
+void disable_all_signals() {
+    sigset_t signal_set;
+
+    sigfillset(&signal_set);
+
+    if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
+        fprintf(stderr, "%s: error in pthread_sigmask blocking signals\n",
+                strerror(errno));
+    }
+}
+
+
+/*
+ * Enable backtrace signal (USR1)
+ */
+void enable_bt_signal() {
+    sigset_t signal_set;
+
+    sigemptyset(&signal_set);
+    sigaddset(&signal_set, SIGUSR1); /* except the USR1 signal for backtraces */
+
+    if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL) != 0) {
+        fprintf(stderr, "%s: error in pthread_sigmask unblocking backtrace signal\n",
+                strerror(errno));
+    }
+}
+
+
+/*
+ * Disable backtrace signal (USR1)
+ */
+void disable_bt_signal() {
+    sigset_t signal_set;
+
+    sigemptyset(&signal_set);
+    sigaddset(&signal_set, SIGUSR1); /* except the USR1 signal for backtraces */
+
+    if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
+        fprintf(stderr, "%s: error in pthread_sigmask blocking backtrace signal\n",
+                strerror(errno));
+    }
 }
