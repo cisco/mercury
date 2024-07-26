@@ -121,18 +121,37 @@ enum status setup_signal_handler(void) {
         load_bt = 1;
     }
 
-    /* Ctl-C causes graceful shutdown */
-    if (signal(SIGINT, sig_close) == SIG_ERR) {
+    struct sigaction sa;
+    struct sigaction old_sa;
+
+    /* Ctl-C (SIGINT) and SIGTERM cause graceful shutdown */
+    memset(&sa, 0, sizeof(sa));
+
+    sa.sa_handler = sig_close;
+
+    if (sigaction(SIGINT, &sa, &old_sa) != 0) {
+        perror("Unable to register sig_close() for SIGINT");
         return status_err;
     }
 
-    /* kill -15 causes graceful shutdown */
-    if (signal(SIGTERM, sig_close) == SIG_ERR) {
+    if (sigaction(SIGTERM, &sa, &old_sa) != 0) {
+        perror("Unable to register sig_close() for SIGTERM");
         return status_err;
     }
+
 
     /* kill -USR1 causes (thread) to print backtrace */
-    if (signal(SIGUSR1, sig_backtrace) == SIG_ERR) {
+    memset(&sa, 0, sizeof(sa));
+
+    sa.sa_handler = sig_backtrace;
+
+    /* Since this single handler doesn't return (instead longjumps out)
+     * we don't want anything masked off that won't be unmasked
+     */
+    sa.sa_flags = SA_NODEFER;
+
+    if (sigaction(SIGUSR1, &sa, &old_sa) != 0) {
+        perror("Unable to register sig_backtrace() for SIGUSR1");
         return status_err;
     }
 
@@ -146,7 +165,7 @@ void enable_all_signals(void) {
   sigset_t signal_set;
   sigfillset(&signal_set);
   if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL) != 0) {
-      fprintf(stderr, "%s: error in pthread_sigmask unblocking signals\n", 
+      fprintf(stderr, "%s: error in pthread_sigmask unblocking signals\n",
               strerror(errno));
   }
 }
