@@ -226,7 +226,7 @@ namespace cbor_fingerprint {
         if (lookahead<literal_byte<'t', 'l', 's', '/'>> tls{d}) {
             fp_type = fingerprint_type_tls;
             cbor::output::map m{w};
-            cbor::uint64{fp_type}.write(w);
+            cbor::uint64{(uint64_t)fp_type}.write(w);
             d = tls.advance();
             encode_cbor_tls_fingerprint(d, m);
             m.close();
@@ -234,7 +234,7 @@ namespace cbor_fingerprint {
         } else if (lookahead<literal_byte<'h', 't', 't', 'p', '/'>> http{d}) {
             fp_type = fingerprint_type_http;
             cbor::output::map m{w};
-            cbor::uint64{fp_type}.write(w);
+            cbor::uint64{(uint64_t)fp_type}.write(w);
             d = http.advance();
             encode_cbor_http_fingerprint(d, w);
             m.close();
@@ -242,7 +242,7 @@ namespace cbor_fingerprint {
         } else if (lookahead<literal_byte<'q', 'u', 'i', 'c', '/'>> quic{d}) {
             fp_type = fingerprint_type_quic;
             cbor::output::map m{w};
-            cbor::uint64{fp_type}.write(w);
+            cbor::uint64{(uint64_t)fp_type}.write(w);
             d = quic.advance();
             encode_cbor_quic_fingerprint(d, w);
             m.close();
@@ -250,7 +250,7 @@ namespace cbor_fingerprint {
         } else if (lookahead<literal_byte<'t', 'o', 'f', 's', 'e', 'e', '/'>> tofsee{d}) {
             fp_type = fingerprint_type_tofsee;
             cbor::output::map m{w};
-            cbor::uint64{fp_type}.write(w);
+            cbor::uint64{(uint64_t)fp_type}.write(w);
             d = tofsee.advance();
             encode_cbor_tofsee_fingerprint(d, w);
             m.close();
