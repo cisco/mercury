@@ -92,7 +92,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     assert(printf_err(log_info, "libmerc is running assert() tests\n") != 0);
     // Calculate the cpu ticks per sec during initialization time
     // to avoid delay during packet processing path
-    tsc_clock::get_ticks_per_sec();
+    tsc_clock::init();
     try {
         m = new mercury{vars, verbosity};
         return m;
