@@ -570,6 +570,74 @@ public:
 
 };
 
+
+//   ClientKeyExchange, following RFC 5246 Section 7.4.7
+//
+//   struct {
+//       select (KeyExchangeAlgorithm) {
+//           case rsa:
+//               EncryptedPreMasterSecret;
+//           case dhe_dss:
+//           case dhe_rsa:
+//           case dh_dss:
+//           case dh_rsa:
+//           case dh_anon:
+//               ClientDiffieHellmanPublic;
+//       } exchange_keys;
+//   } ClientKeyExchange;
+
+// enum { dhe_dss, dhe_rsa, dh_anon, rsa, dh_dss, dh_rsa
+//     /* may be extended, e.g., for ECDH -- see [TLSECC] */
+// } KeyExchangeAlgorithm;
+
+
+class tls_certificate : public base_protocol {
+    struct tls_server_certificate certificate;
+
+public:
+
+    tls_certificate(struct datum &pkt, struct tcp_packet *tcp_pkt) : certificate{} {
+        parse(pkt, tcp_pkt);
+    }
+
+    void parse(struct datum &pkt, struct tcp_packet *tcp_pkt) {
+
+        // parse certificate
+        //
+        struct tls_record rec{pkt};
+        struct tls_handshake handshake{rec.fragment};
+        if (handshake.msg_type == handshake_type::certificate) {
+            certificate.parse(handshake.body);
+        }
+        if (tcp_pkt && certificate.additional_bytes_needed) {
+            tcp_pkt->reassembly_needed(certificate.additional_bytes_needed);
+        }
+    }
+
+    bool is_not_empty() {
+        return certificate.is_not_empty();
+    }
+
+    void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
+        (void)metadata_output;
+
+        bool have_certificate = certificate.is_not_empty();
+        if (have_certificate) {
+
+            // output certificate
+            //
+            struct json_object tls{record, "tls"};
+            struct json_array certs{tls, "certs"};
+            certificate.write_json(certs, certs_json_output);
+            certs.close();
+            tls.close();
+
+        }
+    }
+
+};
+
+
 static uint16_t degrease_uint16(uint16_t x) {
     switch(x) {
     case 0x0a0a:
