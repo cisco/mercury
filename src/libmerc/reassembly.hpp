@@ -202,7 +202,6 @@ struct tcp_reassembly_flow_context {
     }
 
     template <typename T> void process_tcp_segment(const T &seg, const datum &tcp_pkt);
-    //void process_tcp_segment(const tcp_segment &seg, const datum &tcp_pkt);
 
     datum get_reassembled_data();
 
@@ -339,7 +338,6 @@ inline void tcp_reassembly_flow_context::update_contiguous_data() {
 
 // segments can arrive ooo or have overlapping parts
 // handle appropriately
-//inline void tcp_reassembly_flow_context::process_tcp_segment(const tcp_segment &seg, const datum &tcp_pkt) {
 template <typename T>
 inline void tcp_reassembly_flow_context::process_tcp_segment(const T &seg, const datum &tcp_pkt) {
     if (seg.seq < init_seq) {
@@ -435,12 +433,8 @@ struct tcp_reassembler {
     void clear_all();
 
 private:
-    //void init_reassembly(const struct key &k, const tcp_segment &seg, const datum &d);
     template <typename T> void init_reassembly(const struct key &k, const T &seg, const datum &d);
     template <typename T> void continue_reassembly(unsigned int sec, const T &seg, const datum &d);
-    //void continue_reassembly(unsigned int sec, const tcp_segment &seg, const datum &d);
-    //void init_reassembly(const struct key &k, const quic_segment &seg, const datum &d);
-    //void continue_reassembly(unsigned int sec, const quic_segment &seg, const datum &d);
     void passive_reap(unsigned int sec);
     void active_reap();
     void increment_reap_iterator();
@@ -546,14 +540,6 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigne
 // To be called only once, when the initial segment seen for the first time
 // Post this, the flow will be in reassembly and continue_reassembly should be called
 //
-// inline void tcp_reassembler::init_reassembly(const struct key &k, const tcp_segment &seg, const datum &d) {
-//     curr_flow = table.emplace(std::piecewise_construct,std::forward_as_tuple(k),std::forward_as_tuple(seg,d)).first;
-// }
-
-// inline void tcp_reassembler::init_reassembly(const struct key &k, const quic_segment &seg, const datum &d) {
-//     curr_flow = table.emplace(std::piecewise_construct,std::forward_as_tuple(k),std::forward_as_tuple(seg,d)).first;
-// }
-
 template <typename T>
 inline void tcp_reassembler::init_reassembly(const struct key &k, const T &seg, const datum &d) {
     curr_flow = table.emplace(std::piecewise_construct,std::forward_as_tuple(k),std::forward_as_tuple(seg,d)).first;
@@ -569,13 +555,6 @@ inline void tcp_reassembler::continue_reassembly(unsigned int sec, const T &seg,
     else
         curr_flow->second.process_tcp_segment(seg, d);
 }
-// inline void tcp_reassembler::continue_reassembly(unsigned int sec, const tcp_segment &seg, const datum &d) {
-//     if (curr_flow->second.is_expired(sec)) {
-//         curr_flow->second.set_expired();
-//     }
-//     else
-//         curr_flow->second.process_tcp_segment(seg, d);
-// }
 
 // Entry function for reassembly
 //
