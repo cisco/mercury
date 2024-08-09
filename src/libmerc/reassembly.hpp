@@ -525,7 +525,7 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigne
     curr_flow = table.find(k);
     if (curr_flow != table.end()) {
         const datum cid = curr_flow->second.get_scid_datum();
-        if (scid == cid)
+        if (scid.is_empty() || (scid == cid))
             return curr_flow->second.state;
         else
             return reassembly_state::reassembly_quic_discard;

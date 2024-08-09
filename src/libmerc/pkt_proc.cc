@@ -551,7 +551,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     // check if in reassembly table to continue
     // init otherwise
     //
-    const datum &scid = std::get<quic_init>(x).get_scid();
+    const datum &scid = std::get<quic_init>(x).get_cid();
     uint32_t crypto_len = 0;
     const uint8_t *crypto_data = std::get<quic_init>(x).get_crypto_buf(&crypto_len);
     uint32_t crypto_offset = std::get<quic_init>(x).get_min_crypto_offset();
@@ -561,13 +561,13 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
         // init reassembly
         quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, scid};
-        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data,crypto_data+crypto_len});
+        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_len});
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
         quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, scid};
-        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data,crypto_data+crypto_len});
+        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_len});
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_consumed) {
