@@ -104,7 +104,7 @@ struct stateful_pkt_proc {
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
         tcp_flow_table{prealloc_size},
-        reassembler{},
+        reassembler{},      // bare-bones struct with no allocated entries
         reassembler_ptr{&reassembler},
         tcp_init_msg_filter{},
         analysis{},
@@ -142,8 +142,11 @@ struct stateful_pkt_proc {
             }
         }
 
-        if (!global_vars.tcp_reassembly) {
+        if (!global_vars.tcp_reassembly && !global_vars.quic_reassembly) {
             reassembler_ptr = nullptr;
+        }
+        else {
+            reassembler.init_reassembly_table();
         }
 
 //#ifndef USE_TCP_REASSEMBLY
@@ -250,8 +253,7 @@ struct stateful_pkt_proc {
                           udp &udp_pkt,
                           struct key &k,
                           struct timespec *ts,
-                          struct tcp_reassembler *reassembler,
-                          bool quic_reassembly);
+                          struct tcp_reassembler *reassembler);
     
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,

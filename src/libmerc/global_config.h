@@ -127,6 +127,7 @@ public:
     // extended configs
     std::string temp_proto_str;
     bool tcp_reassembly = false;          /* reassemble tcp segments      */
+    bool quic_reassembly = false;         /* reassembly quic pkts         */
     fingerprint_format fp_format;    // default fingerprint format
 
     global_config() : libmerc_config(), tcp_reassembly{false} {};
@@ -232,7 +233,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"select", "-s", "--select", SETTER_FUNCTION(&lc){ lc->set_protocols(s); }},
         {"resources", "", "", SETTER_FUNCTION(&lc){ lc->set_resource_file(s); }},
         {"format", "", "", SETTER_FUNCTION(&lc){ lc->fp_format.set_fingerprint_format(s); }},
-        {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->tcp_reassembly = true; }}
+        {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->tcp_reassembly = true; }},
+        {"quic-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->quic_reassembly = true; }}
     };
 
     parse_additional_options(options, config, *lc);

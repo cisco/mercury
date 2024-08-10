@@ -416,7 +416,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
                           struct tcp_reassembler *reassembler) {
 
     // No reassembler : call set_tcp_protocol on every data pkt
-    if (!reassembler) {
+    if (!reassembler || !global_vars.tcp_reassembly) {
         bool is_new = false;
         if (global_vars.output_tcp_initial_data) {
             is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
@@ -504,11 +504,10 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                           udp &udp_pkt,
                           struct key &k,
                           struct timespec *ts,
-                          struct tcp_reassembler *reassembler,
-                          bool quic_reassembly) {
+                          struct tcp_reassembler *reassembler) {
 
     // No reassembler : call set_tcp_protocol on every data pkt
-    if (!reassembler || ! quic_reassembly) {
+    if (!reassembler || !global_vars.quic_reassembly) {
         bool is_new = false;
         if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
@@ -555,6 +554,10 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     uint32_t crypto_len = 0;
     const uint8_t *crypto_data = std::get<quic_init>(x).get_crypto_buf(&crypto_len);
     uint32_t crypto_offset = std::get<quic_init>(x).get_min_crypto_offset();
+    if (crypto_len > tcp_reassembly_flow_context::max_data_size) {
+        // can't fit this crypto frame in buffer
+        return true;
+    }
  
     reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec, scid);
 
@@ -672,7 +675,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
             // note: we could check for non-empty data field
 
-        } else if (tcp_pkt.is_FIN() || tcp_pkt.is_RST()) {
+        } else if (global_vars.output_tcp_initial_data && (tcp_pkt.is_FIN() || tcp_pkt.is_RST()) ) {
                 tcp_flow_table.find_and_erase(k);
         }
         else {
@@ -710,7 +713,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
         }
  
-        if (!process_udp_data(x, pkt, udp_pkt, k, ts, reassembler, true)) {
+        if (!process_udp_data(x, pkt, udp_pkt, k, ts, reassembler)) {
             return 0;
         }
         else if (udp_pkt.additional_bytes_needed()) {
@@ -903,7 +906,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             return 0;  // incomplete tcp header; can't process packet
          }
         tcp_pkt.set_key(k);
-        if (reassembler) {
+        if (reassembler && global_vars.tcp_reassembly) {
             analysis.flow_state_pkts_needed = false;
             if (tcp_pkt.is_SYN() || tcp_pkt.is_SYN_ACK() || tcp_pkt.is_RST()) {
                 ; // do nothing
@@ -947,8 +950,8 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
         }
  
-        if (reassembler) {
-            bool ret = process_udp_data(x, pkt, udp_pkt, k, ts, reassembler, true);
+        if (reassembler && global_vars.quic_reassembly) {
+            bool ret = process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
             if (reassembler->in_progress(reassembler->curr_flow)) {
                 analysis.flow_state_pkts_needed = true;
             }
@@ -957,7 +960,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
         }
         else {
-            process_udp_data(x, pkt, udp_pkt, k, ts, reassembler, true);
+            process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
         }
     }
 

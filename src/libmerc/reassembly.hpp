@@ -412,11 +412,15 @@ struct tcp_reassembler {
     reassembly_map_iterator curr_flow; // iterator pointing to the current flow in reassembly
     bool dump_pkt;  // used by pkt_filter to dump pkts involved in reassembly
 
-    tcp_reassembler() : table{}, dump_pkt{false} {
+    // ctor does not allocated memory for the table entries
+    // call init to reserve entries
+    tcp_reassembler() : table{}, dump_pkt{false} {}
+
+    void init_reassembly_table() {
         table.reserve(max_reassembly_entries);
         reap_it = table.end();
         curr_flow = table.end();
-    } 
+    }
 
     reassembly_state check_flow(const struct key &k, unsigned int sec);
     reassembly_state check_flow(const struct key &k, unsigned int sec, const datum &scid);
