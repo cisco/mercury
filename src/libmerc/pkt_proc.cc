@@ -754,7 +754,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         // write indication of truncation or reassembly
         //
-        if (!reassembler && (truncated_tcp || truncated_quic)) {
+        if ((!reassembler && (truncated_tcp || truncated_quic))
+                || (!global_vars.tcp_reassembly && truncated_tcp)
+                || (!global_vars.quic_reassembly && truncated_quic) ) {
             struct json_object flags{record, "reassembly_properties"};
             flags.print_key_bool("truncated", true);
             flags.close();
