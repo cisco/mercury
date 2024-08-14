@@ -414,9 +414,7 @@ struct tcp_reassembler {
 
     // ctor does not allocated memory for the table entries
     // call init to reserve entries
-    tcp_reassembler() : table{}, dump_pkt{false} {}
-
-    void init_reassembly_table() {
+    tcp_reassembler() : table{}, dump_pkt{false} {
         table.reserve(max_reassembly_entries);
         reap_it = table.end();
         curr_flow = table.end();

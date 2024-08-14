@@ -88,8 +88,6 @@ struct mercury {
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
     struct flow_table_tcp tcp_flow_table;
-    struct tcp_reassembler reassembler;
-    struct tcp_reassembler *reassembler_ptr;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
     class message_queue *mq;
@@ -99,13 +97,12 @@ struct stateful_pkt_proc {
     global_config global_vars;
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
+    struct tcp_reassembler *reassembler_ptr = nullptr;
     crypto_policy::assessor *crypto_policy = nullptr;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
         tcp_flow_table{prealloc_size},
-        reassembler{},      // bare-bones struct with no allocated entries
-        reassembler_ptr{&reassembler},
         tcp_init_msg_filter{},
         analysis{},
         mq{nullptr},
@@ -114,7 +111,8 @@ struct stateful_pkt_proc {
         ag{nullptr},
         global_vars{mc->global_vars},
         selector{mc->selector},
-        quic_crypto{}
+        quic_crypto{},
+        reassembler_ptr{(global_vars.tcp_reassembly||global_vars.quic_reassembly) ? (new tcp_reassembler) : nullptr}
     {
 
         constexpr bool DO_CRYPTO_ASSESSMENT = false;
@@ -142,13 +140,6 @@ struct stateful_pkt_proc {
             }
         }
 
-        if (!global_vars.tcp_reassembly && !global_vars.quic_reassembly) {
-            reassembler_ptr = nullptr;
-        }
-        else {
-            reassembler.init_reassembly_table();
-        }
-
 //#ifndef USE_TCP_REASSEMBLY
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
 //        reassembler_ptr = nullptr;
@@ -160,13 +151,14 @@ struct stateful_pkt_proc {
 
     ~stateful_pkt_proc() {
         delete crypto_policy;
+        delete reassembler_ptr;
         // we could call ag->remote_procuder(mq), but for now we do not
     }
 
     // TODO: the count_all() functions should probably be removed
     //
     void finalize() {
-        reassembler.clear_all();
+        reassembler_ptr->clear_all();
         tcp_flow_table.count_all();
     }
 
