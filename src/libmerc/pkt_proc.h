@@ -158,7 +158,9 @@ struct stateful_pkt_proc {
     // TODO: the count_all() functions should probably be removed
     //
     void finalize() {
-        reassembler_ptr->clear_all();
+        if (reassembler_ptr) {
+            reassembler_ptr->clear_all();
+        }
         tcp_flow_table.count_all();
     }
 
