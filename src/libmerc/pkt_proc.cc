@@ -446,7 +446,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         // complete initial msg
         return true;
     }
-    else if ((tcp_pkt.additional_bytes_needed > tcp_reassembly_flow_context::max_data_size) || (tcp_pkt.data_length > tcp_reassembly_flow_context::max_data_size)) {
+    else if ((tcp_pkt.additional_bytes_needed > reassembly_flow_context::max_data_size) || (tcp_pkt.data_length > reassembly_flow_context::max_data_size)) {
         // cant do reassembly
         // TODO: add indication for truncation
         return true;
@@ -522,7 +522,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     }
 
     bool is_new = false;
-    if (global_vars.output_tcp_initial_data) {
+    if (global_vars.output_udp_initial_data) {
         is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
     } 
     //datum pkt_copy{pkt};
@@ -538,7 +538,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         // no need for reassembly
         return true;
     }
-    else if ((udp_pkt.additional_bytes_needed() > tcp_reassembly_flow_context::max_data_size)){ //|| (tcp_pkt.data_length > tcp_reassembly_flow_context::max_data_size)) {
+    else if ((udp_pkt.additional_bytes_needed() > reassembly_flow_context::max_data_size)){ //|| (tcp_pkt.data_length > reassembly_flow_context::max_data_size)) {
         // cant do reassembly
         // TODO: add indication for truncation
         return true;
@@ -550,26 +550,26 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     // check if in reassembly table to continue
     // init otherwise
     //
-    const datum &scid = std::get<quic_init>(x).get_cid();
+    const datum &cid = std::get<quic_init>(x).get_cid();
     uint32_t crypto_len = 0;
     const uint8_t *crypto_data = std::get<quic_init>(x).get_crypto_buf(&crypto_len);
     uint32_t crypto_offset = std::get<quic_init>(x).get_min_crypto_offset();
-    if (crypto_len > tcp_reassembly_flow_context::max_data_size) {
+    if (crypto_len > reassembly_flow_context::max_data_size) {
         // can't fit this crypto frame in buffer
         return true;
     }
  
-    reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec, scid);
+    reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec, cid);
 
     if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
         // init reassembly
-        quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, scid};
+        quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
         reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_len});
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
-        quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, scid};
+        quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, cid};
         reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_len});
         reassembler->dump_pkt = true;
     }

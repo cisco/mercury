@@ -97,7 +97,7 @@ public:
 
     uint16_t get_len() const {
         if (header) {
-            return header->length;
+            return ntoh(header->length);
         }
         return 0;
     }

@@ -127,7 +127,7 @@ public:
     // extended configs
     std::string temp_proto_str;
     bool tcp_reassembly = false;          /* reassemble tcp segments      */
-    bool quic_reassembly = false;         /* reassembly quic pkts         */
+    bool quic_reassembly = false;         /* reassemble quic pkts         */
     fingerprint_format fp_format;    // default fingerprint format
 
     global_config() : libmerc_config(), tcp_reassembly{false} {};
