@@ -217,8 +217,10 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
             break;
         }
     case tcp_msg_type_tls_server_hello:
-    case tcp_msg_type_tls_certificate:
         x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
+        break;
+    case tcp_msg_type_tls_certificate:
+        x.emplace<tls_certificate>(pkt, tcp_pkt);
         break;
     case tcp_msg_type_ssh:
         x.emplace<ssh_init_packet>(pkt);
