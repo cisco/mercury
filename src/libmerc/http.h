@@ -29,6 +29,7 @@ struct http_headers : public datum {
         data = p.data;
         while (p.length() > 0) {
             if (p.compare(crlf, sizeof(crlf)) == 0) {
+                p.skip(sizeof(crlf));
                 complete = true;
                 break;  /* at end of headers */
             }
