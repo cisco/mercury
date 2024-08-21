@@ -545,7 +545,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     } 
     
     // reassembly may be needed
-    // pkts that reach here are inital msg with additional_bytes_needed or
+    // pkts that reach here are inital msg with/without additional_bytes_needed or
     // non initial pkts that dont match any protocol, so could be part of a reassembly flow
     // check if in reassembly table to continue
     // init otherwise
@@ -558,10 +558,21 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         // can't fit this crypto frame in buffer
         return true;
     }
- 
+
+    // skip checking in reassembly table for the following cases:
+    // 1. no crypto data in quic pkt
+    // 2. min offset is 0 and additional bytes needed is 0 : a complete initial quic pkt
+    if (!crypto_len || (!crypto_offset && !udp_pkt.additional_bytes_needed())) {
+        return true;
+    }
+
     reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec, cid);
 
-    if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
+    if ((r_state == reassembly_state::reassembly_none) && !udp_pkt.additional_bytes_needed()) {
+        // pkt not involved in reassembly
+        return true;
+    }
+    else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
         // init reassembly
         quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
         reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
