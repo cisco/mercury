@@ -1,6 +1,7 @@
 #cython: language_level=3
 
 import json
+import math
 from base64 import b64decode
 
 from libcpp.unordered_map cimport unordered_map
@@ -178,13 +179,18 @@ cdef class Mercury:
         return 0
 
 
-    cpdef dict get_mercury_json(self, bytes pkt_data):
+    cpdef dict get_mercury_json(self, bytes pkt_data, double ts=0.0):
         cdef unsigned char* pkt_data_ref = pkt_data
 
         cdef char buf[8192]
         memset(buf, 0, 8192)
 
-        mercury_packet_processor_write_json(<mercury_packet_processor>self.mpp, buf, 8192, pkt_data_ref, len(pkt_data), &self.default_ts)
+        # set timestamp
+        cdef timespec c_ts
+        c_ts.tv_sec  = int(ts)
+        c_ts.tv_nsec = int(math.modf(ts)[0]*1e9)
+
+        mercury_packet_processor_write_json(<mercury_packet_processor>self.mpp, buf, 8192, pkt_data_ref, len(pkt_data), &c_ts)
 
         cdef str json_str = buf.decode('UTF-8')
         if json_str != None:
