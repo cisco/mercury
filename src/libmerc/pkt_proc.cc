@@ -564,13 +564,13 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
         // init reassembly
         quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
-        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_len});
+        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
         quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, cid};
-        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_len});
+        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_consumed) {
