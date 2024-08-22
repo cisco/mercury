@@ -53,6 +53,7 @@
 #include "openvpn.h"
 #include "mysql.hpp"
 #include "geneve.hpp"
+#include "tsc_clock.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -217,8 +218,10 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
             break;
         }
     case tcp_msg_type_tls_server_hello:
-    case tcp_msg_type_tls_certificate:
         x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
+        break;
+    case tcp_msg_type_tls_certificate:
+        x.emplace<tls_certificate>(pkt, tcp_pkt);
         break;
     case tcp_msg_type_ssh:
         x.emplace<ssh_init_packet>(pkt);
@@ -508,6 +511,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
     }
 
+    if (ts->tv_sec == 0) {
+        tsc_clock time_now;
+        ts->tv_sec = time_now.time_in_seconds();
+    }
+
     // process transport/application protocols
     //
     protocol x;
@@ -785,6 +793,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     if (reassembler) {
         reassembler->dump_pkt = false;
     }
+
+    if (ts->tv_sec == 0) {
+        tsc_clock time_now;
+        ts->tv_sec = time_now.time_in_seconds();
+    }
+
     if (transport_proto == ip::protocol::tcp) {
         tcp_packet tcp_pkt{pkt, &ip_pkt};
         if (!tcp_pkt.is_valid()) {

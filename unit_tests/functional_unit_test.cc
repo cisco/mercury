@@ -11,6 +11,7 @@
 #include "snmp.h"
 #include "tofsee.hpp"
 #include "utf8.hpp"
+#include "tsc_clock.hpp"
 
 /*
  * The unit_test() functions defined in header files
@@ -24,4 +25,5 @@ TEST_CASE("Testing unit_test() defined in class") {
     CHECK(tofsee_initial_message::unit_test() == true);
     CHECK(tls_extensions::unit_test() == true);
     CHECK(utf8_string::unit_test() == true);
+    CHECK(tsc_clock::unit_test() == true);
 }
