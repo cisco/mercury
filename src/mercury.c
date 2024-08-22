@@ -644,6 +644,7 @@ int main(int argc, char *argv[]) {
     if (setup_signal_handler() != status_ok) {
         fprintf(stderr, "%s: error while setting up signal handlers\n", strerror(errno));
     }
+    disable_all_signals(); /* We don't want our main thread to get these */
 
     /* set the number of threads, if needed */
     if (cfg.num_threads == -1) {
