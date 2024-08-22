@@ -29,6 +29,7 @@ struct http_headers : public datum {
         data = p.data;
         while (p.length() > 0) {
             if (p.compare(crlf, sizeof(crlf)) == 0) {
+                p.skip(sizeof(crlf));
                 complete = true;
                 break;  /* at end of headers */
             }
@@ -74,6 +75,9 @@ struct http_request : public base_protocol {
     struct datum uri;
     struct datum protocol;
     struct http_headers headers;
+    datum body;
+
+    static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
 
     http_request(datum &p) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{} { parse(p); }
 
@@ -130,6 +134,9 @@ struct http_response : public base_protocol {
     struct datum status_code;
     struct datum status_reason;
     struct http_headers headers;
+    datum body;
+
+    static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
 
     http_response(datum &p) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{} { parse(p); }
 
