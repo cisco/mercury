@@ -20,7 +20,7 @@ from posix.time cimport timespec
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '0.1.2'
+__version__ = '0.2.0'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
