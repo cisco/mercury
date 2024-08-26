@@ -206,28 +206,8 @@ public:
         if (length() != 2) {
             return false;
         }
-        if (data[0] == data[1]) {
-            switch(data[0]) {
-            case 0x0a:
-            case 0x1a:
-            case 0x2a:
-            case 0x3a:
-            case 0x4a:
-            case 0x5a:
-            case 0x6a:
-            case 0x7a:
-            case 0x8a:
-            case 0x9a:
-            case 0xaa:
-            case 0xba:
-            case 0xca:
-            case 0xda:
-            case 0xea:
-            case 0xfa:
-                return true;
-            default:
-                ;
-            }
+        if (data[0] == data[1] and (data[0] & 0x0f) == 0x0a) {
+            return true;
         }
         return false;
     }
