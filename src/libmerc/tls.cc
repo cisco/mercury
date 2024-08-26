@@ -201,6 +201,45 @@ public:
         d.read_uint8(&length);
         parse(d, length);
     }
+
+    bool is_grease() const {
+        if (length() != 2) {
+            return false;
+        }
+        if (data[0] == data[1]) {
+            switch(data[0]) {
+            case 0x0a:
+            case 0x1a:
+            case 0x2a:
+            case 0x3a:
+            case 0x4a:
+            case 0x5a:
+            case 0x6a:
+            case 0x7a:
+            case 0x8a:
+            case 0x9a:
+            case 0xaa:
+            case 0xba:
+            case 0xca:
+            case 0xda:
+            case 0xea:
+            case 0xfa:
+                return true;
+            default:
+                ;
+            }
+        }
+        return false;
+    }
+
+    void write_json(json_array &a) const {
+        if (is_grease()) {
+            a.print_string("\n\n");
+        } else {
+            a.print_json_string(*this);
+        }
+    }
+
 };
 
 class protocol_name_list {
@@ -218,11 +257,15 @@ public:
         return data;
     }
 
+
+    // write ALPN strings into an array inside the json_object \param
+    // o, normalizing all GREASE values to hexadecimal 0a0a ("\n\n")
+    //
     void write_json(json_object &o, const char *key) {
         json_array alpn_array{o, key};
         while (data.is_not_empty()) {
             protocol_name name{data};
-            alpn_array.print_json_string(name);
+            name.write_json(alpn_array);
         }
         alpn_array.close();
     }
