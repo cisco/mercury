@@ -139,7 +139,7 @@ cdef class Mercury:
     cdef bool do_analysis
 
     def __init__(self, bool do_analysis=False, bytes resources=b'', bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
-                 bytes packet_filter_cfg=b'all;tcp-reassembly', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True):
+                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True):
         self.do_analysis = do_analysis
         self.py_config = {
             'output_tcp_initial_data': output_tcp_initial_data,

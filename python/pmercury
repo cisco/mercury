@@ -13,20 +13,22 @@ import argparse
 
 from mercury import *
 
-
-
 class MercuryInterface:
 
-    def __init__(self, interface, pcap_file, output, analyze=False, resources=None):
+    def __init__(self, interface, pcap_file, output, analyze=False, resources=None, tcp_reassembly=False):
 
         self.output    = output
         self.analyze   = analyze
         self.resources = resources
 
+        packet_filter_cfg_str = b'all'
+        if tcp_reassembly:
+            packet_filter_cfg_str += b';tcp-reassembly'
+
         if self.analyze == True and self.resources != None:
-            self.libmerc = Mercury(do_analysis=True, resources=self.resources.encode())
+            self.libmerc = Mercury(do_analysis=True, resources=self.resources.encode(), packet_filter_cfg=packet_filter_cfg_str)
         else:
-            self.libmerc = Mercury()
+            self.libmerc = Mercury(packet_filter_cfg=packet_filter_cfg_str)
         self.libmerc.mercury_init()
 
         if self.output != sys.stdout:
@@ -83,13 +85,16 @@ def main():
                       help='perform process identification',default=False)
     parser.add_argument('-x','--resources',action='store',dest='resources',
                       help='use resources file <resources>',default=None)
+    parser.add_argument('-t','--tcp-reassembly',action='store_true',dest='tcp_reassembly',
+                      help='turn on tcp reassembly',default=False)
     options = parser.parse_args()
 
     if (options.pcap_file == None) and (options.capture_interface == None):
         print('error: need a pcap or interface')
         sys.exit(0)
 
-    MercuryInterface(options.capture_interface, options.pcap_file, options.output_file, options.analyze, options.resources)
+    MercuryInterface(options.capture_interface, options.pcap_file, options.output_file, options.analyze,
+                     options.resources, options.tcp_reassembly)
 
 
 if __name__ == '__main__':
