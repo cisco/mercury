@@ -1,6 +1,7 @@
 # pmercury
 
 pmercury provides a Python reference implementation for network fingerprinting and advanced analysis techniques. As an example, the code can generate a TLS fingerprint given a network interface or packet capture file, and then leverage the provided fingerprint database to perform process identification.
+pmercury is designed to highlight the functionality of the protocol classes and to provide a simple interface into the fingerprint database.
 
 There are four distinct (but related) components:
 
@@ -9,15 +10,19 @@ There are four distinct (but related) components:
 * ../src/python-inference/&ast; - A Cython port of protocols/tls.pyx that can be called from C++14 or higher code (and is used to perform process inference in mercury)
 * ../resources/fingerprint_db.json.gz - The star of the show; a detailed database associating billions of network and endpoint observations
 
-## Installation
+## Requirements
 
-pmercury depends on libpcap-dev:
+On Linux pmercury requires Python>=3.6,<=3.11 with pip3 that can be installed with `sudo apt install python3-pip` on debian/ubuntu, or the equivalent command for your OS.
+
+and requires libpcap-dev:
 
 ```bash
 sudo apt-get install libpcap-dev
 ```
 
-On Linux and Python 3.6 and 3.7, install pmercury with pip:
+## Installation
+
+Install pmercury with pip:
 
 ```bash
 pip3 install pmercury
@@ -29,32 +34,29 @@ To build cython extensions:
 python setup.py build_ext --inplace
 ```
 
-To install pmercury:
+## Build from source
+
+```bash
+sudo apt-get install libpcap-dev
+```
+
+pmercury needs `/pmercury` directory to exist in the root and be accessible
+```bash
+sudo mkdir /pmercury
+sudo chmod 777 /pmercury
+```
+
+To install from sources
 
 ```bash
 python setup.py install
 ```
 
-## pmercury
-
-pmercury is designed to highlight the functionality of the protocol classes and to provide a simple interface into the fingerprint database.
-
-
-### Dependencies
-
-pmercury requires Python 3.6+ along with the following packages:
+mercury has the following Python dependencies installed by `setup.py` script:
 
 ```bash
-pip3 install pyasn
-pip3 install hpack
-pip3 install pypcap
-pip3 install pyyaml
-pip3 install cryptography
-
 pip3 install pyasn hpack pypcap pyyaml cryptography
 ```
-
-pip3 can be installed with 'sudo apt install python3-pip’ on debian/ubuntu, or the equivalent command for your OS.
 
 ### Usage
 
