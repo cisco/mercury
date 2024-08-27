@@ -214,7 +214,7 @@ public:
 
     void write_json(json_array &a) const {
         if (is_grease()) {
-            a.print_string("\n\n");
+            a.print_string("\\n\\n");  // print json-escaped CR
         } else {
             a.print_json_string(*this);
         }
