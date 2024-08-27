@@ -32,15 +32,49 @@ void http_request::parse(struct datum &p) {
     p.skip(1);
     uri.parse_up_to_delim(p, ' ');
     p.skip(1);
-    protocol.parse_up_to_delim(p, '\r');
+    protocol.parse_up_to_delimiters(p, '\r', '\n');
     if (!protocol.matches(proto_string)) {
         protocol.set_null();
         return;            // invalid format; unrecognized protocol
     }
-    p.skip(2);
+ 
+    delimiter d(p);  //parse the delimiter
 
     /* parse headers */
-    headers.parse(p);
+    while (p.is_not_empty()) {
+        delimiter d(p);
+        if (d.is_valid()) {
+            break;
+        }
+
+        httpheader h{p};
+        if (h.name.case_insensitive_match("user-agent")) {
+            if (user_agent.is_null()) {
+                user_agent = h.value;
+            }
+        } else if (h.name.case_insensitive_match("host")) {
+            if (host.is_null()) {
+                host = h.value;
+            }
+        } else if (h.name.case_insensitive_match("x-forwarded-for")) {
+            if (x_forwarded_for.is_null()) {
+                x_forwarded_for = h.value;
+            }
+        } else if (h.name.case_insensitive_match("via")) {
+            if (via.is_null()) {
+                via = h.value;
+            }
+        } else if (h.name.case_insensitive_match("upgrade")) {
+            if (upgrade.is_null()) {
+                upgrade = h.value;
+            }
+        } else if (h.name.case_insensitive_match("referer")) {
+            if (referer.is_null()) {
+                referer = h.value;
+            }
+        }
+        headers.push_back(h);
+    }
 
     body = p;
 
@@ -241,33 +275,25 @@ void http_headers::fingerprint(struct buffer_stream &buf, perfect_hash<bool> &fp
 }
 
 void http_request::write_json(struct json_object &record, bool output_metadata) {
-    static std::vector<perfect_hash_entry<const char*>> header_data_request = {
-        { "user-agent: ", "user_agent" },
-        { "host: ", "host"},
-        { "x-forwarded-for: ", "x_forwarded_for"},
-        { "via: ", "via"},
-        { "upgrade: ", "upgrade"},
-        { "referer: ", "referer"}
-    };
-    static perfect_hash<const char*> ph{header_data_request};
-
     if (this->is_not_empty()) {
         struct json_object http{record, "http"};
         struct json_object http_request{http, "request"};
         if (output_metadata) {
             http_request.print_key_json_string("method", method);
             http_request.print_key_json_string("uri", uri);
-            http_request.print_key_json_string("protocol", protocol);
-            // http.print_key_json_string("headers", headers.data, headers.length());
-
-            // run the list of http headers to be printed out against
-            // all headers, and print the values corresponding to each
-            // of the matching names
-            //
-            headers.print_matching_names(http_request, ph);
-
+            http_request.print_key_json_string("user-agent", user_agent);
+            http_request.print_key_json_string("host", host);
+            http_request.print_key_json_string("x-forwarded-for", x_forwarded_for);
+            http_request.print_key_json_string("via", via);
+            http_request.print_key_json_string("upgrade", upgrade);
+            http_request.print_key_json_string("referer", referer);
+            json_array hdrs{http_request, "headers"};
+            for (const auto &h: headers) {
+                h.write_json(hdrs);
+            }
+            hdrs.close();
         } else {
-            headers.print_matching_name(http_request, "user-agent: ", "user_agent" );
+            http_request.print_key_json_string("user-agent", user_agent);
         }
         if (body.is_readable()) {
             datum tmp = body;
@@ -335,25 +361,25 @@ void http_response::write_json(struct json_object &record, bool metadata) {
 
 }
 
-void http_request::fingerprint(struct buffer_stream &b) const {
+void http_request::fingerprint(struct buffer_stream &b) const{
     static std::vector<perfect_hash_entry<bool>> fp_data_request = {
-        { "accept: ", true },
-        { "accept-encoding: ", true },
-        { "connection: ", true },
-        { "dnt: ", true },
-        { "dpr: ", true },
-        { "upgrade-insecure-requests: ", true },
-        { "x-requested-with: ", true },
-        { "accept-charset: ", false },
-        { "accept-language: ", false },
-        { "authorization: ", false },
-        { "cache-control: ", false },
-        { "host: ", false },
-        { "if-modified-since: ", false },
-        { "keep-alive: ", false },
-        { "user-agent: ", false },
-        { "x-flash-version: ", false },
-        { "x-p2p-peerdist: ", false }
+        { "accept", true },
+        { "accept-encoding", true },
+        { "connection", true },
+        { "dnt", true },
+        { "dpr", true },
+        { "upgrade-insecure-requests", true },
+        { "x-requested-with", true },
+        { "accept-charset", false },
+        { "accept-language", false },
+        { "authorization", false },
+        { "cache-control", false },
+        { "host", false },
+        { "if-modified-since", false },
+        { "keep-alive", false },
+        { "user-agent", false },
+        { "x-flash-version", false },
+        { "x-p2p-peerdist", false }
     };
     static perfect_hash<bool> ph{fp_data_request};
     if (is_not_empty() == false) {
@@ -367,7 +393,9 @@ void http_request::fingerprint(struct buffer_stream &b) const {
     b.write_char(')');
 
     b.write_char('(');
-    headers.fingerprint(b, ph);
+    for (const auto &h: headers) {
+        h.fingerprint(b, ph);
+    } 
     b.write_char(')');
 }
 
@@ -494,19 +522,12 @@ void http_response::compute_fingerprint(class fingerprint &fp) const {
     fp.final();
 }
 
-struct datum http_request::get_header(const char *header_name) {
-    return headers.get_header(header_name);
-}
-
 struct datum http_response::get_header(const char *header_name) {
     return headers.get_header(header_name);
 }
 
 bool http_request::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-    struct datum host_data = get_header("host: ");
-    struct datum user_agent_data = get_header("user-agent: ");
-
-    analysis_.destination.init(host_data, user_agent_data, {nullptr, nullptr}, k_);
+    analysis_.destination.init(host, user_agent, {nullptr, nullptr}, k_);
 
     return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }

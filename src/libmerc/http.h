@@ -17,6 +17,7 @@
 #include "analysis.h"
 #include "fingerprint.h"
 #include "perfect_hash.h"
+#include "newhttp.h"
 
 struct http_headers : public datum {
     bool complete;
@@ -70,6 +71,124 @@ struct http_headers : public datum {
     struct datum get_header(const char *header_name);
 };
 
+class token : public one_or_more<token>  {
+public:
+    inline static bool in_class(uint8_t c) {
+        switch (c) {
+        case ':':
+            return false;
+        default:
+            return true;
+        }
+    }
+};
+
+class LWS {
+public:
+
+    LWS(struct datum &p) {
+        while (p.is_readable() and (*p.data == '\t' or *p.data == ' ')) {
+            p.data++;
+        }
+    }
+};
+
+class field_value : public one_or_more <field_value> {
+public:
+    inline static bool in_class(uint8_t c) {
+        switch (c) {
+        case '\r':
+        case '\n':
+            return false;
+        default:
+            return true;
+        }
+    }
+};
+
+class delimiter {
+    datum delimit;
+    unsigned char crlf[2] = { '\r', '\n' };
+    unsigned char lf[1] = { '\n' };
+
+public:
+    delimiter(struct datum &p) : delimit{nullptr, nullptr} {
+        parse(p);
+    }
+
+    void parse(struct datum &p) {
+        if (p.compare_nbytes(crlf, sizeof(crlf))) {
+            delimit.parse(p, sizeof(crlf));
+        } else if (p.compare_nbytes(lf, sizeof(lf))) {
+            delimit.parse(p, sizeof(lf));
+        }
+    }
+
+    void write_json(json_object &rec) const {
+        rec.print_key_json_string("delimiter", delimit);
+    }
+
+    bool is_valid() const {
+        return delimit.is_not_empty();
+    }
+ 
+};
+
+struct httpheader {
+    datum body;
+    token name;
+    literal_byte<':'> colon;
+    field_value value;
+    delimiter delim;
+    bool valid;
+
+    httpheader(datum &d) :
+    body{d},
+    name{d},
+    colon{d},
+    value{d},
+    delim{d} {
+        body.data_end = value.data_end;
+        valid = d.is_not_null();
+    }
+
+    void fingerprint(struct buffer_stream &buf, perfect_hash<bool> &fp_data) const {
+        if (!is_valid()) {
+            return;
+        }
+
+        bool include_name = false;
+        const bool include_value = *(fp_data.lookup(name.data, name.length(), include_name));
+        if (include_name) {
+            if (include_value) {
+                buf.write_char('(');
+                buf.raw_as_hex(body.data, body.length());         // write {name, value}
+                buf.write_char(')');
+            } else {
+                buf.write_char('(');
+                buf.raw_as_hex(name.data, name.length()); // write {name}
+                buf.write_char(')');
+            }
+        }
+    }
+
+    bool is_valid () const {
+        return valid;
+    }
+
+    void write_json(json_array &a) const {
+        if (!is_valid()) {
+            return;
+        }
+
+        json_object hdr{a};
+        hdr.print_key_json_string("name", name);
+        hdr.print_key_json_string("value", value);
+        delim.write_json(hdr);
+        hdr.close();
+    }
+};
+
 struct http_request : public base_protocol {
     struct datum method;
     struct datum uri;
@@ -80,6 +199,27 @@ struct http_request : public base_protocol {
     static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
 
     http_request(datum &p) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{} { parse(p); }
+    datum user_agent;
+    datum host;
+    datum x_forwarded_for;
+    datum via;
+    datum upgrade;
+    datum referer;
+
+    std::vector<httpheader> headers;
+
+    http_request(datum &p) :
+    method{NULL, NULL},
+    uri{NULL, NULL},
+    protocol{NULL, NULL},
+    user_agent{NULL, NULL},
+    host{NULL, NULL},
+    x_forwarded_for{NULL, NULL},
+    via{NULL, NULL},
+    upgrade{NULL, NULL},
+    referer{NULL, NULL} {
+        parse(p);
+    }
 
     void parse(struct datum &p);
 
@@ -90,8 +230,6 @@ struct http_request : public base_protocol {
     void fingerprint(struct buffer_stream &b) const;
 
     void compute_fingerprint(class fingerprint &fp) const;
-
-    struct datum get_header(const char *header_name);
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 

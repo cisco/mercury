@@ -69,7 +69,7 @@ struct ssh_init_packet : public base_protocol {
     }
 
     void parse(struct datum &p) {
-        uint8_t delim = protocol_string.parse_up_to_delimeters(p, '\n', ' ');
+        uint8_t delim = protocol_string.parse_up_to_delimiters(p, '\n', ' ');
         if (delim == '\n') {
             return;  // no comment string
         }

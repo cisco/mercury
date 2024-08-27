@@ -276,7 +276,7 @@ struct datum {
     void parse_up_to_delim(struct datum &r, uint8_t delim) {
         data = r.data;
         while (r.data < r.data_end) {
-            if (*r.data == delim) { // found delimeter
+            if (*r.data == delim) { // found delimiter
                 data_end = r.data;
                 return;
             }
@@ -284,14 +284,14 @@ struct datum {
         }
         data_end = r.data;
     }
-    uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2) {
+    uint8_t parse_up_to_delimiters(struct datum &r, uint8_t delim1, uint8_t delim2) {
         data = r.data;
         while (r.data < r.data_end) {
-            if (*r.data == delim1) { // found first delimeter
+            if (*r.data == delim1) { // found first delimiter
                 data_end = r.data;
                 return delim1;
             }
-            if (*r.data == delim2) { // found second delimeter
+            if (*r.data == delim2) { // found second delimiter
                 data_end = r.data;
                 return delim2;
             }
@@ -299,18 +299,18 @@ struct datum {
         }
         return 0;
     }
-    uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
+    uint8_t parse_up_to_delimiters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
         data = r.data;
         while (r.data < r.data_end) {
-            if (*r.data == delim1) { // found first delimeter
+            if (*r.data == delim1) { // found first delimiter
                 data_end = r.data;
                 return delim1;
             }
-            if (*r.data == delim2) { // found second delimeter
+            if (*r.data == delim2) { // found second delimiter
                 data_end = r.data;
                 return delim2;
             }
-            if (*r.data == delim3) { // found third delimeter
+            if (*r.data == delim3) { // found third delimiter
                 data_end = r.data;
                 return delim2;
             }
@@ -429,6 +429,7 @@ struct datum {
         return false;
     }
 
+
     /// returns `true` if this is lexicographically less than `p`, and
     /// `false` otherwise.  It is suitable for use in `std::sort()`.
     ///
@@ -449,6 +450,11 @@ struct datum {
     bool operator!=(const datum &p) const {
         return cmp(p) != 0;
      }
+
+    template <size_t N>
+    bool cmp_nbytes(const std::array<uint8_t, N> a) const {
+        return ::memcmp(data, a.data, N) == 0;
+    }
 
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
         unsigned int bits = (data_end - data) * 8;
@@ -482,7 +488,7 @@ struct datum {
         {
             if (*tmp_data != *pattern)
             {
-                pattern = delim - 1; /* reset pattern to the start of the delimeter string */
+                pattern = delim - 1; /* reset pattern to the start of the delimiter string */
             }
             tmp_data++;
             pattern++;
@@ -505,7 +511,7 @@ struct datum {
     }
     void skip_up_to_delim(uint8_t delim) {
         while (data < data_end) {
-            if (*data == delim) { // found delimeter
+            if (*data == delim) { // found delimiter
                 return;
             }
             data++;
@@ -521,6 +527,12 @@ struct datum {
         }
 
         return false;
+    }
+
+    void trim_leading_whitespace() {
+        while(data < data_end and (*data == ' ' or *data == '\t')) {
+            data++;
+        }
     }
 
     /// skips/trims all instances of the trailing character `t`
@@ -753,6 +765,13 @@ struct datum {
             return ::memcmp(x, data, x_len);
         }
         return std::numeric_limits<int>::min();
+    }
+
+    bool compare_nbytes(const void *x, ssize_t x_len) {
+        if (data && length() >= x_len) {
+            return (::memcmp(x, data, x_len) == 0);
+        }
+        return false;
     }
 
     void fprint_hex(FILE *f, size_t length=0) const {
