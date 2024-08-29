@@ -20,58 +20,9 @@
 #include "libmerc/x509.h"
 #include "libmerc/base64.h"
 #include "libmerc/rapidjson/document.h"
-#include <openssl/evp.h>
-
+#include "libmerc/crypto_engine.h"
 
 // certificate hashing
-
-class hasher {
-    EVP_MD_CTX *mdctx;
-
-public:
-
-    hasher() : mdctx{nullptr} { }
-
-    ~hasher() {
-        // EVP_MD_CTX_free() is preferred in v1.1.1, but unavailable in earlier versions
-        EVP_MD_CTX_destroy(mdctx);
-    }
-
-    constexpr static size_t output_size = 20;
-
-    void hash_buffer(const unsigned char *message, size_t message_len, unsigned char *digest, unsigned int digest_len) {
-
-        if ((unsigned int)EVP_MD_size(EVP_sha1()) > digest_len) {
-            handleErrors();
-        }
-
-        if (mdctx == NULL) {
-            // EVP_MD_CTX_new() is preferred in v1.1.1, but unavailable in earlier versions
-            if ((mdctx = EVP_MD_CTX_create()) == NULL) {
-                handleErrors();
-            }
-        }
-
-        if (1 != EVP_DigestInit_ex(mdctx, EVP_sha1(), NULL)) {
-            handleErrors();
-        }
-
-        if (1 != EVP_DigestUpdate(mdctx, message, message_len)) {
-            handleErrors();
-        }
-
-        unsigned int tmp_len;
-        if (1 != EVP_DigestFinal_ex(mdctx, digest, &tmp_len)) {
-            handleErrors();
-        }
-
-    }
-
-    void handleErrors() {
-        fprintf(stderr, "error: EVP hash failure\n");
-    }
-};
-
 
 void fprint_sha1_hash(FILE *f, const void *buffer, unsigned int len) {
 
