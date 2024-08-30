@@ -1241,35 +1241,23 @@ public:
         }
 
         clock_t load_start_time = clock();
-        double fp_prevalence_time = 0.0;
-        double fp_db_lite_time = 0.0;
-        double fp_db_time = 0.0;
-        double version_time = 0.0;
-        double pyasn_time = 0.0;
-        double doh_watchlist_time = 0.0;
         while (entry != nullptr) {
             if (entry->is_regular_file()) {
                 std::string line_str;
 
                 std::string name = entry->get_name();
                 if (name == "fp_prevalence_tls.txt") {
-                    clock_t start_time = clock();
                     while (archive.getline(line_str)) {
                         process_fp_prevalence_line(line_str);
                     }
-                    clock_t end_time = clock();
-                    fp_prevalence_time = double(end_time - start_time) / CLOCKS_PER_SEC;
                     got_fp_prevalence = true;
                 } else if (name == "fingerprint_db_lite.json") {
                     // dual db, process fingerprint_db_lite when thresholds set
                     if (threshold_set) {
-                        clock_t start_time = clock();
                         printf_err(log_debug, "loading fingerprint_db_lite.json\n");
                         while (archive.getline(line_str)) {
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
-                        clock_t end_time = clock();
-                        fp_db_lite_time = double(end_time - start_time) / CLOCKS_PER_SEC;
                         got_fp_db = true;
                         printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
                             total_https, total_tls, total_quic, total_tofsee);
@@ -1280,23 +1268,17 @@ public:
                         disabled = true;
                     }
                     else if (!threshold_set || lite_db || full_db) {
-                        clock_t start_time = clock();
                         printf_err(log_debug, "loading fingerprint_db.json\n");
                         while (archive.getline(line_str)) {
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
-                        clock_t end_time = clock();
-                        fp_db_time = double(end_time - start_time) / CLOCKS_PER_SEC;
                         printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
                         total_https, total_tls, total_quic, total_tofsee);
                     }
                 } else if (name == "VERSION") {
-                    clock_t start_time = clock();
                     while (archive.getline(line_str)) {
                         resource_version += line_str;
                     }
-                    clock_t end_time = clock();
-                    version_time = double(end_time - start_time) / CLOCKS_PER_SEC;
                     got_version = true;
                     dual_db = is_dual_db(resource_version);
                     lite_db = is_lite_db(resource_version);
@@ -1304,21 +1286,15 @@ public:
                     legacy_archive = (!dual_db && !lite_db && !full_db);
 
                 } else if (name == "pyasn.db") {
-                    clock_t start_time = clock();
                     while (archive.getline(line_str)) {
                         subnets.process_line(line_str);
                     }
-                    clock_t end_time = clock();
-                    pyasn_time = double(end_time - start_time) / CLOCKS_PER_SEC;
                     got_version = true;
 
                 } else if (name == "doh-watchlist.txt") {
-                    clock_t start_time = clock();
                     while (archive.getline(line_str)) {
                         common.doh_watchlist.process_line(line_str);
                     }
-                    clock_t end_time = clock();
-                    doh_watchlist_time = double(end_time - start_time) / CLOCKS_PER_SEC;
                     got_doh_watchlist = true;
                 }
             }
@@ -1330,19 +1306,9 @@ public:
 
         clock_t load_end_time = clock();
         double load_elapsed_seconds = double(load_end_time - load_start_time) / CLOCKS_PER_SEC;
-        printf_err(log_debug, "time taken to load resource archive: %.2f seconds\n", load_elapsed_seconds);
-
+        
         if (load_elapsed_seconds >= 20) {
-            printf_err(log_debug, 
-                "time taken to load:\n"
-                    "  fp_prevalence_tls.txt: %.2f seconds\n"
-                    "  fingerprint_db_lite.json: %.2f seconds\n"
-                    "  fingerprint_db.json: %.2f seconds\n"
-                    "  VERSION: %.2f seconds\n"
-                    "  pyasn.db: %.2f seconds\n"
-                    "  doh-watchlist.txt: %.2f seconds\n",
-                    fp_prevalence_time, fp_db_lite_time, fp_db_time, version_time, pyasn_time, doh_watchlist_time
-                );
+            printf_err(log_debug, "time taken to load resource archive: %.2f seconds\n", load_elapsed_seconds);
         }
 
         subnets.process_final();
