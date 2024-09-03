@@ -184,6 +184,10 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         additional_args = str_append(additional_args, "tcp-reassembly;");
         return status_ok;
 
+    } else if ((arg = command_get_argument("quic-reassembly", line)) != NULL) {
+        additional_args = str_append(additional_args, "quic-reassembly;");
+        return status_ok;
+
     } else if ((arg = command_get_argument("format=", line)) != NULL) {
         additional_args = str_append(additional_args, "format=");
         additional_args = str_append(additional_args, arg);

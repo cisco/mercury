@@ -111,6 +111,7 @@ GENERAL OPTIONS
    --nonselected-tcp-data                # tcp data for nonselected traffic
    --nonselected-udp-data                # udp data for nonselected traffic
    --tcp-reassembly                      # reassemble tcp data segments
+   --quic-reassembly                     # reassemble quic crypto frames across packets
    [-l or --limit] l                     # rotate output file after l records
    --output-time=T                       # rotate output file after T seconds
    --dns-json                            # output DNS as JSON, not base64
@@ -188,6 +189,10 @@ DETAILS
    --tcp-reassembly enables the tcp reassembly
    This option allows mercury to keep track of tcp segment state and 
    and reassemble these segments based on the application in tcp payload
+
+   --quic-reassembly enables the quic reassembly
+   This option allows mercury to keep track of quic flow state and
+   and reassemble quic frames across packets.
 
    "[-u or --user] u" sets the UID and GID to those of user u, so that
    output file(s) are owned by this user.  If this option is not set, then
