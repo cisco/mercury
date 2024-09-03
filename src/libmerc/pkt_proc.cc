@@ -516,13 +516,8 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         return true;
     }
 
-    if (!udp_pkt.get_len()) {
-        // ignore zero len pkts??
-        return false;
-    }
-
     bool is_new = false;
-    if (global_vars.output_udp_initial_data) {
+    if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
         is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
     } 
     //datum pkt_copy{pkt};
