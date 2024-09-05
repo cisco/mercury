@@ -781,7 +781,7 @@ class classifier {
     //
     common_data common;
 
-    uint32_t total_tofsee = 0, total_https = 0, total_quic = 0, total_tls = 0;
+    uint32_t total_tofsee = 0, total_http = 0, total_quic = 0, total_tls = 0;
 
     bool disabled = false;   // if the classfier has not been initialised or disabled
 
@@ -804,7 +804,7 @@ public:
         if (fp_type == "tls") {
             total_tls++;
         } else if (fp_type == "http") {
-            total_https++;
+            total_http++;
         } else if (fp_type == "quic") {
             total_quic++;
         } else if (fp_type == "tofsee") {
@@ -1259,8 +1259,7 @@ public:
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
                         got_fp_db = true;
-                        printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
-                            total_https, total_tls, total_quic, total_tofsee);
+                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d\n}", total_http, total_tls, total_quic, total_tofsee);
                     }
                 } else if (name == "fingerprint_db.json") {
                     got_fp_db = true;
@@ -1272,8 +1271,7 @@ public:
                         while (archive.getline(line_str)) {
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
-                        printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
-                        total_https, total_tls, total_quic, total_tofsee);
+                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d\n}", total_http, total_tls, total_quic, total_tofsee);
                     }
                 } else if (name == "VERSION") {
                     while (archive.getline(line_str)) {
