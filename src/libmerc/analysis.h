@@ -1259,7 +1259,7 @@ public:
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
                         got_fp_db = true;
-                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d\n}", total_http, total_tls, total_quic, total_tofsee);
+                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
                     }
                 } else if (name == "fingerprint_db.json") {
                     got_fp_db = true;
@@ -1271,7 +1271,7 @@ public:
                         while (archive.getline(line_str)) {
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
-                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d\n}", total_http, total_tls, total_quic, total_tofsee);
+                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
                     }
                 } else if (name == "VERSION") {
                     while (archive.getline(line_str)) {
