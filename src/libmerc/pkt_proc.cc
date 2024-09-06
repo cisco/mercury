@@ -780,6 +780,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
         write_flow_key(record, k);
+        record.print_key_timestamp("event_start", ts);
         record.close();
     }
 
