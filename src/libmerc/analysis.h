@@ -781,7 +781,7 @@ class classifier {
     //
     common_data common;
 
-    uint32_t total_tofsee = 0, total_https = 0, total_quic = 0, total_tls = 0;
+    uint32_t total_tofsee = 0, total_http = 0, total_quic = 0, total_tls = 0;
 
     bool disabled = false;   // if the classfier has not been initialised or disabled
 
@@ -804,7 +804,7 @@ public:
         if (fp_type == "tls") {
             total_tls++;
         } else if (fp_type == "http") {
-            total_https++;
+            total_http++;
         } else if (fp_type == "quic") {
             total_quic++;
         } else if (fp_type == "tofsee") {
@@ -1239,6 +1239,8 @@ public:
         if (entry == nullptr) {
             throw std::runtime_error("error: could not read any entries from resource archive file");
         }
+
+        clock_t load_start_time = clock();
         while (entry != nullptr) {
             if (entry->is_regular_file()) {
                 std::string line_str;
@@ -1257,8 +1259,7 @@ public:
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
                         got_fp_db = true;
-                        printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
-                            total_https, total_tls, total_quic, total_tofsee);
+                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
                     }
                 } else if (name == "fingerprint_db.json") {
                     got_fp_db = true;
@@ -1266,12 +1267,11 @@ public:
                         disabled = true;
                     }
                     else if (!threshold_set || lite_db || full_db) {
-                            printf_err(log_debug, "loading fingerprint_db.json\n");
+                        printf_err(log_debug, "loading fingerprint_db.json\n");
                         while (archive.getline(line_str)) {
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
-                        printf_err(log_debug, "total_http_fingerprints: %d\n total_tls_fingerprints: %d\n total_quic_fingerprints: %d\n total_tofsee_fingerprints: %d\n",
-                        total_https, total_tls, total_quic, total_tofsee);
+                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
                     }
                 } else if (name == "VERSION") {
                     while (archive.getline(line_str)) {
@@ -1300,6 +1300,13 @@ public:
                 break; // got all data, we're done here
             }
             entry = archive.get_next_entry();
+        }
+
+        clock_t load_end_time = clock();
+        double load_elapsed_seconds = double(load_end_time - load_start_time) / CLOCKS_PER_SEC;
+        
+        if (load_elapsed_seconds >= 20) {
+            printf_err(log_debug, "time taken to load resource archive: %.2f seconds\n", load_elapsed_seconds);
         }
 
         subnets.process_final();
