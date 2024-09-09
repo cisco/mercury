@@ -436,12 +436,12 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     bool is_new = false;
     if (global_vars.output_tcp_initial_data) {
         is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
-    }    
+    }
     datum pkt_copy{pkt};
 
     // do not bother with syn seq no.
-    // treat any tcp pkt that needs reassembly as initial pkt 
-    
+    // treat any tcp pkt that needs reassembly as initial pkt
+
     // check if more tcp data is required
     set_tcp_protocol(x,pkt,is_new,&tcp_pkt);
         if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) {
@@ -453,8 +453,8 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         // cant do reassembly
         // TODO: add indication for truncation
         return true;
-    } 
-    
+    }
+
     // reassembly may be needed
     // pkts that reach here are inital msg with additional_bytes_needed or
     // non initial pkts that dont match any protocol, so could be part of a reassembly flow
@@ -492,7 +492,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         //
         struct datum reassembled_data = reassembler->get_reassembled_data(it);
         set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
-        
+
         // mark flow as completed
         reassembler->set_completed(it);
         return true;
@@ -522,7 +522,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     bool is_new = false;
     if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
         is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
-    } 
+    }
     //datum pkt_copy{pkt};
 
     // For UDP reassembly, all the reassembly will always happen at the encapsulated application or transport protocol layer, like QUIC
@@ -540,8 +540,8 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         // cant do reassembly
         // TODO: add indication for truncation
         return true;
-    } 
-    
+    }
+
     // reassembly may be needed
     // pkts that reach here are inital msg with/without additional_bytes_needed or
     // non initial pkts that dont match any protocol, so could be part of a reassembly flow
@@ -726,7 +726,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 break;
             }
         }
- 
+
         if (!process_udp_data(x, pkt, udp_pkt, k, ts, reassembler)) {
             return 0;
         }
@@ -847,6 +847,7 @@ size_t stateful_pkt_proc::write_json(void *buffer,
         struct buffer_stream buf{(char *)buffer, buffer_size};
         struct json_object record{&buf};
         std::visit(write_metadata{record, false, false, false}, x);
+        record.print_key_timestamp("event_start", ts);
         record.close();
         if (buf.length() != 0 && buf.trunc == 0) {
             buf.strncpy("\n");
@@ -877,7 +878,7 @@ size_t stateful_pkt_proc::write_json(void *buffer,
             return 0;
         break;
     case LINKTYPE_RAW:
-        break; 
+        break;
     default:
         break;
     }
@@ -971,7 +972,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 break;
             }
         }
- 
+
         if (reassembler && global_vars.quic_reassembly) {
             bool ret = process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
             if (reassembler->in_progress(reassembler->curr_flow)) {

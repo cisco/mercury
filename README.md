@@ -104,6 +104,7 @@ GENERAL OPTIONS
    --config c                            # read configuration from file c
    [-a or --analysis]                    # analyze fingerprints
    --resources=f                         # use resource file f
+   --format=f                            # report fingerprints with formats(s) f
    --stats=f                             # write stats to file f
    --stats-time=T                        # write stats every T seconds
    --stats-limit=L                       # limit stats to L entries
@@ -148,27 +149,43 @@ DETAILS
 
    "[-s or --select] f" selects packets according to the metadata filter f, which
    is a comma-separated list of the following strings:
+      arp               ARP message
+      bittorrent        Bittorrent Handshake Message, LSD message, DHT message
+      cdp               CDP message
       dhcp              DHCP discover message
+      dnp3              DNP3 industrial control message
       dns               DNS messages
       dtls              DTLS clientHello, serverHello, and certificates
+      gre               GRE message
       http              HTTP request and response
       http.request      HTTP request
       http.response     HTTP response
+      icmp              ICMP message
       iec               IEC 60870-5-104
+      lldp              LLDP message
       mdns              multicast DNS
+      mysql             MySQL Client/Server Protocol
       nbns              NetBIOS Name Service
+      nbds              NetBIOS Datagram Service
+      nbss              NetBIOS Session Service
       openvpn_tcp       OpenVPN over TCP
+      ospf              OSPF message
       quic              QUIC handshake
+      sctp              SCTP message
       ssh               SSH handshake and KEX
       smb               SMB v1 and v2
+      smtp              SMTP client and server messages
       stun              STUN messages
       ssdp              SSDP (UPnP)
+      socks             SOCKS4,SOCKS5 messages
       tcp               TCP headers
       tcp.message       TCP initial message
+      tcp.syn_ack       TCP syn ack message
       tls               TLS clientHello, serverHello, and certificates
       tls.client_hello  TLS clientHello
       tls.server_hello  TLS serverHello
       tls.certificates  TLS serverCertificates
+      tofsee            Tofsee malware communication
       wireguard         WG handshake initiation message
       all               all of the above
       <no option>       all of the above
@@ -186,13 +203,13 @@ DETAILS
    --select filter affects the UDP data written by this option; use
    '--select=none' to obtain the UDP data for each flow.
 
-   --tcp-reassembly enables the tcp reassembly
-   This option allows mercury to keep track of tcp segment state and 
+   --tcp-reassembly enables tcp reassembly
+   This option allows mercury to keep track of tcp segment state and
    and reassemble these segments based on the application in tcp payload
 
-   --quic-reassembly enables the quic reassembly
+   --quic-reassembly enables quic reassembly
    This option allows mercury to keep track of quic flow state and
-   and reassemble quic frames across packets.
+   and reassemble crypto frames across packets
 
    "[-u or --user] u" sets the UID and GID to those of user u, so that
    output file(s) are owned by this user.  If this option is not set, then
@@ -210,6 +227,15 @@ DETAILS
    [-a or --analysis] performs analysis and reports results in the "analysis"
    object in the JSON records.   This option only works with the option
    [-f or --fingerprint].
+
+   "--format=f" reports fingerprints with formats(s) f, where f is either a
+   fingerprint protocol and format like "tls/1", or is a comma separated
+   list of below fingerprint protocol and format strings.
+       tls
+       tls/1
+       tls/2
+       quic
+       quic/1
 
    "[-l or --limit] l" rotates output files so that each file has at most
    l records or packets; filenames include a sequence number, date and time.
@@ -229,7 +255,6 @@ DETAILS
    --license and --version write their information to stdout, then halt.
 
    [-h or --help] writes this extended help message to stdout.
-
 ```
 
 ### SYSTEM

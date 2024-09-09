@@ -192,6 +192,7 @@ else
 	cd resources && $(MAKE) distclean
 	rm -rf autom4te.cache config.log config.status Makefile_helper.mk
 	rm -f lib/*.so
+	-git clean -xf
 endif
 
 .PHONY: package-deb
