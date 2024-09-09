@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - feature/build-whells
+      - feature/build-whells # TODO remove dev branch
 
 jobs:
   build-mercury-wheels:
@@ -48,12 +48,13 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.20.0
         env:
-          CIBW_ARCHS_LINUX: x86_64 #aarch64 TODO add ARM instances
+          CIBW_ARCHS_LINUX: x86_64 aarch64
           CIBW_ENVIRONMENT: CC='g++' CXX='g++' MERCURY_DIR='./'
-          CIBW_SKIP: "*-musllinux_* pp* cp31* cp36* cp37* cp38*" # TODO remove cp*
+          CIBW_SKIP: "*-musllinux_* pp*"
           CIBW_BEFORE_ALL: yum install -y openssl-devel make zlib-devel || apt-get install -y zlib1g-dev libssl-dev make || apk add zlib1g-dev libssl-dev make
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: wheelhouse/
+          skip-existing: true
