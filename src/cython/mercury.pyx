@@ -476,3 +476,18 @@ def get_cert_prefix(str b64_cert):
 
     # return hex string
     return x.get_hex_string()  # TBD: make it hex
+
+
+cdef extern from "../libmerc/ech.hpp":
+    string ech_config_get_json_string(const char *ech_config, ssize_t ech_config_len)
+
+
+def parse_ech_config(str b64_ech_config):
+    cdef bytes ech_config = b64decode(b64_ech_config)
+    cdef unsigned int len_ = len(ech_config)
+
+    # create reference to ech_config so that it doesn't get garbage collected
+    cdef char* c_string_ref = ech_config
+
+    # use mercury's ech_config parser to parse
+    return json.loads(ech_config_get_json_string(c_string_ref, len_).decode())

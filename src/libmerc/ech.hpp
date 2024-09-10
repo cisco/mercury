@@ -7,6 +7,7 @@
 
 #include "datum.h"
 #include "hpke_params.h"
+#include "json_object.h"
 
 // An object of class opaque represents a TLS variable-length opaque
 // data field, as described in RFC 8446.
@@ -296,5 +297,7 @@ public:
     }
 
 };
+
+std::string ech_config_get_json_string(const char *ech_config, ssize_t ech_config_len);
 
 #endif // ECH_HPP
